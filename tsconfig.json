@@ -1,0 +1,3 @@
+{
+  "extends": "@rlpapp/config/tsconfig.base.json"
+}

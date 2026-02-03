@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "scheme": "rlpapp",
+    "userInterfaceStyle": "automatic",
+    "orientation": "default",
+    "web": {
+      "bundler": "metro"
+    },
+    "name": "rlpapp",
+    "slug": "rlpapp",
+    "plugins": ["expo-font"],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
