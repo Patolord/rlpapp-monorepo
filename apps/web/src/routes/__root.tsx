@@ -20,9 +20,15 @@ import Header from "../components/header";
 import appCss from "../index.css?url";
 
 const fetchClerkAuth = createServerFn({ method: "GET" }).handler(async () => {
-  const clerkAuth = await auth();
-  const token = await clerkAuth.getToken({ template: "convex" });
-  return { userId: clerkAuth.userId, token };
+  try {
+    const clerkAuth = await auth();
+    const token = await clerkAuth.getToken({ template: "convex" });
+    return { userId: clerkAuth.userId, token };
+  } catch (error) {
+    console.error("[fetchClerkAuth] Error:", error);
+    // Return null values to allow page to render without auth
+    return { userId: null, token: null };
+  }
 });
 
 export interface RouterAppContext {
