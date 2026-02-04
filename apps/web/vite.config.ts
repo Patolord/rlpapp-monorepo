@@ -12,9 +12,6 @@ export default defineConfig({
     tanstackStart(),
     nitro({
       preset: "vercel",
-      output: {
-        dir: "../../.vercel/output",
-      },
     }),
     viteReact(),
   ],
