@@ -6,6 +6,11 @@
     "packages/*"
   ],
   "type": "module",
+  "pnpm": {
+    "overrides": {
+      "use-sync-external-store": "^1.4.0"
+    }
+  },
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
@@ -17,7 +22,10 @@
   },
   "dependencies": {
     "@rlpapp/env": "workspace:*",
+    "@tanstack/react-start": "^1.158.0",
     "dotenv": "catalog:",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
     "zod": "catalog:"
   },
   "devDependencies": {

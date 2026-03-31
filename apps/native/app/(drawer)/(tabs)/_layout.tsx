@@ -1,6 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { useThemeColor } from "heroui-native";
+import { Home, Package, ArrowDownCircle, ArrowUpCircle } from "lucide-react-native";
 
 export default function TabLayout() {
   const themeColorForeground = useThemeColor("foreground");
@@ -28,16 +28,34 @@ export default function TabLayout() {
         options={{
           title: "Home",
           tabBarIcon: ({ color, size }: { color: string; size: number }) => (
-            <Ionicons name="home" size={size} color={color} />
+            <Home size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="two"
+        name="estoque"
         options={{
-          title: "Explore",
+          title: "Estoque",
           tabBarIcon: ({ color, size }: { color: string; size: number }) => (
-            <Ionicons name="compass" size={size} color={color} />
+            <Package size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="entrada"
+        options={{
+          title: "Entrada",
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
+            <ArrowDownCircle size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="saida"
+        options={{
+          title: "Saída",
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
+            <ArrowUpCircle size={size} color={color} />
           ),
         }}
       />

@@ -1,9 +1,9 @@
 import { useUser } from "@clerk/clerk-expo";
-import { Ionicons } from "@expo/vector-icons";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
 import { Link } from "expo-router";
 import { Button, Chip, Divider, Spinner, Surface, useThemeColor } from "heroui-native";
+import { CheckCircle, XCircle } from "lucide-react-native";
 import { Text, View } from "react-native";
 
 import { Container } from "@/components/container";
@@ -55,10 +55,10 @@ export default function Home() {
             </View>
             {isLoading && <Spinner size="sm" />}
             {!isLoading && isConnected && (
-              <Ionicons name="checkmark-circle" size={18} color={successColor} />
+              <CheckCircle size={18} color={successColor} />
             )}
             {!isLoading && !isConnected && (
-              <Ionicons name="close-circle" size={18} color={dangerColor} />
+              <XCircle size={18} color={dangerColor} />
             )}
           </View>
         </Surface>

@@ -18,4 +18,10 @@ export default defineConfig({
   server: {
     port: 3001,
   },
+  optimizeDeps: {
+    include: ["convex", "convex/react", "convex/react-clerk"],
+  },
+  ssr: {
+    noExternal: ["convex"],
+  },
 });

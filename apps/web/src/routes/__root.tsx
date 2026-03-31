@@ -3,6 +3,7 @@ import type { QueryClient } from "@tanstack/react-query";
 
 import { ClerkProvider, useAuth } from "@clerk/tanstack-react-start";
 import { auth } from "@clerk/tanstack-react-start/server";
+import { env } from "@rlpapp/env/web";
 import {
   HeadContent,
   Outlet,
@@ -16,7 +17,6 @@ import { ConvexProviderWithClerk } from "convex/react-clerk";
 
 import { Toaster } from "@/components/ui/sonner";
 
-import Header from "../components/header";
 import appCss from "../index.css?url";
 
 const fetchClerkAuth = createServerFn({ method: "GET" }).handler(async () => {
@@ -47,7 +47,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "My App",
+        title: "RLP Engenharia",
       },
     ],
     links: [
@@ -59,6 +59,19 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
         rel: "icon",
         type: "image/png",
         href: "/favicon.png",
+      },
+      {
+        rel: "preconnect",
+        href: "https://fonts.googleapis.com",
+      },
+      {
+        rel: "preconnect",
+        href: "https://fonts.gstatic.com",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400..900&display=swap",
       },
     ],
   }),
@@ -76,17 +89,14 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 function RootDocument() {
   const context = useRouteContext({ from: Route.id });
   return (
-    <ClerkProvider>
+    <ClerkProvider publishableKey={env.VITE_CLERK_PUBLISHABLE_KEY}>
       <ConvexProviderWithClerk client={context.convexQueryClient.convexClient} useAuth={useAuth}>
-        <html lang="en" className="dark">
+        <html lang="en">
           <head>
             <HeadContent />
           </head>
           <body>
-            <div className="grid h-svh grid-rows-[auto_1fr]">
-              <Header />
-              <Outlet />
-            </div>
+            <Outlet />
             <Toaster richColors />
             <TanStackRouterDevtools position="bottom-left" />
             <Scripts />

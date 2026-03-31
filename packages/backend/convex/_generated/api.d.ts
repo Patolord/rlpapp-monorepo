@@ -9,7 +9,14 @@
  */
 
 import type * as healthCheck from "../healthCheck.js";
+import type * as inventory from "../inventory.js";
 import type * as privateData from "../privateData.js";
+import type * as products from "../products.js";
+import type * as receipts from "../receipts.js";
+import type * as shipments from "../shipments.js";
+import type * as sites from "../sites.js";
+import type * as suppliers from "../suppliers.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -19,7 +26,14 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   healthCheck: typeof healthCheck;
+  inventory: typeof inventory;
   privateData: typeof privateData;
+  products: typeof products;
+  receipts: typeof receipts;
+  shipments: typeof shipments;
+  sites: typeof sites;
+  suppliers: typeof suppliers;
+  users: typeof users;
 }>;
 
 /**

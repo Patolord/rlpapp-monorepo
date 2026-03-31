@@ -9,68 +9,445 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as WebsiteRouteImport } from './routes/_website'
+import { Route as EstoqueRouteRouteImport } from './routes/estoque/route'
+import { Route as EstoqueIndexRouteImport } from './routes/estoque/index'
+import { Route as WebsiteIndexRouteImport } from './routes/_website/index'
+import { Route as EstoqueSitesRouteImport } from './routes/estoque/sites'
+import { Route as EstoqueSaidaRouteImport } from './routes/estoque/saida'
+import { Route as EstoqueProdutosRouteImport } from './routes/estoque/produtos'
+import { Route as EstoqueMovimentacoesRouteImport } from './routes/estoque/movimentacoes'
+import { Route as EstoqueFornecedoresRouteImport } from './routes/estoque/fornecedores'
+import { Route as EstoqueEntradaRouteImport } from './routes/estoque/entrada'
+import { Route as EstoqueAjustesRouteImport } from './routes/estoque/ajustes'
+import { Route as WebsiteSobreRouteImport } from './routes/_website/sobre'
+import { Route as WebsiteServicosRouteImport } from './routes/_website/servicos'
+import { Route as WebsitePoliticaPrivacidadeRouteImport } from './routes/_website/politica-privacidade'
+import { Route as WebsiteManutencaoRouteImport } from './routes/_website/manutencao'
+import { Route as WebsiteCarreirasRouteImport } from './routes/_website/carreiras'
+import { Route as WebsiteProjetosIndexRouteImport } from './routes/_website/projetos/index'
+import { Route as WebsiteProjetosIdRouteImport } from './routes/_website/projetos/$id'
 
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
+const WebsiteRoute = WebsiteRouteImport.update({
+  id: '/_website',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EstoqueRouteRoute = EstoqueRouteRouteImport.update({
+  id: '/estoque',
+  path: '/estoque',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EstoqueIndexRoute = EstoqueIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => EstoqueRouteRoute,
+} as any)
+const WebsiteIndexRoute = WebsiteIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => WebsiteRoute,
+} as any)
+const EstoqueSitesRoute = EstoqueSitesRouteImport.update({
+  id: '/sites',
+  path: '/sites',
+  getParentRoute: () => EstoqueRouteRoute,
+} as any)
+const EstoqueSaidaRoute = EstoqueSaidaRouteImport.update({
+  id: '/saida',
+  path: '/saida',
+  getParentRoute: () => EstoqueRouteRoute,
+} as any)
+const EstoqueProdutosRoute = EstoqueProdutosRouteImport.update({
+  id: '/produtos',
+  path: '/produtos',
+  getParentRoute: () => EstoqueRouteRoute,
+} as any)
+const EstoqueMovimentacoesRoute = EstoqueMovimentacoesRouteImport.update({
+  id: '/movimentacoes',
+  path: '/movimentacoes',
+  getParentRoute: () => EstoqueRouteRoute,
+} as any)
+const EstoqueFornecedoresRoute = EstoqueFornecedoresRouteImport.update({
+  id: '/fornecedores',
+  path: '/fornecedores',
+  getParentRoute: () => EstoqueRouteRoute,
+} as any)
+const EstoqueEntradaRoute = EstoqueEntradaRouteImport.update({
+  id: '/entrada',
+  path: '/entrada',
+  getParentRoute: () => EstoqueRouteRoute,
+} as any)
+const EstoqueAjustesRoute = EstoqueAjustesRouteImport.update({
+  id: '/ajustes',
+  path: '/ajustes',
+  getParentRoute: () => EstoqueRouteRoute,
+} as any)
+const WebsiteSobreRoute = WebsiteSobreRouteImport.update({
+  id: '/sobre',
+  path: '/sobre',
+  getParentRoute: () => WebsiteRoute,
+} as any)
+const WebsiteServicosRoute = WebsiteServicosRouteImport.update({
+  id: '/servicos',
+  path: '/servicos',
+  getParentRoute: () => WebsiteRoute,
+} as any)
+const WebsitePoliticaPrivacidadeRoute =
+  WebsitePoliticaPrivacidadeRouteImport.update({
+    id: '/politica-privacidade',
+    path: '/politica-privacidade',
+    getParentRoute: () => WebsiteRoute,
+  } as any)
+const WebsiteManutencaoRoute = WebsiteManutencaoRouteImport.update({
+  id: '/manutencao',
+  path: '/manutencao',
+  getParentRoute: () => WebsiteRoute,
+} as any)
+const WebsiteCarreirasRoute = WebsiteCarreirasRouteImport.update({
+  id: '/carreiras',
+  path: '/carreiras',
+  getParentRoute: () => WebsiteRoute,
+} as any)
+const WebsiteProjetosIndexRoute = WebsiteProjetosIndexRouteImport.update({
+  id: '/projetos/',
+  path: '/projetos/',
+  getParentRoute: () => WebsiteRoute,
+} as any)
+const WebsiteProjetosIdRoute = WebsiteProjetosIdRouteImport.update({
+  id: '/projetos/$id',
+  path: '/projetos/$id',
+  getParentRoute: () => WebsiteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
+  '/estoque': typeof EstoqueRouteRouteWithChildren
+  '/': typeof WebsiteIndexRoute
+  '/login': typeof LoginRoute
+  '/carreiras': typeof WebsiteCarreirasRoute
+  '/manutencao': typeof WebsiteManutencaoRoute
+  '/politica-privacidade': typeof WebsitePoliticaPrivacidadeRoute
+  '/servicos': typeof WebsiteServicosRoute
+  '/sobre': typeof WebsiteSobreRoute
+  '/estoque/ajustes': typeof EstoqueAjustesRoute
+  '/estoque/entrada': typeof EstoqueEntradaRoute
+  '/estoque/fornecedores': typeof EstoqueFornecedoresRoute
+  '/estoque/movimentacoes': typeof EstoqueMovimentacoesRoute
+  '/estoque/produtos': typeof EstoqueProdutosRoute
+  '/estoque/saida': typeof EstoqueSaidaRoute
+  '/estoque/sites': typeof EstoqueSitesRoute
+  '/estoque/': typeof EstoqueIndexRoute
+  '/projetos/$id': typeof WebsiteProjetosIdRoute
+  '/projetos/': typeof WebsiteProjetosIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
+  '/carreiras': typeof WebsiteCarreirasRoute
+  '/manutencao': typeof WebsiteManutencaoRoute
+  '/politica-privacidade': typeof WebsitePoliticaPrivacidadeRoute
+  '/servicos': typeof WebsiteServicosRoute
+  '/sobre': typeof WebsiteSobreRoute
+  '/estoque/ajustes': typeof EstoqueAjustesRoute
+  '/estoque/entrada': typeof EstoqueEntradaRoute
+  '/estoque/fornecedores': typeof EstoqueFornecedoresRoute
+  '/estoque/movimentacoes': typeof EstoqueMovimentacoesRoute
+  '/estoque/produtos': typeof EstoqueProdutosRoute
+  '/estoque/saida': typeof EstoqueSaidaRoute
+  '/estoque/sites': typeof EstoqueSitesRoute
+  '/': typeof WebsiteIndexRoute
+  '/estoque': typeof EstoqueIndexRoute
+  '/projetos/$id': typeof WebsiteProjetosIdRoute
+  '/projetos': typeof WebsiteProjetosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
+  '/estoque': typeof EstoqueRouteRouteWithChildren
+  '/_website': typeof WebsiteRouteWithChildren
+  '/login': typeof LoginRoute
+  '/_website/carreiras': typeof WebsiteCarreirasRoute
+  '/_website/manutencao': typeof WebsiteManutencaoRoute
+  '/_website/politica-privacidade': typeof WebsitePoliticaPrivacidadeRoute
+  '/_website/servicos': typeof WebsiteServicosRoute
+  '/_website/sobre': typeof WebsiteSobreRoute
+  '/estoque/ajustes': typeof EstoqueAjustesRoute
+  '/estoque/entrada': typeof EstoqueEntradaRoute
+  '/estoque/fornecedores': typeof EstoqueFornecedoresRoute
+  '/estoque/movimentacoes': typeof EstoqueMovimentacoesRoute
+  '/estoque/produtos': typeof EstoqueProdutosRoute
+  '/estoque/saida': typeof EstoqueSaidaRoute
+  '/estoque/sites': typeof EstoqueSitesRoute
+  '/_website/': typeof WebsiteIndexRoute
+  '/estoque/': typeof EstoqueIndexRoute
+  '/_website/projetos/$id': typeof WebsiteProjetosIdRoute
+  '/_website/projetos/': typeof WebsiteProjetosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard'
+  fullPaths:
+    | '/estoque'
+    | '/'
+    | '/login'
+    | '/carreiras'
+    | '/manutencao'
+    | '/politica-privacidade'
+    | '/servicos'
+    | '/sobre'
+    | '/estoque/ajustes'
+    | '/estoque/entrada'
+    | '/estoque/fornecedores'
+    | '/estoque/movimentacoes'
+    | '/estoque/produtos'
+    | '/estoque/saida'
+    | '/estoque/sites'
+    | '/estoque/'
+    | '/projetos/$id'
+    | '/projetos/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard'
-  id: '__root__' | '/' | '/dashboard'
+  to:
+    | '/login'
+    | '/carreiras'
+    | '/manutencao'
+    | '/politica-privacidade'
+    | '/servicos'
+    | '/sobre'
+    | '/estoque/ajustes'
+    | '/estoque/entrada'
+    | '/estoque/fornecedores'
+    | '/estoque/movimentacoes'
+    | '/estoque/produtos'
+    | '/estoque/saida'
+    | '/estoque/sites'
+    | '/'
+    | '/estoque'
+    | '/projetos/$id'
+    | '/projetos'
+  id:
+    | '__root__'
+    | '/estoque'
+    | '/_website'
+    | '/login'
+    | '/_website/carreiras'
+    | '/_website/manutencao'
+    | '/_website/politica-privacidade'
+    | '/_website/servicos'
+    | '/_website/sobre'
+    | '/estoque/ajustes'
+    | '/estoque/entrada'
+    | '/estoque/fornecedores'
+    | '/estoque/movimentacoes'
+    | '/estoque/produtos'
+    | '/estoque/saida'
+    | '/estoque/sites'
+    | '/_website/'
+    | '/estoque/'
+    | '/_website/projetos/$id'
+    | '/_website/projetos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  DashboardRoute: typeof DashboardRoute
+  EstoqueRouteRoute: typeof EstoqueRouteRouteWithChildren
+  WebsiteRoute: typeof WebsiteRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
+    '/_website': {
+      id: '/_website'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof WebsiteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/estoque': {
+      id: '/estoque'
+      path: '/estoque'
+      fullPath: '/estoque'
+      preLoaderRoute: typeof EstoqueRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/estoque/': {
+      id: '/estoque/'
+      path: '/'
+      fullPath: '/estoque/'
+      preLoaderRoute: typeof EstoqueIndexRouteImport
+      parentRoute: typeof EstoqueRouteRoute
+    }
+    '/_website/': {
+      id: '/_website/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof WebsiteIndexRouteImport
+      parentRoute: typeof WebsiteRoute
+    }
+    '/estoque/sites': {
+      id: '/estoque/sites'
+      path: '/sites'
+      fullPath: '/estoque/sites'
+      preLoaderRoute: typeof EstoqueSitesRouteImport
+      parentRoute: typeof EstoqueRouteRoute
+    }
+    '/estoque/saida': {
+      id: '/estoque/saida'
+      path: '/saida'
+      fullPath: '/estoque/saida'
+      preLoaderRoute: typeof EstoqueSaidaRouteImport
+      parentRoute: typeof EstoqueRouteRoute
+    }
+    '/estoque/produtos': {
+      id: '/estoque/produtos'
+      path: '/produtos'
+      fullPath: '/estoque/produtos'
+      preLoaderRoute: typeof EstoqueProdutosRouteImport
+      parentRoute: typeof EstoqueRouteRoute
+    }
+    '/estoque/movimentacoes': {
+      id: '/estoque/movimentacoes'
+      path: '/movimentacoes'
+      fullPath: '/estoque/movimentacoes'
+      preLoaderRoute: typeof EstoqueMovimentacoesRouteImport
+      parentRoute: typeof EstoqueRouteRoute
+    }
+    '/estoque/fornecedores': {
+      id: '/estoque/fornecedores'
+      path: '/fornecedores'
+      fullPath: '/estoque/fornecedores'
+      preLoaderRoute: typeof EstoqueFornecedoresRouteImport
+      parentRoute: typeof EstoqueRouteRoute
+    }
+    '/estoque/entrada': {
+      id: '/estoque/entrada'
+      path: '/entrada'
+      fullPath: '/estoque/entrada'
+      preLoaderRoute: typeof EstoqueEntradaRouteImport
+      parentRoute: typeof EstoqueRouteRoute
+    }
+    '/estoque/ajustes': {
+      id: '/estoque/ajustes'
+      path: '/ajustes'
+      fullPath: '/estoque/ajustes'
+      preLoaderRoute: typeof EstoqueAjustesRouteImport
+      parentRoute: typeof EstoqueRouteRoute
+    }
+    '/_website/sobre': {
+      id: '/_website/sobre'
+      path: '/sobre'
+      fullPath: '/sobre'
+      preLoaderRoute: typeof WebsiteSobreRouteImport
+      parentRoute: typeof WebsiteRoute
+    }
+    '/_website/servicos': {
+      id: '/_website/servicos'
+      path: '/servicos'
+      fullPath: '/servicos'
+      preLoaderRoute: typeof WebsiteServicosRouteImport
+      parentRoute: typeof WebsiteRoute
+    }
+    '/_website/politica-privacidade': {
+      id: '/_website/politica-privacidade'
+      path: '/politica-privacidade'
+      fullPath: '/politica-privacidade'
+      preLoaderRoute: typeof WebsitePoliticaPrivacidadeRouteImport
+      parentRoute: typeof WebsiteRoute
+    }
+    '/_website/manutencao': {
+      id: '/_website/manutencao'
+      path: '/manutencao'
+      fullPath: '/manutencao'
+      preLoaderRoute: typeof WebsiteManutencaoRouteImport
+      parentRoute: typeof WebsiteRoute
+    }
+    '/_website/carreiras': {
+      id: '/_website/carreiras'
+      path: '/carreiras'
+      fullPath: '/carreiras'
+      preLoaderRoute: typeof WebsiteCarreirasRouteImport
+      parentRoute: typeof WebsiteRoute
+    }
+    '/_website/projetos/': {
+      id: '/_website/projetos/'
+      path: '/projetos'
+      fullPath: '/projetos/'
+      preLoaderRoute: typeof WebsiteProjetosIndexRouteImport
+      parentRoute: typeof WebsiteRoute
+    }
+    '/_website/projetos/$id': {
+      id: '/_website/projetos/$id'
+      path: '/projetos/$id'
+      fullPath: '/projetos/$id'
+      preLoaderRoute: typeof WebsiteProjetosIdRouteImport
+      parentRoute: typeof WebsiteRoute
     }
   }
 }
 
+interface EstoqueRouteRouteChildren {
+  EstoqueAjustesRoute: typeof EstoqueAjustesRoute
+  EstoqueEntradaRoute: typeof EstoqueEntradaRoute
+  EstoqueFornecedoresRoute: typeof EstoqueFornecedoresRoute
+  EstoqueMovimentacoesRoute: typeof EstoqueMovimentacoesRoute
+  EstoqueProdutosRoute: typeof EstoqueProdutosRoute
+  EstoqueSaidaRoute: typeof EstoqueSaidaRoute
+  EstoqueSitesRoute: typeof EstoqueSitesRoute
+  EstoqueIndexRoute: typeof EstoqueIndexRoute
+}
+
+const EstoqueRouteRouteChildren: EstoqueRouteRouteChildren = {
+  EstoqueAjustesRoute: EstoqueAjustesRoute,
+  EstoqueEntradaRoute: EstoqueEntradaRoute,
+  EstoqueFornecedoresRoute: EstoqueFornecedoresRoute,
+  EstoqueMovimentacoesRoute: EstoqueMovimentacoesRoute,
+  EstoqueProdutosRoute: EstoqueProdutosRoute,
+  EstoqueSaidaRoute: EstoqueSaidaRoute,
+  EstoqueSitesRoute: EstoqueSitesRoute,
+  EstoqueIndexRoute: EstoqueIndexRoute,
+}
+
+const EstoqueRouteRouteWithChildren = EstoqueRouteRoute._addFileChildren(
+  EstoqueRouteRouteChildren,
+)
+
+interface WebsiteRouteChildren {
+  WebsiteCarreirasRoute: typeof WebsiteCarreirasRoute
+  WebsiteManutencaoRoute: typeof WebsiteManutencaoRoute
+  WebsitePoliticaPrivacidadeRoute: typeof WebsitePoliticaPrivacidadeRoute
+  WebsiteServicosRoute: typeof WebsiteServicosRoute
+  WebsiteSobreRoute: typeof WebsiteSobreRoute
+  WebsiteIndexRoute: typeof WebsiteIndexRoute
+  WebsiteProjetosIdRoute: typeof WebsiteProjetosIdRoute
+  WebsiteProjetosIndexRoute: typeof WebsiteProjetosIndexRoute
+}
+
+const WebsiteRouteChildren: WebsiteRouteChildren = {
+  WebsiteCarreirasRoute: WebsiteCarreirasRoute,
+  WebsiteManutencaoRoute: WebsiteManutencaoRoute,
+  WebsitePoliticaPrivacidadeRoute: WebsitePoliticaPrivacidadeRoute,
+  WebsiteServicosRoute: WebsiteServicosRoute,
+  WebsiteSobreRoute: WebsiteSobreRoute,
+  WebsiteIndexRoute: WebsiteIndexRoute,
+  WebsiteProjetosIdRoute: WebsiteProjetosIdRoute,
+  WebsiteProjetosIndexRoute: WebsiteProjetosIndexRoute,
+}
+
+const WebsiteRouteWithChildren =
+  WebsiteRoute._addFileChildren(WebsiteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  DashboardRoute: DashboardRoute,
+  EstoqueRouteRoute: EstoqueRouteRouteWithChildren,
+  WebsiteRoute: WebsiteRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

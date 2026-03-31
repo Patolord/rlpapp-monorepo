@@ -1,9 +1,8 @@
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { Link } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import { useThemeColor } from "heroui-native";
+import { Home, Package, Tag, Users, MapPin } from "lucide-react-native";
 import React, { useCallback } from "react";
-import { Pressable, Text } from "react-native";
+import { Text } from "react-native";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -34,8 +33,7 @@ function DrawerLayout() {
             <Text style={{ color: focused ? color : themeColorForeground }}>Home</Text>
           ),
           drawerIcon: ({ size, color, focused }) => (
-            <Ionicons
-              name="home-outline"
+            <Home
               size={size}
               color={focused ? color : themeColorForeground}
             />
@@ -45,23 +43,60 @@ function DrawerLayout() {
       <Drawer.Screen
         name="(tabs)"
         options={{
-          headerTitle: "Tabs",
+          headerTitle: "Estoque",
           drawerLabel: ({ color, focused }) => (
-            <Text style={{ color: focused ? color : themeColorForeground }}>Tabs</Text>
+            <Text style={{ color: focused ? color : themeColorForeground }}>Estoque</Text>
           ),
           drawerIcon: ({ size, color, focused }) => (
-            <MaterialIcons
-              name="border-bottom"
+            <Package
               size={size}
               color={focused ? color : themeColorForeground}
             />
           ),
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable className="mr-4">
-                <Ionicons name="add-outline" size={24} color={themeColorForeground} />
-              </Pressable>
-            </Link>
+        }}
+      />
+      <Drawer.Screen
+        name="produtos"
+        options={{
+          headerTitle: "Produtos",
+          drawerLabel: ({ color, focused }) => (
+            <Text style={{ color: focused ? color : themeColorForeground }}>Produtos</Text>
+          ),
+          drawerIcon: ({ size, color, focused }) => (
+            <Tag
+              size={size}
+              color={focused ? color : themeColorForeground}
+            />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="fornecedores"
+        options={{
+          headerTitle: "Fornecedores",
+          drawerLabel: ({ color, focused }) => (
+            <Text style={{ color: focused ? color : themeColorForeground }}>Fornecedores</Text>
+          ),
+          drawerIcon: ({ size, color, focused }) => (
+            <Users
+              size={size}
+              color={focused ? color : themeColorForeground}
+            />
+          ),
+        }}
+      />
+      <Drawer.Screen
+        name="sites"
+        options={{
+          headerTitle: "Sites",
+          drawerLabel: ({ color, focused }) => (
+            <Text style={{ color: focused ? color : themeColorForeground }}>Sites</Text>
+          ),
+          drawerIcon: ({ size, color, focused }) => (
+            <MapPin
+              size={size}
+              color={focused ? color : themeColorForeground}
+            />
           ),
         }}
       />
