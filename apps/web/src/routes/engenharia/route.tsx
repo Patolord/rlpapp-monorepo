@@ -8,16 +8,16 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 
-export const Route = createFileRoute("/estoque")({
+export const Route = createFileRoute("/engenharia")({
   beforeLoad: async ({ context }) => {
     if (!(context as any).userId) {
       throw redirect({ to: "/login" });
     }
   },
-  component: EstoqueLayout,
+  component: EngenhariaLayout,
 });
 
-function EstoqueLayout() {
+function EngenhariaLayout() {
   return (
     <SidebarProvider>
       <AppSidebar />

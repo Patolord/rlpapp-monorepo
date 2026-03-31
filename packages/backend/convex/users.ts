@@ -1,7 +1,55 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { userRoles } from "./schema";
+import { departments, userRoles } from "./schema";
 import { requireAuth } from "./lib/auth";
+
+export const getCurrentUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.email) return null;
+    return await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", identity.email!))
+      .first();
+  },
+});
+
+export const ensureUser = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.email) {
+      throw new Error("Not authenticated or no email in identity");
+    }
+
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", identity.email!))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { lastLoginAt: Date.now() });
+      return existing._id;
+    }
+
+    const name =
+      identity.name ??
+      identity.givenName ??
+      identity.email!.split("@")[0];
+
+    const userId = await ctx.db.insert("users", {
+      name,
+      email: identity.email!,
+      role: "operator",
+      isActive: true,
+      createdAt: Date.now(),
+      lastLoginAt: Date.now(),
+    });
+
+    return userId;
+  },
+});
 
 // Listar todos os usuários
 export const list = query({
@@ -58,6 +106,7 @@ export const create = mutation({
     name: v.string(),
     email: v.string(),
     role: userRoles,
+    department: v.optional(departments),
     phone: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -75,6 +124,7 @@ export const create = mutation({
       name: args.name,
       email: args.email,
       role: args.role,
+      department: args.department,
       phone: args.phone,
       isActive: true,
       createdAt: Date.now(),
@@ -91,6 +141,7 @@ export const update = mutation({
     name: v.optional(v.string()),
     email: v.optional(v.string()),
     role: v.optional(userRoles),
+    department: v.optional(departments),
     phone: v.optional(v.string()),
     isActive: v.optional(v.boolean()),
   },

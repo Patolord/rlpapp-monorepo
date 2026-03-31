@@ -10,6 +10,7 @@
 
 import type * as healthCheck from "../healthCheck.js";
 import type * as inventory from "../inventory.js";
+import type * as lib_auth from "../lib/auth.js";
 import type * as privateData from "../privateData.js";
 import type * as products from "../products.js";
 import type * as receipts from "../receipts.js";
@@ -27,6 +28,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   healthCheck: typeof healthCheck;
   inventory: typeof inventory;
+  "lib/auth": typeof lib_auth;
   privateData: typeof privateData;
   products: typeof products;
   receipts: typeof receipts;

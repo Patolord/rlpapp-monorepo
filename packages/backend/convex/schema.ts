@@ -43,9 +43,18 @@ export const costSource = v.union(
 
 // User roles
 export const userRoles = v.union(
+  v.literal("director"),
   v.literal("admin"),
   v.literal("manager"),
   v.literal("operator")
+);
+
+// Department types
+export const departments = v.union(
+  v.literal("estoque"),
+  v.literal("financeiro"),
+  v.literal("rh"),
+  v.literal("engenharia")
 );
 
 export default defineSchema({
@@ -53,6 +62,7 @@ export default defineSchema({
     name: v.string(),
     email: v.string(),
     role: userRoles,
+    department: v.optional(departments),
     phone: v.optional(v.string()),
     isActive: v.boolean(),
     createdAt: v.number(),

@@ -1,21 +1,24 @@
 import type { ConvexQueryClient } from "@convex-dev/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 
+import { api } from "@rlpapp/backend/convex/_generated/api";
 import { ClerkProvider, useAuth } from "@clerk/tanstack-react-start";
 import { auth } from "@clerk/tanstack-react-start/server";
 import { env } from "@rlpapp/env/web";
 import {
   HeadContent,
-  Outlet,
   Scripts,
   createRootRouteWithContext,
   useRouteContext,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { createServerFn } from "@tanstack/react-start";
+import { useConvexAuth, useMutation } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
+import { useEffect, useRef } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 import appCss from "../index.css?url";
 
@@ -76,7 +79,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
     ],
   }),
 
-  component: RootDocument,
+  shellComponent: RootDocument,
   beforeLoad: async (ctx) => {
     const { userId, token } = await fetchClerkAuth();
     if (token) {
@@ -86,23 +89,41 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   },
 });
 
-function RootDocument() {
+function EnsureUser() {
+  const { isAuthenticated } = useConvexAuth();
+  const ensureUser = useMutation(api.users.ensureUser);
+  const called = useRef(false);
+
+  useEffect(() => {
+    if (isAuthenticated && !called.current) {
+      called.current = true;
+      ensureUser().catch(console.error);
+    }
+  }, [isAuthenticated, ensureUser]);
+
+  return null;
+}
+
+function RootDocument({ children }: { children: React.ReactNode }) {
   const context = useRouteContext({ from: Route.id });
   return (
-    <ClerkProvider publishableKey={env.VITE_CLERK_PUBLISHABLE_KEY}>
-      <ConvexProviderWithClerk client={context.convexQueryClient.convexClient} useAuth={useAuth}>
-        <html lang="en">
-          <head>
-            <HeadContent />
-          </head>
-          <body>
-            <Outlet />
+    <html lang="en">
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        <ClerkProvider publishableKey={env.VITE_CLERK_PUBLISHABLE_KEY}>
+          <ConvexProviderWithClerk client={context.convexQueryClient.convexClient} useAuth={useAuth}>
+            <EnsureUser />
+            <TooltipProvider>
+              {children}
+            </TooltipProvider>
             <Toaster richColors />
-            <TanStackRouterDevtools position="bottom-left" />
-            <Scripts />
-          </body>
-        </html>
-      </ConvexProviderWithClerk>
-    </ClerkProvider>
+          </ConvexProviderWithClerk>
+        </ClerkProvider>
+        <TanStackRouterDevtools position="bottom-left" />
+        <Scripts />
+      </body>
+    </html>
   );
 }

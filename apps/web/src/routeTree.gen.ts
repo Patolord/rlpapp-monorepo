@@ -11,8 +11,16 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as WebsiteRouteImport } from './routes/_website'
+import { Route as RhRouteRouteImport } from './routes/rh/route'
+import { Route as FinanceiroRouteRouteImport } from './routes/financeiro/route'
 import { Route as EstoqueRouteRouteImport } from './routes/estoque/route'
+import { Route as EngenhariaRouteRouteImport } from './routes/engenharia/route'
+import { Route as AppRouteRouteImport } from './routes/app/route'
+import { Route as RhIndexRouteImport } from './routes/rh/index'
+import { Route as FinanceiroIndexRouteImport } from './routes/financeiro/index'
 import { Route as EstoqueIndexRouteImport } from './routes/estoque/index'
+import { Route as EngenhariaIndexRouteImport } from './routes/engenharia/index'
+import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as WebsiteIndexRouteImport } from './routes/_website/index'
 import { Route as EstoqueSitesRouteImport } from './routes/estoque/sites'
 import { Route as EstoqueSaidaRouteImport } from './routes/estoque/saida'
@@ -38,15 +46,55 @@ const WebsiteRoute = WebsiteRouteImport.update({
   id: '/_website',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RhRouteRoute = RhRouteRouteImport.update({
+  id: '/rh',
+  path: '/rh',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FinanceiroRouteRoute = FinanceiroRouteRouteImport.update({
+  id: '/financeiro',
+  path: '/financeiro',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EstoqueRouteRoute = EstoqueRouteRouteImport.update({
   id: '/estoque',
   path: '/estoque',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EngenhariaRouteRoute = EngenhariaRouteRouteImport.update({
+  id: '/engenharia',
+  path: '/engenharia',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRouteRoute = AppRouteRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RhIndexRoute = RhIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => RhRouteRoute,
+} as any)
+const FinanceiroIndexRoute = FinanceiroIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => FinanceiroRouteRoute,
+} as any)
 const EstoqueIndexRoute = EstoqueIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => EstoqueRouteRoute,
+} as any)
+const EngenhariaIndexRoute = EngenhariaIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => EngenhariaRouteRoute,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const WebsiteIndexRoute = WebsiteIndexRouteImport.update({
   id: '/',
@@ -126,7 +174,11 @@ const WebsiteProjetosIdRoute = WebsiteProjetosIdRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/app': typeof AppRouteRouteWithChildren
+  '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/estoque': typeof EstoqueRouteRouteWithChildren
+  '/financeiro': typeof FinanceiroRouteRouteWithChildren
+  '/rh': typeof RhRouteRouteWithChildren
   '/': typeof WebsiteIndexRoute
   '/login': typeof LoginRoute
   '/carreiras': typeof WebsiteCarreirasRoute
@@ -141,7 +193,11 @@ export interface FileRoutesByFullPath {
   '/estoque/produtos': typeof EstoqueProdutosRoute
   '/estoque/saida': typeof EstoqueSaidaRoute
   '/estoque/sites': typeof EstoqueSitesRoute
+  '/app/': typeof AppIndexRoute
+  '/engenharia/': typeof EngenhariaIndexRoute
   '/estoque/': typeof EstoqueIndexRoute
+  '/financeiro/': typeof FinanceiroIndexRoute
+  '/rh/': typeof RhIndexRoute
   '/projetos/$id': typeof WebsiteProjetosIdRoute
   '/projetos/': typeof WebsiteProjetosIndexRoute
 }
@@ -160,13 +216,21 @@ export interface FileRoutesByTo {
   '/estoque/saida': typeof EstoqueSaidaRoute
   '/estoque/sites': typeof EstoqueSitesRoute
   '/': typeof WebsiteIndexRoute
+  '/app': typeof AppIndexRoute
+  '/engenharia': typeof EngenhariaIndexRoute
   '/estoque': typeof EstoqueIndexRoute
+  '/financeiro': typeof FinanceiroIndexRoute
+  '/rh': typeof RhIndexRoute
   '/projetos/$id': typeof WebsiteProjetosIdRoute
   '/projetos': typeof WebsiteProjetosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/app': typeof AppRouteRouteWithChildren
+  '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/estoque': typeof EstoqueRouteRouteWithChildren
+  '/financeiro': typeof FinanceiroRouteRouteWithChildren
+  '/rh': typeof RhRouteRouteWithChildren
   '/_website': typeof WebsiteRouteWithChildren
   '/login': typeof LoginRoute
   '/_website/carreiras': typeof WebsiteCarreirasRoute
@@ -182,14 +246,22 @@ export interface FileRoutesById {
   '/estoque/saida': typeof EstoqueSaidaRoute
   '/estoque/sites': typeof EstoqueSitesRoute
   '/_website/': typeof WebsiteIndexRoute
+  '/app/': typeof AppIndexRoute
+  '/engenharia/': typeof EngenhariaIndexRoute
   '/estoque/': typeof EstoqueIndexRoute
+  '/financeiro/': typeof FinanceiroIndexRoute
+  '/rh/': typeof RhIndexRoute
   '/_website/projetos/$id': typeof WebsiteProjetosIdRoute
   '/_website/projetos/': typeof WebsiteProjetosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/app'
+    | '/engenharia'
     | '/estoque'
+    | '/financeiro'
+    | '/rh'
     | '/'
     | '/login'
     | '/carreiras'
@@ -204,7 +276,11 @@ export interface FileRouteTypes {
     | '/estoque/produtos'
     | '/estoque/saida'
     | '/estoque/sites'
+    | '/app/'
+    | '/engenharia/'
     | '/estoque/'
+    | '/financeiro/'
+    | '/rh/'
     | '/projetos/$id'
     | '/projetos/'
   fileRoutesByTo: FileRoutesByTo
@@ -223,12 +299,20 @@ export interface FileRouteTypes {
     | '/estoque/saida'
     | '/estoque/sites'
     | '/'
+    | '/app'
+    | '/engenharia'
     | '/estoque'
+    | '/financeiro'
+    | '/rh'
     | '/projetos/$id'
     | '/projetos'
   id:
     | '__root__'
+    | '/app'
+    | '/engenharia'
     | '/estoque'
+    | '/financeiro'
+    | '/rh'
     | '/_website'
     | '/login'
     | '/_website/carreiras'
@@ -244,13 +328,21 @@ export interface FileRouteTypes {
     | '/estoque/saida'
     | '/estoque/sites'
     | '/_website/'
+    | '/app/'
+    | '/engenharia/'
     | '/estoque/'
+    | '/financeiro/'
+    | '/rh/'
     | '/_website/projetos/$id'
     | '/_website/projetos/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  AppRouteRoute: typeof AppRouteRouteWithChildren
+  EngenhariaRouteRoute: typeof EngenhariaRouteRouteWithChildren
   EstoqueRouteRoute: typeof EstoqueRouteRouteWithChildren
+  FinanceiroRouteRoute: typeof FinanceiroRouteRouteWithChildren
+  RhRouteRoute: typeof RhRouteRouteWithChildren
   WebsiteRoute: typeof WebsiteRouteWithChildren
   LoginRoute: typeof LoginRoute
 }
@@ -271,6 +363,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WebsiteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/rh': {
+      id: '/rh'
+      path: '/rh'
+      fullPath: '/rh'
+      preLoaderRoute: typeof RhRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/financeiro': {
+      id: '/financeiro'
+      path: '/financeiro'
+      fullPath: '/financeiro'
+      preLoaderRoute: typeof FinanceiroRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/estoque': {
       id: '/estoque'
       path: '/estoque'
@@ -278,12 +384,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EstoqueRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/engenharia': {
+      id: '/engenharia'
+      path: '/engenharia'
+      fullPath: '/engenharia'
+      preLoaderRoute: typeof EngenhariaRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rh/': {
+      id: '/rh/'
+      path: '/'
+      fullPath: '/rh/'
+      preLoaderRoute: typeof RhIndexRouteImport
+      parentRoute: typeof RhRouteRoute
+    }
+    '/financeiro/': {
+      id: '/financeiro/'
+      path: '/'
+      fullPath: '/financeiro/'
+      preLoaderRoute: typeof FinanceiroIndexRouteImport
+      parentRoute: typeof FinanceiroRouteRoute
+    }
     '/estoque/': {
       id: '/estoque/'
       path: '/'
       fullPath: '/estoque/'
       preLoaderRoute: typeof EstoqueIndexRouteImport
       parentRoute: typeof EstoqueRouteRoute
+    }
+    '/engenharia/': {
+      id: '/engenharia/'
+      path: '/'
+      fullPath: '/engenharia/'
+      preLoaderRoute: typeof EngenhariaIndexRouteImport
+      parentRoute: typeof EngenhariaRouteRoute
+    }
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/_website/': {
       id: '/_website/'
@@ -393,6 +541,30 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppRouteRouteChildren {
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteRouteChildren: AppRouteRouteChildren = {
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
+  AppRouteRouteChildren,
+)
+
+interface EngenhariaRouteRouteChildren {
+  EngenhariaIndexRoute: typeof EngenhariaIndexRoute
+}
+
+const EngenhariaRouteRouteChildren: EngenhariaRouteRouteChildren = {
+  EngenhariaIndexRoute: EngenhariaIndexRoute,
+}
+
+const EngenhariaRouteRouteWithChildren = EngenhariaRouteRoute._addFileChildren(
+  EngenhariaRouteRouteChildren,
+)
+
 interface EstoqueRouteRouteChildren {
   EstoqueAjustesRoute: typeof EstoqueAjustesRoute
   EstoqueEntradaRoute: typeof EstoqueEntradaRoute
@@ -418,6 +590,29 @@ const EstoqueRouteRouteChildren: EstoqueRouteRouteChildren = {
 const EstoqueRouteRouteWithChildren = EstoqueRouteRoute._addFileChildren(
   EstoqueRouteRouteChildren,
 )
+
+interface FinanceiroRouteRouteChildren {
+  FinanceiroIndexRoute: typeof FinanceiroIndexRoute
+}
+
+const FinanceiroRouteRouteChildren: FinanceiroRouteRouteChildren = {
+  FinanceiroIndexRoute: FinanceiroIndexRoute,
+}
+
+const FinanceiroRouteRouteWithChildren = FinanceiroRouteRoute._addFileChildren(
+  FinanceiroRouteRouteChildren,
+)
+
+interface RhRouteRouteChildren {
+  RhIndexRoute: typeof RhIndexRoute
+}
+
+const RhRouteRouteChildren: RhRouteRouteChildren = {
+  RhIndexRoute: RhIndexRoute,
+}
+
+const RhRouteRouteWithChildren =
+  RhRouteRoute._addFileChildren(RhRouteRouteChildren)
 
 interface WebsiteRouteChildren {
   WebsiteCarreirasRoute: typeof WebsiteCarreirasRoute
@@ -445,7 +640,11 @@ const WebsiteRouteWithChildren =
   WebsiteRoute._addFileChildren(WebsiteRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
+  AppRouteRoute: AppRouteRouteWithChildren,
+  EngenhariaRouteRoute: EngenhariaRouteRouteWithChildren,
   EstoqueRouteRoute: EstoqueRouteRouteWithChildren,
+  FinanceiroRouteRoute: FinanceiroRouteRouteWithChildren,
+  RhRouteRoute: RhRouteRouteWithChildren,
   WebsiteRoute: WebsiteRouteWithChildren,
   LoginRoute: LoginRoute,
 }
