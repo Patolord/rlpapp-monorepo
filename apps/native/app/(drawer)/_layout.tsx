@@ -1,103 +1,169 @@
+import { api } from "@rlpapp/backend/convex/_generated/api";
+import { useQuery } from "convex/react";
+import { useAuth } from "@clerk/clerk-expo";
+import type { DrawerContentComponentProps } from "@react-navigation/drawer";
+import { DrawerContentScrollView, DrawerItemList } from "@react-navigation/drawer";
 import { Drawer } from "expo-router/drawer";
-import { useThemeColor } from "heroui-native";
-import { Home, Package, Tag, Users, MapPin } from "lucide-react-native";
+import {
+  Home,
+  Package,
+  Tag,
+  Users,
+  MapPin,
+  History,
+  SlidersHorizontal,
+  DollarSign,
+  HardHat,
+  Warehouse,
+} from "lucide-react-native";
 import React, { useCallback } from "react";
-import { Text } from "react-native";
+import { View } from "react-native";
 
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useAppTheme } from "@/contexts/app-theme-context";
+import { COLORS } from "@/lib/colors";
 
 function DrawerLayout() {
-  const themeColorForeground = useThemeColor("foreground");
-  const themeColorBackground = useThemeColor("background");
+  const { isDark } = useAppTheme();
+  const { isSignedIn } = useAuth();
 
-  const renderThemeToggle = useCallback(() => <ThemeToggle />, []);
+  const fg = isDark ? COLORS.dark.foreground : COLORS.light.foreground;
+  const bg = isDark ? COLORS.dark.background : COLORS.light.background;
+
+  return <RoleAwareDrawer fg={fg} bg={bg} isSignedIn={!!isSignedIn} />;
+}
+
+function RoleAwareDrawer({
+  fg,
+  bg,
+  isSignedIn,
+}: {
+  fg: string;
+  bg: string;
+  isSignedIn: boolean;
+}) {
+  const currentUser = useQuery(
+    api.users.getCurrentUser,
+    isSignedIn ? undefined : "skip"
+  );
+  const isDirector = currentUser?.role === "director";
+  const userDept = currentUser?.department ?? "estoque";
+
+  const showEstoque = !isSignedIn || isDirector || userDept === "estoque";
+  const showFinanceiro = isDirector || userDept === "financeiro";
+  const showRh = isDirector || userDept === "rh";
+  const showEngenharia = isDirector || userDept === "engenharia";
+
+  const drawerContent = useCallback(
+    (props: DrawerContentComponentProps) => (
+      <DrawerContentScrollView {...props} style={{ backgroundColor: bg }}>
+        <DrawerItemList {...props} />
+        <View className="flex-row items-center justify-end border-t border-border/30 px-4 py-3">
+          <ThemeToggle />
+        </View>
+      </DrawerContentScrollView>
+    ),
+    [bg]
+  );
 
   return (
     <Drawer
+      drawerContent={drawerContent}
       screenOptions={{
-        headerTintColor: themeColorForeground,
-        headerStyle: { backgroundColor: themeColorBackground },
-        headerTitleStyle: {
-          fontWeight: "600",
-          color: themeColorForeground,
-        },
-        headerRight: renderThemeToggle,
-        drawerStyle: { backgroundColor: themeColorBackground },
+        headerShown: false,
+        drawerStyle: { backgroundColor: bg },
+        sceneStyle: { backgroundColor: bg },
+        drawerActiveTintColor: "#3b82f6",
+        drawerInactiveTintColor: fg,
       }}
     >
       <Drawer.Screen
         name="index"
         options={{
-          headerTitle: "Home",
-          drawerLabel: ({ color, focused }) => (
-            <Text style={{ color: focused ? color : themeColorForeground }}>Home</Text>
-          ),
-          drawerIcon: ({ size, color, focused }) => (
-            <Home
-              size={size}
-              color={focused ? color : themeColorForeground}
-            />
-          ),
+          headerTitle: isDirector ? "Painel do Diretor" : "Home",
+          drawerLabel: isDirector ? "Início" : "Home",
+          drawerIcon: ({ size, color }) => <Home size={size} color={color} />,
         }}
       />
       <Drawer.Screen
         name="(tabs)"
         options={{
           headerTitle: "Estoque",
-          drawerLabel: ({ color, focused }) => (
-            <Text style={{ color: focused ? color : themeColorForeground }}>Estoque</Text>
-          ),
-          drawerIcon: ({ size, color, focused }) => (
-            <Package
-              size={size}
-              color={focused ? color : themeColorForeground}
-            />
-          ),
+          drawerLabel: "Estoque",
+          drawerIcon: ({ size, color }) => <Warehouse size={size} color={color} />,
+          drawerItemStyle: showEstoque ? undefined : { display: "none" },
         }}
       />
       <Drawer.Screen
         name="produtos"
         options={{
           headerTitle: "Produtos",
-          drawerLabel: ({ color, focused }) => (
-            <Text style={{ color: focused ? color : themeColorForeground }}>Produtos</Text>
-          ),
-          drawerIcon: ({ size, color, focused }) => (
-            <Tag
-              size={size}
-              color={focused ? color : themeColorForeground}
-            />
-          ),
+          drawerLabel: "Produtos",
+          drawerIcon: ({ size, color }) => <Tag size={size} color={color} />,
+          drawerItemStyle: showEstoque ? undefined : { display: "none" },
         }}
       />
       <Drawer.Screen
         name="fornecedores"
         options={{
           headerTitle: "Fornecedores",
-          drawerLabel: ({ color, focused }) => (
-            <Text style={{ color: focused ? color : themeColorForeground }}>Fornecedores</Text>
-          ),
-          drawerIcon: ({ size, color, focused }) => (
-            <Users
-              size={size}
-              color={focused ? color : themeColorForeground}
-            />
-          ),
+          drawerLabel: "Fornecedores",
+          drawerIcon: ({ size, color }) => <Users size={size} color={color} />,
+          drawerItemStyle: showEstoque ? undefined : { display: "none" },
         }}
       />
       <Drawer.Screen
         name="sites"
         options={{
           headerTitle: "Sites",
-          drawerLabel: ({ color, focused }) => (
-            <Text style={{ color: focused ? color : themeColorForeground }}>Sites</Text>
-          ),
-          drawerIcon: ({ size, color, focused }) => (
-            <MapPin
-              size={size}
-              color={focused ? color : themeColorForeground}
-            />
-          ),
+          drawerLabel: "Sites",
+          drawerIcon: ({ size, color }) => <MapPin size={size} color={color} />,
+          drawerItemStyle: showEstoque ? undefined : { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="movimentacoes"
+        options={{
+          headerTitle: "Movimentações",
+          drawerLabel: "Movimentações",
+          drawerIcon: ({ size, color }) => <History size={size} color={color} />,
+          drawerItemStyle: showEstoque ? undefined : { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="ajustes"
+        options={{
+          headerTitle: "Ajustes",
+          drawerLabel: "Ajustes",
+          drawerIcon: ({ size, color }) => <SlidersHorizontal size={size} color={color} />,
+          drawerItemStyle: showEstoque ? undefined : { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="financeiro"
+        options={{
+          headerTitle: "Financeiro",
+          drawerLabel: "Financeiro",
+          drawerIcon: ({ size, color }) => <DollarSign size={size} color={color} />,
+          drawerItemStyle: showFinanceiro ? undefined : { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="rh"
+        options={{
+          headerTitle: "Recursos Humanos",
+          drawerLabel: "RH",
+          drawerIcon: ({ size, color }) => <Users size={size} color={color} />,
+          drawerItemStyle: showRh ? undefined : { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="engenharia"
+        options={{
+          headerTitle: "Engenharia",
+          drawerLabel: "Engenharia",
+          drawerIcon: ({ size, color }) => <HardHat size={size} color={color} />,
+          drawerItemStyle: showEngenharia ? undefined : { display: "none" },
         }}
       />
     </Drawer>

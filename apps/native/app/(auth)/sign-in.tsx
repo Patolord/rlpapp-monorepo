@@ -1,67 +1,153 @@
 import { useSignIn } from "@clerk/clerk-expo";
 import { Link, useRouter } from "expo-router";
 import React from "react";
-import { Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-export default function Page() {
+import { Button, ButtonText } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [emailAddress, setEmailAddress] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [needsSecondFactor, setNeedsSecondFactor] = React.useState(false);
+  const [code, setCode] = React.useState("");
 
-  // Handle the submission of the sign-in form
   const onSignInPress = async () => {
     if (!isLoaded) return;
-
-    // Start the sign-in process using the email and password provided
+    setLoading(true);
     try {
       const signInAttempt = await signIn.create({
         identifier: emailAddress,
         password,
       });
-
-      // If sign-in process is complete, set the created session as active
-      // and redirect the user
       if (signInAttempt.status === "complete") {
         await setActive({ session: signInAttempt.createdSessionId });
         router.replace("/");
+      } else if (signInAttempt.status === "needs_second_factor") {
+        await signIn.prepareSecondFactor({ strategy: "email_code" });
+        setNeedsSecondFactor(true);
       } else {
-        // If the status isn't complete, check why. User might need to
-        // complete further steps.
-        console.error(JSON.stringify(signInAttempt, null, 2));
+        Alert.alert("Erro", "Status inesperado. Tente novamente.");
       }
-    } catch (err) {
-      // See https://clerk.com/docs/custom-flows/error-handling
-      // for more info on error handling
-      console.error(JSON.stringify(err, null, 2));
+    } catch (err: any) {
+      Alert.alert("Erro", err?.errors?.[0]?.message || "Erro ao fazer login");
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <View>
-      <Text>Sign in</Text>
-      <TextInput
-        autoCapitalize="none"
-        value={emailAddress}
-        placeholder="Enter email"
-        onChangeText={(emailAddress) => setEmailAddress(emailAddress)}
-      />
-      <TextInput
-        value={password}
-        placeholder="Enter password"
-        secureTextEntry={true}
-        onChangeText={(password) => setPassword(password)}
-      />
-      <TouchableOpacity onPress={onSignInPress}>
-        <Text>Continue</Text>
-      </TouchableOpacity>
-      <View style={{ display: "flex", flexDirection: "row", gap: 3 }}>
-        <Text>Don't have an account?</Text>
-        <Link href="/sign-up">
-          <Text>Sign up</Text>
-        </Link>
+  const onVerifyCode = async () => {
+    if (!isLoaded) return;
+    setLoading(true);
+    try {
+      const result = await signIn.attemptSecondFactor({
+        strategy: "email_code",
+        code,
+      });
+      if (result.status === "complete") {
+        await setActive({ session: result.createdSessionId });
+        router.replace("/");
+      } else {
+        Alert.alert("Erro", "Não foi possível verificar. Tente novamente.");
+      }
+    } catch (err: any) {
+      Alert.alert("Erro", err?.errors?.[0]?.message || "Código inválido");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (needsSecondFactor) {
+    return (
+      <View className="flex-1 bg-background justify-center px-6" style={{ paddingTop: insets.top }}>
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-2xl text-center">Verificação</CardTitle>
+            <CardDescription className="text-center">
+              Insira o código enviado para seu email
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <View className="gap-4">
+              <View className="gap-1.5">
+                <Label>Código de verificação</Label>
+                <Input
+                  value={code}
+                  placeholder="123456"
+                  keyboardType="number-pad"
+                  onChangeText={setCode}
+                  autoFocus
+                />
+              </View>
+              <Button onPress={onVerifyCode} disabled={loading} className="mt-2">
+                <ButtonText>{loading ? "Verificando..." : "Verificar"}</ButtonText>
+              </Button>
+              <Button
+                variant="ghost"
+                onPress={() => {
+                  setNeedsSecondFactor(false);
+                  setCode("");
+                }}
+              >
+                <ButtonText variant="ghost">Voltar</ButtonText>
+              </Button>
+            </View>
+          </CardContent>
+        </Card>
       </View>
+    );
+  }
+
+  return (
+    <View className="flex-1 bg-background justify-center px-6" style={{ paddingTop: insets.top }}>
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="text-2xl text-center">Entrar</CardTitle>
+          <CardDescription className="text-center">
+            Faça login na sua conta para continuar
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <View className="gap-4">
+            <View className="gap-1.5">
+              <Label>Email</Label>
+              <Input
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={emailAddress}
+                placeholder="seu@email.com"
+                onChangeText={setEmailAddress}
+              />
+            </View>
+            <View className="gap-1.5">
+              <Label>Senha</Label>
+              <Input
+                value={password}
+                placeholder="Sua senha"
+                secureTextEntry
+                onChangeText={setPassword}
+              />
+            </View>
+            <Button onPress={onSignInPress} disabled={loading} className="mt-2">
+              <ButtonText>{loading ? "Entrando..." : "Continuar"}</ButtonText>
+            </Button>
+          </View>
+        </CardContent>
+        <CardFooter className="justify-center">
+          <Text className="text-muted-foreground text-sm">Não tem uma conta? </Text>
+          <Link href="/sign-up">
+            <Text className="text-primary text-sm font-medium">Criar conta</Text>
+          </Link>
+        </CardFooter>
+      </Card>
     </View>
   );
 }

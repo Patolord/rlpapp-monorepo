@@ -1,7 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
 import { Link } from "expo-router";
-import { Button, Chip, Spinner, Surface, useThemeColor } from "heroui-native";
 import {
   AlertCircle,
   AlertTriangle,
@@ -18,40 +17,43 @@ import {
   Warehouse,
 } from "lucide-react-native";
 import type { ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { Container } from "@/components/container";
+import { Button, ButtonText } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 export default function EstoqueTab() {
   return (
-    <Container className="p-4">
+    <Container className="px-5 pt-4 pb-24">
       <View className="py-4 mb-4">
         <Text className="text-2xl font-semibold text-foreground tracking-tight">
-          Dashboard de Estoque
+          Estoque RLP
         </Text>
-        <Text className="text-muted text-sm mt-1">Visão geral do inventário</Text>
+
       </View>
 
       <Authenticated>
         <EstoqueDashboard />
       </Authenticated>
       <Unauthenticated>
-        <Surface variant="secondary" className="p-6 rounded-lg items-center">
+        <Card className="p-6 items-center">
           <Lock size={48} color="#888" />
           <Text className="text-foreground font-medium mt-4">Acesso Restrito</Text>
-          <Text className="text-muted text-sm text-center mt-2">
+          <Text className="text-muted-foreground text-sm text-center mt-2">
             Faça login para acessar o sistema de estoque
           </Text>
           <Link href="/(auth)/sign-in" asChild>
-            <Button variant="primary" className="mt-4">
-              <Button.Label>Entrar</Button.Label>
+            <Button className="mt-4">
+              <ButtonText>Entrar</ButtonText>
             </Button>
           </Link>
-        </Surface>
+        </Card>
       </Unauthenticated>
       <AuthLoading>
         <View className="flex-1 items-center justify-center">
-          <Spinner size="lg" />
+          <ActivityIndicator size="large" />
         </View>
       </AuthLoading>
     </Container>
@@ -65,18 +67,13 @@ function EstoqueDashboard() {
   const shipments = useQuery(api.shipments.list);
   const lowStockItems = lowStock ?? [];
 
-  const dangerColor = useThemeColor("danger");
-  const successColor = useThemeColor("success");
-  const foregroundColor = useThemeColor("foreground");
-  const mutedColor = useThemeColor("muted");
   const primaryColor = "#3478f6";
   const secondaryColor = "#6d5efc";
-  const neutralCardColor = "#f3f4f6";
 
   if (!summary) {
     return (
       <View className="flex-1 items-center justify-center py-8">
-        <Spinner size="lg" />
+        <ActivityIndicator size="large" />
       </View>
     );
   }
@@ -87,7 +84,7 @@ function EstoqueDashboard() {
         <MetricCard
           title="Produtos Cadastrados"
           value={formatNumber(summary.totalProducts)}
-          subtitle={`+${Math.max(summary.totalProducts - summary.totalSites, 0)} este mes`}
+          subtitle={`+${Math.max(summary.totalProducts - summary.totalSites, 0)} este mês`}
           icon={<Package size={18} color="#fff" />}
           topColor={primaryColor}
           iconBackground={primaryColor}
@@ -95,13 +92,13 @@ function EstoqueDashboard() {
         <MetricCard
           title="Sites Ativos"
           value={formatNumber(summary.totalSites)}
-          subtitle={`+${summary.totalSites > 0 ? Math.min(summary.totalSites, 3) : 0} este mes`}
+          subtitle={`+${summary.totalSites > 0 ? Math.min(summary.totalSites, 3) : 0} este mês`}
           icon={<MapPin size={18} color="#fff" />}
           topColor="#22c7f0"
           iconBackground="#22c7f0"
         />
         <MetricCard
-          title="Itens no Armazem"
+          title="Itens no Armazém"
           value={formatNumber(summary.totalWarehouseItems)}
           subtitle={`+${Math.max(summary.pendingReceipts, 0)} em recebimento`}
           icon={<Warehouse size={18} color="#fff" />}
@@ -111,16 +108,16 @@ function EstoqueDashboard() {
         <MetricCard
           title="Estoque Baixo"
           value={formatNumber(summary.lowStockCount)}
-          subtitle={`${summary.lowStockCount > 0 ? "-" : ""}${summary.lowStockCount} itens criticos`}
+          subtitle={`${summary.lowStockCount > 0 ? "-" : ""}${summary.lowStockCount} itens críticos`}
           icon={<TriangleAlert size={18} color="#fff" />}
           topColor="#ff9500"
           iconBackground="#ff9500"
-          valueColor={summary.lowStockCount > 0 ? dangerColor : foregroundColor}
+          valueColor={summary.lowStockCount > 0 ? "#ef4444" : undefined}
         />
       </View>
 
       <View className="gap-3">
-        <Surface variant="secondary" className="rounded-2xl p-4">
+        <Card className="rounded-2xl p-4">
           <View className="flex-row items-start justify-between mb-4">
             <View className="flex-1 pr-3">
               <View className="flex-row items-center gap-2">
@@ -129,20 +126,16 @@ function EstoqueDashboard() {
                 </IconBadge>
                 <Text className="text-foreground text-lg font-semibold">Recibos Pendentes</Text>
               </View>
-              <Text className="text-muted text-sm mt-1">Aguardando aceitacao</Text>
+              <Text className="text-muted-foreground text-sm mt-1">Aguardando aceitação</Text>
             </View>
-            <Chip
-              variant="secondary"
-              color={summary.pendingReceipts > 0 ? "warning" : "default"}
-              size="sm"
-            >
-              <Chip.Label>{summary.pendingReceipts}</Chip.Label>
-            </Chip>
+            <Badge variant={summary.pendingReceipts > 0 ? "warning" : "secondary"}>
+              {String(summary.pendingReceipts)}
+            </Badge>
           </View>
 
           <View className="gap-3">
             {(receipts ?? []).slice(0, 3).map((receipt) => (
-              <Surface key={receipt._id} variant="tertiary" className="rounded-xl p-3">
+              <Card key={receipt._id} className="rounded-xl p-3 bg-secondary">
                 <View className="flex-row items-start justify-between gap-3">
                   <View className="flex-row flex-1 gap-3">
                     <View
@@ -153,41 +146,31 @@ function EstoqueDashboard() {
                     </View>
                     <View className="flex-1">
                       <Text className="text-foreground font-medium">
-                        {receipt.supplier?.name ?? "Fornecedor nao informado"}
+                        {receipt.supplier?.name ?? "Fornecedor não informado"}
                       </Text>
-                      <Text className="text-muted text-xs mt-1">
+                      <Text className="text-muted-foreground text-xs mt-1">
                         REC-{String(receipt._creationTime).slice(-4)} • {receipt.lines.length} itens
                       </Text>
                     </View>
                   </View>
-                  <Chip
-                    variant="secondary"
-                    color={receipt.status === "PendingReceipt" ? "warning" : "success"}
-                    size="sm"
-                  >
-                    <Chip.Label>
-                      {receipt.status === "PendingReceipt" ? "Aguardando" : "Recebido"}
-                    </Chip.Label>
-                  </Chip>
+                  <Badge variant={receipt.status === "PendingReceipt" ? "warning" : "success"}>
+                    {receipt.status === "PendingReceipt" ? "Aguardando" : "Recebido"}
+                  </Badge>
                 </View>
-                <Text className="text-muted text-xs mt-3">{formatDate(receipt.createdAt)}</Text>
-              </Surface>
+                <Text className="text-muted-foreground text-xs mt-3">{formatDate(receipt.createdAt)}</Text>
+              </Card>
             ))}
 
             {receipts && receipts.length === 0 && (
               <EmptyStateRow
-                icon={<ArrowDownCircle size={18} color={successColor} />}
+                icon={<ArrowDownCircle size={18} color="#27ae60" />}
                 text="Nenhum recibo pendente no momento"
               />
             )}
           </View>
+        </Card>
 
-          <Text className="text-sm mt-4 text-center" style={{ color: "#d46a6a" }}>
-            Ver todos os recibos
-          </Text>
-        </Surface>
-
-        <Surface variant="secondary" className="rounded-2xl p-4">
+        <Card className="rounded-2xl p-4">
           <View className="flex-row items-start justify-between mb-4">
             <View className="flex-1 pr-3">
               <View className="flex-row items-center gap-2">
@@ -196,20 +179,16 @@ function EstoqueDashboard() {
                 </IconBadge>
                 <Text className="text-foreground text-lg font-semibold">Remessas Ativas</Text>
               </View>
-              <Text className="text-muted text-sm mt-1">Em transito ou aguardando envio</Text>
+              <Text className="text-muted-foreground text-sm mt-1">Em trânsito ou aguardando envio</Text>
             </View>
-            <Chip
-              variant="secondary"
-              color={summary.activeShipments > 0 ? "warning" : "default"}
-              size="sm"
-            >
-              <Chip.Label>{summary.activeShipments}</Chip.Label>
-            </Chip>
+            <Badge variant={summary.activeShipments > 0 ? "warning" : "secondary"}>
+              {String(summary.activeShipments)}
+            </Badge>
           </View>
 
           <View className="gap-3">
             {(shipments ?? []).slice(0, 3).map((shipment) => (
-              <Surface key={shipment._id} variant="tertiary" className="rounded-xl p-3">
+              <Card key={shipment._id} className="rounded-xl p-3 bg-secondary">
                 <View className="flex-row items-start justify-between gap-3">
                   <View className="flex-row flex-1 gap-3">
                     <View
@@ -220,25 +199,19 @@ function EstoqueDashboard() {
                     </View>
                     <View className="flex-1">
                       <Text className="text-foreground font-medium">
-                        {shipment.site?.name ?? "Destino nao informado"}
+                        {shipment.site?.name ?? "Destino não informado"}
                       </Text>
-                      <Text className="text-muted text-xs mt-1">
+                      <Text className="text-muted-foreground text-xs mt-1">
                         ENV-{String(shipment._creationTime).slice(-4)} • {shipment.lines.length} itens
                       </Text>
                     </View>
                   </View>
-                  <Chip
-                    variant="secondary"
-                    color={shipment.status === "PendingShipment" ? "warning" : "success"}
-                    size="sm"
-                  >
-                    <Chip.Label>
-                      {shipment.status === "PendingShipment" ? "Em transito" : "Preparando"}
-                    </Chip.Label>
-                  </Chip>
+                  <Badge variant={shipment.status === "PendingShipment" ? "warning" : "success"}>
+                    {shipment.status === "PendingShipment" ? "Em trânsito" : "Preparando"}
+                  </Badge>
                 </View>
-                <Text className="text-muted text-xs mt-3">{formatDate(shipment.createdAt)}</Text>
-              </Surface>
+                <Text className="text-muted-foreground text-xs mt-3">{formatDate(shipment.createdAt)}</Text>
+              </Card>
             ))}
 
             {shipments && shipments.length === 0 && (
@@ -248,20 +221,16 @@ function EstoqueDashboard() {
               />
             )}
           </View>
-
-          <Text className="text-sm mt-4 text-center" style={{ color: "#d46a6a" }}>
-            Ver todas as remessas
-          </Text>
-        </Surface>
+        </Card>
       </View>
 
-      <Surface variant="secondary" className="rounded-2xl p-4">
+      <Card className="rounded-2xl p-4">
         <View className="flex-row items-center justify-between mb-4">
           <View>
-            <Text className="text-foreground text-lg font-semibold">Acoes Rapidas</Text>
-            <Text className="text-muted text-sm mt-1">Atalhos do modulo de estoque</Text>
+            <Text className="text-foreground text-lg font-semibold">Ações Rápidas</Text>
+            <Text className="text-muted-foreground text-sm mt-1">Atalhos do módulo de estoque</Text>
           </View>
-          <FileText size={18} color={mutedColor} />
+          <FileText size={18} className="text-muted-foreground" />
         </View>
 
         <View className="flex-row flex-wrap gap-3">
@@ -272,35 +241,33 @@ function EstoqueDashboard() {
             textColor="#fff"
           />
           <QuickAction
-            title="Relatorio"
-            icon={<FileText size={18} color={foregroundColor} />}
-            backgroundColor={neutralCardColor}
-            textColor={foregroundColor}
+            title="Relatório"
+            icon={<FileText size={18} color="#666" />}
+            backgroundColor="#f3f4f6"
+            textColor="#333"
           />
           <QuickAction
             title="Buscar"
-            icon={<Search size={18} color={foregroundColor} />}
-            backgroundColor={neutralCardColor}
-            textColor={foregroundColor}
+            icon={<Search size={18} color="#666" />}
+            backgroundColor="#f3f4f6"
+            textColor="#333"
           />
           <QuickAction
             title="Estoque Baixo"
-            icon={<AlertTriangle size={18} color={dangerColor} />}
-            backgroundColor={neutralCardColor}
-            textColor={foregroundColor}
+            icon={<AlertTriangle size={18} color="#ef4444" />}
+            backgroundColor="#f3f4f6"
+            textColor="#333"
           />
         </View>
-      </Surface>
+      </Card>
 
-      <Surface variant="secondary" className="rounded-2xl p-4">
+      <Card className="rounded-2xl p-4">
         <View className="flex-row items-center justify-between mb-4">
           <View>
             <Text className="text-foreground text-lg font-semibold">Atividade Recente</Text>
-            <Text className="text-muted text-sm mt-1">Ultimas movimentacoes do sistema</Text>
+            <Text className="text-muted-foreground text-sm mt-1">Últimas movimentações do sistema</Text>
           </View>
-          <Chip variant="secondary" size="sm">
-            <Chip.Label>Hoje</Chip.Label>
-          </Chip>
+          <Badge variant="secondary">Hoje</Badge>
         </View>
 
         <View className="gap-4">
@@ -317,57 +284,55 @@ function EstoqueDashboard() {
               </View>
               <View className="flex-1 pb-3">
                 <Text className="text-foreground font-medium">{item.title}</Text>
-                <Text className="text-muted text-sm mt-1">{item.description}</Text>
-                <Text className="text-muted text-xs mt-2">{item.meta}</Text>
+                <Text className="text-muted-foreground text-sm mt-1">{item.description}</Text>
+                <Text className="text-muted-foreground text-xs mt-2">{item.meta}</Text>
               </View>
             </View>
           ))}
         </View>
 
         <View className="flex-row items-center justify-center gap-1 mt-2">
-          <Text className="text-sm" style={{ color: "#d46a6a" }}>
-            Ver todo o historico
-          </Text>
-          <ChevronRight size={14} color="#d46a6a" />
+          <Text className="text-sm text-primary">Ver todo o histórico</Text>
+          <ChevronRight size={14} color="#3478f6" />
         </View>
-      </Surface>
+      </Card>
 
       {lowStockItems.length > 0 && (
-        <Surface variant="secondary" className="rounded-2xl p-4">
+        <Card className="rounded-2xl p-4">
           <View className="flex-row items-center gap-2 mb-4">
-            <AlertCircle size={20} color={dangerColor} />
+            <AlertCircle size={20} color="#ef4444" />
             <View className="flex-1">
               <Text className="text-foreground text-lg font-semibold">Itens com Estoque Baixo</Text>
-              <Text className="text-muted text-sm mt-1">
-                Produtos abaixo do minimo recomendado
+              <Text className="text-muted-foreground text-sm mt-1">
+                Produtos abaixo do mínimo recomendado
               </Text>
             </View>
           </View>
 
           <View className="gap-3">
             {lowStockItems.slice(0, 5).map((product: any) => (
-              <Surface key={product._id} variant="tertiary" className="rounded-xl p-3">
+              <Card key={product._id} className="rounded-xl p-3 bg-secondary">
                 <View className="flex-row items-center justify-between gap-3">
                   <View className="flex-1">
                     <Text className="text-foreground font-medium">{product.name}</Text>
-                    <Text className="text-muted text-xs mt-1">
-                      Minimo: {product.minQuantity} {product.unit}
+                    <Text className="text-muted-foreground text-xs mt-1">
+                      Mínimo: {product.minQuantity} {product.unit}
                     </Text>
                   </View>
                   <View className="items-end">
-                    <Text className="font-bold" style={{ color: dangerColor }}>
+                    <Text className="font-bold text-destructive">
                       {product.currentStock} {product.unit}
                     </Text>
-                    <Text className="text-muted text-xs mt-1">Faltam: {product.deficit}</Text>
+                    <Text className="text-muted-foreground text-xs mt-1">Faltam: {product.deficit}</Text>
                   </View>
                 </View>
-              </Surface>
+              </Card>
             ))}
           </View>
-        </Surface>
+        </Card>
       )}
 
-      <View className="h-8" />
+      <View className="h-24" />
     </View>
   );
 }
@@ -390,14 +355,14 @@ function MetricCard({
   valueColor?: string;
 }) {
   return (
-    <Surface variant="secondary" className="flex-1 min-w-[47%] rounded-2xl p-4 overflow-hidden">
+    <Card className="flex-1 min-w-[47%] rounded-2xl p-4 overflow-hidden">
       <View
         className="absolute left-0 right-0 top-0 h-1 rounded-t-2xl"
         style={{ backgroundColor: topColor }}
       />
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-3">
-          <Text className="text-muted text-xs">{title}</Text>
+          <Text className="text-muted-foreground text-xs">{title}</Text>
           <Text
             className="text-foreground text-3xl font-bold mt-3"
             style={valueColor ? { color: valueColor } : undefined}
@@ -415,7 +380,7 @@ function MetricCard({
           {icon}
         </View>
       </View>
-    </Surface>
+    </Card>
   );
 }
 
@@ -432,8 +397,7 @@ function QuickAction({
 }) {
   return (
     <Pressable className="w-[48%]">
-      <Surface
-        variant="tertiary"
+      <View
         className="rounded-2xl px-4 py-5 items-center justify-center"
         style={{ backgroundColor }}
       >
@@ -441,7 +405,7 @@ function QuickAction({
         <Text className="font-medium text-sm" style={{ color: textColor }}>
           {title}
         </Text>
-      </Surface>
+      </View>
     </Pressable>
   );
 }
@@ -467,7 +431,7 @@ function EmptyStateRow({ icon, text }: { icon: ReactNode; text: string }) {
   return (
     <View className="flex-row items-center gap-3 rounded-xl px-1 py-3">
       {icon}
-      <Text className="text-muted text-sm">{text}</Text>
+      <Text className="text-muted-foreground text-sm">{text}</Text>
     </View>
   );
 }
@@ -488,7 +452,7 @@ function buildActivityItems(summary: any, lowStock: any[]) {
   return [
     {
       title: "Nova entrada de estoque",
-      description: `${summary.pendingReceipts} recebimentos aguardando conferencia`,
+      description: `${summary.pendingReceipts} recebimentos aguardando conferência`,
       meta: "Atualizado agora",
       backgroundColor: "#dff7eb",
       icon: <ArrowDownCircle size={18} color="#27ae60" />,
@@ -496,27 +460,27 @@ function buildActivityItems(summary: any, lowStock: any[]) {
     {
       title: "Remessa enviada",
       description: `${summary.activeShipments} remessas em andamento entre os sites`,
-      meta: "Movimentacao de hoje",
+      meta: "Movimentação de hoje",
       backgroundColor: "#e8f0ff",
       icon: <ArrowUpCircle size={18} color="#4f7cff" />,
     },
     {
       title: "Produto atualizado",
-      description: `${summary.totalProducts} produtos ativos no catalogo`,
+      description: `${summary.totalProducts} produtos ativos no catálogo`,
       meta: "Sincronizado com o cadastro",
       backgroundColor: "#fff2d9",
       icon: <FileText size={18} color="#ffb020" />,
     },
     {
       title: "Novo produto cadastrado",
-      description: `${summary.totalSites} sites ativos para distribuicao`,
-      meta: "Base pronta para expansao",
+      description: `${summary.totalSites} sites ativos para distribuição`,
+      meta: "Base pronta para expansão",
       backgroundColor: "#efe9ff",
       icon: <Package size={18} color="#7b61ff" />,
     },
     {
       title: "Alerta de estoque baixo",
-      description: `${lowStock.length} itens abaixo do minimo recomendado`,
+      description: `${lowStock.length} itens abaixo do mínimo recomendado`,
       meta: "Requer acompanhamento",
       backgroundColor: "#ffe6e6",
       icon: <AlertTriangle size={18} color="#e74c3c" />,

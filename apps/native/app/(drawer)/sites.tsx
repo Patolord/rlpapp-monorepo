@@ -1,43 +1,36 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
-import { Link } from "expo-router";
-import { Button, Chip, Spinner, Surface, useThemeColor } from "heroui-native";
-import { Lock, MapPin, Plus, Pencil, Trash2, X } from "lucide-react-native";
+import { Plus, Pencil, Trash2, Lock } from "lucide-react-native";
 import { useState } from "react";
-import {
-  Alert,
-  Modal,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
+import { Link } from "expo-router";
 
 import { Container } from "@/components/container";
+import { Button, ButtonText } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function SitesScreen() {
   return (
-    <Container className="p-4">
+    <Container className="px-5 pt-4 pb-4">
       <Authenticated>
         <SitesContent />
       </Authenticated>
       <Unauthenticated>
-        <Surface variant="secondary" className="p-6 rounded-lg items-center">
+        <Card className="p-6 items-center">
           <Lock size={48} color="#888" />
           <Text className="text-foreground font-medium mt-4">Acesso Restrito</Text>
+          <Text className="text-muted-foreground text-sm text-center mt-2">Faça login para acessar</Text>
           <Link href="/(auth)/sign-in" asChild>
-            <Button variant="primary" className="mt-4">
-              <Button.Label>Entrar</Button.Label>
-            </Button>
+            <Button className="mt-4"><ButtonText>Entrar</ButtonText></Button>
           </Link>
-        </Surface>
+        </Card>
       </Unauthenticated>
       <AuthLoading>
-        <View className="flex-1 items-center justify-center">
-          <Spinner size="lg" />
-        </View>
+        <View className="flex-1 items-center justify-center"><ActivityIndicator size="large" /></View>
       </AuthLoading>
     </Container>
   );
@@ -49,8 +42,9 @@ function SitesContent() {
   const updateSite = useMutation(api.sites.update);
   const removeSite = useMutation(api.sites.remove);
 
-  const [modalVisible, setModalVisible] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingSite, setEditingSite] = useState<any>(null);
+
   const [formData, setFormData] = useState({
     name: "",
     address: "",
@@ -58,17 +52,57 @@ function SitesContent() {
     responsiblePhone: "",
   });
 
-  const successColor = useThemeColor("success");
-  const dangerColor = useThemeColor("danger");
-
   const resetForm = () => {
     setFormData({ name: "", address: "", responsibleName: "", responsiblePhone: "" });
-    setEditingSite(null);
   };
 
-  const openCreate = () => {
-    resetForm();
-    setModalVisible(true);
+  const handleCreate = async () => {
+    try {
+      await createSite({
+        name: formData.name,
+        address: formData.address || undefined,
+        responsibleName: formData.responsibleName || undefined,
+        responsiblePhone: formData.responsiblePhone || undefined,
+      });
+      setIsCreateOpen(false);
+      resetForm();
+    } catch (error) {
+      Alert.alert("Erro", "Erro ao criar site");
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!editingSite) return;
+    try {
+      await updateSite({
+        id: editingSite._id,
+        name: formData.name,
+        address: formData.address || undefined,
+        responsibleName: formData.responsibleName || undefined,
+        responsiblePhone: formData.responsiblePhone || undefined,
+      });
+      setEditingSite(null);
+      resetForm();
+    } catch (error) {
+      Alert.alert("Erro", "Erro ao atualizar site");
+    }
+  };
+
+  const handleDelete = (id: any) => {
+    Alert.alert("Confirmar", "Deseja realmente desativar este site?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Desativar",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await removeSite({ id });
+          } catch (error) {
+            Alert.alert("Erro", "Erro ao desativar site");
+          }
+        },
+      },
+    ]);
   };
 
   const openEdit = (site: any) => {
@@ -79,216 +113,128 @@ function SitesContent() {
       responsibleName: site.responsibleName || "",
       responsiblePhone: site.responsiblePhone || "",
     });
-    setModalVisible(true);
   };
-
-  const handleSave = async () => {
-    if (!formData.name.trim()) {
-      Alert.alert("Erro", "Nome é obrigatório");
-      return;
-    }
-
-    try {
-      if (editingSite) {
-        await updateSite({
-          id: editingSite._id,
-          name: formData.name,
-          address: formData.address || undefined,
-          responsibleName: formData.responsibleName || undefined,
-          responsiblePhone: formData.responsiblePhone || undefined,
-        });
-        Alert.alert("Sucesso", "Site atualizado");
-      } else {
-        await createSite({
-          name: formData.name,
-          address: formData.address || undefined,
-          responsibleName: formData.responsibleName || undefined,
-          responsiblePhone: formData.responsiblePhone || undefined,
-        });
-        Alert.alert("Sucesso", "Site criado");
-      }
-      setModalVisible(false);
-      resetForm();
-    } catch (error: any) {
-      Alert.alert("Erro", error.message || "Erro ao salvar");
-    }
-  };
-
-  const handleDelete = (site: any) => {
-    Alert.alert(
-      "Desativar Site",
-      `Deseja desativar "${site.name}"?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Desativar",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await removeSite({ id: site._id });
-              Alert.alert("Sucesso", "Site desativado");
-            } catch (error: any) {
-              Alert.alert("Erro", error.message || "Erro ao desativar");
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  if (!sites) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Spinner size="lg" />
-      </View>
-    );
-  }
 
   return (
-    <>
-      <View className="flex-row items-center justify-between mb-4">
+    <View className="gap-4">
+      <View className="flex-row items-center justify-between">
         <View>
-          <Text className="text-xl font-semibold text-foreground">Sites</Text>
-          <Text className="text-muted text-sm">{sites.length} cadastrados</Text>
+          <Text className="text-2xl font-bold text-foreground">Sites</Text>
+          <Text className="text-muted-foreground text-sm">Gerencie os locais de entrega</Text>
         </View>
-        <Button variant="primary" onPress={openCreate}>
-          <Plus size={18} color="white" />
-          <Button.Label>Novo</Button.Label>
+        <Button onPress={() => { resetForm(); setIsCreateOpen(true); }}>
+          <View className="flex-row items-center gap-1">
+            <Plus size={16} color="#fff" />
+            <ButtonText>Novo</ButtonText>
+          </View>
         </Button>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {sites.length === 0 ? (
-          <Surface variant="secondary" className="p-8 rounded-lg items-center">
-            <MapPin size={48} color="#888" />
-            <Text className="text-foreground font-medium mt-4">Nenhum Site</Text>
-            <Text className="text-muted text-sm text-center mt-2">
-              Cadastre o primeiro local de entrega
-            </Text>
-          </Surface>
-        ) : (
-          sites.map((site: any) => (
-            <Surface key={site._id} variant="secondary" className="mb-3 rounded-lg p-4">
-              <View className="flex-row items-start justify-between">
-                <View className="flex-1">
-                  <View className="flex-row items-center gap-2 mb-1">
-                    <Text className="text-foreground font-semibold">{site.name}</Text>
-                    <Chip
-                      variant="secondary"
-                      color={site.isActive ? "success" : "default"}
-                      size="sm"
-                    >
-                      <Chip.Label>{site.isActive ? "Ativo" : "Inativo"}</Chip.Label>
-                    </Chip>
-                  </View>
-                  {site.address && (
-                    <Text className="text-muted text-sm mb-1">{site.address}</Text>
-                  )}
-                  <View className="mt-2 gap-1">
-                    {site.responsibleName && (
-                      <Text className="text-muted text-xs">
-                        Responsável: {site.responsibleName}
-                      </Text>
-                    )}
-                    {site.responsiblePhone && (
-                      <Text className="text-muted text-xs">{site.responsiblePhone}</Text>
-                    )}
-                  </View>
-                </View>
-                <View className="flex-row gap-2">
-                  <TouchableOpacity
-                    className="p-2"
-                    onPress={() => openEdit(site)}
-                  >
-                    <Pencil size={18} color={successColor} />
-                  </TouchableOpacity>
-                  {site.isActive && (
-                    <TouchableOpacity
-                      className="p-2"
-                      onPress={() => handleDelete(site)}
-                    >
-                      <Trash2 size={18} color={dangerColor} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            </Surface>
-          ))
-        )}
-        <View className="h-8" />
-      </ScrollView>
-
-      {/* Form Modal */}
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View className="flex-1 bg-black/50 justify-end">
-          <Surface variant="primary" className="rounded-t-xl p-4 pb-8">
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-foreground text-lg font-semibold">
-                {editingSite ? "Editar Site" : "Novo Site"}
-              </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <X size={24} color="#888" />
-              </TouchableOpacity>
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogHeader>
+          <DialogTitle>Novo Site</DialogTitle>
+          <DialogDescription>Preencha os dados do local de entrega</DialogDescription>
+        </DialogHeader>
+        <View className="gap-3 mt-3">
+          <View className="gap-1">
+            <Label>Nome do Site</Label>
+            <Input value={formData.name} onChangeText={(t) => setFormData((f) => ({ ...f, name: t }))} />
+          </View>
+          <View className="gap-1">
+            <Label>Endereço</Label>
+            <Input value={formData.address} onChangeText={(t) => setFormData((f) => ({ ...f, address: t }))} />
+          </View>
+          <View className="flex-row gap-3">
+            <View className="flex-1 gap-1">
+              <Label>Responsável</Label>
+              <Input value={formData.responsibleName} onChangeText={(t) => setFormData((f) => ({ ...f, responsibleName: t }))} />
             </View>
-
-            <View className="gap-4">
-              <View>
-                <Text className="text-muted text-xs mb-1">Nome do Site *</Text>
-                <TextInput
-                  className="bg-default/20 text-foreground rounded-lg px-3 py-3"
-                  placeholder="Nome do local"
-                  placeholderTextColor="#888"
-                  value={formData.name}
-                  onChangeText={(text) => setFormData({ ...formData, name: text })}
-                />
-              </View>
-
-              <View>
-                <Text className="text-muted text-xs mb-1">Endereço</Text>
-                <TextInput
-                  className="bg-default/20 text-foreground rounded-lg px-3 py-3"
-                  placeholder="Endereço completo"
-                  placeholderTextColor="#888"
-                  value={formData.address}
-                  onChangeText={(text) => setFormData({ ...formData, address: text })}
-                />
-              </View>
-
-              <View>
-                <Text className="text-muted text-xs mb-1">Nome do Responsável</Text>
-                <TextInput
-                  className="bg-default/20 text-foreground rounded-lg px-3 py-3"
-                  placeholder="Nome do responsável"
-                  placeholderTextColor="#888"
-                  value={formData.responsibleName}
-                  onChangeText={(text) => setFormData({ ...formData, responsibleName: text })}
-                />
-              </View>
-
-              <View>
-                <Text className="text-muted text-xs mb-1">Telefone do Responsável</Text>
-                <TextInput
-                  className="bg-default/20 text-foreground rounded-lg px-3 py-3"
-                  placeholder="(00) 00000-0000"
-                  placeholderTextColor="#888"
-                  keyboardType="phone-pad"
-                  value={formData.responsiblePhone}
-                  onChangeText={(text) => setFormData({ ...formData, responsiblePhone: text })}
-                />
-              </View>
-
-              <Button variant="primary" onPress={handleSave}>
-                <Button.Label>{editingSite ? "Salvar" : "Criar"}</Button.Label>
-              </Button>
+            <View className="flex-1 gap-1">
+              <Label>Telefone</Label>
+              <Input value={formData.responsiblePhone} onChangeText={(t) => setFormData((f) => ({ ...f, responsiblePhone: t }))} keyboardType="phone-pad" />
             </View>
-          </Surface>
+          </View>
         </View>
-      </Modal>
-    </>
+        <DialogFooter>
+          <Button variant="outline" onPress={() => setIsCreateOpen(false)}>
+            <ButtonText variant="outline">Cancelar</ButtonText>
+          </Button>
+          <Button onPress={handleCreate}><ButtonText>Criar</ButtonText></Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog open={!!editingSite} onOpenChange={(open) => !open && setEditingSite(null)}>
+        <DialogHeader>
+          <DialogTitle>Editar Site</DialogTitle>
+          <DialogDescription>Atualize os dados do local de entrega</DialogDescription>
+        </DialogHeader>
+        <View className="gap-3 mt-3">
+          <View className="gap-1">
+            <Label>Nome do Site</Label>
+            <Input value={formData.name} onChangeText={(t) => setFormData((f) => ({ ...f, name: t }))} />
+          </View>
+          <View className="gap-1">
+            <Label>Endereço</Label>
+            <Input value={formData.address} onChangeText={(t) => setFormData((f) => ({ ...f, address: t }))} />
+          </View>
+          <View className="flex-row gap-3">
+            <View className="flex-1 gap-1">
+              <Label>Responsável</Label>
+              <Input value={formData.responsibleName} onChangeText={(t) => setFormData((f) => ({ ...f, responsibleName: t }))} />
+            </View>
+            <View className="flex-1 gap-1">
+              <Label>Telefone</Label>
+              <Input value={formData.responsiblePhone} onChangeText={(t) => setFormData((f) => ({ ...f, responsiblePhone: t }))} keyboardType="phone-pad" />
+            </View>
+          </View>
+        </View>
+        <DialogFooter>
+          <Button variant="outline" onPress={() => setEditingSite(null)}>
+            <ButtonText variant="outline">Cancelar</ButtonText>
+          </Button>
+          <Button onPress={handleUpdate}><ButtonText>Salvar</ButtonText></Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Card>
+        <CardHeader><CardTitle>Lista de Sites</CardTitle></CardHeader>
+        <CardContent>
+          {!sites ? (
+            <ActivityIndicator />
+          ) : sites.length === 0 ? (
+            <Text className="text-muted-foreground">Nenhum site cadastrado</Text>
+          ) : (
+            <View className="gap-3">
+              {sites.map((site) => (
+                <View key={site._id} className="flex-row items-center justify-between rounded-lg border border-border p-3">
+                  <View className="flex-1">
+                    <Text className="text-foreground font-medium">{site.name}</Text>
+                    <Text className="text-muted-foreground text-xs mt-0.5">
+                      {site.address || "Sem endereço"} • {site.responsibleName || "Sem responsável"}
+                    </Text>
+                    {site.responsiblePhone ? (
+                      <Text className="text-muted-foreground text-xs mt-0.5">{site.responsiblePhone}</Text>
+                    ) : null}
+                  </View>
+                  <View className="flex-row items-center gap-2">
+                    <Badge variant={site.isActive ? "success" : "secondary"}>
+                      {site.isActive ? "Ativo" : "Inativo"}
+                    </Badge>
+                    <Pressable onPress={() => openEdit(site)} className="p-2">
+                      <Pencil size={16} color="#666" />
+                    </Pressable>
+                    {site.isActive && (
+                      <Pressable onPress={() => handleDelete(site._id)} className="p-2">
+                        <Trash2 size={16} color="#ef4444" />
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </CardContent>
+      </Card>
+    </View>
   );
 }

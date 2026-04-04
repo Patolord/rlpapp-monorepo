@@ -1,42 +1,41 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
-import { Link } from "expo-router";
-import { Button, Chip, Spinner, Surface, useThemeColor } from "heroui-native";
-import { Lock, Package, Plus, Pencil, Trash2, X } from "lucide-react-native";
+import { Plus, Pencil, Trash2, Lock } from "lucide-react-native";
 import { useState } from "react";
-import {
-  Alert,
-  Modal,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
+import { Link } from "expo-router";
 
 import { Container } from "@/components/container";
+import { Button, ButtonText } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function ProdutosScreen() {
   return (
-    <Container className="p-4">
+    <Container className="px-5 pt-4 pb-4">
       <Authenticated>
         <ProdutosContent />
       </Authenticated>
       <Unauthenticated>
-        <Surface variant="secondary" className="p-6 rounded-lg items-center">
+        <Card className="p-6 items-center">
           <Lock size={48} color="#888" />
           <Text className="text-foreground font-medium mt-4">Acesso Restrito</Text>
+          <Text className="text-muted-foreground text-sm text-center mt-2">
+            Faça login para acessar
+          </Text>
           <Link href="/(auth)/sign-in" asChild>
-            <Button variant="primary" className="mt-4">
-              <Button.Label>Entrar</Button.Label>
+            <Button className="mt-4">
+              <ButtonText>Entrar</ButtonText>
             </Button>
           </Link>
-        </Surface>
+        </Card>
       </Unauthenticated>
       <AuthLoading>
         <View className="flex-1 items-center justify-center">
-          <Spinner size="lg" />
+          <ActivityIndicator size="large" />
         </View>
       </AuthLoading>
     </Container>
@@ -49,8 +48,9 @@ function ProdutosContent() {
   const updateProduct = useMutation(api.products.update);
   const removeProduct = useMutation(api.products.remove);
 
-  const [modalVisible, setModalVisible] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -58,17 +58,57 @@ function ProdutosContent() {
     minQuantity: "0",
   });
 
-  const successColor = useThemeColor("success");
-  const dangerColor = useThemeColor("danger");
-
   const resetForm = () => {
     setFormData({ name: "", description: "", unit: "un", minQuantity: "0" });
-    setEditingProduct(null);
   };
 
-  const openCreate = () => {
-    resetForm();
-    setModalVisible(true);
+  const handleCreate = async () => {
+    try {
+      await createProduct({
+        name: formData.name,
+        description: formData.description || undefined,
+        unit: formData.unit,
+        minQuantity: Number(formData.minQuantity),
+      });
+      setIsCreateOpen(false);
+      resetForm();
+    } catch (error) {
+      Alert.alert("Erro", "Erro ao criar produto");
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!editingProduct) return;
+    try {
+      await updateProduct({
+        id: editingProduct._id,
+        name: formData.name,
+        description: formData.description || undefined,
+        unit: formData.unit,
+        minQuantity: Number(formData.minQuantity),
+      });
+      setEditingProduct(null);
+      resetForm();
+    } catch (error) {
+      Alert.alert("Erro", "Erro ao atualizar produto");
+    }
+  };
+
+  const handleDelete = (id: any) => {
+    Alert.alert("Confirmar", "Deseja realmente desativar este produto?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Desativar",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await removeProduct({ id });
+          } catch (error) {
+            Alert.alert("Erro", "Erro ao desativar produto");
+          }
+        },
+      },
+    ]);
   };
 
   const openEdit = (product: any) => {
@@ -79,215 +119,139 @@ function ProdutosContent() {
       unit: product.unit,
       minQuantity: String(product.minQuantity),
     });
-    setModalVisible(true);
   };
-
-  const handleSave = async () => {
-    if (!formData.name.trim()) {
-      Alert.alert("Erro", "Nome é obrigatório");
-      return;
-    }
-
-    try {
-      if (editingProduct) {
-        await updateProduct({
-          id: editingProduct._id,
-          name: formData.name,
-          description: formData.description || undefined,
-          unit: formData.unit,
-          minQuantity: Number(formData.minQuantity),
-        });
-        Alert.alert("Sucesso", "Produto atualizado");
-      } else {
-        await createProduct({
-          name: formData.name,
-          description: formData.description || undefined,
-          unit: formData.unit,
-          minQuantity: Number(formData.minQuantity),
-        });
-        Alert.alert("Sucesso", "Produto criado");
-      }
-      setModalVisible(false);
-      resetForm();
-    } catch (error: any) {
-      Alert.alert("Erro", error.message || "Erro ao salvar");
-    }
-  };
-
-  const handleDelete = (product: any) => {
-    Alert.alert(
-      "Desativar Produto",
-      `Deseja desativar "${product.name}"?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Desativar",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await removeProduct({ id: product._id });
-              Alert.alert("Sucesso", "Produto desativado");
-            } catch (error: any) {
-              Alert.alert("Erro", error.message || "Erro ao desativar");
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  if (!products) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Spinner size="lg" />
-      </View>
-    );
-  }
 
   return (
-    <>
-      <View className="flex-row items-center justify-between mb-4">
+    <View className="gap-4">
+      <View className="flex-row items-center justify-between">
         <View>
-          <Text className="text-xl font-semibold text-foreground">Produtos</Text>
-          <Text className="text-muted text-sm">{products.length} cadastrados</Text>
+          <Text className="text-2xl font-bold text-foreground">Produtos</Text>
+          <Text className="text-muted-foreground text-sm">Gerencie os produtos do estoque</Text>
         </View>
-        <Button variant="primary" onPress={openCreate}>
-          <Plus size={18} color="white" />
-          <Button.Label>Novo</Button.Label>
+        <Button
+          onPress={() => {
+            resetForm();
+            setIsCreateOpen(true);
+          }}
+        >
+          <View className="flex-row items-center gap-1">
+            <Plus size={16} color="#fff" />
+            <ButtonText>Novo</ButtonText>
+          </View>
         </Button>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {products.length === 0 ? (
-          <Surface variant="secondary" className="p-8 rounded-lg items-center">
-            <Package size={48} color="#888" />
-            <Text className="text-foreground font-medium mt-4">Nenhum Produto</Text>
-            <Text className="text-muted text-sm text-center mt-2">
-              Cadastre o primeiro produto
-            </Text>
-          </Surface>
-        ) : (
-          products.map((product: any) => (
-            <Surface key={product._id} variant="secondary" className="mb-3 rounded-lg p-4">
-              <View className="flex-row items-start justify-between">
-                <View className="flex-1">
-                  <View className="flex-row items-center gap-2 mb-1">
-                    <Text className="text-foreground font-semibold">{product.name}</Text>
-                    <Chip
-                      variant="secondary"
-                      color={product.isActive ? "success" : "default"}
-                      size="sm"
-                    >
-                      <Chip.Label>{product.isActive ? "Ativo" : "Inativo"}</Chip.Label>
-                    </Chip>
-                  </View>
-                  {product.description && (
-                    <Text className="text-muted text-sm mb-1">{product.description}</Text>
-                  )}
-                  <View className="flex-row gap-4 mt-2">
-                    <Text className="text-muted text-xs">
-                      Unidade: <Text className="text-foreground">{product.unit}</Text>
-                    </Text>
-                    <Text className="text-muted text-xs">
-                      Mín: <Text className="text-foreground">{product.minQuantity}</Text>
-                    </Text>
-                  </View>
-                </View>
-                <View className="flex-row gap-2">
-                  <TouchableOpacity
-                    className="p-2"
-                    onPress={() => openEdit(product)}
-                  >
-                    <Pencil size={18} color={successColor} />
-                  </TouchableOpacity>
-                  {product.isActive && (
-                    <TouchableOpacity
-                      className="p-2"
-                      onPress={() => handleDelete(product)}
-                    >
-                      <Trash2 size={18} color={dangerColor} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            </Surface>
-          ))
-        )}
-        <View className="h-8" />
-      </ScrollView>
-
-      {/* Form Modal */}
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View className="flex-1 bg-black/50 justify-end">
-          <Surface variant="primary" className="rounded-t-xl p-4 pb-8">
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-foreground text-lg font-semibold">
-                {editingProduct ? "Editar Produto" : "Novo Produto"}
-              </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <X size={24} color="#888" />
-              </TouchableOpacity>
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogHeader>
+          <DialogTitle>Novo Produto</DialogTitle>
+          <DialogDescription>Preencha os dados do produto</DialogDescription>
+        </DialogHeader>
+        <View className="gap-3 mt-3">
+          <View className="gap-1">
+            <Label>Nome</Label>
+            <Input value={formData.name} onChangeText={(t) => setFormData((f) => ({ ...f, name: t }))} />
+          </View>
+          <View className="gap-1">
+            <Label>Descrição</Label>
+            <Input value={formData.description} onChangeText={(t) => setFormData((f) => ({ ...f, description: t }))} />
+          </View>
+          <View className="flex-row gap-3">
+            <View className="flex-1 gap-1">
+              <Label>Unidade</Label>
+              <Input value={formData.unit} onChangeText={(t) => setFormData((f) => ({ ...f, unit: t }))} placeholder="un, kg, l..." />
             </View>
-
-            <View className="gap-4">
-              <View>
-                <Text className="text-muted text-xs mb-1">Nome *</Text>
-                <TextInput
-                  className="bg-default/20 text-foreground rounded-lg px-3 py-3"
-                  placeholder="Nome do produto"
-                  placeholderTextColor="#888"
-                  value={formData.name}
-                  onChangeText={(text) => setFormData({ ...formData, name: text })}
-                />
-              </View>
-
-              <View>
-                <Text className="text-muted text-xs mb-1">Descrição</Text>
-                <TextInput
-                  className="bg-default/20 text-foreground rounded-lg px-3 py-3"
-                  placeholder="Descrição (opcional)"
-                  placeholderTextColor="#888"
-                  value={formData.description}
-                  onChangeText={(text) => setFormData({ ...formData, description: text })}
-                />
-              </View>
-
-              <View className="flex-row gap-4">
-                <View className="flex-1">
-                  <Text className="text-muted text-xs mb-1">Unidade</Text>
-                  <TextInput
-                    className="bg-default/20 text-foreground rounded-lg px-3 py-3"
-                    placeholder="un, kg, l..."
-                    placeholderTextColor="#888"
-                    value={formData.unit}
-                    onChangeText={(text) => setFormData({ ...formData, unit: text })}
-                  />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-muted text-xs mb-1">Qtd. Mínima</Text>
-                  <TextInput
-                    className="bg-default/20 text-foreground rounded-lg px-3 py-3"
-                    placeholder="0"
-                    placeholderTextColor="#888"
-                    keyboardType="numeric"
-                    value={formData.minQuantity}
-                    onChangeText={(text) => setFormData({ ...formData, minQuantity: text })}
-                  />
-                </View>
-              </View>
-
-              <Button variant="primary" onPress={handleSave}>
-                <Button.Label>{editingProduct ? "Salvar" : "Criar"}</Button.Label>
-              </Button>
+            <View className="flex-1 gap-1">
+              <Label>Qtd. Mínima</Label>
+              <Input value={formData.minQuantity} onChangeText={(t) => setFormData((f) => ({ ...f, minQuantity: t }))} keyboardType="numeric" />
             </View>
-          </Surface>
+          </View>
         </View>
-      </Modal>
-    </>
+        <DialogFooter>
+          <Button variant="outline" onPress={() => setIsCreateOpen(false)}>
+            <ButtonText variant="outline">Cancelar</ButtonText>
+          </Button>
+          <Button onPress={handleCreate}>
+            <ButtonText>Criar</ButtonText>
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog open={!!editingProduct} onOpenChange={(open) => !open && setEditingProduct(null)}>
+        <DialogHeader>
+          <DialogTitle>Editar Produto</DialogTitle>
+          <DialogDescription>Atualize os dados do produto</DialogDescription>
+        </DialogHeader>
+        <View className="gap-3 mt-3">
+          <View className="gap-1">
+            <Label>Nome</Label>
+            <Input value={formData.name} onChangeText={(t) => setFormData((f) => ({ ...f, name: t }))} />
+          </View>
+          <View className="gap-1">
+            <Label>Descrição</Label>
+            <Input value={formData.description} onChangeText={(t) => setFormData((f) => ({ ...f, description: t }))} />
+          </View>
+          <View className="flex-row gap-3">
+            <View className="flex-1 gap-1">
+              <Label>Unidade</Label>
+              <Input value={formData.unit} onChangeText={(t) => setFormData((f) => ({ ...f, unit: t }))} />
+            </View>
+            <View className="flex-1 gap-1">
+              <Label>Qtd. Mínima</Label>
+              <Input value={formData.minQuantity} onChangeText={(t) => setFormData((f) => ({ ...f, minQuantity: t }))} keyboardType="numeric" />
+            </View>
+          </View>
+        </View>
+        <DialogFooter>
+          <Button variant="outline" onPress={() => setEditingProduct(null)}>
+            <ButtonText variant="outline">Cancelar</ButtonText>
+          </Button>
+          <Button onPress={handleUpdate}>
+            <ButtonText>Salvar</ButtonText>
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Lista de Produtos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!products ? (
+            <ActivityIndicator />
+          ) : products.length === 0 ? (
+            <Text className="text-muted-foreground">Nenhum produto cadastrado</Text>
+          ) : (
+            <View className="gap-3">
+              {products.map((product) => (
+                <View key={product._id} className="flex-row items-center justify-between rounded-lg border border-border p-3">
+                  <View className="flex-1">
+                    <Text className="text-foreground font-medium">{product.name}</Text>
+                    <Text className="text-muted-foreground text-xs mt-0.5">
+                      {product.unit} • Mín: {product.minQuantity}
+                    </Text>
+                    {product.description ? (
+                      <Text className="text-muted-foreground text-xs mt-0.5">{product.description}</Text>
+                    ) : null}
+                  </View>
+                  <View className="flex-row items-center gap-2">
+                    <Badge variant={product.isActive ? "success" : "secondary"}>
+                      {product.isActive ? "Ativo" : "Inativo"}
+                    </Badge>
+                    <Pressable onPress={() => openEdit(product)} className="p-2">
+                      <Pencil size={16} color="#666" />
+                    </Pressable>
+                    {product.isActive && (
+                      <Pressable onPress={() => handleDelete(product._id)} className="p-2">
+                        <Trash2 size={16} color="#ef4444" />
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </CardContent>
+      </Card>
+    </View>
   );
 }

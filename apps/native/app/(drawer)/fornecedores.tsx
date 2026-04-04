@@ -1,43 +1,36 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
-import { Link } from "expo-router";
-import { Button, Chip, Spinner, Surface, useThemeColor } from "heroui-native";
-import { Lock, Users, Plus, Pencil, Trash2, X } from "lucide-react-native";
+import { Plus, Pencil, Trash2, Lock } from "lucide-react-native";
 import { useState } from "react";
-import {
-  Alert,
-  Modal,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
+import { Link } from "expo-router";
 
 import { Container } from "@/components/container";
+import { Button, ButtonText } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function FornecedoresScreen() {
   return (
-    <Container className="p-4">
+    <Container className="px-5 pt-4 pb-4">
       <Authenticated>
         <FornecedoresContent />
       </Authenticated>
       <Unauthenticated>
-        <Surface variant="secondary" className="p-6 rounded-lg items-center">
+        <Card className="p-6 items-center">
           <Lock size={48} color="#888" />
           <Text className="text-foreground font-medium mt-4">Acesso Restrito</Text>
+          <Text className="text-muted-foreground text-sm text-center mt-2">Faça login para acessar</Text>
           <Link href="/(auth)/sign-in" asChild>
-            <Button variant="primary" className="mt-4">
-              <Button.Label>Entrar</Button.Label>
-            </Button>
+            <Button className="mt-4"><ButtonText>Entrar</ButtonText></Button>
           </Link>
-        </Surface>
+        </Card>
       </Unauthenticated>
       <AuthLoading>
-        <View className="flex-1 items-center justify-center">
-          <Spinner size="lg" />
-        </View>
+        <View className="flex-1 items-center justify-center"><ActivityIndicator size="large" /></View>
       </AuthLoading>
     </Container>
   );
@@ -49,8 +42,9 @@ function FornecedoresContent() {
   const updateSupplier = useMutation(api.suppliers.update);
   const removeSupplier = useMutation(api.suppliers.remove);
 
-  const [modalVisible, setModalVisible] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<any>(null);
+
   const [formData, setFormData] = useState({
     name: "",
     contactName: "",
@@ -59,17 +53,59 @@ function FornecedoresContent() {
     address: "",
   });
 
-  const successColor = useThemeColor("success");
-  const dangerColor = useThemeColor("danger");
-
   const resetForm = () => {
     setFormData({ name: "", contactName: "", email: "", phone: "", address: "" });
-    setEditingSupplier(null);
   };
 
-  const openCreate = () => {
-    resetForm();
-    setModalVisible(true);
+  const handleCreate = async () => {
+    try {
+      await createSupplier({
+        name: formData.name,
+        contactName: formData.contactName || undefined,
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        address: formData.address || undefined,
+      });
+      setIsCreateOpen(false);
+      resetForm();
+    } catch (error) {
+      Alert.alert("Erro", "Erro ao criar fornecedor");
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!editingSupplier) return;
+    try {
+      await updateSupplier({
+        id: editingSupplier._id,
+        name: formData.name,
+        contactName: formData.contactName || undefined,
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        address: formData.address || undefined,
+      });
+      setEditingSupplier(null);
+      resetForm();
+    } catch (error) {
+      Alert.alert("Erro", "Erro ao atualizar fornecedor");
+    }
+  };
+
+  const handleDelete = (id: any) => {
+    Alert.alert("Confirmar", "Deseja realmente desativar este fornecedor?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Desativar",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await removeSupplier({ id });
+          } catch (error) {
+            Alert.alert("Erro", "Erro ao desativar fornecedor");
+          }
+        },
+      },
+    ]);
   };
 
   const openEdit = (supplier: any) => {
@@ -81,231 +117,136 @@ function FornecedoresContent() {
       phone: supplier.phone || "",
       address: supplier.address || "",
     });
-    setModalVisible(true);
   };
-
-  const handleSave = async () => {
-    if (!formData.name.trim()) {
-      Alert.alert("Erro", "Nome é obrigatório");
-      return;
-    }
-
-    try {
-      if (editingSupplier) {
-        await updateSupplier({
-          id: editingSupplier._id,
-          name: formData.name,
-          contactName: formData.contactName || undefined,
-          email: formData.email || undefined,
-          phone: formData.phone || undefined,
-          address: formData.address || undefined,
-        });
-        Alert.alert("Sucesso", "Fornecedor atualizado");
-      } else {
-        await createSupplier({
-          name: formData.name,
-          contactName: formData.contactName || undefined,
-          email: formData.email || undefined,
-          phone: formData.phone || undefined,
-          address: formData.address || undefined,
-        });
-        Alert.alert("Sucesso", "Fornecedor criado");
-      }
-      setModalVisible(false);
-      resetForm();
-    } catch (error: any) {
-      Alert.alert("Erro", error.message || "Erro ao salvar");
-    }
-  };
-
-  const handleDelete = (supplier: any) => {
-    Alert.alert(
-      "Desativar Fornecedor",
-      `Deseja desativar "${supplier.name}"?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Desativar",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await removeSupplier({ id: supplier._id });
-              Alert.alert("Sucesso", "Fornecedor desativado");
-            } catch (error: any) {
-              Alert.alert("Erro", error.message || "Erro ao desativar");
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  if (!suppliers) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Spinner size="lg" />
-      </View>
-    );
-  }
 
   return (
-    <>
-      <View className="flex-row items-center justify-between mb-4">
+    <View className="gap-4">
+      <View className="flex-row items-center justify-between">
         <View>
-          <Text className="text-xl font-semibold text-foreground">Fornecedores</Text>
-          <Text className="text-muted text-sm">{suppliers.length} cadastrados</Text>
+          <Text className="text-2xl font-bold text-foreground">Fornecedores</Text>
+          <Text className="text-muted-foreground text-sm">Gerencie os fornecedores</Text>
         </View>
-        <Button variant="primary" onPress={openCreate}>
-          <Plus size={18} color="white" />
-          <Button.Label>Novo</Button.Label>
+        <Button onPress={() => { resetForm(); setIsCreateOpen(true); }}>
+          <View className="flex-row items-center gap-1">
+            <Plus size={16} color="#fff" />
+            <ButtonText>Novo</ButtonText>
+          </View>
         </Button>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {suppliers.length === 0 ? (
-          <Surface variant="secondary" className="p-8 rounded-lg items-center">
-            <Users size={48} color="#888" />
-            <Text className="text-foreground font-medium mt-4">Nenhum Fornecedor</Text>
-            <Text className="text-muted text-sm text-center mt-2">
-              Cadastre o primeiro fornecedor
-            </Text>
-          </Surface>
-        ) : (
-          suppliers.map((supplier: any) => (
-            <Surface key={supplier._id} variant="secondary" className="mb-3 rounded-lg p-4">
-              <View className="flex-row items-start justify-between">
-                <View className="flex-1">
-                  <View className="flex-row items-center gap-2 mb-1">
-                    <Text className="text-foreground font-semibold">{supplier.name}</Text>
-                    <Chip
-                      variant="secondary"
-                      color={supplier.isActive ? "success" : "default"}
-                      size="sm"
-                    >
-                      <Chip.Label>{supplier.isActive ? "Ativo" : "Inativo"}</Chip.Label>
-                    </Chip>
-                  </View>
-                  {supplier.contactName && (
-                    <Text className="text-muted text-sm">{supplier.contactName}</Text>
-                  )}
-                  <View className="mt-2 gap-1">
-                    {supplier.email && (
-                      <Text className="text-muted text-xs">{supplier.email}</Text>
-                    )}
-                    {supplier.phone && (
-                      <Text className="text-muted text-xs">{supplier.phone}</Text>
-                    )}
-                  </View>
-                </View>
-                <View className="flex-row gap-2">
-                  <TouchableOpacity
-                    className="p-2"
-                    onPress={() => openEdit(supplier)}
-                  >
-                    <Pencil size={18} color={successColor} />
-                  </TouchableOpacity>
-                  {supplier.isActive && (
-                    <TouchableOpacity
-                      className="p-2"
-                      onPress={() => handleDelete(supplier)}
-                    >
-                      <Trash2 size={18} color={dangerColor} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            </Surface>
-          ))
-        )}
-        <View className="h-8" />
-      </ScrollView>
-
-      {/* Form Modal */}
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View className="flex-1 bg-black/50 justify-end">
-          <Surface variant="primary" className="rounded-t-xl p-4 pb-8">
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-foreground text-lg font-semibold">
-                {editingSupplier ? "Editar Fornecedor" : "Novo Fornecedor"}
-              </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <X size={24} color="#888" />
-              </TouchableOpacity>
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogHeader>
+          <DialogTitle>Novo Fornecedor</DialogTitle>
+          <DialogDescription>Preencha os dados do fornecedor</DialogDescription>
+        </DialogHeader>
+        <View className="gap-3 mt-3">
+          <View className="gap-1">
+            <Label>Nome da Empresa</Label>
+            <Input value={formData.name} onChangeText={(t) => setFormData((f) => ({ ...f, name: t }))} />
+          </View>
+          <View className="gap-1">
+            <Label>Nome do Contato</Label>
+            <Input value={formData.contactName} onChangeText={(t) => setFormData((f) => ({ ...f, contactName: t }))} />
+          </View>
+          <View className="flex-row gap-3">
+            <View className="flex-1 gap-1">
+              <Label>Email</Label>
+              <Input value={formData.email} onChangeText={(t) => setFormData((f) => ({ ...f, email: t }))} keyboardType="email-address" />
             </View>
-
-            <ScrollView className="max-h-96">
-              <View className="gap-4">
-                <View>
-                  <Text className="text-muted text-xs mb-1">Nome da Empresa *</Text>
-                  <TextInput
-                    className="bg-default/20 text-foreground rounded-lg px-3 py-3"
-                    placeholder="Nome da empresa"
-                    placeholderTextColor="#888"
-                    value={formData.name}
-                    onChangeText={(text) => setFormData({ ...formData, name: text })}
-                  />
-                </View>
-
-                <View>
-                  <Text className="text-muted text-xs mb-1">Nome do Contato</Text>
-                  <TextInput
-                    className="bg-default/20 text-foreground rounded-lg px-3 py-3"
-                    placeholder="Nome do contato"
-                    placeholderTextColor="#888"
-                    value={formData.contactName}
-                    onChangeText={(text) => setFormData({ ...formData, contactName: text })}
-                  />
-                </View>
-
-                <View>
-                  <Text className="text-muted text-xs mb-1">Email</Text>
-                  <TextInput
-                    className="bg-default/20 text-foreground rounded-lg px-3 py-3"
-                    placeholder="email@exemplo.com"
-                    placeholderTextColor="#888"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    value={formData.email}
-                    onChangeText={(text) => setFormData({ ...formData, email: text })}
-                  />
-                </View>
-
-                <View>
-                  <Text className="text-muted text-xs mb-1">Telefone</Text>
-                  <TextInput
-                    className="bg-default/20 text-foreground rounded-lg px-3 py-3"
-                    placeholder="(00) 00000-0000"
-                    placeholderTextColor="#888"
-                    keyboardType="phone-pad"
-                    value={formData.phone}
-                    onChangeText={(text) => setFormData({ ...formData, phone: text })}
-                  />
-                </View>
-
-                <View>
-                  <Text className="text-muted text-xs mb-1">Endereço</Text>
-                  <TextInput
-                    className="bg-default/20 text-foreground rounded-lg px-3 py-3"
-                    placeholder="Endereço completo"
-                    placeholderTextColor="#888"
-                    value={formData.address}
-                    onChangeText={(text) => setFormData({ ...formData, address: text })}
-                  />
-                </View>
-
-                <Button variant="primary" onPress={handleSave}>
-                  <Button.Label>{editingSupplier ? "Salvar" : "Criar"}</Button.Label>
-                </Button>
-              </View>
-            </ScrollView>
-          </Surface>
+            <View className="flex-1 gap-1">
+              <Label>Telefone</Label>
+              <Input value={formData.phone} onChangeText={(t) => setFormData((f) => ({ ...f, phone: t }))} keyboardType="phone-pad" />
+            </View>
+          </View>
+          <View className="gap-1">
+            <Label>Endereço</Label>
+            <Input value={formData.address} onChangeText={(t) => setFormData((f) => ({ ...f, address: t }))} />
+          </View>
         </View>
-      </Modal>
-    </>
+        <DialogFooter>
+          <Button variant="outline" onPress={() => setIsCreateOpen(false)}>
+            <ButtonText variant="outline">Cancelar</ButtonText>
+          </Button>
+          <Button onPress={handleCreate}><ButtonText>Criar</ButtonText></Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog open={!!editingSupplier} onOpenChange={(open) => !open && setEditingSupplier(null)}>
+        <DialogHeader>
+          <DialogTitle>Editar Fornecedor</DialogTitle>
+          <DialogDescription>Atualize os dados do fornecedor</DialogDescription>
+        </DialogHeader>
+        <View className="gap-3 mt-3">
+          <View className="gap-1">
+            <Label>Nome da Empresa</Label>
+            <Input value={formData.name} onChangeText={(t) => setFormData((f) => ({ ...f, name: t }))} />
+          </View>
+          <View className="gap-1">
+            <Label>Nome do Contato</Label>
+            <Input value={formData.contactName} onChangeText={(t) => setFormData((f) => ({ ...f, contactName: t }))} />
+          </View>
+          <View className="flex-row gap-3">
+            <View className="flex-1 gap-1">
+              <Label>Email</Label>
+              <Input value={formData.email} onChangeText={(t) => setFormData((f) => ({ ...f, email: t }))} keyboardType="email-address" />
+            </View>
+            <View className="flex-1 gap-1">
+              <Label>Telefone</Label>
+              <Input value={formData.phone} onChangeText={(t) => setFormData((f) => ({ ...f, phone: t }))} keyboardType="phone-pad" />
+            </View>
+          </View>
+          <View className="gap-1">
+            <Label>Endereço</Label>
+            <Input value={formData.address} onChangeText={(t) => setFormData((f) => ({ ...f, address: t }))} />
+          </View>
+        </View>
+        <DialogFooter>
+          <Button variant="outline" onPress={() => setEditingSupplier(null)}>
+            <ButtonText variant="outline">Cancelar</ButtonText>
+          </Button>
+          <Button onPress={handleUpdate}><ButtonText>Salvar</ButtonText></Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Card>
+        <CardHeader><CardTitle>Lista de Fornecedores</CardTitle></CardHeader>
+        <CardContent>
+          {!suppliers ? (
+            <ActivityIndicator />
+          ) : suppliers.length === 0 ? (
+            <Text className="text-muted-foreground">Nenhum fornecedor cadastrado</Text>
+          ) : (
+            <View className="gap-3">
+              {suppliers.map((supplier) => (
+                <View key={supplier._id} className="flex-row items-center justify-between rounded-lg border border-border p-3">
+                  <View className="flex-1">
+                    <Text className="text-foreground font-medium">{supplier.name}</Text>
+                    <Text className="text-muted-foreground text-xs mt-0.5">
+                      {supplier.contactName || "Sem contato"} • {supplier.email || "Sem email"}
+                    </Text>
+                    {supplier.phone ? (
+                      <Text className="text-muted-foreground text-xs mt-0.5">{supplier.phone}</Text>
+                    ) : null}
+                  </View>
+                  <View className="flex-row items-center gap-2">
+                    <Badge variant={supplier.isActive ? "success" : "secondary"}>
+                      {supplier.isActive ? "Ativo" : "Inativo"}
+                    </Badge>
+                    <Pressable onPress={() => openEdit(supplier)} className="p-2">
+                      <Pencil size={16} color="#666" />
+                    </Pressable>
+                    {supplier.isActive && (
+                      <Pressable onPress={() => handleDelete(supplier._id)} className="p-2">
+                        <Trash2 size={16} color="#ef4444" />
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </CardContent>
+      </Card>
+    </View>
   );
 }
