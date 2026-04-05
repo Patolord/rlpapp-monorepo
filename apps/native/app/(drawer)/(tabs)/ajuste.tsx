@@ -8,9 +8,9 @@ import { Container } from "@/components/container";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-export default function AjustesScreen() {
+export default function AjusteTab() {
   return (
-    <Container className="px-5 pt-4 pb-4">
+    <Container className="px-5 pt-4 pb-24">
       <Authenticated>
         <InventoryAjustesContent />
       </Authenticated>
