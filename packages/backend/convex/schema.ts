@@ -41,6 +41,59 @@ export const costSource = v.union(
   v.literal("unknown")
 );
 
+// --- Financeiro validators ---
+
+export const contaPagarStatus = v.union(
+  v.literal("Pendente"),
+  v.literal("Aprovado"),
+  v.literal("Pago"),
+  v.literal("Vencido"),
+  v.literal("Cancelado")
+);
+
+export const formaPagamento = v.union(
+  v.literal("pix"),
+  v.literal("ted"),
+  v.literal("boleto"),
+  v.literal("dinheiro"),
+  v.literal("cartao")
+);
+
+export const categoriaTipo = v.union(
+  v.literal("despesa"),
+  v.literal("receita"),
+  v.literal("ambos")
+);
+
+export const tipoConta = v.union(
+  v.literal("corrente"),
+  v.literal("poupanca")
+);
+
+export const aprovacaoStatus = v.union(
+  v.literal("aprovado"),
+  v.literal("rejeitado")
+);
+
+export const contaReceberStatus = v.union(
+  v.literal("Emitido"),
+  v.literal("Parcial"),
+  v.literal("Recebido"),
+  v.literal("Vencido"),
+  v.literal("Cancelado")
+);
+
+export const transacaoTipo = v.union(
+  v.literal("credito"),
+  v.literal("debito")
+);
+
+export const conciliacaoStatus = v.union(
+  v.literal("pendente"),
+  v.literal("conciliado"),
+  v.literal("ignorado")
+);
+
 // User roles
 export const userRoles = v.union(
   v.literal("director"),
@@ -182,4 +235,122 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_product", ["productId"]),
+
+  // --- Financeiro tables ---
+
+  contasBancarias: defineTable({
+    nome: v.string(),
+    banco: v.string(),
+    agencia: v.string(),
+    conta: v.string(),
+    tipo: tipoConta,
+    saldoInicial: v.number(),
+    isActive: v.boolean(),
+  })
+    .index("by_active", ["isActive"]),
+
+  categoriasFinanceiras: defineTable({
+    nome: v.string(),
+    tipo: categoriaTipo,
+    cor: v.optional(v.string()),
+    icone: v.optional(v.string()),
+    isActive: v.boolean(),
+  })
+    .index("by_tipo", ["tipo"])
+    .index("by_active", ["isActive"]),
+
+  contasPagar: defineTable({
+    descricao: v.string(),
+    valor: v.number(),
+    dataVencimento: v.number(),
+    dataPagamento: v.optional(v.number()),
+    dataCompetencia: v.number(),
+    status: contaPagarStatus,
+    categoriaId: v.optional(v.id("categoriasFinanceiras")),
+    fornecedorId: v.optional(v.id("suppliers")),
+    contaBancariaId: v.optional(v.id("contasBancarias")),
+    formaPagamento: v.optional(formaPagamento),
+    recorrente: v.optional(v.boolean()),
+    observacoes: v.optional(v.string()),
+    userId: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_vencimento", ["dataVencimento"])
+    .index("by_categoria", ["categoriaId"])
+    .index("by_fornecedor", ["fornecedorId"])
+    .index("by_created", ["createdAt"]),
+
+  aprovacoes: defineTable({
+    contaPagarId: v.id("contasPagar"),
+    aprovadorId: v.string(),
+    status: aprovacaoStatus,
+    observacao: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_conta", ["contaPagarId"]),
+
+  clientes: defineTable({
+    nome: v.string(),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    documento: v.optional(v.string()),
+    endereco: v.optional(v.string()),
+    isActive: v.boolean(),
+  })
+    .index("by_name", ["nome"])
+    .index("by_active", ["isActive"]),
+
+  contasReceber: defineTable({
+    descricao: v.string(),
+    valor: v.number(),
+    valorRecebido: v.number(),
+    dataVencimento: v.number(),
+    dataRecebimento: v.optional(v.number()),
+    dataCompetencia: v.number(),
+    dataEmissao: v.number(),
+    status: contaReceberStatus,
+    categoriaId: v.optional(v.id("categoriasFinanceiras")),
+    clienteId: v.optional(v.id("clientes")),
+    contaBancariaId: v.optional(v.id("contasBancarias")),
+    formaPagamento: v.optional(formaPagamento),
+    notaFiscal: v.optional(v.string()),
+    observacoes: v.optional(v.string()),
+    userId: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_vencimento", ["dataVencimento"])
+    .index("by_cliente", ["clienteId"])
+    .index("by_categoria", ["categoriaId"])
+    .index("by_created", ["createdAt"]),
+
+  transacoesBancarias: defineTable({
+    contaBancariaId: v.id("contasBancarias"),
+    data: v.number(),
+    descricao: v.string(),
+    valor: v.number(),
+    tipo: transacaoTipo,
+    conciliacaoStatus: conciliacaoStatus,
+    observacoes: v.optional(v.string()),
+    userId: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_conta", ["contaBancariaId"])
+    .index("by_data", ["data"])
+    .index("by_status", ["conciliacaoStatus"])
+    .index("by_created", ["createdAt"]),
+
+  conciliacoes: defineTable({
+    transacaoBancariaId: v.id("transacoesBancarias"),
+    contaPagarId: v.optional(v.id("contasPagar")),
+    contaReceberId: v.optional(v.id("contasReceber")),
+    userId: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_transacao", ["transacaoBancariaId"])
+    .index("by_contaPagar", ["contaPagarId"])
+    .index("by_contaReceber", ["contaReceberId"]),
 });

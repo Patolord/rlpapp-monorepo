@@ -19,6 +19,11 @@ import {
   HardHat,
   Home,
   Building2,
+  Tag,
+  Landmark,
+  UserCheck,
+  GitCompareArrows,
+  BarChart3,
   type LucideIcon,
 } from "lucide-react";
 
@@ -94,6 +99,13 @@ const departmentSections: DepartmentSection[] = [
     basePath: "/financeiro",
     items: [
       { to: "/financeiro", label: "Dashboard", icon: LayoutDashboard, exact: true },
+      { to: "/financeiro/contas-pagar", label: "Contas a Pagar", icon: ArrowUpFromLine },
+      { to: "/financeiro/contas-receber", label: "Contas a Receber", icon: ArrowDownToLine },
+      { to: "/financeiro/clientes", label: "Clientes", icon: UserCheck },
+      { to: "/financeiro/conciliacao", label: "Conciliação", icon: GitCompareArrows },
+      { to: "/financeiro/relatorios", label: "Relatórios", icon: BarChart3 },
+      { to: "/financeiro/categorias", label: "Categorias", icon: Tag },
+      { to: "/financeiro/contas-bancarias", label: "Contas Bancárias", icon: Landmark },
     ],
   },
   {

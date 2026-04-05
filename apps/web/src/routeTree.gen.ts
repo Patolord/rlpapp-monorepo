@@ -22,6 +22,13 @@ import { Route as EstoqueIndexRouteImport } from './routes/estoque/index'
 import { Route as EngenhariaIndexRouteImport } from './routes/engenharia/index'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as WebsiteIndexRouteImport } from './routes/_website/index'
+import { Route as FinanceiroRelatoriosRouteImport } from './routes/financeiro/relatorios'
+import { Route as FinanceiroContasReceberRouteImport } from './routes/financeiro/contas-receber'
+import { Route as FinanceiroContasPagarRouteImport } from './routes/financeiro/contas-pagar'
+import { Route as FinanceiroContasBancariasRouteImport } from './routes/financeiro/contas-bancarias'
+import { Route as FinanceiroConciliacaoRouteImport } from './routes/financeiro/conciliacao'
+import { Route as FinanceiroClientesRouteImport } from './routes/financeiro/clientes'
+import { Route as FinanceiroCategoriasRouteImport } from './routes/financeiro/categorias'
 import { Route as EstoqueSitesRouteImport } from './routes/estoque/sites'
 import { Route as EstoqueSaidaRouteImport } from './routes/estoque/saida'
 import { Route as EstoqueProdutosRouteImport } from './routes/estoque/produtos'
@@ -100,6 +107,42 @@ const WebsiteIndexRoute = WebsiteIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => WebsiteRoute,
+} as any)
+const FinanceiroRelatoriosRoute = FinanceiroRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
+  getParentRoute: () => FinanceiroRouteRoute,
+} as any)
+const FinanceiroContasReceberRoute = FinanceiroContasReceberRouteImport.update({
+  id: '/contas-receber',
+  path: '/contas-receber',
+  getParentRoute: () => FinanceiroRouteRoute,
+} as any)
+const FinanceiroContasPagarRoute = FinanceiroContasPagarRouteImport.update({
+  id: '/contas-pagar',
+  path: '/contas-pagar',
+  getParentRoute: () => FinanceiroRouteRoute,
+} as any)
+const FinanceiroContasBancariasRoute =
+  FinanceiroContasBancariasRouteImport.update({
+    id: '/contas-bancarias',
+    path: '/contas-bancarias',
+    getParentRoute: () => FinanceiroRouteRoute,
+  } as any)
+const FinanceiroConciliacaoRoute = FinanceiroConciliacaoRouteImport.update({
+  id: '/conciliacao',
+  path: '/conciliacao',
+  getParentRoute: () => FinanceiroRouteRoute,
+} as any)
+const FinanceiroClientesRoute = FinanceiroClientesRouteImport.update({
+  id: '/clientes',
+  path: '/clientes',
+  getParentRoute: () => FinanceiroRouteRoute,
+} as any)
+const FinanceiroCategoriasRoute = FinanceiroCategoriasRouteImport.update({
+  id: '/categorias',
+  path: '/categorias',
+  getParentRoute: () => FinanceiroRouteRoute,
 } as any)
 const EstoqueSitesRoute = EstoqueSitesRouteImport.update({
   id: '/sites',
@@ -193,6 +236,13 @@ export interface FileRoutesByFullPath {
   '/estoque/produtos': typeof EstoqueProdutosRoute
   '/estoque/saida': typeof EstoqueSaidaRoute
   '/estoque/sites': typeof EstoqueSitesRoute
+  '/financeiro/categorias': typeof FinanceiroCategoriasRoute
+  '/financeiro/clientes': typeof FinanceiroClientesRoute
+  '/financeiro/conciliacao': typeof FinanceiroConciliacaoRoute
+  '/financeiro/contas-bancarias': typeof FinanceiroContasBancariasRoute
+  '/financeiro/contas-pagar': typeof FinanceiroContasPagarRoute
+  '/financeiro/contas-receber': typeof FinanceiroContasReceberRoute
+  '/financeiro/relatorios': typeof FinanceiroRelatoriosRoute
   '/app/': typeof AppIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
   '/estoque/': typeof EstoqueIndexRoute
@@ -215,6 +265,13 @@ export interface FileRoutesByTo {
   '/estoque/produtos': typeof EstoqueProdutosRoute
   '/estoque/saida': typeof EstoqueSaidaRoute
   '/estoque/sites': typeof EstoqueSitesRoute
+  '/financeiro/categorias': typeof FinanceiroCategoriasRoute
+  '/financeiro/clientes': typeof FinanceiroClientesRoute
+  '/financeiro/conciliacao': typeof FinanceiroConciliacaoRoute
+  '/financeiro/contas-bancarias': typeof FinanceiroContasBancariasRoute
+  '/financeiro/contas-pagar': typeof FinanceiroContasPagarRoute
+  '/financeiro/contas-receber': typeof FinanceiroContasReceberRoute
+  '/financeiro/relatorios': typeof FinanceiroRelatoriosRoute
   '/': typeof WebsiteIndexRoute
   '/app': typeof AppIndexRoute
   '/engenharia': typeof EngenhariaIndexRoute
@@ -245,6 +302,13 @@ export interface FileRoutesById {
   '/estoque/produtos': typeof EstoqueProdutosRoute
   '/estoque/saida': typeof EstoqueSaidaRoute
   '/estoque/sites': typeof EstoqueSitesRoute
+  '/financeiro/categorias': typeof FinanceiroCategoriasRoute
+  '/financeiro/clientes': typeof FinanceiroClientesRoute
+  '/financeiro/conciliacao': typeof FinanceiroConciliacaoRoute
+  '/financeiro/contas-bancarias': typeof FinanceiroContasBancariasRoute
+  '/financeiro/contas-pagar': typeof FinanceiroContasPagarRoute
+  '/financeiro/contas-receber': typeof FinanceiroContasReceberRoute
+  '/financeiro/relatorios': typeof FinanceiroRelatoriosRoute
   '/_website/': typeof WebsiteIndexRoute
   '/app/': typeof AppIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
@@ -276,6 +340,13 @@ export interface FileRouteTypes {
     | '/estoque/produtos'
     | '/estoque/saida'
     | '/estoque/sites'
+    | '/financeiro/categorias'
+    | '/financeiro/clientes'
+    | '/financeiro/conciliacao'
+    | '/financeiro/contas-bancarias'
+    | '/financeiro/contas-pagar'
+    | '/financeiro/contas-receber'
+    | '/financeiro/relatorios'
     | '/app/'
     | '/engenharia/'
     | '/estoque/'
@@ -298,6 +369,13 @@ export interface FileRouteTypes {
     | '/estoque/produtos'
     | '/estoque/saida'
     | '/estoque/sites'
+    | '/financeiro/categorias'
+    | '/financeiro/clientes'
+    | '/financeiro/conciliacao'
+    | '/financeiro/contas-bancarias'
+    | '/financeiro/contas-pagar'
+    | '/financeiro/contas-receber'
+    | '/financeiro/relatorios'
     | '/'
     | '/app'
     | '/engenharia'
@@ -327,6 +405,13 @@ export interface FileRouteTypes {
     | '/estoque/produtos'
     | '/estoque/saida'
     | '/estoque/sites'
+    | '/financeiro/categorias'
+    | '/financeiro/clientes'
+    | '/financeiro/conciliacao'
+    | '/financeiro/contas-bancarias'
+    | '/financeiro/contas-pagar'
+    | '/financeiro/contas-receber'
+    | '/financeiro/relatorios'
     | '/_website/'
     | '/app/'
     | '/engenharia/'
@@ -439,6 +524,55 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof WebsiteIndexRouteImport
       parentRoute: typeof WebsiteRoute
+    }
+    '/financeiro/relatorios': {
+      id: '/financeiro/relatorios'
+      path: '/relatorios'
+      fullPath: '/financeiro/relatorios'
+      preLoaderRoute: typeof FinanceiroRelatoriosRouteImport
+      parentRoute: typeof FinanceiroRouteRoute
+    }
+    '/financeiro/contas-receber': {
+      id: '/financeiro/contas-receber'
+      path: '/contas-receber'
+      fullPath: '/financeiro/contas-receber'
+      preLoaderRoute: typeof FinanceiroContasReceberRouteImport
+      parentRoute: typeof FinanceiroRouteRoute
+    }
+    '/financeiro/contas-pagar': {
+      id: '/financeiro/contas-pagar'
+      path: '/contas-pagar'
+      fullPath: '/financeiro/contas-pagar'
+      preLoaderRoute: typeof FinanceiroContasPagarRouteImport
+      parentRoute: typeof FinanceiroRouteRoute
+    }
+    '/financeiro/contas-bancarias': {
+      id: '/financeiro/contas-bancarias'
+      path: '/contas-bancarias'
+      fullPath: '/financeiro/contas-bancarias'
+      preLoaderRoute: typeof FinanceiroContasBancariasRouteImport
+      parentRoute: typeof FinanceiroRouteRoute
+    }
+    '/financeiro/conciliacao': {
+      id: '/financeiro/conciliacao'
+      path: '/conciliacao'
+      fullPath: '/financeiro/conciliacao'
+      preLoaderRoute: typeof FinanceiroConciliacaoRouteImport
+      parentRoute: typeof FinanceiroRouteRoute
+    }
+    '/financeiro/clientes': {
+      id: '/financeiro/clientes'
+      path: '/clientes'
+      fullPath: '/financeiro/clientes'
+      preLoaderRoute: typeof FinanceiroClientesRouteImport
+      parentRoute: typeof FinanceiroRouteRoute
+    }
+    '/financeiro/categorias': {
+      id: '/financeiro/categorias'
+      path: '/categorias'
+      fullPath: '/financeiro/categorias'
+      preLoaderRoute: typeof FinanceiroCategoriasRouteImport
+      parentRoute: typeof FinanceiroRouteRoute
     }
     '/estoque/sites': {
       id: '/estoque/sites'
@@ -592,10 +726,24 @@ const EstoqueRouteRouteWithChildren = EstoqueRouteRoute._addFileChildren(
 )
 
 interface FinanceiroRouteRouteChildren {
+  FinanceiroCategoriasRoute: typeof FinanceiroCategoriasRoute
+  FinanceiroClientesRoute: typeof FinanceiroClientesRoute
+  FinanceiroConciliacaoRoute: typeof FinanceiroConciliacaoRoute
+  FinanceiroContasBancariasRoute: typeof FinanceiroContasBancariasRoute
+  FinanceiroContasPagarRoute: typeof FinanceiroContasPagarRoute
+  FinanceiroContasReceberRoute: typeof FinanceiroContasReceberRoute
+  FinanceiroRelatoriosRoute: typeof FinanceiroRelatoriosRoute
   FinanceiroIndexRoute: typeof FinanceiroIndexRoute
 }
 
 const FinanceiroRouteRouteChildren: FinanceiroRouteRouteChildren = {
+  FinanceiroCategoriasRoute: FinanceiroCategoriasRoute,
+  FinanceiroClientesRoute: FinanceiroClientesRoute,
+  FinanceiroConciliacaoRoute: FinanceiroConciliacaoRoute,
+  FinanceiroContasBancariasRoute: FinanceiroContasBancariasRoute,
+  FinanceiroContasPagarRoute: FinanceiroContasPagarRoute,
+  FinanceiroContasReceberRoute: FinanceiroContasReceberRoute,
+  FinanceiroRelatoriosRoute: FinanceiroRelatoriosRoute,
   FinanceiroIndexRoute: FinanceiroIndexRoute,
 }
 
