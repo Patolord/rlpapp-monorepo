@@ -94,6 +94,21 @@ export const conciliacaoStatus = v.union(
   v.literal("ignorado")
 );
 
+// --- Material request validators ---
+
+export const materialRequestStatus = v.union(
+  v.literal("Pendente"),
+  v.literal("Aprovado"),
+  v.literal("Rejeitado"),
+  v.literal("Convertido")
+);
+
+export const materialRequestUrgency = v.union(
+  v.literal("normal"),
+  v.literal("urgente"),
+  v.literal("critico")
+);
+
 // User roles
 export const userRoles = v.union(
   v.literal("director"),
@@ -185,6 +200,7 @@ export default defineSchema({
     status: shipmentStatus,
     toSiteId: v.id("sites"),
     notes: v.optional(v.string()),
+    qrCodeData: v.optional(v.string()),
     userId: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -235,6 +251,50 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_product", ["productId"]),
+
+  // --- Delivery confirmations ---
+
+  deliveryConfirmations: defineTable({
+    shipmentId: v.id("shipments"),
+    receiverName: v.string(),
+    receivedAtSiteId: v.id("sites"),
+    confirmedByUserId: v.string(),
+    confirmedAt: v.number(),
+    notes: v.optional(v.string()),
+  })
+    .index("by_shipment", ["shipmentId"])
+    .index("by_site", ["receivedAtSiteId"])
+    .index("by_confirmed", ["confirmedAt"])
+    .index("by_user", ["confirmedByUserId"]),
+
+  // --- Material requests ---
+
+  materialRequests: defineTable({
+    status: materialRequestStatus,
+    siteId: v.id("sites"),
+    reason: v.string(),
+    urgency: materialRequestUrgency,
+    dateNeeded: v.number(),
+    requestedByUserId: v.string(),
+    reviewedByUserId: v.optional(v.string()),
+    reviewNotes: v.optional(v.string()),
+    resultingShipmentId: v.optional(v.id("shipments")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_site", ["siteId"])
+    .index("by_urgency", ["urgency"])
+    .index("by_requested", ["requestedByUserId"])
+    .index("by_created", ["createdAt"]),
+
+  materialRequestLines: defineTable({
+    requestId: v.id("materialRequests"),
+    productId: v.id("products"),
+    qty: v.number(),
+    approvedQty: v.optional(v.number()),
+  })
+    .index("by_request", ["requestId"]),
 
   // --- Financeiro tables ---
 

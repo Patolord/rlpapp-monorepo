@@ -36,6 +36,59 @@ export const list = query({
   },
 });
 
+export const getById = query({
+  args: { shipmentId: v.id("shipments") },
+  handler: async (ctx, args) => {
+    const shipment = await ctx.db.get(args.shipmentId);
+    if (!shipment) return null;
+
+    const lines = await ctx.db
+      .query("shipmentLines")
+      .withIndex("by_shipment", (q) => q.eq("shipmentId", shipment._id))
+      .collect();
+
+    const enrichedLines = await Promise.all(
+      lines.map(async (line) => {
+        const product = await ctx.db.get(line.productId);
+        return { ...line, product };
+      })
+    );
+
+    const site = await ctx.db.get(shipment.toSiteId);
+    return { ...shipment, lines: enrichedLines, site };
+  },
+});
+
+export const listByStatus = query({
+  args: { status: v.string() },
+  handler: async (ctx, args) => {
+    const shipments = await ctx.db
+      .query("shipments")
+      .withIndex("by_status", (q) => q.eq("status", args.status as "RegisteredOut" | "PendingShipment" | "DeliveredConfirmed" | "CanceledBeforeLeave" | "ReversalApplied"))
+      .order("desc")
+      .collect();
+
+    return Promise.all(
+      shipments.map(async (shipment) => {
+        const lines = await ctx.db
+          .query("shipmentLines")
+          .withIndex("by_shipment", (q) => q.eq("shipmentId", shipment._id))
+          .collect();
+
+        const enrichedLines = await Promise.all(
+          lines.map(async (line) => {
+            const product = await ctx.db.get(line.productId);
+            return { ...line, product };
+          })
+        );
+
+        const site = await ctx.db.get(shipment.toSiteId);
+        return { ...shipment, lines: enrichedLines, site };
+      })
+    );
+  },
+});
+
 export const createShipment = mutation({
   args: {
     toSiteId: v.id("sites"),
@@ -72,6 +125,9 @@ export const createShipment = mutation({
     }
 
     const now = Date.now();
+    const site = await ctx.db.get(args.toSiteId);
+    if (!site) throw new Error("Site não encontrado");
+
     const shipmentId = await ctx.db.insert("shipments", {
       status: "RegisteredOut",
       toSiteId: args.toSiteId,
@@ -81,11 +137,20 @@ export const createShipment = mutation({
       updatedAt: now,
     });
 
+    const qrProducts: { name: string; qty: number; unit: string }[] = [];
+
     for (const line of args.lines) {
       await ctx.db.insert("shipmentLines", {
         shipmentId,
         productId: line.productId,
         qty: line.qty,
+      });
+
+      const product = await ctx.db.get(line.productId);
+      qrProducts.push({
+        name: product?.name ?? "Produto",
+        qty: line.qty,
+        unit: product?.unit ?? "un",
       });
 
       await ctx.runMutation(internal.inventory.applyRegisteredOut, {
@@ -95,6 +160,15 @@ export const createShipment = mutation({
         userId: "system",
       });
     }
+
+    const qrPayload = JSON.stringify({
+      shipmentId,
+      toSiteId: args.toSiteId,
+      siteName: site.name,
+      products: qrProducts,
+      createdAt: now,
+    });
+    await ctx.db.patch(shipmentId, { qrCodeData: qrPayload });
 
     return shipmentId;
   },

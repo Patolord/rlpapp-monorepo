@@ -80,14 +80,16 @@ function AppHeader() {
     .toUpperCase();
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between border-b px-6">
+    <header className="flex h-16 shrink-0 items-center justify-between bg-transparent px-6">
       <div className="flex items-center gap-3">
-        <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <span className="text-sm font-bold">R</span>
-        </div>
+        <img
+          src="/logo.jpg"
+          alt="RLP Engenharia"
+          className="size-9 rounded-full object-cover"
+        />
         <div>
-          <h1 className="text-sm font-semibold">RLP Engenharia</h1>
-          <p className="text-xs text-muted-foreground">Painel do Diretor</p>
+          <h1 className="text-sm font-semibold text-white">RLP Engenharia</h1>
+          <p className="text-xs text-white/70">Painel do Diretor</p>
         </div>
       </div>
       <DropdownMenu>
@@ -125,7 +127,7 @@ function AppLayout() {
   return (
     <Authenticated>
       <RoleGate>
-        <div className="flex min-h-screen flex-col">
+        <div className="flex min-h-screen flex-col bg-linear-to-b from-[#0b1228] via-[#0d1631] to-[#111b3d] text-white">
           <AppHeader />
           <div className="flex-1">
             <Outlet />

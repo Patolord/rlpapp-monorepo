@@ -29,10 +29,13 @@ import { Route as FinanceiroContasBancariasRouteImport } from './routes/financei
 import { Route as FinanceiroConciliacaoRouteImport } from './routes/financeiro/conciliacao'
 import { Route as FinanceiroClientesRouteImport } from './routes/financeiro/clientes'
 import { Route as FinanceiroCategoriasRouteImport } from './routes/financeiro/categorias'
+import { Route as EstoqueSolicitacoesRouteImport } from './routes/estoque/solicitacoes'
 import { Route as EstoqueSitesRouteImport } from './routes/estoque/sites'
 import { Route as EstoqueSaidaRouteImport } from './routes/estoque/saida'
 import { Route as EstoqueProdutosRouteImport } from './routes/estoque/produtos'
+import { Route as EstoqueOperadorRouteImport } from './routes/estoque/operador'
 import { Route as EstoqueMovimentacoesRouteImport } from './routes/estoque/movimentacoes'
+import { Route as EstoqueHistoricoEntregasRouteImport } from './routes/estoque/historico-entregas'
 import { Route as EstoqueFornecedoresRouteImport } from './routes/estoque/fornecedores'
 import { Route as EstoqueEntradaRouteImport } from './routes/estoque/entrada'
 import { Route as EstoqueAjustesRouteImport } from './routes/estoque/ajustes'
@@ -144,6 +147,11 @@ const FinanceiroCategoriasRoute = FinanceiroCategoriasRouteImport.update({
   path: '/categorias',
   getParentRoute: () => FinanceiroRouteRoute,
 } as any)
+const EstoqueSolicitacoesRoute = EstoqueSolicitacoesRouteImport.update({
+  id: '/solicitacoes',
+  path: '/solicitacoes',
+  getParentRoute: () => EstoqueRouteRoute,
+} as any)
 const EstoqueSitesRoute = EstoqueSitesRouteImport.update({
   id: '/sites',
   path: '/sites',
@@ -159,11 +167,22 @@ const EstoqueProdutosRoute = EstoqueProdutosRouteImport.update({
   path: '/produtos',
   getParentRoute: () => EstoqueRouteRoute,
 } as any)
+const EstoqueOperadorRoute = EstoqueOperadorRouteImport.update({
+  id: '/operador',
+  path: '/operador',
+  getParentRoute: () => EstoqueRouteRoute,
+} as any)
 const EstoqueMovimentacoesRoute = EstoqueMovimentacoesRouteImport.update({
   id: '/movimentacoes',
   path: '/movimentacoes',
   getParentRoute: () => EstoqueRouteRoute,
 } as any)
+const EstoqueHistoricoEntregasRoute =
+  EstoqueHistoricoEntregasRouteImport.update({
+    id: '/historico-entregas',
+    path: '/historico-entregas',
+    getParentRoute: () => EstoqueRouteRoute,
+  } as any)
 const EstoqueFornecedoresRoute = EstoqueFornecedoresRouteImport.update({
   id: '/fornecedores',
   path: '/fornecedores',
@@ -232,10 +251,13 @@ export interface FileRoutesByFullPath {
   '/estoque/ajustes': typeof EstoqueAjustesRoute
   '/estoque/entrada': typeof EstoqueEntradaRoute
   '/estoque/fornecedores': typeof EstoqueFornecedoresRoute
+  '/estoque/historico-entregas': typeof EstoqueHistoricoEntregasRoute
   '/estoque/movimentacoes': typeof EstoqueMovimentacoesRoute
+  '/estoque/operador': typeof EstoqueOperadorRoute
   '/estoque/produtos': typeof EstoqueProdutosRoute
   '/estoque/saida': typeof EstoqueSaidaRoute
   '/estoque/sites': typeof EstoqueSitesRoute
+  '/estoque/solicitacoes': typeof EstoqueSolicitacoesRoute
   '/financeiro/categorias': typeof FinanceiroCategoriasRoute
   '/financeiro/clientes': typeof FinanceiroClientesRoute
   '/financeiro/conciliacao': typeof FinanceiroConciliacaoRoute
@@ -261,10 +283,13 @@ export interface FileRoutesByTo {
   '/estoque/ajustes': typeof EstoqueAjustesRoute
   '/estoque/entrada': typeof EstoqueEntradaRoute
   '/estoque/fornecedores': typeof EstoqueFornecedoresRoute
+  '/estoque/historico-entregas': typeof EstoqueHistoricoEntregasRoute
   '/estoque/movimentacoes': typeof EstoqueMovimentacoesRoute
+  '/estoque/operador': typeof EstoqueOperadorRoute
   '/estoque/produtos': typeof EstoqueProdutosRoute
   '/estoque/saida': typeof EstoqueSaidaRoute
   '/estoque/sites': typeof EstoqueSitesRoute
+  '/estoque/solicitacoes': typeof EstoqueSolicitacoesRoute
   '/financeiro/categorias': typeof FinanceiroCategoriasRoute
   '/financeiro/clientes': typeof FinanceiroClientesRoute
   '/financeiro/conciliacao': typeof FinanceiroConciliacaoRoute
@@ -298,10 +323,13 @@ export interface FileRoutesById {
   '/estoque/ajustes': typeof EstoqueAjustesRoute
   '/estoque/entrada': typeof EstoqueEntradaRoute
   '/estoque/fornecedores': typeof EstoqueFornecedoresRoute
+  '/estoque/historico-entregas': typeof EstoqueHistoricoEntregasRoute
   '/estoque/movimentacoes': typeof EstoqueMovimentacoesRoute
+  '/estoque/operador': typeof EstoqueOperadorRoute
   '/estoque/produtos': typeof EstoqueProdutosRoute
   '/estoque/saida': typeof EstoqueSaidaRoute
   '/estoque/sites': typeof EstoqueSitesRoute
+  '/estoque/solicitacoes': typeof EstoqueSolicitacoesRoute
   '/financeiro/categorias': typeof FinanceiroCategoriasRoute
   '/financeiro/clientes': typeof FinanceiroClientesRoute
   '/financeiro/conciliacao': typeof FinanceiroConciliacaoRoute
@@ -336,10 +364,13 @@ export interface FileRouteTypes {
     | '/estoque/ajustes'
     | '/estoque/entrada'
     | '/estoque/fornecedores'
+    | '/estoque/historico-entregas'
     | '/estoque/movimentacoes'
+    | '/estoque/operador'
     | '/estoque/produtos'
     | '/estoque/saida'
     | '/estoque/sites'
+    | '/estoque/solicitacoes'
     | '/financeiro/categorias'
     | '/financeiro/clientes'
     | '/financeiro/conciliacao'
@@ -365,10 +396,13 @@ export interface FileRouteTypes {
     | '/estoque/ajustes'
     | '/estoque/entrada'
     | '/estoque/fornecedores'
+    | '/estoque/historico-entregas'
     | '/estoque/movimentacoes'
+    | '/estoque/operador'
     | '/estoque/produtos'
     | '/estoque/saida'
     | '/estoque/sites'
+    | '/estoque/solicitacoes'
     | '/financeiro/categorias'
     | '/financeiro/clientes'
     | '/financeiro/conciliacao'
@@ -401,10 +435,13 @@ export interface FileRouteTypes {
     | '/estoque/ajustes'
     | '/estoque/entrada'
     | '/estoque/fornecedores'
+    | '/estoque/historico-entregas'
     | '/estoque/movimentacoes'
+    | '/estoque/operador'
     | '/estoque/produtos'
     | '/estoque/saida'
     | '/estoque/sites'
+    | '/estoque/solicitacoes'
     | '/financeiro/categorias'
     | '/financeiro/clientes'
     | '/financeiro/conciliacao'
@@ -574,6 +611,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FinanceiroCategoriasRouteImport
       parentRoute: typeof FinanceiroRouteRoute
     }
+    '/estoque/solicitacoes': {
+      id: '/estoque/solicitacoes'
+      path: '/solicitacoes'
+      fullPath: '/estoque/solicitacoes'
+      preLoaderRoute: typeof EstoqueSolicitacoesRouteImport
+      parentRoute: typeof EstoqueRouteRoute
+    }
     '/estoque/sites': {
       id: '/estoque/sites'
       path: '/sites'
@@ -595,11 +639,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EstoqueProdutosRouteImport
       parentRoute: typeof EstoqueRouteRoute
     }
+    '/estoque/operador': {
+      id: '/estoque/operador'
+      path: '/operador'
+      fullPath: '/estoque/operador'
+      preLoaderRoute: typeof EstoqueOperadorRouteImport
+      parentRoute: typeof EstoqueRouteRoute
+    }
     '/estoque/movimentacoes': {
       id: '/estoque/movimentacoes'
       path: '/movimentacoes'
       fullPath: '/estoque/movimentacoes'
       preLoaderRoute: typeof EstoqueMovimentacoesRouteImport
+      parentRoute: typeof EstoqueRouteRoute
+    }
+    '/estoque/historico-entregas': {
+      id: '/estoque/historico-entregas'
+      path: '/historico-entregas'
+      fullPath: '/estoque/historico-entregas'
+      preLoaderRoute: typeof EstoqueHistoricoEntregasRouteImport
       parentRoute: typeof EstoqueRouteRoute
     }
     '/estoque/fornecedores': {
@@ -703,10 +761,13 @@ interface EstoqueRouteRouteChildren {
   EstoqueAjustesRoute: typeof EstoqueAjustesRoute
   EstoqueEntradaRoute: typeof EstoqueEntradaRoute
   EstoqueFornecedoresRoute: typeof EstoqueFornecedoresRoute
+  EstoqueHistoricoEntregasRoute: typeof EstoqueHistoricoEntregasRoute
   EstoqueMovimentacoesRoute: typeof EstoqueMovimentacoesRoute
+  EstoqueOperadorRoute: typeof EstoqueOperadorRoute
   EstoqueProdutosRoute: typeof EstoqueProdutosRoute
   EstoqueSaidaRoute: typeof EstoqueSaidaRoute
   EstoqueSitesRoute: typeof EstoqueSitesRoute
+  EstoqueSolicitacoesRoute: typeof EstoqueSolicitacoesRoute
   EstoqueIndexRoute: typeof EstoqueIndexRoute
 }
 
@@ -714,10 +775,13 @@ const EstoqueRouteRouteChildren: EstoqueRouteRouteChildren = {
   EstoqueAjustesRoute: EstoqueAjustesRoute,
   EstoqueEntradaRoute: EstoqueEntradaRoute,
   EstoqueFornecedoresRoute: EstoqueFornecedoresRoute,
+  EstoqueHistoricoEntregasRoute: EstoqueHistoricoEntregasRoute,
   EstoqueMovimentacoesRoute: EstoqueMovimentacoesRoute,
+  EstoqueOperadorRoute: EstoqueOperadorRoute,
   EstoqueProdutosRoute: EstoqueProdutosRoute,
   EstoqueSaidaRoute: EstoqueSaidaRoute,
   EstoqueSitesRoute: EstoqueSitesRoute,
+  EstoqueSolicitacoesRoute: EstoqueSolicitacoesRoute,
   EstoqueIndexRoute: EstoqueIndexRoute,
 }
 

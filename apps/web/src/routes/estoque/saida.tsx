@@ -10,9 +10,12 @@ import {
   ChevronDown,
   ChevronRight,
   ArrowUpFromLine,
+  QrCode,
+  Printer,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import QRCode from "qrcode";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -102,6 +105,32 @@ function SaidaContent() {
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [qrShipment, setQrShipment] = useState<any | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+
+  useEffect(() => {
+    if (!qrShipment?.qrCodeData) {
+      setQrDataUrl("");
+      return;
+    }
+    QRCode.toDataURL(qrShipment.qrCodeData, { width: 250, margin: 2 }).then(
+      (url: string) => setQrDataUrl(url)
+    );
+  }, [qrShipment]);
+
+  const printRef = useRef<HTMLDivElement>(null);
+  const handlePrint = () => {
+    if (!printRef.current) return;
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html><head><title>QR Code - Remessa</title>
+      <style>body{font-family:sans-serif;padding:24px}table{width:100%;border-collapse:collapse;margin:12px 0}td,th{border:1px solid #ccc;padding:6px 10px;text-align:left}.center{text-align:center}</style>
+      </head><body>${printRef.current.innerHTML}</body></html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
 
   const [form, setForm] = useState({
     toSiteId: "",
@@ -380,34 +409,46 @@ function SaidaContent() {
                         {shipment.notes ?? "-"}
                       </TableCell>
                       <TableCell className="text-right">
-                        {canAct(shipment.status) && (
-                          <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                            {shipment.status === "RegisteredOut" && (
+                        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                          {canAct(shipment.status) && (
+                            <>
+                              {shipment.status === "RegisteredOut" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleStage(shipment._id)}
+                                >
+                                  <PackageCheck className="h-4 w-4 mr-1" />
+                                  Preparar
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
-                                variant="outline"
-                                onClick={() => handleStage(shipment._id)}
+                                onClick={() => handleConfirmDelivery(shipment._id)}
                               >
-                                <PackageCheck className="h-4 w-4 mr-1" />
-                                Preparar
+                                <Check className="h-4 w-4 mr-1" />
+                                Entregue
                               </Button>
-                            )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleCancel(shipment._id)}
+                              >
+                                <XCircle className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </>
+                          )}
+                          {canAct(shipment.status) && shipment.qrCodeData && (
                             <Button
                               size="sm"
-                              onClick={() => handleConfirmDelivery(shipment._id)}
+                              variant="outline"
+                              onClick={() => setQrShipment(shipment)}
                             >
-                              <Check className="h-4 w-4 mr-1" />
-                              Entregue
+                              <QrCode className="h-4 w-4 mr-1" />
+                              QR
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleCancel(shipment._id)}
-                            >
-                              <XCircle className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                     {expandedId === shipment._id && (
@@ -451,6 +492,65 @@ function SaidaContent() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!qrShipment} onOpenChange={(open) => !open && setQrShipment(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>QR Code da Remessa</DialogTitle>
+            <DialogDescription>
+              Imprima este documento e envie junto com os materiais
+            </DialogDescription>
+          </DialogHeader>
+          {qrShipment && (
+            <div ref={printRef} className="space-y-4">
+              <div className="text-center">
+                <h3 className="font-bold text-lg">Remessa de Materiais</h3>
+                <p className="text-sm text-muted-foreground">
+                  Destino: {qrShipment.site?.name ?? "—"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Data: {formatDate(qrShipment.createdAt)}
+                </p>
+              </div>
+              {qrDataUrl && (
+                <div className="flex justify-center">
+                  <img src={qrDataUrl} alt="QR Code" className="w-[200px] h-[200px]" />
+                </div>
+              )}
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-1 px-2">Produto</th>
+                    <th className="text-right py-1 px-2">Qtd</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {qrShipment.lines.map((line: any) => (
+                    <tr key={line._id} className="border-b">
+                      <td className="py-1 px-2">{line.product?.name ?? "—"}</td>
+                      <td className="text-right py-1 px-2">
+                        {line.qty} {line.product?.unit}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {qrShipment.notes && (
+                <p className="text-sm"><strong>Obs:</strong> {qrShipment.notes}</p>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQrShipment(null)}>
+              Fechar
+            </Button>
+            <Button onClick={handlePrint}>
+              <Printer className="h-4 w-4 mr-2" />
+              Imprimir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>

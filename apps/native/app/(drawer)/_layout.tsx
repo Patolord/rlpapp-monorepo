@@ -15,6 +15,7 @@ import {
   DollarSign,
   HardHat,
   Warehouse,
+  ScanLine,
 } from "lucide-react-native";
 import React, { useCallback } from "react";
 import { View } from "react-native";
@@ -83,6 +84,15 @@ function RoleAwareDrawer({
           headerTitle: isDirector ? "Painel do Diretor" : "Home",
           drawerLabel: isDirector ? "Início" : "Home",
           drawerIcon: ({ size, color }) => <Home size={size} color={color} />,
+        }}
+      />
+      <Drawer.Screen
+        name="operador"
+        options={{
+          headerTitle: "Operador",
+          drawerLabel: "Operador",
+          drawerIcon: ({ size, color }) => <ScanLine size={size} color={color} />,
+          drawerItemStyle: showEstoque ? undefined : { display: "none" },
         }}
       />
       <Drawer.Screen

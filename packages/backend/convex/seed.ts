@@ -414,6 +414,237 @@ export const run = internalMutation({
     }
 
     // ──────────────────────────────────────────────
+    // 10b. SHIPMENTS WITH QR CODES
+    // ──────────────────────────────────────────────
+    const shipmentSeedData: {
+      toSiteIdx: number;
+      status: "RegisteredOut" | "PendingShipment" | "DeliveredConfirmed" | "CanceledBeforeLeave";
+      daysOffset: number;
+      lines: { prodIdx: number; qty: number }[];
+      notes?: string;
+    }[] = [
+      {
+        toSiteIdx: 0, status: "DeliveredConfirmed", daysOffset: -15,
+        lines: [{ prodIdx: 0, qty: 100 }, { prodIdx: 3, qty: 50 }, { prodIdx: 10, qty: 10 }],
+        notes: "Entrega concluída - Alphaville fase 1",
+      },
+      {
+        toSiteIdx: 1, status: "DeliveredConfirmed", daysOffset: -10,
+        lines: [{ prodIdx: 1, qty: 8 }, { prodIdx: 2, qty: 5 }, { prodIdx: 5, qty: 2 }],
+        notes: "Entrega concluída - Vila Olímpia fundação",
+      },
+      {
+        toSiteIdx: 2, status: "DeliveredConfirmed", daysOffset: -7,
+        lines: [{ prodIdx: 6, qty: 20 }, { prodIdx: 7, qty: 5 }],
+        notes: "Entrega concluída - Campinas instalações",
+      },
+      {
+        toSiteIdx: 0, status: "PendingShipment", daysOffset: -2,
+        lines: [{ prodIdx: 0, qty: 80 }, { prodIdx: 9, qty: 40 }, { prodIdx: 14, qty: 100 }],
+        notes: "Em trânsito para Alphaville",
+      },
+      {
+        toSiteIdx: 1, status: "PendingShipment", daysOffset: -1,
+        lines: [{ prodIdx: 8, qty: 6 }, { prodIdx: 11, qty: 8 }],
+        notes: "Em trânsito para Vila Olímpia",
+      },
+      {
+        toSiteIdx: 2, status: "RegisteredOut", daysOffset: 0,
+        lines: [{ prodIdx: 3, qty: 80 }, { prodIdx: 4, qty: 60 }, { prodIdx: 13, qty: 15 }],
+        notes: "Preparando envio - Campinas estrutural",
+      },
+      {
+        toSiteIdx: 0, status: "RegisteredOut", daysOffset: 0,
+        lines: [{ prodIdx: 12, qty: 3 }, { prodIdx: 7, qty: 4 }],
+        notes: "Preparando envio - Alphaville elétrica",
+      },
+      {
+        toSiteIdx: 3, status: "CanceledBeforeLeave", daysOffset: -5,
+        lines: [{ prodIdx: 0, qty: 20 }],
+        notes: "Cancelado - depósito não precisa mais",
+      },
+    ];
+
+    const shipmentIds = [];
+    for (const s of shipmentSeedData) {
+      const toSiteId = siteIds[s.toSiteIdx];
+      const site = sitesData[s.toSiteIdx];
+      const created = s.daysOffset >= 0 ? daysFromNow(s.daysOffset) : daysAgo(-s.daysOffset);
+
+      const qrProducts = s.lines.map((l) => ({
+        name: productsData[l.prodIdx].name,
+        qty: l.qty,
+        unit: productsData[l.prodIdx].unit,
+      }));
+
+      const shipmentId = await ctx.db.insert("shipments", {
+        status: s.status,
+        toSiteId,
+        notes: s.notes,
+        qrCodeData: JSON.stringify({
+          shipmentId: "pending",
+          toSiteId,
+          siteName: site.name,
+          products: qrProducts,
+          createdAt: created,
+        }),
+        userId: SEED_USER_ID,
+        createdAt: created,
+        updatedAt: created,
+      });
+
+      await ctx.db.patch(shipmentId, {
+        qrCodeData: JSON.stringify({
+          shipmentId,
+          toSiteId,
+          siteName: site.name,
+          products: qrProducts,
+          createdAt: created,
+        }),
+      });
+
+      for (const line of s.lines) {
+        await ctx.db.insert("shipmentLines", {
+          shipmentId,
+          productId: productIds[line.prodIdx],
+          qty: line.qty,
+        });
+      }
+
+      shipmentIds.push(shipmentId);
+    }
+
+    // ──────────────────────────────────────────────
+    // 10c. DELIVERY CONFIRMATIONS (for delivered shipments)
+    // ──────────────────────────────────────────────
+    const deliveryReceivers = [
+      "João Silva - Mestre de Obras",
+      "Carlos Mendes - Encarregado",
+      "Ana Paula Ribeiro - Engenheira",
+    ];
+
+    for (let i = 0; i < 3; i++) {
+      const shipment = shipmentSeedData[i];
+      await ctx.db.insert("deliveryConfirmations", {
+        shipmentId: shipmentIds[i],
+        receiverName: deliveryReceivers[i],
+        receivedAtSiteId: siteIds[shipment.toSiteIdx],
+        confirmedByUserId: SEED_USER_ID,
+        confirmedAt: daysAgo(-shipment.daysOffset - 1),
+        notes: `Materiais conferidos e recebidos em ${sitesData[shipment.toSiteIdx].name}`,
+      });
+    }
+
+    // ──────────────────────────────────────────────
+    // 10d. MATERIAL REQUESTS (various states)
+    // ──────────────────────────────────────────────
+    type ReqStatus = "Pendente" | "Aprovado" | "Rejeitado" | "Convertido";
+    type Urgency = "normal" | "urgente" | "critico";
+
+    const materialRequestsData: {
+      status: ReqStatus;
+      siteIdx: number;
+      reason: string;
+      urgency: Urgency;
+      daysNeeded: number;
+      daysCreated: number;
+      reviewNotes?: string;
+      lines: { prodIdx: number; qty: number; approvedQty?: number }[];
+    }[] = [
+      {
+        status: "Pendente", siteIdx: 0, urgency: "critico", daysNeeded: 2, daysCreated: -1,
+        reason: "Obra parada - acabou cimento e vergalhão na fase de concretagem da laje do 3o andar. Urgente!",
+        lines: [
+          { prodIdx: 0, qty: 200 },
+          { prodIdx: 3, qty: 100 },
+          { prodIdx: 11, qty: 20 },
+        ],
+      },
+      {
+        status: "Pendente", siteIdx: 1, urgency: "urgente", daysNeeded: 5, daysCreated: -2,
+        reason: "Etapa de acabamento precisa de tinta e argamassa para conclusão da fachada.",
+        lines: [
+          { prodIdx: 8, qty: 12 },
+          { prodIdx: 9, qty: 50 },
+        ],
+      },
+      {
+        status: "Pendente", siteIdx: 2, urgency: "normal", daysNeeded: 10, daysCreated: -3,
+        reason: "Reposição de estoque da obra para próxima semana. Tubulação e fios para parte elétrica/hidráulica.",
+        lines: [
+          { prodIdx: 6, qty: 30 },
+          { prodIdx: 7, qty: 10 },
+          { prodIdx: 12, qty: 5 },
+        ],
+      },
+      {
+        status: "Aprovado", siteIdx: 0, urgency: "urgente", daysNeeded: 3, daysCreated: -5,
+        reason: "Blocos e tijolos para alvenaria do 2o pavimento.",
+        reviewNotes: "Aprovado - reduzido tijolos de 5 para 3 milheiros conforme estoque disponível.",
+        lines: [
+          { prodIdx: 14, qty: 300, approvedQty: 250 },
+          { prodIdx: 5, qty: 5, approvedQty: 3 },
+        ],
+      },
+      {
+        status: "Aprovado", siteIdx: 2, urgency: "normal", daysNeeded: 7, daysCreated: -4,
+        reason: "Pregos e arame para fase de formas da fundação.",
+        reviewNotes: "Aprovado integralmente.",
+        lines: [
+          { prodIdx: 10, qty: 30, approvedQty: 30 },
+          { prodIdx: 11, qty: 15, approvedQty: 15 },
+          { prodIdx: 13, qty: 20, approvedQty: 20 },
+        ],
+      },
+      {
+        status: "Rejeitado", siteIdx: 1, urgency: "normal", daysNeeded: 15, daysCreated: -10,
+        reason: "Solicitação de 500 sacos de cimento para reserva futura.",
+        reviewNotes: "Rejeitado: quantidade acima do necessário e do orçamento mensal. Refazer com quantidade reduzida.",
+        lines: [
+          { prodIdx: 0, qty: 500 },
+        ],
+      },
+      {
+        status: "Convertido", siteIdx: 0, urgency: "urgente", daysNeeded: -12, daysCreated: -14,
+        reason: "Areia e brita para concretagem da fundação - 1a etapa.",
+        reviewNotes: "Aprovado e convertido em remessa.",
+        lines: [
+          { prodIdx: 1, qty: 10, approvedQty: 10 },
+          { prodIdx: 2, qty: 8, approvedQty: 8 },
+        ],
+      },
+    ];
+
+    const materialRequestIds = [];
+    for (const mr of materialRequestsData) {
+      const created = daysAgo(-mr.daysCreated);
+      const requestId = await ctx.db.insert("materialRequests", {
+        status: mr.status,
+        siteId: siteIds[mr.siteIdx],
+        reason: mr.reason,
+        urgency: mr.urgency,
+        dateNeeded: mr.daysNeeded >= 0 ? daysFromNow(mr.daysNeeded) : daysAgo(-mr.daysNeeded),
+        requestedByUserId: SEED_USER_ID,
+        reviewedByUserId: mr.reviewNotes ? SEED_USER_ID : undefined,
+        reviewNotes: mr.reviewNotes,
+        resultingShipmentId: mr.status === "Convertido" ? shipmentIds[0] : undefined,
+        createdAt: created,
+        updatedAt: mr.reviewNotes ? created + 24 * 60 * 60 * 1000 : created,
+      });
+
+      for (const line of mr.lines) {
+        await ctx.db.insert("materialRequestLines", {
+          requestId,
+          productId: productIds[line.prodIdx],
+          qty: line.qty,
+          approvedQty: line.approvedQty,
+        });
+      }
+
+      materialRequestIds.push(requestId);
+    }
+
+    // ──────────────────────────────────────────────
     // 11. APROVAÇÕES (para contas aprovadas/pagas)
     // ──────────────────────────────────────────────
     for (let i = 0; i < contaPagarIds.length; i++) {
@@ -441,6 +672,9 @@ export const run = internalMutation({
       transacoesBancarias: 10 + 6 + pendentesData.length + ignoradasData.length,
       conciliacoes: 16,
       inventorySnapshots: productIds.length,
+      shipments: shipmentIds.length,
+      deliveryConfirmations: 3,
+      materialRequests: materialRequestIds.length,
     };
   },
 });

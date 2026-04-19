@@ -246,6 +246,52 @@ export const getDashboardSummary = query({
       .withIndex("by_status", (q) => q.eq("status", "PendingShipment"))
       .collect();
 
+    const pendingMaterialRequests = await ctx.db
+      .query("materialRequests")
+      .withIndex("by_status", (q) => q.eq("status", "Pendente"))
+      .collect();
+
+    const approvedMaterialRequests = await ctx.db
+      .query("materialRequests")
+      .withIndex("by_status", (q) => q.eq("status", "Aprovado"))
+      .collect();
+
+    const recentDeliveries = await ctx.db
+      .query("deliveryConfirmations")
+      .withIndex("by_confirmed")
+      .order("desc")
+      .take(5);
+
+    const enrichedDeliveries = await Promise.all(
+      recentDeliveries.map(async (d) => {
+        const site = await ctx.db.get(d.receivedAtSiteId);
+        return {
+          ...d,
+          siteName: site?.name ?? "Site removido",
+        };
+      })
+    );
+
+    const enrichedPendingRequests = await Promise.all(
+      pendingMaterialRequests.slice(0, 5).map(async (r) => {
+        const site = await ctx.db.get(r.siteId);
+        const requester = await ctx.db
+          .query("users")
+          .withIndex("by_email", (q) => q.eq("email", r.requestedByUserId))
+          .first();
+        const lines = await ctx.db
+          .query("materialRequestLines")
+          .withIndex("by_request", (q) => q.eq("requestId", r._id))
+          .collect();
+        return {
+          ...r,
+          siteName: site?.name ?? "Site removido",
+          requesterName: requester?.name ?? r.requestedByUserId,
+          lineCount: lines.length,
+        };
+      })
+    );
+
     return {
       totalProducts: products.length,
       totalSites: sites.length,
@@ -253,6 +299,10 @@ export const getDashboardSummary = query({
       lowStockCount,
       pendingReceipts: pendingReceipts.length,
       activeShipments: activeShipments.length + pendingShipments.length,
+      pendingMaterialRequests: pendingMaterialRequests.length,
+      approvedMaterialRequests: approvedMaterialRequests.length,
+      recentDeliveries: enrichedDeliveries,
+      recentPendingRequests: enrichedPendingRequests,
     };
   },
 });
