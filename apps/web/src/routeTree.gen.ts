@@ -22,6 +22,7 @@ import { Route as EstoqueIndexRouteImport } from './routes/estoque/index'
 import { Route as EngenhariaIndexRouteImport } from './routes/engenharia/index'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as WebsiteIndexRouteImport } from './routes/_website/index'
+import { Route as QTokenRouteImport } from './routes/q/$token'
 import { Route as FinanceiroRelatoriosRouteImport } from './routes/financeiro/relatorios'
 import { Route as FinanceiroContasReceberRouteImport } from './routes/financeiro/contas-receber'
 import { Route as FinanceiroContasPagarRouteImport } from './routes/financeiro/contas-pagar'
@@ -39,12 +40,14 @@ import { Route as EstoqueHistoricoEntregasRouteImport } from './routes/estoque/h
 import { Route as EstoqueFornecedoresRouteImport } from './routes/estoque/fornecedores'
 import { Route as EstoqueEntradaRouteImport } from './routes/estoque/entrada'
 import { Route as EstoqueAjustesRouteImport } from './routes/estoque/ajustes'
+import { Route as EngenhariaQrCodesRouteImport } from './routes/engenharia/qr-codes'
 import { Route as WebsiteSobreRouteImport } from './routes/_website/sobre'
 import { Route as WebsiteServicosRouteImport } from './routes/_website/servicos'
 import { Route as WebsitePoliticaPrivacidadeRouteImport } from './routes/_website/politica-privacidade'
 import { Route as WebsiteManutencaoRouteImport } from './routes/_website/manutencao'
 import { Route as WebsiteCarreirasRouteImport } from './routes/_website/carreiras'
 import { Route as WebsiteProjetosIndexRouteImport } from './routes/_website/projetos/index'
+import { Route as EngenhariaEquipamentoIdRouteImport } from './routes/engenharia/equipamento/$id'
 import { Route as WebsiteProjetosIdRouteImport } from './routes/_website/projetos/$id'
 
 const LoginRoute = LoginRouteImport.update({
@@ -110,6 +113,11 @@ const WebsiteIndexRoute = WebsiteIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => WebsiteRoute,
+} as any)
+const QTokenRoute = QTokenRouteImport.update({
+  id: '/q/$token',
+  path: '/q/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const FinanceiroRelatoriosRoute = FinanceiroRelatoriosRouteImport.update({
   id: '/relatorios',
@@ -198,6 +206,11 @@ const EstoqueAjustesRoute = EstoqueAjustesRouteImport.update({
   path: '/ajustes',
   getParentRoute: () => EstoqueRouteRoute,
 } as any)
+const EngenhariaQrCodesRoute = EngenhariaQrCodesRouteImport.update({
+  id: '/qr-codes',
+  path: '/qr-codes',
+  getParentRoute: () => EngenhariaRouteRoute,
+} as any)
 const WebsiteSobreRoute = WebsiteSobreRouteImport.update({
   id: '/sobre',
   path: '/sobre',
@@ -229,6 +242,11 @@ const WebsiteProjetosIndexRoute = WebsiteProjetosIndexRouteImport.update({
   path: '/projetos/',
   getParentRoute: () => WebsiteRoute,
 } as any)
+const EngenhariaEquipamentoIdRoute = EngenhariaEquipamentoIdRouteImport.update({
+  id: '/equipamento/$id',
+  path: '/equipamento/$id',
+  getParentRoute: () => EngenhariaRouteRoute,
+} as any)
 const WebsiteProjetosIdRoute = WebsiteProjetosIdRouteImport.update({
   id: '/projetos/$id',
   path: '/projetos/$id',
@@ -248,6 +266,7 @@ export interface FileRoutesByFullPath {
   '/politica-privacidade': typeof WebsitePoliticaPrivacidadeRoute
   '/servicos': typeof WebsiteServicosRoute
   '/sobre': typeof WebsiteSobreRoute
+  '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/estoque/ajustes': typeof EstoqueAjustesRoute
   '/estoque/entrada': typeof EstoqueEntradaRoute
   '/estoque/fornecedores': typeof EstoqueFornecedoresRoute
@@ -265,12 +284,14 @@ export interface FileRoutesByFullPath {
   '/financeiro/contas-pagar': typeof FinanceiroContasPagarRoute
   '/financeiro/contas-receber': typeof FinanceiroContasReceberRoute
   '/financeiro/relatorios': typeof FinanceiroRelatoriosRoute
+  '/q/$token': typeof QTokenRoute
   '/app/': typeof AppIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
   '/estoque/': typeof EstoqueIndexRoute
   '/financeiro/': typeof FinanceiroIndexRoute
   '/rh/': typeof RhIndexRoute
   '/projetos/$id': typeof WebsiteProjetosIdRoute
+  '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/projetos/': typeof WebsiteProjetosIndexRoute
 }
 export interface FileRoutesByTo {
@@ -280,6 +301,7 @@ export interface FileRoutesByTo {
   '/politica-privacidade': typeof WebsitePoliticaPrivacidadeRoute
   '/servicos': typeof WebsiteServicosRoute
   '/sobre': typeof WebsiteSobreRoute
+  '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/estoque/ajustes': typeof EstoqueAjustesRoute
   '/estoque/entrada': typeof EstoqueEntradaRoute
   '/estoque/fornecedores': typeof EstoqueFornecedoresRoute
@@ -297,6 +319,7 @@ export interface FileRoutesByTo {
   '/financeiro/contas-pagar': typeof FinanceiroContasPagarRoute
   '/financeiro/contas-receber': typeof FinanceiroContasReceberRoute
   '/financeiro/relatorios': typeof FinanceiroRelatoriosRoute
+  '/q/$token': typeof QTokenRoute
   '/': typeof WebsiteIndexRoute
   '/app': typeof AppIndexRoute
   '/engenharia': typeof EngenhariaIndexRoute
@@ -304,6 +327,7 @@ export interface FileRoutesByTo {
   '/financeiro': typeof FinanceiroIndexRoute
   '/rh': typeof RhIndexRoute
   '/projetos/$id': typeof WebsiteProjetosIdRoute
+  '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/projetos': typeof WebsiteProjetosIndexRoute
 }
 export interface FileRoutesById {
@@ -320,6 +344,7 @@ export interface FileRoutesById {
   '/_website/politica-privacidade': typeof WebsitePoliticaPrivacidadeRoute
   '/_website/servicos': typeof WebsiteServicosRoute
   '/_website/sobre': typeof WebsiteSobreRoute
+  '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/estoque/ajustes': typeof EstoqueAjustesRoute
   '/estoque/entrada': typeof EstoqueEntradaRoute
   '/estoque/fornecedores': typeof EstoqueFornecedoresRoute
@@ -337,6 +362,7 @@ export interface FileRoutesById {
   '/financeiro/contas-pagar': typeof FinanceiroContasPagarRoute
   '/financeiro/contas-receber': typeof FinanceiroContasReceberRoute
   '/financeiro/relatorios': typeof FinanceiroRelatoriosRoute
+  '/q/$token': typeof QTokenRoute
   '/_website/': typeof WebsiteIndexRoute
   '/app/': typeof AppIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
@@ -344,6 +370,7 @@ export interface FileRoutesById {
   '/financeiro/': typeof FinanceiroIndexRoute
   '/rh/': typeof RhIndexRoute
   '/_website/projetos/$id': typeof WebsiteProjetosIdRoute
+  '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/_website/projetos/': typeof WebsiteProjetosIndexRoute
 }
 export interface FileRouteTypes {
@@ -361,6 +388,7 @@ export interface FileRouteTypes {
     | '/politica-privacidade'
     | '/servicos'
     | '/sobre'
+    | '/engenharia/qr-codes'
     | '/estoque/ajustes'
     | '/estoque/entrada'
     | '/estoque/fornecedores'
@@ -378,12 +406,14 @@ export interface FileRouteTypes {
     | '/financeiro/contas-pagar'
     | '/financeiro/contas-receber'
     | '/financeiro/relatorios'
+    | '/q/$token'
     | '/app/'
     | '/engenharia/'
     | '/estoque/'
     | '/financeiro/'
     | '/rh/'
     | '/projetos/$id'
+    | '/engenharia/equipamento/$id'
     | '/projetos/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -393,6 +423,7 @@ export interface FileRouteTypes {
     | '/politica-privacidade'
     | '/servicos'
     | '/sobre'
+    | '/engenharia/qr-codes'
     | '/estoque/ajustes'
     | '/estoque/entrada'
     | '/estoque/fornecedores'
@@ -410,6 +441,7 @@ export interface FileRouteTypes {
     | '/financeiro/contas-pagar'
     | '/financeiro/contas-receber'
     | '/financeiro/relatorios'
+    | '/q/$token'
     | '/'
     | '/app'
     | '/engenharia'
@@ -417,6 +449,7 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/rh'
     | '/projetos/$id'
+    | '/engenharia/equipamento/$id'
     | '/projetos'
   id:
     | '__root__'
@@ -432,6 +465,7 @@ export interface FileRouteTypes {
     | '/_website/politica-privacidade'
     | '/_website/servicos'
     | '/_website/sobre'
+    | '/engenharia/qr-codes'
     | '/estoque/ajustes'
     | '/estoque/entrada'
     | '/estoque/fornecedores'
@@ -449,6 +483,7 @@ export interface FileRouteTypes {
     | '/financeiro/contas-pagar'
     | '/financeiro/contas-receber'
     | '/financeiro/relatorios'
+    | '/q/$token'
     | '/_website/'
     | '/app/'
     | '/engenharia/'
@@ -456,6 +491,7 @@ export interface FileRouteTypes {
     | '/financeiro/'
     | '/rh/'
     | '/_website/projetos/$id'
+    | '/engenharia/equipamento/$id'
     | '/_website/projetos/'
   fileRoutesById: FileRoutesById
 }
@@ -467,6 +503,7 @@ export interface RootRouteChildren {
   RhRouteRoute: typeof RhRouteRouteWithChildren
   WebsiteRoute: typeof WebsiteRouteWithChildren
   LoginRoute: typeof LoginRoute
+  QTokenRoute: typeof QTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -561,6 +598,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof WebsiteIndexRouteImport
       parentRoute: typeof WebsiteRoute
+    }
+    '/q/$token': {
+      id: '/q/$token'
+      path: '/q/$token'
+      fullPath: '/q/$token'
+      preLoaderRoute: typeof QTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/financeiro/relatorios': {
       id: '/financeiro/relatorios'
@@ -681,6 +725,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EstoqueAjustesRouteImport
       parentRoute: typeof EstoqueRouteRoute
     }
+    '/engenharia/qr-codes': {
+      id: '/engenharia/qr-codes'
+      path: '/qr-codes'
+      fullPath: '/engenharia/qr-codes'
+      preLoaderRoute: typeof EngenhariaQrCodesRouteImport
+      parentRoute: typeof EngenhariaRouteRoute
+    }
     '/_website/sobre': {
       id: '/_website/sobre'
       path: '/sobre'
@@ -723,6 +774,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WebsiteProjetosIndexRouteImport
       parentRoute: typeof WebsiteRoute
     }
+    '/engenharia/equipamento/$id': {
+      id: '/engenharia/equipamento/$id'
+      path: '/equipamento/$id'
+      fullPath: '/engenharia/equipamento/$id'
+      preLoaderRoute: typeof EngenhariaEquipamentoIdRouteImport
+      parentRoute: typeof EngenhariaRouteRoute
+    }
     '/_website/projetos/$id': {
       id: '/_website/projetos/$id'
       path: '/projetos/$id'
@@ -746,11 +804,15 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 )
 
 interface EngenhariaRouteRouteChildren {
+  EngenhariaQrCodesRoute: typeof EngenhariaQrCodesRoute
   EngenhariaIndexRoute: typeof EngenhariaIndexRoute
+  EngenhariaEquipamentoIdRoute: typeof EngenhariaEquipamentoIdRoute
 }
 
 const EngenhariaRouteRouteChildren: EngenhariaRouteRouteChildren = {
+  EngenhariaQrCodesRoute: EngenhariaQrCodesRoute,
   EngenhariaIndexRoute: EngenhariaIndexRoute,
+  EngenhariaEquipamentoIdRoute: EngenhariaEquipamentoIdRoute,
 }
 
 const EngenhariaRouteRouteWithChildren = EngenhariaRouteRoute._addFileChildren(
@@ -859,6 +921,7 @@ const rootRouteChildren: RootRouteChildren = {
   RhRouteRoute: RhRouteRouteWithChildren,
   WebsiteRoute: WebsiteRouteWithChildren,
   LoginRoute: LoginRoute,
+  QTokenRoute: QTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
