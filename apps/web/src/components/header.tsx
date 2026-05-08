@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
 import { useState } from "react";
-import { Linkedin, Instagram } from "lucide-react";
+import { Linkedin, Instagram, User } from "lucide-react";
 
 type NavItem = {
   path: string;
@@ -69,6 +69,14 @@ export default function Header() {
           className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
         >
           Orçamento
+        </Link>
+
+        <Link
+          href="/login"
+          className="p-2 rounded-full text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition"
+          aria-label="Login"
+        >
+          <User className="w-5 h-5" />
         </Link>
       </nav>
 
@@ -150,6 +158,17 @@ export default function Header() {
                     className="bg-blue-600 text-white px-4 py-3 rounded-md hover:bg-blue-700 transition text-center block mt-2"
                   >
                     Orçamento
+                  </Link>
+                </div>
+
+                <div className="w-[80%]">
+                  <Link
+                    href="/login"
+                    onClick={toggleMenu}
+                    className="flex items-center gap-2 px-4 py-3 rounded-md text-gray-600 hover:text-blue-600 hover:border-2 hover:border-blue-600 transition-colors mt-2"
+                  >
+                    <User className="w-5 h-5" />
+                    Login
                   </Link>
                 </div>
               </nav>
