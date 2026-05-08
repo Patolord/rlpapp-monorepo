@@ -26,6 +26,7 @@ import {
   ScanLine,
   ClipboardList,
   ClipboardCheck,
+  QrCode,
   type LucideIcon,
 } from "lucide-react";
 
@@ -142,6 +143,7 @@ function getDepartmentSections(role?: string): DepartmentSection[] {
       basePath: "/engenharia",
       items: [
         { to: "/engenharia", label: "Dashboard", icon: LayoutDashboard, exact: true },
+        { to: "/engenharia/qr-codes", label: "QR Codes", icon: QrCode },
       ],
     },
   ];
