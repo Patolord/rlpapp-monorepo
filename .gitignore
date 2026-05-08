@@ -8,6 +8,10 @@ dist
 build
 *.tsbuildinfo
 
+# Next.js (dev/build cache — never commit)
+**/.next/
+out/
+
 # Environment variables
 .env
 .env*.local
