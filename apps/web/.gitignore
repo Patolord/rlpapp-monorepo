@@ -1,0 +1,19 @@
+# Next.js
+.next/
+out/
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+
+# Env (secrets — never commit)
+.env
+.env*.local
+
+# Debug / misc
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
