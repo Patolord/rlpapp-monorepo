@@ -1,0 +1,10 @@
+{
+  "pages": {},
+  "app": {
+    "[project]/apps/web/src/app/servicos/page": [
+      "static/media/2a65768255d6b625-s.p.d19752fb.woff2"
+    ]
+  },
+  "appUsingSizeAdjust": true,
+  "pagesUsingSizeAdjust": false
+}
