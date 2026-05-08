@@ -413,4 +413,46 @@ export default defineSchema({
     .index("by_transacao", ["transacaoBancariaId"])
     .index("by_contaPagar", ["contaPagarId"])
     .index("by_contaReceber", ["contaReceberId"]),
+
+  // --- QR Code / Equipment tracking ---
+
+  qrCodes: defineTable({
+    token: v.string(),
+    equipmentId: v.optional(v.id("equipment")),
+    status: v.union(v.literal("active"), v.literal("inactive")),
+    createdAt: v.number(),
+  }).index("by_token", ["token"]),
+
+  equipment: defineTable({
+    tag: v.string(),
+    type: v.string(),
+    location: v.string(),
+    status: v.union(
+      v.literal("operational"),
+      v.literal("warning"),
+      v.literal("error")
+    ),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_tag", ["tag"]),
+
+  maintenanceLogs: defineTable({
+    equipmentId: v.id("equipment"),
+    technicianName: v.string(),
+    notes: v.string(),
+    status: v.union(
+      v.literal("operational"),
+      v.literal("warning"),
+      v.literal("error")
+    ),
+    tests: v.optional(
+      v.object({
+        vacuum: v.boolean(),
+        pressure: v.boolean(),
+        communication: v.boolean(),
+      })
+    ),
+    photoIds: v.array(v.id("_storage")),
+    createdAt: v.number(),
+  }).index("by_equipment", ["equipmentId"]),
 });
