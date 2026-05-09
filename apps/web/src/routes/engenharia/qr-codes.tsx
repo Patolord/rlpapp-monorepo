@@ -175,7 +175,7 @@ function QrCodesContent() {
                         variant="outline"
                         className="bg-blue-50 text-blue-700 border-blue-200"
                       >
-                        Vinculado ao equipamento.
+                        Vinculado
                       </Badge>
                     ) : (
                       <Badge
