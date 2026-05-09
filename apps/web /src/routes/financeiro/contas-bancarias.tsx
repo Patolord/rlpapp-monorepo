@@ -34,6 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
 
 export const Route = createFileRoute("/financeiro/contas-bancarias")({
   component: ContasBancariasPage,
@@ -51,9 +52,7 @@ function ContasBancariasPage() {
         <ContasBancariasContent />
       </Authenticated>
       <Unauthenticated>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Faça login para acessar</p>
-        </div>
+        <ConvexUnauthRedirect />
       </Unauthenticated>
       <AuthLoading>
         <div className="flex items-center justify-center h-full">

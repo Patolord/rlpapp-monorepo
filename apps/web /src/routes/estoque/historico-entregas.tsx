@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
   Table,
   TableBody,
   TableCell,
@@ -52,9 +53,7 @@ function HistoricoEntregasPage() {
         <HistoricoContent />
       </Authenticated>
       <Unauthenticated>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Faça login para acessar</p>
-        </div>
+        <ConvexUnauthRedirect />
       </Unauthenticated>
       <AuthLoading>
         <div className="flex items-center justify-center h-full">

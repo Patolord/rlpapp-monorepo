@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Printer, Plus } from "lucide-react";
+import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
 
 export const Route = createFileRoute("/engenharia/qr-codes")({
   component: QrCodesPage,
@@ -31,9 +32,7 @@ function QrCodesPage() {
         <QrCodesContent />
       </Authenticated>
       <Unauthenticated>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Faça login para acessar</p>
-        </div>
+        <ConvexUnauthRedirect />
       </Unauthenticated>
       <AuthLoading>
         <div className="flex items-center justify-center h-full">

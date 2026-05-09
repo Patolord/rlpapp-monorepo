@@ -6,6 +6,7 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HardHat, QrCode, Wrench, AlertTriangle } from "lucide-react";
+import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
 
 export const Route = createFileRoute("/engenharia/")({
   component: EngenhariaDashboard,
@@ -18,9 +19,7 @@ function EngenhariaDashboard() {
         <DashboardContent />
       </Authenticated>
       <Unauthenticated>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Faça login para acessar</p>
-        </div>
+        <ConvexUnauthRedirect />
       </Unauthenticated>
       <AuthLoading>
         <div className="flex items-center justify-center h-full">

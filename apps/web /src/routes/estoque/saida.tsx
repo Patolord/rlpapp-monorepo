@@ -46,6 +46,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
 
 export const Route = createFileRoute("/estoque/saida")({
   component: SaidaPage,
@@ -58,9 +59,7 @@ function SaidaPage() {
         <SaidaContent />
       </Authenticated>
       <Unauthenticated>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Faça login para acessar</p>
-        </div>
+        <ConvexUnauthRedirect />
       </Unauthenticated>
       <AuthLoading>
         <div className="flex items-center justify-center h-full">

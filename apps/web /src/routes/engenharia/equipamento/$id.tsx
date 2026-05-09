@@ -9,6 +9,7 @@ import { MaintenanceForm } from "@/components/engenharia/maintenance-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { MapPin, Tag, Clock, Loader2, AlertTriangle } from "lucide-react";
+import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
 
 export const Route = createFileRoute("/engenharia/equipamento/$id")({
   component: EquipmentPage,
@@ -21,9 +22,7 @@ function EquipmentPage() {
         <EquipmentContent />
       </Authenticated>
       <Unauthenticated>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Faça login para acessar</p>
-        </div>
+        <ConvexUnauthRedirect />
       </Unauthenticated>
       <AuthLoading>
         <div className="flex items-center justify-center h-full">
