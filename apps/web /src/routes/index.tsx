@@ -48,7 +48,7 @@ function IndexPage() {
 }
 
 function LoginForm() {
-  const { signIn, setActive, isLoaded } = useSignIn();
+  const { signIn, setActive } = useSignIn();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -57,7 +57,7 @@ function LoginForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!isLoaded) return;
+    if (!signIn) return;
 
     setError("");
     setLoading(true);
@@ -92,16 +92,24 @@ function LoginForm() {
   }
 
   async function handleGoogleSignIn() {
-    if (!isLoaded) return;
+    if (!signIn) return;
+    setError("");
     setGoogleLoading(true);
     try {
-      await signIn.authenticateWithRedirect({
+      const origin = window.location.origin;
+      const result = await (signIn as any).sso({
         strategy: "oauth_google",
-        redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/estoque",
+        redirectCallbackUrl: `${origin}/sso-callback`,
+        redirectUrl: `${origin}/estoque`,
       });
+      if (result?.error) {
+        setError(result.error.longMessage ?? result.error.message ?? "Erro ao entrar com Google.");
+        setGoogleLoading(false);
+      }
     } catch (err: any) {
-      setError("Erro ao entrar com Google. Tente novamente.");
+      console.error("[Google Sign-In Error]", err);
+      const clerkError = err?.errors?.[0];
+      setError(clerkError?.longMessage ?? err?.message ?? "Erro ao entrar com Google.");
       setGoogleLoading(false);
     }
   }

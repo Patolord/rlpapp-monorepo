@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
 import { useState } from "react";
-import { Linkedin, Instagram, User } from "lucide-react";
+import { User } from "lucide-react";
+import { FaLinkedinIn, FaInstagram } from "react-icons/fa";
 
 type NavItem = {
   path: string;
@@ -186,7 +187,7 @@ export default function Header() {
                   rel="noopener noreferrer"
                   className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 hover:bg-blue-100 transition-colors"
                 >
-                  <Linkedin className="w-4 h-4 text-blue-800" />
+                  <FaLinkedinIn className="w-4 h-4 text-blue-800" />
                 </a>
                 <a
                   href="https://www.instagram.com/rlpengenharia/"
@@ -194,7 +195,7 @@ export default function Header() {
                   rel="noopener noreferrer"
                   className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 hover:bg-blue-100 transition-colors"
                 >
-                  <Instagram className="w-4 h-4 text-blue-800" />
+                  <FaInstagram className="w-4 h-4 text-blue-800" />
                 </a>
               </div>
             </div>

@@ -112,7 +112,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <ClerkProvider publishableKey={env.VITE_CLERK_PUBLISHABLE_KEY}>
+        <ClerkProvider
+          publishableKey={env.VITE_CLERK_PUBLISHABLE_KEY}
+          signInUrl="/"
+          afterSignInUrl="/estoque"
+          afterSignUpUrl="/estoque"
+        >
           <ConvexProviderWithClerk client={context.convexQueryClient.convexClient} useAuth={useAuth}>
             <EnsureUser />
             <TooltipProvider>

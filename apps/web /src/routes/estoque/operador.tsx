@@ -50,7 +50,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
   Table,
   TableBody,
   TableCell,
@@ -58,6 +57,7 @@ import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
 
 export const Route = createFileRoute("/estoque/operador")({
   component: OperadorPage,

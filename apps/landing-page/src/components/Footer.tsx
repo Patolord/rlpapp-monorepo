@@ -3,8 +3,8 @@
 import { useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Linkedin, Instagram, MapPinned } from "lucide-react";
-import { FaWhatsapp } from "react-icons/fa";
+import { MapPinned } from "lucide-react";
+import { FaWhatsapp, FaInstagram, FaLinkedinIn } from "react-icons/fa";
 
 // Ofuscação para evitar spam bots
 const EMAIL_USER = "rlpeng";
@@ -46,7 +46,7 @@ export default function Footer() {
                   rel="noopener noreferrer"
                   className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 hover:bg-blue-100 transition-colors"
                 >
-                  <Linkedin className="w-4 h-4 text-blue-800" />
+                  <FaLinkedinIn className="w-4 h-4 text-blue-800" />
                 </a>
                 <a
                   href="https://www.instagram.com/rlpengenharia/"
@@ -54,7 +54,7 @@ export default function Footer() {
                   rel="noopener noreferrer"
                   className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 hover:bg-blue-100 transition-colors"
                 >
-                  <Instagram className="w-4 h-4 text-blue-800" />
+                  <FaInstagram className="w-4 h-4 text-blue-800" />
                 </a>
               </div>
             </div>
@@ -194,7 +194,7 @@ export default function Footer() {
               rel="noopener noreferrer"
               className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 hover:bg-blue-100 transition-colors"
             >
-              <Linkedin className="w-4 h-4 text-blue-800" />
+              <FaLinkedinIn className="w-4 h-4 text-blue-800" />
             </a>
             <a
               href="https://www.instagram.com/rlpengenharia/"
@@ -202,7 +202,7 @@ export default function Footer() {
               rel="noopener noreferrer"
               className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 hover:bg-blue-100 transition-colors"
             >
-              <Instagram className="w-4 h-4 text-blue-800" />
+              <FaInstagram className="w-4 h-4 text-blue-800" />
             </a>
           </div>
         </div>
