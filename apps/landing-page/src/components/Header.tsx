@@ -25,7 +25,7 @@ const WHATSAPP_URL =
   "https://wa.me/5511985782307?text=Olá,%20gostaria%20de%20solicitar%20um%20orçamento";
 
 const APP_LOGIN_URL =
-  (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001") + "/";
+  (process.env.NEXT_PUBLIC_APP_URL ?? "https://app.rlpeng.com.br") + "/";
 
 export default function Header() {
   const pathname = usePathname();
@@ -57,9 +57,9 @@ export default function Header() {
             href={path}
             className={clsx(
               pathname !== path &&
-                "text-gray-600 hover:text-blue-600 transition-colors",
+              "text-gray-600 hover:text-blue-600 transition-colors",
               pathname === path &&
-                "text-blue-600 underline underline-offset-[12px] decoration-[3px] decoration-blue-600"
+              "text-blue-600 underline underline-offset-[12px] decoration-[3px] decoration-blue-600"
             )}
           >
             {label}
@@ -140,9 +140,9 @@ export default function Header() {
                       className={clsx(
                         "px-4 py-3 rounded-md block",
                         pathname !== path &&
-                          "text-gray-600 hover:text-blue-600 hover:border-2 hover:border-blue-600 transition-colors",
+                        "text-gray-600 hover:text-blue-600 hover:border-2 hover:border-blue-600 transition-colors",
                         pathname === path &&
-                          "text-blue-600 hover:border-2 hover:border-blue-600"
+                        "text-blue-600 hover:border-2 hover:border-blue-600"
                       )}
                     >
                       {label}
