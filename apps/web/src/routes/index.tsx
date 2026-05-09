@@ -48,7 +48,7 @@ function IndexPage() {
 }
 
 function LoginForm() {
-  const { signIn, setActive } = useSignIn();
+  const { signIn } = useSignIn();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -63,15 +63,22 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      const result = await signIn.create({
+      const result = await signIn.password({
         identifier: email,
         password,
       });
 
-      if (result.status === "complete") {
-        await setActive({ session: result.createdSessionId });
+      if (result.error) {
+        const code = result.error.code;
+        const messages: Record<string, string> = {
+          form_identifier_not_found: "E-mail não encontrado.",
+          form_password_incorrect: "Senha incorreta.",
+          too_many_attempts:
+            "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+        };
+        setError(messages[code ?? ""] ?? result.error.longMessage ?? "Erro ao fazer login.");
       } else {
-        setError("Não foi possível completar o login. Tente novamente.");
+        await signIn.finalize({ navigate: (to) => window.location.replace(to) });
       }
     } catch (err: any) {
       const clerkError = err?.errors?.[0];
@@ -97,12 +104,12 @@ function LoginForm() {
     setGoogleLoading(true);
     try {
       const origin = window.location.origin;
-      const result = await (signIn as any).sso({
+      const result = await signIn.sso({
         strategy: "oauth_google",
         redirectCallbackUrl: `${origin}/sso-callback`,
         redirectUrl: `${origin}/estoque`,
       });
-      if (result?.error) {
+      if (result.error) {
         setError(result.error.longMessage ?? result.error.message ?? "Erro ao entrar com Google.");
         setGoogleLoading(false);
       }
