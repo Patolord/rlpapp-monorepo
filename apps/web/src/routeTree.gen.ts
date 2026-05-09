@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SsoCallbackRouteImport } from './routes/sso-callback'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RhRouteRouteImport } from './routes/rh/route'
 import { Route as FinanceiroRouteRouteImport } from './routes/financeiro/route'
@@ -43,11 +42,6 @@ import { Route as EstoqueAjustesRouteImport } from './routes/estoque/ajustes'
 import { Route as EngenhariaQrCodesRouteImport } from './routes/engenharia/qr-codes'
 import { Route as EngenhariaEquipamentoIdRouteImport } from './routes/engenharia/equipamento/$id'
 
-const SsoCallbackRoute = SsoCallbackRouteImport.update({
-  id: '/sso-callback',
-  path: '/sso-callback',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -219,7 +213,6 @@ export interface FileRoutesByFullPath {
   '/financeiro': typeof FinanceiroRouteRouteWithChildren
   '/rh': typeof RhRouteRouteWithChildren
   '/login': typeof LoginRoute
-  '/sso-callback': typeof SsoCallbackRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/estoque/ajustes': typeof EstoqueAjustesRoute
   '/estoque/entrada': typeof EstoqueEntradaRoute
@@ -249,7 +242,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/sso-callback': typeof SsoCallbackRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/estoque/ajustes': typeof EstoqueAjustesRoute
   '/estoque/entrada': typeof EstoqueEntradaRoute
@@ -285,7 +277,6 @@ export interface FileRoutesById {
   '/financeiro': typeof FinanceiroRouteRouteWithChildren
   '/rh': typeof RhRouteRouteWithChildren
   '/login': typeof LoginRoute
-  '/sso-callback': typeof SsoCallbackRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/estoque/ajustes': typeof EstoqueAjustesRoute
   '/estoque/entrada': typeof EstoqueEntradaRoute
@@ -322,7 +313,6 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/rh'
     | '/login'
-    | '/sso-callback'
     | '/engenharia/qr-codes'
     | '/estoque/ajustes'
     | '/estoque/entrada'
@@ -352,7 +342,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
-    | '/sso-callback'
     | '/engenharia/qr-codes'
     | '/estoque/ajustes'
     | '/estoque/entrada'
@@ -387,7 +376,6 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/rh'
     | '/login'
-    | '/sso-callback'
     | '/engenharia/qr-codes'
     | '/estoque/ajustes'
     | '/estoque/entrada'
@@ -423,19 +411,11 @@ export interface RootRouteChildren {
   FinanceiroRouteRoute: typeof FinanceiroRouteRouteWithChildren
   RhRouteRoute: typeof RhRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
-  SsoCallbackRoute: typeof SsoCallbackRoute
   QTokenRoute: typeof QTokenRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/sso-callback': {
-      id: '/sso-callback'
-      path: '/sso-callback'
-      fullPath: '/sso-callback'
-      preLoaderRoute: typeof SsoCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -768,7 +748,6 @@ const rootRouteChildren: RootRouteChildren = {
   FinanceiroRouteRoute: FinanceiroRouteRouteWithChildren,
   RhRouteRoute: RhRouteRouteWithChildren,
   LoginRoute: LoginRoute,
-  SsoCallbackRoute: SsoCallbackRoute,
   QTokenRoute: QTokenRoute,
 }
 export const routeTree = rootRouteImport

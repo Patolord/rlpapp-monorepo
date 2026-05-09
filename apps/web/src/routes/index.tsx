@@ -1,4 +1,8 @@
-import { useAuth, useSignIn } from "@clerk/tanstack-react-start";
+import {
+  AuthenticateWithRedirectCallback,
+  useAuth,
+  useSignIn,
+} from "@clerk/tanstack-react-start";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -28,23 +32,25 @@ function IndexPage() {
     }
   }, [isLoaded, isSignedIn, navigate]);
 
-  if (!isLoaded) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-[#0b1228] via-[#0d1631] to-[#111b3d]">
-        <Loader2 className="size-8 animate-spin text-white/60" />
-      </div>
-    );
-  }
-
-  if (isSignedIn) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-[#0b1228] via-[#0d1631] to-[#111b3d]">
-        <Loader2 className="size-8 animate-spin text-white/60" />
-      </div>
-    );
-  }
-
-  return <LoginForm />;
+  return (
+    <>
+      <AuthenticateWithRedirectCallback
+        signInForceRedirectUrl="/estoque"
+        signUpForceRedirectUrl="/estoque"
+      />
+      {!isLoaded ? (
+        <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-[#0b1228] via-[#0d1631] to-[#111b3d]">
+          <Loader2 className="size-8 animate-spin text-white/60" />
+        </div>
+      ) : isSignedIn ? (
+        <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-[#0b1228] via-[#0d1631] to-[#111b3d]">
+          <Loader2 className="size-8 animate-spin text-white/60" />
+        </div>
+      ) : (
+        <LoginForm />
+      )}
+    </>
+  );
 }
 
 function LoginForm() {
@@ -106,7 +112,7 @@ function LoginForm() {
       const origin = window.location.origin;
       const result = await signIn.sso({
         strategy: "oauth_google",
-        redirectCallbackUrl: `${origin}/sso-callback`,
+        redirectCallbackUrl: `${origin}/`,
         redirectUrl: `${origin}/estoque`,
       });
       if (result.error) {
