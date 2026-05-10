@@ -20,13 +20,14 @@ import { Loader2, Plus } from "lucide-react";
 
 interface MaintenanceFormProps {
   equipmentId: Id<"equipment">;
+  defaultTechnicianName?: string;
 }
 
-export function MaintenanceForm({ equipmentId }: MaintenanceFormProps) {
+export function MaintenanceForm({ equipmentId, defaultTechnicianName }: MaintenanceFormProps) {
   const createLog = useMutation(api.maintenanceLogs.create);
 
   const [open, setOpen] = useState(false);
-  const [technicianName, setTechnicianName] = useState("");
+  const [technicianName, setTechnicianName] = useState(defaultTechnicianName ?? "");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<
     "operational" | "warning" | "error"
@@ -38,7 +39,7 @@ export function MaintenanceForm({ equipmentId }: MaintenanceFormProps) {
   const [submitting, setSubmitting] = useState(false);
 
   function resetForm() {
-    setTechnicianName("");
+    setTechnicianName(defaultTechnicianName ?? "");
     setNotes("");
     setStatus("operational");
     setVacuum(false);

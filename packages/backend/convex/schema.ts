@@ -420,8 +420,11 @@ export default defineSchema({
     token: v.string(),
     equipmentId: v.optional(v.id("equipment")),
     status: v.union(v.literal("active"), v.literal("inactive")),
+    batchId: v.optional(v.string()),
     createdAt: v.number(),
-  }).index("by_token", ["token"]),
+  })
+    .index("by_token", ["token"])
+    .index("by_batchId", ["batchId"]),
 
   equipment: defineTable({
     tag: v.string(),
