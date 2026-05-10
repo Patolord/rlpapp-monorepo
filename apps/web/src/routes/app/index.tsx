@@ -38,21 +38,21 @@ function DirectorDashboard() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
       <div className="mb-10 text-center">
-        <h1 className="text-3xl font-bold tracking-tight text-white">Painel do Diretor</h1>
-        <p className="mt-2 text-sm text-white/70">
+        <h1 className="text-3xl font-bold tracking-tight">Painel do Diretor</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
           Selecione um departamento para acessar.
         </p>
       </div>
       <div className="grid gap-6 sm:grid-cols-2">
         {departmentCards.map((dept) => (
           <Link key={dept.to} to={dept.to} className="group">
-            <Card className="h-full rounded-2xl border-white/10 bg-white/5 backdrop-blur-sm shadow-none transition-colors hover:bg-white/10 hover:border-white/20">
+            <Card className="h-full rounded-2xl border-border bg-card shadow-sm transition-colors hover:bg-muted">
               <CardHeader className="pb-3">
                 <div className="mb-3 flex items-center gap-3">
-                  <dept.icon className="h-5 w-5 text-white" />
-                  <CardTitle className="text-lg font-semibold text-white">{dept.title}</CardTitle>
+                  <dept.icon className="h-5 w-5" />
+                  <CardTitle className="text-lg font-semibold">{dept.title}</CardTitle>
                 </div>
-                <CardDescription className="text-sm text-white/70">
+                <CardDescription className="text-sm">
                   {dept.description}
                 </CardDescription>
               </CardHeader>
