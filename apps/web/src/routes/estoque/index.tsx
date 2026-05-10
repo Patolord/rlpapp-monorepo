@@ -66,8 +66,8 @@ function DashboardContent() {
     <div className="min-h-full p-6">
       <div className="mx-auto max-w-7xl space-y-6">
       <div>
-        <h1 className="text-4xl font-semibold tracking-tight text-white">Dashboard de Estoque</h1>
-        <p className="text-sm text-white/70">Visão geral do sistema de inventário</p>
+        <h1 className="text-4xl font-semibold tracking-tight">Dashboard de Estoque</h1>
+        <p className="text-sm text-muted-foreground">Visão geral do sistema de inventário</p>
       </div>
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
@@ -75,35 +75,32 @@ function DashboardContent() {
           title="Produtos Cadastrados"
           value={formatNumber(summary.totalProducts)}
           subtitle={`+${Math.max(summary.totalProducts - summary.totalSites, 0)} este mes`}
-          icon={<Package className="h-5 w-5 text-white" />}
+          icon={<Package className="h-5 w-5 text-foreground" />}
         />
         <MetricCard
           title="Sites Ativos"
           value={formatNumber(summary.totalSites)}
           subtitle={`+${summary.totalSites > 0 ? Math.min(summary.totalSites, 3) : 0} este mes`}
-          icon={<MapPin className="h-5 w-5 text-white" />}
+          icon={<MapPin className="h-5 w-5 text-foreground" />}
         />
         <MetricCard
           title="Itens no Armazem"
           value={formatNumber(summary.totalWarehouseItems)}
           subtitle={`+${summary.pendingReceipts} em recebimento`}
-          icon={<Warehouse className="h-5 w-5 text-white" />}
+          icon={<Warehouse className="h-5 w-5 text-foreground" />}
         />
         <MetricCard
           title="Estoque Baixo"
           value={formatNumber(summary.lowStockCount)}
           subtitle={`${summary.lowStockCount} itens criticos`}
-          icon={<AlertTriangle className="h-5 w-5 text-white" />}
-          valueClassName={summary.lowStockCount > 0 ? "text-white" : undefined}
-          subtitleClassName={summary.lowStockCount > 0 ? "text-white/70" : undefined}
+          icon={<AlertTriangle className="h-5 w-5 text-foreground" />}
         />
         <MetricCard
           title="Solicitações Pendentes"
           value={formatNumber(summary.pendingMaterialRequests ?? 0)}
           subtitle={`${summary.approvedMaterialRequests ?? 0} aprovadas aguardando envio`}
-          icon={<ClipboardList className="h-5 w-5 text-white" />}
-          valueClassName={(summary.pendingMaterialRequests ?? 0) > 0 ? "text-rose-400" : undefined}
-          subtitleClassName={(summary.pendingMaterialRequests ?? 0) > 0 ? "text-white" : undefined}
+          icon={<ClipboardList className="h-5 w-5 text-foreground" />}
+          valueClassName={(summary.pendingMaterialRequests ?? 0) > 0 ? "text-rose-600" : undefined}
         />
       </div>
 
@@ -113,7 +110,7 @@ function DashboardContent() {
           description="Pedidos dos operadores aguardando revisão"
           count={summary.pendingMaterialRequests ?? 0}
           countVariant={(summary.pendingMaterialRequests ?? 0) > 0 ? "warning" : "secondary"}
-          icon={<ClipboardList className="h-4 w-4 text-white" />}
+          icon={<ClipboardList className="h-4 w-4 text-foreground" />}
           footerLabel="Ver todas as solicitações"
           footerLink="/estoque/solicitacoes"
           items={(summary.recentPendingRequests ?? []).map((req: any) => ({
@@ -123,7 +120,7 @@ function DashboardContent() {
             meta: `Necessário até ${formatDate(req.dateNeeded)}`,
             badge: req.urgency === "critico" ? "Crítico" : req.urgency === "urgente" ? "Urgente" : "Pendente",
             badgeVariant: req.urgency === "critico" ? "warning" : req.urgency === "urgente" ? "warning" : "success" as "warning" | "success",
-            avatarIcon: <ClipboardList className="h-4 w-4 text-white" />,
+            avatarIcon: <ClipboardList className="h-4 w-4 text-foreground" />,
           }))}
           emptyText="Nenhuma solicitação pendente no momento"
         />
@@ -133,7 +130,7 @@ function DashboardContent() {
           description="Últimas confirmações de recebimento via QR"
           count={(summary.recentDeliveries ?? []).length}
           countVariant="secondary"
-          icon={<ClipboardCheck className="h-4 w-4 text-white" />}
+          icon={<ClipboardCheck className="h-4 w-4 text-foreground" />}
           footerLabel="Ver histórico completo"
           footerLink="/estoque/historico-entregas"
           items={(summary.recentDeliveries ?? []).map((d: any) => ({
@@ -143,7 +140,7 @@ function DashboardContent() {
             meta: formatDateTime(d.confirmedAt),
             badge: "Entregue",
             badgeVariant: "success" as "warning" | "success",
-            avatarIcon: <ClipboardCheck className="h-4 w-4 text-white" />,
+            avatarIcon: <ClipboardCheck className="h-4 w-4 text-foreground" />,
           }))}
           emptyText="Nenhuma entrega confirmada ainda"
         />
@@ -155,7 +152,7 @@ function DashboardContent() {
           description="Aguardando aceitacao"
           count={summary.pendingReceipts}
           countVariant={summary.pendingReceipts > 0 ? "warning" : "secondary"}
-          icon={<ArrowDownToLine className="h-4 w-4 text-white" />}
+          icon={<ArrowDownToLine className="h-4 w-4 text-foreground" />}
           footerLabel="Ver todos os recibos"
           items={recentReceipts.map((receipt) => ({
             id: receipt._id,
@@ -164,7 +161,7 @@ function DashboardContent() {
             meta: formatDate(receipt.createdAt),
             badge: receipt.status === "PendingReceipt" ? "Aguardando" : "Recebido",
             badgeVariant: receipt.status === "PendingReceipt" ? "warning" : "success",
-            avatarIcon: <Boxes className="h-4 w-4 text-white" />,
+            avatarIcon: <Boxes className="h-4 w-4 text-foreground" />,
           }))}
           emptyText="Nenhum recibo pendente no momento"
         />
@@ -174,7 +171,7 @@ function DashboardContent() {
           description="Em transito ou aguardando envio"
           count={summary.activeShipments}
           countVariant={summary.activeShipments > 0 ? "warning" : "secondary"}
-          icon={<ArrowUpFromLine className="h-4 w-4 text-white" />}
+          icon={<ArrowUpFromLine className="h-4 w-4 text-foreground" />}
           footerLabel="Ver todas as remessas"
           items={recentShipments.map((shipment) => ({
             id: shipment._id,
@@ -183,54 +180,54 @@ function DashboardContent() {
             meta: formatDate(shipment.createdAt),
             badge: shipment.status === "PendingShipment" ? "Em transito" : "Preparando",
             badgeVariant: shipment.status === "PendingShipment" ? "warning" : "success",
-            avatarIcon: <MapPin className="h-4 w-4 text-white" />,
+            avatarIcon: <MapPin className="h-4 w-4 text-foreground" />,
           }))}
           emptyText="Nenhuma remessa ativa no momento"
         />
 
-        <Card className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm py-0 shadow-none">
+        <Card className="rounded-2xl border border-border bg-card py-0 shadow-sm">
           <CardHeader className="px-6 pt-6">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <CardTitle className="text-2xl font-semibold text-white">Acoes Rapidas</CardTitle>
-                <CardDescription className="mt-1 text-sm text-white/70">
+                <CardTitle className="text-2xl font-semibold">Acoes Rapidas</CardTitle>
+                <CardDescription className="mt-1 text-sm">
                   Atalhos do modulo de estoque
                 </CardDescription>
               </div>
-              <FileText className="h-4 w-4 text-white/70" />
+              <FileText className="h-4 w-4 text-muted-foreground" />
             </div>
           </CardHeader>
           <CardContent className="grid gap-3 px-6 pb-6 sm:grid-cols-2 xl:grid-cols-2">
             <QuickActionButton
               label="Solicitações"
-              icon={<ClipboardList className="h-4 w-4 text-white" />}
+              icon={<ClipboardList className="h-4 w-4" />}
             />
             <QuickActionButton
               label="Entregas"
-              icon={<ClipboardCheck className="h-4 w-4 text-white" />}
+              icon={<ClipboardCheck className="h-4 w-4" />}
             />
             <QuickActionButton
               label="Buscar"
-              icon={<Search className="h-4 w-4 text-white" />}
+              icon={<Search className="h-4 w-4" />}
             />
             <QuickActionButton
               label="Estoque Baixo"
-              icon={<AlertTriangle className="h-4 w-4 text-white" />}
+              icon={<AlertTriangle className="h-4 w-4" />}
             />
           </CardContent>
         </Card>
       </div>
 
-      <Card className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm py-0 shadow-none">
+      <Card className="rounded-2xl border border-border bg-card py-0 shadow-sm">
         <CardHeader className="px-6 pt-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <CardTitle className="text-2xl font-semibold text-white">Atividade Recente</CardTitle>
-              <CardDescription className="mt-1 text-sm text-white/70">
+              <CardTitle className="text-2xl font-semibold">Atividade Recente</CardTitle>
+              <CardDescription className="mt-1 text-sm">
                 Ultimas movimentacoes do sistema
               </CardDescription>
             </div>
-            <Badge variant="secondary" className="rounded-full border-white/10 bg-white/10 px-3 py-1 text-slate-200">
+            <Badge variant="secondary" className="rounded-full px-3 py-1">
               Hoje
             </Badge>
           </div>
@@ -240,21 +237,21 @@ function DashboardContent() {
             {buildActivityItems(summary, lowStockItems).map((item, index) => (
               <div key={`${item.title}-${index}`} className="flex gap-4">
                 <div className="flex flex-col items-center">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
                     {item.icon}
                   </div>
-                  {index < 4 && <div className="mt-2 h-full w-px bg-white/10" />}
+                  {index < 4 && <div className="mt-2 h-full w-px bg-border" />}
                 </div>
                 <div className="pb-2">
-                  <p className="text-base font-semibold text-white">{item.title}</p>
-                  <p className="mt-1 text-sm text-white/70">{item.description}</p>
-                  <p className="mt-2 text-xs text-white/60">{item.meta}</p>
+                  <p className="text-base font-semibold">{item.title}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{item.meta}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="mt-4 flex items-center justify-center gap-1 text-sm font-medium text-white">
+          <div className="mt-4 flex items-center justify-center gap-1 text-sm font-medium text-foreground">
             <span>Ver todo o historico</span>
             <ChevronRight className="h-4 w-4" />
           </div>
@@ -262,13 +259,13 @@ function DashboardContent() {
       </Card>
 
       {lowStockItems.length > 0 && (
-        <Card className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm py-0 shadow-none">
+        <Card className="rounded-2xl border border-border bg-card py-0 shadow-sm">
           <CardHeader className="px-6 pt-6">
-            <CardTitle className="flex items-center gap-2 text-2xl font-semibold text-white">
-              <AlertTriangle className="h-5 w-5 text-white" />
+            <CardTitle className="flex items-center gap-2 text-2xl font-semibold">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
               Itens com Estoque Baixo
             </CardTitle>
-            <CardDescription className="text-sm text-white/70">
+            <CardDescription className="text-sm">
               Produtos abaixo do minimo recomendado
             </CardDescription>
           </CardHeader>
@@ -276,19 +273,19 @@ function DashboardContent() {
             {lowStockItems.slice(0, 5).map((product) => (
               <div
                 key={product._id}
-                className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3"
+                className="flex items-center justify-between rounded-xl border border-border bg-muted/50 px-4 py-3"
               >
                 <div>
-                  <p className="text-sm font-semibold text-white">{product.name}</p>
-                  <p className="mt-1 text-xs text-white/70">
+                  <p className="text-sm font-semibold">{product.name}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Minimo: {product.minQuantity} {product.unit}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold text-white">
+                  <p className="text-sm font-bold">
                     {product.currentStock} {product.unit}
                   </p>
-                  <p className="mt-1 text-xs text-white/70">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Faltam: {product.deficit} {product.unit}
                   </p>
                 </div>
@@ -308,26 +305,24 @@ function MetricCard({
   subtitle,
   icon,
   valueClassName,
-  subtitleClassName,
 }: {
   title: string;
   value: string;
   subtitle: string;
   icon: React.ReactNode;
   valueClassName?: string;
-  subtitleClassName?: string;
 }) {
   return (
-    <Card className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm py-0 shadow-none">
+    <Card className="relative overflow-hidden rounded-2xl border border-border bg-card py-0 shadow-sm">
       <CardContent className="flex items-center justify-between gap-4 px-6 py-6">
         <div>
-          <p className="text-sm text-white/70">{title}</p>
-          <p className={`mt-3 text-4xl font-semibold text-white ${valueClassName ?? ""}`}>
+          <p className="text-sm text-muted-foreground">{title}</p>
+          <p className={`mt-3 text-4xl font-semibold ${valueClassName ?? ""}`}>
             {value}
           </p>
-          <p className={`mt-2 text-xs text-white/70 ${subtitleClassName ?? ""}`}>{subtitle}</p>
+          <p className="mt-2 text-xs text-muted-foreground">{subtitle}</p>
         </div>
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted">
           {icon}
         </div>
       </CardContent>
@@ -365,25 +360,21 @@ function DashboardListCard({
   emptyText: string;
 }) {
   return (
-    <Card className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm py-0 shadow-none">
+    <Card className="rounded-2xl border border-border bg-card py-0 shadow-sm">
       <CardHeader className="px-6 pt-6">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-white/10">
+            <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-muted">
               {icon}
             </div>
             <div>
-              <CardTitle className="text-2xl font-semibold text-white">{title}</CardTitle>
-              <CardDescription className="mt-1 text-sm text-white/70">{description}</CardDescription>
+              <CardTitle className="text-2xl font-semibold">{title}</CardTitle>
+              <CardDescription className="mt-1 text-sm">{description}</CardDescription>
             </div>
           </div>
           <Badge
             variant={countVariant}
-            className={`rounded-full px-3 py-1 ${
-              countVariant === "warning"
-                ? "border-amber-300/30 bg-amber-300/15 text-white"
-                : "border-white/10 bg-white/10 text-slate-200"
-            }`}
+            className="rounded-full px-3 py-1"
           >
             {count}
           </Badge>
@@ -394,44 +385,40 @@ function DashboardListCard({
           items.map((item) => (
             <div
               key={item.id}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3"
+              className="rounded-xl border border-border bg-muted/50 px-4 py-3"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted">
                     {item.avatarIcon}
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-white">{item.title}</p>
-                    <p className="mt-1 text-xs text-white/70">{item.subtitle}</p>
+                    <p className="truncate text-sm font-semibold">{item.title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{item.subtitle}</p>
                   </div>
                 </div>
                 <Badge
                   variant={item.badgeVariant}
-                  className={`rounded-full px-2.5 py-1 ${
-                    item.badgeVariant === "warning"
-                      ? "border-amber-300/30 bg-amber-300/15 text-white"
-                      : "border-emerald-300/30 bg-emerald-300/15 text-white"
-                  }`}
+                  className="rounded-full px-2.5 py-1"
                 >
                   {item.badge}
                 </Badge>
               </div>
-              <p className="mt-3 text-xs text-white/60">{item.meta}</p>
+              <p className="mt-3 text-xs text-muted-foreground">{item.meta}</p>
             </div>
           ))
         ) : (
-          <div className="rounded-xl border border-dashed border-white/15 px-4 py-6 text-sm text-white/70">
+          <div className="rounded-xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
             {emptyText}
           </div>
         )}
       </CardContent>
       {footerLink ? (
-        <Link to={footerLink} className="block px-6 pb-6 text-center text-sm font-medium text-white hover:text-white/80">
+        <Link to={footerLink} className="block px-6 pb-6 text-center text-sm font-medium text-foreground hover:text-foreground/80">
           {footerLabel} <ChevronRight className="inline h-4 w-4" />
         </Link>
       ) : (
-        <div className="px-6 pb-6 text-center text-sm font-medium text-white">{footerLabel}</div>
+        <div className="px-6 pb-6 text-center text-sm font-medium">{footerLabel}</div>
       )}
     </Card>
   );
@@ -447,7 +434,7 @@ function QuickActionButton({
   return (
     <Button
       variant="outline"
-      className="h-24 rounded-2xl border border-white/10 bg-white/5 text-sm font-medium text-white hover:bg-white/10"
+      className="h-24 rounded-2xl border border-border bg-muted/50 text-sm font-medium hover:bg-muted"
     >
       <span className="flex flex-col items-center gap-3">
         {icon}
@@ -496,7 +483,7 @@ function buildActivityItems(
       title: "Solicitações de material pendentes",
       description: `${summary.pendingMaterialRequests} solicitações aguardando aprovação do administrador`,
       meta: "Requer ação imediata",
-      icon: <ClipboardList className="h-4 w-4 text-white" />,
+      icon: <ClipboardList className="h-4 w-4 text-foreground" />,
     });
   }
 
@@ -505,7 +492,7 @@ function buildActivityItems(
       title: "Solicitações aprovadas",
       description: `${summary.approvedMaterialRequests} solicitação(ões) aprovada(s) aguardando conversão em remessa`,
       meta: "Pronto para envio",
-      icon: <ClipboardCheck className="h-4 w-4 text-white" />,
+      icon: <ClipboardCheck className="h-4 w-4 text-foreground" />,
     });
   }
 
@@ -514,25 +501,25 @@ function buildActivityItems(
       title: "Nova entrada de estoque",
       description: `${summary.pendingReceipts} recebimentos aguardando conferencia`,
       meta: "Atualizado agora",
-      icon: <ArrowDownToLine className="h-4 w-4 text-white" />,
+      icon: <ArrowDownToLine className="h-4 w-4 text-foreground" />,
     },
     {
       title: "Remessas ativas",
       description: `${summary.activeShipments} remessas em andamento entre os sites`,
       meta: "Movimentacao de hoje",
-      icon: <ArrowUpFromLine className="h-4 w-4 text-white" />,
+      icon: <ArrowUpFromLine className="h-4 w-4 text-foreground" />,
     },
     {
       title: "Catalogo de produtos",
       description: `${summary.totalProducts} produtos ativos no catalogo`,
       meta: "Sincronizado com o cadastro",
-      icon: <FileText className="h-4 w-4 text-white" />,
+      icon: <FileText className="h-4 w-4 text-foreground" />,
     },
     {
       title: "Alerta de estoque baixo",
       description: `${lowStock.length} itens abaixo do minimo recomendado`,
       meta: "Requer acompanhamento",
-      icon: <AlertTriangle className="h-4 w-4 text-white" />,
+      icon: <AlertTriangle className="h-4 w-4 text-foreground" />,
     },
   );
 

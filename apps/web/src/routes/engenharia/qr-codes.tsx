@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useMutation } from "convex/react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMutation } from "convex/react";
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { QRCodeSVG } from "qrcode.react";
@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, Printer, Plus } from "lucide-react";
+import { Loader2, Printer, Plus, ArrowLeft } from "lucide-react";
 import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
 
 export const Route = createFileRoute("/engenharia/qr-codes")({
@@ -44,11 +43,11 @@ function QrCodesPage() {
 }
 
 function QrCodesContent() {
-  const qrCodes = useQuery(api.qrCodes.list);
   const batchCreate = useMutation(api.qrCodes.batchCreate);
+  const navigate = useNavigate();
 
-  const [prefix, setPrefix] = useState("AT");
-  const [quantity, setQuantity] = useState(5);
+  const [prefix, setPrefix] = useState("");
+  const [quantity, setQuantity] = useState("");
   const [generating, setGenerating] = useState(false);
   const [newlyCreated, setNewlyCreated] = useState<string[]>([]);
 
@@ -57,12 +56,17 @@ function QrCodesContent() {
       ? window.location.origin
       : "https://app.rlp.com";
 
+  const parsedQuantity = parseInt(quantity, 10);
+  const isValidQuantity = !isNaN(parsedQuantity) && parsedQuantity > 0 && parsedQuantity <= 50;
+
   async function handleGenerate() {
+    if (!isValidQuantity) return;
     setGenerating(true);
     try {
       const tokens: string[] = [];
-      for (let i = 0; i < quantity; i++) {
-        tokens.push(`${prefix}-${generateToken(6)}`);
+      for (let i = 0; i < parsedQuantity; i++) {
+        const token = prefix ? `${prefix}-${generateToken(6)}` : generateToken(8);
+        tokens.push(token);
       }
       await batchCreate({ tokens });
       setNewlyCreated(tokens);
@@ -80,6 +84,15 @@ function QrCodesContent() {
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-6 print:hidden">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mb-2"
+          onClick={() => navigate({ to: "/engenharia" })}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Voltar para QR Codes
+        </Button>
         <h1 className="text-2xl font-bold">Gerar QR Codes</h1>
         <p className="text-sm text-muted-foreground">
           Gere e imprima QR codes para rastreamento de equipamentos HVAC
@@ -90,12 +103,12 @@ function QrCodesContent() {
         <CardContent className="pt-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
             <div className="flex-1 space-y-2">
-              <Label htmlFor="prefix">Prefixo</Label>
+              <Label htmlFor="prefix">Prefixo (opcional)</Label>
               <Input
                 id="prefix"
                 value={prefix}
                 onChange={(e) => setPrefix(e.target.value.toUpperCase())}
-                placeholder="AT"
+                placeholder="Ex: AT"
                 className="h-12 text-base"
               />
             </div>
@@ -103,17 +116,19 @@ function QrCodesContent() {
               <Label htmlFor="quantity">Qtd</Label>
               <Input
                 id="quantity"
-                type="number"
-                min={1}
-                max={50}
+                inputMode="numeric"
                 value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "");
+                  setQuantity(val);
+                }}
+                placeholder="5"
                 className="h-12 text-base"
               />
             </div>
             <Button
               onClick={handleGenerate}
-              disabled={generating || !prefix}
+              disabled={generating || !isValidQuantity}
               className="h-12 text-base"
             >
               {generating ? (
@@ -138,7 +153,7 @@ function QrCodesContent() {
               Imprimir
             </Button>
           </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 print:grid-cols-3 print:gap-6">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 print:grid-cols-4 print:gap-4">
             {newlyCreated.map((token) => (
               <QrLabel key={token} token={token} baseUrl={baseUrl} />
             ))}
@@ -147,49 +162,28 @@ function QrCodesContent() {
       )}
 
       <div className="print:hidden">
-        <h2 className="mb-3 text-lg font-semibold">QR Codes Existentes</h2>
-        {qrCodes === undefined ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : qrCodes.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            Nenhum QR code gerado ainda.
+        {newlyCreated.length > 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            Você também pode visualizar esses QR Codes na{" "}
+            <button
+              onClick={() => navigate({ to: "/engenharia", search: { filter: "latest_batch" } })}
+              className="font-medium text-primary underline"
+            >
+              página de gerenciamento
+            </button>{" "}
+            usando o filtro "Últimos Gerados".
           </p>
         ) : (
-          <div className="space-y-2">
-            {qrCodes.map((qr) => (
-              <Card key={qr._id}>
-                <CardContent className="flex items-center justify-between py-3">
-                  <div>
-                    <span className="font-mono text-sm font-medium">
-                      {qr.token}
-                    </span>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {new Date(qr.createdAt).toLocaleDateString("pt-BR")}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {qr.equipmentId ? (
-                      <Badge
-                        variant="outline"
-                        className="bg-blue-50 text-blue-700 border-blue-200"
-                      >
-                        Vinculado
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="outline"
-                        className="bg-gray-50 text-gray-500 border-gray-200"
-                      >
-                        Livre
-                      </Badge>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            Para visualizar, filtrar e imprimir QR Codes existentes, acesse a{" "}
+            <button
+              onClick={() => navigate({ to: "/engenharia" })}
+              className="font-medium text-primary underline"
+            >
+              página de gerenciamento
+            </button>
+            .
+          </p>
         )}
       </div>
     </div>

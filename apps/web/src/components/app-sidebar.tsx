@@ -27,6 +27,7 @@ import {
   ClipboardList,
   ClipboardCheck,
   QrCode,
+  Plus,
   type LucideIcon,
 } from "lucide-react";
 
@@ -142,8 +143,8 @@ function getDepartmentSections(role?: string): DepartmentSection[] {
       icon: HardHat,
       basePath: "/engenharia",
       items: [
-        { to: "/engenharia", label: "Dashboard", icon: LayoutDashboard, exact: true },
-        { to: "/engenharia/qr-codes", label: "QR Codes", icon: QrCode },
+        { to: "/engenharia", label: "QR Codes", icon: QrCode, exact: true },
+        { to: "/engenharia/qr-codes", label: "Criar QR Codes", icon: Plus },
       ],
     },
   ];
@@ -281,21 +282,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar
       collapsible="icon"
+      variant="floating"
       {...props}
-      className="**:text-white"
-      style={
-        {
-          "--sidebar": "#0b1228",
-          "--sidebar-foreground": "#ffffff",
-          "--sidebar-primary": "oklch(0.488 0.243 264.376)",
-          "--sidebar-primary-foreground": "#ffffff",
-          "--sidebar-accent": "rgba(255,255,255,0.08)",
-          "--sidebar-accent-foreground": "#ffffff",
-          "--sidebar-border": "rgba(255,255,255,0.1)",
-          "--sidebar-ring": "rgba(255,255,255,0.3)",
-          ...(props.style as React.CSSProperties | undefined),
-        } as React.CSSProperties
-      }
     >
       <SidebarHeader>
         <SidebarMenu>

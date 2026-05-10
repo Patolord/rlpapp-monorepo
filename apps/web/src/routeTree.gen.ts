@@ -40,6 +40,7 @@ import { Route as EstoqueFornecedoresRouteImport } from './routes/estoque/fornec
 import { Route as EstoqueEntradaRouteImport } from './routes/estoque/entrada'
 import { Route as EstoqueAjustesRouteImport } from './routes/estoque/ajustes'
 import { Route as EngenhariaQrCodesRouteImport } from './routes/engenharia/qr-codes'
+import { Route as EngenhariaQrTokenRouteImport } from './routes/engenharia/qr/$token'
 import { Route as EngenhariaEquipamentoIdRouteImport } from './routes/engenharia/equipamento/$id'
 
 const LoginRoute = LoginRouteImport.update({
@@ -199,6 +200,11 @@ const EngenhariaQrCodesRoute = EngenhariaQrCodesRouteImport.update({
   path: '/qr-codes',
   getParentRoute: () => EngenhariaRouteRoute,
 } as any)
+const EngenhariaQrTokenRoute = EngenhariaQrTokenRouteImport.update({
+  id: '/qr/$token',
+  path: '/qr/$token',
+  getParentRoute: () => EngenhariaRouteRoute,
+} as any)
 const EngenhariaEquipamentoIdRoute = EngenhariaEquipamentoIdRouteImport.update({
   id: '/equipamento/$id',
   path: '/equipamento/$id',
@@ -238,6 +244,7 @@ export interface FileRoutesByFullPath {
   '/financeiro/': typeof FinanceiroIndexRoute
   '/rh/': typeof RhIndexRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
+  '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -267,6 +274,7 @@ export interface FileRoutesByTo {
   '/financeiro': typeof FinanceiroIndexRoute
   '/rh': typeof RhIndexRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
+  '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -302,6 +310,7 @@ export interface FileRoutesById {
   '/financeiro/': typeof FinanceiroIndexRoute
   '/rh/': typeof RhIndexRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
+  '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -338,6 +347,7 @@ export interface FileRouteTypes {
     | '/financeiro/'
     | '/rh/'
     | '/engenharia/equipamento/$id'
+    | '/engenharia/qr/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -367,6 +377,7 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/rh'
     | '/engenharia/equipamento/$id'
+    | '/engenharia/qr/$token'
   id:
     | '__root__'
     | '/'
@@ -401,6 +412,7 @@ export interface FileRouteTypes {
     | '/financeiro/'
     | '/rh/'
     | '/engenharia/equipamento/$id'
+    | '/engenharia/qr/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -633,6 +645,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaQrCodesRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
+    '/engenharia/qr/$token': {
+      id: '/engenharia/qr/$token'
+      path: '/qr/$token'
+      fullPath: '/engenharia/qr/$token'
+      preLoaderRoute: typeof EngenhariaQrTokenRouteImport
+      parentRoute: typeof EngenhariaRouteRoute
+    }
     '/engenharia/equipamento/$id': {
       id: '/engenharia/equipamento/$id'
       path: '/equipamento/$id'
@@ -659,12 +678,14 @@ interface EngenhariaRouteRouteChildren {
   EngenhariaQrCodesRoute: typeof EngenhariaQrCodesRoute
   EngenhariaIndexRoute: typeof EngenhariaIndexRoute
   EngenhariaEquipamentoIdRoute: typeof EngenhariaEquipamentoIdRoute
+  EngenhariaQrTokenRoute: typeof EngenhariaQrTokenRoute
 }
 
 const EngenhariaRouteRouteChildren: EngenhariaRouteRouteChildren = {
   EngenhariaQrCodesRoute: EngenhariaQrCodesRoute,
   EngenhariaIndexRoute: EngenhariaIndexRoute,
   EngenhariaEquipamentoIdRoute: EngenhariaEquipamentoIdRoute,
+  EngenhariaQrTokenRoute: EngenhariaQrTokenRoute,
 }
 
 const EngenhariaRouteRouteWithChildren = EngenhariaRouteRoute._addFileChildren(
