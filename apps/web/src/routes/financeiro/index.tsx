@@ -80,7 +80,7 @@ function DashboardContent() {
   };
 
   return (
-    <div className="min-h-full bg-[#f7f7f6] p-6">
+    <div className="min-h-full p-6">
       <div className="mx-auto max-w-7xl space-y-8">
         <div>
           <h1 className="text-4xl font-semibold tracking-tight text-foreground">Dashboard Financeiro</h1>

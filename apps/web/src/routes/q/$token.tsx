@@ -47,28 +47,87 @@ function QrResolutionPage() {
 }
 
 function UnauthenticatedView() {
+  const { token } = Route.useParams();
+  const data = useQuery(api.qrCodes.getByToken, { token });
+  const equipment = data?.equipment ?? null;
+  const logs = useQuery(
+    api.maintenanceLogs.listByEquipment,
+    equipment ? { equipmentId: equipment._id } : "skip",
+  );
+
+  const lastMaintenance = logs?.[0];
+  const lastMaintenanceDate = lastMaintenance
+    ? new Date(lastMaintenance.createdAt).toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      })
+    : null;
+
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="mx-auto w-full max-w-sm">
+      <div className="mx-auto w-full max-w-sm space-y-4">
+        {equipment && (
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Tag className="h-4 w-4 text-muted-foreground" />
+                    <h1 className="text-xl font-bold">{equipment.tag}</h1>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{equipment.type}</p>
+                </div>
+                <StatusBadge status={equipment.status} />
+              </div>
+
+              <Separator className="my-3" />
+
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5" />
+                  <span>{equipment.location}</span>
+                </div>
+                {lastMaintenanceDate && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>Última manutenção: {lastMaintenanceDate}</span>
+                  </div>
+                )}
+              </div>
+
+              {equipment.notes && (
+                <>
+                  <Separator className="my-3" />
+                  <p className="text-sm">{equipment.notes}</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardContent className="flex flex-col items-center gap-5 pt-6 pb-6 text-center">
-            <QrCode className="h-12 w-12 text-muted-foreground" />
-            <div className="space-y-1">
-              <h1 className="text-xl font-bold">RLP Engenharia</h1>
-              <p className="text-sm text-muted-foreground">
-                QR Code escaneado com sucesso
-              </p>
-            </div>
-
-            <Separator />
+            {!equipment && (
+              <>
+                <QrCode className="h-12 w-12 text-muted-foreground" />
+                <div className="space-y-1">
+                  <h1 className="text-xl font-bold">RLP Engenharia</h1>
+                  <p className="text-sm text-muted-foreground">
+                    QR Code escaneado com sucesso
+                  </p>
+                </div>
+                <Separator />
+              </>
+            )}
 
             <div className="w-full space-y-3">
               <p className="text-sm font-medium">
                 Se você é técnico, faça login para acessar o sistema:
               </p>
               <Button className="h-12 w-full text-base" render={<Link to="/" />}>
-                  <LogIn className="mr-2 h-4 w-4" />
-                  Fazer Login
+                <LogIn className="mr-2 h-4 w-4" />
+                Fazer Login
               </Button>
             </div>
 
@@ -150,7 +209,7 @@ function AuthenticatedContent() {
         </div>
         <EquipmentForm
           qrToken={token}
-          onSuccess={() => {}}
+          onSuccess={() => { }}
         />
       </div>
     );
@@ -188,10 +247,10 @@ function EquipmentDetail({
   const lastMaintenance = logs?.[0];
   const lastMaintenanceDate = lastMaintenance
     ? new Date(lastMaintenance.createdAt).toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
     : null;
 
   return (

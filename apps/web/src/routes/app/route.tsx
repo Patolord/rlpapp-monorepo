@@ -88,8 +88,8 @@ function AppHeader() {
           className="size-9 rounded-full object-cover"
         />
         <div>
-          <h1 className="text-sm font-semibold text-white">RLP Engenharia</h1>
-          <p className="text-xs text-white/70">Painel do Diretor</p>
+          <h1 className="text-sm font-semibold">RLP Engenharia</h1>
+          <p className="text-xs text-muted-foreground">Painel do Diretor</p>
         </div>
       </div>
       <DropdownMenu>
@@ -127,7 +127,7 @@ function AppLayout() {
   return (
     <Authenticated>
       <RoleGate>
-        <div className="flex min-h-screen flex-col bg-linear-to-b from-[#0b1228] via-[#0d1631] to-[#111b3d] text-white">
+        <div className="flex min-h-screen flex-col bg-background">
           <AppHeader />
           <div className="flex-1">
             <Outlet />
