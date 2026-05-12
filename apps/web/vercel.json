@@ -1,5 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm build",
-  "framework": null
+  "buildCommand": "npx convex deploy --cmd 'pnpm run build'",
+  "framework": "tanstack-start"
 }
