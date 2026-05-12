@@ -421,10 +421,12 @@ export default defineSchema({
     equipmentId: v.optional(v.id("equipment")),
     status: v.union(v.literal("active"), v.literal("inactive")),
     batchId: v.optional(v.string()),
+    batchName: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_token", ["token"])
-    .index("by_batchId", ["batchId"]),
+    .index("by_batchId", ["batchId"])
+    .index("by_batchName", ["batchName"]),
 
   equipment: defineTable({
     tag: v.string(),
