@@ -19,6 +19,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { printQrCodes } from "@/lib/qr-print";
 
 export const Route = createFileRoute("/engenharia/")({
   component: EngenhariaPage,
@@ -242,7 +243,13 @@ function PageContent() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.print()}
+              onClick={() =>
+                printQrCodes({
+                  tokens: selectedTokens.map((qr) => qr.token),
+                  baseUrl,
+                  title: "QR Codes Selecionados - RLP Engenharia",
+                })
+              }
             >
               <Printer className="mr-2 h-4 w-4" />
               Imprimir Selecionados

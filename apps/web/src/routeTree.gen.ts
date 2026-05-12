@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RhRouteRouteImport } from './routes/rh/route'
 import { Route as FinanceiroRouteRouteImport } from './routes/financeiro/route'
@@ -43,6 +45,16 @@ import { Route as EngenhariaQrCodesRouteImport } from './routes/engenharia/qr-co
 import { Route as EngenhariaQrTokenRouteImport } from './routes/engenharia/qr/$token'
 import { Route as EngenhariaEquipamentoIdRouteImport } from './routes/engenharia/equipamento/$id'
 
+const SignUpRoute = SignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInRoute = SignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -219,6 +231,8 @@ export interface FileRoutesByFullPath {
   '/financeiro': typeof FinanceiroRouteRouteWithChildren
   '/rh': typeof RhRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/estoque/ajustes': typeof EstoqueAjustesRoute
   '/estoque/entrada': typeof EstoqueEntradaRoute
@@ -249,6 +263,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/estoque/ajustes': typeof EstoqueAjustesRoute
   '/estoque/entrada': typeof EstoqueEntradaRoute
@@ -285,6 +301,8 @@ export interface FileRoutesById {
   '/financeiro': typeof FinanceiroRouteRouteWithChildren
   '/rh': typeof RhRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/estoque/ajustes': typeof EstoqueAjustesRoute
   '/estoque/entrada': typeof EstoqueEntradaRoute
@@ -322,6 +340,8 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/rh'
     | '/login'
+    | '/sign-in'
+    | '/sign-up'
     | '/engenharia/qr-codes'
     | '/estoque/ajustes'
     | '/estoque/entrada'
@@ -352,6 +372,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/sign-in'
+    | '/sign-up'
     | '/engenharia/qr-codes'
     | '/estoque/ajustes'
     | '/estoque/entrada'
@@ -387,6 +409,8 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/rh'
     | '/login'
+    | '/sign-in'
+    | '/sign-up'
     | '/engenharia/qr-codes'
     | '/estoque/ajustes'
     | '/estoque/entrada'
@@ -423,11 +447,27 @@ export interface RootRouteChildren {
   FinanceiroRouteRoute: typeof FinanceiroRouteRouteWithChildren
   RhRouteRoute: typeof RhRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
+  SignInRoute: typeof SignInRoute
+  SignUpRoute: typeof SignUpRoute
   QTokenRoute: typeof QTokenRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sign-up': {
+      id: '/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -769,6 +809,8 @@ const rootRouteChildren: RootRouteChildren = {
   FinanceiroRouteRoute: FinanceiroRouteRouteWithChildren,
   RhRouteRoute: RhRouteRouteWithChildren,
   LoginRoute: LoginRoute,
+  SignInRoute: SignInRoute,
+  SignUpRoute: SignUpRoute,
   QTokenRoute: QTokenRoute,
 }
 export const routeTree = rootRouteImport

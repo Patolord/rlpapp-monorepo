@@ -115,8 +115,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <ClerkProvider
           publishableKey={env.VITE_CLERK_PUBLISHABLE_KEY}
           signInUrl="/"
-          afterSignInUrl="/estoque"
-          afterSignUpUrl="/estoque"
+          signUpUrl="/"
+          signInFallbackRedirectUrl="/app"
+          signUpFallbackRedirectUrl="/app"
         >
           <ConvexProviderWithClerk client={context.convexQueryClient.convexClient} useAuth={useAuth}>
             <EnsureUser />

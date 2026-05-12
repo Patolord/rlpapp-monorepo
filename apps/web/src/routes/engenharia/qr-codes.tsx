@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Printer, Plus, ArrowLeft } from "lucide-react";
 import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { printQrCodes } from "@/lib/qr-print";
 
 export const Route = createFileRoute("/engenharia/qr-codes")({
   component: QrCodesPage,
@@ -78,7 +79,7 @@ function QrCodesContent() {
   }
 
   function handlePrint() {
-    window.print();
+    printQrCodes({ tokens: newlyCreated, baseUrl });
   }
 
   return (
