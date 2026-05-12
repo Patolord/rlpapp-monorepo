@@ -1,17 +1,25 @@
 {
   "expo": {
-    "scheme": "rlpapp",
-    "userInterfaceStyle": "automatic",
-    "orientation": "default",
-    "web": {
-      "bundler": "metro"
-    },
     "name": "rlpapp",
     "slug": "rlpapp",
-    "plugins": ["expo-font"],
+    "scheme": "rlpapp",
+    "ios": {
+      "bundleIdentifier": "com.upcraft.rlpapp"
+    },
+    "android": {
+      "package": "com.upcraft.rlpapp"
+    },
+    "plugins": [
+      "expo-font"
+    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "f204a639-1a66-4001-bf16-c8ca6076d5d2"
+      }
     }
   }
 }
