@@ -28,15 +28,15 @@ function IndexPage() {
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      navigate({ to: "/estoque" });
+      navigate({ to: "/app" });
     }
   }, [isLoaded, isSignedIn, navigate]);
 
   return (
     <>
       <AuthenticateWithRedirectCallback
-        signInForceRedirectUrl="/estoque"
-        signUpForceRedirectUrl="/estoque"
+        signInForceRedirectUrl="/app"
+        signUpForceRedirectUrl="/app"
       />
       {!isLoaded ? (
         <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-[#0b1228] via-[#0d1631] to-[#111b3d]">
@@ -55,6 +55,7 @@ function IndexPage() {
 
 function LoginForm() {
   const { signIn } = useSignIn();
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -84,7 +85,11 @@ function LoginForm() {
         };
         setError(messages[code ?? ""] ?? result.error.longMessage ?? "Erro ao fazer login.");
       } else {
-        await signIn.finalize({ navigate: (to) => window.location.replace(to) });
+        await signIn.finalize({
+          navigate: async () => {
+            await navigate({ to: "/app" });
+          },
+        });
       }
     } catch (err: any) {
       const clerkError = err?.errors?.[0];
@@ -113,7 +118,7 @@ function LoginForm() {
       const result = await signIn.sso({
         strategy: "oauth_google",
         redirectCallbackUrl: `${origin}/`,
-        redirectUrl: `${origin}/estoque`,
+        redirectUrl: `${origin}/app`,
       });
       if (result.error) {
         setError(result.error.longMessage ?? result.error.message ?? "Erro ao entrar com Google.");
