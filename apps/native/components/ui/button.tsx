@@ -1,5 +1,6 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import { Pressable, Text } from "react-native";
+import React from "react";
+import { Pressable, Text, type PressableProps, type View } from "react-native";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
@@ -44,43 +45,36 @@ const buttonTextVariants = cva("text-sm font-medium", {
   },
 });
 
-interface ButtonProps extends VariantProps<typeof buttonVariants> {
+interface ButtonProps extends VariantProps<typeof buttonVariants>, Omit<PressableProps, "children"> {
   className?: string;
   textClassName?: string;
   children: React.ReactNode;
-  onPress?: () => void;
-  disabled?: boolean;
 }
 
-function Button({
-  className,
-  textClassName,
-  variant,
-  size,
-  children,
-  onPress,
-  disabled,
-}: ButtonProps) {
-  return (
-    <Pressable
-      className={cn(
-        buttonVariants({ variant, size }),
-        disabled && "opacity-50",
-        className
-      )}
-      onPress={onPress}
-      disabled={disabled}
-    >
-      {typeof children === "string" ? (
-        <Text className={cn(buttonTextVariants({ variant }), textClassName)}>
-          {children}
-        </Text>
-      ) : (
-        children
-      )}
-    </Pressable>
-  );
-}
+const Button = React.forwardRef<View, ButtonProps>(
+  ({ className, textClassName, variant, size, children, disabled, ...rest }, ref) => {
+    return (
+      <Pressable
+        ref={ref}
+        className={cn(
+          buttonVariants({ variant, size }),
+          disabled && "opacity-50",
+          className
+        )}
+        disabled={disabled}
+        {...rest}
+      >
+        {typeof children === "string" ? (
+          <Text className={cn(buttonTextVariants({ variant }), textClassName)}>
+            {children}
+          </Text>
+        ) : (
+          children
+        )}
+      </Pressable>
+    );
+  }
+);
 
 function ButtonText({
   className,
