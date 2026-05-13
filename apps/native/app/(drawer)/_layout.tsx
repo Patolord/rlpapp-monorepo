@@ -16,6 +16,9 @@ import {
   HardHat,
   Warehouse,
   ScanLine,
+  ClipboardList,
+  ClipboardCheck,
+  QrCode,
 } from "lucide-react-native";
 import React, { useCallback } from "react";
 import { View } from "react-native";
@@ -150,12 +153,79 @@ function RoleAwareDrawer({
         }}
       />
       <Drawer.Screen
+        name="solicitacoes"
+        options={{
+          headerTitle: "Solicitações",
+          drawerLabel: "Solicitações",
+          drawerIcon: ({ size, color }) => <ClipboardList size={size} color={color} />,
+          drawerItemStyle: showEstoque ? undefined : { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="historico-entregas"
+        options={{
+          headerTitle: "Hist. Entregas",
+          drawerLabel: "Hist. Entregas",
+          drawerIcon: ({ size, color }) => <ClipboardCheck size={size} color={color} />,
+          drawerItemStyle: showEstoque ? undefined : { display: "none" },
+        }}
+      />
+      <Drawer.Screen
         name="financeiro"
         options={{
           headerTitle: "Financeiro",
           drawerLabel: "Financeiro",
           drawerIcon: ({ size, color }) => <DollarSign size={size} color={color} />,
           drawerItemStyle: showFinanceiro ? undefined : { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="contas-pagar"
+        options={{
+          headerTitle: "Contas a Pagar",
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="contas-receber"
+        options={{
+          headerTitle: "Contas a Receber",
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="clientes"
+        options={{
+          headerTitle: "Clientes",
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="categorias"
+        options={{
+          headerTitle: "Categorias",
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="contas-bancarias"
+        options={{
+          headerTitle: "Contas Bancárias",
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="conciliacao"
+        options={{
+          headerTitle: "Conciliação",
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="relatorios"
+        options={{
+          headerTitle: "Relatórios",
+          drawerItemStyle: { display: "none" },
         }}
       />
       <Drawer.Screen
@@ -174,6 +244,13 @@ function RoleAwareDrawer({
           drawerLabel: "Engenharia",
           drawerIcon: ({ size, color }) => <HardHat size={size} color={color} />,
           drawerItemStyle: showEngenharia ? undefined : { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="qr-codes"
+        options={{
+          headerTitle: "Criar QR Codes",
+          drawerItemStyle: { display: "none" },
         }}
       />
     </Drawer>

@@ -8,6 +8,8 @@ import {
   ArrowUpCircle,
   Boxes,
   ChevronRight,
+  ClipboardCheck,
+  ClipboardList,
   FileText,
   Lock,
   MapPin,
@@ -114,6 +116,15 @@ function EstoqueDashboard() {
           iconBackground="#ff9500"
           valueColor={summary.lowStockCount > 0 ? "#ef4444" : undefined}
         />
+        <MetricCard
+          title="Solicitações Pendentes"
+          value={formatNumber(summary.pendingMaterialRequests ?? 0)}
+          subtitle={`${summary.approvedMaterialRequests ?? 0} aprovadas`}
+          icon={<ClipboardList size={18} color="#fff" />}
+          topColor="#e67e22"
+          iconBackground="#e67e22"
+          valueColor={summary.pendingMaterialRequests > 0 ? "#e67e22" : undefined}
+        />
       </View>
 
       <View className="gap-3">
@@ -218,6 +229,110 @@ function EstoqueDashboard() {
               <EmptyStateRow
                 icon={<ArrowUpCircle size={18} color={secondaryColor} />}
                 text="Nenhuma remessa ativa no momento"
+              />
+            )}
+          </View>
+        </Card>
+
+        <Card className="rounded-2xl p-4">
+          <View className="flex-row items-start justify-between mb-4">
+            <View className="flex-1 pr-3">
+              <View className="flex-row items-center gap-2">
+                <IconBadge backgroundColor="#e67e22">
+                  <ClipboardList size={16} color="#fff" />
+                </IconBadge>
+                <Text className="text-foreground text-lg font-semibold">Solicitações de Material</Text>
+              </View>
+              <Text className="text-muted-foreground text-sm mt-1">Solicitações pendentes de aprovação</Text>
+            </View>
+            <Badge variant={(summary.pendingMaterialRequests ?? 0) > 0 ? "warning" : "secondary"}>
+              {String(summary.pendingMaterialRequests ?? 0)}
+            </Badge>
+          </View>
+
+          <View className="gap-3">
+            {(summary.recentPendingRequests ?? []).slice(0, 3).map((req: any, idx: number) => (
+              <Card key={req._id ?? idx} className="rounded-xl p-3 bg-secondary">
+                <View className="flex-row items-start justify-between gap-3">
+                  <View className="flex-row flex-1 gap-3">
+                    <View
+                      className="w-10 h-10 rounded-xl items-center justify-center"
+                      style={{ backgroundColor: "#e67e2214" }}
+                    >
+                      <ClipboardList size={18} color="#e67e22" />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-foreground font-medium">
+                        {req.requesterName}
+                      </Text>
+                      <Text className="text-muted-foreground text-xs mt-1">
+                        {req.siteName} • {req.lineCount} itens
+                      </Text>
+                    </View>
+                  </View>
+                  <View className="items-end">
+                    <Badge variant={req.urgency === "critico" ? "destructive" : req.urgency === "urgente" ? "warning" : "outline"}>
+                      {req.urgency === "critico" ? "Crítico" : req.urgency === "urgente" ? "Urgente" : "Normal"}
+                    </Badge>
+                    <Text className="text-muted-foreground text-xs mt-1">
+                      até {new Date(req.dateNeeded).toLocaleDateString("pt-BR")}
+                    </Text>
+                  </View>
+                </View>
+              </Card>
+            ))}
+
+            {(summary.recentPendingRequests ?? []).length === 0 && (
+              <EmptyStateRow
+                icon={<ClipboardList size={18} color="#e67e22" />}
+                text="Nenhuma solicitação pendente"
+              />
+            )}
+          </View>
+        </Card>
+
+        <Card className="rounded-2xl p-4">
+          <View className="flex-row items-start justify-between mb-4">
+            <View className="flex-1 pr-3">
+              <View className="flex-row items-center gap-2">
+                <IconBadge backgroundColor="#27ae60">
+                  <ClipboardCheck size={16} color="#fff" />
+                </IconBadge>
+                <Text className="text-foreground text-lg font-semibold">Entregas Recentes</Text>
+              </View>
+              <Text className="text-muted-foreground text-sm mt-1">Últimas confirmações de entrega</Text>
+            </View>
+          </View>
+
+          <View className="gap-3">
+            {(summary.recentDeliveries ?? []).slice(0, 3).map((delivery: any, idx: number) => (
+              <Card key={delivery._id ?? idx} className="rounded-xl p-3 bg-secondary">
+                <View className="flex-row items-start gap-3">
+                  <View
+                    className="w-10 h-10 rounded-xl items-center justify-center"
+                    style={{ backgroundColor: "#27ae6014" }}
+                  >
+                    <ClipboardCheck size={18} color="#27ae60" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-foreground font-medium">
+                      {delivery.receiverName}
+                    </Text>
+                    <Text className="text-muted-foreground text-xs mt-1">
+                      {delivery.siteName}
+                    </Text>
+                    <Text className="text-muted-foreground text-xs mt-1">
+                      {new Date(delivery.confirmedAt).toLocaleDateString("pt-BR")}
+                    </Text>
+                  </View>
+                </View>
+              </Card>
+            ))}
+
+            {(summary.recentDeliveries ?? []).length === 0 && (
+              <EmptyStateRow
+                icon={<ClipboardCheck size={18} color="#27ae60" />}
+                text="Nenhuma entrega recente"
               />
             )}
           </View>
