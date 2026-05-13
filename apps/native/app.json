@@ -10,11 +10,14 @@
       "package": "com.upcraft.rlpapp"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-router",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+      
     },
     "extra": {
       "eas": {
