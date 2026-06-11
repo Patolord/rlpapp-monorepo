@@ -33,6 +33,7 @@ export const listByEquipment = query({
 export const create = mutation({
   args: {
     equipmentId: v.id("equipment"),
+    type: v.union(v.literal("installation"), v.literal("maintenance")),
     technicianName: v.string(),
     notes: v.string(),
     status: v.union(
@@ -57,6 +58,7 @@ export const create = mutation({
 
     return await ctx.db.insert("maintenanceLogs", {
       equipmentId: args.equipmentId,
+      type: args.type,
       technicianName: args.technicianName,
       notes: args.notes,
       status: args.status,

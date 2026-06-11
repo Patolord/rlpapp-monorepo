@@ -450,6 +450,10 @@ export default defineSchema({
 
   maintenanceLogs: defineTable({
     equipmentId: v.id("equipment"),
+    // Registros antigos não têm o campo; tratar ausência como "maintenance".
+    type: v.optional(
+      v.union(v.literal("installation"), v.literal("maintenance"))
+    ),
     technicianName: v.string(),
     notes: v.string(),
     status: v.union(

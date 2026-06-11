@@ -27,6 +27,9 @@ export function MaintenanceForm({ equipmentId, defaultTechnicianName }: Maintena
   const createLog = useMutation(api.maintenanceLogs.create);
 
   const [open, setOpen] = useState(false);
+  const [type, setType] = useState<"installation" | "maintenance">(
+    "maintenance"
+  );
   const [technicianName, setTechnicianName] = useState(defaultTechnicianName ?? "");
   const technicianTouched = useRef(false);
   const [notes, setNotes] = useState("");
@@ -48,6 +51,7 @@ export function MaintenanceForm({ equipmentId, defaultTechnicianName }: Maintena
   }, [defaultTechnicianName]);
 
   function resetForm() {
+    setType("maintenance");
     setTechnicianName(defaultTechnicianName ?? "");
     technicianTouched.current = false;
     setNotes("");
@@ -66,6 +70,7 @@ export function MaintenanceForm({ equipmentId, defaultTechnicianName }: Maintena
     try {
       await createLog({
         equipmentId,
+        type,
         technicianName,
         notes,
         status,
@@ -93,7 +98,7 @@ export function MaintenanceForm({ equipmentId, defaultTechnicianName }: Maintena
         size="lg"
       >
         <Plus className="mr-2 h-5 w-5" />
-        Registrar Manutenção
+        Registrar Instalação ou Manutenção
       </Button>
     );
   }
@@ -101,10 +106,30 @@ export function MaintenanceForm({ equipmentId, defaultTechnicianName }: Maintena
   return (
     <Card className="border-primary/20">
       <CardHeader>
-        <CardTitle>Nova Manutenção</CardTitle>
+        <CardTitle>
+          {type === "installation" ? "Nova Instalação" : "Nova Manutenção"}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Tipo de Registro *</Label>
+            <Select
+              value={type}
+              onValueChange={(v) =>
+                setType(v as "installation" | "maintenance")
+              }
+            >
+              <SelectTrigger className="h-12 text-base">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="installation">Instalação</SelectItem>
+                <SelectItem value="maintenance">Manutenção</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="technician">Responsável *</Label>
             <Input

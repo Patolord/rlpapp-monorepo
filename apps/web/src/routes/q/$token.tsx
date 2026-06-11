@@ -99,7 +99,7 @@ function UnauthenticatedView() {
                 {lastMaintenanceDate && (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Clock className="h-3.5 w-3.5" />
-                    <span>Última manutenção: {lastMaintenanceDate}</span>
+                    <span>Último registro: {lastMaintenanceDate}</span>
                   </div>
                 )}
               </div>
@@ -315,7 +315,7 @@ function EquipmentDetail({
               {lastMaintenanceDate && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Clock className="h-3.5 w-3.5" />
-                  <span>Última manutenção: {lastMaintenanceDate}</span>
+                  <span>Último registro: {lastMaintenanceDate}</span>
                 </div>
               )}
             </div>
