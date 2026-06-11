@@ -6,6 +6,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 
 const qrCodeStatus = v.union(v.literal("active"), v.literal("inactive"));
 const equipmentStatus = v.union(
+  v.literal("installing"),
   v.literal("operational"),
   v.literal("warning"),
   v.literal("error")
@@ -25,9 +26,11 @@ const qrCodeFields = {
 const equipmentFields = {
   _id: v.id("equipment"),
   _creationTime: v.number(),
-  tag: v.string(),
-  type: v.string(),
-  location: v.string(),
+  tag: v.optional(v.string()),
+  type: v.optional(v.string()),
+  location: v.optional(v.string()),
+  description: v.optional(v.string()),
+  labelPhotoIds: v.optional(v.array(v.id("_storage"))),
   status: equipmentStatus,
   notes: v.optional(v.string()),
   createdAt: v.number(),

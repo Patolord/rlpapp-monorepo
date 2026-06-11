@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { Warehouse, DollarSign, Users, HardHat } from "lucide-react";
+import { Warehouse, DollarSign, Users, HardHat, QrCode } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -31,6 +31,12 @@ const departmentCards = [
     title: "Engenharia",
     description: "Projetos, cronogramas, acompanhamento de obras e documentação técnica.",
     icon: HardHat,
+  },
+  {
+    to: "/registro",
+    title: "Registro de Campo",
+    description: "Registre instalações e manutenções pelo código da etiqueta, mesmo após voltar do campo sem internet.",
+    icon: QrCode,
   },
 ] as const;
 

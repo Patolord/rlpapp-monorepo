@@ -95,8 +95,8 @@ function QrDetailContent() {
 
   function startEditing() {
     if (!equipment) return;
-    setEditTag(equipment.tag);
-    setEditLocation(equipment.location);
+    setEditTag(equipment.tag ?? "");
+    setEditLocation(equipment.location ?? "");
     setEditing(true);
   }
 
@@ -193,10 +193,12 @@ function QrDetailContent() {
                   <>
                     <div className="flex items-center gap-2">
                       <Tag className="h-4 w-4 text-muted-foreground" />
-                      <h2 className="text-xl font-bold">{equipment.tag}</h2>
+                      <h2 className="text-xl font-bold">
+                        {equipment.tag ?? "Equipamento"}
+                      </h2>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {equipment.type}
+                      {equipment.type ?? equipment.description}
                     </p>
                   </>
                 )}
