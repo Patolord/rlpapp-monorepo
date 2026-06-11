@@ -17,6 +17,7 @@ import type * as contasReceber from "../contasReceber.js";
 import type * as deliveryConfirmations from "../deliveryConfirmations.js";
 import type * as equipment from "../equipment.js";
 import type * as healthCheck from "../healthCheck.js";
+import type * as http from "../http.js";
 import type * as inventory from "../inventory.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as maintenanceLogs from "../maintenanceLogs.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   deliveryConfirmations: typeof deliveryConfirmations;
   equipment: typeof equipment;
   healthCheck: typeof healthCheck;
+  http: typeof http;
   inventory: typeof inventory;
   "lib/auth": typeof lib_auth;
   maintenanceLogs: typeof maintenanceLogs;
