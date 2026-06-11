@@ -29,10 +29,12 @@ export const ensureUser = mutation({
   returns: v.id("users"),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity?.email) {
-      throw new Error("Not authenticated or no email in identity");
+    if (!identity) {
+      throw new Error("Not authenticated");
     }
     const clerkId = identity.subject;
+    // No JWT template "convex" do Clerk, nickname = username
+    const username = identity.nickname ?? identity.preferredUsername;
 
     const byClerkId = await ctx.db
       .query("users")
@@ -45,27 +47,32 @@ export const ensureUser = mutation({
     }
 
     // Vincula usuários antigos (sem clerkId) pelo email
-    const byEmail = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", identity.email!))
-      .first();
+    if (identity.email) {
+      const byEmail = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", identity.email!))
+        .first();
 
-    if (byEmail) {
-      await ctx.db.patch(byEmail._id, {
-        clerkId,
-        lastLoginAt: Date.now(),
-      });
-      return byEmail._id;
+      if (byEmail) {
+        await ctx.db.patch(byEmail._id, {
+          clerkId,
+          lastLoginAt: Date.now(),
+        });
+        return byEmail._id;
+      }
     }
 
     const name =
       identity.name ??
       identity.givenName ??
-      identity.email!.split("@")[0];
+      username ??
+      identity.email?.split("@")[0] ??
+      "Usuário";
 
     const userId = await ctx.db.insert("users", {
       name,
-      email: identity.email!,
+      email: identity.email,
+      username,
       clerkId,
       role: "operator",
       isActive: true,
@@ -81,7 +88,8 @@ export const ensureUser = mutation({
 export const upsertFromClerk = internalMutation({
   args: {
     clerkId: v.string(),
-    email: v.string(),
+    email: v.optional(v.string()),
+    username: v.optional(v.string()),
     name: v.string(),
   },
   returns: v.id("users"),
@@ -95,28 +103,33 @@ export const upsertFromClerk = internalMutation({
       await ctx.db.patch(byClerkId._id, {
         name: args.name,
         email: args.email,
+        username: args.username,
       });
       return byClerkId._id;
     }
 
     // Vincula usuários criados antes do webhook (sem clerkId) pelo email
-    const byEmail = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
-      .first();
+    if (args.email) {
+      const byEmail = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.email))
+        .first();
 
-    if (byEmail) {
-      await ctx.db.patch(byEmail._id, {
-        clerkId: args.clerkId,
-        name: args.name,
-      });
-      return byEmail._id;
+      if (byEmail) {
+        await ctx.db.patch(byEmail._id, {
+          clerkId: args.clerkId,
+          name: args.name,
+          username: args.username,
+        });
+        return byEmail._id;
+      }
     }
 
     return await ctx.db.insert("users", {
       clerkId: args.clerkId,
       name: args.name,
       email: args.email,
+      username: args.username,
       role: "operator",
       isActive: true,
       createdAt: Date.now(),

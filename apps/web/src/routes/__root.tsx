@@ -116,6 +116,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           publishableKey={env.VITE_CLERK_PUBLISHABLE_KEY}
           signInUrl="/"
           signUpUrl="/"
+          afterSignOutUrl="/"
           signInFallbackRedirectUrl="/app"
           signUpFallbackRedirectUrl="/app"
         >

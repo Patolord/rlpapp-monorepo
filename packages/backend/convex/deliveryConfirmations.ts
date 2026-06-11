@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
-import { requireAuth, getUserByIdentity, requireRole } from "./lib/auth";
+import { requireAuth, getUserByIdentity, requireRole, getUserRef } from "./lib/auth";
 
 export const list = query({
   args: {
@@ -145,7 +145,7 @@ export const confirmFromQR = mutation({
       shipmentId: args.shipmentId,
       receiverName: args.receiverName,
       receivedAtSiteId: args.receivedAtSiteId,
-      confirmedByUserId: user.email,
+      confirmedByUserId: getUserRef(user),
       confirmedAt: now,
       notes: args.notes,
     });

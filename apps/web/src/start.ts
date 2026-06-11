@@ -7,6 +7,7 @@ export const startInstance = createStart(() => {
       clerkMiddleware({
         signInUrl: "/",
         signUpUrl: "/",
+        afterSignOutUrl: "/",
         signInFallbackRedirectUrl: "/app",
         signUpFallbackRedirectUrl: "/app",
       }),

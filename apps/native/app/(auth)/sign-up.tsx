@@ -14,74 +14,27 @@ export default function SignUpScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const [emailAddress, setEmailAddress] = React.useState("");
+  const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [pendingVerification, setPendingVerification] = React.useState(false);
-  const [code, setCode] = React.useState("");
   const [loading, setLoading] = React.useState(false);
 
   const onSignUpPress = async () => {
     if (!isLoaded) return;
     setLoading(true);
     try {
-      await signUp.create({ emailAddress, password });
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-      setPendingVerification(true);
+      const result = await signUp.create({ username, password });
+      if (result.status === "complete") {
+        await setActive({ session: result.createdSessionId });
+        router.replace("/");
+      } else {
+        Alert.alert("Erro", "Não foi possível completar o cadastro. Tente novamente.");
+      }
     } catch (err: any) {
       Alert.alert("Erro", err?.errors?.[0]?.message || "Erro ao criar conta");
     } finally {
       setLoading(false);
     }
   };
-
-  const onVerifyPress = async () => {
-    if (!isLoaded) return;
-    setLoading(true);
-    try {
-      const signUpAttempt = await signUp.attemptEmailAddressVerification({ code });
-      if (signUpAttempt.status === "complete") {
-        await setActive({ session: signUpAttempt.createdSessionId });
-        router.replace("/");
-      } else {
-        console.error(JSON.stringify(signUpAttempt, null, 2));
-      }
-    } catch (err: any) {
-      Alert.alert("Erro", err?.errors?.[0]?.message || "Código inválido");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (pendingVerification) {
-    return (
-      <View className="flex-1 bg-background justify-center px-6" style={{ paddingTop: insets.top }}>
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">Verificar Email</CardTitle>
-            <CardDescription className="text-center">
-              Insira o código de verificação enviado para {emailAddress}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <View className="gap-4">
-              <View className="gap-1.5">
-                <Label>Código de verificação</Label>
-                <Input
-                  value={code}
-                  placeholder="123456"
-                  keyboardType="number-pad"
-                  onChangeText={setCode}
-                />
-              </View>
-              <Button onPress={onVerifyPress} disabled={loading} className="mt-2">
-                <ButtonText>{loading ? "Verificando..." : "Verificar"}</ButtonText>
-              </Button>
-            </View>
-          </CardContent>
-        </Card>
-      </View>
-    );
-  }
 
   return (
     <View className="flex-1 bg-background justify-center px-6" style={{ paddingTop: insets.top }}>
@@ -95,13 +48,13 @@ export default function SignUpScreen() {
         <CardContent>
           <View className="gap-4">
             <View className="gap-1.5">
-              <Label>Email</Label>
+              <Label>Usuário</Label>
               <Input
                 autoCapitalize="none"
-                keyboardType="email-address"
-                value={emailAddress}
-                placeholder="seu@email.com"
-                onChangeText={setEmailAddress}
+                autoCorrect={false}
+                value={username}
+                placeholder="seu.usuario"
+                onChangeText={setUsername}
               />
             </View>
             <View className="gap-1.5">

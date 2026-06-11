@@ -128,7 +128,9 @@ export const departments = v.union(
 export default defineSchema({
   users: defineTable({
     name: v.string(),
-    email: v.string(),
+    // Email é opcional: usuários podem ser criados apenas com username no Clerk.
+    email: v.optional(v.string()),
+    username: v.optional(v.string()),
     // Clerk user ID (subject do JWT). Optional para usuários criados antes do webhook.
     clerkId: v.optional(v.string()),
     role: userRoles,

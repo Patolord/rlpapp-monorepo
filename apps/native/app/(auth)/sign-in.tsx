@@ -14,7 +14,7 @@ export default function SignInScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const [emailAddress, setEmailAddress] = React.useState("");
+  const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [needsSecondFactor, setNeedsSecondFactor] = React.useState(false);
@@ -25,7 +25,7 @@ export default function SignInScreen() {
     setLoading(true);
     try {
       const signInAttempt = await signIn.create({
-        identifier: emailAddress,
+        identifier: username,
         password,
       });
       if (signInAttempt.status === "complete") {
@@ -118,13 +118,13 @@ export default function SignInScreen() {
         <CardContent>
           <View className="gap-4">
             <View className="gap-1.5">
-              <Label>Email</Label>
+              <Label>Usuário</Label>
               <Input
                 autoCapitalize="none"
-                keyboardType="email-address"
-                value={emailAddress}
-                placeholder="seu@email.com"
-                onChangeText={setEmailAddress}
+                autoCorrect={false}
+                value={username}
+                placeholder="seu.usuario"
+                onChangeText={setUsername}
               />
             </View>
             <View className="gap-1.5">

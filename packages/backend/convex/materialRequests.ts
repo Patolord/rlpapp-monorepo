@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { requireRole, getUserByIdentity } from "./lib/auth";
+import { requireRole, getUserByIdentity, getUserRef } from "./lib/auth";
 import { materialRequestStatus, materialRequestUrgency } from "./schema";
 
 export const create = mutation({
@@ -44,7 +44,7 @@ export const create = mutation({
       reason: args.reason,
       urgency: args.urgency,
       dateNeeded: args.dateNeeded,
-      requestedByUserId: user.email,
+      requestedByUserId: getUserRef(user),
       createdAt: now,
       updatedAt: now,
     });
@@ -145,7 +145,7 @@ export const listByUser = query({
     const requests = await ctx.db
       .query("materialRequests")
       .withIndex("by_requested", (q) =>
-        q.eq("requestedByUserId", user.email)
+        q.eq("requestedByUserId", getUserRef(user))
       )
       .order("desc")
       .collect();
@@ -226,7 +226,7 @@ export const approve = mutation({
 
     await ctx.db.patch(args.requestId, {
       status: "Aprovado",
-      reviewedByUserId: user.email,
+      reviewedByUserId: getUserRef(user),
       reviewNotes: args.reviewNotes,
       updatedAt: Date.now(),
     });
@@ -251,7 +251,7 @@ export const reject = mutation({
 
     await ctx.db.patch(args.requestId, {
       status: "Rejeitado",
-      reviewedByUserId: user.email,
+      reviewedByUserId: getUserRef(user),
       reviewNotes: args.reviewNotes,
       updatedAt: Date.now(),
     });
@@ -312,7 +312,7 @@ export const convertToShipment = mutation({
       status: "RegisteredOut",
       toSiteId: request.siteId,
       notes: `Gerado da solicitação: ${request.reason}`,
-      userId: user.email,
+      userId: getUserRef(user),
       createdAt: now,
       updatedAt: now,
     });
@@ -337,7 +337,7 @@ export const convertToShipment = mutation({
         productId: line.productId,
         qty: line.qty,
         refId: shipmentId,
-        userId: user.email,
+        userId: getUserRef(user),
       });
     }
 
