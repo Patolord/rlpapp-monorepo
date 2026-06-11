@@ -1,6 +1,7 @@
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { RoleAreaGate } from "@/components/role-area-gate";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/estoque")({
 
 function EstoqueLayout() {
   return (
+    <RoleAreaGate>
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
@@ -33,5 +35,6 @@ function EstoqueLayout() {
         </div>
       </SidebarInset>
     </SidebarProvider>
+    </RoleAreaGate>
   );
 }

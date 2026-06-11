@@ -14,19 +14,37 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+type IndexSearch = {
+  redirect?: string;
+};
+
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>): IndexSearch => {
+    const redirect = search.redirect;
+    // Só aceita caminhos internos para evitar open redirect
+    if (typeof redirect === "string" && redirect.startsWith("/")) {
+      return { redirect };
+    }
+    return {};
+  },
   component: IndexPage,
 });
+
+function useLoginDestination() {
+  const { redirect } = Route.useSearch();
+  return redirect ?? "/app";
+}
 
 function IndexPage() {
   const { isSignedIn, isLoaded } = useAuth();
   const navigate = useNavigate();
+  const destination = useLoginDestination();
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      navigate({ to: "/app" });
+      navigate({ to: destination });
     }
-  }, [isLoaded, isSignedIn, navigate]);
+  }, [isLoaded, isSignedIn, navigate, destination]);
 
   if (!isLoaded || isSignedIn) {
     return (
@@ -42,6 +60,7 @@ function IndexPage() {
 function LoginForm() {
   const { signIn, setActive } = useSignIn();
   const navigate = useNavigate();
+  const destination = useLoginDestination();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -62,7 +81,7 @@ function LoginForm() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        await navigate({ to: "/app" });
+        await navigate({ to: destination });
       } else {
         setError("Erro ao fazer login. Tente novamente.");
       }

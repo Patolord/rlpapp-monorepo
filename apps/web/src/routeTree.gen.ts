@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as QrOperadorRouteImport } from './routes/qr-operador'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RhRouteRouteImport } from './routes/rh/route'
 import { Route as FinanceiroRouteRouteImport } from './routes/financeiro/route'
@@ -53,6 +54,11 @@ const SignUpRoute = SignUpRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QrOperadorRoute = QrOperadorRouteImport.update({
+  id: '/qr-operador',
+  path: '/qr-operador',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -231,6 +237,7 @@ export interface FileRoutesByFullPath {
   '/financeiro': typeof FinanceiroRouteRouteWithChildren
   '/rh': typeof RhRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
@@ -263,6 +270,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
@@ -301,6 +309,7 @@ export interface FileRoutesById {
   '/financeiro': typeof FinanceiroRouteRouteWithChildren
   '/rh': typeof RhRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
@@ -340,6 +349,7 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/rh'
     | '/login'
+    | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
     | '/engenharia/qr-codes'
@@ -372,6 +382,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
     | '/engenharia/qr-codes'
@@ -409,6 +420,7 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/rh'
     | '/login'
+    | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
     | '/engenharia/qr-codes'
@@ -447,6 +459,7 @@ export interface RootRouteChildren {
   FinanceiroRouteRoute: typeof FinanceiroRouteRouteWithChildren
   RhRouteRoute: typeof RhRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
+  QrOperadorRoute: typeof QrOperadorRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   QTokenRoute: typeof QTokenRoute
@@ -466,6 +479,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/qr-operador': {
+      id: '/qr-operador'
+      path: '/qr-operador'
+      fullPath: '/qr-operador'
+      preLoaderRoute: typeof QrOperadorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -809,6 +829,7 @@ const rootRouteChildren: RootRouteChildren = {
   FinanceiroRouteRoute: FinanceiroRouteRouteWithChildren,
   RhRouteRoute: RhRouteRouteWithChildren,
   LoginRoute: LoginRoute,
+  QrOperadorRoute: QrOperadorRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   QTokenRoute: QTokenRoute,

@@ -22,6 +22,11 @@ function RoleGate({ children }: { children: React.ReactNode }) {
     if (currentUser === undefined) return;
     if (currentUser === null) return;
 
+    if (currentUser.role === "qr_operator") {
+      navigate({ to: "/qr-operador" });
+      return;
+    }
+
     if (currentUser.role !== "director") {
       const dept = currentUser.department ?? "estoque";
       navigate({ to: `/${dept}` });

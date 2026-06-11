@@ -114,7 +114,9 @@ export const userRoles = v.union(
   v.literal("director"),
   v.literal("admin"),
   v.literal("manager"),
-  v.literal("operator")
+  v.literal("operator"),
+  // Acesso restrito: só interage com equipamentos via página pública /q/$token
+  v.literal("qr_operator")
 );
 
 // Department types

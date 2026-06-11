@@ -50,3 +50,8 @@ export async function requireRole(
   }
   return user;
 }
+
+// Qualquer role interna (exclui qr_operator, que só acessa /q/$token)
+export async function requireStaff(ctx: QueryCtx | MutationCtx) {
+  return await requireRole(ctx, ["director", "admin", "manager", "operator"]);
+}

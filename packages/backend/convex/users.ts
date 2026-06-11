@@ -25,9 +25,12 @@ export const getCurrentUser = query({
 });
 
 export const ensureUser = mutation({
-  args: {},
+  args: {
+    // "qr" quando o login partiu de uma página /q/$token (scan de QR code)
+    origin: v.optional(v.literal("qr")),
+  },
   returns: v.id("users"),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Not authenticated");
@@ -74,7 +77,7 @@ export const ensureUser = mutation({
       email: identity.email,
       username,
       clerkId,
-      role: "operator",
+      role: args.origin === "qr" ? "qr_operator" : "operator",
       isActive: true,
       createdAt: Date.now(),
       lastLoginAt: Date.now(),
