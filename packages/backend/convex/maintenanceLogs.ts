@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { requireAuth } from "./lib/auth";
 
 export const listByEquipment = query({
   args: { equipmentId: v.id("equipment") },
@@ -32,6 +33,7 @@ export const listByEquipment = query({
 export const create = mutation({
   args: {
     equipmentId: v.id("equipment"),
+    type: v.union(v.literal("installation"), v.literal("maintenance")),
     technicianName: v.string(),
     notes: v.string(),
     status: v.union(
@@ -49,12 +51,14 @@ export const create = mutation({
     photoIds: v.array(v.id("_storage")),
   },
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     await ctx.db.patch(args.equipmentId, {
       status: args.status,
     });
 
     return await ctx.db.insert("maintenanceLogs", {
       equipmentId: args.equipmentId,
+      type: args.type,
       technicianName: args.technicianName,
       notes: args.notes,
       status: args.status,
@@ -68,6 +72,7 @@ export const create = mutation({
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireAuth(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });

@@ -114,7 +114,9 @@ export const userRoles = v.union(
   v.literal("director"),
   v.literal("admin"),
   v.literal("manager"),
-  v.literal("operator")
+  v.literal("operator"),
+  // Acesso restrito: só interage com equipamentos via página pública /q/$token
+  v.literal("qr_operator")
 );
 
 // Department types
@@ -128,7 +130,9 @@ export const departments = v.union(
 export default defineSchema({
   users: defineTable({
     name: v.string(),
-    email: v.string(),
+    // Email é opcional: usuários podem ser criados apenas com username no Clerk.
+    email: v.optional(v.string()),
+    username: v.optional(v.string()),
     // Clerk user ID (subject do JWT). Optional para usuários criados antes do webhook.
     clerkId: v.optional(v.string()),
     role: userRoles,
@@ -446,6 +450,10 @@ export default defineSchema({
 
   maintenanceLogs: defineTable({
     equipmentId: v.id("equipment"),
+    // Registros antigos não têm o campo; tratar ausência como "maintenance".
+    type: v.optional(
+      v.union(v.literal("installation"), v.literal("maintenance"))
+    ),
     technicianName: v.string(),
     notes: v.string(),
     status: v.union(

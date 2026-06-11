@@ -1,10 +1,12 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/engenharia/status-badge";
 import { CheckCircle2, XCircle, User, Calendar } from "lucide-react";
 
 interface MaintenanceLogProps {
   log: {
     _id: string;
+    type?: "installation" | "maintenance";
     technicianName: string;
     notes: string;
     status: "operational" | "warning" | "error";
@@ -43,6 +45,8 @@ export function MaintenanceLogCard({ log }: MaintenanceLogProps) {
     minute: "2-digit",
   });
 
+  const isInstallation = log.type === "installation";
+
   return (
     <Card>
       <CardContent className="space-y-3 pt-4">
@@ -59,7 +63,12 @@ export function MaintenanceLogCard({ log }: MaintenanceLogProps) {
               <span>{log.technicianName}</span>
             </div>
           </div>
-          <StatusBadge status={log.status} />
+          <div className="flex items-center gap-2">
+            <Badge variant={isInstallation ? "default" : "secondary"}>
+              {isInstallation ? "Instalação" : "Manutenção"}
+            </Badge>
+            <StatusBadge status={log.status} />
+          </div>
         </div>
 
         {log.notes && (

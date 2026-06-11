@@ -1,3 +1,4 @@
+import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 export async function requireAuth(ctx: QueryCtx | MutationCtx) {
@@ -22,12 +23,18 @@ export async function getUserByIdentity(ctx: QueryCtx | MutationCtx) {
   // Fallback para usuários criados antes do vínculo por clerkId
   const email = identity.email;
   if (!email) {
-    throw new Error("No email in identity");
+    return null;
   }
   return await ctx.db
     .query("users")
     .withIndex("by_email", (q) => q.eq("email", email))
     .first();
+}
+
+// Referência estável de usuário em registros (campos *UserId baseados em string).
+// Usuários antigos são referenciados por email; novos (só username) pelo _id.
+export function getUserRef(user: Doc<"users">): string {
+  return user.email ?? user._id;
 }
 
 export async function requireRole(
@@ -42,4 +49,9 @@ export async function requireRole(
     throw new Error("Insufficient permissions");
   }
   return user;
+}
+
+// Qualquer role interna (exclui qr_operator, que só acessa /q/$token)
+export async function requireStaff(ctx: QueryCtx | MutationCtx) {
+  return await requireRole(ctx, ["director", "admin", "manager", "operator"]);
 }

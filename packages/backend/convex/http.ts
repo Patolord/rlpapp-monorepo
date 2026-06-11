@@ -10,6 +10,7 @@ type ClerkEmailAddress = {
 
 type ClerkUserData = {
   id: string;
+  username: string | null;
   first_name: string | null;
   last_name: string | null;
   primary_email_address_id: string | null;
@@ -74,14 +75,13 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
     case "user.updated": {
       const user = event.data as unknown as ClerkUserData;
       const email = primaryEmail(user);
-      if (!email) {
-        console.warn(`Clerk webhook: ${event.type} sem email para ${user.id}, ignorado`);
-        break;
-      }
+      const username = user.username ?? undefined;
       await ctx.runMutation(internal.users.upsertFromClerk, {
         clerkId: user.id,
-        email,
-        name: fullName(user) ?? email.split("@")[0],
+        email: email ?? undefined,
+        username,
+        name:
+          fullName(user) ?? username ?? email?.split("@")[0] ?? "Usuário",
       });
       break;
     }

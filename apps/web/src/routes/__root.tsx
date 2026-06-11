@@ -97,7 +97,11 @@ function EnsureUser() {
   useEffect(() => {
     if (isAuthenticated && !called.current) {
       called.current = true;
-      ensureUser().catch(console.error);
+      const fromQr =
+        sessionStorage.getItem("qr_login_token") !== null ||
+        window.location.pathname.startsWith("/q/");
+      sessionStorage.removeItem("qr_login_token");
+      ensureUser(fromQr ? { origin: "qr" } : {}).catch(console.error);
     }
   }, [isAuthenticated, ensureUser]);
 
@@ -116,6 +120,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           publishableKey={env.VITE_CLERK_PUBLISHABLE_KEY}
           signInUrl="/"
           signUpUrl="/"
+          afterSignOutUrl="/"
           signInFallbackRedirectUrl="/app"
           signUpFallbackRedirectUrl="/app"
         >

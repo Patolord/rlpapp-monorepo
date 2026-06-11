@@ -1,7 +1,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuth } from "./lib/auth";
+import { requireAuth, requireStaff } from "./lib/auth";
 import type { Doc, Id } from "./_generated/dataModel";
 
 const qrCodeStatus = v.union(v.literal("active"), v.literal("inactive"));
@@ -83,7 +83,7 @@ export const list = query({
   args: {},
   returns: v.array(qrCodeValidator),
   handler: async (ctx) => {
-    await requireAuth(ctx);
+    await requireStaff(ctx);
 
     return await ctx.db.query("qrCodes").order("desc").collect();
   },
@@ -102,7 +102,7 @@ export const listWithEquipment = query({
   },
   returns: v.array(qrCodeWithEquipmentValidator),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireStaff(ctx);
 
     let qrCodes = await ctx.db.query("qrCodes").order("desc").collect();
 
@@ -138,7 +138,7 @@ export const stats = query({
     capped: v.boolean(),
   }),
   handler: async (ctx) => {
-    await requireAuth(ctx);
+    await requireStaff(ctx);
 
     const maxRows = 5000;
     const qrCodes = await ctx.db.query("qrCodes").order("desc").take(maxRows);
@@ -160,7 +160,7 @@ export const listByBatch = query({
   },
   returns: paginatedQrCodesWithEquipmentValidator,
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireStaff(ctx);
 
     const results = await ctx.db
       .query("qrCodes")
@@ -184,7 +184,7 @@ export const getBatchTokens = query({
   args: { batchId: v.string() },
   returns: v.array(v.string()),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireStaff(ctx);
 
     const qrCodes = await ctx.db
       .query("qrCodes")
@@ -203,7 +203,7 @@ export const search = query({
     qrCodes: v.array(qrCodeWithEquipmentValidator),
   }),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireStaff(ctx);
 
     const term = args.term.trim();
     if (!term) {
@@ -331,7 +331,7 @@ export const getByEquipmentId = query({
   args: { equipmentId: v.id("equipment") },
   returns: v.union(qrCodeValidator, v.null()),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireStaff(ctx);
 
     const qrCodes = await ctx.db.query("qrCodes").order("desc").collect();
     return qrCodes.find((q) => q.equipmentId === args.equipmentId) ?? null;
@@ -344,7 +344,7 @@ export const create = mutation({
   },
   returns: v.id("qrCodes"),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireStaff(ctx);
 
     const existing = await ctx.db
       .query("qrCodes")
@@ -380,7 +380,7 @@ export const batchCreate = mutation({
     ),
   }),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireStaff(ctx);
 
     if (args.tokens.length > 999) {
       throw new Error("Cannot create more than 999 QR codes at once");
@@ -422,7 +422,7 @@ export const listBatches = query({
     batchSummaryValidator
   ),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireStaff(ctx);
 
     const limit = Math.min(Math.max(args.limit ?? 10, 1), 50);
     const qrCodes = await ctx.db
@@ -467,7 +467,7 @@ export const remove = mutation({
   },
   returns: v.id("qrCodes"),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireStaff(ctx);
 
     const qrCode = await ctx.db
       .query("qrCodes")
@@ -497,7 +497,7 @@ export const removeMany = mutation({
     missing: v.array(v.string()),
   }),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    await requireStaff(ctx);
 
     const deleted: string[] = [];
     const blocked: string[] = [];
@@ -537,6 +537,7 @@ export const assignEquipment = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    // qr_operator também pode vincular equipamento ao QR que escaneou
     await requireAuth(ctx);
 
     const qrCode = await ctx.db

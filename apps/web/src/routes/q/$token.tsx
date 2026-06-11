@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
+import { useEffect, useState } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { EquipmentForm } from "@/components/engenharia/equipment-form";
+import { EquipmentEditForm } from "@/components/engenharia/equipment-edit-form";
 import { StatusBadge } from "@/components/engenharia/status-badge";
 import { MaintenanceLogCard } from "@/components/engenharia/maintenance-log";
 import { MaintenanceForm } from "@/components/engenharia/maintenance-form";
@@ -19,6 +21,7 @@ import {
   LogIn,
   MessageCircle,
   Globe,
+  Pencil,
 } from "lucide-react";
 
 const WHATSAPP_URL =
@@ -49,6 +52,11 @@ function QrResolutionPage() {
 function UnauthenticatedView() {
   const { token } = Route.useParams();
   const data = useQuery(api.qrCodes.getByToken, { token });
+
+  // Marca a origem QR para o login atribuir a role correta e voltar para cá
+  useEffect(() => {
+    sessionStorage.setItem("qr_login_token", token);
+  }, [token]);
   const equipment = data?.equipment ?? null;
   const logs = useQuery(
     api.maintenanceLogs.listByEquipment,
@@ -91,7 +99,7 @@ function UnauthenticatedView() {
                 {lastMaintenanceDate && (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Clock className="h-3.5 w-3.5" />
-                    <span>Última manutenção: {lastMaintenanceDate}</span>
+                    <span>Último registro: {lastMaintenanceDate}</span>
                   </div>
                 )}
               </div>
@@ -125,7 +133,10 @@ function UnauthenticatedView() {
               <p className="text-sm font-medium">
                 Se você é técnico, faça login para acessar o sistema:
               </p>
-              <Button className="h-12 w-full text-base" render={<Link to="/" />}>
+              <Button
+                className="h-12 w-full text-base"
+                render={<Link to="/" search={{ redirect: `/q/${token}` }} />}
+              >
                 <LogIn className="mr-2 h-4 w-4" />
                 Fazer Login
               </Button>
@@ -240,6 +251,7 @@ function EquipmentDetail({
   };
   currentUserName?: string;
 }) {
+  const [editing, setEditing] = useState(false);
   const logs = useQuery(api.maintenanceLogs.listByEquipment, {
     equipmentId,
   });
@@ -255,42 +267,68 @@ function EquipmentDetail({
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
-      <Card className="mb-4">
-        <CardContent className="pt-4">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
+      {editing ? (
+        <div className="mb-4">
+          <EquipmentEditForm
+            equipmentId={equipmentId}
+            initial={{
+              tag: equipment.tag,
+              type: equipment.type,
+              location: equipment.location,
+              status: equipment.status,
+              notes: equipment.notes,
+            }}
+            onClose={() => setEditing(false)}
+          />
+        </div>
+      ) : (
+        <Card className="mb-4">
+          <CardContent className="pt-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-muted-foreground" />
+                  <h1 className="text-xl font-bold">{equipment.tag}</h1>
+                </div>
+                <p className="text-sm text-muted-foreground">{equipment.type}</p>
+              </div>
               <div className="flex items-center gap-2">
-                <Tag className="h-4 w-4 text-muted-foreground" />
-                <h1 className="text-xl font-bold">{equipment.tag}</h1>
+                <StatusBadge status={equipment.status} />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setEditing(true)}
+                  aria-label="Editar equipamento"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
               </div>
-              <p className="text-sm text-muted-foreground">{equipment.type}</p>
             </div>
-            <StatusBadge status={equipment.status} />
-          </div>
 
-          <Separator className="my-3" />
+            <Separator className="my-3" />
 
-          <div className="space-y-2 text-sm">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <MapPin className="h-3.5 w-3.5" />
-              <span>{equipment.location}</span>
-            </div>
-            {lastMaintenanceDate && (
+            <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
-                <Clock className="h-3.5 w-3.5" />
-                <span>Última manutenção: {lastMaintenanceDate}</span>
+                <MapPin className="h-3.5 w-3.5" />
+                <span>{equipment.location}</span>
               </div>
-            )}
-          </div>
+              {lastMaintenanceDate && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>Último registro: {lastMaintenanceDate}</span>
+                </div>
+              )}
+            </div>
 
-          {equipment.notes && (
-            <>
-              <Separator className="my-3" />
-              <p className="text-sm">{equipment.notes}</p>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            {equipment.notes && (
+              <>
+                <Separator className="my-3" />
+                <p className="text-sm">{equipment.notes}</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="mb-4">
         <MaintenanceForm equipmentId={equipmentId} defaultTechnicianName={currentUserName} />
