@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { departments, userRoles } from "./schema";
 import { requireAuth } from "./lib/auth";
 
@@ -7,7 +7,16 @@ export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity?.email) return null;
+    if (!identity) return null;
+
+    const byClerkId = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    if (byClerkId) return byClerkId;
+
+    // Fallback para usuários criados antes do vínculo por clerkId
+    if (!identity.email) return null;
     return await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", identity.email!))
@@ -17,20 +26,36 @@ export const getCurrentUser = query({
 
 export const ensureUser = mutation({
   args: {},
+  returns: v.id("users"),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity?.email) {
       throw new Error("Not authenticated or no email in identity");
     }
+    const clerkId = identity.subject;
 
-    const existing = await ctx.db
+    const byClerkId = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (byClerkId) {
+      await ctx.db.patch(byClerkId._id, { lastLoginAt: Date.now() });
+      return byClerkId._id;
+    }
+
+    // Vincula usuários antigos (sem clerkId) pelo email
+    const byEmail = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", identity.email!))
       .first();
 
-    if (existing) {
-      await ctx.db.patch(existing._id, { lastLoginAt: Date.now() });
-      return existing._id;
+    if (byEmail) {
+      await ctx.db.patch(byEmail._id, {
+        clerkId,
+        lastLoginAt: Date.now(),
+      });
+      return byEmail._id;
     }
 
     const name =
@@ -41,6 +66,7 @@ export const ensureUser = mutation({
     const userId = await ctx.db.insert("users", {
       name,
       email: identity.email!,
+      clerkId,
       role: "operator",
       isActive: true,
       createdAt: Date.now(),
@@ -48,6 +74,74 @@ export const ensureUser = mutation({
     });
 
     return userId;
+  },
+});
+
+// Sync via webhook do Clerk (user.created / user.updated)
+export const upsertFromClerk = internalMutation({
+  args: {
+    clerkId: v.string(),
+    email: v.string(),
+    name: v.string(),
+  },
+  returns: v.id("users"),
+  handler: async (ctx, args) => {
+    const byClerkId = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (byClerkId) {
+      await ctx.db.patch(byClerkId._id, {
+        name: args.name,
+        email: args.email,
+      });
+      return byClerkId._id;
+    }
+
+    // Vincula usuários criados antes do webhook (sem clerkId) pelo email
+    const byEmail = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+
+    if (byEmail) {
+      await ctx.db.patch(byEmail._id, {
+        clerkId: args.clerkId,
+        name: args.name,
+      });
+      return byEmail._id;
+    }
+
+    return await ctx.db.insert("users", {
+      clerkId: args.clerkId,
+      name: args.name,
+      email: args.email,
+      role: "operator",
+      isActive: true,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+// Sync via webhook do Clerk (user.deleted) — soft delete para preservar histórico
+export const deactivateFromClerk = internalMutation({
+  args: { clerkId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (user) {
+      await ctx.db.patch(user._id, { isActive: false });
+    } else {
+      console.warn(
+        `Clerk webhook: user.deleted para clerkId ${args.clerkId} sem usuário correspondente`
+      );
+    }
+    return null;
   },
 });
 

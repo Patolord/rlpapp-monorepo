@@ -10,15 +10,24 @@ export async function requireAuth(ctx: QueryCtx | MutationCtx) {
 
 export async function getUserByIdentity(ctx: QueryCtx | MutationCtx) {
   const identity = await requireAuth(ctx);
+
+  const byClerkId = await ctx.db
+    .query("users")
+    .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+    .first();
+  if (byClerkId) {
+    return byClerkId;
+  }
+
+  // Fallback para usuários criados antes do vínculo por clerkId
   const email = identity.email;
   if (!email) {
     throw new Error("No email in identity");
   }
-  const user = await ctx.db
+  return await ctx.db
     .query("users")
     .withIndex("by_email", (q) => q.eq("email", email))
     .first();
-  return user;
 }
 
 export async function requireRole(

@@ -129,6 +129,8 @@ export default defineSchema({
   users: defineTable({
     name: v.string(),
     email: v.string(),
+    // Clerk user ID (subject do JWT). Optional para usuários criados antes do webhook.
+    clerkId: v.optional(v.string()),
     role: userRoles,
     department: v.optional(departments),
     phone: v.optional(v.string()),
@@ -137,6 +139,7 @@ export default defineSchema({
     lastLoginAt: v.optional(v.number()),
   })
     .index("by_email", ["email"])
+    .index("by_clerkId", ["clerkId"])
     .index("by_role", ["role"])
     .index("by_active", ["isActive"]),
 
