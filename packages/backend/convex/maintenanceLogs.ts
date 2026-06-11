@@ -1,6 +1,13 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuth } from "./lib/auth";
+import { requireAuth, getUserByIdentity } from "./lib/auth";
+
+const logStatusValidator = v.union(
+  v.literal("installing"),
+  v.literal("operational"),
+  v.literal("warning"),
+  v.literal("error")
+);
 
 export const listByEquipment = query({
   args: { equipmentId: v.id("equipment") },
@@ -34,24 +41,30 @@ export const create = mutation({
   args: {
     equipmentId: v.id("equipment"),
     type: v.union(v.literal("installation"), v.literal("maintenance")),
-    technicianName: v.string(),
-    notes: v.string(),
-    status: v.union(
-      v.literal("operational"),
-      v.literal("warning"),
-      v.literal("error")
-    ),
+    notes: v.optional(v.string()),
+    tags: v.optional(v.array(v.string())),
+    status: logStatusValidator,
     tests: v.optional(
       v.object({
         vacuum: v.boolean(),
         pressure: v.boolean(),
         communication: v.boolean(),
+        gas: v.optional(v.boolean()),
       })
     ),
     photoIds: v.array(v.id("_storage")),
   },
   handler: async (ctx, args) => {
     await requireAuth(ctx);
+
+    if (args.photoIds.length === 0) {
+      throw new Error("É obrigatório anexar pelo menos uma foto");
+    }
+
+    // Responsável vinculado ao usuário logado (não aceita texto livre).
+    const user = await getUserByIdentity(ctx);
+    const technicianName = user?.name ?? "Desconhecido";
+
     await ctx.db.patch(args.equipmentId, {
       status: args.status,
     });
@@ -59,8 +72,9 @@ export const create = mutation({
     return await ctx.db.insert("maintenanceLogs", {
       equipmentId: args.equipmentId,
       type: args.type,
-      technicianName: args.technicianName,
-      notes: args.notes,
+      technicianName,
+      notes: args.notes?.trim() || undefined,
+      tags: args.tags,
       status: args.status,
       tests: args.tests,
       photoIds: args.photoIds,

@@ -1,7 +1,8 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { UserButton } from "@clerk/tanstack-react-start";
-import { QrCode } from "lucide-react";
+import { QrCode, Keyboard } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const Route = createFileRoute("/qr-operador")({
@@ -39,6 +40,14 @@ function QrOperadorPage() {
                 equipamento e acessar as informações dele.
               </p>
             </div>
+            <Button
+              variant="outline"
+              className="h-12 w-full text-base"
+              render={<Link to="/registro" />}
+            >
+              <Keyboard className="mr-2 h-5 w-5" />
+              Digitar código da etiqueta
+            </Button>
           </CardContent>
         </Card>
       </div>

@@ -17,6 +17,8 @@ import { useConvexAuth, useMutation } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { useEffect, useRef } from "react";
 
+import { OfflineSync } from "@/components/offline-sync";
+import { PwaRegister } from "@/components/pwa-register";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -47,10 +49,31 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
       },
       {
         name: "viewport",
-        content: "width=device-width, initial-scale=1",
+        content: "width=device-width, initial-scale=1, viewport-fit=cover",
       },
       {
         title: "RLP Engenharia",
+      },
+      {
+        name: "description",
+        content:
+          "Registro de instalação e manutenção de equipamentos em campo",
+      },
+      {
+        name: "theme-color",
+        content: "#0f172a",
+      },
+      {
+        name: "apple-mobile-web-app-capable",
+        content: "yes",
+      },
+      {
+        name: "apple-mobile-web-app-status-bar-style",
+        content: "default",
+      },
+      {
+        name: "apple-mobile-web-app-title",
+        content: "RLP",
       },
     ],
     links: [
@@ -62,6 +85,14 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
         rel: "icon",
         type: "image/png",
         href: "/favicon.png",
+      },
+      {
+        rel: "apple-touch-icon",
+        href: "/pwa-192.png",
+      },
+      {
+        rel: "manifest",
+        href: "/manifest.webmanifest",
       },
       {
         rel: "preconnect",
@@ -111,7 +142,7 @@ function EnsureUser() {
 function RootDocument({ children }: { children: React.ReactNode }) {
   const context = useRouteContext({ from: Route.id });
   return (
-    <html lang="en">
+    <html lang="pt-BR">
       <head>
         <HeadContent />
       </head>
@@ -126,6 +157,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         >
           <ConvexProviderWithClerk client={context.convexQueryClient.convexClient} useAuth={useAuth}>
             <EnsureUser />
+            <PwaRegister />
+            <OfflineSync />
             <TooltipProvider>
               {children}
             </TooltipProvider>

@@ -11,6 +11,12 @@ import { MaintenanceForm } from "@/components/engenharia/maintenance-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { useOnline } from "@/lib/use-online";
+import {
+  cacheEquipment,
+  getCachedEquipment,
+  type CachedEquipment,
+} from "@/lib/offline-queue";
 import {
   MapPin,
   Tag,
@@ -22,10 +28,23 @@ import {
   MessageCircle,
   Globe,
   Pencil,
+  CloudOff,
 } from "lucide-react";
 
 const WHATSAPP_URL =
   "https://wa.me/5511985782307?text=Olá,%20gostaria%20de%20solicitar%20um%20orçamento";
+
+type EquipmentStatus = "installing" | "operational" | "warning" | "error";
+
+interface EquipmentInfo {
+  tag?: string;
+  type?: string;
+  location?: string;
+  description?: string;
+  status: EquipmentStatus;
+  notes?: string;
+  createdAt: number;
+}
 
 export const Route = createFileRoute("/q/$token")({
   component: QrResolutionPage,
@@ -82,9 +101,13 @@ function UnauthenticatedView() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <Tag className="h-4 w-4 text-muted-foreground" />
-                    <h1 className="text-xl font-bold">{equipment.tag}</h1>
+                    <h1 className="text-xl font-bold">
+                      {equipment.tag ?? "Equipamento"}
+                    </h1>
                   </div>
-                  <p className="text-sm text-muted-foreground">{equipment.type}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {equipment.type ?? equipment.description}
+                  </p>
                 </div>
                 <StatusBadge status={equipment.status} />
               </div>
@@ -92,10 +115,12 @@ function UnauthenticatedView() {
               <Separator className="my-3" />
 
               <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="h-3.5 w-3.5" />
-                  <span>{equipment.location}</span>
-                </div>
+                {equipment.location && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <MapPin className="h-3.5 w-3.5" />
+                    <span>{equipment.location}</span>
+                  </div>
+                )}
                 {lastMaintenanceDate && (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Clock className="h-3.5 w-3.5" />
@@ -180,10 +205,34 @@ function UnauthenticatedView() {
 
 function AuthenticatedContent() {
   const { token } = Route.useParams();
+  const online = useOnline();
   const data = useQuery(api.qrCodes.getByToken, { token });
   const currentUser = useQuery(api.users.getCurrentUser);
 
+  // Cache de leitura: guarda o último estado conhecido para uso offline
+  useEffect(() => {
+    if (data === undefined) return;
+    void cacheEquipment({
+      token,
+      cachedAt: Date.now(),
+      equipment: data?.equipment
+        ? {
+            tag: data.equipment.tag,
+            type: data.equipment.type,
+            location: data.equipment.location,
+            description: data.equipment.description,
+            status: data.equipment.status,
+            notes: data.equipment.notes,
+            createdAt: data.equipment.createdAt,
+          }
+        : null,
+    });
+  }, [data, token]);
+
   if (data === undefined) {
+    if (!online) {
+      return <OfflineContent token={token} />;
+    }
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -230,25 +279,120 @@ function AuthenticatedContent() {
     <EquipmentDetail
       equipmentId={equipment._id}
       equipment={equipment}
+      qrToken={token}
       currentUserName={currentUser?.name}
     />
+  );
+}
+
+/**
+ * Sem internet: usa o cache local do equipamento (se já visitado) e
+ * permite registrar tudo na fila offline.
+ */
+function OfflineContent({ token }: { token: string }) {
+  const [cached, setCached] = useState<CachedEquipment | null | undefined>(
+    undefined,
+  );
+
+  useEffect(() => {
+    let alive = true;
+    void getCachedEquipment(token).then((entry) => {
+      if (alive) setCached(entry);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [token]);
+
+  if (cached === undefined) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-lg px-4 py-6 space-y-4">
+      <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-amber-800">
+        <CloudOff className="h-5 w-5 shrink-0" />
+        <p className="text-sm">
+          Sem internet. Os registros serão salvos no aparelho e enviados
+          automaticamente quando a conexão voltar.
+        </p>
+      </div>
+
+      {cached?.equipment ? (
+        <>
+          <OfflineEquipmentCard equipment={cached.equipment} />
+          <MaintenanceForm qrToken={token} />
+        </>
+      ) : (
+        <>
+          <div className="flex flex-col items-center gap-2 text-center">
+            <QrCode className="h-10 w-10 text-muted-foreground" />
+            <h1 className="text-xl font-bold">QR Code: {token}</h1>
+            <p className="text-sm text-muted-foreground">
+              Se este equipamento ainda não foi cadastrado, registre abaixo.
+            </p>
+          </div>
+          <EquipmentForm qrToken={token} onSuccess={() => { }} />
+          <Separator />
+          <p className="text-sm text-muted-foreground text-center">
+            Equipamento já cadastrado? Registre a instalação ou manutenção:
+          </p>
+          <MaintenanceForm qrToken={token} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function OfflineEquipmentCard({
+  equipment,
+}: {
+  equipment: NonNullable<CachedEquipment["equipment"]>;
+}) {
+  return (
+    <Card>
+      <CardContent className="pt-4">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Tag className="h-4 w-4 text-muted-foreground" />
+              <h1 className="text-xl font-bold">
+                {equipment.tag ?? "Equipamento"}
+              </h1>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {equipment.type ?? equipment.description}
+            </p>
+          </div>
+          <StatusBadge status={equipment.status} />
+        </div>
+        {equipment.location && (
+          <>
+            <Separator className="my-3" />
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="h-3.5 w-3.5" />
+              <span>{equipment.location}</span>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
 function EquipmentDetail({
   equipmentId,
   equipment,
+  qrToken,
   currentUserName,
 }: {
   equipmentId: Id<"equipment">;
-  equipment: {
-    tag: string;
-    type: string;
-    location: string;
-    status: "operational" | "warning" | "error";
-    notes?: string;
-    createdAt: number;
-  };
+  equipment: EquipmentInfo;
+  qrToken: string;
   currentUserName?: string;
 }) {
   const [editing, setEditing] = useState(false);
@@ -275,6 +419,7 @@ function EquipmentDetail({
               tag: equipment.tag,
               type: equipment.type,
               location: equipment.location,
+              description: equipment.description,
               status: equipment.status,
               notes: equipment.notes,
             }}
@@ -288,9 +433,13 @@ function EquipmentDetail({
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <Tag className="h-4 w-4 text-muted-foreground" />
-                  <h1 className="text-xl font-bold">{equipment.tag}</h1>
+                  <h1 className="text-xl font-bold">
+                    {equipment.tag ?? "Equipamento"}
+                  </h1>
                 </div>
-                <p className="text-sm text-muted-foreground">{equipment.type}</p>
+                <p className="text-sm text-muted-foreground">
+                  {equipment.type ?? equipment.description}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <StatusBadge status={equipment.status} />
@@ -308,10 +457,15 @@ function EquipmentDetail({
             <Separator className="my-3" />
 
             <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5" />
-                <span>{equipment.location}</span>
-              </div>
+              {equipment.description && equipment.type && (
+                <p className="text-muted-foreground">{equipment.description}</p>
+              )}
+              {equipment.location && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5" />
+                  <span>{equipment.location}</span>
+                </div>
+              )}
               {lastMaintenanceDate && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Clock className="h-3.5 w-3.5" />
@@ -331,7 +485,11 @@ function EquipmentDetail({
       )}
 
       <div className="mb-4">
-        <MaintenanceForm equipmentId={equipmentId} defaultTechnicianName={currentUserName} />
+        <MaintenanceForm
+          equipmentId={equipmentId}
+          qrToken={qrToken}
+          technicianName={currentUserName}
+        />
       </div>
 
       {logs === undefined ? (

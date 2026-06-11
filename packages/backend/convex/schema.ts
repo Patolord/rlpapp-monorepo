@@ -436,10 +436,15 @@ export default defineSchema({
     .index("by_batchName", ["batchName"]),
 
   equipment: defineTable({
-    tag: v.string(),
-    type: v.string(),
-    location: v.string(),
+    // Cadastro simplificado em campo: tag/type/location são opcionais;
+    // a tag default é o token do QR e a descrição geral cobre tipo+local.
+    tag: v.optional(v.string()),
+    type: v.optional(v.string()),
+    location: v.optional(v.string()),
+    description: v.optional(v.string()),
+    labelPhotoIds: v.optional(v.array(v.id("_storage"))),
     status: v.union(
+      v.literal("installing"),
       v.literal("operational"),
       v.literal("warning"),
       v.literal("error")
@@ -455,8 +460,11 @@ export default defineSchema({
       v.union(v.literal("installation"), v.literal("maintenance"))
     ),
     technicianName: v.string(),
-    notes: v.string(),
+    notes: v.optional(v.string()),
+    // Palavras prontas selecionadas (ex: Posicionada, Instalada, Travado...)
+    tags: v.optional(v.array(v.string())),
     status: v.union(
+      v.literal("installing"),
       v.literal("operational"),
       v.literal("warning"),
       v.literal("error")
@@ -466,6 +474,7 @@ export default defineSchema({
         vacuum: v.boolean(),
         pressure: v.boolean(),
         communication: v.boolean(),
+        gas: v.optional(v.boolean()),
       })
     ),
     photoIds: v.array(v.id("_storage")),

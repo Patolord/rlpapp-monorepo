@@ -16,14 +16,15 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
-type EquipmentStatus = "operational" | "warning" | "error";
+type EquipmentStatus = "installing" | "operational" | "warning" | "error";
 
 interface EquipmentEditFormProps {
   equipmentId: Id<"equipment">;
   initial: {
-    tag: string;
-    type: string;
-    location: string;
+    tag?: string;
+    type?: string;
+    location?: string;
+    description?: string;
     status: EquipmentStatus;
     notes?: string;
   };
@@ -37,9 +38,10 @@ export function EquipmentEditForm({
 }: EquipmentEditFormProps) {
   const updateEquipment = useMutation(api.equipment.update);
 
-  const [tag, setTag] = useState(initial.tag);
-  const [type, setType] = useState(initial.type);
-  const [location, setLocation] = useState(initial.location);
+  const [tag, setTag] = useState(initial.tag ?? "");
+  const [type, setType] = useState(initial.type ?? "");
+  const [location, setLocation] = useState(initial.location ?? "");
+  const [description, setDescription] = useState(initial.description ?? "");
   const [status, setStatus] = useState<EquipmentStatus>(initial.status);
   const [notes, setNotes] = useState(initial.notes ?? "");
   const [submitting, setSubmitting] = useState(false);
@@ -47,18 +49,18 @@ export function EquipmentEditForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!tag || !type || !location) return;
 
     setError("");
     setSubmitting(true);
     try {
       await updateEquipment({
         id: equipmentId,
-        tag,
-        type,
-        location,
+        tag: tag.trim() || undefined,
+        type: type.trim() || undefined,
+        location: location.trim() || undefined,
+        description: description.trim() || undefined,
         status,
-        notes: notes || undefined,
+        notes: notes.trim() || undefined,
       });
       onClose();
     } catch (err) {
@@ -77,48 +79,29 @@ export function EquipmentEditForm({
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="edit-tag">Tag do Equipamento *</Label>
-            <Input
-              id="edit-tag"
-              value={tag}
-              onChange={(e) => setTag(e.target.value)}
-              required
-              className="h-12 text-base"
+            <Label htmlFor="edit-description" className="text-base">
+              Descrição geral
+            </Label>
+            <Textarea
+              id="edit-description"
+              placeholder="Ex: VRF no bloco A, 3º andar"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="min-h-[80px] text-lg placeholder:text-muted-foreground/50"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit-type">Tipo *</Label>
-            <Input
-              id="edit-type"
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-              required
-              className="h-12 text-base"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="edit-location">Localização *</Label>
-            <Input
-              id="edit-location"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              required
-              className="h-12 text-base"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Status</Label>
+            <Label className="text-base">Status</Label>
             <Select
               value={status}
               onValueChange={(v) => setStatus(v as EquipmentStatus)}
             >
-              <SelectTrigger className="h-12 text-base">
+              <SelectTrigger className="h-14 text-lg">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="installing">Em instalação</SelectItem>
                 <SelectItem value="operational">Operacional</SelectItem>
                 <SelectItem value="warning">Alerta</SelectItem>
                 <SelectItem value="error">Erro</SelectItem>
@@ -127,12 +110,54 @@ export function EquipmentEditForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit-notes">Observações</Label>
+            <Label htmlFor="edit-tag" className="text-base">
+              Tag do Equipamento
+            </Label>
+            <Input
+              id="edit-tag"
+              placeholder="Ex: VRF-01"
+              value={tag}
+              onChange={(e) => setTag(e.target.value)}
+              className="h-14 text-lg placeholder:text-muted-foreground/50"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-type" className="text-base">
+              Tipo
+            </Label>
+            <Input
+              id="edit-type"
+              placeholder="Ex: VRF, Split, Chiller"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="h-14 text-lg placeholder:text-muted-foreground/50"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-location" className="text-base">
+              Localização
+            </Label>
+            <Input
+              id="edit-location"
+              placeholder="Ex: Bloco A, 3º andar"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="h-14 text-lg placeholder:text-muted-foreground/50"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-notes" className="text-base">
+              Observações
+            </Label>
             <Textarea
               id="edit-notes"
+              placeholder="Observações opcionais..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="min-h-[80px] text-base"
+              className="min-h-[80px] text-lg placeholder:text-muted-foreground/50"
             />
           </div>
 
@@ -143,14 +168,14 @@ export function EquipmentEditForm({
               type="button"
               variant="outline"
               onClick={onClose}
-              className="h-12 flex-1 text-base"
+              className="h-14 flex-1 text-base"
             >
               Cancelar
             </Button>
             <Button
               type="submit"
-              disabled={submitting || !tag || !type || !location}
-              className="h-12 flex-1 text-base"
+              disabled={submitting}
+              className="h-14 flex-1 text-base"
             >
               {submitting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

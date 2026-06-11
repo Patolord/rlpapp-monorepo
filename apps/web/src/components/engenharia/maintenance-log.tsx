@@ -8,12 +8,14 @@ interface MaintenanceLogProps {
     _id: string;
     type?: "installation" | "maintenance";
     technicianName: string;
-    notes: string;
-    status: "operational" | "warning" | "error";
+    notes?: string;
+    tags?: string[];
+    status: "installing" | "operational" | "warning" | "error";
     tests?: {
       vacuum: boolean;
       pressure: boolean;
       communication: boolean;
+      gas?: boolean;
     };
     photoUrls: string[];
     createdAt: number;
@@ -71,6 +73,16 @@ export function MaintenanceLogCard({ log }: MaintenanceLogProps) {
           </div>
         </div>
 
+        {log.tags && log.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {log.tags.map((tag) => (
+              <Badge key={tag} variant="outline">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        )}
+
         {log.notes && (
           <p className="text-sm leading-relaxed">{log.notes}</p>
         )}
@@ -80,6 +92,9 @@ export function MaintenanceLogCard({ log }: MaintenanceLogProps) {
             <TestItem label="Vácuo" passed={log.tests.vacuum} />
             <TestItem label="Pressão" passed={log.tests.pressure} />
             <TestItem label="Comunicação" passed={log.tests.communication} />
+            {log.tests.gas !== undefined && (
+              <TestItem label="Carga de gás" passed={log.tests.gas} />
+            )}
           </div>
         )}
 
