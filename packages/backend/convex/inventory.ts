@@ -1,38 +1,35 @@
 import { v } from "convex/values";
-import { query, mutation, internalMutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
-import { requireAuth } from "./lib/auth";
+import type { Id } from "./_generated/dataModel";
+import { getUserRef } from "./lib/auth";
+import { staffMutation, staffQuery } from "./lib/functions";
+import { inventoryEventType } from "./schema";
 
 // ── Internal helper: recalculate snapshot for a product ────────────────────
 
 async function recalculateSnapshot(
-  ctx: { db: any },
+  ctx: MutationCtx,
   productId: Id<"products">
 ) {
   const events = await ctx.db
     .query("inventoryEvents")
-    .withIndex("by_product", (q: any) => q.eq("productId", productId))
+    .withIndex("by_product", (q) => q.eq("productId", productId))
     .collect();
 
-  const qtyOnHand = events.reduce(
-    (sum: number, e: any) => sum + e.qtyDelta,
-    0
-  );
+  const qtyOnHand = events.reduce((sum, e) => sum + e.qtyDelta, 0);
 
   const costEvents = await ctx.db
     .query("costEvents")
-    .withIndex("by_product", (q: any) => q.eq("productId", productId))
+    .withIndex("by_product", (q) => q.eq("productId", productId))
     .collect();
 
   let avgCost = 0;
   if (costEvents.length > 0) {
-    const totalCostQty = costEvents.reduce(
-      (sum: number, ce: any) => sum + ce.qty,
-      0
-    );
+    const totalCostQty = costEvents.reduce((sum, ce) => sum + ce.qty, 0);
     const totalCostValue = costEvents.reduce(
-      (sum: number, ce: any) => sum + ce.unitCost * ce.qty,
+      (sum, ce) => sum + ce.unitCost * ce.qty,
       0
     );
     avgCost = totalCostQty > 0 ? totalCostValue / totalCostQty : 0;
@@ -42,11 +39,11 @@ async function recalculateSnapshot(
 
   const existing = await ctx.db
     .query("inventorySnapshot")
-    .withIndex("by_product", (q: any) => q.eq("productId", productId))
+    .withIndex("by_product", (q) => q.eq("productId", productId))
     .first();
 
   if (existing) {
-    await ctx.db.patch(existing._id, {
+    await ctx.db.patch("inventorySnapshot", existing._id, {
       qtyOnHand,
       avgCost,
       totalValue,
@@ -181,21 +178,21 @@ export const reconcile = internalMutation({
 
 // ── Public queries ─────────────────────────────────────────────────────────
 
-export const getStock = query({
+export const getStock = staffQuery({
   args: {},
   handler: async (ctx) => {
     const snapshots = await ctx.db.query("inventorySnapshot").collect();
 
     return Promise.all(
       snapshots.map(async (snap) => {
-        const product = await ctx.db.get(snap.productId);
+        const product = await ctx.db.get("products", snap.productId);
         return { ...snap, product };
       })
     );
   },
 });
 
-export const getStockByProduct = query({
+export const getStockByProduct = staffQuery({
   args: { productId: v.id("products") },
   handler: async (ctx, args) => {
     return ctx.db
@@ -205,7 +202,7 @@ export const getStockByProduct = query({
   },
 });
 
-export const getDashboardSummary = query({
+export const getDashboardSummary = staffQuery({
   args: {},
   handler: async (ctx) => {
     const products = await ctx.db
@@ -264,7 +261,7 @@ export const getDashboardSummary = query({
 
     const enrichedDeliveries = await Promise.all(
       recentDeliveries.map(async (d) => {
-        const site = await ctx.db.get(d.receivedAtSiteId);
+        const site = await ctx.db.get("sites", d.receivedAtSiteId);
         return {
           ...d,
           siteName: site?.name ?? "Site removido",
@@ -274,7 +271,7 @@ export const getDashboardSummary = query({
 
     const enrichedPendingRequests = await Promise.all(
       pendingMaterialRequests.slice(0, 5).map(async (r) => {
-        const site = await ctx.db.get(r.siteId);
+        const site = await ctx.db.get("sites", r.siteId);
         const requester = await ctx.db
           .query("users")
           .withIndex("by_email", (q) => q.eq("email", r.requestedByUserId))
@@ -307,14 +304,13 @@ export const getDashboardSummary = query({
   },
 });
 
-export const adjustInventory = mutation({
+export const adjustInventory = staffMutation({
   args: {
     productId: v.id("products"),
     qtyDelta: v.number(),
     reason: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     if (args.qtyDelta === 0) {
       throw new Error("Quantidade de ajuste não pode ser zero");
     }
@@ -337,34 +333,34 @@ export const adjustInventory = mutation({
       productId: args.productId,
       qtyDelta: args.qtyDelta,
       reason: args.reason,
-      userId: "system",
+      userId: getUserRef(ctx.user),
     });
   },
 });
 
-export const listEvents = query({
+export const listEvents = staffQuery({
   args: {
-    type: v.optional(v.string()),
+    type: v.optional(inventoryEventType),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const all = await ctx.db
-      .query("inventoryEvents")
-      .withIndex("by_created")
-      .order("desc")
-      .collect();
+    const limit = Math.min(args.limit ?? 100, 500);
 
-    let filtered = all;
-    if (args.type) {
-      filtered = filtered.filter((e) => e.type === args.type);
-    }
-    if (args.limit) {
-      filtered = filtered.slice(0, args.limit);
-    }
+    const events = args.type
+      ? await ctx.db
+          .query("inventoryEvents")
+          .withIndex("by_type", (q) => q.eq("type", args.type!))
+          .order("desc")
+          .take(limit)
+      : await ctx.db
+          .query("inventoryEvents")
+          .withIndex("by_created")
+          .order("desc")
+          .take(limit);
 
     return Promise.all(
-      filtered.map(async (event) => {
-        const product = await ctx.db.get(event.productId);
+      events.map(async (event) => {
+        const product = await ctx.db.get("products", event.productId);
         return { ...event, product };
       })
     );

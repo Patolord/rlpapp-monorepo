@@ -1,15 +1,13 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
-import { requireAuth } from "./lib/auth";
+import { financeMutation, financeQuery } from "./lib/functions";
 
-export const conciliar = mutation({
+export const conciliar = financeMutation({
   args: {
     transacaoBancariaId: v.id("transacoesBancarias"),
     contaPagarId: v.optional(v.id("contasPagar")),
     contaReceberId: v.optional(v.id("contasReceber")),
   },
   handler: async (ctx, args) => {
-    const identity = await requireAuth(ctx);
 
     if (!args.contaPagarId && !args.contaReceberId) {
       throw new Error("É necessário vincular a uma conta a pagar ou receber");
@@ -18,22 +16,22 @@ export const conciliar = mutation({
       throw new Error("Vincule a apenas uma conta (pagar ou receber)");
     }
 
-    const transacao = await ctx.db.get(args.transacaoBancariaId);
+    const transacao = await ctx.db.get("transacoesBancarias", args.transacaoBancariaId);
     if (!transacao) throw new Error("Transação bancária não encontrada");
     if (transacao.conciliacaoStatus === "conciliado") {
       throw new Error("Transação já conciliada");
     }
 
     if (args.contaPagarId) {
-      const conta = await ctx.db.get(args.contaPagarId);
+      const conta = await ctx.db.get("contasPagar", args.contaPagarId);
       if (!conta) throw new Error("Conta a pagar não encontrada");
     }
     if (args.contaReceberId) {
-      const conta = await ctx.db.get(args.contaReceberId);
+      const conta = await ctx.db.get("contasReceber", args.contaReceberId);
       if (!conta) throw new Error("Conta a receber não encontrada");
     }
 
-    await ctx.db.patch(args.transacaoBancariaId, {
+    await ctx.db.patch("transacoesBancarias", args.transacaoBancariaId, {
       conciliacaoStatus: "conciliado",
     });
 
@@ -41,18 +39,17 @@ export const conciliar = mutation({
       transacaoBancariaId: args.transacaoBancariaId,
       contaPagarId: args.contaPagarId,
       contaReceberId: args.contaReceberId,
-      userId: identity.subject,
+      userId: ctx.user.clerkId ?? ctx.user._id,
       createdAt: Date.now(),
     });
   },
 });
 
-export const desconciliar = mutation({
+export const desconciliar = financeMutation({
   args: { transacaoBancariaId: v.id("transacoesBancarias") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
 
-    const transacao = await ctx.db.get(args.transacaoBancariaId);
+    const transacao = await ctx.db.get("transacoesBancarias", args.transacaoBancariaId);
     if (!transacao) throw new Error("Transação bancária não encontrada");
     if (transacao.conciliacaoStatus !== "conciliado") {
       throw new Error("Transação não está conciliada");
@@ -64,16 +61,16 @@ export const desconciliar = mutation({
       .collect();
 
     for (const c of conciliacoes) {
-      await ctx.db.delete(c._id);
+      await ctx.db.delete("conciliacoes", c._id);
     }
 
-    await ctx.db.patch(args.transacaoBancariaId, {
+    await ctx.db.patch("transacoesBancarias", args.transacaoBancariaId, {
       conciliacaoStatus: "pendente",
     });
   },
 });
 
-export const getDashboardSummary = query({
+export const getDashboardSummary = financeQuery({
   args: {
     contaBancariaId: v.optional(v.id("contasBancarias")),
   },
@@ -124,10 +121,10 @@ export const getDashboardSummary = query({
   },
 });
 
-export const getSugestoes = query({
+export const getSugestoes = financeQuery({
   args: { transacaoBancariaId: v.id("transacoesBancarias") },
   handler: async (ctx, args) => {
-    const transacao = await ctx.db.get(args.transacaoBancariaId);
+    const transacao = await ctx.db.get("transacoesBancarias", args.transacaoBancariaId);
     if (!transacao) return [];
 
     const tolerance = transacao.valor * 0.05;
@@ -174,7 +171,7 @@ export const getSugestoes = query({
   },
 });
 
-export const listByTransacao = query({
+export const listByTransacao = financeQuery({
   args: { transacaoBancariaId: v.id("transacoesBancarias") },
   handler: async (ctx, args) => {
     const conciliacoes = await ctx.db
@@ -184,8 +181,8 @@ export const listByTransacao = query({
 
     return Promise.all(
       conciliacoes.map(async (c) => {
-        const contaPagar = c.contaPagarId ? await ctx.db.get(c.contaPagarId) : null;
-        const contaReceber = c.contaReceberId ? await ctx.db.get(c.contaReceberId) : null;
+        const contaPagar = c.contaPagarId ? await ctx.db.get("contasPagar", c.contaPagarId) : null;
+        const contaReceber = c.contaReceberId ? await ctx.db.get("contasReceber", c.contaReceberId) : null;
         return { ...c, contaPagar, contaReceber };
       })
     );

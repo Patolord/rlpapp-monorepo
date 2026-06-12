@@ -1,7 +1,7 @@
 import { v } from "convex/values";
-import { query } from "./_generated/server";
+import { financeQuery } from "./lib/functions";
 
-export const fluxoDeCaixa = query({
+export const fluxoDeCaixa = financeQuery({
   args: {
     dataInicio: v.number(),
     dataFim: v.number(),
@@ -86,7 +86,7 @@ export const fluxoDeCaixa = query({
   },
 });
 
-export const dre = query({
+export const dre = financeQuery({
   args: {
     dataInicio: v.number(),
     dataFim: v.number(),
@@ -157,12 +157,13 @@ export const dre = query({
   },
 });
 
-export const aging = query({
+export const aging = financeQuery({
   args: {
     tipo: v.union(v.literal("pagar"), v.literal("receber")),
+    now: v.number(),
   },
   handler: async (ctx, args) => {
-    const now = Date.now();
+    const now = args.now;
     const day = 24 * 60 * 60 * 1000;
 
     const faixas = [
@@ -217,7 +218,7 @@ export const aging = query({
   },
 });
 
-export const porCategoria = query({
+export const porCategoria = financeQuery({
   args: {
     dataInicio: v.number(),
     dataFim: v.number(),

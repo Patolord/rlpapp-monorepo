@@ -9,18 +9,19 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "prebuild": "expo prebuild",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint app components lib contexts"
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.19.31",
     "@expo/metro-runtime": "~55.0.11",
     "@expo/vector-icons": "^15.1.1",
-    "@gorhom/bottom-sheet": "^5.2.13",
     "@react-navigation/drawer": "^7.9.11",
     "@react-navigation/elements": "^2.9.17",
     "@rlpapp/backend": "workspace:*",
     "@rlpapp/env": "workspace:*",
-    "@rn-primitives/checkbox": "^1.4.0",
+    "@rlpapp/shared": "workspace:*",
     "@rn-primitives/dialog": "^1.4.0",
     "@rn-primitives/label": "^1.4.0",
     "@rn-primitives/portal": "^1.4.0",
@@ -31,14 +32,12 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convex": "catalog:",
-    "dotenv": "catalog:",
     "expo": "^55.0.23",
     "expo-camera": "^55.0.18",
     "expo-constants": "~55.0.16",
     "expo-font": "~55.0.7",
     "expo-haptics": "^55.0.14",
     "expo-linking": "~55.0.15",
-    "expo-network": "~55.0.13",
     "expo-router": "~55.0.14",
     "expo-secure-store": "~55.0.13",
     "expo-status-bar": "~55.0.6",
@@ -66,9 +65,12 @@
     "@types/node": "^25.6.2",
     "@types/react": "~19.2.14",
     "babel-preset-expo": "^55.0.21",
+    "eslint": "^10.4.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "tailwindcss": "^4.3.0",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "typescript-eslint": "^8.61.0"
   },
   "pnpm": {
     "overrides": {

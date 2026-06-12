@@ -1,11 +1,11 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
-import { requireAuth } from "./lib/auth";
+import { filterDefined } from "./lib/financeiro";
+import { financeMutation, financeQuery } from "./lib/functions";
 import { categoriaTipo } from "./schema";
 
-export const list = query({
+export const list = financeQuery({
   args: {
-    tipo: v.optional(v.string()),
+    tipo: v.optional(categoriaTipo),
     activeOnly: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
@@ -13,7 +13,7 @@ export const list = query({
     if (args.tipo) {
       results = await ctx.db
         .query("categoriasFinanceiras")
-        .withIndex("by_tipo", (q) => q.eq("tipo", args.tipo as any))
+        .withIndex("by_tipo", (q) => q.eq("tipo", args.tipo!))
         .collect();
     } else {
       results = await ctx.db.query("categoriasFinanceiras").collect();
@@ -27,14 +27,14 @@ export const list = query({
   },
 });
 
-export const getById = query({
+export const getById = financeQuery({
   args: { id: v.id("categoriasFinanceiras") },
   handler: async (ctx, args) => {
-    return ctx.db.get(args.id);
+    return ctx.db.get("categoriasFinanceiras", args.id);
   },
 });
 
-export const create = mutation({
+export const create = financeMutation({
   args: {
     nome: v.string(),
     tipo: categoriaTipo,
@@ -42,7 +42,6 @@ export const create = mutation({
     icone: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     return ctx.db.insert("categoriasFinanceiras", {
       nome: args.nome,
       tipo: args.tipo,
@@ -53,7 +52,7 @@ export const create = mutation({
   },
 });
 
-export const update = mutation({
+export const update = financeMutation({
   args: {
     id: v.id("categoriasFinanceiras"),
     nome: v.optional(v.string()),
@@ -62,22 +61,17 @@ export const update = mutation({
     icone: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     const { id, ...fields } = args;
-    const updates: Record<string, any> = {};
-    for (const [key, value] of Object.entries(fields)) {
-      if (value !== undefined) updates[key] = value;
-    }
-    await ctx.db.patch(id, updates);
+    const updates = filterDefined(fields);
+    await ctx.db.patch("categoriasFinanceiras", id, updates);
   },
 });
 
-export const toggleActive = mutation({
+export const toggleActive = financeMutation({
   args: { id: v.id("categoriasFinanceiras") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const existing = await ctx.db.get(args.id);
+    const existing = await ctx.db.get("categoriasFinanceiras", args.id);
     if (!existing) throw new Error("Categoria não encontrada");
-    await ctx.db.patch(args.id, { isActive: !existing.isActive });
+    await ctx.db.patch("categoriasFinanceiras", args.id, { isActive: !existing.isActive });
   },
 });

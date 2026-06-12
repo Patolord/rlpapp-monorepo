@@ -1,12 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Authenticated,
-  AuthLoading,
-  Unauthenticated,
-  useQuery,
-} from "convex/react";
+import { useQuery } from "convex/react";
 import {
   ClipboardCheck,
   ChevronDown,
@@ -40,7 +35,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { formatDateTime } from "@rlpapp/shared";
 
 export const Route = createFileRoute("/estoque/historico-entregas")({
   component: HistoricoEntregasPage,
@@ -48,19 +44,9 @@ export const Route = createFileRoute("/estoque/historico-entregas")({
 
 function HistoricoEntregasPage() {
   return (
-    <>
-      <Authenticated>
-        <HistoricoContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <HistoricoContent />
+    </AuthShell>
   );
 }
 
@@ -83,9 +69,6 @@ function HistoricoContent() {
 
   const confirmations = useQuery(api.deliveryConfirmations.list, filterArgs);
 
-  const formatDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleString("pt-BR");
-
   const clearFilters = () => {
     setSiteFilter("");
     setStartDate("");
@@ -97,7 +80,7 @@ function HistoricoContent() {
       <div>
         <h1 className="text-2xl font-bold">Histórico de Entregas</h1>
         <p className="text-muted-foreground">
-          Registro de todas as confirmações de entrega via QR Code
+          Registro de todas as confirmações de entrega via código QR
         </p>
       </div>
 
@@ -111,10 +94,10 @@ function HistoricoContent() {
         <CardContent>
           <div className="flex flex-wrap gap-4 items-end">
             <div className="grid gap-1.5 min-w-[200px]">
-              <Label className="text-xs">Site</Label>
+              <Label className="text-xs">Obra</Label>
               <Select value={siteFilter} onValueChange={(v) => setSiteFilter(v ?? "")}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Todos os sites" />
+                  <SelectValue placeholder="Todas as obras" />
                 </SelectTrigger>
                 <SelectContent>
                   {sites?.map((s) => (
@@ -175,14 +158,14 @@ function HistoricoContent() {
                 <TableRow>
                   <TableHead className="w-8" />
                   <TableHead>Data</TableHead>
-                  <TableHead>Site</TableHead>
+                  <TableHead>Obra</TableHead>
                   <TableHead>Recebido por</TableHead>
                   <TableHead>Confirmado por</TableHead>
                   <TableHead>Obs</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {confirmations.map((c: any) => (
+                {confirmations.map((c) => (
                   <>
                     <TableRow
                       key={c._id}
@@ -198,7 +181,7 @@ function HistoricoContent() {
                           <ChevronRight className="h-4 w-4" />
                         )}
                       </TableCell>
-                      <TableCell>{formatDate(c.confirmedAt)}</TableCell>
+                      <TableCell>{formatDateTime(c.confirmedAt)}</TableCell>
                       <TableCell>{c.site?.name ?? "—"}</TableCell>
                       <TableCell className="font-medium">
                         {c.receiverName}
@@ -223,8 +206,7 @@ function HistoricoContent() {
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {c.shipmentLines.map(
-                                  (line: any, idx: number) => (
+                                {c.shipmentLines.map((line, idx) => (
                                     <TableRow key={idx}>
                                       <TableCell className="font-medium">
                                         {line.productName}

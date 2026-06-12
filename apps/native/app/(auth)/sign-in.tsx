@@ -8,6 +8,7 @@ import { Button, ButtonText } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getClerkErrorMessage } from "@/lib/errors";
 
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
@@ -37,8 +38,8 @@ export default function SignInScreen() {
       } else {
         Alert.alert("Erro", "Status inesperado. Tente novamente.");
       }
-    } catch (err: any) {
-      Alert.alert("Erro", err?.errors?.[0]?.message || "Erro ao fazer login");
+    } catch (err) {
+      Alert.alert("Erro", getClerkErrorMessage(err, "Erro ao fazer login"));
     } finally {
       setLoading(false);
     }
@@ -58,8 +59,8 @@ export default function SignInScreen() {
       } else {
         Alert.alert("Erro", "Não foi possível verificar. Tente novamente.");
       }
-    } catch (err: any) {
-      Alert.alert("Erro", err?.errors?.[0]?.message || "Código inválido");
+    } catch (err) {
+      Alert.alert("Erro", getClerkErrorMessage(err, "Código inválido"));
     } finally {
       setLoading(false);
     }

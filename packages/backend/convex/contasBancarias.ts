@@ -1,9 +1,9 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
-import { requireAuth } from "./lib/auth";
+import { filterDefined } from "./lib/financeiro";
+import { financeMutation, financeQuery } from "./lib/functions";
 import { tipoConta } from "./schema";
 
-export const list = query({
+export const list = financeQuery({
   args: {
     activeOnly: v.optional(v.boolean()),
   },
@@ -18,14 +18,14 @@ export const list = query({
   },
 });
 
-export const getById = query({
+export const getById = financeQuery({
   args: { id: v.id("contasBancarias") },
   handler: async (ctx, args) => {
-    return ctx.db.get(args.id);
+    return ctx.db.get("contasBancarias", args.id);
   },
 });
 
-export const create = mutation({
+export const create = financeMutation({
   args: {
     nome: v.string(),
     banco: v.string(),
@@ -35,7 +35,6 @@ export const create = mutation({
     saldoInicial: v.number(),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     return ctx.db.insert("contasBancarias", {
       ...args,
       isActive: true,
@@ -43,7 +42,7 @@ export const create = mutation({
   },
 });
 
-export const update = mutation({
+export const update = financeMutation({
   args: {
     id: v.id("contasBancarias"),
     nome: v.optional(v.string()),
@@ -54,22 +53,17 @@ export const update = mutation({
     saldoInicial: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     const { id, ...fields } = args;
-    const updates: Record<string, any> = {};
-    for (const [key, value] of Object.entries(fields)) {
-      if (value !== undefined) updates[key] = value;
-    }
-    await ctx.db.patch(id, updates);
+    const updates = filterDefined(fields);
+    await ctx.db.patch("contasBancarias", id, updates);
   },
 });
 
-export const toggleActive = mutation({
+export const toggleActive = financeMutation({
   args: { id: v.id("contasBancarias") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const existing = await ctx.db.get(args.id);
+    const existing = await ctx.db.get("contasBancarias", args.id);
     if (!existing) throw new Error("Conta bancária não encontrada");
-    await ctx.db.patch(args.id, { isActive: !existing.isActive });
+    await ctx.db.patch("contasBancarias", args.id, { isActive: !existing.isActive });
   },
 });

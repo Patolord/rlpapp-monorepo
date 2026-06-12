@@ -1,7 +1,9 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { requireRole, getUserByIdentity, getUserRef } from "./lib/auth";
+import { requireRole, getUserRef } from "./lib/auth";
+import { getRequestLinesWithProducts } from "./lib/enrich";
+import { staffQuery } from "./lib/functions";
 import { materialRequestStatus, materialRequestUrgency } from "./schema";
 
 export const create = mutation({
@@ -61,9 +63,9 @@ export const create = mutation({
   },
 });
 
-export const list = query({
+export const list = staffQuery({
   args: {
-    status: v.optional(v.string()),
+    status: v.optional(materialRequestStatus),
   },
   handler: async (ctx, args) => {
     let requests;
@@ -71,16 +73,7 @@ export const list = query({
     if (args.status) {
       requests = await ctx.db
         .query("materialRequests")
-        .withIndex("by_status", (q) =>
-          q.eq(
-            "status",
-            args.status as
-              | "Pendente"
-              | "Aprovado"
-              | "Rejeitado"
-              | "Convertido"
-          )
-        )
+        .withIndex("by_status", (q) => q.eq("status", args.status!))
         .order("desc")
         .collect();
     } else {
@@ -93,19 +86,8 @@ export const list = query({
 
     return Promise.all(
       requests.map(async (request) => {
-        const site = await ctx.db.get(request.siteId);
-
-        const lines = await ctx.db
-          .query("materialRequestLines")
-          .withIndex("by_request", (q) => q.eq("requestId", request._id))
-          .collect();
-
-        const enrichedLines = await Promise.all(
-          lines.map(async (line) => {
-            const product = await ctx.db.get(line.productId);
-            return { ...line, product };
-          })
-        );
+        const site = await ctx.db.get("sites", request.siteId);
+        const lines = await getRequestLinesWithProducts(ctx, request._id);
 
         const requester = await ctx.db
           .query("users")
@@ -127,7 +109,7 @@ export const list = query({
         return {
           ...request,
           site,
-          lines: enrichedLines,
+          lines,
           requesterName: requester?.name ?? request.requestedByUserId,
           reviewerName: reviewer?.name ?? request.reviewedByUserId,
         };
@@ -136,11 +118,10 @@ export const list = query({
   },
 });
 
-export const listByUser = query({
+export const listByUser = staffQuery({
   args: {},
   handler: async (ctx) => {
-    const user = await getUserByIdentity(ctx);
-    if (!user) return [];
+    const user = ctx.user;
 
     const requests = await ctx.db
       .query("materialRequests")
@@ -152,27 +133,15 @@ export const listByUser = query({
 
     return Promise.all(
       requests.map(async (request) => {
-        const site = await ctx.db.get(request.siteId);
-
-        const lines = await ctx.db
-          .query("materialRequestLines")
-          .withIndex("by_request", (q) => q.eq("requestId", request._id))
-          .collect();
-
-        const enrichedLines = await Promise.all(
-          lines.map(async (line) => {
-            const product = await ctx.db.get(line.productId);
-            return { ...line, product };
-          })
-        );
-
-        return { ...request, site, lines: enrichedLines };
+        const site = await ctx.db.get("sites", request.siteId);
+        const lines = await getRequestLinesWithProducts(ctx, request._id);
+        return { ...request, site, lines };
       })
     );
   },
 });
 
-export const pendingCount = query({
+export const pendingCount = staffQuery({
   args: {},
   handler: async (ctx) => {
     const pending = await ctx.db
@@ -199,7 +168,7 @@ export const approve = mutation({
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, ["admin", "manager", "director"]);
 
-    const request = await ctx.db.get(args.requestId);
+    const request = await ctx.db.get("materialRequests", args.requestId);
     if (!request) throw new Error("Solicitação não encontrada");
     if (request.status !== "Pendente") {
       throw new Error("Solicitação não está pendente");
@@ -210,7 +179,7 @@ export const approve = mutation({
         if (edit.approvedQty < 0) {
           throw new Error("Quantidade aprovada não pode ser negativa");
         }
-        await ctx.db.patch(edit.lineId, {
+        await ctx.db.patch("materialRequestLines", edit.lineId, {
           approvedQty: edit.approvedQty,
         });
       }
@@ -220,11 +189,11 @@ export const approve = mutation({
         .withIndex("by_request", (q) => q.eq("requestId", args.requestId))
         .collect();
       for (const line of lines) {
-        await ctx.db.patch(line._id, { approvedQty: line.qty });
+        await ctx.db.patch("materialRequestLines", line._id, { approvedQty: line.qty });
       }
     }
 
-    await ctx.db.patch(args.requestId, {
+    await ctx.db.patch("materialRequests", args.requestId, {
       status: "Aprovado",
       reviewedByUserId: getUserRef(user),
       reviewNotes: args.reviewNotes,
@@ -243,13 +212,13 @@ export const reject = mutation({
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, ["admin", "manager", "director"]);
 
-    const request = await ctx.db.get(args.requestId);
+    const request = await ctx.db.get("materialRequests", args.requestId);
     if (!request) throw new Error("Solicitação não encontrada");
     if (request.status !== "Pendente") {
       throw new Error("Solicitação não está pendente");
     }
 
-    await ctx.db.patch(args.requestId, {
+    await ctx.db.patch("materialRequests", args.requestId, {
       status: "Rejeitado",
       reviewedByUserId: getUserRef(user),
       reviewNotes: args.reviewNotes,
@@ -267,7 +236,7 @@ export const convertToShipment = mutation({
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, ["admin", "manager", "director"]);
 
-    const request = await ctx.db.get(args.requestId);
+    const request = await ctx.db.get("materialRequests", args.requestId);
     if (!request) throw new Error("Solicitação não encontrada");
     if (request.status !== "Aprovado") {
       throw new Error("Solicitação deve estar aprovada para converter");
@@ -297,7 +266,7 @@ export const convertToShipment = mutation({
 
       const available = snapshot?.qtyOnHand ?? 0;
       if (available < line.qty) {
-        const product = await ctx.db.get(line.productId);
+        const product = await ctx.db.get("products", line.productId);
         throw new Error(
           `Estoque insuficiente para ${product?.name ?? "produto"}: disponível ${available}, solicitado ${line.qty}`
         );
@@ -305,7 +274,7 @@ export const convertToShipment = mutation({
     }
 
     const now = Date.now();
-    const site = await ctx.db.get(request.siteId);
+    const site = await ctx.db.get("sites", request.siteId);
     if (!site) throw new Error("Site não encontrado");
 
     const shipmentId = await ctx.db.insert("shipments", {
@@ -326,7 +295,7 @@ export const convertToShipment = mutation({
         qty: line.qty,
       });
 
-      const product = await ctx.db.get(line.productId);
+      const product = await ctx.db.get("products", line.productId);
       qrProducts.push({
         name: product?.name ?? "Produto",
         qty: line.qty,
@@ -348,9 +317,9 @@ export const convertToShipment = mutation({
       products: qrProducts,
       createdAt: now,
     });
-    await ctx.db.patch(shipmentId, { qrCodeData: qrPayload });
+    await ctx.db.patch("shipments", shipmentId, { qrCodeData: qrPayload });
 
-    await ctx.db.patch(args.requestId, {
+    await ctx.db.patch("materialRequests", args.requestId, {
       status: "Convertido",
       resultingShipmentId: shipmentId,
       updatedAt: now,

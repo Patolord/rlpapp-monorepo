@@ -45,6 +45,17 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { getErrorMessage } from "@/lib/errors";
+import { formatDateTime } from "@rlpapp/shared";
+
+// Payload do QR gerado em shipments.createShipment
+type ScannedShipment = {
+  shipmentId: string;
+  toSiteId: string;
+  siteName: string;
+  products: { name: string; qty: number; unit: string }[];
+  createdAt: number;
+};
 
 export default function OperadorScreen() {
   return (
@@ -143,7 +154,7 @@ function ReceberTab() {
 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(false);
-  const [scannedData, setScannedData] = useState<any | null>(null);
+  const [scannedData, setScannedData] = useState<ScannedShipment | null>(null);
   const [receiverName, setReceiverName] = useState("");
   const [selectedSiteId, setSelectedSiteId] = useState("");
   const [confirmNotes, setConfirmNotes] = useState("");
@@ -198,13 +209,10 @@ function ReceberTab() {
       setReceiverName("");
       setSelectedSiteId("");
       setConfirmNotes("");
-    } catch (error: any) {
-      Alert.alert("Erro", error.message || "Erro ao confirmar entrega");
+    } catch (error) {
+      Alert.alert("Erro", getErrorMessage(error, "Erro ao confirmar entrega"));
     }
   };
-
-  const formatDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleString("pt-BR");
 
   return (
     <View className="gap-4">
@@ -254,7 +262,7 @@ function ReceberTab() {
               <Text className="text-sm text-muted-foreground">
                 Destino: {scannedData.siteName}
               </Text>
-              {scannedData.products?.map((p: any, i: number) => (
+              {scannedData.products?.map((p, i) => (
                 <View
                   key={i}
                   className="flex-row justify-between"
@@ -324,7 +332,7 @@ function ReceberTab() {
             <Text className="text-muted-foreground">Nenhuma pendente</Text>
           ) : (
             <View className="gap-2">
-              {pendingShipments.map((s: any) => (
+              {pendingShipments.map((s) => (
                 <View
                   key={s._id}
                   className="flex-row items-center justify-between rounded-lg border border-border p-3"
@@ -335,7 +343,7 @@ function ReceberTab() {
                     </Text>
                     <Text className="text-muted-foreground text-xs">
                       {s.lines.length} produto(s) •{" "}
-                      {formatDate(s.createdAt)}
+                      {formatDateTime(s.createdAt)}
                     </Text>
                   </View>
                 </View>
@@ -357,13 +365,10 @@ function EnviarTab() {
   const handleStage = async (shipmentId: Id<"shipments">) => {
     try {
       await stageShipment({ shipmentId });
-    } catch (error: any) {
-      Alert.alert("Erro", error.message || "Erro ao preparar remessa");
+    } catch (error) {
+      Alert.alert("Erro", getErrorMessage(error, "Erro ao preparar remessa"));
     }
   };
-
-  const formatDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleString("pt-BR");
 
   return (
     <View className="gap-4">
@@ -386,7 +391,7 @@ function EnviarTab() {
             </Text>
           ) : (
             <View className="gap-2">
-              {readyShipments.map((s: any) => (
+              {readyShipments.map((s) => (
                 <View
                   key={s._id}
                   className="flex-row items-center justify-between rounded-lg border border-border p-3"
@@ -397,7 +402,7 @@ function EnviarTab() {
                     </Text>
                     <Text className="text-muted-foreground text-xs">
                       {s.lines.length} produto(s) •{" "}
-                      {formatDate(s.createdAt)}
+                      {formatDateTime(s.createdAt)}
                     </Text>
                   </View>
                   <Button
@@ -508,8 +513,8 @@ function SolicitarTab() {
       });
       Alert.alert("Sucesso", "Solicitação enviada");
       resetForm();
-    } catch (error: any) {
-      Alert.alert("Erro", error.message || "Erro ao enviar");
+    } catch (error) {
+      Alert.alert("Erro", getErrorMessage(error, "Erro ao enviar"));
     }
   };
 
@@ -662,7 +667,7 @@ function SolicitarTab() {
             </Text>
           ) : (
             <View className="gap-2">
-              {myRequests.map((req: any) => (
+              {myRequests.map((req) => (
                 <View key={req._id}>
                   <Pressable
                     className="flex-row items-center justify-between rounded-lg border border-border p-3"
@@ -696,8 +701,8 @@ function SolicitarTab() {
                           </Text>
                         </View>
                         <Text className="text-muted-foreground text-xs mt-1">
-                          Até {formatDate(req.dateNeeded)} •{" "}
-                          {formatDate(req.createdAt)}
+                          Até {formatDateTime(req.dateNeeded)} •{" "}
+                          {formatDateTime(req.createdAt)}
                         </Text>
                       </View>
                     </View>
@@ -716,7 +721,7 @@ function SolicitarTab() {
                           {req.reviewNotes}
                         </Text>
                       )}
-                      {req.lines.map((line: any) => (
+                      {req.lines.map((line) => (
                         <View
                           key={line._id}
                           className="flex-row justify-between"

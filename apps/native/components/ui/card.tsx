@@ -1,9 +1,18 @@
 import { View, Text } from "react-native";
+import type { StyleProp, ViewStyle } from "react-native";
 import { cn } from "@/lib/utils";
 
-function Card({ className, children, ...props }: { className?: string; children: React.ReactNode; style?: any }) {
+function Card({
+  className,
+  children,
+  ...props
+}: {
+  className?: string;
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
   return (
-    <View className={cn("rounded-2xl bg-white p-4", className)} style={{ backgroundColor: "#ffffff", ...props.style }}>
+    <View className={cn("rounded-2xl bg-white p-4", className)} style={[{ backgroundColor: "#ffffff" }, props.style]}>
       {children}
     </View>
   );

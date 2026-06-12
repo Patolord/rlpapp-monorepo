@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import {
   DollarSign,
   AlertTriangle,
@@ -22,7 +23,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { formatCurrency } from "@rlpapp/shared";
 
 export const Route = createFileRoute("/financeiro/")({
   component: FinanceiroDashboard,
@@ -30,30 +32,29 @@ export const Route = createFileRoute("/financeiro/")({
 
 function FinanceiroDashboard() {
   return (
-    <>
-      <Authenticated>
-        <DashboardContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <DashboardContent />
+    </AuthShell>
   );
 }
 
 function DashboardContent() {
-  const pagarSummary = useQuery(api.contasPagar.getDashboardSummary);
-  const pagarVencidas = useQuery(api.contasPagar.getVencidas);
-  const pagarProximas = useQuery(api.contasPagar.getProximasVencer);
+  // Timestamp estável por render da página (evita Date.now() nas queries Convex)
+  const [now] = useState(() => Date.now());
 
-  const receberSummary = useQuery(api.contasReceber.getDashboardSummary);
-  const receberInadimplentes = useQuery(api.contasReceber.getInadimplentes);
-  const receberProximas = useQuery(api.contasReceber.getProximasVencer);
+  const pagarSummary = useQuery(api.contasPagar.getDashboardSummary, { now });
+  const pagarVencidas = useQuery(api.contasPagar.getVencidas, { now });
+  const pagarProximas = useQuery(api.contasPagar.getProximasVencer, { now });
+
+  const receberSummary = useQuery(api.contasReceber.getDashboardSummary, {
+    now,
+  });
+  const receberInadimplentes = useQuery(api.contasReceber.getInadimplentes, {
+    now,
+  });
+  const receberProximas = useQuery(api.contasReceber.getProximasVencer, {
+    now,
+  });
 
   const conciliacaoSummary = useQuery(api.conciliacoes.getDashboardSummary, {});
 
@@ -83,7 +84,7 @@ function DashboardContent() {
     <div className="min-h-full p-6">
       <div className="mx-auto max-w-7xl space-y-8">
         <div>
-          <h1 className="text-4xl font-semibold tracking-tight text-foreground">Dashboard Financeiro</h1>
+          <h1 className="text-4xl font-semibold tracking-tight text-foreground">Painel financeiro</h1>
           <p className="text-muted-foreground">Visão geral de contas a pagar e receber</p>
         </div>
 
@@ -519,13 +520,6 @@ function QuickActionButton({
       </span>
     </Button>
   );
-}
-
-function formatCurrency(valueInCents: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(valueInCents / 100);
 }
 
 function formatDate(timestamp: number) {

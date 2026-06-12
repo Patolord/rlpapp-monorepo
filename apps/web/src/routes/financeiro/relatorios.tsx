@@ -1,17 +1,16 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import {
   BarChart3,
   TrendingUp,
-  TrendingDown,
   ArrowDownToLine,
   ArrowUpFromLine,
   DollarSign,
   Percent,
   Calendar,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -32,8 +31,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { formatCurrency } from "@rlpapp/shared";
 
 export const Route = createFileRoute("/financeiro/relatorios")({
   component: RelatoriosPage,
@@ -43,19 +42,9 @@ type TabKey = "fluxo" | "dre" | "aging" | "categoria";
 
 function RelatoriosPage() {
   return (
-    <>
-      <Authenticated>
-        <RelatoriosContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <RelatoriosContent />
+    </AuthShell>
   );
 }
 
@@ -78,7 +67,7 @@ function RelatoriosContent() {
   const tabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
     { key: "fluxo", label: "Fluxo de Caixa", icon: <TrendingUp className="h-4 w-4" /> },
     { key: "dre", label: "DRE Simplificado", icon: <BarChart3 className="h-4 w-4" /> },
-    { key: "aging", label: "Aging", icon: <Calendar className="h-4 w-4" /> },
+    { key: "aging", label: "Antiguidade", icon: <Calendar className="h-4 w-4" /> },
     { key: "categoria", label: "Por Categoria", icon: <Percent className="h-4 w-4" /> },
   ];
 
@@ -412,7 +401,7 @@ function DRE({ dataInicio, dataFim }: { dataInicio: string; dataFim: string }) {
             <TableHeader>
               <TableRow>
                 <TableHead>Descrição</TableHead>
-                <TableHead className="text-right">Qtd</TableHead>
+                <TableHead className="text-right">Quantidade</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
               </TableRow>
             </TableHeader>
@@ -488,7 +477,8 @@ function DRE({ dataInicio, dataFim }: { dataInicio: string; dataFim: string }) {
 
 function AgingReport() {
   const [tipo, setTipo] = useState<"pagar" | "receber">("pagar");
-  const aging = useQuery(api.relatorios.aging, { tipo });
+  const [now] = useState(() => Date.now());
+  const aging = useQuery(api.relatorios.aging, { tipo, now });
 
   if (!aging) return <p className="text-muted-foreground">Carregando...</p>;
 
@@ -524,7 +514,7 @@ function AgingReport() {
       <Card>
         <CardHeader>
           <CardTitle>
-            Aging Report — {tipo === "pagar" ? "Contas a Pagar" : "Contas a Receber"}
+            Relatório de antiguidade — {tipo === "pagar" ? "Contas a Pagar" : "Contas a Receber"}
           </CardTitle>
           <CardDescription>Distribuição por faixa de vencimento</CardDescription>
         </CardHeader>
@@ -558,7 +548,7 @@ function AgingReport() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Faixa</TableHead>
-                    <TableHead className="text-right">Qtd</TableHead>
+                    <TableHead className="text-right">Quantidade</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                     <TableHead className="text-right">%</TableHead>
                   </TableRow>
@@ -686,7 +676,7 @@ function CategoriaReport({ dataInicio, dataFim }: { dataInicio: string; dataFim:
                 <TableHeader>
                   <TableRow>
                     <TableHead>Categoria</TableHead>
-                    <TableHead className="text-right">Qtd</TableHead>
+                    <TableHead className="text-right">Quantidade</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                     <TableHead className="text-right">%</TableHead>
                   </TableRow>
@@ -727,13 +717,6 @@ function CategoriaReport({ dataInicio, dataFim }: { dataInicio: string; dataFim:
       </Card>
     </div>
   );
-}
-
-function formatCurrency(valueInCents: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(valueInCents / 100);
 }
 
 function formatPeriodo(periodo: string) {

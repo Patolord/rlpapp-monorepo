@@ -14,6 +14,8 @@ import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } fr
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { getErrorMessage } from "@/lib/errors";
+import { SHIPMENT_STATUS_LABELS, SHIPMENT_STATUS_VARIANTS, formatDateTime } from "@rlpapp/shared";
 
 export default function SaidaTab() {
   return (
@@ -39,22 +41,6 @@ export default function SaidaTab() {
 }
 
 type ShipmentLineForm = { productId: string; qty: string };
-
-const STATUS_LABELS: Record<string, string> = {
-  RegisteredOut: "Saída Registrada",
-  PendingShipment: "Aguardando Envio",
-  DeliveredConfirmed: "Entregue",
-  CanceledBeforeLeave: "Cancelado",
-  ReversalApplied: "Reversão Aplicada",
-};
-
-const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  RegisteredOut: "outline",
-  PendingShipment: "secondary",
-  DeliveredConfirmed: "default",
-  CanceledBeforeLeave: "destructive",
-  ReversalApplied: "destructive",
-};
 
 function SaidaContent() {
   const shipments = useQuery(api.shipments.list);
@@ -96,7 +82,7 @@ function SaidaContent() {
   };
 
   const getStockForProduct = (productId: string) => {
-    const snap = stock?.find((s: any) => s.productId === productId);
+    const snap = stock?.find((s) => s.productId === productId);
     return snap?.qtyOnHand ?? 0;
   };
 
@@ -121,24 +107,24 @@ function SaidaContent() {
       });
       setIsCreateOpen(false);
       resetForm();
-    } catch (error: any) {
-      Alert.alert("Erro", error.message || "Erro ao criar remessa");
+    } catch (error) {
+      Alert.alert("Erro", getErrorMessage(error, "Erro ao criar remessa"));
     }
   };
 
   const handleStage = async (shipmentId: Id<"shipments">) => {
     try {
       await stageShipment({ shipmentId });
-    } catch (error: any) {
-      Alert.alert("Erro", error.message || "Erro ao preparar remessa");
+    } catch (error) {
+      Alert.alert("Erro", getErrorMessage(error, "Erro ao preparar remessa"));
     }
   };
 
   const handleConfirmDelivery = async (shipmentId: Id<"shipments">) => {
     try {
       await confirmDelivery({ shipmentId });
-    } catch (error: any) {
-      Alert.alert("Erro", error.message || "Erro ao confirmar entrega");
+    } catch (error) {
+      Alert.alert("Erro", getErrorMessage(error, "Erro ao confirmar entrega"));
     }
   };
 
@@ -151,15 +137,13 @@ function SaidaContent() {
         onPress: async () => {
           try {
             await cancelBeforeLeave({ shipmentId });
-          } catch (error: any) {
-            Alert.alert("Erro", error.message || "Erro ao cancelar remessa");
+          } catch (error) {
+            Alert.alert("Erro", getErrorMessage(error, "Erro ao cancelar remessa"));
           }
         },
       },
     ]);
   };
-
-  const formatDate = (timestamp: number) => new Date(timestamp).toLocaleString("pt-BR");
 
   const canAct = (status: string) => status === "RegisteredOut" || status === "PendingShipment";
 
@@ -247,7 +231,7 @@ function SaidaContent() {
             <Text className="text-muted-foreground">Nenhuma remessa encontrada</Text>
           ) : (
             <View className="gap-3">
-              {shipments.map((shipment: any) => (
+              {shipments.map((shipment) => (
                 <View key={shipment._id}>
                   <Pressable
                     className="flex-row items-center justify-between rounded-lg border border-border p-3"
@@ -257,15 +241,15 @@ function SaidaContent() {
                       {expandedId === shipment._id ? <ChevronDown size={16} color="#666" /> : <ChevronRight size={16} color="#666" />}
                       <View className="flex-1">
                         <View className="flex-row items-center gap-2">
-                          <Badge variant={STATUS_VARIANTS[shipment.status] ?? "outline"}>
-                            {STATUS_LABELS[shipment.status] ?? shipment.status}
+                          <Badge variant={SHIPMENT_STATUS_VARIANTS[shipment.status] ?? "outline"}>
+                            {SHIPMENT_STATUS_LABELS[shipment.status] ?? shipment.status}
                           </Badge>
                           <Text className="text-foreground font-medium text-sm flex-1" numberOfLines={1}>
                             {shipment.site?.name ?? "-"}
                           </Text>
                         </View>
                         <Text className="text-muted-foreground text-xs mt-1">
-                          {shipment.lines.length} produto(s) • {formatDate(shipment.createdAt)}
+                          {shipment.lines.length} produto(s) • {formatDateTime(shipment.createdAt)}
                         </Text>
                       </View>
                     </View>
@@ -287,7 +271,7 @@ function SaidaContent() {
                   </Pressable>
                   {expandedId === shipment._id && (
                     <View className="bg-secondary rounded-b-lg p-3 gap-2">
-                      {shipment.lines.map((line: any) => (
+                      {shipment.lines.map((line) => (
                         <View key={line._id} className="flex-row items-center justify-between">
                           <Text className="text-foreground text-sm font-medium flex-1">
                             {line.product?.name ?? "Produto não encontrado"}
@@ -318,7 +302,7 @@ function SaidaContent() {
             <Text className="text-muted-foreground">Armazém vazio</Text>
           ) : (
             <View className="gap-2">
-              {stock.map((item: any) => (
+              {stock.map((item) => (
                 <View key={item._id} className="flex-row items-center justify-between rounded-lg border border-border p-3">
                   <View className="flex-1">
                     <Text className="text-foreground font-medium text-sm">{item.product?.name ?? "?"}</Text>

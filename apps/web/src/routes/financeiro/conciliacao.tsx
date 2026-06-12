@@ -1,6 +1,8 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
+import type { ReactMutation } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import {
   Plus,
   Search,
@@ -21,7 +23,7 @@ import { toast } from "sonner";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -49,7 +51,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { getErrorMessage } from "@/lib/errors";
+import { formatCurrency, formatDate } from "@rlpapp/shared";
+
+type Transacao = FunctionReturnType<
+  typeof api.transacoesBancarias.list
+>[number];
 
 export const Route = createFileRoute("/financeiro/conciliacao")({
   component: ConciliacaoPage,
@@ -63,19 +71,9 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 
 function ConciliacaoPage() {
   return (
-    <>
-      <Authenticated>
-        <ConciliacaoContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <ConciliacaoContent />
+    </AuthShell>
   );
 }
 
@@ -102,7 +100,9 @@ function ConciliacaoContent() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isConciliarOpen, setIsConciliarOpen] = useState<any>(null);
+  const [isConciliarOpen, setIsConciliarOpen] = useState<Transacao | null>(
+    null
+  );
   const [formData, setFormData] = useState<TransacaoForm>({ ...emptyForm });
 
   const contasBancarias = useQuery(api.contasBancarias.list, { activeOnly: true });
@@ -159,8 +159,8 @@ function ConciliacaoContent() {
       toast.success("Transação adicionada com sucesso");
       setIsCreateOpen(false);
       setFormData({ ...emptyForm });
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao criar transação");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao criar transação"));
     }
   };
 
@@ -169,17 +169,17 @@ function ConciliacaoContent() {
     try {
       await removeTransacao({ id });
       toast.success("Transação excluída");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao excluir");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao excluir"));
     }
   };
 
   const handleIgnorar = async (id: Id<"transacoesBancarias">) => {
     try {
       await ignorarTransacao({ id });
-      toast.success("Status atualizado");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao atualizar");
+      toast.success("Situação atualizada");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao atualizar"));
     }
   };
 
@@ -187,8 +187,8 @@ function ConciliacaoContent() {
     try {
       await desconciliar({ transacaoBancariaId: id });
       toast.success("Conciliação desfeita");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao desfazer conciliação");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao desfazer conciliação"));
     }
   };
 
@@ -391,7 +391,7 @@ function ConciliacaoContent() {
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-[180px]">
             <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder="Situação" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
@@ -433,7 +433,7 @@ function ConciliacaoContent() {
                   <TableHead>Conta</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Situação</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -547,9 +547,9 @@ function ConciliarDialog({
   onClose,
   conciliar,
 }: {
-  transacao: any;
+  transacao: Transacao;
   onClose: () => void;
-  conciliar: any;
+  conciliar: ReactMutation<typeof api.conciliacoes.conciliar>;
 }) {
   const sugestoes = useQuery(api.conciliacoes.getSugestoes, {
     transacaoBancariaId: transacao._id,
@@ -567,7 +567,7 @@ function ConciliarDialog({
     if (!manualList || !manualSearch) return [];
     const term = manualSearch.toLowerCase();
     return manualList
-      .filter((c: any) => {
+      .filter((c) => {
         if (isDebito) {
           return (
             c.status !== "Pago" &&
@@ -597,8 +597,8 @@ function ConciliarDialog({
       });
       toast.success("Transação conciliada com sucesso");
       onClose();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao conciliar");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao conciliar"));
     }
   };
 
@@ -661,7 +661,7 @@ function ConciliarDialog({
             />
             {filteredManual.length > 0 && (
               <div className="max-h-48 overflow-y-auto space-y-1">
-                {filteredManual.map((c: any) => (
+                {filteredManual.map((c) => (
                   <button
                     type="button"
                     key={c._id}
@@ -680,7 +680,11 @@ function ConciliarDialog({
                         </p>
                       </div>
                       <span className="font-semibold text-sm">
-                        {formatCurrency(isDebito ? c.valor : c.valor - (c.valorRecebido ?? 0))}
+                        {formatCurrency(
+                          "valorRecebido" in c
+                            ? c.valor - c.valorRecebido
+                            : c.valor
+                        )}
                       </span>
                     </div>
                   </button>
@@ -704,17 +708,3 @@ function ConciliarDialog({
   );
 }
 
-function formatCurrency(valueInCents: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(valueInCents / 100);
-}
-
-function formatDate(timestamp: number) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(timestamp);
-}

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
@@ -19,7 +18,7 @@ import {
   Printer,
   X,
 } from "lucide-react";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
 import { printQrCodes } from "@/lib/qr-print";
 
 export const Route = createFileRoute("/engenharia/qr-codes")({
@@ -37,19 +36,9 @@ function generateToken(length: number): string {
 
 function QrCodesPage() {
   return (
-    <>
-      <Authenticated>
-        <QrCodesContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <QrCodesContent />
+    </AuthShell>
   );
 }
 
@@ -97,13 +86,13 @@ function QrCodesContent() {
       setPreviewToken(null);
 
       if (createdTokens.length === 0) {
-        toast.error("Nenhum QR code novo foi criado");
+        toast.error("Nenhum código QR novo foi criado");
       } else {
-        toast.success(`${createdTokens.length} QR code(s) gerado(s)`);
+        toast.success(`${createdTokens.length} código(s) QR gerado(s)`);
       }
     } catch (err) {
       console.error("Failed to generate QR codes:", err);
-      toast.error(err instanceof Error ? err.message : "Erro ao gerar QR codes");
+      toast.error(err instanceof Error ? err.message : "Erro ao gerar códigos QR");
     } finally {
       setGenerating(false);
     }
@@ -116,10 +105,10 @@ function QrCodesContent() {
       tokens: newlyCreated,
       baseUrl,
       title: latestCreateBatchName
-        ? `QR Codes ${latestCreateBatchName} - RLP Engenharia`
+        ? `Códigos QR ${latestCreateBatchName} - RLP Engenharia`
         : latestCreateBatch
-          ? `QR Codes ${latestCreateBatch} - RLP Engenharia`
-        : "QR Codes - RLP Engenharia",
+          ? `Códigos QR ${latestCreateBatch} - RLP Engenharia`
+        : "Códigos QR - RLP Engenharia",
     });
   }
 
@@ -127,7 +116,7 @@ function QrCodesContent() {
     printQrCodes({
       tokens: [token],
       baseUrl,
-      title: `QR Code ${token} - RLP Engenharia`,
+      title: `Código QR ${token} - RLP Engenharia`,
     });
   }
 
@@ -139,10 +128,10 @@ function QrCodesContent() {
       tokens,
       baseUrl,
       title: latestCreateBatchName
-        ? `QR Codes selecionados ${latestCreateBatchName} - RLP Engenharia`
+        ? `Códigos QR selecionados ${latestCreateBatchName} - RLP Engenharia`
         : latestCreateBatch
-          ? `QR Codes selecionados ${latestCreateBatch} - RLP Engenharia`
-        : "QR Codes selecionados - RLP Engenharia",
+          ? `Códigos QR selecionados ${latestCreateBatch} - RLP Engenharia`
+        : "Códigos QR selecionados - RLP Engenharia",
     });
   }
 
@@ -184,11 +173,11 @@ function QrCodesContent() {
           onClick={() => navigate({ to: "/engenharia" })}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Voltar para QR Codes
+          Voltar para códigos QR
         </Button>
-        <h1 className="text-2xl font-bold">Gerar QR Codes</h1>
+        <h1 className="text-2xl font-bold">Gerar códigos QR</h1>
         <p className="text-sm text-muted-foreground">
-          Gere e imprima QR codes para rastreamento de equipamentos HVAC
+          Gere e imprima códigos QR para rastreamento de equipamentos de climatização
         </p>
       </div>
 
@@ -201,7 +190,7 @@ function QrCodesContent() {
                 id="batchName"
                 value={batchName}
                 onChange={(e) => setBatchName(e.target.value)}
-                placeholder="Ex: Lorena 2 - etiquetas HVAC"
+                placeholder="Ex: Lorena 2 - etiquetas de climatização"
                 className="h-12 text-base"
               />
             </div>
@@ -216,7 +205,7 @@ function QrCodesContent() {
               />
             </div>
             <div className="w-24 space-y-2">
-              <Label htmlFor="quantity">Qtd</Label>
+              <Label htmlFor="quantity">Quantidade</Label>
               <Input
                 id="quantity"
                 inputMode="numeric"
@@ -317,7 +306,7 @@ function QrCodesContent() {
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-3">
                         <Checkbox
-                          aria-label={`Selecionar QR code ${token}`}
+                          aria-label={`Selecionar código QR ${token}`}
                           checked={selectedTokens.has(token)}
                           onCheckedChange={() => toggleToken(token)}
                         />
@@ -330,7 +319,7 @@ function QrCodesContent() {
                           type="button"
                           variant="ghost"
                           size="icon-sm"
-                          title="Ver QR"
+                          title="Ver código QR"
                           onClick={() => setPreviewToken(token)}
                         >
                           <Eye className="h-4 w-4" />
@@ -367,7 +356,7 @@ function QrCodesContent() {
           </p>
         ) : (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            Para visualizar, filtrar e imprimir QR Codes existentes, acesse a{" "}
+            Para visualizar, filtrar e imprimir códigos QR existentes, acesse a{" "}
             <button
               onClick={() => navigate({ to: "/engenharia" })}
               className="font-medium text-primary underline"
@@ -396,7 +385,7 @@ function QrPreviewCard({
       <Card className="hidden print:hidden lg:sticky lg:top-6 lg:block">
         <CardContent className="flex min-h-64 flex-col items-center justify-center p-5 text-center">
           <Eye className="mb-2 h-5 w-5 text-muted-foreground" />
-          <p className="text-sm font-medium">Preview do QR</p>
+          <p className="text-sm font-medium">Pré-visualização do QR</p>
           <p className="mt-1 text-xs text-muted-foreground">
             Escolha um código na lista para ver a imagem.
           </p>
@@ -413,7 +402,7 @@ function QrPreviewCard({
         <div className="mb-4 flex w-full items-center justify-between gap-2 border-b pb-3">
           <div className="min-w-0 text-left">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Preview
+              Pré-visualização
             </p>
             <p className="truncate font-mono text-sm font-semibold">{token}</p>
           </div>
@@ -421,7 +410,7 @@ function QrPreviewCard({
             type="button"
             variant="ghost"
             size="icon-sm"
-            aria-label="Fechar preview"
+            aria-label="Fechar pré-visualização"
             onClick={onClose}
           >
             <X className="h-4 w-4" />

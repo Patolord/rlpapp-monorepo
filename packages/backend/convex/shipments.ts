@@ -1,9 +1,11 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { requireAuth } from "./lib/auth";
+import { getUserRef } from "./lib/auth";
+import { getShipmentLinesWithProducts } from "./lib/enrich";
+import { staffMutation, staffQuery } from "./lib/functions";
+import { shipmentStatus } from "./schema";
 
-export const list = query({
+export const list = staffQuery({
   args: {},
   handler: async (ctx) => {
     const shipments = await ctx.db
@@ -14,82 +16,46 @@ export const list = query({
 
     return Promise.all(
       shipments.map(async (shipment) => {
-        const lines = await ctx.db
-          .query("shipmentLines")
-          .withIndex("by_shipment", (q) =>
-            q.eq("shipmentId", shipment._id)
-          )
-          .collect();
-
-        const enrichedLines = await Promise.all(
-          lines.map(async (line) => {
-            const product = await ctx.db.get(line.productId);
-            return { ...line, product };
-          })
-        );
-
-        const site = await ctx.db.get(shipment.toSiteId);
-
-        return { ...shipment, lines: enrichedLines, site };
+        const lines = await getShipmentLinesWithProducts(ctx, shipment._id);
+        const site = await ctx.db.get("sites", shipment.toSiteId);
+        return { ...shipment, lines, site };
       })
     );
   },
 });
 
-export const getById = query({
+export const getById = staffQuery({
   args: { shipmentId: v.id("shipments") },
   handler: async (ctx, args) => {
-    const shipment = await ctx.db.get(args.shipmentId);
+    const shipment = await ctx.db.get("shipments", args.shipmentId);
     if (!shipment) return null;
 
-    const lines = await ctx.db
-      .query("shipmentLines")
-      .withIndex("by_shipment", (q) => q.eq("shipmentId", shipment._id))
-      .collect();
-
-    const enrichedLines = await Promise.all(
-      lines.map(async (line) => {
-        const product = await ctx.db.get(line.productId);
-        return { ...line, product };
-      })
-    );
-
-    const site = await ctx.db.get(shipment.toSiteId);
-    return { ...shipment, lines: enrichedLines, site };
+    const lines = await getShipmentLinesWithProducts(ctx, shipment._id);
+    const site = await ctx.db.get("sites", shipment.toSiteId);
+    return { ...shipment, lines, site };
   },
 });
 
-export const listByStatus = query({
-  args: { status: v.string() },
+export const listByStatus = staffQuery({
+  args: { status: shipmentStatus },
   handler: async (ctx, args) => {
     const shipments = await ctx.db
       .query("shipments")
-      .withIndex("by_status", (q) => q.eq("status", args.status as "RegisteredOut" | "PendingShipment" | "DeliveredConfirmed" | "CanceledBeforeLeave" | "ReversalApplied"))
+      .withIndex("by_status", (q) => q.eq("status", args.status))
       .order("desc")
       .collect();
 
     return Promise.all(
       shipments.map(async (shipment) => {
-        const lines = await ctx.db
-          .query("shipmentLines")
-          .withIndex("by_shipment", (q) => q.eq("shipmentId", shipment._id))
-          .collect();
-
-        const enrichedLines = await Promise.all(
-          lines.map(async (line) => {
-            const product = await ctx.db.get(line.productId);
-            return { ...line, product };
-          })
-        );
-
-        const site = await ctx.db.get(shipment.toSiteId);
-        return { ...shipment, lines: enrichedLines, site };
+        const lines = await getShipmentLinesWithProducts(ctx, shipment._id);
+        const site = await ctx.db.get("sites", shipment.toSiteId);
+        return { ...shipment, lines, site };
       })
     );
   },
 });
 
-export const createShipment = mutation({
+export const createShipment = staffMutation({
   args: {
     toSiteId: v.id("sites"),
     notes: v.optional(v.string()),
@@ -101,7 +67,6 @@ export const createShipment = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     if (args.lines.length === 0) {
       throw new Error("Remessa deve ter pelo menos uma linha");
     }
@@ -117,7 +82,7 @@ export const createShipment = mutation({
 
       const available = snapshot?.qtyOnHand ?? 0;
       if (available < line.qty) {
-        const product = await ctx.db.get(line.productId);
+        const product = await ctx.db.get("products", line.productId);
         throw new Error(
           `Estoque insuficiente para ${product?.name ?? "produto"}: disponível ${available}, solicitado ${line.qty}`
         );
@@ -125,14 +90,14 @@ export const createShipment = mutation({
     }
 
     const now = Date.now();
-    const site = await ctx.db.get(args.toSiteId);
+    const site = await ctx.db.get("sites", args.toSiteId);
     if (!site) throw new Error("Site não encontrado");
 
     const shipmentId = await ctx.db.insert("shipments", {
       status: "RegisteredOut",
       toSiteId: args.toSiteId,
       notes: args.notes,
-      userId: "system",
+      userId: getUserRef(ctx.user),
       createdAt: now,
       updatedAt: now,
     });
@@ -146,7 +111,7 @@ export const createShipment = mutation({
         qty: line.qty,
       });
 
-      const product = await ctx.db.get(line.productId);
+      const product = await ctx.db.get("products", line.productId);
       qrProducts.push({
         name: product?.name ?? "Produto",
         qty: line.qty,
@@ -157,7 +122,7 @@ export const createShipment = mutation({
         productId: line.productId,
         qty: line.qty,
         refId: shipmentId,
-        userId: "system",
+        userId: getUserRef(ctx.user),
       });
     }
 
@@ -168,23 +133,22 @@ export const createShipment = mutation({
       products: qrProducts,
       createdAt: now,
     });
-    await ctx.db.patch(shipmentId, { qrCodeData: qrPayload });
+    await ctx.db.patch("shipments", shipmentId, { qrCodeData: qrPayload });
 
     return shipmentId;
   },
 });
 
-export const stageShipment = mutation({
+export const stageShipment = staffMutation({
   args: { shipmentId: v.id("shipments") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const shipment = await ctx.db.get(args.shipmentId);
+    const shipment = await ctx.db.get("shipments", args.shipmentId);
     if (!shipment) throw new Error("Remessa não encontrada");
     if (shipment.status !== "RegisteredOut") {
       throw new Error("Remessa não está em RegisteredOut");
     }
 
-    await ctx.db.patch(args.shipmentId, {
+    await ctx.db.patch("shipments", args.shipmentId, {
       status: "PendingShipment",
       updatedAt: Date.now(),
     });
@@ -193,7 +157,7 @@ export const stageShipment = mutation({
   },
 });
 
-export const confirmDelivery = mutation({
+export const confirmDelivery = staffMutation({
   args: {
     shipmentId: v.id("shipments"),
     lineCounts: v.optional(
@@ -206,8 +170,7 @@ export const confirmDelivery = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const shipment = await ctx.db.get(args.shipmentId);
+    const shipment = await ctx.db.get("shipments", args.shipmentId);
     if (!shipment) throw new Error("Remessa não encontrada");
     if (
       shipment.status !== "RegisteredOut" &&
@@ -220,11 +183,11 @@ export const confirmDelivery = mutation({
 
     if (args.lineCounts) {
       for (const lc of args.lineCounts) {
-        await ctx.db.patch(lc.lineId, { countedQty: lc.countedQty });
+        await ctx.db.patch("shipmentLines", lc.lineId, { countedQty: lc.countedQty });
       }
     }
 
-    await ctx.db.patch(args.shipmentId, {
+    await ctx.db.patch("shipments", args.shipmentId, {
       status: "DeliveredConfirmed",
       updatedAt: Date.now(),
     });
@@ -233,11 +196,10 @@ export const confirmDelivery = mutation({
   },
 });
 
-export const cancelBeforeLeave = mutation({
+export const cancelBeforeLeave = staffMutation({
   args: { shipmentId: v.id("shipments") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const shipment = await ctx.db.get(args.shipmentId);
+    const shipment = await ctx.db.get("shipments", args.shipmentId);
     if (!shipment) throw new Error("Remessa não encontrada");
     if (
       shipment.status !== "RegisteredOut" &&
@@ -262,7 +224,7 @@ export const cancelBeforeLeave = mutation({
       });
     }
 
-    await ctx.db.patch(args.shipmentId, {
+    await ctx.db.patch("shipments", args.shipmentId, {
       status: "ReversalApplied",
       updatedAt: Date.now(),
     });

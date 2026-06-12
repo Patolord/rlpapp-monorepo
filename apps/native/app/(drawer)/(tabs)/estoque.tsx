@@ -1,6 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
-import { Link } from "expo-router";
+import type { FunctionReturnType } from "convex/server";
+import { Link, useRouter, type Href } from "expo-router";
 import {
   AlertCircle,
   AlertTriangle,
@@ -8,11 +9,13 @@ import {
   ArrowUpCircle,
   Boxes,
   ChevronRight,
+  ClipboardList,
   FileText,
+  History,
   Lock,
   MapPin,
   Package,
-  Search,
+  PackageCheck,
   TriangleAlert,
   Warehouse,
 } from "lucide-react-native";
@@ -23,6 +26,7 @@ import { Container } from "@/components/container";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { formatNumber } from "@rlpapp/shared";
 
 export default function EstoqueTab() {
   return (
@@ -235,28 +239,32 @@ function EstoqueDashboard() {
 
         <View className="flex-row flex-wrap gap-3">
           <QuickAction
-            title="Novo Produto"
+            title="Produtos"
             icon={<Package size={18} color="#fff" />}
             backgroundColor={primaryColor}
             textColor="#fff"
+            href="/(drawer)/produtos"
           />
           <QuickAction
-            title="Relatório"
-            icon={<FileText size={18} color="#666" />}
+            title="Solicitações"
+            icon={<ClipboardList size={18} color="#666" />}
             backgroundColor="#f3f4f6"
             textColor="#333"
+            href="/(drawer)/solicitacoes"
           />
           <QuickAction
-            title="Buscar"
-            icon={<Search size={18} color="#666" />}
+            title="Entregas"
+            icon={<PackageCheck size={18} color="#666" />}
             backgroundColor="#f3f4f6"
             textColor="#333"
+            href="/(drawer)/entregas"
           />
           <QuickAction
-            title="Estoque Baixo"
-            icon={<AlertTriangle size={18} color="#ef4444" />}
+            title="Movimentações"
+            icon={<History size={18} color="#666" />}
             backgroundColor="#f3f4f6"
             textColor="#333"
+            href="/(drawer)/movimentacoes"
           />
         </View>
       </Card>
@@ -291,10 +299,12 @@ function EstoqueDashboard() {
           ))}
         </View>
 
-        <View className="flex-row items-center justify-center gap-1 mt-2">
-          <Text className="text-sm text-primary">Ver todo o histórico</Text>
-          <ChevronRight size={14} color="#3478f6" />
-        </View>
+        <Link href="/(drawer)/movimentacoes" asChild>
+          <Pressable className="flex-row items-center justify-center gap-1 mt-2">
+            <Text className="text-sm text-primary">Ver todo o histórico</Text>
+            <ChevronRight size={14} color="#3478f6" />
+          </Pressable>
+        </Link>
       </Card>
 
       {lowStockItems.length > 0 && (
@@ -310,7 +320,7 @@ function EstoqueDashboard() {
           </View>
 
           <View className="gap-3">
-            {lowStockItems.slice(0, 5).map((product: any) => (
+            {lowStockItems.slice(0, 5).map((product) => (
               <Card key={product._id} className="rounded-xl p-3 bg-secondary">
                 <View className="flex-row items-center justify-between gap-3">
                   <View className="flex-1">
@@ -389,14 +399,17 @@ function QuickAction({
   icon,
   backgroundColor,
   textColor,
+  href,
 }: {
   title: string;
   icon: ReactNode;
   backgroundColor: string;
   textColor: string;
+  href: Href;
 }) {
+  const router = useRouter();
   return (
-    <Pressable className="w-[48%]">
+    <Pressable className="w-[48%]" onPress={() => router.push(href)}>
       <View
         className="rounded-2xl px-4 py-5 items-center justify-center"
         style={{ backgroundColor }}
@@ -436,10 +449,6 @@ function EmptyStateRow({ icon, text }: { icon: ReactNode; text: string }) {
   );
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("pt-BR").format(value);
-}
-
 function formatDate(timestamp: number) {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
@@ -448,7 +457,12 @@ function formatDate(timestamp: number) {
   }).format(timestamp);
 }
 
-function buildActivityItems(summary: any, lowStock: any[]) {
+function buildActivityItems(
+  summary: NonNullable<
+    FunctionReturnType<typeof api.inventory.getDashboardSummary>
+  >,
+  lowStock: FunctionReturnType<typeof api.products.getLowStock>
+) {
   return [
     {
       title: "Nova entrada de estoque",

@@ -1,13 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Authenticated,
-  AuthLoading,
-  Unauthenticated,
-  useQuery,
-  useMutation,
-} from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import {
   ClipboardList,
   Check,
@@ -53,7 +47,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { getErrorMessage } from "@/lib/errors";
+
+import type { FunctionReturnType } from "convex/server";
+import { MATERIAL_REQUEST_STATUS_LABELS, MATERIAL_REQUEST_STATUS_VARIANTS, URGENCY_LABELS, URGENCY_VARIANTS } from "@rlpapp/shared";
+
+type MaterialRequest = FunctionReturnType<
+  typeof api.materialRequests.list
+>[number];
 
 export const Route = createFileRoute("/estoque/solicitacoes")({
   component: SolicitacoesPage,
@@ -61,56 +63,16 @@ export const Route = createFileRoute("/estoque/solicitacoes")({
 
 function SolicitacoesPage() {
   return (
-    <>
-      <Authenticated>
-        <SolicitacoesContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <SolicitacoesContent />
+    </AuthShell>
   );
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  Pendente: "Pendente",
-  Aprovado: "Aprovado",
-  Rejeitado: "Rejeitado",
-  Convertido: "Convertido em Remessa",
-};
-
-const STATUS_VARIANTS: Record<
-  string,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  Pendente: "outline",
-  Aprovado: "default",
-  Rejeitado: "destructive",
-  Convertido: "secondary",
-};
-
-const URGENCY_LABELS: Record<string, string> = {
-  normal: "Normal",
-  urgente: "Urgente",
-  critico: "Crítico",
-};
-
-const URGENCY_VARIANTS: Record<
-  string,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  normal: "outline",
-  urgente: "secondary",
-  critico: "destructive",
-};
-
 function SolicitacoesContent() {
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<
+    "" | "Pendente" | "Aprovado" | "Rejeitado" | "Convertido"
+  >("");
   const requests = useQuery(
     api.materialRequests.list,
     statusFilter ? { status: statusFilter } : {}
@@ -121,19 +83,23 @@ function SolicitacoesContent() {
   const convertMutation = useMutation(api.materialRequests.convertToShipment);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [approveDialog, setApproveDialog] = useState<any | null>(null);
-  const [rejectDialog, setRejectDialog] = useState<any | null>(null);
+  const [approveDialog, setApproveDialog] = useState<MaterialRequest | null>(
+    null
+  );
+  const [rejectDialog, setRejectDialog] = useState<MaterialRequest | null>(
+    null
+  );
   const [rejectReason, setRejectReason] = useState("");
   const [approveNotes, setApproveNotes] = useState("");
   const [lineEdits, setLineEdits] = useState<
     { lineId: string; approvedQty: number }[]
   >([]);
 
-  const openApproveDialog = (request: any) => {
+  const openApproveDialog = (request: MaterialRequest) => {
     setApproveDialog(request);
     setApproveNotes("");
     setLineEdits(
-      request.lines.map((l: any) => ({
+      request.lines.map((l) => ({
         lineId: l._id,
         approvedQty: l.qty,
       }))
@@ -153,8 +119,8 @@ function SolicitacoesContent() {
       });
       toast.success("Solicitação aprovada");
       setApproveDialog(null);
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao aprovar");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao aprovar"));
     }
   };
 
@@ -172,8 +138,8 @@ function SolicitacoesContent() {
       toast.success("Solicitação rejeitada");
       setRejectDialog(null);
       setRejectReason("");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao rejeitar");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao rejeitar"));
     }
   };
 
@@ -189,8 +155,8 @@ function SolicitacoesContent() {
         requestId: requestId as Id<"materialRequests">,
       });
       toast.success("Remessa criada com sucesso a partir da solicitação");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao converter em remessa");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao converter em remessa"));
     }
   };
 
@@ -209,7 +175,10 @@ function SolicitacoesContent() {
       <div className="flex gap-4 items-end">
         <div className="grid gap-1.5 min-w-[200px]">
           <Label className="text-xs">Filtrar por status</Label>
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "")}>
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
@@ -256,9 +225,9 @@ function SolicitacoesContent() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8" />
-                  <TableHead>Status</TableHead>
+                  <TableHead>Situação</TableHead>
                   <TableHead>Solicitante</TableHead>
-                  <TableHead>Site</TableHead>
+                  <TableHead>Obra</TableHead>
                   <TableHead>Urgência</TableHead>
                   <TableHead>Necessário até</TableHead>
                   <TableHead>Criado em</TableHead>
@@ -266,7 +235,7 @@ function SolicitacoesContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {requests.map((req: any) => (
+                {requests.map((req) => (
                   <>
                     <TableRow
                       key={req._id}
@@ -286,9 +255,9 @@ function SolicitacoesContent() {
                       </TableCell>
                       <TableCell>
                         <Badge
-                          variant={STATUS_VARIANTS[req.status] ?? "outline"}
+                          variant={MATERIAL_REQUEST_STATUS_VARIANTS[req.status] ?? "outline"}
                         >
-                          {STATUS_LABELS[req.status] ?? req.status}
+                          {MATERIAL_REQUEST_STATUS_LABELS[req.status] ?? req.status}
                         </Badge>
                       </TableCell>
                       <TableCell>{req.requesterName}</TableCell>
@@ -368,12 +337,12 @@ function SolicitacoesContent() {
                               <TableHeader>
                                 <TableRow>
                                   <TableHead>Produto</TableHead>
-                                  <TableHead>Qtd Solicitada</TableHead>
-                                  <TableHead>Qtd Aprovada</TableHead>
+                                  <TableHead>Quantidade solicitada</TableHead>
+                                  <TableHead>Quantidade aprovada</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {req.lines.map((line: any) => (
+                                {req.lines.map((line) => (
                                   <TableRow key={line._id}>
                                     <TableCell className="font-medium">
                                       {line.product?.name ??
@@ -434,7 +403,7 @@ function SolicitacoesContent() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {approveDialog.lines.map((line: any, idx: number) => (
+                  {approveDialog.lines.map((line, idx) => (
                     <TableRow key={line._id}>
                       <TableCell className="font-medium">
                         {line.product?.name}

@@ -1,10 +1,27 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { departments, userRoles } from "./schema";
-import { requireAuth } from "./lib/auth";
+import { filterDefined } from "./lib/financeiro";
+import { adminMutation, staffQuery } from "./lib/functions";
+
+export const userValidator = v.object({
+  _id: v.id("users"),
+  _creationTime: v.number(),
+  name: v.string(),
+  email: v.optional(v.string()),
+  username: v.optional(v.string()),
+  clerkId: v.optional(v.string()),
+  role: userRoles,
+  department: v.optional(departments),
+  phone: v.optional(v.string()),
+  isActive: v.boolean(),
+  createdAt: v.number(),
+  lastLoginAt: v.optional(v.number()),
+});
 
 export const getCurrentUser = query({
   args: {},
+  returns: v.union(userValidator, v.null()),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
@@ -45,7 +62,7 @@ export const ensureUser = mutation({
       .first();
 
     if (byClerkId) {
-      await ctx.db.patch(byClerkId._id, { lastLoginAt: Date.now() });
+      await ctx.db.patch("users", byClerkId._id, { lastLoginAt: Date.now() });
       return byClerkId._id;
     }
 
@@ -57,7 +74,7 @@ export const ensureUser = mutation({
         .first();
 
       if (byEmail) {
-        await ctx.db.patch(byEmail._id, {
+        await ctx.db.patch("users", byEmail._id, {
           clerkId,
           lastLoginAt: Date.now(),
         });
@@ -103,7 +120,7 @@ export const upsertFromClerk = internalMutation({
       .first();
 
     if (byClerkId) {
-      await ctx.db.patch(byClerkId._id, {
+      await ctx.db.patch("users", byClerkId._id, {
         name: args.name,
         email: args.email,
         username: args.username,
@@ -119,7 +136,7 @@ export const upsertFromClerk = internalMutation({
         .first();
 
       if (byEmail) {
-        await ctx.db.patch(byEmail._id, {
+        await ctx.db.patch("users", byEmail._id, {
           clerkId: args.clerkId,
           name: args.name,
           username: args.username,
@@ -151,7 +168,7 @@ export const deactivateFromClerk = internalMutation({
       .first();
 
     if (user) {
-      await ctx.db.patch(user._id, { isActive: false });
+      await ctx.db.patch("users", user._id, { isActive: false });
     } else {
       console.warn(
         `Clerk webhook: user.deleted para clerkId ${args.clerkId} sem usuário correspondente`
@@ -162,11 +179,12 @@ export const deactivateFromClerk = internalMutation({
 });
 
 // Listar todos os usuários
-export const list = query({
+export const list = staffQuery({
   args: {
     onlyActive: v.optional(v.boolean()),
     role: v.optional(userRoles),
   },
+  returns: v.array(userValidator),
   handler: async (ctx, args) => {
     if (args.role) {
       const users = await ctx.db
@@ -192,16 +210,18 @@ export const list = query({
 });
 
 // Buscar usuário por ID
-export const get = query({
+export const get = staffQuery({
   args: { id: v.id("users") },
+  returns: v.union(userValidator, v.null()),
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    return await ctx.db.get("users", args.id);
   },
 });
 
 // Buscar usuário por email
-export const getByEmail = query({
+export const getByEmail = staffQuery({
   args: { email: v.string() },
+  returns: v.union(userValidator, v.null()),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("users")
@@ -211,7 +231,7 @@ export const getByEmail = query({
 });
 
 // Criar usuário
-export const create = mutation({
+export const create = adminMutation({
   args: {
     name: v.string(),
     email: v.string(),
@@ -219,8 +239,8 @@ export const create = mutation({
     department: v.optional(departments),
     phone: v.optional(v.string()),
   },
+  returns: v.id("users"),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     const existing = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email))
@@ -245,7 +265,7 @@ export const create = mutation({
 });
 
 // Atualizar usuário
-export const update = mutation({
+export const update = adminMutation({
   args: {
     id: v.id("users"),
     name: v.optional(v.string()),
@@ -255,10 +275,10 @@ export const update = mutation({
     phone: v.optional(v.string()),
     isActive: v.optional(v.boolean()),
   },
+  returns: v.id("users"),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     const { id, ...updates } = args;
-    const existing = await ctx.db.get(id);
+    const existing = await ctx.db.get("users", id);
     
     if (!existing) {
       throw new Error("Usuário não encontrado");
@@ -275,63 +295,57 @@ export const update = mutation({
       }
     }
     
-    // Filter out undefined values
-    const filteredUpdates: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(updates)) {
-      if (value !== undefined) {
-        filteredUpdates[key] = value;
-      }
-    }
-    
-    await ctx.db.patch(id, filteredUpdates);
+    const filteredUpdates = filterDefined(updates);
+
+    await ctx.db.patch("users", id, filteredUpdates);
     return id;
   },
 });
 
 // Atualizar último login
-export const updateLastLogin = mutation({
+export const updateLastLogin = adminMutation({
   args: { id: v.id("users") },
+  returns: v.id("users"),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const existing = await ctx.db.get(args.id);
+    const existing = await ctx.db.get("users", args.id);
     
     if (!existing) {
       throw new Error("Usuário não encontrado");
     }
     
-    await ctx.db.patch(args.id, { lastLoginAt: Date.now() });
+    await ctx.db.patch("users", args.id, { lastLoginAt: Date.now() });
     return args.id;
   },
 });
 
 // Deletar usuário (soft delete)
-export const remove = mutation({
+export const remove = adminMutation({
   args: { id: v.id("users") },
+  returns: v.id("users"),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const existing = await ctx.db.get(args.id);
+    const existing = await ctx.db.get("users", args.id);
     
     if (!existing) {
       throw new Error("Usuário não encontrado");
     }
     
-    await ctx.db.patch(args.id, { isActive: false });
+    await ctx.db.patch("users", args.id, { isActive: false });
     return args.id;
   },
 });
 
 // Reativar usuário
-export const reactivate = mutation({
+export const reactivate = adminMutation({
   args: { id: v.id("users") },
+  returns: v.id("users"),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const existing = await ctx.db.get(args.id);
+    const existing = await ctx.db.get("users", args.id);
     
     if (!existing) {
       throw new Error("Usuário não encontrado");
     }
     
-    await ctx.db.patch(args.id, { isActive: true });
+    await ctx.db.patch("users", args.id, { isActive: true });
     return args.id;
   },
 });

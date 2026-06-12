@@ -1,6 +1,6 @@
-import { query, mutation } from "./_generated/server";
+import { query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuth, getUserByIdentity } from "./lib/auth";
+import { authedMutation, authedQuery } from "./lib/functions";
 
 const logStatusValidator = v.union(
   v.literal("installing"),
@@ -9,7 +9,7 @@ const logStatusValidator = v.union(
   v.literal("error")
 );
 
-export const listByEquipment = query({
+export const listByEquipment = authedQuery({
   args: { equipmentId: v.id("equipment") },
   handler: async (ctx, args) => {
     const logs = await ctx.db
@@ -37,7 +37,22 @@ export const listByEquipment = query({
   },
 });
 
-export const create = mutation({
+// PÚBLICO (intencional): a página /q/$token mostra a data do último registro
+// antes do login. Expõe apenas o timestamp — nunca notas, fotos ou técnico.
+export const getLastMaintenanceDate = query({
+  args: { equipmentId: v.id("equipment") },
+  returns: v.union(v.number(), v.null()),
+  handler: async (ctx, args) => {
+    const last = await ctx.db
+      .query("maintenanceLogs")
+      .withIndex("by_equipment", (q) => q.eq("equipmentId", args.equipmentId))
+      .order("desc")
+      .first();
+    return last?.createdAt ?? null;
+  },
+});
+
+export const create = authedMutation({
   args: {
     equipmentId: v.id("equipment"),
     type: v.union(v.literal("installation"), v.literal("maintenance")),
@@ -55,17 +70,14 @@ export const create = mutation({
     photoIds: v.array(v.id("_storage")),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-
     if (args.photoIds.length === 0) {
       throw new Error("É obrigatório anexar pelo menos uma foto");
     }
 
     // Responsável vinculado ao usuário logado (não aceita texto livre).
-    const user = await getUserByIdentity(ctx);
-    const technicianName = user?.name ?? "Desconhecido";
+    const technicianName = ctx.user.name;
 
-    await ctx.db.patch(args.equipmentId, {
+    await ctx.db.patch("equipment", args.equipmentId, {
       status: args.status,
     });
 
@@ -83,10 +95,9 @@ export const create = mutation({
   },
 });
 
-export const generateUploadUrl = mutation({
+export const generateUploadUrl = authedMutation({
   args: {},
   handler: async (ctx) => {
-    await requireAuth(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });

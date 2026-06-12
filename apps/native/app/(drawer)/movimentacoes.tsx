@@ -10,6 +10,7 @@ import { Button, ButtonText } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
+import { formatDateTime } from "@rlpapp/shared";
 
 export default function MovimentacoesScreen() {
   return (
@@ -62,15 +63,19 @@ const filterOptions = [
   { label: "Ajuste", value: "InventoryAdjust" },
 ];
 
+type EventType =
+  | "RegisteredIn"
+  | "RegisteredOut"
+  | "Reversal"
+  | "InventoryAdjust";
+
 function MovimentacoesContent() {
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState<EventType | "all">("all");
 
   const events = useQuery(api.inventory.listEvents, {
     type: typeFilter !== "all" ? typeFilter : undefined,
     limit: 200,
   });
-
-  const formatDate = (timestamp: number) => new Date(timestamp).toLocaleString("pt-BR");
 
   return (
     <View className="gap-4 flex-1">
@@ -94,7 +99,9 @@ function MovimentacoesContent() {
               <Text className="text-xs text-muted-foreground">Tipo de Evento</Text>
               <Select
                 value={typeFilter}
-                onValueChange={setTypeFilter}
+                onValueChange={(value) =>
+                  setTypeFilter(value as EventType | "all")
+                }
                 options={filterOptions}
               />
             </View>
@@ -122,13 +129,13 @@ function MovimentacoesContent() {
             <Text className="text-muted-foreground">Nenhum evento encontrado</Text>
           ) : (
             <View className="gap-2">
-              {events.map((event: any) => (
+              {events.map((event) => (
                 <View key={event._id} className="rounded-lg border border-border p-3">
                   <View className="flex-row items-center justify-between mb-1">
                     <Badge variant={typeVariants[event.type] ?? "outline"}>
                       {typeLabels[event.type] ?? event.type}
                     </Badge>
-                    <Text className="text-muted-foreground text-xs">{formatDate(event.createdAt)}</Text>
+                    <Text className="text-muted-foreground text-xs">{formatDateTime(event.createdAt)}</Text>
                   </View>
                   <Text className="text-foreground font-medium text-sm">
                     {event.product?.name ?? "Produto não encontrado"}

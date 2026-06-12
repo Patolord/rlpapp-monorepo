@@ -1,6 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Doc, Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { Plus, Pencil, ToggleLeft, ToggleRight, Landmark } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -34,7 +35,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { runWithToast } from "@/lib/errors";
+import { formatCurrency } from "@rlpapp/shared";
 
 export const Route = createFileRoute("/financeiro/contas-bancarias")({
   component: ContasBancariasPage,
@@ -47,19 +50,9 @@ const tipoLabels: Record<string, string> = {
 
 function ContasBancariasPage() {
   return (
-    <>
-      <Authenticated>
-        <ContasBancariasContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <ContasBancariasContent />
+    </AuthShell>
   );
 }
 
@@ -70,7 +63,7 @@ function ContasBancariasContent() {
   const toggleConta = useMutation(api.contasBancarias.toggleActive);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingConta, setEditingConta] = useState<any>(null);
+  const [editingConta, setEditingConta] = useState<Doc<"contasBancarias"> | null>(null);
 
   const [formData, setFormData] = useState({
     nome: "",
@@ -106,7 +99,7 @@ function ContasBancariasContent() {
         banco: formData.banco,
         agencia: formData.agencia,
         conta: formData.conta,
-        tipo: formData.tipo as any,
+        tipo: formData.tipo as "corrente" | "poupanca",
         saldoInicial: saldoCents,
       });
       toast.success("Conta bancária criada com sucesso");
@@ -129,7 +122,7 @@ function ContasBancariasContent() {
         banco: formData.banco,
         agencia: formData.agencia,
         conta: formData.conta,
-        tipo: formData.tipo as any,
+        tipo: formData.tipo as "corrente" | "poupanca",
         saldoInicial: saldoCents,
       });
       toast.success("Conta bancária atualizada");
@@ -140,16 +133,15 @@ function ContasBancariasContent() {
     }
   };
 
-  const handleToggle = async (id: any) => {
-    try {
-      await toggleConta({ id });
-      toast.success("Status alterado");
-    } catch (error) {
-      toast.error("Erro ao alterar status");
-    }
+  const handleToggle = async (id: Id<"contasBancarias">) => {
+    await runWithToast(
+      () => toggleConta({ id }),
+      "Situação alterada",
+      "Erro ao alterar status"
+    );
   };
 
-  const openEdit = (conta: any) => {
+  const openEdit = (conta: Doc<"contasBancarias">) => {
     setEditingConta(conta);
     setFormData({
       nome: conta.nome,
@@ -298,7 +290,7 @@ function ContasBancariasContent() {
                   <TableHead>Conta</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead className="text-right">Saldo Inicial</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Situação</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -343,9 +335,3 @@ function ContasBancariasContent() {
   );
 }
 
-function formatCurrency(valueInCents: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(valueInCents / 100);
-}

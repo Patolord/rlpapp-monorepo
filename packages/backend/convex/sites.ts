@@ -1,9 +1,9 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { requireAuth } from "./lib/auth";
+import { getShipmentLinesWithProducts } from "./lib/enrich";
+import { staffMutation, staffQuery } from "./lib/functions";
 
 // Listar todos os sites
-export const list = query({
+export const list = staffQuery({
   args: {
     onlyActive: v.optional(v.boolean()),
   },
@@ -19,15 +19,15 @@ export const list = query({
 });
 
 // Buscar site por ID
-export const get = query({
+export const get = staffQuery({
   args: { id: v.id("sites") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    return await ctx.db.get("sites", args.id);
   },
 });
 
 // Criar site
-export const create = mutation({
+export const create = staffMutation({
   args: {
     name: v.string(),
     address: v.optional(v.string()),
@@ -35,7 +35,6 @@ export const create = mutation({
     responsiblePhone: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     const siteId = await ctx.db.insert("sites", {
       name: args.name,
       address: args.address,
@@ -48,7 +47,7 @@ export const create = mutation({
 });
 
 // Atualizar site
-export const update = mutation({
+export const update = staffMutation({
   args: {
     id: v.id("sites"),
     name: v.optional(v.string()),
@@ -58,9 +57,8 @@ export const update = mutation({
     isActive: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     const { id, ...updates } = args;
-    const existing = await ctx.db.get(id);
+    const existing = await ctx.db.get("sites", id);
     if (!existing) {
       throw new Error("Site não encontrado");
     }
@@ -73,27 +71,26 @@ export const update = mutation({
       }
     }
     
-    await ctx.db.patch(id, filteredUpdates);
+    await ctx.db.patch("sites", id, filteredUpdates);
     return id;
   },
 });
 
 // Deletar site (soft delete)
-export const remove = mutation({
+export const remove = staffMutation({
   args: { id: v.id("sites") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const existing = await ctx.db.get(args.id);
+    const existing = await ctx.db.get("sites", args.id);
     if (!existing) {
       throw new Error("Site não encontrado");
     }
-    await ctx.db.patch(args.id, { isActive: false });
+    await ctx.db.patch("sites", args.id, { isActive: false });
     return args.id;
   },
 });
 
 // Buscar remessas entregues a um site
-export const getDeliveries = query({
+export const getDeliveries = staffQuery({
   args: { siteId: v.id("sites") },
   handler: async (ctx, args) => {
     const shipments = await ctx.db
@@ -107,21 +104,8 @@ export const getDeliveries = query({
 
     return Promise.all(
       delivered.map(async (shipment) => {
-        const lines = await ctx.db
-          .query("shipmentLines")
-          .withIndex("by_shipment", (q) =>
-            q.eq("shipmentId", shipment._id)
-          )
-          .collect();
-
-        const enrichedLines = await Promise.all(
-          lines.map(async (line) => {
-            const product = await ctx.db.get(line.productId);
-            return { ...line, product };
-          })
-        );
-
-        return { ...shipment, lines: enrichedLines };
+        const lines = await getShipmentLinesWithProducts(ctx, shipment._id);
+        return { ...shipment, lines };
       })
     );
   },

@@ -1,9 +1,10 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { requireAuth } from "./lib/auth";
+import { getUserRef } from "./lib/auth";
+import { getReceiptLinesWithProducts } from "./lib/enrich";
+import { staffMutation, staffQuery } from "./lib/functions";
 
-export const list = query({
+export const list = staffQuery({
   args: {},
   handler: async (ctx) => {
     const receipts = await ctx.db
@@ -14,30 +15,17 @@ export const list = query({
 
     return Promise.all(
       receipts.map(async (receipt) => {
-        const lines = await ctx.db
-          .query("receiptLines")
-          .withIndex("by_receipt", (q) => q.eq("receiptId", receipt._id))
-          .collect();
-
-        const enrichedLines = await Promise.all(
-          lines.map(async (line) => {
-            const product = await ctx.db.get(line.productId);
-            return { ...line, product };
-          })
-        );
-
-        let supplier = null;
-        if (receipt.supplierId) {
-          supplier = await ctx.db.get(receipt.supplierId);
-        }
-
-        return { ...receipt, lines: enrichedLines, supplier };
+        const lines = await getReceiptLinesWithProducts(ctx, receipt._id);
+        const supplier = receipt.supplierId
+          ? await ctx.db.get("suppliers", receipt.supplierId)
+          : null;
+        return { ...receipt, lines, supplier };
       })
     );
   },
 });
 
-export const createReceipt = mutation({
+export const createReceipt = staffMutation({
   args: {
     supplierId: v.optional(v.id("suppliers")),
     sourceType: v.optional(v.string()),
@@ -59,7 +47,6 @@ export const createReceipt = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     if (args.lines.length === 0) {
       throw new Error("Recibo deve ter pelo menos uma linha");
     }
@@ -76,7 +63,7 @@ export const createReceipt = mutation({
       supplierId: args.supplierId,
       sourceType: args.sourceType,
       notes: args.notes,
-      userId: "system",
+      userId: getUserRef(ctx.user),
       createdAt: now,
       updatedAt: now,
     });
@@ -96,7 +83,7 @@ export const createReceipt = mutation({
   },
 });
 
-export const acceptReceipt = mutation({
+export const acceptReceipt = staffMutation({
   args: {
     receiptId: v.id("receipts"),
     lineCounts: v.optional(
@@ -109,8 +96,7 @@ export const acceptReceipt = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const receipt = await ctx.db.get(args.receiptId);
+    const receipt = await ctx.db.get("receipts", args.receiptId);
     if (!receipt) throw new Error("Recibo não encontrado");
     if (receipt.status !== "PendingReceipt") {
       throw new Error("Recibo não está pendente");
@@ -129,7 +115,7 @@ export const acceptReceipt = mutation({
       const effectiveQty = countMap.get(line._id) ?? line.qty;
 
       if (countMap.has(line._id)) {
-        await ctx.db.patch(line._id, { countedQty: effectiveQty });
+        await ctx.db.patch("receiptLines", line._id, { countedQty: effectiveQty });
       }
 
       let unitCost = line.unitCost;
@@ -152,7 +138,7 @@ export const acceptReceipt = mutation({
           isEstimated = true;
         }
 
-        await ctx.db.patch(line._id, {
+        await ctx.db.patch("receiptLines", line._id, {
           unitCost,
           costSource: lineCostSource,
           isEstimated,
@@ -170,7 +156,7 @@ export const acceptReceipt = mutation({
       });
     }
 
-    await ctx.db.patch(args.receiptId, {
+    await ctx.db.patch("receipts", args.receiptId, {
       status: "Accepted",
       updatedAt: Date.now(),
     });
@@ -179,17 +165,16 @@ export const acceptReceipt = mutation({
   },
 });
 
-export const returnReceipt = mutation({
+export const returnReceipt = staffMutation({
   args: { receiptId: v.id("receipts") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const receipt = await ctx.db.get(args.receiptId);
+    const receipt = await ctx.db.get("receipts", args.receiptId);
     if (!receipt) throw new Error("Recibo não encontrado");
     if (receipt.status !== "PendingReceipt") {
       throw new Error("Recibo não está pendente");
     }
 
-    await ctx.db.patch(args.receiptId, {
+    await ctx.db.patch("receipts", args.receiptId, {
       status: "Returned",
       updatedAt: Date.now(),
     });
@@ -198,17 +183,16 @@ export const returnReceipt = mutation({
   },
 });
 
-export const discardReceipt = mutation({
+export const discardReceipt = staffMutation({
   args: { receiptId: v.id("receipts") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const receipt = await ctx.db.get(args.receiptId);
+    const receipt = await ctx.db.get("receipts", args.receiptId);
     if (!receipt) throw new Error("Recibo não encontrado");
     if (receipt.status !== "PendingReceipt") {
       throw new Error("Recibo não está pendente");
     }
 
-    await ctx.db.patch(args.receiptId, {
+    await ctx.db.patch("receipts", args.receiptId, {
       status: "Discarded",
       updatedAt: Date.now(),
     });

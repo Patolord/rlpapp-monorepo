@@ -1,6 +1,5 @@
-import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuth, requireStaff } from "./lib/auth";
+import { authedMutation, authedQuery, staffQuery } from "./lib/functions";
 
 export const equipmentStatusValidator = v.union(
   v.literal("installing"),
@@ -9,23 +8,21 @@ export const equipmentStatusValidator = v.union(
   v.literal("error")
 );
 
-export const get = query({
+export const get = authedQuery({
   args: { id: v.id("equipment") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    return await ctx.db.get(args.id);
+    return await ctx.db.get("equipment", args.id);
   },
 });
 
-export const list = query({
+export const list = staffQuery({
   args: {},
   handler: async (ctx) => {
-    await requireStaff(ctx);
     return await ctx.db.query("equipment").order("desc").collect();
   },
 });
 
-export const create = mutation({
+export const create = authedMutation({
   args: {
     // Cadastro simplificado: descrição + foto da etiqueta são o mínimo.
     description: v.string(),
@@ -40,7 +37,6 @@ export const create = mutation({
   },
   returns: v.id("equipment"),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
 
     if (!args.description.trim()) {
       throw new Error("Descrição é obrigatória");
@@ -62,7 +58,7 @@ export const create = mutation({
   },
 });
 
-export const update = mutation({
+export const update = authedMutation({
   args: {
     id: v.id("equipment"),
     tag: v.optional(v.string()),
@@ -73,9 +69,8 @@ export const update = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     const { id, ...updates } = args;
-    const equipment = await ctx.db.get(id);
+    const equipment = await ctx.db.get("equipment", id);
     if (!equipment) throw new Error("Equipment not found");
 
     const filtered: Record<string, unknown> = {};
@@ -83,7 +78,7 @@ export const update = mutation({
       if (value !== undefined) filtered[key] = value;
     }
 
-    await ctx.db.patch(id, filtered);
+    await ctx.db.patch("equipment", id, filtered);
     return id;
   },
 });

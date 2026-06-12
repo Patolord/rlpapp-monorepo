@@ -1,8 +1,8 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
-import { requireAuth } from "./lib/auth";
+import { filterDefined } from "./lib/financeiro";
+import { financeMutation, financeQuery } from "./lib/functions";
 
-export const list = query({
+export const list = financeQuery({
   args: {
     activeOnly: v.optional(v.boolean()),
   },
@@ -17,14 +17,14 @@ export const list = query({
   },
 });
 
-export const getById = query({
+export const getById = financeQuery({
   args: { id: v.id("clientes") },
   handler: async (ctx, args) => {
-    return ctx.db.get(args.id);
+    return ctx.db.get("clientes", args.id);
   },
 });
 
-export const create = mutation({
+export const create = financeMutation({
   args: {
     nome: v.string(),
     email: v.optional(v.string()),
@@ -33,7 +33,6 @@ export const create = mutation({
     endereco: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     if (!args.nome.trim()) {
       throw new Error("O nome é obrigatório");
     }
@@ -44,7 +43,7 @@ export const create = mutation({
   },
 });
 
-export const update = mutation({
+export const update = financeMutation({
   args: {
     id: v.id("clientes"),
     nome: v.optional(v.string()),
@@ -54,22 +53,17 @@ export const update = mutation({
     endereco: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     const { id, ...fields } = args;
-    const updates: Record<string, any> = {};
-    for (const [key, value] of Object.entries(fields)) {
-      if (value !== undefined) updates[key] = value;
-    }
-    await ctx.db.patch(id, updates);
+    const updates = filterDefined(fields);
+    await ctx.db.patch("clientes", id, updates);
   },
 });
 
-export const toggleActive = mutation({
+export const toggleActive = financeMutation({
   args: { id: v.id("clientes") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const existing = await ctx.db.get(args.id);
+    const existing = await ctx.db.get("clientes", args.id);
     if (!existing) throw new Error("Cliente não encontrado");
-    await ctx.db.patch(args.id, { isActive: !existing.isActive });
+    await ctx.db.patch("clientes", args.id, { isActive: !existing.isActive });
   },
 });

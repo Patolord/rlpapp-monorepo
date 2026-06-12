@@ -4,7 +4,7 @@ import { useEffect } from "react";
 export function ConvexUnauthRedirect() {
   const navigate = useNavigate();
   useEffect(() => {
-    navigate({ to: "/" });
+    void navigate({ to: "/" });
   }, [navigate]);
   return null;
 }

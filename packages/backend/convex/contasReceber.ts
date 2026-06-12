@@ -1,21 +1,29 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
-import { requireAuth } from "./lib/auth";
+import type { Doc } from "./_generated/dataModel";
+import { appendCancelamento, filterDefined } from "./lib/financeiro";
+import { financeMutation, financeQuery } from "./lib/functions";
+import {
+  categoriaFinanceiraDoc,
+  clienteDoc,
+  contaReceberDoc,
+  contaReceberEnriched,
+} from "./lib/validators";
 import { contaReceberStatus, formaPagamento } from "./schema";
 
-export const list = query({
+export const list = financeQuery({
   args: {
-    status: v.optional(v.string()),
+    status: v.optional(contaReceberStatus),
     clienteId: v.optional(v.id("clientes")),
     categoriaId: v.optional(v.id("categoriasFinanceiras")),
   },
+  returns: v.array(contaReceberEnriched),
   handler: async (ctx, args) => {
     let results;
 
     if (args.status) {
       results = await ctx.db
         .query("contasReceber")
-        .withIndex("by_status", (q) => q.eq("status", args.status as any))
+        .withIndex("by_status", (q) => q.eq("status", args.status!))
         .order("desc")
         .collect();
     } else {
@@ -36,13 +44,13 @@ export const list = query({
     return Promise.all(
       results.map(async (conta) => {
         const categoria = conta.categoriaId
-          ? await ctx.db.get(conta.categoriaId)
+          ? await ctx.db.get("categoriasFinanceiras", conta.categoriaId)
           : null;
         const cliente = conta.clienteId
-          ? await ctx.db.get(conta.clienteId)
+          ? await ctx.db.get("clientes", conta.clienteId)
           : null;
         const contaBancaria = conta.contaBancariaId
-          ? await ctx.db.get(conta.contaBancariaId)
+          ? await ctx.db.get("contasBancarias", conta.contaBancariaId)
           : null;
         return { ...conta, categoria, cliente, contaBancaria };
       })
@@ -50,32 +58,43 @@ export const list = query({
   },
 });
 
-export const getById = query({
+export const getById = financeQuery({
   args: { id: v.id("contasReceber") },
+  returns: v.union(contaReceberEnriched, v.null()),
   handler: async (ctx, args) => {
-    const conta = await ctx.db.get(args.id);
+    const conta = await ctx.db.get("contasReceber", args.id);
     if (!conta) return null;
 
     const categoria = conta.categoriaId
-      ? await ctx.db.get(conta.categoriaId)
+      ? await ctx.db.get("categoriasFinanceiras", conta.categoriaId)
       : null;
     const cliente = conta.clienteId
-      ? await ctx.db.get(conta.clienteId)
+      ? await ctx.db.get("clientes", conta.clienteId)
       : null;
     const contaBancaria = conta.contaBancariaId
-      ? await ctx.db.get(conta.contaBancariaId)
+      ? await ctx.db.get("contasBancarias", conta.contaBancariaId)
       : null;
 
     return { ...conta, categoria, cliente, contaBancaria };
   },
 });
 
-export const getDashboardSummary = query({
-  args: {},
-  handler: async (ctx) => {
+export const getDashboardSummary = financeQuery({
+  args: { now: v.number() },
+  returns: v.object({
+    totalAReceber: v.number(),
+    totalVencido: v.number(),
+    totalRecebidoMes: v.number(),
+    countVencendoSemana: v.number(),
+    countInadimplentes: v.number(),
+    countEmitido: v.number(),
+    countRecebido: v.number(),
+    totalContas: v.number(),
+  }),
+  handler: async (ctx, args) => {
     const todas = await ctx.db.query("contasReceber").collect();
-    const now = Date.now();
-    const startOfMonth = new Date();
+    const now = args.now;
+    const startOfMonth = new Date(now);
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
     const startOfMonthMs = startOfMonth.getTime();
@@ -129,10 +148,16 @@ export const getDashboardSummary = query({
   },
 });
 
-export const getInadimplentes = query({
-  args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
+export const getInadimplentes = financeQuery({
+  args: { now: v.number() },
+  returns: v.array(
+    v.object({
+      ...contaReceberDoc.fields,
+      cliente: v.union(clienteDoc, v.null()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const now = args.now;
     const emitidos = await ctx.db
       .query("contasReceber")
       .withIndex("by_status", (q) => q.eq("status", "Emitido"))
@@ -156,7 +181,7 @@ export const getInadimplentes = query({
         .slice(0, 10)
         .map(async (conta) => {
           const cliente = conta.clienteId
-            ? await ctx.db.get(conta.clienteId)
+            ? await ctx.db.get("clientes", conta.clienteId)
             : null;
           return { ...conta, cliente };
         })
@@ -164,10 +189,17 @@ export const getInadimplentes = query({
   },
 });
 
-export const getProximasVencer = query({
-  args: {},
-  handler: async (ctx) => {
-    const now = Date.now();
+export const getProximasVencer = financeQuery({
+  args: { now: v.number() },
+  returns: v.array(
+    v.object({
+      ...contaReceberDoc.fields,
+      cliente: v.union(clienteDoc, v.null()),
+      categoria: v.union(categoriaFinanceiraDoc, v.null()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const now = args.now;
     const weekFromNow = now + 7 * 24 * 60 * 60 * 1000;
 
     const emitidos = await ctx.db
@@ -189,10 +221,10 @@ export const getProximasVencer = query({
         .slice(0, 10)
         .map(async (conta) => {
           const cliente = conta.clienteId
-            ? await ctx.db.get(conta.clienteId)
+            ? await ctx.db.get("clientes", conta.clienteId)
             : null;
           const categoria = conta.categoriaId
-            ? await ctx.db.get(conta.categoriaId)
+            ? await ctx.db.get("categoriasFinanceiras", conta.categoriaId)
             : null;
           return { ...conta, cliente, categoria };
         })
@@ -200,7 +232,7 @@ export const getProximasVencer = query({
   },
 });
 
-export const create = mutation({
+export const create = financeMutation({
   args: {
     descricao: v.string(),
     valor: v.number(),
@@ -214,8 +246,8 @@ export const create = mutation({
     notaFiscal: v.optional(v.string()),
     observacoes: v.optional(v.string()),
   },
+  returns: v.id("contasReceber"),
   handler: async (ctx, args) => {
-    const identity = await requireAuth(ctx);
     if (args.valor <= 0) {
       throw new Error("O valor deve ser maior que zero");
     }
@@ -227,14 +259,14 @@ export const create = mutation({
       ...args,
       valorRecebido: 0,
       status: "Emitido",
-      userId: identity.subject,
+      userId: ctx.user.clerkId ?? ctx.user._id,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
   },
 });
 
-export const update = mutation({
+export const update = financeMutation({
   args: {
     id: v.id("contasReceber"),
     descricao: v.optional(v.string()),
@@ -249,24 +281,24 @@ export const update = mutation({
     notaFiscal: v.optional(v.string()),
     observacoes: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const existing = await ctx.db.get(args.id);
+    const existing = await ctx.db.get("contasReceber", args.id);
     if (!existing) throw new Error("Conta não encontrada");
     if (existing.status === "Recebido" || existing.status === "Cancelado") {
       throw new Error("Não é possível editar uma conta recebida ou cancelada");
     }
 
     const { id, ...fields } = args;
-    const updates: Record<string, any> = { updatedAt: Date.now() };
-    for (const [key, value] of Object.entries(fields)) {
-      if (value !== undefined) updates[key] = value;
-    }
-    await ctx.db.patch(id, updates);
+    const updates: Partial<Doc<"contasReceber">> = {
+      ...filterDefined(fields),
+      updatedAt: Date.now(),
+    };
+    await ctx.db.patch("contasReceber", id, updates);
   },
 });
 
-export const registrarRecebimento = mutation({
+export const registrarRecebimento = financeMutation({
   args: {
     id: v.id("contasReceber"),
     valorRecebido: v.number(),
@@ -274,9 +306,9 @@ export const registrarRecebimento = mutation({
     formaPagamento: v.optional(formaPagamento),
     contaBancariaId: v.optional(v.id("contasBancarias")),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const conta = await ctx.db.get(args.id);
+    const conta = await ctx.db.get("contasReceber", args.id);
     if (!conta) throw new Error("Conta não encontrada");
     if (conta.status === "Recebido") {
       throw new Error("Esta conta já foi totalmente recebida");
@@ -291,7 +323,7 @@ export const registrarRecebimento = mutation({
     const novoValorRecebido = conta.valorRecebido + args.valorRecebido;
     const totalmenteRecebido = novoValorRecebido >= conta.valor;
 
-    await ctx.db.patch(args.id, {
+    await ctx.db.patch("contasReceber", args.id, {
       valorRecebido: totalmenteRecebido ? conta.valor : novoValorRecebido,
       status: totalmenteRecebido ? "Recebido" : "Parcial",
       dataRecebimento: totalmenteRecebido
@@ -304,24 +336,22 @@ export const registrarRecebimento = mutation({
   },
 });
 
-export const cancelar = mutation({
+export const cancelar = financeMutation({
   args: {
     id: v.id("contasReceber"),
     observacao: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const conta = await ctx.db.get(args.id);
+    const conta = await ctx.db.get("contasReceber", args.id);
     if (!conta) throw new Error("Conta não encontrada");
     if (conta.status === "Recebido") {
       throw new Error("Não é possível cancelar uma conta já recebida");
     }
 
-    await ctx.db.patch(args.id, {
+    await ctx.db.patch("contasReceber", args.id, {
       status: "Cancelado",
-      observacoes: args.observacao
-        ? `${conta.observacoes ? conta.observacoes + " | " : ""}Cancelado: ${args.observacao}`
-        : conta.observacoes,
+      observacoes: appendCancelamento(conta.observacoes, args.observacao),
       updatedAt: Date.now(),
     });
   },

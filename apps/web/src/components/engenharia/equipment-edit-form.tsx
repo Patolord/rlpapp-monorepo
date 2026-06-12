@@ -92,7 +92,7 @@ export function EquipmentEditForm({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-base">Status</Label>
+            <Label className="text-base">Situação</Label>
             <Select
               value={status}
               onValueChange={(v) => setStatus(v as EquipmentStatus)}
@@ -111,7 +111,7 @@ export function EquipmentEditForm({
 
           <div className="space-y-2">
             <Label htmlFor="edit-tag" className="text-base">
-              Tag do Equipamento
+              Identificador do equipamento
             </Label>
             <Input
               id="edit-tag"

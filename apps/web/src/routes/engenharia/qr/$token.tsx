@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation } from "convex/react";
-import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { QRCodeSVG } from "qrcode.react";
 import { StatusBadge } from "@/components/engenharia/status-badge";
@@ -14,7 +13,6 @@ import { Separator } from "@/components/ui/separator";
 import {
   MapPin,
   Tag,
-  Clock,
   Loader2,
   AlertTriangle,
   QrCode,
@@ -23,7 +21,7 @@ import {
   Save,
   X,
 } from "lucide-react";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
 
 export const Route = createFileRoute("/engenharia/qr/$token")({
   component: QrDetailPage,
@@ -31,19 +29,9 @@ export const Route = createFileRoute("/engenharia/qr/$token")({
 
 function QrDetailPage() {
   return (
-    <>
-      <Authenticated>
-        <QrDetailContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <QrDetailContent />
+    </AuthShell>
   );
 }
 
@@ -78,9 +66,9 @@ function QrDetailContent() {
       <div className="mx-auto max-w-lg px-4 py-8">
         <div className="flex flex-col items-center gap-4 text-center">
           <AlertTriangle className="h-12 w-12 text-yellow-500" />
-          <h1 className="text-2xl font-bold">QR Code Não Encontrado</h1>
+          <h1 className="text-2xl font-bold">Código QR não encontrado</h1>
           <p className="text-muted-foreground">
-            O QR Code ({token}) não está registrado no sistema.
+            O código QR ({token}) não está registrado no sistema.
           </p>
           <Button variant="outline" render={<Link to="/engenharia" />}>
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -122,7 +110,7 @@ function QrDetailContent() {
       <div className="mb-4">
         <Button variant="ghost" size="sm" render={<Link to="/engenharia" />}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Voltar para QR Codes
+          Voltar para códigos QR
         </Button>
       </div>
 
@@ -171,7 +159,7 @@ function QrDetailContent() {
                 {editing ? (
                   <div className="space-y-3">
                     <div className="space-y-1">
-                      <Label htmlFor="edit-tag">Nome (Tag)</Label>
+                      <Label htmlFor="edit-tag">Nome (identificador)</Label>
                       <Input
                         id="edit-tag"
                         value={editTag}
@@ -272,7 +260,7 @@ function QrDetailContent() {
                 Nenhum Equipamento Vinculado
               </h2>
               <p className="text-sm text-muted-foreground">
-                Este QR Code ainda não foi vinculado a nenhum equipamento. O
+                Este código QR ainda não foi vinculado a nenhum equipamento. O
                 vínculo ocorre quando alguém escaneia o código e preenche o
                 formulário de registro.
               </p>

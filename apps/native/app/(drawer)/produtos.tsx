@@ -1,4 +1,5 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Doc, Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
 import { Plus, Pencil, Trash2, Lock } from "lucide-react-native";
 import { useState } from "react";
@@ -49,7 +50,7 @@ function ProdutosContent() {
   const removeProduct = useMutation(api.products.remove);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editingProduct, setEditingProduct] = useState<Doc<"products"> | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -94,7 +95,7 @@ function ProdutosContent() {
     }
   };
 
-  const handleDelete = (id: any) => {
+  const handleDelete = (id: Id<"products">) => {
     Alert.alert("Confirmar", "Deseja realmente desativar este produto?", [
       { text: "Cancelar", style: "cancel" },
       {
@@ -111,7 +112,7 @@ function ProdutosContent() {
     ]);
   };
 
-  const openEdit = (product: any) => {
+  const openEdit = (product: Doc<"products">) => {
     setEditingProduct(product);
     setFormData({
       name: product.name,

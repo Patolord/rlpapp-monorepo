@@ -1,73 +1,100 @@
 # rlpapp
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Start, Convex, and more.
+Sistema de gestão da RLP: estoque (recebimento, expedição, ajustes, QR codes de equipamentos), financeiro (contas a pagar/receber, conciliação bancária, relatórios), engenharia e RH.
 
-## Features
+Monorepo com [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack): React, TanStack Start, Convex, Expo e Turborepo.
 
-- **TypeScript** - For type safety and improved developer experience
-- **TanStack Start** - SSR framework with TanStack Router
-- **React Native** - Build mobile apps using React
-- **Expo** - Tools for React Native development
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **shadcn/ui** - Reusable UI components
-- **Convex** - Reactive backend-as-a-service platform
-- **Authentication** - Clerk
-- **Turborepo** - Optimized monorepo build system
+## Stack
 
-## Getting Started
+- **TypeScript** — type safety em todo o monorepo
+- **TanStack Start** — app web com SSR e TanStack Router
+- **Expo / React Native** — app mobile
+- **Next.js** — landing page institucional
+- **TailwindCSS + shadcn/ui** — UI
+- **Convex** — backend reativo (banco de dados + funções serverless + crons)
+- **Clerk** — autenticação (sync via webhook para a tabela `users` do Convex)
+- **Turborepo + pnpm** — build e gerenciamento do monorepo
 
-First, install the dependencies:
+## Estrutura
+
+```
+rlpapp/
+├── apps/
+│   ├── web/           # App web (React + TanStack Start) — porta 3001
+│   ├── native/        # App mobile (React Native + Expo)
+│   └── landing-page/  # Site institucional (Next.js)
+├── packages/
+│   ├── backend/       # Backend Convex (schema, funções, crons, webhook Clerk)
+│   ├── env/           # Validação de variáveis de ambiente (zod)
+│   └── config/        # Configurações compartilhadas (tsconfig)
+```
+
+## Setup
+
+### 1. Instalar dependências
 
 ```bash
 pnpm install
 ```
 
-## Convex Setup
-
-This project uses Convex as a backend. You'll need to set up Convex before running the app:
+### 2. Configurar o Convex
 
 ```bash
 pnpm run dev:setup
 ```
 
-Follow the prompts to create a new Convex project and connect it to your application.
+Siga os prompts para criar/conectar um projeto Convex. Isso gera o `packages/backend/.env.local`.
 
-Copy environment variables from `packages/backend/.env.local` to `apps/*/.env`.
+### 3. Configurar variáveis de ambiente
 
-### Clerk Authentication Setup
+Cada app tem um `.env.example` com as variáveis necessárias:
 
-- Follow the guide: [Convex + Clerk](https://docs.convex.dev/auth/clerk)
-- Set `CLERK_JWT_ISSUER_DOMAIN` in Convex Dashboard
-- Set `CLERK_PUBLISHABLE_KEY` in `apps/*/.env`
+```bash
+cp packages/backend/.env.example packages/backend/.env.local  # já gerado pelo dev:setup
+cp apps/web/.env.example apps/web/.env
+cp apps/native/.env.example apps/native/.env
+```
 
-Then, run the development server:
+Preencha com os valores do seu deployment Convex e do Clerk Dashboard.
+
+### 4. Configurar o Clerk
+
+Guia oficial: [Convex + Clerk](https://docs.convex.dev/auth/clerk)
+
+1. Crie uma aplicação no [Clerk Dashboard](https://dashboard.clerk.com) e copie as chaves para os `.env`.
+2. Crie um JWT Template chamado `convex` no Clerk.
+3. No **Convex Dashboard** (Settings > Environment Variables), defina:
+   - `CLERK_JWT_ISSUER_DOMAIN` — domínio do issuer do Clerk
+   - `CLERK_WEBHOOK_SECRET` — secret do webhook (Clerk Dashboard > Webhooks, endpoint `https://<deployment>.convex.site/clerk-users-webhook`, eventos `user.created`, `user.updated`, `user.deleted`)
+
+### 5. Rodar em desenvolvimento
 
 ```bash
 pnpm run dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
-Use the Expo Go app to run the mobile application.
-Your app will connect to the Convex cloud backend automatically.
+- Web: [http://localhost:3001](http://localhost:3001)
+- Mobile: use o app Expo Go
+- Backend: `npx convex dev` roda junto (nunca use `npx convex deploy` em desenvolvimento)
 
-## Project Structure
+## Scripts
 
-```
-rlpapp/
-├── apps/
-│   ├── web/         # Frontend application (React + TanStack Start)
-│   ├── native/      # Mobile application (React Native, Expo)
-├── packages/
-│   ├── backend/     # Convex backend functions and schema
-│   │   ├── convex/    # Convex functions and schema
-│   │   └── .env.local # Convex environment variables
-```
+- `pnpm run dev` — todos os apps em modo dev
+- `pnpm run dev:web` — apenas o web
+- `pnpm run dev:native` — apenas o mobile (Expo)
+- `pnpm run dev:server` — apenas o backend Convex
+- `pnpm run dev:setup` — configura o projeto Convex
+- `pnpm run build` — build de todos os apps
+- `pnpm run lint` — ESLint em todos os pacotes
+- `pnpm run check-types` — typecheck (`tsc --noEmit`) em todos os pacotes
 
-## Available Scripts
+## CI
 
-- `pnpm run dev`: Start all applications in development mode
-- `pnpm run build`: Build all applications
-- `pnpm run dev:web`: Start only the web application
-- `pnpm run dev:setup`: Setup and configure your Convex project
-- `pnpm run check-types`: Check TypeScript types across all apps
-- `pnpm run dev:native`: Start the React Native/Expo development server
+GitHub Actions (`.github/workflows/ci.yml`) roda lint + typecheck em todos os pushes para `main` e em PRs.
+
+## Deploy
+
+- **Backend (produção):** `npx convex deploy` — somente via pipeline/manual consciente, nunca durante desenvolvimento.
+- **Web:** build com `pnpm run build` (saída do TanStack Start) — requer as env vars `VITE_*` no ambiente de build.
+- **Landing page:** Next.js (`apps/landing-page`).
+- **Mobile:** Expo (EAS config pendente — ver roadmap Sprint 4).

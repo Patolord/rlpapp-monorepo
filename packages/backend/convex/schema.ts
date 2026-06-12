@@ -201,7 +201,8 @@ export default defineSchema({
     costSource: v.optional(costSource),
     isEstimated: v.optional(v.boolean()),
   })
-    .index("by_receipt", ["receiptId"]),
+    .index("by_receipt", ["receiptId"])
+    .index("by_product", ["productId"]),
 
   shipments: defineTable({
     status: shipmentStatus,
@@ -222,7 +223,8 @@ export default defineSchema({
     qty: v.number(),
     countedQty: v.optional(v.number()),
   })
-    .index("by_shipment", ["shipmentId"]),
+    .index("by_shipment", ["shipmentId"])
+    .index("by_product", ["productId"]),
 
   inventoryEvents: defineTable({
     type: inventoryEventType,
@@ -347,6 +349,7 @@ export default defineSchema({
     .index("by_vencimento", ["dataVencimento"])
     .index("by_categoria", ["categoriaId"])
     .index("by_fornecedor", ["fornecedorId"])
+    .index("by_contaBancaria", ["contaBancariaId"])
     .index("by_created", ["createdAt"]),
 
   aprovacoes: defineTable({
@@ -392,6 +395,7 @@ export default defineSchema({
     .index("by_vencimento", ["dataVencimento"])
     .index("by_cliente", ["clienteId"])
     .index("by_categoria", ["categoriaId"])
+    .index("by_contaBancaria", ["contaBancariaId"])
     .index("by_created", ["createdAt"]),
 
   transacoesBancarias: defineTable({
@@ -433,7 +437,8 @@ export default defineSchema({
   })
     .index("by_token", ["token"])
     .index("by_batchId", ["batchId"])
-    .index("by_batchName", ["batchName"]),
+    .index("by_batchName", ["batchName"])
+    .index("by_equipment", ["equipmentId"]),
 
   equipment: defineTable({
     // Cadastro simplificado em campo: tag/type/location são opcionais;

@@ -6,7 +6,27 @@ import { Check, ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const Select = SelectPrimitive.Root;
+type SelectRootProps = Omit<
+  React.ComponentProps<typeof SelectPrimitive.Root>,
+  "onValueChange"
+> & {
+  onValueChange?: (value: string) => void;
+};
+
+// Normaliza o `null` do Base UI (clear) para string vazia, já que todos os
+// consumidores controlam o valor como string.
+function Select({ onValueChange, ...props }: SelectRootProps) {
+  return (
+    <SelectPrimitive.Root
+      onValueChange={
+        onValueChange
+          ? (value) => onValueChange((value as string | null) ?? "")
+          : undefined
+      }
+      {...props}
+    />
+  );
+}
 const SelectGroup = SelectPrimitive.Group;
 const SelectValue = SelectPrimitive.Value;
 
@@ -23,7 +43,7 @@ const SelectTrigger = React.forwardRef<
     {...props}
   >
     {children}
-    <SelectPrimitive.Icon asChild>
+    <SelectPrimitive.Icon>
       <ChevronDown className="h-4 w-4 opacity-50" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>

@@ -1,10 +1,9 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { Loader2, AlertTriangle } from "lucide-react";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
 
 export const Route = createFileRoute("/engenharia/equipamento/$id")({
   component: EquipmentRedirect,
@@ -12,19 +11,9 @@ export const Route = createFileRoute("/engenharia/equipamento/$id")({
 
 function EquipmentRedirect() {
   return (
-    <>
-      <Authenticated>
-        <RedirectContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <RedirectContent />
+    </AuthShell>
   );
 }
 
@@ -51,7 +40,7 @@ function RedirectContent() {
         <AlertTriangle className="h-12 w-12 text-yellow-500" />
         <h1 className="text-2xl font-bold">Equipamento Não Encontrado</h1>
         <p className="text-muted-foreground">
-          Não foi possível encontrar um QR Code vinculado a este equipamento.
+          Não foi possível encontrar um código QR vinculado a este equipamento.
         </p>
       </div>
     </div>

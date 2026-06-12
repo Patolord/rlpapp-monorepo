@@ -30,7 +30,7 @@ export function getRouter() {
     routeTree,
     defaultPreload: "intent",
     defaultPendingComponent: () => <Loader />,
-    defaultNotFoundComponent: () => <div>Not Found</div>,
+    defaultNotFoundComponent: () => <div>Página não encontrada</div>,
     context: { queryClient, convexQueryClient },
   });
 

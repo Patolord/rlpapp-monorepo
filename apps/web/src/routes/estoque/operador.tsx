@@ -1,13 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Authenticated,
-  AuthLoading,
-  Unauthenticated,
-  useQuery,
-  useMutation,
-} from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import {
   ScanLine,
   PackageCheck,
@@ -57,7 +51,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { getErrorMessage } from "@/lib/errors";
+
+import type { Html5Qrcode } from "html5-qrcode";
+import type { FunctionReturnType } from "convex/server";
+import { MATERIAL_REQUEST_STATUS_LABELS, MATERIAL_REQUEST_STATUS_VARIANTS, formatDate, formatDateTime } from "@rlpapp/shared";
+
+// Payload do QR gerado em shipments.createShipment
+type ScannedShipment = {
+  shipmentId: string;
+  toSiteId: string;
+  siteName: string;
+  products: { name: string; qty: number; unit: string }[];
+  createdAt: number;
+};
+
+type Shipment = FunctionReturnType<typeof api.shipments.listByStatus>[number];
 
 export const Route = createFileRoute("/estoque/operador")({
   component: OperadorPage,
@@ -65,19 +75,9 @@ export const Route = createFileRoute("/estoque/operador")({
 
 function OperadorPage() {
   return (
-    <>
-      <Authenticated>
-        <OperadorContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <OperadorContent />
+    </AuthShell>
   );
 }
 
@@ -88,23 +88,6 @@ const TABS: { key: Tab; label: string; icon: typeof ScanLine }[] = [
   { key: "enviar", label: "Enviar", icon: Send },
   { key: "solicitar", label: "Solicitar", icon: ClipboardList },
 ];
-
-const STATUS_LABELS: Record<string, string> = {
-  Pendente: "Pendente",
-  Aprovado: "Aprovado",
-  Rejeitado: "Rejeitado",
-  Convertido: "Convertido",
-};
-
-const STATUS_VARIANTS: Record<
-  string,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  Pendente: "outline",
-  Aprovado: "default",
-  Rejeitado: "destructive",
-  Convertido: "secondary",
-};
 
 function OperadorContent() {
   const [activeTab, setActiveTab] = useState<Tab>("receber");
@@ -150,11 +133,11 @@ function ReceberTab() {
   const confirmFromQR = useMutation(api.deliveryConfirmations.confirmFromQR);
 
   const [scanning, setScanning] = useState(false);
-  const [scannedData, setScannedData] = useState<any | null>(null);
+  const [scannedData, setScannedData] = useState<ScannedShipment | null>(null);
   const [receiverName, setReceiverName] = useState("");
   const [selectedSiteId, setSelectedSiteId] = useState("");
   const [confirmNotes, setConfirmNotes] = useState("");
-  const scannerRef = useRef<any>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerRef = useRef<HTMLDivElement>(null);
 
   const stopScanner = useCallback(async () => {
@@ -185,10 +168,10 @@ function ReceberTab() {
             const data = JSON.parse(decodedText);
             if (data.shipmentId) {
               setScannedData(data);
-              stopScanner();
+              void stopScanner();
             }
           } catch {
-            toast.error("QR Code inválido");
+            toast.error("Código QR inválido");
           }
         },
         () => {}
@@ -202,7 +185,7 @@ function ReceberTab() {
   const handleConfirm = async () => {
     if (!scannedData) return;
     if (!selectedSiteId) {
-      toast.error("Selecione o site onde está recebendo");
+      toast.error("Selecione a obra onde está recebendo");
       return;
     }
     if (!receiverName.trim()) {
@@ -221,13 +204,10 @@ function ReceberTab() {
       setReceiverName("");
       setSelectedSiteId("");
       setConfirmNotes("");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao confirmar entrega");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao confirmar entrega"));
     }
   };
-
-  const formatDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleString("pt-BR");
 
   return (
     <div className="space-y-4">
@@ -235,10 +215,10 @@ function ReceberTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ScanLine className="h-5 w-5" />
-            Escanear QR Code
+            Escanear código QR
           </CardTitle>
           <CardDescription>
-            Escaneie o QR Code enviado junto com os materiais para confirmar
+            Escaneie o código QR enviado junto com os materiais para confirmar
             o recebimento
           </CardDescription>
         </CardHeader>
@@ -276,19 +256,18 @@ function ReceberTab() {
                 </p>
                 <p>
                   <strong>Data:</strong>{" "}
-                  {formatDate(scannedData.createdAt)}
+                  {formatDateTime(scannedData.createdAt)}
                 </p>
               </div>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Produto</TableHead>
-                    <TableHead>Qtd</TableHead>
+                    <TableHead>Quantidade</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {scannedData.products?.map(
-                    (p: any, idx: number) => (
+                  {scannedData.products?.map((p, idx) => (
                       <TableRow key={idx}>
                         <TableCell>{p.name}</TableCell>
                         <TableCell>
@@ -302,13 +281,13 @@ function ReceberTab() {
 
               <div className="grid gap-3">
                 <div className="grid gap-1.5">
-                  <Label>Site onde está recebendo</Label>
+                  <Label>Obra onde está recebendo</Label>
                   <Select
                     value={selectedSiteId}
                     onValueChange={(v) => setSelectedSiteId(v ?? "")}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione o site" />
+                      <SelectValue placeholder="Selecione a obra" />
                     </SelectTrigger>
                     <SelectContent>
                       {sites?.map((s) => (
@@ -378,7 +357,7 @@ function ReceberTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pendingShipments.map((s: any) => (
+                {pendingShipments.map((s) => (
                   <TableRow key={s._id}>
                     <TableCell className="font-medium">
                       {s.site?.name ?? "—"}
@@ -386,7 +365,7 @@ function ReceberTab() {
                     <TableCell>
                       {s.lines.length} produto(s)
                     </TableCell>
-                    <TableCell>{formatDate(s.createdAt)}</TableCell>
+                    <TableCell>{formatDateTime(s.createdAt)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -404,7 +383,7 @@ function EnviarTab() {
   });
   const stageShipment = useMutation(api.shipments.stageShipment);
 
-  const [qrShipment, setQrShipment] = useState<any | null>(null);
+  const [qrShipment, setQrShipment] = useState<Shipment | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
 
   useEffect(() => {
@@ -415,20 +394,17 @@ function EnviarTab() {
     QRCode.toDataURL(qrShipment.qrCodeData, {
       width: 200,
       margin: 2,
-    }).then((url: string) => setQrDataUrl(url));
+    }).then((url: string) => setQrDataUrl(url), () => setQrDataUrl(""));
   }, [qrShipment]);
 
   const handleStage = async (shipmentId: Id<"shipments">) => {
     try {
       await stageShipment({ shipmentId });
       toast.success("Remessa marcada como aguardando envio");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao preparar remessa");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao preparar remessa"));
     }
   };
-
-  const formatDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleString("pt-BR");
 
   return (
     <div className="space-y-4">
@@ -460,7 +436,7 @@ function EnviarTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {readyShipments.map((s: any) => (
+                {readyShipments.map((s) => (
                   <TableRow key={s._id}>
                     <TableCell className="font-medium">
                       {s.site?.name ?? "—"}
@@ -468,7 +444,7 @@ function EnviarTab() {
                     <TableCell>
                       {s.lines.length} produto(s)
                     </TableCell>
-                    <TableCell>{formatDate(s.createdAt)}</TableCell>
+                    <TableCell>{formatDateTime(s.createdAt)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <Button
@@ -505,7 +481,7 @@ function EnviarTab() {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>QR Code da Remessa</DialogTitle>
+            <DialogTitle>Código QR da remessa</DialogTitle>
           </DialogHeader>
           {qrShipment && (
             <div className="space-y-4 text-center">
@@ -515,7 +491,7 @@ function EnviarTab() {
               {qrDataUrl && (
                 <img
                   src={qrDataUrl}
-                  alt="QR Code"
+                  alt="Código QR"
                   className="w-[200px] h-[200px] mx-auto"
                 />
               )}
@@ -523,11 +499,11 @@ function EnviarTab() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Produto</TableHead>
-                    <TableHead className="text-right">Qtd</TableHead>
+                    <TableHead className="text-right">Quantidade</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {qrShipment.lines.map((line: any) => (
+                  {qrShipment.lines.map((line) => (
                     <TableRow key={line._id}>
                       <TableCell>{line.product?.name}</TableCell>
                       <TableCell className="text-right">
@@ -604,7 +580,7 @@ function SolicitarTab() {
 
   const handleSubmit = async () => {
     if (!form.siteId) {
-      toast.error("Selecione o site");
+      toast.error("Selecione a obra");
       return;
     }
     if (!form.reason.trim()) {
@@ -634,13 +610,10 @@ function SolicitarTab() {
       });
       toast.success("Solicitação enviada com sucesso");
       resetForm();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao enviar solicitação");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao enviar solicitação"));
     }
   };
-
-  const formatDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleDateString("pt-BR");
 
   return (
     <div className="space-y-4">
@@ -658,7 +631,7 @@ function SolicitarTab() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="grid gap-1.5">
-              <Label>Site / Obra</Label>
+              <Label>Obra</Label>
               <Select
                 value={form.siteId}
                 onValueChange={(v) =>
@@ -666,7 +639,7 @@ function SolicitarTab() {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione o site" />
+                  <SelectValue placeholder="Selecione a obra" />
                 </SelectTrigger>
                 <SelectContent>
                   {sites?.map((s) => (
@@ -692,7 +665,7 @@ function SolicitarTab() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="normal">Padrão</SelectItem>
                   <SelectItem value="urgente">Urgente</SelectItem>
                   <SelectItem value="critico">Crítico</SelectItem>
                 </SelectContent>
@@ -756,7 +729,7 @@ function SolicitarTab() {
                   </Select>
                 </div>
                 <div className="grid gap-1">
-                  {i === 0 && <Label className="text-xs">Qtd</Label>}
+                  {i === 0 && <Label className="text-xs">Quantidade</Label>}
                   <Input
                     type="number"
                     min={1}
@@ -803,15 +776,15 @@ function SolicitarTab() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8" />
-                  <TableHead>Status</TableHead>
-                  <TableHead>Site</TableHead>
+                  <TableHead>Situação</TableHead>
+                  <TableHead>Obra</TableHead>
                   <TableHead>Urgência</TableHead>
                   <TableHead>Necessário até</TableHead>
                   <TableHead>Criado em</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {myRequests.map((req: any) => (
+                {myRequests.map((req) => (
                   <>
                     <TableRow
                       key={req._id}
@@ -832,10 +805,10 @@ function SolicitarTab() {
                       <TableCell>
                         <Badge
                           variant={
-                            STATUS_VARIANTS[req.status] ?? "outline"
+                            MATERIAL_REQUEST_STATUS_VARIANTS[req.status] ?? "outline"
                           }
                         >
-                          {STATUS_LABELS[req.status] ?? req.status}
+                          {MATERIAL_REQUEST_STATUS_LABELS[req.status] ?? req.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -852,7 +825,7 @@ function SolicitarTab() {
                           }
                         >
                           {req.urgency === "normal"
-                            ? "Normal"
+                            ? "Padrão"
                             : req.urgency === "urgente"
                               ? "Urgente"
                               : "Crítico"}
@@ -891,7 +864,7 @@ function SolicitarTab() {
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {req.lines.map((line: any) => (
+                                {req.lines.map((line) => (
                                   <TableRow key={line._id}>
                                     <TableCell>
                                       {line.product?.name ??

@@ -75,7 +75,7 @@ export const getByToken = query({
 
     let equipment = null;
     if (qrCode.equipmentId) {
-      equipment = await ctx.db.get(qrCode.equipmentId);
+      equipment = await ctx.db.get("equipment", qrCode.equipmentId);
     }
 
     return { qrCode, equipment };
@@ -126,7 +126,7 @@ export const listWithEquipment = query({
     return Promise.all(
       qrCodes.map(async (qr) => ({
         ...qr,
-        equipment: qr.equipmentId ? await ctx.db.get(qr.equipmentId) : null,
+        equipment: qr.equipmentId ? await ctx.db.get("equipment", qr.equipmentId) : null,
       }))
     );
   },
@@ -176,7 +176,7 @@ export const listByBatch = query({
       page: await Promise.all(
         results.page.map(async (qr) => ({
           ...qr,
-          equipment: qr.equipmentId ? await ctx.db.get(qr.equipmentId) : null,
+          equipment: qr.equipmentId ? await ctx.db.get("equipment", qr.equipmentId) : null,
         }))
       ),
     };
@@ -319,7 +319,7 @@ export const search = query({
     const qrCodes = await Promise.all(
       Array.from(qrCodeMatches.values()).map(async (qr) => ({
         ...qr,
-        equipment: qr.equipmentId ? await ctx.db.get(qr.equipmentId) : null,
+        equipment: qr.equipmentId ? await ctx.db.get("equipment", qr.equipmentId) : null,
       }))
     );
 
@@ -336,8 +336,11 @@ export const getByEquipmentId = query({
   handler: async (ctx, args) => {
     await requireStaff(ctx);
 
-    const qrCodes = await ctx.db.query("qrCodes").order("desc").collect();
-    return qrCodes.find((q) => q.equipmentId === args.equipmentId) ?? null;
+    return await ctx.db
+      .query("qrCodes")
+      .withIndex("by_equipment", (q) => q.eq("equipmentId", args.equipmentId))
+      .order("desc")
+      .first();
   },
 });
 
@@ -485,7 +488,7 @@ export const remove = mutation({
       throw new Error("Cannot delete a QR code linked to equipment");
     }
 
-    await ctx.db.delete(qrCode._id);
+    await ctx.db.delete("qrCodes", qrCode._id);
     return qrCode._id;
   },
 });
@@ -525,7 +528,7 @@ export const removeMany = mutation({
         continue;
       }
 
-      await ctx.db.delete(qrCode._id);
+      await ctx.db.delete("qrCodes", qrCode._id);
       deleted.push(token);
     }
 
@@ -556,12 +559,12 @@ export const assignEquipment = mutation({
       throw new Error("QR code already linked to equipment");
     }
 
-    const equipment = await ctx.db.get(args.equipmentId);
+    const equipment = await ctx.db.get("equipment", args.equipmentId);
     if (!equipment) {
       throw new Error("Equipment not found");
     }
 
-    await ctx.db.patch(qrCode._id, {
+    await ctx.db.patch("qrCodes", qrCode._id, {
       equipmentId: args.equipmentId,
     });
 

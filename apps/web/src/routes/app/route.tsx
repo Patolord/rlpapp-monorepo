@@ -7,7 +7,7 @@ import { UserButton } from "@clerk/tanstack-react-start";
 
 export const Route = createFileRoute("/app")({
   beforeLoad: async ({ context }) => {
-    if (!(context as any).userId) {
+    if (!context.userId) {
       throw redirect({ to: "/" });
     }
   },
@@ -23,13 +23,13 @@ function RoleGate({ children }: { children: React.ReactNode }) {
     if (currentUser === null) return;
 
     if (currentUser.role === "qr_operator") {
-      navigate({ to: "/qr-operador" });
+      void navigate({ to: "/qr-operador" });
       return;
     }
 
     if (currentUser.role !== "director") {
       const dept = currentUser.department ?? "estoque";
-      navigate({ to: `/${dept}` });
+      void navigate({ to: `/${dept}` });
     }
   }, [currentUser, navigate]);
 

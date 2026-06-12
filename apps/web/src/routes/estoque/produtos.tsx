@@ -1,9 +1,9 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Doc, Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +27,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { runWithToast } from "@/lib/errors";
 
 export const Route = createFileRoute("/estoque/produtos")({
   component: ProdutosPage,
@@ -35,19 +36,9 @@ export const Route = createFileRoute("/estoque/produtos")({
 
 function ProdutosPage() {
   return (
-    <>
-      <Authenticated>
-        <ProdutosContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <ProdutosContent />
+    </AuthShell>
   );
 }
 
@@ -58,7 +49,7 @@ function ProdutosContent() {
   const removeProduct = useMutation(api.products.remove);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editingProduct, setEditingProduct] = useState<Doc<"products"> | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -72,50 +63,51 @@ function ProdutosContent() {
   };
 
   const handleCreate = async () => {
-    try {
-      await createProduct({
-        name: formData.name,
-        description: formData.description || undefined,
-        unit: formData.unit,
-        minQuantity: formData.minQuantity,
-      });
-      toast.success("Produto criado com sucesso");
-      setIsCreateOpen(false);
-      resetForm();
-    } catch (error) {
-      toast.error("Erro ao criar produto");
+    const ok = await runWithToast(
+      () => createProduct({
+          name: formData.name,
+          description: formData.description || undefined,
+          unit: formData.unit,
+          minQuantity: formData.minQuantity,
+        }),
+      "Produto criado com sucesso",
+      "Erro ao criar produto"
+    );
+    if (ok) {
+        setIsCreateOpen(false);
+        resetForm();
     }
   };
 
   const handleUpdate = async () => {
     if (!editingProduct) return;
-    try {
-      await updateProduct({
-        id: editingProduct._id,
-        name: formData.name,
-        description: formData.description || undefined,
-        unit: formData.unit,
-        minQuantity: formData.minQuantity,
-      });
-      toast.success("Produto atualizado com sucesso");
-      setEditingProduct(null);
-      resetForm();
-    } catch (error) {
-      toast.error("Erro ao atualizar produto");
+    const ok = await runWithToast(
+      () => updateProduct({
+          id: editingProduct._id,
+          name: formData.name,
+          description: formData.description || undefined,
+          unit: formData.unit,
+          minQuantity: formData.minQuantity,
+        }),
+      "Produto atualizado com sucesso",
+      "Erro ao atualizar produto"
+    );
+    if (ok) {
+        setEditingProduct(null);
+        resetForm();
     }
   };
 
-  const handleDelete = async (id: any) => {
+  const handleDelete = async (id: Id<"products">) => {
     if (!confirm("Deseja realmente desativar este produto?")) return;
-    try {
-      await removeProduct({ id });
-      toast.success("Produto desativado com sucesso");
-    } catch (error) {
-      toast.error("Erro ao desativar produto");
-    }
+    await runWithToast(
+      () => removeProduct({ id }),
+      "Produto desativado com sucesso",
+      "Erro ao desativar produto"
+    );
   };
 
-  const openEdit = (product: any) => {
+  const openEdit = (product: Doc<"products">) => {
     setEditingProduct(product);
     setFormData({
       name: product.name,
@@ -174,7 +166,7 @@ function ProdutosContent() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="minQuantity">Qtd. Mínima</Label>
+                  <Label htmlFor="minQuantity">Quantidade mínima</Label>
                   <Input
                     id="minQuantity"
                     type="number"
@@ -230,7 +222,7 @@ function ProdutosContent() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="edit-minQuantity">Qtd. Mínima</Label>
+                <Label htmlFor="edit-minQuantity">Quantidade mínima</Label>
                 <Input
                   id="edit-minQuantity"
                   type="number"
@@ -265,8 +257,8 @@ function ProdutosContent() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Unidade</TableHead>
-                  <TableHead>Qtd. Mínima</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Quantidade mínima</TableHead>
+                  <TableHead>Situação</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>

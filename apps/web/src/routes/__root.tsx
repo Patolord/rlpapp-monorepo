@@ -11,11 +11,19 @@ import {
   createRootRouteWithContext,
   useRouteContext,
 } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { createServerFn } from "@tanstack/react-start";
 import { useConvexAuth, useMutation } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
-import { useEffect, useRef } from "react";
+import { lazy, useEffect, useRef } from "react";
+
+// Devtools só em desenvolvimento — excluído do bundle de produção
+const TanStackRouterDevtools = import.meta.env.PROD
+  ? () => null
+  : lazy(() =>
+      import("@tanstack/react-router-devtools").then((mod) => ({
+        default: mod.TanStackRouterDevtools,
+      }))
+    );
 
 import { OfflineSync } from "@/components/offline-sync";
 import { PwaRegister } from "@/components/pwa-register";
