@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Building2, Home, ArrowRight, Wrench, HardHat } from "lucide-react";
+import { ArrowRight, Wrench, HardHat } from "lucide-react";
 
 export default function SegmentosSection() {
   return (

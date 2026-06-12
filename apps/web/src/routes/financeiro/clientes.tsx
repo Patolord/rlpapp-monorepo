@@ -1,6 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Doc, Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { Plus, Pencil, ToggleLeft, ToggleRight, UserCheck } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -27,7 +28,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { runWithToast } from "@/lib/errors";
 
 export const Route = createFileRoute("/financeiro/clientes")({
   component: ClientesPage,
@@ -35,19 +37,9 @@ export const Route = createFileRoute("/financeiro/clientes")({
 
 function ClientesPage() {
   return (
-    <>
-      <Authenticated>
-        <ClientesContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <ClientesContent />
+    </AuthShell>
   );
 }
 
@@ -58,7 +50,7 @@ function ClientesContent() {
   const toggleCliente = useMutation(api.clientes.toggleActive);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingCliente, setEditingCliente] = useState<any>(null);
+  const [editingCliente, setEditingCliente] = useState<Doc<"clientes"> | null>(null);
 
   const [formData, setFormData] = useState({
     nome: "",
@@ -95,33 +87,33 @@ function ClientesContent() {
 
   const handleUpdate = async () => {
     if (!editingCliente) return;
-    try {
-      await updateCliente({
-        id: editingCliente._id,
-        nome: formData.nome,
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        documento: formData.documento || undefined,
-        endereco: formData.endereco || undefined,
-      });
-      toast.success("Cliente atualizado com sucesso");
-      setEditingCliente(null);
-      resetForm();
-    } catch (error) {
-      toast.error("Erro ao atualizar cliente");
+    const ok = await runWithToast(
+      () => updateCliente({
+          id: editingCliente._id,
+          nome: formData.nome,
+          email: formData.email || undefined,
+          phone: formData.phone || undefined,
+          documento: formData.documento || undefined,
+          endereco: formData.endereco || undefined,
+        }),
+      "Cliente atualizado com sucesso",
+      "Erro ao atualizar cliente"
+    );
+    if (ok) {
+        setEditingCliente(null);
+        resetForm();
     }
   };
 
-  const handleToggle = async (id: any) => {
-    try {
-      await toggleCliente({ id });
-      toast.success("Status alterado");
-    } catch (error) {
-      toast.error("Erro ao alterar status");
-    }
+  const handleToggle = async (id: Id<"clientes">) => {
+    await runWithToast(
+      () => toggleCliente({ id }),
+      "Situação alterada",
+      "Erro ao alterar status"
+    );
   };
 
-  const openEdit = (cliente: any) => {
+  const openEdit = (cliente: Doc<"clientes">) => {
     setEditingCliente(cliente);
     setFormData({
       nome: cliente.nome,
@@ -145,7 +137,7 @@ function ClientesContent() {
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="grid gap-2">
-          <Label htmlFor={`${prefix}-email`}>Email</Label>
+          <Label htmlFor={`${prefix}-email`}>E-mail</Label>
           <Input
             id={`${prefix}-email`}
             type="email"
@@ -249,9 +241,9 @@ function ClientesContent() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>CPF/CNPJ</TableHead>
-                  <TableHead>Email</TableHead>
+                  <TableHead>E-mail</TableHead>
                   <TableHead>Telefone</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Situação</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>

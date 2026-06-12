@@ -14,6 +14,8 @@ import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } fr
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { getErrorMessage } from "@/lib/errors";
+import { RECEIPT_STATUS_LABELS, RECEIPT_STATUS_VARIANTS, formatDateTime } from "@rlpapp/shared";
 
 export default function EntradaTab() {
   return (
@@ -39,20 +41,6 @@ export default function EntradaTab() {
 }
 
 type ReceiptLineForm = { productId: string; qty: string; unitCost: string };
-
-const STATUS_LABELS: Record<string, string> = {
-  PendingReceipt: "Pendente",
-  Accepted: "Aceito",
-  Returned: "Devolvido",
-  Discarded: "Descartado",
-};
-
-const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  PendingReceipt: "outline",
-  Accepted: "default",
-  Returned: "secondary",
-  Discarded: "destructive",
-};
 
 function EntradaContent() {
   const receipts = useQuery(api.receipts.list);
@@ -111,24 +99,24 @@ function EntradaContent() {
       });
       setIsCreateOpen(false);
       resetForm();
-    } catch (error: any) {
-      Alert.alert("Erro", error.message || "Erro ao criar recibo");
+    } catch (error) {
+      Alert.alert("Erro", getErrorMessage(error, "Erro ao criar recibo"));
     }
   };
 
   const handleAccept = async (receiptId: Id<"receipts">) => {
     try {
       await acceptReceipt({ receiptId });
-    } catch (error: any) {
-      Alert.alert("Erro", error.message || "Erro ao aceitar recibo");
+    } catch (error) {
+      Alert.alert("Erro", getErrorMessage(error, "Erro ao aceitar recibo"));
     }
   };
 
   const handleReturn = async (receiptId: Id<"receipts">) => {
     try {
       await returnReceipt({ receiptId });
-    } catch (error: any) {
-      Alert.alert("Erro", error.message || "Erro ao devolver recibo");
+    } catch (error) {
+      Alert.alert("Erro", getErrorMessage(error, "Erro ao devolver recibo"));
     }
   };
 
@@ -141,15 +129,13 @@ function EntradaContent() {
         onPress: async () => {
           try {
             await discardReceipt({ receiptId });
-          } catch (error: any) {
-            Alert.alert("Erro", error.message || "Erro ao descartar recibo");
+          } catch (error) {
+            Alert.alert("Erro", getErrorMessage(error, "Erro ao descartar recibo"));
           }
         },
       },
     ]);
   };
-
-  const formatDate = (timestamp: number) => new Date(timestamp).toLocaleString("pt-BR");
 
   const productOptions = (products ?? []).map((p) => ({ label: `${p.name} (${p.unit})`, value: p._id }));
   const supplierOptions = (suppliers ?? []).map((s) => ({ label: s.name, value: s._id }));
@@ -236,7 +222,7 @@ function EntradaContent() {
             <Text className="text-muted-foreground">Nenhum recibo encontrado</Text>
           ) : (
             <View className="gap-3">
-              {receipts.map((receipt: any) => (
+              {receipts.map((receipt) => (
                 <View key={receipt._id}>
                   <Pressable
                     className="flex-row items-center justify-between rounded-lg border border-border p-3"
@@ -246,15 +232,15 @@ function EntradaContent() {
                       {expandedId === receipt._id ? <ChevronDown size={16} color="#666" /> : <ChevronRight size={16} color="#666" />}
                       <View className="flex-1">
                         <View className="flex-row items-center gap-2">
-                          <Badge variant={STATUS_VARIANTS[receipt.status] ?? "outline"}>
-                            {STATUS_LABELS[receipt.status] ?? receipt.status}
+                          <Badge variant={RECEIPT_STATUS_VARIANTS[receipt.status] ?? "outline"}>
+                            {RECEIPT_STATUS_LABELS[receipt.status] ?? receipt.status}
                           </Badge>
                           <Text className="text-foreground font-medium text-sm flex-1" numberOfLines={1}>
                             {receipt.supplier?.name ?? "-"}
                           </Text>
                         </View>
                         <Text className="text-muted-foreground text-xs mt-1">
-                          {receipt.lines.length} produto(s) • {formatDate(receipt.createdAt)}
+                          {receipt.lines.length} produto(s) • {formatDateTime(receipt.createdAt)}
                         </Text>
                       </View>
                     </View>
@@ -274,7 +260,7 @@ function EntradaContent() {
                   </Pressable>
                   {expandedId === receipt._id && (
                     <View className="bg-secondary rounded-b-lg p-3 gap-2">
-                      {receipt.lines.map((line: any) => (
+                      {receipt.lines.map((line) => (
                         <View key={line._id} className="flex-row items-center justify-between">
                           <Text className="text-foreground text-sm font-medium flex-1">
                             {line.product?.name ?? "Produto não encontrado"}

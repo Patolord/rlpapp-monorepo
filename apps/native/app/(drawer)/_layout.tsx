@@ -3,6 +3,7 @@ import { useQuery } from "convex/react";
 import { useAuth } from "@clerk/clerk-expo";
 import type { DrawerContentComponentProps } from "@react-navigation/drawer";
 import { DrawerContentScrollView, DrawerItemList } from "@react-navigation/drawer";
+import { Redirect } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import {
   Home,
@@ -16,20 +17,32 @@ import {
   HardHat,
   Warehouse,
   ScanLine,
+  ClipboardList,
+  PackageCheck,
 } from "lucide-react-native";
 import React, { useCallback } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SignOutButton } from "@/components/sign-out-button";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import { COLORS } from "@/lib/colors";
 
 function DrawerLayout() {
   const { isDark } = useAppTheme();
-  const { isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
 
   const fg = isDark ? COLORS.dark.foreground : COLORS.light.foreground;
   const bg = isDark ? COLORS.dark.background : COLORS.light.background;
+
+  if (!isLoaded) {
+    return <View style={{ flex: 1, backgroundColor: bg }} />;
+  }
+
+  // Áreas internas exigem login (mesma regra do web)
+  if (!isSignedIn) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
 
   return <RoleAwareDrawer fg={fg} bg={bg} isSignedIn={!!isSignedIn} />;
 }
@@ -50,7 +63,7 @@ function RoleAwareDrawer({
   const isDirector = currentUser?.role === "director";
   const userDept = currentUser?.department ?? "estoque";
 
-  const showEstoque = !isSignedIn || isDirector || userDept === "estoque";
+  const showEstoque = isDirector || userDept === "estoque";
   const showFinanceiro = isDirector || userDept === "financeiro";
   const showRh = isDirector || userDept === "rh";
   const showEngenharia = isDirector || userDept === "engenharia";
@@ -66,6 +79,24 @@ function RoleAwareDrawer({
     ),
     [bg]
   );
+
+  // qr_operator só interage com equipamentos via QR (fluxo web /q/$token)
+  if (currentUser?.role === "qr_operator") {
+    return (
+      <View
+        style={{ flex: 1, backgroundColor: bg }}
+        className="items-center justify-center gap-4 px-8"
+      >
+        <Text
+          style={{ color: fg }}
+          className="text-center text-base font-medium"
+        >
+          Seu perfil acessa o sistema apenas pelos QR codes dos equipamentos.
+        </Text>
+        <SignOutButton />
+      </View>
+    );
+  }
 
   return (
     <Drawer
@@ -137,6 +168,24 @@ function RoleAwareDrawer({
           headerTitle: "Movimentações",
           drawerLabel: "Movimentações",
           drawerIcon: ({ size, color }) => <History size={size} color={color} />,
+          drawerItemStyle: showEstoque ? undefined : { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="solicitacoes"
+        options={{
+          headerTitle: "Solicitações",
+          drawerLabel: "Solicitações",
+          drawerIcon: ({ size, color }) => <ClipboardList size={size} color={color} />,
+          drawerItemStyle: showEstoque ? undefined : { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="entregas"
+        options={{
+          headerTitle: "Entregas",
+          drawerLabel: "Entregas",
+          drawerIcon: ({ size, color }) => <PackageCheck size={size} color={color} />,
           drawerItemStyle: showEstoque ? undefined : { display: "none" },
         }}
       />

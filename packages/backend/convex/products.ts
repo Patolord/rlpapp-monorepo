@@ -1,9 +1,8 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { requireAuth } from "./lib/auth";
+import { staffMutation, staffQuery } from "./lib/functions";
 
 // Listar todos os produtos
-export const list = query({
+export const list = staffQuery({
   args: {
     onlyActive: v.optional(v.boolean()),
   },
@@ -19,15 +18,15 @@ export const list = query({
 });
 
 // Buscar produto por ID
-export const get = query({
+export const get = staffQuery({
   args: { id: v.id("products") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    return await ctx.db.get("products", args.id);
   },
 });
 
 // Criar produto
-export const create = mutation({
+export const create = staffMutation({
   args: {
     name: v.string(),
     description: v.optional(v.string()),
@@ -35,7 +34,6 @@ export const create = mutation({
     minQuantity: v.number(),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     const productId = await ctx.db.insert("products", {
       name: args.name,
       description: args.description,
@@ -48,7 +46,7 @@ export const create = mutation({
 });
 
 // Atualizar produto
-export const update = mutation({
+export const update = staffMutation({
   args: {
     id: v.id("products"),
     name: v.optional(v.string()),
@@ -58,9 +56,8 @@ export const update = mutation({
     isActive: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     const { id, ...updates } = args;
-    const existing = await ctx.db.get(id);
+    const existing = await ctx.db.get("products", id);
     if (!existing) {
       throw new Error("Produto não encontrado");
     }
@@ -73,27 +70,26 @@ export const update = mutation({
       }
     }
     
-    await ctx.db.patch(id, filteredUpdates);
+    await ctx.db.patch("products", id, filteredUpdates);
     return id;
   },
 });
 
 // Deletar produto (soft delete)
-export const remove = mutation({
+export const remove = staffMutation({
   args: { id: v.id("products") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const existing = await ctx.db.get(args.id);
+    const existing = await ctx.db.get("products", args.id);
     if (!existing) {
       throw new Error("Produto não encontrado");
     }
-    await ctx.db.patch(args.id, { isActive: false });
+    await ctx.db.patch("products", args.id, { isActive: false });
     return args.id;
   },
 });
 
 // Buscar produtos com estoque baixo
-export const getLowStock = query({
+export const getLowStock = staffQuery({
   args: {},
   handler: async (ctx) => {
     const products = await ctx.db

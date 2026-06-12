@@ -40,7 +40,7 @@ function buildQrLabelsMarkup(tokens: readonly string[], baseUrl: string) {
 function buildPrintDocument({
   tokens,
   baseUrl,
-  title = "QR Codes - RLP Engenharia",
+  title = "Códigos QR - RLP Engenharia",
 }: PrintQrCodesOptions) {
   const labelsMarkup = buildQrLabelsMarkup(tokens, baseUrl);
 

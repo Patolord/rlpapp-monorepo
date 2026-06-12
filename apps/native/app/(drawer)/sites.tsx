@@ -1,4 +1,5 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Doc, Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
 import { Plus, Pencil, Trash2, Lock } from "lucide-react-native";
 import { useState } from "react";
@@ -43,7 +44,7 @@ function SitesContent() {
   const removeSite = useMutation(api.sites.remove);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingSite, setEditingSite] = useState<any>(null);
+  const [editingSite, setEditingSite] = useState<Doc<"sites"> | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -88,7 +89,7 @@ function SitesContent() {
     }
   };
 
-  const handleDelete = (id: any) => {
+  const handleDelete = (id: Id<"sites">) => {
     Alert.alert("Confirmar", "Deseja realmente desativar este site?", [
       { text: "Cancelar", style: "cancel" },
       {
@@ -105,7 +106,7 @@ function SitesContent() {
     ]);
   };
 
-  const openEdit = (site: any) => {
+  const openEdit = (site: Doc<"sites">) => {
     setEditingSite(site);
     setFormData({
       name: site.name,

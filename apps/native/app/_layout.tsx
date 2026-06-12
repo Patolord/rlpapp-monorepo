@@ -31,7 +31,7 @@ function EnsureUser() {
   useEffect(() => {
     if (isAuthenticated && !called.current) {
       called.current = true;
-      ensureUser().catch(console.error);
+      ensureUser({}).catch(console.error);
     }
   }, [isAuthenticated, ensureUser]);
 
@@ -51,7 +51,6 @@ function StackLayout() {
     >
       <Stack.Screen name="(drawer)" />
       <Stack.Screen name="(auth)" />
-      <Stack.Screen name="modal" options={{ presentation: "modal" }} />
     </Stack>
   );
 }

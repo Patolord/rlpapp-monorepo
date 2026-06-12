@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export const Route = createFileRoute("/qr-operador")({
   beforeLoad: async ({ context }) => {
-    if (!(context as any).userId) {
+    if (!context.userId) {
       throw redirect({ to: "/" });
     }
   },
@@ -34,9 +34,9 @@ function QrOperadorPage() {
           <CardContent className="flex flex-col items-center gap-4 pt-6 pb-6 text-center">
             <QrCode className="h-12 w-12 text-muted-foreground" />
             <div className="space-y-1">
-              <h2 className="text-xl font-bold">Escaneie um QR Code</h2>
+              <h2 className="text-xl font-bold">Escaneie um código QR</h2>
               <p className="text-sm text-muted-foreground">
-                Use a câmera do seu celular para escanear o QR code de um
+                Use a câmera do seu celular para escanear o código QR de um
                 equipamento e acessar as informações dele.
               </p>
             </div>

@@ -1,6 +1,8 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
+import { useQuery, useMutation } from "convex/react";
 import {
   Plus,
   Pencil,
@@ -42,7 +44,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { getErrorMessage } from "@/lib/errors";
+import { formatCurrency, formatDate } from "@rlpapp/shared";
+
+type Conta = FunctionReturnType<typeof api.contasReceber.list>[number];
+type FormaPagamento = NonNullable<Conta["formaPagamento"]>;
 
 export const Route = createFileRoute("/financeiro/contas-receber")({
   component: ContasReceberPage,
@@ -86,19 +93,9 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 
 function ContasReceberPage() {
   return (
-    <>
-      <Authenticated>
-        <ContasReceberContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <ContasReceberContent />
+    </AuthShell>
   );
 }
 
@@ -114,8 +111,10 @@ function ContasReceberContent() {
   const cancelarConta = useMutation(api.contasReceber.cancelar);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingConta, setEditingConta] = useState<any>(null);
-  const [isRecebimentoOpen, setIsRecebimentoOpen] = useState<any>(null);
+  const [editingConta, setEditingConta] = useState<Conta | null>(null);
+  const [isRecebimentoOpen, setIsRecebimentoOpen] = useState<Conta | null>(
+    null
+  );
   const [formData, setFormData] = useState<FormData>({ ...emptyForm });
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -164,18 +163,26 @@ function ContasReceberContent() {
         dataEmissao: formData.dataEmissao
           ? new Date(formData.dataEmissao).getTime()
           : Date.now(),
-        categoriaId: formData.categoriaId ? (formData.categoriaId as any) : undefined,
-        clienteId: formData.clienteId ? (formData.clienteId as any) : undefined,
-        contaBancariaId: formData.contaBancariaId ? (formData.contaBancariaId as any) : undefined,
-        formaPagamento: formData.formaPagamento ? (formData.formaPagamento as any) : undefined,
+        categoriaId: formData.categoriaId
+          ? (formData.categoriaId as Id<"categoriasFinanceiras">)
+          : undefined,
+        clienteId: formData.clienteId
+          ? (formData.clienteId as Id<"clientes">)
+          : undefined,
+        contaBancariaId: formData.contaBancariaId
+          ? (formData.contaBancariaId as Id<"contasBancarias">)
+          : undefined,
+        formaPagamento: formData.formaPagamento
+          ? (formData.formaPagamento as FormaPagamento)
+          : undefined,
         notaFiscal: formData.notaFiscal || undefined,
         observacoes: formData.observacoes || undefined,
       });
       toast.success("Conta a receber criada com sucesso");
       setIsCreateOpen(false);
       resetForm();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao criar conta");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao criar conta"));
     }
   };
 
@@ -198,18 +205,26 @@ function ContasReceberContent() {
         dataEmissao: formData.dataEmissao
           ? new Date(formData.dataEmissao).getTime()
           : undefined,
-        categoriaId: formData.categoriaId ? (formData.categoriaId as any) : undefined,
-        clienteId: formData.clienteId ? (formData.clienteId as any) : undefined,
-        contaBancariaId: formData.contaBancariaId ? (formData.contaBancariaId as any) : undefined,
-        formaPagamento: formData.formaPagamento ? (formData.formaPagamento as any) : undefined,
+        categoriaId: formData.categoriaId
+          ? (formData.categoriaId as Id<"categoriasFinanceiras">)
+          : undefined,
+        clienteId: formData.clienteId
+          ? (formData.clienteId as Id<"clientes">)
+          : undefined,
+        contaBancariaId: formData.contaBancariaId
+          ? (formData.contaBancariaId as Id<"contasBancarias">)
+          : undefined,
+        formaPagamento: formData.formaPagamento
+          ? (formData.formaPagamento as FormaPagamento)
+          : undefined,
         notaFiscal: formData.notaFiscal || undefined,
         observacoes: formData.observacoes || undefined,
       });
       toast.success("Conta atualizada com sucesso");
       setEditingConta(null);
       resetForm();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao atualizar conta");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao atualizar conta"));
     }
   };
 
@@ -226,30 +241,30 @@ function ContasReceberContent() {
         valorRecebido: valorCents,
         dataRecebimento: new Date(recebimentoData.dataRecebimento).getTime(),
         formaPagamento: recebimentoData.formaPagamento
-          ? (recebimentoData.formaPagamento as any)
+          ? (recebimentoData.formaPagamento as FormaPagamento)
           : undefined,
         contaBancariaId: recebimentoData.contaBancariaId
-          ? (recebimentoData.contaBancariaId as any)
+          ? (recebimentoData.contaBancariaId as Id<"contasBancarias">)
           : undefined,
       });
       toast.success("Recebimento registrado");
       setIsRecebimentoOpen(null);
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao registrar recebimento");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao registrar recebimento"));
     }
   };
 
-  const handleCancelar = async (id: any) => {
+  const handleCancelar = async (id: Id<"contasReceber">) => {
     if (!confirm("Deseja realmente cancelar esta conta a receber?")) return;
     try {
       await cancelarConta({ id });
       toast.success("Conta cancelada");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao cancelar");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao cancelar"));
     }
   };
 
-  const openEdit = (conta: any) => {
+  const openEdit = (conta: Conta) => {
     setEditingConta(conta);
     setFormData({
       descricao: conta.descricao,
@@ -468,8 +483,8 @@ function ContasReceberContent() {
             <DialogTitle>Registrar Recebimento</DialogTitle>
             <DialogDescription>
               {isRecebimentoOpen?.descricao} — Total: {formatCurrency(isRecebimentoOpen?.valor ?? 0)}
-              {isRecebimentoOpen?.valorRecebido > 0 && (
-                <> | Já recebido: {formatCurrency(isRecebimentoOpen.valorRecebido)} | Saldo: {formatCurrency((isRecebimentoOpen.valor ?? 0) - (isRecebimentoOpen.valorRecebido ?? 0))}</>
+              {isRecebimentoOpen && isRecebimentoOpen.valorRecebido > 0 && (
+                <> | Já recebido: {formatCurrency(isRecebimentoOpen.valorRecebido)} | Saldo: {formatCurrency(isRecebimentoOpen.valor - isRecebimentoOpen.valorRecebido)}</>
               )}
             </DialogDescription>
           </DialogHeader>
@@ -562,7 +577,7 @@ function ContasReceberContent() {
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-[180px]">
             <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder="Situação" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
@@ -602,7 +617,7 @@ function ContasReceberContent() {
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead className="text-right">Recebido</TableHead>
                   <TableHead>Vencimento</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Situação</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -696,17 +711,3 @@ function ContasReceberContent() {
   );
 }
 
-function formatCurrency(valueInCents: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(valueInCents / 100);
-}
-
-function formatDate(timestamp: number) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(timestamp);
-}

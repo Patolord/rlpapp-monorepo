@@ -1,6 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { History, Filter } from "lucide-react";
 import { useState } from "react";
 
@@ -22,7 +22,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { formatDateTime } from "@rlpapp/shared";
 
 export const Route = createFileRoute("/estoque/movimentacoes")({
   component: MovimentacoesPage,
@@ -30,19 +31,9 @@ export const Route = createFileRoute("/estoque/movimentacoes")({
 
 function MovimentacoesPage() {
   return (
-    <>
-      <Authenticated>
-        <MovimentacoesContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <MovimentacoesContent />
+    </AuthShell>
   );
 }
 
@@ -66,16 +57,19 @@ const refTypeLabels: Record<string, string> = {
   adjustment: "Ajuste",
 };
 
+type EventType =
+  | "RegisteredIn"
+  | "RegisteredOut"
+  | "Reversal"
+  | "InventoryAdjust";
+
 function MovimentacoesContent() {
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<EventType | "all">("all");
 
   const events = useQuery(api.inventory.listEvents, {
     type: typeFilter !== "all" ? typeFilter : undefined,
     limit: 200,
   });
-
-  const formatDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleString("pt-BR");
 
   return (
     <div className="p-4 space-y-4">
@@ -97,7 +91,12 @@ function MovimentacoesContent() {
           <div className="flex gap-4 items-end">
             <div className="grid gap-2">
               <label className="text-xs text-muted-foreground">Tipo de Evento</label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <Select
+                value={typeFilter}
+                onValueChange={(value) =>
+                  setTypeFilter(value as EventType | "all")
+                }
+              >
                 <SelectTrigger className="w-[200px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -141,16 +140,16 @@ function MovimentacoesContent() {
                   <TableHead>Data</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Produto</TableHead>
-                  <TableHead>Qtd Delta</TableHead>
+                  <TableHead>Variação de quantidade</TableHead>
                   <TableHead>Referência</TableHead>
                   <TableHead>Usuário</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {events.map((event: any) => (
+                {events.map((event) => (
                   <TableRow key={event._id}>
                     <TableCell className="whitespace-nowrap">
-                      {formatDate(event.createdAt)}
+                      {formatDateTime(event.createdAt)}
                     </TableCell>
                     <TableCell>
                       <Badge variant={typeVariants[event.type] ?? "outline"}>

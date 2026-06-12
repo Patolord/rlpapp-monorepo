@@ -12,6 +12,8 @@ import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } fr
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { getErrorMessage } from "@/lib/errors";
+import { formatDateTime } from "@rlpapp/shared";
 
 export function InventoryAjustesContent() {
   const products = useQuery(api.products.list, { onlyActive: true });
@@ -53,12 +55,10 @@ export function InventoryAjustesContent() {
       });
       setIsAdjustOpen(false);
       resetForm();
-    } catch (error: any) {
-      Alert.alert("Erro", error.message || "Erro ao realizar ajuste");
+    } catch (error) {
+      Alert.alert("Erro", getErrorMessage(error, "Erro ao realizar ajuste"));
     }
   };
-
-  const formatDate = (timestamp: number) => new Date(timestamp).toLocaleString("pt-BR");
 
   const productOptions = (products ?? []).map((p) => ({
     label: `${p.name} (${p.unit})`,
@@ -170,7 +170,7 @@ export function InventoryAjustesContent() {
             <Text className="text-muted-foreground">Armazém vazio</Text>
           ) : (
             <View className="gap-2">
-              {stock.map((item: any) => (
+              {stock.map((item) => (
                 <View key={item._id} className="flex-row items-center justify-between rounded-lg border border-border p-3">
                   <View className="flex-1">
                     <Text className="text-foreground font-medium text-sm">
@@ -209,13 +209,13 @@ export function InventoryAjustesContent() {
             <Text className="text-muted-foreground">Nenhum ajuste realizado</Text>
           ) : (
             <View className="gap-2">
-              {adjustEvents.map((event: any) => (
+              {adjustEvents.map((event) => (
                 <View key={event._id} className="rounded-lg border border-border p-3">
                   <View className="flex-row items-center justify-between mb-1">
                     <Text className="text-foreground font-medium text-sm">
                       {event.product?.name ?? "?"}
                     </Text>
-                    <Text className="text-muted-foreground text-xs">{formatDate(event.createdAt)}</Text>
+                    <Text className="text-muted-foreground text-xs">{formatDateTime(event.createdAt)}</Text>
                   </View>
                   <View className="flex-row items-center justify-between">
                     <Text

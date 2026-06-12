@@ -1,7 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import {
   Plus,
   Check,
@@ -46,7 +46,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { getErrorMessage } from "@/lib/errors";
+
+import type { FunctionReturnType } from "convex/server";
+import { SHIPMENT_STATUS_LABELS, SHIPMENT_STATUS_VARIANTS, formatDateTime } from "@rlpapp/shared";
+
+type Shipment = FunctionReturnType<typeof api.shipments.list>[number];
 
 export const Route = createFileRoute("/estoque/saida")({
   component: SaidaPage,
@@ -54,41 +60,15 @@ export const Route = createFileRoute("/estoque/saida")({
 
 function SaidaPage() {
   return (
-    <>
-      <Authenticated>
-        <SaidaContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <SaidaContent />
+    </AuthShell>
   );
 }
 
 type ShipmentLineForm = {
   productId: string;
   qty: number;
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  RegisteredOut: "Saída Registrada",
-  PendingShipment: "Aguardando Envio",
-  DeliveredConfirmed: "Entregue",
-  CanceledBeforeLeave: "Cancelado",
-  ReversalApplied: "Reversão Aplicada",
-};
-
-const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  RegisteredOut: "outline",
-  PendingShipment: "secondary",
-  DeliveredConfirmed: "default",
-  CanceledBeforeLeave: "destructive",
-  ReversalApplied: "destructive",
 };
 
 function SaidaContent() {
@@ -104,7 +84,7 @@ function SaidaContent() {
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [qrShipment, setQrShipment] = useState<any | null>(null);
+  const [qrShipment, setQrShipment] = useState<Shipment | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
   useEffect(() => {
@@ -113,7 +93,8 @@ function SaidaContent() {
       return;
     }
     QRCode.toDataURL(qrShipment.qrCodeData, { width: 250, margin: 2 }).then(
-      (url: string) => setQrDataUrl(url)
+      (url: string) => setQrDataUrl(url),
+      () => setQrDataUrl("")
     );
   }, [qrShipment]);
 
@@ -123,7 +104,7 @@ function SaidaContent() {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
     printWindow.document.write(`
-      <html><head><title>QR Code - Remessa</title>
+      <html><head><title>Código QR - Remessa</title>
       <style>body{font-family:sans-serif;padding:24px}table{width:100%;border-collapse:collapse;margin:12px 0}td,th{border:1px solid #ccc;padding:6px 10px;text-align:left}.center{text-align:center}</style>
       </head><body>${printRef.current.innerHTML}</body></html>
     `);
@@ -169,13 +150,13 @@ function SaidaContent() {
   };
 
   const getStockForProduct = (productId: string) => {
-    const snap = stock?.find((s: any) => s.productId === productId);
+    const snap = stock?.find((s) => s.productId === productId);
     return snap?.qtyOnHand ?? 0;
   };
 
   const handleCreate = async () => {
     if (!form.toSiteId) {
-      toast.error("Selecione o site de destino");
+      toast.error("Selecione a obra de destino");
       return;
     }
     const validLines = form.lines.filter((l) => l.productId);
@@ -195,8 +176,8 @@ function SaidaContent() {
       toast.success("Remessa criada - saída registrada");
       setIsCreateOpen(false);
       resetForm();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao criar remessa");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao criar remessa"));
     }
   };
 
@@ -204,8 +185,8 @@ function SaidaContent() {
     try {
       await stageShipment({ shipmentId });
       toast.success("Remessa marcada como aguardando envio");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao preparar remessa");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao preparar remessa"));
     }
   };
 
@@ -213,8 +194,8 @@ function SaidaContent() {
     try {
       await confirmDelivery({ shipmentId });
       toast.success("Entrega confirmada");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao confirmar entrega");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao confirmar entrega"));
     }
   };
 
@@ -223,13 +204,10 @@ function SaidaContent() {
     try {
       await cancelBeforeLeave({ shipmentId });
       toast.success("Remessa cancelada - estoque restaurado");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao cancelar remessa");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao cancelar remessa"));
     }
   };
-
-  const formatDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleString("pt-BR");
 
   const canAct = (status: string) =>
     status === "RegisteredOut" || status === "PendingShipment";
@@ -261,13 +239,13 @@ function SaidaContent() {
             <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label>Site de Destino</Label>
+                  <Label>Obra de destino</Label>
                   <Select
                     value={form.toSiteId}
                     onValueChange={(v) => setForm((f) => ({ ...f, toSiteId: v }))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione o site" />
+                      <SelectValue placeholder="Selecione a obra" />
                     </SelectTrigger>
                     <SelectContent>
                       {sites?.map((s) => (
@@ -316,7 +294,7 @@ function SaidaContent() {
                       </Select>
                     </div>
                     <div className="grid gap-1">
-                      {i === 0 && <Label className="text-xs">Qtd</Label>}
+                      {i === 0 && <Label className="text-xs">Quantidade</Label>}
                       <Input
                         type="number"
                         min={1}
@@ -371,7 +349,7 @@ function SaidaContent() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8" />
-                  <TableHead>Status</TableHead>
+                  <TableHead>Situação</TableHead>
                   <TableHead>Destino</TableHead>
                   <TableHead>Linhas</TableHead>
                   <TableHead>Data</TableHead>
@@ -380,7 +358,7 @@ function SaidaContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {shipments.map((shipment: any) => (
+                {shipments.map((shipment) => (
                   <>
                     <TableRow
                       key={shipment._id}
@@ -397,13 +375,13 @@ function SaidaContent() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={STATUS_VARIANTS[shipment.status] ?? "outline"}>
-                          {STATUS_LABELS[shipment.status] ?? shipment.status}
+                        <Badge variant={SHIPMENT_STATUS_VARIANTS[shipment.status] ?? "outline"}>
+                          {SHIPMENT_STATUS_LABELS[shipment.status] ?? shipment.status}
                         </Badge>
                       </TableCell>
                       <TableCell>{shipment.site?.name ?? "-"}</TableCell>
                       <TableCell>{shipment.lines.length} produto(s)</TableCell>
-                      <TableCell>{formatDate(shipment.createdAt)}</TableCell>
+                      <TableCell>{formatDateTime(shipment.createdAt)}</TableCell>
                       <TableCell className="max-w-[150px] truncate">
                         {shipment.notes ?? "-"}
                       </TableCell>
@@ -459,11 +437,11 @@ function SaidaContent() {
                                 <TableRow>
                                   <TableHead>Produto</TableHead>
                                   <TableHead>Quantidade</TableHead>
-                                  <TableHead>Qtd Contada na Entrega</TableHead>
+                                  <TableHead>Quantidade contada na entrega</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {shipment.lines.map((line: any) => (
+                                {shipment.lines.map((line) => (
                                   <TableRow key={line._id}>
                                     <TableCell className="font-medium">
                                       {line.product?.name ?? "Produto não encontrado"}
@@ -495,7 +473,7 @@ function SaidaContent() {
       <Dialog open={!!qrShipment} onOpenChange={(open) => !open && setQrShipment(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>QR Code da Remessa</DialogTitle>
+            <DialogTitle>Código QR da remessa</DialogTitle>
             <DialogDescription>
               Imprima este documento e envie junto com os materiais
             </DialogDescription>
@@ -508,23 +486,23 @@ function SaidaContent() {
                   Destino: {qrShipment.site?.name ?? "—"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Data: {formatDate(qrShipment.createdAt)}
+                  Data: {formatDateTime(qrShipment.createdAt)}
                 </p>
               </div>
               {qrDataUrl && (
                 <div className="flex justify-center">
-                  <img src={qrDataUrl} alt="QR Code" className="w-[200px] h-[200px]" />
+                  <img src={qrDataUrl} alt="Código QR" className="w-[200px] h-[200px]" />
                 </div>
               )}
               <table className="w-full text-sm border-collapse">
                 <thead>
                   <tr className="border-b">
                     <th className="text-left py-1 px-2">Produto</th>
-                    <th className="text-right py-1 px-2">Qtd</th>
+                    <th className="text-right py-1 px-2">Quantidade</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {qrShipment.lines.map((line: any) => (
+                  {qrShipment.lines.map((line) => (
                     <tr key={line._id} className="border-b">
                       <td className="py-1 px-2">{line.product?.name ?? "—"}</td>
                       <td className="text-right py-1 px-2">
@@ -554,7 +532,7 @@ function SaidaContent() {
       <Card>
         <CardHeader>
           <CardTitle>Estoque do Armazém</CardTitle>
-          <CardDescription>Snapshot atual derivado do ledger de eventos</CardDescription>
+          <CardDescription>Posição atual calculada a partir do histórico de eventos</CardDescription>
         </CardHeader>
         <CardContent>
           {!stock ? (
@@ -572,7 +550,7 @@ function SaidaContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {stock.map((item: any) => (
+                {stock.map((item) => (
                   <TableRow key={item._id}>
                     <TableCell className="font-medium">
                       {item.product?.name ?? "Produto não encontrado"}

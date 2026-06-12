@@ -1,9 +1,8 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import { requireAuth } from "./lib/auth";
+import { staffMutation, staffQuery } from "./lib/functions";
 
 // Listar todos os fornecedores
-export const list = query({
+export const list = staffQuery({
   args: {
     onlyActive: v.optional(v.boolean()),
   },
@@ -19,15 +18,15 @@ export const list = query({
 });
 
 // Buscar fornecedor por ID
-export const get = query({
+export const get = staffQuery({
   args: { id: v.id("suppliers") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    return await ctx.db.get("suppliers", args.id);
   },
 });
 
 // Criar fornecedor
-export const create = mutation({
+export const create = staffMutation({
   args: {
     name: v.string(),
     contactName: v.optional(v.string()),
@@ -36,7 +35,6 @@ export const create = mutation({
     address: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     const supplierId = await ctx.db.insert("suppliers", {
       name: args.name,
       contactName: args.contactName,
@@ -50,7 +48,7 @@ export const create = mutation({
 });
 
 // Atualizar fornecedor
-export const update = mutation({
+export const update = staffMutation({
   args: {
     id: v.id("suppliers"),
     name: v.optional(v.string()),
@@ -61,9 +59,8 @@ export const update = mutation({
     isActive: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
     const { id, ...updates } = args;
-    const existing = await ctx.db.get(id);
+    const existing = await ctx.db.get("suppliers", id);
     if (!existing) {
       throw new Error("Fornecedor não encontrado");
     }
@@ -76,21 +73,20 @@ export const update = mutation({
       }
     }
     
-    await ctx.db.patch(id, filteredUpdates);
+    await ctx.db.patch("suppliers", id, filteredUpdates);
     return id;
   },
 });
 
 // Deletar fornecedor (soft delete)
-export const remove = mutation({
+export const remove = staffMutation({
   args: { id: v.id("suppliers") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    const existing = await ctx.db.get(args.id);
+    const existing = await ctx.db.get("suppliers", args.id);
     if (!existing) {
       throw new Error("Fornecedor não encontrado");
     }
-    await ctx.db.patch(args.id, { isActive: false });
+    await ctx.db.patch("suppliers", args.id, { isActive: false });
     return args.id;
   },
 });

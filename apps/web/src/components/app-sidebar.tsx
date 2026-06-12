@@ -67,16 +67,16 @@ interface DepartmentSection {
 }
 
 const estoqueOperatorItems: readonly NavSubItem[] = [
-  { to: "/estoque", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/estoque", label: "Painel", icon: LayoutDashboard, exact: true },
   { to: "/estoque/operador", label: "Operador", icon: ScanLine },
 ];
 
 const estoqueAdminItems: readonly NavSubItem[] = [
-  { to: "/estoque", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/estoque", label: "Painel", icon: LayoutDashboard, exact: true },
   { to: "/estoque/operador", label: "Operador", icon: ScanLine },
   { to: "/estoque/produtos", label: "Produtos", icon: Package },
   { to: "/estoque/fornecedores", label: "Fornecedores", icon: Users },
-  { to: "/estoque/sites", label: "Sites", icon: MapPin },
+  { to: "/estoque/sites", label: "Obras", icon: MapPin },
   { to: "/estoque/entrada", label: "Entrada", icon: ArrowDownToLine },
   { to: "/estoque/saida", label: "Saída", icon: ArrowUpFromLine },
   { to: "/estoque/solicitacoes", label: "Solicitações", icon: ClipboardList },
@@ -105,7 +105,7 @@ function getDepartmentSections(role?: string): DepartmentSection[] {
       icon: DollarSign,
       basePath: "/financeiro",
       items: [
-        { to: "/financeiro", label: "Dashboard", icon: LayoutDashboard, exact: true },
+        { to: "/financeiro", label: "Painel", icon: LayoutDashboard, exact: true },
         { to: "/financeiro/contas-pagar", label: "Contas a Pagar", icon: ArrowUpFromLine },
         { to: "/financeiro/contas-receber", label: "Contas a Receber", icon: ArrowDownToLine },
         { to: "/financeiro/clientes", label: "Clientes", icon: UserCheck },
@@ -121,7 +121,7 @@ function getDepartmentSections(role?: string): DepartmentSection[] {
       icon: Users,
       basePath: "/rh",
       items: [
-        { to: "/rh", label: "Dashboard", icon: LayoutDashboard, exact: true },
+        { to: "/rh", label: "Painel", icon: LayoutDashboard, exact: true },
       ],
     },
     {
@@ -130,8 +130,8 @@ function getDepartmentSections(role?: string): DepartmentSection[] {
       icon: HardHat,
       basePath: "/engenharia",
       items: [
-        { to: "/engenharia", label: "QR Codes", icon: QrCode, exact: true },
-        { to: "/engenharia/qr-codes", label: "Criar QR Codes", icon: Plus },
+        { to: "/engenharia", label: "Códigos QR", icon: QrCode, exact: true },
+        { to: "/engenharia/qr-codes", label: "Criar códigos QR", icon: Plus },
       ],
     },
   ];

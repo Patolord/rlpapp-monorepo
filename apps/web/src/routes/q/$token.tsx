@@ -77,14 +77,13 @@ function UnauthenticatedView() {
     sessionStorage.setItem("qr_login_token", token);
   }, [token]);
   const equipment = data?.equipment ?? null;
-  const logs = useQuery(
-    api.maintenanceLogs.listByEquipment,
+  const lastMaintenanceAt = useQuery(
+    api.maintenanceLogs.getLastMaintenanceDate,
     equipment ? { equipmentId: equipment._id } : "skip",
   );
 
-  const lastMaintenance = logs?.[0];
-  const lastMaintenanceDate = lastMaintenance
-    ? new Date(lastMaintenance.createdAt).toLocaleDateString("pt-BR", {
+  const lastMaintenanceDate = lastMaintenanceAt
+    ? new Date(lastMaintenanceAt).toLocaleDateString("pt-BR", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
@@ -147,7 +146,7 @@ function UnauthenticatedView() {
                 <div className="space-y-1">
                   <h1 className="text-xl font-bold">RLP Engenharia</h1>
                   <p className="text-sm text-muted-foreground">
-                    QR Code escaneado com sucesso
+                    Código QR escaneado com sucesso
                   </p>
                 </div>
                 <Separator />
@@ -163,7 +162,7 @@ function UnauthenticatedView() {
                 render={<Link to="/" search={{ redirect: `/q/${token}` }} />}
               >
                 <LogIn className="mr-2 h-4 w-4" />
-                Fazer Login
+                Entrar
               </Button>
             </div>
 
@@ -245,9 +244,9 @@ function AuthenticatedContent() {
       <div className="mx-auto max-w-lg px-4 py-8">
         <div className="flex flex-col items-center gap-4 text-center">
           <AlertTriangle className="h-12 w-12 text-yellow-500" />
-          <h1 className="text-2xl font-bold">QR Code Não Encontrado</h1>
+          <h1 className="text-2xl font-bold">Código QR não encontrado</h1>
           <p className="text-muted-foreground">
-            Este QR code ({token}) não está registrado no sistema. Gere novos
+            Este código QR ({token}) não está registrado no sistema. Gere novos
             códigos na página de administração.
           </p>
         </div>
@@ -264,7 +263,7 @@ function AuthenticatedContent() {
           <QrCode className="h-10 w-10 text-muted-foreground" />
           <h1 className="text-xl font-bold">Novo Equipamento</h1>
           <p className="text-sm text-muted-foreground">
-            QR Code: {qrCode.token}
+            Código QR: {qrCode.token}
           </p>
         </div>
         <EquipmentForm
@@ -331,7 +330,7 @@ function OfflineContent({ token }: { token: string }) {
         <>
           <div className="flex flex-col items-center gap-2 text-center">
             <QrCode className="h-10 w-10 text-muted-foreground" />
-            <h1 className="text-xl font-bold">QR Code: {token}</h1>
+            <h1 className="text-xl font-bold">Código QR: {token}</h1>
             <p className="text-sm text-muted-foreground">
               Se este equipamento ainda não foi cadastrado, registre abaixo.
             </p>

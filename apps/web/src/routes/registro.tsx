@@ -116,7 +116,7 @@ function RegistroPage() {
           </CardHeader>
           <CardContent>
             <p className="mb-3 text-sm text-muted-foreground">
-              Digite o código impresso na etiqueta do QR code (ex:
+              Digite o código impresso na etiqueta do código QR (ex:
               LORENAH4FC29) para abrir o equipamento sem escanear.
             </p>
             <form onSubmit={handleOpen} className="space-y-3">

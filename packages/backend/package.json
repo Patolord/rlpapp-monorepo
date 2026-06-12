@@ -18,17 +18,26 @@
   },
   "scripts": {
     "dev": "convex dev",
-    "dev:setup": "convex dev --configure --until-success"
+    "dev:setup": "convex dev --configure --until-success",
+    "check-types": "tsc -p convex --noEmit",
+    "lint": "eslint convex",
+    "test": "vitest run"
   },
   "dependencies": {
     "convex": "catalog:",
-    "dotenv": "catalog:",
+    "convex-helpers": "^0.1.119",
     "svix": "^1.95.2",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@convex-dev/eslint-plugin": "^2.0.0",
+    "@edge-runtime/vm": "^5.0.0",
     "@rlpapp/config": "workspace:*",
     "@types/node": "^25.6.2",
-    "typescript": "catalog:"
+    "convex-test": "^0.0.53",
+    "eslint": "^9.39.4",
+    "typescript": "catalog:",
+    "typescript-eslint": "^8.61.0",
+    "vitest": "^4.1.8"
   }
 }

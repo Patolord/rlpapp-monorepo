@@ -1,0 +1,18 @@
+{
+  "name": "@rlpapp/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./formatters": "./src/formatters.ts",
+    "./labels": "./src/labels.ts"
+  },
+  "devDependencies": {
+    "@rlpapp/config": "workspace:*",
+    "typescript": "catalog:"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit"
+  }
+}

@@ -1,11 +1,12 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
+import { useQuery, useMutation } from "convex/react";
 import {
   Plus,
   Pencil,
   CheckCircle2,
-  XCircle,
   Ban,
   DollarSign,
   Search,
@@ -43,7 +44,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { getErrorMessage } from "@/lib/errors";
+import { formatCurrency, formatDate } from "@rlpapp/shared";
+
+type Conta = FunctionReturnType<typeof api.contasPagar.list>[number];
+type FormaPagamento = NonNullable<Conta["formaPagamento"]>;
 
 export const Route = createFileRoute("/financeiro/contas-pagar")({
   component: ContasPagarPage,
@@ -85,19 +91,9 @@ const statusConfig: Record<string, { label: string; variant: string; className: 
 
 function ContasPagarPage() {
   return (
-    <>
-      <Authenticated>
-        <ContasPagarContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <ContasPagarContent />
+    </AuthShell>
   );
 }
 
@@ -114,8 +110,8 @@ function ContasPagarContent() {
   const cancelarConta = useMutation(api.contasPagar.cancelar);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingConta, setEditingConta] = useState<any>(null);
-  const [isPagamentoOpen, setIsPagamentoOpen] = useState<any>(null);
+  const [editingConta, setEditingConta] = useState<Conta | null>(null);
+  const [isPagamentoOpen, setIsPagamentoOpen] = useState<Conta | null>(null);
   const [formData, setFormData] = useState<FormData>({ ...emptyForm });
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -159,18 +155,26 @@ function ContasPagarContent() {
         dataCompetencia: formData.dataCompetencia
           ? new Date(formData.dataCompetencia).getTime()
           : new Date(formData.dataVencimento).getTime(),
-        categoriaId: formData.categoriaId ? (formData.categoriaId as any) : undefined,
-        fornecedorId: formData.fornecedorId ? (formData.fornecedorId as any) : undefined,
-        contaBancariaId: formData.contaBancariaId ? (formData.contaBancariaId as any) : undefined,
-        formaPagamento: formData.formaPagamento ? (formData.formaPagamento as any) : undefined,
+        categoriaId: formData.categoriaId
+          ? (formData.categoriaId as Id<"categoriasFinanceiras">)
+          : undefined,
+        fornecedorId: formData.fornecedorId
+          ? (formData.fornecedorId as Id<"suppliers">)
+          : undefined,
+        contaBancariaId: formData.contaBancariaId
+          ? (formData.contaBancariaId as Id<"contasBancarias">)
+          : undefined,
+        formaPagamento: formData.formaPagamento
+          ? (formData.formaPagamento as FormaPagamento)
+          : undefined,
         recorrente: formData.recorrente || undefined,
         observacoes: formData.observacoes || undefined,
       });
       toast.success("Conta a pagar criada com sucesso");
       setIsCreateOpen(false);
       resetForm();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao criar conta");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao criar conta"));
     }
   };
 
@@ -190,27 +194,35 @@ function ContasPagarContent() {
         dataCompetencia: formData.dataCompetencia
           ? new Date(formData.dataCompetencia).getTime()
           : undefined,
-        categoriaId: formData.categoriaId ? (formData.categoriaId as any) : undefined,
-        fornecedorId: formData.fornecedorId ? (formData.fornecedorId as any) : undefined,
-        contaBancariaId: formData.contaBancariaId ? (formData.contaBancariaId as any) : undefined,
-        formaPagamento: formData.formaPagamento ? (formData.formaPagamento as any) : undefined,
+        categoriaId: formData.categoriaId
+          ? (formData.categoriaId as Id<"categoriasFinanceiras">)
+          : undefined,
+        fornecedorId: formData.fornecedorId
+          ? (formData.fornecedorId as Id<"suppliers">)
+          : undefined,
+        contaBancariaId: formData.contaBancariaId
+          ? (formData.contaBancariaId as Id<"contasBancarias">)
+          : undefined,
+        formaPagamento: formData.formaPagamento
+          ? (formData.formaPagamento as FormaPagamento)
+          : undefined,
         recorrente: formData.recorrente || undefined,
         observacoes: formData.observacoes || undefined,
       });
       toast.success("Conta atualizada com sucesso");
       setEditingConta(null);
       resetForm();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao atualizar conta");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao atualizar conta"));
     }
   };
 
-  const handleAprovar = async (id: any) => {
+  const handleAprovar = async (id: Id<"contasPagar">) => {
     try {
       await aprovarConta({ id });
       toast.success("Conta aprovada");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao aprovar");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao aprovar"));
     }
   };
 
@@ -221,30 +233,30 @@ function ContasPagarContent() {
         id: isPagamentoOpen._id,
         dataPagamento: new Date(pagamentoData.dataPagamento).getTime(),
         formaPagamento: pagamentoData.formaPagamento
-          ? (pagamentoData.formaPagamento as any)
+          ? (pagamentoData.formaPagamento as FormaPagamento)
           : undefined,
         contaBancariaId: pagamentoData.contaBancariaId
-          ? (pagamentoData.contaBancariaId as any)
+          ? (pagamentoData.contaBancariaId as Id<"contasBancarias">)
           : undefined,
       });
       toast.success("Pagamento registrado");
       setIsPagamentoOpen(null);
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao registrar pagamento");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao registrar pagamento"));
     }
   };
 
-  const handleCancelar = async (id: any) => {
+  const handleCancelar = async (id: Id<"contasPagar">) => {
     if (!confirm("Deseja realmente cancelar esta conta?")) return;
     try {
       await cancelarConta({ id });
       toast.success("Conta cancelada");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao cancelar");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao cancelar"));
     }
   };
 
-  const openEdit = (conta: any) => {
+  const openEdit = (conta: Conta) => {
     setEditingConta(conta);
     setFormData({
       descricao: conta.descricao,
@@ -522,7 +534,7 @@ function ContasPagarContent() {
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-[180px]">
             <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder="Situação" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
@@ -561,7 +573,7 @@ function ContasPagarContent() {
                   <TableHead>Categoria</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead>Vencimento</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Situação</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -654,17 +666,3 @@ function ContasPagarContent() {
   );
 }
 
-function formatCurrency(valueInCents: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(valueInCents / 100);
-}
-
-function formatDate(timestamp: number) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(timestamp);
-}

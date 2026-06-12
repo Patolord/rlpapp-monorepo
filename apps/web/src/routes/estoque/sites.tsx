@@ -1,9 +1,9 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Doc, Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +27,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { runWithToast } from "@/lib/errors";
 
 export const Route = createFileRoute("/estoque/sites")({
   component: SitesPage,
@@ -35,19 +36,9 @@ export const Route = createFileRoute("/estoque/sites")({
 
 function SitesPage() {
   return (
-    <>
-      <Authenticated>
-        <SitesContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <SitesContent />
+    </AuthShell>
   );
 }
 
@@ -58,7 +49,7 @@ function SitesContent() {
   const removeSite = useMutation(api.sites.remove);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingSite, setEditingSite] = useState<any>(null);
+  const [editingSite, setEditingSite] = useState<Doc<"sites"> | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -72,50 +63,51 @@ function SitesContent() {
   };
 
   const handleCreate = async () => {
-    try {
-      await createSite({
-        name: formData.name,
-        address: formData.address || undefined,
-        responsibleName: formData.responsibleName || undefined,
-        responsiblePhone: formData.responsiblePhone || undefined,
-      });
-      toast.success("Site criado com sucesso");
-      setIsCreateOpen(false);
-      resetForm();
-    } catch (error) {
-      toast.error("Erro ao criar site");
+    const ok = await runWithToast(
+      () => createSite({
+          name: formData.name,
+          address: formData.address || undefined,
+          responsibleName: formData.responsibleName || undefined,
+          responsiblePhone: formData.responsiblePhone || undefined,
+        }),
+      "Obra criada com sucesso",
+      "Erro ao criar obra"
+    );
+    if (ok) {
+        setIsCreateOpen(false);
+        resetForm();
     }
   };
 
   const handleUpdate = async () => {
     if (!editingSite) return;
-    try {
-      await updateSite({
-        id: editingSite._id,
-        name: formData.name,
-        address: formData.address || undefined,
-        responsibleName: formData.responsibleName || undefined,
-        responsiblePhone: formData.responsiblePhone || undefined,
-      });
-      toast.success("Site atualizado com sucesso");
-      setEditingSite(null);
-      resetForm();
-    } catch (error) {
-      toast.error("Erro ao atualizar site");
+    const ok = await runWithToast(
+      () => updateSite({
+          id: editingSite._id,
+          name: formData.name,
+          address: formData.address || undefined,
+          responsibleName: formData.responsibleName || undefined,
+          responsiblePhone: formData.responsiblePhone || undefined,
+        }),
+      "Obra atualizada com sucesso",
+      "Erro ao atualizar obra"
+    );
+    if (ok) {
+        setEditingSite(null);
+        resetForm();
     }
   };
 
-  const handleDelete = async (id: any) => {
+  const handleDelete = async (id: Id<"sites">) => {
     if (!confirm("Deseja realmente desativar este site?")) return;
-    try {
-      await removeSite({ id });
-      toast.success("Site desativado com sucesso");
-    } catch (error) {
-      toast.error("Erro ao desativar site");
-    }
+    await runWithToast(
+      () => removeSite({ id }),
+      "Obra desativada com sucesso",
+      "Erro ao desativar obra"
+    );
   };
 
-  const openEdit = (site: any) => {
+  const openEdit = (site: Doc<"sites">) => {
     setEditingSite(site);
     setFormData({
       name: site.name,
@@ -129,26 +121,26 @@ function SitesContent() {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Sites</h1>
+          <h1 className="text-2xl font-bold">Obras</h1>
           <p className="text-muted-foreground">Gerencie os locais de entrega</p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => resetForm()}>
               <Plus className="h-4 w-4 mr-2" />
-              Novo Site
+              Nova obra
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Novo Site</DialogTitle>
+              <DialogTitle>Nova obra</DialogTitle>
               <DialogDescription>
                 Preencha os dados do local de entrega
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="name">Nome do Site</Label>
+                <Label htmlFor="name">Nome da obra</Label>
                 <Input
                   id="name"
                   value={formData.name}
@@ -196,14 +188,14 @@ function SitesContent() {
       <Dialog open={!!editingSite} onOpenChange={(open) => !open && setEditingSite(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar Site</DialogTitle>
+            <DialogTitle>Editar obra</DialogTitle>
             <DialogDescription>
               Atualize os dados do local de entrega
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="edit-name">Nome do Site</Label>
+              <Label htmlFor="edit-name">Nome da obra</Label>
               <Input
                 id="edit-name"
                 value={formData.name}
@@ -248,7 +240,7 @@ function SitesContent() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Sites</CardTitle>
+          <CardTitle>Lista de obras</CardTitle>
         </CardHeader>
         <CardContent>
           {!sites ? (
@@ -263,7 +255,7 @@ function SitesContent() {
                   <TableHead>Endereço</TableHead>
                   <TableHead>Responsável</TableHead>
                   <TableHead>Telefone</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Situação</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>

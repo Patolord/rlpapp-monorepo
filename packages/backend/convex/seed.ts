@@ -10,17 +10,6 @@ function daysFromNow(days: number): number {
   return Date.now() + days * 24 * 60 * 60 * 1000;
 }
 
-function startOfMonth(monthsAgo: number): number {
-  const d = new Date();
-  d.setMonth(d.getMonth() - monthsAgo, 1);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
-function randomDate(from: number, to: number): number {
-  return from + Math.random() * (to - from);
-}
-
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -292,8 +281,6 @@ export const run = internalMutation({
     // ──────────────────────────────────────────────
     // 9. TRANSAÇÕES BANCÁRIAS + CONCILIAÇÕES
     // ──────────────────────────────────────────────
-    const transacoesPendentes = [];
-
     // Transações conciliadas (matching contas pagas)
     for (let i = 0; i < 10; i++) {
       const contaBancId = pick(contaBancariaIds);
@@ -493,7 +480,7 @@ export const run = internalMutation({
         updatedAt: created,
       });
 
-      await ctx.db.patch(shipmentId, {
+      await ctx.db.patch("shipments", shipmentId, {
         qrCodeData: JSON.stringify({
           shipmentId,
           toSiteId,

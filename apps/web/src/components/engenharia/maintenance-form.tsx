@@ -34,10 +34,10 @@ export const OBSERVATION_TAGS = [
 ] as const;
 
 const TEST_OPTIONS = [
-  { key: "vacuum", label: "Vácuo OK" },
-  { key: "pressure", label: "Pressão OK" },
-  { key: "communication", label: "Comunicação OK" },
-  { key: "gas", label: "Carga de gás OK" },
+  { key: "vacuum", label: "Vácuo conforme" },
+  { key: "pressure", label: "Pressão conforme" },
+  { key: "communication", label: "Comunicação conforme" },
+  { key: "gas", label: "Carga de gás conforme" },
 ] as const;
 
 type TestKey = (typeof TEST_OPTIONS)[number]["key"];
@@ -204,7 +204,7 @@ export function MaintenanceForm({
           )}
 
           <div className="space-y-2">
-            <Label className="text-base">Status do Equipamento</Label>
+            <Label className="text-base">Situação do equipamento</Label>
             <Select
               value={status}
               onValueChange={(v) => setStatus(v as EquipmentStatus)}

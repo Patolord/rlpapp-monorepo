@@ -1,9 +1,9 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Doc, Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +27,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { runWithToast } from "@/lib/errors";
 
 export const Route = createFileRoute("/estoque/fornecedores")({
   component: FornecedoresPage,
@@ -35,19 +36,9 @@ export const Route = createFileRoute("/estoque/fornecedores")({
 
 function FornecedoresPage() {
   return (
-    <>
-      <Authenticated>
-        <FornecedoresContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <FornecedoresContent />
+    </AuthShell>
   );
 }
 
@@ -58,7 +49,7 @@ function FornecedoresContent() {
   const removeSupplier = useMutation(api.suppliers.remove);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingSupplier, setEditingSupplier] = useState<any>(null);
+  const [editingSupplier, setEditingSupplier] = useState<Doc<"suppliers"> | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -73,52 +64,53 @@ function FornecedoresContent() {
   };
 
   const handleCreate = async () => {
-    try {
-      await createSupplier({
-        name: formData.name,
-        contactName: formData.contactName || undefined,
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        address: formData.address || undefined,
-      });
-      toast.success("Fornecedor criado com sucesso");
-      setIsCreateOpen(false);
-      resetForm();
-    } catch (error) {
-      toast.error("Erro ao criar fornecedor");
+    const ok = await runWithToast(
+      () => createSupplier({
+          name: formData.name,
+          contactName: formData.contactName || undefined,
+          email: formData.email || undefined,
+          phone: formData.phone || undefined,
+          address: formData.address || undefined,
+        }),
+      "Fornecedor criado com sucesso",
+      "Erro ao criar fornecedor"
+    );
+    if (ok) {
+        setIsCreateOpen(false);
+        resetForm();
     }
   };
 
   const handleUpdate = async () => {
     if (!editingSupplier) return;
-    try {
-      await updateSupplier({
-        id: editingSupplier._id,
-        name: formData.name,
-        contactName: formData.contactName || undefined,
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        address: formData.address || undefined,
-      });
-      toast.success("Fornecedor atualizado com sucesso");
-      setEditingSupplier(null);
-      resetForm();
-    } catch (error) {
-      toast.error("Erro ao atualizar fornecedor");
+    const ok = await runWithToast(
+      () => updateSupplier({
+          id: editingSupplier._id,
+          name: formData.name,
+          contactName: formData.contactName || undefined,
+          email: formData.email || undefined,
+          phone: formData.phone || undefined,
+          address: formData.address || undefined,
+        }),
+      "Fornecedor atualizado com sucesso",
+      "Erro ao atualizar fornecedor"
+    );
+    if (ok) {
+        setEditingSupplier(null);
+        resetForm();
     }
   };
 
-  const handleDelete = async (id: any) => {
+  const handleDelete = async (id: Id<"suppliers">) => {
     if (!confirm("Deseja realmente desativar este fornecedor?")) return;
-    try {
-      await removeSupplier({ id });
-      toast.success("Fornecedor desativado com sucesso");
-    } catch (error) {
-      toast.error("Erro ao desativar fornecedor");
-    }
+    await runWithToast(
+      () => removeSupplier({ id }),
+      "Fornecedor desativado com sucesso",
+      "Erro ao desativar fornecedor"
+    );
   };
 
-  const openEdit = (supplier: any) => {
+  const openEdit = (supplier: Doc<"suppliers">) => {
     setEditingSupplier(supplier);
     setFormData({
       name: supplier.name,
@@ -169,7 +161,7 @@ function FornecedoresContent() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">E-mail</Label>
                   <Input
                     id="email"
                     type="email"
@@ -233,7 +225,7 @@ function FornecedoresContent() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="edit-email">Email</Label>
+                <Label htmlFor="edit-email">E-mail</Label>
                 <Input
                   id="edit-email"
                   type="email"
@@ -283,9 +275,9 @@ function FornecedoresContent() {
                 <TableRow>
                   <TableHead>Empresa</TableHead>
                   <TableHead>Contato</TableHead>
-                  <TableHead>Email</TableHead>
+                  <TableHead>E-mail</TableHead>
                   <TableHead>Telefone</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Situação</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>

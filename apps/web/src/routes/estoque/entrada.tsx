@@ -1,7 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { Plus, Check, Undo2, Trash2, ChevronDown, ChevronRight, ArrowDownToLine } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -35,7 +35,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { getErrorMessage } from "@/lib/errors";
+import { RECEIPT_STATUS_LABELS, RECEIPT_STATUS_VARIANTS, formatDateTime } from "@rlpapp/shared";
 
 export const Route = createFileRoute("/estoque/entrada")({
   component: EntradaPage,
@@ -43,19 +45,9 @@ export const Route = createFileRoute("/estoque/entrada")({
 
 function EntradaPage() {
   return (
-    <>
-      <Authenticated>
-        <EntradaContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <EntradaContent />
+    </AuthShell>
   );
 }
 
@@ -63,20 +55,6 @@ type ReceiptLineForm = {
   productId: string;
   qty: number;
   unitCost: string;
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  PendingReceipt: "Pendente",
-  Accepted: "Aceito",
-  Returned: "Devolvido",
-  Discarded: "Descartado",
-};
-
-const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  PendingReceipt: "outline",
-  Accepted: "default",
-  Returned: "secondary",
-  Discarded: "destructive",
 };
 
 function EntradaContent() {
@@ -151,8 +129,8 @@ function EntradaContent() {
       toast.success("Recibo criado com sucesso");
       setIsCreateOpen(false);
       resetForm();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao criar recibo");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao criar recibo"));
     }
   };
 
@@ -160,8 +138,8 @@ function EntradaContent() {
     try {
       await acceptReceipt({ receiptId });
       toast.success("Recibo aceito - entrada registrada");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao aceitar recibo");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao aceitar recibo"));
     }
   };
 
@@ -169,8 +147,8 @@ function EntradaContent() {
     try {
       await returnReceipt({ receiptId });
       toast.success("Recibo devolvido");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao devolver recibo");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao devolver recibo"));
     }
   };
 
@@ -179,13 +157,10 @@ function EntradaContent() {
     try {
       await discardReceipt({ receiptId });
       toast.success("Recibo descartado");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao descartar recibo");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao descartar recibo"));
     }
   };
-
-  const formatDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleString("pt-BR");
 
   return (
     <div className="p-4 space-y-4">
@@ -268,7 +243,7 @@ function EntradaContent() {
                       </Select>
                     </div>
                     <div className="grid gap-1">
-                      {i === 0 && <Label className="text-xs">Qtd</Label>}
+                      {i === 0 && <Label className="text-xs">Quantidade</Label>}
                       <Input
                         type="number"
                         min={1}
@@ -329,7 +304,7 @@ function EntradaContent() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8" />
-                  <TableHead>Status</TableHead>
+                  <TableHead>Situação</TableHead>
                   <TableHead>Fornecedor</TableHead>
                   <TableHead>Linhas</TableHead>
                   <TableHead>Data</TableHead>
@@ -338,7 +313,7 @@ function EntradaContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {receipts.map((receipt: any) => (
+                {receipts.map((receipt) => (
                   <>
                     <TableRow
                       key={receipt._id}
@@ -355,13 +330,13 @@ function EntradaContent() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={STATUS_VARIANTS[receipt.status] ?? "outline"}>
-                          {STATUS_LABELS[receipt.status] ?? receipt.status}
+                        <Badge variant={RECEIPT_STATUS_VARIANTS[receipt.status] ?? "outline"}>
+                          {RECEIPT_STATUS_LABELS[receipt.status] ?? receipt.status}
                         </Badge>
                       </TableCell>
                       <TableCell>{receipt.supplier?.name ?? "-"}</TableCell>
                       <TableCell>{receipt.lines.length} produto(s)</TableCell>
-                      <TableCell>{formatDate(receipt.createdAt)}</TableCell>
+                      <TableCell>{formatDateTime(receipt.createdAt)}</TableCell>
                       <TableCell className="max-w-[150px] truncate">
                         {receipt.notes ?? "-"}
                       </TableCell>
@@ -400,14 +375,14 @@ function EntradaContent() {
                                 <TableRow>
                                   <TableHead>Produto</TableHead>
                                   <TableHead>Quantidade</TableHead>
-                                  <TableHead>Qtd Contada</TableHead>
+                                  <TableHead>Quantidade contada</TableHead>
                                   <TableHead>Custo Unit.</TableHead>
                                   <TableHead>Fonte Custo</TableHead>
                                   <TableHead>Estimado</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {receipt.lines.map((line: any) => (
+                                {receipt.lines.map((line) => (
                                   <TableRow key={line._id}>
                                     <TableCell className="font-medium">
                                       {line.product?.name ?? "Produto não encontrado"}

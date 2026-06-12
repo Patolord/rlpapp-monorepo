@@ -1,6 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Doc, Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { Plus, Pencil, ToggleLeft, ToggleRight } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -34,7 +35,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { runWithToast } from "@/lib/errors";
 
 export const Route = createFileRoute("/financeiro/categorias")({
   component: CategoriasPage,
@@ -54,19 +56,9 @@ const tipoColors: Record<string, string> = {
 
 function CategoriasPage() {
   return (
-    <>
-      <Authenticated>
-        <CategoriasContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <CategoriasContent />
+    </AuthShell>
   );
 }
 
@@ -77,7 +69,7 @@ function CategoriasContent() {
   const toggleCategoria = useMutation(api.categoriasFinanceiras.toggleActive);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingCategoria, setEditingCategoria] = useState<any>(null);
+  const [editingCategoria, setEditingCategoria] = useState<Doc<"categoriasFinanceiras"> | null>(null);
 
   const [formData, setFormData] = useState({
     nome: "",
@@ -97,7 +89,7 @@ function CategoriasContent() {
       }
       await createCategoria({
         nome: formData.nome,
-        tipo: formData.tipo as any,
+        tipo: formData.tipo as "despesa" | "receita" | "ambos",
         cor: formData.cor || undefined,
       });
       toast.success("Categoria criada com sucesso");
@@ -110,31 +102,31 @@ function CategoriasContent() {
 
   const handleUpdate = async () => {
     if (!editingCategoria) return;
-    try {
-      await updateCategoria({
-        id: editingCategoria._id,
-        nome: formData.nome,
-        tipo: formData.tipo as any,
-        cor: formData.cor || undefined,
-      });
-      toast.success("Categoria atualizada com sucesso");
-      setEditingCategoria(null);
-      resetForm();
-    } catch (error) {
-      toast.error("Erro ao atualizar categoria");
+    const ok = await runWithToast(
+      () => updateCategoria({
+          id: editingCategoria._id,
+          nome: formData.nome,
+          tipo: formData.tipo as "despesa" | "receita" | "ambos",
+          cor: formData.cor || undefined,
+        }),
+      "Categoria atualizada com sucesso",
+      "Erro ao atualizar categoria"
+    );
+    if (ok) {
+        setEditingCategoria(null);
+        resetForm();
     }
   };
 
-  const handleToggle = async (id: any) => {
-    try {
-      await toggleCategoria({ id });
-      toast.success("Status alterado");
-    } catch (error) {
-      toast.error("Erro ao alterar status");
-    }
+  const handleToggle = async (id: Id<"categoriasFinanceiras">) => {
+    await runWithToast(
+      () => toggleCategoria({ id }),
+      "Situação alterada",
+      "Erro ao alterar status"
+    );
   };
 
-  const openEdit = (cat: any) => {
+  const openEdit = (cat: Doc<"categoriasFinanceiras">) => {
     setEditingCategoria(cat);
     setFormData({
       nome: cat.nome,
@@ -254,7 +246,7 @@ function CategoriasContent() {
                   <TableHead>Cor</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Tipo</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Situação</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>

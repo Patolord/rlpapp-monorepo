@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import { Platform, useWindowDimensions } from "react-native";
-import { Home, Package, ArrowDownCircle, ArrowUpCircle } from "lucide-react-native";
+import { Package, ArrowDownCircle, ArrowUpCircle } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import { COLORS } from "@/lib/colors";
@@ -51,13 +51,8 @@ export default function TabLayout() {
         },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color, size }) => <Home size={20} color={color} />,
-        }}
-      />
+      {/* Rota default do grupo: apenas redireciona para o estoque */}
+      <Tabs.Screen name="index" options={{ href: null }} />
       <Tabs.Screen
         name="estoque"
         options={{

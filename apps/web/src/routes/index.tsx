@@ -1,4 +1,7 @@
-import { useAuth, useSignIn } from "@clerk/tanstack-react-start";
+import { useAuth } from "@clerk/tanstack-react-start";
+// Entry "legacy": mantém a API useSignIn com setActive/status usada neste fluxo
+// (a entry principal do Clerk v6 expõe a nova API de signals, incompatível).
+import { useSignIn } from "@clerk/tanstack-react-start/legacy";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -42,7 +45,7 @@ function IndexPage() {
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      navigate({ to: destination });
+      void navigate({ to: destination });
     }
   }, [isLoaded, isSignedIn, navigate, destination]);
 

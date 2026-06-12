@@ -1,7 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { Plus, Minus, Settings } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -35,7 +35,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { getErrorMessage } from "@/lib/errors";
+import { formatDateTime } from "@rlpapp/shared";
 
 export const Route = createFileRoute("/estoque/ajustes")({
   component: AjustesPage,
@@ -43,19 +45,9 @@ export const Route = createFileRoute("/estoque/ajustes")({
 
 function AjustesPage() {
   return (
-    <>
-      <Authenticated>
-        <AjustesContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <AjustesContent />
+    </AuthShell>
   );
 }
 
@@ -107,13 +99,10 @@ function AjustesContent() {
       toast.success("Ajuste realizado com sucesso");
       setIsAdjustOpen(false);
       resetForm();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao realizar ajuste");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao realizar ajuste"));
     }
   };
-
-  const formatDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleString("pt-BR");
 
   return (
     <div className="p-4 space-y-4">
@@ -135,7 +124,7 @@ function AjustesContent() {
             <DialogHeader>
               <DialogTitle>Ajuste de Inventário</DialogTitle>
               <DialogDescription>
-                Cria um evento InventoryAdjust no ledger
+                Cria um ajuste de inventário no histórico de eventos
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -231,9 +220,9 @@ function AjustesContent() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Snapshot do Estoque (Armazém)</CardTitle>
+          <CardTitle>Posição atual do estoque (armazém)</CardTitle>
           <CardDescription>
-            Derivado do ledger de eventos de inventário
+            Calculado a partir do histórico de eventos de inventário
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -249,12 +238,12 @@ function AjustesContent() {
                   <TableHead>Quantidade</TableHead>
                   <TableHead>Custo Médio</TableHead>
                   <TableHead>Valor Total</TableHead>
-                  <TableHead>Qtd. Mínima</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Quantidade mínima</TableHead>
+                  <TableHead>Situação</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {stock.map((item: any) => (
+                {stock.map((item) => (
                   <TableRow key={item._id}>
                     <TableCell className="font-medium">
                       {item.product?.name ?? "Produto não encontrado"}
@@ -274,7 +263,7 @@ function AjustesContent() {
                       item.qtyOnHand < item.product.minQuantity ? (
                         <Badge variant="destructive">Abaixo do Mínimo</Badge>
                       ) : (
-                        <Badge variant="secondary">OK</Badge>
+                        <Badge variant="secondary">Conforme</Badge>
                       )}
                     </TableCell>
                   </TableRow>
@@ -301,16 +290,16 @@ function AjustesContent() {
                 <TableRow>
                   <TableHead>Data</TableHead>
                   <TableHead>Produto</TableHead>
-                  <TableHead>Delta</TableHead>
+                  <TableHead>Variação</TableHead>
                   <TableHead>Motivo</TableHead>
                   <TableHead>Usuário</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {adjustEvents.map((event: any) => (
+                {adjustEvents.map((event) => (
                   <TableRow key={event._id}>
                     <TableCell className="whitespace-nowrap">
-                      {formatDate(event.createdAt)}
+                      {formatDateTime(event.createdAt)}
                     </TableCell>
                     <TableCell className="font-medium">
                       {event.product?.name ?? "?"}

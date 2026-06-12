@@ -1,4 +1,5 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Doc, Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery, useMutation } from "convex/react";
 import { Plus, Pencil, Trash2, Lock } from "lucide-react-native";
 import { useState } from "react";
@@ -43,7 +44,7 @@ function FornecedoresContent() {
   const removeSupplier = useMutation(api.suppliers.remove);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingSupplier, setEditingSupplier] = useState<any>(null);
+  const [editingSupplier, setEditingSupplier] = useState<Doc<"suppliers"> | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -91,7 +92,7 @@ function FornecedoresContent() {
     }
   };
 
-  const handleDelete = (id: any) => {
+  const handleDelete = (id: Id<"suppliers">) => {
     Alert.alert("Confirmar", "Deseja realmente desativar este fornecedor?", [
       { text: "Cancelar", style: "cancel" },
       {
@@ -108,7 +109,7 @@ function FornecedoresContent() {
     ]);
   };
 
-  const openEdit = (supplier: any) => {
+  const openEdit = (supplier: Doc<"suppliers">) => {
     setEditingSupplier(supplier);
     setFormData({
       name: supplier.name,

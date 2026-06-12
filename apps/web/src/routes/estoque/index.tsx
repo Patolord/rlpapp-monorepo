@@ -1,6 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { Link } from "@tanstack/react-router";
 import {
   ChevronRight,
@@ -20,7 +20,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { AuthShell } from "@/components/auth-shell";
+import { formatNumber } from "@rlpapp/shared";
 
 export const Route = createFileRoute("/estoque/")({
   component: EstoqueDashboard,
@@ -28,19 +29,9 @@ export const Route = createFileRoute("/estoque/")({
 
 function EstoqueDashboard() {
   return (
-    <>
-      <Authenticated>
-        <DashboardContent />
-      </Authenticated>
-      <Unauthenticated>
-        <ConvexUnauthRedirect />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </AuthLoading>
-    </>
+    <AuthShell>
+      <DashboardContent />
+    </AuthShell>
   );
 }
 
@@ -66,7 +57,7 @@ function DashboardContent() {
     <div className="min-h-full p-6">
       <div className="mx-auto max-w-7xl space-y-6">
       <div>
-        <h1 className="text-4xl font-semibold tracking-tight">Dashboard de Estoque</h1>
+        <h1 className="text-4xl font-semibold tracking-tight">Painel de estoque</h1>
         <p className="text-sm text-muted-foreground">Visão geral do sistema de inventário</p>
       </div>
 
@@ -74,13 +65,13 @@ function DashboardContent() {
         <MetricCard
           title="Produtos Cadastrados"
           value={formatNumber(summary.totalProducts)}
-          subtitle={`+${Math.max(summary.totalProducts - summary.totalSites, 0)} este mes`}
+          subtitle={`+${Math.max(summary.totalProducts - summary.totalSites, 0)} este mês`}
           icon={<Package className="h-5 w-5 text-foreground" />}
         />
         <MetricCard
-          title="Sites Ativos"
+          title="Obras ativas"
           value={formatNumber(summary.totalSites)}
-          subtitle={`+${summary.totalSites > 0 ? Math.min(summary.totalSites, 3) : 0} este mes`}
+          subtitle={`+${summary.totalSites > 0 ? Math.min(summary.totalSites, 3) : 0} este mês`}
           icon={<MapPin className="h-5 w-5 text-foreground" />}
         />
         <MetricCard
@@ -113,10 +104,10 @@ function DashboardContent() {
           icon={<ClipboardList className="h-4 w-4 text-foreground" />}
           footerLabel="Ver todas as solicitações"
           footerLink="/estoque/solicitacoes"
-          items={(summary.recentPendingRequests ?? []).map((req: any) => ({
+          items={(summary.recentPendingRequests ?? []).map((req) => ({
             id: req._id,
             title: req.requesterName,
-            subtitle: `${req.siteName} • ${req.lineCount} produto(s) • ${req.urgency === "critico" ? "CRÍTICO" : req.urgency === "urgente" ? "Urgente" : "Normal"}`,
+            subtitle: `${req.siteName} • ${req.lineCount} produto(s) • ${req.urgency === "critico" ? "CRÍTICO" : req.urgency === "urgente" ? "Urgente" : "Padrão"}`,
             meta: `Necessário até ${formatDate(req.dateNeeded)}`,
             badge: req.urgency === "critico" ? "Crítico" : req.urgency === "urgente" ? "Urgente" : "Pendente",
             badgeVariant: req.urgency === "critico" ? "warning" : req.urgency === "urgente" ? "warning" : "success" as "warning" | "success",
@@ -127,13 +118,13 @@ function DashboardContent() {
 
         <DashboardListCard
           title="Entregas Recentes"
-          description="Últimas confirmações de recebimento via QR"
+          description="Últimas confirmações de recebimento via código QR"
           count={(summary.recentDeliveries ?? []).length}
           countVariant="secondary"
           icon={<ClipboardCheck className="h-4 w-4 text-foreground" />}
           footerLabel="Ver histórico completo"
           footerLink="/estoque/historico-entregas"
-          items={(summary.recentDeliveries ?? []).map((d: any) => ({
+          items={(summary.recentDeliveries ?? []).map((d) => ({
             id: d._id,
             title: d.receiverName,
             subtitle: `${d.siteName}`,
@@ -442,10 +433,6 @@ function QuickActionButton({
       </span>
     </Button>
   );
-}
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("pt-BR").format(value);
 }
 
 function formatDate(timestamp: number) {

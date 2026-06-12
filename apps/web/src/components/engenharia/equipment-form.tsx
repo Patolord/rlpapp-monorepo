@@ -166,7 +166,7 @@ export function EquipmentForm({ qrToken, onSuccess }: EquipmentFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-base">Status</Label>
+            <Label className="text-base">Situação</Label>
             <Select
               value={status}
               onValueChange={(v) => setStatus(v as EquipmentStatus)}
@@ -200,7 +200,7 @@ export function EquipmentForm({ qrToken, onSuccess }: EquipmentFormProps) {
             <div className="space-y-4 rounded-md border p-4">
               <div className="space-y-2">
                 <Label htmlFor="tag" className="text-base">
-                  Tag do Equipamento
+                  Identificador do equipamento
                 </Label>
                 <Input
                   id="tag"

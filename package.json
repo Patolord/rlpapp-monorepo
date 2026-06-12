@@ -15,6 +15,8 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "check-types": "turbo check-types",
+    "lint": "turbo lint",
+    "test": "turbo test",
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
     "dev:web:server": "turbo -F web -F @rlpapp/backend dev",
@@ -24,7 +26,6 @@
   "dependencies": {
     "@rlpapp/env": "workspace:*",
     "@tanstack/react-start": "^1.167.65",
-    "dotenv": "catalog:",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "zod": "catalog:"

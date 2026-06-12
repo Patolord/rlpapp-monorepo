@@ -1,38 +1,52 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Search, ChevronLeft, ChevronRight, MoreHorizontal, X } from "lucide-react";
 import { useQueryState, parseAsString, parseAsInteger } from "nuqs";
 import { projectsData } from "../data/project-data";
-import type { ProjectType } from "../lib/types";
 
 export default function ProjectsPage() {
-  const [filteredProjects, setFilteredProjects] =
-    useState<ProjectType[]>(projectsData);
-  
   // Usando nuqs para sincronizar filtros com a URL
   const [currentPage, setCurrentPage] = useQueryState(
     "pagina",
     parseAsInteger.withDefault(1).withOptions({ history: "push" })
   );
-  const [searchTerm, setSearchTerm] = useQueryState(
+  const [searchTerm, setSearchTermRaw] = useQueryState(
     "busca",
     parseAsString.withDefault("").withOptions({ history: "push" })
   );
-  const [selectedCategory, setSelectedCategory] = useQueryState(
+  const [selectedCategory, setSelectedCategoryRaw] = useQueryState(
     "categoria",
     parseAsString.withDefault("all").withOptions({ history: "push" })
   );
-  const [selectedClient, setSelectedClient] = useQueryState(
+  const [selectedClient, setSelectedClientRaw] = useQueryState(
     "cliente",
     parseAsString.withDefault("all").withOptions({ history: "push" })
   );
-  const [selectedYear, setSelectedYear] = useQueryState(
+  const [selectedYear, setSelectedYearRaw] = useQueryState(
     "ano",
     parseAsString.withDefault("all").withOptions({ history: "push" })
   );
+
+  // Mudar qualquer filtro volta para a primeira página
+  const setSearchTerm = (value: string) => {
+    void setSearchTermRaw(value);
+    void setCurrentPage(1);
+  };
+  const setSelectedCategory = (value: string) => {
+    void setSelectedCategoryRaw(value);
+    void setCurrentPage(1);
+  };
+  const setSelectedClient = (value: string) => {
+    void setSelectedClientRaw(value);
+    void setCurrentPage(1);
+  };
+  const setSelectedYear = (value: string) => {
+    void setSelectedYearRaw(value);
+    void setCurrentPage(1);
+  };
   
   // State para tratamento de erros de imagem
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
@@ -46,6 +60,42 @@ export default function ProjectsPage() {
     (selectedCategory !== "all" ? 1 : 0) +
     (selectedClient !== "all" ? 1 : 0) +
     (selectedYear !== "all" ? 1 : 0);
+
+  // Filter projects based on search term, category, client, and year
+  const filteredProjects = useMemo(() => {
+    let results = projectsData;
+
+    if (searchTerm) {
+      results = results.filter(
+        (project) =>
+          project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          project.description.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (selectedCategory !== "all") {
+      results = results.filter(
+        (project) => project.category === selectedCategory
+      );
+    }
+
+    if (selectedClient !== "all") {
+      results = results.filter((project) => {
+        if (Array.isArray(project.client)) {
+          return project.client.includes(selectedClient);
+        }
+        return project.client === selectedClient;
+      });
+    }
+
+    if (selectedYear !== "all") {
+      results = results.filter(
+        (project) => project.year.toString() === selectedYear
+      );
+    }
+
+    return results;
+  }, [searchTerm, selectedCategory, selectedClient, selectedYear]);
 
   const projectsPerPage = 12;
   const totalPages = Math.ceil(filteredProjects.length / projectsPerPage);
@@ -89,43 +139,6 @@ export default function ProjectsPage() {
   const handleImageError = (projectId: string) => {
     setImageErrors(prev => new Set(prev).add(projectId));
   };
-
-  // Filter projects based on search term, category, client, and year
-  useEffect(() => {
-    let results = projectsData;
-
-    if (searchTerm) {
-      results = results.filter(
-        (project) =>
-          project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          project.description.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (selectedCategory !== "all") {
-      results = results.filter(
-        (project) => project.category === selectedCategory
-      );
-    }
-
-    if (selectedClient !== "all") {
-      results = results.filter((project) => {
-        if (Array.isArray(project.client)) {
-          return project.client.includes(selectedClient);
-        }
-        return project.client === selectedClient;
-      });
-    }
-
-    if (selectedYear !== "all") {
-      results = results.filter(
-        (project) => project.year.toString() === selectedYear
-      );
-    }
-
-    setFilteredProjects(results);
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [searchTerm, selectedCategory, selectedClient, selectedYear, setCurrentPage]);
 
   // Get current projects for pagination
   const indexOfLastProject = currentPage * projectsPerPage;

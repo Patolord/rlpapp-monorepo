@@ -1,8 +1,9 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
-import { requireAuth, getUserByIdentity, requireRole, getUserRef } from "./lib/auth";
+import { mutation } from "./_generated/server";
+import { requireRole, getUserRef } from "./lib/auth";
+import { staffQuery } from "./lib/functions";
 
-export const list = query({
+export const list = staffQuery({
   args: {
     siteId: v.optional(v.id("sites")),
     startDate: v.optional(v.number()),
@@ -38,8 +39,8 @@ export const list = query({
 
     return Promise.all(
       confirmations.map(async (confirmation) => {
-        const shipment = await ctx.db.get(confirmation.shipmentId);
-        const site = await ctx.db.get(confirmation.receivedAtSiteId);
+        const shipment = await ctx.db.get("shipments", confirmation.shipmentId);
+        const site = await ctx.db.get("sites", confirmation.receivedAtSiteId);
 
         let shipmentLines: {
           productName: string;
@@ -56,7 +57,7 @@ export const list = query({
             .collect();
           shipmentLines = await Promise.all(
             lines.map(async (line) => {
-              const product = await ctx.db.get(line.productId);
+              const product = await ctx.db.get("products", line.productId);
               return {
                 productName: product?.name ?? "Produto removido",
                 qty: line.qty,
@@ -86,7 +87,7 @@ export const list = query({
   },
 });
 
-export const getByShipment = query({
+export const getByShipment = staffQuery({
   args: { shipmentId: v.id("shipments") },
   handler: async (ctx, args) => {
     return ctx.db
@@ -111,7 +112,7 @@ export const confirmFromQR = mutation({
       "director",
     ]);
 
-    const shipment = await ctx.db.get(args.shipmentId);
+    const shipment = await ctx.db.get("shipments", args.shipmentId);
     if (!shipment) throw new Error("Remessa não encontrada");
 
     if (
@@ -124,8 +125,8 @@ export const confirmFromQR = mutation({
     }
 
     if (shipment.toSiteId !== args.receivedAtSiteId) {
-      const expectedSite = await ctx.db.get(shipment.toSiteId);
-      const receivedSite = await ctx.db.get(args.receivedAtSiteId);
+      const expectedSite = await ctx.db.get("sites", shipment.toSiteId);
+      const receivedSite = await ctx.db.get("sites", args.receivedAtSiteId);
       throw new Error(
         `Site de destino não confere. Esperado: ${expectedSite?.name ?? "desconhecido"}, Recebido em: ${receivedSite?.name ?? "desconhecido"}`
       );
@@ -150,7 +151,7 @@ export const confirmFromQR = mutation({
       notes: args.notes,
     });
 
-    await ctx.db.patch(args.shipmentId, {
+    await ctx.db.patch("shipments", args.shipmentId, {
       status: "DeliveredConfirmed",
       updatedAt: now,
     });

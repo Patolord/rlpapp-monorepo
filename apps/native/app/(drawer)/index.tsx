@@ -2,6 +2,7 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import { useAuth } from "@clerk/clerk-expo";
 import { Authenticated, Unauthenticated, AuthLoading, useQuery } from "convex/react";
 import { useRouter, Link } from "expo-router";
+import type { Href } from "expo-router";
 import {
   Warehouse,
   DollarSign,
@@ -131,7 +132,7 @@ function DirectorDashboard() {
         {departmentCards.map((dept) => (
           <Pressable
             key={dept.route}
-            onPress={() => router.push(`/(drawer)/${dept.route}` as any)}
+            onPress={() => router.push(`/(drawer)/${dept.route}` as Href)}
           >
             <Card className="flex-row items-center p-4">
               <View className={`w-12 h-12 items-center justify-center rounded-lg ${dept.bgColor}`}>

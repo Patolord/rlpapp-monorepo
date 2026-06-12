@@ -29,7 +29,7 @@ export function OfflineSync() {
         token: record.qrToken,
       });
       if (!data) {
-        throw new Error(`QR code ${record.qrToken} não encontrado no sistema`);
+        throw new Error(`Código QR ${record.qrToken} não encontrado no sistema`);
       }
 
       if (record.kind === "equipment") {
