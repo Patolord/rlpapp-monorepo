@@ -6,15 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PhotoPicker } from "@/components/engenharia/photo-picker";
+import { EquipmentStatusSelect } from "@/components/engenharia/equipment-status-select";
+import { MaintenanceLogTypeSelect } from "@/components/engenharia/maintenance-log-type-select";
+import type { MaintenanceLogType } from "@/lib/maintenance-log-type";
 import { uploadPhotos } from "@/lib/upload-photos";
 import { useOnline } from "@/lib/use-online";
 import {
@@ -60,9 +56,7 @@ export function MaintenanceForm({
   const online = useOnline();
 
   const [open, setOpen] = useState(false);
-  const [type, setType] = useState<"installation" | "maintenance">(
-    "maintenance"
-  );
+  const [type, setType] = useState<MaintenanceLogType>("maintenance");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<EquipmentStatus>("operational");
@@ -178,20 +172,11 @@ export function MaintenanceForm({
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
             <Label className="text-base">Tipo de Registro *</Label>
-            <Select
+            <MaintenanceLogTypeSelect
               value={type}
-              onValueChange={(v) =>
-                setType(v as "installation" | "maintenance")
-              }
-            >
-              <SelectTrigger className="h-14 text-lg">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="installation">Instalação</SelectItem>
-                <SelectItem value="maintenance">Manutenção</SelectItem>
-              </SelectContent>
-            </Select>
+              onValueChange={setType}
+              triggerClassName="h-14 text-lg"
+            />
           </div>
 
           {technicianName && (
@@ -205,20 +190,11 @@ export function MaintenanceForm({
 
           <div className="space-y-2">
             <Label className="text-base">Situação do equipamento</Label>
-            <Select
+            <EquipmentStatusSelect
               value={status}
-              onValueChange={(v) => setStatus(v as EquipmentStatus)}
-            >
-              <SelectTrigger className="h-14 text-lg">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="installing">Em instalação</SelectItem>
-                <SelectItem value="operational">Operacional</SelectItem>
-                <SelectItem value="warning">Alerta</SelectItem>
-                <SelectItem value="error">Erro</SelectItem>
-              </SelectContent>
-            </Select>
+              onValueChange={setStatus}
+              triggerClassName="h-14 text-lg"
+            />
           </div>
 
           <div className="space-y-2">

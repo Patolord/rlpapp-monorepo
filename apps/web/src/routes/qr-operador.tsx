@@ -1,6 +1,8 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { UserButton } from "@clerk/tanstack-react-start";
-import { QrCode, Keyboard } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "@rlpapp/backend/convex/_generated/api";
+import { QrCode, Keyboard, ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,16 +17,39 @@ export const Route = createFileRoute("/qr-operador")({
 });
 
 function QrOperadorPage() {
+  const currentUser = useQuery(api.users.getCurrentUser);
+
+  const backTo =
+    currentUser?.role === "director"
+      ? "/app"
+      : currentUser?.role !== "qr_operator" && currentUser?.department
+        ? `/${currentUser.department}`
+        : null;
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="flex h-16 shrink-0 items-center justify-between px-6">
         <div className="flex items-center gap-3">
-          <img
-            src="/logo.jpg"
-            alt="RLP Engenharia"
-            className="size-9 rounded-full object-cover"
-          />
-          <h1 className="text-sm font-semibold">RLP Engenharia</h1>
+          {backTo ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="-ml-2"
+              render={<Link to={backTo} />}
+              aria-label="Voltar"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          ) : (
+            <>
+              <img
+                src="/logo.jpg"
+                alt="RLP Engenharia"
+                className="size-9 rounded-full object-cover"
+              />
+              <h1 className="text-sm font-semibold">RLP Engenharia</h1>
+            </>
+          )}
         </div>
         <UserButton />
       </header>

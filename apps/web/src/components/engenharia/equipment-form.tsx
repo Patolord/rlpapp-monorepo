@@ -5,15 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PhotoPicker } from "@/components/engenharia/photo-picker";
+import { EquipmentStatusSelect } from "@/components/engenharia/equipment-status-select";
 import { uploadPhotos } from "@/lib/upload-photos";
 import { useOnline } from "@/lib/use-online";
 import {
@@ -167,20 +161,11 @@ export function EquipmentForm({ qrToken, onSuccess }: EquipmentFormProps) {
 
           <div className="space-y-2">
             <Label className="text-base">Situação</Label>
-            <Select
+            <EquipmentStatusSelect
               value={status}
-              onValueChange={(v) => setStatus(v as EquipmentStatus)}
-            >
-              <SelectTrigger className="h-14 text-lg">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="installing">Em instalação</SelectItem>
-                <SelectItem value="operational">Operacional</SelectItem>
-                <SelectItem value="warning">Alerta</SelectItem>
-                <SelectItem value="error">Erro</SelectItem>
-              </SelectContent>
-            </Select>
+              onValueChange={setStatus}
+              triggerClassName="h-14 text-lg"
+            />
           </div>
 
           <button
