@@ -29,6 +29,7 @@ import { OfflineSync } from "@/components/offline-sync";
 import { PwaRegister } from "@/components/pwa-register";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { resolveClerkProxyUrl } from "@/lib/clerk-config";
 
 import appCss from "../index.css?url";
 
@@ -157,6 +158,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body>
         <ClerkProvider
           publishableKey={env.VITE_CLERK_PUBLISHABLE_KEY}
+          proxyUrl={resolveClerkProxyUrl(undefined, env.VITE_CLERK_PROXY_URL)}
           signInUrl="/"
           signUpUrl="/"
           afterSignOutUrl="/"
