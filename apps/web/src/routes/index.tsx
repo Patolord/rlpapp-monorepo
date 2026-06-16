@@ -113,22 +113,24 @@ function LoginForm() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-[#0b1228] via-[#0d1631] to-[#111b3d] px-4">
-      <Card className="w-full max-w-sm border-white/10 bg-white/5 backdrop-blur-sm">
-        <CardHeader className="items-center text-center">
+      <Card className="w-full max-w-md border-white/10 bg-white/5 backdrop-blur-sm">
+        <CardHeader className="items-center text-center pb-2">
           <img
             src="/logo.jpg"
             alt="RLP Engenharia"
-            className="mb-2 size-16 rounded-full object-cover"
+            className="mb-3 size-20 rounded-full object-cover"
           />
-          <CardTitle className="text-lg text-white">RLP Engenharia</CardTitle>
-          <CardDescription className="text-white/60">
+          <CardTitle className="text-2xl font-bold text-white">
+            RLP Engenharia
+          </CardTitle>
+          <CardDescription className="text-base text-white/60">
             Acesse sua conta para continuar
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="grid gap-4">
-            <div className="grid gap-1.5">
-              <Label htmlFor="username" className="text-white/80">
+          <form onSubmit={handleSubmit} className="grid gap-5">
+            <div className="grid gap-2">
+              <Label htmlFor="username" className="text-base text-white/80">
                 Usuário
               </Label>
               <Input
@@ -139,11 +141,11 @@ function LoginForm() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 autoComplete="username"
-                className="border-white/15 bg-white/10 text-white placeholder:text-white/40 focus-visible:border-white/30 focus-visible:ring-white/20"
+                className="h-12 text-base border-white/15 bg-white/10 text-white placeholder:text-white/40 focus-visible:border-white/30 focus-visible:ring-white/20"
               />
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="password" className="text-white/80">
+            <div className="grid gap-2">
+              <Label htmlFor="password" className="text-base text-white/80">
                 Senha
               </Label>
               <Input
@@ -154,18 +156,18 @@ function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="border-white/15 bg-white/10 text-white placeholder:text-white/40 focus-visible:border-white/30 focus-visible:ring-white/20"
+                className="h-12 text-base border-white/15 bg-white/10 text-white placeholder:text-white/40 focus-visible:border-white/30 focus-visible:ring-white/20"
               />
             </div>
 
-            {error && <p className="text-sm text-red-400">{error}</p>}
+            {error && <p className="text-base text-red-400">{error}</p>}
 
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-white text-[#0b1228] hover:bg-white/90"
+              className="w-full h-12 text-base font-semibold bg-white text-[#0b1228] hover:bg-white/90"
             >
-              {loading && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {loading && <Loader2 className="mr-2 size-5 animate-spin" />}
               Entrar
             </Button>
           </form>
