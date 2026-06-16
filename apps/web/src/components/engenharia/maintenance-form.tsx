@@ -25,8 +25,10 @@ export const OBSERVATION_TAGS = [
   "Posicionada",
   "Instalada",
   "Em manutenção",
-  "Esperando cobre",
-  "Travado",
+  "Esperando Material",
+  "Sem Energia",
+  "Sem Frente de Trabalho",
+  "Aguardando Startup",
 ] as const;
 
 const TEST_OPTIONS = [
@@ -56,10 +58,10 @@ export function MaintenanceForm({
   const online = useOnline();
 
   const [open, setOpen] = useState(false);
-  const [type, setType] = useState<MaintenanceLogType>("maintenance");
+  const [type, setType] = useState<MaintenanceLogType | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
-  const [status, setStatus] = useState<EquipmentStatus>("operational");
+  const [status, setStatus] = useState<EquipmentStatus | null>(null);
   const [tests, setTests] = useState<Record<TestKey, boolean>>({
     vacuum: false,
     pressure: false,
@@ -70,7 +72,7 @@ export function MaintenanceForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = photos.length > 0;
+  const canSubmit = photos.length > 0 && type !== null && status !== null;
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) =>
@@ -79,10 +81,10 @@ export function MaintenanceForm({
   }
 
   function resetForm() {
-    setType("maintenance");
+    setType(null);
     setSelectedTags([]);
     setNotes("");
-    setStatus("operational");
+    setStatus(null);
     setTests({ vacuum: false, pressure: false, communication: false, gas: false });
     setPhotos([]);
     setError(null);
@@ -93,8 +95,8 @@ export function MaintenanceForm({
       id: newPendingId(),
       kind: "log",
       qrToken,
-      logType: type,
-      status,
+      logType: type!,
+      status: status!,
       tags: selectedTags,
       notes: notes.trim() || undefined,
       tests,
@@ -121,10 +123,10 @@ export function MaintenanceForm({
       const photoIds = await uploadPhotos(generateUploadUrl, photos);
       await createLog({
         equipmentId,
-        type,
+        type: type!,
         notes: notes.trim() || undefined,
         tags: selectedTags.length > 0 ? selectedTags : undefined,
-        status,
+        status: status!,
         tests,
         photoIds,
       });
@@ -159,7 +161,7 @@ export function MaintenanceForm({
     <Card className="border-primary/20">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          {type === "installation" ? "Nova Instalação" : "Nova Manutenção"}
+          {type === "installation" ? "Nova Instalação" : type === "maintenance" ? "Nova Manutenção" : "Novo Registro"}
           {!online && (
             <span className="flex items-center gap-1.5 text-sm font-normal text-amber-600">
               <CloudOff className="h-4 w-4" />
@@ -170,15 +172,6 @@ export function MaintenanceForm({
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-2">
-            <Label className="text-base">Tipo de Registro *</Label>
-            <MaintenanceLogTypeSelect
-              value={type}
-              onValueChange={setType}
-              triggerClassName="h-14 text-lg"
-            />
-          </div>
-
           {technicianName && (
             <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-4 py-3">
               <User className="h-4 w-4 text-muted-foreground" />
@@ -189,50 +182,59 @@ export function MaintenanceForm({
           )}
 
           <div className="space-y-2">
-            <Label className="text-base">Situação do equipamento</Label>
-            <EquipmentStatusSelect
-              value={status}
-              onValueChange={setStatus}
+            <Label className="text-base">Fotos *</Label>
+            <p className="text-sm text-muted-foreground">
+              Pelo menos uma foto é obrigatória.
+            </p>
+            <PhotoPicker files={photos} onFilesChange={setPhotos} />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-base">Tipo de Registro *</Label>
+            <MaintenanceLogTypeSelect
+              value={type}
+              onValueChange={setType}
               triggerClassName="h-14 text-lg"
             />
           </div>
 
           <div className="space-y-2">
-            <Label className="text-base">Situação</Label>
-            <div className="flex flex-wrap gap-2">
-              {OBSERVATION_TAGS.map((tag) => {
-                const selected = selectedTags.includes(tag);
-                return (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => toggleTag(tag)}
-                    className={cn(
-                      "rounded-full border px-4 py-2.5 text-base transition-colors",
-                      selected
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "bg-background hover:bg-accent"
-                    )}
-                  >
-                    {tag}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="maintenance-notes" className="text-base">
-              Observações adicionais
-            </Label>
-            <Textarea
-              id="maintenance-notes"
-              placeholder="Ex: detalhe do serviço realizado (opcional)"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="min-h-[90px] text-lg placeholder:text-muted-foreground/50"
+            <Label className="text-base">Situação do equipamento</Label>
+            <EquipmentStatusSelect
+              value={status}
+              onValueChange={(v) => {
+                setStatus(v);
+                if (v === "operational") setSelectedTags([]);
+              }}
+              triggerClassName="h-14 text-lg"
             />
           </div>
+
+          {status !== null && status !== "operational" && (
+            <div className="space-y-2">
+              <Label className="text-base">Situação</Label>
+              <div className="flex flex-wrap gap-2">
+                {OBSERVATION_TAGS.map((tag) => {
+                  const selected = selectedTags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleTag(tag)}
+                      className={cn(
+                        "rounded-full border px-4 py-2.5 text-base transition-colors",
+                        selected
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "bg-background hover:bg-accent"
+                      )}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-3">
             <Label className="text-base">Testes Realizados</Label>
@@ -258,11 +260,16 @@ export function MaintenanceForm({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-base">Fotos *</Label>
-            <p className="text-sm text-muted-foreground">
-              Pelo menos uma foto é obrigatória.
-            </p>
-            <PhotoPicker files={photos} onFilesChange={setPhotos} />
+            <Label htmlFor="maintenance-notes" className="text-base">
+              Observações adicionais
+            </Label>
+            <Textarea
+              id="maintenance-notes"
+              placeholder="Ex: detalhe do serviço realizado (opcional)"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="min-h-[90px] text-lg placeholder:text-muted-foreground/50"
+            />
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
