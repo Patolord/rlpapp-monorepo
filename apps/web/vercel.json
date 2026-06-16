@@ -1,5 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "cd ../../packages/backend && npx convex deploy --cmd 'cd ../../apps/web && pnpm run build'",
-  "framework": "tanstack-start"
+  "framework": "tanstack-start",
+  "rewrites": [
+    {
+      "source": "/__clerk/:path(.*)",
+      "destination": "https://mature-jaguar-60.clerk.accounts.dev/:path"
+    }
+  ]
 }
