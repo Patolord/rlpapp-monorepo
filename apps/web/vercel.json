@@ -4,8 +4,8 @@
   "framework": "tanstack-start",
   "rewrites": [
     {
-      "source": "/__clerk/:path(.*)",
-      "destination": "https://mature-jaguar-60.clerk.accounts.dev/:path"
+      "source": "/__clerk/:match*",
+      "destination": "https://mature-jaguar-60.clerk.accounts.dev/:match*"
     }
   ]
 }
