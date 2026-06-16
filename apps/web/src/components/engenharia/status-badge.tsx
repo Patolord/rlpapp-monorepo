@@ -1,20 +1,21 @@
 import { Badge } from "@/components/ui/badge";
+import { EQUIPMENT_STATUS_LABELS } from "@/lib/equipment-status";
 
 const statusConfig = {
   installing: {
-    label: "Em instalação",
+    label: EQUIPMENT_STATUS_LABELS.installing,
     className: "bg-blue-100 text-blue-800 border-blue-300",
   },
   operational: {
-    label: "Operacional",
+    label: EQUIPMENT_STATUS_LABELS.operational,
     className: "bg-green-100 text-green-800 border-green-300",
   },
   warning: {
-    label: "Alerta",
+    label: EQUIPMENT_STATUS_LABELS.warning,
     className: "bg-yellow-100 text-yellow-800 border-yellow-300",
   },
   error: {
-    label: "Erro",
+    label: EQUIPMENT_STATUS_LABELS.error,
     className: "bg-red-100 text-red-800 border-red-300",
   },
 } as const;
