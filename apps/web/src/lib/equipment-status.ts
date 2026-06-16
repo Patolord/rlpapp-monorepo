@@ -2,9 +2,10 @@ import type { EquipmentStatus } from "@/lib/offline-queue";
 
 export const EQUIPMENT_STATUS_LABELS: Record<EquipmentStatus, string> = {
   installing: "Em instalação",
-  operational: "Operacional",
+
   warning: "Alerta",
   error: "Erro",
+  operational: "Operacional",
 };
 
 export function getEquipmentStatusLabel(status: EquipmentStatus): string {
