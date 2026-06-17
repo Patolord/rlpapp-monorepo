@@ -30,6 +30,11 @@ const equipmentFields = {
   labelPhotoIds: v.optional(v.array(v.id("_storage"))),
   status: equipmentStatus,
   createdAt: v.number(),
+  // Campos legados (dados antigos em produção antes da simplificação do schema).
+  location: v.optional(v.string()),
+  tag: v.optional(v.string()),
+  type: v.optional(v.string()),
+  notes: v.optional(v.string()),
 };
 
 const qrCodeValidator = v.object(qrCodeFields);
