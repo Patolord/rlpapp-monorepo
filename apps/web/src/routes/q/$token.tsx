@@ -18,7 +18,6 @@ import {
   type CachedEquipment,
 } from "@/lib/offline-queue";
 import {
-  MapPin,
   Tag,
   Clock,
   Loader2,
@@ -37,12 +36,8 @@ const WHATSAPP_URL =
 type EquipmentStatus = "installing" | "operational" | "warning" | "error";
 
 interface EquipmentInfo {
-  tag?: string;
-  type?: string;
-  location?: string;
   description?: string;
   status: EquipmentStatus;
-  notes?: string;
   createdAt: number;
 }
 
@@ -101,37 +96,20 @@ function UnauthenticatedView() {
                   <div className="flex items-center gap-2">
                     <Tag className="h-4 w-4 text-muted-foreground" />
                     <h1 className="text-xl font-bold">
-                      {equipment.tag ?? "Equipamento"}
+                      {equipment.description ?? "Equipamento"}
                     </h1>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {equipment.type ?? equipment.description}
-                  </p>
                 </div>
                 <StatusBadge status={equipment.status} />
               </div>
 
-              <Separator className="my-3" />
-
-              <div className="space-y-2 text-sm">
-                {equipment.location && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <MapPin className="h-3.5 w-3.5" />
-                    <span>{equipment.location}</span>
-                  </div>
-                )}
-                {lastMaintenanceDate && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
+              {lastMaintenanceDate && (
+                <>
+                  <Separator className="my-3" />
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Clock className="h-3.5 w-3.5" />
                     <span>Último registro: {lastMaintenanceDate}</span>
                   </div>
-                )}
-              </div>
-
-              {equipment.notes && (
-                <>
-                  <Separator className="my-3" />
-                  <p className="text-sm">{equipment.notes}</p>
                 </>
               )}
             </CardContent>
@@ -216,12 +194,8 @@ function AuthenticatedContent() {
       cachedAt: Date.now(),
       equipment: data?.equipment
         ? {
-            tag: data.equipment.tag,
-            type: data.equipment.type,
-            location: data.equipment.location,
             description: data.equipment.description,
             status: data.equipment.status,
-            notes: data.equipment.notes,
             createdAt: data.equipment.createdAt,
           }
         : null,
@@ -360,24 +334,12 @@ function OfflineEquipmentCard({
             <div className="flex items-center gap-2">
               <Tag className="h-4 w-4 text-muted-foreground" />
               <h1 className="text-xl font-bold">
-                {equipment.tag ?? "Equipamento"}
+                {equipment.description ?? "Equipamento"}
               </h1>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {equipment.type ?? equipment.description}
-            </p>
           </div>
           <StatusBadge status={equipment.status} />
         </div>
-        {equipment.location && (
-          <>
-            <Separator className="my-3" />
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <MapPin className="h-3.5 w-3.5" />
-              <span>{equipment.location}</span>
-            </div>
-          </>
-        )}
       </CardContent>
     </Card>
   );
@@ -415,12 +377,8 @@ function EquipmentDetail({
           <EquipmentEditForm
             equipmentId={equipmentId}
             initial={{
-              tag: equipment.tag,
-              type: equipment.type,
-              location: equipment.location,
               description: equipment.description,
               status: equipment.status,
-              notes: equipment.notes,
             }}
             onClose={() => setEditing(false)}
           />
@@ -433,12 +391,9 @@ function EquipmentDetail({
                 <div className="flex items-center gap-2">
                   <Tag className="h-4 w-4 text-muted-foreground" />
                   <h1 className="text-xl font-bold">
-                    {equipment.tag ?? "Equipamento"}
+                    {equipment.description ?? "Equipamento"}
                   </h1>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {equipment.type ?? equipment.description}
-                </p>
               </div>
               <div className="flex items-center gap-2">
                 <StatusBadge status={equipment.status} />
@@ -453,30 +408,13 @@ function EquipmentDetail({
               </div>
             </div>
 
-            <Separator className="my-3" />
-
-            <div className="space-y-2 text-sm">
-              {equipment.description && equipment.type && (
-                <p className="text-muted-foreground">{equipment.description}</p>
-              )}
-              {equipment.location && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="h-3.5 w-3.5" />
-                  <span>{equipment.location}</span>
-                </div>
-              )}
-              {lastMaintenanceDate && (
-                <div className="flex items-center gap-2 text-muted-foreground">
+            {lastMaintenanceDate && (
+              <>
+                <Separator className="my-3" />
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Clock className="h-3.5 w-3.5" />
                   <span>Último registro: {lastMaintenanceDate}</span>
                 </div>
-              )}
-            </div>
-
-            {equipment.notes && (
-              <>
-                <Separator className="my-3" />
-                <p className="text-sm">{equipment.notes}</p>
               </>
             )}
           </CardContent>

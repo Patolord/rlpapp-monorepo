@@ -25,6 +25,7 @@ import { Route as FinanceiroIndexRouteImport } from './routes/financeiro/index'
 import { Route as EstoqueIndexRouteImport } from './routes/estoque/index'
 import { Route as EngenhariaIndexRouteImport } from './routes/engenharia/index'
 import { Route as AppIndexRouteImport } from './routes/app/index'
+import { Route as RhUsuariosRouteImport } from './routes/rh/usuarios'
 import { Route as QTokenRouteImport } from './routes/q/$token'
 import { Route as FinanceiroRelatoriosRouteImport } from './routes/financeiro/relatorios'
 import { Route as FinanceiroContasReceberRouteImport } from './routes/financeiro/contas-receber'
@@ -126,6 +127,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRouteRoute,
+} as any)
+const RhUsuariosRoute = RhUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
+  getParentRoute: () => RhRouteRoute,
 } as any)
 const QTokenRoute = QTokenRouteImport.update({
   id: '/q/$token',
@@ -266,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/financeiro/contas-receber': typeof FinanceiroContasReceberRoute
   '/financeiro/relatorios': typeof FinanceiroRelatoriosRoute
   '/q/$token': typeof QTokenRoute
+  '/rh/usuarios': typeof RhUsuariosRoute
   '/app/': typeof AppIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
   '/estoque/': typeof EstoqueIndexRoute
@@ -300,6 +307,7 @@ export interface FileRoutesByTo {
   '/financeiro/contas-receber': typeof FinanceiroContasReceberRoute
   '/financeiro/relatorios': typeof FinanceiroRelatoriosRoute
   '/q/$token': typeof QTokenRoute
+  '/rh/usuarios': typeof RhUsuariosRoute
   '/app': typeof AppIndexRoute
   '/engenharia': typeof EngenhariaIndexRoute
   '/estoque': typeof EstoqueIndexRoute
@@ -340,6 +348,7 @@ export interface FileRoutesById {
   '/financeiro/contas-receber': typeof FinanceiroContasReceberRoute
   '/financeiro/relatorios': typeof FinanceiroRelatoriosRoute
   '/q/$token': typeof QTokenRoute
+  '/rh/usuarios': typeof RhUsuariosRoute
   '/app/': typeof AppIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
   '/estoque/': typeof EstoqueIndexRoute
@@ -381,6 +390,7 @@ export interface FileRouteTypes {
     | '/financeiro/contas-receber'
     | '/financeiro/relatorios'
     | '/q/$token'
+    | '/rh/usuarios'
     | '/app/'
     | '/engenharia/'
     | '/estoque/'
@@ -415,6 +425,7 @@ export interface FileRouteTypes {
     | '/financeiro/contas-receber'
     | '/financeiro/relatorios'
     | '/q/$token'
+    | '/rh/usuarios'
     | '/app'
     | '/engenharia'
     | '/estoque'
@@ -454,6 +465,7 @@ export interface FileRouteTypes {
     | '/financeiro/contas-receber'
     | '/financeiro/relatorios'
     | '/q/$token'
+    | '/rh/usuarios'
     | '/app/'
     | '/engenharia/'
     | '/estoque/'
@@ -591,6 +603,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRouteRoute
+    }
+    '/rh/usuarios': {
+      id: '/rh/usuarios'
+      path: '/usuarios'
+      fullPath: '/rh/usuarios'
+      preLoaderRoute: typeof RhUsuariosRouteImport
+      parentRoute: typeof RhRouteRoute
     }
     '/q/$token': {
       id: '/q/$token'
@@ -831,10 +850,12 @@ const FinanceiroRouteRouteWithChildren = FinanceiroRouteRoute._addFileChildren(
 )
 
 interface RhRouteRouteChildren {
+  RhUsuariosRoute: typeof RhUsuariosRoute
   RhIndexRoute: typeof RhIndexRoute
 }
 
 const RhRouteRouteChildren: RhRouteRouteChildren = {
+  RhUsuariosRoute: RhUsuariosRoute,
   RhIndexRoute: RhIndexRoute,
 }
 

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +14,7 @@ import {
   newPendingId,
   type EquipmentStatus,
 } from "@/lib/offline-queue";
-import { Loader2, ChevronDown, ChevronUp, CloudOff, CheckCircle2 } from "lucide-react";
+import { Loader2, CloudOff, CheckCircle2 } from "lucide-react";
 
 interface EquipmentFormProps {
   qrToken: string;
@@ -31,11 +30,6 @@ export function EquipmentForm({ qrToken, onSuccess }: EquipmentFormProps) {
   const [photos, setPhotos] = useState<File[]>([]);
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<EquipmentStatus>("installing");
-  const [showDetails, setShowDetails] = useState(false);
-  const [tag, setTag] = useState("");
-  const [type, setType] = useState("");
-  const [location, setLocation] = useState("");
-  const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [queued, setQueued] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,11 +42,7 @@ export function EquipmentForm({ qrToken, onSuccess }: EquipmentFormProps) {
       kind: "equipment",
       qrToken,
       description: description.trim(),
-      tag: tag.trim() || undefined,
-      type: type.trim() || undefined,
-      location: location.trim() || undefined,
       status,
-      notes: notes.trim() || undefined,
       photos,
       createdAt: Date.now(),
     });
@@ -75,11 +65,7 @@ export function EquipmentForm({ qrToken, onSuccess }: EquipmentFormProps) {
       const equipmentId = await createEquipment({
         description: description.trim(),
         labelPhotoIds,
-        tag: tag.trim() || undefined,
-        type: type.trim() || undefined,
-        location: location.trim() || undefined,
         status,
-        notes: notes.trim() || undefined,
         qrToken,
       });
 
@@ -167,72 +153,6 @@ export function EquipmentForm({ qrToken, onSuccess }: EquipmentFormProps) {
               triggerClassName="h-14 text-lg"
             />
           </div>
-
-          <button
-            type="button"
-            onClick={() => setShowDetails((v) => !v)}
-            className="flex w-full items-center justify-between rounded-md border px-4 py-3 text-base text-muted-foreground hover:bg-accent"
-          >
-            Mais detalhes (opcional)
-            {showDetails ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </button>
-
-          {showDetails && (
-            <div className="space-y-4 rounded-md border p-4">
-              <div className="space-y-2">
-                <Label htmlFor="tag" className="text-base">
-                  Identificador do equipamento
-                </Label>
-                <Input
-                  id="tag"
-                  placeholder="Ex: VRF-01"
-                  value={tag}
-                  onChange={(e) => setTag(e.target.value)}
-                  className="h-14 text-lg placeholder:text-muted-foreground/50"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="type" className="text-base">
-                  Tipo
-                </Label>
-                <Input
-                  id="type"
-                  placeholder="Ex: VRF, Split, Chiller"
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  className="h-14 text-lg placeholder:text-muted-foreground/50"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location" className="text-base">
-                  Localização
-                </Label>
-                <Input
-                  id="location"
-                  placeholder="Ex: Bloco A, 3º andar"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className="h-14 text-lg placeholder:text-muted-foreground/50"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="notes" className="text-base">
-                  Observações
-                </Label>
-                <Textarea
-                  id="notes"
-                  placeholder="Observações opcionais..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="min-h-[80px] text-lg placeholder:text-muted-foreground/50"
-                />
-              </div>
-            </div>
-          )}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 

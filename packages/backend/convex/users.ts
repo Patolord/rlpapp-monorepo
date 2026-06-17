@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { departments, userRoles } from "./schema";
 import { filterDefined } from "./lib/financeiro";
 import { adminMutation, staffQuery } from "./lib/functions";
@@ -347,5 +347,80 @@ export const reactivate = adminMutation({
     
     await ctx.db.patch("users", args.id, { isActive: true });
     return args.id;
+  },
+});
+
+// --- Internal functions for userAdmin action ---
+
+export const getCallerRole = internalQuery({
+  args: {},
+  returns: v.union(
+    v.object({ role: v.string() }),
+    v.null()
+  ),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (user) return { role: user.role };
+
+    if (identity.email) {
+      const byEmail = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", identity.email!))
+        .first();
+      if (byEmail) return { role: byEmail.role };
+    }
+
+    return null;
+  },
+});
+
+export const createWithClerkId = internalMutation({
+  args: {
+    clerkId: v.string(),
+    name: v.string(),
+    email: v.optional(v.string()),
+    username: v.optional(v.string()),
+    role: userRoles,
+    department: v.optional(departments),
+    phone: v.optional(v.string()),
+  },
+  returns: v.id("users"),
+  handler: async (ctx, args) => {
+    if (args.email) {
+      const existing = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.email!))
+        .first();
+      if (existing) {
+        throw new Error("Já existe um usuário com este email");
+      }
+    }
+
+    const existingClerk = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+    if (existingClerk) {
+      throw new Error("Usuário Clerk já vinculado");
+    }
+
+    return await ctx.db.insert("users", {
+      clerkId: args.clerkId,
+      name: args.name,
+      email: args.email,
+      username: args.username,
+      role: args.role,
+      department: args.department,
+      phone: args.phone,
+      isActive: true,
+      createdAt: Date.now(),
+    });
   },
 });

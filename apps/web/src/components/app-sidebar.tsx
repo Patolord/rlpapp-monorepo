@@ -26,6 +26,7 @@ import {
   ClipboardCheck,
   QrCode,
   Plus,
+  UserPlus,
   type LucideIcon,
 } from "lucide-react";
 
@@ -122,6 +123,7 @@ function getDepartmentSections(role?: string): DepartmentSection[] {
       basePath: "/rh",
       items: [
         { to: "/rh", label: "Painel", icon: LayoutDashboard, exact: true },
+        { to: "/rh/usuarios", label: "Usuários", icon: UserPlus },
       ],
     },
     {
@@ -141,14 +143,16 @@ function NavUser() {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <SidebarMenuButton
-          size="lg"
-          render={<div />}
-          className="justify-start group-data-[collapsible=icon]:justify-center"
-        >
-          <UserButton />
-          <span className="group-data-[collapsible=icon]:hidden">Conta</span>
-        </SidebarMenuButton>
+        <div className="flex items-center gap-2 px-2 py-1.5 group-data-[collapsible=icon]:justify-center">
+          <UserButton
+            appearance={{
+              elements: {
+                userButtonTrigger: "focus:shadow-none",
+              },
+            }}
+          />
+          <span className="text-sm group-data-[collapsible=icon]:hidden">Conta</span>
+        </div>
       </SidebarMenuItem>
     </SidebarMenu>
   );

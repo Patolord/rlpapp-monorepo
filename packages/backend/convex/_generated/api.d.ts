@@ -36,6 +36,7 @@ import type * as shipments from "../shipments.js";
 import type * as sites from "../sites.js";
 import type * as suppliers from "../suppliers.js";
 import type * as transacoesBancarias from "../transacoesBancarias.js";
+import type * as userAdmin from "../userAdmin.js";
 import type * as users from "../users.js";
 
 import type {
@@ -73,6 +74,7 @@ declare const fullApi: ApiFromModules<{
   sites: typeof sites;
   suppliers: typeof suppliers;
   transacoesBancarias: typeof transacoesBancarias;
+  userAdmin: typeof userAdmin;
   users: typeof users;
 }>;
 

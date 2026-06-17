@@ -3,7 +3,6 @@ import { useMutation } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,12 +14,8 @@ type EquipmentStatus = "installing" | "operational" | "warning" | "error";
 interface EquipmentEditFormProps {
   equipmentId: Id<"equipment">;
   initial: {
-    tag?: string;
-    type?: string;
-    location?: string;
     description?: string;
     status: EquipmentStatus;
-    notes?: string;
   };
   onClose: () => void;
 }
@@ -32,12 +27,8 @@ export function EquipmentEditForm({
 }: EquipmentEditFormProps) {
   const updateEquipment = useMutation(api.equipment.update);
 
-  const [tag, setTag] = useState(initial.tag ?? "");
-  const [type, setType] = useState(initial.type ?? "");
-  const [location, setLocation] = useState(initial.location ?? "");
   const [description, setDescription] = useState(initial.description ?? "");
   const [status, setStatus] = useState<EquipmentStatus>(initial.status);
-  const [notes, setNotes] = useState(initial.notes ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -49,12 +40,8 @@ export function EquipmentEditForm({
     try {
       await updateEquipment({
         id: equipmentId,
-        tag: tag.trim() || undefined,
-        type: type.trim() || undefined,
-        location: location.trim() || undefined,
         description: description.trim() || undefined,
         status,
-        notes: notes.trim() || undefined,
       });
       onClose();
     } catch (err) {
@@ -91,58 +78,6 @@ export function EquipmentEditForm({
               value={status}
               onValueChange={setStatus}
               triggerClassName="h-14 text-lg"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="edit-tag" className="text-base">
-              Identificador do equipamento
-            </Label>
-            <Input
-              id="edit-tag"
-              placeholder="Ex: VRF-01"
-              value={tag}
-              onChange={(e) => setTag(e.target.value)}
-              className="h-14 text-lg placeholder:text-muted-foreground/50"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="edit-type" className="text-base">
-              Tipo
-            </Label>
-            <Input
-              id="edit-type"
-              placeholder="Ex: VRF, Split, Chiller"
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-              className="h-14 text-lg placeholder:text-muted-foreground/50"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="edit-location" className="text-base">
-              Localização
-            </Label>
-            <Input
-              id="edit-location"
-              placeholder="Ex: Bloco A, 3º andar"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="h-14 text-lg placeholder:text-muted-foreground/50"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="edit-notes" className="text-base">
-              Observações
-            </Label>
-            <Textarea
-              id="edit-notes"
-              placeholder="Observações opcionais..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="min-h-[80px] text-lg placeholder:text-muted-foreground/50"
             />
           </div>
 

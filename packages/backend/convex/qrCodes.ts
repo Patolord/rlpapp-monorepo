@@ -26,13 +26,9 @@ const qrCodeFields = {
 const equipmentFields = {
   _id: v.id("equipment"),
   _creationTime: v.number(),
-  tag: v.optional(v.string()),
-  type: v.optional(v.string()),
-  location: v.optional(v.string()),
   description: v.optional(v.string()),
   labelPhotoIds: v.optional(v.array(v.id("_storage"))),
   status: equipmentStatus,
-  notes: v.optional(v.string()),
   createdAt: v.number(),
 };
 
