@@ -68,7 +68,8 @@ const DEPARTMENT_LABELS: Record<string, string> = {
 };
 
 type CreateFormData = {
-  name: string;
+  firstName: string;
+  lastName: string;
   username: string;
   password: string;
   email: string;
@@ -78,7 +79,8 @@ type CreateFormData = {
 };
 
 const emptyCreateForm: CreateFormData = {
-  name: "",
+  firstName: "",
+  lastName: "",
   username: "",
   password: "",
   email: "",
@@ -152,8 +154,12 @@ function UsuariosContent() {
   }, [users, filterStatus, searchTerm]);
 
   const handleCreate = async () => {
-    if (!createForm.name.trim()) {
+    if (!createForm.firstName.trim()) {
       toast.error("Informe o nome");
+      return;
+    }
+    if (!createForm.lastName.trim()) {
+      toast.error("Informe o sobrenome");
       return;
     }
     if (!createForm.username.trim()) {
@@ -171,8 +177,9 @@ function UsuariosContent() {
 
     setIsSubmitting(true);
     try {
+      const fullName = `${createForm.firstName.trim()} ${createForm.lastName.trim()}`;
       await createUser({
-        name: createForm.name.trim(),
+        name: fullName,
         username: createForm.username.trim().toLowerCase(),
         password: createForm.password,
         email: createForm.email.trim() || undefined,
@@ -305,16 +312,29 @@ function UsuariosContent() {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="create-name">Nome completo *</Label>
-                <Input
-                  id="create-name"
-                  placeholder="João Silva"
-                  value={createForm.name}
-                  onChange={(e) =>
-                    setCreateForm((f) => ({ ...f, name: e.target.value }))
-                  }
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="create-firstName">Nome *</Label>
+                  <Input
+                    id="create-firstName"
+                    placeholder="João"
+                    value={createForm.firstName}
+                    onChange={(e) =>
+                      setCreateForm((f) => ({ ...f, firstName: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="create-lastName">Sobrenome *</Label>
+                  <Input
+                    id="create-lastName"
+                    placeholder="Silva"
+                    value={createForm.lastName}
+                    onChange={(e) =>
+                      setCreateForm((f) => ({ ...f, lastName: e.target.value }))
+                    }
+                  />
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="create-username">Username (login) *</Label>

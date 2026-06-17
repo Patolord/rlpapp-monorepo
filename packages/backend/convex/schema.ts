@@ -451,7 +451,12 @@ export default defineSchema({
       v.literal("error")
     ),
     createdAt: v.number(),
-  }),
+    // Campos legados (dados antigos em produção antes da simplificação do schema).
+    location: v.optional(v.string()),
+    tag: v.optional(v.string()),
+    type: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  }).index("by_tag", ["tag"]),
 
   maintenanceLogs: defineTable({
     equipmentId: v.id("equipment"),

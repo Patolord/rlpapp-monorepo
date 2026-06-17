@@ -19,11 +19,10 @@ type ClerkErrorResponse = {
 };
 
 async function createClerkUser(args: {
-  firstName: string;
-  lastName?: string;
   username: string;
   password: string;
-  email?: string;
+  firstName: string;
+  lastName: string;
 }): Promise<string> {
   const secretKey = process.env.CLERK_SECRET_KEY;
   if (!secretKey) {
@@ -34,16 +33,9 @@ async function createClerkUser(args: {
     username: args.username,
     password: args.password,
     first_name: args.firstName,
+    last_name: args.lastName,
     skip_password_checks: false,
   };
-
-  if (args.lastName) {
-    body.last_name = args.lastName;
-  }
-
-  if (args.email) {
-    body.email_address = [args.email];
-  }
 
   const response = await fetch("https://api.clerk.com/v1/users", {
     method: "POST",
@@ -91,15 +83,13 @@ export const adminCreateUser = action({
 
     const nameParts = args.name.trim().split(/\s+/);
     const firstName = nameParts[0] ?? args.name;
-    const lastName =
-      nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined;
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : firstName;
 
     const clerkId = await createClerkUser({
-      firstName,
-      lastName,
       username: args.username,
       password: args.password,
-      email: args.email,
+      firstName,
+      lastName,
     });
 
     const userId: Id<"users"> = await ctx.runMutation(internal.users.createWithClerkId, {
