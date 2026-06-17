@@ -11,11 +11,7 @@ export interface PendingEquipment {
   kind: "equipment";
   qrToken: string;
   description: string;
-  tag?: string;
-  type?: string;
-  location?: string;
   status: EquipmentStatus;
-  notes?: string;
   photos: Blob[];
   createdAt: number;
   error?: string;
@@ -46,12 +42,8 @@ export interface CachedEquipment {
   token: string;
   cachedAt: number;
   equipment: {
-    tag?: string;
-    type?: string;
-    location?: string;
     description?: string;
     status: EquipmentStatus;
-    notes?: string;
     createdAt: number;
   } | null;
 }

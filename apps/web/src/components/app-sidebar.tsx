@@ -26,6 +26,7 @@ import {
   ClipboardCheck,
   QrCode,
   Plus,
+  UserPlus,
   type LucideIcon,
 } from "lucide-react";
 
@@ -122,6 +123,7 @@ function getDepartmentSections(role?: string): DepartmentSection[] {
       basePath: "/rh",
       items: [
         { to: "/rh", label: "Painel", icon: LayoutDashboard, exact: true },
+        { to: "/rh/usuarios", label: "Usuários", icon: UserPlus },
       ],
     },
     {

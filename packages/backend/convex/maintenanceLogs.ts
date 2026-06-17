@@ -1,4 +1,5 @@
 import { query } from "./_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { authedMutation, authedQuery } from "./lib/functions";
 
@@ -34,6 +35,47 @@ export const listByEquipment = authedQuery({
     );
 
     return logsWithPhotos;
+  },
+});
+
+// Registros (instalação/manutenção) criados pelo próprio usuário logado.
+// Acessível ao qr_operator para acompanhar seu histórico de campo.
+export const listMine = authedQuery({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    const results = await ctx.db
+      .query("maintenanceLogs")
+      .withIndex("by_createdByUser", (q) =>
+        q.eq("createdByUserId", ctx.user._id)
+      )
+      .order("desc")
+      .paginate(args.paginationOpts);
+
+    const page = await Promise.all(
+      results.page.map(async (log) => {
+        const equipment = await ctx.db.get("equipment", log.equipmentId);
+        const qrCode = await ctx.db
+          .query("qrCodes")
+          .withIndex("by_equipment", (q) =>
+            q.eq("equipmentId", log.equipmentId)
+          )
+          .order("desc")
+          .first();
+        const photoUrls = await Promise.all(
+          log.photoIds.map((id) => ctx.storage.getUrl(id))
+        );
+        return {
+          ...log,
+          equipment: equipment
+            ? { description: equipment.description }
+            : null,
+          qrToken: qrCode?.token ?? null,
+          photoUrls: photoUrls.filter((url): url is string => url !== null),
+        };
+      })
+    );
+
+    return { ...results, page };
   },
 });
 
@@ -85,6 +127,7 @@ export const create = authedMutation({
       equipmentId: args.equipmentId,
       type: args.type,
       technicianName,
+      createdByUserId: ctx.user._id,
       notes: args.notes?.trim() || undefined,
       tags: args.tags,
       status: args.status,

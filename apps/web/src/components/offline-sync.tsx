@@ -45,11 +45,7 @@ export function OfflineSync() {
         const equipmentId = await createEquipment({
           description: record.description,
           labelPhotoIds,
-          tag: record.tag,
-          type: record.type,
-          location: record.location,
           status: record.status,
-          notes: record.notes,
           qrToken: record.qrToken,
         });
         await assignQr({ token: record.qrToken, equipmentId });

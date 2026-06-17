@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createFileRoute,
   redirect,
@@ -8,11 +8,16 @@ import {
 import { UserButton } from "@clerk/tanstack-react-start";
 import { useQuery } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { QrCode, Keyboard, ArrowLeft, Camera, X } from "lucide-react";
+import { QrCode, Keyboard, ArrowLeft, Camera, X, History } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  listPendingRecords,
+  QUEUE_CHANGED_EVENT,
+} from "@/lib/offline-queue";
 
 import type { Html5Qrcode } from "html5-qrcode";
 
@@ -50,9 +55,31 @@ function extractToken(decodedText: string): string | null {
   return raw.toUpperCase().replace(/\s+/g, "");
 }
 
+function usePendingCount() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      void listPendingRecords().then((items) => {
+        if (alive) setCount(items.length);
+      });
+    };
+    refresh();
+    window.addEventListener(QUEUE_CHANGED_EVENT, refresh);
+    return () => {
+      alive = false;
+      window.removeEventListener(QUEUE_CHANGED_EVENT, refresh);
+    };
+  }, []);
+
+  return count;
+}
+
 function QrOperadorPage() {
   const currentUser = useQuery(api.users.getCurrentUser);
   const navigate = useNavigate();
+  const pendingCount = usePendingCount();
 
   const [scanning, setScanning] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -187,6 +214,19 @@ function QrOperadorPage() {
                 >
                   <Keyboard className="mr-2 h-5 w-5" />
                   Digitar código da etiqueta
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-12 w-full text-base"
+                  render={<Link to="/registro" />}
+                >
+                  <History className="mr-2 h-5 w-5" />
+                  Meus registros
+                  {pendingCount > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {pendingCount}
+                    </Badge>
+                  )}
                 </Button>
               </>
             )}

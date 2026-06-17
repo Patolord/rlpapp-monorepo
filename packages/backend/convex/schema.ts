@@ -441,11 +441,7 @@ export default defineSchema({
     .index("by_equipment", ["equipmentId"]),
 
   equipment: defineTable({
-    // Cadastro simplificado em campo: tag/type/location são opcionais;
-    // a tag default é o token do QR e a descrição geral cobre tipo+local.
-    tag: v.optional(v.string()),
-    type: v.optional(v.string()),
-    location: v.optional(v.string()),
+    // Cadastro simplificado em campo: descrição geral + foto da etiqueta.
     description: v.optional(v.string()),
     labelPhotoIds: v.optional(v.array(v.id("_storage"))),
     status: v.union(
@@ -454,9 +450,8 @@ export default defineSchema({
       v.literal("warning"),
       v.literal("error")
     ),
-    notes: v.optional(v.string()),
     createdAt: v.number(),
-  }).index("by_tag", ["tag"]),
+  }),
 
   maintenanceLogs: defineTable({
     equipmentId: v.id("equipment"),
@@ -465,6 +460,8 @@ export default defineSchema({
       v.union(v.literal("installation"), v.literal("maintenance"))
     ),
     technicianName: v.string(),
+    // Vínculo com o usuário que criou o registro (registros antigos não têm).
+    createdByUserId: v.optional(v.id("users")),
     notes: v.optional(v.string()),
     // Palavras prontas selecionadas (ex: Posicionada, Instalada, Travado...)
     tags: v.optional(v.array(v.string())),
@@ -484,5 +481,7 @@ export default defineSchema({
     ),
     photoIds: v.array(v.id("_storage")),
     createdAt: v.number(),
-  }).index("by_equipment", ["equipmentId"]),
+  })
+    .index("by_equipment", ["equipmentId"])
+    .index("by_createdByUser", ["createdByUserId", "createdAt"]),
 });

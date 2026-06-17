@@ -27,12 +27,8 @@ export const create = authedMutation({
     // Cadastro simplificado: descrição + foto da etiqueta são o mínimo.
     description: v.string(),
     labelPhotoIds: v.array(v.id("_storage")),
-    tag: v.optional(v.string()),
-    type: v.optional(v.string()),
-    location: v.optional(v.string()),
     status: v.optional(equipmentStatusValidator),
-    notes: v.optional(v.string()),
-    // Token do QR usado como tag default quando não informada.
+    // Token do QR mantido por compatibilidade com chamadas existentes.
     qrToken: v.optional(v.string()),
   },
   returns: v.id("equipment"),
@@ -46,13 +42,9 @@ export const create = authedMutation({
     }
 
     return await ctx.db.insert("equipment", {
-      tag: args.tag?.trim() || args.qrToken,
-      type: args.type?.trim() || undefined,
-      location: args.location?.trim() || undefined,
       description: args.description.trim(),
       labelPhotoIds: args.labelPhotoIds,
       status: args.status ?? "installing",
-      notes: args.notes,
       createdAt: Date.now(),
     });
   },
@@ -61,12 +53,8 @@ export const create = authedMutation({
 export const update = authedMutation({
   args: {
     id: v.id("equipment"),
-    tag: v.optional(v.string()),
-    type: v.optional(v.string()),
-    location: v.optional(v.string()),
     description: v.optional(v.string()),
     status: v.optional(equipmentStatusValidator),
-    notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;

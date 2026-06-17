@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, redirect, useNavigate, Link } from "@tanstack/react-router";
 import { UserButton } from "@clerk/tanstack-react-start";
+import { usePaginatedQuery } from "convex/react";
+import { api } from "@rlpapp/backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +13,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { StatusBadge } from "@/components/engenharia/status-badge";
+import { getMaintenanceLogTypeLabel } from "@/lib/maintenance-log-type";
 import { useOnline } from "@/lib/use-online";
 import {
   listPendingRecords,
@@ -28,6 +32,9 @@ import {
   AlertTriangle,
   Camera,
   ArrowLeft,
+  History,
+  Calendar,
+  ChevronRight,
 } from "lucide-react";
 
 export const Route = createFileRoute("/registro")({
@@ -180,8 +187,105 @@ function RegistroPage() {
             )}
           </CardContent>
         </Card>
+
+        <SentHistory />
       </div>
     </div>
+  );
+}
+
+function SentHistory() {
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.maintenanceLogs.listMine,
+    {},
+    { initialNumItems: 10 }
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <History className="h-5 w-5 text-muted-foreground" />
+          Histórico enviado
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {status === "LoadingFirstPage" ? (
+          <p className="text-sm text-muted-foreground">Carregando...</p>
+        ) : results.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Nenhum registro enviado ainda.
+          </p>
+        ) : (
+          <>
+            {results.map((log) => (
+              <SentLogCard key={log._id} log={log} />
+            ))}
+            {status === "CanLoadMore" && (
+              <Button
+                variant="outline"
+                onClick={() => loadMore(10)}
+                className="h-11 w-full text-base"
+              >
+                Carregar mais
+              </Button>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+type SentLog = {
+  _id: string;
+  type?: "installation" | "maintenance";
+  status: "installing" | "operational" | "warning" | "error";
+  createdAt: number;
+  qrToken: string | null;
+  equipment: { description?: string } | null;
+};
+
+function SentLogCard({ log }: { log: SentLog }) {
+  const date = new Date(log.createdAt).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const title =
+    log.equipment?.description ||
+    log.qrToken ||
+    "Equipamento";
+
+  const content = (
+    <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+      <div className="min-w-0 space-y-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={log.type === "installation" ? "default" : "secondary"}>
+            {getMaintenanceLogTypeLabel(log.type ?? "maintenance")}
+          </Badge>
+          <StatusBadge status={log.status} />
+        </div>
+        <p className="truncate text-sm font-medium">{title}</p>
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Calendar className="h-3.5 w-3.5" />
+          {date}
+        </p>
+      </div>
+      {log.qrToken && (
+        <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+      )}
+    </div>
+  );
+
+  if (!log.qrToken) return content;
+
+  return (
+    <Link to="/q/$token" params={{ token: log.qrToken }} className="block">
+      {content}
+    </Link>
   );
 }
 
