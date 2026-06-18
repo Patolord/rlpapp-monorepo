@@ -57,6 +57,7 @@ const ROLE_LABELS: Record<string, string> = {
   admin: "Administrador",
   manager: "Gerente",
   operator: "Operador",
+  engenheiro: "Engenheiro",
   qr_operator: "Operador QR",
 };
 
@@ -189,6 +190,7 @@ function UsuariosContent() {
           | "admin"
           | "manager"
           | "operator"
+          | "engenheiro"
           | "qr_operator",
         department: createForm.department
           ? (createForm.department as
@@ -224,6 +226,7 @@ function UsuariosContent() {
               | "admin"
               | "manager"
               | "operator"
+              | "engenheiro"
               | "qr_operator")
           : undefined,
         department: editForm.department

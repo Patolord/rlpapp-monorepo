@@ -210,10 +210,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return currentPath === to || currentPath.startsWith(to + "/");
   }
 
+  const isEngenheiro = currentUser?.role === "engenheiro";
   const departmentSections = getDepartmentSections(currentUser?.role);
   const visibleSections = isDirector
     ? departmentSections
-    : departmentSections.filter((s) => s.key === currentUser?.department);
+    : isEngenheiro
+      ? departmentSections.filter((s) => s.key === "engenharia")
+      : departmentSections.filter((s) => s.key === currentUser?.department);
 
   return (
     <Sidebar
