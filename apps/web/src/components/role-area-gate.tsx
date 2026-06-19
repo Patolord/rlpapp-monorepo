@@ -5,12 +5,13 @@ import { useEffect } from "react";
 
 export type DepartmentArea = "estoque" | "financeiro" | "engenharia" | "rh";
 
-// Mesma regra da navegação: diretores acessam tudo; demais usuários só o
-// próprio departamento (default "estoque", igual ao redirect de /app).
+// Mesma regra da navegação: diretores acessam tudo; engenheiro só engenharia;
+// demais usuários só o próprio departamento (default "estoque").
 function resolveAllowedArea(user: {
   role: string;
   department?: string;
 }): DepartmentArea {
+  if (user.role === "engenheiro") return "engenharia";
   return (user.department as DepartmentArea | undefined) ?? "estoque";
 }
 

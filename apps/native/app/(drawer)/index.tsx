@@ -92,7 +92,10 @@ function RoleAwareHome() {
     if (currentUser === undefined) return;
     if (currentUser === null) return;
     if (!isDirector) {
-      router.replace("/(drawer)/(tabs)/estoque");
+      const dest = currentUser.role === "engenheiro"
+        ? "/(drawer)/engenharia"
+        : "/(drawer)/(tabs)/estoque";
+      router.replace(dest as Href);
     }
   }, [currentUser, isDirector, router]);
 

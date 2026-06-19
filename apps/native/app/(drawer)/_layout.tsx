@@ -61,12 +61,13 @@ function RoleAwareDrawer({
     isSignedIn ? undefined : "skip"
   );
   const isDirector = currentUser?.role === "director";
+  const isEngenheiro = currentUser?.role === "engenheiro";
   const userDept = currentUser?.department ?? "estoque";
 
-  const showEstoque = isDirector || userDept === "estoque";
-  const showFinanceiro = isDirector || userDept === "financeiro";
-  const showRh = isDirector || userDept === "rh";
-  const showEngenharia = isDirector || userDept === "engenharia";
+  const showEstoque = isDirector || (!isEngenheiro && userDept === "estoque");
+  const showFinanceiro = isDirector || (!isEngenheiro && userDept === "financeiro");
+  const showRh = isDirector || (!isEngenheiro && userDept === "rh");
+  const showEngenharia = isDirector || isEngenheiro || userDept === "engenharia";
 
   const drawerContent = useCallback(
     (props: DrawerContentComponentProps) => (

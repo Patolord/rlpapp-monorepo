@@ -115,6 +115,8 @@ export const userRoles = v.union(
   v.literal("admin"),
   v.literal("manager"),
   v.literal("operator"),
+  // Acesso restrito à área de engenharia (equipamentos, QR codes, manutenções)
+  v.literal("engenheiro"),
   // Acesso restrito: só interage com equipamentos via página pública /q/$token
   v.literal("qr_operator")
 );

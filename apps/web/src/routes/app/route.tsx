@@ -27,6 +27,11 @@ function RoleGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    if (currentUser.role === "engenheiro") {
+      void navigate({ to: "/engenharia" });
+      return;
+    }
+
     if (currentUser.role !== "director") {
       const dept = currentUser.department ?? "estoque";
       void navigate({ to: `/${dept}` });

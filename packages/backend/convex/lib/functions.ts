@@ -10,7 +10,7 @@ import { getUserByIdentity } from "./auth";
 
 // Roles internas (qr_operator só acessa o fluxo público /q/$token e
 // funções explicitamente liberadas via authedQuery/authedMutation).
-const STAFF_ROLES = ["director", "admin", "manager", "operator"];
+const STAFF_ROLES = ["director", "admin", "manager", "operator", "engenheiro"];
 const ADMIN_ROLES = ["director", "admin"];
 
 async function requireUser(
@@ -45,6 +45,17 @@ function assertFinance(user: Doc<"users">) {
   if (ADMIN_ROLES.includes(user.role)) return;
   if (user.department !== "financeiro") {
     throw new Error("Acesso restrito ao departamento financeiro");
+  }
+}
+
+// Diretores e admins acessam tudo; engenheiro tem acesso direto;
+// demais roles internas precisam pertencer ao departamento engenharia.
+function assertEngineering(user: Doc<"users">) {
+  assertStaff(user);
+  if (ADMIN_ROLES.includes(user.role)) return;
+  if (user.role === "engenheiro") return;
+  if (user.department !== "engenharia") {
+    throw new Error("Acesso restrito à área de engenharia");
   }
 }
 
@@ -96,6 +107,26 @@ export const financeMutation = customMutation(
   customCtx(async (ctx) => {
     const user = await requireUser(ctx);
     assertFinance(user);
+    return { user };
+  })
+);
+
+/** Director/admin, engenheiro, ou staff do departamento engenharia. */
+export const engineeringQuery = customQuery(
+  query,
+  customCtx(async (ctx) => {
+    const user = await requireUser(ctx);
+    assertEngineering(user);
+    return { user };
+  })
+);
+
+/** Director/admin, engenheiro, ou staff do departamento engenharia. */
+export const engineeringMutation = customMutation(
+  mutation,
+  customCtx(async (ctx) => {
+    const user = await requireUser(ctx);
+    assertEngineering(user);
     return { user };
   })
 );
