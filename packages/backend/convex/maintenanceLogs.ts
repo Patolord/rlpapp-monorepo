@@ -138,6 +138,27 @@ export const create = authedMutation({
   },
 });
 
+export const addPhotos = authedMutation({
+  args: {
+    logId: v.id("maintenanceLogs"),
+    photoIds: v.array(v.id("_storage")),
+  },
+  handler: async (ctx, args) => {
+    if (args.photoIds.length === 0) {
+      throw new Error("Nenhuma foto fornecida");
+    }
+
+    const log = await ctx.db.get("maintenanceLogs", args.logId);
+    if (!log) {
+      throw new Error("Registro não encontrado");
+    }
+
+    await ctx.db.patch("maintenanceLogs", args.logId, {
+      photoIds: [...log.photoIds, ...args.photoIds],
+    });
+  },
+});
+
 export const generateUploadUrl = authedMutation({
   args: {},
   handler: async (ctx) => {
