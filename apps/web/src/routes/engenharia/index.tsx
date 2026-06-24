@@ -85,6 +85,7 @@ function PageContent() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [printingBatch, setPrintingBatch] = useState<string | null>(null);
   const [previewToken, setPreviewToken] = useState<string | null>(null);
+  const [linkFilter, setLinkFilter] = useState<"all" | "linked" | "free">("all");
 
   const stats = useQuery(api.qrCodes.stats, {});
   const equipmentList = useQuery(api.equipment.list);
@@ -118,10 +119,15 @@ function PageContent() {
     equipmentList?.filter((e) => e.status === "warning").length ?? 0;
   const errors = equipmentList?.filter((e) => e.status === "error").length ?? 0;
   const activeCodes = batchCodes.results as QrCodeRow[];
-  const selectedRecords = activeCodes.filter((qr) => selected.has(qr.token));
+  const filteredCodes = activeCodes.filter((qr) => {
+    if (linkFilter === "linked") return !!qr.equipmentId;
+    if (linkFilter === "free") return !qr.equipmentId;
+    return true;
+  });
+  const selectedRecords = filteredCodes.filter((qr) => selected.has(qr.token));
   const activeBatchName = generationBatches?.find((batch) => batch.batchId === activeBatchId)?.batchName;
   const allLoadedSelected =
-    activeCodes.length > 0 && activeCodes.every((qr) => selected.has(qr.token));
+    filteredCodes.length > 0 && filteredCodes.every((qr) => selected.has(qr.token));
 
   useEffect(() => {
     if (
@@ -137,6 +143,7 @@ function PageContent() {
     setSelectedBatchId(batchId);
     setSelected(new Set());
     setPreviewToken(null);
+    setLinkFilter("all");
   }, []);
 
   const toggleSelect = useCallback((token: string) => {
@@ -150,14 +157,14 @@ function PageContent() {
 
   const toggleSelectLoaded = useCallback(() => {
     setSelected((prev) => {
-      if (activeCodes.length > 0 && activeCodes.every((qr) => prev.has(qr.token))) {
+      if (filteredCodes.length > 0 && filteredCodes.every((qr) => prev.has(qr.token))) {
         const next = new Set(prev);
-        for (const qr of activeCodes) next.delete(qr.token);
+        for (const qr of filteredCodes) next.delete(qr.token);
         return next;
       }
-      return new Set([...prev, ...activeCodes.map((qr) => qr.token)]);
+      return new Set([...prev, ...filteredCodes.map((qr) => qr.token)]);
     });
-  }, [activeCodes]);
+  }, [filteredCodes]);
 
   function handlePrintTokens(tokens: string[], titlePrefix: string) {
     if (tokens.length === 0) return;
@@ -352,7 +359,34 @@ function PageContent() {
                 <CardTitle className="text-base">{activeBatchId ? "Códigos do lote" : "Selecione um lote"}</CardTitle>
                 <p className="text-sm text-muted-foreground">{activeBatchId ? activeBatchName ?? activeBatchId : "Abra um lote recente ou resultado de busca para ver os códigos."}</p>
               </div>
-              {activeBatchId && activeCodes.length > 0 && <Button variant="outline" size="sm" onClick={toggleSelectLoaded}>{allLoadedSelected ? "Desmarcar carregados" : "Selecionar carregados"}</Button>}
+              {activeBatchId && activeCodes.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex rounded-md border">
+                    <button
+                      type="button"
+                      onClick={() => setLinkFilter("all")}
+                      className={`px-3 py-1.5 text-xs font-medium transition-colors ${linkFilter === "all" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLinkFilter("linked")}
+                      className={`border-l px-3 py-1.5 text-xs font-medium transition-colors ${linkFilter === "linked" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+                    >
+                      Vinculados
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLinkFilter("free")}
+                      className={`border-l px-3 py-1.5 text-xs font-medium transition-colors ${linkFilter === "free" ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+                    >
+                      Livres
+                    </button>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={toggleSelectLoaded}>{allLoadedSelected ? "Desmarcar carregados" : "Selecionar carregados"}</Button>
+                </div>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -360,12 +394,12 @@ function PageContent() {
               <p className="px-4 py-8 text-sm text-muted-foreground">A visualização de códigos fica vazia até você escolher um lote.</p>
             ) : batchCodes.status === "LoadingFirstPage" ? (
               <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-            ) : activeCodes.length === 0 ? (
-              <p className="px-4 py-8 text-sm text-muted-foreground">Nenhum código encontrado neste lote.</p>
+            ) : filteredCodes.length === 0 ? (
+              <p className="px-4 py-8 text-sm text-muted-foreground">{linkFilter === "all" ? "Nenhum código encontrado neste lote." : linkFilter === "linked" ? "Nenhum código vinculado neste lote." : "Nenhum código livre neste lote."}</p>
             ) : (
               <>
                 <div className="divide-y">
-                  {activeCodes.map((qr) => <QrCodeRowItem key={qr._id} qr={qr} checked={selected.has(qr.token)} deleting={deletingToken === qr.token} onSelect={() => toggleSelect(qr.token)} onPreview={() => setPreviewToken(qr.token)} onPrint={() => handlePrintTokens([qr.token], `Código QR ${qr.token}`)} onDelete={() => handleDeleteQr(qr.token, !!qr.equipmentId)} />)}
+                  {filteredCodes.map((qr) => <QrCodeRowItem key={qr._id} qr={qr} checked={selected.has(qr.token)} deleting={deletingToken === qr.token} onSelect={() => toggleSelect(qr.token)} onPreview={() => setPreviewToken(qr.token)} onPrint={() => handlePrintTokens([qr.token], `Código QR ${qr.token}`)} onDelete={() => handleDeleteQr(qr.token, !!qr.equipmentId)} />)}
                 </div>
                 <div className="border-t px-4 py-3">
                   {batchCodes.status === "CanLoadMore" ? <Button variant="outline" size="sm" onClick={() => batchCodes.loadMore(25)}>Carregar mais códigos</Button> : batchCodes.status === "LoadingMore" ? <Button variant="outline" size="sm" disabled><Loader2 className="mr-2 h-4 w-4 animate-spin" />Carregando...</Button> : <p className="text-sm text-muted-foreground">Todos os códigos carregados para este lote.</p>}
