@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, X } from "lucide-react";
+import { Camera, ImagePlus, X } from "lucide-react";
 
 interface PhotoPickerProps {
   files: File[];
@@ -13,7 +13,8 @@ interface PhotoPickerProps {
  * O upload acontece só no envio do formulário — assim funciona offline.
  */
 export function PhotoPicker({ files, onFilesChange, label }: PhotoPickerProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
   useEffect(() => {
@@ -25,12 +26,11 @@ export function PhotoPicker({ files, onFilesChange, label }: PhotoPickerProps) {
   }, [files]);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = e.target.files;
+    const input = e.target;
+    const selected = input.files;
     if (!selected || selected.length === 0) return;
     onFilesChange([...files, ...Array.from(selected)]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    input.value = "";
   }
 
   function removePhoto(index: number) {
@@ -39,21 +39,40 @@ export function PhotoPicker({ files, onFilesChange, label }: PhotoPickerProps) {
 
   return (
     <div className="space-y-3">
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => fileInputRef.current?.click()}
-        className="h-14 w-full text-lg"
-      >
-        <Camera className="mr-2 h-5 w-5" />
-        {label ?? "Tirar / Adicionar Fotos"}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => cameraInputRef.current?.click()}
+          className="h-14 flex-1 text-base"
+        >
+          <Camera className="mr-2 h-5 w-5" />
+          {label ?? "Tirar Foto"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => galleryInputRef.current?.click()}
+          className="h-14 flex-1 text-base"
+        >
+          <ImagePlus className="mr-2 h-5 w-5" />
+          Galeria
+        </Button>
+      </div>
       <input
-        ref={fileInputRef}
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         multiple
         capture="environment"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        multiple
         onChange={handleFileChange}
         className="hidden"
       />
