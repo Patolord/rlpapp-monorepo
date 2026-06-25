@@ -33,6 +33,9 @@ const equipmentFields = {
   // Vínculo reverso com o item planejado da obra (relatórios).
   projectEquipmentId: v.optional(v.id("projectEquipment")),
   // Campos legados (dados antigos em produção antes da simplificação do schema).
+  projectId: v.optional(v.id("projects")),
+  floor: v.optional(v.number()),
+  position: v.optional(v.number()),
   location: v.optional(v.string()),
   tag: v.optional(v.string()),
   type: v.optional(v.string()),
