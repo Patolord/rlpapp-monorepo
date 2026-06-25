@@ -7,18 +7,8 @@ import { Redirect } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import {
   Home,
-  Package,
-  Tag,
   Users,
-  MapPin,
-  History,
-  SlidersHorizontal,
-  DollarSign,
   HardHat,
-  Warehouse,
-  ScanLine,
-  ClipboardList,
-  PackageCheck,
 } from "lucide-react-native";
 import React, { useCallback } from "react";
 import { Text, View } from "react-native";
@@ -62,10 +52,8 @@ function RoleAwareDrawer({
   );
   const isDirector = currentUser?.role === "director";
   const isEngenheiro = currentUser?.role === "engenheiro";
-  const userDept = currentUser?.department ?? "estoque";
+  const userDept = currentUser?.department ?? "engenharia";
 
-  const showEstoque = isDirector || (!isEngenheiro && userDept === "estoque");
-  const showFinanceiro = isDirector || (!isEngenheiro && userDept === "financeiro");
   const showRh = isDirector || (!isEngenheiro && userDept === "rh");
   const showEngenharia = isDirector || isEngenheiro || userDept === "engenharia";
 
@@ -116,96 +104,6 @@ function RoleAwareDrawer({
           headerTitle: isDirector ? "Painel do Diretor" : "Home",
           drawerLabel: isDirector ? "Início" : "Home",
           drawerIcon: ({ size, color }) => <Home size={size} color={color} />,
-        }}
-      />
-      <Drawer.Screen
-        name="operador"
-        options={{
-          headerTitle: "Operador",
-          drawerLabel: "Operador",
-          drawerIcon: ({ size, color }) => <ScanLine size={size} color={color} />,
-          drawerItemStyle: showEstoque ? undefined : { display: "none" },
-        }}
-      />
-      <Drawer.Screen
-        name="(tabs)"
-        options={{
-          headerTitle: "Estoque",
-          drawerLabel: "Estoque",
-          drawerIcon: ({ size, color }) => <Warehouse size={size} color={color} />,
-          drawerItemStyle: showEstoque ? undefined : { display: "none" },
-        }}
-      />
-      <Drawer.Screen
-        name="produtos"
-        options={{
-          headerTitle: "Produtos",
-          drawerLabel: "Produtos",
-          drawerIcon: ({ size, color }) => <Tag size={size} color={color} />,
-          drawerItemStyle: showEstoque ? undefined : { display: "none" },
-        }}
-      />
-      <Drawer.Screen
-        name="fornecedores"
-        options={{
-          headerTitle: "Fornecedores",
-          drawerLabel: "Fornecedores",
-          drawerIcon: ({ size, color }) => <Users size={size} color={color} />,
-          drawerItemStyle: showEstoque ? undefined : { display: "none" },
-        }}
-      />
-      <Drawer.Screen
-        name="sites"
-        options={{
-          headerTitle: "Sites",
-          drawerLabel: "Sites",
-          drawerIcon: ({ size, color }) => <MapPin size={size} color={color} />,
-          drawerItemStyle: showEstoque ? undefined : { display: "none" },
-        }}
-      />
-      <Drawer.Screen
-        name="movimentacoes"
-        options={{
-          headerTitle: "Movimentações",
-          drawerLabel: "Movimentações",
-          drawerIcon: ({ size, color }) => <History size={size} color={color} />,
-          drawerItemStyle: showEstoque ? undefined : { display: "none" },
-        }}
-      />
-      <Drawer.Screen
-        name="solicitacoes"
-        options={{
-          headerTitle: "Solicitações",
-          drawerLabel: "Solicitações",
-          drawerIcon: ({ size, color }) => <ClipboardList size={size} color={color} />,
-          drawerItemStyle: showEstoque ? undefined : { display: "none" },
-        }}
-      />
-      <Drawer.Screen
-        name="entregas"
-        options={{
-          headerTitle: "Entregas",
-          drawerLabel: "Entregas",
-          drawerIcon: ({ size, color }) => <PackageCheck size={size} color={color} />,
-          drawerItemStyle: showEstoque ? undefined : { display: "none" },
-        }}
-      />
-      <Drawer.Screen
-        name="ajustes"
-        options={{
-          headerTitle: "Ajustes",
-          drawerLabel: "Ajustes",
-          drawerIcon: ({ size, color }) => <SlidersHorizontal size={size} color={color} />,
-          drawerItemStyle: showEstoque ? undefined : { display: "none" },
-        }}
-      />
-      <Drawer.Screen
-        name="financeiro"
-        options={{
-          headerTitle: "Financeiro",
-          drawerLabel: "Financeiro",
-          drawerIcon: ({ size, color }) => <DollarSign size={size} color={color} />,
-          drawerItemStyle: showFinanceiro ? undefined : { display: "none" },
         }}
       />
       <Drawer.Screen

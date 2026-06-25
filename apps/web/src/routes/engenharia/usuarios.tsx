@@ -48,7 +48,7 @@ import { getErrorMessage } from "@/lib/errors";
 
 type User = FunctionReturnType<typeof api.users.list>[number];
 
-export const Route = createFileRoute("/rh/usuarios")({
+export const Route = createFileRoute("/engenharia/usuarios")({
   component: UsuariosPage,
 });
 
@@ -62,8 +62,6 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const DEPARTMENT_LABELS: Record<string, string> = {
-  estoque: "Estoque",
-  financeiro: "Financeiro",
   rh: "Recursos Humanos",
   engenharia: "Engenharia",
 };
@@ -193,11 +191,7 @@ function UsuariosContent() {
           | "engenheiro"
           | "qr_operator",
         department: createForm.department
-          ? (createForm.department as
-              | "estoque"
-              | "financeiro"
-              | "rh"
-              | "engenharia")
+          ? (createForm.department as "rh" | "engenharia")
           : undefined,
       });
       toast.success("Usuário criado com sucesso");
@@ -230,11 +224,7 @@ function UsuariosContent() {
               | "qr_operator")
           : undefined,
         department: editForm.department
-          ? (editForm.department as
-              | "estoque"
-              | "financeiro"
-              | "rh"
-              | "engenharia")
+          ? (editForm.department as "rh" | "engenharia")
           : undefined,
       });
       toast.success("Usuário atualizado");

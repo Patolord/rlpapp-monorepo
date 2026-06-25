@@ -3,27 +3,10 @@ import { UserButton } from "@clerk/tanstack-react-start";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import {
-  Package,
-  Warehouse,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  History,
-  Users,
-  MapPin,
-  LayoutDashboard,
-  SlidersHorizontal,
   ChevronRight,
-  DollarSign,
+  ClipboardList,
   HardHat,
   Home,
-  Tag,
-  Landmark,
-  UserCheck,
-  GitCompareArrows,
-  BarChart3,
-  ScanLine,
-  ClipboardList,
-  ClipboardCheck,
   QrCode,
   Plus,
   UserPlus,
@@ -67,65 +50,8 @@ interface DepartmentSection {
   items: readonly NavSubItem[];
 }
 
-const estoqueOperatorItems: readonly NavSubItem[] = [
-  { to: "/estoque", label: "Painel", icon: LayoutDashboard, exact: true },
-  { to: "/estoque/operador", label: "Operador", icon: ScanLine },
-];
-
-const estoqueAdminItems: readonly NavSubItem[] = [
-  { to: "/estoque", label: "Painel", icon: LayoutDashboard, exact: true },
-  { to: "/estoque/operador", label: "Operador", icon: ScanLine },
-  { to: "/estoque/produtos", label: "Produtos", icon: Package },
-  { to: "/estoque/fornecedores", label: "Fornecedores", icon: Users },
-  { to: "/estoque/sites", label: "Obras", icon: MapPin },
-  { to: "/estoque/entrada", label: "Entrada", icon: ArrowDownToLine },
-  { to: "/estoque/saida", label: "Saída", icon: ArrowUpFromLine },
-  { to: "/estoque/solicitacoes", label: "Solicitações", icon: ClipboardList },
-  { to: "/estoque/historico-entregas", label: "Hist. Entregas", icon: ClipboardCheck },
-  { to: "/estoque/movimentacoes", label: "Movimentações", icon: History },
-  { to: "/estoque/ajustes", label: "Ajustes", icon: SlidersHorizontal },
-];
-
-function getEstoqueItems(role?: string): readonly NavSubItem[] {
-  if (role === "operator") return estoqueOperatorItems;
-  return estoqueAdminItems;
-}
-
-function getDepartmentSections(role?: string): DepartmentSection[] {
+function getDepartmentSections(): DepartmentSection[] {
   return [
-    {
-      key: "estoque",
-      label: "Estoque",
-      icon: Warehouse,
-      basePath: "/estoque",
-      items: getEstoqueItems(role),
-    },
-    {
-      key: "financeiro",
-      label: "Financeiro",
-      icon: DollarSign,
-      basePath: "/financeiro",
-      items: [
-        { to: "/financeiro", label: "Painel", icon: LayoutDashboard, exact: true },
-        { to: "/financeiro/contas-pagar", label: "Contas a Pagar", icon: ArrowUpFromLine },
-        { to: "/financeiro/contas-receber", label: "Contas a Receber", icon: ArrowDownToLine },
-        { to: "/financeiro/clientes", label: "Clientes", icon: UserCheck },
-        { to: "/financeiro/conciliacao", label: "Conciliação", icon: GitCompareArrows },
-        { to: "/financeiro/relatorios", label: "Relatórios", icon: BarChart3 },
-        { to: "/financeiro/categorias", label: "Categorias", icon: Tag },
-        { to: "/financeiro/contas-bancarias", label: "Contas Bancárias", icon: Landmark },
-      ],
-    },
-    {
-      key: "rh",
-      label: "Recursos Humanos",
-      icon: Users,
-      basePath: "/rh",
-      items: [
-        { to: "/rh", label: "Painel", icon: LayoutDashboard, exact: true },
-        { to: "/rh/usuarios", label: "Usuários", icon: UserPlus },
-      ],
-    },
     {
       key: "engenharia",
       label: "Engenharia",
@@ -134,6 +60,8 @@ function getDepartmentSections(role?: string): DepartmentSection[] {
       items: [
         { to: "/engenharia", label: "Códigos QR", icon: QrCode, exact: true },
         { to: "/engenharia/qr-codes", label: "Criar códigos QR", icon: Plus },
+        { to: "/engenharia/registro-de-campo", label: "Registro de Campo", icon: ClipboardList },
+        { to: "/engenharia/usuarios", label: "Usuários", icon: UserPlus },
       ],
     },
   ];
@@ -211,7 +139,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   const isEngenheiro = currentUser?.role === "engenheiro";
-  const departmentSections = getDepartmentSections(currentUser?.role);
+  const departmentSections = getDepartmentSections();
   const visibleSections = isDirector
     ? departmentSections
     : isEngenheiro

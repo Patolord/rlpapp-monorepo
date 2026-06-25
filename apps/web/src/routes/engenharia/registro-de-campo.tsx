@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, redirect, useNavigate, Link } from "@tanstack/react-router";
-import { UserButton } from "@clerk/tanstack-react-start";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { usePaginatedQuery } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -31,19 +30,13 @@ import {
   Trash2,
   AlertTriangle,
   Camera,
-  ArrowLeft,
   History,
   Calendar,
   ChevronRight,
 } from "lucide-react";
 
-export const Route = createFileRoute("/registro")({
-  beforeLoad: async ({ context }) => {
-    if (!(context as { userId?: string | null }).userId) {
-      throw redirect({ to: "/" });
-    }
-  },
-  component: RegistroPage,
+export const Route = createFileRoute("/engenharia/registro-de-campo")({
+  component: RegistroDeCampoPage,
 });
 
 function usePendingRecords() {
@@ -67,7 +60,7 @@ function usePendingRecords() {
   return records;
 }
 
-function RegistroPage() {
+function RegistroDeCampoPage() {
   const navigate = useNavigate();
   const online = useOnline();
   const pending = usePendingRecords();
@@ -81,115 +74,92 @@ function RegistroPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <header className="flex h-16 shrink-0 items-center justify-between px-6">
-        <div className="flex items-center gap-3">
-          <img
-            src="/logo.jpg"
-            alt="RLP Engenharia"
-            className="size-9 rounded-full object-cover"
-          />
-          <h1 className="text-sm font-semibold">RLP Engenharia</h1>
+    <div className="mx-auto w-full max-w-lg space-y-4">
+      {!online && (
+        <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-amber-800">
+          <CloudOff className="h-5 w-5 shrink-0" />
+          <p className="text-sm">
+            Sem internet. Você pode registrar mesmo assim — tudo fica salvo
+            no aparelho e é enviado quando a conexão voltar.
+          </p>
         </div>
-        <UserButton />
-      </header>
+      )}
 
-      <div className="mx-auto w-full max-w-lg flex-1 space-y-4 px-4 py-6">
-        <Button
-          variant="ghost"
-          size="sm"
-          render={<Link to="/qr-operador" />}
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Voltar
-        </Button>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <QrCode className="h-5 w-5 text-muted-foreground" />
+            Registrar por código
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Digite o código impresso na etiqueta do código QR (ex:
+            LORENAH4FC29) para abrir o equipamento sem escanear.
+          </p>
+          <form onSubmit={handleOpen} className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="qr-code" className="text-base">
+                Código da etiqueta
+              </Label>
+              <Input
+                id="qr-code"
+                placeholder="Ex: LORENAH4FC29"
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                autoCapitalize="characters"
+                autoComplete="off"
+                className="h-14 font-mono text-lg uppercase placeholder:font-sans placeholder:normal-case placeholder:text-muted-foreground/50"
+              />
+            </div>
+            <Button
+              type="submit"
+              disabled={!code.trim()}
+              className="h-14 w-full text-lg"
+            >
+              <Search className="mr-2 h-5 w-5" />
+              Abrir equipamento
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
-        {!online && (
-          <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-amber-800">
-            <CloudOff className="h-5 w-5 shrink-0" />
-            <p className="text-sm">
-              Sem internet. Você pode registrar mesmo assim — tudo fica salvo
-              no aparelho e é enviado quando a conexão voltar.
-            </p>
-          </div>
-        )}
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <QrCode className="h-5 w-5 text-muted-foreground" />
-              Registrar por código
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-3 text-sm text-muted-foreground">
-              Digite o código impresso na etiqueta do código QR (ex:
-              LORENAH4FC29) para abrir o equipamento sem escanear.
-            </p>
-            <form onSubmit={handleOpen} className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="qr-code" className="text-base">
-                  Código da etiqueta
-                </Label>
-                <Input
-                  id="qr-code"
-                  placeholder="Ex: LORENAH4FC29"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  autoCapitalize="characters"
-                  autoComplete="off"
-                  className="h-14 font-mono text-lg uppercase placeholder:font-sans placeholder:normal-case placeholder:text-muted-foreground/50"
-                />
-              </div>
-              <Button
-                type="submit"
-                disabled={!code.trim()}
-                className="h-14 w-full text-lg"
-              >
-                <Search className="mr-2 h-5 w-5" />
-                Abrir equipamento
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                <CloudUpload className="h-5 w-5 text-muted-foreground" />
-                Registros pendentes
-              </span>
-              {pending.length > 0 && (
-                <Badge variant="secondary">{pending.length}</Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {pending.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Nenhum registro aguardando envio.
-              </p>
-            ) : (
-              <>
-                {pending.map((record) => (
-                  <PendingRecordCard key={record.id} record={record} />
-                ))}
-                <Button
-                  onClick={() => requestOfflineSync()}
-                  disabled={!online}
-                  className="h-12 w-full text-base"
-                >
-                  <CloudUpload className="mr-2 h-5 w-5" />
-                  {online ? "Enviar agora" : "Sem internet para enviar"}
-                </Button>
-              </>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <CloudUpload className="h-5 w-5 text-muted-foreground" />
+              Registros pendentes
+            </span>
+            {pending.length > 0 && (
+              <Badge variant="secondary">{pending.length}</Badge>
             )}
-          </CardContent>
-        </Card>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {pending.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhum registro aguardando envio.
+            </p>
+          ) : (
+            <>
+              {pending.map((record) => (
+                <PendingRecordCard key={record.id} record={record} />
+              ))}
+              <Button
+                onClick={() => requestOfflineSync()}
+                disabled={!online}
+                className="h-12 w-full text-base"
+              >
+                <CloudUpload className="mr-2 h-5 w-5" />
+                {online ? "Enviar agora" : "Sem internet para enviar"}
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
-        <SentHistory />
-      </div>
+      <SentHistory />
     </div>
   );
 }

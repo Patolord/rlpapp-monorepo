@@ -38,16 +38,6 @@ function assertAdmin(user: Doc<"users">) {
   }
 }
 
-// Diretores e admins acessam tudo; demais roles internas precisam
-// pertencer ao departamento financeiro (mesma regra da navegação no web).
-function assertFinance(user: Doc<"users">) {
-  assertStaff(user);
-  if (ADMIN_ROLES.includes(user.role)) return;
-  if (user.department !== "financeiro") {
-    throw new Error("Acesso restrito ao departamento financeiro");
-  }
-}
-
 // Diretores e admins acessam tudo; engenheiro tem acesso direto;
 // demais roles internas precisam pertencer ao departamento engenharia.
 function assertEngineering(user: Doc<"users">) {
@@ -87,26 +77,6 @@ export const staffMutation = customMutation(
   customCtx(async (ctx) => {
     const user = await requireUser(ctx);
     assertStaff(user);
-    return { user };
-  })
-);
-
-/** Director/admin ou staff do departamento financeiro. */
-export const financeQuery = customQuery(
-  query,
-  customCtx(async (ctx) => {
-    const user = await requireUser(ctx);
-    assertFinance(user);
-    return { user };
-  })
-);
-
-/** Director/admin ou staff do departamento financeiro. */
-export const financeMutation = customMutation(
-  mutation,
-  customCtx(async (ctx) => {
-    const user = await requireUser(ctx);
-    assertFinance(user);
     return { user };
   })
 );

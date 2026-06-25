@@ -11,7 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * Layout padrão das áreas de departamento (estoque, financeiro, engenharia, rh):
+ * Layout padrão das áreas de departamento (engenharia, rh):
  * gate de acesso por departamento + sidebar + header.
  * `printable` esconde o chrome na impressão (usado pela engenharia).
  */

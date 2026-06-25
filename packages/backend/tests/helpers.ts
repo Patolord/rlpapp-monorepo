@@ -1,5 +1,5 @@
 import { convexTest } from "convex-test";
-import type { Doc, Id } from "../convex/_generated/dataModel";
+import type { Doc } from "../convex/_generated/dataModel";
 import schema from "../convex/schema";
 
 export const modules = import.meta.glob([
@@ -31,30 +31,4 @@ export async function withUser(
     });
   });
   return t.withIdentity({ subject: overrides.clerkId });
-}
-
-export async function createProduct(
-  t: TestConvex,
-  name = "Cimento"
-): Promise<Id<"products">> {
-  return t.run(async (ctx) =>
-    ctx.db.insert("products", {
-      name,
-      unit: "un",
-      minQuantity: 0,
-      isActive: true,
-    })
-  );
-}
-
-export async function createSite(
-  t: TestConvex,
-  name = "Obra Central"
-): Promise<Id<"sites">> {
-  return t.run(async (ctx) =>
-    ctx.db.insert("sites", {
-      name,
-      isActive: true,
-    })
-  );
 }
