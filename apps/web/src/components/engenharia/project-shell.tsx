@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { Link } from "@tanstack/react-router";
@@ -8,16 +8,31 @@ import {
   Building2,
   Loader2,
   Printer,
+  Sparkles,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getUnitState, type GridFloor, type GridUnit } from "@/components/engenharia/building";
+import { AiChatPanel } from "@/components/engenharia/ai/ai-chat-panel";
+
+export type ProjectStatus =
+  | "planning"
+  | "in_progress"
+  | "completed"
+  | "paused";
 
 export type ProjectOverview = {
   _id: Id<"projects">;
   name: string;
   floors: GridFloor[];
+  client?: string | null;
+  address?: string | null;
+  status?: ProjectStatus | null;
+  responsibleId?: Id<"users"> | null;
+  responsibleName?: string | null;
+  startDate?: number | null;
+  endDate?: number | null;
   createdAt: number;
   totalItems: number;
   installedItems: number;
@@ -26,6 +41,8 @@ export type ProjectOverview = {
 
 export type ProjectTab =
   | "building"
+  | "torres"
+  | "dashboard"
   | "global"
   | "entregas"
   | "editar"
@@ -33,6 +50,16 @@ export type ProjectTab =
 
 const TABS: { id: ProjectTab; label: string; to: string }[] = [
   { id: "building", label: "Prédio", to: "/engenharia/relatorios/$projectId" },
+  {
+    id: "torres",
+    label: "Torres",
+    to: "/engenharia/relatorios/$projectId/torres",
+  },
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    to: "/engenharia/relatorios/$projectId/dashboard",
+  },
   { id: "global", label: "Global", to: "/engenharia/relatorios/$projectId/global" },
   {
     id: "entregas",
@@ -102,6 +129,17 @@ export function ProjectShell({
     (u) => getUnitState(u, now).overdue
   ).length;
 
+  const aiContext = [
+    `Obra: ${project.name}`,
+    project.client ? `Cliente: ${project.client}` : "",
+    `Andares (legado): ${project.floors
+      .map((f) => `${f.number} (${f.label})`)
+      .join(", ")}`,
+    `Equipamentos previstos: ${project.totalItems}, instalados: ${project.installedItems}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <div>
@@ -150,7 +188,37 @@ export function ProjectShell({
       <ProjectTabs projectId={project._id} active={tab} />
 
       {children(project, now)}
+
+      <ProjectAiLauncher projectId={project._id} context={aiContext} />
     </div>
+  );
+}
+
+function ProjectAiLauncher({
+  projectId,
+  context,
+}: {
+  projectId: Id<"projects">;
+  context: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button
+        size="lg"
+        className="fixed bottom-6 right-6 z-40 rounded-full shadow-lg"
+        onClick={() => setOpen(true)}
+      >
+        <Sparkles className="mr-2 size-4" />
+        Assistente IA
+      </Button>
+      <AiChatPanel
+        projectId={projectId}
+        context={context}
+        open={open}
+        onOpenChange={setOpen}
+      />
+    </>
   );
 }
 

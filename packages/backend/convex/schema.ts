@@ -10,7 +10,17 @@ export const userRoles = v.union(
   // Acesso restrito à área de engenharia (equipamentos, QR codes, manutenções)
   v.literal("engenheiro"),
   // Acesso restrito: só interage com equipamentos via página pública /q/$token
-  v.literal("qr_operator")
+  v.literal("qr_operator"),
+  // Acesso somente-leitura ao portal do cliente (obras atribuídas).
+  v.literal("client")
+);
+
+// Status da obra (ciclo de vida do projeto).
+export const projectStatus = v.union(
+  v.literal("planning"),
+  v.literal("in_progress"),
+  v.literal("completed"),
+  v.literal("paused")
 );
 
 // Department types
@@ -61,9 +71,22 @@ export default defineSchema({
   // equipamento real (QR) → verde/instalado quando vinculado, vermelho/pendente
   // quando não.
 
-  // Obra (prédio): nome + lista de andares (apenas número e rótulo).
+  // Obra (prédio): nome + metadados + lista de andares (legado) + torres.
+  //
+  // Hierarquia nova: Obra → Torre → Andar → Ambiente → Equipamento.
+  // O array `floors` é mantido por compatibilidade com obras antigas que usam
+  // o caminho projectUnits; obras novas usam as tabelas towers/floors/environments.
   projects: defineTable({
     name: v.string(),
+    // Metadados da obra (todos opcionais para compatibilidade com dados antigos).
+    client: v.optional(v.string()),
+    address: v.optional(v.string()),
+    status: v.optional(projectStatus),
+    responsibleId: v.optional(v.id("users")),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    // Clientes (role "client") que podem visualizar esta obra no portal.
+    clientIds: v.optional(v.array(v.id("users"))),
     floors: v.array(
       v.object({
         // 0 = térreo, 1 = 1º andar, etc.
@@ -74,7 +97,47 @@ export default defineSchema({
       })
     ),
     createdAt: v.number(),
-  }).index("by_name", ["name"]),
+  })
+    .index("by_name", ["name"])
+    .index("by_status", ["status"])
+    .index("by_responsible", ["responsibleId"]),
+
+  // --- Hierarquia nova: Torre → Andar → Ambiente ---
+
+  // Torre / Bloco de uma obra.
+  towers: defineTable({
+    projectId: v.id("projects"),
+    name: v.string(),
+    order: v.number(),
+    createdAt: v.number(),
+  }).index("by_project", ["projectId"]),
+
+  // Andar de uma torre (extraído do array legado projects.floors[]).
+  floors: defineTable({
+    towerId: v.id("towers"),
+    // Denormalizado para consultas eficientes por obra.
+    projectId: v.id("projects"),
+    number: v.number(),
+    label: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_tower", ["towerId"])
+    .index("by_project", ["projectId"]),
+
+  // Ambiente / cômodo de um andar (ex: "Sala de Estar", "Suíte 1", "Apto 201").
+  environments: defineTable({
+    floorId: v.id("floors"),
+    // Denormalizados para consultas eficientes.
+    towerId: v.id("towers"),
+    projectId: v.id("projects"),
+    name: v.string(),
+    type: v.optional(v.string()),
+    order: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_floor", ["floorId"])
+    .index("by_tower", ["towerId"])
+    .index("by_project", ["projectId"]),
 
   // Apartamento / "Final" dentro de um andar.
   projectUnits: defineTable({
@@ -97,7 +160,8 @@ export default defineSchema({
   // Item planejado (linha da BOM / aba Global): cada condensadora/evaporadora.
   projectEquipment: defineTable({
     projectId: v.id("projects"),
-    unitId: v.id("projectUnits"),
+    // Opcional: obras antigas usam projectUnits; obras novas usam environments.
+    unitId: v.optional(v.id("projectUnits")),
     // Sistema dentro do apartamento, ex: "VRF 1", "VRF 2", "Split".
     system: v.string(),
     // Ambiente onde fica, ex: "Sala de Estar", "Suíte 1", "Área Técnica".
@@ -116,11 +180,86 @@ export default defineSchema({
     // Vínculo com o equipamento real (QR) instalado em campo.
     linkedEquipmentId: v.optional(v.id("equipment")),
     installedAt: v.optional(v.number()),
+    // --- Hierarquia nova (opcionais; obras antigas usam apenas unitId) ---
+    environmentId: v.optional(v.id("environments")),
+    towerId: v.optional(v.id("towers")),
+    floorId: v.optional(v.id("floors")),
+    // --- Dados ricos do equipamento ---
+    serialNumber: v.optional(v.string()),
+    responsibleId: v.optional(v.id("users")),
+    photoIds: v.optional(v.array(v.id("_storage"))),
+    videoIds: v.optional(v.array(v.id("_storage"))),
+    scheduledDate: v.optional(v.number()),
+    installationDate: v.optional(v.number()),
+    testDate: v.optional(v.number()),
+    checklistTemplateId: v.optional(v.id("checklistTemplates")),
   })
     .index("by_project", ["projectId"])
     .index("by_unit", ["unitId"])
+    .index("by_environment", ["environmentId"])
     .index("by_project_modelo", ["projectId", "modelo"])
     .index("by_linkedEquipment", ["linkedEquipmentId"]),
+
+  // --- Checklists ---
+
+  // Modelo de checklist reutilizável (por obra ou global).
+  checklistTemplates: defineTable({
+    projectId: v.optional(v.id("projects")),
+    name: v.string(),
+    items: v.array(
+      v.object({
+        label: v.string(),
+        required: v.boolean(),
+      })
+    ),
+    createdAt: v.number(),
+  }).index("by_project", ["projectId"]),
+
+  // Item de checklist instanciado para um equipamento planejado.
+  checklistItems: defineTable({
+    equipmentId: v.id("projectEquipment"),
+    label: v.string(),
+    required: v.boolean(),
+    completed: v.boolean(),
+    completedBy: v.optional(v.id("users")),
+    completedAt: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    order: v.number(),
+  }).index("by_equipment", ["equipmentId"]),
+
+  // --- Histórico / Auditoria ---
+
+  // Histórico de ações por equipamento planejado (instalação, teste, status...).
+  equipmentHistory: defineTable({
+    equipmentId: v.id("projectEquipment"),
+    action: v.string(),
+    userId: v.id("users"),
+    previousValue: v.optional(v.string()),
+    newValue: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    // Estrutura preparada para GPS (preenchida pelo app de campo).
+    location: v.optional(
+      v.object({
+        latitude: v.number(),
+        longitude: v.number(),
+      })
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_equipment", ["equipmentId"])
+    .index("by_user", ["userId"]),
+
+  // Log de auditoria do sistema (todas as escritas relevantes).
+  auditLogs: defineTable({
+    userId: v.id("users"),
+    action: v.string(),
+    tableName: v.string(),
+    recordId: v.string(),
+    details: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_table", ["tableName", "createdAt"]),
 
   // Entregas de material por modelo (aba Entregas): controle de logística.
   materialDeliveries: defineTable({

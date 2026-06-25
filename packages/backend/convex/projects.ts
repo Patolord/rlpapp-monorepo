@@ -1,6 +1,9 @@
 import { v } from "convex/values";
 import { engineeringMutation, engineeringQuery } from "./lib/functions";
 import { equipmentStatusValidator } from "./equipment";
+import { projectStatus } from "./schema";
+import { logAudit } from "./lib/audit";
+import { buildProjectHierarchy } from "./lib/hierarchy";
 import type { Id } from "./_generated/dataModel";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
@@ -53,10 +56,18 @@ export const list = engineeringQuery({
       _creationTime: v.number(),
       name: v.string(),
       floors: floorsValidator,
+      client: v.union(v.string(), v.null()),
+      address: v.union(v.string(), v.null()),
+      status: v.union(projectStatus, v.null()),
+      responsibleId: v.union(v.id("users"), v.null()),
+      responsibleName: v.union(v.string(), v.null()),
+      startDate: v.union(v.number(), v.null()),
+      endDate: v.union(v.number(), v.null()),
       createdAt: v.number(),
       totalItems: v.number(),
       installedItems: v.number(),
       unitCount: v.number(),
+      towerCount: v.number(),
     })
   ),
   handler: async (ctx) => {
@@ -72,10 +83,20 @@ export const list = engineeringQuery({
           .query("projectUnits")
           .withIndex("by_project", (q) => q.eq("projectId", project._id))
           .collect();
+        const towers = await ctx.db
+          .query("towers")
+          .withIndex("by_project", (q) => q.eq("projectId", project._id))
+          .collect();
 
         const installedItems = items.filter(
           (i) => i.status === "operational"
         ).length;
+
+        let responsibleName: string | null = null;
+        if (project.responsibleId) {
+          const responsible = await ctx.db.get("users", project.responsibleId);
+          responsibleName = responsible?.name ?? null;
+        }
 
         return {
           _id: project._id,
@@ -85,10 +106,18 @@ export const list = engineeringQuery({
             number: f.number,
             label: f.label,
           })),
+          client: project.client ?? null,
+          address: project.address ?? null,
+          status: project.status ?? null,
+          responsibleId: project.responsibleId ?? null,
+          responsibleName,
+          startDate: project.startDate ?? null,
+          endDate: project.endDate ?? null,
           createdAt: project.createdAt,
           totalItems: items.length,
           installedItems,
           unitCount: units.length,
+          towerCount: towers.length,
         };
       })
     );
@@ -104,6 +133,13 @@ export const getOverview = engineeringQuery({
       _id: v.id("projects"),
       name: v.string(),
       floors: floorsValidator,
+      client: v.union(v.string(), v.null()),
+      address: v.union(v.string(), v.null()),
+      status: v.union(projectStatus, v.null()),
+      responsibleId: v.union(v.id("users"), v.null()),
+      responsibleName: v.union(v.string(), v.null()),
+      startDate: v.union(v.number(), v.null()),
+      endDate: v.union(v.number(), v.null()),
       createdAt: v.number(),
       totalItems: v.number(),
       installedItems: v.number(),
@@ -166,6 +202,7 @@ export const getOverview = engineeringQuery({
 
     const itemsByUnit = new Map<string, typeof items>();
     for (const item of items) {
+      if (!item.unitId) continue;
       const list = itemsByUnit.get(item.unitId) ?? [];
       list.push(item);
       itemsByUnit.set(item.unitId, list);
@@ -207,6 +244,12 @@ export const getOverview = engineeringQuery({
           })),
       }));
 
+    let responsibleName: string | null = null;
+    if (project.responsibleId) {
+      const responsible = await ctx.db.get("users", project.responsibleId);
+      responsibleName = responsible?.name ?? null;
+    }
+
     return {
       _id: project._id,
       name: project.name,
@@ -214,6 +257,13 @@ export const getOverview = engineeringQuery({
         number: f.number,
         label: f.label,
       })),
+      client: project.client ?? null,
+      address: project.address ?? null,
+      status: project.status ?? null,
+      responsibleId: project.responsibleId ?? null,
+      responsibleName,
+      startDate: project.startDate ?? null,
+      endDate: project.endDate ?? null,
       createdAt: project.createdAt,
       totalItems: items.length,
       installedItems: items.filter((i) => i.status === "operational").length,
@@ -225,17 +275,40 @@ export const getOverview = engineeringQuery({
 // --- CRUD de obra ---
 
 export const create = engineeringMutation({
-  args: { name: v.string(), floors: floorsValidator },
+  args: {
+    name: v.string(),
+    // Andares opcionais: obras novas podem começar vazias e usar torres.
+    floors: v.optional(floorsValidator),
+    client: v.optional(v.string()),
+    address: v.optional(v.string()),
+    status: v.optional(projectStatus),
+    responsibleId: v.optional(v.id("users")),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+  },
   returns: v.id("projects"),
   handler: async (ctx, args) => {
     const name = args.name.trim();
     if (!name) throw new Error("O nome da obra é obrigatório");
 
-    return await ctx.db.insert("projects", {
+    const projectId = await ctx.db.insert("projects", {
       name,
-      floors: normalizeFloors(args.floors),
+      floors: args.floors ? normalizeFloors(args.floors) : [],
+      client: args.client?.trim() || undefined,
+      address: args.address?.trim() || undefined,
+      status: args.status ?? "planning",
+      responsibleId: args.responsibleId,
+      startDate: args.startDate,
+      endDate: args.endDate,
       createdAt: Date.now(),
     });
+    await logAudit(ctx, ctx.user, {
+      action: "create",
+      tableName: "projects",
+      recordId: projectId,
+      details: name,
+    });
+    return projectId;
   },
 });
 
@@ -244,13 +317,19 @@ export const update = engineeringMutation({
     projectId: v.id("projects"),
     name: v.optional(v.string()),
     floors: v.optional(floorsValidator),
+    client: v.optional(v.union(v.string(), v.null())),
+    address: v.optional(v.union(v.string(), v.null())),
+    status: v.optional(projectStatus),
+    responsibleId: v.optional(v.union(v.id("users"), v.null())),
+    startDate: v.optional(v.union(v.number(), v.null())),
+    endDate: v.optional(v.union(v.number(), v.null())),
   },
   returns: v.id("projects"),
   handler: async (ctx, args) => {
     const project = await ctx.db.get("projects", args.projectId);
     if (!project) throw new Error("Obra não encontrada");
 
-    const updates: Partial<{ name: string; floors: typeof project.floors }> = {};
+    const updates: Record<string, unknown> = {};
     if (args.name !== undefined) {
       const name = args.name.trim();
       if (!name) throw new Error("O nome da obra é obrigatório");
@@ -259,9 +338,62 @@ export const update = engineeringMutation({
     if (args.floors !== undefined) {
       updates.floors = normalizeFloors(args.floors);
     }
+    if (args.client !== undefined) {
+      updates.client = args.client === null ? undefined : args.client.trim() || undefined;
+    }
+    if (args.address !== undefined) {
+      updates.address =
+        args.address === null ? undefined : args.address.trim() || undefined;
+    }
+    if (args.status !== undefined) updates.status = args.status;
+    if (args.responsibleId !== undefined) {
+      updates.responsibleId = args.responsibleId === null ? undefined : args.responsibleId;
+    }
+    if (args.startDate !== undefined) {
+      updates.startDate = args.startDate === null ? undefined : args.startDate;
+    }
+    if (args.endDate !== undefined) {
+      updates.endDate = args.endDate === null ? undefined : args.endDate;
+    }
 
     await ctx.db.patch("projects", args.projectId, updates);
+    await logAudit(ctx, ctx.user, {
+      action: "update",
+      tableName: "projects",
+      recordId: args.projectId,
+    });
     return args.projectId;
+  },
+});
+
+// Define quais clientes (usuários role "client") podem ver a obra no portal.
+export const setClients = engineeringMutation({
+  args: {
+    projectId: v.id("projects"),
+    clientIds: v.array(v.id("users")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project) throw new Error("Obra não encontrada");
+
+    // Mantém apenas IDs válidos para evitar referências quebradas.
+    const valid: Id<"users">[] = [];
+    for (const userId of args.clientIds) {
+      const user = await ctx.db.get("users", userId);
+      if (user) valid.push(user._id);
+    }
+
+    await ctx.db.patch("projects", args.projectId, {
+      clientIds: valid.length > 0 ? valid : undefined,
+    });
+    await logAudit(ctx, ctx.user, {
+      action: "set_clients",
+      tableName: "projects",
+      recordId: args.projectId,
+      details: `${valid.length} cliente(s)`,
+    });
+    return null;
   },
 });
 
@@ -299,7 +431,35 @@ export const remove = engineeringMutation({
       await ctx.db.delete("materialDeliveries", d._id);
     }
 
+    // Cascata da hierarquia nova: ambientes, andares e torres.
+    const environments = await ctx.db
+      .query("environments")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    for (const env of environments) {
+      await ctx.db.delete("environments", env._id);
+    }
+    const floors = await ctx.db
+      .query("floors")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    for (const floor of floors) {
+      await ctx.db.delete("floors", floor._id);
+    }
+    const towers = await ctx.db
+      .query("towers")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    for (const tower of towers) {
+      await ctx.db.delete("towers", tower._id);
+    }
+
     await ctx.db.delete("projects", args.projectId);
+    await logAudit(ctx, ctx.user, {
+      action: "delete",
+      tableName: "projects",
+      recordId: args.projectId,
+    });
     return null;
   },
 });
@@ -418,5 +578,68 @@ export const generateLayout = engineeringMutation({
     }
 
     return { units: unitCount, items: itemCount };
+  },
+});
+
+// --- Hierarquia nova: árvore Torre → Andar → Ambiente → Equipamento ---
+//
+// Usada pelo painel visual da obra. Retorna a árvore completa com contagens
+// agregadas de status por andar/torre para colorir a grade.
+
+const hierarchyItemValidator = v.object({
+  _id: v.id("projectEquipment"),
+  system: v.string(),
+  ambiente: v.string(),
+  kind: equipKindValidator,
+  modelo: v.string(),
+  capacidade: v.string(),
+  status: equipmentStatusValidator,
+  serialNumber: v.union(v.string(), v.null()),
+  deadline: v.union(v.number(), v.null()),
+  linkedEquipmentId: v.union(v.id("equipment"), v.null()),
+  token: v.union(v.string(), v.null()),
+  installedAt: v.union(v.number(), v.null()),
+  installationDate: v.union(v.number(), v.null()),
+  testDate: v.union(v.number(), v.null()),
+});
+
+export const hierarchyReturnValidator = v.union(
+  v.object({
+    _id: v.id("projects"),
+    name: v.string(),
+    towers: v.array(
+      v.object({
+        _id: v.id("towers"),
+        name: v.string(),
+        order: v.number(),
+        floors: v.array(
+          v.object({
+            _id: v.id("floors"),
+            number: v.number(),
+            label: v.string(),
+            environments: v.array(
+              v.object({
+                _id: v.id("environments"),
+                name: v.string(),
+                type: v.union(v.string(), v.null()),
+                order: v.number(),
+                equipment: v.array(hierarchyItemValidator),
+              })
+            ),
+            totalItems: v.number(),
+            installedItems: v.number(),
+          })
+        ),
+      })
+    ),
+  }),
+  v.null()
+);
+
+export const getHierarchy = engineeringQuery({
+  args: { projectId: v.id("projects") },
+  returns: hierarchyReturnValidator,
+  handler: async (ctx, args) => {
+    return await buildProjectHierarchy(ctx, args.projectId);
   },
 });

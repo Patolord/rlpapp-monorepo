@@ -1,8 +1,9 @@
 "use node";
 
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import OpenAI from "openai";
 import { action } from "./_generated/server";
+import { aiIntentValidator } from "./aiIntents";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
 const equipKindValidator = v.union(
@@ -306,4 +307,275 @@ function normalizeProposal(parsed: unknown): {
   });
 
   return { reply, units };
+}
+
+// ============================================================================
+// Sistema multi-intent (chat lateral). A IA interpreta comandos e devolve
+// INTENTS estruturados. Ela NUNCA escreve no banco — quem aplica é a mutation
+// `aiIntents.applyIntents` após o usuário confirmar o preview.
+// ============================================================================
+
+const INTENT_SYSTEM_PROMPT = `Você é o assistente de engenharia de uma plataforma de gestão de obras de ar-condicionado.
+A hierarquia da obra é: Obra → Torre → Andar → Ambiente → Equipamento.
+
+Sua função é interpretar o pedido do usuário (texto, planilha, documento ou áudio transcrito) e devolver uma lista de INTENTS estruturados. Você NUNCA executa nada: apenas propõe. O usuário vai revisar e confirmar.
+
+Responda SOMENTE com JSON válido neste formato:
+{
+  "reply": "frase curta em português explicando o que você vai fazer",
+  "needsClarification": "pergunta ao usuário SE faltar informação essencial (senão omita ou deixe vazio)",
+  "intents": [ ... ]
+}
+
+Tipos de intent disponíveis (campo "type"):
+- {"type":"update_project","client?":string,"address?":string,"status?":"planning"|"in_progress"|"completed"|"paused","startDate?":epoch_ms,"endDate?":epoch_ms}
+- {"type":"create_tower","name":string}
+- {"type":"duplicate_tower","towerName":string,"newName?":string}
+- {"type":"create_floors","towerName":string,"from":number,"to":number}
+- {"type":"create_environment","towerName":string,"floorNumber":number,"name":string,"envType?":string}
+- {"type":"add_equipment","towerName":string,"floorNumber":number,"environmentName":string,"system":string,"kind":"condensadora"|"evaporadora","modelo?":string,"capacidade?":string,"serialNumber?":string,"deadline?":epoch_ms}
+- {"type":"create_checklist_template","name":string,"items":[{"label":string,"required":boolean}]}
+
+Regras:
+- Sempre referencie torre/andar/ambiente por NOME/NÚMERO. Para criar equipamento num ambiente novo, gere os intents na ordem: create_tower → create_floors → create_environment → add_equipment.
+- Datas devem ser epoch em milissegundos (number).
+- Se faltar uma informação crítica (ex: qual torre), use "needsClarification" e NÃO invente.
+- Toda condensadora normalmente fica em "Área Técnica".
+- Responda SOMENTE com o JSON, sem texto fora dele.`;
+
+export const interpret = action({
+  args: {
+    projectId: v.id("projects"),
+    message: v.optional(v.string()),
+    context: v.optional(v.string()),
+    files: v.optional(v.array(fileInputValidator)),
+  },
+  returns: v.object({
+    reply: v.string(),
+    needsClarification: v.union(v.string(), v.null()),
+    intents: v.array(aiIntentValidator),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        "OPENAI_API_KEY não configurada. Defina com: npx convex env set OPENAI_API_KEY <sua-chave>"
+      );
+    }
+
+    const openai = new OpenAI({ apiKey });
+
+    const extractedParts: string[] = [];
+    const userParts: Array<
+      | { type: "input_text"; text: string }
+      | { type: "input_file"; filename: string; file_data: string }
+    > = [];
+
+    for (const file of args.files ?? []) {
+      const blob = await ctx.storage.get(file.storageId);
+      if (!blob) continue;
+      const buffer = Buffer.from(await blob.arrayBuffer());
+
+      if (isAudio(file.name, file.mimeType)) {
+        const audioFile = await OpenAI.toFile(buffer, file.name);
+        const transcription = await openai.audio.transcriptions.create({
+          file: audioFile,
+          model: "whisper-1",
+        });
+        extractedParts.push(
+          `Transcrição do áudio "${file.name}":\n${transcription.text}`
+        );
+      } else if (isPdf(file.name, file.mimeType)) {
+        userParts.push({
+          type: "input_file",
+          filename: file.name,
+          file_data: `data:application/pdf;base64,${buffer.toString("base64")}`,
+        });
+      } else {
+        const text = await extractText(buffer, file.name, file.mimeType);
+        extractedParts.push(`Conteúdo de "${file.name}":\n${text}`);
+      }
+    }
+
+    const textContent = [
+      args.context?.trim() ? `Contexto atual da obra:\n${args.context.trim()}` : "",
+      args.message?.trim() ? `Pedido do usuário: ${args.message.trim()}` : "",
+      ...extractedParts,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    if (!textContent.trim() && userParts.length === 0) {
+      throw new Error("Envie uma mensagem ou um arquivo para a IA analisar.");
+    }
+
+    userParts.unshift({
+      type: "input_text",
+      text: textContent || "Analise o(s) arquivo(s) anexado(s) e proponha intents.",
+    });
+
+    const response = await openai.responses.create({
+      model: "gpt-4o",
+      temperature: 0,
+      input: [
+        {
+          role: "system",
+          content: [{ type: "input_text", text: INTENT_SYSTEM_PROMPT }],
+        },
+        { role: "user", content: userParts },
+      ],
+    });
+
+    const raw = response.output_text ?? "{}";
+    let parsed: unknown;
+    try {
+      const cleaned = raw
+        .trim()
+        .replace(/^```(?:json)?/i, "")
+        .replace(/```$/, "")
+        .trim();
+      parsed = JSON.parse(cleaned);
+    } catch {
+      throw new Error("A IA não retornou um JSON válido. Tente reformular.");
+    }
+
+    return normalizeIntentResponse(parsed);
+  },
+});
+
+type AiIntent = Infer<typeof aiIntentValidator>;
+
+function coerceDate(v: unknown): number | undefined {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v) {
+    const ms = new Date(v).getTime();
+    if (Number.isFinite(ms)) return ms;
+  }
+  return undefined;
+}
+
+// Coage cada intent ao formato esperado e descarta inválidos, garantindo que
+// o validador de retorno da action passe mesmo com saídas imperfeitas da IA.
+function normalizeIntentResponse(parsed: unknown): {
+  reply: string;
+  needsClarification: string | null;
+  intents: AiIntent[];
+} {
+  const obj = (parsed ?? {}) as Record<string, unknown>;
+  const reply = asString(obj.reply) || "Proposta gerada.";
+  const needsClarification = asString(obj.needsClarification) || null;
+  const rawIntents = Array.isArray(obj.intents) ? obj.intents : [];
+
+  const intents: AiIntent[] = [];
+  for (const r of rawIntents) {
+    const o = (r ?? {}) as Record<string, unknown>;
+    const type = asString(o.type);
+    switch (type) {
+      case "update_project": {
+        const intent: Record<string, unknown> = { type };
+        if (typeof o.client === "string") intent.client = o.client;
+        if (typeof o.address === "string") intent.address = o.address;
+        if (
+          o.status === "planning" ||
+          o.status === "in_progress" ||
+          o.status === "completed" ||
+          o.status === "paused"
+        )
+          intent.status = o.status;
+        const sd = coerceDate(o.startDate);
+        if (sd !== undefined) intent.startDate = sd;
+        const ed = coerceDate(o.endDate);
+        if (ed !== undefined) intent.endDate = ed;
+        intents.push(intent as AiIntent);
+        break;
+      }
+      case "create_tower": {
+        const name = asString(o.name);
+        if (name) intents.push({ type, name } as AiIntent);
+        break;
+      }
+      case "duplicate_tower": {
+        const towerName = asString(o.towerName);
+        if (!towerName) break;
+        const intent: Record<string, unknown> = { type, towerName };
+        if (typeof o.newName === "string") intent.newName = o.newName;
+        intents.push(intent as AiIntent);
+        break;
+      }
+      case "create_floors": {
+        const towerName = asString(o.towerName);
+        const from = asNumber(o.from, NaN);
+        const to = asNumber(o.to, NaN);
+        if (towerName && Number.isFinite(from) && Number.isFinite(to)) {
+          intents.push({
+            type,
+            towerName,
+            from: Math.floor(from),
+            to: Math.floor(to),
+          } as AiIntent);
+        }
+        break;
+      }
+      case "create_environment": {
+        const towerName = asString(o.towerName);
+        const name = asString(o.name);
+        const floorNumber = asNumber(o.floorNumber, NaN);
+        if (towerName && name && Number.isFinite(floorNumber)) {
+          const intent: Record<string, unknown> = {
+            type,
+            towerName,
+            floorNumber: Math.floor(floorNumber),
+            name,
+          };
+          if (typeof o.envType === "string") intent.envType = o.envType;
+          intents.push(intent as AiIntent);
+        }
+        break;
+      }
+      case "add_equipment": {
+        const towerName = asString(o.towerName);
+        const environmentName = asString(o.environmentName);
+        const system = asString(o.system);
+        const floorNumber = asNumber(o.floorNumber, NaN);
+        const kind = o.kind === "condensadora" ? "condensadora" : "evaporadora";
+        if (towerName && environmentName && system && Number.isFinite(floorNumber)) {
+          const intent: Record<string, unknown> = {
+            type,
+            towerName,
+            floorNumber: Math.floor(floorNumber),
+            environmentName,
+            system,
+            kind,
+          };
+          if (typeof o.modelo === "string") intent.modelo = o.modelo;
+          if (typeof o.capacidade === "string") intent.capacidade = o.capacidade;
+          if (typeof o.serialNumber === "string")
+            intent.serialNumber = o.serialNumber;
+          const dl = coerceDate(o.deadline);
+          if (dl !== undefined) intent.deadline = dl;
+          intents.push(intent as AiIntent);
+        }
+        break;
+      }
+      case "create_checklist_template": {
+        const name = asString(o.name);
+        const rawItems = Array.isArray(o.items) ? o.items : [];
+        const items = rawItems
+          .map((it) => {
+            const i = (it ?? {}) as Record<string, unknown>;
+            return { label: asString(i.label), required: Boolean(i.required) };
+          })
+          .filter((i) => i.label);
+        if (name && items.length > 0) {
+          intents.push({ type, name, items } as AiIntent);
+        }
+        break;
+      }
+    }
+  }
+
+  return { reply, needsClarification, intents };
 }

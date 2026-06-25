@@ -16,6 +16,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { runWithToast } from "@/lib/errors";
 
 interface FloorDraft {
@@ -23,14 +30,44 @@ interface FloorDraft {
   label: string;
 }
 
+type ProjectStatus = "planning" | "in_progress" | "completed" | "paused";
+
+const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
+  { value: "planning", label: "Planejamento" },
+  { value: "in_progress", label: "Em andamento" },
+  { value: "completed", label: "Concluída" },
+  { value: "paused", label: "Pausada" },
+];
+
 interface ProjectInput {
   _id: Id<"projects">;
   name: string;
   floors: { number: number; label: string }[];
+  client?: string | null;
+  address?: string | null;
+  status?: ProjectStatus | null;
+  startDate?: number | null;
+  endDate?: number | null;
 }
 
 function defaultFloorLabel(n: number): string {
   return n === 0 ? "Térreo" : `${n}º Andar`;
+}
+
+/** Converte timestamp (ms) para o formato yyyy-mm-dd de um input date. */
+function toDateInput(ts?: number | null): string {
+  if (!ts) return "";
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")}`;
+}
+
+/** Converte yyyy-mm-dd para timestamp (ms) ou null. */
+function fromDateInput(value: string): number | null {
+  if (!value) return null;
+  const ms = new Date(`${value}T00:00:00`).getTime();
+  return Number.isFinite(ms) ? ms : null;
 }
 
 function initialFloors(project?: ProjectInput): FloorDraft[] {
@@ -59,6 +96,13 @@ export function ProjectFormDialog({
 
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(project?.name ?? "");
+  const [client, setClient] = useState(project?.client ?? "");
+  const [address, setAddress] = useState(project?.address ?? "");
+  const [status, setStatus] = useState<ProjectStatus>(
+    project?.status ?? "planning"
+  );
+  const [startDate, setStartDate] = useState(toDateInput(project?.startDate));
+  const [endDate, setEndDate] = useState(toDateInput(project?.endDate));
   const [floors, setFloors] = useState<FloorDraft[]>(() =>
     initialFloors(project)
   );
@@ -68,6 +112,11 @@ export function ProjectFormDialog({
 
   function reset() {
     setName(project?.name ?? "");
+    setClient(project?.client ?? "");
+    setAddress(project?.address ?? "");
+    setStatus(project?.status ?? "planning");
+    setStartDate(toDateInput(project?.startDate));
+    setEndDate(toDateInput(project?.endDate));
     setFloors(initialFloors(project));
   }
 
@@ -103,12 +152,20 @@ export function ProjectFormDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || floors.length === 0) return;
+    if (!name.trim()) return;
 
     const payloadFloors = floors.map((f) => ({
       number: f.number,
       label: f.label.trim() || defaultFloorLabel(f.number),
     }));
+
+    const meta = {
+      client: client.trim() || null,
+      address: address.trim() || null,
+      status,
+      startDate: fromDateInput(startDate),
+      endDate: fromDateInput(endDate),
+    };
 
     setSaving(true);
     const ok = await runWithToast(
@@ -118,8 +175,17 @@ export function ProjectFormDialog({
               projectId: project._id,
               name: name.trim(),
               floors: payloadFloors,
+              ...meta,
             })
-          : createProject({ name: name.trim(), floors: payloadFloors }),
+          : createProject({
+              name: name.trim(),
+              floors: payloadFloors,
+              client: meta.client ?? undefined,
+              address: meta.address ?? undefined,
+              status: meta.status,
+              startDate: meta.startDate ?? undefined,
+              endDate: meta.endDate ?? undefined,
+            }),
       isEdit ? "Obra atualizada" : "Obra criada",
       isEdit
         ? "Não foi possível atualizar a obra"
@@ -161,6 +227,67 @@ export function ProjectFormDialog({
               onChange={(e) => setName(e.target.value)}
               required
             />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="project-client">Cliente</Label>
+              <Input
+                id="project-client"
+                placeholder="Ex: Construtora XYZ"
+                value={client}
+                onChange={(e) => setClient(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="project-status">Status</Label>
+              <Select
+                value={status}
+                onValueChange={(v) => setStatus(v as ProjectStatus)}
+              >
+                <SelectTrigger id="project-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="project-address">Endereço</Label>
+            <Input
+              id="project-address"
+              placeholder="Ex: Av. Brasil, 1000 - Centro"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="project-start">Data de início</Label>
+              <Input
+                id="project-start"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="project-end">Previsão de término</Label>
+              <Input
+                id="project-end"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="space-y-2 rounded-lg border bg-muted/30 p-3">

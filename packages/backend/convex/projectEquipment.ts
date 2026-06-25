@@ -1,11 +1,143 @@
 import { v } from "convex/values";
-import { engineeringMutation } from "./lib/functions";
+import { authedMutation, engineeringMutation } from "./lib/functions";
 import { equipmentStatusValidator } from "./equipment";
+import { logEquipmentHistory } from "./lib/audit";
+
+const locationValidator = v.object({
+  latitude: v.number(),
+  longitude: v.number(),
+});
+
+// Ações de campo do técnico (via QR): Instalar, Testar, Finalizar.
+// Sempre registra usuário, data/hora, observação e GPS (estrutura pronta).
+// authedMutation permite que qr_operator execute após escanear.
+export const fieldAction = authedMutation({
+  args: {
+    itemId: v.id("projectEquipment"),
+    action: v.union(
+      v.literal("install"),
+      v.literal("test"),
+      v.literal("finalize")
+    ),
+    notes: v.optional(v.string()),
+    location: v.optional(locationValidator),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get("projectEquipment", args.itemId);
+    if (!item) throw new Error("Equipamento não encontrado");
+
+    const now = Date.now();
+    const previousStatus = item.status;
+    const patch: Record<string, unknown> = {};
+    let newStatus: typeof item.status = item.status;
+
+    if (args.action === "install") {
+      newStatus = "installing";
+      patch.installationDate = item.installationDate ?? now;
+      patch.installedAt = item.installedAt ?? now;
+    } else if (args.action === "test") {
+      newStatus = "warning";
+      patch.testDate = item.testDate ?? now;
+    } else {
+      newStatus = "operational";
+      patch.installationDate = item.installationDate ?? now;
+      patch.installedAt = item.installedAt ?? now;
+    }
+    patch.status = newStatus;
+
+    await ctx.db.patch("projectEquipment", args.itemId, patch);
+    if (item.linkedEquipmentId) {
+      await ctx.db.patch("equipment", item.linkedEquipmentId, {
+        status: newStatus,
+      });
+    }
+    await logEquipmentHistory(ctx, ctx.user, {
+      equipmentId: args.itemId,
+      action:
+        args.action === "install"
+          ? "installed"
+          : args.action === "test"
+            ? "tested"
+            : "finalized",
+      previousValue: previousStatus,
+      newValue: newStatus,
+      notes: args.notes?.trim() || undefined,
+      location: args.location,
+    });
+    return null;
+  },
+});
 
 const equipKindValidator = v.union(
   v.literal("condensadora"),
   v.literal("evaporadora")
 );
+
+// Cria/atualiza um equipamento planejado dentro de um AMBIENTE (hierarquia nova).
+// Diferente de `upsert`, que opera sobre o caminho legado de apartamentos.
+export const upsertInEnvironment = engineeringMutation({
+  args: {
+    itemId: v.optional(v.id("projectEquipment")),
+    environmentId: v.id("environments"),
+    system: v.string(),
+    ambiente: v.optional(v.string()),
+    kind: equipKindValidator,
+    modelo: v.optional(v.string()),
+    capacidade: v.optional(v.string()),
+    serialNumber: v.optional(v.string()),
+    status: v.optional(equipmentStatusValidator),
+    obs: v.optional(v.union(v.string(), v.null())),
+    deadline: v.optional(v.union(v.number(), v.null())),
+    scheduledDate: v.optional(v.union(v.number(), v.null())),
+  },
+  returns: v.id("projectEquipment"),
+  handler: async (ctx, args) => {
+    const env = await ctx.db.get("environments", args.environmentId);
+    if (!env) throw new Error("Ambiente não encontrado");
+
+    const base = {
+      system: args.system.trim() || "Split",
+      ambiente: args.ambiente?.trim() || env.name,
+      kind: args.kind,
+      modelo: args.modelo?.trim() ?? "",
+      capacidade: args.capacidade?.trim() ?? "",
+      serialNumber: args.serialNumber?.trim() || undefined,
+      obs: args.obs === null ? undefined : args.obs?.trim() || undefined,
+      deadline: args.deadline === null ? undefined : args.deadline ?? undefined,
+      scheduledDate:
+        args.scheduledDate === null ? undefined : args.scheduledDate ?? undefined,
+    };
+
+    if (args.itemId) {
+      const item = await ctx.db.get("projectEquipment", args.itemId);
+      if (!item) throw new Error("Equipamento não encontrado");
+      await ctx.db.patch("projectEquipment", args.itemId, {
+        ...base,
+        environmentId: args.environmentId,
+        towerId: env.towerId,
+        floorId: env.floorId,
+        status: args.status ?? item.status,
+      });
+      return args.itemId;
+    }
+
+    const itemId = await ctx.db.insert("projectEquipment", {
+      projectId: env.projectId,
+      environmentId: args.environmentId,
+      towerId: env.towerId,
+      floorId: env.floorId,
+      ...base,
+      status: args.status ?? "installing",
+    });
+    await logEquipmentHistory(ctx, ctx.user, {
+      equipmentId: itemId,
+      action: "created",
+      newValue: base.system,
+    });
+    return itemId;
+  },
+});
 
 export const upsert = engineeringMutation({
   args: {
@@ -64,12 +196,17 @@ export const setStatus = engineeringMutation({
   handler: async (ctx, args) => {
     const item = await ctx.db.get("projectEquipment", args.itemId);
     if (!item) throw new Error("Equipamento não encontrado");
+    if (item.status === args.status) return null;
+
+    const now = Date.now();
     await ctx.db.patch("projectEquipment", args.itemId, {
       status: args.status,
       installedAt:
+        args.status === "operational" ? item.installedAt ?? now : item.installedAt,
+      installationDate:
         args.status === "operational"
-          ? item.installedAt ?? Date.now()
-          : item.installedAt,
+          ? item.installationDate ?? now
+          : item.installationDate,
     });
     // Reflete no equipamento real vinculado, se houver.
     if (item.linkedEquipmentId) {
@@ -77,6 +214,12 @@ export const setStatus = engineeringMutation({
         status: args.status,
       });
     }
+    await logEquipmentHistory(ctx, ctx.user, {
+      equipmentId: args.itemId,
+      action: "status_changed",
+      previousValue: item.status,
+      newValue: args.status,
+    });
     return null;
   },
 });
@@ -93,6 +236,40 @@ export const remove = engineeringMutation({
       });
     }
     await ctx.db.delete("projectEquipment", args.itemId);
+    return null;
+  },
+});
+
+// Anexa fotos/vídeos a um equipamento planejado (upload feito via Convex storage).
+// authedMutation: técnicos em campo (qr_operator) também podem anexar.
+export const addMedia = authedMutation({
+  args: {
+    itemId: v.id("projectEquipment"),
+    photoIds: v.optional(v.array(v.id("_storage"))),
+    videoIds: v.optional(v.array(v.id("_storage"))),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get("projectEquipment", args.itemId);
+    if (!item) throw new Error("Equipamento não encontrado");
+
+    const patch: Record<string, unknown> = {};
+    if (args.photoIds && args.photoIds.length > 0) {
+      patch.photoIds = [...(item.photoIds ?? []), ...args.photoIds];
+    }
+    if (args.videoIds && args.videoIds.length > 0) {
+      patch.videoIds = [...(item.videoIds ?? []), ...args.videoIds];
+    }
+    if (Object.keys(patch).length === 0) return null;
+
+    await ctx.db.patch("projectEquipment", args.itemId, patch);
+    await logEquipmentHistory(ctx, ctx.user, {
+      equipmentId: args.itemId,
+      action: "media_added",
+      newValue: `${args.photoIds?.length ?? 0} foto(s), ${
+        args.videoIds?.length ?? 0
+      } vídeo(s)`,
+    });
     return null;
   },
 });
