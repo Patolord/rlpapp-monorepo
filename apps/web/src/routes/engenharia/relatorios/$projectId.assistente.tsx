@@ -284,7 +284,7 @@ function AssistantContent({ project }: { project: ProjectOverview }) {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  handleSend();
+                  void handleSend();
                 }
               }}
             />
