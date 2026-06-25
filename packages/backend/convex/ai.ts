@@ -35,9 +35,14 @@ const fileInputValidator = v.object({
   mimeType: v.string(),
 });
 
+function isPdf(name: string, mimeType: string): boolean {
+  return mimeType === "application/pdf" || name.toLowerCase().endsWith(".pdf");
+}
+
 /**
- * Lê um arquivo do storage e extrai texto conforme o tipo (Excel, Word, PDF,
- * texto). Áudio é transcrito separadamente via Whisper.
+ * Lê um arquivo do storage e extrai texto conforme o tipo (Excel, Word, texto).
+ * PDFs são enviados diretamente ao modelo (via input_file) e áudios são
+ * transcritos via Whisper — ambos tratados fora desta função.
  */
 async function extractText(
   buffer: Buffer,
@@ -71,14 +76,6 @@ async function extractText(
     const mammoth = (await import("mammoth")).default;
     const result = await mammoth.extractRawText({ buffer });
     return result.value;
-  }
-
-  if (mimeType === "application/pdf" || lower.endsWith(".pdf")) {
-    // Importa o parser direto para evitar o código de debug do índice do pacote.
-    // @ts-expect-error subpath sem tipos
-    const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default;
-    const result = await pdfParse(buffer);
-    return result.text;
   }
 
   // Texto puro / fallback.
@@ -155,6 +152,12 @@ export const proposeLayout = action({
     const openai = new OpenAI({ apiKey });
 
     const extractedParts: string[] = [];
+    // Conteúdo multimodal do usuário para a Responses API (texto + PDFs).
+    const userParts: Array<
+      | { type: "input_text"; text: string }
+      | { type: "input_file"; filename: string; file_data: string }
+    > = [];
+
     for (const file of args.files ?? []) {
       const blob = await ctx.storage.get(file.storageId);
       if (!blob) continue;
@@ -169,6 +172,13 @@ export const proposeLayout = action({
         extractedParts.push(
           `Transcrição do áudio "${file.name}":\n${transcription.text}`
         );
+      } else if (isPdf(file.name, file.mimeType)) {
+        // PDFs são entendidos nativamente pelo modelo via input_file.
+        userParts.push({
+          type: "input_file",
+          filename: file.name,
+          file_data: `data:application/pdf;base64,${buffer.toString("base64")}`,
+        });
       } else {
         const text = await extractText(buffer, file.name, file.mimeType);
         extractedParts.push(`Conteúdo de "${file.name}":\n${text}`);
@@ -182,7 +192,7 @@ export const proposeLayout = action({
             .join(", ")}.`
         : "";
 
-    const userContent = [
+    const textContent = [
       floorsContext,
       args.message?.trim() ? `Instrução do usuário: ${args.message.trim()}` : "",
       ...extractedParts,
@@ -190,24 +200,37 @@ export const proposeLayout = action({
       .filter(Boolean)
       .join("\n\n");
 
-    if (!userContent.trim()) {
+    if (!textContent.trim() && userParts.length === 0) {
       throw new Error("Envie uma mensagem ou um arquivo para a IA analisar.");
     }
 
-    const completion = await openai.chat.completions.create({
+    userParts.unshift({
+      type: "input_text",
+      text: textContent || "Extraia os apartamentos do(s) arquivo(s) anexado(s).",
+    });
+
+    const response = await openai.responses.create({
       model: "gpt-4o",
       temperature: 0,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userContent },
+      input: [
+        {
+          role: "system",
+          content: [{ type: "input_text", text: SYSTEM_PROMPT }],
+        },
+        { role: "user", content: userParts },
       ],
     });
 
-    const raw = completion.choices[0]?.message?.content ?? "{}";
+    const raw = response.output_text ?? "{}";
     let parsed: unknown;
     try {
-      parsed = JSON.parse(raw);
+      // Remove cercas de código (```json ... ```), se houver.
+      const cleaned = raw
+        .trim()
+        .replace(/^```(?:json)?/i, "")
+        .replace(/```$/, "")
+        .trim();
+      parsed = JSON.parse(cleaned);
     } catch {
       throw new Error("A IA não retornou um JSON válido. Tente reformular.");
     }
