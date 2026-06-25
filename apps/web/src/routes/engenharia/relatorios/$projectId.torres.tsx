@@ -8,6 +8,7 @@ import { Loader2, Plus, Wand2 } from "lucide-react";
 import { AuthShell } from "@/components/auth-shell";
 import { BuildingPanel } from "@/components/engenharia/building-panel/building-panel";
 import type {
+  HierarchyEnvironment,
   HierarchyFloor,
   HierarchyTower,
   ProjectHierarchy,
@@ -27,6 +28,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { runWithToast } from "@/lib/errors";
 
 export const Route = createFileRoute(
@@ -59,10 +67,13 @@ function TorresContent({
     projectId: project._id,
   }) as ProjectHierarchy | null | undefined;
   const generateQr = useMutation(api.qrCodes.generateForProjectEquipment);
+  const removeEquipment = useMutation(api.projectEquipment.remove);
 
   const [towerDialogOpen, setTowerDialogOpen] = useState(false);
   const [floorTarget, setFloorTarget] = useState<HierarchyTower | null>(null);
   const [envTarget, setEnvTarget] = useState<HierarchyFloor | null>(null);
+  const [equipTarget, setEquipTarget] =
+    useState<HierarchyEnvironment | null>(null);
 
   return (
     <div className="space-y-4">
@@ -91,12 +102,26 @@ function TorresContent({
           actions={{
             onAddFloors: (tower) => setFloorTarget(tower),
             onAddEnvironment: (floor) => setEnvTarget(floor),
+            onAddEquipment: (env) => setEquipTarget(env),
             onGenerateQr: (item) =>
               runWithToast(
                 () => generateQr({ itemId: item._id }),
                 "QR gerado",
                 "Não foi possível gerar o QR"
               ),
+            onRemoveEquipment: (item) => {
+              if (
+                !window.confirm(
+                  `Remover o equipamento "${item.system}"? Esta ação não pode ser desfeita.`
+                )
+              )
+                return;
+              void runWithToast(
+                () => removeEquipment({ itemId: item._id }),
+                "Equipamento removido",
+                "Não foi possível remover o equipamento"
+              );
+            },
           }}
         />
       )}
@@ -113,6 +138,10 @@ function TorresContent({
       <AddEnvironmentDialog
         floor={envTarget}
         onClose={() => setEnvTarget(null)}
+      />
+      <AddEquipmentDialog
+        environment={equipTarget}
+        onClose={() => setEquipTarget(null)}
       />
     </div>
   );
@@ -265,6 +294,159 @@ function AddFloorsDialog({
                 <Wand2 className="mr-2 size-4" />
               )}
               Gerar andares
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function toTimestamp(value: string): number | undefined {
+  if (!value) return undefined;
+  const ts = new Date(`${value}T00:00:00`).getTime();
+  return Number.isFinite(ts) ? ts : undefined;
+}
+
+function AddEquipmentDialog({
+  environment,
+  onClose,
+}: {
+  environment: HierarchyEnvironment | null;
+  onClose: () => void;
+}) {
+  const upsert = useMutation(api.projectEquipment.upsertInEnvironment);
+  const [system, setSystem] = useState("Split");
+  const [kind, setKind] = useState<"condensadora" | "evaporadora">(
+    "evaporadora"
+  );
+  const [modelo, setModelo] = useState("");
+  const [capacidade, setCapacidade] = useState("");
+  const [serialNumber, setSerialNumber] = useState("");
+  const [deadline, setDeadline] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function reset() {
+    setSystem("Split");
+    setKind("evaporadora");
+    setModelo("");
+    setCapacidade("");
+    setSerialNumber("");
+    setDeadline("");
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!environment || !system.trim()) return;
+    setSaving(true);
+    const ok = await runWithToast(
+      () =>
+        upsert({
+          environmentId: environment._id,
+          system: system.trim(),
+          kind,
+          modelo: modelo.trim() || undefined,
+          capacidade: capacidade.trim() || undefined,
+          serialNumber: serialNumber.trim() || undefined,
+          deadline: toTimestamp(deadline) ?? null,
+        }),
+      "Equipamento adicionado",
+      "Não foi possível adicionar o equipamento"
+    );
+    setSaving(false);
+    if (ok) {
+      reset();
+      onClose();
+    }
+  }
+
+  return (
+    <Dialog open={environment !== null} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Adicionar equipamento</DialogTitle>
+          <DialogDescription>
+            {environment ? `Ambiente ${environment.name}.` : ""} Preencha os
+            dados do equipamento previsto.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="equip-system">Sistema</Label>
+              <Input
+                id="equip-system"
+                placeholder="Ex: Split, VRF"
+                value={system}
+                onChange={(e) => setSystem(e.target.value)}
+                autoFocus
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo</Label>
+              <Select
+                value={kind}
+                onValueChange={(v) =>
+                  setKind(v as "condensadora" | "evaporadora")
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="evaporadora">Evaporadora</SelectItem>
+                  <SelectItem value="condensadora">Condensadora</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="equip-modelo">Modelo</Label>
+              <Input
+                id="equip-modelo"
+                placeholder="Ex: MSZ-GL12"
+                value={modelo}
+                onChange={(e) => setModelo(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="equip-cap">Capacidade</Label>
+              <Input
+                id="equip-cap"
+                placeholder="Ex: 12.000 BTUs"
+                value={capacidade}
+                onChange={(e) => setCapacidade(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="equip-serial">Nº de série (opcional)</Label>
+              <Input
+                id="equip-serial"
+                value={serialNumber}
+                onChange={(e) => setSerialNumber(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="equip-deadline">Prazo (opcional)</Label>
+              <Input
+                id="equip-deadline"
+                type="date"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={saving || !system.trim()}>
+              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Adicionar
             </Button>
           </DialogFooter>
         </form>

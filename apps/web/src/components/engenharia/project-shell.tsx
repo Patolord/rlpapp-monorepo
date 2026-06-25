@@ -120,15 +120,6 @@ export function ProjectShell({
     );
   }
 
-  const pending = project.totalItems - project.installedItems;
-  const pct =
-    project.totalItems === 0
-      ? 0
-      : Math.round((project.installedItems / project.totalItems) * 100);
-  const overdue = project.units.filter(
-    (u) => getUnitState(u, now).overdue
-  ).length;
-
   const aiContext = [
     `Obra: ${project.name}`,
     project.client ? `Cliente: ${project.client}` : "",
@@ -141,7 +132,60 @@ export function ProjectShell({
     .join("\n");
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <ProjectShellLayout
+      project={project}
+      now={now}
+      tab={tab}
+      aiContext={aiContext}
+    >
+      {children}
+    </ProjectShellLayout>
+  );
+}
+
+const AI_PANEL_STORAGE_KEY = "engenharia.aiPanel.open";
+
+function ProjectShellLayout({
+  project,
+  now,
+  tab,
+  aiContext,
+  children,
+}: {
+  project: ProjectOverview;
+  now: number;
+  tab: ProjectTab;
+  aiContext: string;
+  children: (project: ProjectOverview, now: number) => ReactNode;
+}) {
+  const [aiOpen, setAiOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem(AI_PANEL_STORAGE_KEY) !== "false";
+  });
+
+  function setAiOpenPersist(next: boolean) {
+    setAiOpen(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(AI_PANEL_STORAGE_KEY, String(next));
+    }
+  }
+
+  const pending = project.totalItems - project.installedItems;
+  const pct =
+    project.totalItems === 0
+      ? 0
+      : Math.round((project.installedItems / project.totalItems) * 100);
+  const overdue = project.units.filter(
+    (u) => getUnitState(u, now).overdue
+  ).length;
+
+  return (
+    <div
+      className={cn(
+        "mx-auto max-w-7xl space-y-6 transition-[padding] duration-200",
+        aiOpen && "lg:pr-116"
+      )}
+    >
       <div>
         <Button
           variant="ghost"
@@ -189,36 +233,23 @@ export function ProjectShell({
 
       {children(project, now)}
 
-      <ProjectAiLauncher projectId={project._id} context={aiContext} />
-    </div>
-  );
-}
-
-function ProjectAiLauncher({
-  projectId,
-  context,
-}: {
-  projectId: Id<"projects">;
-  context: string;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <Button
-        size="lg"
-        className="fixed bottom-6 right-6 z-40 rounded-full shadow-lg"
-        onClick={() => setOpen(true)}
-      >
-        <Sparkles className="mr-2 size-4" />
-        Assistente IA
-      </Button>
+      {!aiOpen && (
+        <Button
+          size="lg"
+          className="fixed bottom-6 right-6 z-40 rounded-full shadow-lg"
+          onClick={() => setAiOpenPersist(true)}
+        >
+          <Sparkles className="mr-2 size-4" />
+          Assistente IA
+        </Button>
+      )}
       <AiChatPanel
-        projectId={projectId}
-        context={context}
-        open={open}
-        onOpenChange={setOpen}
+        projectId={project._id}
+        context={aiContext}
+        open={aiOpen}
+        onOpenChange={setAiOpenPersist}
       />
-    </>
+    </div>
   );
 }
 

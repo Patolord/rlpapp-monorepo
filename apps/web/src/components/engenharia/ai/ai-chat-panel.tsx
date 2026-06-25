@@ -8,6 +8,7 @@ import {
   ListChecks,
   Loader2,
   Mic,
+  PanelRightClose,
   Paperclip,
   Send,
   Sparkles,
@@ -17,13 +18,6 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { useAudioRecorder } from "@/lib/use-audio-recorder";
 import { runWithToast } from "@/lib/errors";
@@ -149,21 +143,32 @@ export function AiChatPanel({
     }
   }
 
+  if (!open) return null;
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-md">
-        <SheetHeader className="border-b">
-          <SheetTitle className="flex items-center gap-2 text-base">
+    <aside className="fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l bg-background shadow-xl sm:max-w-md">
+      <div className="flex items-start justify-between gap-2 border-b p-4">
+        <div className="space-y-1">
+          <h2 className="flex items-center gap-2 text-base font-semibold">
             <Sparkles className="size-4 text-primary" />
             Assistente IA
-          </SheetTitle>
-          <SheetDescription>
+          </h2>
+          <p className="text-sm text-muted-foreground">
             Peça em linguagem natural. A IA propõe e você confirma antes de
             salvar.
-          </SheetDescription>
-        </SheetHeader>
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onOpenChange(false)}
+          aria-label="Ocultar assistente"
+        >
+          <PanelRightClose className="size-4" />
+        </Button>
+      </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+      <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {messages.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
               <Bot className="size-9" />
@@ -312,8 +317,7 @@ export function AiChatPanel({
             </Button>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+    </aside>
   );
 }
 

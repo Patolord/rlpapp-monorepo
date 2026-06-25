@@ -1,4 +1,4 @@
-import { DoorOpen, QrCode, Wind } from "lucide-react";
+import { DoorOpen, Plus, QrCode, Trash2, Wind } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 import { cn } from "@/lib/utils";
@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EquipmentStatusDot } from "@/components/engenharia/building-panel/equipment-status-dot";
 import {
   EQUIPMENT_VISUAL_STYLES,
+  type HierarchyEnvironment,
   type HierarchyFloor,
   type HierarchyItem,
 } from "@/components/engenharia/building-panel/hierarchy";
@@ -15,10 +16,14 @@ export function FloorDetail({
   floor,
   now,
   onGenerateQr,
+  onAddEquipment,
+  onRemoveEquipment,
 }: {
   floor: HierarchyFloor | null;
   now: number;
   onGenerateQr?: (item: HierarchyItem) => void;
+  onAddEquipment?: (env: HierarchyEnvironment) => void;
+  onRemoveEquipment?: (item: HierarchyItem) => void;
 }) {
   if (!floor) {
     return (
@@ -59,6 +64,17 @@ export function FloorDetail({
                 <span className="ml-auto text-xs text-muted-foreground">
                   {env.equipment.length} equip.
                 </span>
+                {onAddEquipment && (
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    className="h-6 px-1.5 text-xs"
+                    onClick={() => onAddEquipment(env)}
+                  >
+                    <Plus className="mr-1 size-3" />
+                    Equip.
+                  </Button>
+                )}
               </div>
 
               {env.equipment.length === 0 ? (
@@ -92,28 +108,40 @@ export function FloorDetail({
                           S/N {item.serialNumber}
                         </span>
                       )}
-                      {item.token ? (
-                        <Link
-                          to="/engenharia/qr/$token"
-                          params={{ token: item.token }}
-                          className="ml-auto inline-flex items-center gap-1 text-primary hover:underline"
-                        >
-                          <QrCode className="size-3" />
-                          QR
-                        </Link>
-                      ) : (
-                        onGenerateQr && (
+                      <div className="ml-auto flex items-center gap-1">
+                        {item.token ? (
+                          <Link
+                            to="/engenharia/qr/$token"
+                            params={{ token: item.token }}
+                            className="inline-flex items-center gap-1 text-primary hover:underline"
+                          >
+                            <QrCode className="size-3" />
+                            QR
+                          </Link>
+                        ) : (
+                          onGenerateQr && (
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              className="h-6 px-1.5 text-xs"
+                              onClick={() => onGenerateQr(item)}
+                            >
+                              <QrCode className="mr-1 size-3" />
+                              Gerar QR
+                            </Button>
+                          )
+                        )}
+                        {onRemoveEquipment && (
                           <Button
                             variant="ghost"
                             size="xs"
-                            className="ml-auto h-6 px-1.5 text-xs"
-                            onClick={() => onGenerateQr(item)}
+                            className="h-6 px-1.5 text-destructive hover:text-destructive"
+                            onClick={() => onRemoveEquipment(item)}
                           >
-                            <QrCode className="mr-1 size-3" />
-                            Gerar QR
+                            <Trash2 className="size-3" />
                           </Button>
-                        )
-                      )}
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>

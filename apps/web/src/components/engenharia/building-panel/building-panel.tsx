@@ -9,6 +9,7 @@ import {
 } from "@/components/engenharia/building-panel/floor-grid";
 import { FloorDetail } from "@/components/engenharia/building-panel/floor-detail";
 import type {
+  HierarchyEnvironment,
   HierarchyFloor,
   HierarchyItem,
   HierarchyTower,
@@ -20,6 +21,8 @@ export type BuildingPanelActions = {
   onAddFloors?: (tower: HierarchyTower) => void;
   onAddEnvironment?: (floor: HierarchyFloor) => void;
   onGenerateQr?: (item: HierarchyItem) => void;
+  onAddEquipment?: (env: HierarchyEnvironment) => void;
+  onRemoveEquipment?: (item: HierarchyItem) => void;
 };
 
 export function BuildingPanel({
@@ -126,6 +129,8 @@ export function BuildingPanel({
             floor={selectedFloor}
             now={now}
             onGenerateQr={actions?.onGenerateQr}
+            onAddEquipment={actions?.onAddEquipment}
+            onRemoveEquipment={actions?.onRemoveEquipment}
           />
         </div>
       </div>
