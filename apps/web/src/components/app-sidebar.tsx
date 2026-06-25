@@ -3,6 +3,7 @@ import { UserButton } from "@clerk/tanstack-react-start";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import {
+  Building2,
   ChevronRight,
   ClipboardList,
   HardHat,
@@ -61,6 +62,7 @@ function getDepartmentSections(): DepartmentSection[] {
         { to: "/engenharia", label: "Códigos QR", icon: QrCode, exact: true },
         { to: "/engenharia/qr-codes", label: "Criar códigos QR", icon: Plus },
         { to: "/engenharia/registro-de-campo", label: "Registro de Campo", icon: ClipboardList },
+        { to: "/engenharia/relatorios", label: "Relatórios", icon: Building2 },
         { to: "/engenharia/usuarios", label: "Usuários", icon: UserPlus },
       ],
     },
@@ -79,7 +81,7 @@ function NavUser() {
               },
             }}
           />
-          <span className="text-sm group-data-[collapsible=icon]:hidden">Conta</span>
+          <span className="text-base group-data-[collapsible=icon]:hidden">Conta</span>
         </div>
       </SidebarMenuItem>
     </SidebarMenu>
@@ -159,11 +161,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <img
                 src="/logo.jpg"
                 alt="RLP Engenharia"
-                className="aspect-square size-8 rounded-lg object-cover"
+                className="aspect-square size-10 rounded-lg object-cover"
               />
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">RLP Engenharia</span>
-                <span className="truncate text-xs">Sistema ERP</span>
+              <div className="grid flex-1 text-left leading-tight">
+                <span className="truncate text-base font-bold tracking-tight">RLP Engenharia</span>
+                <span className="truncate text-sm text-muted-foreground">Sistema ERP</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>

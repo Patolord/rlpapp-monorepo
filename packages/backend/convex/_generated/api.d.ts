@@ -8,12 +8,16 @@
  * @module
  */
 
+import type * as deliveries from "../deliveries.js";
 import type * as equipment from "../equipment.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_functions from "../lib/functions.js";
 import type * as maintenanceLogs from "../maintenanceLogs.js";
+import type * as projectEquipment from "../projectEquipment.js";
+import type * as projectUnits from "../projectUnits.js";
+import type * as projects from "../projects.js";
 import type * as qrCodes from "../qrCodes.js";
 import type * as userAdmin from "../userAdmin.js";
 import type * as users from "../users.js";
@@ -25,12 +29,16 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  deliveries: typeof deliveries;
   equipment: typeof equipment;
   healthCheck: typeof healthCheck;
   http: typeof http;
   "lib/auth": typeof lib_auth;
   "lib/functions": typeof lib_functions;
   maintenanceLogs: typeof maintenanceLogs;
+  projectEquipment: typeof projectEquipment;
+  projectUnits: typeof projectUnits;
+  projects: typeof projects;
   qrCodes: typeof qrCodes;
   userAdmin: typeof userAdmin;
   users: typeof users;

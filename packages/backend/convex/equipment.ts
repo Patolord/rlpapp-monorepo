@@ -1,5 +1,10 @@
 import { v } from "convex/values";
-import { authedMutation, authedQuery, staffQuery } from "./lib/functions";
+import {
+  authedMutation,
+  authedQuery,
+  engineeringQuery,
+  staffQuery,
+} from "./lib/functions";
 
 export const equipmentStatusValidator = v.union(
   v.literal("installing"),
@@ -55,6 +60,7 @@ export const update = authedMutation({
     id: v.id("equipment"),
     description: v.optional(v.string()),
     status: v.optional(equipmentStatusValidator),
+    projectEquipmentId: v.optional(v.id("projectEquipment")),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
@@ -68,5 +74,35 @@ export const update = authedMutation({
 
     await ctx.db.patch("equipment", id, filtered);
     return id;
+  },
+});
+
+// Equipamentos que ainda não foram alocados a nenhum item de obra.
+export const listAssignable = engineeringQuery({
+  args: {},
+  handler: async (ctx) => {
+    const equipment = await ctx.db
+      .query("equipment")
+      .withIndex("by_projectEquipment", (q) =>
+        q.eq("projectEquipmentId", undefined)
+      )
+      .order("desc")
+      .collect();
+
+    return await Promise.all(
+      equipment.map(async (e) => {
+        const qrCode = await ctx.db
+          .query("qrCodes")
+          .withIndex("by_equipment", (q) => q.eq("equipmentId", e._id))
+          .order("desc")
+          .first();
+        return {
+          _id: e._id,
+          description: e.description,
+          status: e.status,
+          token: qrCode?.token ?? null,
+        };
+      })
+    );
   },
 });

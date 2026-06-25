@@ -30,6 +30,8 @@ const equipmentFields = {
   labelPhotoIds: v.optional(v.array(v.id("_storage"))),
   status: equipmentStatus,
   createdAt: v.number(),
+  // Vínculo reverso com o item planejado da obra (relatórios).
+  projectEquipmentId: v.optional(v.id("projectEquipment")),
   // Campos legados (dados antigos em produção antes da simplificação do schema).
   location: v.optional(v.string()),
   tag: v.optional(v.string()),
