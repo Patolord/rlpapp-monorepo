@@ -69,6 +69,8 @@ export default defineSchema({
         // 0 = térreo, 1 = 1º andar, etc.
         number: v.number(),
         label: v.string(),
+        // Campo legado (modelo antigo): ignorado pela aplicação atual.
+        unitCount: v.optional(v.number()),
       })
     ),
     createdAt: v.number(),
@@ -146,6 +148,9 @@ export default defineSchema({
     // Vínculo reverso: item planejado da obra que este equipamento ocupa.
     projectEquipmentId: v.optional(v.id("projectEquipment")),
     // Campos legados (dados antigos em produção antes da simplificação do schema).
+    projectId: v.optional(v.id("projects")),
+    floor: v.optional(v.number()),
+    position: v.optional(v.number()),
     location: v.optional(v.string()),
     tag: v.optional(v.string()),
     type: v.optional(v.string()),
