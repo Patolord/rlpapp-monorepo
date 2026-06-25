@@ -36,45 +36,24 @@ export type ProjectOverview = {
   createdAt: number;
   totalItems: number;
   installedItems: number;
+  hierarchyFloors: number;
+  hierarchyEnvironments: number;
   units: GridUnit[];
 };
 
 export type ProjectTab =
   | "building"
-  | "torres"
-  | "dashboard"
   | "global"
   | "entregas"
-  | "editar"
   | "assistente";
 
 const TABS: { id: ProjectTab; label: string; to: string }[] = [
   { id: "building", label: "Prédio", to: "/engenharia/relatorios/$projectId" },
-  {
-    id: "torres",
-    label: "Torres",
-    to: "/engenharia/relatorios/$projectId/torres",
-  },
-  {
-    id: "dashboard",
-    label: "Dashboard",
-    to: "/engenharia/relatorios/$projectId/dashboard",
-  },
   { id: "global", label: "Global", to: "/engenharia/relatorios/$projectId/global" },
   {
     id: "entregas",
     label: "Entregas",
     to: "/engenharia/relatorios/$projectId/entregas",
-  },
-  {
-    id: "editar",
-    label: "Editar layout",
-    to: "/engenharia/relatorios/$projectId/editar",
-  },
-  {
-    id: "assistente",
-    label: "Assistente IA",
-    to: "/engenharia/relatorios/$projectId/assistente",
   },
 ];
 
@@ -201,9 +180,17 @@ function ProjectShellLayout({
           <div className="space-y-1">
             <h1 className="text-2xl font-bold">{project.name}</h1>
             <p className="text-sm text-muted-foreground">
-              {project.floors.length} andar
-              {project.floors.length === 1 ? "" : "es"} · {project.units.length}{" "}
-              apartamentos · {project.totalItems} equipamentos previstos
+              {project.hierarchyFloors > 0
+                ? `${project.hierarchyFloors} andar${project.hierarchyFloors === 1 ? "" : "es"}`
+                : `${project.floors.length} andar${project.floors.length === 1 ? "" : "es"}`}
+              {" · "}
+              {project.units.length > 0
+                ? `${project.units.length} apartamentos`
+                : project.hierarchyEnvironments > 0
+                  ? `${project.hierarchyEnvironments} ambientes`
+                  : "0 apartamentos"}
+              {" · "}
+              {project.totalItems} equipamentos previstos
             </p>
           </div>
           <Button
@@ -222,12 +209,12 @@ function ProjectShellLayout({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label="Instalados" value={project.installedItems} accent />
-        <StatTile label="Pendentes" value={pending} />
-        <StatTile label="Em atraso" value={overdue} danger={overdue > 0} />
-        <StatTile label="Progresso" value={`${pct}%`} />
-      </div>
+      <ProgressSummary
+        installed={project.installedItems}
+        pending={pending}
+        overdue={overdue}
+        pct={pct}
+      />
 
       <ProjectTabs projectId={project._id} active={tab} />
 
@@ -281,29 +268,60 @@ function ProjectTabs({
   );
 }
 
-function StatTile({
-  label,
-  value,
-  accent = false,
-  danger = false,
+/**
+ * Resumo compacto de progresso da obra: uma barra com a porcentagem instalada e
+ * contadores inline, em vez de quatro cartões grandes de métricas.
+ */
+function ProgressSummary({
+  installed,
+  pending,
+  overdue,
+  pct,
 }: {
-  label: string;
-  value: string | number;
-  accent?: boolean;
-  danger?: boolean;
+  installed: number;
+  pending: number;
+  overdue: number;
+  pct: number;
 }) {
   return (
-    <div className="rounded-lg border bg-card px-4 py-3 shadow-sm">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p
-        className={cn(
-          "text-2xl font-bold tabular-nums",
-          accent && "text-primary",
-          danger && "text-red-600"
-        )}
-      >
-        {value}
-      </p>
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border bg-card px-4 py-3 shadow-sm">
+      <div className="flex min-w-40 flex-1 items-center gap-3">
+        <span className="text-2xl font-bold tabular-nums text-primary">
+          {pct}%
+        </span>
+        <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+      <div className="flex items-center gap-x-4 text-sm">
+        <SummaryStat label="Instalados" value={installed} className="text-green-700" />
+        <SummaryStat label="Pendentes" value={pending} />
+        <SummaryStat
+          label="Em atraso"
+          value={overdue}
+          className={overdue > 0 ? "text-red-600" : undefined}
+        />
+      </div>
     </div>
+  );
+}
+
+function SummaryStat({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: number;
+  className?: string;
+}) {
+  return (
+    <span className="flex items-baseline gap-1.5">
+      <span className={cn("font-bold tabular-nums", className)}>{value}</span>
+      <span className="text-muted-foreground">{label}</span>
+    </span>
   );
 }

@@ -59,12 +59,23 @@ async function extractText(
     lower.endsWith(".xls") ||
     lower.endsWith(".csv")
   ) {
-    const XLSX = await import("xlsx");
-    const wb = XLSX.read(buffer, { type: "buffer" });
+    const mod = await import("xlsx");
+    const XLSX = ("default" in mod ? (mod as Record<string, unknown>).default : mod) as typeof import("xlsx");
+    // `cellFormula: false` garante que lemos o valor calculado das células e
+    // nunca o texto da fórmula (ex: `=B10+100`).
+    const wb = XLSX.read(buffer, { type: "buffer", cellFormula: false });
     const parts: string[] = [];
     for (const sheetName of wb.SheetNames) {
       const sheet = wb.Sheets[sheetName];
-      parts.push(`# Aba: ${sheetName}\n${XLSX.utils.sheet_to_csv(sheet)}`);
+      // `blankrows: false` + filtro removem linhas totalmente vazias, que em
+      // planilhas reais chegam às centenas e poluem o contexto da IA.
+      const csv = XLSX.utils
+        .sheet_to_csv(sheet, { blankrows: false })
+        .split("\n")
+        .filter((line) => line.replace(/[,;\s]/g, "").length > 0)
+        .join("\n");
+      if (csv.trim().length === 0) continue;
+      parts.push(`# Aba: ${sheetName}\n${csv}`);
     }
     return parts.join("\n\n");
   }
@@ -341,6 +352,9 @@ Regras:
 - Datas devem ser epoch em milissegundos (number).
 - Se faltar uma informação crítica (ex: qual torre), use "needsClarification" e NÃO invente.
 - Toda condensadora normalmente fica em "Área Técnica".
+- UMA ÚNICA TORRE por padrão: se a fonte NÃO mencionar explicitamente mais de uma torre/bloco, crie apenas UMA torre (ex: "Torre Única"). NUNCA crie uma torre por aba, por andar ou por apartamento.
+- Planilhas costumam REPETIR os mesmos dados em várias abas (ex: uma aba "Global" com tudo + uma aba por andar como "2º Andar", "3º Andar"...). Trate todas as abas como a MESMA obra e DEDUPLIQUE: cada andar/ambiente/equipamento deve aparecer UMA única vez. Prefira a aba mais completa (geralmente "Global").
+- Deduza o andar pelo número do apartamento/unidade: 201→andar 2, 305→andar 3, 1204→andar 12. O "Final" costuma ser o último dígito (ex: 204→final 4).
 - Responda SOMENTE com o JSON, sem texto fora dele.`;
 
 export const interpret = action({

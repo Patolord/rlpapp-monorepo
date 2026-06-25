@@ -89,6 +89,38 @@ export function getFloorState(floor: HierarchyFloor, now: number): FloorState {
   return { total, installed, level, overdue };
 }
 
+/** O prazo mais cedo entre os equipamentos de um ambiente. */
+function environmentDeadline(env: HierarchyEnvironment): number | null {
+  const deadlines = env.equipment
+    .map((e) => e.deadline)
+    .filter((d): d is number => typeof d === "number");
+  if (deadlines.length === 0) return null;
+  return Math.min(...deadlines);
+}
+
+/** Estado agregado de um ambiente (célula da matriz de prédio). */
+export function getEnvironmentState(
+  env: HierarchyEnvironment,
+  now: number
+): FloorState {
+  const total = env.equipment.length;
+  const installed = env.equipment.filter(
+    (e) => e.status === "operational"
+  ).length;
+
+  let level: FloorLevel;
+  if (total === 0) level = "empty";
+  else if (installed === 0) level = "pending";
+  else if (installed >= total) level = "complete";
+  else level = "partial";
+
+  const deadline = environmentDeadline(env);
+  const overdue =
+    level !== "complete" && deadline !== null && deadline < now;
+
+  return { total, installed, level, overdue };
+}
+
 /** Estilos de cor por estado do andar (🟩 🟨 🟥 ⬜). */
 export const FLOOR_STATE_STYLES: Record<
   FloorLevel | "overdue",

@@ -60,12 +60,18 @@ export function AiChatPanel({
 
   async function handleSend() {
     if (!input.trim() && files.length === 0) return;
+
+    const currentInput = input.trim();
+    const currentFiles = [...files];
+
+    setInput("");
+    setFiles([]);
     setSending(true);
     setPendingIntents(null);
 
     const userText =
-      input.trim() +
-      (files.length > 0 ? `\n\n📎 ${files.map((f) => f.name).join(", ")}` : "");
+      currentInput +
+      (currentFiles.length > 0 ? `\n\n📎 ${currentFiles.map((f) => f.name).join(", ")}` : "");
     setMessages((prev) => [...prev, { role: "user", text: userText }]);
 
     try {
@@ -74,7 +80,7 @@ export function AiChatPanel({
         name: string;
         mimeType: string;
       }[] = [];
-      for (const file of files) {
+      for (const file of currentFiles) {
         const url = await generateUploadUrl();
         const res = await fetch(url, {
           method: "POST",
@@ -93,7 +99,7 @@ export function AiChatPanel({
 
       const result = await interpret({
         projectId,
-        message: input.trim() || undefined,
+        message: currentInput || undefined,
         context,
         files: uploaded.length > 0 ? uploaded : undefined,
       });
@@ -107,8 +113,6 @@ export function AiChatPanel({
         { role: "assistant", text, intents: intents.length ? intents : undefined },
       ]);
       setPendingIntents(intents.length ? intents : null);
-      setInput("");
-      setFiles([]);
     } catch (error) {
       setMessages((prev) => [
         ...prev,

@@ -1,22 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
-import { Loader2, Plus, Wand2 } from "lucide-react";
+import { useMutation } from "convex/react";
+import { Loader2, Trash2, Wand2 } from "lucide-react";
 
-import { AuthShell } from "@/components/auth-shell";
-import { BuildingPanel } from "@/components/engenharia/building-panel/building-panel";
-import type {
-  HierarchyEnvironment,
-  HierarchyFloor,
-  HierarchyTower,
-  ProjectHierarchy,
-} from "@/components/engenharia/building-panel/hierarchy";
-import {
-  ProjectShell,
-  type ProjectOverview,
-} from "@/components/engenharia/project-shell";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,118 +23,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { runWithToast } from "@/lib/errors";
+import type {
+  HierarchyEnvironment,
+  HierarchyFloor,
+  HierarchyTower,
+} from "@/components/engenharia/building-panel/hierarchy";
 
-export const Route = createFileRoute(
-  "/engenharia/relatorios/$projectId/torres"
-)({
-  component: () => (
-    <AuthShell>
-      <TorresPage />
-    </AuthShell>
-  ),
-});
-
-function TorresPage() {
-  const { projectId } = Route.useParams();
-  return (
-    <ProjectShell projectId={projectId} tab="torres">
-      {(project, now) => <TorresContent project={project} now={now} />}
-    </ProjectShell>
-  );
+function toTimestamp(value: string): number | undefined {
+  if (!value) return undefined;
+  const ts = new Date(`${value}T00:00:00`).getTime();
+  return Number.isFinite(ts) ? ts : undefined;
 }
 
-function TorresContent({
-  project,
-  now,
-}: {
-  project: ProjectOverview;
-  now: number;
-}) {
-  const hierarchy = useQuery(api.projects.getHierarchy, {
-    projectId: project._id,
-  }) as ProjectHierarchy | null | undefined;
-  const generateQr = useMutation(api.qrCodes.generateForProjectEquipment);
-  const removeEquipment = useMutation(api.projectEquipment.remove);
-
-  const [towerDialogOpen, setTowerDialogOpen] = useState(false);
-  const [floorTarget, setFloorTarget] = useState<HierarchyTower | null>(null);
-  const [envTarget, setEnvTarget] = useState<HierarchyFloor | null>(null);
-  const [equipTarget, setEquipTarget] =
-    useState<HierarchyEnvironment | null>(null);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          Visualize a evolução da obra por torre, andar e ambiente.
-        </p>
-        <Button size="sm" onClick={() => setTowerDialogOpen(true)}>
-          <Plus className="mr-1.5 size-4" />
-          Nova torre
-        </Button>
-      </div>
-
-      {hierarchy === undefined ? (
-        <div className="flex min-h-48 items-center justify-center">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
-        </div>
-      ) : hierarchy === null ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">
-          Obra não encontrada.
-        </p>
-      ) : (
-        <BuildingPanel
-          hierarchy={hierarchy}
-          now={now}
-          actions={{
-            onAddFloors: (tower) => setFloorTarget(tower),
-            onAddEnvironment: (floor) => setEnvTarget(floor),
-            onAddEquipment: (env) => setEquipTarget(env),
-            onGenerateQr: (item) =>
-              runWithToast(
-                () => generateQr({ itemId: item._id }),
-                "QR gerado",
-                "Não foi possível gerar o QR"
-              ),
-            onRemoveEquipment: (item) => {
-              if (
-                !window.confirm(
-                  `Remover o equipamento "${item.system}"? Esta ação não pode ser desfeita.`
-                )
-              )
-                return;
-              void runWithToast(
-                () => removeEquipment({ itemId: item._id }),
-                "Equipamento removido",
-                "Não foi possível remover o equipamento"
-              );
-            },
-          }}
-        />
-      )}
-
-      <NewTowerDialog
-        projectId={project._id}
-        open={towerDialogOpen}
-        onOpenChange={setTowerDialogOpen}
-      />
-      <AddFloorsDialog
-        tower={floorTarget}
-        onClose={() => setFloorTarget(null)}
-      />
-      <AddEnvironmentDialog
-        floor={envTarget}
-        onClose={() => setEnvTarget(null)}
-      />
-      <AddEquipmentDialog
-        environment={equipTarget}
-        onClose={() => setEquipTarget(null)}
-      />
-    </div>
-  );
+function defaultFloorLabel(n: number): string {
+  return n === 0 ? "Térreo" : `${n}º Andar`;
 }
 
-function NewTowerDialog({
+// ---------------------------------------------------------------------------
+// Torre
+// ---------------------------------------------------------------------------
+
+export function NewTowerDialog({
   projectId,
   open,
   onOpenChange,
@@ -216,11 +112,100 @@ function NewTowerDialog({
   );
 }
 
-function defaultFloorLabel(n: number): string {
-  return n === 0 ? "Térreo" : `${n}º Andar`;
+export function EditTowerDialog({
+  tower,
+  onClose,
+}: {
+  tower: HierarchyTower | null;
+  onClose: () => void;
+}) {
+  const updateTower = useMutation(api.towers.update);
+  const removeTower = useMutation(api.towers.remove);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (tower) setName(tower.name);
+  }, [tower]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!tower || !name.trim()) return;
+    setSaving(true);
+    const ok = await runWithToast(
+      () => updateTower({ towerId: tower._id, name: name.trim() }),
+      "Torre atualizada",
+      "Não foi possível atualizar a torre"
+    );
+    setSaving(false);
+    if (ok) onClose();
+  }
+
+  async function handleRemove() {
+    if (!tower) return;
+    if (
+      !window.confirm(
+        `Remover a torre "${tower.name}" e TODOS os seus andares, ambientes e equipamentos? Esta ação não pode ser desfeita.`
+      )
+    )
+      return;
+    const ok = await runWithToast(
+      () => removeTower({ towerId: tower._id }),
+      "Torre removida",
+      "Não foi possível remover a torre"
+    );
+    if (ok) onClose();
+  }
+
+  return (
+    <Dialog open={tower !== null} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Editar torre</DialogTitle>
+          <DialogDescription>Renomeie ou remova a torre.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-tower-name">Nome da torre</Label>
+            <Input
+              id="edit-tower-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+              required
+            />
+          </div>
+          <DialogFooter className="sm:justify-between">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              onClick={handleRemove}
+            >
+              <Trash2 className="mr-1.5 size-4" />
+              Remover
+            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={saving || !name.trim()}>
+                {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                Salvar
+              </Button>
+            </div>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
-function AddFloorsDialog({
+// ---------------------------------------------------------------------------
+// Andares
+// ---------------------------------------------------------------------------
+
+export function AddFloorsDialog({
   tower,
   onClose,
 }: {
@@ -302,13 +287,184 @@ function AddFloorsDialog({
   );
 }
 
-function toTimestamp(value: string): number | undefined {
-  if (!value) return undefined;
-  const ts = new Date(`${value}T00:00:00`).getTime();
-  return Number.isFinite(ts) ? ts : undefined;
+export function EditFloorDialog({
+  floor,
+  onClose,
+}: {
+  floor: HierarchyFloor | null;
+  onClose: () => void;
+}) {
+  const updateFloor = useMutation(api.floors.update);
+  const removeFloor = useMutation(api.floors.remove);
+  const [label, setLabel] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (floor) setLabel(floor.label);
+  }, [floor]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!floor || !label.trim()) return;
+    setSaving(true);
+    const ok = await runWithToast(
+      () => updateFloor({ floorId: floor._id, label: label.trim() }),
+      "Andar atualizado",
+      "Não foi possível atualizar o andar"
+    );
+    setSaving(false);
+    if (ok) onClose();
+  }
+
+  async function handleRemove() {
+    if (!floor) return;
+    if (
+      !window.confirm(
+        `Remover o andar "${floor.label}" e todos os seus ambientes e equipamentos? Esta ação não pode ser desfeita.`
+      )
+    )
+      return;
+    const ok = await runWithToast(
+      () => removeFloor({ floorId: floor._id }),
+      "Andar removido",
+      "Não foi possível remover o andar"
+    );
+    if (ok) onClose();
+  }
+
+  return (
+    <Dialog open={floor !== null} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Editar andar</DialogTitle>
+          <DialogDescription>Renomeie ou remova o andar.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-floor-label">Nome do andar</Label>
+            <Input
+              id="edit-floor-label"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              autoFocus
+              required
+            />
+          </div>
+          <DialogFooter className="sm:justify-between">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              onClick={handleRemove}
+            >
+              <Trash2 className="mr-1.5 size-4" />
+              Remover
+            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={saving || !label.trim()}>
+                {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                Salvar
+              </Button>
+            </div>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
-function AddEquipmentDialog({
+// ---------------------------------------------------------------------------
+// Ambiente
+// ---------------------------------------------------------------------------
+
+export function AddEnvironmentDialog({
+  floor,
+  onClose,
+}: {
+  floor: HierarchyFloor | null;
+  onClose: () => void;
+}) {
+  const createEnv = useMutation(api.environments.create);
+  const [name, setName] = useState("");
+  const [type, setType] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!floor || !name.trim()) return;
+    setSaving(true);
+    const ok = await runWithToast(
+      () =>
+        createEnv({
+          floorId: floor._id,
+          name: name.trim(),
+          type: type.trim() || undefined,
+        }),
+      "Ambiente criado",
+      "Não foi possível criar o ambiente"
+    );
+    setSaving(false);
+    if (ok) {
+      setName("");
+      setType("");
+      onClose();
+    }
+  }
+
+  return (
+    <Dialog open={floor !== null} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Novo ambiente</DialogTitle>
+          <DialogDescription>
+            {floor ? `Andar ${floor.label}.` : ""} Ex: "Sala", "Suíte 1", "Apto
+            201".
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="env-name">Nome do ambiente</Label>
+            <Input
+              id="env-name"
+              placeholder="Ex: Sala de Estar"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="env-type">Tipo (opcional)</Label>
+            <Input
+              id="env-type"
+              placeholder="Ex: Apartamento, Área Técnica"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={saving || !name.trim()}>
+              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Criar ambiente
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Equipamento
+// ---------------------------------------------------------------------------
+
+export function AddEquipmentDialog({
   environment,
   onClose,
 }: {
@@ -447,86 +603,6 @@ function AddEquipmentDialog({
             <Button type="submit" disabled={saving || !system.trim()}>
               {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
               Adicionar
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function AddEnvironmentDialog({
-  floor,
-  onClose,
-}: {
-  floor: HierarchyFloor | null;
-  onClose: () => void;
-}) {
-  const createEnv = useMutation(api.environments.create);
-  const [name, setName] = useState("");
-  const [type, setType] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!floor || !name.trim()) return;
-    setSaving(true);
-    const ok = await runWithToast(
-      () =>
-        createEnv({
-          floorId: floor._id,
-          name: name.trim(),
-          type: type.trim() || undefined,
-        }),
-      "Ambiente criado",
-      "Não foi possível criar o ambiente"
-    );
-    setSaving(false);
-    if (ok) {
-      setName("");
-      setType("");
-      onClose();
-    }
-  }
-
-  return (
-    <Dialog open={floor !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Novo ambiente</DialogTitle>
-          <DialogDescription>
-            {floor ? `Andar ${floor.label}.` : ""} Ex: "Sala", "Suíte 1", "Apto
-            201".
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="env-name">Nome do ambiente</Label>
-            <Input
-              id="env-name"
-              placeholder="Ex: Sala de Estar"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="env-type">Tipo (opcional)</Label>
-            <Input
-              id="env-type"
-              placeholder="Ex: Apartamento, Área Técnica"
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={saving || !name.trim()}>
-              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
-              Criar ambiente
             </Button>
           </DialogFooter>
         </form>

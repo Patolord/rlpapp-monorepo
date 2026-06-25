@@ -143,6 +143,8 @@ export const getOverview = engineeringQuery({
       createdAt: v.number(),
       totalItems: v.number(),
       installedItems: v.number(),
+      hierarchyFloors: v.number(),
+      hierarchyEnvironments: v.number(),
       units: v.array(
         v.object({
           _id: v.id("projectUnits"),
@@ -250,6 +252,15 @@ export const getOverview = engineeringQuery({
       responsibleName = responsible?.name ?? null;
     }
 
+    const hierarchyFloors = await ctx.db
+      .query("floors")
+      .withIndex("by_project", (q) => q.eq("projectId", project._id))
+      .collect();
+    const hierarchyEnvironments = await ctx.db
+      .query("environments")
+      .withIndex("by_project", (q) => q.eq("projectId", project._id))
+      .collect();
+
     return {
       _id: project._id,
       name: project.name,
@@ -267,6 +278,8 @@ export const getOverview = engineeringQuery({
       createdAt: project.createdAt,
       totalItems: items.length,
       installedItems: items.filter((i) => i.status === "operational").length,
+      hierarchyFloors: hierarchyFloors.length,
+      hierarchyEnvironments: hierarchyEnvironments.length,
       units: unitsOut,
     };
   },

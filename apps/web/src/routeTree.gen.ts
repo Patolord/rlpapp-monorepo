@@ -29,12 +29,10 @@ import { Route as EngenhariaRelatoriosIndexRouteImport } from './routes/engenhar
 import { Route as EngenhariaRelatoriosProjectIdRouteImport } from './routes/engenharia/relatorios/$projectId'
 import { Route as EngenhariaQrTokenRouteImport } from './routes/engenharia/qr/$token'
 import { Route as EngenhariaEquipamentoIdRouteImport } from './routes/engenharia/equipamento/$id'
-import { Route as EngenhariaRelatoriosProjectIdTorresRouteImport } from './routes/engenharia/relatorios/$projectId.torres'
+import { Route as EngenhariaRelatoriosProjectIdIndexRouteImport } from './routes/engenharia/relatorios/$projectId.index'
 import { Route as EngenhariaRelatoriosProjectIdImprimirRouteImport } from './routes/engenharia/relatorios/$projectId.imprimir'
 import { Route as EngenhariaRelatoriosProjectIdGlobalRouteImport } from './routes/engenharia/relatorios/$projectId.global'
 import { Route as EngenhariaRelatoriosProjectIdEntregasRouteImport } from './routes/engenharia/relatorios/$projectId.entregas'
-import { Route as EngenhariaRelatoriosProjectIdEditarRouteImport } from './routes/engenharia/relatorios/$projectId.editar'
-import { Route as EngenhariaRelatoriosProjectIdDashboardRouteImport } from './routes/engenharia/relatorios/$projectId.dashboard'
 import { Route as EngenhariaRelatoriosProjectIdAssistenteRouteImport } from './routes/engenharia/relatorios/$projectId.assistente'
 
 const SignUpRoute = SignUpRouteImport.update({
@@ -141,10 +139,10 @@ const EngenhariaEquipamentoIdRoute = EngenhariaEquipamentoIdRouteImport.update({
   path: '/equipamento/$id',
   getParentRoute: () => EngenhariaRouteRoute,
 } as any)
-const EngenhariaRelatoriosProjectIdTorresRoute =
-  EngenhariaRelatoriosProjectIdTorresRouteImport.update({
-    id: '/torres',
-    path: '/torres',
+const EngenhariaRelatoriosProjectIdIndexRoute =
+  EngenhariaRelatoriosProjectIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
     getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
   } as any)
 const EngenhariaRelatoriosProjectIdImprimirRoute =
@@ -163,18 +161,6 @@ const EngenhariaRelatoriosProjectIdEntregasRoute =
   EngenhariaRelatoriosProjectIdEntregasRouteImport.update({
     id: '/entregas',
     path: '/entregas',
-    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
-  } as any)
-const EngenhariaRelatoriosProjectIdEditarRoute =
-  EngenhariaRelatoriosProjectIdEditarRouteImport.update({
-    id: '/editar',
-    path: '/editar',
-    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
-  } as any)
-const EngenhariaRelatoriosProjectIdDashboardRoute =
-  EngenhariaRelatoriosProjectIdDashboardRouteImport.update({
-    id: '/dashboard',
-    path: '/dashboard',
     getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
   } as any)
 const EngenhariaRelatoriosProjectIdAssistenteRoute =
@@ -206,12 +192,10 @@ export interface FileRoutesByFullPath {
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdRouteWithChildren
   '/engenharia/relatorios/': typeof EngenhariaRelatoriosIndexRoute
   '/engenharia/relatorios/$projectId/assistente': typeof EngenhariaRelatoriosProjectIdAssistenteRoute
-  '/engenharia/relatorios/$projectId/dashboard': typeof EngenhariaRelatoriosProjectIdDashboardRoute
-  '/engenharia/relatorios/$projectId/editar': typeof EngenhariaRelatoriosProjectIdEditarRoute
   '/engenharia/relatorios/$projectId/entregas': typeof EngenhariaRelatoriosProjectIdEntregasRoute
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
   '/engenharia/relatorios/$projectId/imprimir': typeof EngenhariaRelatoriosProjectIdImprimirRoute
-  '/engenharia/relatorios/$projectId/torres': typeof EngenhariaRelatoriosProjectIdTorresRoute
+  '/engenharia/relatorios/$projectId/': typeof EngenhariaRelatoriosProjectIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -229,15 +213,12 @@ export interface FileRoutesByTo {
   '/portal': typeof PortalIndexRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
-  '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdRouteWithChildren
   '/engenharia/relatorios': typeof EngenhariaRelatoriosIndexRoute
   '/engenharia/relatorios/$projectId/assistente': typeof EngenhariaRelatoriosProjectIdAssistenteRoute
-  '/engenharia/relatorios/$projectId/dashboard': typeof EngenhariaRelatoriosProjectIdDashboardRoute
-  '/engenharia/relatorios/$projectId/editar': typeof EngenhariaRelatoriosProjectIdEditarRoute
   '/engenharia/relatorios/$projectId/entregas': typeof EngenhariaRelatoriosProjectIdEntregasRoute
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
   '/engenharia/relatorios/$projectId/imprimir': typeof EngenhariaRelatoriosProjectIdImprimirRoute
-  '/engenharia/relatorios/$projectId/torres': typeof EngenhariaRelatoriosProjectIdTorresRoute
+  '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -262,12 +243,10 @@ export interface FileRoutesById {
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdRouteWithChildren
   '/engenharia/relatorios/': typeof EngenhariaRelatoriosIndexRoute
   '/engenharia/relatorios/$projectId/assistente': typeof EngenhariaRelatoriosProjectIdAssistenteRoute
-  '/engenharia/relatorios/$projectId/dashboard': typeof EngenhariaRelatoriosProjectIdDashboardRoute
-  '/engenharia/relatorios/$projectId/editar': typeof EngenhariaRelatoriosProjectIdEditarRoute
   '/engenharia/relatorios/$projectId/entregas': typeof EngenhariaRelatoriosProjectIdEntregasRoute
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
   '/engenharia/relatorios/$projectId/imprimir': typeof EngenhariaRelatoriosProjectIdImprimirRoute
-  '/engenharia/relatorios/$projectId/torres': typeof EngenhariaRelatoriosProjectIdTorresRoute
+  '/engenharia/relatorios/$projectId/': typeof EngenhariaRelatoriosProjectIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -293,12 +272,10 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId'
     | '/engenharia/relatorios/'
     | '/engenharia/relatorios/$projectId/assistente'
-    | '/engenharia/relatorios/$projectId/dashboard'
-    | '/engenharia/relatorios/$projectId/editar'
     | '/engenharia/relatorios/$projectId/entregas'
     | '/engenharia/relatorios/$projectId/global'
     | '/engenharia/relatorios/$projectId/imprimir'
-    | '/engenharia/relatorios/$projectId/torres'
+    | '/engenharia/relatorios/$projectId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -316,15 +293,12 @@ export interface FileRouteTypes {
     | '/portal'
     | '/engenharia/equipamento/$id'
     | '/engenharia/qr/$token'
-    | '/engenharia/relatorios/$projectId'
     | '/engenharia/relatorios'
     | '/engenharia/relatorios/$projectId/assistente'
-    | '/engenharia/relatorios/$projectId/dashboard'
-    | '/engenharia/relatorios/$projectId/editar'
     | '/engenharia/relatorios/$projectId/entregas'
     | '/engenharia/relatorios/$projectId/global'
     | '/engenharia/relatorios/$projectId/imprimir'
-    | '/engenharia/relatorios/$projectId/torres'
+    | '/engenharia/relatorios/$projectId'
   id:
     | '__root__'
     | '/'
@@ -348,12 +322,10 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId'
     | '/engenharia/relatorios/'
     | '/engenharia/relatorios/$projectId/assistente'
-    | '/engenharia/relatorios/$projectId/dashboard'
-    | '/engenharia/relatorios/$projectId/editar'
     | '/engenharia/relatorios/$projectId/entregas'
     | '/engenharia/relatorios/$projectId/global'
     | '/engenharia/relatorios/$projectId/imprimir'
-    | '/engenharia/relatorios/$projectId/torres'
+    | '/engenharia/relatorios/$projectId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -511,11 +483,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaEquipamentoIdRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
-    '/engenharia/relatorios/$projectId/torres': {
-      id: '/engenharia/relatorios/$projectId/torres'
-      path: '/torres'
-      fullPath: '/engenharia/relatorios/$projectId/torres'
-      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdTorresRouteImport
+    '/engenharia/relatorios/$projectId/': {
+      id: '/engenharia/relatorios/$projectId/'
+      path: '/'
+      fullPath: '/engenharia/relatorios/$projectId/'
+      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdIndexRouteImport
       parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
     }
     '/engenharia/relatorios/$projectId/imprimir': {
@@ -537,20 +509,6 @@ declare module '@tanstack/react-router' {
       path: '/entregas'
       fullPath: '/engenharia/relatorios/$projectId/entregas'
       preLoaderRoute: typeof EngenhariaRelatoriosProjectIdEntregasRouteImport
-      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
-    }
-    '/engenharia/relatorios/$projectId/editar': {
-      id: '/engenharia/relatorios/$projectId/editar'
-      path: '/editar'
-      fullPath: '/engenharia/relatorios/$projectId/editar'
-      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdEditarRouteImport
-      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
-    }
-    '/engenharia/relatorios/$projectId/dashboard': {
-      id: '/engenharia/relatorios/$projectId/dashboard'
-      path: '/dashboard'
-      fullPath: '/engenharia/relatorios/$projectId/dashboard'
-      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdDashboardRouteImport
       parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
     }
     '/engenharia/relatorios/$projectId/assistente': {
@@ -577,30 +535,24 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 
 interface EngenhariaRelatoriosProjectIdRouteChildren {
   EngenhariaRelatoriosProjectIdAssistenteRoute: typeof EngenhariaRelatoriosProjectIdAssistenteRoute
-  EngenhariaRelatoriosProjectIdDashboardRoute: typeof EngenhariaRelatoriosProjectIdDashboardRoute
-  EngenhariaRelatoriosProjectIdEditarRoute: typeof EngenhariaRelatoriosProjectIdEditarRoute
   EngenhariaRelatoriosProjectIdEntregasRoute: typeof EngenhariaRelatoriosProjectIdEntregasRoute
   EngenhariaRelatoriosProjectIdGlobalRoute: typeof EngenhariaRelatoriosProjectIdGlobalRoute
   EngenhariaRelatoriosProjectIdImprimirRoute: typeof EngenhariaRelatoriosProjectIdImprimirRoute
-  EngenhariaRelatoriosProjectIdTorresRoute: typeof EngenhariaRelatoriosProjectIdTorresRoute
+  EngenhariaRelatoriosProjectIdIndexRoute: typeof EngenhariaRelatoriosProjectIdIndexRoute
 }
 
 const EngenhariaRelatoriosProjectIdRouteChildren: EngenhariaRelatoriosProjectIdRouteChildren =
   {
     EngenhariaRelatoriosProjectIdAssistenteRoute:
       EngenhariaRelatoriosProjectIdAssistenteRoute,
-    EngenhariaRelatoriosProjectIdDashboardRoute:
-      EngenhariaRelatoriosProjectIdDashboardRoute,
-    EngenhariaRelatoriosProjectIdEditarRoute:
-      EngenhariaRelatoriosProjectIdEditarRoute,
     EngenhariaRelatoriosProjectIdEntregasRoute:
       EngenhariaRelatoriosProjectIdEntregasRoute,
     EngenhariaRelatoriosProjectIdGlobalRoute:
       EngenhariaRelatoriosProjectIdGlobalRoute,
     EngenhariaRelatoriosProjectIdImprimirRoute:
       EngenhariaRelatoriosProjectIdImprimirRoute,
-    EngenhariaRelatoriosProjectIdTorresRoute:
-      EngenhariaRelatoriosProjectIdTorresRoute,
+    EngenhariaRelatoriosProjectIdIndexRoute:
+      EngenhariaRelatoriosProjectIdIndexRoute,
   }
 
 const EngenhariaRelatoriosProjectIdRouteWithChildren =
