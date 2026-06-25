@@ -81,7 +81,10 @@ export const list = engineeringQuery({
           _id: project._id,
           _creationTime: project._creationTime,
           name: project.name,
-          floors: project.floors,
+          floors: project.floors.map((f) => ({
+            number: f.number,
+            label: f.label,
+          })),
           createdAt: project.createdAt,
           totalItems: items.length,
           installedItems,
@@ -207,7 +210,10 @@ export const getOverview = engineeringQuery({
     return {
       _id: project._id,
       name: project.name,
-      floors: project.floors,
+      floors: project.floors.map((f) => ({
+        number: f.number,
+        label: f.label,
+      })),
       createdAt: project.createdAt,
       totalItems: items.length,
       installedItems: items.filter((i) => i.status === "operational").length,
