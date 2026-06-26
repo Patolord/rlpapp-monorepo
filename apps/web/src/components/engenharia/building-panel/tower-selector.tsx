@@ -96,17 +96,6 @@ export function TowerSelector({
           );
         })}
 
-      {onAddTower && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onAddTower}
-          className={cn(showCards && "min-w-40")}
-        >
-          <Plus className="mr-1.5 size-4" />
-          Nova torre
-        </Button>
-      )}
     </div>
   );
 }

@@ -8,6 +8,12 @@ export type ProjectStatus =
   | "completed"
   | "paused";
 
+export type EquipmentStatus =
+  | "installing"
+  | "operational"
+  | "warning"
+  | "error";
+
 export type AiIntent =
   | {
       type: "update_project";
@@ -43,6 +49,31 @@ export type AiIntent =
       type: "create_checklist_template";
       name: string;
       items: { label: string; required: boolean }[];
+    }
+  | {
+      type: "set_floor_deadline";
+      towerName: string;
+      floorNumber: number;
+      deadline: number;
+    }
+  | {
+      type: "update_equipment";
+      towerName: string;
+      floorNumber: number;
+      environmentName: string;
+      kind?: "condensadora" | "evaporadora";
+      system?: string;
+      deadline?: number;
+      modelo?: string;
+      capacidade?: string;
+      status?: EquipmentStatus;
+    }
+  | {
+      type: "rename_environment";
+      towerName: string;
+      floorNumber: number;
+      oldName: string;
+      newName: string;
     };
 
 const STATUS_LABELS: Record<ProjectStatus, string> = {
@@ -99,6 +130,29 @@ export function describeIntent(intent: AiIntent): {
       return {
         title: "Criar checklist",
         detail: `${intent.name} · ${intent.items.length} item(ns)`,
+      };
+    case "set_floor_deadline":
+      return {
+        title: "Alterar prazo do andar",
+        detail: `${intent.towerName} · ${intent.floorNumber}º andar → ${new Date(intent.deadline).toLocaleDateString("pt-BR")}`,
+      };
+    case "update_equipment": {
+      const parts: string[] = [
+        `${intent.towerName} · ${intent.floorNumber}º · ${intent.environmentName}`,
+      ];
+      if (intent.deadline)
+        parts.push(
+          `Prazo: ${new Date(intent.deadline).toLocaleDateString("pt-BR")}`
+        );
+      if (intent.modelo) parts.push(`Modelo: ${intent.modelo}`);
+      if (intent.capacidade) parts.push(`Cap.: ${intent.capacidade}`);
+      if (intent.status) parts.push(`Status: ${intent.status}`);
+      return { title: "Atualizar equipamento", detail: parts.join(" · ") };
+    }
+    case "rename_environment":
+      return {
+        title: "Renomear ambiente",
+        detail: `${intent.towerName} · ${intent.floorNumber}º · "${intent.oldName}" → "${intent.newName}"`,
       };
   }
 }

@@ -298,6 +298,27 @@ export default defineSchema({
     .index("by_tag", ["tag"])
     .index("by_projectEquipment", ["projectEquipmentId"]),
 
+  // --- Histórico de conversas com a IA ---
+
+  aiChatSessions: defineTable({
+    projectId: v.id("projects"),
+    userId: v.id("users"),
+    title: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_user", ["userId"])
+    .index("by_project_user", ["projectId", "userId"]),
+
+  aiChatMessages: defineTable({
+    sessionId: v.id("aiChatSessions"),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    text: v.string(),
+    intents: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_session", ["sessionId"]),
+
   maintenanceLogs: defineTable({
     equipmentId: v.id("equipment"),
     // Registros antigos não têm o campo; tratar ausência como "maintenance".

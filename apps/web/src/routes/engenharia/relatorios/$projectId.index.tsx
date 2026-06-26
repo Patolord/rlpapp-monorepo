@@ -15,6 +15,7 @@ import {
   AddEnvironmentDialog,
   AddEquipmentDialog,
   AddFloorsDialog,
+  EditEquipmentDialog,
   EditFloorDialog,
   EditTowerDialog,
   NewTowerDialog,
@@ -22,6 +23,7 @@ import {
 import type {
   HierarchyEnvironment,
   HierarchyFloor,
+  HierarchyItem,
   HierarchyTower,
 } from "@/components/engenharia/building-panel/hierarchy";
 import { UNIT_STATE_STYLES } from "@/components/engenharia/building";
@@ -90,6 +92,10 @@ function HierarchyBuilding({
   const [equipTarget, setEquipTarget] = useState<HierarchyEnvironment | null>(
     null
   );
+  const [editEquipTarget, setEditEquipTarget] = useState<{
+    item: HierarchyItem;
+    env: HierarchyEnvironment;
+  } | null>(null);
 
   const actions: BuildingMatrixActions = {
     onAddTower: () => setTowerDialogOpen(true),
@@ -98,6 +104,7 @@ function HierarchyBuilding({
     onEditFloor: (floor) => setEditFloorTarget(floor),
     onAddEnvironment: (floor) => setEnvTarget(floor),
     onAddEquipment: (env) => setEquipTarget(env),
+    onEditEquipment: (item, env) => setEditEquipTarget({ item, env }),
     onGenerateQr: (item) =>
       runWithToast(
         () => generateQr({ itemId: item._id }),
@@ -155,6 +162,11 @@ function HierarchyBuilding({
       <AddEquipmentDialog
         environment={equipTarget}
         onClose={() => setEquipTarget(null)}
+      />
+      <EditEquipmentDialog
+        item={editEquipTarget?.item ?? null}
+        environmentId={editEquipTarget?.env._id ?? null}
+        onClose={() => setEditEquipTarget(null)}
       />
     </>
   );

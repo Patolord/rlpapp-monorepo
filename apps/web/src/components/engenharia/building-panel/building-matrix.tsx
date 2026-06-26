@@ -48,6 +48,7 @@ export type BuildingMatrixActions = {
   onEditFloor?: (floor: HierarchyFloor) => void;
   onAddEnvironment?: (floor: HierarchyFloor) => void;
   onAddEquipment?: (env: HierarchyEnvironment) => void;
+  onEditEquipment?: (item: HierarchyItem, env: HierarchyEnvironment) => void;
   onGenerateQr?: (item: HierarchyItem) => void;
   onRemoveEquipment?: (item: HierarchyItem) => void;
 };
@@ -137,7 +138,6 @@ export function BuildingMatrixPanel({
         towers={towers}
         selectedTowerId={selectedTowerId}
         onSelect={(id) => setSelectedTowerId(id)}
-        onAddTower={actions?.onAddTower}
         onEditTower={actions?.onEditTower}
       />
 
@@ -162,19 +162,29 @@ export function BuildingMatrixPanel({
                 </>
               )}
             </div>
-            {actions?.onAddFloors && (
-              <Button
-                variant="outline"
-                size="xs"
-                onClick={() => actions.onAddFloors?.(selectedTower)}
-              >
-                <Plus className="mr-1 size-3.5" />
-                Andares
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {actions?.onAddTower && (
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={actions.onAddTower}
+                >
+                  <Plus className="mr-1 size-3.5" />
+                  Nova torre
+                </Button>
+              )}
+              {actions?.onAddFloors && (
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => actions.onAddFloors?.(selectedTower)}
+                >
+                  <Plus className="mr-1 size-3.5" />
+                  Andares
+                </Button>
+              )}
+            </div>
           </div>
-
-          <FloorLegend />
 
           <BuildingMatrix
             tower={selectedTower}
@@ -184,6 +194,8 @@ export function BuildingMatrixPanel({
               setSelectedEnv({ floorLabel, envId: env._id })
             }
           />
+
+          <FloorLegend />
         </>
       )}
 
@@ -234,33 +246,23 @@ function BuildingMatrix({
     );
   }
 
-  // Coluna extra no fim para o botão "+ ambiente" quando editável.
-  const trailing = editable ? " minmax(2.5rem, auto)" : "";
-
   return (
     <div className="overflow-x-auto">
-      <div
-        className="grid min-w-fit gap-1.5"
-        style={{
-          gridTemplateColumns: `minmax(4rem, auto) repeat(${maxCols}, minmax(7rem, 1fr))${trailing}`,
-        }}
-      >
-        {/* Cabeçalho */}
-        <div className="flex items-center justify-center px-1 py-1 text-xs font-medium text-muted-foreground">
-          Andar
-        </div>
-        {Array.from({ length: maxCols }).map((_, c) => (
-          <div
-            key={`h-${c}`}
-            className="flex items-center justify-center px-1 py-1 text-xs font-medium text-muted-foreground"
-          >
-            Unidade {c + 1}
+      <div className="inline-flex min-w-fit flex-col">
+        {/* Telhado / Cobertura */}
+        <div className="flex">
+          <div className="w-16 shrink-0" />
+          <div className="flex-1">
+            <div className="relative mx-1">
+              <div className="h-3 rounded-t-lg bg-slate-700 dark:bg-slate-500" />
+              <div className="h-1.5 bg-slate-600 dark:bg-slate-400" />
+            </div>
           </div>
-        ))}
-        {editable && <div />}
+          {editable && <div className="w-10 shrink-0" />}
+        </div>
 
-        {/* Linhas por andar */}
-        {floors.map((floor) => (
+        {/* Andares */}
+        {floors.map((floor, idx) => (
           <MatrixRow
             key={floor._id}
             floor={floor}
@@ -268,8 +270,21 @@ function BuildingMatrix({
             now={now}
             actions={actions}
             onSelectEnvironment={onSelectEnvironment}
+            isLast={idx === floors.length - 1}
           />
         ))}
+
+        {/* Base / Fundação */}
+        <div className="flex">
+          <div className="w-16 shrink-0" />
+          <div className="flex-1">
+            <div className="mx-1">
+              <div className="h-2 bg-slate-600 dark:bg-slate-400" />
+              <div className="h-3 rounded-b-md bg-slate-800 dark:bg-slate-600" />
+            </div>
+          </div>
+          {editable && <div className="w-10 shrink-0" />}
+        </div>
       </div>
     </div>
   );
@@ -281,82 +296,122 @@ function MatrixRow({
   now,
   actions,
   onSelectEnvironment,
+  isLast,
 }: {
   floor: HierarchyFloor;
   maxCols: number;
   now: number;
   actions?: BuildingMatrixActions;
   onSelectEnvironment: (floorLabel: string, env: HierarchyEnvironment) => void;
+  isLast: boolean;
 }) {
   const envs = floor.environments.slice().sort((a, b) => a.order - b.order);
   const editable = Boolean(actions?.onAddEnvironment);
 
   return (
-    <>
-      <div className="group flex items-center justify-end gap-1 pr-1 text-sm font-semibold text-muted-foreground">
-        {actions?.onEditFloor && (
-          <button
-            type="button"
-            onClick={() => actions.onEditFloor?.(floor)}
-            className="text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
-            aria-label={`Editar ${floor.label}`}
-          >
-            <Pencil className="size-3" />
-          </button>
-        )}
-        <span>{floor.label}</span>
+    <div className="flex">
+      {/* Rótulo do andar — como a marcação no shaft do elevador */}
+      <div className="group flex w-16 shrink-0 flex-col items-end justify-center gap-0.5 pr-2">
+        <div className="flex items-center gap-1">
+          {actions?.onEditFloor && (
+            <button
+              type="button"
+              onClick={() => actions.onEditFloor?.(floor)}
+              className="text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+              aria-label={`Editar ${floor.label}`}
+            >
+              <Pencil className="size-3" />
+            </button>
+          )}
+          <span className="text-sm font-bold tabular-nums text-slate-700 dark:text-slate-300">
+            {floor.label}
+          </span>
+        </div>
       </div>
-      {Array.from({ length: maxCols }).map((_, c) => {
-        const env = envs[c];
-        if (!env) {
-          return <div key={`${floor._id}-empty-${c}`} />;
-        }
-        const state = getEnvironmentState(env, now);
-        const style = state.overdue
-          ? FLOOR_STATE_STYLES.overdue
-          : FLOOR_STATE_STYLES[state.level];
 
-        return (
-          <button
-            key={env._id}
-            type="button"
-            onClick={() => onSelectEnvironment(floor.label, env)}
-            className={cn(
-              "flex min-h-16 flex-col gap-1 rounded-md border-2 p-2 text-left transition-colors",
-              style.cell
-            )}
-          >
-            <span className="flex items-center gap-1">
-              <span className={cn("size-2 shrink-0 rounded-full", style.dot)} />
-              <span className="truncate text-xs font-semibold">{env.name}</span>
-              {state.overdue && (
-                <AlertTriangle className="ml-auto size-3 shrink-0 text-red-600" />
-              )}
-            </span>
-            {env.type && (
-              <span className="truncate text-[0.625rem] uppercase text-muted-foreground">
-                {env.type}
-              </span>
-            )}
-            <span className="mt-auto text-[0.625rem] font-medium tabular-nums text-muted-foreground">
-              {state.total === 0
-                ? "sem equip."
-                : `${state.installed}/${state.total} equip.`}
-            </span>
-          </button>
-        );
-      })}
-      {editable && (
-        <button
-          type="button"
-          onClick={() => actions?.onAddEnvironment?.(floor)}
-          className="flex min-h-16 items-center justify-center rounded-md border-2 border-dashed border-muted-foreground/30 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-          aria-label={`Adicionar ambiente em ${floor.label}`}
+      {/* Fachada do andar */}
+      <div className="flex flex-1 flex-col">
+        {/* Laje superior (borda de concreto entre andares) */}
+        <div className="mx-1 h-1 bg-slate-400/60 dark:bg-slate-500/60" />
+
+        {/* Janelas / Ambientes */}
+        <div
+          className="mx-1 grid gap-2 bg-slate-200/50 px-2 py-2 dark:bg-slate-800/40"
+          style={{
+            gridTemplateColumns: `repeat(${maxCols}, minmax(7rem, 1fr))`,
+          }}
         >
-          <Plus className="size-4" />
-        </button>
+          {Array.from({ length: maxCols }).map((_, c) => {
+            const env = envs[c];
+            if (!env) {
+              return (
+                <div
+                  key={`${floor._id}-empty-${c}`}
+                  className="min-h-18 rounded-sm border border-slate-300/50 bg-slate-100/60 dark:border-slate-600/30 dark:bg-slate-700/20"
+                />
+              );
+            }
+            const state = getEnvironmentState(env, now);
+            const style = state.overdue
+              ? FLOOR_STATE_STYLES.overdue
+              : FLOOR_STATE_STYLES[state.level];
+
+            return (
+              <button
+                key={env._id}
+                type="button"
+                onClick={() => onSelectEnvironment(floor.label, env)}
+                className={cn(
+                  "flex min-h-18 flex-col gap-0.5 rounded-sm border-2 p-2 text-left shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5",
+                  style.cell
+                )}
+              >
+                <span className="flex items-center gap-1">
+                  <span
+                    className={cn("size-2 shrink-0 rounded-full", style.dot)}
+                  />
+                  <span className="truncate text-xs font-semibold">
+                    {env.name}
+                  </span>
+                  {state.overdue && (
+                    <AlertTriangle className="ml-auto size-3 shrink-0 text-red-600" />
+                  )}
+                </span>
+                {env.type && (
+                  <span className="truncate text-[0.625rem] uppercase text-muted-foreground">
+                    {env.type}
+                  </span>
+                )}
+                <span className="mt-auto text-[0.625rem] font-medium tabular-nums text-muted-foreground">
+                  {state.total === 0
+                    ? "sem equip."
+                    : `${state.installed}/${state.total} equip.`}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Laje inferior (apenas no último andar) */}
+        {isLast && (
+          <div className="mx-1 h-1 bg-slate-400/60 dark:bg-slate-500/60" />
+        )}
+      </div>
+
+      {/* Coluna do botão + ambiente */}
+      {editable && (
+        <div className="flex w-10 shrink-0 items-center justify-center">
+          <button
+            type="button"
+            onClick={() => actions?.onAddEnvironment?.(floor)}
+            className="flex size-7 items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/30 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+            aria-label={`Adicionar ambiente em ${floor.label}`}
+          >
+            <Plus className="size-3.5" />
+          </button>
+        </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -400,6 +455,7 @@ function EnvironmentSheet({
                 <EquipmentRow
                   key={item._id}
                   item={item}
+                  env={env}
                   now={now}
                   actions={actions}
                 />
@@ -427,10 +483,12 @@ function EnvironmentSheet({
 
 function EquipmentRow({
   item,
+  env,
   now,
   actions,
 }: {
   item: HierarchyItem;
+  env: HierarchyEnvironment;
   now: number;
   actions?: BuildingMatrixActions;
 }) {
@@ -490,6 +548,16 @@ function EquipmentRow({
               Gerar QR
             </Button>
           )
+        )}
+        {actions?.onEditEquipment && (
+          <Button
+            variant="ghost"
+            size="xs"
+            className="h-6 px-1.5 text-xs"
+            onClick={() => actions.onEditEquipment?.(item, env)}
+          >
+            <Pencil className="size-3" />
+          </Button>
         )}
         {actions?.onRemoveEquipment && (
           <Button

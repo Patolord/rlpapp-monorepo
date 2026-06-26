@@ -67,6 +67,38 @@ export const aiIntentValidator = v.union(
     items: v.array(
       v.object({ label: v.string(), required: v.boolean() })
     ),
+  }),
+  v.object({
+    type: v.literal("set_floor_deadline"),
+    towerName: v.string(),
+    floorNumber: v.number(),
+    deadline: v.number(),
+  }),
+  v.object({
+    type: v.literal("update_equipment"),
+    towerName: v.string(),
+    floorNumber: v.number(),
+    environmentName: v.string(),
+    kind: v.optional(equipKindValidator),
+    system: v.optional(v.string()),
+    deadline: v.optional(v.number()),
+    modelo: v.optional(v.string()),
+    capacidade: v.optional(v.string()),
+    status: v.optional(
+      v.union(
+        v.literal("installing"),
+        v.literal("operational"),
+        v.literal("warning"),
+        v.literal("error")
+      )
+    ),
+  }),
+  v.object({
+    type: v.literal("rename_environment"),
+    towerName: v.string(),
+    floorNumber: v.number(),
+    oldName: v.string(),
+    newName: v.string(),
   })
 );
 
@@ -352,6 +384,142 @@ export const applyIntents = engineeringMutation({
             createdAt: Date.now(),
           });
           summary.push(`Checklist "${name}" criado`);
+          applied++;
+          break;
+        }
+
+        case "set_floor_deadline": {
+          const towerId = await resolveTower(
+            ctx,
+            args.projectId,
+            towerCache,
+            intent.towerName
+          );
+          if (!towerId) {
+            summary.push(`Torre "${intent.towerName}" não encontrada`);
+            break;
+          }
+          const floorId = await resolveFloor(ctx, towerId, intent.floorNumber);
+          if (!floorId) {
+            summary.push(
+              `Andar ${intent.floorNumber} não encontrado na torre "${intent.towerName}"`
+            );
+            break;
+          }
+          const floorEquipments = await ctx.db
+            .query("projectEquipment")
+            .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+            .collect();
+          const matching = floorEquipments.filter(
+            (e) => e.floorId === floorId && e.towerId === towerId
+          );
+          let updated = 0;
+          for (const eq of matching) {
+            await ctx.db.patch("projectEquipment", eq._id, {
+              deadline: intent.deadline,
+            });
+            updated++;
+          }
+          const dateStr = new Date(intent.deadline).toLocaleDateString("pt-BR");
+          summary.push(
+            `Prazo de ${updated} equipamento(s) do ${intent.floorNumber}º andar alterado para ${dateStr}`
+          );
+          if (updated > 0) applied++;
+          break;
+        }
+
+        case "update_equipment": {
+          const towerId = await resolveTower(
+            ctx,
+            args.projectId,
+            towerCache,
+            intent.towerName
+          );
+          if (!towerId) {
+            summary.push(`Torre "${intent.towerName}" não encontrada`);
+            break;
+          }
+          const floorId = await resolveFloor(ctx, towerId, intent.floorNumber);
+          if (!floorId) {
+            summary.push(`Andar ${intent.floorNumber} não encontrado`);
+            break;
+          }
+          const envId = await resolveEnvironment(
+            ctx,
+            floorId,
+            intent.environmentName
+          );
+          if (!envId) {
+            summary.push(
+              `Ambiente "${intent.environmentName}" não encontrado`
+            );
+            break;
+          }
+          const envEquipments = await ctx.db
+            .query("projectEquipment")
+            .withIndex("by_environment", (q) => q.eq("environmentId", envId))
+            .collect();
+          let candidates = envEquipments;
+          if (intent.kind) {
+            candidates = candidates.filter((e) => e.kind === intent.kind);
+          }
+          if (intent.system) {
+            const sysKey = norm(intent.system);
+            candidates = candidates.filter((e) => norm(e.system) === sysKey);
+          }
+          if (candidates.length === 0) {
+            summary.push(
+              `Nenhum equipamento encontrado em "${intent.environmentName}"`
+            );
+            break;
+          }
+          const updates: Record<string, unknown> = {};
+          if (intent.deadline !== undefined) updates.deadline = intent.deadline;
+          if (intent.modelo !== undefined) updates.modelo = intent.modelo;
+          if (intent.capacidade !== undefined)
+            updates.capacidade = intent.capacidade;
+          if (intent.status !== undefined) updates.status = intent.status;
+          if (Object.keys(updates).length === 0) {
+            summary.push("Nenhuma alteração especificada");
+            break;
+          }
+          for (const eq of candidates) {
+            await ctx.db.patch("projectEquipment", eq._id, updates);
+          }
+          summary.push(
+            `${candidates.length} equipamento(s) atualizado(s) em "${intent.environmentName}"`
+          );
+          applied++;
+          break;
+        }
+
+        case "rename_environment": {
+          const towerId = await resolveTower(
+            ctx,
+            args.projectId,
+            towerCache,
+            intent.towerName
+          );
+          if (!towerId) {
+            summary.push(`Torre "${intent.towerName}" não encontrada`);
+            break;
+          }
+          const floorId = await resolveFloor(ctx, towerId, intent.floorNumber);
+          if (!floorId) {
+            summary.push(`Andar ${intent.floorNumber} não encontrado`);
+            break;
+          }
+          const envId = await resolveEnvironment(ctx, floorId, intent.oldName);
+          if (!envId) {
+            summary.push(`Ambiente "${intent.oldName}" não encontrado`);
+            break;
+          }
+          await ctx.db.patch("environments", envId, {
+            name: intent.newName.trim(),
+          });
+          summary.push(
+            `Ambiente "${intent.oldName}" renomeado para "${intent.newName}"`
+          );
           applied++;
           break;
         }

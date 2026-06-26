@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
+import type { ProjectHierarchy } from "@/components/engenharia/building-panel/hierarchy";
 import {
   ArrowLeft,
   Building2,
@@ -71,6 +72,43 @@ export function ProjectShell({
   });
   const now = Date.now();
 
+  const hierarchy = useQuery(api.projects.getHierarchy, {
+    projectId: projectId as Id<"projects">,
+  }) as ProjectHierarchy | null | undefined;
+
+  const aiContext = useMemo(() => {
+    if (!project) return "";
+
+    const parts: string[] = [
+      `Obra: ${project.name}`,
+      project.client ? `Cliente: ${project.client}` : "",
+      `Equipamentos previstos: ${project.totalItems}, instalados: ${project.installedItems}`,
+    ];
+
+    if (hierarchy && hierarchy.towers.length > 0) {
+      parts.push("--- Hierarquia atual ---");
+      for (const tower of hierarchy.towers) {
+        parts.push(`Torre: "${tower.name}"`);
+        for (const floor of tower.floors) {
+          const envNames = floor.environments
+            .map((e) => `"${e.name}" (${e.equipment.length} equip.)`)
+            .join(", ");
+          parts.push(
+            `  ${floor.label} (nº ${floor.number}): ${envNames || "sem ambientes"}`
+          );
+        }
+      }
+    } else if (project.floors.length > 0) {
+      parts.push(
+        `Andares (legado): ${project.floors
+          .map((f) => `${f.number} (${f.label})`)
+          .join(", ")}`
+      );
+    }
+
+    return parts.filter(Boolean).join("\n");
+  }, [project, hierarchy]);
+
   if (project === undefined) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -98,17 +136,6 @@ export function ProjectShell({
       </div>
     );
   }
-
-  const aiContext = [
-    `Obra: ${project.name}`,
-    project.client ? `Cliente: ${project.client}` : "",
-    `Andares (legado): ${project.floors
-      .map((f) => `${f.number} (${f.label})`)
-      .join(", ")}`,
-    `Equipamentos previstos: ${project.totalItems}, instalados: ${project.installedItems}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
 
   return (
     <ProjectShellLayout

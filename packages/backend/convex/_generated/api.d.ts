@@ -9,6 +9,7 @@
  */
 
 import type * as ai from "../ai.js";
+import type * as aiChat from "../aiChat.js";
 import type * as aiIntents from "../aiIntents.js";
 import type * as checklists from "../checklists.js";
 import type * as deliveries from "../deliveries.js";
@@ -42,6 +43,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
+  aiChat: typeof aiChat;
   aiIntents: typeof aiIntents;
   checklists: typeof checklists;
   deliveries: typeof deliveries;

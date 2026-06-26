@@ -339,17 +339,24 @@ Responda SOMENTE com JSON válido neste formato:
 }
 
 Tipos de intent disponíveis (campo "type"):
-- {"type":"update_project","client?":string,"address?":string,"status?":"planning"|"in_progress"|"completed"|"paused","startDate?":epoch_ms,"endDate?":epoch_ms}
+
+Criação:
+- {"type":"update_project","client?":string,"address?":string,"status?":"planning"|"in_progress"|"completed"|"paused","startDate?":"YYYY-MM-DD","endDate?":"YYYY-MM-DD"}
 - {"type":"create_tower","name":string}
 - {"type":"duplicate_tower","towerName":string,"newName?":string}
 - {"type":"create_floors","towerName":string,"from":number,"to":number}
 - {"type":"create_environment","towerName":string,"floorNumber":number,"name":string,"envType?":string}
-- {"type":"add_equipment","towerName":string,"floorNumber":number,"environmentName":string,"system":string,"kind":"condensadora"|"evaporadora","modelo?":string,"capacidade?":string,"serialNumber?":string,"deadline?":epoch_ms}
+- {"type":"add_equipment","towerName":string,"floorNumber":number,"environmentName":string,"system":string,"kind":"condensadora"|"evaporadora","modelo?":string,"capacidade?":string,"serialNumber?":string,"deadline?":"YYYY-MM-DD"}
 - {"type":"create_checklist_template","name":string,"items":[{"label":string,"required":boolean}]}
+
+Atualização:
+- {"type":"set_floor_deadline","towerName":string,"floorNumber":number,"deadline":"YYYY-MM-DD"} — altera o prazo de TODOS os equipamentos de um andar inteiro
+- {"type":"update_equipment","towerName":string,"floorNumber":number,"environmentName":string,"kind?":"condensadora"|"evaporadora","system?":string,"deadline?":"YYYY-MM-DD","modelo?":string,"capacidade?":string,"status?":"installing"|"operational"|"warning"|"error"} — atualiza equipamento(s) de um ambiente específico
+- {"type":"rename_environment","towerName":string,"floorNumber":number,"oldName":string,"newName":string} — renomeia um ambiente
 
 Regras:
 - Sempre referencie torre/andar/ambiente por NOME/NÚMERO. Para criar equipamento num ambiente novo, gere os intents na ordem: create_tower → create_floors → create_environment → add_equipment.
-- Datas devem ser epoch em milissegundos (number).
+- Datas devem ser strings no formato "YYYY-MM-DD" (ex: "2026-06-23" para 23 de junho de 2026). NÃO use epoch/timestamps.
 - Se faltar uma informação crítica (ex: qual torre), use "needsClarification" e NÃO invente.
 - Toda condensadora normalmente fica em "Área Técnica".
 - UMA ÚNICA TORRE por padrão: se a fonte NÃO mencionar explicitamente mais de uma torre/bloco, crie apenas UMA torre (ex: "Torre Única"). NUNCA crie uma torre por aba, por andar ou por apartamento.
@@ -463,11 +470,18 @@ export const interpret = action({
 type AiIntent = Infer<typeof aiIntentValidator>;
 
 function coerceDate(v: unknown): number | undefined {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string" && v) {
+    // DD/MM/YYYY → YYYY-MM-DD
+    const brMatch = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (brMatch) {
+      const iso = `${brMatch[3]}-${brMatch[2].padStart(2, "0")}-${brMatch[1].padStart(2, "0")}`;
+      const ms = new Date(iso).getTime();
+      if (Number.isFinite(ms)) return ms;
+    }
     const ms = new Date(v).getTime();
     if (Number.isFinite(ms)) return ms;
   }
+  if (typeof v === "number" && Number.isFinite(v)) return v;
   return undefined;
 }
 
@@ -585,6 +599,70 @@ function normalizeIntentResponse(parsed: unknown): {
           .filter((i) => i.label);
         if (name && items.length > 0) {
           intents.push({ type, name, items } as AiIntent);
+        }
+        break;
+      }
+      case "set_floor_deadline": {
+        const towerName = asString(o.towerName);
+        const floorNumber = asNumber(o.floorNumber, NaN);
+        const dl = coerceDate(o.deadline);
+        if (towerName && Number.isFinite(floorNumber) && dl !== undefined) {
+          intents.push({
+            type,
+            towerName,
+            floorNumber: Math.floor(floorNumber),
+            deadline: dl,
+          } as AiIntent);
+        }
+        break;
+      }
+      case "update_equipment": {
+        const towerName = asString(o.towerName);
+        const floorNumber = asNumber(o.floorNumber, NaN);
+        const environmentName = asString(o.environmentName);
+        if (towerName && Number.isFinite(floorNumber) && environmentName) {
+          const intent: Record<string, unknown> = {
+            type,
+            towerName,
+            floorNumber: Math.floor(floorNumber),
+            environmentName,
+          };
+          if (o.kind === "condensadora" || o.kind === "evaporadora")
+            intent.kind = o.kind;
+          if (typeof o.system === "string") intent.system = o.system;
+          const dl = coerceDate(o.deadline);
+          if (dl !== undefined) intent.deadline = dl;
+          if (typeof o.modelo === "string") intent.modelo = o.modelo;
+          if (typeof o.capacidade === "string") intent.capacidade = o.capacidade;
+          if (
+            o.status === "installing" ||
+            o.status === "operational" ||
+            o.status === "warning" ||
+            o.status === "error"
+          )
+            intent.status = o.status;
+          intents.push(intent as AiIntent);
+        }
+        break;
+      }
+      case "rename_environment": {
+        const towerName = asString(o.towerName);
+        const floorNumber = asNumber(o.floorNumber, NaN);
+        const oldName = asString(o.oldName);
+        const newName = asString(o.newName);
+        if (
+          towerName &&
+          Number.isFinite(floorNumber) &&
+          oldName &&
+          newName
+        ) {
+          intents.push({
+            type,
+            towerName,
+            floorNumber: Math.floor(floorNumber),
+            oldName,
+            newName,
+          } as AiIntent);
         }
         break;
       }

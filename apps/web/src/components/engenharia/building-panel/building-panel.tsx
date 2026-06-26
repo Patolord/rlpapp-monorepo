@@ -22,6 +22,7 @@ export type BuildingPanelActions = {
   onAddEnvironment?: (floor: HierarchyFloor) => void;
   onGenerateQr?: (item: HierarchyItem) => void;
   onAddEquipment?: (env: HierarchyEnvironment) => void;
+  onEditEquipment?: (item: HierarchyItem, env: HierarchyEnvironment) => void;
   onRemoveEquipment?: (item: HierarchyItem) => void;
 };
 
@@ -130,6 +131,7 @@ export function BuildingPanel({
             now={now}
             onGenerateQr={actions?.onGenerateQr}
             onAddEquipment={actions?.onAddEquipment}
+            onEditEquipment={actions?.onEditEquipment}
             onRemoveEquipment={actions?.onRemoveEquipment}
           />
         </div>

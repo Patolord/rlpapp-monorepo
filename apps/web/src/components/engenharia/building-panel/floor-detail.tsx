@@ -1,4 +1,4 @@
-import { DoorOpen, Plus, QrCode, Trash2, Wind } from "lucide-react";
+import { DoorOpen, Pencil, Plus, QrCode, Trash2, Wind } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 import { cn } from "@/lib/utils";
@@ -17,12 +17,14 @@ export function FloorDetail({
   now,
   onGenerateQr,
   onAddEquipment,
+  onEditEquipment,
   onRemoveEquipment,
 }: {
   floor: HierarchyFloor | null;
   now: number;
   onGenerateQr?: (item: HierarchyItem) => void;
   onAddEquipment?: (env: HierarchyEnvironment) => void;
+  onEditEquipment?: (item: HierarchyItem, env: HierarchyEnvironment) => void;
   onRemoveEquipment?: (item: HierarchyItem) => void;
 }) {
   if (!floor) {
@@ -130,6 +132,16 @@ export function FloorDetail({
                               Gerar QR
                             </Button>
                           )
+                        )}
+                        {onEditEquipment && (
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            className="h-6 px-1.5 text-xs"
+                            onClick={() => onEditEquipment(item, env)}
+                          >
+                            <Pencil className="size-3" />
+                          </Button>
                         )}
                         {onRemoveEquipment && (
                           <Button
