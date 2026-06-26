@@ -6,7 +6,9 @@ import { useQuery } from "convex/react";
 import type { ProjectHierarchy } from "@/components/engenharia/building-panel/hierarchy";
 import {
   ArrowLeft,
+  BarChart3,
   Building2,
+  ChevronDown,
   Loader2,
   Printer,
   Sparkles,
@@ -42,29 +44,11 @@ export type ProjectOverview = {
   units: GridUnit[];
 };
 
-export type ProjectTab =
-  | "building"
-  | "global"
-  | "entregas"
-  | "assistente";
-
-const TABS: { id: ProjectTab; label: string; to: string }[] = [
-  { id: "building", label: "Prédio", to: "/engenharia/relatorios/$projectId" },
-  { id: "global", label: "Global", to: "/engenharia/relatorios/$projectId/global" },
-  {
-    id: "entregas",
-    label: "Entregas",
-    to: "/engenharia/relatorios/$projectId/entregas",
-  },
-];
-
 export function ProjectShell({
   projectId,
-  tab,
   children,
 }: {
   projectId: string;
-  tab: ProjectTab;
   children: (project: ProjectOverview, now: number) => ReactNode;
 }) {
   const project = useQuery(api.projects.getOverview, {
@@ -141,7 +125,6 @@ export function ProjectShell({
     <ProjectShellLayout
       project={project}
       now={now}
-      tab={tab}
       aiContext={aiContext}
     >
       {children}
@@ -154,13 +137,11 @@ const AI_PANEL_STORAGE_KEY = "engenharia.aiPanel.open";
 function ProjectShellLayout({
   project,
   now,
-  tab,
   aiContext,
   children,
 }: {
   project: ProjectOverview;
   now: number;
-  tab: ProjectTab;
   aiContext: string;
   children: (project: ProjectOverview, now: number) => ReactNode;
 }) {
@@ -175,6 +156,8 @@ function ProjectShellLayout({
       window.localStorage.setItem(AI_PANEL_STORAGE_KEY, String(next));
     }
   }
+
+  const [metricsOpen, setMetricsOpen] = useState(false);
 
   const pending = project.totalItems - project.installedItems;
   const pct =
@@ -204,8 +187,17 @@ function ProjectShellLayout({
         </Button>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-bold">{project.name}</h1>
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold">{project.name}</h1>
+              <span className="hidden items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium tabular-nums sm:flex">
+                <span className="text-primary">{pct}%</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-green-700">{project.installedItems}</span>
+                <span className="text-muted-foreground">/</span>
+                <span>{project.totalItems}</span>
+              </span>
+            </div>
             <p className="text-sm text-muted-foreground">
               {project.hierarchyFloors > 0
                 ? `${project.hierarchyFloors} andar${project.hierarchyFloors === 1 ? "" : "es"}`
@@ -220,30 +212,42 @@ function ProjectShellLayout({
               {project.totalItems} equipamentos previstos
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            render={
-              <Link
-                to="/engenharia/relatorios/$projectId/imprimir"
-                params={{ projectId: project._id }}
-              />
-            }
-          >
-            <Printer className="mr-1.5 size-4" />
-            Imprimir
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setMetricsOpen((v) => !v)}
+              title="Visualizar métricas"
+              className="size-9"
+            >
+              <BarChart3 className="size-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              render={
+                <Link
+                  to="/engenharia/relatorios/$projectId/imprimir"
+                  params={{ projectId: project._id }}
+                />
+              }
+            >
+              <Printer className="mr-1.5 size-4" />
+              Imprimir
+            </Button>
+          </div>
         </div>
       </div>
 
-      <ProgressSummary
-        installed={project.installedItems}
-        pending={pending}
-        overdue={overdue}
-        pct={pct}
-      />
-
-      <ProjectTabs projectId={project._id} active={tab} />
+      {metricsOpen && (
+        <ProgressSummary
+          installed={project.installedItems}
+          pending={pending}
+          overdue={overdue}
+          pct={pct}
+          onCollapse={() => setMetricsOpen(false)}
+        />
+      )}
 
       {children(project, now)}
 
@@ -267,34 +271,6 @@ function ProjectShellLayout({
   );
 }
 
-function ProjectTabs({
-  projectId,
-  active,
-}: {
-  projectId: string;
-  active: ProjectTab;
-}) {
-  return (
-    <div className="flex gap-1 overflow-x-auto border-b">
-      {TABS.map((t) => (
-        <Link
-          key={t.id}
-          to={t.to}
-          params={{ projectId }}
-          className={cn(
-            "shrink-0 border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-            active === t.id
-              ? "border-primary text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          )}
-        >
-          {t.label}
-        </Link>
-      ))}
-    </div>
-  );
-}
-
 /**
  * Resumo compacto de progresso da obra: uma barra com a porcentagem instalada e
  * contadores inline, em vez de quatro cartões grandes de métricas.
@@ -304,11 +280,13 @@ function ProgressSummary({
   pending,
   overdue,
   pct,
+  onCollapse,
 }: {
   installed: number;
   pending: number;
   overdue: number;
   pct: number;
+  onCollapse: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border bg-card px-4 py-3 shadow-sm">
@@ -332,6 +310,14 @@ function ProgressSummary({
           className={overdue > 0 ? "text-red-600" : undefined}
         />
       </div>
+      <button
+        type="button"
+        onClick={onCollapse}
+        className="ml-auto rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+        title="Minimizar métricas"
+      >
+        <ChevronDown className="size-4 rotate-180" />
+      </button>
     </div>
   );
 }

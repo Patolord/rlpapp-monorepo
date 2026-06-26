@@ -47,7 +47,7 @@ export const Route = createFileRoute(
 function AssistantPage() {
   const { projectId } = Route.useParams();
   return (
-    <ProjectShell projectId={projectId} tab="assistente">
+    <ProjectShell projectId={projectId}>
       {(project) => <AssistantContent project={project} />}
     </ProjectShell>
   );
