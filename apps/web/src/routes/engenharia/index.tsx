@@ -6,7 +6,14 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
+import {
+  Badge as UiBadge,
+  EmptyState,
+  LoadingState,
+  MetricCard,
+  PageHeader,
+} from "@rlpapp/ui/web";
+import { linkStatusVariants } from "@rlpapp/ui/tokens";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -258,24 +265,22 @@ function PageContent() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 print:hidden">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold">Códigos QR</h1>
-          <p className="text-sm text-muted-foreground">
-            Gerencie lotes, reimpressões e códigos livres sem carregar a base inteira.
-          </p>
-        </div>
-        <Button render={<Link to="/engenharia/qr-codes" />}>
-          <Plus className="mr-2 h-4 w-4" />
-          Criar códigos QR
-        </Button>
-      </div>
+      <PageHeader
+        title="Códigos QR"
+        description="Gerencie lotes, reimpressões e códigos livres sem carregar a base inteira."
+        action={
+          <Button render={<Link to="/engenharia/qr-codes" />}>
+            <Plus className="mr-2 h-4 w-4" />
+            Criar códigos QR
+          </Button>
+        }
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Equipamentos" value={totalEquipment.toString()} description={`${operational} operacionais${warnings > 0 ? `, ${warnings} alertas` : ""}${errors > 0 ? `, ${errors} erros` : ""}`} icon={<Wrench className="h-4 w-4 text-muted-foreground" />} />
-        <StatCard title="Total de códigos QR" value={stats ? `${stats.total}${stats.capped ? "+" : ""}` : "..."} description="códigos gerados" icon={<QrCode className="h-4 w-4 text-muted-foreground" />} />
-        <StatCard title="Vinculados" value={stats ? stats.linked.toString() : "..."} description="com equipamento vinculado" icon={<Link2 className="h-4 w-4 text-blue-500" />} />
-        <StatCard title="Livres" value={stats ? stats.free.toString() : "..."} description="disponíveis para vínculo" icon={<Link2Off className="h-4 w-4 text-gray-400" />} />
+        <MetricCard title="Equipamentos" value={totalEquipment.toString()} description={`${operational} operacionais${warnings > 0 ? `, ${warnings} alertas` : ""}${errors > 0 ? `, ${errors} erros` : ""}`} icon={<Wrench className="h-4 w-4 text-muted-foreground" />} />
+        <MetricCard title="Total de códigos QR" value={stats ? `${stats.total}${stats.capped ? "+" : ""}` : "..."} description="códigos gerados" icon={<QrCode className="h-4 w-4 text-muted-foreground" />} />
+        <MetricCard title="Vinculados" value={stats ? stats.linked.toString() : "..."} description="com equipamento vinculado" icon={<Link2 className="h-4 w-4 text-blue-500" />} />
+        <MetricCard title="Livres" value={stats ? stats.free.toString() : "..."} description="disponíveis para vínculo" icon={<Link2Off className="h-4 w-4 text-gray-400" />} />
       </div>
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -288,9 +293,7 @@ function PageContent() {
           </CardHeader>
           <CardContent className="p-0">
             {generationBatches === undefined ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
+              <LoadingState size={20} className="py-8" />
             ) : generationBatches.length === 0 ? (
               <p className="px-4 py-8 text-sm text-muted-foreground">Nenhum lote de geração encontrado ainda.</p>
             ) : (
@@ -331,7 +334,7 @@ function PageContent() {
               <Button type="submit">Buscar</Button>
             </form>
             {submittedSearch && searchResults === undefined ? (
-              <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+              <LoadingState size={20} className="py-4" />
             ) : submittedSearch && searchResults ? (
               <SearchResults results={searchResults} deletingToken={deletingToken} printingBatch={printingBatch} onOpenBatch={openBatch} onPrintBatch={handlePrintBatch} onPreview={setPreviewToken} onPrintOne={(token) => handlePrintTokens([token], `Código QR ${token}`)} onDelete={handleDeleteQr} />
             ) : (
@@ -391,9 +394,14 @@ function PageContent() {
           </CardHeader>
           <CardContent className="p-0">
             {!activeBatchId ? (
-              <p className="px-4 py-8 text-sm text-muted-foreground">A visualização de códigos fica vazia até você escolher um lote.</p>
+              <EmptyState
+                variant="plain"
+                icon={<QrCode className="size-7" />}
+                title="Selecione um lote"
+                description="A visualização de códigos fica vazia até você escolher um lote."
+              />
             ) : batchCodes.status === "LoadingFirstPage" ? (
-              <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+              <LoadingState size={20} className="py-8" />
             ) : filteredCodes.length === 0 ? (
               <p className="px-4 py-8 text-sm text-muted-foreground">{linkFilter === "all" ? "Nenhum código encontrado neste lote." : linkFilter === "linked" ? "Nenhum código vinculado neste lote." : "Nenhum código livre neste lote."}</p>
             ) : (
@@ -414,10 +422,6 @@ function PageContent() {
   );
 }
 
-function StatCard({ title, value, description, icon }: { title: string; value: string; description: string; icon: React.ReactNode }) {
-  return <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">{title}</CardTitle>{icon}</CardHeader><CardContent><div className="text-2xl font-bold">{value}</div><p className="text-xs text-muted-foreground">{description}</p></CardContent></Card>;
-}
-
 function SearchResults({ results, deletingToken, printingBatch, onOpenBatch, onPrintBatch, onPreview, onPrintOne, onDelete }: { results: { batches: Array<{ batchId: string; batchName?: string; createdAt: number; count: number }>; qrCodes: QrCodeRow[] }; deletingToken: string | null; printingBatch: string | null; onOpenBatch: (batchId: string) => void; onPrintBatch: (batchId: string, title?: string) => void; onPreview: (token: string) => void; onPrintOne: (token: string) => void; onDelete: (token: string, isLinked: boolean) => void }) {
   if (results.batches.length === 0 && results.qrCodes.length === 0) return <p className="text-sm text-muted-foreground">Nenhum lote ou código encontrado nessa busca.</p>;
   return <div className="space-y-4">{results.batches.length > 0 && <div className="space-y-2"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Lotes</p>{results.batches.map((batch) => <div key={batch.batchId} className="rounded-lg border p-3"><p className="truncate text-sm font-semibold">{batch.batchName ?? batch.batchId}</p>{batch.batchName && <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{batch.batchId}</p>}<p className="mt-1 text-xs text-muted-foreground">{batch.count} código QR{batch.count === 1 ? "" : "s"} · {new Date(batch.createdAt).toLocaleString("pt-BR")}</p><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" onClick={() => onOpenBatch(batch.batchId)}>Abrir lote</Button><Button variant="outline" size="sm" disabled={printingBatch === batch.batchId} onClick={() => onPrintBatch(batch.batchId, batch.batchName ?? batch.batchId)}>{printingBatch === batch.batchId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}Imprimir</Button></div></div>)}</div>}{results.qrCodes.length > 0 && <div className="space-y-2"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Códigos</p>{results.qrCodes.map((qr) => <QrSearchResult key={qr._id} qr={qr} deleting={deletingToken === qr.token} onPreview={() => onPreview(qr.token)} onPrint={() => onPrintOne(qr.token)} onDelete={() => onDelete(qr.token, !!qr.equipmentId)} />)}</div>}</div>;
@@ -432,7 +436,11 @@ function QrCodeRowItem({ qr, checked, deleting, onSelect, onPreview, onPrint, on
 }
 
 function StatusBadge({ linked }: { linked: boolean }) {
-  return <Badge variant="outline" className={linked ? "border-blue-200 bg-blue-50 text-blue-700" : "border-gray-200 bg-gray-50 text-gray-500"}>{linked ? "Vinculado" : "Livre"}</Badge>;
+  return (
+    <UiBadge variant={linkStatusVariants[linked ? "linked" : "free"]}>
+      {linked ? "Vinculado" : "Livre"}
+    </UiBadge>
+  );
 }
 
 function QrPreviewPanel({ token, baseUrl, onClose }: { token: string | null; baseUrl: string; onClose: () => void }) {

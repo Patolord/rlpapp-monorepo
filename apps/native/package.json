@@ -22,6 +22,7 @@
     "@rlpapp/backend": "workspace:*",
     "@rlpapp/env": "workspace:*",
     "@rlpapp/shared": "workspace:*",
+    "@rlpapp/ui": "workspace:*",
     "@rn-primitives/dialog": "^1.4.0",
     "@rn-primitives/label": "^1.4.0",
     "@rn-primitives/portal": "^1.4.0",

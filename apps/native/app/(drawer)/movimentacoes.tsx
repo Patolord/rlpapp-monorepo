@@ -2,13 +2,21 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
 import { History, Filter, Lock } from "lucide-react-native";
 import { useState } from "react";
-import { ActivityIndicator, FlatList, Text, View } from "react-native";
+import { FlatList, Text, View } from "react-native";
 import { Link } from "expo-router";
 
+import {
+  Badge,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  EmptyState,
+  LoadingState,
+} from "@rlpapp/ui/native";
 import { Container } from "@/components/container";
 import { Button, ButtonText } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { formatDateTime } from "@rlpapp/shared";
 
@@ -29,7 +37,7 @@ export default function MovimentacoesScreen() {
         </Card>
       </Unauthenticated>
       <AuthLoading>
-        <View className="flex-1 items-center justify-center"><ActivityIndicator size="large" /></View>
+        <LoadingState />
       </AuthLoading>
     </Container>
   );
@@ -124,9 +132,9 @@ function MovimentacoesContent() {
         </CardHeader>
         <CardContent>
           {!events ? (
-            <ActivityIndicator />
+            <LoadingState size="small" />
           ) : events.length === 0 ? (
-            <Text className="text-muted-foreground">Nenhum evento encontrado</Text>
+            <EmptyState variant="plain" title="Nenhum evento encontrado" />
           ) : (
             <View className="gap-2">
               {events.map((event) => (
