@@ -47,6 +47,8 @@ export type BuildingMatrixActions = {
   onAddFloors?: (tower: HierarchyTower) => void;
   onEditFloor?: (floor: HierarchyFloor) => void;
   onAddEnvironment?: (floor: HierarchyFloor) => void;
+  onEditEnvironment?: (env: HierarchyEnvironment) => void;
+  onRemoveEnvironment?: (env: HierarchyEnvironment) => void;
   onAddEquipment?: (env: HierarchyEnvironment) => void;
   onEditEquipment?: (item: HierarchyItem, env: HierarchyEnvironment) => void;
   onGenerateQr?: (item: HierarchyItem) => void;
@@ -433,15 +435,45 @@ function EnvironmentSheet({
     <Sheet open={data !== null} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="flex w-full flex-col overflow-y-auto sm:max-w-md">
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <DoorOpen className="size-4 text-muted-foreground" />
-            {env?.name ?? "Ambiente"}
-          </SheetTitle>
-          <SheetDescription>
-            {data?.floorLabel}
-            {env?.type ? ` · ${env.type}` : ""}
-            {state ? ` · ${state.installed}/${state.total} instalados` : ""}
-          </SheetDescription>
+          <div className="flex items-start justify-between">
+            <div>
+              <SheetTitle className="flex items-center gap-2">
+                <DoorOpen className="size-4 text-muted-foreground" />
+                {env?.name ?? "Ambiente"}
+              </SheetTitle>
+              <SheetDescription>
+                {data?.floorLabel}
+                {env?.type ? ` · ${env.type}` : ""}
+                {state
+                  ? ` · ${state.installed}/${state.total} instalados`
+                  : ""}
+              </SheetDescription>
+            </div>
+            {env && (actions?.onEditEnvironment || actions?.onRemoveEnvironment) && (
+              <div className="flex items-center gap-1">
+                {actions?.onEditEnvironment && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7"
+                    onClick={() => actions.onEditEnvironment?.(env)}
+                  >
+                    <Pencil className="size-3.5" />
+                  </Button>
+                )}
+                {actions?.onRemoveEnvironment && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-destructive hover:text-destructive"
+                    onClick={() => actions.onRemoveEnvironment?.(env)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
         </SheetHeader>
 
         <div className="flex-1 space-y-2 p-4">

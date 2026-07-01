@@ -16,6 +16,7 @@ import {
   AddEnvironmentDialog,
   AddEquipmentDialog,
   AddFloorsDialog,
+  EditEnvironmentDialog,
   EditEquipmentDialog,
   EditFloorDialog,
   EditTowerDialog,
@@ -104,6 +105,7 @@ function HierarchyBuilding({
 }) {
   const generateQr = useMutation(api.qrCodes.generateForProjectEquipment);
   const removeEquipment = useMutation(api.projectEquipment.remove);
+  const removeEnvironment = useMutation(api.environments.remove);
 
   const [towerDialogOpen, setTowerDialogOpen] = useState(false);
   const [editTowerTarget, setEditTowerTarget] = useState<HierarchyTower | null>(
@@ -114,6 +116,8 @@ function HierarchyBuilding({
     null
   );
   const [envTarget, setEnvTarget] = useState<HierarchyFloor | null>(null);
+  const [editEnvTarget, setEditEnvTarget] =
+    useState<HierarchyEnvironment | null>(null);
   const [equipTarget, setEquipTarget] = useState<HierarchyEnvironment | null>(
     null
   );
@@ -128,6 +132,20 @@ function HierarchyBuilding({
     onAddFloors: (tower) => setFloorsTarget(tower),
     onEditFloor: (floor) => setEditFloorTarget(floor),
     onAddEnvironment: (floor) => setEnvTarget(floor),
+    onEditEnvironment: (env) => setEditEnvTarget(env),
+    onRemoveEnvironment: (env) => {
+      if (
+        !window.confirm(
+          `Remover o ambiente "${env.name}" e TODOS os seus equipamentos? Esta ação não pode ser desfeita.`
+        )
+      )
+        return;
+      void runWithToast(
+        () => removeEnvironment({ environmentId: env._id }),
+        "Ambiente removido",
+        "Não foi possível remover o ambiente"
+      );
+    },
     onAddEquipment: (env) => setEquipTarget(env),
     onEditEquipment: (item, env) => setEditEquipTarget({ item, env }),
     onGenerateQr: (item) =>
@@ -186,6 +204,10 @@ function HierarchyBuilding({
       <AddEnvironmentDialog
         floor={envTarget}
         onClose={() => setEnvTarget(null)}
+      />
+      <EditEnvironmentDialog
+        environment={editEnvTarget}
+        onClose={() => setEditEnvTarget(null)}
       />
       <AddEquipmentDialog
         environment={equipTarget}
