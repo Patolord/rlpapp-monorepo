@@ -3,7 +3,7 @@ packages:
   - packages/*
 
 catalog:
-  convex: ^1.38.0
+  convex: ^1.42.1
   dotenv: ^17.4.2
   typescript: 6.0.3
   zod: ^4.4.3

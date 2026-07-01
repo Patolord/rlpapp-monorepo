@@ -12,6 +12,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { useState, useMemo } from "react";
+import { normalizeUsername, sanitizeUsernameInput } from "@rlpapp/shared";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -179,7 +180,7 @@ function UsuariosContent() {
       const fullName = `${createForm.firstName.trim()} ${createForm.lastName.trim()}`;
       await createUser({
         name: fullName,
-        username: createForm.username.trim().toLowerCase(),
+        username: normalizeUsername(createForm.username),
         password: createForm.password,
         email: createForm.email.trim() || undefined,
         phone: createForm.phone.trim() || undefined,
@@ -338,7 +339,7 @@ function UsuariosContent() {
                   onChange={(e) =>
                     setCreateForm((f) => ({
                       ...f,
-                      username: e.target.value.toLowerCase().replace(/\s/g, ""),
+                      username: sanitizeUsernameInput(e.target.value),
                     }))
                   }
                   autoCapitalize="none"

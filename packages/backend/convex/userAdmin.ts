@@ -1,7 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, env } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { departments, userRoles } from "./schema";
@@ -24,11 +24,6 @@ async function createClerkUser(args: {
   firstName: string;
   lastName: string;
 }): Promise<string> {
-  const secretKey = process.env.CLERK_SECRET_KEY;
-  if (!secretKey) {
-    throw new Error("CLERK_SECRET_KEY não configurado");
-  }
-
   const body: Record<string, unknown> = {
     username: args.username,
     password: args.password,
@@ -40,7 +35,7 @@ async function createClerkUser(args: {
   const response = await fetch("https://api.clerk.com/v1/users", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${secretKey}`,
+      Authorization: `Bearer ${env.CLERK_SECRET_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),

@@ -1,7 +1,7 @@
 import { httpRouter } from "convex/server";
 import { Webhook } from "svix";
 import { internal } from "./_generated/api";
-import { httpAction } from "./_generated/server";
+import { env, httpAction } from "./_generated/server";
 
 type ClerkEmailAddress = {
   id: string;
@@ -37,11 +37,7 @@ function fullName(user: ClerkUserData): string | null {
 async function validateRequest(
   request: Request
 ): Promise<ClerkWebhookEvent | null> {
-  const secret = process.env.CLERK_WEBHOOK_SECRET;
-  if (!secret) {
-    console.error("CLERK_WEBHOOK_SECRET não configurado no deployment Convex");
-    return null;
-  }
+  const secret = env.CLERK_WEBHOOK_SECRET;
 
   const svixId = request.headers.get("svix-id");
   const svixTimestamp = request.headers.get("svix-timestamp");

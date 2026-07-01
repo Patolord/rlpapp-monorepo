@@ -2,7 +2,7 @@
 
 import { v, type Infer } from "convex/values";
 import OpenAI from "openai";
-import { action } from "./_generated/server";
+import { action, env } from "./_generated/server";
 import { aiIntentValidator } from "./aiIntents";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
@@ -154,14 +154,7 @@ export const proposeLayout = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error(
-        "OPENAI_API_KEY não configurada. Defina com: npx convex env set OPENAI_API_KEY <sua-chave>"
-      );
-    }
-
-    const openai = new OpenAI({ apiKey });
+    const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
     const extractedParts: string[] = [];
     // Conteúdo multimodal do usuário para a Responses API (texto + PDFs).
@@ -380,14 +373,7 @@ export const interpret = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error(
-        "OPENAI_API_KEY não configurada. Defina com: npx convex env set OPENAI_API_KEY <sua-chave>"
-      );
-    }
-
-    const openai = new OpenAI({ apiKey });
+    const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
     const extractedParts: string[] = [];
     const userParts: Array<
