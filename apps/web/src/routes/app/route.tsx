@@ -2,7 +2,14 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import { Outlet, createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { Authenticated, useQuery } from "convex/react";
 import { useEffect } from "react";
-import { UserButton } from "@clerk/tanstack-react-start";
+
+import { AppSidebar } from "@/components/app-sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 
 
 export const Route = createFileRoute("/app")({
@@ -57,35 +64,24 @@ function RoleGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function AppHeader() {
-  return (
-    <header className="flex h-16 shrink-0 items-center justify-between bg-transparent px-6">
-      <div className="flex items-center gap-3">
-        <img
-          src="/logo.jpg"
-          alt="RLP Engenharia"
-          className="size-9 rounded-full object-cover"
-        />
-        <div>
-          <h1 className="text-sm font-semibold">RLP Engenharia</h1>
-          <p className="text-xs text-muted-foreground">Painel do Diretor</p>
-        </div>
-      </div>
-      <UserButton />
-    </header>
-  );
-}
-
 function AppLayout() {
   return (
     <Authenticated>
       <RoleGate>
-        <div className="flex min-h-screen flex-col bg-background">
-          <AppHeader />
-          <div className="flex-1">
-            <Outlet />
-          </div>
-        </div>
+        <SidebarProvider className="bg-[#f7f8fc]">
+          <AppSidebar />
+          <SidebarInset className="bg-[#f7f8fc]">
+            <header className="flex h-14 shrink-0 items-center gap-2 border-b border-slate-100 bg-[#f7f8fc] transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+              <div className="flex items-center gap-2 px-4">
+                <SidebarTrigger className="-ml-1" />
+                <Separator orientation="vertical" className="mr-2 h-4" />
+              </div>
+            </header>
+            <div className="flex-1 overflow-auto bg-[#f7f8fc] p-4 sm:p-6">
+              <Outlet />
+            </div>
+          </SidebarInset>
+        </SidebarProvider>
       </RoleGate>
     </Authenticated>
   );

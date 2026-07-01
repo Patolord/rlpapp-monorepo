@@ -461,6 +461,115 @@ export function AddEnvironmentDialog({
   );
 }
 
+export function EditEnvironmentDialog({
+  environment,
+  onClose,
+}: {
+  environment: HierarchyEnvironment | null;
+  onClose: () => void;
+}) {
+  const updateEnv = useMutation(api.environments.update);
+  const removeEnv = useMutation(api.environments.remove);
+  const [name, setName] = useState("");
+  const [type, setType] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (environment) {
+      setName(environment.name);
+      setType(environment.type ?? "");
+    }
+  }, [environment]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!environment || !name.trim()) return;
+    setSaving(true);
+    const ok = await runWithToast(
+      () =>
+        updateEnv({
+          environmentId: environment._id,
+          name: name.trim(),
+          type: type.trim() || null,
+        }),
+      "Ambiente atualizado",
+      "Não foi possível atualizar o ambiente"
+    );
+    setSaving(false);
+    if (ok) onClose();
+  }
+
+  async function handleRemove() {
+    if (!environment) return;
+    if (
+      !window.confirm(
+        `Remover o ambiente "${environment.name}" e TODOS os seus equipamentos? Esta ação não pode ser desfeita.`
+      )
+    )
+      return;
+    const ok = await runWithToast(
+      () => removeEnv({ environmentId: environment._id }),
+      "Ambiente removido",
+      "Não foi possível remover o ambiente"
+    );
+    if (ok) onClose();
+  }
+
+  return (
+    <Dialog open={environment !== null} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Editar ambiente</DialogTitle>
+          <DialogDescription>
+            Renomeie ou remova o ambiente.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-env-name">Nome do ambiente</Label>
+            <Input
+              id="edit-env-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-env-type">Tipo (opcional)</Label>
+            <Input
+              id="edit-env-type"
+              placeholder="Ex: Apartamento, Área Técnica"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+            />
+          </div>
+          <DialogFooter className="sm:justify-between">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              onClick={handleRemove}
+            >
+              <Trash2 className="mr-1.5 size-4" />
+              Remover
+            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={saving || !name.trim()}>
+                {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                Salvar
+              </Button>
+            </div>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Equipamento
 // ---------------------------------------------------------------------------

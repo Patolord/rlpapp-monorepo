@@ -4,21 +4,15 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import {
   Building2,
-  ChevronRight,
+  ChevronsUpDown,
   ClipboardList,
-  HardHat,
-  Home,
+  LayoutDashboard,
   QrCode,
-  Plus,
   UserPlus,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import {
   Sidebar,
   SidebarContent,
@@ -30,102 +24,83 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
 
-interface NavSubItem {
+interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
   exact?: boolean;
 }
 
-interface DepartmentSection {
+interface NavGroup {
   key: string;
   label: string;
-  icon: LucideIcon;
-  basePath: string;
-  items: readonly NavSubItem[];
+  items: readonly NavItem[];
 }
 
-function getDepartmentSections(): DepartmentSection[] {
+function getNavGroups(): NavGroup[] {
   return [
     {
       key: "engenharia",
       label: "Engenharia",
-      icon: HardHat,
-      basePath: "/engenharia",
       items: [
-        { to: "/engenharia", label: "Códigos QR", icon: QrCode, exact: true },
-        { to: "/engenharia/qr-codes", label: "Criar códigos QR", icon: Plus },
-        { to: "/engenharia/registro-de-campo", label: "Registro de Campo", icon: ClipboardList },
-        { to: "/engenharia/relatorios", label: "Relatórios", icon: Building2 },
+        { to: "/engenharia/relatorios", label: "Obras", icon: Building2 },
+        { to: "/engenharia", label: "Equipamentos", icon: Wrench, exact: true },
+        { to: "/engenharia/qr-codes", label: "Códigos QR", icon: QrCode },
+        {
+          to: "/engenharia/registro-de-campo",
+          label: "Registro de Campo",
+          icon: ClipboardList,
+        },
+      ],
+    },
+    {
+      key: "configuracoes",
+      label: "Configurações",
+      items: [
         { to: "/engenharia/usuarios", label: "Usuários", icon: UserPlus },
       ],
     },
   ];
 }
 
-function NavUser() {
+const roleLabels: Record<string, string> = {
+  director: "Diretora",
+  admin: "Administrador",
+  manager: "Gerente",
+  operator: "Operador",
+  engenheiro: "Engenheiro",
+  qr_operator: "Operador QR",
+  client: "Cliente",
+};
+
+function NavUser({ name, role }: { name?: string; role?: string }) {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <div className="flex items-center gap-2 px-2 py-1.5 group-data-[collapsible=icon]:justify-center">
+        <div className="flex items-center gap-3 rounded-lg px-2 py-2 group-data-[collapsible=icon]:justify-center">
           <UserButton
             appearance={{
               elements: {
                 userButtonTrigger: "focus:shadow-none",
+                userButtonAvatarBox: "size-9",
               },
             }}
           />
-          <span className="text-base group-data-[collapsible=icon]:hidden">Conta</span>
+          <div className="grid min-w-0 flex-1 leading-tight group-data-[collapsible=icon]:hidden">
+            <span className="truncate text-sm font-semibold text-slate-800">
+              {name ?? "Conta"}
+            </span>
+            <span className="truncate text-xs text-slate-500">
+              {role ? roleLabels[role] ?? role : ""}
+            </span>
+          </div>
+          <ChevronsUpDown className="size-4 shrink-0 text-slate-400 group-data-[collapsible=icon]:hidden" />
         </div>
       </SidebarMenuItem>
     </SidebarMenu>
-  );
-}
-
-function DepartmentCollapsible({
-  section,
-  currentPath,
-  isActive,
-}: {
-  section: DepartmentSection;
-  currentPath: string;
-  isActive: (to: string, exact?: boolean) => boolean;
-}) {
-  const isSectionActive = currentPath.startsWith(section.basePath);
-
-  return (
-    <Collapsible defaultOpen={isSectionActive} className="group/collapsible">
-      <SidebarMenuItem>
-        <CollapsibleTrigger
-          render={<SidebarMenuButton tooltip={section.label} isActive={isSectionActive} />}
-        >
-          <section.icon />
-          <span>{section.label}</span>
-          <ChevronRight className="ml-auto transition-transform duration-200 group-data-open/collapsible:rotate-90" />
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <SidebarMenuSub>
-            {section.items.map((item) => (
-              <SidebarMenuSubItem key={item.to}>
-                <SidebarMenuSubButton
-                  render={<Link to={item.to} />}
-                  isActive={isActive(item.to, item.exact)}
-                >
-                  <item.icon />
-                  <span>{item.label}</span>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-            ))}
-          </SidebarMenuSub>
-        </CollapsibleContent>
-      </SidebarMenuItem>
-    </Collapsible>
   );
 }
 
@@ -134,27 +109,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const currentPath = routerState.location.pathname;
   const currentUser = useQuery(api.users.getCurrentUser);
   const isDirector = currentUser?.role === "director";
+  const isEngenheiro = currentUser?.role === "engenheiro";
 
   function isActive(to: string, exact?: boolean) {
     if (exact) return currentPath === to;
     return currentPath === to || currentPath.startsWith(to + "/");
   }
 
-  const isEngenheiro = currentUser?.role === "engenheiro";
-  const departmentSections = getDepartmentSections();
-  const visibleSections = isDirector
-    ? departmentSections
-    : isEngenheiro
-      ? departmentSections.filter((s) => s.key === "engenharia")
-      : departmentSections.filter((s) => s.key === currentUser?.department);
+  const hasEngineeringAccess =
+    isDirector || isEngenheiro || currentUser?.department === "engenharia";
+  const navGroups = hasEngineeringAccess ? getNavGroups() : [];
 
   return (
-    <Sidebar
-      collapsible="icon"
-      variant="floating"
-      {...props}
-    >
-      <SidebarHeader>
+    <Sidebar collapsible="icon" variant="floating" {...props}>
+      <SidebarHeader className="py-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link to={isDirector ? "/app" : currentPath} />}>
@@ -164,8 +132,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 className="aspect-square size-10 rounded-lg object-cover"
               />
               <div className="grid flex-1 text-left leading-tight">
-                <span className="truncate text-base font-bold tracking-tight">RLP Engenharia</span>
-                <span className="truncate text-sm text-muted-foreground">Sistema ERP</span>
+                <span className="truncate text-base font-bold tracking-tight text-slate-800">
+                  RLP Engenharia
+                </span>
+                <span className="truncate text-xs text-slate-500">Sistema ERP</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -179,35 +149,43 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     render={<Link to="/app" />}
-                    tooltip="Início"
+                    tooltip="Dashboard"
                     isActive={currentPath === "/app"}
                   >
-                    <Home />
-                    <span>Início</span>
+                    <LayoutDashboard />
+                    <span>Dashboard</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
-        <SidebarGroup>
-          <SidebarGroupLabel>Departamentos</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {visibleSections.map((section) => (
-                <DepartmentCollapsible
-                  key={section.key}
-                  section={section}
-                  currentPath={currentPath}
-                  isActive={isActive}
-                />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {navGroups.map((group) => (
+          <SidebarGroup key={group.key}>
+            <SidebarGroupLabel className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              {group.label}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => (
+                  <SidebarMenuItem key={`${group.key}-${item.label}`}>
+                    <SidebarMenuButton
+                      render={<Link to={item.to} />}
+                      tooltip={item.label}
+                      isActive={isActive(item.to, item.exact)}
+                    >
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser />
+      <SidebarFooter className="border-t border-slate-100">
+        <NavUser name={currentUser?.name} role={currentUser?.role} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

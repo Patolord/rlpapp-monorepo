@@ -24,12 +24,12 @@ export function DepartmentLayout({
 }) {
   return (
     <RoleAreaGate area={area}>
-      <SidebarProvider>
+      <SidebarProvider className="bg-[#f7f8fc]">
         <AppSidebar />
-        <SidebarInset>
+        <SidebarInset className="bg-[#f7f8fc]">
           <header
             className={cn(
-              "flex h-16 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12",
+              "flex h-16 shrink-0 items-center gap-2 border-b border-slate-100 bg-[#f7f8fc] transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12",
               printable && "print:hidden"
             )}
           >
@@ -40,7 +40,7 @@ export function DepartmentLayout({
           </header>
           <div
             className={cn(
-              "flex-1 overflow-auto p-4",
+              "flex-1 overflow-auto bg-[#f7f8fc] p-4",
               printable && "print:overflow-visible print:p-0"
             )}
           >
