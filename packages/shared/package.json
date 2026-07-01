@@ -6,7 +6,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./formatters": "./src/formatters.ts",
-    "./labels": "./src/labels.ts"
+    "./labels": "./src/labels.ts",
+    "./usernames": "./src/usernames.ts",
+    "./clerkErrors": "./src/clerkErrors.ts"
   },
   "devDependencies": {
     "@rlpapp/config": "workspace:*",

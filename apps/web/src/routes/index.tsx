@@ -6,6 +6,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
+import { getClerkLoginErrorMessage, normalizeUsername, sanitizeUsernameInput } from "@rlpapp/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,7 +79,7 @@ function LoginForm() {
 
     try {
       const result = await signIn.create({
-        identifier: username,
+        identifier: normalizeUsername(username),
         password,
       });
 
@@ -89,23 +90,7 @@ function LoginForm() {
         setError("Erro ao fazer login. Tente novamente.");
       }
     } catch (err: unknown) {
-      const clerkError = (err as { errors?: Array<{ code?: string; longMessage?: string }> })
-        ?.errors?.[0];
-      if (clerkError) {
-        const messages: Record<string, string> = {
-          form_identifier_not_found: "Usuário não encontrado.",
-          form_password_incorrect: "Senha incorreta.",
-          too_many_attempts:
-            "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
-        };
-        setError(
-          messages[clerkError.code ?? ""] ??
-            clerkError.longMessage ??
-            "Erro ao fazer login."
-        );
-      } else {
-        setError("Erro inesperado. Tente novamente.");
-      }
+      setError(getClerkLoginErrorMessage(err, "Erro inesperado. Tente novamente."));
     } finally {
       setLoading(false);
     }
@@ -138,9 +123,11 @@ function LoginForm() {
                 type="text"
                 placeholder="seu.usuario"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => setUsername(sanitizeUsernameInput(e.target.value))}
                 required
                 autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
                 className="h-12 text-base border-white/15 bg-white/10 text-white placeholder:text-white/40 focus-visible:border-white/30 focus-visible:ring-white/20"
               />
             </div>

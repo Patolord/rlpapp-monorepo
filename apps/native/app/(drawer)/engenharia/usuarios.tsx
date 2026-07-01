@@ -25,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { normalizeUsername, sanitizeUsernameInput } from "@rlpapp/shared";
 import { getErrorMessage } from "@/lib/errors";
 
 type User = FunctionReturnType<typeof api.users.list>[number];
@@ -132,7 +133,7 @@ export default function UsuariosScreen() {
       const fullName = `${createForm.firstName.trim()} ${createForm.lastName.trim()}`;
       await createUser({
         name: fullName,
-        username: createForm.username.trim().toLowerCase(),
+        username: normalizeUsername(createForm.username),
         password: createForm.password,
         email: createForm.email.trim() || undefined,
         phone: createForm.phone.trim() || undefined,
@@ -350,7 +351,7 @@ export default function UsuariosScreen() {
               onChangeText={(v) =>
                 setCreateForm((f) => ({
                   ...f,
-                  username: v.toLowerCase().replace(/\s/g, ""),
+                  username: sanitizeUsernameInput(v),
                 }))
               }
               autoCapitalize="none"
