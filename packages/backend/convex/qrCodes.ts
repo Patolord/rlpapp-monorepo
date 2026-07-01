@@ -2,6 +2,8 @@ import { paginationOptsValidator } from "convex/server";
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuth, requireStaff } from "./lib/auth";
+import { engineeringMutation } from "./lib/functions";
+import { logEquipmentHistory } from "./lib/audit";
 import type { Doc, Id } from "./_generated/dataModel";
 
 const qrCodeStatus = v.union(v.literal("active"), v.literal("inactive"));
@@ -30,7 +32,12 @@ const equipmentFields = {
   labelPhotoIds: v.optional(v.array(v.id("_storage"))),
   status: equipmentStatus,
   createdAt: v.number(),
+  // Vínculo reverso com o item planejado da obra (relatórios).
+  projectEquipmentId: v.optional(v.id("projectEquipment")),
   // Campos legados (dados antigos em produção antes da simplificação do schema).
+  projectId: v.optional(v.id("projects")),
+  floor: v.optional(v.number()),
+  position: v.optional(v.number()),
   location: v.optional(v.string()),
   tag: v.optional(v.string()),
   type: v.optional(v.string()),
@@ -570,5 +577,226 @@ export const assignEquipment = mutation({
     });
 
     return null;
+  },
+});
+
+// --- Contexto completo de um QR (página mobile ao escanear) ---
+//
+// Público (sem auth), como getByToken. Resolve toda a árvore: QR → equipamento
+// real → item planejado → ambiente → andar → torre → obra, incluindo checklist.
+
+function generateToken(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let token = "";
+  for (let i = 0; i < 8; i++) {
+    token += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return token;
+}
+
+export const getFullContext = query({
+  args: { token: v.string() },
+  returns: v.union(
+    v.object({
+      token: v.string(),
+      qrStatus: qrCodeStatus,
+      equipment: v.union(equipmentValidator, v.null()),
+      plannedEquipment: v.union(
+        v.object({
+          _id: v.id("projectEquipment"),
+          system: v.string(),
+          ambiente: v.string(),
+          kind: v.union(
+            v.literal("condensadora"),
+            v.literal("evaporadora")
+          ),
+          modelo: v.string(),
+          capacidade: v.string(),
+          status: equipmentStatus,
+          serialNumber: v.union(v.string(), v.null()),
+          scheduledDate: v.union(v.number(), v.null()),
+          installationDate: v.union(v.number(), v.null()),
+          testDate: v.union(v.number(), v.null()),
+        }),
+        v.null()
+      ),
+      location: v.union(
+        v.object({
+          projectId: v.id("projects"),
+          projectName: v.string(),
+          towerName: v.union(v.string(), v.null()),
+          floorLabel: v.union(v.string(), v.null()),
+          environmentName: v.union(v.string(), v.null()),
+        }),
+        v.null()
+      ),
+      checklist: v.array(
+        v.object({
+          _id: v.id("checklistItems"),
+          label: v.string(),
+          required: v.boolean(),
+          completed: v.boolean(),
+        })
+      ),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const qrCode = await ctx.db
+      .query("qrCodes")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .unique();
+    if (!qrCode) return null;
+
+    const equipment = qrCode.equipmentId
+      ? await ctx.db.get("equipment", qrCode.equipmentId)
+      : null;
+
+    let plannedEquipment = null;
+    let location = null;
+    let checklist: {
+      _id: Id<"checklistItems">;
+      label: string;
+      required: boolean;
+      completed: boolean;
+    }[] = [];
+
+    if (equipment?.projectEquipmentId) {
+      const planned = await ctx.db.get(
+        "projectEquipment",
+        equipment.projectEquipmentId
+      );
+      if (planned) {
+        plannedEquipment = {
+          _id: planned._id,
+          system: planned.system,
+          ambiente: planned.ambiente,
+          kind: planned.kind,
+          modelo: planned.modelo,
+          capacidade: planned.capacidade,
+          status: planned.status,
+          serialNumber: planned.serialNumber ?? null,
+          scheduledDate: planned.scheduledDate ?? null,
+          installationDate: planned.installationDate ?? null,
+          testDate: planned.testDate ?? null,
+        };
+
+        const project = await ctx.db.get("projects", planned.projectId);
+        let towerName: string | null = null;
+        let floorLabel: string | null = null;
+        let environmentName: string | null = null;
+        if (planned.towerId) {
+          towerName = (await ctx.db.get("towers", planned.towerId))?.name ?? null;
+        }
+        if (planned.floorId) {
+          floorLabel =
+            (await ctx.db.get("floors", planned.floorId))?.label ?? null;
+        }
+        if (planned.environmentId) {
+          environmentName =
+            (await ctx.db.get("environments", planned.environmentId))?.name ??
+            null;
+        }
+        if (project) {
+          location = {
+            projectId: project._id,
+            projectName: project.name,
+            towerName,
+            floorLabel,
+            environmentName,
+          };
+        }
+
+        const items = await ctx.db
+          .query("checklistItems")
+          .withIndex("by_equipment", (q) => q.eq("equipmentId", planned._id))
+          .collect();
+        checklist = items
+          .sort((a, b) => a.order - b.order)
+          .map((i) => ({
+            _id: i._id,
+            label: i.label,
+            required: i.required,
+            completed: i.completed,
+          }));
+      }
+    }
+
+    return {
+      token: qrCode.token,
+      qrStatus: qrCode.status,
+      equipment,
+      plannedEquipment,
+      location,
+      checklist,
+    };
+  },
+});
+
+// Gera um QR único para um item planejado da obra, criando o equipamento real
+// e vinculando-o (sem alterar o status do planejamento). Idempotente: se o item
+// já tem equipamento vinculado com QR, retorna o token existente.
+export const generateForProjectEquipment = engineeringMutation({
+  args: { itemId: v.id("projectEquipment") },
+  returns: v.object({ token: v.string(), created: v.boolean() }),
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get("projectEquipment", args.itemId);
+    if (!item) throw new Error("Equipamento planejado não encontrado");
+
+    // Já vinculado? Retorna o token existente, se houver.
+    if (item.linkedEquipmentId) {
+      const existingQr = await ctx.db
+        .query("qrCodes")
+        .withIndex("by_equipment", (q) =>
+          q.eq("equipmentId", item.linkedEquipmentId)
+        )
+        .order("desc")
+        .first();
+      if (existingQr) {
+        return { token: existingQr.token, created: false };
+      }
+    }
+
+    // Cria o equipamento real (placeholder vinculado ao planejamento).
+    const equipmentId = item.linkedEquipmentId
+      ? item.linkedEquipmentId
+      : await ctx.db.insert("equipment", {
+          description: `${item.system} · ${item.ambiente}`.trim(),
+          status: item.status,
+          createdAt: Date.now(),
+          projectEquipmentId: item._id,
+        });
+
+    if (!item.linkedEquipmentId) {
+      await ctx.db.patch("projectEquipment", args.itemId, {
+        linkedEquipmentId: equipmentId,
+      });
+    }
+
+    // Gera um token único.
+    let token = generateToken();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const clash = await ctx.db
+        .query("qrCodes")
+        .withIndex("by_token", (q) => q.eq("token", token))
+        .unique();
+      if (!clash) break;
+      token = generateToken();
+    }
+
+    await ctx.db.insert("qrCodes", {
+      token,
+      equipmentId,
+      status: "active",
+      createdAt: Date.now(),
+    });
+
+    await logEquipmentHistory(ctx, ctx.user, {
+      equipmentId: args.itemId,
+      action: "qr_generated",
+      newValue: token,
+    });
+
+    return { token, created: true };
   },
 });

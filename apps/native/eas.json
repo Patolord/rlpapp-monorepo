@@ -1,0 +1,35 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_CONVEX_URL": "https://giddy-dodo-889.convex.cloud",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_bWF0dXJlLWphZ3Vhci02MC5jbGVyay5hY2NvdW50cy5kZXYk"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_CONVEX_URL": "https://giddy-dodo-889.convex.cloud",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_bWF0dXJlLWphZ3Vhci02MC5jbGVyay5hY2NvdW50cy5kZXYk"
+      }
+    },
+    "production": {
+      "channel": "production",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_CONVEX_URL": "https://giddy-dodo-889.convex.cloud",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_bWF0dXJlLWphZ3Vhci02MC5jbGVyay5hY2NvdW50cy5kZXYk"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

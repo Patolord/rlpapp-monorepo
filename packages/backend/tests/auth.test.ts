@@ -5,7 +5,7 @@ import { setup, withUser } from "./helpers";
 describe("controle de acesso", () => {
   test("queries de staff rejeitam não autenticados", async () => {
     const t = setup();
-    await expect(t.query(api.products.list, {})).rejects.toThrow(
+    await expect(t.query(api.users.list, {})).rejects.toThrow(
       "Not authenticated"
     );
   });
@@ -13,7 +13,7 @@ describe("controle de acesso", () => {
   test("qr_operator não acessa queries de staff", async () => {
     const t = setup();
     const asQr = await withUser(t, { clerkId: "qr1", role: "qr_operator" });
-    await expect(asQr.query(api.products.list, {})).rejects.toThrow(
+    await expect(asQr.query(api.users.list, {})).rejects.toThrow(
       "Insufficient permissions"
     );
   });
@@ -25,33 +25,9 @@ describe("controle de acesso", () => {
       role: "operator",
       isActive: false,
     });
-    await expect(asInactive.query(api.products.list, {})).rejects.toThrow(
+    await expect(asInactive.query(api.users.list, {})).rejects.toThrow(
       "Usuário desativado"
     );
-  });
-
-  test("financeiro: operador de outro departamento é bloqueado, admin acessa", async () => {
-    const t = setup();
-    const asEstoque = await withUser(t, {
-      clerkId: "op-estoque",
-      role: "operator",
-      department: "estoque",
-    });
-    await expect(
-      asEstoque.query(api.contasPagar.list, {})
-    ).rejects.toThrow("Acesso restrito ao departamento financeiro");
-
-    const asAdmin = await withUser(t, { clerkId: "admin1", role: "admin" });
-    await expect(asAdmin.query(api.contasPagar.list, {})).resolves.toEqual([]);
-
-    const asFinanceiro = await withUser(t, {
-      clerkId: "op-fin",
-      role: "operator",
-      department: "financeiro",
-    });
-    await expect(
-      asFinanceiro.query(api.contasPagar.list, {})
-    ).resolves.toEqual([]);
   });
 
   test("users.create exige admin/director", async () => {

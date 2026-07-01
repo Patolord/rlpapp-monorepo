@@ -13,6 +13,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { AppThemeProvider, useAppTheme } from "@/contexts/app-theme-context";
+import { OfflineSync } from "@/components/offline-sync";
 import { COLORS } from "@/lib/colors";
 
 export const unstable_settings = {
@@ -51,6 +52,10 @@ function StackLayout() {
     >
       <Stack.Screen name="(drawer)" />
       <Stack.Screen name="(auth)" />
+      <Stack.Screen name="scanner" options={{ presentation: "fullScreenModal" }} />
+      <Stack.Screen name="equipamento/[token]" options={{ headerShown: true }} />
+      <Stack.Screen name="pendentes" options={{ headerShown: true }} />
+      <Stack.Screen name="obra/[projectId]" options={{ headerShown: true }} />
     </Stack>
   );
 }
@@ -80,6 +85,7 @@ function InnerLayout() {
   return (
     <View style={{ flex: 1, backgroundColor: bg }}>
       <EnsureUser />
+      <OfflineSync />
       <StackLayout />
     </View>
   );

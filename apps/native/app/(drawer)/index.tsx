@@ -4,8 +4,6 @@ import { Authenticated, Unauthenticated, AuthLoading, useQuery } from "convex/re
 import { useRouter, Link } from "expo-router";
 import type { Href } from "expo-router";
 import {
-  Warehouse,
-  DollarSign,
   Users,
   HardHat,
   ArrowRight,
@@ -20,22 +18,6 @@ import { Card } from "@/components/ui/card";
 import { SignOutButton } from "@/components/sign-out-button";
 
 const departmentCards = [
-  {
-    route: "(tabs)",
-    title: "Estoque",
-    description: "Gestão de produtos, fornecedores, entradas, saídas e movimentações de materiais.",
-    icon: Warehouse,
-    bgColor: "bg-blue-500/10",
-    iconColor: "#3b82f6",
-  },
-  {
-    route: "financeiro",
-    title: "Financeiro",
-    description: "Contas a pagar e receber, fluxo de caixa, orçamentos e relatórios financeiros.",
-    icon: DollarSign,
-    bgColor: "bg-emerald-500/10",
-    iconColor: "#10b981",
-  },
   {
     route: "rh",
     title: "Recursos Humanos",
@@ -94,7 +76,7 @@ function RoleAwareHome() {
     if (!isDirector) {
       const dest = currentUser.role === "engenheiro"
         ? "/(drawer)/engenharia"
-        : "/(drawer)/(tabs)/estoque";
+        : `/(drawer)/${currentUser.department ?? "engenharia"}`;
       router.replace(dest as Href);
     }
   }, [currentUser, isDirector, router]);
