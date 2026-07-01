@@ -1,114 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-// Receipt states (RFC §4.1)
-export const receiptStatus = v.union(
-  v.literal("PendingReceipt"),
-  v.literal("Accepted"),
-  v.literal("Returned"),
-  v.literal("Discarded")
-);
-
-// Shipment states (RFC §4.2)
-export const shipmentStatus = v.union(
-  v.literal("RegisteredOut"),
-  v.literal("PendingShipment"),
-  v.literal("DeliveredConfirmed"),
-  v.literal("CanceledBeforeLeave"),
-  v.literal("ReversalApplied")
-);
-
-// Inventory event types (RFC §4.3)
-export const inventoryEventType = v.union(
-  v.literal("RegisteredIn"),
-  v.literal("RegisteredOut"),
-  v.literal("Reversal"),
-  v.literal("InventoryAdjust")
-);
-
-// Reference type for inventory events
-export const refType = v.union(
-  v.literal("receipt"),
-  v.literal("shipment"),
-  v.literal("adjustment")
-);
-
-// Cost source for receipt lines and cost events
-export const costSource = v.union(
-  v.literal("supplier_last"),
-  v.literal("material_avg"),
-  v.literal("manual"),
-  v.literal("unknown")
-);
-
-// --- Financeiro validators ---
-
-export const contaPagarStatus = v.union(
-  v.literal("Pendente"),
-  v.literal("Aprovado"),
-  v.literal("Pago"),
-  v.literal("Vencido"),
-  v.literal("Cancelado")
-);
-
-export const formaPagamento = v.union(
-  v.literal("pix"),
-  v.literal("ted"),
-  v.literal("boleto"),
-  v.literal("dinheiro"),
-  v.literal("cartao")
-);
-
-export const categoriaTipo = v.union(
-  v.literal("despesa"),
-  v.literal("receita"),
-  v.literal("ambos")
-);
-
-export const tipoConta = v.union(
-  v.literal("corrente"),
-  v.literal("poupanca")
-);
-
-export const aprovacaoStatus = v.union(
-  v.literal("aprovado"),
-  v.literal("rejeitado")
-);
-
-export const contaReceberStatus = v.union(
-  v.literal("Emitido"),
-  v.literal("Parcial"),
-  v.literal("Recebido"),
-  v.literal("Vencido"),
-  v.literal("Cancelado")
-);
-
-export const transacaoTipo = v.union(
-  v.literal("credito"),
-  v.literal("debito")
-);
-
-export const conciliacaoStatus = v.union(
-  v.literal("pendente"),
-  v.literal("conciliado"),
-  v.literal("ignorado")
-);
-
-// --- Material request validators ---
-
-export const materialRequestStatus = v.union(
-  v.literal("Pendente"),
-  v.literal("Aprovado"),
-  v.literal("Rejeitado"),
-  v.literal("Convertido")
-);
-
-export const materialRequestUrgency = v.union(
-  v.literal("normal"),
-  v.literal("urgente"),
-  v.literal("critico")
-);
-
 // User roles
 export const userRoles = v.union(
   v.literal("director"),
@@ -118,13 +10,21 @@ export const userRoles = v.union(
   // Acesso restrito à área de engenharia (equipamentos, QR codes, manutenções)
   v.literal("engenheiro"),
   // Acesso restrito: só interage com equipamentos via página pública /q/$token
-  v.literal("qr_operator")
+  v.literal("qr_operator"),
+  // Acesso somente-leitura ao portal do cliente (obras atribuídas).
+  v.literal("client")
+);
+
+// Status da obra (ciclo de vida do projeto).
+export const projectStatus = v.union(
+  v.literal("planning"),
+  v.literal("in_progress"),
+  v.literal("completed"),
+  v.literal("paused")
 );
 
 // Department types
 export const departments = v.union(
-  v.literal("estoque"),
-  v.literal("financeiro"),
   v.literal("rh"),
   v.literal("engenharia")
 );
@@ -149,284 +49,6 @@ export default defineSchema({
     .index("by_role", ["role"])
     .index("by_active", ["isActive"]),
 
-  products: defineTable({
-    name: v.string(),
-    description: v.optional(v.string()),
-    unit: v.string(),
-    minQuantity: v.number(),
-    isActive: v.boolean(),
-  })
-    .index("by_name", ["name"])
-    .index("by_active", ["isActive"]),
-
-  suppliers: defineTable({
-    name: v.string(),
-    contactName: v.optional(v.string()),
-    email: v.optional(v.string()),
-    phone: v.optional(v.string()),
-    address: v.optional(v.string()),
-    isActive: v.boolean(),
-  })
-    .index("by_name", ["name"])
-    .index("by_active", ["isActive"]),
-
-  sites: defineTable({
-    name: v.string(),
-    address: v.optional(v.string()),
-    responsibleName: v.optional(v.string()),
-    responsiblePhone: v.optional(v.string()),
-    isActive: v.boolean(),
-  })
-    .index("by_name", ["name"])
-    .index("by_active", ["isActive"]),
-
-  // --- RFC-0001 tables ---
-
-  receipts: defineTable({
-    status: receiptStatus,
-    supplierId: v.optional(v.id("suppliers")),
-    sourceType: v.optional(v.string()),
-    notes: v.optional(v.string()),
-    userId: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_status", ["status"])
-    .index("by_created", ["createdAt"]),
-
-  receiptLines: defineTable({
-    receiptId: v.id("receipts"),
-    productId: v.id("products"),
-    qty: v.number(),
-    countedQty: v.optional(v.number()),
-    unitCost: v.optional(v.number()),
-    costSource: v.optional(costSource),
-    isEstimated: v.optional(v.boolean()),
-  })
-    .index("by_receipt", ["receiptId"])
-    .index("by_product", ["productId"]),
-
-  shipments: defineTable({
-    status: shipmentStatus,
-    toSiteId: v.id("sites"),
-    notes: v.optional(v.string()),
-    qrCodeData: v.optional(v.string()),
-    userId: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_status", ["status"])
-    .index("by_created", ["createdAt"])
-    .index("by_site", ["toSiteId"]),
-
-  shipmentLines: defineTable({
-    shipmentId: v.id("shipments"),
-    productId: v.id("products"),
-    qty: v.number(),
-    countedQty: v.optional(v.number()),
-  })
-    .index("by_shipment", ["shipmentId"])
-    .index("by_product", ["productId"]),
-
-  inventoryEvents: defineTable({
-    type: inventoryEventType,
-    productId: v.id("products"),
-    qtyDelta: v.number(),
-    refType: refType,
-    refId: v.string(),
-    userId: v.string(),
-    createdAt: v.number(),
-  })
-    .index("by_product", ["productId"])
-    .index("by_type", ["type"])
-    .index("by_created", ["createdAt"])
-    .index("by_ref", ["refType", "refId"]),
-
-  costEvents: defineTable({
-    productId: v.id("products"),
-    unitCost: v.number(),
-    qty: v.number(),
-    costSource: costSource,
-    isEstimated: v.boolean(),
-    inventoryEventId: v.optional(v.id("inventoryEvents")),
-    createdAt: v.number(),
-  })
-    .index("by_product", ["productId"])
-    .index("by_event", ["inventoryEventId"]),
-
-  inventorySnapshot: defineTable({
-    productId: v.id("products"),
-    qtyOnHand: v.number(),
-    avgCost: v.number(),
-    totalValue: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_product", ["productId"]),
-
-  // --- Delivery confirmations ---
-
-  deliveryConfirmations: defineTable({
-    shipmentId: v.id("shipments"),
-    receiverName: v.string(),
-    receivedAtSiteId: v.id("sites"),
-    confirmedByUserId: v.string(),
-    confirmedAt: v.number(),
-    notes: v.optional(v.string()),
-  })
-    .index("by_shipment", ["shipmentId"])
-    .index("by_site", ["receivedAtSiteId"])
-    .index("by_confirmed", ["confirmedAt"])
-    .index("by_user", ["confirmedByUserId"]),
-
-  // --- Material requests ---
-
-  materialRequests: defineTable({
-    status: materialRequestStatus,
-    siteId: v.id("sites"),
-    reason: v.string(),
-    urgency: materialRequestUrgency,
-    dateNeeded: v.number(),
-    requestedByUserId: v.string(),
-    reviewedByUserId: v.optional(v.string()),
-    reviewNotes: v.optional(v.string()),
-    resultingShipmentId: v.optional(v.id("shipments")),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_status", ["status"])
-    .index("by_site", ["siteId"])
-    .index("by_urgency", ["urgency"])
-    .index("by_requested", ["requestedByUserId"])
-    .index("by_created", ["createdAt"]),
-
-  materialRequestLines: defineTable({
-    requestId: v.id("materialRequests"),
-    productId: v.id("products"),
-    qty: v.number(),
-    approvedQty: v.optional(v.number()),
-  })
-    .index("by_request", ["requestId"]),
-
-  // --- Financeiro tables ---
-
-  contasBancarias: defineTable({
-    nome: v.string(),
-    banco: v.string(),
-    agencia: v.string(),
-    conta: v.string(),
-    tipo: tipoConta,
-    saldoInicial: v.number(),
-    isActive: v.boolean(),
-  })
-    .index("by_active", ["isActive"]),
-
-  categoriasFinanceiras: defineTable({
-    nome: v.string(),
-    tipo: categoriaTipo,
-    cor: v.optional(v.string()),
-    icone: v.optional(v.string()),
-    isActive: v.boolean(),
-  })
-    .index("by_tipo", ["tipo"])
-    .index("by_active", ["isActive"]),
-
-  contasPagar: defineTable({
-    descricao: v.string(),
-    valor: v.number(),
-    dataVencimento: v.number(),
-    dataPagamento: v.optional(v.number()),
-    dataCompetencia: v.number(),
-    status: contaPagarStatus,
-    categoriaId: v.optional(v.id("categoriasFinanceiras")),
-    fornecedorId: v.optional(v.id("suppliers")),
-    contaBancariaId: v.optional(v.id("contasBancarias")),
-    formaPagamento: v.optional(formaPagamento),
-    recorrente: v.optional(v.boolean()),
-    observacoes: v.optional(v.string()),
-    userId: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_status", ["status"])
-    .index("by_vencimento", ["dataVencimento"])
-    .index("by_categoria", ["categoriaId"])
-    .index("by_fornecedor", ["fornecedorId"])
-    .index("by_contaBancaria", ["contaBancariaId"])
-    .index("by_created", ["createdAt"]),
-
-  aprovacoes: defineTable({
-    contaPagarId: v.id("contasPagar"),
-    aprovadorId: v.string(),
-    status: aprovacaoStatus,
-    observacao: v.optional(v.string()),
-    createdAt: v.number(),
-  })
-    .index("by_conta", ["contaPagarId"]),
-
-  clientes: defineTable({
-    nome: v.string(),
-    email: v.optional(v.string()),
-    phone: v.optional(v.string()),
-    documento: v.optional(v.string()),
-    endereco: v.optional(v.string()),
-    isActive: v.boolean(),
-  })
-    .index("by_name", ["nome"])
-    .index("by_active", ["isActive"]),
-
-  contasReceber: defineTable({
-    descricao: v.string(),
-    valor: v.number(),
-    valorRecebido: v.number(),
-    dataVencimento: v.number(),
-    dataRecebimento: v.optional(v.number()),
-    dataCompetencia: v.number(),
-    dataEmissao: v.number(),
-    status: contaReceberStatus,
-    categoriaId: v.optional(v.id("categoriasFinanceiras")),
-    clienteId: v.optional(v.id("clientes")),
-    contaBancariaId: v.optional(v.id("contasBancarias")),
-    formaPagamento: v.optional(formaPagamento),
-    notaFiscal: v.optional(v.string()),
-    observacoes: v.optional(v.string()),
-    userId: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_status", ["status"])
-    .index("by_vencimento", ["dataVencimento"])
-    .index("by_cliente", ["clienteId"])
-    .index("by_categoria", ["categoriaId"])
-    .index("by_contaBancaria", ["contaBancariaId"])
-    .index("by_created", ["createdAt"]),
-
-  transacoesBancarias: defineTable({
-    contaBancariaId: v.id("contasBancarias"),
-    data: v.number(),
-    descricao: v.string(),
-    valor: v.number(),
-    tipo: transacaoTipo,
-    conciliacaoStatus: conciliacaoStatus,
-    observacoes: v.optional(v.string()),
-    userId: v.string(),
-    createdAt: v.number(),
-  })
-    .index("by_conta", ["contaBancariaId"])
-    .index("by_data", ["data"])
-    .index("by_status", ["conciliacaoStatus"])
-    .index("by_created", ["createdAt"]),
-
-  conciliacoes: defineTable({
-    transacaoBancariaId: v.id("transacoesBancarias"),
-    contaPagarId: v.optional(v.id("contasPagar")),
-    contaReceberId: v.optional(v.id("contasReceber")),
-    userId: v.string(),
-    createdAt: v.number(),
-  })
-    .index("by_transacao", ["transacaoBancariaId"])
-    .index("by_contaPagar", ["contaPagarId"])
-    .index("by_contaReceber", ["contaReceberId"]),
-
   // --- QR Code / Equipment tracking ---
 
   qrCodes: defineTable({
@@ -442,6 +64,215 @@ export default defineSchema({
     .index("by_batchName", ["batchName"])
     .index("by_equipment", ["equipmentId"]),
 
+  // --- Obras / Relatórios (substitui a planilha "Tabela Global de Equipamentos") ---
+  //
+  // Hierarquia: Obra → Andar → Apartamento (projectUnits) → Sistema → Equipamento
+  // planejado (projectEquipment). Cada item planejado pode ser vinculado a um
+  // equipamento real (QR) → verde/instalado quando vinculado, vermelho/pendente
+  // quando não.
+
+  // Obra (prédio): nome + metadados + lista de andares (legado) + torres.
+  //
+  // Hierarquia nova: Obra → Torre → Andar → Ambiente → Equipamento.
+  // O array `floors` é mantido por compatibilidade com obras antigas que usam
+  // o caminho projectUnits; obras novas usam as tabelas towers/floors/environments.
+  projects: defineTable({
+    name: v.string(),
+    // Metadados da obra (todos opcionais para compatibilidade com dados antigos).
+    client: v.optional(v.string()),
+    address: v.optional(v.string()),
+    status: v.optional(projectStatus),
+    responsibleId: v.optional(v.id("users")),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    // Clientes (role "client") que podem visualizar esta obra no portal.
+    clientIds: v.optional(v.array(v.id("users"))),
+    floors: v.array(
+      v.object({
+        // 0 = térreo, 1 = 1º andar, etc.
+        number: v.number(),
+        label: v.string(),
+        // Campo legado (modelo antigo): ignorado pela aplicação atual.
+        unitCount: v.optional(v.number()),
+      })
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_name", ["name"])
+    .index("by_status", ["status"])
+    .index("by_responsible", ["responsibleId"]),
+
+  // --- Hierarquia nova: Torre → Andar → Ambiente ---
+
+  // Torre / Bloco de uma obra.
+  towers: defineTable({
+    projectId: v.id("projects"),
+    name: v.string(),
+    order: v.number(),
+    createdAt: v.number(),
+  }).index("by_project", ["projectId"]),
+
+  // Andar de uma torre (extraído do array legado projects.floors[]).
+  floors: defineTable({
+    towerId: v.id("towers"),
+    // Denormalizado para consultas eficientes por obra.
+    projectId: v.id("projects"),
+    number: v.number(),
+    label: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_tower", ["towerId"])
+    .index("by_project", ["projectId"]),
+
+  // Ambiente / cômodo de um andar (ex: "Sala de Estar", "Suíte 1", "Apto 201").
+  environments: defineTable({
+    floorId: v.id("floors"),
+    // Denormalizados para consultas eficientes.
+    towerId: v.id("towers"),
+    projectId: v.id("projects"),
+    name: v.string(),
+    type: v.optional(v.string()),
+    order: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_floor", ["floorId"])
+    .index("by_tower", ["towerId"])
+    .index("by_project", ["projectId"]),
+
+  // Apartamento / "Final" dentro de um andar.
+  projectUnits: defineTable({
+    projectId: v.id("projects"),
+    // Andar onde o apartamento começa (para duplex/triplex, o andar de base).
+    floor: v.number(),
+    // Posição na linha do andar (1 = Final 1, 2 = Final 2, ...). Também usada
+    // para ordenar as colunas da grade.
+    final: v.number(),
+    // Rótulo do apartamento, ex: "201".
+    label: v.string(),
+    type: v.union(v.literal("vrf"), v.literal("split")),
+    // 1 = normal, 2 = duplex, 3 = triplex (quantos andares a unidade ocupa).
+    floorSpan: v.number(),
+    deadline: v.optional(v.number()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_floor", ["projectId", "floor"]),
+
+  // Item planejado (linha da BOM / aba Global): cada condensadora/evaporadora.
+  projectEquipment: defineTable({
+    projectId: v.id("projects"),
+    // Opcional: obras antigas usam projectUnits; obras novas usam environments.
+    unitId: v.optional(v.id("projectUnits")),
+    // Sistema dentro do apartamento, ex: "VRF 1", "VRF 2", "Split".
+    system: v.string(),
+    // Ambiente onde fica, ex: "Sala de Estar", "Suíte 1", "Área Técnica".
+    ambiente: v.string(),
+    kind: v.union(v.literal("condensadora"), v.literal("evaporadora")),
+    modelo: v.string(),
+    capacidade: v.string(),
+    status: v.union(
+      v.literal("installing"),
+      v.literal("operational"),
+      v.literal("warning"),
+      v.literal("error")
+    ),
+    obs: v.optional(v.string()),
+    deadline: v.optional(v.number()),
+    // Vínculo com o equipamento real (QR) instalado em campo.
+    linkedEquipmentId: v.optional(v.id("equipment")),
+    installedAt: v.optional(v.number()),
+    // --- Hierarquia nova (opcionais; obras antigas usam apenas unitId) ---
+    environmentId: v.optional(v.id("environments")),
+    towerId: v.optional(v.id("towers")),
+    floorId: v.optional(v.id("floors")),
+    // --- Dados ricos do equipamento ---
+    serialNumber: v.optional(v.string()),
+    responsibleId: v.optional(v.id("users")),
+    photoIds: v.optional(v.array(v.id("_storage"))),
+    videoIds: v.optional(v.array(v.id("_storage"))),
+    scheduledDate: v.optional(v.number()),
+    installationDate: v.optional(v.number()),
+    testDate: v.optional(v.number()),
+    checklistTemplateId: v.optional(v.id("checklistTemplates")),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_unit", ["unitId"])
+    .index("by_environment", ["environmentId"])
+    .index("by_project_modelo", ["projectId", "modelo"])
+    .index("by_linkedEquipment", ["linkedEquipmentId"]),
+
+  // --- Checklists ---
+
+  // Modelo de checklist reutilizável (por obra ou global).
+  checklistTemplates: defineTable({
+    projectId: v.optional(v.id("projects")),
+    name: v.string(),
+    items: v.array(
+      v.object({
+        label: v.string(),
+        required: v.boolean(),
+      })
+    ),
+    createdAt: v.number(),
+  }).index("by_project", ["projectId"]),
+
+  // Item de checklist instanciado para um equipamento planejado.
+  checklistItems: defineTable({
+    equipmentId: v.id("projectEquipment"),
+    label: v.string(),
+    required: v.boolean(),
+    completed: v.boolean(),
+    completedBy: v.optional(v.id("users")),
+    completedAt: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    order: v.number(),
+  }).index("by_equipment", ["equipmentId"]),
+
+  // --- Histórico / Auditoria ---
+
+  // Histórico de ações por equipamento planejado (instalação, teste, status...).
+  equipmentHistory: defineTable({
+    equipmentId: v.id("projectEquipment"),
+    action: v.string(),
+    userId: v.id("users"),
+    previousValue: v.optional(v.string()),
+    newValue: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    // Estrutura preparada para GPS (preenchida pelo app de campo).
+    location: v.optional(
+      v.object({
+        latitude: v.number(),
+        longitude: v.number(),
+      })
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_equipment", ["equipmentId"])
+    .index("by_user", ["userId"]),
+
+  // Log de auditoria do sistema (todas as escritas relevantes).
+  auditLogs: defineTable({
+    userId: v.id("users"),
+    action: v.string(),
+    tableName: v.string(),
+    recordId: v.string(),
+    details: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_table", ["tableName", "createdAt"]),
+
+  // Entregas de material por modelo (aba Entregas): controle de logística.
+  materialDeliveries: defineTable({
+    projectId: v.id("projects"),
+    modelo: v.string(),
+    capacidade: v.optional(v.string()),
+    qty: v.number(),
+    date: v.number(),
+    note: v.optional(v.string()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_project_modelo", ["projectId", "modelo"]),
+
   equipment: defineTable({
     // Cadastro simplificado em campo: descrição geral + foto da etiqueta.
     description: v.optional(v.string()),
@@ -453,12 +284,40 @@ export default defineSchema({
       v.literal("error")
     ),
     createdAt: v.number(),
+    // Vínculo reverso: item planejado da obra que este equipamento ocupa.
+    projectEquipmentId: v.optional(v.id("projectEquipment")),
     // Campos legados (dados antigos em produção antes da simplificação do schema).
+    projectId: v.optional(v.id("projects")),
+    floor: v.optional(v.number()),
+    position: v.optional(v.number()),
     location: v.optional(v.string()),
     tag: v.optional(v.string()),
     type: v.optional(v.string()),
     notes: v.optional(v.string()),
-  }).index("by_tag", ["tag"]),
+  })
+    .index("by_tag", ["tag"])
+    .index("by_projectEquipment", ["projectEquipmentId"]),
+
+  // --- Histórico de conversas com a IA ---
+
+  aiChatSessions: defineTable({
+    projectId: v.id("projects"),
+    userId: v.id("users"),
+    title: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_user", ["userId"])
+    .index("by_project_user", ["projectId", "userId"]),
+
+  aiChatMessages: defineTable({
+    sessionId: v.id("aiChatSessions"),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    text: v.string(),
+    intents: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_session", ["sessionId"]),
 
   maintenanceLogs: defineTable({
     equipmentId: v.id("equipment"),

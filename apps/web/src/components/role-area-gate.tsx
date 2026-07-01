@@ -3,16 +3,16 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useEffect } from "react";
 
-export type DepartmentArea = "estoque" | "financeiro" | "engenharia" | "rh";
+export type DepartmentArea = "rh" | "engenharia";
 
 // Mesma regra da navegação: diretores acessam tudo; engenheiro só engenharia;
-// demais usuários só o próprio departamento (default "estoque").
+// demais usuários só o próprio departamento (default "engenharia").
 function resolveAllowedArea(user: {
   role: string;
   department?: string;
 }): DepartmentArea {
   if (user.role === "engenheiro") return "engenharia";
-  return (user.department as DepartmentArea | undefined) ?? "estoque";
+  return (user.department as DepartmentArea | undefined) ?? "engenharia";
 }
 
 // Bloqueia áreas internas (departamentos):

@@ -62,3 +62,5 @@ apps/native/android/
 **/.last_build_configuration
 **/DerivedData/
 **/xcuserdata/
+
+*.md

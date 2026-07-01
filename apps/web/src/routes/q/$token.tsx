@@ -5,6 +5,7 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { EquipmentForm } from "@/components/engenharia/equipment-form";
 import { EquipmentEditForm } from "@/components/engenharia/equipment-edit-form";
+import { PlannedEquipmentPanel } from "@/components/engenharia/planned-equipment-panel";
 import { StatusBadge } from "@/components/engenharia/status-badge";
 import { MaintenanceLogCard } from "@/components/engenharia/maintenance-log";
 import { MaintenanceForm } from "@/components/engenharia/maintenance-form";
@@ -420,6 +421,8 @@ function EquipmentDetail({
           </CardContent>
         </Card>
       )}
+
+      <PlannedEquipmentPanel token={qrToken} />
 
       <div className="mb-4">
         <MaintenanceForm

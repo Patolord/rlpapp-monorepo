@@ -1,6 +1,6 @@
 # rlpapp
 
-Sistema de gestão da RLP: estoque (recebimento, expedição, ajustes, QR codes de equipamentos), financeiro (contas a pagar/receber, conciliação bancária, relatórios), engenharia e RH.
+Sistema de gestão da RLP: engenharia (QR codes de equipamentos, registro de instalações e manutenções em campo) e RH.
 
 Monorepo com [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack): React, TanStack Start, Convex, Expo e Turborepo.
 

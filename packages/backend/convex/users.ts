@@ -1,8 +1,14 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { departments, userRoles } from "./schema";
-import { filterDefined } from "./lib/financeiro";
 import { adminMutation, staffQuery } from "./lib/functions";
+
+/** Remove campos undefined — padrão dos updates parciais (ctx.db.patch). */
+function filterDefined<T extends object>(fields: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value !== undefined)
+  ) as Partial<T>;
+}
 
 export const userValidator = v.object({
   _id: v.id("users"),

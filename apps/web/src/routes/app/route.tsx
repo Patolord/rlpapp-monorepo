@@ -33,7 +33,7 @@ function RoleGate({ children }: { children: React.ReactNode }) {
     }
 
     if (currentUser.role !== "director") {
-      const dept = currentUser.department ?? "estoque";
+      const dept = currentUser.department ?? "engenharia";
       void navigate({ to: `/${dept}` });
     }
   }, [currentUser, navigate]);
@@ -50,14 +50,6 @@ function RoleGate({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-muted-foreground">Usuário não encontrado no sistema.</p>
-      </div>
-    );
-  }
-
-  if (currentUser.role !== "director") {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-muted-foreground">Redirecionando...</p>
       </div>
     );
   }

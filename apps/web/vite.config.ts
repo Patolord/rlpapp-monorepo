@@ -27,7 +27,7 @@ export default defineConfig({
         description:
           "Registro de instalação e manutenção de equipamentos em campo",
         lang: "pt-BR",
-        start_url: "/registro",
+        start_url: "/engenharia/registro-de-campo",
         display: "standalone",
         background_color: "#ffffff",
         theme_color: "#0f172a",
