@@ -3,6 +3,9 @@
 @import "shadcn/tailwind.css";
 @plugin "@tailwindcss/typography";
 
+/* Shared UI package source so Tailwind generates classes used there. */
+@source "../../../packages/ui/src/web";
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
