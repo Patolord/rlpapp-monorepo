@@ -1,0 +1,36 @@
+{
+  "projectId": "662ac665-29c0-49b8-a133-2be1b9f13350",
+  "pkg": "@rlpapp/ui",
+  "shape": "package",
+  "srcDir": "src/web",
+  "cssEntry": ".ds-cache/tailwind.css",
+  "buildCmd": "node apps/web/.design-sync-build-css.mjs",
+  "readmeHeader": ".design-sync/conventions.md",
+  "overrides": {
+    "Card": { "cardMode": "column" },
+    "CardAction": { "cardMode": "column" },
+    "CardContent": { "cardMode": "column" },
+    "CardDescription": { "cardMode": "column" },
+    "CardFooter": { "cardMode": "column" },
+    "CardHeader": { "cardMode": "column" },
+    "CardTitle": { "cardMode": "column" },
+    "EmptyState": { "cardMode": "column" },
+    "PageHeader": { "cardMode": "column" }
+  },
+  "dtsPropsFor": {
+    "Badge": "variant?: \"default\" | \"secondary\" | \"destructive\" | \"outline\" | \"neutral\" | \"info\" | \"success\" | \"warning\" | \"danger\" | \"muted\";\n  className?: string;\n  children?: React.ReactNode;\n  [key: string]: unknown;",
+    "Button": "variant?: \"default\" | \"outline\" | \"secondary\" | \"ghost\" | \"destructive\" | \"link\";\n  size?: \"default\" | \"xs\" | \"sm\" | \"lg\" | \"icon\" | \"icon-xs\" | \"icon-sm\" | \"icon-lg\";\n  className?: string;\n  children?: React.ReactNode;\n  disabled?: boolean;\n  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;\n  [key: string]: unknown;",
+    "Card": "variant?: \"default\" | \"elevated\" | \"interactive\";\n  size?: \"default\" | \"sm\";\n  className?: string;\n  children?: React.ReactNode;\n  [key: string]: unknown;",
+    "CardHeader": "className?: string;\n  children?: React.ReactNode;\n  [key: string]: unknown;",
+    "CardFooter": "className?: string;\n  children?: React.ReactNode;\n  [key: string]: unknown;",
+    "CardTitle": "className?: string;\n  children?: React.ReactNode;\n  [key: string]: unknown;",
+    "CardDescription": "className?: string;\n  children?: React.ReactNode;\n  [key: string]: unknown;",
+    "CardAction": "className?: string;\n  children?: React.ReactNode;\n  [key: string]: unknown;",
+    "CardContent": "className?: string;\n  children?: React.ReactNode;\n  [key: string]: unknown;",
+    "MetricCard": "title: string;\n  value: React.ReactNode;\n  description?: React.ReactNode;\n  icon?: React.ReactNode;\n  className?: string;",
+    "EmptyState": "icon?: React.ReactNode;\n  title: string;\n  description?: React.ReactNode;\n  action?: React.ReactNode;\n  className?: string;\n  variant?: \"card\" | \"dashed\" | \"plain\";",
+    "LoadingState": "label?: string;\n  size?: number;\n  className?: string;\n  fullHeight?: boolean;",
+    "PageHeader": "title: React.ReactNode;\n  description?: React.ReactNode;\n  action?: React.ReactNode;\n  className?: string;",
+    "StatusBadge": "variant: \"neutral\" | \"info\" | \"success\" | \"warning\" | \"danger\" | \"muted\";\n  children: React.ReactNode;\n  className?: string;"
+  }
+}

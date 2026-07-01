@@ -64,3 +64,13 @@ apps/native/android/
 **/xcuserdata/
 
 *.md
+
+# design-sync (see .design-sync/config.json)
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+packages/ui/.ds-cache/
+!.design-sync/NOTES.md
+!.design-sync/conventions.md
