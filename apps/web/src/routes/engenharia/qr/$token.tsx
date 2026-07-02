@@ -2,12 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { QRCodeSVG } from "qrcode.react";
-import { StatusBadge } from "@/components/engenharia/status-badge";
+import { EquipmentDetail } from "@/components/engenharia/equipment-detail";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Tag,
   Loader2,
   AlertTriangle,
   QrCode,
@@ -30,6 +29,7 @@ function QrDetailPage() {
 function QrDetailContent() {
   const { token } = Route.useParams();
   const data = useQuery(api.qrCodes.getByToken, { token });
+  const currentUser = useQuery(api.users.getCurrentUser);
 
   const baseUrl =
     typeof window !== "undefined"
@@ -65,7 +65,7 @@ function QrDetailContent() {
   const { qrCode, equipment } = data;
 
   return (
-    <div className="mx-auto max-w-lg">
+    <div className="mx-auto max-w-lg px-4 py-6">
       <div className="mb-4">
         <Button variant="ghost" size="sm" render={<Link to="/engenharia" />}>
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -73,7 +73,6 @@ function QrDetailContent() {
         </Button>
       </div>
 
-      {/* QR Code Visual */}
       <Card className="mb-4">
         <CardContent className="flex flex-col items-center pt-4">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -109,23 +108,15 @@ function QrDetailContent() {
         </CardContent>
       </Card>
 
-      {/* Equipment Details */}
       {equipment ? (
-        <Card className="mb-4">
-          <CardContent className="pt-4">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Tag className="h-4 w-4 text-muted-foreground" />
-                  <h2 className="text-xl font-bold">
-                    {equipment.description ?? "Equipamento"}
-                  </h2>
-                </div>
-              </div>
-              <StatusBadge status={equipment.status} />
-            </div>
-          </CardContent>
-        </Card>
+        <EquipmentDetail
+          embedded
+          equipmentId={equipment._id}
+          equipment={equipment}
+          qrToken={token}
+          currentUserName={currentUser?.name}
+          showMaintenanceForm={false}
+        />
       ) : (
         <Card className="mb-4">
           <CardContent className="flex flex-col items-center gap-3 py-6 text-center">
