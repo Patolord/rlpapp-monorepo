@@ -7,7 +7,8 @@
     "serve": "vite preview",
     "dev": "vite dev",
     "check-types": "tsc --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -48,6 +49,8 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@clerk/testing": "^2.2.2",
+    "@playwright/test": "^1.61.1",
     "@rlpapp/config": "workspace:*",
     "@tanstack/react-router-devtools": "^1.166.13",
     "@types/node": "^25.6.2",
