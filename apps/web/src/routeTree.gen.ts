@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as QrOperadorRouteImport } from './routes/qr-operador'
+import { Route as MeusRegistrosRouteImport } from './routes/meus-registros'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as EngenhariaRouteRouteImport } from './routes/engenharia/route'
 import { Route as ComprasRouteRouteImport } from './routes/compras/route'
@@ -56,6 +57,11 @@ const SignInRoute = SignInRouteImport.update({
 const QrOperadorRoute = QrOperadorRouteImport.update({
   id: '/qr-operador',
   path: '/qr-operador',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MeusRegistrosRoute = MeusRegistrosRouteImport.update({
+  id: '/meus-registros',
+  path: '/meus-registros',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -227,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/compras': typeof ComprasRouteRouteWithChildren
   '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/meus-registros': typeof MeusRegistrosRoute
   '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
@@ -259,6 +266,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/meus-registros': typeof MeusRegistrosRoute
   '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
@@ -293,6 +301,7 @@ export interface FileRoutesById {
   '/compras': typeof ComprasRouteRouteWithChildren
   '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/meus-registros': typeof MeusRegistrosRoute
   '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
@@ -330,6 +339,7 @@ export interface FileRouteTypes {
     | '/compras'
     | '/engenharia'
     | '/login'
+    | '/meus-registros'
     | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
@@ -362,6 +372,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/meus-registros'
     | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
@@ -395,6 +406,7 @@ export interface FileRouteTypes {
     | '/compras'
     | '/engenharia'
     | '/login'
+    | '/meus-registros'
     | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
@@ -431,6 +443,7 @@ export interface RootRouteChildren {
   ComprasRouteRoute: typeof ComprasRouteRouteWithChildren
   EngenhariaRouteRoute: typeof EngenhariaRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
+  MeusRegistrosRoute: typeof MeusRegistrosRoute
   QrOperadorRoute: typeof QrOperadorRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
@@ -460,6 +473,13 @@ declare module '@tanstack/react-router' {
       path: '/qr-operador'
       fullPath: '/qr-operador'
       preLoaderRoute: typeof QrOperadorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/meus-registros': {
+      id: '/meus-registros'
+      path: '/meus-registros'
+      fullPath: '/meus-registros'
+      preLoaderRoute: typeof MeusRegistrosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -786,6 +806,7 @@ const rootRouteChildren: RootRouteChildren = {
   ComprasRouteRoute: ComprasRouteRouteWithChildren,
   EngenhariaRouteRoute: EngenhariaRouteRouteWithChildren,
   LoginRoute: LoginRoute,
+  MeusRegistrosRoute: MeusRegistrosRoute,
   QrOperadorRoute: QrOperadorRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,

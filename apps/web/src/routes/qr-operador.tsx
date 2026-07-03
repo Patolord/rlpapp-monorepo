@@ -210,7 +210,7 @@ function QrOperadorPage() {
                 <Button
                   variant="outline"
                   className="h-12 w-full text-base"
-                  render={<Link to="/engenharia/registro-de-campo" />}
+                  render={<Link to="/meus-registros" />}
                 >
                   <Keyboard className="mr-2 h-5 w-5" />
                   Digitar código da etiqueta
@@ -218,7 +218,7 @@ function QrOperadorPage() {
                 <Button
                   variant="outline"
                   className="h-12 w-full text-base"
-                  render={<Link to="/engenharia/registro-de-campo" />}
+                  render={<Link to="/meus-registros" />}
                 >
                   <History className="mr-2 h-5 w-5" />
                   Meus registros
