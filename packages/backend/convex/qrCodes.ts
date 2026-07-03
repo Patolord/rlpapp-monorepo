@@ -1,8 +1,12 @@
 import { paginationOptsValidator } from "convex/server";
-import { query, mutation } from "./_generated/server";
+import { query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuth } from "./lib/auth";
-import { engineeringMutation, requireStaff } from "./lib/rbac";
+import {
+  authedMutation,
+  engineeringMutation,
+  staffMutation,
+  staffQuery,
+} from "./lib/rbac";
 import { logEquipmentHistory } from "./lib/audit";
 import type { Doc, Id } from "./_generated/dataModel";
 
@@ -90,17 +94,15 @@ export const getByToken = query({
   },
 });
 
-export const list = query({
+export const list = staffQuery({
   args: {},
   returns: v.array(qrCodeValidator),
   handler: async (ctx) => {
-    await requireStaff(ctx);
-
     return await ctx.db.query("qrCodes").order("desc").collect();
   },
 });
 
-export const listWithEquipment = query({
+export const listWithEquipment = staffQuery({
   args: {
     filter: v.optional(
       v.union(
@@ -113,8 +115,6 @@ export const listWithEquipment = query({
   },
   returns: v.array(qrCodeWithEquipmentValidator),
   handler: async (ctx, args) => {
-    await requireStaff(ctx);
-
     let qrCodes = await ctx.db.query("qrCodes").order("desc").collect();
 
     const filterMode = args.filter ?? "all";
@@ -140,7 +140,7 @@ export const listWithEquipment = query({
   },
 });
 
-export const stats = query({
+export const stats = staffQuery({
   args: {},
   returns: v.object({
     total: v.number(),
@@ -149,8 +149,6 @@ export const stats = query({
     capped: v.boolean(),
   }),
   handler: async (ctx) => {
-    await requireStaff(ctx);
-
     const maxRows = 5000;
     const qrCodes = await ctx.db.query("qrCodes").order("desc").take(maxRows);
     const linked = qrCodes.filter((qr) => qr.equipmentId).length;
@@ -164,15 +162,13 @@ export const stats = query({
   },
 });
 
-export const listByBatch = query({
+export const listByBatch = staffQuery({
   args: {
     batchId: v.string(),
     paginationOpts: paginationOptsValidator,
   },
   returns: paginatedQrCodesWithEquipmentValidator,
   handler: async (ctx, args) => {
-    await requireStaff(ctx);
-
     const results = await ctx.db
       .query("qrCodes")
       .withIndex("by_batchId", (q) => q.eq("batchId", args.batchId))
@@ -191,12 +187,10 @@ export const listByBatch = query({
   },
 });
 
-export const getBatchTokens = query({
+export const getBatchTokens = staffQuery({
   args: { batchId: v.string() },
   returns: v.array(v.string()),
   handler: async (ctx, args) => {
-    await requireStaff(ctx);
-
     const qrCodes = await ctx.db
       .query("qrCodes")
       .withIndex("by_batchId", (q) => q.eq("batchId", args.batchId))
@@ -207,15 +201,13 @@ export const getBatchTokens = query({
   },
 });
 
-export const search = query({
+export const search = staffQuery({
   args: { term: v.string() },
   returns: v.object({
     batches: v.array(batchSummaryValidator),
     qrCodes: v.array(qrCodeWithEquipmentValidator),
   }),
   handler: async (ctx, args) => {
-    await requireStaff(ctx);
-
     const term = args.term.trim();
     if (!term) {
       return { batches: [], qrCodes: [] };
@@ -338,12 +330,10 @@ export const search = query({
   },
 });
 
-export const getByEquipmentId = query({
+export const getByEquipmentId = staffQuery({
   args: { equipmentId: v.id("equipment") },
   returns: v.union(qrCodeValidator, v.null()),
   handler: async (ctx, args) => {
-    await requireStaff(ctx);
-
     return await ctx.db
       .query("qrCodes")
       .withIndex("by_equipment", (q) => q.eq("equipmentId", args.equipmentId))
@@ -352,14 +342,12 @@ export const getByEquipmentId = query({
   },
 });
 
-export const create = mutation({
+export const create = staffMutation({
   args: {
     token: v.string(),
   },
   returns: v.id("qrCodes"),
   handler: async (ctx, args) => {
-    await requireStaff(ctx);
-
     const existing = await ctx.db
       .query("qrCodes")
       .withIndex("by_token", (q) => q.eq("token", args.token))
@@ -377,7 +365,7 @@ export const create = mutation({
   },
 });
 
-export const batchCreate = mutation({
+export const batchCreate = staffMutation({
   args: {
     tokens: v.array(v.string()),
     batchName: v.optional(v.string()),
@@ -394,8 +382,6 @@ export const batchCreate = mutation({
     ),
   }),
   handler: async (ctx, args) => {
-    await requireStaff(ctx);
-
     if (args.tokens.length > 999) {
       throw new Error("Cannot create more than 999 QR codes at once");
     }
@@ -428,7 +414,7 @@ export const batchCreate = mutation({
   },
 });
 
-export const listBatches = query({
+export const listBatches = staffQuery({
   args: {
     limit: v.optional(v.number()),
   },
@@ -436,8 +422,6 @@ export const listBatches = query({
     batchSummaryValidator
   ),
   handler: async (ctx, args) => {
-    await requireStaff(ctx);
-
     const limit = Math.min(Math.max(args.limit ?? 10, 1), 50);
     const qrCodes = await ctx.db
       .query("qrCodes")
@@ -475,14 +459,12 @@ export const listBatches = query({
   },
 });
 
-export const remove = mutation({
+export const remove = staffMutation({
   args: {
     token: v.string(),
   },
   returns: v.id("qrCodes"),
   handler: async (ctx, args) => {
-    await requireStaff(ctx);
-
     const qrCode = await ctx.db
       .query("qrCodes")
       .withIndex("by_token", (q) => q.eq("token", args.token))
@@ -501,7 +483,7 @@ export const remove = mutation({
   },
 });
 
-export const removeMany = mutation({
+export const removeMany = staffMutation({
   args: {
     tokens: v.array(v.string()),
   },
@@ -511,8 +493,6 @@ export const removeMany = mutation({
     missing: v.array(v.string()),
   }),
   handler: async (ctx, args) => {
-    await requireStaff(ctx);
-
     const deleted: string[] = [];
     const blocked: string[] = [];
     const missing: string[] = [];
@@ -544,16 +524,14 @@ export const removeMany = mutation({
   },
 });
 
-export const assignEquipment = mutation({
+// qr_operator também pode vincular equipamento ao QR que escaneou
+export const assignEquipment = authedMutation({
   args: {
     token: v.string(),
     equipmentId: v.id("equipment"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // qr_operator também pode vincular equipamento ao QR que escaneou
-    await requireAuth(ctx);
-
     const qrCode = await ctx.db
       .query("qrCodes")
       .withIndex("by_token", (q) => q.eq("token", args.token))
