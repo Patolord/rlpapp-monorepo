@@ -9,7 +9,18 @@
   "pnpm": {
     "overrides": {
       "use-sync-external-store": "^1.4.0"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "@clerk/shared",
+      "browser-tabs-lock",
+      "bufferutil",
+      "core-js",
+      "esbuild",
+      "msw",
+      "sharp",
+      "unrs-resolver",
+      "utf-8-validate"
+    ]
   },
   "scripts": {
     "dev": "turbo dev",

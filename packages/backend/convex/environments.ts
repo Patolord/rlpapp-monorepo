@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { engineeringMutation, engineeringQuery } from "./lib/functions";
+import { engineeringMutation, engineeringQuery } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
 
 // Lista os ambientes de um andar (ordenados).

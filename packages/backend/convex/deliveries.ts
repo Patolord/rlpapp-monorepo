@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { engineeringMutation, engineeringQuery } from "./lib/functions";
+import { engineeringMutation, engineeringQuery } from "./lib/rbac";
 
 // Lista as entregas lançadas para uma obra.
 export const list = engineeringQuery({

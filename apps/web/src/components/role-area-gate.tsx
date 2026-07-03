@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useEffect } from "react";
 
-export type DepartmentArea = "rh" | "engenharia";
+export type DepartmentArea = "rh" | "engenharia" | "compras";
 
 // Mesma regra da navegação: diretores acessam tudo; engenheiro só engenharia;
 // demais usuários só o próprio departamento (default "engenharia").

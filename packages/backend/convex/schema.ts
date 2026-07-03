@@ -26,7 +26,52 @@ export const projectStatus = v.union(
 // Department types
 export const departments = v.union(
   v.literal("rh"),
-  v.literal("engenharia")
+  v.literal("engenharia"),
+  v.literal("compras")
+);
+
+// --- Compras / Materiais / Preços ---
+
+export const materialStatus = v.union(
+  v.literal("draft"),
+  v.literal("active"),
+  v.literal("duplicate"),
+  v.literal("archived")
+);
+
+export const takeoffStatus = v.union(
+  v.literal("draft"),
+  v.literal("pricing"),
+  v.literal("quoted"),
+  v.literal("approved"),
+  v.literal("archived")
+);
+
+export const takeoffItemStatus = v.union(
+  v.literal("draft"),
+  v.literal("needs_review"),
+  v.literal("matched"),
+  v.literal("sent_to_supplier"),
+  v.literal("quoted"),
+  v.literal("selected"),
+  v.literal("purchased")
+);
+
+export const priceEventSource = v.union(
+  v.literal("manual"),
+  v.literal("quote"),
+  v.literal("purchase"),
+  v.literal("invoice"),
+  v.literal("whatsapp"),
+  v.literal("supplier_form"),
+  v.literal("excel_import")
+);
+
+export const priceEventReviewStatus = v.union(
+  v.literal("unreviewed"),
+  v.literal("reviewed"),
+  v.literal("ignored"),
+  v.literal("duplicate")
 );
 
 export default defineSchema({
@@ -318,6 +363,111 @@ export default defineSchema({
     intents: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_session", ["sessionId"]),
+
+  // --- Compras: catálogo, fornecedores, takeoffs e histórico de preços ---
+
+  materials: defineTable({
+    name: v.string(),
+    category: v.optional(v.string()),
+    unit: v.optional(v.string()),
+    spec: v.optional(v.string()),
+    brandPreference: v.optional(v.string()),
+    active: v.boolean(),
+    status: v.optional(materialStatus),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_name", ["name"])
+    .index("by_active", ["active"])
+    .index("by_status", ["status"])
+    .index("by_category", ["category"]),
+
+  suppliers: defineTable({
+    name: v.string(),
+    categories: v.optional(v.array(v.string())),
+    notes: v.optional(v.string()),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_name", ["name"])
+    .index("by_active", ["active"]),
+
+  supplierContacts: defineTable({
+    supplierId: v.id("suppliers"),
+    name: v.string(),
+    email: v.optional(v.string()),
+    whatsapp: v.optional(v.string()),
+    role: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_supplier", ["supplierId"]),
+
+  takeoffs: defineTable({
+    projectId: v.optional(v.id("projects")),
+    name: v.string(),
+    status: v.optional(takeoffStatus),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    createdByUserId: v.optional(v.id("users")),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"]),
+
+  takeoffItems: defineTable({
+    takeoffId: v.id("takeoffs"),
+    projectId: v.optional(v.id("projects")),
+    rawDescription: v.string(),
+    quantity: v.optional(v.number()),
+    unit: v.optional(v.string()),
+    materialId: v.optional(v.id("materials")),
+    estimatedUnitPriceCents: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    status: v.optional(takeoffItemStatus),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_takeoff", ["takeoffId"])
+    .index("by_project", ["projectId"])
+    .index("by_material", ["materialId"])
+    .index("by_status", ["status"]),
+
+  priceEvents: defineTable({
+    rawDescription: v.optional(v.string()),
+    materialId: v.optional(v.id("materials")),
+    supplierId: v.optional(v.id("suppliers")),
+    supplierNameRaw: v.optional(v.string()),
+    unitPriceCents: v.number(),
+    unit: v.optional(v.string()),
+    quantity: v.optional(v.number()),
+    source: priceEventSource,
+    occurredAt: v.number(),
+    validUntil: v.optional(v.number()),
+    projectId: v.optional(v.id("projects")),
+    takeoffId: v.optional(v.id("takeoffs")),
+    notes: v.optional(v.string()),
+    reviewStatus: v.optional(priceEventReviewStatus),
+    needsReview: v.boolean(),
+    createdAt: v.number(),
+    createdByUserId: v.optional(v.id("users")),
+  })
+    .index("by_material", ["materialId"])
+    .index("by_supplier", ["supplierId"])
+    .index("by_material_supplier", ["materialId", "supplierId"])
+    .index("by_project", ["projectId"])
+    .index("by_takeoff", ["takeoffId"])
+    .index("by_occurred_at", ["occurredAt"])
+    .index("by_needs_review", ["needsReview"])
+    .index("by_review_status", ["reviewStatus"]),
+
+  materialAliases: defineTable({
+    alias: v.string(),
+    aliasNormalized: v.string(),
+    materialId: v.id("materials"),
+    createdAt: v.number(),
+  })
+    .index("by_alias_normalized", ["aliasNormalized"])
+    .index("by_material", ["materialId"]),
 
   maintenanceLogs: defineTable({
     equipmentId: v.id("equipment"),

@@ -1,9 +1,9 @@
 import { v } from "convex/values";
-import { engineeringMutation, engineeringQuery } from "./lib/functions";
+import { engineeringMutation, engineeringQuery } from "./lib/rbac";
 import { equipmentStatusValidator } from "./equipment";
 import { projectStatus } from "./schema";
 import { logAudit } from "./lib/audit";
-import { buildProjectHierarchy } from "./lib/hierarchy";
+import { buildProjectHierarchy } from "./lib/engenharia/hierarchy";
 import type { Id } from "./_generated/dataModel";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
@@ -442,6 +442,30 @@ export const remove = engineeringMutation({
       .collect();
     for (const d of deliveries) {
       await ctx.db.delete("materialDeliveries", d._id);
+    }
+
+    // Takeoffs e histórico de preços vinculados à obra.
+    const takeoffs = await ctx.db
+      .query("takeoffs")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    for (const takeoff of takeoffs) {
+      const takeoffItems = await ctx.db
+        .query("takeoffItems")
+        .withIndex("by_takeoff", (q) => q.eq("takeoffId", takeoff._id))
+        .collect();
+      for (const item of takeoffItems) {
+        await ctx.db.delete("takeoffItems", item._id);
+      }
+      await ctx.db.delete("takeoffs", takeoff._id);
+    }
+
+    const priceEvents = await ctx.db
+      .query("priceEvents")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    for (const event of priceEvents) {
+      await ctx.db.delete("priceEvents", event._id);
     }
 
     // Cascata da hierarquia nova: ambientes, andares e torres.

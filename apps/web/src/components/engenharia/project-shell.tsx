@@ -227,6 +227,18 @@ function ProjectShellLayout({
               size="sm"
               render={
                 <Link
+                  to="/engenharia/relatorios/$projectId/orcamento"
+                  params={{ projectId: project._id }}
+                />
+              }
+            >
+              Orçamento
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              render={
+                <Link
                   to="/engenharia/relatorios/$projectId/imprimir"
                   params={{ projectId: project._id }}
                 />

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { adminMutation } from "./lib/functions";
+import { adminMutation } from "./lib/rbac";
 import type { Id } from "./_generated/dataModel";
 
 /**

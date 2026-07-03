@@ -7,7 +7,11 @@ import {
   ChevronsUpDown,
   ClipboardList,
   LayoutDashboard,
+  Package,
   QrCode,
+  Receipt,
+  ShoppingCart,
+  Truck,
   UserPlus,
   Wrench,
   type LucideIcon,
@@ -54,6 +58,18 @@ function getNavGroups(): NavGroup[] {
           label: "Registro de Campo",
           icon: ClipboardList,
         },
+      ],
+    },
+    {
+      key: "compras",
+      label: "Compras",
+      items: [
+        { to: "/compras", label: "Painel", icon: ShoppingCart, exact: true },
+        { to: "/compras/materiais", label: "Materiais", icon: Package },
+        { to: "/compras/fornecedores", label: "Fornecedores", icon: Truck },
+        { to: "/compras/takeoffs", label: "Takeoffs", icon: ClipboardList },
+        { to: "/compras/eventos-preco", label: "Eventos de Preço", icon: Receipt },
+        { to: "/compras/fila-revisao", label: "Fila de Revisão", icon: ClipboardList },
       ],
     },
     {
@@ -118,7 +134,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const hasEngineeringAccess =
     isDirector || isEngenheiro || currentUser?.department === "engenharia";
-  const navGroups = hasEngineeringAccess ? getNavGroups() : [];
+  const hasPurchasingAccess =
+    isDirector || currentUser?.department === "compras";
+
+  const navGroups = isDirector
+    ? getNavGroups()
+    : getNavGroups().filter((group) => {
+        if (group.key === "engenharia") return hasEngineeringAccess;
+        if (group.key === "compras") return hasPurchasingAccess;
+        if (group.key === "configuracoes") {
+          return hasEngineeringAccess || hasPurchasingAccess;
+        }
+        return false;
+      });
 
   return (
     <Sidebar collapsible="icon" variant="floating" {...props}>

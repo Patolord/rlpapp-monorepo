@@ -434,15 +434,17 @@ export function AiChatPanel({
                         </span>
                       </button>
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7 opacity-0 group-hover:opacity-100"
-                          >
-                            <MoreVertical className="size-3.5" />
-                          </Button>
-                        </DropdownMenuTrigger>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-7 opacity-0 group-hover:opacity-100"
+                            >
+                              <MoreVertical className="size-3.5" />
+                            </Button>
+                          }
+                        />
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
                             onClick={() => startEditTitle(s._id, s.title)}

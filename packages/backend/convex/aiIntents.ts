@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { engineeringMutation } from "./lib/functions";
+import { engineeringMutation } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
 import { projectStatus } from "./schema";
 import type { Id } from "./_generated/dataModel";

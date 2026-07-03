@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { authedQuery } from "./lib/functions";
-import { buildProjectHierarchy } from "./lib/hierarchy";
+import { authedQuery } from "./lib/rbac";
+import { buildProjectHierarchy } from "./lib/engenharia/hierarchy";
 import { hierarchyReturnValidator } from "./projects";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";

@@ -14,10 +14,12 @@ import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as QrOperadorRouteImport } from './routes/qr-operador'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as EngenhariaRouteRouteImport } from './routes/engenharia/route'
+import { Route as ComprasRouteRouteImport } from './routes/compras/route'
 import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
 import { Route as EngenhariaIndexRouteImport } from './routes/engenharia/index'
+import { Route as ComprasIndexRouteImport } from './routes/compras/index'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as QTokenRouteImport } from './routes/q/$token'
 import { Route as PortalProjectIdRouteImport } from './routes/portal/$projectId'
@@ -26,10 +28,16 @@ import { Route as EngenhariaRegistroDeCampoRouteImport } from './routes/engenhar
 import { Route as EngenhariaQrCodesRouteImport } from './routes/engenharia/qr-codes'
 import { Route as EngenhariaRelatoriosRouteRouteImport } from './routes/engenharia/relatorios/route'
 import { Route as EngenhariaRelatoriosIndexRouteImport } from './routes/engenharia/relatorios/index'
+import { Route as ComprasTakeoffsIndexRouteImport } from './routes/compras/takeoffs/index'
+import { Route as ComprasMateriaisIndexRouteImport } from './routes/compras/materiais/index'
+import { Route as ComprasFornecedoresIndexRouteImport } from './routes/compras/fornecedores/index'
+import { Route as ComprasFilaRevisaoIndexRouteImport } from './routes/compras/fila-revisao/index'
+import { Route as ComprasEventosPrecoIndexRouteImport } from './routes/compras/eventos-preco/index'
 import { Route as EngenhariaRelatoriosProjectIdRouteImport } from './routes/engenharia/relatorios/$projectId'
 import { Route as EngenhariaQrTokenRouteImport } from './routes/engenharia/qr/$token'
 import { Route as EngenhariaEquipamentoIdRouteImport } from './routes/engenharia/equipamento/$id'
 import { Route as EngenhariaRelatoriosProjectIdIndexRouteImport } from './routes/engenharia/relatorios/$projectId.index'
+import { Route as EngenhariaRelatoriosProjectIdOrcamentoRouteImport } from './routes/engenharia/relatorios/$projectId.orcamento'
 import { Route as EngenhariaRelatoriosProjectIdImprimirRouteImport } from './routes/engenharia/relatorios/$projectId.imprimir'
 import { Route as EngenhariaRelatoriosProjectIdGlobalRouteImport } from './routes/engenharia/relatorios/$projectId.global'
 import { Route as EngenhariaRelatoriosProjectIdEntregasRouteImport } from './routes/engenharia/relatorios/$projectId.entregas'
@@ -60,6 +68,11 @@ const EngenhariaRouteRoute = EngenhariaRouteRouteImport.update({
   path: '/engenharia',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ComprasRouteRoute = ComprasRouteRouteImport.update({
+  id: '/compras',
+  path: '/compras',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRouteRoute = AppRouteRouteImport.update({
   id: '/app',
   path: '/app',
@@ -79,6 +92,11 @@ const EngenhariaIndexRoute = EngenhariaIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => EngenhariaRouteRoute,
+} as any)
+const ComprasIndexRoute = ComprasIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ComprasRouteRoute,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
@@ -123,6 +141,33 @@ const EngenhariaRelatoriosIndexRoute =
     path: '/',
     getParentRoute: () => EngenhariaRelatoriosRouteRoute,
   } as any)
+const ComprasTakeoffsIndexRoute = ComprasTakeoffsIndexRouteImport.update({
+  id: '/takeoffs/',
+  path: '/takeoffs/',
+  getParentRoute: () => ComprasRouteRoute,
+} as any)
+const ComprasMateriaisIndexRoute = ComprasMateriaisIndexRouteImport.update({
+  id: '/materiais/',
+  path: '/materiais/',
+  getParentRoute: () => ComprasRouteRoute,
+} as any)
+const ComprasFornecedoresIndexRoute =
+  ComprasFornecedoresIndexRouteImport.update({
+    id: '/fornecedores/',
+    path: '/fornecedores/',
+    getParentRoute: () => ComprasRouteRoute,
+  } as any)
+const ComprasFilaRevisaoIndexRoute = ComprasFilaRevisaoIndexRouteImport.update({
+  id: '/fila-revisao/',
+  path: '/fila-revisao/',
+  getParentRoute: () => ComprasRouteRoute,
+} as any)
+const ComprasEventosPrecoIndexRoute =
+  ComprasEventosPrecoIndexRouteImport.update({
+    id: '/eventos-preco/',
+    path: '/eventos-preco/',
+    getParentRoute: () => ComprasRouteRoute,
+  } as any)
 const EngenhariaRelatoriosProjectIdRoute =
   EngenhariaRelatoriosProjectIdRouteImport.update({
     id: '/$projectId',
@@ -143,6 +188,12 @@ const EngenhariaRelatoriosProjectIdIndexRoute =
   EngenhariaRelatoriosProjectIdIndexRouteImport.update({
     id: '/',
     path: '/',
+    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
+  } as any)
+const EngenhariaRelatoriosProjectIdOrcamentoRoute =
+  EngenhariaRelatoriosProjectIdOrcamentoRouteImport.update({
+    id: '/orcamento',
+    path: '/orcamento',
     getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
   } as any)
 const EngenhariaRelatoriosProjectIdImprimirRoute =
@@ -173,6 +224,7 @@ const EngenhariaRelatoriosProjectIdAssistenteRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteRouteWithChildren
+  '/compras': typeof ComprasRouteRouteWithChildren
   '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/qr-operador': typeof QrOperadorRoute
@@ -185,16 +237,23 @@ export interface FileRoutesByFullPath {
   '/portal/$projectId': typeof PortalProjectIdRoute
   '/q/$token': typeof QTokenRoute
   '/app/': typeof AppIndexRoute
+  '/compras/': typeof ComprasIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
   '/portal/': typeof PortalIndexRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdRouteWithChildren
+  '/compras/eventos-preco/': typeof ComprasEventosPrecoIndexRoute
+  '/compras/fila-revisao/': typeof ComprasFilaRevisaoIndexRoute
+  '/compras/fornecedores/': typeof ComprasFornecedoresIndexRoute
+  '/compras/materiais/': typeof ComprasMateriaisIndexRoute
+  '/compras/takeoffs/': typeof ComprasTakeoffsIndexRoute
   '/engenharia/relatorios/': typeof EngenhariaRelatoriosIndexRoute
   '/engenharia/relatorios/$projectId/assistente': typeof EngenhariaRelatoriosProjectIdAssistenteRoute
   '/engenharia/relatorios/$projectId/entregas': typeof EngenhariaRelatoriosProjectIdEntregasRoute
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
   '/engenharia/relatorios/$projectId/imprimir': typeof EngenhariaRelatoriosProjectIdImprimirRoute
+  '/engenharia/relatorios/$projectId/orcamento': typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
   '/engenharia/relatorios/$projectId/': typeof EngenhariaRelatoriosProjectIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -209,21 +268,29 @@ export interface FileRoutesByTo {
   '/portal/$projectId': typeof PortalProjectIdRoute
   '/q/$token': typeof QTokenRoute
   '/app': typeof AppIndexRoute
+  '/compras': typeof ComprasIndexRoute
   '/engenharia': typeof EngenhariaIndexRoute
   '/portal': typeof PortalIndexRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
+  '/compras/eventos-preco': typeof ComprasEventosPrecoIndexRoute
+  '/compras/fila-revisao': typeof ComprasFilaRevisaoIndexRoute
+  '/compras/fornecedores': typeof ComprasFornecedoresIndexRoute
+  '/compras/materiais': typeof ComprasMateriaisIndexRoute
+  '/compras/takeoffs': typeof ComprasTakeoffsIndexRoute
   '/engenharia/relatorios': typeof EngenhariaRelatoriosIndexRoute
   '/engenharia/relatorios/$projectId/assistente': typeof EngenhariaRelatoriosProjectIdAssistenteRoute
   '/engenharia/relatorios/$projectId/entregas': typeof EngenhariaRelatoriosProjectIdEntregasRoute
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
   '/engenharia/relatorios/$projectId/imprimir': typeof EngenhariaRelatoriosProjectIdImprimirRoute
+  '/engenharia/relatorios/$projectId/orcamento': typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteRouteWithChildren
+  '/compras': typeof ComprasRouteRouteWithChildren
   '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/qr-operador': typeof QrOperadorRoute
@@ -236,16 +303,23 @@ export interface FileRoutesById {
   '/portal/$projectId': typeof PortalProjectIdRoute
   '/q/$token': typeof QTokenRoute
   '/app/': typeof AppIndexRoute
+  '/compras/': typeof ComprasIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
   '/portal/': typeof PortalIndexRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdRouteWithChildren
+  '/compras/eventos-preco/': typeof ComprasEventosPrecoIndexRoute
+  '/compras/fila-revisao/': typeof ComprasFilaRevisaoIndexRoute
+  '/compras/fornecedores/': typeof ComprasFornecedoresIndexRoute
+  '/compras/materiais/': typeof ComprasMateriaisIndexRoute
+  '/compras/takeoffs/': typeof ComprasTakeoffsIndexRoute
   '/engenharia/relatorios/': typeof EngenhariaRelatoriosIndexRoute
   '/engenharia/relatorios/$projectId/assistente': typeof EngenhariaRelatoriosProjectIdAssistenteRoute
   '/engenharia/relatorios/$projectId/entregas': typeof EngenhariaRelatoriosProjectIdEntregasRoute
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
   '/engenharia/relatorios/$projectId/imprimir': typeof EngenhariaRelatoriosProjectIdImprimirRoute
+  '/engenharia/relatorios/$projectId/orcamento': typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
   '/engenharia/relatorios/$projectId/': typeof EngenhariaRelatoriosProjectIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -253,6 +327,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/compras'
     | '/engenharia'
     | '/login'
     | '/qr-operador'
@@ -265,16 +340,23 @@ export interface FileRouteTypes {
     | '/portal/$projectId'
     | '/q/$token'
     | '/app/'
+    | '/compras/'
     | '/engenharia/'
     | '/portal/'
     | '/engenharia/equipamento/$id'
     | '/engenharia/qr/$token'
     | '/engenharia/relatorios/$projectId'
+    | '/compras/eventos-preco/'
+    | '/compras/fila-revisao/'
+    | '/compras/fornecedores/'
+    | '/compras/materiais/'
+    | '/compras/takeoffs/'
     | '/engenharia/relatorios/'
     | '/engenharia/relatorios/$projectId/assistente'
     | '/engenharia/relatorios/$projectId/entregas'
     | '/engenharia/relatorios/$projectId/global'
     | '/engenharia/relatorios/$projectId/imprimir'
+    | '/engenharia/relatorios/$projectId/orcamento'
     | '/engenharia/relatorios/$projectId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -289,20 +371,28 @@ export interface FileRouteTypes {
     | '/portal/$projectId'
     | '/q/$token'
     | '/app'
+    | '/compras'
     | '/engenharia'
     | '/portal'
     | '/engenharia/equipamento/$id'
     | '/engenharia/qr/$token'
+    | '/compras/eventos-preco'
+    | '/compras/fila-revisao'
+    | '/compras/fornecedores'
+    | '/compras/materiais'
+    | '/compras/takeoffs'
     | '/engenharia/relatorios'
     | '/engenharia/relatorios/$projectId/assistente'
     | '/engenharia/relatorios/$projectId/entregas'
     | '/engenharia/relatorios/$projectId/global'
     | '/engenharia/relatorios/$projectId/imprimir'
+    | '/engenharia/relatorios/$projectId/orcamento'
     | '/engenharia/relatorios/$projectId'
   id:
     | '__root__'
     | '/'
     | '/app'
+    | '/compras'
     | '/engenharia'
     | '/login'
     | '/qr-operador'
@@ -315,22 +405,30 @@ export interface FileRouteTypes {
     | '/portal/$projectId'
     | '/q/$token'
     | '/app/'
+    | '/compras/'
     | '/engenharia/'
     | '/portal/'
     | '/engenharia/equipamento/$id'
     | '/engenharia/qr/$token'
     | '/engenharia/relatorios/$projectId'
+    | '/compras/eventos-preco/'
+    | '/compras/fila-revisao/'
+    | '/compras/fornecedores/'
+    | '/compras/materiais/'
+    | '/compras/takeoffs/'
     | '/engenharia/relatorios/'
     | '/engenharia/relatorios/$projectId/assistente'
     | '/engenharia/relatorios/$projectId/entregas'
     | '/engenharia/relatorios/$projectId/global'
     | '/engenharia/relatorios/$projectId/imprimir'
+    | '/engenharia/relatorios/$projectId/orcamento'
     | '/engenharia/relatorios/$projectId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRouteRoute: typeof AppRouteRouteWithChildren
+  ComprasRouteRoute: typeof ComprasRouteRouteWithChildren
   EngenhariaRouteRoute: typeof EngenhariaRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
   QrOperadorRoute: typeof QrOperadorRoute
@@ -378,6 +476,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/compras': {
+      id: '/compras'
+      path: '/compras'
+      fullPath: '/compras'
+      preLoaderRoute: typeof ComprasRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app': {
       id: '/app'
       path: '/app'
@@ -405,6 +510,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/engenharia/'
       preLoaderRoute: typeof EngenhariaIndexRouteImport
       parentRoute: typeof EngenhariaRouteRoute
+    }
+    '/compras/': {
+      id: '/compras/'
+      path: '/'
+      fullPath: '/compras/'
+      preLoaderRoute: typeof ComprasIndexRouteImport
+      parentRoute: typeof ComprasRouteRoute
     }
     '/app/': {
       id: '/app/'
@@ -462,6 +574,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaRelatoriosIndexRouteImport
       parentRoute: typeof EngenhariaRelatoriosRouteRoute
     }
+    '/compras/takeoffs/': {
+      id: '/compras/takeoffs/'
+      path: '/takeoffs'
+      fullPath: '/compras/takeoffs/'
+      preLoaderRoute: typeof ComprasTakeoffsIndexRouteImport
+      parentRoute: typeof ComprasRouteRoute
+    }
+    '/compras/materiais/': {
+      id: '/compras/materiais/'
+      path: '/materiais'
+      fullPath: '/compras/materiais/'
+      preLoaderRoute: typeof ComprasMateriaisIndexRouteImport
+      parentRoute: typeof ComprasRouteRoute
+    }
+    '/compras/fornecedores/': {
+      id: '/compras/fornecedores/'
+      path: '/fornecedores'
+      fullPath: '/compras/fornecedores/'
+      preLoaderRoute: typeof ComprasFornecedoresIndexRouteImport
+      parentRoute: typeof ComprasRouteRoute
+    }
+    '/compras/fila-revisao/': {
+      id: '/compras/fila-revisao/'
+      path: '/fila-revisao'
+      fullPath: '/compras/fila-revisao/'
+      preLoaderRoute: typeof ComprasFilaRevisaoIndexRouteImport
+      parentRoute: typeof ComprasRouteRoute
+    }
+    '/compras/eventos-preco/': {
+      id: '/compras/eventos-preco/'
+      path: '/eventos-preco'
+      fullPath: '/compras/eventos-preco/'
+      preLoaderRoute: typeof ComprasEventosPrecoIndexRouteImport
+      parentRoute: typeof ComprasRouteRoute
+    }
     '/engenharia/relatorios/$projectId': {
       id: '/engenharia/relatorios/$projectId'
       path: '/$projectId'
@@ -488,6 +635,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/engenharia/relatorios/$projectId/'
       preLoaderRoute: typeof EngenhariaRelatoriosProjectIdIndexRouteImport
+      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
+    }
+    '/engenharia/relatorios/$projectId/orcamento': {
+      id: '/engenharia/relatorios/$projectId/orcamento'
+      path: '/orcamento'
+      fullPath: '/engenharia/relatorios/$projectId/orcamento'
+      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdOrcamentoRouteImport
       parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
     }
     '/engenharia/relatorios/$projectId/imprimir': {
@@ -533,11 +687,34 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
   AppRouteRouteChildren,
 )
 
+interface ComprasRouteRouteChildren {
+  ComprasIndexRoute: typeof ComprasIndexRoute
+  ComprasEventosPrecoIndexRoute: typeof ComprasEventosPrecoIndexRoute
+  ComprasFilaRevisaoIndexRoute: typeof ComprasFilaRevisaoIndexRoute
+  ComprasFornecedoresIndexRoute: typeof ComprasFornecedoresIndexRoute
+  ComprasMateriaisIndexRoute: typeof ComprasMateriaisIndexRoute
+  ComprasTakeoffsIndexRoute: typeof ComprasTakeoffsIndexRoute
+}
+
+const ComprasRouteRouteChildren: ComprasRouteRouteChildren = {
+  ComprasIndexRoute: ComprasIndexRoute,
+  ComprasEventosPrecoIndexRoute: ComprasEventosPrecoIndexRoute,
+  ComprasFilaRevisaoIndexRoute: ComprasFilaRevisaoIndexRoute,
+  ComprasFornecedoresIndexRoute: ComprasFornecedoresIndexRoute,
+  ComprasMateriaisIndexRoute: ComprasMateriaisIndexRoute,
+  ComprasTakeoffsIndexRoute: ComprasTakeoffsIndexRoute,
+}
+
+const ComprasRouteRouteWithChildren = ComprasRouteRoute._addFileChildren(
+  ComprasRouteRouteChildren,
+)
+
 interface EngenhariaRelatoriosProjectIdRouteChildren {
   EngenhariaRelatoriosProjectIdAssistenteRoute: typeof EngenhariaRelatoriosProjectIdAssistenteRoute
   EngenhariaRelatoriosProjectIdEntregasRoute: typeof EngenhariaRelatoriosProjectIdEntregasRoute
   EngenhariaRelatoriosProjectIdGlobalRoute: typeof EngenhariaRelatoriosProjectIdGlobalRoute
   EngenhariaRelatoriosProjectIdImprimirRoute: typeof EngenhariaRelatoriosProjectIdImprimirRoute
+  EngenhariaRelatoriosProjectIdOrcamentoRoute: typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
   EngenhariaRelatoriosProjectIdIndexRoute: typeof EngenhariaRelatoriosProjectIdIndexRoute
 }
 
@@ -551,6 +728,8 @@ const EngenhariaRelatoriosProjectIdRouteChildren: EngenhariaRelatoriosProjectIdR
       EngenhariaRelatoriosProjectIdGlobalRoute,
     EngenhariaRelatoriosProjectIdImprimirRoute:
       EngenhariaRelatoriosProjectIdImprimirRoute,
+    EngenhariaRelatoriosProjectIdOrcamentoRoute:
+      EngenhariaRelatoriosProjectIdOrcamentoRoute,
     EngenhariaRelatoriosProjectIdIndexRoute:
       EngenhariaRelatoriosProjectIdIndexRoute,
   }
@@ -604,6 +783,7 @@ const EngenhariaRouteRouteWithChildren = EngenhariaRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRouteRoute: AppRouteRouteWithChildren,
+  ComprasRouteRoute: ComprasRouteRouteWithChildren,
   EngenhariaRouteRoute: EngenhariaRouteRouteWithChildren,
   LoginRoute: LoginRoute,
   QrOperadorRoute: QrOperadorRoute,

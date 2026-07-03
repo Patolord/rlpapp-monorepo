@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authedMutation, engineeringMutation } from "./lib/functions";
+import { authedMutation, engineeringMutation } from "./lib/rbac";
 import { equipmentStatusValidator } from "./equipment";
 import { logEquipmentHistory } from "./lib/audit";
 

@@ -1,7 +1,7 @@
 import { query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
-import { authedMutation, authedQuery } from "./lib/functions";
+import { authedMutation, authedQuery } from "./lib/rbac";
 
 const logStatusValidator = v.union(
   v.literal("installing"),

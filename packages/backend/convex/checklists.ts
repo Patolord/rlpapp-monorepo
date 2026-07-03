@@ -4,7 +4,7 @@ import {
   authedQuery,
   engineeringMutation,
   engineeringQuery,
-} from "./lib/functions";
+} from "./lib/rbac";
 import { logEquipmentHistory } from "./lib/audit";
 
 const checklistItemValidator = v.object({

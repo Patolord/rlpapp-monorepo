@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { engineeringQuery } from "./lib/functions";
+import { engineeringQuery } from "./lib/rbac";
 import { projectStatus } from "./schema";
 import type { Doc, Id } from "./_generated/dataModel";
 

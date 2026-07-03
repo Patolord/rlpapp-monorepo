@@ -1,8 +1,8 @@
 import { paginationOptsValidator } from "convex/server";
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuth, requireStaff } from "./lib/auth";
-import { engineeringMutation } from "./lib/functions";
+import { requireAuth } from "./lib/auth";
+import { engineeringMutation, requireStaff } from "./lib/rbac";
 import { logEquipmentHistory } from "./lib/audit";
 import type { Doc, Id } from "./_generated/dataModel";
 

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { engineeringQuery, engineeringMutation } from "./lib/functions";
+import { engineeringQuery, engineeringMutation } from "./lib/rbac";
 
 export const listSessions = engineeringQuery({
   args: {

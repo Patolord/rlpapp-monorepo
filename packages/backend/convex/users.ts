@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { departments, userRoles } from "./schema";
-import { adminMutation, staffQuery } from "./lib/functions";
+import { adminMutation, staffQuery } from "./lib/rbac";
 
 /** Remove campos undefined — padrão dos updates parciais (ctx.db.patch). */
 function filterDefined<T extends object>(fields: T): Partial<T> {

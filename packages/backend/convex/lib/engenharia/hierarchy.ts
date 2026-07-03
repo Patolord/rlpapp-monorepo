@@ -1,5 +1,5 @@
-import type { QueryCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { QueryCtx } from "../../_generated/server";
+import type { Id } from "../../_generated/dataModel";
 
 /**
  * Constrói a árvore Torre → Andar → Ambiente → Equipamento de uma obra.

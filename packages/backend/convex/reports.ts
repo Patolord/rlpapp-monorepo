@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { engineeringQuery } from "./lib/functions";
+import { engineeringQuery } from "./lib/rbac";
 import type { Doc, Id } from "./_generated/dataModel";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;

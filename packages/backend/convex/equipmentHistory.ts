@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authedMutation, authedQuery } from "./lib/functions";
+import { authedMutation, authedQuery } from "./lib/rbac";
 import { logEquipmentHistory } from "./lib/audit";
 
 const locationValidator = v.object({

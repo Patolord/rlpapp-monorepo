@@ -4,7 +4,7 @@ import {
   authedQuery,
   engineeringQuery,
   staffQuery,
-} from "./lib/functions";
+} from "./lib/rbac";
 
 export const equipmentStatusValidator = v.union(
   v.literal("installing"),
