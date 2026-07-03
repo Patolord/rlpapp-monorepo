@@ -76,3 +76,4 @@ ds-bundle/
 packages/ui/.ds-cache/
 !.design-sync/NOTES.md
 !.design-sync/conventions.md
+!.claude/plans/*.md
