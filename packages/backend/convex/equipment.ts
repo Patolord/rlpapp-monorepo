@@ -73,6 +73,26 @@ export const update = authedMutation({
     }
 
     await ctx.db.patch("equipment", id, filtered);
+
+    // Mantém qrCodes.projectId (denormalizado) em sincronia com o vínculo.
+    if (args.projectEquipmentId !== undefined) {
+      const planned = await ctx.db.get(
+        "projectEquipment",
+        args.projectEquipmentId
+      );
+      const qrCodes = await ctx.db
+        .query("qrCodes")
+        .withIndex("by_equipment", (q) => q.eq("equipmentId", id))
+        .collect();
+      for (const qr of qrCodes) {
+        if (qr.projectId !== planned?.projectId) {
+          await ctx.db.patch("qrCodes", qr._id, {
+            projectId: planned?.projectId,
+          });
+        }
+      }
+    }
+
     return id;
   },
 });

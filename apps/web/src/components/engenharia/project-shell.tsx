@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Loader2,
   Printer,
+  QrCode,
   Sparkles,
 } from "lucide-react";
 
@@ -221,6 +222,19 @@ function ProjectShellLayout({
               className="size-9"
             >
               <BarChart3 className="size-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              render={
+                <Link
+                  to="/engenharia/relatorios/$projectId/qr-codes"
+                  params={{ projectId: project._id }}
+                />
+              }
+            >
+              <QrCode className="mr-1.5 size-4" />
+              QR Codes
             </Button>
             <Button
               variant="outline"

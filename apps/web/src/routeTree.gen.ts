@@ -38,6 +38,7 @@ import { Route as EngenhariaRelatoriosProjectIdRouteImport } from './routes/enge
 import { Route as EngenhariaQrTokenRouteImport } from './routes/engenharia/qr/$token'
 import { Route as EngenhariaEquipamentoIdRouteImport } from './routes/engenharia/equipamento/$id'
 import { Route as EngenhariaRelatoriosProjectIdIndexRouteImport } from './routes/engenharia/relatorios/$projectId.index'
+import { Route as EngenhariaRelatoriosProjectIdQrCodesRouteImport } from './routes/engenharia/relatorios/$projectId.qr-codes'
 import { Route as EngenhariaRelatoriosProjectIdOrcamentoRouteImport } from './routes/engenharia/relatorios/$projectId.orcamento'
 import { Route as EngenhariaRelatoriosProjectIdImprimirRouteImport } from './routes/engenharia/relatorios/$projectId.imprimir'
 import { Route as EngenhariaRelatoriosProjectIdGlobalRouteImport } from './routes/engenharia/relatorios/$projectId.global'
@@ -196,6 +197,12 @@ const EngenhariaRelatoriosProjectIdIndexRoute =
     path: '/',
     getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
   } as any)
+const EngenhariaRelatoriosProjectIdQrCodesRoute =
+  EngenhariaRelatoriosProjectIdQrCodesRouteImport.update({
+    id: '/qr-codes',
+    path: '/qr-codes',
+    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
+  } as any)
 const EngenhariaRelatoriosProjectIdOrcamentoRoute =
   EngenhariaRelatoriosProjectIdOrcamentoRouteImport.update({
     id: '/orcamento',
@@ -261,6 +268,7 @@ export interface FileRoutesByFullPath {
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
   '/engenharia/relatorios/$projectId/imprimir': typeof EngenhariaRelatoriosProjectIdImprimirRoute
   '/engenharia/relatorios/$projectId/orcamento': typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
+  '/engenharia/relatorios/$projectId/qr-codes': typeof EngenhariaRelatoriosProjectIdQrCodesRoute
   '/engenharia/relatorios/$projectId/': typeof EngenhariaRelatoriosProjectIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -292,6 +300,7 @@ export interface FileRoutesByTo {
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
   '/engenharia/relatorios/$projectId/imprimir': typeof EngenhariaRelatoriosProjectIdImprimirRoute
   '/engenharia/relatorios/$projectId/orcamento': typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
+  '/engenharia/relatorios/$projectId/qr-codes': typeof EngenhariaRelatoriosProjectIdQrCodesRoute
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdIndexRoute
 }
 export interface FileRoutesById {
@@ -329,6 +338,7 @@ export interface FileRoutesById {
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
   '/engenharia/relatorios/$projectId/imprimir': typeof EngenhariaRelatoriosProjectIdImprimirRoute
   '/engenharia/relatorios/$projectId/orcamento': typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
+  '/engenharia/relatorios/$projectId/qr-codes': typeof EngenhariaRelatoriosProjectIdQrCodesRoute
   '/engenharia/relatorios/$projectId/': typeof EngenhariaRelatoriosProjectIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -367,6 +377,7 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId/global'
     | '/engenharia/relatorios/$projectId/imprimir'
     | '/engenharia/relatorios/$projectId/orcamento'
+    | '/engenharia/relatorios/$projectId/qr-codes'
     | '/engenharia/relatorios/$projectId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -398,6 +409,7 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId/global'
     | '/engenharia/relatorios/$projectId/imprimir'
     | '/engenharia/relatorios/$projectId/orcamento'
+    | '/engenharia/relatorios/$projectId/qr-codes'
     | '/engenharia/relatorios/$projectId'
   id:
     | '__root__'
@@ -434,6 +446,7 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId/global'
     | '/engenharia/relatorios/$projectId/imprimir'
     | '/engenharia/relatorios/$projectId/orcamento'
+    | '/engenharia/relatorios/$projectId/qr-codes'
     | '/engenharia/relatorios/$projectId/'
   fileRoutesById: FileRoutesById
 }
@@ -657,6 +670,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaRelatoriosProjectIdIndexRouteImport
       parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
     }
+    '/engenharia/relatorios/$projectId/qr-codes': {
+      id: '/engenharia/relatorios/$projectId/qr-codes'
+      path: '/qr-codes'
+      fullPath: '/engenharia/relatorios/$projectId/qr-codes'
+      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdQrCodesRouteImport
+      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
+    }
     '/engenharia/relatorios/$projectId/orcamento': {
       id: '/engenharia/relatorios/$projectId/orcamento'
       path: '/orcamento'
@@ -735,6 +755,7 @@ interface EngenhariaRelatoriosProjectIdRouteChildren {
   EngenhariaRelatoriosProjectIdGlobalRoute: typeof EngenhariaRelatoriosProjectIdGlobalRoute
   EngenhariaRelatoriosProjectIdImprimirRoute: typeof EngenhariaRelatoriosProjectIdImprimirRoute
   EngenhariaRelatoriosProjectIdOrcamentoRoute: typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
+  EngenhariaRelatoriosProjectIdQrCodesRoute: typeof EngenhariaRelatoriosProjectIdQrCodesRoute
   EngenhariaRelatoriosProjectIdIndexRoute: typeof EngenhariaRelatoriosProjectIdIndexRoute
 }
 
@@ -750,6 +771,8 @@ const EngenhariaRelatoriosProjectIdRouteChildren: EngenhariaRelatoriosProjectIdR
       EngenhariaRelatoriosProjectIdImprimirRoute,
     EngenhariaRelatoriosProjectIdOrcamentoRoute:
       EngenhariaRelatoriosProjectIdOrcamentoRoute,
+    EngenhariaRelatoriosProjectIdQrCodesRoute:
+      EngenhariaRelatoriosProjectIdQrCodesRoute,
     EngenhariaRelatoriosProjectIdIndexRoute:
       EngenhariaRelatoriosProjectIdIndexRoute,
   }

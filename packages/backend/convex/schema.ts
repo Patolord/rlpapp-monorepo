@@ -102,12 +102,16 @@ export default defineSchema({
     status: v.union(v.literal("active"), v.literal("inactive")),
     batchId: v.optional(v.string()),
     batchName: v.optional(v.string()),
+    // Denormalizado: obra do item planejado vinculado (via equipment →
+    // projectEquipment). Mantido em sincronia pelas mutations de vínculo.
+    projectId: v.optional(v.id("projects")),
     createdAt: v.number(),
   })
     .index("by_token", ["token"])
     .index("by_batchId", ["batchId"])
     .index("by_batchName", ["batchName"])
-    .index("by_equipment", ["equipmentId"]),
+    .index("by_equipment", ["equipmentId"])
+    .index("by_project", ["projectId"]),
 
   // --- Obras / Relatórios (substitui a planilha "Tabela Global de Equipamentos") ---
   //

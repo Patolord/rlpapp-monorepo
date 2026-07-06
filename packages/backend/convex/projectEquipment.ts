@@ -2,11 +2,31 @@ import { v } from "convex/values";
 import { authedMutation, engineeringMutation } from "./lib/rbac";
 import { equipmentStatusValidator } from "./equipment";
 import { logEquipmentHistory } from "./lib/audit";
+import type { MutationCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 
 const locationValidator = v.object({
   latitude: v.number(),
   longitude: v.number(),
 });
+
+// Mantém qrCodes.projectId (denormalizado) em sincronia com o vínculo
+// equipamento ↔ item planejado. `projectId: undefined` limpa o campo.
+async function syncQrProjectId(
+  ctx: MutationCtx,
+  equipmentId: Id<"equipment">,
+  projectId: Id<"projects"> | undefined
+) {
+  const qrCodes = await ctx.db
+    .query("qrCodes")
+    .withIndex("by_equipment", (q) => q.eq("equipmentId", equipmentId))
+    .collect();
+  for (const qr of qrCodes) {
+    if (qr.projectId !== projectId) {
+      await ctx.db.patch("qrCodes", qr._id, { projectId });
+    }
+  }
+}
 
 // Ações de campo do técnico (via QR): Instalar, Testar, Finalizar.
 // Sempre registra usuário, data/hora, observação e GPS (estrutura pronta).
@@ -234,6 +254,7 @@ export const remove = engineeringMutation({
       await ctx.db.patch("equipment", item.linkedEquipmentId, {
         projectEquipmentId: undefined,
       });
+      await syncQrProjectId(ctx, item.linkedEquipmentId, undefined);
     }
     await ctx.db.delete("projectEquipment", args.itemId);
     return null;
@@ -299,6 +320,7 @@ export const linkEquipment = engineeringMutation({
       await ctx.db.patch("equipment", item.linkedEquipmentId, {
         projectEquipmentId: undefined,
       });
+      await syncQrProjectId(ctx, item.linkedEquipmentId, undefined);
     }
 
     await ctx.db.patch("projectEquipment", args.itemId, {
@@ -309,6 +331,7 @@ export const linkEquipment = engineeringMutation({
     await ctx.db.patch("equipment", args.equipmentId, {
       projectEquipmentId: args.itemId,
     });
+    await syncQrProjectId(ctx, args.equipmentId, item.projectId);
     return null;
   },
 });
@@ -323,6 +346,7 @@ export const unlinkEquipment = engineeringMutation({
       await ctx.db.patch("equipment", item.linkedEquipmentId, {
         projectEquipmentId: undefined,
       });
+      await syncQrProjectId(ctx, item.linkedEquipmentId, undefined);
     }
     await ctx.db.patch("projectEquipment", args.itemId, {
       linkedEquipmentId: undefined,

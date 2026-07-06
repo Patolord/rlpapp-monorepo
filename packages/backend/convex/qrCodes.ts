@@ -1,5 +1,5 @@
 import { paginationOptsValidator } from "convex/server";
-import { query } from "./_generated/server";
+import { internalMutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import {
   authedMutation,
@@ -26,6 +26,7 @@ const qrCodeFields = {
   status: qrCodeStatus,
   batchId: v.optional(v.string()),
   batchName: v.optional(v.string()),
+  projectId: v.optional(v.id("projects")),
   createdAt: v.number(),
 };
 
@@ -550,8 +551,19 @@ export const assignEquipment = authedMutation({
       throw new Error("Equipment not found");
     }
 
+    // Se o equipamento já está vinculado a um item planejado, propaga a obra.
+    let projectId: Id<"projects"> | undefined;
+    if (equipment.projectEquipmentId) {
+      const planned = await ctx.db.get(
+        "projectEquipment",
+        equipment.projectEquipmentId
+      );
+      projectId = planned?.projectId;
+    }
+
     await ctx.db.patch("qrCodes", qrCode._id, {
       equipmentId: args.equipmentId,
+      projectId,
     });
 
     return null;
@@ -731,6 +743,11 @@ export const generateForProjectEquipment = engineeringMutation({
         .order("desc")
         .first();
       if (existingQr) {
+        if (existingQr.projectId !== item.projectId) {
+          await ctx.db.patch("qrCodes", existingQr._id, {
+            projectId: item.projectId,
+          });
+        }
         return { token: existingQr.token, created: false };
       }
     }
@@ -766,6 +783,7 @@ export const generateForProjectEquipment = engineeringMutation({
       token,
       equipmentId,
       status: "active",
+      projectId: item.projectId,
       createdAt: Date.now(),
     });
 
@@ -776,5 +794,134 @@ export const generateForProjectEquipment = engineeringMutation({
     });
 
     return { token, created: true };
+  },
+});
+
+// --- QR codes no contexto de uma obra ---
+
+const projectQrRowValidator = v.object({
+  _id: v.id("qrCodes"),
+  token: v.string(),
+  qrStatus: qrCodeStatus,
+  batchName: v.union(v.string(), v.null()),
+  equipmentId: v.union(v.id("equipment"), v.null()),
+  plannedItemId: v.union(v.id("projectEquipment"), v.null()),
+  system: v.union(v.string(), v.null()),
+  ambiente: v.union(v.string(), v.null()),
+  kind: v.union(
+    v.literal("condensadora"),
+    v.literal("evaporadora"),
+    v.null()
+  ),
+  modelo: v.union(v.string(), v.null()),
+  capacidade: v.union(v.string(), v.null()),
+  status: v.union(equipmentStatus, v.null()),
+  towerName: v.union(v.string(), v.null()),
+  floorLabel: v.union(v.string(), v.null()),
+  environmentName: v.union(v.string(), v.null()),
+  installedAt: v.union(v.number(), v.null()),
+});
+
+// Lista todos os QR codes atribuídos a uma obra, com a localização
+// (torre/andar/ambiente) e os dados do item planejado vinculado.
+// Usa o campo denormalizado qrCodes.projectId (índice by_project).
+export const listByProject = staffQuery({
+  args: { projectId: v.id("projects") },
+  returns: v.array(projectQrRowValidator),
+  handler: async (ctx, args) => {
+    const qrCodes = await ctx.db
+      .query("qrCodes")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    // Nomes da hierarquia pré-carregados uma vez (evita N+1 por QR).
+    const [towers, floors, environments] = await Promise.all([
+      ctx.db
+        .query("towers")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect(),
+      ctx.db
+        .query("floors")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect(),
+      ctx.db
+        .query("environments")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect(),
+    ]);
+    const towerName = new Map(towers.map((t) => [t._id, t.name]));
+    const floorLabel = new Map(floors.map((f) => [f._id, f.label]));
+    const envName = new Map(environments.map((e) => [e._id, e.name]));
+
+    const rows = await Promise.all(
+      qrCodes.map(async (qr) => {
+        const equipment = qr.equipmentId
+          ? await ctx.db.get("equipment", qr.equipmentId)
+          : null;
+        const planned = equipment?.projectEquipmentId
+          ? await ctx.db.get("projectEquipment", equipment.projectEquipmentId)
+          : null;
+
+        return {
+          _id: qr._id,
+          token: qr.token,
+          qrStatus: qr.status,
+          batchName: qr.batchName ?? null,
+          equipmentId: qr.equipmentId ?? null,
+          plannedItemId: planned?._id ?? null,
+          system: planned?.system ?? null,
+          ambiente: planned?.ambiente ?? null,
+          kind: planned?.kind ?? null,
+          modelo: planned?.modelo ?? null,
+          capacidade: planned?.capacidade ?? null,
+          status: planned?.status ?? equipment?.status ?? null,
+          towerName: planned?.towerId
+            ? towerName.get(planned.towerId) ?? null
+            : null,
+          floorLabel: planned?.floorId
+            ? floorLabel.get(planned.floorId) ?? null
+            : null,
+          environmentName: planned?.environmentId
+            ? envName.get(planned.environmentId) ?? null
+            : null,
+          installedAt: planned?.installedAt ?? null,
+        };
+      })
+    );
+
+    // Ordena por localização para leitura natural (torre → andar → ambiente).
+    return rows.sort(
+      (a, b) =>
+        (a.towerName ?? "").localeCompare(b.towerName ?? "") ||
+        (a.floorLabel ?? "").localeCompare(b.floorLabel ?? "") ||
+        (a.environmentName ?? "").localeCompare(b.environmentName ?? "") ||
+        a.token.localeCompare(b.token)
+    );
+  },
+});
+
+// Backfill único: preenche qrCodes.projectId para QRs já vinculados a uma
+// obra antes da denormalização. Rodar via `npx convex run qrCodes:backfillQrProjectIds`.
+export const backfillQrProjectIds = internalMutation({
+  args: {},
+  returns: v.object({ scanned: v.number(), patched: v.number() }),
+  handler: async (ctx) => {
+    const qrCodes = await ctx.db.query("qrCodes").collect();
+    let patched = 0;
+
+    for (const qr of qrCodes) {
+      if (!qr.equipmentId) continue;
+      const equipment = await ctx.db.get("equipment", qr.equipmentId);
+      const planned = equipment?.projectEquipmentId
+        ? await ctx.db.get("projectEquipment", equipment.projectEquipmentId)
+        : null;
+      const projectId = planned?.projectId;
+      if (qr.projectId !== projectId) {
+        await ctx.db.patch("qrCodes", qr._id, { projectId });
+        patched++;
+      }
+    }
+
+    return { scanned: qrCodes.length, patched };
   },
 });
