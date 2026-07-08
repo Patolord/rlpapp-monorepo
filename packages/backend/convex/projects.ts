@@ -671,6 +671,9 @@ export const hierarchyReturnValidator = v.union(
                 name: v.string(),
                 type: v.union(v.string(), v.null()),
                 order: v.number(),
+                col: v.union(v.number(), v.null()),
+                colSpan: v.union(v.number(), v.null()),
+                rowSpan: v.union(v.number(), v.null()),
                 equipment: v.array(hierarchyItemValidator),
               })
             ),

@@ -382,6 +382,87 @@ export function EditFloorDialog({
 // Ambiente
 // ---------------------------------------------------------------------------
 
+/** Converte o texto de um input numérico em inteiro >= 1 (ou undefined). */
+function parseGridField(value: string): number | undefined {
+  const n = Number.parseInt(value, 10);
+  return Number.isFinite(n) && n >= 1 ? n : undefined;
+}
+
+/**
+ * Campos opcionais de posição esquemática do ambiente na matriz do prédio:
+ * coluna explícita, largura em colunas e altura em andares (duplex/triplex).
+ */
+function MatrixPositionFields({
+  idPrefix,
+  col,
+  colSpan,
+  rowSpan,
+  onColChange,
+  onColSpanChange,
+  onRowSpanChange,
+}: {
+  idPrefix: string;
+  col: string;
+  colSpan: string;
+  rowSpan: string;
+  onColChange: (v: string) => void;
+  onColSpanChange: (v: string) => void;
+  onRowSpanChange: (v: string) => void;
+}) {
+  return (
+    <fieldset className="space-y-2 rounded-lg border p-3">
+      <legend className="px-1 text-xs font-medium text-muted-foreground">
+        Posição na matriz (opcional)
+      </legend>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="space-y-1">
+          <Label htmlFor={`${idPrefix}-col`} className="text-xs">
+            Coluna
+          </Label>
+          <Input
+            id={`${idPrefix}-col`}
+            type="number"
+            min={1}
+            placeholder="Auto"
+            value={col}
+            onChange={(e) => onColChange(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`${idPrefix}-colspan`} className="text-xs">
+            Largura
+          </Label>
+          <Input
+            id={`${idPrefix}-colspan`}
+            type="number"
+            min={1}
+            placeholder="1"
+            value={colSpan}
+            onChange={(e) => onColSpanChange(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`${idPrefix}-rowspan`} className="text-xs">
+            Andares
+          </Label>
+          <Input
+            id={`${idPrefix}-rowspan`}
+            type="number"
+            min={1}
+            placeholder="1"
+            value={rowSpan}
+            onChange={(e) => onRowSpanChange(e.target.value)}
+          />
+        </div>
+      </div>
+      <p className="text-[0.6875rem] leading-snug text-muted-foreground">
+        Andares: 2 = duplex, 3 = triplex (o ambiente sobe a partir deste
+        andar). Largura: quantas colunas a célula ocupa.
+      </p>
+    </fieldset>
+  );
+}
+
 export function AddEnvironmentDialog({
   floor,
   onClose,
@@ -392,6 +473,9 @@ export function AddEnvironmentDialog({
   const createEnv = useMutation(api.environments.create);
   const [name, setName] = useState("");
   const [type, setType] = useState("");
+  const [col, setCol] = useState("");
+  const [colSpan, setColSpan] = useState("");
+  const [rowSpan, setRowSpan] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -404,6 +488,9 @@ export function AddEnvironmentDialog({
           floorId: floor._id,
           name: name.trim(),
           type: type.trim() || undefined,
+          col: parseGridField(col),
+          colSpan: parseGridField(colSpan),
+          rowSpan: parseGridField(rowSpan),
         }),
       "Ambiente criado",
       "Não foi possível criar o ambiente"
@@ -412,6 +499,9 @@ export function AddEnvironmentDialog({
     if (ok) {
       setName("");
       setType("");
+      setCol("");
+      setColSpan("");
+      setRowSpan("");
       onClose();
     }
   }
@@ -447,6 +537,15 @@ export function AddEnvironmentDialog({
               onChange={(e) => setType(e.target.value)}
             />
           </div>
+          <MatrixPositionFields
+            idPrefix="env"
+            col={col}
+            colSpan={colSpan}
+            rowSpan={rowSpan}
+            onColChange={setCol}
+            onColSpanChange={setColSpan}
+            onRowSpanChange={setRowSpan}
+          />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
@@ -473,12 +572,22 @@ export function EditEnvironmentDialog({
   const removeEnv = useMutation(api.environments.remove);
   const [name, setName] = useState("");
   const [type, setType] = useState("");
+  const [col, setCol] = useState("");
+  const [colSpan, setColSpan] = useState("");
+  const [rowSpan, setRowSpan] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (environment) {
       setName(environment.name);
       setType(environment.type ?? "");
+      setCol(environment.col !== null ? String(environment.col) : "");
+      setColSpan(
+        environment.colSpan !== null ? String(environment.colSpan) : ""
+      );
+      setRowSpan(
+        environment.rowSpan !== null ? String(environment.rowSpan) : ""
+      );
     }
   }, [environment]);
 
@@ -492,6 +601,9 @@ export function EditEnvironmentDialog({
           environmentId: environment._id,
           name: name.trim(),
           type: type.trim() || null,
+          col: parseGridField(col) ?? null,
+          colSpan: parseGridField(colSpan) ?? null,
+          rowSpan: parseGridField(rowSpan) ?? null,
         }),
       "Ambiente atualizado",
       "Não foi possível atualizar o ambiente"
@@ -545,6 +657,15 @@ export function EditEnvironmentDialog({
               onChange={(e) => setType(e.target.value)}
             />
           </div>
+          <MatrixPositionFields
+            idPrefix="edit-env"
+            col={col}
+            colSpan={colSpan}
+            rowSpan={rowSpan}
+            onColChange={setCol}
+            onColSpanChange={setColSpan}
+            onRowSpanChange={setRowSpan}
+          />
           <DialogFooter className="sm:justify-between">
             <Button
               type="button"

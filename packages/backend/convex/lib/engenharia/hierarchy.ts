@@ -99,6 +99,9 @@ export async function buildProjectHierarchy(
               name: env.name,
               type: env.type ?? null,
               order: env.order,
+              col: env.col ?? null,
+              colSpan: env.colSpan ?? null,
+              rowSpan: env.rowSpan ?? null,
               equipment: envItems.map((e) => ({
                 _id: e._id,
                 system: e.system,

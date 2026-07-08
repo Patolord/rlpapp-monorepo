@@ -173,7 +173,6 @@ function HierarchyBuilding({
         "Não foi possível remover o ambiente"
       );
     },
-    onAddSystem: (env) => setNewSystemEnv(env),
     onEditSystem: (system) => setEditSystemTarget(system),
     onAddEquipment: (env, system) =>
       setEquipTarget({ env, systemId: system?._id ?? null }),

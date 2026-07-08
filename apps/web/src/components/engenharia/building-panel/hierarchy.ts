@@ -29,6 +29,12 @@ export type HierarchyEnvironment = {
   name: string;
   type: string | null;
   order: number;
+  /** Coluna explícita (1-based) na matriz; null = auto-posiciona pela ordem. */
+  col: number | null;
+  /** Largura em colunas (null = 1). */
+  colSpan: number | null;
+  /** Altura em andares a partir do andar-base, para cima (null = 1). */
+  rowSpan: number | null;
   equipment: HierarchyItem[];
 };
 
@@ -63,6 +69,126 @@ export type ProjectHierarchy = {
   systems: HierarchySystem[];
   towers: HierarchyTower[];
 };
+
+// --- Layout esquemático da matriz do prédio ---
+
+/** Célula posicionada na matriz (coordenadas 1-based; linha 1 = andar do topo). */
+export type MatrixCell = {
+  env: HierarchyEnvironment;
+  /** Andar-base (o mais baixo que a célula ocupa). */
+  floor: HierarchyFloor;
+  /** Rótulo do andar mais alto ocupado (null quando rowSpan = 1). */
+  topFloorLabel: string | null;
+  /** Linha do grid onde a célula começa (a mais alta que ela ocupa). */
+  row: number;
+  col: number;
+  rowSpan: number;
+  colSpan: number;
+};
+
+export type MatrixLayout = {
+  /** Andares ordenados do topo para a base; o andar i ocupa a linha i+1. */
+  floors: HierarchyFloor[];
+  /** Total de colunas da matriz. */
+  cols: number;
+  cells: MatrixCell[];
+  /** Posições não cobertas por nenhuma célula (buracos do recorte do prédio). */
+  emptySlots: { row: number; col: number }[];
+};
+
+/**
+ * Resolve o layout esquemático de uma torre: honra `col` explícito quando o
+ * espaço está livre (senão desloca para a próxima coluna livre), auto-empacota
+ * ambientes sem coluna e limita `rowSpan` aos andares que existem acima do
+ * andar-base. Dados conflitantes degradam de forma previsível, sem sobrepor.
+ */
+export function resolveMatrixLayout(tower: HierarchyTower): MatrixLayout {
+  const floors = tower.floors.slice().sort((a, b) => b.number - a.number);
+  const rowByFloorId = new Map<string, number>();
+  floors.forEach((floor, idx) => rowByFloorId.set(floor._id, idx + 1));
+
+  const occupied = new Set<string>();
+  const cells: MatrixCell[] = [];
+
+  const rectCells = (
+    baseRow: number,
+    col: number,
+    rowSpan: number,
+    colSpan: number
+  ): string[] => {
+    const keys: string[] = [];
+    for (let r = baseRow - rowSpan + 1; r <= baseRow; r++) {
+      for (let c = col; c < col + colSpan; c++) {
+        keys.push(`${r}:${c}`);
+      }
+    }
+    return keys;
+  };
+
+  const place = (
+    env: HierarchyEnvironment,
+    floor: HierarchyFloor,
+    startCol: number
+  ) => {
+    const baseRow = rowByFloorId.get(floor._id)!;
+    // O span sobe a partir do andar-base; não pode passar do topo da torre.
+    const rowSpan = Math.min(Math.max(env.rowSpan ?? 1, 1), baseRow);
+    const colSpan = Math.max(env.colSpan ?? 1, 1);
+
+    let col = Math.max(startCol, 1);
+    while (rectCells(baseRow, col, rowSpan, colSpan).some((k) => occupied.has(k))) {
+      col++;
+    }
+    for (const key of rectCells(baseRow, col, rowSpan, colSpan)) {
+      occupied.add(key);
+    }
+    const topRow = baseRow - rowSpan + 1;
+    cells.push({
+      env,
+      floor,
+      topFloorLabel: rowSpan > 1 ? floors[topRow - 1].label : null,
+      row: topRow,
+      col,
+      rowSpan,
+      colSpan,
+    });
+  };
+
+  // Andares processados de baixo para cima: spans sobem a partir do
+  // andar-base e precisam reservar as células dos andares acima antes que
+  // esses andares se auto-empacotem.
+  const bottomUp = floors.slice().reverse();
+
+  // Passo 1: colunas explícitas primeiro, para os automáticos fluírem ao redor.
+  for (const floor of bottomUp) {
+    const explicit = floor.environments
+      .filter((e) => e.col !== null)
+      .sort((a, b) => a.order - b.order);
+    for (const env of explicit) place(env, floor, env.col!);
+  }
+
+  // Passo 2: auto-empacota os demais na primeira coluna livre do andar.
+  for (const floor of bottomUp) {
+    const auto = floor.environments
+      .filter((e) => e.col === null)
+      .sort((a, b) => a.order - b.order);
+    for (const env of auto) place(env, floor, 1);
+  }
+
+  const cols = Math.max(
+    1,
+    ...cells.map((cell) => cell.col + cell.colSpan - 1)
+  );
+
+  const emptySlots: { row: number; col: number }[] = [];
+  for (let r = 1; r <= floors.length; r++) {
+    for (let c = 1; c <= cols; c++) {
+      if (!occupied.has(`${r}:${c}`)) emptySlots.push({ row: r, col: c });
+    }
+  }
+
+  return { floors, cols, cells, emptySlots };
+}
 
 /** Estado agregado de um andar (para colorir a grade). */
 export type FloorLevel = "complete" | "partial" | "pending" | "empty";

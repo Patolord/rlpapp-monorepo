@@ -186,6 +186,9 @@ export const duplicate = engineeringMutation({
           name: env.name,
           type: env.type,
           order: env.order,
+          col: env.col,
+          colSpan: env.colSpan,
+          rowSpan: env.rowSpan,
           createdAt: Date.now(),
         });
 

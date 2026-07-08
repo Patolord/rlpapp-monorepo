@@ -16,6 +16,9 @@ export const listByFloor = engineeringQuery({
       name: v.string(),
       type: v.union(v.string(), v.null()),
       order: v.number(),
+      col: v.union(v.number(), v.null()),
+      colSpan: v.union(v.number(), v.null()),
+      rowSpan: v.union(v.number(), v.null()),
       createdAt: v.number(),
     })
   ),
@@ -34,10 +37,26 @@ export const listByFloor = engineeringQuery({
         name: e.name,
         type: e.type ?? null,
         order: e.order,
+        col: e.col ?? null,
+        colSpan: e.colSpan ?? null,
+        rowSpan: e.rowSpan ?? null,
         createdAt: e.createdAt,
       }));
   },
 });
+
+/** Valida um campo de posição na matriz: inteiro >= 1 (ou undefined). */
+function validateGridField(
+  value: number | undefined,
+  label: string
+): number | undefined {
+  if (value === undefined) return undefined;
+  const n = Math.floor(value);
+  if (!Number.isFinite(n) || n < 1) {
+    throw new Error(`${label} deve ser um número inteiro maior ou igual a 1`);
+  }
+  return n;
+}
 
 export const create = engineeringMutation({
   args: {
@@ -45,6 +64,9 @@ export const create = engineeringMutation({
     name: v.string(),
     type: v.optional(v.string()),
     order: v.optional(v.number()),
+    col: v.optional(v.number()),
+    colSpan: v.optional(v.number()),
+    rowSpan: v.optional(v.number()),
   },
   returns: v.id("environments"),
   handler: async (ctx, args) => {
@@ -69,6 +91,9 @@ export const create = engineeringMutation({
       name,
       type: args.type?.trim() || undefined,
       order,
+      col: validateGridField(args.col, "A coluna"),
+      colSpan: validateGridField(args.colSpan, "A largura"),
+      rowSpan: validateGridField(args.rowSpan, "A quantidade de andares"),
       createdAt: Date.now(),
     });
     await logAudit(ctx, ctx.user, {
@@ -87,6 +112,10 @@ export const update = engineeringMutation({
     name: v.optional(v.string()),
     type: v.optional(v.union(v.string(), v.null())),
     order: v.optional(v.number()),
+    // null limpa o campo (volta ao padrão de auto-posicionamento).
+    col: v.optional(v.union(v.number(), v.null())),
+    colSpan: v.optional(v.union(v.number(), v.null())),
+    rowSpan: v.optional(v.union(v.number(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -97,6 +126,9 @@ export const update = engineeringMutation({
       name: string;
       type: string | undefined;
       order: number;
+      col: number | undefined;
+      colSpan: number | undefined;
+      rowSpan: number | undefined;
     }> = {};
     if (args.name !== undefined) {
       const name = args.name.trim();
@@ -107,6 +139,22 @@ export const update = engineeringMutation({
       updates.type = args.type === null ? undefined : args.type.trim() || undefined;
     }
     if (args.order !== undefined) updates.order = args.order;
+    if (args.col !== undefined) {
+      updates.col =
+        args.col === null ? undefined : validateGridField(args.col, "A coluna");
+    }
+    if (args.colSpan !== undefined) {
+      updates.colSpan =
+        args.colSpan === null
+          ? undefined
+          : validateGridField(args.colSpan, "A largura");
+    }
+    if (args.rowSpan !== undefined) {
+      updates.rowSpan =
+        args.rowSpan === null
+          ? undefined
+          : validateGridField(args.rowSpan, "A quantidade de andares");
+    }
 
     await ctx.db.patch("environments", args.environmentId, updates);
     return null;

@@ -36,11 +36,13 @@ import {
   FLOOR_STATE_STYLES,
   getEnvironmentState,
   getEquipmentVisualState,
+  resolveMatrixLayout,
   type HierarchyEnvironment,
   type HierarchyFloor,
   type HierarchyItem,
   type HierarchySystem,
   type HierarchyTower,
+  type MatrixCell,
   type ProjectHierarchy,
 } from "@/components/engenharia/building-panel/hierarchy";
 
@@ -53,8 +55,6 @@ export type BuildingMatrixActions = {
   onAddEnvironment?: (floor: HierarchyFloor) => void;
   onEditEnvironment?: (env: HierarchyEnvironment) => void;
   onRemoveEnvironment?: (env: HierarchyEnvironment) => void;
-  /** Cria um sistema da obra a partir do ambiente selecionado. */
-  onAddSystem?: (env: HierarchyEnvironment) => void;
   onEditSystem?: (system: HierarchySystem) => void;
   /** Adiciona equipamento no ambiente, com sistema pré-selecionado. */
   onAddEquipment?: (
@@ -112,9 +112,20 @@ export function BuildingMatrixPanel({
   // adicionar/remover um equipamento o sheet reflete na hora).
   const selectedEnvData = useMemo(() => {
     if (!selectedEnv || !selectedTower) return null;
-    for (const floor of selectedTower.floors) {
+    const floors = selectedTower.floors
+      .slice()
+      .sort((a, b) => b.number - a.number);
+    for (let idx = 0; idx < floors.length; idx++) {
+      const floor = floors[idx];
       const env = floor.environments.find((e) => e._id === selectedEnv.envId);
-      if (env) return { floorLabel: floor.label, env };
+      if (!env) continue;
+      // Ambientes com rowSpan mostram o intervalo de andares ocupados.
+      const rowSpan = Math.min(Math.max(env.rowSpan ?? 1, 1), idx + 1);
+      const floorLabel =
+        rowSpan > 1
+          ? `${floor.label} – ${floors[idx - (rowSpan - 1)].label}`
+          : floor.label;
+      return { floorLabel, env };
     }
     return null;
   }, [selectedEnv, selectedTower]);
@@ -236,11 +247,8 @@ function BuildingMatrix({
   actions?: BuildingMatrixActions;
   onSelectEnvironment: (floorLabel: string, env: HierarchyEnvironment) => void;
 }) {
-  const { floors, maxCols } = useMemo(() => {
-    const sorted = tower.floors.slice().sort((a, b) => b.number - a.number);
-    const max = sorted.reduce((m, f) => Math.max(m, f.environments.length), 1);
-    return { floors: sorted, maxCols: max };
-  }, [tower]);
+  const layout = useMemo(() => resolveMatrixLayout(tower), [tower]);
+  const { floors, cols, cells, emptySlots } = layout;
 
   const editable = Boolean(actions?.onAddEnvironment);
 
@@ -262,6 +270,11 @@ function BuildingMatrix({
     );
   }
 
+  // Colunas do grid: rótulo do andar + colunas da matriz + botão de adicionar.
+  const gridTemplateColumns = `4rem repeat(${cols}, minmax(7rem, 1fr))${
+    editable ? " 2.5rem" : ""
+  }`;
+
   return (
     <div className="overflow-x-auto">
       <div className="inline-flex min-w-fit flex-col">
@@ -277,18 +290,94 @@ function BuildingMatrix({
           {editable && <div className="w-10 shrink-0" />}
         </div>
 
-        {/* Andares */}
-        {floors.map((floor, idx) => (
-          <MatrixRow
-            key={floor._id}
-            floor={floor}
-            maxCols={maxCols}
-            now={now}
-            actions={actions}
-            onSelectEnvironment={onSelectEnvironment}
-            isLast={idx === floors.length - 1}
-          />
-        ))}
+        {/* Andares — um único grid para permitir células que atravessam
+            andares (duplex/triplex) e colunas (halls largos). */}
+        <div
+          className="grid"
+          style={{
+            gridTemplateColumns,
+            gridAutoRows: "minmax(5.5rem, auto)",
+          }}
+        >
+          {/* Fachada: uma faixa de fundo por andar, com laje superior. */}
+          {floors.map((floor, idx) => (
+            <div
+              key={`facade-${floor._id}`}
+              className={cn(
+                "mx-1 border-t-4 border-slate-400/60 bg-slate-200/50 dark:border-slate-500/60 dark:bg-slate-800/40",
+                idx === floors.length - 1 &&
+                  "border-b-4 border-b-slate-400/60 dark:border-b-slate-500/60"
+              )}
+              style={{
+                gridRow: idx + 1,
+                gridColumn: `2 / span ${cols}`,
+              }}
+            />
+          ))}
+
+          {/* Rótulos dos andares — como a marcação no shaft do elevador */}
+          {floors.map((floor, idx) => (
+            <div
+              key={`label-${floor._id}`}
+              className="group flex flex-col items-end justify-center gap-0.5 pr-2"
+              style={{ gridRow: idx + 1, gridColumn: 1 }}
+            >
+              <div className="flex items-center gap-1">
+                {actions?.onEditFloor && (
+                  <button
+                    type="button"
+                    onClick={() => actions.onEditFloor?.(floor)}
+                    className="text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                    aria-label={`Editar ${floor.label}`}
+                  >
+                    <Pencil className="size-3" />
+                  </button>
+                )}
+                <span className="text-sm font-bold tabular-nums text-slate-700 dark:text-slate-300">
+                  {floor.label}
+                </span>
+              </div>
+            </div>
+          ))}
+
+          {/* Buracos do recorte do prédio (posições sem ambiente). */}
+          {emptySlots.map((slot) => (
+            <div
+              key={`empty-${slot.row}-${slot.col}`}
+              className="m-2 rounded-sm border border-slate-300/50 bg-slate-100/60 dark:border-slate-600/30 dark:bg-slate-700/20"
+              style={{ gridRow: slot.row, gridColumn: slot.col + 1 }}
+            />
+          ))}
+
+          {/* Janelas / Ambientes */}
+          {cells.map((cell) => (
+            <MatrixCellButton
+              key={cell.env._id}
+              cell={cell}
+              now={now}
+              onSelectEnvironment={onSelectEnvironment}
+            />
+          ))}
+
+          {/* Botões + ambiente (um por andar) */}
+          {editable &&
+            floors.map((floor, idx) => (
+              <div
+                key={`add-${floor._id}`}
+                className="flex items-center justify-center"
+                style={{ gridRow: idx + 1, gridColumn: cols + 2 }}
+              >
+                <button
+                  type="button"
+                  onClick={() => actions?.onAddEnvironment?.(floor)}
+                  className="flex size-7 items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/30 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                  aria-label={`Adicionar ambiente em ${floor.label}`}
+                >
+                  <Plus className="size-3.5" />
+                </button>
+              </div>
+            ))}
+        </div>
 
         {/* Base / Fundação */}
         <div className="flex">
@@ -306,128 +395,63 @@ function BuildingMatrix({
   );
 }
 
-function MatrixRow({
-  floor,
-  maxCols,
+function MatrixCellButton({
+  cell,
   now,
-  actions,
   onSelectEnvironment,
-  isLast,
 }: {
-  floor: HierarchyFloor;
-  maxCols: number;
+  cell: MatrixCell;
   now: number;
-  actions?: BuildingMatrixActions;
   onSelectEnvironment: (floorLabel: string, env: HierarchyEnvironment) => void;
-  isLast: boolean;
 }) {
-  const envs = floor.environments.slice().sort((a, b) => a.order - b.order);
-  const editable = Boolean(actions?.onAddEnvironment);
+  const { env, floor } = cell;
+  const state = getEnvironmentState(env, now);
+  const style = state.overdue
+    ? FLOOR_STATE_STYLES.overdue
+    : FLOOR_STATE_STYLES[state.level];
+
+  const floorLabel = cell.topFloorLabel
+    ? `${floor.label} – ${cell.topFloorLabel}`
+    : floor.label;
+  const spanBadge =
+    cell.rowSpan === 2 ? "Duplex" : cell.rowSpan === 3 ? "Triplex" : null;
 
   return (
-    <div className="flex">
-      {/* Rótulo do andar — como a marcação no shaft do elevador */}
-      <div className="group flex w-16 shrink-0 flex-col items-end justify-center gap-0.5 pr-2">
-        <div className="flex items-center gap-1">
-          {actions?.onEditFloor && (
-            <button
-              type="button"
-              onClick={() => actions.onEditFloor?.(floor)}
-              className="text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
-              aria-label={`Editar ${floor.label}`}
-            >
-              <Pencil className="size-3" />
-            </button>
-          )}
-          <span className="text-sm font-bold tabular-nums text-slate-700 dark:text-slate-300">
-            {floor.label}
-          </span>
-        </div>
-      </div>
-
-      {/* Fachada do andar */}
-      <div className="flex flex-1 flex-col">
-        {/* Laje superior (borda de concreto entre andares) */}
-        <div className="mx-1 h-1 bg-slate-400/60 dark:bg-slate-500/60" />
-
-        {/* Janelas / Ambientes */}
-        <div
-          className="mx-1 grid gap-2 bg-slate-200/50 px-2 py-2 dark:bg-slate-800/40"
-          style={{
-            gridTemplateColumns: `repeat(${maxCols}, minmax(7rem, 1fr))`,
-          }}
-        >
-          {Array.from({ length: maxCols }).map((_, c) => {
-            const env = envs[c];
-            if (!env) {
-              return (
-                <div
-                  key={`${floor._id}-empty-${c}`}
-                  className="min-h-18 rounded-sm border border-slate-300/50 bg-slate-100/60 dark:border-slate-600/30 dark:bg-slate-700/20"
-                />
-              );
-            }
-            const state = getEnvironmentState(env, now);
-            const style = state.overdue
-              ? FLOOR_STATE_STYLES.overdue
-              : FLOOR_STATE_STYLES[state.level];
-
-            return (
-              <button
-                key={env._id}
-                type="button"
-                onClick={() => onSelectEnvironment(floor.label, env)}
-                className={cn(
-                  "flex min-h-18 flex-col gap-0.5 rounded-sm border-2 p-2 text-left shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5",
-                  style.cell
-                )}
-              >
-                <span className="flex items-center gap-1">
-                  <span
-                    className={cn("size-2 shrink-0 rounded-full", style.dot)}
-                  />
-                  <span className="truncate text-xs font-semibold">
-                    {env.name}
-                  </span>
-                  {state.overdue && (
-                    <AlertTriangle className="ml-auto size-3 shrink-0 text-red-600" />
-                  )}
-                </span>
-                {env.type && (
-                  <span className="truncate text-[0.625rem] uppercase text-muted-foreground">
-                    {env.type}
-                  </span>
-                )}
-                <span className="mt-auto text-[0.625rem] font-medium tabular-nums text-muted-foreground">
-                  {state.total === 0
-                    ? "sem equip."
-                    : `${state.installed}/${state.total} equip.`}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Laje inferior (apenas no último andar) */}
-        {isLast && (
-          <div className="mx-1 h-1 bg-slate-400/60 dark:bg-slate-500/60" />
-        )}
-      </div>
-
-      {/* Coluna do botão + ambiente */}
-      {editable && (
-        <div className="flex w-10 shrink-0 items-center justify-center">
-          <button
-            type="button"
-            onClick={() => actions?.onAddEnvironment?.(floor)}
-            className="flex size-7 items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/30 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-            aria-label={`Adicionar ambiente em ${floor.label}`}
-          >
-            <Plus className="size-3.5" />
-          </button>
-        </div>
+    <button
+      type="button"
+      onClick={() => onSelectEnvironment(floorLabel, env)}
+      className={cn(
+        "m-2 flex min-h-18 flex-col gap-0.5 rounded-sm border-2 p-2 text-left shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5",
+        style.cell
       )}
-    </div>
+      style={{
+        gridRow: `${cell.row} / span ${cell.rowSpan}`,
+        gridColumn: `${cell.col + 1} / span ${cell.colSpan}`,
+      }}
+    >
+      <span className="flex items-center gap-1">
+        <span className={cn("size-2 shrink-0 rounded-full", style.dot)} />
+        <span className="truncate text-xs font-semibold">{env.name}</span>
+        {state.overdue && (
+          <AlertTriangle className="ml-auto size-3 shrink-0 text-red-600" />
+        )}
+      </span>
+      {(env.type || spanBadge || cell.rowSpan > 3) && (
+        <span className="truncate text-[0.625rem] uppercase text-muted-foreground">
+          {[
+            env.type,
+            spanBadge ?? (cell.rowSpan > 3 ? `${cell.rowSpan} andares` : null),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+      )}
+      <span className="mt-auto text-[0.625rem] font-medium tabular-nums text-muted-foreground">
+        {state.total === 0
+          ? "sem equip."
+          : `${state.installed}/${state.total} equip.`}
+      </span>
+    </button>
   );
 }
 
@@ -534,7 +558,8 @@ function EnvironmentSheet({
         <div className="flex-1 space-y-4 p-4">
           {!env || groups.length === 0 ? (
             <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
-              Sem sistemas neste ambiente. Adicione um sistema para começar.
+              Sem equipamentos neste ambiente. Adicione um equipamento para
+              começar — o sistema é escolhido (ou criado) no próprio cadastro.
             </p>
           ) : (
             groups.map((group) => (
@@ -549,15 +574,14 @@ function EnvironmentSheet({
           )}
         </div>
 
-        {actions?.onAddSystem && env && (
+        {actions?.onAddEquipment && env && (
           <SheetFooter>
             <Button
-              variant="outline"
               className="w-full"
-              onClick={() => actions.onAddSystem?.(env)}
+              onClick={() => actions.onAddEquipment?.(env, null)}
             >
               <Plus className="mr-1.5 size-4" />
-              Adicionar sistema
+              Adicionar equipamento
             </Button>
           </SheetFooter>
         )}

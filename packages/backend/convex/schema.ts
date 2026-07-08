@@ -182,6 +182,15 @@ export default defineSchema({
     name: v.string(),
     type: v.optional(v.string()),
     order: v.number(),
+    // --- Posição esquemática na matriz do prédio (todos opcionais) ---
+    // Coluna explícita (1-based) na grade da torre; ausente = auto-empacota
+    // pela ordem (comportamento legado).
+    col: v.optional(v.number()),
+    // Largura em colunas (ex: hall largo de aeroporto). Padrão 1.
+    colSpan: v.optional(v.number()),
+    // Altura em andares a partir do andar-base, para cima (duplex = 2,
+    // triplex = 3). O ambiente permanece vinculado ao andar mais baixo.
+    rowSpan: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_floor", ["floorId"])
