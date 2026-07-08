@@ -514,10 +514,11 @@ function EnvironmentSheet({
     <Sheet open={data !== null} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="flex w-full flex-col overflow-y-auto sm:max-w-md">
         <SheetHeader>
-          <div className="flex items-start justify-between">
-            <div>
+          {/* pr-12 leaves room for SheetContent's absolute close (top-3 right-3) */}
+          <div className="flex items-start justify-between gap-2 pr-12">
+            <div className="min-w-0">
               <SheetTitle className="flex items-center gap-2">
-                <DoorOpen className="size-4 text-muted-foreground" />
+                <DoorOpen className="size-4 shrink-0 text-muted-foreground" />
                 {env?.name ?? "Ambiente"}
               </SheetTitle>
               <SheetDescription>
@@ -529,7 +530,7 @@ function EnvironmentSheet({
               </SheetDescription>
             </div>
             {env && (actions?.onEditEnvironment || actions?.onRemoveEnvironment) && (
-              <div className="flex items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1">
                 {actions?.onEditEnvironment && (
                   <Button
                     variant="ghost"
