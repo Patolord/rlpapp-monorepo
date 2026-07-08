@@ -7,11 +7,13 @@ import {
   AlertTriangle,
   Building2,
   DoorOpen,
+  Link2,
   Loader2,
   Pencil,
   Plus,
   QrCode,
   Trash2,
+  Unlink,
   Wind,
 } from "lucide-react";
 
@@ -52,6 +54,8 @@ export type BuildingMatrixActions = {
   onAddEquipment?: (env: HierarchyEnvironment) => void;
   onEditEquipment?: (item: HierarchyItem, env: HierarchyEnvironment) => void;
   onGenerateQr?: (item: HierarchyItem) => void;
+  onLinkQr?: (item: HierarchyItem) => void;
+  onUnlinkQr?: (item: HierarchyItem) => void;
   onRemoveEquipment?: (item: HierarchyItem) => void;
 };
 
@@ -558,28 +562,54 @@ function EquipmentRow({
         </p>
       )}
 
-      <div className="flex items-center gap-2 pt-0.5">
+      <div className="flex flex-wrap items-center gap-2 pt-0.5">
         {item.token ? (
-          <Link
-            to="/engenharia/qr/$token"
-            params={{ token: item.token }}
-            className="inline-flex items-center gap-1 text-primary hover:underline"
-          >
-            <QrCode className="size-3" />
-            Ver QR
-          </Link>
-        ) : (
-          actions?.onGenerateQr && (
-            <Button
-              variant="ghost"
-              size="xs"
-              className="h-6 px-1.5 text-xs"
-              onClick={() => actions.onGenerateQr?.(item)}
+          <>
+            <Link
+              to="/engenharia/qr/$token"
+              params={{ token: item.token }}
+              className="inline-flex items-center gap-1 text-primary hover:underline"
             >
-              <QrCode className="mr-1 size-3" />
-              Gerar QR
-            </Button>
-          )
+              <QrCode className="size-3" />
+              Ver QR
+            </Link>
+            {actions?.onUnlinkQr && (
+              <Button
+                variant="ghost"
+                size="xs"
+                className="h-6 px-1.5 text-xs text-muted-foreground"
+                onClick={() => actions.onUnlinkQr?.(item)}
+              >
+                <Unlink className="mr-1 size-3" />
+                Desvincular
+              </Button>
+            )}
+          </>
+        ) : (
+          <>
+            {actions?.onLinkQr && (
+              <Button
+                variant="outline"
+                size="xs"
+                className="h-6 px-1.5 text-xs"
+                onClick={() => actions.onLinkQr?.(item)}
+              >
+                <Link2 className="mr-1 size-3" />
+                Vincular QR
+              </Button>
+            )}
+            {actions?.onGenerateQr && (
+              <Button
+                variant="ghost"
+                size="xs"
+                className="h-6 px-1.5 text-xs"
+                onClick={() => actions.onGenerateQr?.(item)}
+              >
+                <QrCode className="mr-1 size-3" />
+                Gerar QR
+              </Button>
+            )}
+          </>
         )}
         {actions?.onEditEquipment && (
           <Button

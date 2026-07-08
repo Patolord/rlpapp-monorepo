@@ -6,6 +6,7 @@ import { useMutation, useQuery } from "convex/react";
 import { Download, Loader2, Plus, Search, Trash2 } from "lucide-react";
 
 import { AuthShell } from "@/components/auth-shell";
+import { LinkEquipmentDialog } from "@/components/engenharia/link-equipment-dialog";
 import { ApartmentPanel } from "@/components/engenharia/apartment-panel";
 import { BuildingGrid } from "@/components/engenharia/building-grid";
 import {
@@ -105,6 +106,7 @@ function HierarchyBuilding({
 }) {
   const generateQr = useMutation(api.qrCodes.generateForProjectEquipment);
   const removeEquipment = useMutation(api.projectEquipment.remove);
+  const unlinkEquipment = useMutation(api.projectEquipment.unlinkEquipment);
   const removeEnvironment = useMutation(api.environments.remove);
 
   const [towerDialogOpen, setTowerDialogOpen] = useState(false);
@@ -125,6 +127,9 @@ function HierarchyBuilding({
     item: HierarchyItem;
     env: HierarchyEnvironment;
   } | null>(null);
+  const [linkItemId, setLinkItemId] = useState<Id<"projectEquipment"> | null>(
+    null
+  );
 
   const actions: BuildingMatrixActions = {
     onAddTower: () => setTowerDialogOpen(true),
@@ -153,6 +158,13 @@ function HierarchyBuilding({
         () => generateQr({ itemId: item._id }),
         "QR gerado",
         "Não foi possível gerar o QR"
+      ),
+    onLinkQr: (item) => setLinkItemId(item._id),
+    onUnlinkQr: (item) =>
+      runWithToast(
+        () => unlinkEquipment({ itemId: item._id }),
+        "Equipamento desvinculado",
+        "Não foi possível desvincular"
       ),
     onRemoveEquipment: (item) => {
       if (
@@ -217,6 +229,10 @@ function HierarchyBuilding({
         item={editEquipTarget?.item ?? null}
         environmentId={editEquipTarget?.env._id ?? null}
         onClose={() => setEditEquipTarget(null)}
+      />
+      <LinkEquipmentDialog
+        itemId={linkItemId}
+        onClose={() => setLinkItemId(null)}
       />
     </>
   );
