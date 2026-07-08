@@ -4,7 +4,6 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PhotoPicker } from "@/components/engenharia/photo-picker";
 import { EquipmentStatusSelect } from "@/components/engenharia/equipment-status-select";
 import { uploadPhotos } from "@/lib/upload-photos";
@@ -90,88 +89,81 @@ export function EquipmentForm({ qrToken, onSuccess }: EquipmentFormProps) {
 
   if (queued) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center gap-3 pt-6 pb-6 text-center">
-          <CheckCircle2 className="h-12 w-12 text-green-600" />
-          <h2 className="text-xl font-bold">Salvo no aparelho</h2>
-          <p className="text-base text-muted-foreground">
-            Sem internet agora. O cadastro será enviado automaticamente quando
-            a conexão voltar. Você também pode enviar manualmente na tela de
-            Registros Pendentes.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col items-center gap-3 py-6 text-center">
+        <CheckCircle2 className="h-12 w-12 text-green-600" />
+        <h2 className="text-xl font-bold">Salvo no aparelho</h2>
+        <p className="text-base text-muted-foreground">
+          Sem internet agora. O cadastro será enviado automaticamente quando
+          a conexão voltar. Você também pode enviar manualmente na tela de
+          Registros Pendentes.
+        </p>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          Registrar Equipamento
-          {!online && (
-            <span className="flex items-center gap-1.5 text-sm font-normal text-amber-600">
-              <CloudOff className="h-4 w-4" />
-              Sem internet
-            </span>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-2">
-            <Label className="text-base">Foto da etiqueta *</Label>
-            <p className="text-sm text-muted-foreground">
-              Tire uma foto da etiqueta/placa do equipamento.
-            </p>
-            <PhotoPicker
-              files={photos}
-              onFilesChange={setPhotos}
-              label="Tirar foto da etiqueta"
-            />
-          </div>
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">Registrar equipamento</h1>
+        {!online && (
+          <span className="flex items-center gap-1.5 text-sm font-normal text-amber-600">
+            <CloudOff className="h-4 w-4" />
+            Sem internet
+          </span>
+        )}
+      </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description" className="text-base">
-              Descrição geral *
-            </Label>
-            <Textarea
-              id="description"
-              placeholder="Ex: VRF no bloco A, 3º andar"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              required
-              className="min-h-[90px] text-lg placeholder:text-muted-foreground/50"
-            />
-          </div>
+      <div className="space-y-2">
+        <Label className="text-base">Foto da etiqueta *</Label>
+        <p className="text-sm text-muted-foreground">
+          Tire uma foto da etiqueta/placa do equipamento.
+        </p>
+        <PhotoPicker
+          files={photos}
+          onFilesChange={setPhotos}
+          label="Tirar foto da etiqueta"
+        />
+      </div>
 
-          <div className="space-y-2">
-            <Label className="text-base">Situação</Label>
-            <EquipmentStatusSelect
-              value={status}
-              onValueChange={setStatus}
-              triggerClassName="h-14 text-lg"
-            />
-          </div>
+      <div className="space-y-2">
+        <Label htmlFor="description" className="text-base">
+          Descrição geral *
+        </Label>
+        <Textarea
+          id="description"
+          placeholder="Ex: VRF no bloco A, 3º andar"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          required
+          className="min-h-[90px] text-lg placeholder:text-muted-foreground/50"
+        />
+      </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+      <div className="space-y-2">
+        <Label className="text-base">Situação</Label>
+        <EquipmentStatusSelect
+          value={status}
+          onValueChange={setStatus}
+          triggerClassName="h-14 text-lg"
+        />
+      </div>
 
-          <Button
-            type="submit"
-            disabled={submitting || !canSubmit}
-            className="h-14 w-full text-lg"
-          >
-            {submitting ? (
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            ) : null}
-            {submitting
-              ? "Registrando..."
-              : online
-                ? "Registrar Equipamento"
-                : "Salvar no aparelho"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <Button
+        type="submit"
+        disabled={submitting || !canSubmit}
+        className="h-14 w-full text-lg"
+      >
+        {submitting ? (
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        ) : null}
+        {submitting
+          ? "Registrando..."
+          : online
+            ? "Registrar Equipamento"
+            : "Salvar no aparelho"}
+      </Button>
+    </form>
   );
 }

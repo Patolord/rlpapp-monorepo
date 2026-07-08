@@ -10,7 +10,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #e5e5f2;
+  --background: oklch(0.971 0.004 264);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -34,13 +34,13 @@
   --chart-4: oklch(0.488 0.243 264.376);
   --chart-5: oklch(0.424 0.199 265.638);
   --radius: 0.625rem;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #334155;
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.37 0.03 264);
   --sidebar-primary: oklch(0.42 0.26 264);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: #eef0fe;
-  --sidebar-accent-foreground: #3a16d9;
-  --sidebar-border: #eef1f6;
+  --sidebar-accent: oklch(0.94 0.035 264);
+  --sidebar-accent-foreground: var(--primary);
+  --sidebar-border: var(--border);
   --sidebar-ring: oklch(0.708 0 0);
 }
 

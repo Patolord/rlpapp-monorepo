@@ -39,21 +39,22 @@ export function PhotoPicker({ files, onFilesChange, label }: PhotoPickerProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <Button
           type="button"
           variant="outline"
           onClick={() => cameraInputRef.current?.click()}
-          className="h-14 flex-1 text-base"
+          className="h-14 min-w-0 flex-1 whitespace-normal text-base sm:text-sm"
         >
           <Camera className="mr-2 h-5 w-5" />
-          {label ?? "Tirar Foto"}
+          <span className="sm:hidden">Câmera</span>
+          <span className="hidden sm:inline">{label ?? "Tirar Foto"}</span>
         </Button>
         <Button
           type="button"
           variant="outline"
           onClick={() => galleryInputRef.current?.click()}
-          className="h-14 flex-1 text-base"
+          className="h-14 min-w-0 flex-1 whitespace-normal text-base sm:text-sm"
         >
           <ImagePlus className="mr-2 h-5 w-5" />
           Galeria

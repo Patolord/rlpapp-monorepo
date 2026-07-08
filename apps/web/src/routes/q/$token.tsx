@@ -217,18 +217,11 @@ function AuthenticatedContent() {
     );
   }
 
-  const { qrCode, equipment } = data;
+  const { equipment } = data;
 
   if (!equipment) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-8">
-        <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <QrCode className="h-10 w-10 text-muted-foreground" />
-          <h1 className="text-xl font-bold">Novo Equipamento</h1>
-          <p className="text-sm text-muted-foreground">
-            Código QR: {qrCode.token}
-          </p>
-        </div>
+      <div className="mx-auto max-w-lg px-4 py-4">
         <EquipmentForm
           qrToken={token}
           onSuccess={() => { }}
@@ -291,13 +284,6 @@ function OfflineContent({ token }: { token: string }) {
         </>
       ) : (
         <>
-          <div className="flex flex-col items-center gap-2 text-center">
-            <QrCode className="h-10 w-10 text-muted-foreground" />
-            <h1 className="text-xl font-bold">Código QR: {token}</h1>
-            <p className="text-sm text-muted-foreground">
-              Se este equipamento ainda não foi cadastrado, registre abaixo.
-            </p>
-          </div>
           <EquipmentForm qrToken={token} onSuccess={() => { }} />
           <Separator />
           <p className="text-sm text-muted-foreground text-center">

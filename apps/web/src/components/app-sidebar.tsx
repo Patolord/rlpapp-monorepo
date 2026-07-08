@@ -160,10 +160,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 className="aspect-square size-10 rounded-lg object-cover"
               />
               <div className="grid flex-1 text-left leading-tight">
-                <span className="truncate text-base font-bold tracking-tight text-slate-800">
+                <span className="truncate text-base font-bold tracking-tight group-hover/menu-button:text-sidebar-accent-foreground group-data-active/menu-button:text-sidebar-accent-foreground">
                   RLP Engenharia
                 </span>
-                <span className="truncate text-xs text-slate-500">Sistema ERP</span>
+                <span className="truncate text-xs text-sidebar-foreground/70 group-hover/menu-button:text-sidebar-accent-foreground/80 group-data-active/menu-button:text-sidebar-accent-foreground/80">
+                  Sistema ERP
+                </span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
