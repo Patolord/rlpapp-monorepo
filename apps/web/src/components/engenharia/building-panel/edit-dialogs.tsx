@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useMutation } from "convex/react";
-import { Loader2, Trash2, Wand2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Wand2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -388,27 +388,91 @@ function parseGridField(value: string): number | undefined {
   return Number.isFinite(n) && n >= 1 ? n : undefined;
 }
 
+/** Converte o texto em inteiro >= min (ou undefined). */
+function parseIntField(value: string, min: number): number | undefined {
+  const n = Number.parseInt(value, 10);
+  return Number.isFinite(n) && n >= min ? n : undefined;
+}
+
+/**
+ * Segmento extra (retângulo) do formulário, em texto bruto dos inputs.
+ * Compõe regiões não-retangulares junto com o retângulo principal.
+ */
+type SegmentDraft = {
+  colOffset: string;
+  colSpan: string;
+  rowOffset: string;
+  rowSpan: string;
+};
+
+const EMPTY_SEGMENT: SegmentDraft = {
+  colOffset: "",
+  colSpan: "",
+  rowOffset: "",
+  rowSpan: "",
+};
+
+type SegmentPayload = {
+  colOffset: number;
+  colSpan?: number;
+  rowOffset?: number;
+  rowSpan?: number;
+};
+
+/** Converte os rascunhos em payload da mutation (descarta linhas vazias). */
+function parseSegments(drafts: SegmentDraft[]): SegmentPayload[] {
+  const segments: SegmentPayload[] = [];
+  for (const d of drafts) {
+    const colOffset = parseIntField(d.colOffset, Number.MIN_SAFE_INTEGER);
+    const colSpan = parseGridField(d.colSpan);
+    const rowOffset = parseIntField(d.rowOffset, 0);
+    const rowSpan = parseGridField(d.rowSpan);
+    // Linha totalmente vazia é ignorada silenciosamente.
+    if (
+      colOffset === undefined &&
+      colSpan === undefined &&
+      rowOffset === undefined &&
+      rowSpan === undefined
+    ) {
+      continue;
+    }
+    segments.push({ colOffset: colOffset ?? 0, colSpan, rowOffset, rowSpan });
+  }
+  return segments;
+}
+
 /**
  * Campos opcionais de posição esquemática do ambiente na matriz do prédio:
- * coluna explícita, largura em colunas e altura em andares (duplex/triplex).
+ * coluna explícita, largura em colunas, altura em andares (duplex/triplex) e
+ * segmentos extras para regiões não-retangulares (ex: forma em "L").
  */
 function MatrixPositionFields({
   idPrefix,
   col,
   colSpan,
   rowSpan,
+  segments,
   onColChange,
   onColSpanChange,
   onRowSpanChange,
+  onSegmentsChange,
 }: {
   idPrefix: string;
   col: string;
   colSpan: string;
   rowSpan: string;
+  segments: SegmentDraft[];
   onColChange: (v: string) => void;
   onColSpanChange: (v: string) => void;
   onRowSpanChange: (v: string) => void;
+  onSegmentsChange: (segments: SegmentDraft[]) => void;
 }) {
+  function updateSegment(index: number, patch: Partial<SegmentDraft>) {
+    onSegmentsChange(
+      segments.map((s, i) => (i === index ? { ...s, ...patch } : s))
+    );
+  }
+
   return (
     <fieldset className="space-y-2 rounded-lg border p-3">
       <legend className="px-1 text-xs font-medium text-muted-foreground">
@@ -459,6 +523,114 @@ function MatrixPositionFields({
         Andares: 2 = duplex, 3 = triplex (o ambiente sobe a partir deste
         andar). Largura: quantas colunas a célula ocupa.
       </p>
+
+      {segments.length > 0 && (
+        <div className="space-y-2 border-t pt-2">
+          <p className="text-[0.6875rem] font-medium text-muted-foreground">
+            Segmentos extras (formas não-retangulares, ex: em "L"). Posições
+            relativas ao retângulo acima: coluna 0 = mesma coluna (negativo =
+            à esquerda); andar 0 = mesmo andar (1 = um andar acima).
+          </p>
+          {segments.map((seg, idx) => (
+            <div key={idx} className="flex items-end gap-2">
+              <div className="grid flex-1 grid-cols-4 gap-2">
+                <div className="space-y-1">
+                  <Label
+                    htmlFor={`${idPrefix}-seg-${idx}-coloffset`}
+                    className="text-xs"
+                  >
+                    Coluna
+                  </Label>
+                  <Input
+                    id={`${idPrefix}-seg-${idx}-coloffset`}
+                    type="number"
+                    placeholder="0"
+                    value={seg.colOffset}
+                    onChange={(e) =>
+                      updateSegment(idx, { colOffset: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label
+                    htmlFor={`${idPrefix}-seg-${idx}-colspan`}
+                    className="text-xs"
+                  >
+                    Largura
+                  </Label>
+                  <Input
+                    id={`${idPrefix}-seg-${idx}-colspan`}
+                    type="number"
+                    min={1}
+                    placeholder="1"
+                    value={seg.colSpan}
+                    onChange={(e) =>
+                      updateSegment(idx, { colSpan: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label
+                    htmlFor={`${idPrefix}-seg-${idx}-rowoffset`}
+                    className="text-xs"
+                  >
+                    Andar
+                  </Label>
+                  <Input
+                    id={`${idPrefix}-seg-${idx}-rowoffset`}
+                    type="number"
+                    min={0}
+                    placeholder="0"
+                    value={seg.rowOffset}
+                    onChange={(e) =>
+                      updateSegment(idx, { rowOffset: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label
+                    htmlFor={`${idPrefix}-seg-${idx}-rowspan`}
+                    className="text-xs"
+                  >
+                    Andares
+                  </Label>
+                  <Input
+                    id={`${idPrefix}-seg-${idx}-rowspan`}
+                    type="number"
+                    min={1}
+                    placeholder="1"
+                    value={seg.rowSpan}
+                    onChange={(e) =>
+                      updateSegment(idx, { rowSpan: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-9 shrink-0 text-destructive hover:text-destructive"
+                onClick={() =>
+                  onSegmentsChange(segments.filter((_, i) => i !== idx))
+                }
+                aria-label={`Remover segmento ${idx + 1}`}
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+      <Button
+        type="button"
+        variant="outline"
+        size="xs"
+        onClick={() => onSegmentsChange([...segments, { ...EMPTY_SEGMENT }])}
+      >
+        <Plus className="mr-1 size-3.5" />
+        Segmento extra
+      </Button>
     </fieldset>
   );
 }
@@ -476,12 +648,14 @@ export function AddEnvironmentDialog({
   const [col, setCol] = useState("");
   const [colSpan, setColSpan] = useState("");
   const [rowSpan, setRowSpan] = useState("");
+  const [segments, setSegments] = useState<SegmentDraft[]>([]);
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!floor || !name.trim()) return;
     setSaving(true);
+    const parsedSegments = parseSegments(segments);
     const ok = await runWithToast(
       () =>
         createEnv({
@@ -491,6 +665,7 @@ export function AddEnvironmentDialog({
           col: parseGridField(col),
           colSpan: parseGridField(colSpan),
           rowSpan: parseGridField(rowSpan),
+          segments: parsedSegments.length > 0 ? parsedSegments : undefined,
         }),
       "Ambiente criado",
       "Não foi possível criar o ambiente"
@@ -502,6 +677,7 @@ export function AddEnvironmentDialog({
       setCol("");
       setColSpan("");
       setRowSpan("");
+      setSegments([]);
       onClose();
     }
   }
@@ -542,9 +718,11 @@ export function AddEnvironmentDialog({
             col={col}
             colSpan={colSpan}
             rowSpan={rowSpan}
+            segments={segments}
             onColChange={setCol}
             onColSpanChange={setColSpan}
             onRowSpanChange={setRowSpan}
+            onSegmentsChange={setSegments}
           />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
@@ -575,6 +753,7 @@ export function EditEnvironmentDialog({
   const [col, setCol] = useState("");
   const [colSpan, setColSpan] = useState("");
   const [rowSpan, setRowSpan] = useState("");
+  const [segments, setSegments] = useState<SegmentDraft[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -588,6 +767,14 @@ export function EditEnvironmentDialog({
       setRowSpan(
         environment.rowSpan !== null ? String(environment.rowSpan) : ""
       );
+      setSegments(
+        (environment.segments ?? []).map((seg) => ({
+          colOffset: String(seg.colOffset),
+          colSpan: seg.colSpan !== null ? String(seg.colSpan) : "",
+          rowOffset: seg.rowOffset !== null ? String(seg.rowOffset) : "",
+          rowSpan: seg.rowSpan !== null ? String(seg.rowSpan) : "",
+        }))
+      );
     }
   }, [environment]);
 
@@ -595,6 +782,7 @@ export function EditEnvironmentDialog({
     e.preventDefault();
     if (!environment || !name.trim()) return;
     setSaving(true);
+    const parsedSegments = parseSegments(segments);
     const ok = await runWithToast(
       () =>
         updateEnv({
@@ -604,6 +792,7 @@ export function EditEnvironmentDialog({
           col: parseGridField(col) ?? null,
           colSpan: parseGridField(colSpan) ?? null,
           rowSpan: parseGridField(rowSpan) ?? null,
+          segments: parsedSegments.length > 0 ? parsedSegments : null,
         }),
       "Ambiente atualizado",
       "Não foi possível atualizar o ambiente"
@@ -662,9 +851,11 @@ export function EditEnvironmentDialog({
             col={col}
             colSpan={colSpan}
             rowSpan={rowSpan}
+            segments={segments}
             onColChange={setCol}
             onColSpanChange={setColSpan}
             onRowSpanChange={setRowSpan}
+            onSegmentsChange={setSegments}
           />
           <DialogFooter className="sm:justify-between">
             <Button
@@ -902,6 +1093,8 @@ export function EditSystemDialog({
 
 /** Valor sentinela do Select que dispara a criação de um novo sistema. */
 const NEW_SYSTEM_VALUE = "__new_system__";
+/** Valor sentinela do Select para equipamento sem sistema. */
+const NO_SYSTEM_VALUE = "__no_system__";
 
 function systemLabel(s: SystemOption): string {
   return s.type ? `${s.name} · ${s.type}` : s.name;
@@ -913,27 +1106,35 @@ function SystemSelect({
   value,
   onChange,
   onRequestNewSystem,
+  allowNone = false,
 }: {
   id?: string;
   systems: SystemOption[];
   value: Id<"systems"> | null;
-  onChange: (systemId: Id<"systems">) => void;
+  onChange: (systemId: Id<"systems"> | null) => void;
   onRequestNewSystem?: () => void;
+  /** Permite escolher "Sem sistema" (equipamento fica com alerta na UI). */
+  allowNone?: boolean;
 }) {
   // O `items` é obrigatório para o trigger exibir o nome do sistema em vez do
   // id bruto (Base UI Select resolve o rótulo do valor selecionado por aqui).
   const items: Record<string, string> = Object.fromEntries(
     systems.map((s) => [s._id, systemLabel(s)])
   );
+  if (allowNone) items[NO_SYSTEM_VALUE] = "Sem sistema";
   if (onRequestNewSystem) items[NEW_SYSTEM_VALUE] = "+ Novo sistema";
 
   return (
     <Select
-      value={value}
+      value={allowNone && value === null ? NO_SYSTEM_VALUE : value}
       items={items}
       onValueChange={(v) => {
         if (v === NEW_SYSTEM_VALUE) {
           onRequestNewSystem?.();
+          return;
+        }
+        if (v === NO_SYSTEM_VALUE) {
+          onChange(null);
           return;
         }
         onChange(v as Id<"systems">);
@@ -943,6 +1144,9 @@ function SystemSelect({
         <SelectValue placeholder="Selecione o sistema" />
       </SelectTrigger>
       <SelectContent>
+        {allowNone && (
+          <SelectItem value={NO_SYSTEM_VALUE}>Sem sistema</SelectItem>
+        )}
         {systems.map((s) => (
           <SelectItem key={s._id} value={s._id}>
             {systemLabel(s)}
@@ -1000,13 +1204,13 @@ export function AddEquipmentDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!environment || !systemId) return;
+    if (!environment) return;
     setSaving(true);
     const ok = await runWithToast(
       () =>
         upsert({
           environmentId: environment._id,
-          systemId,
+          systemId: systemId ?? undefined,
           kind,
           modelo: modelo.trim() || undefined,
           capacidade: capacidade.trim() || undefined,
@@ -1043,6 +1247,7 @@ export function AddEquipmentDialog({
                 value={systemId}
                 onChange={setSystemId}
                 onRequestNewSystem={onRequestNewSystem}
+                allowNone
               />
             </div>
             <div className="space-y-2">
@@ -1107,7 +1312,7 @@ export function AddEquipmentDialog({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={saving || !systemId}>
+            <Button type="submit" disabled={saving}>
               {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
               Adicionar
             </Button>
@@ -1163,14 +1368,14 @@ export function EditEquipmentDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!item || !environmentId || !systemId) return;
+    if (!item || !environmentId) return;
     setSaving(true);
     const ok = await runWithToast(
       () =>
         upsert({
           itemId: item._id,
           environmentId,
-          systemId,
+          systemId: systemId ?? undefined,
           kind,
           modelo: modelo.trim() || undefined,
           capacidade: capacidade.trim() || undefined,
@@ -1202,6 +1407,7 @@ export function EditEquipmentDialog({
                 systems={systems}
                 value={systemId}
                 onChange={setSystemId}
+                allowNone
               />
             </div>
             <div className="space-y-2">
@@ -1266,7 +1472,7 @@ export function EditEquipmentDialog({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={saving || !systemId}>
+            <Button type="submit" disabled={saving}>
               {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
               Salvar
             </Button>

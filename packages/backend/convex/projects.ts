@@ -674,6 +674,18 @@ export const hierarchyReturnValidator = v.union(
                 col: v.union(v.number(), v.null()),
                 colSpan: v.union(v.number(), v.null()),
                 rowSpan: v.union(v.number(), v.null()),
+                // Retângulos extras de regiões não-retangulares (forma em L).
+                segments: v.union(
+                  v.array(
+                    v.object({
+                      colOffset: v.number(),
+                      colSpan: v.union(v.number(), v.null()),
+                      rowOffset: v.union(v.number(), v.null()),
+                      rowSpan: v.union(v.number(), v.null()),
+                    })
+                  ),
+                  v.null()
+                ),
                 equipment: v.array(hierarchyItemValidator),
               })
             ),

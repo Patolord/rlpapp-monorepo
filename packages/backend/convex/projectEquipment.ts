@@ -1,5 +1,9 @@
 import { v } from "convex/values";
-import { authedMutation, engineeringMutation } from "./lib/rbac";
+import {
+  authedMutation,
+  engineeringMutation,
+  engineeringQuery,
+} from "./lib/rbac";
 import { equipmentStatusValidator } from "./equipment";
 import { logEquipmentHistory } from "./lib/audit";
 import type { MutationCtx } from "./_generated/server";
@@ -96,13 +100,14 @@ const equipKindValidator = v.union(
 
 // Cria/atualiza um equipamento planejado dentro de um AMBIENTE (hierarquia nova).
 // O equipamento pertence a um sistema da obra (systems); o nome do sistema é
-// denormalizado no campo `system`. Diferente de `upsert`, que opera sobre o
-// caminho legado de apartamentos.
+// denormalizado no campo `system`. O sistema é opcional: itens sem sistema são
+// permitidos (exibem alerta na UI até serem atribuídos a um sistema).
+// Diferente de `upsert`, que opera sobre o caminho legado de apartamentos.
 export const upsertInEnvironment = engineeringMutation({
   args: {
     itemId: v.optional(v.id("projectEquipment")),
     environmentId: v.id("environments"),
-    systemId: v.id("systems"),
+    systemId: v.optional(v.id("systems")),
     ambiente: v.optional(v.string()),
     kind: equipKindValidator,
     modelo: v.optional(v.string()),
@@ -118,14 +123,18 @@ export const upsertInEnvironment = engineeringMutation({
     const env = await ctx.db.get("environments", args.environmentId);
     if (!env) throw new Error("Ambiente não encontrado");
 
-    const system = await ctx.db.get("systems", args.systemId);
-    if (!system) throw new Error("Sistema não encontrado");
-    if (system.projectId !== env.projectId) {
-      throw new Error("O sistema não pertence à mesma obra do ambiente");
+    let systemName = "";
+    if (args.systemId) {
+      const system = await ctx.db.get("systems", args.systemId);
+      if (!system) throw new Error("Sistema não encontrado");
+      if (system.projectId !== env.projectId) {
+        throw new Error("O sistema não pertence à mesma obra do ambiente");
+      }
+      systemName = system.name;
     }
 
     const base = {
-      system: system.name,
+      system: systemName,
       systemId: args.systemId,
       ambiente: args.ambiente?.trim() || env.name,
       kind: args.kind,
@@ -165,6 +174,149 @@ export const upsertInEnvironment = engineeringMutation({
       newValue: base.system,
     });
     return itemId;
+  },
+});
+
+// --- Pool de equipamentos não atribuídos (sem ambiente) ---
+
+const unassignedItemValidator = v.object({
+  _id: v.id("projectEquipment"),
+  system: v.string(),
+  systemId: v.union(v.id("systems"), v.null()),
+  kind: equipKindValidator,
+  modelo: v.string(),
+  capacidade: v.string(),
+  serialNumber: v.union(v.string(), v.null()),
+  status: equipmentStatusValidator,
+  deadline: v.union(v.number(), v.null()),
+});
+
+// Lista itens planejados da obra que ainda não estão em nenhum ambiente
+// (pool de "não atribuídos" do painel lateral). Itens legados de apartamentos
+// (unitId) ficam fora do pool.
+export const listUnassigned = engineeringQuery({
+  args: { projectId: v.id("projects") },
+  returns: v.array(unassignedItemValidator),
+  handler: async (ctx, args) => {
+    const items = await ctx.db
+      .query("projectEquipment")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    return items
+      .filter((item) => !item.environmentId && !item.unitId)
+      .sort(
+        (a, b) =>
+          a.system.localeCompare(b.system) ||
+          a.modelo.localeCompare(b.modelo) ||
+          a._creationTime - b._creationTime
+      )
+      .map((item) => ({
+        _id: item._id,
+        system: item.system,
+        systemId: item.systemId ?? null,
+        kind: item.kind,
+        modelo: item.modelo,
+        capacidade: item.capacidade,
+        serialNumber: item.serialNumber ?? null,
+        status: item.status,
+        deadline: item.deadline ?? null,
+      }));
+  },
+});
+
+// Cria um item planejado sem ambiente (vai para o pool de não atribuídos).
+// Sistema é opcional: itens sem sistema exibem alerta na UI.
+export const createUnassigned = engineeringMutation({
+  args: {
+    projectId: v.id("projects"),
+    systemId: v.optional(v.id("systems")),
+    kind: equipKindValidator,
+    modelo: v.optional(v.string()),
+    capacidade: v.optional(v.string()),
+    serialNumber: v.optional(v.string()),
+    deadline: v.optional(v.union(v.number(), v.null())),
+  },
+  returns: v.id("projectEquipment"),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project) throw new Error("Obra não encontrada");
+
+    let systemName = "";
+    if (args.systemId) {
+      const system = await ctx.db.get("systems", args.systemId);
+      if (!system) throw new Error("Sistema não encontrado");
+      if (system.projectId !== args.projectId) {
+        throw new Error("O sistema não pertence a esta obra");
+      }
+      systemName = system.name;
+    }
+
+    const itemId = await ctx.db.insert("projectEquipment", {
+      projectId: args.projectId,
+      system: systemName,
+      systemId: args.systemId,
+      ambiente: "",
+      kind: args.kind,
+      modelo: args.modelo?.trim() ?? "",
+      capacidade: args.capacidade?.trim() ?? "",
+      serialNumber: args.serialNumber?.trim() || undefined,
+      deadline: args.deadline === null ? undefined : args.deadline ?? undefined,
+      status: "installing",
+    });
+    await logEquipmentHistory(ctx, ctx.user, {
+      equipmentId: itemId,
+      action: "created",
+      newValue: systemName || "(sem sistema)",
+    });
+    return itemId;
+  },
+});
+
+// Atribui um item do pool de não atribuídos a um ambiente. Pode opcionalmente
+// definir/alterar o sistema no mesmo passo; itens sem sistema continuam
+// permitidos (alerta na UI).
+export const assignToEnvironment = engineeringMutation({
+  args: {
+    itemId: v.id("projectEquipment"),
+    environmentId: v.id("environments"),
+    systemId: v.optional(v.id("systems")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get("projectEquipment", args.itemId);
+    if (!item) throw new Error("Equipamento não encontrado");
+
+    const env = await ctx.db.get("environments", args.environmentId);
+    if (!env) throw new Error("Ambiente não encontrado");
+    if (env.projectId !== item.projectId) {
+      throw new Error("O ambiente não pertence à mesma obra do equipamento");
+    }
+
+    const systemId = args.systemId ?? item.systemId;
+    let systemName = item.system;
+    if (args.systemId) {
+      const system = await ctx.db.get("systems", args.systemId);
+      if (!system) throw new Error("Sistema não encontrado");
+      if (system.projectId !== item.projectId) {
+        throw new Error("O sistema não pertence a esta obra");
+      }
+      systemName = system.name;
+    }
+
+    await ctx.db.patch("projectEquipment", args.itemId, {
+      environmentId: args.environmentId,
+      towerId: env.towerId,
+      floorId: env.floorId,
+      ambiente: item.ambiente.trim() || env.name,
+      system: systemName,
+      systemId,
+    });
+    await logEquipmentHistory(ctx, ctx.user, {
+      equipmentId: args.itemId,
+      action: "assigned",
+      newValue: env.name,
+    });
+    return null;
   },
 });
 

@@ -8,6 +8,7 @@ import {
   Building2,
   Download,
   Loader2,
+  PackagePlus,
   Plus,
   Search,
   Trash2,
@@ -22,6 +23,10 @@ import {
   type BuildingMatrixActions,
 } from "@/components/engenharia/building-panel/building-matrix";
 import { SystemsPanel } from "@/components/engenharia/building-panel/systems-panel";
+import {
+  UnassignedEquipmentPanel,
+  type AssignTarget,
+} from "@/components/engenharia/building-panel/unassigned-equipment-panel";
 import {
   AddEnvironmentDialog,
   AddEquipmentDialog,
@@ -109,6 +114,8 @@ function BuildingContent({
 
 /* ── Hierarquia (torre → andar → ambiente) ── */
 
+const POOL_OPEN_KEY = "engenharia.unassignedPanel.open";
+
 function HierarchyBuilding({
   project,
   now,
@@ -125,6 +132,14 @@ function HierarchyBuilding({
     useQuery(api.systems.listSystemsByProject, { projectId }) ?? [];
 
   const [view, setView] = useState<"predio" | "sistemas">("predio");
+  // Painel lateral de equipamentos não atribuídos (persistido entre visitas).
+  const [poolOpen, setPoolOpen] = useState<boolean>(
+    () =>
+      typeof window !== "undefined" &&
+      window.localStorage.getItem(POOL_OPEN_KEY) === "1"
+  );
+  // Ambiente selecionado na matriz como alvo da atribuição.
+  const [assignTarget, setAssignTarget] = useState<AssignTarget | null>(null);
   const [towerDialogOpen, setTowerDialogOpen] = useState(false);
   const [editTowerTarget, setEditTowerTarget] = useState<HierarchyTower | null>(
     null
@@ -152,6 +167,13 @@ function HierarchyBuilding({
   const [linkItemId, setLinkItemId] = useState<Id<"projectEquipment"> | null>(
     null
   );
+
+  function togglePool() {
+    const next = !poolOpen;
+    window.localStorage.setItem(POOL_OPEN_KEY, next ? "1" : "0");
+    if (!next) setAssignTarget(null);
+    setPoolOpen(next);
+  }
 
   const actions: BuildingMatrixActions = {
     onAddTower: () => setTowerDialogOpen(true),
@@ -209,7 +231,17 @@ function HierarchyBuilding({
     <>
       <Card>
         <CardContent className="space-y-4 py-6">
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {view === "predio" && (
+              <Button
+                variant={poolOpen ? "secondary" : "outline"}
+                size="xs"
+                onClick={togglePool}
+              >
+                <PackagePlus className="mr-1.5 size-3.5" />
+                Equipamentos
+              </Button>
+            )}
             <div className="inline-flex rounded-md border p-0.5">
               <Button
                 variant={view === "predio" ? "secondary" : "ghost"}
@@ -230,11 +262,36 @@ function HierarchyBuilding({
             </div>
           </div>
           {view === "predio" ? (
-            <BuildingMatrixPanel
-              projectId={project._id as Id<"projects">}
-              now={now}
-              actions={actions}
-            />
+            poolOpen ? (
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
+                <BuildingMatrixPanel
+                  projectId={project._id as Id<"projects">}
+                  now={now}
+                  actions={actions}
+                  selectionMode
+                  selectedTargetEnvId={assignTarget?.envId ?? null}
+                  onSelectTarget={(floorLabel, env) =>
+                    setAssignTarget({
+                      envId: env._id,
+                      envName: env.name,
+                      floorLabel,
+                    })
+                  }
+                />
+                <UnassignedEquipmentPanel
+                  projectId={projectId}
+                  systems={systems}
+                  target={assignTarget}
+                  onClose={togglePool}
+                />
+              </div>
+            ) : (
+              <BuildingMatrixPanel
+                projectId={project._id as Id<"projects">}
+                now={now}
+                actions={actions}
+              />
+            )
           ) : (
             <SystemsPanel
               projectId={project._id as Id<"projects">}

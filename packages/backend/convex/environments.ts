@@ -4,6 +4,21 @@ import { logAudit } from "./lib/audit";
 import { deleteSystemsIfOrphaned } from "./systems";
 import type { Id } from "./_generated/dataModel";
 
+/** Segmento extra de um ambiente não-retangular (posições relativas). */
+type EnvironmentSegment = {
+  colOffset: number;
+  colSpan?: number;
+  rowOffset?: number;
+  rowSpan?: number;
+};
+
+const segmentValidator = v.object({
+  colOffset: v.number(),
+  colSpan: v.optional(v.number()),
+  rowOffset: v.optional(v.number()),
+  rowSpan: v.optional(v.number()),
+});
+
 // Lista os ambientes de um andar (ordenados).
 export const listByFloor = engineeringQuery({
   args: { floorId: v.id("floors") },
@@ -19,6 +34,7 @@ export const listByFloor = engineeringQuery({
       col: v.union(v.number(), v.null()),
       colSpan: v.union(v.number(), v.null()),
       rowSpan: v.union(v.number(), v.null()),
+      segments: v.union(v.array(segmentValidator), v.null()),
       createdAt: v.number(),
     })
   ),
@@ -40,6 +56,7 @@ export const listByFloor = engineeringQuery({
         col: e.col ?? null,
         colSpan: e.colSpan ?? null,
         rowSpan: e.rowSpan ?? null,
+        segments: e.segments ?? null,
         createdAt: e.createdAt,
       }));
   },
@@ -58,6 +75,36 @@ function validateGridField(
   return n;
 }
 
+/** Valida a lista de segmentos extras; lista vazia vira undefined. */
+function validateSegments(
+  segments: EnvironmentSegment[] | undefined
+): EnvironmentSegment[] | undefined {
+  if (segments === undefined || segments.length === 0) return undefined;
+  return segments.map((seg, i) => {
+    const label = `Segmento ${i + 1}`;
+    const colOffset = Math.floor(seg.colOffset);
+    if (!Number.isFinite(colOffset)) {
+      throw new Error(`${label}: deslocamento de coluna inválido`);
+    }
+    const rowOffset =
+      seg.rowOffset === undefined ? undefined : Math.floor(seg.rowOffset);
+    if (rowOffset !== undefined && (!Number.isFinite(rowOffset) || rowOffset < 0)) {
+      throw new Error(
+        `${label}: o deslocamento de andar deve ser maior ou igual a 0`
+      );
+    }
+    return {
+      colOffset,
+      colSpan: validateGridField(seg.colSpan, `${label}: a largura`),
+      rowOffset,
+      rowSpan: validateGridField(
+        seg.rowSpan,
+        `${label}: a quantidade de andares`
+      ),
+    };
+  });
+}
+
 export const create = engineeringMutation({
   args: {
     floorId: v.id("floors"),
@@ -67,6 +114,7 @@ export const create = engineeringMutation({
     col: v.optional(v.number()),
     colSpan: v.optional(v.number()),
     rowSpan: v.optional(v.number()),
+    segments: v.optional(v.array(segmentValidator)),
   },
   returns: v.id("environments"),
   handler: async (ctx, args) => {
@@ -94,6 +142,7 @@ export const create = engineeringMutation({
       col: validateGridField(args.col, "A coluna"),
       colSpan: validateGridField(args.colSpan, "A largura"),
       rowSpan: validateGridField(args.rowSpan, "A quantidade de andares"),
+      segments: validateSegments(args.segments),
       createdAt: Date.now(),
     });
     await logAudit(ctx, ctx.user, {
@@ -116,6 +165,7 @@ export const update = engineeringMutation({
     col: v.optional(v.union(v.number(), v.null())),
     colSpan: v.optional(v.union(v.number(), v.null())),
     rowSpan: v.optional(v.union(v.number(), v.null())),
+    segments: v.optional(v.union(v.array(segmentValidator), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -129,6 +179,7 @@ export const update = engineeringMutation({
       col: number | undefined;
       colSpan: number | undefined;
       rowSpan: number | undefined;
+      segments: EnvironmentSegment[] | undefined;
     }> = {};
     if (args.name !== undefined) {
       const name = args.name.trim();
@@ -154,6 +205,10 @@ export const update = engineeringMutation({
         args.rowSpan === null
           ? undefined
           : validateGridField(args.rowSpan, "A quantidade de andares");
+    }
+    if (args.segments !== undefined) {
+      updates.segments =
+        args.segments === null ? undefined : validateSegments(args.segments);
     }
 
     await ctx.db.patch("environments", args.environmentId, updates);

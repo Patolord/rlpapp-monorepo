@@ -2,7 +2,14 @@ import { useMemo } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { Boxes, DoorOpen, Loader2, Pencil, Plus } from "lucide-react";
+import {
+  AlertTriangle,
+  Boxes,
+  DoorOpen,
+  Loader2,
+  Pencil,
+  Plus,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +36,8 @@ type SystemViewGroup = {
   /** Sistema da obra; null para itens legados sem vínculo (só string). */
   system: HierarchySystem | null;
   label: string;
+  /** Itens sem sistema algum (nem vínculo nem string) — exibem alerta. */
+  missingSystem: boolean;
   locations: SystemLocation[];
   total: number;
   installed: number;
@@ -45,6 +54,7 @@ function groupBySystem(hierarchy: ProjectHierarchy): SystemViewGroup[] {
       key: system._id,
       system,
       label: system.name,
+      missingSystem: false,
       locations: [],
       total: 0,
       installed: 0,
@@ -55,7 +65,10 @@ function groupBySystem(hierarchy: ProjectHierarchy): SystemViewGroup[] {
     for (const floor of tower.floors) {
       for (const env of floor.environments) {
         for (const item of env.equipment) {
-          const key = item.systemId ?? `legacy:${item.system}`;
+          const missingSystem = !item.systemId && !item.system;
+          const key =
+            item.systemId ??
+            (missingSystem ? "none" : `legacy:${item.system}`);
           let group = groups.get(key);
           if (!group) {
             group = {
@@ -65,7 +78,10 @@ function groupBySystem(hierarchy: ProjectHierarchy): SystemViewGroup[] {
                 : null,
               label: item.systemId
                 ? systemById.get(item.systemId)?.name ?? item.system
-                : item.system,
+                : missingSystem
+                  ? "Sem sistema"
+                  : item.system,
+              missingSystem,
               locations: [],
               total: 0,
               installed: 0,
@@ -170,12 +186,18 @@ function SystemCard({
         <Boxes className="size-4 shrink-0 text-muted-foreground" />
         <span className="truncate text-sm font-semibold">
           {group.label}
-          {group.system === null && (
+          {group.system === null && !group.missingSystem && (
             <span className="ml-1.5 text-xs font-normal text-muted-foreground">
               (legado)
             </span>
           )}
         </span>
+        {group.missingSystem && (
+          <AlertTriangle
+            className="size-3.5 shrink-0 text-amber-600"
+            aria-label="Equipamentos sem sistema"
+          />
+        )}
         {group.system?.type && (
           <span className="rounded bg-muted px-1.5 py-0.5 text-[0.625rem] uppercase text-muted-foreground">
             {group.system.type}

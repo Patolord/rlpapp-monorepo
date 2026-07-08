@@ -32,6 +32,7 @@ import { EquipmentStatusDot } from "@/components/engenharia/building-panel/equip
 import { FloorLegend } from "@/components/engenharia/building-panel/floor-grid";
 import { TowerSelector } from "@/components/engenharia/building-panel/tower-selector";
 import {
+  environmentShapeRowSpan,
   EQUIPMENT_VISUAL_STYLES,
   FLOOR_STATE_STYLES,
   getEnvironmentState,
@@ -72,15 +73,25 @@ export type BuildingMatrixActions = {
  * Visualização principal do prédio em matriz (andares nas linhas, ambientes nas
  * colunas) lida da hierarquia Torre → Andar → Ambiente. Cada célula é colorida
  * pelo estado de instalação. Clicar abre o painel lateral com os detalhes.
+ *
+ * Em `selectionMode` (painel de equipamentos não atribuídos aberto), clicar em
+ * uma célula apenas a marca como alvo da atribuição (destacada), sem abrir o
+ * sheet de detalhes.
  */
 export function BuildingMatrixPanel({
   projectId,
   now,
   actions,
+  selectionMode = false,
+  selectedTargetEnvId = null,
+  onSelectTarget,
 }: {
   projectId: Id<"projects">;
   now: number;
   actions?: BuildingMatrixActions;
+  selectionMode?: boolean;
+  selectedTargetEnvId?: string | null;
+  onSelectTarget?: (floorLabel: string, env: HierarchyEnvironment) => void;
 }) {
   const hierarchy = useQuery(api.projects.getHierarchy, {
     projectId,
@@ -119,8 +130,8 @@ export function BuildingMatrixPanel({
       const floor = floors[idx];
       const env = floor.environments.find((e) => e._id === selectedEnv.envId);
       if (!env) continue;
-      // Ambientes com rowSpan mostram o intervalo de andares ocupados.
-      const rowSpan = Math.min(Math.max(env.rowSpan ?? 1, 1), idx + 1);
+      // Formas com mais de um andar mostram o intervalo de andares ocupados.
+      const rowSpan = Math.min(environmentShapeRowSpan(env), idx + 1);
       const floorLabel =
         rowSpan > 1
           ? `${floor.label} – ${floors[idx - (rowSpan - 1)].label}`
@@ -216,9 +227,14 @@ export function BuildingMatrixPanel({
             tower={selectedTower}
             now={now}
             actions={actions}
-            onSelectEnvironment={(floorLabel, env) =>
-              setSelectedEnv({ floorLabel, envId: env._id })
-            }
+            highlightEnvId={selectionMode ? selectedTargetEnvId : null}
+            onSelectEnvironment={(floorLabel, env) => {
+              if (selectionMode && onSelectTarget) {
+                onSelectTarget(floorLabel, env);
+                return;
+              }
+              setSelectedEnv({ floorLabel, envId: env._id });
+            }}
           />
 
           <FloorLegend />
@@ -240,11 +256,14 @@ function BuildingMatrix({
   tower,
   now,
   actions,
+  highlightEnvId = null,
   onSelectEnvironment,
 }: {
   tower: HierarchyTower;
   now: number;
   actions?: BuildingMatrixActions;
+  /** Ambiente destacado como alvo da atribuição (modo seleção). */
+  highlightEnvId?: string | null;
   onSelectEnvironment: (floorLabel: string, env: HierarchyEnvironment) => void;
 }) {
   const layout = useMemo(() => resolveMatrixLayout(tower), [tower]);
@@ -352,9 +371,10 @@ function BuildingMatrix({
           {/* Janelas / Ambientes */}
           {cells.map((cell) => (
             <MatrixCellButton
-              key={cell.env._id}
+              key={`${cell.env._id}:${cell.segmentIndex}`}
               cell={cell}
               now={now}
+              highlighted={cell.env._id === highlightEnvId}
               onSelectEnvironment={onSelectEnvironment}
             />
           ))}
@@ -398,10 +418,12 @@ function BuildingMatrix({
 function MatrixCellButton({
   cell,
   now,
+  highlighted = false,
   onSelectEnvironment,
 }: {
   cell: MatrixCell;
   now: number;
+  highlighted?: boolean;
   onSelectEnvironment: (floorLabel: string, env: HierarchyEnvironment) => void;
 }) {
   const { env, floor } = cell;
@@ -414,43 +436,67 @@ function MatrixCellButton({
     ? `${floor.label} – ${cell.topFloorLabel}`
     : floor.label;
   const spanBadge =
-    cell.rowSpan === 2 ? "Duplex" : cell.rowSpan === 3 ? "Triplex" : null;
+    cell.shapeRowSpan === 2
+      ? "Duplex"
+      : cell.shapeRowSpan === 3
+        ? "Triplex"
+        : null;
+
+  const isPrimary = cell.segmentIndex === 0;
+  // Lados encostados em outro retângulo do mesmo ambiente colam no vizinho
+  // (sem margem/raio) e escondem a borda de um dos lados para unir a forma.
+  const merged =
+    cell.flushTop || cell.flushRight || cell.flushBottom || cell.flushLeft;
 
   return (
     <button
       type="button"
       onClick={() => onSelectEnvironment(floorLabel, env)}
       className={cn(
-        "m-2 flex min-h-18 flex-col gap-0.5 rounded-sm border-2 p-2 text-left shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5",
-        style.cell
+        "m-2 flex min-h-18 flex-col gap-0.5 rounded-sm border-2 p-2 text-left shadow-sm transition-all hover:shadow-md",
+        !merged && "hover:-translate-y-0.5",
+        cell.flushTop && "mt-0 rounded-t-none",
+        cell.flushRight && "mr-0 rounded-r-none",
+        cell.flushBottom && "mb-0 rounded-b-none",
+        cell.flushLeft && "ml-0 rounded-l-none",
+        style.cell,
+        highlighted && "ring-2 ring-primary ring-offset-2"
       )}
       style={{
         gridRow: `${cell.row} / span ${cell.rowSpan}`,
         gridColumn: `${cell.col + 1} / span ${cell.colSpan}`,
       }}
+      aria-label={isPrimary ? undefined : env.name}
     >
-      <span className="flex items-center gap-1">
-        <span className={cn("size-2 shrink-0 rounded-full", style.dot)} />
-        <span className="truncate text-xs font-semibold">{env.name}</span>
-        {state.overdue && (
-          <AlertTriangle className="ml-auto size-3 shrink-0 text-red-600" />
-        )}
-      </span>
-      {(env.type || spanBadge || cell.rowSpan > 3) && (
-        <span className="truncate text-[0.625rem] uppercase text-muted-foreground">
-          {[
-            env.type,
-            spanBadge ?? (cell.rowSpan > 3 ? `${cell.rowSpan} andares` : null),
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </span>
+      {isPrimary && (
+        <>
+          <span className="flex items-center gap-1">
+            <span className={cn("size-2 shrink-0 rounded-full", style.dot)} />
+            <span className="truncate text-xs font-semibold">{env.name}</span>
+            {state.overdue && (
+              <AlertTriangle className="ml-auto size-3 shrink-0 text-red-600" />
+            )}
+          </span>
+          {(env.type || spanBadge || cell.shapeRowSpan > 3) && (
+            <span className="truncate text-[0.625rem] uppercase text-muted-foreground">
+              {[
+                env.type,
+                spanBadge ??
+                  (cell.shapeRowSpan > 3
+                    ? `${cell.shapeRowSpan} andares`
+                    : null),
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          )}
+          <span className="mt-auto text-[0.625rem] font-medium tabular-nums text-muted-foreground">
+            {state.total === 0
+              ? "sem equip."
+              : `${state.installed}/${state.total} equip.`}
+          </span>
+        </>
       )}
-      <span className="mt-auto text-[0.625rem] font-medium tabular-nums text-muted-foreground">
-        {state.total === 0
-          ? "sem equip."
-          : `${state.installed}/${state.total} equip.`}
-      </span>
     </button>
   );
 }
@@ -462,6 +508,8 @@ type EnvironmentSystemGroup = {
   system: HierarchySystem | null;
   /** Nome exibido (nome do sistema ou string legada). */
   label: string;
+  /** Itens sem sistema algum (nem vínculo nem string) — exibem alerta. */
+  missingSystem: boolean;
   items: HierarchyItem[];
 };
 
@@ -476,13 +524,16 @@ function groupEquipmentBySystem(
     const system = item.systemId
       ? systemById.get(item.systemId) ?? null
       : null;
-    const key = item.systemId ?? `legacy:${item.system}`;
+    const missingSystem = !item.systemId && !item.system;
+    const key =
+      item.systemId ?? (missingSystem ? "none" : `legacy:${item.system}`);
     let group = groups.get(key);
     if (!group) {
       group = {
         key,
         system,
-        label: system?.name ?? item.system,
+        label: system?.name ?? (missingSystem ? "Sem sistema" : item.system),
+        missingSystem,
         items: [],
       };
       groups.set(key, group);
@@ -613,6 +664,12 @@ function SystemGroup({
         <span className="truncate text-xs font-semibold uppercase tracking-wide">
           {group.label}
         </span>
+        {group.missingSystem && (
+          <AlertTriangle
+            className="size-3.5 shrink-0 text-amber-600"
+            aria-label="Equipamentos sem sistema"
+          />
+        )}
         {group.system?.type && (
           <span className="rounded bg-muted px-1.5 py-0.5 text-[0.625rem] uppercase text-muted-foreground">
             {group.system.type}
@@ -681,6 +738,17 @@ export function EquipmentRow({
           {item.kind === "condensadora" ? "Condensadora" : "Evaporadora"}
         </span>
         <span className={cn("font-medium", style.text)}>{style.label}</span>
+        {!item.systemId && !item.system && (
+          <span
+            className="inline-flex items-center gap-1 text-amber-600"
+            title="Equipamento sem sistema"
+          >
+            <AlertTriangle className="size-3 shrink-0" />
+            <span className="text-[0.625rem] font-medium uppercase">
+              Sem sistema
+            </span>
+          </span>
+        )}
       </div>
 
       {(item.modelo || item.capacidade || item.serialNumber) && (

@@ -102,6 +102,13 @@ export async function buildProjectHierarchy(
               col: env.col ?? null,
               colSpan: env.colSpan ?? null,
               rowSpan: env.rowSpan ?? null,
+              segments:
+                env.segments?.map((seg) => ({
+                  colOffset: seg.colOffset,
+                  colSpan: seg.colSpan ?? null,
+                  rowOffset: seg.rowOffset ?? null,
+                  rowSpan: seg.rowSpan ?? null,
+                })) ?? null,
               equipment: envItems.map((e) => ({
                 _id: e._id,
                 system: e.system,

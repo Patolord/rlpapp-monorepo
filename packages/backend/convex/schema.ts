@@ -191,6 +191,21 @@ export default defineSchema({
     // Altura em andares a partir do andar-base, para cima (duplex = 2,
     // triplex = 3). O ambiente permanece vinculado ao andar mais baixo.
     rowSpan: v.optional(v.number()),
+    // Retângulos extras que compõem regiões não-retangulares (ex: forma em
+    // "L"). Posições relativas ao retângulo principal: `colOffset` em colunas
+    // (0 = mesma coluna, pode ser negativo) e `rowOffset` em andares acima do
+    // andar-base (0 = mesmo andar). A forma inteira se move junta quando o
+    // auto-posicionamento precisa deslocá-la.
+    segments: v.optional(
+      v.array(
+        v.object({
+          colOffset: v.number(),
+          colSpan: v.optional(v.number()),
+          rowOffset: v.optional(v.number()),
+          rowSpan: v.optional(v.number()),
+        })
+      )
+    ),
     createdAt: v.number(),
   })
     .index("by_floor", ["floorId"])

@@ -367,6 +367,7 @@ const actionLabels: Record<string, string> = {
   status_changed: "Status alterado",
   created: "Equipamento criado",
   updated: "Equipamento atualizado",
+  assigned: "Equipamento atribuído",
   linked: "Equipamento vinculado",
   unlinked: "Equipamento desvinculado",
 };

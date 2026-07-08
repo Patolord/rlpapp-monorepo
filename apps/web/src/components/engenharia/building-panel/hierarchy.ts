@@ -24,6 +24,19 @@ export type HierarchyItem = {
   testDate: number | null;
 };
 
+/**
+ * Retângulo extra de um ambiente não-retangular (ex: forma em "L").
+ * Posições relativas ao retângulo principal: `colOffset` em colunas (0 =
+ * mesma coluna, pode ser negativo) e `rowOffset` em andares acima do
+ * andar-base (0 = mesmo andar).
+ */
+export type EnvironmentSegment = {
+  colOffset: number;
+  colSpan: number | null;
+  rowOffset: number | null;
+  rowSpan: number | null;
+};
+
 export type HierarchyEnvironment = {
   _id: Id<"environments">;
   name: string;
@@ -35,6 +48,8 @@ export type HierarchyEnvironment = {
   colSpan: number | null;
   /** Altura em andares a partir do andar-base, para cima (null = 1). */
   rowSpan: number | null;
+  /** Retângulos extras de regiões não-retangulares (null = retângulo único). */
+  segments: EnvironmentSegment[] | null;
   equipment: HierarchyItem[];
 };
 
@@ -77,13 +92,22 @@ export type MatrixCell = {
   env: HierarchyEnvironment;
   /** Andar-base (o mais baixo que a célula ocupa). */
   floor: HierarchyFloor;
-  /** Rótulo do andar mais alto ocupado (null quando rowSpan = 1). */
+  /** Rótulo do andar mais alto ocupado pela forma (null quando ocupa 1 andar). */
   topFloorLabel: string | null;
   /** Linha do grid onde a célula começa (a mais alta que ela ocupa). */
   row: number;
   col: number;
   rowSpan: number;
   colSpan: number;
+  /** Índice do retângulo na forma do ambiente (0 = principal, com conteúdo). */
+  segmentIndex: number;
+  /** Total de andares que a forma inteira ocupa (badge duplex/triplex). */
+  shapeRowSpan: number;
+  /** Lados encostados em outro retângulo do mesmo ambiente (render unido). */
+  flushTop: boolean;
+  flushRight: boolean;
+  flushBottom: boolean;
+  flushLeft: boolean;
 };
 
 export type MatrixLayout = {
@@ -96,11 +120,60 @@ export type MatrixLayout = {
   emptySlots: { row: number; col: number }[];
 };
 
+/** Retângulo da forma de um ambiente, em linhas absolutas do grid. */
+type ShapeRect = {
+  colOffset: number;
+  colSpan: number;
+  /** Linha do topo do retângulo (1 = andar mais alto da torre). */
+  top: number;
+  /** Linha da base do retângulo. */
+  bottom: number;
+};
+
+/**
+ * Retângulos que compõem a forma do ambiente (principal + segmentos extras),
+ * com linhas resolvidas a partir do andar-base e limitadas à torre.
+ */
+function resolveShapeRects(
+  env: HierarchyEnvironment,
+  baseRow: number
+): ShapeRect[] {
+  const raw = [
+    {
+      colOffset: 0,
+      colSpan: Math.max(env.colSpan ?? 1, 1),
+      rowOffset: 0,
+      rowSpan: Math.max(env.rowSpan ?? 1, 1),
+    },
+    ...(env.segments ?? []).map((seg) => ({
+      colOffset: seg.colOffset,
+      colSpan: Math.max(seg.colSpan ?? 1, 1),
+      rowOffset: Math.max(seg.rowOffset ?? 0, 0),
+      rowSpan: Math.max(seg.rowSpan ?? 1, 1),
+    })),
+  ];
+
+  const rects: ShapeRect[] = [];
+  for (const r of raw) {
+    const bottom = baseRow - r.rowOffset;
+    // Segmento inteiro acima do topo da torre: descartado.
+    if (bottom < 1) continue;
+    rects.push({
+      colOffset: r.colOffset,
+      colSpan: r.colSpan,
+      top: Math.max(1, bottom - r.rowSpan + 1),
+      bottom,
+    });
+  }
+  return rects;
+}
+
 /**
  * Resolve o layout esquemático de uma torre: honra `col` explícito quando o
  * espaço está livre (senão desloca para a próxima coluna livre), auto-empacota
  * ambientes sem coluna e limita `rowSpan` aos andares que existem acima do
- * andar-base. Dados conflitantes degradam de forma previsível, sem sobrepor.
+ * andar-base. Formas não-retangulares (segmentos extras) são posicionadas como
+ * um bloco único. Dados conflitantes degradam de forma previsível, sem sobrepor.
  */
 export function resolveMatrixLayout(tower: HierarchyTower): MatrixLayout {
   const floors = tower.floors.slice().sort((a, b) => b.number - a.number);
@@ -110,47 +183,77 @@ export function resolveMatrixLayout(tower: HierarchyTower): MatrixLayout {
   const occupied = new Set<string>();
   const cells: MatrixCell[] = [];
 
-  const rectCells = (
-    baseRow: number,
-    col: number,
-    rowSpan: number,
-    colSpan: number
-  ): string[] => {
-    const keys: string[] = [];
-    for (let r = baseRow - rowSpan + 1; r <= baseRow; r++) {
-      for (let c = col; c < col + colSpan; c++) {
-        keys.push(`${r}:${c}`);
-      }
-    }
-    return keys;
-  };
-
   const place = (
     env: HierarchyEnvironment,
     floor: HierarchyFloor,
     startCol: number
   ) => {
     const baseRow = rowByFloorId.get(floor._id)!;
-    // O span sobe a partir do andar-base; não pode passar do topo da torre.
-    const rowSpan = Math.min(Math.max(env.rowSpan ?? 1, 1), baseRow);
-    const colSpan = Math.max(env.colSpan ?? 1, 1);
+    const rects = resolveShapeRects(env, baseRow);
+    if (rects.length === 0) return;
 
-    let col = Math.max(startCol, 1);
-    while (rectCells(baseRow, col, rowSpan, colSpan).some((k) => occupied.has(k))) {
+    const shapeKeys = (anchor: number): Set<string> => {
+      const keys = new Set<string>();
+      for (const r of rects) {
+        for (let row = r.top; row <= r.bottom; row++) {
+          const left = anchor + r.colOffset;
+          for (let c = left; c < left + r.colSpan; c++) {
+            keys.add(`${row}:${c}`);
+          }
+        }
+      }
+      return keys;
+    };
+
+    // Segmentos podem estender a forma para a esquerda; a âncora precisa
+    // garantir que toda a forma fique em colunas >= 1.
+    const minColOffset = Math.min(...rects.map((r) => r.colOffset));
+    let col = Math.max(startCol, 1, 1 - minColOffset);
+    while ([...shapeKeys(col)].some((k) => occupied.has(k))) {
       col++;
     }
-    for (const key of rectCells(baseRow, col, rowSpan, colSpan)) {
-      occupied.add(key);
-    }
-    const topRow = baseRow - rowSpan + 1;
-    cells.push({
-      env,
-      floor,
-      topFloorLabel: rowSpan > 1 ? floors[topRow - 1].label : null,
-      row: topRow,
-      col,
-      rowSpan,
-      colSpan,
+    const keys = shapeKeys(col);
+    for (const key of keys) occupied.add(key);
+
+    const shapeTopRow = Math.min(...rects.map((r) => r.top));
+    const shapeRowSpan = baseRow - shapeTopRow + 1;
+
+    rects.forEach((r, idx) => {
+      const left = col + r.colOffset;
+      const right = left + r.colSpan - 1;
+      const inShape = (row: number, c: number) => keys.has(`${row}:${c}`);
+
+      let flushTop = false;
+      let flushBottom = false;
+      for (let c = left; c <= right; c++) {
+        if (inShape(r.top - 1, c)) flushTop = true;
+        if (inShape(r.bottom + 1, c)) flushBottom = true;
+      }
+      let flushLeft = false;
+      let flushRight = false;
+      for (let row = r.top; row <= r.bottom; row++) {
+        if (inShape(row, left - 1)) flushLeft = true;
+        if (inShape(row, right + 1)) flushRight = true;
+      }
+
+      cells.push({
+        env,
+        floor,
+        topFloorLabel:
+          idx === 0 && shapeTopRow < baseRow
+            ? floors[shapeTopRow - 1].label
+            : null,
+        row: r.top,
+        col: left,
+        rowSpan: r.bottom - r.top + 1,
+        colSpan: r.colSpan,
+        segmentIndex: idx,
+        shapeRowSpan,
+        flushTop,
+        flushRight,
+        flushBottom,
+        flushLeft,
+      });
     });
   };
 
@@ -188,6 +291,20 @@ export function resolveMatrixLayout(tower: HierarchyTower): MatrixLayout {
   }
 
   return { floors, cols, cells, emptySlots };
+}
+
+/**
+ * Quantos andares a forma do ambiente ocupa a partir do andar-base
+ * (considerando o retângulo principal e os segmentos extras).
+ */
+export function environmentShapeRowSpan(env: HierarchyEnvironment): number {
+  return Math.max(
+    env.rowSpan ?? 1,
+    1,
+    ...(env.segments ?? []).map(
+      (seg) => (seg.rowOffset ?? 0) + Math.max(seg.rowSpan ?? 1, 1)
+    )
+  );
 }
 
 /** Estado agregado de um andar (para colorir a grade). */

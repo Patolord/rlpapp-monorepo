@@ -189,6 +189,7 @@ export const duplicate = engineeringMutation({
           col: env.col,
           colSpan: env.colSpan,
           rowSpan: env.rowSpan,
+          segments: env.segments,
           createdAt: Date.now(),
         });
 
