@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { engineeringMutation, engineeringQuery } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
+import { deleteSystemsIfOrphaned } from "./systems";
+import type { Id } from "./_generated/dataModel";
 
 // Lista os ambientes de um andar (ordenados).
 export const listByFloor = engineeringQuery({
@@ -122,7 +124,9 @@ export const remove = engineeringMutation({
       .query("projectEquipment")
       .withIndex("by_environment", (q) => q.eq("environmentId", args.environmentId))
       .collect();
+    const affectedSystemIds = new Set<Id<"systems">>();
     for (const item of items) {
+      if (item.systemId) affectedSystemIds.add(item.systemId);
       if (item.linkedEquipmentId) {
         await ctx.db.patch("equipment", item.linkedEquipmentId, {
           projectEquipmentId: undefined,
@@ -131,6 +135,8 @@ export const remove = engineeringMutation({
       await ctx.db.delete("projectEquipment", item._id);
     }
     await ctx.db.delete("environments", args.environmentId);
+    // Cascata: sistemas que ficaram sem equipamentos são removidos também.
+    await deleteSystemsIfOrphaned(ctx, ctx.user, affectedSystemIds);
     await logAudit(ctx, ctx.user, {
       action: "delete",
       tableName: "environments",

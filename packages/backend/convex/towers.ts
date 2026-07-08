@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { engineeringMutation, engineeringQuery } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
+import { deleteSystemsIfOrphaned } from "./systems";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 
@@ -121,8 +122,10 @@ export const remove = engineeringMutation({
     const tower = await ctx.db.get("towers", args.towerId);
     if (!tower) return null;
 
-    await cascadeDeleteTower(ctx, args.towerId);
+    const affectedSystemIds = await cascadeDeleteTower(ctx, args.towerId);
     await ctx.db.delete("towers", args.towerId);
+    // Cascata: sistemas que ficaram sem equipamentos são removidos também.
+    await deleteSystemsIfOrphaned(ctx, ctx.user, affectedSystemIds);
     await logAudit(ctx, ctx.user, {
       action: "delete",
       tableName: "towers",
@@ -227,10 +230,12 @@ export const duplicate = engineeringMutation({
 });
 
 // Helper de cascata: apaga andares, ambientes e equipamentos de uma torre.
+// Retorna os sistemas afetados para checagem de órfãos pelo chamador.
 async function cascadeDeleteTower(
   ctx: MutationCtx,
   towerId: Id<"towers">
-): Promise<void> {
+): Promise<Set<Id<"systems">>> {
+  const affectedSystemIds = new Set<Id<"systems">>();
   const floors = await ctx.db
     .query("floors")
     .withIndex("by_tower", (q) => q.eq("towerId", towerId))
@@ -247,6 +252,7 @@ async function cascadeDeleteTower(
         .withIndex("by_environment", (q) => q.eq("environmentId", env._id))
         .collect();
       for (const item of items) {
+        if (item.systemId) affectedSystemIds.add(item.systemId);
         if (item.linkedEquipmentId) {
           await ctx.db.patch("equipment", item.linkedEquipmentId, {
             projectEquipmentId: undefined,
@@ -258,4 +264,5 @@ async function cascadeDeleteTower(
     }
     await ctx.db.delete("floors", floor._id);
   }
+  return affectedSystemIds;
 }

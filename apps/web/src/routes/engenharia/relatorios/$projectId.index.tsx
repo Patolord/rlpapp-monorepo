@@ -3,7 +3,15 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { Download, Loader2, Plus, Search, Trash2 } from "lucide-react";
+import {
+  Boxes,
+  Building2,
+  Download,
+  Loader2,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 
 import { AuthShell } from "@/components/auth-shell";
 import { LinkEquipmentDialog } from "@/components/engenharia/link-equipment-dialog";
@@ -13,6 +21,7 @@ import {
   BuildingMatrixPanel,
   type BuildingMatrixActions,
 } from "@/components/engenharia/building-panel/building-matrix";
+import { SystemsPanel } from "@/components/engenharia/building-panel/systems-panel";
 import {
   AddEnvironmentDialog,
   AddEquipmentDialog,
@@ -115,6 +124,7 @@ function HierarchyBuilding({
   const systems =
     useQuery(api.systems.listSystemsByProject, { projectId }) ?? [];
 
+  const [view, setView] = useState<"predio" | "sistemas">("predio");
   const [towerDialogOpen, setTowerDialogOpen] = useState(false);
   const [editTowerTarget, setEditTowerTarget] = useState<HierarchyTower | null>(
     null
@@ -153,7 +163,7 @@ function HierarchyBuilding({
     onRemoveEnvironment: (env) => {
       if (
         !window.confirm(
-          `Remover o ambiente "${env.name}" e TODOS os seus equipamentos? Esta ação não pode ser desfeita.`
+          `Remover o ambiente "${env.name}" e TODOS os seus equipamentos? Sistemas que ficarem sem equipamentos também serão removidos. Esta ação não pode ser desfeita.`
         )
       )
         return;
@@ -199,12 +209,40 @@ function HierarchyBuilding({
   return (
     <>
       <Card>
-        <CardContent className="py-6">
-          <BuildingMatrixPanel
-            projectId={project._id as Id<"projects">}
-            now={now}
-            actions={actions}
-          />
+        <CardContent className="space-y-4 py-6">
+          <div className="flex justify-end">
+            <div className="inline-flex rounded-md border p-0.5">
+              <Button
+                variant={view === "predio" ? "secondary" : "ghost"}
+                size="xs"
+                onClick={() => setView("predio")}
+              >
+                <Building2 className="mr-1.5 size-3.5" />
+                Prédio
+              </Button>
+              <Button
+                variant={view === "sistemas" ? "secondary" : "ghost"}
+                size="xs"
+                onClick={() => setView("sistemas")}
+              >
+                <Boxes className="mr-1.5 size-3.5" />
+                Sistemas
+              </Button>
+            </div>
+          </div>
+          {view === "predio" ? (
+            <BuildingMatrixPanel
+              projectId={project._id as Id<"projects">}
+              now={now}
+              actions={actions}
+            />
+          ) : (
+            <SystemsPanel
+              projectId={project._id as Id<"projects">}
+              now={now}
+              actions={actions}
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -748,8 +786,10 @@ function FilterSelect({
   placeholder: string;
   options: { value: string; label: string }[];
 }) {
+  // `items` faz o trigger exibir o rótulo da opção em vez do valor bruto.
+  const items = Object.fromEntries(options.map((o) => [o.value, o.label]));
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select value={value} items={items} onValueChange={onChange}>
       <SelectTrigger className="sm:w-44">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>

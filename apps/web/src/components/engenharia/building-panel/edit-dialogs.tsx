@@ -504,7 +504,7 @@ export function EditEnvironmentDialog({
     if (!environment) return;
     if (
       !window.confirm(
-        `Remover o ambiente "${environment.name}" e TODOS os seus equipamentos? Esta ação não pode ser desfeita.`
+        `Remover o ambiente "${environment.name}" e TODOS os seus equipamentos? Sistemas que ficarem sem equipamentos também serão removidos. Esta ação não pode ser desfeita.`
       )
     )
       return;
@@ -782,6 +782,10 @@ export function EditSystemDialog({
 /** Valor sentinela do Select que dispara a criação de um novo sistema. */
 const NEW_SYSTEM_VALUE = "__new_system__";
 
+function systemLabel(s: SystemOption): string {
+  return s.type ? `${s.name} · ${s.type}` : s.name;
+}
+
 function SystemSelect({
   id,
   systems,
@@ -795,9 +799,17 @@ function SystemSelect({
   onChange: (systemId: Id<"systems">) => void;
   onRequestNewSystem?: () => void;
 }) {
+  // O `items` é obrigatório para o trigger exibir o nome do sistema em vez do
+  // id bruto (Base UI Select resolve o rótulo do valor selecionado por aqui).
+  const items: Record<string, string> = Object.fromEntries(
+    systems.map((s) => [s._id, systemLabel(s)])
+  );
+  if (onRequestNewSystem) items[NEW_SYSTEM_VALUE] = "+ Novo sistema";
+
   return (
     <Select
-      value={value ?? ""}
+      value={value}
+      items={items}
       onValueChange={(v) => {
         if (v === NEW_SYSTEM_VALUE) {
           onRequestNewSystem?.();
@@ -812,8 +824,7 @@ function SystemSelect({
       <SelectContent>
         {systems.map((s) => (
           <SelectItem key={s._id} value={s._id}>
-            {s.name}
-            {s.type ? ` · ${s.type}` : ""}
+            {systemLabel(s)}
           </SelectItem>
         ))}
         {onRequestNewSystem && (
@@ -823,6 +834,11 @@ function SystemSelect({
     </Select>
   );
 }
+
+const KIND_ITEMS: Record<string, string> = {
+  evaporadora: "Evaporadora",
+  condensadora: "Condensadora",
+};
 
 export function AddEquipmentDialog({
   environment,
@@ -912,6 +928,7 @@ export function AddEquipmentDialog({
               <Label>Tipo</Label>
               <Select
                 value={kind}
+                items={KIND_ITEMS}
                 onValueChange={(v) =>
                   setKind(v as "condensadora" | "evaporadora")
                 }
@@ -1070,6 +1087,7 @@ export function EditEquipmentDialog({
               <Label>Tipo</Label>
               <Select
                 value={kind}
+                items={KIND_ITEMS}
                 onValueChange={(v) =>
                   setKind(v as "condensadora" | "evaporadora")
                 }

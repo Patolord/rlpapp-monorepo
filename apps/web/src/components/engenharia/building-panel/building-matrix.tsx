@@ -633,7 +633,7 @@ function SystemGroup({
   );
 }
 
-function EquipmentRow({
+export function EquipmentRow({
   item,
   env,
   now,
