@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { getClerkLoginErrorMessage, normalizeUsername, sanitizeUsernameInput } from "@rlpapp/shared";
+import { LoadingState } from "@rlpapp/ui/web";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,8 +53,8 @@ function IndexPage() {
 
   if (!isLoaded || isSignedIn) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-[#0b1228] via-[#0d1631] to-[#111b3d]">
-        <Loader2 className="size-8 animate-spin text-white/60" />
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f8fc]">
+        <LoadingState label="Carregando..." />
       </div>
     );
   }
@@ -97,25 +98,23 @@ function LoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-[#0b1228] via-[#0d1631] to-[#111b3d] px-4">
-      <Card className="w-full max-w-md border-white/10 bg-white/5 backdrop-blur-sm">
+    <div className="flex min-h-screen items-center justify-center bg-[#f7f8fc] px-4">
+      <Card className="w-full max-w-md shadow-sm">
         <CardHeader className="items-center text-center pb-2">
           <img
             src="/logo.jpg"
             alt="RLP Engenharia"
-            className="mb-3 size-20 rounded-full object-cover"
+            className="mb-3 size-20 object-contain"
           />
-          <CardTitle className="text-2xl font-bold text-white">
-            RLP Engenharia
-          </CardTitle>
-          <CardDescription className="text-base text-white/60">
+          <CardTitle className="text-2xl font-bold">RLP Engenharia</CardTitle>
+          <CardDescription className="text-base">
             Acesse sua conta para continuar
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="grid gap-5">
             <div className="grid gap-2">
-              <Label htmlFor="username" className="text-base text-white/80">
+              <Label htmlFor="username" className="text-base">
                 Usuário
               </Label>
               <Input
@@ -128,11 +127,11 @@ function LoginForm() {
                 autoComplete="username"
                 autoCapitalize="none"
                 autoCorrect="off"
-                className="h-12 text-base border-white/15 bg-white/10 text-white placeholder:text-white/40 focus-visible:border-white/30 focus-visible:ring-white/20"
+                className="h-12 text-base"
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="password" className="text-base text-white/80">
+              <Label htmlFor="password" className="text-base">
                 Senha
               </Label>
               <Input
@@ -143,16 +142,16 @@ function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="h-12 text-base border-white/15 bg-white/10 text-white placeholder:text-white/40 focus-visible:border-white/30 focus-visible:ring-white/20"
+                className="h-12 text-base"
               />
             </div>
 
-            {error && <p className="text-base text-red-400">{error}</p>}
+            {error && <p className="text-base text-destructive">{error}</p>}
 
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-12 text-base font-semibold bg-white text-[#0b1228] hover:bg-white/90"
+              className="h-12 w-full text-base font-semibold"
             >
               {loading && <Loader2 className="mr-2 size-5 animate-spin" />}
               Entrar
