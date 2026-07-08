@@ -3,6 +3,7 @@
 import { v, type Infer } from "convex/values";
 import OpenAI from "openai";
 import { action, env } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { aiIntentValidator } from "./aiIntents";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
@@ -268,6 +269,11 @@ function asNumber(v: unknown, fallback: number): number {
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? n : fallback;
 }
+/** Posição/tamanho na matriz: inteiro >= 1 ou undefined. */
+function asGridNumber(v: unknown): number | undefined {
+  const n = Math.floor(asNumber(v, NaN));
+  return Number.isFinite(n) && n >= 1 ? n : undefined;
+}
 
 function normalizeProposal(parsed: unknown): {
   reply: string;
@@ -338,7 +344,8 @@ Criação:
 - {"type":"create_tower","name":string}
 - {"type":"duplicate_tower","towerName":string,"newName?":string}
 - {"type":"create_floors","towerName":string,"from":number,"to":number}
-- {"type":"create_environment","towerName":string,"floorNumber":number,"name":string,"envType?":string}
+- {"type":"create_environment","towerName":string,"floorNumber":number,"name":string,"envType?":string,"col?":number,"colSpan?":number,"rowSpan?":number} — col/colSpan/rowSpan definem posição e tamanho na matriz esquemática do prédio (inteiros >= 1)
+- {"type":"create_system","name":string,"systemType?":string,"obs?":string} — cria um sistema de climatização na obra (ex: "VRF 1" do tipo "VRF")
 - {"type":"add_equipment","towerName":string,"floorNumber":number,"environmentName":string,"system":string,"kind":"condensadora"|"evaporadora","modelo?":string,"capacidade?":string,"serialNumber?":string,"deadline?":"YYYY-MM-DD"}
 - {"type":"create_checklist_template","name":string,"items":[{"label":string,"required":boolean}]}
 
@@ -346,15 +353,20 @@ Atualização:
 - {"type":"set_floor_deadline","towerName":string,"floorNumber":number,"deadline":"YYYY-MM-DD"} — altera o prazo de TODOS os equipamentos de um andar inteiro
 - {"type":"update_equipment","towerName":string,"floorNumber":number,"environmentName":string,"kind?":"condensadora"|"evaporadora","system?":string,"deadline?":"YYYY-MM-DD","modelo?":string,"capacidade?":string,"status?":"installing"|"operational"|"warning"|"error"} — atualiza equipamento(s) de um ambiente específico
 - {"type":"rename_environment","towerName":string,"floorNumber":number,"oldName":string,"newName":string} — renomeia um ambiente
+- {"type":"resize_environment","towerName":string,"floorNumber":number,"name":string,"col?":number,"colSpan?":number,"rowSpan?":number} — reposiciona/redimensiona um ambiente existente na matriz (col = coluna 1-based, colSpan = largura em colunas, rowSpan = altura em andares; duplex = 2, triplex = 3)
+- {"type":"assign_qr","token":string,"towerName":string,"floorNumber":number,"environmentName":string,"system?":string,"kind?":"condensadora"|"evaporadora"} — vincula um QR code disponível a um equipamento planejado do ambiente
 
 Regras:
 - Sempre referencie torre/andar/ambiente por NOME/NÚMERO. Para criar equipamento num ambiente novo, gere os intents na ordem: create_tower → create_floors → create_environment → add_equipment.
+- Tamanhos de ambiente: use colSpan para ambientes largos (ex: hall que ocupa 2 colunas) e rowSpan para ambientes que atravessam andares (duplex = 2, triplex = 3). Para alterar o tamanho de um ambiente que já existe, use resize_environment.
+- Para criar VÁRIOS sistemas com seus equipamentos: gere um create_system por sistema e depois um add_equipment por equipamento, referenciando o sistema pelo MESMO nome. Um sistema VRF tem 1 condensadora (em "Área Técnica") e várias evaporadoras nos ambientes atendidos.
 - Datas devem ser strings no formato "YYYY-MM-DD" (ex: "2026-06-23" para 23 de junho de 2026). NÃO use epoch/timestamps.
 - Se faltar uma informação crítica (ex: qual torre), use "needsClarification" e NÃO invente.
 - Toda condensadora normalmente fica em "Área Técnica".
 - UMA ÚNICA TORRE por padrão: se a fonte NÃO mencionar explicitamente mais de uma torre/bloco, crie apenas UMA torre (ex: "Torre Única"). NUNCA crie uma torre por aba, por andar ou por apartamento.
 - Planilhas costumam REPETIR os mesmos dados em várias abas (ex: uma aba "Global" com tudo + uma aba por andar como "2º Andar", "3º Andar"...). Trate todas as abas como a MESMA obra e DEDUPLIQUE: cada andar/ambiente/equipamento deve aparecer UMA única vez. Prefira a aba mais completa (geralmente "Global").
 - Deduza o andar pelo número do apartamento/unidade: 201→andar 2, 305→andar 3, 1204→andar 12. O "Final" costuma ser o último dígito (ex: 204→final 4).
+- QR codes: use assign_qr SOMENTE com tokens listados na seção "QR codes disponíveis" do contexto. Quando o usuário citar um lote pelo nome (ex: "lote Lorena"), use os tokens daquele lote, na ordem em que aparecem. Se não houver QR disponível compatível, use "needsClarification" — NUNCA invente tokens. O equipamento precisa existir (ou ser criado com add_equipment na mesma proposta) antes do assign_qr.
 - Responda SOMENTE com o JSON, sem texto fora dele.`;
 
 export const interpret = action({
@@ -407,8 +419,31 @@ export const interpret = action({
       }
     }
 
+    // QR codes ativos e ainda não vinculados, para a IA propor assign_qr com
+    // tokens reais (agrupados por lote para facilitar pedidos como "lote X").
+    const unassignedQrs: {
+      token: string;
+      batchName: string | null;
+      createdAt: number;
+    }[] = await ctx.runQuery(internal.qrCodes.listUnassignedForAi, {});
+    let qrContext = "";
+    if (unassignedQrs.length > 0) {
+      const byBatch = new Map<string, string[]>();
+      for (const qr of unassignedQrs) {
+        const batch = qr.batchName ?? "(sem lote)";
+        const list = byBatch.get(batch) ?? [];
+        list.push(qr.token);
+        byBatch.set(batch, list);
+      }
+      const lines = [...byBatch.entries()].map(
+        ([batch, tokens]) => `Lote "${batch}": ${tokens.join(", ")}`
+      );
+      qrContext = `QR codes disponíveis (não vinculados):\n${lines.join("\n")}`;
+    }
+
     const textContent = [
       args.context?.trim() ? `Contexto atual da obra:\n${args.context.trim()}` : "",
+      qrContext,
       args.message?.trim() ? `Pedido do usuário: ${args.message.trim()}` : "",
       ...extractedParts,
     ]
@@ -545,6 +580,77 @@ function normalizeIntentResponse(parsed: unknown): {
             name,
           };
           if (typeof o.envType === "string") intent.envType = o.envType;
+          const col = asGridNumber(o.col);
+          if (col !== undefined) intent.col = col;
+          const colSpan = asGridNumber(o.colSpan);
+          if (colSpan !== undefined) intent.colSpan = colSpan;
+          const rowSpan = asGridNumber(o.rowSpan);
+          if (rowSpan !== undefined) intent.rowSpan = rowSpan;
+          intents.push(intent as AiIntent);
+        }
+        break;
+      }
+      case "resize_environment": {
+        const towerName = asString(o.towerName);
+        const name = asString(o.name);
+        const floorNumber = asNumber(o.floorNumber, NaN);
+        if (towerName && name && Number.isFinite(floorNumber)) {
+          const intent: Record<string, unknown> = {
+            type,
+            towerName,
+            floorNumber: Math.floor(floorNumber),
+            name,
+          };
+          const col = asGridNumber(o.col);
+          if (col !== undefined) intent.col = col;
+          const colSpan = asGridNumber(o.colSpan);
+          if (colSpan !== undefined) intent.colSpan = colSpan;
+          const rowSpan = asGridNumber(o.rowSpan);
+          if (rowSpan !== undefined) intent.rowSpan = rowSpan;
+          // Sem nenhum tamanho válido o intent não faz nada; descarta.
+          if (
+            intent.col !== undefined ||
+            intent.colSpan !== undefined ||
+            intent.rowSpan !== undefined
+          ) {
+            intents.push(intent as AiIntent);
+          }
+        }
+        break;
+      }
+      case "create_system": {
+        const name = asString(o.name);
+        if (name) {
+          const intent: Record<string, unknown> = { type, name };
+          const systemType = asString(o.systemType);
+          if (systemType) intent.systemType = systemType;
+          if (typeof o.obs === "string" && o.obs) intent.obs = o.obs;
+          intents.push(intent as AiIntent);
+        }
+        break;
+      }
+      case "assign_qr": {
+        const token = asString(o.token);
+        const towerName = asString(o.towerName);
+        const environmentName = asString(o.environmentName);
+        const floorNumber = asNumber(o.floorNumber, NaN);
+        if (
+          token &&
+          towerName &&
+          environmentName &&
+          Number.isFinite(floorNumber)
+        ) {
+          const intent: Record<string, unknown> = {
+            type,
+            token,
+            towerName,
+            floorNumber: Math.floor(floorNumber),
+            environmentName,
+          };
+          if (typeof o.system === "string" && o.system)
+            intent.system = o.system;
+          if (o.kind === "condensadora" || o.kind === "evaporadora")
+            intent.kind = o.kind;
           intents.push(intent as AiIntent);
         }
         break;

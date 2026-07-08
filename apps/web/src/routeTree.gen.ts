@@ -27,6 +27,7 @@ import { Route as PortalProjectIdRouteImport } from './routes/portal/$projectId'
 import { Route as EngenhariaUsuariosRouteImport } from './routes/engenharia/usuarios'
 import { Route as EngenhariaRegistroDeCampoRouteImport } from './routes/engenharia/registro-de-campo'
 import { Route as EngenhariaQrCodesRouteImport } from './routes/engenharia/qr-codes'
+import { Route as EngenhariaMedicoesRouteImport } from './routes/engenharia/medicoes'
 import { Route as EngenhariaRelatoriosRouteRouteImport } from './routes/engenharia/relatorios/route'
 import { Route as EngenhariaRelatoriosIndexRouteImport } from './routes/engenharia/relatorios/index'
 import { Route as ComprasTakeoffsIndexRouteImport } from './routes/compras/takeoffs/index'
@@ -40,6 +41,7 @@ import { Route as EngenhariaEquipamentoIdRouteImport } from './routes/engenharia
 import { Route as EngenhariaRelatoriosProjectIdIndexRouteImport } from './routes/engenharia/relatorios/$projectId.index'
 import { Route as EngenhariaRelatoriosProjectIdQrCodesRouteImport } from './routes/engenharia/relatorios/$projectId.qr-codes'
 import { Route as EngenhariaRelatoriosProjectIdOrcamentoRouteImport } from './routes/engenharia/relatorios/$projectId.orcamento'
+import { Route as EngenhariaRelatoriosProjectIdMedicoesRouteImport } from './routes/engenharia/relatorios/$projectId.medicoes'
 import { Route as EngenhariaRelatoriosProjectIdImprimirRouteImport } from './routes/engenharia/relatorios/$projectId.imprimir'
 import { Route as EngenhariaRelatoriosProjectIdGlobalRouteImport } from './routes/engenharia/relatorios/$projectId.global'
 import { Route as EngenhariaRelatoriosProjectIdEntregasRouteImport } from './routes/engenharia/relatorios/$projectId.entregas'
@@ -136,6 +138,11 @@ const EngenhariaQrCodesRoute = EngenhariaQrCodesRouteImport.update({
   path: '/qr-codes',
   getParentRoute: () => EngenhariaRouteRoute,
 } as any)
+const EngenhariaMedicoesRoute = EngenhariaMedicoesRouteImport.update({
+  id: '/medicoes',
+  path: '/medicoes',
+  getParentRoute: () => EngenhariaRouteRoute,
+} as any)
 const EngenhariaRelatoriosRouteRoute =
   EngenhariaRelatoriosRouteRouteImport.update({
     id: '/relatorios',
@@ -209,6 +216,12 @@ const EngenhariaRelatoriosProjectIdOrcamentoRoute =
     path: '/orcamento',
     getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
   } as any)
+const EngenhariaRelatoriosProjectIdMedicoesRoute =
+  EngenhariaRelatoriosProjectIdMedicoesRouteImport.update({
+    id: '/medicoes',
+    path: '/medicoes',
+    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
+  } as any)
 const EngenhariaRelatoriosProjectIdImprimirRoute =
   EngenhariaRelatoriosProjectIdImprimirRouteImport.update({
     id: '/imprimir',
@@ -245,6 +258,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
+  '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/engenharia/registro-de-campo': typeof EngenhariaRegistroDeCampoRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
@@ -267,6 +281,7 @@ export interface FileRoutesByFullPath {
   '/engenharia/relatorios/$projectId/entregas': typeof EngenhariaRelatoriosProjectIdEntregasRoute
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
   '/engenharia/relatorios/$projectId/imprimir': typeof EngenhariaRelatoriosProjectIdImprimirRoute
+  '/engenharia/relatorios/$projectId/medicoes': typeof EngenhariaRelatoriosProjectIdMedicoesRoute
   '/engenharia/relatorios/$projectId/orcamento': typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
   '/engenharia/relatorios/$projectId/qr-codes': typeof EngenhariaRelatoriosProjectIdQrCodesRoute
   '/engenharia/relatorios/$projectId/': typeof EngenhariaRelatoriosProjectIdIndexRoute
@@ -278,6 +293,7 @@ export interface FileRoutesByTo {
   '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/engenharia/registro-de-campo': typeof EngenhariaRegistroDeCampoRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
@@ -299,6 +315,7 @@ export interface FileRoutesByTo {
   '/engenharia/relatorios/$projectId/entregas': typeof EngenhariaRelatoriosProjectIdEntregasRoute
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
   '/engenharia/relatorios/$projectId/imprimir': typeof EngenhariaRelatoriosProjectIdImprimirRoute
+  '/engenharia/relatorios/$projectId/medicoes': typeof EngenhariaRelatoriosProjectIdMedicoesRoute
   '/engenharia/relatorios/$projectId/orcamento': typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
   '/engenharia/relatorios/$projectId/qr-codes': typeof EngenhariaRelatoriosProjectIdQrCodesRoute
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdIndexRoute
@@ -315,6 +332,7 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
+  '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/engenharia/registro-de-campo': typeof EngenhariaRegistroDeCampoRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
@@ -337,6 +355,7 @@ export interface FileRoutesById {
   '/engenharia/relatorios/$projectId/entregas': typeof EngenhariaRelatoriosProjectIdEntregasRoute
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
   '/engenharia/relatorios/$projectId/imprimir': typeof EngenhariaRelatoriosProjectIdImprimirRoute
+  '/engenharia/relatorios/$projectId/medicoes': typeof EngenhariaRelatoriosProjectIdMedicoesRoute
   '/engenharia/relatorios/$projectId/orcamento': typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
   '/engenharia/relatorios/$projectId/qr-codes': typeof EngenhariaRelatoriosProjectIdQrCodesRoute
   '/engenharia/relatorios/$projectId/': typeof EngenhariaRelatoriosProjectIdIndexRoute
@@ -354,6 +373,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/engenharia/relatorios'
+    | '/engenharia/medicoes'
     | '/engenharia/qr-codes'
     | '/engenharia/registro-de-campo'
     | '/engenharia/usuarios'
@@ -376,6 +396,7 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId/entregas'
     | '/engenharia/relatorios/$projectId/global'
     | '/engenharia/relatorios/$projectId/imprimir'
+    | '/engenharia/relatorios/$projectId/medicoes'
     | '/engenharia/relatorios/$projectId/orcamento'
     | '/engenharia/relatorios/$projectId/qr-codes'
     | '/engenharia/relatorios/$projectId/'
@@ -387,6 +408,7 @@ export interface FileRouteTypes {
     | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
+    | '/engenharia/medicoes'
     | '/engenharia/qr-codes'
     | '/engenharia/registro-de-campo'
     | '/engenharia/usuarios'
@@ -408,6 +430,7 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId/entregas'
     | '/engenharia/relatorios/$projectId/global'
     | '/engenharia/relatorios/$projectId/imprimir'
+    | '/engenharia/relatorios/$projectId/medicoes'
     | '/engenharia/relatorios/$projectId/orcamento'
     | '/engenharia/relatorios/$projectId/qr-codes'
     | '/engenharia/relatorios/$projectId'
@@ -423,6 +446,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/engenharia/relatorios'
+    | '/engenharia/medicoes'
     | '/engenharia/qr-codes'
     | '/engenharia/registro-de-campo'
     | '/engenharia/usuarios'
@@ -445,6 +469,7 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId/entregas'
     | '/engenharia/relatorios/$projectId/global'
     | '/engenharia/relatorios/$projectId/imprimir'
+    | '/engenharia/relatorios/$projectId/medicoes'
     | '/engenharia/relatorios/$projectId/orcamento'
     | '/engenharia/relatorios/$projectId/qr-codes'
     | '/engenharia/relatorios/$projectId/'
@@ -593,6 +618,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaQrCodesRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
+    '/engenharia/medicoes': {
+      id: '/engenharia/medicoes'
+      path: '/medicoes'
+      fullPath: '/engenharia/medicoes'
+      preLoaderRoute: typeof EngenhariaMedicoesRouteImport
+      parentRoute: typeof EngenhariaRouteRoute
+    }
     '/engenharia/relatorios': {
       id: '/engenharia/relatorios'
       path: '/relatorios'
@@ -684,6 +716,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaRelatoriosProjectIdOrcamentoRouteImport
       parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
     }
+    '/engenharia/relatorios/$projectId/medicoes': {
+      id: '/engenharia/relatorios/$projectId/medicoes'
+      path: '/medicoes'
+      fullPath: '/engenharia/relatorios/$projectId/medicoes'
+      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdMedicoesRouteImport
+      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
+    }
     '/engenharia/relatorios/$projectId/imprimir': {
       id: '/engenharia/relatorios/$projectId/imprimir'
       path: '/imprimir'
@@ -754,6 +793,7 @@ interface EngenhariaRelatoriosProjectIdRouteChildren {
   EngenhariaRelatoriosProjectIdEntregasRoute: typeof EngenhariaRelatoriosProjectIdEntregasRoute
   EngenhariaRelatoriosProjectIdGlobalRoute: typeof EngenhariaRelatoriosProjectIdGlobalRoute
   EngenhariaRelatoriosProjectIdImprimirRoute: typeof EngenhariaRelatoriosProjectIdImprimirRoute
+  EngenhariaRelatoriosProjectIdMedicoesRoute: typeof EngenhariaRelatoriosProjectIdMedicoesRoute
   EngenhariaRelatoriosProjectIdOrcamentoRoute: typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
   EngenhariaRelatoriosProjectIdQrCodesRoute: typeof EngenhariaRelatoriosProjectIdQrCodesRoute
   EngenhariaRelatoriosProjectIdIndexRoute: typeof EngenhariaRelatoriosProjectIdIndexRoute
@@ -769,6 +809,8 @@ const EngenhariaRelatoriosProjectIdRouteChildren: EngenhariaRelatoriosProjectIdR
       EngenhariaRelatoriosProjectIdGlobalRoute,
     EngenhariaRelatoriosProjectIdImprimirRoute:
       EngenhariaRelatoriosProjectIdImprimirRoute,
+    EngenhariaRelatoriosProjectIdMedicoesRoute:
+      EngenhariaRelatoriosProjectIdMedicoesRoute,
     EngenhariaRelatoriosProjectIdOrcamentoRoute:
       EngenhariaRelatoriosProjectIdOrcamentoRoute,
     EngenhariaRelatoriosProjectIdQrCodesRoute:
@@ -801,6 +843,7 @@ const EngenhariaRelatoriosRouteRouteWithChildren =
 
 interface EngenhariaRouteRouteChildren {
   EngenhariaRelatoriosRouteRoute: typeof EngenhariaRelatoriosRouteRouteWithChildren
+  EngenhariaMedicoesRoute: typeof EngenhariaMedicoesRoute
   EngenhariaQrCodesRoute: typeof EngenhariaQrCodesRoute
   EngenhariaRegistroDeCampoRoute: typeof EngenhariaRegistroDeCampoRoute
   EngenhariaUsuariosRoute: typeof EngenhariaUsuariosRoute
@@ -811,6 +854,7 @@ interface EngenhariaRouteRouteChildren {
 
 const EngenhariaRouteRouteChildren: EngenhariaRouteRouteChildren = {
   EngenhariaRelatoriosRouteRoute: EngenhariaRelatoriosRouteRouteWithChildren,
+  EngenhariaMedicoesRoute: EngenhariaMedicoesRoute,
   EngenhariaQrCodesRoute: EngenhariaQrCodesRoute,
   EngenhariaRegistroDeCampoRoute: EngenhariaRegistroDeCampoRoute,
   EngenhariaUsuariosRoute: EngenhariaUsuariosRoute,

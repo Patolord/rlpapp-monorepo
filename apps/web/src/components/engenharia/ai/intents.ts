@@ -32,6 +32,33 @@ export type AiIntent =
       floorNumber: number;
       name: string;
       envType?: string;
+      col?: number;
+      colSpan?: number;
+      rowSpan?: number;
+    }
+  | {
+      type: "resize_environment";
+      towerName: string;
+      floorNumber: number;
+      name: string;
+      col?: number;
+      colSpan?: number;
+      rowSpan?: number;
+    }
+  | {
+      type: "create_system";
+      name: string;
+      systemType?: string;
+      obs?: string;
+    }
+  | {
+      type: "assign_qr";
+      token: string;
+      towerName: string;
+      floorNumber: number;
+      environmentName: string;
+      system?: string;
+      kind?: "condensadora" | "evaporadora";
     }
   | {
       type: "add_equipment";
@@ -76,6 +103,19 @@ export type AiIntent =
       newName: string;
     };
 
+/** Descrição legível dos campos de posição/tamanho na matriz. */
+function describeGridSize(intent: {
+  col?: number;
+  colSpan?: number;
+  rowSpan?: number;
+}): string {
+  const parts: string[] = [];
+  if (intent.col !== undefined) parts.push(`col. ${intent.col}`);
+  if (intent.colSpan !== undefined) parts.push(`${intent.colSpan} colunas`);
+  if (intent.rowSpan !== undefined) parts.push(`${intent.rowSpan} andares`);
+  return parts.join(", ");
+}
+
 const STATUS_LABELS: Record<ProjectStatus, string> = {
   planning: "Planejamento",
   in_progress: "Em andamento",
@@ -112,10 +152,41 @@ export function describeIntent(intent: AiIntent): {
         title: "Criar andares",
         detail: `${intent.towerName}: ${intent.from}º ao ${intent.to}º`,
       };
-    case "create_environment":
+    case "create_environment": {
+      const size = describeGridSize(intent);
       return {
         title: "Criar ambiente",
-        detail: `${intent.towerName} · ${intent.floorNumber}º · ${intent.name}`,
+        detail: `${intent.towerName} · ${intent.floorNumber}º · ${intent.name}${
+          size ? ` (${size})` : ""
+        }`,
+      };
+    }
+    case "resize_environment": {
+      const size = describeGridSize(intent);
+      return {
+        title: "Redimensionar ambiente",
+        detail: `${intent.towerName} · ${intent.floorNumber}º · ${intent.name}${
+          size ? ` → ${size}` : ""
+        }`,
+      };
+    }
+    case "create_system":
+      return {
+        title: "Criar sistema",
+        detail: `${intent.name}${
+          intent.systemType ? ` (${intent.systemType})` : ""
+        }`,
+      };
+    case "assign_qr":
+      return {
+        title: "Vincular QR code",
+        detail: `${intent.token} → ${intent.towerName} · ${intent.floorNumber}º · ${
+          intent.environmentName
+        }${intent.system ? ` · ${intent.system}` : ""}${
+          intent.kind
+            ? ` (${intent.kind === "condensadora" ? "Cond." : "Evap."})`
+            : ""
+        }`,
       };
     case "add_equipment":
       return {

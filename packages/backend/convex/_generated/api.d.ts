@@ -27,6 +27,7 @@ import type * as lib_engenharia_hierarchy from "../lib/engenharia/hierarchy.js";
 import type * as lib_rbac from "../lib/rbac.js";
 import type * as maintenanceLogs from "../maintenanceLogs.js";
 import type * as materials from "../materials.js";
+import type * as medicoes from "../medicoes.js";
 import type * as migrations from "../migrations.js";
 import type * as portal from "../portal.js";
 import type * as priceEvents from "../priceEvents.js";
@@ -68,6 +69,7 @@ declare const fullApi: ApiFromModules<{
   "lib/rbac": typeof lib_rbac;
   maintenanceLogs: typeof maintenanceLogs;
   materials: typeof materials;
+  medicoes: typeof medicoes;
   migrations: typeof migrations;
   portal: typeof portal;
   priceEvents: typeof priceEvents;

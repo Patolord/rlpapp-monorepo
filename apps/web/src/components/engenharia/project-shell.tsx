@@ -71,12 +71,27 @@ export function ProjectShell({
     ];
 
     if (hierarchy && hierarchy.towers.length > 0) {
+      if (hierarchy.systems.length > 0) {
+        parts.push(
+          `Sistemas existentes: ${hierarchy.systems
+            .map((s) => `"${s.name}"${s.type ? ` (${s.type})` : ""}`)
+            .join(", ")}`
+        );
+      }
       parts.push("--- Hierarquia atual ---");
       for (const tower of hierarchy.towers) {
         parts.push(`Torre: "${tower.name}"`);
         for (const floor of tower.floors) {
           const envNames = floor.environments
-            .map((e) => `"${e.name}" (${e.equipment.length} equip.)`)
+            .map((e) => {
+              const size: string[] = [];
+              if (e.colSpan && e.colSpan > 1)
+                size.push(`${e.colSpan} colunas`);
+              if (e.rowSpan && e.rowSpan > 1) size.push(`${e.rowSpan} andares`);
+              return `"${e.name}" (${e.equipment.length} equip.${
+                size.length ? `, ${size.join(", ")}` : ""
+              })`;
+            })
             .join(", ");
           parts.push(
             `  ${floor.label} (nº ${floor.number}): ${envNames || "sem ambientes"}`
@@ -247,6 +262,18 @@ function ProjectShellLayout({
               }
             >
               Orçamento
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              render={
+                <Link
+                  to="/engenharia/relatorios/$projectId/medicoes"
+                  params={{ projectId: project._id }}
+                />
+              }
+            >
+              Medições
             </Button>
             <Button
               variant="outline"

@@ -476,9 +476,10 @@ export function AiChatPanel({
               <div className="flex h-full flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
                 <Bot className="size-9" />
                 <p className="max-w-xs text-xs">
-                  Ex: "Crie a Torre A com 12 andares", "Adicione um Split na
-                  sala do 3º andar", "Defina o cliente como Construtora XYZ".
-                  Anexe planilhas, PDFs, Word ou áudio.
+                  Ex: "Crie a Torre A com 12 andares", "Crie o sistema VRF 3
+                  com condensadora e evaporadoras", "Deixe o hall do térreo
+                  com 2 colunas de largura", "Vincule os QRs do lote Lorena
+                  aos equipamentos". Anexe planilhas, PDFs, Word ou áudio.
                 </p>
               </div>
             ) : (

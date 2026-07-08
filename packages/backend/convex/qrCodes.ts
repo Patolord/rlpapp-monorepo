@@ -1,5 +1,5 @@
 import { paginationOptsValidator } from "convex/server";
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
 import {
   authedMutation,
@@ -340,6 +340,33 @@ export const getByEquipmentId = staffQuery({
       .withIndex("by_equipment", (q) => q.eq("equipmentId", args.equipmentId))
       .order("desc")
       .first();
+  },
+});
+
+// QR codes ativos ainda não vinculados a nenhum equipamento, para o assistente
+// de IA propor vínculos (intent assign_qr). Limitado para caber no contexto.
+export const listUnassignedForAi = internalQuery({
+  args: {},
+  returns: v.array(
+    v.object({
+      token: v.string(),
+      batchName: v.union(v.string(), v.null()),
+      createdAt: v.number(),
+    })
+  ),
+  handler: async (ctx) => {
+    const unassigned = await ctx.db
+      .query("qrCodes")
+      .withIndex("by_equipment", (q) => q.eq("equipmentId", undefined))
+      .order("desc")
+      .take(200);
+    return unassigned
+      .filter((qr) => qr.status === "active")
+      .map((qr) => ({
+        token: qr.token,
+        batchName: qr.batchName ?? null,
+        createdAt: qr.createdAt,
+      }));
   },
 });
 

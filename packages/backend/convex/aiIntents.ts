@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { engineeringMutation } from "./lib/rbac";
-import { logAudit } from "./lib/audit";
+import { logAudit, logEquipmentHistory } from "./lib/audit";
 import { projectStatus } from "./schema";
 import { findOrCreateSystemInProject } from "./systems";
 import type { Id } from "./_generated/dataModel";
@@ -49,6 +49,34 @@ export const aiIntentValidator = v.union(
     floorNumber: v.number(),
     name: v.string(),
     envType: v.optional(v.string()),
+    // Posição/tamanho na matriz esquemática (opcionais; inteiros >= 1).
+    col: v.optional(v.number()),
+    colSpan: v.optional(v.number()),
+    rowSpan: v.optional(v.number()),
+  }),
+  v.object({
+    type: v.literal("resize_environment"),
+    towerName: v.string(),
+    floorNumber: v.number(),
+    name: v.string(),
+    col: v.optional(v.number()),
+    colSpan: v.optional(v.number()),
+    rowSpan: v.optional(v.number()),
+  }),
+  v.object({
+    type: v.literal("create_system"),
+    name: v.string(),
+    systemType: v.optional(v.string()),
+    obs: v.optional(v.string()),
+  }),
+  v.object({
+    type: v.literal("assign_qr"),
+    token: v.string(),
+    towerName: v.string(),
+    floorNumber: v.number(),
+    environmentName: v.string(),
+    system: v.optional(v.string()),
+    kind: v.optional(equipKindValidator),
   }),
   v.object({
     type: v.literal("add_equipment"),
@@ -154,6 +182,17 @@ async function resolveEnvironment(
 
 function defaultFloorLabel(n: number): string {
   return n === 0 ? "Térreo" : `${n}º Andar`;
+}
+
+/**
+ * Coage um valor de posição/tamanho da matriz para inteiro >= 1.
+ * Valores inválidos são ignorados (undefined) para não abortar a batch.
+ */
+function gridValue(value: number | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const n = Math.floor(value);
+  if (!Number.isFinite(n) || n < 1) return undefined;
+  return n;
 }
 
 export const applyIntents = engineeringMutation({
@@ -318,9 +357,207 @@ export const applyIntents = engineeringMutation({
             name,
             type: intent.envType?.trim() || undefined,
             order: envs.length,
+            col: gridValue(intent.col),
+            colSpan: gridValue(intent.colSpan),
+            rowSpan: gridValue(intent.rowSpan),
             createdAt: Date.now(),
           });
           summary.push(`Ambiente "${name}" criado`);
+          applied++;
+          break;
+        }
+
+        case "resize_environment": {
+          const towerId = await resolveTower(
+            ctx,
+            args.projectId,
+            towerCache,
+            intent.towerName
+          );
+          if (!towerId) {
+            summary.push(`Torre "${intent.towerName}" não encontrada`);
+            break;
+          }
+          const floorId = await resolveFloor(ctx, towerId, intent.floorNumber);
+          if (!floorId) {
+            summary.push(
+              `Andar ${intent.floorNumber} não encontrado na torre "${intent.towerName}"`
+            );
+            break;
+          }
+          const envId = await resolveEnvironment(ctx, floorId, intent.name);
+          if (!envId) {
+            summary.push(`Ambiente "${intent.name}" não encontrado`);
+            break;
+          }
+          const updates: Record<string, number> = {};
+          const col = gridValue(intent.col);
+          if (col !== undefined) updates.col = col;
+          const colSpan = gridValue(intent.colSpan);
+          if (colSpan !== undefined) updates.colSpan = colSpan;
+          const rowSpan = gridValue(intent.rowSpan);
+          if (rowSpan !== undefined) updates.rowSpan = rowSpan;
+          if (Object.keys(updates).length === 0) {
+            summary.push(
+              `Nenhum tamanho válido informado para "${intent.name}"`
+            );
+            break;
+          }
+          await ctx.db.patch("environments", envId, updates);
+          const parts: string[] = [];
+          if (updates.col !== undefined) parts.push(`coluna ${updates.col}`);
+          if (updates.colSpan !== undefined)
+            parts.push(`largura ${updates.colSpan}`);
+          if (updates.rowSpan !== undefined)
+            parts.push(`${updates.rowSpan} andar(es)`);
+          summary.push(
+            `Ambiente "${intent.name}" redimensionado (${parts.join(", ")})`
+          );
+          applied++;
+          break;
+        }
+
+        case "create_system": {
+          const name = intent.name.trim();
+          if (!name) break;
+          const existing = await ctx.db
+            .query("systems")
+            .withIndex("by_project", (q) =>
+              q.eq("projectId", args.projectId)
+            )
+            .collect();
+          const match = existing.find(
+            (s) => s.name.toLowerCase() === name.toLowerCase()
+          );
+          if (match) {
+            const updates: Record<string, string> = {};
+            if (intent.systemType?.trim())
+              updates.type = intent.systemType.trim();
+            if (intent.obs?.trim()) updates.obs = intent.obs.trim();
+            if (Object.keys(updates).length > 0) {
+              await ctx.db.patch("systems", match._id, updates);
+              summary.push(`Sistema "${match.name}" atualizado`);
+              applied++;
+            } else {
+              summary.push(`Sistema "${match.name}" já existe`);
+            }
+            break;
+          }
+          await ctx.db.insert("systems", {
+            projectId: args.projectId,
+            name,
+            type: intent.systemType?.trim() || undefined,
+            obs: intent.obs?.trim() || undefined,
+            createdAt: Date.now(),
+          });
+          summary.push(`Sistema "${name}" criado`);
+          applied++;
+          break;
+        }
+
+        case "assign_qr": {
+          const token = intent.token.trim();
+          if (!token) break;
+          const towerId = await resolveTower(
+            ctx,
+            args.projectId,
+            towerCache,
+            intent.towerName
+          );
+          if (!towerId) {
+            summary.push(`Torre "${intent.towerName}" não encontrada`);
+            break;
+          }
+          const floorId = await resolveFloor(ctx, towerId, intent.floorNumber);
+          if (!floorId) {
+            summary.push(`Andar ${intent.floorNumber} não encontrado`);
+            break;
+          }
+          const envId = await resolveEnvironment(
+            ctx,
+            floorId,
+            intent.environmentName
+          );
+          if (!envId) {
+            summary.push(
+              `Ambiente "${intent.environmentName}" não encontrado`
+            );
+            break;
+          }
+
+          // Tokens gerados pelo sistema são maiúsculos; tenta o texto exato e,
+          // se não achar, a versão em maiúsculas (a IA pode transcrever errado).
+          let qr = await ctx.db
+            .query("qrCodes")
+            .withIndex("by_token", (q) => q.eq("token", token))
+            .unique();
+          if (!qr && token !== token.toUpperCase()) {
+            qr = await ctx.db
+              .query("qrCodes")
+              .withIndex("by_token", (q) => q.eq("token", token.toUpperCase()))
+              .unique();
+          }
+          if (!qr) {
+            summary.push(`QR code "${token}" não encontrado`);
+            break;
+          }
+          if (qr.equipmentId) {
+            summary.push(`QR code "${token}" já está vinculado`);
+            break;
+          }
+
+          const envEquipments = await ctx.db
+            .query("projectEquipment")
+            .withIndex("by_environment", (q) => q.eq("environmentId", envId))
+            .collect();
+          let candidates = envEquipments;
+          if (intent.kind) {
+            candidates = candidates.filter((e) => e.kind === intent.kind);
+          }
+          if (intent.system) {
+            const sysKey = norm(intent.system);
+            candidates = candidates.filter((e) => norm(e.system) === sysKey);
+          }
+          // Prefere itens ainda sem equipamento real vinculado.
+          const target =
+            candidates.find((e) => !e.linkedEquipmentId) ?? candidates[0];
+          if (!target) {
+            summary.push(
+              `Nenhum equipamento encontrado em "${intent.environmentName}" para o QR "${token}"`
+            );
+            break;
+          }
+          if (target.linkedEquipmentId) {
+            summary.push(
+              `Equipamento em "${intent.environmentName}" já possui QR vinculado`
+            );
+            break;
+          }
+
+          // Cria o equipamento real (placeholder) e vincula QR ↔ item planejado.
+          const equipmentId = await ctx.db.insert("equipment", {
+            description: `${target.system} · ${target.ambiente}`.trim(),
+            status: target.status,
+            createdAt: Date.now(),
+            projectEquipmentId: target._id,
+          });
+          await ctx.db.patch("projectEquipment", target._id, {
+            linkedEquipmentId: equipmentId,
+          });
+          await ctx.db.patch("qrCodes", qr._id, {
+            equipmentId,
+            projectId: target.projectId,
+          });
+          await logEquipmentHistory(ctx, ctx.user, {
+            equipmentId: target._id,
+            action: "qr_assigned",
+            newValue: qr.token,
+          });
+          summary.push(
+            `QR "${qr.token}" vinculado a ${target.system} (${
+              target.kind === "condensadora" ? "Cond." : "Evap."
+            }) em ${intent.environmentName}`
+          );
           applied++;
           break;
         }

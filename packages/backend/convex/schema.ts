@@ -74,6 +74,22 @@ export const priceEventReviewStatus = v.union(
   v.literal("duplicate")
 );
 
+// --- Engenharia: Contratos e Medições ---
+
+// Como o valor da medição foi determinado (flexível para bases futuras).
+export const medicaoBasis = v.union(
+  v.literal("percentual"),
+  v.literal("valor_fixo"),
+  v.literal("progresso_equipamentos")
+);
+
+// Fluxo: rascunho → aprovada → paga.
+export const medicaoStatus = v.union(
+  v.literal("rascunho"),
+  v.literal("aprovada"),
+  v.literal("paga")
+);
+
 export default defineSchema({
   users: defineTable({
     name: v.string(),
@@ -512,6 +528,43 @@ export default defineSchema({
   })
     .index("by_alias_normalized", ["aliasNormalized"])
     .index("by_material", ["materialId"]),
+
+  // --- Engenharia: Contratos e Medições (faturamento por obra) ---
+
+  // Contrato de uma obra. Uma obra pode ter vários (original + aditivos).
+  // Nota: futuramente o saldo do contrato também será abatido por compras de
+  // material atribuídas à obra (ainda não rastreado).
+  contracts: defineTable({
+    projectId: v.id("projects"),
+    title: v.string(),
+    valueCents: v.number(),
+    notes: v.optional(v.string()),
+    signedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  }).index("by_project", ["projectId"]),
+
+  // Medição: cobrança por serviços realizados, vinculada a um contrato.
+  medicoes: defineTable({
+    projectId: v.id("projects"),
+    contractId: v.id("contracts"),
+    // Nº sequencial da medição dentro do contrato (Medição nº 1, 2, ...).
+    sequence: v.number(),
+    description: v.optional(v.string()),
+    basis: medicaoBasis,
+    // Percentual usado quando basis = percentual / progresso_equipamentos.
+    percent: v.optional(v.number()),
+    // Valor cobrado — sempre a fonte de verdade, independente da base.
+    amountCents: v.number(),
+    status: medicaoStatus,
+    // Data de referência da medição (período/competência).
+    referenceDate: v.number(),
+    approvedAt: v.optional(v.number()),
+    paidAt: v.optional(v.number()),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_contract", ["contractId"]),
 
   maintenanceLogs: defineTable({
     equipmentId: v.id("equipment"),
