@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import {
   AlertTriangle,
+  Boxes,
   Building2,
   DoorOpen,
   Link2,
@@ -38,6 +39,7 @@ import {
   type HierarchyEnvironment,
   type HierarchyFloor,
   type HierarchyItem,
+  type HierarchySystem,
   type HierarchyTower,
   type ProjectHierarchy,
 } from "@/components/engenharia/building-panel/hierarchy";
@@ -51,7 +53,14 @@ export type BuildingMatrixActions = {
   onAddEnvironment?: (floor: HierarchyFloor) => void;
   onEditEnvironment?: (env: HierarchyEnvironment) => void;
   onRemoveEnvironment?: (env: HierarchyEnvironment) => void;
-  onAddEquipment?: (env: HierarchyEnvironment) => void;
+  /** Cria um sistema da obra a partir do ambiente selecionado. */
+  onAddSystem?: (env: HierarchyEnvironment) => void;
+  onEditSystem?: (system: HierarchySystem) => void;
+  /** Adiciona equipamento no ambiente, com sistema pré-selecionado. */
+  onAddEquipment?: (
+    env: HierarchyEnvironment,
+    system: HierarchySystem | null
+  ) => void;
   onEditEquipment?: (item: HierarchyItem, env: HierarchyEnvironment) => void;
   onGenerateQr?: (item: HierarchyItem) => void;
   onLinkQr?: (item: HierarchyItem) => void;
@@ -207,6 +216,7 @@ export function BuildingMatrixPanel({
 
       <EnvironmentSheet
         data={selectedEnvData}
+        systems={hierarchy?.systems ?? []}
         now={now}
         actions={actions}
         onClose={() => setSelectedEnv(null)}
@@ -421,19 +431,60 @@ function MatrixRow({
   );
 }
 
+/** Grupo de equipamentos de um ambiente pertencentes ao mesmo sistema. */
+type EnvironmentSystemGroup = {
+  key: string;
+  /** Sistema da obra; null para itens legados sem vínculo (só string). */
+  system: HierarchySystem | null;
+  /** Nome exibido (nome do sistema ou string legada). */
+  label: string;
+  items: HierarchyItem[];
+};
+
+function groupEquipmentBySystem(
+  env: HierarchyEnvironment,
+  systems: HierarchySystem[]
+): EnvironmentSystemGroup[] {
+  const systemById = new Map(systems.map((s) => [s._id, s]));
+  const groups = new Map<string, EnvironmentSystemGroup>();
+
+  for (const item of env.equipment) {
+    const system = item.systemId
+      ? systemById.get(item.systemId) ?? null
+      : null;
+    const key = item.systemId ?? `legacy:${item.system}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = {
+        key,
+        system,
+        label: system?.name ?? item.system,
+        items: [],
+      };
+      groups.set(key, group);
+    }
+    group.items.push(item);
+  }
+
+  return [...groups.values()].sort((a, b) => a.label.localeCompare(b.label));
+}
+
 function EnvironmentSheet({
   data,
+  systems,
   now,
   actions,
   onClose,
 }: {
   data: { floorLabel: string; env: HierarchyEnvironment } | null;
+  systems: HierarchySystem[];
   now: number;
   actions?: BuildingMatrixActions;
   onClose: () => void;
 }) {
   const env = data?.env ?? null;
   const state = env ? getEnvironmentState(env, now) : null;
+  const groups = env ? groupEquipmentBySystem(env, systems) : [];
 
   return (
     <Sheet open={data !== null} onOpenChange={(o) => !o && onClose()}>
@@ -480,40 +531,105 @@ function EnvironmentSheet({
           </div>
         </SheetHeader>
 
-        <div className="flex-1 space-y-2 p-4">
-          {!env || env.equipment.length === 0 ? (
+        <div className="flex-1 space-y-4 p-4">
+          {!env || groups.length === 0 ? (
             <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
-              Sem equipamentos neste ambiente.
+              Sem sistemas neste ambiente. Adicione um sistema para começar.
             </p>
           ) : (
-            <ul className="space-y-2">
-              {env.equipment.map((item) => (
-                <EquipmentRow
-                  key={item._id}
-                  item={item}
-                  env={env}
-                  now={now}
-                  actions={actions}
-                />
-              ))}
-            </ul>
+            groups.map((group) => (
+              <SystemGroup
+                key={group.key}
+                group={group}
+                env={env}
+                now={now}
+                actions={actions}
+              />
+            ))
           )}
         </div>
 
-        {actions?.onAddEquipment && env && (
+        {actions?.onAddSystem && env && (
           <SheetFooter>
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => actions.onAddEquipment?.(env)}
+              onClick={() => actions.onAddSystem?.(env)}
             >
               <Plus className="mr-1.5 size-4" />
-              Adicionar equipamento
+              Adicionar sistema
             </Button>
           </SheetFooter>
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+function SystemGroup({
+  group,
+  env,
+  now,
+  actions,
+}: {
+  group: EnvironmentSystemGroup;
+  env: HierarchyEnvironment;
+  now: number;
+  actions?: BuildingMatrixActions;
+}) {
+  const installed = group.items.filter(
+    (i) => i.status === "operational"
+  ).length;
+
+  return (
+    <section className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <Boxes className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="truncate text-xs font-semibold uppercase tracking-wide">
+          {group.label}
+        </span>
+        {group.system?.type && (
+          <span className="rounded bg-muted px-1.5 py-0.5 text-[0.625rem] uppercase text-muted-foreground">
+            {group.system.type}
+          </span>
+        )}
+        <span className="text-[0.625rem] tabular-nums text-muted-foreground">
+          {installed}/{group.items.length}
+        </span>
+        {group.system && actions?.onEditSystem && (
+          <button
+            type="button"
+            onClick={() => actions.onEditSystem?.(group.system!)}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label={`Editar sistema ${group.label}`}
+          >
+            <Pencil className="size-3" />
+          </button>
+        )}
+        {actions?.onAddEquipment && (
+          <Button
+            variant="ghost"
+            size="xs"
+            className="ml-auto h-6 px-1.5 text-xs"
+            onClick={() => actions.onAddEquipment?.(env, group.system)}
+          >
+            <Plus className="mr-1 size-3" />
+            Equipamento
+          </Button>
+        )}
+      </div>
+      <ul className="space-y-2">
+        {group.items.map((item) => (
+          <EquipmentRow
+            key={item._id}
+            item={item}
+            env={env}
+            now={now}
+            actions={actions}
+          />
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -535,12 +651,9 @@ function EquipmentRow({
     <li className="space-y-1.5 rounded-lg border bg-muted/20 px-3 py-2 text-xs">
       <div className="flex flex-wrap items-center gap-2">
         <EquipmentStatusDot item={item} now={now} />
-        <span className="rounded bg-background px-1.5 py-0.5 font-medium">
-          {item.system}
-        </span>
         <span className="flex items-center gap-1 text-muted-foreground">
           <Wind className="size-3" />
-          {item.kind === "condensadora" ? "Cond." : "Evap."}
+          {item.kind === "condensadora" ? "Condensadora" : "Evaporadora"}
         </span>
         <span className={cn("font-medium", style.text)}>{style.label}</span>
       </div>

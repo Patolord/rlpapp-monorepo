@@ -27,6 +27,7 @@ import type {
   HierarchyEnvironment,
   HierarchyFloor,
   HierarchyItem,
+  HierarchySystem,
   HierarchyTower,
 } from "@/components/engenharia/building-panel/hierarchy";
 
@@ -571,18 +572,273 @@ export function EditEnvironmentDialog({
 }
 
 // ---------------------------------------------------------------------------
+// Sistema
+// ---------------------------------------------------------------------------
+
+/** Dados mínimos de um sistema para os selects/dialogs (subset estrutural). */
+export type SystemOption = Pick<HierarchySystem, "_id" | "name" | "type">;
+
+export function NewSystemDialog({
+  projectId,
+  open,
+  onClose,
+  onCreated,
+}: {
+  projectId: Id<"projects">;
+  open: boolean;
+  onClose: () => void;
+  onCreated?: (systemId: Id<"systems">) => void;
+}) {
+  const createSystem = useMutation(api.systems.createSystemInProject);
+  const [name, setName] = useState("");
+  const [type, setType] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setSaving(true);
+    let systemId: Id<"systems"> | null = null;
+    const ok = await runWithToast(
+      async () => {
+        systemId = await createSystem({
+          projectId,
+          name: name.trim(),
+          type: type.trim() || undefined,
+        });
+      },
+      "Sistema criado",
+      "Não foi possível criar o sistema"
+    );
+    setSaving(false);
+    if (ok) {
+      setName("");
+      setType("");
+      onClose();
+      if (systemId) onCreated?.(systemId);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Novo sistema</DialogTitle>
+          <DialogDescription>
+            O sistema pertence à obra e pode ter equipamentos em vários
+            ambientes (ex: condensadora na cobertura e evaporadoras nos
+            apartamentos).
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="system-name">Nome do sistema</Label>
+            <Input
+              id="system-name"
+              placeholder="Ex: VRF 1"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="system-type">Tipo (opcional)</Label>
+            <Input
+              id="system-type"
+              placeholder="Ex: VRF, Split"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={saving || !name.trim()}>
+              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Criar sistema
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function EditSystemDialog({
+  system,
+  onClose,
+}: {
+  system: SystemOption | null;
+  onClose: () => void;
+}) {
+  const updateSystem = useMutation(api.systems.updateSystemDetails);
+  const removeSystem = useMutation(api.systems.removeSystemFromProject);
+  const [name, setName] = useState("");
+  const [type, setType] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (system) {
+      setName(system.name);
+      setType(system.type ?? "");
+    }
+  }, [system]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!system || !name.trim()) return;
+    setSaving(true);
+    const ok = await runWithToast(
+      () =>
+        updateSystem({
+          systemId: system._id,
+          name: name.trim(),
+          type: type.trim() || null,
+        }),
+      "Sistema atualizado",
+      "Não foi possível atualizar o sistema"
+    );
+    setSaving(false);
+    if (ok) onClose();
+  }
+
+  async function handleRemove() {
+    if (!system) return;
+    if (
+      !window.confirm(
+        `Remover o sistema "${system.name}" da obra? Sistemas com equipamentos não podem ser removidos.`
+      )
+    )
+      return;
+    const ok = await runWithToast(
+      () => removeSystem({ systemId: system._id }),
+      "Sistema removido",
+      "Não foi possível remover o sistema"
+    );
+    if (ok) onClose();
+  }
+
+  return (
+    <Dialog open={system !== null} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Editar sistema</DialogTitle>
+          <DialogDescription>
+            Renomear atualiza todos os equipamentos do sistema nesta obra.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-system-name">Nome do sistema</Label>
+            <Input
+              id="edit-system-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-system-type">Tipo (opcional)</Label>
+            <Input
+              id="edit-system-type"
+              placeholder="Ex: VRF, Split"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+            />
+          </div>
+          <DialogFooter className="sm:justify-between">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              onClick={handleRemove}
+            >
+              <Trash2 className="mr-1.5 size-4" />
+              Remover
+            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={saving || !name.trim()}>
+                {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                Salvar
+              </Button>
+            </div>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Equipamento
 // ---------------------------------------------------------------------------
 
+/** Valor sentinela do Select que dispara a criação de um novo sistema. */
+const NEW_SYSTEM_VALUE = "__new_system__";
+
+function SystemSelect({
+  id,
+  systems,
+  value,
+  onChange,
+  onRequestNewSystem,
+}: {
+  id?: string;
+  systems: SystemOption[];
+  value: Id<"systems"> | null;
+  onChange: (systemId: Id<"systems">) => void;
+  onRequestNewSystem?: () => void;
+}) {
+  return (
+    <Select
+      value={value ?? ""}
+      onValueChange={(v) => {
+        if (v === NEW_SYSTEM_VALUE) {
+          onRequestNewSystem?.();
+          return;
+        }
+        onChange(v as Id<"systems">);
+      }}
+    >
+      <SelectTrigger id={id}>
+        <SelectValue placeholder="Selecione o sistema" />
+      </SelectTrigger>
+      <SelectContent>
+        {systems.map((s) => (
+          <SelectItem key={s._id} value={s._id}>
+            {s.name}
+            {s.type ? ` · ${s.type}` : ""}
+          </SelectItem>
+        ))}
+        {onRequestNewSystem && (
+          <SelectItem value={NEW_SYSTEM_VALUE}>+ Novo sistema</SelectItem>
+        )}
+      </SelectContent>
+    </Select>
+  );
+}
+
 export function AddEquipmentDialog({
   environment,
+  systems,
+  initialSystemId,
   onClose,
+  onRequestNewSystem,
 }: {
   environment: HierarchyEnvironment | null;
+  systems: SystemOption[];
+  initialSystemId: Id<"systems"> | null;
   onClose: () => void;
+  onRequestNewSystem?: () => void;
 }) {
   const upsert = useMutation(api.projectEquipment.upsertInEnvironment);
-  const [system, setSystem] = useState("Split");
+  const [systemId, setSystemId] = useState<Id<"systems"> | null>(null);
   const [kind, setKind] = useState<"condensadora" | "evaporadora">(
     "evaporadora"
   );
@@ -592,8 +848,12 @@ export function AddEquipmentDialog({
   const [deadline, setDeadline] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Sincroniza o sistema pré-selecionado (grupo clicado ou recém-criado).
+  useEffect(() => {
+    setSystemId(initialSystemId);
+  }, [initialSystemId, environment]);
+
   function reset() {
-    setSystem("Split");
     setKind("evaporadora");
     setModelo("");
     setCapacidade("");
@@ -603,13 +863,13 @@ export function AddEquipmentDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!environment || !system.trim()) return;
+    if (!environment || !systemId) return;
     setSaving(true);
     const ok = await runWithToast(
       () =>
         upsert({
           environmentId: environment._id,
-          system: system.trim(),
+          systemId,
           kind,
           modelo: modelo.trim() || undefined,
           capacidade: capacidade.trim() || undefined,
@@ -632,21 +892,20 @@ export function AddEquipmentDialog({
         <DialogHeader>
           <DialogTitle>Adicionar equipamento</DialogTitle>
           <DialogDescription>
-            {environment ? `Ambiente ${environment.name}.` : ""} Preencha os
-            dados do equipamento previsto.
+            {environment ? `Ambiente ${environment.name}.` : ""} Escolha o
+            sistema e preencha os dados do equipamento previsto.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="equip-system">Sistema</Label>
-              <Input
+              <SystemSelect
                 id="equip-system"
-                placeholder="Ex: Split, VRF"
-                value={system}
-                onChange={(e) => setSystem(e.target.value)}
-                autoFocus
-                required
+                systems={systems}
+                value={systemId}
+                onChange={setSystemId}
+                onRequestNewSystem={onRequestNewSystem}
               />
             </div>
             <div className="space-y-2">
@@ -710,7 +969,7 @@ export function AddEquipmentDialog({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={saving || !system.trim()}>
+            <Button type="submit" disabled={saving || !systemId}>
               {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
               Adicionar
             </Button>
@@ -734,14 +993,16 @@ function toDateInputValue(ts: number | null | undefined): string {
 export function EditEquipmentDialog({
   item,
   environmentId,
+  systems,
   onClose,
 }: {
   item: HierarchyItem | null;
   environmentId: Id<"environments"> | null;
+  systems: SystemOption[];
   onClose: () => void;
 }) {
   const upsert = useMutation(api.projectEquipment.upsertInEnvironment);
-  const [system, setSystem] = useState("");
+  const [systemId, setSystemId] = useState<Id<"systems"> | null>(null);
   const [kind, setKind] = useState<"condensadora" | "evaporadora">(
     "evaporadora"
   );
@@ -753,7 +1014,7 @@ export function EditEquipmentDialog({
 
   useEffect(() => {
     if (item) {
-      setSystem(item.system);
+      setSystemId(item.systemId);
       setKind(item.kind);
       setModelo(item.modelo ?? "");
       setCapacidade(item.capacidade ?? "");
@@ -764,14 +1025,14 @@ export function EditEquipmentDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!item || !environmentId || !system.trim()) return;
+    if (!item || !environmentId || !systemId) return;
     setSaving(true);
     const ok = await runWithToast(
       () =>
         upsert({
           itemId: item._id,
           environmentId,
-          system: system.trim(),
+          systemId,
           kind,
           modelo: modelo.trim() || undefined,
           capacidade: capacidade.trim() || undefined,
@@ -798,13 +1059,11 @@ export function EditEquipmentDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="edit-equip-system">Sistema</Label>
-              <Input
+              <SystemSelect
                 id="edit-equip-system"
-                placeholder="Ex: Split, VRF"
-                value={system}
-                onChange={(e) => setSystem(e.target.value)}
-                autoFocus
-                required
+                systems={systems}
+                value={systemId}
+                onChange={setSystemId}
               />
             </div>
             <div className="space-y-2">
@@ -868,7 +1127,7 @@ export function EditEquipmentDialog({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={saving || !system.trim()}>
+            <Button type="submit" disabled={saving || !systemId}>
               {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
               Salvar
             </Button>

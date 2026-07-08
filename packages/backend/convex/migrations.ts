@@ -1,5 +1,7 @@
 import { v } from "convex/values";
+import { internalMutation } from "./_generated/server";
 import { adminMutation } from "./lib/rbac";
+import { findOrCreateSystemInProject } from "./systems";
 import type { Id } from "./_generated/dataModel";
 
 /**
@@ -126,5 +128,77 @@ export const backfillTowersAndFloors = adminMutation({
       environmentsCreated,
       equipmentLinked,
     };
+  },
+});
+
+/**
+ * Backfill idempotente: cria registros na tabela `systems` a partir dos nomes
+ * de sistema (strings distintas) dos equipamentos da hierarquia nova (itens
+ * com `environmentId`) e vincula `projectEquipment.systemId`.
+ *
+ * Escopado por obra: obras diferentes com o mesmo nome de sistema (ex:
+ * "VRF 1") recebem registros separados. Seguro de rodar múltiplas vezes:
+ * pula itens que já possuem `systemId`.
+ *
+ * Rodar com: npx convex run migrations:backfillSystemsFromEquipmentStrings
+ */
+export const backfillSystemsFromEquipmentStrings = internalMutation({
+  args: {
+    // Se informado, migra apenas esta obra; senão, migra todas.
+    projectId: v.optional(v.id("projects")),
+  },
+  returns: v.object({
+    systemsCreated: v.number(),
+    equipmentLinked: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const project = args.projectId
+      ? await ctx.db.get("projects", args.projectId)
+      : null;
+    const projects = args.projectId
+      ? project
+        ? [project]
+        : []
+      : await ctx.db.query("projects").collect();
+
+    let systemsCreated = 0;
+    let equipmentLinked = 0;
+
+    for (const proj of projects) {
+      const items = await ctx.db
+        .query("projectEquipment")
+        .withIndex("by_project", (q) => q.eq("projectId", proj._id))
+        .collect();
+
+      // Cache por nome normalizado para evitar leituras repetidas.
+      const systemIdByName = new Map<string, Id<"systems">>();
+
+      for (const item of items) {
+        // Apenas itens da hierarquia nova e ainda sem sistema vinculado.
+        if (!item.environmentId || item.systemId) continue;
+
+        const key = (item.system.trim() || "Split").toLowerCase();
+        let systemId = systemIdByName.get(key);
+        if (!systemId) {
+          const before = await ctx.db
+            .query("systems")
+            .withIndex("by_project", (q) => q.eq("projectId", proj._id))
+            .collect();
+          const result = await findOrCreateSystemInProject(
+            ctx,
+            proj._id,
+            item.system
+          );
+          systemId = result.systemId;
+          systemIdByName.set(key, systemId);
+          if (!before.some((s) => s._id === systemId)) systemsCreated++;
+        }
+
+        await ctx.db.patch("projectEquipment", item._id, { systemId });
+        equipmentLinked++;
+      }
+    }
+
+    return { systemsCreated, equipmentLinked };
   },
 });

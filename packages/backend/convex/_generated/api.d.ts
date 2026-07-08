@@ -36,6 +36,7 @@ import type * as projects from "../projects.js";
 import type * as qrCodes from "../qrCodes.js";
 import type * as reports from "../reports.js";
 import type * as suppliers from "../suppliers.js";
+import type * as systems from "../systems.js";
 import type * as takeoffs from "../takeoffs.js";
 import type * as towers from "../towers.js";
 import type * as userAdmin from "../userAdmin.js";
@@ -76,6 +77,7 @@ declare const fullApi: ApiFromModules<{
   qrCodes: typeof qrCodes;
   reports: typeof reports;
   suppliers: typeof suppliers;
+  systems: typeof systems;
   takeoffs: typeof takeoffs;
   towers: typeof towers;
   userAdmin: typeof userAdmin;

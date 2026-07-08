@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 
 import { LinkEquipmentDialog } from "@/components/engenharia/link-equipment-dialog";
-import { StatusBadge } from "@/components/engenharia/status-badge";
 import {
   TYPE_LABELS,
   type EquipmentStatus,

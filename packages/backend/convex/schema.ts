@@ -188,6 +188,18 @@ export default defineSchema({
     .index("by_tower", ["towerId"])
     .index("by_project", ["projectId"]),
 
+  // Sistema de climatização, escopado a UMA obra (ex: "VRF 1", "Split").
+  // Agrupa equipamentos que podem estar em ambientes diferentes da mesma obra
+  // (ex: condensadora na cobertura + evaporadoras espalhadas pelos aptos).
+  systems: defineTable({
+    projectId: v.id("projects"),
+    name: v.string(),
+    // Tipo do sistema, ex: "VRF", "Split".
+    type: v.optional(v.string()),
+    obs: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_project", ["projectId"]),
+
   // Apartamento / "Final" dentro de um andar.
   projectUnits: defineTable({
     projectId: v.id("projects"),
@@ -211,8 +223,11 @@ export default defineSchema({
     projectId: v.id("projects"),
     // Opcional: obras antigas usam projectUnits; obras novas usam environments.
     unitId: v.optional(v.id("projectUnits")),
-    // Sistema dentro do apartamento, ex: "VRF 1", "VRF 2", "Split".
+    // Nome do sistema (denormalizado de `systems.name` quando `systemId` está
+    // presente; texto livre no caminho legado de apartamentos).
     system: v.string(),
+    // Sistema da obra ao qual este equipamento pertence (hierarquia nova).
+    systemId: v.optional(v.id("systems")),
     // Ambiente onde fica, ex: "Sala de Estar", "Suíte 1", "Área Técnica".
     ambiente: v.string(),
     kind: v.union(v.literal("condensadora"), v.literal("evaporadora")),
@@ -246,6 +261,7 @@ export default defineSchema({
     .index("by_project", ["projectId"])
     .index("by_unit", ["unitId"])
     .index("by_environment", ["environmentId"])
+    .index("by_system", ["systemId"])
     .index("by_project_modelo", ["projectId", "modelo"])
     .index("by_linkedEquipment", ["linkedEquipmentId"]),
 

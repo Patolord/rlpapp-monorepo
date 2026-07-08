@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { engineeringMutation } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
 import { projectStatus } from "./schema";
+import { findOrCreateSystemInProject } from "./systems";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 
@@ -351,12 +352,18 @@ export const applyIntents = engineeringMutation({
             );
             break;
           }
+          const system = await findOrCreateSystemInProject(
+            ctx,
+            args.projectId,
+            intent.system
+          );
           await ctx.db.insert("projectEquipment", {
             projectId: args.projectId,
             environmentId: envId,
             towerId,
             floorId,
-            system: intent.system.trim() || "Split",
+            system: system.name,
+            systemId: system.systemId,
             ambiente: intent.environmentName.trim(),
             kind: intent.kind,
             modelo: intent.modelo?.trim() ?? "",
@@ -599,6 +606,8 @@ async function duplicateTowerDeep(
           towerId: newTowerId,
           floorId: newFloorId,
           system: item.system,
+          // Mesma obra: a cópia continua pertencendo ao mesmo sistema.
+          systemId: item.systemId,
           ambiente: item.ambiente,
           kind: item.kind,
           modelo: item.modelo,

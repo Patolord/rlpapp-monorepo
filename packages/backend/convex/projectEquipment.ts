@@ -95,12 +95,14 @@ const equipKindValidator = v.union(
 );
 
 // Cria/atualiza um equipamento planejado dentro de um AMBIENTE (hierarquia nova).
-// Diferente de `upsert`, que opera sobre o caminho legado de apartamentos.
+// O equipamento pertence a um sistema da obra (systems); o nome do sistema é
+// denormalizado no campo `system`. Diferente de `upsert`, que opera sobre o
+// caminho legado de apartamentos.
 export const upsertInEnvironment = engineeringMutation({
   args: {
     itemId: v.optional(v.id("projectEquipment")),
     environmentId: v.id("environments"),
-    system: v.string(),
+    systemId: v.id("systems"),
     ambiente: v.optional(v.string()),
     kind: equipKindValidator,
     modelo: v.optional(v.string()),
@@ -116,8 +118,15 @@ export const upsertInEnvironment = engineeringMutation({
     const env = await ctx.db.get("environments", args.environmentId);
     if (!env) throw new Error("Ambiente não encontrado");
 
+    const system = await ctx.db.get("systems", args.systemId);
+    if (!system) throw new Error("Sistema não encontrado");
+    if (system.projectId !== env.projectId) {
+      throw new Error("O sistema não pertence à mesma obra do ambiente");
+    }
+
     const base = {
-      system: args.system.trim() || "Split",
+      system: system.name,
+      systemId: args.systemId,
       ambiente: args.ambiente?.trim() || env.name,
       kind: args.kind,
       modelo: args.modelo?.trim() ?? "",

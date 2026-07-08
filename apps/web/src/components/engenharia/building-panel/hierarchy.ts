@@ -9,6 +9,7 @@ export type EquipmentStatus =
 export type HierarchyItem = {
   _id: Id<"projectEquipment">;
   system: string;
+  systemId: Id<"systems"> | null;
   ambiente: string;
   kind: "condensadora" | "evaporadora";
   modelo: string;
@@ -47,9 +48,19 @@ export type HierarchyTower = {
   floors: HierarchyFloor[];
 };
 
+/** Sistema da obra (ex: "VRF 1"), com contagens agregadas de equipamentos. */
+export type HierarchySystem = {
+  _id: Id<"systems">;
+  name: string;
+  type: string | null;
+  totalItems: number;
+  installedItems: number;
+};
+
 export type ProjectHierarchy = {
   _id: Id<"projects">;
   name: string;
+  systems: HierarchySystem[];
   towers: HierarchyTower[];
 };
 

@@ -16,6 +16,10 @@ export async function buildProjectHierarchy(
     .query("towers")
     .withIndex("by_project", (q) => q.eq("projectId", projectId))
     .collect();
+  const systems = await ctx.db
+    .query("systems")
+    .withIndex("by_project", (q) => q.eq("projectId", projectId))
+    .collect();
   const floors = await ctx.db
     .query("floors")
     .withIndex("by_project", (q) => q.eq("projectId", projectId))
@@ -98,6 +102,7 @@ export async function buildProjectHierarchy(
               equipment: envItems.map((e) => ({
                 _id: e._id,
                 system: e.system,
+                systemId: e.systemId ?? null,
                 ambiente: e.ambiente,
                 kind: e.kind,
                 modelo: e.modelo,
@@ -134,9 +139,29 @@ export async function buildProjectHierarchy(
       };
     });
 
+  // Contagens por sistema (somente itens da hierarquia nova, com ambiente).
+  const hierarchyItems = items.filter((i) => i.environmentId);
+  const systemsOut = systems
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((system) => {
+      const systemItems = hierarchyItems.filter(
+        (i) => i.systemId === system._id
+      );
+      return {
+        _id: system._id,
+        name: system.name,
+        type: system.type ?? null,
+        totalItems: systemItems.length,
+        installedItems: systemItems.filter((i) => i.status === "operational")
+          .length,
+      };
+    });
+
   return {
     _id: project._id,
     name: project.name,
+    systems: systemsOut,
     towers: towersOut,
   };
 }

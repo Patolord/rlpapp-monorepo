@@ -20,13 +20,16 @@ import {
   EditEnvironmentDialog,
   EditEquipmentDialog,
   EditFloorDialog,
+  EditSystemDialog,
   EditTowerDialog,
+  NewSystemDialog,
   NewTowerDialog,
 } from "@/components/engenharia/building-panel/edit-dialogs";
 import type {
   HierarchyEnvironment,
   HierarchyFloor,
   HierarchyItem,
+  HierarchySystem,
   HierarchyTower,
 } from "@/components/engenharia/building-panel/hierarchy";
 import {
@@ -104,10 +107,13 @@ function HierarchyBuilding({
   project: ProjectOverview;
   now: number;
 }) {
+  const projectId = project._id as Id<"projects">;
   const generateQr = useMutation(api.qrCodes.generateForProjectEquipment);
   const removeEquipment = useMutation(api.projectEquipment.remove);
   const unlinkEquipment = useMutation(api.projectEquipment.unlinkEquipment);
   const removeEnvironment = useMutation(api.environments.remove);
+  const systems =
+    useQuery(api.systems.listSystemsByProject, { projectId }) ?? [];
 
   const [towerDialogOpen, setTowerDialogOpen] = useState(false);
   const [editTowerTarget, setEditTowerTarget] = useState<HierarchyTower | null>(
@@ -120,9 +126,15 @@ function HierarchyBuilding({
   const [envTarget, setEnvTarget] = useState<HierarchyFloor | null>(null);
   const [editEnvTarget, setEditEnvTarget] =
     useState<HierarchyEnvironment | null>(null);
-  const [equipTarget, setEquipTarget] = useState<HierarchyEnvironment | null>(
-    null
-  );
+  // Ambiente aguardando a criação de um sistema (fluxo sistema → equipamento).
+  const [newSystemEnv, setNewSystemEnv] =
+    useState<HierarchyEnvironment | null>(null);
+  const [editSystemTarget, setEditSystemTarget] =
+    useState<HierarchySystem | null>(null);
+  const [equipTarget, setEquipTarget] = useState<{
+    env: HierarchyEnvironment;
+    systemId: Id<"systems"> | null;
+  } | null>(null);
   const [editEquipTarget, setEditEquipTarget] = useState<{
     item: HierarchyItem;
     env: HierarchyEnvironment;
@@ -151,7 +163,10 @@ function HierarchyBuilding({
         "Não foi possível remover o ambiente"
       );
     },
-    onAddEquipment: (env) => setEquipTarget(env),
+    onAddSystem: (env) => setNewSystemEnv(env),
+    onEditSystem: (system) => setEditSystemTarget(system),
+    onAddEquipment: (env, system) =>
+      setEquipTarget({ env, systemId: system?._id ?? null }),
     onEditEquipment: (item, env) => setEditEquipTarget({ item, env }),
     onGenerateQr: (item) =>
       runWithToast(
@@ -221,13 +236,35 @@ function HierarchyBuilding({
         environment={editEnvTarget}
         onClose={() => setEditEnvTarget(null)}
       />
+      <NewSystemDialog
+        projectId={projectId}
+        open={newSystemEnv !== null}
+        onClose={() => setNewSystemEnv(null)}
+        onCreated={(systemId) => {
+          // Fluxo sistema → equipamento: após criar o sistema, abre (ou
+          // atualiza) o dialog de equipamento com ele pré-selecionado.
+          if (newSystemEnv) {
+            setEquipTarget({ env: newSystemEnv, systemId });
+          }
+        }}
+      />
+      <EditSystemDialog
+        system={editSystemTarget}
+        onClose={() => setEditSystemTarget(null)}
+      />
       <AddEquipmentDialog
-        environment={equipTarget}
+        environment={equipTarget?.env ?? null}
+        systems={systems}
+        initialSystemId={equipTarget?.systemId ?? null}
         onClose={() => setEquipTarget(null)}
+        onRequestNewSystem={() => {
+          if (equipTarget) setNewSystemEnv(equipTarget.env);
+        }}
       />
       <EditEquipmentDialog
         item={editEquipTarget?.item ?? null}
         environmentId={editEquipTarget?.env._id ?? null}
+        systems={systems}
         onClose={() => setEditEquipTarget(null)}
       />
       <LinkEquipmentDialog

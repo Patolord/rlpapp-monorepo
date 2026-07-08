@@ -626,6 +626,7 @@ export const generateLayout = engineeringMutation({
 const hierarchyItemValidator = v.object({
   _id: v.id("projectEquipment"),
   system: v.string(),
+  systemId: v.union(v.id("systems"), v.null()),
   ambiente: v.string(),
   kind: equipKindValidator,
   modelo: v.string(),
@@ -644,6 +645,16 @@ export const hierarchyReturnValidator = v.union(
   v.object({
     _id: v.id("projects"),
     name: v.string(),
+    // Sistemas da obra (inclui sistemas ainda sem equipamentos).
+    systems: v.array(
+      v.object({
+        _id: v.id("systems"),
+        name: v.string(),
+        type: v.union(v.string(), v.null()),
+        totalItems: v.number(),
+        installedItems: v.number(),
+      })
+    ),
     towers: v.array(
       v.object({
         _id: v.id("towers"),

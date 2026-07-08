@@ -200,6 +200,8 @@ export const duplicate = engineeringMutation({
             towerId: newTowerId,
             floorId: newFloorId,
             system: item.system,
+            // Mesma obra: a cópia continua pertencendo ao mesmo sistema.
+            systemId: item.systemId,
             ambiente: item.ambiente,
             kind: item.kind,
             modelo: item.modelo,
