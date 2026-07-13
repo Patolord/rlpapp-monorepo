@@ -12,6 +12,7 @@ import {
   Plus,
   Search,
   Trash2,
+  Zap,
 } from "lucide-react";
 
 import { AuthShell } from "@/components/auth-shell";
@@ -22,6 +23,7 @@ import {
   BuildingMatrixPanel,
   type BuildingMatrixActions,
 } from "@/components/engenharia/building-panel/building-matrix";
+import { QuickAddPanel } from "@/components/engenharia/building-panel/quick-add-panel";
 import { SystemsPanel } from "@/components/engenharia/building-panel/systems-panel";
 import {
   UnassignedEquipmentPanel,
@@ -29,14 +31,12 @@ import {
 } from "@/components/engenharia/building-panel/unassigned-equipment-panel";
 import {
   AddEnvironmentDialog,
-  AddEquipmentDialog,
   AddFloorsDialog,
   EditEnvironmentDialog,
   EditEquipmentDialog,
   EditFloorDialog,
   EditSystemDialog,
   EditTowerDialog,
-  NewSystemDialog,
   NewTowerDialog,
 } from "@/components/engenharia/building-panel/edit-dialogs";
 import type {
@@ -140,6 +140,14 @@ function HierarchyBuilding({
   );
   // Ambiente selecionado na matriz como alvo da atribuição.
   const [assignTarget, setAssignTarget] = useState<AssignTarget | null>(null);
+  // Painel de cadastro rápido (multisseleção de ambientes na matriz).
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [selectedEnvIds, setSelectedEnvIds] = useState<
+    Set<Id<"environments">>
+  >(() => new Set());
+  // Sistema pré-ativado no painel (botão "Equipamento" de um grupo).
+  const [quickAddSystemId, setQuickAddSystemId] =
+    useState<Id<"systems"> | null>(null);
   const [towerDialogOpen, setTowerDialogOpen] = useState(false);
   const [editTowerTarget, setEditTowerTarget] = useState<HierarchyTower | null>(
     null
@@ -151,15 +159,8 @@ function HierarchyBuilding({
   const [envTarget, setEnvTarget] = useState<HierarchyFloor | null>(null);
   const [editEnvTarget, setEditEnvTarget] =
     useState<HierarchyEnvironment | null>(null);
-  // Ambiente aguardando a criação de um sistema (fluxo sistema → equipamento).
-  const [newSystemEnv, setNewSystemEnv] =
-    useState<HierarchyEnvironment | null>(null);
   const [editSystemTarget, setEditSystemTarget] =
     useState<HierarchySystem | null>(null);
-  const [equipTarget, setEquipTarget] = useState<{
-    env: HierarchyEnvironment;
-    systemId: Id<"systems"> | null;
-  } | null>(null);
   const [editEquipTarget, setEditEquipTarget] = useState<{
     item: HierarchyItem;
     env: HierarchyEnvironment;
@@ -168,11 +169,53 @@ function HierarchyBuilding({
     null
   );
 
+  function closePool() {
+    window.localStorage.setItem(POOL_OPEN_KEY, "0");
+    setAssignTarget(null);
+    setPoolOpen(false);
+  }
+
   function togglePool() {
     const next = !poolOpen;
     window.localStorage.setItem(POOL_OPEN_KEY, next ? "1" : "0");
     if (!next) setAssignTarget(null);
+    // Painéis laterais são mutuamente exclusivos.
+    if (next) closeQuickAdd();
     setPoolOpen(next);
+  }
+
+  function openQuickAdd() {
+    if (poolOpen) closePool();
+    setView("predio");
+    setQuickAddOpen(true);
+  }
+
+  function closeQuickAdd() {
+    setQuickAddOpen(false);
+    setSelectedEnvIds(new Set());
+    setQuickAddSystemId(null);
+  }
+
+  function toggleEnvSelection(env: HierarchyEnvironment) {
+    setSelectedEnvIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(env._id)) next.delete(env._id);
+      else next.add(env._id);
+      return next;
+    });
+  }
+
+  function toggleFloorSelection(floor: HierarchyFloor) {
+    setSelectedEnvIds((prev) => {
+      const next = new Set(prev);
+      const ids = floor.environments.map((e) => e._id);
+      const allSelected = ids.length > 0 && ids.every((id) => next.has(id));
+      for (const id of ids) {
+        if (allSelected) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
   }
 
   const actions: BuildingMatrixActions = {
@@ -196,8 +239,12 @@ function HierarchyBuilding({
       );
     },
     onEditSystem: (system) => setEditSystemTarget(system),
-    onAddEquipment: (env, system) =>
-      setEquipTarget({ env, systemId: system?._id ?? null }),
+    onAddEquipment: (env, system) => {
+      // Abre o cadastro rápido com o ambiente selecionado e o sistema ativo.
+      openQuickAdd();
+      setSelectedEnvIds((prev) => new Set(prev).add(env._id));
+      setQuickAddSystemId(system?._id ?? null);
+    },
     onEditEquipment: (item, env) => setEditEquipTarget({ item, env }),
     onGenerateQr: (item) =>
       runWithToast(
@@ -233,14 +280,26 @@ function HierarchyBuilding({
         <CardContent className="space-y-4 py-6">
           <div className="flex flex-wrap items-center justify-end gap-2">
             {view === "predio" && (
-              <Button
-                variant={poolOpen ? "secondary" : "outline"}
-                size="xs"
-                onClick={togglePool}
-              >
-                <PackagePlus className="mr-1.5 size-3.5" />
-                Equipamentos
-              </Button>
+              <>
+                <Button
+                  variant={quickAddOpen ? "secondary" : "outline"}
+                  size="xs"
+                  onClick={() =>
+                    quickAddOpen ? closeQuickAdd() : openQuickAdd()
+                  }
+                >
+                  <Zap className="mr-1.5 size-3.5" />
+                  Cadastro rápido
+                </Button>
+                <Button
+                  variant={poolOpen ? "secondary" : "outline"}
+                  size="xs"
+                  onClick={togglePool}
+                >
+                  <PackagePlus className="mr-1.5 size-3.5" />
+                  Equipamentos
+                </Button>
+              </>
             )}
             <div className="inline-flex rounded-md border p-0.5">
               <Button
@@ -262,14 +321,16 @@ function HierarchyBuilding({
             </div>
           </div>
           {view === "predio" ? (
-            poolOpen ? (
+            poolOpen || quickAddOpen ? (
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
                 <BuildingMatrixPanel
                   projectId={project._id as Id<"projects">}
                   now={now}
                   actions={actions}
-                  selectionMode
-                  selectedTargetEnvId={assignTarget?.envId ?? null}
+                  selectionMode={poolOpen}
+                  selectedTargetEnvId={
+                    poolOpen ? assignTarget?.envId ?? null : null
+                  }
                   onSelectTarget={(floorLabel, env) =>
                     setAssignTarget({
                       envId: env._id,
@@ -277,13 +338,35 @@ function HierarchyBuilding({
                       floorLabel,
                     })
                   }
+                  multiSelectMode={quickAddOpen}
+                  multiSelectedEnvIds={selectedEnvIds}
+                  onToggleEnv={toggleEnvSelection}
+                  onToggleFloor={toggleFloorSelection}
                 />
-                <UnassignedEquipmentPanel
-                  projectId={projectId}
-                  systems={systems}
-                  target={assignTarget}
-                  onClose={togglePool}
-                />
+                {poolOpen ? (
+                  <UnassignedEquipmentPanel
+                    projectId={projectId}
+                    systems={systems}
+                    target={assignTarget}
+                    onClose={togglePool}
+                  />
+                ) : (
+                  <QuickAddPanel
+                    projectId={projectId}
+                    systems={systems}
+                    selectedEnvIds={selectedEnvIds}
+                    initialSystemId={quickAddSystemId}
+                    onDeselectEnv={(envId) =>
+                      setSelectedEnvIds((prev) => {
+                        const next = new Set(prev);
+                        next.delete(envId);
+                        return next;
+                      })
+                    }
+                    onClearSelection={() => setSelectedEnvIds(new Set())}
+                    onClose={closeQuickAdd}
+                  />
+                )}
               </div>
             ) : (
               <BuildingMatrixPanel
@@ -330,30 +413,9 @@ function HierarchyBuilding({
         environment={editEnvTarget}
         onClose={() => setEditEnvTarget(null)}
       />
-      <NewSystemDialog
-        projectId={projectId}
-        open={newSystemEnv !== null}
-        onClose={() => setNewSystemEnv(null)}
-        onCreated={(systemId) => {
-          // Fluxo sistema → equipamento: após criar o sistema, abre (ou
-          // atualiza) o dialog de equipamento com ele pré-selecionado.
-          if (newSystemEnv) {
-            setEquipTarget({ env: newSystemEnv, systemId });
-          }
-        }}
-      />
       <EditSystemDialog
         system={editSystemTarget}
         onClose={() => setEditSystemTarget(null)}
-      />
-      <AddEquipmentDialog
-        environment={equipTarget?.env ?? null}
-        systems={systems}
-        initialSystemId={equipTarget?.systemId ?? null}
-        onClose={() => setEquipTarget(null)}
-        onRequestNewSystem={() => {
-          if (equipTarget) setNewSystemEnv(equipTarget.env);
-        }}
       />
       <EditEquipmentDialog
         item={editEquipTarget?.item ?? null}

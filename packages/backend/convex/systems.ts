@@ -137,6 +137,69 @@ export const createSystemInProject = engineeringMutation({
   },
 });
 
+// Cria vários sistemas de uma vez (fluxo de cadastro rápido). Nomes que já
+// existem na obra (case-insensitive) não são recriados — retornam o sistema
+// existente com `created: false`. Nomes duplicados na própria lista são
+// deduplicados silenciosamente.
+export const bulkCreateSystems = engineeringMutation({
+  args: {
+    projectId: v.id("projects"),
+    names: v.array(v.string()),
+  },
+  returns: v.array(
+    v.object({
+      systemId: v.id("systems"),
+      name: v.string(),
+      created: v.boolean(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project) throw new Error("Obra não encontrada");
+
+    const existing = await ctx.db
+      .query("systems")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    const byLowerName = new Map(
+      existing.map((s) => [s.name.toLowerCase(), s])
+    );
+
+    const results: { systemId: Id<"systems">; name: string; created: boolean }[] =
+      [];
+    const seen = new Set<string>();
+
+    for (const raw of args.names) {
+      const name = raw.trim();
+      if (!name) continue;
+      const lower = name.toLowerCase();
+      if (seen.has(lower)) continue;
+      seen.add(lower);
+
+      const match = byLowerName.get(lower);
+      if (match) {
+        results.push({ systemId: match._id, name: match.name, created: false });
+        continue;
+      }
+
+      const systemId = await ctx.db.insert("systems", {
+        projectId: args.projectId,
+        name,
+        createdAt: Date.now(),
+      });
+      await logAudit(ctx, ctx.user, {
+        action: "create",
+        tableName: "systems",
+        recordId: systemId,
+        details: name,
+      });
+      results.push({ systemId, name, created: true });
+    }
+
+    return results;
+  },
+});
+
 // Atualiza nome/tipo/obs de um sistema. Renomear também sincroniza o campo
 // denormalizado `system` (string) em todos os equipamentos do sistema.
 export const updateSystemDetails = engineeringMutation({

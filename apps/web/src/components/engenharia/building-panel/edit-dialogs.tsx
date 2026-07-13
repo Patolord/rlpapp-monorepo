@@ -890,94 +890,6 @@ export function EditEnvironmentDialog({
 /** Dados mínimos de um sistema para os selects/dialogs (subset estrutural). */
 export type SystemOption = Pick<HierarchySystem, "_id" | "name" | "type">;
 
-export function NewSystemDialog({
-  projectId,
-  open,
-  onClose,
-  onCreated,
-}: {
-  projectId: Id<"projects">;
-  open: boolean;
-  onClose: () => void;
-  onCreated?: (systemId: Id<"systems">) => void;
-}) {
-  const createSystem = useMutation(api.systems.createSystemInProject);
-  const [name, setName] = useState("");
-  const [type, setType] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setSaving(true);
-    let systemId: Id<"systems"> | null = null;
-    const ok = await runWithToast(
-      async () => {
-        systemId = await createSystem({
-          projectId,
-          name: name.trim(),
-          type: type.trim() || undefined,
-        });
-      },
-      "Sistema criado",
-      "Não foi possível criar o sistema"
-    );
-    setSaving(false);
-    if (ok) {
-      setName("");
-      setType("");
-      onClose();
-      if (systemId) onCreated?.(systemId);
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Novo sistema</DialogTitle>
-          <DialogDescription>
-            O sistema pertence à obra e pode ter equipamentos em vários
-            ambientes (ex: condensadora na cobertura e evaporadoras nos
-            apartamentos).
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="system-name">Nome do sistema</Label>
-            <Input
-              id="system-name"
-              placeholder="Ex: VRF 1"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="system-type">Tipo (opcional)</Label>
-            <Input
-              id="system-type"
-              placeholder="Ex: VRF, Split"
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={saving || !name.trim()}>
-              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
-              Criar sistema
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export function EditSystemDialog({
   system,
   onClose,
@@ -1091,8 +1003,6 @@ export function EditSystemDialog({
 // Equipamento
 // ---------------------------------------------------------------------------
 
-/** Valor sentinela do Select que dispara a criação de um novo sistema. */
-const NEW_SYSTEM_VALUE = "__new_system__";
 /** Valor sentinela do Select para equipamento sem sistema. */
 const NO_SYSTEM_VALUE = "__no_system__";
 
@@ -1105,14 +1015,12 @@ function SystemSelect({
   systems,
   value,
   onChange,
-  onRequestNewSystem,
   allowNone = false,
 }: {
   id?: string;
   systems: SystemOption[];
   value: Id<"systems"> | null;
   onChange: (systemId: Id<"systems"> | null) => void;
-  onRequestNewSystem?: () => void;
   /** Permite escolher "Sem sistema" (equipamento fica com alerta na UI). */
   allowNone?: boolean;
 }) {
@@ -1122,17 +1030,12 @@ function SystemSelect({
     systems.map((s) => [s._id, systemLabel(s)])
   );
   if (allowNone) items[NO_SYSTEM_VALUE] = "Sem sistema";
-  if (onRequestNewSystem) items[NEW_SYSTEM_VALUE] = "+ Novo sistema";
 
   return (
     <Select
       value={allowNone && value === null ? NO_SYSTEM_VALUE : value}
       items={items}
       onValueChange={(v) => {
-        if (v === NEW_SYSTEM_VALUE) {
-          onRequestNewSystem?.();
-          return;
-        }
         if (v === NO_SYSTEM_VALUE) {
           onChange(null);
           return;
@@ -1152,9 +1055,6 @@ function SystemSelect({
             {systemLabel(s)}
           </SelectItem>
         ))}
-        {onRequestNewSystem && (
-          <SelectItem value={NEW_SYSTEM_VALUE}>+ Novo sistema</SelectItem>
-        )}
       </SelectContent>
     </Select>
   );
@@ -1164,164 +1064,6 @@ const KIND_ITEMS: Record<string, string> = {
   evaporadora: "Evaporadora",
   condensadora: "Condensadora",
 };
-
-export function AddEquipmentDialog({
-  environment,
-  systems,
-  initialSystemId,
-  onClose,
-  onRequestNewSystem,
-}: {
-  environment: HierarchyEnvironment | null;
-  systems: SystemOption[];
-  initialSystemId: Id<"systems"> | null;
-  onClose: () => void;
-  onRequestNewSystem?: () => void;
-}) {
-  const upsert = useMutation(api.projectEquipment.upsertInEnvironment);
-  const [systemId, setSystemId] = useState<Id<"systems"> | null>(null);
-  const [kind, setKind] = useState<"condensadora" | "evaporadora">(
-    "evaporadora"
-  );
-  const [modelo, setModelo] = useState("");
-  const [capacidade, setCapacidade] = useState("");
-  const [serialNumber, setSerialNumber] = useState("");
-  const [deadline, setDeadline] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  // Sincroniza o sistema pré-selecionado (grupo clicado ou recém-criado).
-  useEffect(() => {
-    setSystemId(initialSystemId);
-  }, [initialSystemId, environment]);
-
-  function reset() {
-    setKind("evaporadora");
-    setModelo("");
-    setCapacidade("");
-    setSerialNumber("");
-    setDeadline("");
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!environment) return;
-    setSaving(true);
-    const ok = await runWithToast(
-      () =>
-        upsert({
-          environmentId: environment._id,
-          systemId: systemId ?? undefined,
-          kind,
-          modelo: modelo.trim() || undefined,
-          capacidade: capacidade.trim() || undefined,
-          serialNumber: serialNumber.trim() || undefined,
-          deadline: toTimestamp(deadline) ?? null,
-        }),
-      "Equipamento adicionado",
-      "Não foi possível adicionar o equipamento"
-    );
-    setSaving(false);
-    if (ok) {
-      reset();
-      onClose();
-    }
-  }
-
-  return (
-    <Dialog open={environment !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Adicionar equipamento</DialogTitle>
-          <DialogDescription>
-            {environment ? `Ambiente ${environment.name}.` : ""} Escolha o
-            sistema e preencha os dados do equipamento previsto.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="equip-system">Sistema</Label>
-              <SystemSelect
-                id="equip-system"
-                systems={systems}
-                value={systemId}
-                onChange={setSystemId}
-                onRequestNewSystem={onRequestNewSystem}
-                allowNone
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo</Label>
-              <Select
-                value={kind}
-                items={KIND_ITEMS}
-                onValueChange={(v) =>
-                  setKind(v as "condensadora" | "evaporadora")
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="evaporadora">Evaporadora</SelectItem>
-                  <SelectItem value="condensadora">Condensadora</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="equip-modelo">Modelo</Label>
-              <Input
-                id="equip-modelo"
-                placeholder="Ex: MSZ-GL12"
-                value={modelo}
-                onChange={(e) => setModelo(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="equip-cap">Capacidade</Label>
-              <Input
-                id="equip-cap"
-                placeholder="Ex: 12.000 BTUs"
-                value={capacidade}
-                onChange={(e) => setCapacidade(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="equip-serial">Nº de série (opcional)</Label>
-              <Input
-                id="equip-serial"
-                value={serialNumber}
-                onChange={(e) => setSerialNumber(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="equip-deadline">Prazo (opcional)</Label>
-              <Input
-                id="equip-deadline"
-                type="date"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
-              Adicionar
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Editar Equipamento

@@ -5,6 +5,7 @@ import {
   engineeringQuery,
 } from "./lib/rbac";
 import { equipmentStatusValidator } from "./equipment";
+import { generateQrForItem } from "./qrCodes";
 import { logEquipmentHistory } from "./lib/audit";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
@@ -174,6 +175,123 @@ export const upsertInEnvironment = engineeringMutation({
       newValue: base.system,
     });
     return itemId;
+  },
+});
+
+// Criação em massa de equipamentos planejados em vários ambientes de uma vez
+// (painel de cadastro rápido). Para cada ambiente × item × qty insere um
+// registro com os mesmos defaults de `upsertInEnvironment`. Opcionalmente gera
+// um QR novo para cada item criado.
+export const bulkAddToEnvironments = engineeringMutation({
+  args: {
+    environmentIds: v.array(v.id("environments")),
+    systemId: v.optional(v.id("systems")),
+    items: v.array(
+      v.object({
+        kind: equipKindValidator,
+        qty: v.number(),
+        modelo: v.optional(v.string()),
+        capacidade: v.optional(v.string()),
+      })
+    ),
+    generateQr: v.boolean(),
+  },
+  returns: v.object({
+    created: v.number(),
+    items: v.array(
+      v.object({
+        itemId: v.id("projectEquipment"),
+        environmentId: v.id("environments"),
+        token: v.union(v.string(), v.null()),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    if (args.environmentIds.length === 0) {
+      throw new Error("Selecione pelo menos um ambiente");
+    }
+
+    const totalPerEnv = args.items.reduce(
+      (sum, item) => sum + Math.max(0, Math.floor(item.qty)),
+      0
+    );
+    if (totalPerEnv === 0) {
+      throw new Error("Informe a quantidade de equipamentos");
+    }
+    const total = totalPerEnv * args.environmentIds.length;
+    if (total > 500) {
+      throw new Error(
+        `Limite de 500 equipamentos por operação excedido (${total})`
+      );
+    }
+
+    // Carrega e valida os ambientes (todos da mesma obra, sem duplicatas).
+    const envIds = Array.from(new Set(args.environmentIds));
+    const environments = [];
+    for (const envId of envIds) {
+      const env = await ctx.db.get("environments", envId);
+      if (!env) throw new Error("Ambiente não encontrado");
+      environments.push(env);
+    }
+    const projectId = environments[0].projectId;
+    if (environments.some((env) => env.projectId !== projectId)) {
+      throw new Error("Todos os ambientes devem pertencer à mesma obra");
+    }
+
+    let systemName = "";
+    if (args.systemId) {
+      const system = await ctx.db.get("systems", args.systemId);
+      if (!system) throw new Error("Sistema não encontrado");
+      if (system.projectId !== projectId) {
+        throw new Error("O sistema não pertence à mesma obra dos ambientes");
+      }
+      systemName = system.name;
+    }
+
+    const results: {
+      itemId: Id<"projectEquipment">;
+      environmentId: Id<"environments">;
+      token: string | null;
+    }[] = [];
+
+    for (const env of environments) {
+      for (const item of args.items) {
+        const qty = Math.max(0, Math.floor(item.qty));
+        for (let i = 0; i < qty; i++) {
+          const itemId = await ctx.db.insert("projectEquipment", {
+            projectId,
+            environmentId: env._id,
+            towerId: env.towerId,
+            floorId: env.floorId,
+            system: systemName,
+            systemId: args.systemId,
+            ambiente: env.name,
+            kind: item.kind,
+            modelo: item.modelo?.trim() ?? "",
+            capacidade: item.capacidade?.trim() ?? "",
+            status: "installing",
+          });
+          await logEquipmentHistory(ctx, ctx.user, {
+            equipmentId: itemId,
+            action: "created",
+            newValue: systemName || "(sem sistema)",
+          });
+
+          let token: string | null = null;
+          if (args.generateQr) {
+            const inserted = await ctx.db.get("projectEquipment", itemId);
+            if (inserted) {
+              const qr = await generateQrForItem(ctx, ctx.user, inserted);
+              token = qr.token;
+            }
+          }
+
+          results.push({ itemId, environmentId: env._id, token });
+        }
+      }
+    }
+
+    return { created: results.length, items: results };
   },
 });
 

@@ -77,6 +77,10 @@ export type BuildingMatrixActions = {
  * Em `selectionMode` (painel de equipamentos não atribuídos aberto), clicar em
  * uma célula apenas a marca como alvo da atribuição (destacada), sem abrir o
  * sheet de detalhes.
+ *
+ * Em `multiSelectMode` (painel de cadastro rápido aberto), clicar em células
+ * alterna a seleção múltipla de ambientes; clicar no rótulo do andar alterna o
+ * andar inteiro.
  */
 export function BuildingMatrixPanel({
   projectId,
@@ -85,6 +89,10 @@ export function BuildingMatrixPanel({
   selectionMode = false,
   selectedTargetEnvId = null,
   onSelectTarget,
+  multiSelectMode = false,
+  multiSelectedEnvIds,
+  onToggleEnv,
+  onToggleFloor,
 }: {
   projectId: Id<"projects">;
   now: number;
@@ -92,6 +100,10 @@ export function BuildingMatrixPanel({
   selectionMode?: boolean;
   selectedTargetEnvId?: string | null;
   onSelectTarget?: (floorLabel: string, env: HierarchyEnvironment) => void;
+  multiSelectMode?: boolean;
+  multiSelectedEnvIds?: ReadonlySet<string>;
+  onToggleEnv?: (env: HierarchyEnvironment) => void;
+  onToggleFloor?: (floor: HierarchyFloor) => void;
 }) {
   const hierarchy = useQuery(api.projects.getHierarchy, {
     projectId,
@@ -228,7 +240,13 @@ export function BuildingMatrixPanel({
             now={now}
             actions={actions}
             highlightEnvId={selectionMode ? selectedTargetEnvId : null}
+            selectedEnvIds={multiSelectMode ? multiSelectedEnvIds : undefined}
+            onToggleFloor={multiSelectMode ? onToggleFloor : undefined}
             onSelectEnvironment={(floorLabel, env) => {
+              if (multiSelectMode && onToggleEnv) {
+                onToggleEnv(env);
+                return;
+              }
               if (selectionMode && onSelectTarget) {
                 onSelectTarget(floorLabel, env);
                 return;
@@ -257,6 +275,8 @@ function BuildingMatrix({
   now,
   actions,
   highlightEnvId = null,
+  selectedEnvIds,
+  onToggleFloor,
   onSelectEnvironment,
 }: {
   tower: HierarchyTower;
@@ -264,6 +284,10 @@ function BuildingMatrix({
   actions?: BuildingMatrixActions;
   /** Ambiente destacado como alvo da atribuição (modo seleção). */
   highlightEnvId?: string | null;
+  /** Ambientes selecionados no modo de multisseleção (cadastro rápido). */
+  selectedEnvIds?: ReadonlySet<string>;
+  /** Alterna a seleção de todos os ambientes do andar (multisseleção). */
+  onToggleFloor?: (floor: HierarchyFloor) => void;
   onSelectEnvironment: (floorLabel: string, env: HierarchyEnvironment) => void;
 }) {
   const layout = useMemo(() => resolveMatrixLayout(tower), [tower]);
@@ -342,7 +366,7 @@ function BuildingMatrix({
               style={{ gridRow: idx + 1, gridColumn: 1 }}
             >
               <div className="flex items-center gap-1">
-                {actions?.onEditFloor && (
+                {actions?.onEditFloor && !onToggleFloor && (
                   <button
                     type="button"
                     onClick={() => actions.onEditFloor?.(floor)}
@@ -352,9 +376,21 @@ function BuildingMatrix({
                     <Pencil className="size-3" />
                   </button>
                 )}
-                <span className="text-sm font-bold tabular-nums text-slate-700 dark:text-slate-300">
-                  {floor.label}
-                </span>
+                {onToggleFloor ? (
+                  <button
+                    type="button"
+                    onClick={() => onToggleFloor(floor)}
+                    className="rounded px-1 text-sm font-bold tabular-nums text-slate-700 underline decoration-dotted underline-offset-2 transition-colors hover:bg-primary/10 hover:text-primary dark:text-slate-300"
+                    aria-label={`Selecionar todos os ambientes de ${floor.label}`}
+                    title="Selecionar/desselecionar o andar inteiro"
+                  >
+                    {floor.label}
+                  </button>
+                ) : (
+                  <span className="text-sm font-bold tabular-nums text-slate-700 dark:text-slate-300">
+                    {floor.label}
+                  </span>
+                )}
               </div>
             </div>
           ))}
@@ -374,7 +410,10 @@ function BuildingMatrix({
               key={`${cell.env._id}:${cell.segmentIndex}`}
               cell={cell}
               now={now}
-              highlighted={cell.env._id === highlightEnvId}
+              highlighted={
+                cell.env._id === highlightEnvId ||
+                (selectedEnvIds?.has(cell.env._id) ?? false)
+              }
               onSelectEnvironment={onSelectEnvironment}
             />
           ))}
@@ -561,6 +600,18 @@ function EnvironmentSheet({
   const state = env ? getEnvironmentState(env, now) : null;
   const groups = env ? groupEquipmentBySystem(env, systems) : [];
 
+  // Adicionar equipamento abre o painel de cadastro rápido; fecha o sheet
+  // para não cobrir o painel lateral.
+  const sheetActions: BuildingMatrixActions | undefined = actions && {
+    ...actions,
+    onAddEquipment: actions.onAddEquipment
+      ? (targetEnv, system) => {
+          onClose();
+          actions.onAddEquipment?.(targetEnv, system);
+        }
+      : undefined,
+  };
+
   return (
     <Sheet open={data !== null} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="flex w-full flex-col overflow-y-auto sm:max-w-md">
@@ -620,17 +671,17 @@ function EnvironmentSheet({
                 group={group}
                 env={env}
                 now={now}
-                actions={actions}
+                actions={sheetActions}
               />
             ))
           )}
         </div>
 
-        {actions?.onAddEquipment && env && (
+        {sheetActions?.onAddEquipment && env && (
           <SheetFooter>
             <Button
               className="w-full"
-              onClick={() => actions.onAddEquipment?.(env, null)}
+              onClick={() => sheetActions.onAddEquipment?.(env, null)}
             >
               <Plus className="mr-1.5 size-4" />
               Adicionar equipamento

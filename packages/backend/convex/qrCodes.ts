@@ -1,9 +1,15 @@
 import { paginationOptsValidator } from "convex/server";
-import { internalMutation, internalQuery, query } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  query,
+  type MutationCtx,
+} from "./_generated/server";
 import { v } from "convex/values";
 import {
   authedMutation,
   engineeringMutation,
+  engineeringQuery,
   staffMutation,
   staffQuery,
 } from "./lib/rbac";
@@ -487,6 +493,67 @@ export const listBatches = staffQuery({
   },
 });
 
+// Lotes de QR codes que ainda têm etiquetas disponíveis (ativas e sem
+// equipamento vinculado), com os tokens livres de cada lote. Usado pelo painel
+// de cadastro rápido para vincular etiquetas impressas escolhendo pelo lote.
+export const listAvailableBatches = engineeringQuery({
+  args: {},
+  returns: v.array(
+    v.object({
+      batchId: v.string(),
+      batchName: v.union(v.string(), v.null()),
+      createdAt: v.number(),
+      total: v.number(),
+      availableTokens: v.array(v.string()),
+    })
+  ),
+  handler: async (ctx) => {
+    // Varre os QRs mais recentes e agrupa por lote (mesma abordagem do
+    // listBatches — lotes antigos além da janela ficam de fora).
+    const qrCodes = await ctx.db.query("qrCodes").order("desc").take(5000);
+
+    const batches = new Map<
+      string,
+      {
+        batchId: string;
+        batchName: string | null;
+        createdAt: number;
+        total: number;
+        availableTokens: string[];
+      }
+    >();
+
+    for (const qr of qrCodes) {
+      if (!qr.batchId) continue;
+      let batch = batches.get(qr.batchId);
+      if (!batch) {
+        // Limita a quantidade de lotes retornados (os mais recentes primeiro).
+        if (batches.size >= 20) continue;
+        batch = {
+          batchId: qr.batchId,
+          batchName: qr.batchName ?? null,
+          createdAt: qr.createdAt,
+          total: 0,
+          availableTokens: [],
+        };
+        batches.set(qr.batchId, batch);
+      }
+      batch.total++;
+      if (qr.batchName && !batch.batchName) batch.batchName = qr.batchName;
+      if (qr.status === "active" && !qr.equipmentId) {
+        batch.availableTokens.push(qr.token);
+      }
+    }
+
+    return Array.from(batches.values())
+      .filter((b) => b.availableTokens.length > 0)
+      .map((b) => ({
+        ...b,
+        availableTokens: b.availableTokens.sort((a, z) => a.localeCompare(z)),
+      }));
+  },
+});
+
 export const remove = staffMutation({
   args: {
     token: v.string(),
@@ -750,6 +817,80 @@ export const getFullContext = query({
   },
 });
 
+/**
+ * Gera um QR único para um item planejado, criando o equipamento real
+ * placeholder e vinculando-o (sem alterar o status do planejamento).
+ * Idempotente: se o item já tem equipamento vinculado com QR, retorna o token
+ * existente. Reutilizado pelo cadastro rápido em massa (bulkAddToEnvironments).
+ */
+export async function generateQrForItem(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  item: Doc<"projectEquipment">
+): Promise<{ token: string; created: boolean }> {
+  // Já vinculado? Retorna o token existente, se houver.
+  if (item.linkedEquipmentId) {
+    const existingQr = await ctx.db
+      .query("qrCodes")
+      .withIndex("by_equipment", (q) =>
+        q.eq("equipmentId", item.linkedEquipmentId)
+      )
+      .order("desc")
+      .first();
+    if (existingQr) {
+      if (existingQr.projectId !== item.projectId) {
+        await ctx.db.patch("qrCodes", existingQr._id, {
+          projectId: item.projectId,
+        });
+      }
+      return { token: existingQr.token, created: false };
+    }
+  }
+
+  // Cria o equipamento real (placeholder vinculado ao planejamento).
+  const equipmentId = item.linkedEquipmentId
+    ? item.linkedEquipmentId
+    : await ctx.db.insert("equipment", {
+        description: `${item.system} · ${item.ambiente}`.trim(),
+        status: item.status,
+        createdAt: Date.now(),
+        projectEquipmentId: item._id,
+      });
+
+  if (!item.linkedEquipmentId) {
+    await ctx.db.patch("projectEquipment", item._id, {
+      linkedEquipmentId: equipmentId,
+    });
+  }
+
+  // Gera um token único.
+  let token = generateToken();
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const clash = await ctx.db
+      .query("qrCodes")
+      .withIndex("by_token", (q) => q.eq("token", token))
+      .unique();
+    if (!clash) break;
+    token = generateToken();
+  }
+
+  await ctx.db.insert("qrCodes", {
+    token,
+    equipmentId,
+    status: "active",
+    projectId: item.projectId,
+    createdAt: Date.now(),
+  });
+
+  await logEquipmentHistory(ctx, user, {
+    equipmentId: item._id,
+    action: "qr_generated",
+    newValue: token,
+  });
+
+  return { token, created: true };
+}
+
 // Gera um QR único para um item planejado da obra, criando o equipamento real
 // e vinculando-o (sem alterar o status do planejamento). Idempotente: se o item
 // já tem equipamento vinculado com QR, retorna o token existente.
@@ -759,68 +900,63 @@ export const generateForProjectEquipment = engineeringMutation({
   handler: async (ctx, args) => {
     const item = await ctx.db.get("projectEquipment", args.itemId);
     if (!item) throw new Error("Equipamento planejado não encontrado");
+    return await generateQrForItem(ctx, ctx.user, item);
+  },
+});
 
-    // Já vinculado? Retorna o token existente, se houver.
+// Vincula uma etiqueta QR já impressa (token existente e livre) a um item
+// planejado, criando o equipamento real placeholder — fluxo de bipagem do
+// cadastro rápido. Não altera o status do planejamento (etiqueta colada não
+// significa instalado).
+export const linkTokenToProjectEquipment = engineeringMutation({
+  args: {
+    token: v.string(),
+    itemId: v.id("projectEquipment"),
+  },
+  returns: v.object({ token: v.string() }),
+  handler: async (ctx, args) => {
+    const token = args.token.trim().toUpperCase();
+    if (!token) throw new Error("Informe o token do QR");
+
+    const item = await ctx.db.get("projectEquipment", args.itemId);
+    if (!item) throw new Error("Equipamento planejado não encontrado");
     if (item.linkedEquipmentId) {
-      const existingQr = await ctx.db
-        .query("qrCodes")
-        .withIndex("by_equipment", (q) =>
-          q.eq("equipmentId", item.linkedEquipmentId)
-        )
-        .order("desc")
-        .first();
-      if (existingQr) {
-        if (existingQr.projectId !== item.projectId) {
-          await ctx.db.patch("qrCodes", existingQr._id, {
-            projectId: item.projectId,
-          });
-        }
-        return { token: existingQr.token, created: false };
-      }
+      throw new Error("Este equipamento já possui um QR vinculado");
     }
 
-    // Cria o equipamento real (placeholder vinculado ao planejamento).
-    const equipmentId = item.linkedEquipmentId
-      ? item.linkedEquipmentId
-      : await ctx.db.insert("equipment", {
-          description: `${item.system} · ${item.ambiente}`.trim(),
-          status: item.status,
-          createdAt: Date.now(),
-          projectEquipmentId: item._id,
-        });
-
-    if (!item.linkedEquipmentId) {
-      await ctx.db.patch("projectEquipment", args.itemId, {
-        linkedEquipmentId: equipmentId,
-      });
+    const qrCode = await ctx.db
+      .query("qrCodes")
+      .withIndex("by_token", (q) => q.eq("token", token))
+      .unique();
+    if (!qrCode) throw new Error(`QR "${token}" não encontrado`);
+    if (qrCode.status !== "active") {
+      throw new Error(`QR "${token}" está inativo`);
+    }
+    if (qrCode.equipmentId) {
+      throw new Error(`QR "${token}" já está vinculado a outro equipamento`);
     }
 
-    // Gera um token único.
-    let token = generateToken();
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const clash = await ctx.db
-        .query("qrCodes")
-        .withIndex("by_token", (q) => q.eq("token", token))
-        .unique();
-      if (!clash) break;
-      token = generateToken();
-    }
-
-    await ctx.db.insert("qrCodes", {
-      token,
-      equipmentId,
-      status: "active",
-      projectId: item.projectId,
+    const equipmentId = await ctx.db.insert("equipment", {
+      description: `${item.system} · ${item.ambiente}`.trim(),
+      status: item.status,
       createdAt: Date.now(),
+      projectEquipmentId: item._id,
+    });
+    await ctx.db.patch("projectEquipment", item._id, {
+      linkedEquipmentId: equipmentId,
+    });
+    await ctx.db.patch("qrCodes", qrCode._id, {
+      equipmentId,
+      projectId: item.projectId,
     });
 
     await logEquipmentHistory(ctx, ctx.user, {
-      equipmentId: args.itemId,
-      action: "qr_generated",
+      equipmentId: item._id,
+      action: "qr_linked",
       newValue: token,
     });
 
-    return { token, created: true };
+    return { token };
   },
 });
 
