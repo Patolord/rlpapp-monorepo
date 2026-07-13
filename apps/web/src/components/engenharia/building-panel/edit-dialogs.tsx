@@ -890,6 +890,91 @@ export function EditEnvironmentDialog({
 /** Dados mínimos de um sistema para os selects/dialogs (subset estrutural). */
 export type SystemOption = Pick<HierarchySystem, "_id" | "name" | "type">;
 
+export function NewSystemDialog({
+  projectId,
+  open,
+  onOpenChange,
+}: {
+  projectId: Id<"projects">;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const createSystem = useMutation(api.systems.createSystemInProject);
+  const [name, setName] = useState("");
+  const [type, setType] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setSaving(true);
+    const ok = await runWithToast(
+      () =>
+        createSystem({
+          projectId,
+          name: name.trim(),
+          type: type.trim() || undefined,
+        }),
+      "Sistema criado",
+      "Não foi possível criar o sistema"
+    );
+    setSaving(false);
+    if (ok) {
+      setName("");
+      setType("");
+      onOpenChange(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Novo sistema</DialogTitle>
+          <DialogDescription>
+            Cadastre um sistema da obra (ex: VRF Torre A, Split aptos).
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="new-system-name">Nome do sistema</Label>
+            <Input
+              id="new-system-name"
+              placeholder="Ex: VRF Torre A"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="new-system-type">Tipo (opcional)</Label>
+            <Input
+              id="new-system-type"
+              placeholder="Ex: VRF, Split"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={saving || !name.trim()}>
+              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Criar sistema
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function EditSystemDialog({
   system,
   onClose,
