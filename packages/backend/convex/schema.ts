@@ -365,7 +365,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_equipment", ["equipmentId"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_user_and_created", ["userId", "createdAt"]),
 
   // Log de auditoria do sistema (todas as escritas relevantes).
   auditLogs: defineTable({

@@ -39,6 +39,7 @@ import type * as reports from "../reports.js";
 import type * as suppliers from "../suppliers.js";
 import type * as systems from "../systems.js";
 import type * as takeoffs from "../takeoffs.js";
+import type * as technicianActivity from "../technicianActivity.js";
 import type * as towers from "../towers.js";
 import type * as userAdmin from "../userAdmin.js";
 import type * as users from "../users.js";
@@ -81,6 +82,7 @@ declare const fullApi: ApiFromModules<{
   suppliers: typeof suppliers;
   systems: typeof systems;
   takeoffs: typeof takeoffs;
+  technicianActivity: typeof technicianActivity;
   towers: typeof towers;
   userAdmin: typeof userAdmin;
   users: typeof users;
