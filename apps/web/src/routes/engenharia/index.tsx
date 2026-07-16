@@ -305,6 +305,7 @@ function PageContent() {
                       {batch.batchName && <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{batch.batchId}</p>}
                       <p className="mt-1 text-xs text-muted-foreground">
                         {batch.count} código QR{batch.count === 1 ? "" : "s"} · {new Date(batch.createdAt).toLocaleString("pt-BR")}
+                        {batch.projectName ? ` · Obra: ${batch.projectName}` : ""}
                       </p>
                     </button>
                     <div className="flex flex-wrap gap-2">

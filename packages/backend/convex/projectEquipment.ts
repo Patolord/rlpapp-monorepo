@@ -5,7 +5,7 @@ import {
   engineeringQuery,
 } from "./lib/rbac";
 import { equipmentStatusValidator } from "./equipment";
-import { generateQrForItem } from "./qrCodes";
+import { generateQrForItem, getBatchDestination } from "./qrCodes";
 import { logEquipmentHistory } from "./lib/audit";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
@@ -612,6 +612,123 @@ export const linkEquipment = engineeringMutation({
     });
     await syncQrProjectId(ctx, args.equipmentId, item.projectId);
     return null;
+  },
+});
+
+// Cria um item planejado diretamente a partir de um equipamento já cadastrado
+// pelo técnico (QR + equipment sem item planejado), em um passo único: insere
+// o projectEquipment no ambiente/sistema e vincula o equipamento existente,
+// preservando descrição/fotos do cadastro de campo. Não força "operational"
+// (atribuir à obra não significa instalado).
+export const createFromRegisteredEquipment = engineeringMutation({
+  args: {
+    environmentId: v.id("environments"),
+    systemId: v.optional(v.id("systems")),
+    kind: equipKindValidator,
+    equipmentId: v.optional(v.id("equipment")),
+    token: v.optional(v.string()),
+    modelo: v.optional(v.string()),
+    capacidade: v.optional(v.string()),
+  },
+  returns: v.object({
+    itemId: v.id("projectEquipment"),
+    token: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    const env = await ctx.db.get("environments", args.environmentId);
+    if (!env) throw new Error("Ambiente não encontrado");
+
+    let systemName = "";
+    if (args.systemId) {
+      const system = await ctx.db.get("systems", args.systemId);
+      if (!system) throw new Error("Sistema não encontrado");
+      if (system.projectId !== env.projectId) {
+        throw new Error("O sistema não pertence à mesma obra do ambiente");
+      }
+      systemName = system.name;
+    }
+
+    // Resolve o equipamento cadastrado: por id direto ou pelo token bipado.
+    let equipment = null;
+    let qrCode = null;
+    if (args.token) {
+      const token = args.token.trim().toUpperCase();
+      if (!token) throw new Error("Informe o token do QR");
+      qrCode = await ctx.db
+        .query("qrCodes")
+        .withIndex("by_token", (q) => q.eq("token", token))
+        .unique();
+      if (!qrCode) throw new Error(`QR "${token}" não encontrado`);
+      if (qrCode.status !== "active") {
+        throw new Error(`QR "${token}" está inativo`);
+      }
+      if (!qrCode.equipmentId) {
+        throw new Error(
+          `QR "${token}" ainda não foi cadastrado pelo técnico`
+        );
+      }
+      equipment = await ctx.db.get("equipment", qrCode.equipmentId);
+    } else if (args.equipmentId) {
+      equipment = await ctx.db.get("equipment", args.equipmentId);
+      if (equipment) {
+        qrCode = await ctx.db
+          .query("qrCodes")
+          .withIndex("by_equipment", (q) => q.eq("equipmentId", equipment!._id))
+          .order("desc")
+          .first();
+      }
+    } else {
+      throw new Error("Informe o token do QR ou o equipamento");
+    }
+
+    if (!equipment) throw new Error("Equipamento não encontrado");
+    if (equipment.projectEquipmentId) {
+      throw new Error("Este equipamento já está vinculado a um item da obra");
+    }
+
+    // Se o lote da etiqueta tem obra de destino, valida contra a obra do ambiente.
+    if (qrCode) {
+      const destination = await getBatchDestination(ctx, qrCode.batchId);
+      if (destination && destination.projectId !== env.projectId) {
+        throw new Error(
+          `QR "${qrCode.token}" pertence ao lote destinado à obra "${destination.projectName}"`
+        );
+      }
+    }
+
+    const itemId = await ctx.db.insert("projectEquipment", {
+      projectId: env.projectId,
+      environmentId: args.environmentId,
+      towerId: env.towerId,
+      floorId: env.floorId,
+      system: systemName,
+      systemId: args.systemId,
+      ambiente: env.name,
+      kind: args.kind,
+      modelo: args.modelo?.trim() ?? "",
+      capacidade: args.capacidade?.trim() ?? "",
+      status: equipment.status,
+      linkedEquipmentId: equipment._id,
+    });
+    await ctx.db.patch("equipment", equipment._id, {
+      projectEquipmentId: itemId,
+    });
+    await syncQrProjectId(ctx, equipment._id, env.projectId);
+
+    await logEquipmentHistory(ctx, ctx.user, {
+      equipmentId: itemId,
+      action: "created",
+      newValue: systemName || "(sem sistema)",
+    });
+    if (qrCode) {
+      await logEquipmentHistory(ctx, ctx.user, {
+        equipmentId: itemId,
+        action: "qr_linked",
+        newValue: qrCode.token,
+      });
+    }
+
+    return { itemId, token: qrCode?.token ?? null };
   },
 });
 

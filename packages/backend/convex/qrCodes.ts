@@ -4,6 +4,7 @@ import {
   internalQuery,
   query,
   type MutationCtx,
+  type QueryCtx,
 } from "./_generated/server";
 import { v } from "convex/values";
 import {
@@ -66,7 +67,35 @@ const batchSummaryValidator = v.object({
   batchName: v.optional(v.string()),
   createdAt: v.number(),
   count: v.number(),
+  // Obra de destino do lote (qrBatches), quando definida na criação.
+  projectId: v.optional(v.id("projects")),
+  projectName: v.optional(v.string()),
 });
+
+const batchProjectValidator = v.union(
+  v.object({
+    projectId: v.id("projects"),
+    projectName: v.string(),
+  }),
+  v.null()
+);
+
+// Resolve a obra de destino de um lote (batchId → qrBatches → projects).
+// Lotes legados (sem registro em qrBatches) e lotes sem obra retornam null.
+export async function getBatchDestination(
+  ctx: QueryCtx,
+  batchId: string | undefined
+): Promise<{ projectId: Id<"projects">; projectName: string } | null> {
+  if (!batchId) return null;
+  const batch = await ctx.db
+    .query("qrBatches")
+    .withIndex("by_batchId", (q) => q.eq("batchId", batchId))
+    .unique();
+  if (!batch?.projectId) return null;
+  const project = await ctx.db.get("projects", batch.projectId);
+  if (!project) return null;
+  return { projectId: project._id, projectName: project.name };
+}
 const paginatedQrCodesWithEquipmentValidator = v.object({
   page: v.array(qrCodeWithEquipmentValidator),
   isDone: v.boolean(),
@@ -81,6 +110,8 @@ export const getByToken = query({
     v.object({
       qrCode: qrCodeValidator,
       equipment: v.union(equipmentValidator, v.null()),
+      // Obra de destino herdada do lote (qrBatches), se definida.
+      batchProject: batchProjectValidator,
     }),
     v.null()
   ),
@@ -97,7 +128,9 @@ export const getByToken = query({
       equipment = await ctx.db.get("equipment", qrCode.equipmentId);
     }
 
-    return { qrCode, equipment };
+    const batchProject = await getBatchDestination(ctx, qrCode.batchId);
+
+    return { qrCode, equipment, batchProject };
   },
 });
 
@@ -403,6 +436,8 @@ export const batchCreate = staffMutation({
   args: {
     tokens: v.array(v.string()),
     batchName: v.optional(v.string()),
+    // Obra de destino: o cadastro do técnico herdará a obra automaticamente.
+    projectId: v.optional(v.id("projects")),
   },
   returns: v.object({
     ids: v.array(v.id("qrCodes")),
@@ -420,8 +455,20 @@ export const batchCreate = staffMutation({
       throw new Error("Cannot create more than 999 QR codes at once");
     }
 
+    if (args.projectId) {
+      const project = await ctx.db.get("projects", args.projectId);
+      if (!project) throw new Error("Obra de destino não encontrada");
+    }
+
     const batchId = `batch-${Date.now()}`;
     const batchName = args.batchName?.trim() || undefined;
+
+    await ctx.db.insert("qrBatches", {
+      batchId,
+      name: batchName,
+      projectId: args.projectId,
+      createdAt: Date.now(),
+    });
     const ids: Id<"qrCodes">[] = [];
     const created: { id: Id<"qrCodes">; token: string }[] = [];
     const uniqueTokens = Array.from(new Set(args.tokens));
@@ -489,7 +536,16 @@ export const listBatches = staffQuery({
       batch.batchName = batchCodes[0]?.batchName ?? batch.batchName;
     }
 
-    return Array.from(batches.values());
+    return await Promise.all(
+      Array.from(batches.values()).map(async (batch) => {
+        const destination = await getBatchDestination(ctx, batch.batchId);
+        return {
+          ...batch,
+          projectId: destination?.projectId,
+          projectName: destination?.projectName,
+        };
+      })
+    );
   },
 });
 
@@ -505,6 +561,9 @@ export const listAvailableBatches = engineeringQuery({
       createdAt: v.number(),
       total: v.number(),
       availableTokens: v.array(v.string()),
+      // Obra de destino do lote, quando definida na criação.
+      projectId: v.union(v.id("projects"), v.null()),
+      projectName: v.union(v.string(), v.null()),
     })
   ),
   handler: async (ctx) => {
@@ -545,12 +604,21 @@ export const listAvailableBatches = engineeringQuery({
       }
     }
 
-    return Array.from(batches.values())
-      .filter((b) => b.availableTokens.length > 0)
-      .map((b) => ({
-        ...b,
-        availableTokens: b.availableTokens.sort((a, z) => a.localeCompare(z)),
-      }));
+    return await Promise.all(
+      Array.from(batches.values())
+        .filter((b) => b.availableTokens.length > 0)
+        .map(async (b) => {
+          const destination = await getBatchDestination(ctx, b.batchId);
+          return {
+            ...b,
+            availableTokens: b.availableTokens.sort((a, z) =>
+              a.localeCompare(z)
+            ),
+            projectId: destination?.projectId ?? null,
+            projectName: destination?.projectName ?? null,
+          };
+        })
+    );
   },
 });
 
@@ -655,6 +723,13 @@ export const assignEquipment = authedMutation({
       projectId = planned?.projectId;
     }
 
+    // Sem item planejado: herda a obra de destino do lote (qrBatches), se
+    // definida — o QR já nasce marcado como pertencente à obra.
+    if (!projectId) {
+      const destination = await getBatchDestination(ctx, qrCode.batchId);
+      projectId = destination?.projectId;
+    }
+
     await ctx.db.patch("qrCodes", qrCode._id, {
       equipmentId: args.equipmentId,
       projectId,
@@ -722,6 +797,8 @@ export const getFullContext = query({
           completed: v.boolean(),
         })
       ),
+      // Obra de destino herdada do lote (qrBatches), se definida.
+      batchProject: batchProjectValidator,
     }),
     v.null()
   ),
@@ -813,6 +890,7 @@ export const getFullContext = query({
       plannedEquipment,
       location,
       checklist,
+      batchProject: await getBatchDestination(ctx, qrCode.batchId),
     };
   },
 });
@@ -904,10 +982,12 @@ export const generateForProjectEquipment = engineeringMutation({
   },
 });
 
-// Vincula uma etiqueta QR já impressa (token existente e livre) a um item
-// planejado, criando o equipamento real placeholder — fluxo de bipagem do
-// cadastro rápido. Não altera o status do planejamento (etiqueta colada não
-// significa instalado).
+// Vincula uma etiqueta QR já impressa a um item planejado — fluxo de bipagem
+// do cadastro rápido. Aceita dois estados de etiqueta:
+//   - QR livre: cria o equipamento real placeholder;
+//   - QR já cadastrado pelo técnico (equipment sem item planejado): reaproveita
+//     o cadastro existente (descrição/fotos preservadas) e apenas vincula.
+// Não altera o status do planejamento (etiqueta colada não significa instalado).
 export const linkTokenToProjectEquipment = engineeringMutation({
   args: {
     token: v.string(),
@@ -932,16 +1012,45 @@ export const linkTokenToProjectEquipment = engineeringMutation({
     if (qrCode.status !== "active") {
       throw new Error(`QR "${token}" está inativo`);
     }
-    if (qrCode.equipmentId) {
-      throw new Error(`QR "${token}" já está vinculado a outro equipamento`);
+
+    // Se o lote da etiqueta tem obra de destino, ela precisa bater com a obra
+    // do item planejado.
+    const destination = await getBatchDestination(ctx, qrCode.batchId);
+    if (destination && destination.projectId !== item.projectId) {
+      throw new Error(
+        `QR "${token}" pertence ao lote destinado à obra "${destination.projectName}"`
+      );
     }
 
-    const equipmentId = await ctx.db.insert("equipment", {
-      description: `${item.system} · ${item.ambiente}`.trim(),
-      status: item.status,
-      createdAt: Date.now(),
-      projectEquipmentId: item._id,
-    });
+    let equipmentId: Id<"equipment">;
+    if (qrCode.equipmentId) {
+      // Etiqueta já cadastrada pelo técnico: reaproveita o equipamento real.
+      const equipment = await ctx.db.get("equipment", qrCode.equipmentId);
+      if (!equipment) {
+        throw new Error(`QR "${token}" aponta para um equipamento inexistente`);
+      }
+      if (
+        equipment.projectEquipmentId &&
+        equipment.projectEquipmentId !== item._id
+      ) {
+        throw new Error(
+          `QR "${token}" já está vinculado a outro item da obra`
+        );
+      }
+      equipmentId = equipment._id;
+      await ctx.db.patch("equipment", equipmentId, {
+        projectEquipmentId: item._id,
+      });
+    } else {
+      // Etiqueta livre: cria o equipamento real placeholder.
+      equipmentId = await ctx.db.insert("equipment", {
+        description: `${item.system} · ${item.ambiente}`.trim(),
+        status: item.status,
+        createdAt: Date.now(),
+        projectEquipmentId: item._id,
+      });
+    }
+
     await ctx.db.patch("projectEquipment", item._id, {
       linkedEquipmentId: equipmentId,
     });
@@ -957,6 +1066,76 @@ export const linkTokenToProjectEquipment = engineeringMutation({
     });
 
     return { token };
+  },
+});
+
+// Fila de atribuição do operador: equipamentos já cadastrados pelo técnico
+// (QR com equipment) destinados a esta obra, mas ainda sem item planejado.
+// Fontes: QRs com projectId herdado do lote e QRs de lotes destinados à obra.
+export const listRegisteredForProject = engineeringQuery({
+  args: { projectId: v.id("projects") },
+  returns: v.array(
+    v.object({
+      qrId: v.id("qrCodes"),
+      token: v.string(),
+      equipmentId: v.id("equipment"),
+      description: v.union(v.string(), v.null()),
+      photoUrl: v.union(v.string(), v.null()),
+      batchName: v.union(v.string(), v.null()),
+      registeredAt: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const candidates = new Map<Id<"qrCodes">, Doc<"qrCodes">>();
+
+    const byProject = await ctx.db
+      .query("qrCodes")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .take(1000);
+    for (const qr of byProject) candidates.set(qr._id, qr);
+
+    // QRs de lotes destinados à obra cujo cadastro aconteceu antes da herança
+    // automática de projectId (ou cujo projectId foi limpo).
+    const batches = await ctx.db
+      .query("qrBatches")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .take(100);
+    for (const batch of batches) {
+      const batchCodes = await ctx.db
+        .query("qrCodes")
+        .withIndex("by_batchId", (q) => q.eq("batchId", batch.batchId))
+        .take(1000);
+      for (const qr of batchCodes) candidates.set(qr._id, qr);
+    }
+
+    const rows: {
+      qrId: Id<"qrCodes">;
+      token: string;
+      equipmentId: Id<"equipment">;
+      description: string | null;
+      photoUrl: string | null;
+      batchName: string | null;
+      registeredAt: number;
+    }[] = [];
+
+    for (const qr of candidates.values()) {
+      if (!qr.equipmentId || qr.status !== "active") continue;
+      const equipment = await ctx.db.get("equipment", qr.equipmentId);
+      if (!equipment || equipment.projectEquipmentId) continue;
+
+      const photoId = equipment.labelPhotoIds?.[0];
+      rows.push({
+        qrId: qr._id,
+        token: qr.token,
+        equipmentId: equipment._id,
+        description: equipment.description ?? null,
+        photoUrl: photoId ? await ctx.storage.getUrl(photoId) : null,
+        batchName: qr.batchName ?? null,
+        registeredAt: equipment.createdAt,
+      });
+    }
+
+    return rows.sort((a, b) => b.registeredAt - a.registeredAt);
   },
 });
 

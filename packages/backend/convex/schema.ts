@@ -129,6 +129,19 @@ export default defineSchema({
     .index("by_equipment", ["equipmentId"])
     .index("by_project", ["projectId"]),
 
+  // Lote de QR codes enviado à gráfica. Opcionalmente pré-associado a uma obra
+  // de destino: o cadastro do técnico herda a obra automaticamente e a bipagem
+  // na obra valida o destino. Lotes legados não têm registro aqui (o batchId
+  // em qrCodes continua sendo a chave de ligação).
+  qrBatches: defineTable({
+    batchId: v.string(),
+    name: v.optional(v.string()),
+    projectId: v.optional(v.id("projects")),
+    createdAt: v.number(),
+  })
+    .index("by_batchId", ["batchId"])
+    .index("by_project", ["projectId"]),
+
   // --- Obras / Relatórios (substitui a planilha "Tabela Global de Equipamentos") ---
   //
   // Hierarquia: Obra → Andar → Apartamento (projectUnits) → Sistema → Equipamento

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   ArrowLeft,
   Eye,
@@ -44,10 +52,12 @@ function QrCodesPage() {
 
 function QrCodesContent() {
   const batchCreate = useMutation(api.qrCodes.batchCreate);
+  const projects = useQuery(api.projects.list);
   const navigate = useNavigate();
 
   const [prefix, setPrefix] = useState("");
   const [batchName, setBatchName] = useState("");
+  const [projectId, setProjectId] = useState<Id<"projects"> | "none">("none");
   const [quantity, setQuantity] = useState("");
   const [generating, setGenerating] = useState(false);
   const [newlyCreated, setNewlyCreated] = useState<string[]>([]);
@@ -77,6 +87,7 @@ function QrCodesContent() {
       const result = await batchCreate({
         tokens,
         batchName: batchName.trim() || undefined,
+        projectId: projectId === "none" ? undefined : projectId,
       });
       const createdTokens = result.created.map((qr) => qr.token);
       setNewlyCreated(createdTokens);
@@ -195,6 +206,27 @@ function QrCodesContent() {
               />
             </div>
             <div className="flex-1 space-y-2">
+              <Label htmlFor="projectId">Obra de destino (opcional)</Label>
+              <Select
+                value={projectId}
+                onValueChange={(value) =>
+                  setProjectId(value as Id<"projects"> | "none")
+                }
+              >
+                <SelectTrigger id="projectId" className="h-12 w-full text-base">
+                  <SelectValue placeholder="Sem obra definida" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem obra definida</SelectItem>
+                  {projects?.map((project) => (
+                    <SelectItem key={project._id} value={project._id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1 space-y-2">
               <Label htmlFor="prefix">Prefixo (opcional)</Label>
               <Input
                 id="prefix"
@@ -232,6 +264,10 @@ function QrCodesContent() {
               Gerar
             </Button>
           </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Com a obra de destino definida, o cadastro do técnico já marca o QR
+            na obra automaticamente.
+          </p>
         </CardContent>
       </Card>
 

@@ -223,7 +223,13 @@ export function QuickAddPanel({
             selectedEnvs={selectedEnvs}
           />
         ) : (
-          <LinkMode items={pendingLinkItems} hasSelection={selectedEnvIds.size > 0} />
+          <LinkMode
+            projectId={projectId}
+            systems={systems}
+            selectedEnvs={selectedEnvs}
+            items={pendingLinkItems}
+            hasSelection={selectedEnvIds.size > 0}
+          />
         )}
       </div>
     </aside>
@@ -637,15 +643,29 @@ function QtyStepper({
 /* ── Modo Vincular QRs ── */
 
 function LinkMode({
+  projectId,
+  systems,
+  selectedEnvs,
   items,
   hasSelection,
 }: {
+  projectId: Id<"projects">;
+  systems: SystemOption[];
+  selectedEnvs: SelectedEnvInfo[];
   items: PendingLinkItem[];
   hasSelection: boolean;
 }) {
   const linkToken = useMutation(api.qrCodes.linkTokenToProjectEquipment);
+  const createFromRegistered = useMutation(
+    api.projectEquipment.createFromRegisteredEquipment
+  );
   // Lotes de etiquetas impressas com tokens ainda livres.
   const batches = useQuery(api.qrCodes.listAvailableBatches, {});
+  // Fila de atribuição: equipamentos já cadastrados pelo técnico e destinados
+  // a esta obra (via lote), ainda sem item planejado.
+  const registered = useQuery(api.qrCodes.listRegisteredForProject, {
+    projectId,
+  });
 
   const [tokenInput, setTokenInput] = useState("");
   const [targetItemId, setTargetItemId] =
@@ -653,27 +673,64 @@ function LinkMode({
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
   const [inlineError, setInlineError] = useState<string | null>(null);
+  // Criação inline: usados quando não há item planejado pendente no ambiente.
+  const [createKind, setCreateKind] = useState<"evaporadora" | "condensadora">(
+    "evaporadora"
+  );
+  const [createSystemId, setCreateSystemId] = useState<string>(NO_SYSTEM);
+  const [createEnvId, setCreateEnvId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Alvo atual: item clicado (se ainda pendente) ou o primeiro da fila.
   const target =
     items.find((i) => i.item._id === targetItemId) ?? items[0] ?? null;
+  // Sem item pendente: a bipagem cria o item planejado neste ambiente.
+  const createEnv =
+    selectedEnvs.find((e) => e.envId === createEnvId) ??
+    selectedEnvs[0] ??
+    null;
+  const willCreate = !target && createEnv !== null;
 
+  // Só lotes sem destino ou destinados a esta obra.
+  const visibleBatches = useMemo(
+    () =>
+      (batches ?? []).filter(
+        (b) => !b.projectId || b.projectId === projectId
+      ),
+    [batches, projectId]
+  );
   const selectedBatch =
-    batches?.find((b) => b.batchId === selectedBatchId) ??
-    batches?.[0] ??
+    visibleBatches.find((b) => b.batchId === selectedBatchId) ??
+    visibleBatches[0] ??
     null;
 
   async function linkTokenToTarget(token: string) {
     const normalized = token.trim();
-    if (!normalized || !target || linking) return;
+    if (!normalized || linking) return;
     setLinking(true);
     setInlineError(null);
     try {
-      await linkToken({ token: normalized, itemId: target.item._id });
-      toast.success(
-        `QR ${normalized.toUpperCase()} vinculado a ${target.envName}`
-      );
+      if (target) {
+        await linkToken({ token: normalized, itemId: target.item._id });
+        toast.success(
+          `QR ${normalized.toUpperCase()} vinculado a ${target.envName}`
+        );
+      } else if (createEnv) {
+        await createFromRegistered({
+          token: normalized,
+          environmentId: createEnv.envId,
+          systemId:
+            createSystemId === NO_SYSTEM
+              ? undefined
+              : (createSystemId as Id<"systems">),
+          kind: createKind,
+        });
+        toast.success(
+          `QR ${normalized.toUpperCase()} atribuído a ${createEnv.name} (item criado)`
+        );
+      } else {
+        return;
+      }
       setTokenInput("");
       setTargetItemId(null);
     } catch (error) {
@@ -688,15 +745,7 @@ function LinkMode({
     return (
       <p className="flex items-center gap-2 rounded-md border border-dashed px-2.5 py-3 text-xs text-muted-foreground">
         <MousePointerClick className="size-3.5 shrink-0" />
-        Selecione ambientes no prédio para listar os equipamentos sem QR.
-      </p>
-    );
-  }
-
-  if (items.length === 0) {
-    return (
-      <p className="rounded-md border border-dashed px-2.5 py-3 text-center text-xs text-muted-foreground">
-        Todos os equipamentos dos ambientes selecionados já têm QR vinculado.
+        Selecione ambientes no prédio para vincular ou atribuir etiquetas.
       </p>
     );
   }
@@ -735,20 +784,157 @@ function LinkMode({
               {target.envName}
             </span>{" "}
             · {target.item.kind === "condensadora" ? "Cond." : "Evap."}
+            <br />
+            Aceita etiquetas livres ou já cadastradas pelo técnico.
           </p>
         )}
       </div>
 
-      {batches !== undefined && batches.length > 0 && (
+      {/* Sem item planejado pendente: bipar cria o item no ambiente. */}
+      {willCreate && (
+        <div className="space-y-1.5 rounded-md border border-primary/30 bg-primary/5 p-2.5">
+          <span className="flex items-center gap-1.5 text-xs font-medium">
+            <Plus className="size-3.5" />
+            Bipar cria o item planejado no ambiente
+          </span>
+          {selectedEnvs.length > 1 && (
+            <Select
+              value={createEnv?.envId ?? null}
+              items={Object.fromEntries(
+                selectedEnvs.map((e) => [
+                  e.envId,
+                  `${e.name} · ${e.floorLabel}`,
+                ])
+              )}
+              onValueChange={(v) => setCreateEnvId(v)}
+            >
+              <SelectTrigger className="h-8 bg-background text-xs">
+                <SelectValue placeholder="Ambiente" />
+              </SelectTrigger>
+              <SelectContent>
+                {selectedEnvs.map((e) => (
+                  <SelectItem key={e.envId} value={e.envId}>
+                    {e.name} · {e.floorLabel}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <div className="grid grid-cols-2 gap-1.5">
+            <Select
+              value={createKind}
+              items={{
+                evaporadora: "Evaporadora",
+                condensadora: "Condensadora",
+              }}
+              onValueChange={(v) =>
+                setCreateKind(v as "evaporadora" | "condensadora")
+              }
+            >
+              <SelectTrigger className="h-8 bg-background text-xs">
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="evaporadora">Evaporadora</SelectItem>
+                <SelectItem value="condensadora">Condensadora</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={createSystemId}
+              items={{
+                [NO_SYSTEM]: "Sem sistema",
+                ...Object.fromEntries(systems.map((s) => [s._id, s.name])),
+              }}
+              onValueChange={(v) => setCreateSystemId(v)}
+            >
+              <SelectTrigger className="h-8 bg-background text-xs">
+                <SelectValue placeholder="Sistema" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_SYSTEM}>Sem sistema</SelectItem>
+                {systems.map((s) => (
+                  <SelectItem key={s._id} value={s._id}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-[0.6875rem] text-muted-foreground">
+            A etiqueta bipada (livre ou já cadastrada pelo técnico) cria o
+            equipamento em{" "}
+            <span className="font-medium text-foreground">
+              {createEnv?.name}
+            </span>{" "}
+            e vincula na hora.
+          </p>
+        </div>
+      )}
+
+      {/* Fila de atribuição: cadastros do técnico aguardando ambiente. */}
+      {registered !== undefined && registered.length > 0 && (
+        <div className="space-y-1.5 rounded-md border bg-background p-2.5">
+          <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <QrCode className="size-3.5" />
+            Cadastrados aguardando atribuição ({registered.length})
+          </span>
+          <ul className="max-h-40 space-y-1 overflow-y-auto">
+            {registered.map((entry) => (
+              <li key={entry.qrId}>
+                <button
+                  type="button"
+                  disabled={linking || (!target && !createEnv)}
+                  onClick={() => void linkTokenToTarget(entry.token)}
+                  title={
+                    target
+                      ? `Vincular ${entry.token} a ${target.envName}`
+                      : createEnv
+                        ? `Criar item em ${createEnv.name} com ${entry.token}`
+                        : "Selecione um destino"
+                  }
+                  className="flex w-full items-center gap-2 rounded-md border bg-background px-2 py-1.5 text-left text-xs transition-colors hover:border-primary/50 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {entry.photoUrl ? (
+                    <img
+                      src={entry.photoUrl}
+                      alt=""
+                      className="size-8 shrink-0 rounded object-cover"
+                    />
+                  ) : (
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded bg-muted">
+                      <QrCode className="size-3.5 text-muted-foreground" />
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-mono font-semibold">
+                      {entry.token}
+                    </span>
+                    <span className="block truncate text-muted-foreground">
+                      {entry.description ?? "Sem descrição"}
+                      {entry.batchName ? ` · ${entry.batchName}` : ""}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[0.6875rem] text-muted-foreground">
+            Cadastros feitos pelo técnico. Clique para vincular ao destino
+            atual.
+          </p>
+        </div>
+      )}
+
+      {visibleBatches.length > 0 && (
         <div className="space-y-1.5 rounded-md border bg-background p-2.5">
           <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <Layers className="size-3.5" />
-            Etiquetas disponíveis por lote
+            Etiquetas livres por lote
           </span>
           <Select
             value={selectedBatch?.batchId ?? null}
             items={Object.fromEntries(
-              batches.map((b) => [
+              visibleBatches.map((b) => [
                 b.batchId,
                 `${b.batchName ?? b.batchId} · ${b.availableTokens.length} livre${b.availableTokens.length === 1 ? "" : "s"}`,
               ])
@@ -759,10 +945,11 @@ function LinkMode({
               <SelectValue placeholder="Escolha o lote" />
             </SelectTrigger>
             <SelectContent>
-              {batches.map((b) => (
+              {visibleBatches.map((b) => (
                 <SelectItem key={b.batchId} value={b.batchId}>
                   {b.batchName ?? b.batchId} · {b.availableTokens.length}{" "}
                   livre{b.availableTokens.length === 1 ? "" : "s"}
+                  {b.projectName ? ` · Obra: ${b.projectName}` : ""}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -773,12 +960,14 @@ function LinkMode({
                 <button
                   key={token}
                   type="button"
-                  disabled={linking || !target}
+                  disabled={linking || (!target && !createEnv)}
                   onClick={() => void linkTokenToTarget(token)}
                   title={
                     target
                       ? `Vincular ${token} a ${target.envName}`
-                      : "Nenhum equipamento pendente"
+                      : createEnv
+                        ? `Criar item em ${createEnv.name} com ${token}`
+                        : "Selecione um destino"
                   }
                   className="rounded-full border bg-background px-2 py-0.5 font-mono text-[0.6875rem] transition-colors hover:border-primary hover:bg-primary/10 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -788,52 +977,59 @@ function LinkMode({
             </div>
           )}
           <p className="text-[0.6875rem] text-muted-foreground">
-            Clique em um token para vinculá-lo ao equipamento destacado.
+            Clique em um token para vinculá-lo ao destino atual.
           </p>
         </div>
       )}
 
-      <ul className="space-y-1.5">
-        {items.map(({ item, envName, floorLabel }) => {
-          const isTarget = target?.item._id === item._id;
-          return (
-            <li key={item._id}>
-              <button
-                type="button"
-                onClick={() => {
-                  setTargetItemId(item._id);
-                  inputRef.current?.focus();
-                }}
-                className={cn(
-                  "w-full space-y-0.5 rounded-md border bg-background px-2.5 py-1.5 text-left text-xs transition-colors",
-                  isTarget
-                    ? "border-primary ring-1 ring-primary"
-                    : "hover:border-primary/40"
-                )}
-              >
-                <div className="flex items-center gap-1.5">
-                  <Wind className="size-3 shrink-0 text-muted-foreground" />
-                  <span className="font-medium">
-                    {item.kind === "condensadora"
-                      ? "Condensadora"
-                      : "Evaporadora"}
-                  </span>
-                  {isTarget && (
-                    <span className="ml-auto rounded-full bg-primary/10 px-1.5 py-0.5 text-[0.625rem] font-medium uppercase text-primary">
-                      Próximo
-                    </span>
+      {items.length === 0 ? (
+        <p className="rounded-md border border-dashed px-2.5 py-3 text-center text-xs text-muted-foreground">
+          Nenhum equipamento pendente nos ambientes selecionados — bipar cria o
+          item planejado direto no ambiente.
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {items.map(({ item, envName, floorLabel }) => {
+            const isTarget = target?.item._id === item._id;
+            return (
+              <li key={item._id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetItemId(item._id);
+                    inputRef.current?.focus();
+                  }}
+                  className={cn(
+                    "w-full space-y-0.5 rounded-md border bg-background px-2.5 py-1.5 text-left text-xs transition-colors",
+                    isTarget
+                      ? "border-primary ring-1 ring-primary"
+                      : "hover:border-primary/40"
                   )}
-                </div>
-                <p className="truncate text-muted-foreground">
-                  {envName} · {floorLabel}
-                  {item.system ? ` · ${item.system}` : ""}
-                  {item.modelo ? ` · ${item.modelo}` : ""}
-                </p>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Wind className="size-3 shrink-0 text-muted-foreground" />
+                    <span className="font-medium">
+                      {item.kind === "condensadora"
+                        ? "Condensadora"
+                        : "Evaporadora"}
+                    </span>
+                    {isTarget && (
+                      <span className="ml-auto rounded-full bg-primary/10 px-1.5 py-0.5 text-[0.625rem] font-medium uppercase text-primary">
+                        Próximo
+                      </span>
+                    )}
+                  </div>
+                  <p className="truncate text-muted-foreground">
+                    {envName} · {floorLabel}
+                    {item.system ? ` · ${item.system}` : ""}
+                    {item.modelo ? ` · ${item.modelo}` : ""}
+                  </p>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

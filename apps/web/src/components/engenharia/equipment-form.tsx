@@ -13,14 +13,20 @@ import {
   newPendingId,
   type EquipmentStatus,
 } from "@/lib/offline-queue";
-import { Loader2, CloudOff, CheckCircle2 } from "lucide-react";
+import { Loader2, CloudOff, CheckCircle2, Building2 } from "lucide-react";
 
 interface EquipmentFormProps {
   qrToken: string;
   onSuccess: (equipmentId: string) => void;
+  /** Obra de destino herdada do lote do QR (exibida como badge informativo). */
+  destinationProjectName?: string | null;
 }
 
-export function EquipmentForm({ qrToken, onSuccess }: EquipmentFormProps) {
+export function EquipmentForm({
+  qrToken,
+  onSuccess,
+  destinationProjectName,
+}: EquipmentFormProps) {
   const createEquipment = useMutation(api.equipment.create);
   const assignQr = useMutation(api.qrCodes.assignEquipment);
   const generateUploadUrl = useMutation(api.maintenanceLogs.generateUploadUrl);
@@ -112,6 +118,16 @@ export function EquipmentForm({ qrToken, onSuccess }: EquipmentFormProps) {
           </span>
         )}
       </div>
+
+      {destinationProjectName && (
+        <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+          <Building2 className="h-4 w-4 shrink-0 text-primary" />
+          <span>
+            Obra de destino:{" "}
+            <span className="font-semibold">{destinationProjectName}</span>
+          </span>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label className="text-base">Foto da etiqueta *</Label>

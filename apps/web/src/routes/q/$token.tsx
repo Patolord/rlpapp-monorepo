@@ -224,6 +224,7 @@ function AuthenticatedContent() {
       <div className="mx-auto max-w-lg px-4 py-4">
         <EquipmentForm
           qrToken={token}
+          destinationProjectName={data.batchProject?.projectName ?? null}
           onSuccess={() => { }}
         />
       </div>
