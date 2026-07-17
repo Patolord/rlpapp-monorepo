@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import {
   authedMutation,
+  authedQuery,
   engineeringMutation,
   engineeringQuery,
 } from "./lib/rbac";
@@ -729,6 +730,146 @@ export const createFromRegisteredEquipment = engineeringMutation({
     }
 
     return { itemId, token: qrCode?.token ?? null };
+  },
+});
+
+// --- Vagas pendentes (atribuição pelo técnico na hora do scan) ---
+
+// Vagas planejadas de uma obra ainda sem equipamento real vinculado, com o
+// contexto de localização (torre/andar/ambiente). authedQuery: o técnico
+// (qr_operator) usa após cadastrar um equipamento no /q/$token para escolher
+// onde ele fica.
+export const listPendingSlots = authedQuery({
+  args: { projectId: v.id("projects") },
+  returns: v.array(
+    v.object({
+      itemId: v.id("projectEquipment"),
+      kind: equipKindValidator,
+      system: v.string(),
+      modelo: v.string(),
+      capacidade: v.string(),
+      towerName: v.union(v.string(), v.null()),
+      floorLabel: v.union(v.string(), v.null()),
+      floorNumber: v.union(v.number(), v.null()),
+      environmentName: v.union(v.string(), v.null()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const items = await ctx.db
+      .query("projectEquipment")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+
+    const pending = items.filter(
+      (item) => !item.linkedEquipmentId && item.environmentId && !item.unitId
+    );
+    if (pending.length === 0) return [];
+
+    // Nomes da hierarquia pré-carregados uma vez (evita N+1 por item).
+    const [towers, floors, environments] = await Promise.all([
+      ctx.db
+        .query("towers")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect(),
+      ctx.db
+        .query("floors")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect(),
+      ctx.db
+        .query("environments")
+        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+        .collect(),
+    ]);
+    const towerName = new Map(towers.map((t) => [t._id, t.name]));
+    const floorById = new Map(floors.map((f) => [f._id, f]));
+    const envName = new Map(environments.map((e) => [e._id, e.name]));
+
+    return pending
+      .map((item) => {
+        const floor = item.floorId ? floorById.get(item.floorId) : undefined;
+        return {
+          itemId: item._id,
+          kind: item.kind,
+          system: item.system,
+          modelo: item.modelo,
+          capacidade: item.capacidade,
+          towerName: item.towerId
+            ? towerName.get(item.towerId) ?? null
+            : null,
+          floorLabel: floor?.label ?? null,
+          floorNumber: floor?.number ?? null,
+          environmentName: item.environmentId
+            ? envName.get(item.environmentId) ?? null
+            : null,
+        };
+      })
+      .sort(
+        (a, b) =>
+          (a.towerName ?? "").localeCompare(b.towerName ?? "") ||
+          (b.floorNumber ?? 0) - (a.floorNumber ?? 0) ||
+          (a.environmentName ?? "").localeCompare(b.environmentName ?? "") ||
+          a.system.localeCompare(b.system) ||
+          a.kind.localeCompare(b.kind)
+      );
+  },
+});
+
+// Técnico atribui o equipamento que acabou de cadastrar a uma vaga planejada.
+// Diferente de `linkEquipment` (escritório), NÃO força "operational": atribuir
+// à vaga não significa instalado — o status vem do cadastro de campo e a
+// instalação segue via fieldAction.
+export const claimSlot = authedMutation({
+  args: {
+    itemId: v.id("projectEquipment"),
+    equipmentId: v.id("equipment"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get("projectEquipment", args.itemId);
+    if (!item) throw new Error("Vaga planejada não encontrada");
+    if (item.linkedEquipmentId) {
+      throw new Error("Esta vaga já tem um equipamento vinculado");
+    }
+
+    const equipment = await ctx.db.get("equipment", args.equipmentId);
+    if (!equipment) throw new Error("Equipamento não encontrado");
+    if (
+      equipment.projectEquipmentId &&
+      equipment.projectEquipmentId !== args.itemId
+    ) {
+      throw new Error("Este equipamento já está vinculado a outra vaga");
+    }
+
+    // Se a etiqueta veio de um lote com obra de destino, valida contra a obra.
+    const qrCode = await ctx.db
+      .query("qrCodes")
+      .withIndex("by_equipment", (q) => q.eq("equipmentId", args.equipmentId))
+      .order("desc")
+      .first();
+    if (qrCode) {
+      const destination = await getBatchDestination(ctx, qrCode.batchId);
+      if (destination && destination.projectId !== item.projectId) {
+        throw new Error(
+          `A etiqueta pertence ao lote destinado à obra "${destination.projectName}"`
+        );
+      }
+    }
+
+    await ctx.db.patch("projectEquipment", args.itemId, {
+      linkedEquipmentId: args.equipmentId,
+      status: equipment.status,
+    });
+    await ctx.db.patch("equipment", args.equipmentId, {
+      projectEquipmentId: args.itemId,
+    });
+    await syncQrProjectId(ctx, args.equipmentId, item.projectId);
+
+    await logEquipmentHistory(ctx, ctx.user, {
+      equipmentId: args.itemId,
+      action: "qr_linked",
+      newValue: qrCode?.token,
+    });
+    return null;
   },
 });
 

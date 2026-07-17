@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { engineeringMutation, engineeringQuery } from "./lib/rbac";
-import { logAudit } from "./lib/audit";
+import { logAudit, logEquipmentHistory } from "./lib/audit";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 
@@ -197,6 +197,156 @@ export const bulkCreateSystems = engineeringMutation({
     }
 
     return results;
+  },
+});
+
+// Cadastro "sistema-first": cria sistemas com seus equipamentos planejados em
+// uma única transação. Cada bloco tem linhas de equipamento apontando para o
+// ambiente onde ficam (evaporadoras na unidade, condensadora podendo ficar em
+// outro ambiente, ex: cobertura/área técnica). O bloco pode:
+//   - criar um sistema novo (`name`); nomes que colidem com sistemas
+//     existentes ganham sufixo numérico automático ("VRF 1 (2)");
+//   - adicionar a um sistema existente (`systemId`);
+//   - criar itens sem sistema (nem `name` nem `systemId`) — exibem alerta.
+// Não gera QR: as etiquetas nascem livres e são vinculadas em campo.
+export const createSystemsWithEquipment = engineeringMutation({
+  args: {
+    projectId: v.id("projects"),
+    systems: v.array(
+      v.object({
+        systemId: v.optional(v.id("systems")),
+        name: v.optional(v.string()),
+        type: v.optional(v.string()),
+        lines: v.array(
+          v.object({
+            kind: v.union(
+              v.literal("condensadora"),
+              v.literal("evaporadora")
+            ),
+            qty: v.number(),
+            environmentId: v.id("environments"),
+            modelo: v.optional(v.string()),
+            capacidade: v.optional(v.string()),
+          })
+        ),
+      })
+    ),
+  },
+  returns: v.object({
+    systemsCreated: v.number(),
+    itemsCreated: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project) throw new Error("Obra não encontrada");
+    if (args.systems.length === 0) {
+      throw new Error("Informe pelo menos um sistema");
+    }
+
+    const totalItems = args.systems.reduce(
+      (sum, s) =>
+        sum +
+        s.lines.reduce((acc, l) => acc + Math.max(0, Math.floor(l.qty)), 0),
+      0
+    );
+    if (totalItems === 0) {
+      throw new Error("Informe a quantidade de equipamentos");
+    }
+    if (totalItems > 500) {
+      throw new Error(
+        `Limite de 500 equipamentos por operação excedido (${totalItems})`
+      );
+    }
+
+    // Carrega e valida os ambientes referenciados (todos da mesma obra).
+    const envIds = new Set(
+      args.systems.flatMap((s) => s.lines.map((l) => l.environmentId))
+    );
+    const envById = new Map<Id<"environments">, Doc<"environments">>();
+    for (const envId of envIds) {
+      const env = await ctx.db.get("environments", envId);
+      if (!env) throw new Error("Ambiente não encontrado");
+      if (env.projectId !== args.projectId) {
+        throw new Error("Todos os ambientes devem pertencer à mesma obra");
+      }
+      envById.set(envId, env);
+    }
+
+    // Nomes existentes na obra (case-insensitive) para evitar colisão.
+    const existing = await ctx.db
+      .query("systems")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    const takenNames = new Set(existing.map((s) => s.name.toLowerCase()));
+
+    let systemsCreated = 0;
+    let itemsCreated = 0;
+
+    for (const spec of args.systems) {
+      let systemId: Id<"systems"> | undefined;
+      let name = "";
+
+      if (spec.systemId) {
+        // Sistema existente: só adiciona equipamentos.
+        const system = await ctx.db.get("systems", spec.systemId);
+        if (!system) throw new Error("Sistema não encontrado");
+        if (system.projectId !== args.projectId) {
+          throw new Error("O sistema não pertence a esta obra");
+        }
+        systemId = system._id;
+        name = system.name;
+      } else if (spec.name?.trim()) {
+        const baseName = spec.name.trim();
+        name = baseName;
+        for (let n = 2; takenNames.has(name.toLowerCase()); n++) {
+          name = `${baseName} (${n})`;
+        }
+        takenNames.add(name.toLowerCase());
+
+        systemId = await ctx.db.insert("systems", {
+          projectId: args.projectId,
+          name,
+          type: spec.type?.trim() || undefined,
+          createdAt: Date.now(),
+        });
+        systemsCreated++;
+        await logAudit(ctx, ctx.user, {
+          action: "create",
+          tableName: "systems",
+          recordId: systemId,
+          details: name,
+        });
+      }
+      // Nem systemId nem name: itens sem sistema (alerta na UI).
+
+      for (const line of spec.lines) {
+        const qty = Math.max(0, Math.floor(line.qty));
+        const env = envById.get(line.environmentId)!;
+        for (let i = 0; i < qty; i++) {
+          const itemId = await ctx.db.insert("projectEquipment", {
+            projectId: args.projectId,
+            environmentId: env._id,
+            towerId: env.towerId,
+            floorId: env.floorId,
+            system: name,
+            systemId,
+            ambiente: env.name,
+            kind: line.kind,
+            modelo: line.modelo?.trim() ?? "",
+            capacidade: line.capacidade?.trim() ?? "",
+            status: "installing",
+          });
+          itemsCreated++;
+          await logEquipmentHistory(ctx, ctx.user, {
+            equipmentId: itemId,
+            action: "created",
+            newValue: name || "(sem sistema)",
+          });
+        }
+      }
+    }
+
+    return { systemsCreated, itemsCreated };
   },
 });
 

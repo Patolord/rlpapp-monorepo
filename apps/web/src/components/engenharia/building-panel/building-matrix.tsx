@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   Boxes,
   Building2,
+  CopyPlus,
   DoorOpen,
   Link2,
   Loader2,
@@ -30,6 +31,7 @@ import {
 } from "@/components/ui/sheet";
 import { EquipmentStatusDot } from "@/components/engenharia/building-panel/equipment-status-dot";
 import { FloorLegend } from "@/components/engenharia/building-panel/floor-grid";
+import { FloorListMobile } from "@/components/engenharia/building-panel/floor-list-mobile";
 import { TowerSelector } from "@/components/engenharia/building-panel/tower-selector";
 import {
   environmentShapeRowSpan,
@@ -53,6 +55,8 @@ export type BuildingMatrixActions = {
   onEditTower?: (tower: HierarchyTower) => void;
   onAddFloors?: (tower: HierarchyTower) => void;
   onEditFloor?: (floor: HierarchyFloor) => void;
+  /** Replica ambientes/sistemas/equipamentos do andar para outros andares. */
+  onReplicateFloor?: (floor: HierarchyFloor) => void;
   onAddEnvironment?: (floor: HierarchyFloor) => void;
   onEditEnvironment?: (env: HierarchyEnvironment) => void;
   onRemoveEnvironment?: (env: HierarchyEnvironment) => void;
@@ -153,6 +157,21 @@ export function BuildingMatrixPanel({
     return null;
   }, [selectedEnv, selectedTower]);
 
+  const handleSelectEnvironment = (
+    floorLabel: string,
+    env: HierarchyEnvironment
+  ) => {
+    if (multiSelectMode && onToggleEnv) {
+      onToggleEnv(env);
+      return;
+    }
+    if (selectionMode && onSelectTarget) {
+      onSelectTarget(floorLabel, env);
+      return;
+    }
+    setSelectedEnv({ floorLabel, envId: env._id });
+  };
+
   if (hierarchy === undefined) {
     return (
       <div className="flex min-h-48 items-center justify-center">
@@ -235,25 +254,34 @@ export function BuildingMatrixPanel({
             </div>
           </div>
 
-          <BuildingMatrix
-            tower={selectedTower}
-            now={now}
-            actions={actions}
-            highlightEnvId={selectionMode ? selectedTargetEnvId : null}
-            selectedEnvIds={multiSelectMode ? multiSelectedEnvIds : undefined}
-            onToggleFloor={multiSelectMode ? onToggleFloor : undefined}
-            onSelectEnvironment={(floorLabel, env) => {
-              if (multiSelectMode && onToggleEnv) {
-                onToggleEnv(env);
-                return;
+          {/* Matriz esquemática (md+); no mobile vira lista por andar. */}
+          <div className="hidden md:block">
+            <BuildingMatrix
+              tower={selectedTower}
+              now={now}
+              actions={actions}
+              highlightEnvId={selectionMode ? selectedTargetEnvId : null}
+              selectedEnvIds={
+                multiSelectMode ? multiSelectedEnvIds : undefined
               }
-              if (selectionMode && onSelectTarget) {
-                onSelectTarget(floorLabel, env);
-                return;
+              onToggleFloor={multiSelectMode ? onToggleFloor : undefined}
+              onSelectEnvironment={handleSelectEnvironment}
+            />
+          </div>
+          <div className="md:hidden">
+            <FloorListMobile
+              tower={selectedTower}
+              now={now}
+              actions={actions}
+              highlightEnvId={selectionMode ? selectedTargetEnvId : null}
+              selectedEnvIds={
+                multiSelectMode ? multiSelectedEnvIds : undefined
               }
-              setSelectedEnv({ floorLabel, envId: env._id });
-            }}
-          />
+              forceExpanded={selectionMode || multiSelectMode}
+              onToggleFloor={multiSelectMode ? onToggleFloor : undefined}
+              onSelectEnvironment={handleSelectEnvironment}
+            />
+          </div>
 
           <FloorLegend />
         </>
@@ -366,6 +394,19 @@ function BuildingMatrix({
               style={{ gridRow: idx + 1, gridColumn: 1 }}
             >
               <div className="flex items-center gap-1">
+                {actions?.onReplicateFloor &&
+                  !onToggleFloor &&
+                  floor.environments.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => actions.onReplicateFloor?.(floor)}
+                      className="text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                      aria-label={`Replicar ${floor.label}`}
+                      title="Replicar andar"
+                    >
+                      <CopyPlus className="size-3" />
+                    </button>
+                  )}
                 {actions?.onEditFloor && !onToggleFloor && (
                   <button
                     type="button"

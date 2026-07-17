@@ -24,6 +24,7 @@ import {
   type BuildingMatrixActions,
 } from "@/components/engenharia/building-panel/building-matrix";
 import { QuickAddPanel } from "@/components/engenharia/building-panel/quick-add-panel";
+import { ReplicateFloorDialog } from "@/components/engenharia/building-panel/replicate-floor-dialog";
 import { SystemsPanel } from "@/components/engenharia/building-panel/systems-panel";
 import {
   UnassignedEquipmentPanel,
@@ -156,6 +157,9 @@ function HierarchyBuilding({
   const [editFloorTarget, setEditFloorTarget] = useState<HierarchyFloor | null>(
     null
   );
+  // Andar de origem do diálogo "Replicar andar".
+  const [replicateFloorId, setReplicateFloorId] =
+    useState<Id<"floors"> | null>(null);
   const [envTarget, setEnvTarget] = useState<HierarchyFloor | null>(null);
   const [editEnvTarget, setEditEnvTarget] =
     useState<HierarchyEnvironment | null>(null);
@@ -223,6 +227,8 @@ function HierarchyBuilding({
     onEditTower: (tower) => setEditTowerTarget(tower),
     onAddFloors: (tower) => setFloorsTarget(tower),
     onEditFloor: (floor) => setEditFloorTarget(floor),
+    onReplicateFloor: (floor) =>
+      setReplicateFloorId(floor._id as Id<"floors">),
     onAddEnvironment: (floor) => setEnvTarget(floor),
     onEditEnvironment: (env) => setEditEnvTarget(env),
     onRemoveEnvironment: (env) => {
@@ -323,50 +329,56 @@ function HierarchyBuilding({
           {view === "predio" ? (
             poolOpen || quickAddOpen ? (
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
-                <BuildingMatrixPanel
-                  projectId={project._id as Id<"projects">}
-                  now={now}
-                  actions={actions}
-                  selectionMode={poolOpen}
-                  selectedTargetEnvId={
-                    poolOpen ? assignTarget?.envId ?? null : null
-                  }
-                  onSelectTarget={(floorLabel, env) =>
-                    setAssignTarget({
-                      envId: env._id,
-                      envName: env.name,
-                      floorLabel,
-                    })
-                  }
-                  multiSelectMode={quickAddOpen}
-                  multiSelectedEnvIds={selectedEnvIds}
-                  onToggleEnv={toggleEnvSelection}
-                  onToggleFloor={toggleFloorSelection}
-                />
-                {poolOpen ? (
-                  <UnassignedEquipmentPanel
-                    projectId={projectId}
-                    systems={systems}
-                    target={assignTarget}
-                    onClose={togglePool}
-                  />
-                ) : (
-                  <QuickAddPanel
-                    projectId={projectId}
-                    systems={systems}
-                    selectedEnvIds={selectedEnvIds}
-                    initialSystemId={quickAddSystemId}
-                    onDeselectEnv={(envId) =>
-                      setSelectedEnvIds((prev) => {
-                        const next = new Set(prev);
-                        next.delete(envId);
-                        return next;
+                <div className="min-w-0">
+                  <BuildingMatrixPanel
+                    projectId={project._id as Id<"projects">}
+                    now={now}
+                    actions={actions}
+                    selectionMode={poolOpen}
+                    selectedTargetEnvId={
+                      poolOpen ? assignTarget?.envId ?? null : null
+                    }
+                    onSelectTarget={(floorLabel, env) =>
+                      setAssignTarget({
+                        envId: env._id,
+                        envName: env.name,
+                        floorLabel,
                       })
                     }
-                    onClearSelection={() => setSelectedEnvIds(new Set())}
-                    onClose={closeQuickAdd}
+                    multiSelectMode={quickAddOpen}
+                    multiSelectedEnvIds={selectedEnvIds}
+                    onToggleEnv={toggleEnvSelection}
+                    onToggleFloor={toggleFloorSelection}
                   />
-                )}
+                </div>
+                {/* No mobile o painel vem antes do prédio para não ficar
+                    escondido no fim da página. */}
+                <div className="order-first min-w-0 lg:order-none">
+                  {poolOpen ? (
+                    <UnassignedEquipmentPanel
+                      projectId={projectId}
+                      systems={systems}
+                      target={assignTarget}
+                      onClose={togglePool}
+                    />
+                  ) : (
+                    <QuickAddPanel
+                      projectId={projectId}
+                      systems={systems}
+                      selectedEnvIds={selectedEnvIds}
+                      initialSystemId={quickAddSystemId}
+                      onDeselectEnv={(envId) =>
+                        setSelectedEnvIds((prev) => {
+                          const next = new Set(prev);
+                          next.delete(envId);
+                          return next;
+                        })
+                      }
+                      onClearSelection={() => setSelectedEnvIds(new Set())}
+                      onClose={closeQuickAdd}
+                    />
+                  )}
+                </div>
               </div>
             ) : (
               <BuildingMatrixPanel
@@ -404,6 +416,11 @@ function HierarchyBuilding({
       <EditFloorDialog
         floor={editFloorTarget}
         onClose={() => setEditFloorTarget(null)}
+      />
+      <ReplicateFloorDialog
+        projectId={projectId}
+        sourceFloorId={replicateFloorId}
+        onClose={() => setReplicateFloorId(null)}
       />
       <AddEnvironmentDialog
         floor={envTarget}

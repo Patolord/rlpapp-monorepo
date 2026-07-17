@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { EquipmentForm } from "@/components/engenharia/equipment-form";
 import { EquipmentDetail } from "@/components/engenharia/equipment-detail";
+import { SlotPickerStep } from "@/components/engenharia/slot-picker";
 import { StatusBadge } from "@/components/engenharia/status-badge";
 import { MaintenanceForm } from "@/components/engenharia/maintenance-form";
 import { Button } from "@/components/ui/button";
@@ -175,6 +176,13 @@ function AuthenticatedContent() {
   const data = useQuery(api.qrCodes.getByToken, { token });
   const currentUser = useQuery(api.users.getCurrentUser);
 
+  // Equipamento recém-cadastrado nesta sessão: habilita o passo opcional de
+  // escolher a vaga planejada. Pular (ou atribuir) dispensa o passo.
+  const [justRegisteredId, setJustRegisteredId] = useState<string | null>(
+    null,
+  );
+  const [assignDone, setAssignDone] = useState(false);
+
   // Cache de leitura: guarda o último estado conhecido para uso offline
   useEffect(() => {
     if (data === undefined) return;
@@ -225,7 +233,28 @@ function AuthenticatedContent() {
         <EquipmentForm
           qrToken={token}
           destinationProjectName={data.batchProject?.projectName ?? null}
-          onSuccess={() => { }}
+          onSuccess={(equipmentId) => setJustRegisteredId(equipmentId)}
+        />
+      </div>
+    );
+  }
+
+  // Passo opcional pós-cadastro: escolher a vaga planejada na obra do lote.
+  // Só aparece logo após o cadastro desta sessão; offline pula em silêncio.
+  if (
+    online &&
+    !assignDone &&
+    justRegisteredId === (equipment._id as string) &&
+    data.batchProject &&
+    !equipment.projectEquipmentId
+  ) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-6">
+        <SlotPickerStep
+          projectId={data.batchProject.projectId}
+          projectName={data.batchProject.projectName}
+          equipmentId={equipment._id}
+          onDone={() => setAssignDone(true)}
         />
       </div>
     );

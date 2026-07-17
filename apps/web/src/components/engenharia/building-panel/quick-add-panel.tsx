@@ -4,9 +4,7 @@ import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
   Boxes,
-  Check,
   ChevronsUpDown,
-  Copy,
   Layers,
   Loader2,
   Minus,
@@ -21,7 +19,6 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Collapsible,
   CollapsibleContent,
@@ -138,22 +135,6 @@ export function QuickAddPanel({
   }) as ProjectHierarchy | null | undefined;
 
   const [mode, setMode] = useState<PanelMode>("add");
-  const [activeSystem, setActiveSystem] = useState<string>(NO_SYSTEM);
-
-  // Sincroniza o sistema pré-ativado quando o painel é aberto por atalho.
-  useEffect(() => {
-    if (initialSystemId) setActiveSystem(initialSystemId);
-  }, [initialSystemId]);
-
-  // Sistema ativo removido/inexistente volta para "Sem sistema".
-  useEffect(() => {
-    if (
-      activeSystem !== NO_SYSTEM &&
-      !systems.some((s) => s._id === activeSystem)
-    ) {
-      setActiveSystem(NO_SYSTEM);
-    }
-  }, [systems, activeSystem]);
 
   const selectedEnvs = useMemo(
     () => resolveSelectedEnvs(hierarchy, selectedEnvIds),
@@ -217,9 +198,9 @@ export function QuickAddPanel({
         {mode === "add" ? (
           <AddMode
             projectId={projectId}
+            hierarchy={hierarchy}
             systems={systems}
-            activeSystem={activeSystem}
-            onActiveSystemChange={setActiveSystem}
+            initialSystemId={initialSystemId}
             selectedEnvs={selectedEnvs}
           />
         ) : (
@@ -302,239 +283,478 @@ function SelectedEnvChips({
   );
 }
 
-/* ── Modo Adicionar ── */
+/* ── Modo Adicionar (sistema-first) ── */
+
+/** Valor sentinela: a linha vale para cada ambiente selecionado no prédio. */
+const SELECTED_ENV = "__selected__";
+
+type LineDraft = {
+  id: number;
+  kind: "condensadora" | "evaporadora";
+  qty: number;
+  /** SELECTED_ENV ou o id de um ambiente específico (ex: cobertura). */
+  envId: string;
+  modelo: string;
+  capacidade: string;
+};
+
+type SystemDraft = {
+  id: number;
+  name: string;
+  lines: LineDraft[];
+};
+
+let draftSeq = 0;
+
+function newLine(patch?: Partial<LineDraft>): LineDraft {
+  return {
+    id: ++draftSeq,
+    kind: "evaporadora",
+    qty: 1,
+    envId: SELECTED_ENV,
+    modelo: "",
+    capacidade: "",
+    ...patch,
+  };
+}
+
+/** Sistema padrão do exemplo típico: 1 condensadora + N evaporadoras. */
+function newSystem(name: string): SystemDraft {
+  return {
+    id: ++draftSeq,
+    name,
+    lines: [
+      newLine({ kind: "condensadora", qty: 1 }),
+      newLine({ kind: "evaporadora", qty: 1 }),
+    ],
+  };
+}
+
+/** Sugere o próximo nome livre "VRF n" considerando existentes e rascunhos. */
+function suggestSystemName(existing: string[], drafts: SystemDraft[]): string {
+  const taken = new Set([
+    ...existing.map((n) => n.toLowerCase()),
+    ...drafts.map((d) => d.name.toLowerCase()),
+  ]);
+  for (let n = 1; ; n++) {
+    const candidate = `VRF ${n}`;
+    if (!taken.has(candidate.toLowerCase())) return candidate;
+  }
+}
+
+/** Opções de ambiente para as linhas (todos os ambientes da hierarquia). */
+function flattenEnvironments(
+  hierarchy: ProjectHierarchy | null | undefined
+): { envId: string; label: string }[] {
+  if (!hierarchy) return [];
+  const multiTower = hierarchy.towers.length > 1;
+  const result: { envId: string; label: string }[] = [];
+  for (const tower of hierarchy.towers) {
+    const floors = tower.floors.slice().sort((a, b) => b.number - a.number);
+    for (const floor of floors) {
+      for (const env of floor.environments) {
+        result.push({
+          envId: env._id,
+          label: `${env.name} · ${floor.label}${multiTower ? ` · ${tower.name}` : ""}`,
+        });
+      }
+    }
+  }
+  return result;
+}
 
 function AddMode({
   projectId,
+  hierarchy,
   systems,
-  activeSystem,
-  onActiveSystemChange,
+  initialSystemId,
   selectedEnvs,
 }: {
   projectId: Id<"projects">;
+  hierarchy: ProjectHierarchy | null | undefined;
   systems: SystemOption[];
-  activeSystem: string;
-  onActiveSystemChange: (value: string) => void;
+  initialSystemId: Id<"systems"> | null;
   selectedEnvs: SelectedEnvInfo[];
 }) {
-  const bulkCreateSystems = useMutation(api.systems.bulkCreateSystems);
-  const bulkAdd = useMutation(api.projectEquipment.bulkAddToEnvironments);
+  const createSystemsWithEquipment = useMutation(
+    api.systems.createSystemsWithEquipment
+  );
 
-  const [systemInput, setSystemInput] = useState("");
-  const [creatingSystems, setCreatingSystems] = useState(false);
-  const [evapQty, setEvapQty] = useState(1);
-  const [condQty, setCondQty] = useState(0);
-  const [modelo, setModelo] = useState("");
-  const [capacidade, setCapacidade] = useState("");
-  const [generateQr, setGenerateQr] = useState(false);
+  const [drafts, setDrafts] = useState<SystemDraft[]>(() => {
+    const initial = initialSystemId
+      ? systems.find((s) => s._id === initialSystemId)
+      : undefined;
+    return [
+      newSystem(
+        initial?.name ?? suggestSystemName(systems.map((s) => s.name), [])
+      ),
+    ];
+  });
   const [saving, setSaving] = useState(false);
-  const [lastTokens, setLastTokens] = useState<string[]>([]);
 
-  async function handleCreateSystems() {
-    const names = systemInput
-      .split(/[,;\n]+/)
-      .map((n) => n.trim())
-      .filter(Boolean);
-    if (names.length === 0) return;
+  // Atalho "Equipamento" de um grupo de sistema: pré-preenche o primeiro
+  // bloco com o sistema existente (o submit adiciona a ele, sem duplicar).
+  useEffect(() => {
+    if (!initialSystemId) return;
+    const system = systems.find((s) => s._id === initialSystemId);
+    if (!system) return;
+    setDrafts((prev) =>
+      prev.length === 1 && prev[0].name !== system.name
+        ? [{ ...prev[0], name: system.name }]
+        : prev
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSystemId]);
 
-    setCreatingSystems(true);
-    try {
-      const results = await bulkCreateSystems({ projectId, names });
-      const created = results.filter((r) => r.created);
-      if (created.length > 0) {
-        toast.success(
-          created.length === 1
-            ? `Sistema "${created[0].name}" criado`
-            : `${created.length} sistemas criados`
-        );
-      } else if (results.length > 0) {
-        toast.info("Os sistemas informados já existem nesta obra");
-      }
-      // Ativa o primeiro sistema informado (criado ou já existente).
-      if (results.length > 0) onActiveSystemChange(results[0].systemId);
-      setSystemInput("");
-    } catch (error) {
-      toast.error(
-        getErrorMessage(error, "Não foi possível criar os sistemas")
-      );
-    } finally {
-      setCreatingSystems(false);
-    }
+  const envOptions = useMemo(() => flattenEnvironments(hierarchy), [hierarchy]);
+  const envItems = useMemo(
+    () => ({
+      [SELECTED_ENV]:
+        selectedEnvs.length > 1
+          ? "Cada ambiente selecionado"
+          : "Ambiente selecionado",
+      ...Object.fromEntries(envOptions.map((o) => [o.envId, o.label])),
+    }),
+    [envOptions, selectedEnvs.length]
+  );
+
+  function updateDraft(id: number, patch: Partial<SystemDraft>) {
+    setDrafts((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, ...patch } : d))
+    );
   }
 
-  const totalPerEnv = evapQty + condQty;
-  const total = totalPerEnv * selectedEnvs.length;
-  const canSubmit = total > 0 && !saving;
+  function updateLine(
+    draftId: number,
+    lineId: number,
+    patch: Partial<LineDraft>
+  ) {
+    setDrafts((prev) =>
+      prev.map((d) =>
+        d.id === draftId
+          ? {
+              ...d,
+              lines: d.lines.map((l) =>
+                l.id === lineId ? { ...l, ...patch } : l
+              ),
+            }
+          : d
+      )
+    );
+  }
+
+  // Alguma linha usa o sentinela "ambiente selecionado"?
+  const usesSelection = drafts.some((d) =>
+    d.lines.some((l) => l.envId === SELECTED_ENV)
+  );
+  const needsSelection = usesSelection && selectedEnvs.length === 0;
+
+  // Multiplicador: linhas com sentinela replicam o sistema por ambiente.
+  const perSystemQty = (d: SystemDraft) =>
+    d.lines.reduce((sum, l) => sum + l.qty, 0);
+  const total = drafts.reduce((sum, d) => {
+    const replicas =
+      d.lines.some((l) => l.envId === SELECTED_ENV) && selectedEnvs.length > 1
+        ? selectedEnvs.length
+        : 1;
+    return sum + perSystemQty(d) * replicas;
+  }, 0);
+  const canSubmit = total > 0 && !needsSelection && !saving;
 
   async function handleSubmit() {
     if (!canSubmit) return;
     setSaving(true);
     try {
-      const items: {
-        kind: "evaporadora" | "condensadora";
-        qty: number;
-        modelo?: string;
-        capacidade?: string;
-      }[] = [];
-      if (evapQty > 0) {
-        items.push({
-          kind: "evaporadora",
-          qty: evapQty,
-          modelo: modelo.trim() || undefined,
-          capacidade: capacidade.trim() || undefined,
-        });
-      }
-      if (condQty > 0) {
-        items.push({
-          kind: "condensadora",
-          qty: condQty,
-          modelo: modelo.trim() || undefined,
-          capacidade: capacidade.trim() || undefined,
-        });
-      }
-
-      const result = await bulkAdd({
-        environmentIds: selectedEnvs.map((e) => e.envId),
-        systemId:
-          activeSystem === NO_SYSTEM
-            ? undefined
-            : (activeSystem as Id<"systems">),
-        items,
-        generateQr,
-      });
-
-      const tokens = result.items
-        .map((i) => i.token)
-        .filter((t): t is string => t !== null);
-      setLastTokens(tokens);
-      toast.success(
-        `${result.created} equipamento${result.created === 1 ? "" : "s"} adicionado${result.created === 1 ? "" : "s"} em ${selectedEnvs.length} ambiente${selectedEnvs.length === 1 ? "" : "s"}${tokens.length > 0 ? ` · ${tokens.length} QRs gerados` : ""}`
+      const existingByName = new Map(
+        systems.map((s) => [s.name.toLowerCase(), s._id])
       );
+
+      type Spec = {
+        systemId?: Id<"systems">;
+        name?: string;
+        lines: {
+          kind: "condensadora" | "evaporadora";
+          qty: number;
+          environmentId: Id<"environments">;
+          modelo?: string;
+          capacidade?: string;
+        }[];
+      };
+      const specs: Spec[] = [];
+
+      for (const draft of drafts) {
+        const baseName = draft.name.trim();
+        const hasSentinel = draft.lines.some((l) => l.envId === SELECTED_ENV);
+        // Sistema replicado por ambiente selecionado (ex: um split por final).
+        const replicas =
+          hasSentinel && selectedEnvs.length > 1 ? selectedEnvs : [null];
+
+        for (const replicaEnv of replicas) {
+          const name =
+            replicaEnv && baseName
+              ? `${baseName} · ${replicaEnv.name}`
+              : baseName;
+          const lines = draft.lines
+            .filter((l) => l.qty > 0)
+            .map((l) => ({
+              kind: l.kind,
+              qty: l.qty,
+              environmentId: (l.envId === SELECTED_ENV
+                ? (replicaEnv ?? selectedEnvs[0]).envId
+                : l.envId) as Id<"environments">,
+              modelo: l.modelo.trim() || undefined,
+              capacidade: l.capacidade.trim() || undefined,
+            }));
+          if (lines.length === 0) continue;
+
+          const existingId = name
+            ? existingByName.get(name.toLowerCase())
+            : undefined;
+          specs.push(
+            existingId
+              ? { systemId: existingId, lines }
+              : { name: name || undefined, lines }
+          );
+        }
+      }
+
+      const result = await createSystemsWithEquipment({
+        projectId,
+        systems: specs,
+      });
+      toast.success(
+        `${result.itemsCreated} equipamento${result.itemsCreated === 1 ? "" : "s"} em ${result.systemsCreated} sistema${result.systemsCreated === 1 ? "" : "s"} criado${result.systemsCreated === 1 ? "" : "s"}`
+      );
+      setDrafts([
+        newSystem(
+          suggestSystemName(
+            [...systems.map((s) => s.name), ...specs.map((s) => s.name ?? "")],
+            []
+          )
+        ),
+      ]);
     } catch (error) {
       toast.error(
-        getErrorMessage(error, "Não foi possível adicionar os equipamentos")
+        getErrorMessage(error, "Não foi possível criar os sistemas")
       );
     } finally {
       setSaving(false);
     }
   }
 
-  async function copyTokens() {
-    await navigator.clipboard.writeText(lastTokens.join("\n"));
-    toast.success("Tokens copiados");
-  }
-
   return (
     <div className="space-y-3">
-      {/* Sistemas */}
-      <section className="space-y-1.5">
-        <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          <Boxes className="size-3.5" />
-          Sistema
-        </span>
-        <div className="flex flex-wrap gap-1">
-          <SystemChip
-            label="Sem sistema"
-            active={activeSystem === NO_SYSTEM}
-            onClick={() => onActiveSystemChange(NO_SYSTEM)}
-          />
-          {systems.map((s) => (
-            <SystemChip
-              key={s._id}
-              label={s.type ? `${s.name} · ${s.type}` : s.name}
-              active={activeSystem === s._id}
-              onClick={() => onActiveSystemChange(s._id)}
+      {drafts.map((draft, idx) => (
+        <section
+          key={draft.id}
+          className="space-y-2 rounded-md border bg-background p-2.5"
+        >
+          <div className="flex items-center gap-1.5">
+            <Boxes className="size-3.5 shrink-0 text-muted-foreground" />
+            <Input
+              className="h-8 flex-1 text-xs font-medium"
+              placeholder="Nome do sistema (vazio = sem sistema)"
+              value={draft.name}
+              onChange={(e) => updateDraft(draft.id, { name: e.target.value })}
             />
-          ))}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Input
-            className="h-8 text-xs"
-            placeholder="Novo sistema… (Enter cria; vírgula separa vários)"
-            value={systemInput}
-            onChange={(e) => setSystemInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void handleCreateSystems();
-              }
-            }}
-          />
+            {drafts.length > 1 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                onClick={() =>
+                  setDrafts((prev) => prev.filter((d) => d.id !== draft.id))
+                }
+                aria-label={`Remover sistema ${idx + 1}`}
+              >
+                <X className="size-3.5" />
+              </Button>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            {draft.lines.map((line) => (
+              <div
+                key={line.id}
+                className="space-y-1.5 rounded-md border bg-muted/30 p-2"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Select
+                    value={line.kind}
+                    items={{
+                      evaporadora: "Evap.",
+                      condensadora: "Cond.",
+                    }}
+                    onValueChange={(v) =>
+                      updateLine(draft.id, line.id, {
+                        kind: v as "condensadora" | "evaporadora",
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-7 w-20 shrink-0 bg-background text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="evaporadora">Evaporadora</SelectItem>
+                      <SelectItem value="condensadora">Condensadora</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-center gap-0.5">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-7"
+                      disabled={line.qty <= 0}
+                      onClick={() =>
+                        updateLine(draft.id, line.id, {
+                          qty: Math.max(0, line.qty - 1),
+                        })
+                      }
+                      aria-label="Diminuir quantidade"
+                    >
+                      <Minus className="size-3" />
+                    </Button>
+                    <span className="w-7 text-center text-sm font-semibold tabular-nums">
+                      {line.qty}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-7"
+                      disabled={line.qty >= 99}
+                      onClick={() =>
+                        updateLine(draft.id, line.id, {
+                          qty: Math.min(99, line.qty + 1),
+                        })
+                      }
+                      aria-label="Aumentar quantidade"
+                    >
+                      <Plus className="size-3" />
+                    </Button>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="ml-auto size-6 shrink-0 text-muted-foreground hover:text-destructive"
+                    disabled={draft.lines.length <= 1}
+                    onClick={() =>
+                      updateDraft(draft.id, {
+                        lines: draft.lines.filter((l) => l.id !== line.id),
+                      })
+                    }
+                    aria-label="Remover linha"
+                  >
+                    <X className="size-3" />
+                  </Button>
+                </div>
+                {/* Ambiente da linha (condensadora pode ficar em outro, ex: cobertura). */}
+                <Select
+                  value={line.envId}
+                  items={envItems}
+                  onValueChange={(v) =>
+                    updateLine(draft.id, line.id, { envId: v })
+                  }
+                >
+                  <SelectTrigger className="h-7 w-full bg-background text-xs">
+                    <SelectValue placeholder="Ambiente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SELECTED_ENV}>
+                      {envItems[SELECTED_ENV]}
+                    </SelectItem>
+                    {envOptions.map((o) => (
+                      <SelectItem key={o.envId} value={o.envId}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Collapsible>
+                  <CollapsibleTrigger className="flex w-full items-center gap-1 rounded px-0.5 py-0.5 text-[0.6875rem] text-muted-foreground hover:text-foreground">
+                    <ChevronsUpDown className="size-3" />
+                    Modelo/capacidade
+                    {(line.modelo || line.capacidade) && (
+                      <span className="truncate font-medium text-foreground">
+                        · {[line.modelo, line.capacidade].filter(Boolean).join(" · ")}
+                      </span>
+                    )}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="grid grid-cols-2 gap-1.5 pt-1">
+                      <Input
+                        className="h-7 bg-background text-xs"
+                        placeholder="Modelo"
+                        value={line.modelo}
+                        onChange={(e) =>
+                          updateLine(draft.id, line.id, {
+                            modelo: e.target.value,
+                          })
+                        }
+                      />
+                      <Input
+                        className="h-7 bg-background text-xs"
+                        placeholder="Capacidade"
+                        value={line.capacidade}
+                        onChange={(e) =>
+                          updateLine(draft.id, line.id, {
+                            capacidade: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+            ))}
+          </div>
+
           <Button
             variant="outline"
-            size="icon"
-            className="size-8 shrink-0"
-            disabled={creatingSystems || !systemInput.trim()}
-            onClick={() => void handleCreateSystems()}
-            aria-label="Criar sistemas"
+            size="xs"
+            className="w-full"
+            onClick={() =>
+              updateDraft(draft.id, { lines: [...draft.lines, newLine()] })
+            }
           >
-            {creatingSystems ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Plus className="size-3.5" />
-            )}
+            <Plus className="mr-1 size-3" />
+            Linha de equipamento
           </Button>
-        </div>
-      </section>
+        </section>
+      ))}
 
-      {/* Equipamentos */}
-      <section className="space-y-1.5">
-        <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          <Wind className="size-3.5" />
-          Equipamentos por ambiente
-        </span>
-        <QtyStepper
-          label="Evaporadora"
-          value={evapQty}
-          onChange={setEvapQty}
-        />
-        <QtyStepper
-          label="Condensadora"
-          value={condQty}
-          onChange={setCondQty}
-        />
+      <Button
+        variant="outline"
+        size="xs"
+        className="w-full"
+        onClick={() =>
+          setDrafts((prev) => [
+            ...prev,
+            newSystem(
+              suggestSystemName(
+                systems.map((s) => s.name),
+                prev
+              )
+            ),
+          ])
+        }
+      >
+        <Boxes className="mr-1 size-3.5" />
+        Adicionar sistema
+      </Button>
 
-        <Collapsible>
-          <CollapsibleTrigger className="flex w-full items-center gap-1 rounded px-1 py-1 text-xs text-muted-foreground hover:text-foreground">
-            <ChevronsUpDown className="size-3" />
-            Detalhes (opcional)
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <Input
-                className="h-8 text-xs"
-                placeholder="Modelo"
-                value={modelo}
-                onChange={(e) => setModelo(e.target.value)}
-              />
-              <Input
-                className="h-8 text-xs"
-                placeholder="Capacidade"
-                value={capacidade}
-                onChange={(e) => setCapacidade(e.target.value)}
-              />
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-
-        <label className="flex cursor-pointer items-center gap-2 rounded-md border bg-background px-2.5 py-2 text-xs">
-          <Checkbox
-            checked={generateQr}
-            onCheckedChange={(checked) => setGenerateQr(checked === true)}
-          />
-          <QrCode className="size-3.5 text-muted-foreground" />
-          Gerar QR automaticamente para cada equipamento
-        </label>
-      </section>
+      {selectedEnvs.length > 1 && usesSelection && (
+        <p className="rounded-md border bg-muted/40 px-2.5 py-2 text-[0.6875rem] leading-snug text-muted-foreground">
+          {selectedEnvs.length} ambientes selecionados: cada sistema será
+          criado uma vez por ambiente (nome ganha o sufixo do ambiente).
+        </p>
+      )}
 
       <Button
         className="w-full"
-        disabled={!canSubmit || selectedEnvs.length === 0}
+        disabled={!canSubmit}
         onClick={() => void handleSubmit()}
         title={
-          selectedEnvs.length === 0
-            ? "Selecione ambientes no prédio"
-            : undefined
+          needsSelection ? "Selecione ambientes no prédio" : undefined
         }
       >
         {saving ? (
@@ -542,100 +762,16 @@ function AddMode({
         ) : (
           <Plus className="mr-1.5 size-4" />
         )}
-        {selectedEnvs.length === 0
+        {needsSelection
           ? "Selecione ambientes no prédio"
-          : `Adicionar ${total} equipamento${total === 1 ? "" : "s"} em ${selectedEnvs.length} ambiente${selectedEnvs.length === 1 ? "" : "s"}`}
+          : `Criar ${total} equipamento${total === 1 ? "" : "s"}`}
       </Button>
 
-      {lastTokens.length > 0 && (
-        <div className="space-y-1.5 rounded-md border bg-background p-2.5 text-xs">
-          <div className="flex items-center gap-1.5">
-            <QrCode className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="font-medium">
-              {lastTokens.length} QRs gerados
-            </span>
-            <Button
-              variant="outline"
-              size="xs"
-              className="ml-auto h-6 px-1.5 text-xs"
-              onClick={() => void copyTokens()}
-            >
-              <Copy className="mr-1 size-3" />
-              Copiar tokens
-            </Button>
-          </div>
-          <p className="break-all font-mono text-[0.6875rem] leading-relaxed text-muted-foreground">
-            {lastTokens.join("  ")}
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SystemChip({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "inline-flex max-w-full items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors",
-        active
-          ? "border-primary bg-primary text-primary-foreground"
-          : "bg-background text-foreground hover:border-primary/50 hover:bg-muted"
-      )}
-    >
-      {active && <Check className="size-3 shrink-0" />}
-      <span className="truncate">{label}</span>
-    </button>
-  );
-}
-
-function QtyStepper({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2 rounded-md border bg-background px-2.5 py-1.5">
-      <span className="text-xs font-medium">{label}</span>
-      <div className="flex items-center gap-1">
-        <Button
-          variant="outline"
-          size="icon"
-          className="size-7"
-          disabled={value <= 0}
-          onClick={() => onChange(Math.max(0, value - 1))}
-          aria-label={`Diminuir ${label}`}
-        >
-          <Minus className="size-3.5" />
-        </Button>
-        <span className="w-8 text-center text-sm font-semibold tabular-nums">
-          {value}
-        </span>
-        <Button
-          variant="outline"
-          size="icon"
-          className="size-7"
-          disabled={value >= 99}
-          onClick={() => onChange(Math.min(99, value + 1))}
-          aria-label={`Aumentar ${label}`}
-        >
-          <Plus className="size-3.5" />
-        </Button>
-      </div>
+      <p className="text-[0.6875rem] leading-snug text-muted-foreground">
+        Os QRs são vinculados na obra (bipagem do técnico) ou no modo
+        "Vincular QRs". "Gerar QR" por item continua disponível no detalhe do
+        ambiente.
+      </p>
     </div>
   );
 }
