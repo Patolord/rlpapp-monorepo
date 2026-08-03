@@ -19,7 +19,7 @@ if (!whatsappConfigured) {
 
 if (!process.env.REDIS_URL) {
   console.warn(
-    "[whatsapp] REDIS_URL is not set; using in-memory Chat SDK state. This is fine for local development but not production-safe.",
+    "[whatsapp] REDIS_URL is not set; using in-memory Chat SDK state. For production, use the redis:// (or rediss://) URL from the same Upstash Redis DB that backs AgentKit.",
   );
 }
 

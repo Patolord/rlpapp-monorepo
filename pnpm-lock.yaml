@@ -63,6 +63,9 @@ importers:
       '@chat-adapter/whatsapp':
         specifier: ^4.36.0
         version: 4.36.0(ai@7.0.48(zod@4.4.3))(zod@4.4.3)
+      '@upstash/agentkit-eve-extension':
+        specifier: ^0.4.0
+        version: 0.4.0(eve@0.29.5(@upstash/redis@1.38.1)(ai@7.0.48(zod@4.4.3))(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.3.6)(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)))
       ai:
         specifier: ^7.0.38
         version: 7.0.48(zod@4.4.3)
@@ -71,7 +74,7 @@ importers:
         version: 4.36.0(ai@7.0.48(zod@4.4.3))(zod@4.4.3)
       eve:
         specifier: 0.29.5
-        version: 0.29.5(ai@7.0.48(zod@4.4.3))(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.3.6)(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4))
+        version: 0.29.5(@upstash/redis@1.38.1)(ai@7.0.48(zod@4.4.3))(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.3.6)(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4))
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -428,7 +431,7 @@ importers:
         version: 0.4.6(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       nitro:
         specifier: 3.0.260429-beta
-        version: 3.0.260429-beta(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.3.6)(rollup@4.57.1)(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4))
+        version: 3.0.260429-beta(@upstash/redis@1.38.1)(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.3.6)(rollup@4.57.1)(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4))
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
@@ -5737,6 +5740,28 @@ packages:
     resolution: {integrity: sha512-lrW200hZdbfRtztbygyaq/6jP6AKE8qQN2KvPcJ+x7wiD038YtnYtZ82IMNJ69GJibV7bwL3y9FgK+5w/pYt6g==}
     cpu: [x64]
     os: [win32]
+
+  '@upstash/agentkit-eve-extension@0.4.0':
+    resolution: {integrity: sha512-gWz5HPgwMibOQ5mghNvrtJoc5WoNA20jUD/5VN/TItN5s1FM6xp3DJr4DOIwBD7wHTQg8iJAJRlr5FeScuMHtA==}
+    peerDependencies:
+      eve: '*'
+
+  '@upstash/agentkit-sdk@0.2.0':
+    resolution: {integrity: sha512-DsJbRmnAAJhAvsfjxuN4Ec61EQH8OLY2zzGIMIgB3rfOEH9vbAlwWofStluRuzHb/usJHHeS1ROIm1PfIJOf0A==}
+    peerDependencies:
+      '@upstash/redis': '>=1.38.0'
+
+  '@upstash/core-analytics@0.0.10':
+    resolution: {integrity: sha512-7qJHGxpQgQr9/vmeS1PktEwvNAF7TI4iJDi8Pu2CFZ9YUGHZH4fOP5TfYlZ4aVxfopnELiE4BS4FBjyK7V1/xQ==}
+    engines: {node: '>=16.0.0'}
+
+  '@upstash/ratelimit@2.0.8':
+    resolution: {integrity: sha512-YSTMBJ1YIxsoPkUMX/P4DDks/xV5YYCswWMamU8ZIfK9ly6ppjRnVOyBhMDXBmzjODm4UQKcxsJPvaeFAijp5w==}
+    peerDependencies:
+      '@upstash/redis': ^1.34.3
+
+  '@upstash/redis@1.38.1':
+    resolution: {integrity: sha512-hVqkWmhqobH7hpdzSCSrOwK7gWNASOAdf85l6/yxdB+giCYNYfl8FkSKxnqW2sqCdLDP7HzRTvy/ILC1AjBMUA==}
 
   '@vercel/analytics@1.6.1':
     resolution: {integrity: sha512-oH9He/bEM+6oKlv3chWuOOcp8Y6fo6/PSro8hEkgCW3pu9/OiCXiUpRUogDh3Fs3LH2sosDrx8CxeOLBEE+afg==}
@@ -11867,6 +11892,9 @@ packages:
   unbox-primitive@1.1.0:
     resolution: {integrity: sha512-nWJ91DjeOkej/TA8pXQ3myruKpKEYgqvpw9lz4OPHj/NWFNluYrjbz9j01CJ8yKQd2g4jFoOkINCTW2I5LEEyw==}
     engines: {node: '>= 0.4'}
+
+  uncrypto@0.1.3:
+    resolution: {integrity: sha512-Ql87qFHB3s/De2ClA9e0gsnS6zXG27SkTiSJwjCc9MebbfapQfuPzumMIUMi38ezPZVNFcHI9sUIepeQfw8J8Q==}
 
   underscore@1.13.8:
     resolution: {integrity: sha512-DXtD3ZtEQzc7M8m4cXotyHR+FAS18C64asBYY5vqZexfYryNNnDc02W4hKg3rdQuqOYas1jkseX0+nZXjTXnvQ==}
@@ -18972,6 +19000,32 @@ snapshots:
   '@unrs/resolver-binding-win32-x64-msvc@1.11.1':
     optional: true
 
+  '@upstash/agentkit-eve-extension@0.4.0(eve@0.29.5(@upstash/redis@1.38.1)(ai@7.0.48(zod@4.4.3))(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.3.6)(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)))':
+    dependencies:
+      '@upstash/agentkit-sdk': 0.2.0(@upstash/redis@1.38.1)
+      '@upstash/redis': 1.38.1
+      eve: 0.29.5(@upstash/redis@1.38.1)(ai@7.0.48(zod@4.4.3))(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.3.6)(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4))
+      zod: 4.4.3
+
+  '@upstash/agentkit-sdk@0.2.0(@upstash/redis@1.38.1)':
+    dependencies:
+      '@upstash/ratelimit': 2.0.8(@upstash/redis@1.38.1)
+      '@upstash/redis': 1.38.1
+      zod: 4.4.3
+
+  '@upstash/core-analytics@0.0.10':
+    dependencies:
+      '@upstash/redis': 1.38.1
+
+  '@upstash/ratelimit@2.0.8(@upstash/redis@1.38.1)':
+    dependencies:
+      '@upstash/core-analytics': 0.0.10
+      '@upstash/redis': 1.38.1
+
+  '@upstash/redis@1.38.1':
+    dependencies:
+      uncrypto: 0.1.3
+
   '@vercel/analytics@1.6.1(next@16.2.6(@babel/core@7.29.0)(@playwright/test@1.61.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)':
     optionalDependencies:
       next: 16.2.6(@babel/core@7.29.0)(@playwright/test@1.61.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -20917,10 +20971,10 @@ snapshots:
 
   etag@1.8.1: {}
 
-  eve@0.29.5(ai@7.0.48(zod@4.4.3))(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.3.6)(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)):
+  eve@0.29.5(@upstash/redis@1.38.1)(ai@7.0.48(zod@4.4.3))(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.3.6)(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)):
     dependencies:
       ai: 7.0.48(zod@4.4.3)
-      nitro: 3.0.260610-beta(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.3.6)(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4))
+      nitro: 3.0.260610-beta(@upstash/redis@1.38.1)(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.3.6)(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4))
       undici: 8.9.0
     transitivePeerDependencies:
       - '@azure/app-configuration'
@@ -23794,7 +23848,7 @@ snapshots:
 
   nf3@0.3.17: {}
 
-  nitro@3.0.260429-beta(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.3.6)(rollup@4.57.1)(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)):
+  nitro@3.0.260429-beta(@upstash/redis@1.38.1)(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.3.6)(rollup@4.57.1)(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)):
     dependencies:
       consola: 3.4.2
       crossws: 0.4.5(srvx@0.11.15)
@@ -23809,7 +23863,7 @@ snapshots:
       rolldown: 1.0.0
       srvx: 0.11.15
       unenv: 2.0.0-rc.24
-      unstorage: 2.0.0-alpha.7(chokidar@5.0.0)(db0@0.3.4)(lru-cache@11.3.6)(ofetch@2.0.0-alpha.3)
+      unstorage: 2.0.0-alpha.7(@upstash/redis@1.38.1)(chokidar@5.0.0)(db0@0.3.4)(lru-cache@11.3.6)(ofetch@2.0.0-alpha.3)
     optionalDependencies:
       dotenv: 17.4.2
       jiti: 2.7.0
@@ -23846,7 +23900,7 @@ snapshots:
       - sqlite3
       - uploadthing
 
-  nitro@3.0.260610-beta(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.3.6)(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)):
+  nitro@3.0.260610-beta(@upstash/redis@1.38.1)(chokidar@5.0.0)(dotenv@17.4.2)(jiti@2.7.0)(lru-cache@11.3.6)(vite@8.0.11(@types/node@25.6.2)(esbuild@0.27.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.4)):
     dependencies:
       consola: 3.4.2
       crossws: 0.4.10(srvx@0.11.22)
@@ -23861,7 +23915,7 @@ snapshots:
       rolldown: 1.2.2
       srvx: 0.11.22
       unenv: 2.0.0-rc.24
-      unstorage: 2.0.0-alpha.7(chokidar@5.0.0)(db0@0.3.4)(lru-cache@11.3.6)(ofetch@2.0.0-alpha.3)
+      unstorage: 2.0.0-alpha.7(@upstash/redis@1.38.1)(chokidar@5.0.0)(db0@0.3.4)(lru-cache@11.3.6)(ofetch@2.0.0-alpha.3)
     optionalDependencies:
       dotenv: 17.4.2
       jiti: 2.7.0
@@ -26350,6 +26404,8 @@ snapshots:
       has-symbols: 1.1.0
       which-boxed-primitive: 1.1.1
 
+  uncrypto@0.1.3: {}
+
   underscore@1.13.8: {}
 
   undici-types@7.16.0: {}
@@ -26468,8 +26524,9 @@ snapshots:
       '@unrs/resolver-binding-win32-ia32-msvc': 1.11.1
       '@unrs/resolver-binding-win32-x64-msvc': 1.11.1
 
-  unstorage@2.0.0-alpha.7(chokidar@5.0.0)(db0@0.3.4)(lru-cache@11.3.6)(ofetch@2.0.0-alpha.3):
+  unstorage@2.0.0-alpha.7(@upstash/redis@1.38.1)(chokidar@5.0.0)(db0@0.3.4)(lru-cache@11.3.6)(ofetch@2.0.0-alpha.3):
     optionalDependencies:
+      '@upstash/redis': 1.38.1
       chokidar: 5.0.0
       db0: 0.3.4
       lru-cache: 11.3.6
