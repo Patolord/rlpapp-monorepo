@@ -27,6 +27,7 @@ export const getDirectorOverview = engineeringQuery({
       v.object({
         _id: v.id("projects"),
         name: v.string(),
+        slug: v.string(),
         address: v.union(v.string(), v.null()),
         status: v.union(projectStatus, v.null()),
         totalItems: v.number(),
@@ -120,6 +121,7 @@ export const getDirectorOverview = engineeringQuery({
       return {
         _id: project._id,
         name: project.name,
+        slug: project.slug ?? project._id,
         address: project.address ?? null,
         status: project.status ?? null,
         totalItems,

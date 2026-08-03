@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { obraLinkSlug } from "@/lib/engenharia/obra-paths";
 
 export const Route = createFileRoute("/engenharia/medicoes")({
   component: () => (
@@ -98,8 +99,13 @@ function MedicoesOverviewPage() {
                     <TableRow key={row.projectId} className="group">
                       <TableCell>
                         <Link
-                          to="/engenharia/relatorios/$projectId/medicoes"
-                          params={{ projectId: row.projectId }}
+                          to="/engenharia/obras/$obraSlug/medicoes"
+                          params={{
+                            obraSlug: obraLinkSlug({
+                              slug: row.projectSlug,
+                              _id: row.projectId,
+                            }),
+                          }}
                           className="block"
                         >
                           <div className="font-medium group-hover:underline">
@@ -149,8 +155,13 @@ function MedicoesOverviewPage() {
                       </TableCell>
                       <TableCell>
                         <Link
-                          to="/engenharia/relatorios/$projectId/medicoes"
-                          params={{ projectId: row.projectId }}
+                          to="/engenharia/obras/$obraSlug/medicoes"
+                          params={{
+                            obraSlug: obraLinkSlug({
+                              slug: row.projectSlug,
+                              _id: row.projectId,
+                            }),
+                          }}
                           aria-label={`Medições de ${row.projectName}`}
                         >
                           <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />

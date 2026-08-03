@@ -13,6 +13,7 @@ export const takeoffValidator = v.object({
   _creationTime: v.number(),
   projectId: v.union(v.id("projects"), v.null()),
   projectName: v.union(v.string(), v.null()),
+  projectSlug: v.union(v.string(), v.null()),
   name: v.string(),
   status: v.union(takeoffStatus, v.null()),
   createdAt: v.number(),
@@ -154,15 +155,18 @@ export const list = engineeringOrPurchasingQuery({
         .withIndex("by_takeoff", (q) => q.eq("takeoffId", t._id))
         .collect();
       let projectName: string | null = null;
+      let projectSlug: string | null = null;
       if (t.projectId) {
         const project = await ctx.db.get("projects", t.projectId);
         projectName = project?.name ?? null;
+        projectSlug = project ? (project.slug ?? project._id) : null;
       }
       out.push({
         _id: t._id,
         _creationTime: t._creationTime,
         projectId: t.projectId ?? null,
         projectName,
+        projectSlug,
         name: t.name,
         status: t.status ?? null,
         createdAt: t.createdAt,
@@ -196,9 +200,11 @@ export const get = engineeringOrPurchasingQuery({
       .collect();
 
     let projectName: string | null = null;
+    let projectSlug: string | null = null;
     if (takeoff.projectId) {
       const project = await ctx.db.get("projects", takeoff.projectId);
       projectName = project?.name ?? null;
+      projectSlug = project ? (project.slug ?? project._id) : null;
     }
 
     const itemsOut = [];
@@ -239,6 +245,7 @@ export const get = engineeringOrPurchasingQuery({
         _creationTime: takeoff._creationTime,
         projectId: takeoff.projectId ?? null,
         projectName,
+        projectSlug,
         name: takeoff.name,
         status: takeoff.status ?? null,
         createdAt: takeoff.createdAt,

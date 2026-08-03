@@ -19,6 +19,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getUnitState, type GridFloor, type GridUnit } from "@/components/engenharia/building";
 import { AiChatPanel } from "@/components/engenharia/ai/ai-chat-panel";
+import {
+  OBRAS_LIST_PATH,
+  obraLinkSlug,
+} from "@/lib/engenharia/obra-paths";
 
 export type ProjectStatus =
   | "planning"
@@ -29,6 +33,7 @@ export type ProjectStatus =
 export type ProjectOverview = {
   _id: Id<"projects">;
   name: string;
+  slug: string;
   floors: GridFloor[];
   client?: string | null;
   address?: string | null;
@@ -128,7 +133,7 @@ export function ProjectShell({
         <Button
           variant="outline"
           className="mt-6"
-          render={<Link to="/engenharia/relatorios" />}
+          render={<Link to={OBRAS_LIST_PATH} />}
         >
           <ArrowLeft className="mr-2 size-4" />
           Voltar para obras
@@ -196,7 +201,7 @@ function ProjectShellLayout({
           variant="ghost"
           size="sm"
           className="mb-2 -ml-2"
-          render={<Link to="/engenharia/relatorios" />}
+          render={<Link to={OBRAS_LIST_PATH} />}
         >
           <ArrowLeft className="mr-1.5 size-4" />
           Obras
@@ -243,8 +248,8 @@ function ProjectShellLayout({
               size="sm"
               render={
                 <Link
-                  to="/engenharia/relatorios/$projectId/qr-codes"
-                  params={{ projectId: project._id }}
+                  to="/engenharia/obras/$obraSlug/qr-codes"
+                  params={{ obraSlug: obraLinkSlug(project) }}
                 />
               }
             >
@@ -256,8 +261,8 @@ function ProjectShellLayout({
               size="sm"
               render={
                 <Link
-                  to="/engenharia/relatorios/$projectId/orcamento"
-                  params={{ projectId: project._id }}
+                  to="/engenharia/obras/$obraSlug/orcamento"
+                  params={{ obraSlug: obraLinkSlug(project) }}
                 />
               }
             >
@@ -268,8 +273,8 @@ function ProjectShellLayout({
               size="sm"
               render={
                 <Link
-                  to="/engenharia/relatorios/$projectId/medicoes"
-                  params={{ projectId: project._id }}
+                  to="/engenharia/obras/$obraSlug/medicoes"
+                  params={{ obraSlug: obraLinkSlug(project) }}
                 />
               }
             >
@@ -280,8 +285,8 @@ function ProjectShellLayout({
               size="sm"
               render={
                 <Link
-                  to="/engenharia/relatorios/$projectId/imprimir"
-                  params={{ projectId: project._id }}
+                  to="/engenharia/obras/$obraSlug/imprimir"
+                  params={{ obraSlug: obraLinkSlug(project) }}
                 />
               }
             >

@@ -1,12 +1,9 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+
+import { RelatoriosRedirect } from "@/lib/engenharia/relatorios-redirect";
 
 export const Route = createFileRoute(
   "/engenharia/relatorios/$projectId/entregas"
 )({
-  beforeLoad: ({ params }) => {
-    throw redirect({
-      to: "/engenharia/relatorios/$projectId/global",
-      params: { projectId: params.projectId },
-    });
-  },
+  component: RelatoriosRedirect,
 });
