@@ -66,6 +66,8 @@ apps/native/android/
 **/xcuserdata/
 
 *.md
+# Eve agent markdown is functional (system prompt, skills), keep it tracked
+!apps/internal-agent/**/*.md
 
 # design-sync (see .design-sync/config.json)
 .ds-sync/
