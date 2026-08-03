@@ -34,10 +34,10 @@ export const { bot, channel, send } = chatSdkChannel({
     whatsapp: whatsappConfigured
       ? createWhatsAppAdapter()
       : createWhatsAppAdapter({
-          accessToken: "unconfigured",
-          appSecret: "unconfigured",
-          phoneNumberId: "unconfigured",
-          verifyToken: "unconfigured",
+          accessToken: crypto.randomUUID(),
+          appSecret: crypto.randomUUID(),
+          phoneNumberId: crypto.randomUUID(),
+          verifyToken: crypto.randomUUID(),
         }),
   },
   // Durable state (subscriptions, locks, dedupe) must be shared across
