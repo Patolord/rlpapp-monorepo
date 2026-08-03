@@ -29,7 +29,9 @@ import { Route as EngenhariaRegistroDeCampoRouteImport } from './routes/engenhar
 import { Route as EngenhariaQrCodesRouteImport } from './routes/engenharia/qr-codes'
 import { Route as EngenhariaMedicoesRouteImport } from './routes/engenharia/medicoes'
 import { Route as EngenhariaRelatoriosRouteRouteImport } from './routes/engenharia/relatorios/route'
+import { Route as EngenhariaObrasRouteRouteImport } from './routes/engenharia/obras/route'
 import { Route as EngenhariaRelatoriosIndexRouteImport } from './routes/engenharia/relatorios/index'
+import { Route as EngenhariaObrasIndexRouteImport } from './routes/engenharia/obras/index'
 import { Route as ComprasTakeoffsIndexRouteImport } from './routes/compras/takeoffs/index'
 import { Route as ComprasMateriaisIndexRouteImport } from './routes/compras/materiais/index'
 import { Route as ComprasFornecedoresIndexRouteImport } from './routes/compras/fornecedores/index'
@@ -37,8 +39,10 @@ import { Route as ComprasFilaRevisaoIndexRouteImport } from './routes/compras/fi
 import { Route as ComprasEventosPrecoIndexRouteImport } from './routes/compras/eventos-preco/index'
 import { Route as EngenhariaRelatoriosProjectIdRouteImport } from './routes/engenharia/relatorios/$projectId'
 import { Route as EngenhariaQrTokenRouteImport } from './routes/engenharia/qr/$token'
+import { Route as EngenhariaObrasObraSlugRouteImport } from './routes/engenharia/obras/$obraSlug'
 import { Route as EngenhariaEquipamentoIdRouteImport } from './routes/engenharia/equipamento/$id'
 import { Route as EngenhariaRelatoriosProjectIdIndexRouteImport } from './routes/engenharia/relatorios/$projectId.index'
+import { Route as EngenhariaObrasObraSlugIndexRouteImport } from './routes/engenharia/obras/$obraSlug.index'
 import { Route as EngenhariaRelatoriosProjectIdQrCodesRouteImport } from './routes/engenharia/relatorios/$projectId.qr-codes'
 import { Route as EngenhariaRelatoriosProjectIdOrcamentoRouteImport } from './routes/engenharia/relatorios/$projectId.orcamento'
 import { Route as EngenhariaRelatoriosProjectIdMedicoesRouteImport } from './routes/engenharia/relatorios/$projectId.medicoes'
@@ -46,6 +50,13 @@ import { Route as EngenhariaRelatoriosProjectIdImprimirRouteImport } from './rou
 import { Route as EngenhariaRelatoriosProjectIdGlobalRouteImport } from './routes/engenharia/relatorios/$projectId.global'
 import { Route as EngenhariaRelatoriosProjectIdEntregasRouteImport } from './routes/engenharia/relatorios/$projectId.entregas'
 import { Route as EngenhariaRelatoriosProjectIdAssistenteRouteImport } from './routes/engenharia/relatorios/$projectId.assistente'
+import { Route as EngenhariaObrasObraSlugQrCodesRouteImport } from './routes/engenharia/obras/$obraSlug.qr-codes'
+import { Route as EngenhariaObrasObraSlugOrcamentoRouteImport } from './routes/engenharia/obras/$obraSlug.orcamento'
+import { Route as EngenhariaObrasObraSlugMedicoesRouteImport } from './routes/engenharia/obras/$obraSlug.medicoes'
+import { Route as EngenhariaObrasObraSlugImprimirRouteImport } from './routes/engenharia/obras/$obraSlug.imprimir'
+import { Route as EngenhariaObrasObraSlugGlobalRouteImport } from './routes/engenharia/obras/$obraSlug.global'
+import { Route as EngenhariaObrasObraSlugEntregasRouteImport } from './routes/engenharia/obras/$obraSlug.entregas'
+import { Route as EngenhariaObrasObraSlugAssistenteRouteImport } from './routes/engenharia/obras/$obraSlug.assistente'
 
 const SignUpRoute = SignUpRouteImport.update({
   id: '/sign-up',
@@ -149,12 +160,22 @@ const EngenhariaRelatoriosRouteRoute =
     path: '/relatorios',
     getParentRoute: () => EngenhariaRouteRoute,
   } as any)
+const EngenhariaObrasRouteRoute = EngenhariaObrasRouteRouteImport.update({
+  id: '/obras',
+  path: '/obras',
+  getParentRoute: () => EngenhariaRouteRoute,
+} as any)
 const EngenhariaRelatoriosIndexRoute =
   EngenhariaRelatoriosIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => EngenhariaRelatoriosRouteRoute,
   } as any)
+const EngenhariaObrasIndexRoute = EngenhariaObrasIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => EngenhariaObrasRouteRoute,
+} as any)
 const ComprasTakeoffsIndexRoute = ComprasTakeoffsIndexRouteImport.update({
   id: '/takeoffs/',
   path: '/takeoffs/',
@@ -193,6 +214,11 @@ const EngenhariaQrTokenRoute = EngenhariaQrTokenRouteImport.update({
   path: '/qr/$token',
   getParentRoute: () => EngenhariaRouteRoute,
 } as any)
+const EngenhariaObrasObraSlugRoute = EngenhariaObrasObraSlugRouteImport.update({
+  id: '/$obraSlug',
+  path: '/$obraSlug',
+  getParentRoute: () => EngenhariaObrasRouteRoute,
+} as any)
 const EngenhariaEquipamentoIdRoute = EngenhariaEquipamentoIdRouteImport.update({
   id: '/equipamento/$id',
   path: '/equipamento/$id',
@@ -203,6 +229,12 @@ const EngenhariaRelatoriosProjectIdIndexRoute =
     id: '/',
     path: '/',
     getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
+  } as any)
+const EngenhariaObrasObraSlugIndexRoute =
+  EngenhariaObrasObraSlugIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
   } as any)
 const EngenhariaRelatoriosProjectIdQrCodesRoute =
   EngenhariaRelatoriosProjectIdQrCodesRouteImport.update({
@@ -246,6 +278,48 @@ const EngenhariaRelatoriosProjectIdAssistenteRoute =
     path: '/assistente',
     getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
   } as any)
+const EngenhariaObrasObraSlugQrCodesRoute =
+  EngenhariaObrasObraSlugQrCodesRouteImport.update({
+    id: '/qr-codes',
+    path: '/qr-codes',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
+const EngenhariaObrasObraSlugOrcamentoRoute =
+  EngenhariaObrasObraSlugOrcamentoRouteImport.update({
+    id: '/orcamento',
+    path: '/orcamento',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
+const EngenhariaObrasObraSlugMedicoesRoute =
+  EngenhariaObrasObraSlugMedicoesRouteImport.update({
+    id: '/medicoes',
+    path: '/medicoes',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
+const EngenhariaObrasObraSlugImprimirRoute =
+  EngenhariaObrasObraSlugImprimirRouteImport.update({
+    id: '/imprimir',
+    path: '/imprimir',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
+const EngenhariaObrasObraSlugGlobalRoute =
+  EngenhariaObrasObraSlugGlobalRouteImport.update({
+    id: '/global',
+    path: '/global',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
+const EngenhariaObrasObraSlugEntregasRoute =
+  EngenhariaObrasObraSlugEntregasRouteImport.update({
+    id: '/entregas',
+    path: '/entregas',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
+const EngenhariaObrasObraSlugAssistenteRoute =
+  EngenhariaObrasObraSlugAssistenteRouteImport.update({
+    id: '/assistente',
+    path: '/assistente',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -257,6 +331,7 @@ export interface FileRoutesByFullPath {
   '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/engenharia/obras': typeof EngenhariaObrasRouteRouteWithChildren
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
@@ -269,6 +344,7 @@ export interface FileRoutesByFullPath {
   '/engenharia/': typeof EngenhariaIndexRoute
   '/portal/': typeof PortalIndexRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
+  '/engenharia/obras/$obraSlug': typeof EngenhariaObrasObraSlugRouteWithChildren
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdRouteWithChildren
   '/compras/eventos-preco/': typeof ComprasEventosPrecoIndexRoute
@@ -276,7 +352,15 @@ export interface FileRoutesByFullPath {
   '/compras/fornecedores/': typeof ComprasFornecedoresIndexRoute
   '/compras/materiais/': typeof ComprasMateriaisIndexRoute
   '/compras/takeoffs/': typeof ComprasTakeoffsIndexRoute
+  '/engenharia/obras/': typeof EngenhariaObrasIndexRoute
   '/engenharia/relatorios/': typeof EngenhariaRelatoriosIndexRoute
+  '/engenharia/obras/$obraSlug/assistente': typeof EngenhariaObrasObraSlugAssistenteRoute
+  '/engenharia/obras/$obraSlug/entregas': typeof EngenhariaObrasObraSlugEntregasRoute
+  '/engenharia/obras/$obraSlug/global': typeof EngenhariaObrasObraSlugGlobalRoute
+  '/engenharia/obras/$obraSlug/imprimir': typeof EngenhariaObrasObraSlugImprimirRoute
+  '/engenharia/obras/$obraSlug/medicoes': typeof EngenhariaObrasObraSlugMedicoesRoute
+  '/engenharia/obras/$obraSlug/orcamento': typeof EngenhariaObrasObraSlugOrcamentoRoute
+  '/engenharia/obras/$obraSlug/qr-codes': typeof EngenhariaObrasObraSlugQrCodesRoute
   '/engenharia/relatorios/$projectId/assistente': typeof EngenhariaRelatoriosProjectIdAssistenteRoute
   '/engenharia/relatorios/$projectId/entregas': typeof EngenhariaRelatoriosProjectIdEntregasRoute
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
@@ -284,6 +368,7 @@ export interface FileRoutesByFullPath {
   '/engenharia/relatorios/$projectId/medicoes': typeof EngenhariaRelatoriosProjectIdMedicoesRoute
   '/engenharia/relatorios/$projectId/orcamento': typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
   '/engenharia/relatorios/$projectId/qr-codes': typeof EngenhariaRelatoriosProjectIdQrCodesRoute
+  '/engenharia/obras/$obraSlug/': typeof EngenhariaObrasObraSlugIndexRoute
   '/engenharia/relatorios/$projectId/': typeof EngenhariaRelatoriosProjectIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -310,7 +395,15 @@ export interface FileRoutesByTo {
   '/compras/fornecedores': typeof ComprasFornecedoresIndexRoute
   '/compras/materiais': typeof ComprasMateriaisIndexRoute
   '/compras/takeoffs': typeof ComprasTakeoffsIndexRoute
+  '/engenharia/obras': typeof EngenhariaObrasIndexRoute
   '/engenharia/relatorios': typeof EngenhariaRelatoriosIndexRoute
+  '/engenharia/obras/$obraSlug/assistente': typeof EngenhariaObrasObraSlugAssistenteRoute
+  '/engenharia/obras/$obraSlug/entregas': typeof EngenhariaObrasObraSlugEntregasRoute
+  '/engenharia/obras/$obraSlug/global': typeof EngenhariaObrasObraSlugGlobalRoute
+  '/engenharia/obras/$obraSlug/imprimir': typeof EngenhariaObrasObraSlugImprimirRoute
+  '/engenharia/obras/$obraSlug/medicoes': typeof EngenhariaObrasObraSlugMedicoesRoute
+  '/engenharia/obras/$obraSlug/orcamento': typeof EngenhariaObrasObraSlugOrcamentoRoute
+  '/engenharia/obras/$obraSlug/qr-codes': typeof EngenhariaObrasObraSlugQrCodesRoute
   '/engenharia/relatorios/$projectId/assistente': typeof EngenhariaRelatoriosProjectIdAssistenteRoute
   '/engenharia/relatorios/$projectId/entregas': typeof EngenhariaRelatoriosProjectIdEntregasRoute
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
@@ -318,6 +411,7 @@ export interface FileRoutesByTo {
   '/engenharia/relatorios/$projectId/medicoes': typeof EngenhariaRelatoriosProjectIdMedicoesRoute
   '/engenharia/relatorios/$projectId/orcamento': typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
   '/engenharia/relatorios/$projectId/qr-codes': typeof EngenhariaRelatoriosProjectIdQrCodesRoute
+  '/engenharia/obras/$obraSlug': typeof EngenhariaObrasObraSlugIndexRoute
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdIndexRoute
 }
 export interface FileRoutesById {
@@ -331,6 +425,7 @@ export interface FileRoutesById {
   '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/engenharia/obras': typeof EngenhariaObrasRouteRouteWithChildren
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
@@ -343,6 +438,7 @@ export interface FileRoutesById {
   '/engenharia/': typeof EngenhariaIndexRoute
   '/portal/': typeof PortalIndexRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
+  '/engenharia/obras/$obraSlug': typeof EngenhariaObrasObraSlugRouteWithChildren
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdRouteWithChildren
   '/compras/eventos-preco/': typeof ComprasEventosPrecoIndexRoute
@@ -350,7 +446,15 @@ export interface FileRoutesById {
   '/compras/fornecedores/': typeof ComprasFornecedoresIndexRoute
   '/compras/materiais/': typeof ComprasMateriaisIndexRoute
   '/compras/takeoffs/': typeof ComprasTakeoffsIndexRoute
+  '/engenharia/obras/': typeof EngenhariaObrasIndexRoute
   '/engenharia/relatorios/': typeof EngenhariaRelatoriosIndexRoute
+  '/engenharia/obras/$obraSlug/assistente': typeof EngenhariaObrasObraSlugAssistenteRoute
+  '/engenharia/obras/$obraSlug/entregas': typeof EngenhariaObrasObraSlugEntregasRoute
+  '/engenharia/obras/$obraSlug/global': typeof EngenhariaObrasObraSlugGlobalRoute
+  '/engenharia/obras/$obraSlug/imprimir': typeof EngenhariaObrasObraSlugImprimirRoute
+  '/engenharia/obras/$obraSlug/medicoes': typeof EngenhariaObrasObraSlugMedicoesRoute
+  '/engenharia/obras/$obraSlug/orcamento': typeof EngenhariaObrasObraSlugOrcamentoRoute
+  '/engenharia/obras/$obraSlug/qr-codes': typeof EngenhariaObrasObraSlugQrCodesRoute
   '/engenharia/relatorios/$projectId/assistente': typeof EngenhariaRelatoriosProjectIdAssistenteRoute
   '/engenharia/relatorios/$projectId/entregas': typeof EngenhariaRelatoriosProjectIdEntregasRoute
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
@@ -358,6 +462,7 @@ export interface FileRoutesById {
   '/engenharia/relatorios/$projectId/medicoes': typeof EngenhariaRelatoriosProjectIdMedicoesRoute
   '/engenharia/relatorios/$projectId/orcamento': typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
   '/engenharia/relatorios/$projectId/qr-codes': typeof EngenhariaRelatoriosProjectIdQrCodesRoute
+  '/engenharia/obras/$obraSlug/': typeof EngenhariaObrasObraSlugIndexRoute
   '/engenharia/relatorios/$projectId/': typeof EngenhariaRelatoriosProjectIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -372,6 +477,7 @@ export interface FileRouteTypes {
     | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
+    | '/engenharia/obras'
     | '/engenharia/relatorios'
     | '/engenharia/medicoes'
     | '/engenharia/qr-codes'
@@ -384,6 +490,7 @@ export interface FileRouteTypes {
     | '/engenharia/'
     | '/portal/'
     | '/engenharia/equipamento/$id'
+    | '/engenharia/obras/$obraSlug'
     | '/engenharia/qr/$token'
     | '/engenharia/relatorios/$projectId'
     | '/compras/eventos-preco/'
@@ -391,7 +498,15 @@ export interface FileRouteTypes {
     | '/compras/fornecedores/'
     | '/compras/materiais/'
     | '/compras/takeoffs/'
+    | '/engenharia/obras/'
     | '/engenharia/relatorios/'
+    | '/engenharia/obras/$obraSlug/assistente'
+    | '/engenharia/obras/$obraSlug/entregas'
+    | '/engenharia/obras/$obraSlug/global'
+    | '/engenharia/obras/$obraSlug/imprimir'
+    | '/engenharia/obras/$obraSlug/medicoes'
+    | '/engenharia/obras/$obraSlug/orcamento'
+    | '/engenharia/obras/$obraSlug/qr-codes'
     | '/engenharia/relatorios/$projectId/assistente'
     | '/engenharia/relatorios/$projectId/entregas'
     | '/engenharia/relatorios/$projectId/global'
@@ -399,6 +514,7 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId/medicoes'
     | '/engenharia/relatorios/$projectId/orcamento'
     | '/engenharia/relatorios/$projectId/qr-codes'
+    | '/engenharia/obras/$obraSlug/'
     | '/engenharia/relatorios/$projectId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -425,7 +541,15 @@ export interface FileRouteTypes {
     | '/compras/fornecedores'
     | '/compras/materiais'
     | '/compras/takeoffs'
+    | '/engenharia/obras'
     | '/engenharia/relatorios'
+    | '/engenharia/obras/$obraSlug/assistente'
+    | '/engenharia/obras/$obraSlug/entregas'
+    | '/engenharia/obras/$obraSlug/global'
+    | '/engenharia/obras/$obraSlug/imprimir'
+    | '/engenharia/obras/$obraSlug/medicoes'
+    | '/engenharia/obras/$obraSlug/orcamento'
+    | '/engenharia/obras/$obraSlug/qr-codes'
     | '/engenharia/relatorios/$projectId/assistente'
     | '/engenharia/relatorios/$projectId/entregas'
     | '/engenharia/relatorios/$projectId/global'
@@ -433,6 +557,7 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId/medicoes'
     | '/engenharia/relatorios/$projectId/orcamento'
     | '/engenharia/relatorios/$projectId/qr-codes'
+    | '/engenharia/obras/$obraSlug'
     | '/engenharia/relatorios/$projectId'
   id:
     | '__root__'
@@ -445,6 +570,7 @@ export interface FileRouteTypes {
     | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
+    | '/engenharia/obras'
     | '/engenharia/relatorios'
     | '/engenharia/medicoes'
     | '/engenharia/qr-codes'
@@ -457,6 +583,7 @@ export interface FileRouteTypes {
     | '/engenharia/'
     | '/portal/'
     | '/engenharia/equipamento/$id'
+    | '/engenharia/obras/$obraSlug'
     | '/engenharia/qr/$token'
     | '/engenharia/relatorios/$projectId'
     | '/compras/eventos-preco/'
@@ -464,7 +591,15 @@ export interface FileRouteTypes {
     | '/compras/fornecedores/'
     | '/compras/materiais/'
     | '/compras/takeoffs/'
+    | '/engenharia/obras/'
     | '/engenharia/relatorios/'
+    | '/engenharia/obras/$obraSlug/assistente'
+    | '/engenharia/obras/$obraSlug/entregas'
+    | '/engenharia/obras/$obraSlug/global'
+    | '/engenharia/obras/$obraSlug/imprimir'
+    | '/engenharia/obras/$obraSlug/medicoes'
+    | '/engenharia/obras/$obraSlug/orcamento'
+    | '/engenharia/obras/$obraSlug/qr-codes'
     | '/engenharia/relatorios/$projectId/assistente'
     | '/engenharia/relatorios/$projectId/entregas'
     | '/engenharia/relatorios/$projectId/global'
@@ -472,6 +607,7 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId/medicoes'
     | '/engenharia/relatorios/$projectId/orcamento'
     | '/engenharia/relatorios/$projectId/qr-codes'
+    | '/engenharia/obras/$obraSlug/'
     | '/engenharia/relatorios/$projectId/'
   fileRoutesById: FileRoutesById
 }
@@ -632,12 +768,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaRelatoriosRouteRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
+    '/engenharia/obras': {
+      id: '/engenharia/obras'
+      path: '/obras'
+      fullPath: '/engenharia/obras'
+      preLoaderRoute: typeof EngenhariaObrasRouteRouteImport
+      parentRoute: typeof EngenhariaRouteRoute
+    }
     '/engenharia/relatorios/': {
       id: '/engenharia/relatorios/'
       path: '/'
       fullPath: '/engenharia/relatorios/'
       preLoaderRoute: typeof EngenhariaRelatoriosIndexRouteImport
       parentRoute: typeof EngenhariaRelatoriosRouteRoute
+    }
+    '/engenharia/obras/': {
+      id: '/engenharia/obras/'
+      path: '/'
+      fullPath: '/engenharia/obras/'
+      preLoaderRoute: typeof EngenhariaObrasIndexRouteImport
+      parentRoute: typeof EngenhariaObrasRouteRoute
     }
     '/compras/takeoffs/': {
       id: '/compras/takeoffs/'
@@ -688,6 +838,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaQrTokenRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
+    '/engenharia/obras/$obraSlug': {
+      id: '/engenharia/obras/$obraSlug'
+      path: '/$obraSlug'
+      fullPath: '/engenharia/obras/$obraSlug'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugRouteImport
+      parentRoute: typeof EngenhariaObrasRouteRoute
+    }
     '/engenharia/equipamento/$id': {
       id: '/engenharia/equipamento/$id'
       path: '/equipamento/$id'
@@ -701,6 +858,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/engenharia/relatorios/$projectId/'
       preLoaderRoute: typeof EngenhariaRelatoriosProjectIdIndexRouteImport
       parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
+    }
+    '/engenharia/obras/$obraSlug/': {
+      id: '/engenharia/obras/$obraSlug/'
+      path: '/'
+      fullPath: '/engenharia/obras/$obraSlug/'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugIndexRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
     }
     '/engenharia/relatorios/$projectId/qr-codes': {
       id: '/engenharia/relatorios/$projectId/qr-codes'
@@ -751,6 +915,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaRelatoriosProjectIdAssistenteRouteImport
       parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
     }
+    '/engenharia/obras/$obraSlug/qr-codes': {
+      id: '/engenharia/obras/$obraSlug/qr-codes'
+      path: '/qr-codes'
+      fullPath: '/engenharia/obras/$obraSlug/qr-codes'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugQrCodesRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
+    '/engenharia/obras/$obraSlug/orcamento': {
+      id: '/engenharia/obras/$obraSlug/orcamento'
+      path: '/orcamento'
+      fullPath: '/engenharia/obras/$obraSlug/orcamento'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugOrcamentoRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
+    '/engenharia/obras/$obraSlug/medicoes': {
+      id: '/engenharia/obras/$obraSlug/medicoes'
+      path: '/medicoes'
+      fullPath: '/engenharia/obras/$obraSlug/medicoes'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugMedicoesRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
+    '/engenharia/obras/$obraSlug/imprimir': {
+      id: '/engenharia/obras/$obraSlug/imprimir'
+      path: '/imprimir'
+      fullPath: '/engenharia/obras/$obraSlug/imprimir'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugImprimirRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
+    '/engenharia/obras/$obraSlug/global': {
+      id: '/engenharia/obras/$obraSlug/global'
+      path: '/global'
+      fullPath: '/engenharia/obras/$obraSlug/global'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugGlobalRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
+    '/engenharia/obras/$obraSlug/entregas': {
+      id: '/engenharia/obras/$obraSlug/entregas'
+      path: '/entregas'
+      fullPath: '/engenharia/obras/$obraSlug/entregas'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugEntregasRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
+    '/engenharia/obras/$obraSlug/assistente': {
+      id: '/engenharia/obras/$obraSlug/assistente'
+      path: '/assistente'
+      fullPath: '/engenharia/obras/$obraSlug/assistente'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugAssistenteRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
   }
 }
 
@@ -787,6 +1000,49 @@ const ComprasRouteRouteChildren: ComprasRouteRouteChildren = {
 const ComprasRouteRouteWithChildren = ComprasRouteRoute._addFileChildren(
   ComprasRouteRouteChildren,
 )
+
+interface EngenhariaObrasObraSlugRouteChildren {
+  EngenhariaObrasObraSlugAssistenteRoute: typeof EngenhariaObrasObraSlugAssistenteRoute
+  EngenhariaObrasObraSlugEntregasRoute: typeof EngenhariaObrasObraSlugEntregasRoute
+  EngenhariaObrasObraSlugGlobalRoute: typeof EngenhariaObrasObraSlugGlobalRoute
+  EngenhariaObrasObraSlugImprimirRoute: typeof EngenhariaObrasObraSlugImprimirRoute
+  EngenhariaObrasObraSlugMedicoesRoute: typeof EngenhariaObrasObraSlugMedicoesRoute
+  EngenhariaObrasObraSlugOrcamentoRoute: typeof EngenhariaObrasObraSlugOrcamentoRoute
+  EngenhariaObrasObraSlugQrCodesRoute: typeof EngenhariaObrasObraSlugQrCodesRoute
+  EngenhariaObrasObraSlugIndexRoute: typeof EngenhariaObrasObraSlugIndexRoute
+}
+
+const EngenhariaObrasObraSlugRouteChildren: EngenhariaObrasObraSlugRouteChildren =
+  {
+    EngenhariaObrasObraSlugAssistenteRoute:
+      EngenhariaObrasObraSlugAssistenteRoute,
+    EngenhariaObrasObraSlugEntregasRoute: EngenhariaObrasObraSlugEntregasRoute,
+    EngenhariaObrasObraSlugGlobalRoute: EngenhariaObrasObraSlugGlobalRoute,
+    EngenhariaObrasObraSlugImprimirRoute: EngenhariaObrasObraSlugImprimirRoute,
+    EngenhariaObrasObraSlugMedicoesRoute: EngenhariaObrasObraSlugMedicoesRoute,
+    EngenhariaObrasObraSlugOrcamentoRoute:
+      EngenhariaObrasObraSlugOrcamentoRoute,
+    EngenhariaObrasObraSlugQrCodesRoute: EngenhariaObrasObraSlugQrCodesRoute,
+    EngenhariaObrasObraSlugIndexRoute: EngenhariaObrasObraSlugIndexRoute,
+  }
+
+const EngenhariaObrasObraSlugRouteWithChildren =
+  EngenhariaObrasObraSlugRoute._addFileChildren(
+    EngenhariaObrasObraSlugRouteChildren,
+  )
+
+interface EngenhariaObrasRouteRouteChildren {
+  EngenhariaObrasObraSlugRoute: typeof EngenhariaObrasObraSlugRouteWithChildren
+  EngenhariaObrasIndexRoute: typeof EngenhariaObrasIndexRoute
+}
+
+const EngenhariaObrasRouteRouteChildren: EngenhariaObrasRouteRouteChildren = {
+  EngenhariaObrasObraSlugRoute: EngenhariaObrasObraSlugRouteWithChildren,
+  EngenhariaObrasIndexRoute: EngenhariaObrasIndexRoute,
+}
+
+const EngenhariaObrasRouteRouteWithChildren =
+  EngenhariaObrasRouteRoute._addFileChildren(EngenhariaObrasRouteRouteChildren)
 
 interface EngenhariaRelatoriosProjectIdRouteChildren {
   EngenhariaRelatoriosProjectIdAssistenteRoute: typeof EngenhariaRelatoriosProjectIdAssistenteRoute
@@ -842,6 +1098,7 @@ const EngenhariaRelatoriosRouteRouteWithChildren =
   )
 
 interface EngenhariaRouteRouteChildren {
+  EngenhariaObrasRouteRoute: typeof EngenhariaObrasRouteRouteWithChildren
   EngenhariaRelatoriosRouteRoute: typeof EngenhariaRelatoriosRouteRouteWithChildren
   EngenhariaMedicoesRoute: typeof EngenhariaMedicoesRoute
   EngenhariaQrCodesRoute: typeof EngenhariaQrCodesRoute
@@ -853,6 +1110,7 @@ interface EngenhariaRouteRouteChildren {
 }
 
 const EngenhariaRouteRouteChildren: EngenhariaRouteRouteChildren = {
+  EngenhariaObrasRouteRoute: EngenhariaObrasRouteRouteWithChildren,
   EngenhariaRelatoriosRouteRoute: EngenhariaRelatoriosRouteRouteWithChildren,
   EngenhariaMedicoesRoute: EngenhariaMedicoesRoute,
   EngenhariaQrCodesRoute: EngenhariaQrCodesRoute,

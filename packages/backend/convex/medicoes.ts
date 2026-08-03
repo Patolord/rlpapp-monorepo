@@ -482,6 +482,7 @@ export const getOverview = engineeringQuery({
     v.object({
       projectId: v.id("projects"),
       projectName: v.string(),
+      projectSlug: v.string(),
       client: v.union(v.string(), v.null()),
       status: v.union(projectStatus, v.null()),
       contractCount: v.number(),
@@ -515,6 +516,7 @@ export const getOverview = engineeringQuery({
         return {
           projectId: project._id,
           projectName: project.name,
+          projectSlug: project.slug ?? project._id,
           client: project.client ?? null,
           status: project.status ?? null,
           contractCount: contracts.length,

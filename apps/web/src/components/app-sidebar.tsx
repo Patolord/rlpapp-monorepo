@@ -51,7 +51,7 @@ function getNavGroups(): NavGroup[] {
       key: "engenharia",
       label: "Engenharia",
       items: [
-        { to: "/engenharia/relatorios", label: "Obras", icon: Building2 },
+        { to: "/engenharia/obras", label: "Obras", icon: Building2 },
         { to: "/engenharia/medicoes", label: "Medições", icon: CircleDollarSign },
         { to: "/engenharia", label: "Equipamentos", icon: Wrench, exact: true },
         { to: "/engenharia/qr-codes", label: "Códigos QR", icon: QrCode },

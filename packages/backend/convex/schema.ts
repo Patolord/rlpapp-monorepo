@@ -156,6 +156,8 @@ export default defineSchema({
   // o caminho projectUnits; obras novas usam as tabelas towers/floors/environments.
   projects: defineTable({
     name: v.string(),
+    // Identificador amigável para URLs (estável após criação).
+    slug: v.optional(v.string()),
     // Metadados da obra (todos opcionais para compatibilidade com dados antigos).
     client: v.optional(v.string()),
     address: v.optional(v.string()),
@@ -177,6 +179,7 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_name", ["name"])
+    .index("by_slug", ["slug"])
     .index("by_status", ["status"])
     .index("by_responsible", ["responsibleId"]),
 
