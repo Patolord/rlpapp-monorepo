@@ -14,8 +14,8 @@ export function obraDetailParams(slug: string): ObraSlugParams {
 
 export function obraSubRouteParams(
   slug: string
-): ObraSlugParams & { obraSlug: string } {
-  return { obraSlug: slug };
+): ObraSlugParams {
+  return obraDetailParams(slug);
 }
 
 /** Slug para links; usa slug do backend ou _id como fallback. */

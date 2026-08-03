@@ -6,13 +6,11 @@ import {
 } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { Building2, Loader2 } from "lucide-react";
+import { ArrowLeft, Building2, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Link } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
 import { OBRAS_LIST_PATH } from "@/lib/engenharia/obra-paths";
 
 const ObraProjectIdContext = createContext<Id<"projects"> | null>(null);

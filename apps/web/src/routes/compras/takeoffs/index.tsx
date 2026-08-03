@@ -76,7 +76,7 @@ function TakeoffsSupportContent() {
                             params={{
                               obraSlug: obraLinkSlug({
                                 slug: t.projectSlug,
-                                _id: t.projectId ?? "",
+                                _id: t.projectId,
                               }),
                             }}
                           />
