@@ -13,7 +13,6 @@ import type * as aiChat from "../aiChat.js";
 import type * as aiIntents from "../aiIntents.js";
 import type * as checklists from "../checklists.js";
 import type * as dashboard from "../dashboard.js";
-import type * as deliveries from "../deliveries.js";
 import type * as environments from "../environments.js";
 import type * as equipment from "../equipment.js";
 import type * as equipmentHistory from "../equipmentHistory.js";
@@ -57,7 +56,6 @@ declare const fullApi: ApiFromModules<{
   aiIntents: typeof aiIntents;
   checklists: typeof checklists;
   dashboard: typeof dashboard;
-  deliveries: typeof deliveries;
   environments: typeof environments;
   equipment: typeof equipment;
   equipmentHistory: typeof equipmentHistory;
