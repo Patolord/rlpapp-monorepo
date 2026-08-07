@@ -4,6 +4,11 @@ import { logAudit } from "./lib/audit";
 import { materialStatus } from "./schema";
 import { normalizeText } from "./lib/compras/procurement";
 
+export const technicalAttributeValidator = v.object({
+  key: v.string(),
+  value: v.string(),
+});
+
 export const materialValidator = v.object({
   _id: v.id("materials"),
   _creationTime: v.number(),
@@ -12,6 +17,10 @@ export const materialValidator = v.object({
   unit: v.union(v.string(), v.null()),
   spec: v.union(v.string(), v.null()),
   brandPreference: v.union(v.string(), v.null()),
+  technicalAttributes: v.union(
+    v.array(technicalAttributeValidator),
+    v.null()
+  ),
   active: v.boolean(),
   status: v.union(materialStatus, v.null()),
   createdAt: v.number(),
@@ -26,6 +35,7 @@ function toMaterialRow(m: {
   unit?: string;
   spec?: string;
   brandPreference?: string;
+  technicalAttributes?: Array<{ key: string; value: string }>;
   active: boolean;
   status?: "draft" | "active" | "duplicate" | "archived";
   createdAt: number;
@@ -39,11 +49,37 @@ function toMaterialRow(m: {
     unit: m.unit ?? null,
     spec: m.spec ?? null,
     brandPreference: m.brandPreference ?? null,
+    technicalAttributes: m.technicalAttributes ?? null,
     active: m.active,
     status: m.status ?? null,
     createdAt: m.createdAt,
     updatedAt: m.updatedAt ?? null,
   };
+}
+
+function sanitizeTechnicalAttributes(
+  attributes: Array<{ key: string; value: string }> | undefined
+): Array<{ key: string; value: string }> | undefined {
+  if (attributes === undefined) return undefined;
+  if (attributes.length > 20) {
+    throw new Error("Um material pode ter no máximo 20 atributos técnicos");
+  }
+
+  const result: Array<{ key: string; value: string }> = [];
+  const keys = new Set<string>();
+  for (const attribute of attributes) {
+    const key = normalizeText(attribute.key);
+    const value = attribute.value.trim();
+    if (!key || !value) {
+      throw new Error("Preencha a chave e o valor de todos os atributos técnicos");
+    }
+    if (keys.has(key)) {
+      throw new Error(`Atributo técnico duplicado: ${key}`);
+    }
+    keys.add(key);
+    result.push({ key, value });
+  }
+  return result;
 }
 
 export const list = engineeringOrPurchasingQuery({
@@ -143,6 +179,7 @@ export const create = purchasingMutation({
     unit: v.optional(v.string()),
     spec: v.optional(v.string()),
     brandPreference: v.optional(v.string()),
+    technicalAttributes: v.optional(v.array(technicalAttributeValidator)),
     aliases: v.optional(v.array(v.string())),
   },
   returns: v.id("materials"),
@@ -157,6 +194,7 @@ export const create = purchasingMutation({
       unit: args.unit?.trim() || undefined,
       spec: args.spec?.trim() || undefined,
       brandPreference: args.brandPreference?.trim() || undefined,
+      technicalAttributes: sanitizeTechnicalAttributes(args.technicalAttributes),
       active: true,
       status: "active",
       createdAt: now,
@@ -193,6 +231,7 @@ export const update = purchasingMutation({
     unit: v.optional(v.string()),
     spec: v.optional(v.string()),
     brandPreference: v.optional(v.string()),
+    technicalAttributes: v.optional(v.array(technicalAttributeValidator)),
     active: v.optional(v.boolean()),
     status: v.optional(materialStatus),
   },
@@ -212,6 +251,11 @@ export const update = purchasingMutation({
     if (args.spec !== undefined) updates.spec = args.spec.trim() || undefined;
     if (args.brandPreference !== undefined) {
       updates.brandPreference = args.brandPreference.trim() || undefined;
+    }
+    if (args.technicalAttributes !== undefined) {
+      updates.technicalAttributes = sanitizeTechnicalAttributes(
+        args.technicalAttributes
+      );
     }
     if (args.active !== undefined) updates.active = args.active;
     if (args.status !== undefined) updates.status = args.status;

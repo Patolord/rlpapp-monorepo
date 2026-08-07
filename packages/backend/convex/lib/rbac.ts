@@ -31,6 +31,9 @@ export type Permission =
   // Leitura compartilhada entre engenharia e compras (materiais,
   // fornecedores, preços, takeoffs).
   | "suprimentos.read"
+  | "estoque.read"
+  | "estoque.write"
+  | "estoque.rules"
   | "admin.manage";
 
 /**
@@ -61,6 +64,17 @@ export function hasPermission(
         user.department === "engenharia" ||
         user.department === "compras"
       );
+    case "estoque.read":
+      return (
+        user.role === "engenheiro" ||
+        user.department === "engenharia" ||
+        user.department === "compras" ||
+        user.department === "estoque"
+      );
+    case "estoque.write":
+      return user.department === "estoque";
+    case "estoque.rules":
+      return false;
     case "admin.manage":
       return false;
   }
@@ -72,6 +86,9 @@ const PERMISSION_DENIED_MESSAGE: Record<Permission, string> = {
   "compras.read": "Acesso restrito à área de compras",
   "compras.write": "Acesso restrito à área de compras",
   "suprimentos.read": "Acesso restrito à engenharia ou compras",
+  "estoque.read": "Acesso restrito às áreas de estoque, compras ou engenharia",
+  "estoque.write": "Acesso restrito à equipe de estoque",
+  "estoque.rules": "Apenas administradores podem configurar regras de estoque",
   "admin.manage": "Insufficient permissions",
 };
 
@@ -214,3 +231,12 @@ export const purchasingMutation = permissionMutation("compras.write");
 
 /** Engenharia ou Compras — consultas compartilhadas (preços, takeoffs). */
 export const engineeringOrPurchasingQuery = permissionQuery("suprimentos.read");
+
+/** Estoque, Engenharia ou Compras — consultas de saldo e movimentações. */
+export const inventoryQuery = permissionQuery("estoque.read");
+
+/** Equipe de Estoque — conclusão, transferência, ajuste e estorno. */
+export const inventoryMutation = permissionMutation("estoque.write");
+
+/** Director/admin — configuração das regras de compatibilidade. */
+export const inventoryRulesMutation = permissionMutation("estoque.rules");
