@@ -1,7 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { ArrowLeft, Loader2, Printer } from "lucide-react";
+import { ArrowLeft, Home, Loader2, Printer } from "lucide-react";
 
 import { AuthShell } from "@/components/auth-shell";
 import {
@@ -51,8 +51,15 @@ function PrintPage() {
   }
   if (project === null) {
     return (
-      <div className="py-12 text-center text-muted-foreground">
-        Obra não encontrada.
+      <div className="mx-auto max-w-lg py-12 text-center">
+        <h1 className="text-2xl font-bold">Obra não encontrada</h1>
+        <p className="mt-2 text-muted-foreground">
+          Esta obra pode ter sido removida ou o endereço está incorreto.
+        </p>
+        <Button className="mt-6" render={<Link to="/app" />}>
+          <Home className="mr-2 size-4" />
+          Voltar à tela inicial
+        </Button>
       </div>
     );
   }
