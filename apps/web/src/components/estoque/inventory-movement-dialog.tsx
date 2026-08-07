@@ -3,7 +3,7 @@ import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation } from "convex/react";
 import { Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -88,6 +88,29 @@ export function InventoryMovementDialog({
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<FormLine[]>([emptyLine()]);
   const [submitting, setSubmitting] = useState(false);
+
+  // Base UI: `items` faz o trigger exibir o rótulo em vez do valor/id bruto.
+  const typeItems = useMemo(
+    () =>
+      Object.fromEntries(types.map((movementType) => [movementType, MOVEMENT_LABELS[movementType]])),
+    [types]
+  );
+  const projectItems = useMemo(
+    () => Object.fromEntries(projects.map((project) => [project._id, project.name])),
+    [projects]
+  );
+  const materialItems = useMemo(
+    () =>
+      Object.fromEntries(
+        materials.map((material) => [
+          material._id,
+          material.sku
+            ? `${material.name} (${material.sku})`
+            : material.name,
+        ])
+      ),
+    [materials]
+  );
 
   const requiresProject = type !== "entry" && type !== "adjustment";
   const canPostImmediately =
@@ -195,6 +218,7 @@ export function InventoryMovementDialog({
             <Label>Tipo</Label>
             <Select
               value={type}
+              items={typeItems}
               onValueChange={(value) => setType(value as MovementType)}
             >
               <SelectTrigger>
@@ -215,7 +239,11 @@ export function InventoryMovementDialog({
               <Label>
                 Obra {requiresProject ? "" : "(opcional; vazio = central)"}
               </Label>
-              <Select value={projectId} onValueChange={setProjectId}>
+              <Select
+                value={projectId}
+                items={projectItems}
+                onValueChange={setProjectId}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione a obra" />
                 </SelectTrigger>
@@ -274,6 +302,7 @@ export function InventoryMovementDialog({
               >
                 <Select
                   value={line.materialId}
+                  items={materialItems}
                   onValueChange={(value) =>
                     updateLine(index, { materialId: value })
                   }
@@ -284,7 +313,9 @@ export function InventoryMovementDialog({
                   <SelectContent>
                     {materials.map((option) => (
                       <SelectItem key={option._id} value={option._id}>
-                        {option.name}
+                        {option.sku
+                          ? `${option.name} (${option.sku})`
+                          : option.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
