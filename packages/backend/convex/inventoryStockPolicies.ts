@@ -3,6 +3,7 @@ import {
   inventoryMutation,
   inventoryQuery,
   purchasingMutation,
+  staffMutation,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
 import { inventoryLocationType } from "./schema";
@@ -56,7 +57,7 @@ export const listLocations = inventoryQuery({
 });
 
 /** Garante que o estoque central exista antes de configurar políticas. */
-export const ensureCentralLocation = purchasingMutation({
+export const ensureCentralLocation = staffMutation({
   args: {},
   returns: v.id("inventoryLocations"),
   handler: async (ctx) => {

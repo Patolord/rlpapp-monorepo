@@ -41,6 +41,16 @@ type MaterialStockPolicySheetProps = {
   existingPolicy?: ExistingPolicy | null;
 };
 
+/** Compras (e admin/diretor) usam `upsert`; Estoque usa `upsertFromWarehouse`. */
+function usesPurchasingPolicyUpsert(user: {
+  role: string;
+  department?: string;
+} | null | undefined): boolean {
+  if (!user) return true;
+  if (user.role === "director" || user.role === "admin") return true;
+  return user.department === "compras";
+}
+
 export function MaterialStockPolicySheet({
   open,
   onOpenChange,
@@ -48,11 +58,15 @@ export function MaterialStockPolicySheet({
   materialName,
   existingPolicy = null,
 }: MaterialStockPolicySheetProps) {
+  const currentUser = useQuery(api.users.getCurrentUser);
   const locations = useQuery(
     api.inventoryStockPolicies.listLocations,
     open ? {} : "skip"
   );
-  const upsertPolicy = useMutation(api.inventoryStockPolicies.upsert);
+  const upsertFromPurchasing = useMutation(api.inventoryStockPolicies.upsert);
+  const upsertFromWarehouse = useMutation(
+    api.inventoryStockPolicies.upsertFromWarehouse
+  );
   const ensureCentralLocation = useMutation(
     api.inventoryStockPolicies.ensureCentralLocation
   );
@@ -118,7 +132,7 @@ export function MaterialStockPolicySheet({
     }
     setSubmitting(true);
     try {
-      await upsertPolicy({
+      const payload = {
         locationId: locationId as Id<"inventoryLocations">,
         materialId,
         minimumQuantity: Number.parseFloat(minimumQuantity),
@@ -127,7 +141,13 @@ export function MaterialStockPolicySheet({
         leadTimeDays: leadTimeDays.trim()
           ? Number.parseInt(leadTimeDays, 10)
           : undefined,
-      });
+      };
+      // `upsert` exige compras.write; Estoque precisa de upsertFromWarehouse.
+      if (usesPurchasingPolicyUpsert(currentUser)) {
+        await upsertFromPurchasing(payload);
+      } else {
+        await upsertFromWarehouse(payload);
+      }
       toast.success(
         existingPolicy ? "Política atualizada" : "Política adicionada"
       );
@@ -242,7 +262,11 @@ export function MaterialStockPolicySheet({
           </Button>
           <Button
             onClick={() => void handleSave()}
-            disabled={submitting || locationOptions.length === 0}
+            disabled={
+              submitting ||
+              locationOptions.length === 0 ||
+              currentUser === undefined
+            }
           >
             {submitting ? "Salvando..." : "Salvar política"}
           </Button>

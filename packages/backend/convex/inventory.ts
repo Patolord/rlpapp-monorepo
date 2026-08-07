@@ -24,6 +24,7 @@ import {
 import {
   enrichInventoryDocument,
   listProjectInventorySummaries,
+  paginateInventoryDocuments,
 } from "./lib/inventory/queries";
 import {
   canViewCentralInventory,
@@ -281,23 +282,16 @@ export const listDocuments = inventoryQuery({
     splitCursor: v.optional(v.union(v.string(), v.null())),
   }),
   handler: async (ctx, args) => {
-    const results = args.status
-      ? await ctx.db
-          .query("inventoryDocuments")
-          .withIndex("by_status", (q) => q.eq("status", args.status!))
-          .order("desc")
-          .paginate(args.paginationOpts)
-      : await ctx.db
-          .query("inventoryDocuments")
-          .order("desc")
-          .paginate(args.paginationOpts);
-    const visiblePage = canViewCentralInventory(ctx.user)
-      ? results.page
-      : results.page.filter((document) => document.projectId !== undefined);
+    const results = await paginateInventoryDocuments(ctx, {
+      status: args.status,
+      numItems: args.paginationOpts.numItems,
+      cursor: args.paginationOpts.cursor,
+      projectOnly: !canViewCentralInventory(ctx.user),
+    });
     return {
       ...results,
       page: await Promise.all(
-        visiblePage.map(async (document) => {
+        results.page.map(async (document) => {
           return await enrichInventoryDocument(ctx, document);
         })
       ),
