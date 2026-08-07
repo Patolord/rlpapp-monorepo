@@ -197,13 +197,24 @@ describe("estoque central e obras", () => {
   });
 
   test("permissões separam o estoque central dos estoques de obra", async () => {
-    const { ids, engineer, purchasing } = await seedInventoryFixture();
+    const { ids, engineer, purchasing, warehouse } =
+      await seedInventoryFixture();
 
     await expect(
       engineer.query(api.inventory.listBalances, {
         paginationOpts: { numItems: 20, cursor: null },
       })
     ).rejects.toThrow("só pode consultar estoques de obras");
+
+    await expect(
+      engineer.query(api.inventory.listEventsPaginated, {
+        paginationOpts: { numItems: 20, cursor: null },
+      })
+    ).rejects.toThrow("só pode consultar estoques de obras");
+
+    await expect(engineer.query(api.inventory.listEvents, {})).rejects.toThrow(
+      "só pode consultar estoques de obras"
+    );
 
     const projectBalances = await engineer.query(
       api.inventory.listBalances,
@@ -213,6 +224,34 @@ describe("estoque central e obras", () => {
       }
     );
     expect(projectBalances.page).toEqual([]);
+
+    const projectEvents = await engineer.query(
+      api.inventory.listEventsPaginated,
+      {
+        projectId: ids.projectId,
+        paginationOpts: { numItems: 20, cursor: null },
+      }
+    );
+    expect(projectEvents.page).toEqual([]);
+
+    await purchasing.mutation(
+      api.inventoryStockPolicies.ensureCentralLocation,
+      {}
+    );
+    const warehouseLocations = await warehouse.query(
+      api.inventoryStockPolicies.listLocations,
+      {}
+    );
+    expect(
+      warehouseLocations.some((location) => location.type === "central")
+    ).toBe(true);
+    const engineerLocations = await engineer.query(
+      api.inventoryStockPolicies.listLocations,
+      {}
+    );
+    expect(
+      engineerLocations.every((location) => location.type !== "central")
+    ).toBe(true);
 
     await expect(
       purchasing.mutation(api.inventory.createDocument, {

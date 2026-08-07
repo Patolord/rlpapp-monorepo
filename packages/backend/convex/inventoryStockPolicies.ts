@@ -8,6 +8,7 @@ import { logAudit } from "./lib/audit";
 import { inventoryLocationType } from "./schema";
 import {
   canManageStockPolicy,
+  canViewCentralInventory,
   getStockPolicy,
   upsertStockPolicyInternal,
 } from "./lib/inventory/stockPolicy";
@@ -36,9 +37,15 @@ export const listLocations = inventoryQuery({
     })
   ),
   handler: async (ctx) => {
+    const canViewCentral = canViewCentralInventory(ctx.user);
     const locations = await ctx.db.query("inventoryLocations").collect();
     return locations
       .filter((location) => location.active)
+      .filter(
+        (location) =>
+          canViewCentral ||
+          location.type !== "central"
+      )
       .map((location) => ({
         _id: location._id,
         name: location.name,
@@ -67,21 +74,24 @@ export const listForMaterial = inventoryQuery({
   args: { materialId: v.id("materials") },
   returns: v.array(stockPolicyRowValidator),
   handler: async (ctx, args) => {
+    const canViewCentral = canViewCentralInventory(ctx.user);
     const policies = await ctx.db
       .query("inventoryStockPolicies")
       .withIndex("by_material", (q) => q.eq("materialId", args.materialId))
       .collect();
 
-    return await Promise.all(
+    const rows = await Promise.all(
       policies.map(async (policy) => {
         const location = await ctx.db.get(
           "inventoryLocations",
           policy.locationId
         );
+        if (!location) return null;
+        if (!canViewCentral && location.type === "central") return null;
         return {
           _id: policy._id,
           locationId: policy.locationId,
-          locationName: location?.name ?? "Local removido",
+          locationName: location.name,
           materialId: policy.materialId,
           minimumQuantity: policy.minimumQuantity,
           reorderPoint: policy.reorderPoint,
@@ -91,6 +101,7 @@ export const listForMaterial = inventoryQuery({
         };
       })
     );
+    return rows.filter((row): row is NonNullable<typeof row> => row !== null);
   },
 });
 
@@ -101,17 +112,24 @@ export const getForLocation = inventoryQuery({
   },
   returns: v.union(stockPolicyRowValidator, v.null()),
   handler: async (ctx, args) => {
+    const location = await ctx.db.get("inventoryLocations", args.locationId);
+    if (!location) return null;
+    if (
+      location.type === "central" &&
+      !canViewCentralInventory(ctx.user)
+    ) {
+      throw new Error("A Engenharia só pode consultar estoques de obras");
+    }
     const policy = await getStockPolicy(
       ctx,
       args.locationId,
       args.materialId
     );
     if (!policy) return null;
-    const location = await ctx.db.get("inventoryLocations", args.locationId);
     return {
       _id: policy._id,
       locationId: policy.locationId,
-      locationName: location?.name ?? "Local removido",
+      locationName: location.name,
       materialId: policy.materialId,
       minimumQuantity: policy.minimumQuantity,
       reorderPoint: policy.reorderPoint,

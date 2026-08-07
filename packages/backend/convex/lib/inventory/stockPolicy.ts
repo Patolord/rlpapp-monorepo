@@ -38,9 +38,14 @@ export async function enrichBalanceWithReplenishment(
   };
 }
 
-export function canManageStockPolicy(user: Doc<"users">): boolean {
+/** Estoque Central: Estoque, Compras, admin e diretor. Engenharia só vê obras. */
+export function canViewCentralInventory(user: Doc<"users">): boolean {
   if (user.role === "director" || user.role === "admin") return true;
   return user.department === "compras" || user.department === "estoque";
+}
+
+export function canManageStockPolicy(user: Doc<"users">): boolean {
+  return canViewCentralInventory(user);
 }
 
 export async function upsertStockPolicyInternal(

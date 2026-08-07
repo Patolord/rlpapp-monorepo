@@ -18,6 +18,7 @@ import { materialStatus, replenishmentState } from "./schema";
 import { normalizeText } from "./lib/compras/procurement";
 import { findInventoryLocation } from "./lib/inventory/operations";
 import {
+  canViewCentralInventory,
   computeReplenishmentState,
   getStockPolicy,
 } from "./lib/inventory/stockPolicy";
@@ -100,31 +101,37 @@ function sanitizeTechnicalAttributes(
   return result;
 }
 
-async function buildCatalogRow(ctx: QueryCtx, material: Doc<"materials">) {
-  const centralLocation = await findInventoryLocation(ctx, undefined);
+async function buildCatalogRow(
+  ctx: QueryCtx,
+  material: Doc<"materials">,
+  options: { includeCentralStock: boolean }
+) {
   let centralQuantity: number | null = null;
   let centralReplenishmentState: "unconfigured" | "healthy" | "reorder" | "below_minimum" =
     "unconfigured";
 
-  if (centralLocation) {
-    const balance = await ctx.db
-      .query("inventoryBalances")
-      .withIndex("by_location_material", (q) =>
-        q
-          .eq("locationId", centralLocation._id)
-          .eq("materialId", material._id)
-      )
-      .unique();
-    centralQuantity = balance?.quantity ?? 0;
-    const policy = await getStockPolicy(
-      ctx,
-      centralLocation._id,
-      material._id
-    );
-    centralReplenishmentState = computeReplenishmentState(
-      centralQuantity,
-      policy
-    ).state;
+  if (options.includeCentralStock) {
+    const centralLocation = await findInventoryLocation(ctx, undefined);
+    if (centralLocation) {
+      const balance = await ctx.db
+        .query("inventoryBalances")
+        .withIndex("by_location_material", (q) =>
+          q
+            .eq("locationId", centralLocation._id)
+            .eq("materialId", material._id)
+        )
+        .unique();
+      centralQuantity = balance?.quantity ?? 0;
+      const policy = await getStockPolicy(
+        ctx,
+        centralLocation._id,
+        material._id
+      );
+      centralReplenishmentState = computeReplenishmentState(
+        centralQuantity,
+        policy
+      ).state;
+    }
   }
 
   return {
@@ -168,6 +175,7 @@ export const listCatalog = engineeringOrPurchasingQuery({
     splitCursor: v.optional(v.union(v.string(), v.null())),
   }),
   handler: async (ctx, args) => {
+    const includeCentralStock = canViewCentralInventory(ctx.user);
     const search = args.search?.trim();
     let results;
     if (search) {
@@ -202,7 +210,9 @@ export const listCatalog = engineeringOrPurchasingQuery({
     return {
       ...results,
       page: await Promise.all(
-        results.page.map(async (material) => buildCatalogRow(ctx, material))
+        results.page.map(async (material) =>
+          buildCatalogRow(ctx, material, { includeCentralStock })
+        )
       ),
     };
   },
@@ -213,7 +223,11 @@ export const get = engineeringOrPurchasingQuery({
   returns: v.union(materialCatalogValidator, v.null()),
   handler: async (ctx, args) => {
     const m = await ctx.db.get("materials", args.materialId);
-    return m ? await buildCatalogRow(ctx, m) : null;
+    return m
+      ? await buildCatalogRow(ctx, m, {
+          includeCentralStock: canViewCentralInventory(ctx.user),
+        })
+      : null;
   },
 });
 

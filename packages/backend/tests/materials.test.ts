@@ -148,7 +148,7 @@ describe("materials catalog", () => {
     expect(page.page[0]?.name).toBe("Sensor de temperatura");
   });
 
-  test("stock policy upsert validates and can be read by engineer", async () => {
+  test("stock policy upsert validates; central qty stays scoped to warehouse/purchasing", async () => {
     const { t, purchasing, warehouse, engineer } = await seedCatalogUsers();
 
     const materialId = await purchasing.mutation(api.materials.create, {
@@ -188,11 +188,24 @@ describe("materials catalog", () => {
     );
     expect(policyId).toBeTruthy();
 
-    const readable = await engineer.query(
+    const readable = await purchasing.query(
       api.inventoryStockPolicies.getForLocation,
       { locationId, materialId }
     );
     expect(readable?.targetQuantity).toBe(20);
+
+    await expect(
+      engineer.query(api.inventoryStockPolicies.getForLocation, {
+        locationId,
+        materialId,
+      })
+    ).rejects.toThrow("só pode consultar estoques de obras");
+
+    const engineerPolicies = await engineer.query(
+      api.inventoryStockPolicies.listForMaterial,
+      { materialId }
+    );
+    expect(engineerPolicies).toEqual([]);
 
     await t.run(async (ctx) => {
       await ctx.db.insert("inventoryBalances", {
@@ -209,5 +222,16 @@ describe("materials catalog", () => {
     expect(balances.page[0]?.replenishmentState).toBe("reorder");
     expect(balances.page[0]?.suggestedOrderQuantity).toBe(16);
     expect(balances.page[0]?.materialSku).toBeTruthy();
+
+    const purchasingCatalog = await purchasing.query(api.materials.get, {
+      materialId,
+    });
+    expect(purchasingCatalog?.centralQuantity).toBe(4);
+
+    const engineerCatalog = await engineer.query(api.materials.get, {
+      materialId,
+    });
+    expect(engineerCatalog?.centralQuantity).toBeNull();
+    expect(engineerCatalog?.centralReplenishmentState).toBe("unconfigured");
   });
 });

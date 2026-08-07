@@ -25,8 +25,12 @@ import {
   enrichInventoryDocument,
   listProjectInventorySummaries,
 } from "./lib/inventory/queries";
-import { enrichBalanceWithReplenishment } from "./lib/inventory/stockPolicy";
+import {
+  canViewCentralInventory,
+  enrichBalanceWithReplenishment,
+} from "./lib/inventory/stockPolicy";
 import { replenishmentState } from "./schema";
+import type { Doc } from "./_generated/dataModel";
 
 const movementInputType = v.union(
   v.literal("entry"),
@@ -95,10 +99,7 @@ export const getAccess = inventoryQuery({
       ctx.user.role === "engenheiro" ||
       ctx.user.department === "engenharia";
     return {
-      canViewCentral:
-        isAdmin ||
-        isWarehouse ||
-        ctx.user.department === "compras",
+      canViewCentral: canViewCentralInventory(ctx.user),
       canWriteCentral: isAdmin || isWarehouse,
       canCreateEntry:
         isAdmin || isWarehouse || ctx.user.department === "compras",
@@ -200,12 +201,7 @@ export const listBalances = inventoryQuery({
     splitCursor: v.optional(v.union(v.string(), v.null())),
   }),
   handler: async (ctx, args) => {
-    const canViewCentral =
-      ctx.user.role === "director" ||
-      ctx.user.role === "admin" ||
-      ctx.user.department === "estoque" ||
-      ctx.user.department === "compras";
-    if (!args.projectId && !canViewCentral) {
+    if (!args.projectId && !canViewCentralInventory(ctx.user)) {
       throw new Error("A Engenharia só pode consultar estoques de obras");
     }
     const location = await findInventoryLocation(ctx, args.projectId);
@@ -295,12 +291,7 @@ export const listDocuments = inventoryQuery({
           .query("inventoryDocuments")
           .order("desc")
           .paginate(args.paginationOpts);
-    const canViewCentral =
-      ctx.user.role === "director" ||
-      ctx.user.role === "admin" ||
-      ctx.user.department === "estoque" ||
-      ctx.user.department === "compras";
-    const visiblePage = canViewCentral
+    const visiblePage = canViewCentralInventory(ctx.user)
       ? results.page
       : results.page.filter((document) => document.projectId !== undefined);
     return {
@@ -324,7 +315,7 @@ export const listPendingApprovals = inventoryQuery({
       .withIndex("by_status", (q) => q.eq("status", "pending_approval"))
       .order("desc")
       .take(100);
-    const mine = [];
+    const mine: Doc<"inventoryDocuments">[] = [];
     for (const document of pending) {
       if (!document.projectId) continue;
       const project = await ctx.db.get("projects", document.projectId);
@@ -363,6 +354,9 @@ export const listEventsPaginated = inventoryQuery({
     splitCursor: v.optional(v.union(v.string(), v.null())),
   }),
   handler: async (ctx, args) => {
+    if (!args.projectId && !canViewCentralInventory(ctx.user)) {
+      throw new Error("A Engenharia só pode consultar estoques de obras");
+    }
     const location = await findInventoryLocation(ctx, args.projectId);
     if (!location) {
       return { page: [], isDone: true, continueCursor: "" };
@@ -430,6 +424,10 @@ export const listEvents = inventoryQuery({
     })
   ),
   handler: async (ctx, args) => {
+    // Legacy/nativo: histórico global do central. Obra → listEventsPaginated + projectId.
+    if (!canViewCentralInventory(ctx.user)) {
+      throw new Error("A Engenharia só pode consultar estoques de obras");
+    }
     const limit = Math.min(Math.max(Math.floor(args.limit ?? 100), 1), 200);
     const events = await ctx.db
       .query("inventoryEvents")
