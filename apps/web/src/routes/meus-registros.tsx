@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { SentHistoryByProject } from "@/components/engenharia/sent-history-by-project";
+import { MyAssignedObras } from "@/components/engenharia/my-assigned-obras";
 import { useOnline } from "@/lib/use-online";
 import {
   listPendingRecords,
@@ -182,6 +183,8 @@ function MeusRegistrosPage() {
               )}
             </CardContent>
           </Card>
+
+          <MyAssignedObras />
 
           <SentHistoryByProject />
         </div>

@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { MyAssignedObras } from "@/components/engenharia/my-assigned-obras";
 import {
   listPendingRecords,
   QUEUE_CHANGED_EVENT,
@@ -167,71 +168,75 @@ function QrOperadorPage() {
         <UserButton />
       </header>
 
-      <div className="flex flex-1 items-center justify-center px-4">
-        <Card className="w-full max-w-sm">
-          <CardContent className="flex flex-col items-center gap-4 pt-6 pb-6 text-center">
-            {scanning ? (
-              <>
-                <div
-                  id={SCANNER_ELEMENT_ID}
-                  className="w-full overflow-hidden rounded-lg bg-black"
-                />
-                <p className="text-sm text-muted-foreground">
-                  Aponte a câmera para o código QR do equipamento.
-                </p>
-                <Button
-                  variant="outline"
-                  className="h-12 w-full text-base"
-                  onClick={() => void stopScanner()}
-                >
-                  <X className="mr-2 h-5 w-5" />
-                  Cancelar
-                </Button>
-              </>
-            ) : (
-              <>
-                <QrCode className="h-14 w-14 text-foreground" />
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-bold text-foreground">
-                    Escaneie um código QR
-                  </h2>
-                  <p className="text-base font-medium text-foreground/80">
-                    Use a câmera do seu celular para escanear o código QR de um
-                    equipamento e acessar as informações dele.
+      <div className="flex flex-1 justify-center px-4 pb-8">
+        <div className="flex w-full max-w-lg flex-col gap-4 py-4">
+          <Card className="w-full">
+            <CardContent className="flex flex-col items-center gap-4 pt-6 pb-6 text-center">
+              {scanning ? (
+                <>
+                  <div
+                    id={SCANNER_ELEMENT_ID}
+                    className="w-full overflow-hidden rounded-lg bg-black"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Aponte a câmera para o código QR do equipamento.
                   </p>
-                </div>
-                <Button
-                  className="h-12 w-full text-base"
-                  onClick={() => void startScanner()}
-                >
-                  <Camera className="mr-2 h-5 w-5" />
-                  Escanear com a câmera
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-12 w-full text-base"
-                  render={<Link to="/meus-registros" />}
-                >
-                  <Keyboard className="mr-2 h-5 w-5" />
-                  Digitar código da etiqueta
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-12 w-full text-base"
-                  render={<Link to="/meus-registros" />}
-                >
-                  <History className="mr-2 h-5 w-5" />
-                  Meus registros
-                  {pendingCount > 0 && (
-                    <Badge variant="secondary" className="ml-2">
-                      {pendingCount}
-                    </Badge>
-                  )}
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                  <Button
+                    variant="outline"
+                    className="h-12 w-full text-base"
+                    onClick={() => void stopScanner()}
+                  >
+                    <X className="mr-2 h-5 w-5" />
+                    Cancelar
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <QrCode className="h-14 w-14 text-foreground" />
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-bold text-foreground">
+                      Escaneie um código QR
+                    </h2>
+                    <p className="text-base font-medium text-foreground/80">
+                      Use a câmera do seu celular para escanear o código QR de
+                      um equipamento e acessar as informações dele.
+                    </p>
+                  </div>
+                  <Button
+                    className="h-12 w-full text-base"
+                    onClick={() => void startScanner()}
+                  >
+                    <Camera className="mr-2 h-5 w-5" />
+                    Escanear com a câmera
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-12 w-full text-base"
+                    render={<Link to="/meus-registros" />}
+                  >
+                    <Keyboard className="mr-2 h-5 w-5" />
+                    Digitar código da etiqueta
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-12 w-full text-base"
+                    render={<Link to="/meus-registros" />}
+                  >
+                    <History className="mr-2 h-5 w-5" />
+                    Meus registros
+                    {pendingCount > 0 && (
+                      <Badge variant="secondary" className="ml-2">
+                        {pendingCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {!scanning && <MyAssignedObras />}
+        </div>
       </div>
     </div>
   );

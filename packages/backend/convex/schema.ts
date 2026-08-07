@@ -167,6 +167,8 @@ export default defineSchema({
     endDate: v.optional(v.number()),
     // Clientes (role "client") que podem visualizar esta obra no portal.
     clientIds: v.optional(v.array(v.id("users"))),
+    // Técnicos (qr_operator ou staff) atribuídos à obra para listar QRs/equipamentos.
+    technicianIds: v.optional(v.array(v.id("users"))),
     floors: v.array(
       v.object({
         // 0 = térreo, 1 = 1º andar, etc.
@@ -406,6 +408,8 @@ export default defineSchema({
       v.literal("error")
     ),
     createdAt: v.number(),
+    // Técnico que cadastrou o equipamento em campo (aparece em Meus Registros).
+    createdByUserId: v.optional(v.id("users")),
     // Vínculo reverso: item planejado da obra que este equipamento ocupa.
     projectEquipmentId: v.optional(v.id("projectEquipment")),
     // Campos legados (dados antigos em produção antes da simplificação do schema).
@@ -418,7 +422,8 @@ export default defineSchema({
     notes: v.optional(v.string()),
   })
     .index("by_tag", ["tag"])
-    .index("by_projectEquipment", ["projectEquipmentId"]),
+    .index("by_projectEquipment", ["projectEquipmentId"])
+    .index("by_createdByUser", ["createdByUserId", "createdAt"]),
 
   // --- Histórico de conversas com a IA ---
 
