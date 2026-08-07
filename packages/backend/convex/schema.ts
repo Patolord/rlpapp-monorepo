@@ -385,18 +385,6 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_table", ["tableName", "createdAt"]),
 
-  // Entregas de material por modelo (aba Entregas): controle de logística.
-  materialDeliveries: defineTable({
-    projectId: v.id("projects"),
-    modelo: v.string(),
-    capacidade: v.optional(v.string()),
-    qty: v.number(),
-    date: v.number(),
-    note: v.optional(v.string()),
-  })
-    .index("by_project", ["projectId"])
-    .index("by_project_modelo", ["projectId", "modelo"]),
-
   equipment: defineTable({
     // Cadastro simplificado em campo: descrição geral + foto da etiqueta.
     description: v.optional(v.string()),

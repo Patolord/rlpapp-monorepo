@@ -542,7 +542,7 @@ export const remove = engineeringMutation({
   args: { projectId: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Remove em cascata: itens, unidades e entregas da obra.
+    // Remove em cascata: itens e unidades da obra.
     const items = await ctx.db
       .query("projectEquipment")
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -562,14 +562,6 @@ export const remove = engineeringMutation({
       .collect();
     for (const unit of units) {
       await ctx.db.delete("projectUnits", unit._id);
-    }
-
-    const deliveries = await ctx.db
-      .query("materialDeliveries")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    for (const d of deliveries) {
-      await ctx.db.delete("materialDeliveries", d._id);
     }
 
     // Takeoffs e histórico de preços vinculados à obra.
