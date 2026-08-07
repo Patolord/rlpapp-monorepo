@@ -21,8 +21,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Histórico de serviços do usuário logado agrupado por obra: registros de
-// instalação/manutenção + ações de campo (instalado/testado/finalizado).
+// Histórico de serviços do usuário logado agrupado por obra: cadastro de
+// equipamento, registros de instalação/manutenção + ações de campo
+// (instalado/testado/finalizado).
 export function SentHistoryByProject() {
   const projects = useQuery(api.technicianActivity.listMineProjects);
 
@@ -164,7 +165,7 @@ function ProjectActivityList({
 }
 
 type ActivityItem = {
-  kind: "maintenanceLog" | "fieldAction";
+  kind: "maintenanceLog" | "fieldAction" | "registration";
   id: string;
   createdAt: number;
   title: string;
@@ -174,20 +175,21 @@ type ActivityItem = {
   notes: string | null;
 };
 
+function activityBadgeVariant(
+  item: ActivityItem
+): "default" | "secondary" | "outline" {
+  if (item.kind === "fieldAction") return "outline";
+  if (item.kind === "registration") return "secondary";
+  if (item.label === "Instalação") return "default";
+  return "secondary";
+}
+
 function ActivityCard({ item }: { item: ActivityItem }) {
   const content = (
     <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
       <div className="min-w-0 space-y-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge
-            variant={
-              item.kind === "fieldAction"
-                ? "outline"
-                : item.label === "Instalação"
-                  ? "default"
-                  : "secondary"
-            }
-          >
+          <Badge variant={activityBadgeVariant(item)}>
             {item.label}
           </Badge>
           {item.status && <StatusBadge status={item.status} />}

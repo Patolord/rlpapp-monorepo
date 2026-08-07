@@ -5,8 +5,9 @@ import type { QueryCtx } from "./_generated/server";
 import { authedQuery } from "./lib/rbac";
 
 // Histórico unificado de serviços do técnico (qr_operator ou staff), agrupado
-// por obra: registros de instalação/manutenção (maintenanceLogs) + ações de
-// campo instalar/testar/finalizar (equipmentHistory via fieldAction).
+// por obra: cadastro de equipamento, registros de instalação/manutenção
+// (maintenanceLogs) + ações de campo instalar/testar/finalizar
+// (equipmentHistory via fieldAction).
 
 // Ações de equipmentHistory que contam como serviço realizado pelo técnico.
 // Outras ações (created, qr_linked, checklist...) são administrativas.
@@ -24,21 +25,25 @@ const logStatusValidator = v.union(
 );
 
 const activityItemValidator = v.object({
-  kind: v.union(v.literal("maintenanceLog"), v.literal("fieldAction")),
+  kind: v.union(
+    v.literal("maintenanceLog"),
+    v.literal("fieldAction"),
+    v.literal("registration")
+  ),
   id: v.string(),
   createdAt: v.number(),
   // Descrição do equipamento real ou modelo/ambiente do item planejado.
   title: v.string(),
-  // "Instalação" | "Manutenção" | "Instalado" | "Testado" | "Finalizado"
+  // "Cadastro" | "Instalação" | "Manutenção" | "Instalado" | "Testado" | "Finalizado"
   label: v.string(),
-  // Presente apenas em maintenanceLogs.
+  // Presente apenas em maintenanceLogs / registration.
   status: v.union(logStatusValidator, v.null()),
   qrToken: v.union(v.string(), v.null()),
   notes: v.union(v.string(), v.null()),
 });
 
 type ActivityItem = {
-  kind: "maintenanceLog" | "fieldAction";
+  kind: "maintenanceLog" | "fieldAction" | "registration";
   id: string;
   createdAt: number;
   title: string;
@@ -116,17 +121,13 @@ async function getQrForEquipmentCached(
   return value;
 }
 
-// Converte um maintenanceLog em item de atividade, resolvendo a obra:
-// equipment → projectEquipment.projectId; senão qrCodes.projectId (lote com
-// obra de destino); senão equipment.projectId (legado).
-async function logToItem(
+// Resolve obra para um equipamento: planned → qrCodes.projectId → legado.
+async function resolveEquipmentProjectId(
   ctx: QueryCtx,
   caches: ResolveCaches,
-  log: Doc<"maintenanceLogs">
-): Promise<ActivityItem> {
-  const equipment = await getEquipmentCached(ctx, caches, log.equipmentId);
-  const qr = await getQrForEquipmentCached(ctx, caches, log.equipmentId);
-
+  equipment: Doc<"equipment"> | null,
+  qr: { token: string; projectId: Id<"projects"> | null } | null
+): Promise<Id<"projects"> | null> {
   let projectId: Id<"projects"> | null = null;
   if (equipment?.projectEquipmentId) {
     const planned = await getPlannedCached(
@@ -138,6 +139,20 @@ async function logToItem(
   }
   if (!projectId) projectId = qr?.projectId ?? null;
   if (!projectId) projectId = equipment?.projectId ?? null;
+  return projectId;
+}
+
+// Converte um maintenanceLog em item de atividade, resolvendo a obra:
+// equipment → projectEquipment.projectId; senão qrCodes.projectId (lote com
+// obra de destino); senão equipment.projectId (legado).
+async function logToItem(
+  ctx: QueryCtx,
+  caches: ResolveCaches,
+  log: Doc<"maintenanceLogs">
+): Promise<ActivityItem> {
+  const equipment = await getEquipmentCached(ctx, caches, log.equipmentId);
+  const qr = await getQrForEquipmentCached(ctx, caches, log.equipmentId);
+  const projectId = await resolveEquipmentProjectId(ctx, caches, equipment, qr);
 
   return {
     kind: "maintenanceLog",
@@ -148,6 +163,28 @@ async function logToItem(
     status: log.status,
     qrToken: qr?.token ?? null,
     notes: log.notes ?? null,
+    projectId,
+  };
+}
+
+// Cadastro de equipamento em campo (equipment.create).
+async function registrationToItem(
+  ctx: QueryCtx,
+  caches: ResolveCaches,
+  equipment: Doc<"equipment">
+): Promise<ActivityItem> {
+  const qr = await getQrForEquipmentCached(ctx, caches, equipment._id);
+  const projectId = await resolveEquipmentProjectId(ctx, caches, equipment, qr);
+
+  return {
+    kind: "registration",
+    id: equipment._id,
+    createdAt: equipment.createdAt,
+    title: equipment.description || qr?.token || "Equipamento",
+    label: "Cadastro",
+    status: equipment.status,
+    qrToken: qr?.token ?? null,
+    notes: null,
     projectId,
   };
 }
@@ -209,6 +246,12 @@ async function collectMyActivity(
     .order("desc")
     .take(MAX_PER_SOURCE);
 
+  const registrations = await ctx.db
+    .query("equipment")
+    .withIndex("by_createdByUser", (q) => q.eq("createdByUserId", userId))
+    .order("desc")
+    .take(MAX_PER_SOURCE);
+
   const items: ActivityItem[] = [];
   for (const log of logs) {
     items.push(await logToItem(ctx, caches, log));
@@ -217,6 +260,9 @@ async function collectMyActivity(
     if (!SERVICE_ACTIONS.has(entry.action)) continue;
     const item = await historyToItem(ctx, caches, entry);
     if (item) items.push(item);
+  }
+  for (const equipment of registrations) {
+    items.push(await registrationToItem(ctx, caches, equipment));
   }
 
   items.sort((a, b) => b.createdAt - a.createdAt);

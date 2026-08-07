@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getUnitState, type GridFloor, type GridUnit } from "@/components/engenharia/building";
 import { AiChatPanel } from "@/components/engenharia/ai/ai-chat-panel";
+import { AssignTechniciansDialog } from "@/components/engenharia/assign-technicians-dialog";
 import {
   OBRAS_LIST_PATH,
   obraLinkSlug,
@@ -233,7 +234,7 @@ function ProjectShellLayout({
               {project.totalItems} equipamentos previstos
             </p>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Button
               variant="outline"
               size="icon"
@@ -243,6 +244,7 @@ function ProjectShellLayout({
             >
               <BarChart3 className="size-4" />
             </Button>
+            <AssignTechniciansDialog projectId={project._id} />
             <Button
               variant="outline"
               size="sm"
