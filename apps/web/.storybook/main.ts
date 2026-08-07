@@ -1,27 +1,18 @@
 import type { StorybookConfig } from '@storybook/tanstack-react';
 
-import { dirname } from "path"
-
-import { fileURLToPath } from "url"
-
-/**
-* This function is used to resolve the absolute path of a package.
-* It is needed in projects that use Yarn PnP or are set up within a monorepo.
-*/
-function getAbsolutePath(value: string) {
-  return dirname(fileURLToPath(import.meta.resolve(`${value}/package.json`)))
-}
 const config: StorybookConfig = {
   "stories": [
     "../src/**/*.mdx",
     "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"
   ],
   "addons": [
-    getAbsolutePath('@chromatic-com/storybook'),
-    getAbsolutePath('@storybook/addon-vitest'),
-    getAbsolutePath('@storybook/addon-a11y'),
-    getAbsolutePath('@storybook/addon-docs')
+    "@chromatic-com/storybook",
+    "@storybook/addon-vitest",
+    "@storybook/addon-a11y",
+    "@storybook/addon-docs"
   ],
-  "framework": getAbsolutePath('@storybook/tanstack-react')
+  // Use package names (not getAbsolutePath) so Node resolves `/preset` via
+  // package exports. @storybook/tanstack-react ships preset only under dist/.
+  "framework": "@storybook/tanstack-react"
 };
 export default config;
