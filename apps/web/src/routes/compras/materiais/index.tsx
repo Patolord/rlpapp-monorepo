@@ -1,5 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
+import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
 import { Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -32,6 +34,30 @@ import { getErrorMessage } from "@/lib/errors";
 export const Route = createFileRoute("/compras/materiais/")({
   component: MateriaisPage,
 });
+
+type MaterialRow = FunctionReturnType<typeof api.materials.list>[number];
+
+function parseTechnicalAttributes(
+  input: string
+): Array<{ key: string; value: string }> {
+  if (!input.trim()) return [];
+  return input
+    .split(/[;\n]/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const separator = part.indexOf("=");
+      if (separator <= 0 || separator === part.length - 1) {
+        throw new Error(
+          `Atributo inválido: "${part}". Use o formato chave=valor.`
+        );
+      }
+      return {
+        key: part.slice(0, separator).trim(),
+        value: part.slice(separator + 1).trim(),
+      };
+    });
+}
 
 function MateriaisPage() {
   return (
@@ -53,8 +79,12 @@ function MateriaisContent() {
     category: "",
     unit: "",
     spec: "",
+    technicalAttributes: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [attributesMaterial, setAttributesMaterial] =
+    useState<MaterialRow | null>(null);
+  const [attributesText, setAttributesText] = useState("");
 
   const filtered = useMemo(() => {
     if (!materials) return [];
@@ -79,12 +109,38 @@ function MateriaisContent() {
         category: form.category || undefined,
         unit: form.unit || undefined,
         spec: form.spec || undefined,
+        technicalAttributes: parseTechnicalAttributes(
+          form.technicalAttributes
+        ),
       });
       toast.success("Material criado");
       setOpen(false);
-      setForm({ name: "", category: "", unit: "", spec: "" });
+      setForm({
+        name: "",
+        category: "",
+        unit: "",
+        spec: "",
+        technicalAttributes: "",
+      });
     } catch (error) {
       toast.error(getErrorMessage(error, "Erro ao criar material"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleUpdateAttributes() {
+    if (!attributesMaterial) return;
+    setSubmitting(true);
+    try {
+      await updateMaterial({
+        materialId: attributesMaterial._id,
+        technicalAttributes: parseTechnicalAttributes(attributesText),
+      });
+      toast.success("Atributos técnicos atualizados");
+      setAttributesMaterial(null);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao atualizar atributos"));
     } finally {
       setSubmitting(false);
     }
@@ -130,6 +186,23 @@ function MateriaisContent() {
               <div>
                 <Label>Especificação</Label>
                 <Input value={form.spec} onChange={(e) => setForm({ ...form, spec: e.target.value })} />
+              </div>
+              <div>
+                <Label>Atributos técnicos</Label>
+                <Textarea
+                  value={form.technicalAttributes}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      technicalAttributes: e.target.value,
+                    })
+                  }
+                  placeholder="tensao=220v; fase=trifasico"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Separe os atributos por ponto e vírgula ou uma linha por
+                  atributo.
+                </p>
               </div>
             </div>
             <DialogFooter>
@@ -178,13 +251,32 @@ function MateriaisContent() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void toggleActive(m._id, m.active)}
-                    >
-                      {m.active ? "Arquivar" : "Reativar"}
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setAttributesMaterial(m);
+                          setAttributesText(
+                            (m.technicalAttributes ?? [])
+                              .map(
+                                (attribute) =>
+                                  `${attribute.key}=${attribute.value}`
+                              )
+                              .join("; ")
+                          );
+                        }}
+                      >
+                        Atributos
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void toggleActive(m._id, m.active)}
+                      >
+                        {m.active ? "Arquivar" : "Reativar"}
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -192,6 +284,41 @@ function MateriaisContent() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={attributesMaterial !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setAttributesMaterial(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Atributos técnicos — {attributesMaterial?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div>
+            <Label>Atributos</Label>
+            <Textarea
+              value={attributesText}
+              onChange={(event) => setAttributesText(event.target.value)}
+              placeholder="tensao=220v; fase=trifasico"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Estes valores são usados nas regras de compatibilidade do
+              Estoque.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => void handleUpdateAttributes()}
+              disabled={submitting}
+            >
+              {submitting ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

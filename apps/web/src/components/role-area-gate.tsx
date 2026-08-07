@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useEffect } from "react";
 
-export type DepartmentArea = "rh" | "engenharia" | "compras";
+export type DepartmentArea = "rh" | "engenharia" | "compras" | "estoque";
 
 // Mesma regra da navegação: diretores acessam tudo; engenheiro só engenharia;
 // demais usuários só o próprio departamento (default "engenharia").
@@ -18,6 +18,8 @@ function resolveAllowedArea(user: {
 // Bloqueia áreas internas (departamentos):
 // - qr_operator só pode acessar páginas /q/$token → vai para /qr-operador
 // - não-diretores só acessam o próprio departamento
+// - Estoque permite leitura compartilhada com Compras e Engenharia; as ações
+//   continuam protegidas por permissões específicas no backend.
 export function RoleAreaGate({
   area,
   children,
@@ -29,12 +31,20 @@ export function RoleAreaGate({
   const navigate = useNavigate();
 
   const isQrOperator = currentUser?.role === "qr_operator";
-  const isDirector = currentUser?.role === "director";
+  const isAdmin =
+    currentUser?.role === "director" || currentUser?.role === "admin";
+  const hasInventoryAccess =
+    isAdmin ||
+    currentUser?.role === "engenheiro" ||
+    currentUser?.department === "engenharia" ||
+    currentUser?.department === "compras" ||
+    currentUser?.department === "estoque";
   const wrongDepartment =
     !!currentUser &&
     !!area &&
-    !isDirector &&
+    !isAdmin &&
     !isQrOperator &&
+    !(area === "estoque" && hasInventoryAccess) &&
     resolveAllowedArea(currentUser) !== area;
 
   useEffect(() => {
