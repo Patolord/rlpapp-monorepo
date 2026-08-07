@@ -1,9 +1,17 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { Outlet, createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import {
+  Link,
+  Outlet,
+  createFileRoute,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router";
 import { Authenticated, useQuery } from "convex/react";
+import { Home } from "lucide-react";
 import { useEffect } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
@@ -55,8 +63,14 @@ function RoleGate({ children }: { children: React.ReactNode }) {
 
   if (currentUser === null) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-muted-foreground">Usuário não encontrado no sistema.</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-muted-foreground">
+          Usuário não encontrado no sistema.
+        </p>
+        <Button render={<Link to="/" />}>
+          <Home className="mr-2 size-4" />
+          Voltar à tela inicial
+        </Button>
       </div>
     );
   }

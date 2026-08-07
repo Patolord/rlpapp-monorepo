@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   QrCode,
   ArrowLeft,
+  Home,
 } from "lucide-react";
 import { AuthShell } from "@/components/auth-shell";
 
@@ -53,10 +54,16 @@ function QrDetailContent() {
           <p className="text-muted-foreground">
             O código QR ({token}) não está registrado no sistema.
           </p>
-          <Button variant="outline" render={<Link to="/engenharia" />}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar
-          </Button>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button render={<Link to="/app" />}>
+              <Home className="mr-2 h-4 w-4" />
+              Voltar à tela inicial
+            </Button>
+            <Button variant="outline" render={<Link to="/engenharia" />}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar
+            </Button>
+          </div>
         </div>
       </div>
     );

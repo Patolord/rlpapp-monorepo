@@ -8,7 +8,7 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { ArrowLeft, Building2, Loader2 } from "lucide-react";
+import { ArrowLeft, Building2, Home, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { OBRAS_LIST_PATH } from "@/lib/engenharia/obra-paths";
@@ -61,14 +61,16 @@ export function ObraSlugLayout({
         <p className="mt-2 text-muted-foreground">
           Esta obra pode ter sido removida ou o endereço está incorreto.
         </p>
-        <Button
-          variant="outline"
-          className="mt-6"
-          render={<Link to={OBRAS_LIST_PATH} />}
-        >
-          <ArrowLeft className="mr-2 size-4" />
-          Voltar para obras
-        </Button>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+          <Button render={<Link to="/app" />}>
+            <Home className="mr-2 size-4" />
+            Voltar à tela inicial
+          </Button>
+          <Button variant="outline" render={<Link to={OBRAS_LIST_PATH} />}>
+            <ArrowLeft className="mr-2 size-4" />
+            Voltar para obras
+          </Button>
+        </div>
       </div>
     );
   }

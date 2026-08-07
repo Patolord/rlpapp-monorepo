@@ -5,6 +5,7 @@ import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 
 import Loader from "./components/loader";
+import { NotFoundPage } from "./components/not-found-page";
 import "./index.css";
 import { routeTree } from "./routeTree.gen";
 
@@ -30,7 +31,7 @@ export function getRouter() {
     routeTree,
     defaultPreload: "intent",
     defaultPendingComponent: () => <Loader />,
-    defaultNotFoundComponent: () => <div>Página não encontrada</div>,
+    defaultNotFoundComponent: () => <NotFoundPage />,
     context: { queryClient, convexQueryClient },
   });
 

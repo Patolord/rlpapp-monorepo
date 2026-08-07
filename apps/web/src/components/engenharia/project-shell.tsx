@@ -9,6 +9,7 @@ import {
   BarChart3,
   Building2,
   ChevronDown,
+  Home,
   Loader2,
   Printer,
   QrCode,
@@ -131,14 +132,16 @@ export function ProjectShell({
         <p className="mt-2 text-muted-foreground">
           Esta obra pode ter sido removida.
         </p>
-        <Button
-          variant="outline"
-          className="mt-6"
-          render={<Link to={OBRAS_LIST_PATH} />}
-        >
-          <ArrowLeft className="mr-2 size-4" />
-          Voltar para obras
-        </Button>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+          <Button render={<Link to="/app" />}>
+            <Home className="mr-2 size-4" />
+            Voltar à tela inicial
+          </Button>
+          <Button variant="outline" render={<Link to={OBRAS_LIST_PATH} />}>
+            <ArrowLeft className="mr-2 size-4" />
+            Voltar para obras
+          </Button>
+        </div>
       </div>
     );
   }
