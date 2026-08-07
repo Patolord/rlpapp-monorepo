@@ -78,6 +78,7 @@ const documentRowValidator = v.object({
 export const getAccess = inventoryQuery({
   args: {},
   returns: v.object({
+    canViewCentral: v.boolean(),
     canWriteCentral: v.boolean(),
     canCreateEntry: v.boolean(),
     canCreateProjectMovement: v.boolean(),
@@ -92,6 +93,10 @@ export const getAccess = inventoryQuery({
       ctx.user.role === "engenheiro" ||
       ctx.user.department === "engenharia";
     return {
+      canViewCentral:
+        isAdmin ||
+        isWarehouse ||
+        ctx.user.department === "compras",
       canWriteCentral: isAdmin || isWarehouse,
       canCreateEntry:
         isAdmin || isWarehouse || ctx.user.department === "compras",
@@ -181,6 +186,14 @@ export const listBalances = inventoryQuery({
     continueCursor: v.string(),
   }),
   handler: async (ctx, args) => {
+    const canViewCentral =
+      ctx.user.role === "director" ||
+      ctx.user.role === "admin" ||
+      ctx.user.department === "estoque" ||
+      ctx.user.department === "compras";
+    if (!args.projectId && !canViewCentral) {
+      throw new Error("A Engenharia só pode consultar estoques de obras");
+    }
     const location = await findInventoryLocation(ctx, args.projectId);
     if (!location) {
       return { page: [], isDone: true, continueCursor: "" };
@@ -254,10 +267,18 @@ export const listDocuments = inventoryQuery({
           .query("inventoryDocuments")
           .order("desc")
           .paginate(args.paginationOpts);
+    const canViewCentral =
+      ctx.user.role === "director" ||
+      ctx.user.role === "admin" ||
+      ctx.user.department === "estoque" ||
+      ctx.user.department === "compras";
+    const visiblePage = canViewCentral
+      ? results.page
+      : results.page.filter((document) => document.projectId !== undefined);
     return {
       ...results,
       page: await Promise.all(
-        results.page.map(async (document) => {
+        visiblePage.map(async (document) => {
           return await enrichInventoryDocument(ctx, document);
         })
       ),

@@ -13,7 +13,7 @@ import {
   ShieldAlert,
   Warehouse,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
@@ -91,7 +91,7 @@ function EstoqueContent() {
   const rules = useQuery(api.inventory.listRules, {});
   const centralBalances = usePaginatedQuery(
     api.inventory.listBalances,
-    {},
+    access?.canViewCentral ? {} : "skip",
     { initialNumItems: 100 }
   );
   const documents = usePaginatedQuery(
@@ -129,6 +129,12 @@ function EstoqueContent() {
     );
   }, [centralBalances.results, search]);
 
+  useEffect(() => {
+    if (access && !access.canViewCentral && section === "central") {
+      setSection("obras");
+    }
+  }, [access, section]);
+
   if (
     !access ||
     !materials ||
@@ -146,7 +152,9 @@ function EstoqueContent() {
 
   const inventoryAccess = access;
   const sections: Array<{ key: Section; label: string; icon: typeof Package }> = [
-    { key: "central", label: "Central", icon: Warehouse },
+    ...(access.canViewCentral
+      ? [{ key: "central" as const, label: "Central", icon: Warehouse }]
+      : []),
     { key: "obras", label: "Obras", icon: Building2 },
     { key: "movimentacoes", label: "Movimentações", icon: History },
     ...(access.isEngineer

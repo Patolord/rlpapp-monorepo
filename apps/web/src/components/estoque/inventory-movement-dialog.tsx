@@ -42,6 +42,7 @@ type MovementType =
   | "adjustment";
 
 type FormLine = {
+  id: number;
   materialId: string;
   quantity: string;
 };
@@ -54,7 +55,11 @@ const MOVEMENT_LABELS: Record<MovementType, string> = {
   adjustment: "Ajuste de saldo",
 };
 
-const emptyLine = (): FormLine => ({ materialId: "", quantity: "" });
+let nextLineId = 0;
+const emptyLine = (): FormLine => {
+  nextLineId += 1;
+  return { id: nextLineId, materialId: "", quantity: "" };
+};
 
 function allowedTypes(access: Access): MovementType[] {
   const types: MovementType[] = [];
@@ -264,7 +269,7 @@ export function InventoryMovementDialog({
             );
             return (
               <div
-                key={index}
+                key={line.id}
                 className="grid gap-2 rounded-lg border bg-muted/20 p-3 sm:grid-cols-[1fr_140px_auto]"
               >
                 <Select
