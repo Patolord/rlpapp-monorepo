@@ -40,6 +40,13 @@ export const materialStatus = v.union(
   v.literal("archived")
 );
 
+export const replenishmentState = v.union(
+  v.literal("unconfigured"),
+  v.literal("healthy"),
+  v.literal("reorder"),
+  v.literal("below_minimum")
+);
+
 export const takeoffStatus = v.union(
   v.literal("draft"),
   v.literal("pricing"),
@@ -476,8 +483,16 @@ export default defineSchema({
 
   materials: defineTable({
     name: v.string(),
+    // SKU interno (ex.: MAT-000001). Gerado automaticamente, editável.
+    sku: v.optional(v.string()),
+    barcode: v.optional(v.string()),
+    manufacturer: v.optional(v.string()),
+    manufacturerPartNumber: v.optional(v.string()),
     category: v.optional(v.string()),
     unit: v.optional(v.string()),
+    purchaseUnit: v.optional(v.string()),
+    unitsPerPurchaseUnit: v.optional(v.number()),
+    trackInventory: v.optional(v.boolean()),
     spec: v.optional(v.string()),
     brandPreference: v.optional(v.string()),
     // Pequeno conjunto de propriedades usado nas regras de compatibilidade.
@@ -489,6 +504,8 @@ export default defineSchema({
         })
       )
     ),
+    // Texto denormalizado para busca (nome, sku, fabricante, etc.).
+    searchText: v.optional(v.string()),
     active: v.boolean(),
     status: v.optional(materialStatus),
     createdAt: v.number(),
@@ -497,7 +514,15 @@ export default defineSchema({
     .index("by_name", ["name"])
     .index("by_active", ["active"])
     .index("by_status", ["status"])
-    .index("by_category", ["category"]),
+    .index("by_category", ["category"])
+    .index("by_sku", ["sku"])
+    .index("by_barcode", ["barcode"])
+    .index("by_searchText", ["searchText"]),
+
+  materialSkuCounters: defineTable({
+    key: v.literal("material"),
+    nextNumber: v.number(),
+  }).index("by_key", ["key"]),
 
   suppliers: defineTable({
     name: v.string(),
@@ -669,6 +694,20 @@ export default defineSchema({
     .index("by_location", ["locationId"])
     .index("by_location_material", ["locationId", "materialId"])
     .index("by_material", ["materialId"]),
+
+  inventoryStockPolicies: defineTable({
+    locationId: v.id("inventoryLocations"),
+    materialId: v.id("materials"),
+    minimumQuantity: v.number(),
+    reorderPoint: v.number(),
+    targetQuantity: v.number(),
+    leadTimeDays: v.optional(v.number()),
+    updatedAt: v.number(),
+    updatedByUserId: v.id("users"),
+  })
+    .index("by_location", ["locationId"])
+    .index("by_material", ["materialId"])
+    .index("by_location_material", ["locationId", "materialId"]),
 
   inventoryCompatibilityRules: defineTable({
     type: inventoryCompatibilityRuleType,

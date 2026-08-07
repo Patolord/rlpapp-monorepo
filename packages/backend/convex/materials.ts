@@ -1,8 +1,28 @@
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
+import {
+  allocateNextSku,
+  assertUniqueBarcode,
+  assertUniqueSku,
+  buildMaterialSearchText,
+  materialMatchesSearch,
+  normalizeBarcode,
+  normalizeSku,
+  toMaterialCatalogRow,
+  toMaterialListRow,
+  validateUnitsPerPurchaseUnit,
+} from "./lib/compras/catalog";
 import { engineeringOrPurchasingQuery, purchasingMutation } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
-import { materialStatus } from "./schema";
+import { materialStatus, replenishmentState } from "./schema";
 import { normalizeText } from "./lib/compras/procurement";
+import { findInventoryLocation } from "./lib/inventory/operations";
+import {
+  computeReplenishmentState,
+  getStockPolicy,
+} from "./lib/inventory/stockPolicy";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
 
 export const technicalAttributeValidator = v.object({
   key: v.string(),
@@ -13,6 +33,7 @@ export const materialValidator = v.object({
   _id: v.id("materials"),
   _creationTime: v.number(),
   name: v.string(),
+  sku: v.union(v.string(), v.null()),
   category: v.union(v.string(), v.null()),
   unit: v.union(v.string(), v.null()),
   spec: v.union(v.string(), v.null()),
@@ -27,35 +48,32 @@ export const materialValidator = v.object({
   updatedAt: v.union(v.number(), v.null()),
 });
 
-function toMaterialRow(m: {
-  _id: import("./_generated/dataModel").Id<"materials">;
-  _creationTime: number;
-  name: string;
-  category?: string;
-  unit?: string;
-  spec?: string;
-  brandPreference?: string;
-  technicalAttributes?: Array<{ key: string; value: string }>;
-  active: boolean;
-  status?: "draft" | "active" | "duplicate" | "archived";
-  createdAt: number;
-  updatedAt?: number;
-}) {
-  return {
-    _id: m._id,
-    _creationTime: m._creationTime,
-    name: m.name,
-    category: m.category ?? null,
-    unit: m.unit ?? null,
-    spec: m.spec ?? null,
-    brandPreference: m.brandPreference ?? null,
-    technicalAttributes: m.technicalAttributes ?? null,
-    active: m.active,
-    status: m.status ?? null,
-    createdAt: m.createdAt,
-    updatedAt: m.updatedAt ?? null,
-  };
-}
+export const materialCatalogValidator = v.object({
+  _id: v.id("materials"),
+  _creationTime: v.number(),
+  name: v.string(),
+  sku: v.union(v.string(), v.null()),
+  barcode: v.union(v.string(), v.null()),
+  manufacturer: v.union(v.string(), v.null()),
+  manufacturerPartNumber: v.union(v.string(), v.null()),
+  category: v.union(v.string(), v.null()),
+  unit: v.union(v.string(), v.null()),
+  purchaseUnit: v.union(v.string(), v.null()),
+  unitsPerPurchaseUnit: v.union(v.number(), v.null()),
+  trackInventory: v.boolean(),
+  spec: v.union(v.string(), v.null()),
+  brandPreference: v.union(v.string(), v.null()),
+  technicalAttributes: v.union(
+    v.array(technicalAttributeValidator),
+    v.null()
+  ),
+  active: v.boolean(),
+  status: v.union(materialStatus, v.null()),
+  createdAt: v.number(),
+  updatedAt: v.union(v.number(), v.null()),
+  centralReplenishmentState: replenishmentState,
+  centralQuantity: v.union(v.number(), v.null()),
+});
 
 function sanitizeTechnicalAttributes(
   attributes: Array<{ key: string; value: string }> | undefined
@@ -82,6 +100,40 @@ function sanitizeTechnicalAttributes(
   return result;
 }
 
+async function buildCatalogRow(ctx: QueryCtx, material: Doc<"materials">) {
+  const centralLocation = await findInventoryLocation(ctx, undefined);
+  let centralQuantity: number | null = null;
+  let centralReplenishmentState: "unconfigured" | "healthy" | "reorder" | "below_minimum" =
+    "unconfigured";
+
+  if (centralLocation) {
+    const balance = await ctx.db
+      .query("inventoryBalances")
+      .withIndex("by_location_material", (q) =>
+        q
+          .eq("locationId", centralLocation._id)
+          .eq("materialId", material._id)
+      )
+      .unique();
+    centralQuantity = balance?.quantity ?? 0;
+    const policy = await getStockPolicy(
+      ctx,
+      centralLocation._id,
+      material._id
+    );
+    centralReplenishmentState = computeReplenishmentState(
+      centralQuantity,
+      policy
+    ).state;
+  }
+
+  return {
+    ...toMaterialCatalogRow(material),
+    centralReplenishmentState,
+    centralQuantity,
+  };
+}
+
 export const list = engineeringOrPurchasingQuery({
   args: {
     search: v.optional(v.string()),
@@ -94,23 +146,74 @@ export const list = engineeringOrPurchasingQuery({
       materials = materials.filter((m) => m.active);
     }
     if (args.search?.trim()) {
-      const term = normalizeText(args.search);
-      materials = materials.filter(
-        (m) =>
-          normalizeText(m.name).includes(term) ||
-          (m.category && normalizeText(m.category).includes(term))
+      materials = materials.filter((m) =>
+        materialMatchesSearch(m, args.search!)
       );
     }
-    return materials.map(toMaterialRow);
+    return materials.map(toMaterialListRow);
+  },
+});
+
+export const listCatalog = engineeringOrPurchasingQuery({
+  args: {
+    search: v.optional(v.string()),
+    activeOnly: v.optional(v.boolean()),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: v.object({
+    page: v.array(materialCatalogValidator),
+    isDone: v.boolean(),
+    continueCursor: v.string(),
+    pageStatus: v.optional(v.union(v.string(), v.null())),
+    splitCursor: v.optional(v.union(v.string(), v.null())),
+  }),
+  handler: async (ctx, args) => {
+    const search = args.search?.trim();
+    let results;
+    if (search) {
+      const all = await ctx.db.query("materials").order("desc").collect();
+      const filtered = all.filter((material) => {
+        if (args.activeOnly && !material.active) return false;
+        return materialMatchesSearch(material, search);
+      });
+      const start = args.paginationOpts.cursor
+        ? Number.parseInt(args.paginationOpts.cursor, 10)
+        : 0;
+      const page = filtered.slice(start, start + args.paginationOpts.numItems);
+      const next = start + args.paginationOpts.numItems;
+      results = {
+        page,
+        isDone: next >= filtered.length,
+        continueCursor: String(next),
+      };
+    } else if (args.activeOnly) {
+      results = await ctx.db
+        .query("materials")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .order("desc")
+        .paginate(args.paginationOpts);
+    } else {
+      results = await ctx.db
+        .query("materials")
+        .order("desc")
+        .paginate(args.paginationOpts);
+    }
+
+    return {
+      ...results,
+      page: await Promise.all(
+        results.page.map(async (material) => buildCatalogRow(ctx, material))
+      ),
+    };
   },
 });
 
 export const get = engineeringOrPurchasingQuery({
   args: { materialId: v.id("materials") },
-  returns: v.union(materialValidator, v.null()),
+  returns: v.union(materialCatalogValidator, v.null()),
   handler: async (ctx, args) => {
     const m = await ctx.db.get("materials", args.materialId);
-    return m ? toMaterialRow(m) : null;
+    return m ? await buildCatalogRow(ctx, m) : null;
   },
 });
 
@@ -120,8 +223,14 @@ export const suggest = engineeringOrPurchasingQuery({
     v.object({
       _id: v.id("materials"),
       name: v.string(),
+      sku: v.union(v.string(), v.null()),
       unit: v.union(v.string(), v.null()),
-      matchType: v.union(v.literal("alias"), v.literal("name")),
+      matchType: v.union(
+        v.literal("alias"),
+        v.literal("name"),
+        v.literal("sku"),
+        v.literal("barcode")
+      ),
     })
   ),
   handler: async (ctx, args) => {
@@ -135,10 +244,11 @@ export const suggest = engineeringOrPurchasingQuery({
       .take(limit);
 
     const results: Array<{
-      _id: import("./_generated/dataModel").Id<"materials">;
+      _id: Id<"materials">;
       name: string;
+      sku: string | null;
       unit: string | null;
-      matchType: "alias" | "name";
+      matchType: "alias" | "name" | "sku" | "barcode";
     }> = [];
 
     for (const alias of aliasHits) {
@@ -147,20 +257,53 @@ export const suggest = engineeringOrPurchasingQuery({
         results.push({
           _id: m._id,
           name: m.name,
+          sku: m.sku ?? null,
           unit: m.unit ?? null,
           matchType: "alias",
         });
       }
     }
 
+    const skuHit = await ctx.db
+      .query("materials")
+      .withIndex("by_sku", (q) => q.eq("sku", normalizeSku(args.term)))
+      .unique();
+    if (skuHit?.active && !results.some((r) => r._id === skuHit._id)) {
+      results.push({
+        _id: skuHit._id,
+        name: skuHit.name,
+        sku: skuHit.sku ?? null,
+        unit: skuHit.unit ?? null,
+        matchType: "sku",
+      });
+    }
+
+    const barcodeHit = await ctx.db
+      .query("materials")
+      .withIndex("by_barcode", (q) => q.eq("barcode", normalizeBarcode(args.term)))
+      .unique();
+    if (
+      barcodeHit?.active &&
+      !results.some((r) => r._id === barcodeHit._id)
+    ) {
+      results.push({
+        _id: barcodeHit._id,
+        name: barcodeHit.name,
+        sku: barcodeHit.sku ?? null,
+        unit: barcodeHit.unit ?? null,
+        matchType: "barcode",
+      });
+    }
+
     const all = await ctx.db.query("materials").collect();
     for (const m of all) {
       if (!m.active) continue;
       if (results.some((r) => r._id === m._id)) continue;
-      if (normalizeText(m.name).includes(term)) {
+      if (materialMatchesSearch(m, term)) {
         results.push({
           _id: m._id,
           name: m.name,
+          sku: m.sku ?? null,
           unit: m.unit ?? null,
           matchType: "name",
         });
@@ -175,8 +318,15 @@ export const suggest = engineeringOrPurchasingQuery({
 export const create = purchasingMutation({
   args: {
     name: v.string(),
+    sku: v.optional(v.string()),
+    barcode: v.optional(v.string()),
+    manufacturer: v.optional(v.string()),
+    manufacturerPartNumber: v.optional(v.string()),
     category: v.optional(v.string()),
     unit: v.optional(v.string()),
+    purchaseUnit: v.optional(v.string()),
+    unitsPerPurchaseUnit: v.optional(v.number()),
+    trackInventory: v.optional(v.boolean()),
     spec: v.optional(v.string()),
     brandPreference: v.optional(v.string()),
     technicalAttributes: v.optional(v.array(technicalAttributeValidator)),
@@ -187,14 +337,52 @@ export const create = purchasingMutation({
     const name = args.name.trim();
     if (!name) throw new Error("Informe o nome do material");
 
+    validateUnitsPerPurchaseUnit(args.unitsPerPurchaseUnit);
+
+    const sku = args.sku?.trim()
+      ? normalizeSku(args.sku)
+      : await allocateNextSku(ctx);
+    await assertUniqueSku(ctx, sku);
+
+    const barcode = args.barcode?.trim()
+      ? normalizeBarcode(args.barcode)
+      : undefined;
+    if (barcode) await assertUniqueBarcode(ctx, barcode);
+
     const now = Date.now();
+    const category = args.category?.trim() || undefined;
+    const manufacturer = args.manufacturer?.trim() || undefined;
+    const manufacturerPartNumber =
+      args.manufacturerPartNumber?.trim() || undefined;
+    const unit = args.unit?.trim() || undefined;
+    const purchaseUnit = args.purchaseUnit?.trim() || undefined;
+    const spec = args.spec?.trim() || undefined;
+    const brandPreference = args.brandPreference?.trim() || undefined;
+
     const materialId = await ctx.db.insert("materials", {
       name,
-      category: args.category?.trim() || undefined,
-      unit: args.unit?.trim() || undefined,
-      spec: args.spec?.trim() || undefined,
-      brandPreference: args.brandPreference?.trim() || undefined,
+      sku,
+      barcode,
+      manufacturer,
+      manufacturerPartNumber,
+      category,
+      unit,
+      purchaseUnit,
+      unitsPerPurchaseUnit: args.unitsPerPurchaseUnit,
+      trackInventory: args.trackInventory ?? true,
+      spec,
+      brandPreference,
       technicalAttributes: sanitizeTechnicalAttributes(args.technicalAttributes),
+      searchText: buildMaterialSearchText({
+        name,
+        sku,
+        barcode,
+        category,
+        manufacturer,
+        manufacturerPartNumber,
+        brandPreference,
+        spec,
+      }),
       active: true,
       status: "active",
       createdAt: now,
@@ -216,7 +404,7 @@ export const create = purchasingMutation({
       action: "create",
       tableName: "materials",
       recordId: materialId,
-      details: name,
+      details: `${sku} — ${name}`,
     });
 
     return materialId;
@@ -227,8 +415,15 @@ export const update = purchasingMutation({
   args: {
     materialId: v.id("materials"),
     name: v.optional(v.string()),
+    sku: v.optional(v.string()),
+    barcode: v.optional(v.union(v.string(), v.null())),
+    manufacturer: v.optional(v.string()),
+    manufacturerPartNumber: v.optional(v.string()),
     category: v.optional(v.string()),
     unit: v.optional(v.string()),
+    purchaseUnit: v.optional(v.string()),
+    unitsPerPurchaseUnit: v.optional(v.number()),
+    trackInventory: v.optional(v.boolean()),
     spec: v.optional(v.string()),
     brandPreference: v.optional(v.string()),
     technicalAttributes: v.optional(v.array(technicalAttributeValidator)),
@@ -240,14 +435,48 @@ export const update = purchasingMutation({
     const material = await ctx.db.get("materials", args.materialId);
     if (!material) throw new Error("Material não encontrado");
 
+    validateUnitsPerPurchaseUnit(args.unitsPerPurchaseUnit);
+
     const updates: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.name !== undefined) {
       const name = args.name.trim();
       if (!name) throw new Error("Informe o nome do material");
       updates.name = name;
     }
-    if (args.category !== undefined) updates.category = args.category.trim() || undefined;
+    if (args.sku !== undefined) {
+      const sku = normalizeSku(args.sku);
+      if (!sku) throw new Error("Informe o SKU");
+      await assertUniqueSku(ctx, sku, args.materialId);
+      updates.sku = sku;
+    }
+    if (args.barcode !== undefined) {
+      const barcode =
+        args.barcode === null ? undefined : normalizeBarcode(args.barcode);
+      if (barcode) {
+        await assertUniqueBarcode(ctx, barcode, args.materialId);
+      }
+      updates.barcode = barcode;
+    }
+    if (args.manufacturer !== undefined) {
+      updates.manufacturer = args.manufacturer.trim() || undefined;
+    }
+    if (args.manufacturerPartNumber !== undefined) {
+      updates.manufacturerPartNumber =
+        args.manufacturerPartNumber.trim() || undefined;
+    }
+    if (args.category !== undefined) {
+      updates.category = args.category.trim() || undefined;
+    }
     if (args.unit !== undefined) updates.unit = args.unit.trim() || undefined;
+    if (args.purchaseUnit !== undefined) {
+      updates.purchaseUnit = args.purchaseUnit.trim() || undefined;
+    }
+    if (args.unitsPerPurchaseUnit !== undefined) {
+      updates.unitsPerPurchaseUnit = args.unitsPerPurchaseUnit;
+    }
+    if (args.trackInventory !== undefined) {
+      updates.trackInventory = args.trackInventory;
+    }
     if (args.spec !== undefined) updates.spec = args.spec.trim() || undefined;
     if (args.brandPreference !== undefined) {
       updates.brandPreference = args.brandPreference.trim() || undefined;
@@ -257,8 +486,25 @@ export const update = purchasingMutation({
         args.technicalAttributes
       );
     }
-    if (args.active !== undefined) updates.active = args.active;
+    if (args.active !== undefined) {
+      updates.active = args.active;
+      if (args.status === undefined) {
+        updates.status = args.active ? "active" : "archived";
+      }
+    }
     if (args.status !== undefined) updates.status = args.status;
+
+    const next = { ...material, ...updates };
+    updates.searchText = buildMaterialSearchText({
+      name: next.name,
+      sku: next.sku,
+      barcode: next.barcode,
+      category: next.category,
+      manufacturer: next.manufacturer,
+      manufacturerPartNumber: next.manufacturerPartNumber,
+      brandPreference: next.brandPreference,
+      spec: next.spec,
+    });
 
     await ctx.db.patch("materials", args.materialId, updates);
     await logAudit(ctx, ctx.user, {

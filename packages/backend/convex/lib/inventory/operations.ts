@@ -77,7 +77,7 @@ export async function findInventoryLocation(
     .first();
 }
 
-async function getOrCreateCentralLocation(
+export async function getOrCreateCentralLocation(
   ctx: MutationCtx
 ): Promise<Doc<"inventoryLocations">> {
   const existing = await findInventoryLocation(ctx);

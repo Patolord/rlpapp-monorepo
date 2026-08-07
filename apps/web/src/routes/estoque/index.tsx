@@ -21,6 +21,7 @@ import { InventoryAddressDialog } from "@/components/estoque/inventory-address-d
 import { InventoryApprovals } from "@/components/estoque/inventory-approvals";
 import { InventoryMovementDialog } from "@/components/estoque/inventory-movement-dialog";
 import { InventoryRules } from "@/components/estoque/inventory-rules";
+import { StockHealthBadge } from "@/components/compras/material-replenishment-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -124,6 +125,7 @@ function EstoqueContent() {
     return centralBalances.results.filter(
       (balance) =>
         balance.materialName.toLocaleLowerCase("pt-BR").includes(term) ||
+        balance.materialSku?.toLocaleLowerCase("pt-BR").includes(term) ||
         balance.category?.toLocaleLowerCase("pt-BR").includes(term) ||
         balance.physicalAddress?.toLocaleLowerCase("pt-BR").includes(term)
     );
@@ -298,6 +300,7 @@ function EstoqueContent() {
                       <TableHead>Material</TableHead>
                       <TableHead>Categoria</TableHead>
                       <TableHead className="text-right">Saldo</TableHead>
+                      <TableHead>Saúde</TableHead>
                       <TableHead>Localização</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -305,11 +308,26 @@ function EstoqueContent() {
                     {filteredCentralBalances.map((balance) => (
                       <TableRow key={balance._id}>
                         <TableCell className="font-medium">
-                          {balance.materialName}
+                          <div>
+                            <p>{balance.materialName}</p>
+                            {balance.materialSku && (
+                              <p className="text-xs text-muted-foreground">
+                                {balance.materialSku}
+                              </p>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>{balance.category ?? "—"}</TableCell>
                         <TableCell className="text-right font-semibold">
                           {balance.quantity} {balance.unit ?? ""}
+                        </TableCell>
+                        <TableCell>
+                          <StockHealthBadge
+                            state={balance.replenishmentState}
+                            suggestedOrderQuantity={
+                              balance.suggestedOrderQuantity
+                            }
+                          />
                         </TableCell>
                         <TableCell>
                           {access.canWriteCentral ? (
@@ -397,17 +415,33 @@ function EstoqueContent() {
                         <TableHead>Material</TableHead>
                         <TableHead>Categoria</TableHead>
                         <TableHead className="text-right">Disponível</TableHead>
+                        <TableHead>Saúde</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {projectBalances.results.map((balance) => (
                         <TableRow key={balance._id}>
                           <TableCell className="font-medium">
-                            {balance.materialName}
+                            <div>
+                              <p>{balance.materialName}</p>
+                              {balance.materialSku && (
+                                <p className="text-xs text-muted-foreground">
+                                  {balance.materialSku}
+                                </p>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>{balance.category ?? "—"}</TableCell>
                           <TableCell className="text-right font-semibold">
                             {balance.quantity} {balance.unit ?? ""}
+                          </TableCell>
+                          <TableCell>
+                            <StockHealthBadge
+                              state={balance.replenishmentState}
+                              suggestedOrderQuantity={
+                                balance.suggestedOrderQuantity
+                              }
+                            />
                           </TableCell>
                         </TableRow>
                       ))}

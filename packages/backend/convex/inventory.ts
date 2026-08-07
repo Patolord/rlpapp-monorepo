@@ -25,6 +25,8 @@ import {
   enrichInventoryDocument,
   listProjectInventorySummaries,
 } from "./lib/inventory/queries";
+import { enrichBalanceWithReplenishment } from "./lib/inventory/stockPolicy";
+import { replenishmentState } from "./schema";
 
 const movementInputType = v.union(
   v.literal("entry"),
@@ -113,6 +115,7 @@ export const listMaterialOptions = inventoryQuery({
     v.object({
       _id: v.id("materials"),
       name: v.string(),
+      sku: v.union(v.string(), v.null()),
       category: v.union(v.string(), v.null()),
       unit: v.union(v.string(), v.null()),
       technicalAttributes: v.array(
@@ -131,11 +134,13 @@ export const listMaterialOptions = inventoryQuery({
         (material) =>
           !search ||
           material.name.toLocaleLowerCase("pt-BR").includes(search) ||
-          material.category?.toLocaleLowerCase("pt-BR").includes(search)
+          material.category?.toLocaleLowerCase("pt-BR").includes(search) ||
+          material.sku?.toLocaleLowerCase("pt-BR").includes(search)
       )
       .map((material) => ({
         _id: material._id,
         name: material.name,
+        sku: material.sku ?? null,
         category: material.category ?? null,
         unit: material.unit ?? null,
         technicalAttributes: material.technicalAttributes ?? [],
@@ -175,15 +180,24 @@ export const listBalances = inventoryQuery({
         locationName: v.string(),
         materialId: v.id("materials"),
         materialName: v.string(),
+        materialSku: v.union(v.string(), v.null()),
         category: v.union(v.string(), v.null()),
         unit: v.union(v.string(), v.null()),
         quantity: v.number(),
         physicalAddress: v.union(v.string(), v.null()),
+        replenishmentState: replenishmentState,
+        suggestedOrderQuantity: v.union(v.number(), v.null()),
+        minimumQuantity: v.union(v.number(), v.null()),
+        reorderPoint: v.union(v.number(), v.null()),
+        targetQuantity: v.union(v.number(), v.null()),
+        leadTimeDays: v.union(v.number(), v.null()),
         updatedAt: v.number(),
       })
     ),
     isDone: v.boolean(),
     continueCursor: v.string(),
+    pageStatus: v.optional(v.union(v.string(), v.null())),
+    splitCursor: v.optional(v.union(v.string(), v.null())),
   }),
   handler: async (ctx, args) => {
     const canViewCentral =
@@ -210,16 +224,28 @@ export const listBalances = inventoryQuery({
             "materials",
             balance.materialId
           );
+          const replenishment = await enrichBalanceWithReplenishment(
+            ctx,
+            balance,
+            material
+          );
           return {
             _id: balance._id,
             locationId: location._id,
             locationName: location.name,
             materialId: balance.materialId,
             materialName: material?.name ?? "Material removido",
+            materialSku: replenishment.materialSku,
             category: material?.category ?? null,
             unit: material?.unit ?? null,
             quantity: balance.quantity,
             physicalAddress: balance.physicalAddress ?? null,
+            replenishmentState: replenishment.replenishmentState,
+            suggestedOrderQuantity: replenishment.suggestedOrderQuantity,
+            minimumQuantity: replenishment.minimumQuantity,
+            reorderPoint: replenishment.reorderPoint,
+            targetQuantity: replenishment.targetQuantity,
+            leadTimeDays: replenishment.leadTimeDays,
             updatedAt: balance.updatedAt,
           };
         })
@@ -255,6 +281,8 @@ export const listDocuments = inventoryQuery({
     page: v.array(documentRowValidator),
     isDone: v.boolean(),
     continueCursor: v.string(),
+    pageStatus: v.optional(v.union(v.string(), v.null())),
+    splitCursor: v.optional(v.union(v.string(), v.null())),
   }),
   handler: async (ctx, args) => {
     const results = args.status
@@ -331,6 +359,8 @@ export const listEventsPaginated = inventoryQuery({
     ),
     isDone: v.boolean(),
     continueCursor: v.string(),
+    pageStatus: v.optional(v.union(v.string(), v.null())),
+    splitCursor: v.optional(v.union(v.string(), v.null())),
   }),
   handler: async (ctx, args) => {
     const location = await findInventoryLocation(ctx, args.projectId);
