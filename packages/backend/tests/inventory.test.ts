@@ -196,6 +196,33 @@ describe("estoque central e obras", () => {
     expect(eventCount).toBe(0);
   });
 
+  test("permissões separam o estoque central dos estoques de obra", async () => {
+    const { ids, engineer, purchasing } = await seedInventoryFixture();
+
+    await expect(
+      engineer.query(api.inventory.listBalances, {
+        paginationOpts: { numItems: 20, cursor: null },
+      })
+    ).rejects.toThrow("só pode consultar estoques de obras");
+
+    const projectBalances = await engineer.query(
+      api.inventory.listBalances,
+      {
+        projectId: ids.projectId,
+        paginationOpts: { numItems: 20, cursor: null },
+      }
+    );
+    expect(projectBalances.page).toEqual([]);
+
+    await expect(
+      purchasing.mutation(api.inventory.createDocument, {
+        type: "transfer",
+        projectId: ids.projectId,
+        lines: [{ materialId: ids.equipmentId, quantity: 1 }],
+      })
+    ).rejects.toThrow("não pode registrar");
+  });
+
   test("obra registra consumo e Estoque conclui retorno", async () => {
     const { ids, purchasing, warehouse, engineer, t } =
       await seedInventoryFixture();
