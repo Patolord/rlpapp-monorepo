@@ -144,6 +144,7 @@ function EstoqueContent() {
     );
   }
 
+  const inventoryAccess = access;
   const sections: Array<{ key: Section; label: string; icon: typeof Package }> = [
     { key: "central", label: "Central", icon: Warehouse },
     { key: "obras", label: "Obras", icon: Building2 },
@@ -188,9 +189,12 @@ function EstoqueContent() {
   }
 
   function canPostDocument(type: string): boolean {
-    if (access.canWriteCentral) return true;
-    if (type === "entry") return access.canCreateEntry;
-    return type === "consumption" && access.canCreateProjectMovement;
+    if (inventoryAccess.canWriteCentral) return true;
+    if (type === "entry") return inventoryAccess.canCreateEntry;
+    return (
+      type === "consumption" &&
+      inventoryAccess.canCreateProjectMovement
+    );
   }
 
   return (

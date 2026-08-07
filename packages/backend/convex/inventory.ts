@@ -289,7 +289,7 @@ export const listPendingApprovals = inventoryQuery({
   },
 });
 
-export const listEvents = inventoryQuery({
+export const listEventsPaginated = inventoryQuery({
   args: {
     projectId: v.optional(v.id("projects")),
     paginationOpts: paginationOptsValidator,
@@ -340,6 +340,84 @@ export const listEvents = inventoryQuery({
         })
       ),
     };
+  },
+});
+
+const legacyEventType = v.union(
+  v.literal("RegisteredIn"),
+  v.literal("RegisteredOut"),
+  v.literal("Reversal"),
+  v.literal("InventoryAdjust")
+);
+
+// Compatibilidade com a tela nativa existente. O MVP web usa o endpoint
+// paginado acima; este adaptador permanece limitado a 200 eventos.
+export const listEvents = inventoryQuery({
+  args: {
+    type: v.optional(legacyEventType),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("inventoryEvents"),
+      type: legacyEventType,
+      qtyDelta: v.number(),
+      product: v.union(
+        v.object({
+          name: v.string(),
+          unit: v.union(v.string(), v.null()),
+        }),
+        v.null()
+      ),
+      refType: v.union(
+        v.literal("receipt"),
+        v.literal("shipment"),
+        v.literal("adjustment")
+      ),
+      refId: v.string(),
+      createdAt: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const limit = Math.min(Math.max(Math.floor(args.limit ?? 100), 1), 200);
+    const events = await ctx.db
+      .query("inventoryEvents")
+      .order("desc")
+      .take(limit);
+    const rows = await Promise.all(
+      events.map(async (event) => {
+        const [material, document] = await Promise.all([
+          ctx.db.get("materials", event.materialId),
+          ctx.db.get("inventoryDocuments", event.documentId),
+        ]);
+        const type =
+          event.type === "in"
+            ? ("RegisteredIn" as const)
+            : event.type === "out"
+              ? ("RegisteredOut" as const)
+              : event.type === "adjustment"
+                ? ("InventoryAdjust" as const)
+                : ("Reversal" as const);
+        const refType =
+          document?.type === "entry"
+            ? ("receipt" as const)
+            : document?.type === "adjustment"
+              ? ("adjustment" as const)
+              : ("shipment" as const);
+        return {
+          _id: event._id,
+          type,
+          qtyDelta: event.quantityDelta,
+          product: material
+            ? { name: material.name, unit: material.unit ?? null }
+            : null,
+          refType,
+          refId: event.documentId,
+          createdAt: event.createdAt,
+        };
+      })
+    );
+    return args.type ? rows.filter((row) => row.type === args.type) : rows;
   },
 });
 
