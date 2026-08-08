@@ -5,6 +5,7 @@ import {
   formatTaxId,
   normalizeCustomerName,
   normalizeTaxId,
+  validateTaxIdForPersonType,
 } from "./lib/customers/helpers";
 import {
   bulkImportResultValidator,
@@ -19,6 +20,7 @@ export const customerValidator = v.object({
   _id: v.id("customers"),
   _creationTime: v.number(),
   name: v.string(),
+  personType: v.union(v.literal("pf"), v.literal("pj"), v.null()),
   legalName: v.union(v.string(), v.null()),
   taxId: v.union(v.string(), v.null()),
   email: v.union(v.string(), v.null()),
@@ -38,7 +40,10 @@ export const contactValidator = v.object({
   email: v.union(v.string(), v.null()),
   phone: v.union(v.string(), v.null()),
   role: v.union(v.string(), v.null()),
+  active: v.boolean(),
+  archivedAt: v.union(v.number(), v.null()),
   createdAt: v.number(),
+  updatedAt: v.union(v.number(), v.null()),
 });
 
 function toCustomerRow(c: Doc<"customers">) {
@@ -46,6 +51,7 @@ function toCustomerRow(c: Doc<"customers">) {
     _id: c._id,
     _creationTime: c._creationTime,
     name: c.name,
+    personType: c.personType ?? null,
     legalName: c.legalName ?? null,
     taxId: c.taxId ?? null,
     email: c.email ?? null,
@@ -62,6 +68,7 @@ function toCustomerRow(c: Doc<"customers">) {
 function customerSnapshot(c: Doc<"customers">) {
   return {
     name: c.name,
+    personType: c.personType,
     legalName: c.legalName,
     taxId: c.taxId,
     email: c.email,
@@ -69,6 +76,18 @@ function customerSnapshot(c: Doc<"customers">) {
     address: c.address,
     notes: c.notes,
     active: c.active,
+    archivedAt: c.archivedAt,
+  };
+}
+
+function contactSnapshot(c: Doc<"customerContacts">) {
+  return {
+    customerId: c.customerId,
+    name: c.name,
+    email: c.email,
+    phone: c.phone,
+    role: c.role,
+    active: c.active ?? true,
     archivedAt: c.archivedAt,
   };
 }
@@ -141,7 +160,10 @@ export const list = engineeringQuery({
 });
 
 export const get = engineeringQuery({
-  args: { customerId: v.id("customers") },
+  args: {
+    customerId: v.id("customers"),
+    includeInactiveContacts: v.optional(v.boolean()),
+  },
   returns: v.union(
     v.object({
       customer: customerValidator,
@@ -156,16 +178,22 @@ export const get = engineeringQuery({
       .query("customerContacts")
       .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
       .collect();
+    const visibleContacts = args.includeInactiveContacts
+      ? contacts
+      : contacts.filter((contact) => contact.active !== false);
     return {
       customer: toCustomerRow(customer),
-      contacts: contacts.map((c) => ({
+      contacts: visibleContacts.map((c) => ({
         _id: c._id,
         customerId: c.customerId,
         name: c.name,
         email: c.email ?? null,
         phone: c.phone ?? null,
         role: c.role ?? null,
+        active: c.active ?? true,
+        archivedAt: c.archivedAt ?? null,
         createdAt: c.createdAt,
+        updatedAt: c.updatedAt ?? null,
       })),
     };
   },
@@ -174,6 +202,7 @@ export const get = engineeringQuery({
 export const create = engineeringMutation({
   args: {
     name: v.string(),
+    personType: v.optional(v.union(v.literal("pf"), v.literal("pj"))),
     legalName: v.optional(v.string()),
     taxId: v.optional(v.string()),
     email: v.optional(v.string()),
@@ -187,12 +216,14 @@ export const create = engineeringMutation({
     if (!name) throw new Error("Informe o nome do cliente");
 
     const taxId = args.taxId ? formatTaxId(args.taxId) : undefined;
+    validateTaxIdForPersonType(taxId, args.personType);
     await assertUniqueCustomerIdentity(ctx, { name, taxId });
 
     const now = Date.now();
     const customerId = await ctx.db.insert("customers", {
       name,
       nameNormalized: normalizeCustomerName(name),
+      personType: args.personType,
       legalName: args.legalName?.trim() || undefined,
       taxId,
       taxIdNormalized: taxId ? normalizeTaxId(taxId) : undefined,
@@ -212,7 +243,7 @@ export const create = engineeringMutation({
       tableName: "customers",
       recordId: customerId,
       entityLabel: name,
-      snapshotAfter: { name, taxId },
+      snapshotAfter: { name, personType: args.personType, taxId },
     });
 
     return customerId;
@@ -228,6 +259,7 @@ const bulkCustomerContactValidator = v.object({
 
 const bulkCustomerItemValidator = v.object({
   name: v.string(),
+  personType: v.optional(v.union(v.literal("pf"), v.literal("pj"))),
   legalName: v.optional(v.string()),
   taxId: v.optional(v.string()),
   email: v.optional(v.string()),
@@ -239,6 +271,7 @@ const bulkCustomerItemValidator = v.object({
 
 type BulkCustomerItem = {
   name: string;
+  personType?: "pf" | "pj";
   legalName?: string;
   taxId?: string;
   email?: string;
@@ -275,6 +308,15 @@ async function bulkCreateCustomers(
 
     const nameNormalized = normalizeCustomerName(nameCheck.name);
     const taxId = item.taxId ? formatTaxId(item.taxId) : undefined;
+    try {
+      validateTaxIdForPersonType(taxId, item.personType);
+    } catch (error) {
+      result.errors.push({
+        row,
+        message: error instanceof Error ? error.message : "CPF/CNPJ inválido",
+      });
+      continue;
+    }
     const taxIdNormalized = taxId ? normalizeTaxId(taxId) : undefined;
     const existingByName = importedNames.has(nameNormalized)
       ? true
@@ -306,6 +348,7 @@ async function bulkCreateCustomers(
     const customerId = await ctx.db.insert("customers", {
       name: nameCheck.name,
       nameNormalized,
+      personType: item.personType,
       legalName: item.legalName?.trim() || undefined,
       taxId,
       taxIdNormalized,
@@ -327,6 +370,7 @@ async function bulkCreateCustomers(
         email: item.contact.email?.trim() || undefined,
         phone: item.contact.phone?.trim() || undefined,
         role: item.contact.role?.trim() || undefined,
+        active: true,
         createdAt: now,
         updatedAt: now,
       });
@@ -367,6 +411,9 @@ export const update = engineeringMutation({
   args: {
     customerId: v.id("customers"),
     name: v.optional(v.string()),
+    personType: v.optional(
+      v.union(v.literal("pf"), v.literal("pj"), v.null())
+    ),
     legalName: v.optional(v.string()),
     taxId: v.optional(v.union(v.string(), v.null())),
     email: v.optional(v.string()),
@@ -395,6 +442,10 @@ export const update = engineeringMutation({
       updates.name = name;
       updates.nameNormalized = normalizeCustomerName(name);
     }
+    if (args.personType !== undefined) {
+      updates.personType =
+        args.personType === null ? undefined : args.personType;
+    }
     if (args.legalName !== undefined) {
       updates.legalName = args.legalName.trim() || undefined;
     }
@@ -413,7 +464,11 @@ export const update = engineeringMutation({
     if (args.active !== undefined) updates.active = args.active;
 
     const nextName = updates.name ?? customer.name;
-    const nextTaxId = updates.taxId ?? customer.taxId;
+    const nextTaxId =
+      args.taxId === undefined ? customer.taxId : updates.taxId;
+    const nextPersonType =
+      args.personType === undefined ? customer.personType : updates.personType;
+    validateTaxIdForPersonType(nextTaxId, nextPersonType);
     await assertUniqueCustomerIdentity(ctx, {
       name: nextName,
       taxId: nextTaxId,
@@ -430,6 +485,7 @@ export const update = engineeringMutation({
       entityLabel: nextName,
       changes: diffFields(before, customerSnapshot(afterDoc!), [
         "name",
+        "personType",
         "legalName",
         "taxId",
         "email",
@@ -521,6 +577,9 @@ export const addContact = engineeringMutation({
   handler: async (ctx, args) => {
     const customer = await ctx.db.get("customers", args.customerId);
     if (!customer) throw new Error("Cliente não encontrado");
+    if (customer.archivedAt) {
+      throw new Error("Cliente arquivado — restaure antes de adicionar contatos");
+    }
     const name = args.name.trim();
     if (!name) throw new Error("Informe o nome do contato");
 
@@ -531,6 +590,7 @@ export const addContact = engineeringMutation({
       email: args.email?.trim() || undefined,
       phone: args.phone?.trim() || undefined,
       role: args.role?.trim() || undefined,
+      active: true,
       createdAt: now,
       updatedAt: now,
     });
@@ -540,10 +600,77 @@ export const addContact = engineeringMutation({
       tableName: "customerContacts",
       recordId: contactId,
       entityLabel: `${name} (${customer.name})`,
-      snapshotAfter: { name, customerId: args.customerId },
+      snapshotAfter: {
+        customerId: args.customerId,
+        name,
+        email: args.email?.trim() || undefined,
+        phone: args.phone?.trim() || undefined,
+        role: args.role?.trim() || undefined,
+        active: true,
+      },
     });
 
     return contactId;
+  },
+});
+
+export const updateContact = engineeringMutation({
+  args: {
+    contactId: v.id("customerContacts"),
+    name: v.optional(v.string()),
+    email: v.optional(v.union(v.string(), v.null())),
+    phone: v.optional(v.union(v.string(), v.null())),
+    role: v.optional(v.union(v.string(), v.null())),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const contact = await ctx.db.get("customerContacts", args.contactId);
+    if (!contact) throw new Error("Contato não encontrado");
+    if (contact.active === false) {
+      throw new Error("Contato inativo — restaure antes de editar");
+    }
+    const customer = await ctx.db.get("customers", contact.customerId);
+    if (!customer) throw new Error("Cliente não encontrado");
+    if (customer.archivedAt) {
+      throw new Error("Cliente arquivado — restaure antes de editar contatos");
+    }
+
+    const before = contactSnapshot(contact);
+    const updates: Partial<Doc<"customerContacts">> = {
+      updatedAt: Date.now(),
+    };
+    if (args.name !== undefined) {
+      const name = args.name.trim();
+      if (!name) throw new Error("Informe o nome do contato");
+      updates.name = name;
+    }
+    if (args.email !== undefined) {
+      updates.email = args.email === null ? undefined : args.email.trim() || undefined;
+    }
+    if (args.phone !== undefined) {
+      updates.phone = args.phone === null ? undefined : args.phone.trim() || undefined;
+    }
+    if (args.role !== undefined) {
+      updates.role = args.role === null ? undefined : args.role.trim() || undefined;
+    }
+
+    await ctx.db.patch("customerContacts", args.contactId, updates);
+    const after = await ctx.db.get("customerContacts", args.contactId);
+    await logAudit(ctx, ctx.user, {
+      action: "update",
+      tableName: "customerContacts",
+      recordId: args.contactId,
+      entityLabel: after?.name ?? contact.name,
+      changes: diffFields(before, contactSnapshot(after!), [
+        "name",
+        "email",
+        "phone",
+        "role",
+      ]),
+      snapshotBefore: before,
+      snapshotAfter: after ? contactSnapshot(after) : undefined,
+    });
+    return null;
   },
 });
 
@@ -553,19 +680,56 @@ export const removeContact = engineeringMutation({
   handler: async (ctx, args) => {
     const contact = await ctx.db.get("customerContacts", args.contactId);
     if (!contact) throw new Error("Contato não encontrado");
+    if (contact.active === false) return null;
 
+    const before = contactSnapshot(contact);
+    const now = Date.now();
+    await ctx.db.patch("customerContacts", args.contactId, {
+      active: false,
+      archivedAt: now,
+      updatedAt: now,
+    });
     await logAudit(ctx, ctx.user, {
-      action: "delete",
+      action: "archive",
       tableName: "customerContacts",
       recordId: args.contactId,
       entityLabel: contact.name,
-      snapshotBefore: {
-        name: contact.name,
-        customerId: contact.customerId,
-      },
+      snapshotBefore: before,
+      snapshotAfter: { ...before, active: false, archivedAt: now },
     });
 
-    await ctx.db.delete("customerContacts", args.contactId);
+    return null;
+  },
+});
+
+export const restoreContact = engineeringMutation({
+  args: { contactId: v.id("customerContacts") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const contact = await ctx.db.get("customerContacts", args.contactId);
+    if (!contact) throw new Error("Contato não encontrado");
+    if (contact.active !== false) return null;
+    const customer = await ctx.db.get("customers", contact.customerId);
+    if (!customer) throw new Error("Cliente não encontrado");
+    if (customer.archivedAt) {
+      throw new Error("Cliente arquivado — restaure antes de reativar contatos");
+    }
+
+    const before = contactSnapshot(contact);
+    const now = Date.now();
+    await ctx.db.patch("customerContacts", args.contactId, {
+      active: true,
+      archivedAt: undefined,
+      updatedAt: now,
+    });
+    await logAudit(ctx, ctx.user, {
+      action: "restore",
+      tableName: "customerContacts",
+      recordId: args.contactId,
+      entityLabel: contact.name,
+      snapshotBefore: before,
+      snapshotAfter: { ...before, active: true, archivedAt: undefined },
+    });
     return null;
   },
 });

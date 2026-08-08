@@ -1,6 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Loader2, Plus, Trash2 } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, type SelectOption } from "@/components/ui/select";
 import { getErrorMessage } from "@/lib/errors";
 
 interface FloorDraft {
@@ -25,6 +26,9 @@ interface FloorDraft {
 interface ProjectInput {
   _id: Id<"projects">;
   name: string;
+  legacyNumber?: number | null;
+  customerId?: Id<"customers"> | null;
+  customerName?: string | null;
   floors: { number: number; label: string }[];
 }
 
@@ -53,9 +57,31 @@ export function ProjectFormDialog({
 }) {
   const createProject = useMutation(api.projects.create);
   const updateProject = useMutation(api.projects.update);
+  const customers = useQuery(api.customers.list, { activeOnly: true });
   const isEdit = Boolean(project);
+  const customerOptions: SelectOption[] = (customers ?? []).map((customer) => ({
+    value: customer._id,
+    label: customer.name,
+  }));
+  if (
+    customers !== undefined &&
+    project?.customerId &&
+    !customers.some((customer) => customer._id === project.customerId)
+  ) {
+    customerOptions.unshift({
+      value: project.customerId,
+      label: `${project.customerName ?? "Cliente atual indisponível"} (inativo)`,
+      disabled: true,
+    });
+  }
 
   const [name, setName] = useState(project?.name ?? "");
+  const [legacyNumber, setLegacyNumber] = useState(
+    project?.legacyNumber?.toString() ?? ""
+  );
+  const [customerId, setCustomerId] = useState<string>(
+    project?.customerId ?? ""
+  );
   const [floors, setFloors] = useState<FloorDraft[]>(() =>
     initialFloors(project)
   );
@@ -64,6 +90,8 @@ export function ProjectFormDialog({
   useEffect(() => {
     if (open) {
       setName(project?.name ?? "");
+      setLegacyNumber(project?.legacyNumber?.toString() ?? "");
+      setCustomerId(project?.customerId ?? "");
       setFloors(initialFloors(project));
     }
   }, [open, project]);
@@ -87,12 +115,24 @@ export function ProjectFormDialog({
   }
 
   async function handleSubmit() {
-    if (!name.trim() || floors.length === 0) return;
+    const parsedLegacyNumber = Number(legacyNumber);
+    if (
+      !name.trim() ||
+      !customerId ||
+      !Number.isSafeInteger(parsedLegacyNumber) ||
+      parsedLegacyNumber <= 0 ||
+      floors.length === 0
+    ) {
+      return;
+    }
 
     const payloadFloors = floors.map((f) => ({
       number: f.number,
       label: f.label.trim() || defaultFloorLabel(f.number),
     }));
+
+    const customerChanged =
+      (customerId || null) !== (project?.customerId ?? null);
 
     setSaving(true);
     try {
@@ -100,10 +140,19 @@ export function ProjectFormDialog({
         await updateProject({
           projectId: project._id,
           name: name.trim(),
+          ...(customerChanged
+            ? { customerId: customerId as Id<"customers"> }
+            : {}),
+          legacyNumber: parsedLegacyNumber,
           floors: payloadFloors,
         });
       } else {
-        await createProject({ name: name.trim(), floors: payloadFloors });
+        await createProject({
+          name: name.trim(),
+          customerId: customerId as Id<"customers">,
+          legacyNumber: parsedLegacyNumber,
+          floors: payloadFloors,
+        });
       }
       onClose();
     } catch (err) {
@@ -137,6 +186,28 @@ export function ProjectFormDialog({
             placeholder="Ex: Edifício Lorena"
             value={name}
             onChangeText={setName}
+            className="h-12"
+          />
+        </View>
+
+        <View className="gap-2">
+          <Label>Número da obra</Label>
+          <Input
+            placeholder="Ex: 1821"
+            value={legacyNumber}
+            onChangeText={setLegacyNumber}
+            keyboardType="number-pad"
+            className="h-12"
+          />
+        </View>
+
+        <View className="gap-2">
+          <Label>Cliente</Label>
+          <Select
+            value={customerId}
+            onValueChange={setCustomerId}
+            options={customerOptions}
+            placeholder="Selecione um cliente"
             className="h-12"
           />
         </View>
@@ -184,7 +255,16 @@ export function ProjectFormDialog({
         <Button variant="outline" onPress={onClose}>
           <ButtonText variant="outline">Cancelar</ButtonText>
         </Button>
-        <Button disabled={saving || !name.trim()} onPress={handleSubmit}>
+        <Button
+          disabled={
+            saving ||
+            !name.trim() ||
+            !customerId ||
+            !Number.isSafeInteger(Number(legacyNumber)) ||
+            Number(legacyNumber) <= 0
+          }
+          onPress={handleSubmit}
+        >
           {saving && <Loader2 size={16} color="#fafafa" />}
           <ButtonText className={saving ? "ml-1.5" : ""}>
             {isEdit ? "Salvar" : "Criar obra"}

@@ -109,6 +109,7 @@ function MedicoesOverviewPage() {
                           className="block"
                         >
                           <div className="font-medium group-hover:underline">
+                            {row.legacyNumber ? `#${row.legacyNumber} · ` : ""}
                             {row.projectName}
                           </div>
                           <div className="text-xs text-muted-foreground">

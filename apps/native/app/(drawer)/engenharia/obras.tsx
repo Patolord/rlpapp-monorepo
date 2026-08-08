@@ -21,7 +21,7 @@ type ProjectSummary = {
 };
 
 export default function ObrasScreen() {
-  const projects = useQuery(api.projects.list);
+  const projects = useQuery(api.projects.list, {});
   const [creating, setCreating] = useState(false);
 
   return (

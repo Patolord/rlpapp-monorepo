@@ -29,7 +29,12 @@ export function FieldProjectQrBrowser() {
     const term = search.trim().toLocaleLowerCase("pt-BR");
     if (!term) return projects;
     return projects.filter((project) =>
-      [project.name, project.client, project.address].some((value) =>
+      [
+        project.name,
+        project.legacyNumber?.toString(),
+        project.client,
+        project.address,
+      ].some((value) =>
         value?.toLocaleLowerCase("pt-BR").includes(term)
       )
     );
@@ -85,7 +90,10 @@ export function FieldProjectQrBrowser() {
                   <Building2 className="size-5 text-muted-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{project.name}</p>
+                  <p className="truncate text-sm font-semibold">
+                    {project.legacyNumber ? `#${project.legacyNumber} · ` : ""}
+                    {project.name}
+                  </p>
                   {(project.client || project.address) && (
                     <p className="truncate text-xs text-muted-foreground">
                       {[project.client, project.address].filter(Boolean).join(" · ")}

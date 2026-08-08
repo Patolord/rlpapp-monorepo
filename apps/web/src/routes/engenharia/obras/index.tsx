@@ -21,6 +21,8 @@ type ProjectSummary = {
   _id: string;
   slug: string;
   name: string;
+  legacyNumber: number | null;
+  customerName: string | null;
   floors: { number: number; label: string }[];
   createdAt: number;
   totalItems: number;
@@ -117,7 +119,15 @@ function ProjectCard({ project }: { project: ProjectSummary }) {
         <CardContent className="flex h-full flex-col gap-4">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 space-y-1">
-              <h2 className="truncate text-lg font-semibold">{project.name}</h2>
+              <h2 className="truncate text-lg font-semibold">
+                {project.legacyNumber ? `#${project.legacyNumber} · ` : ""}
+                {project.name}
+              </h2>
+              {project.customerName && (
+                <p className="truncate text-sm text-muted-foreground">
+                  {project.customerName}
+                </p>
+              )}
               <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 <Layers className="size-3.5" />
                 {project.floors.length} andar
