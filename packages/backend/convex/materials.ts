@@ -702,6 +702,7 @@ const bulkMaterialItemValidator = v.object({
   dimensions: v.optional(materialDimensionsValidator),
   sourceMaterialId: v.optional(v.string()),
   sourceDetailId: v.optional(v.string()),
+  sourceRowNumber: v.number(),
   quantity: v.optional(v.number()),
   unitCostCents: v.optional(v.number()),
   category: v.optional(v.string()),
@@ -750,6 +751,16 @@ export const bulkCreate = purchasingMutation({
         continue;
       }
       if (
+        !Number.isInteger(item.sourceRowNumber) ||
+        item.sourceRowNumber <= 0
+      ) {
+        result.errors.push({
+          row,
+          message: "Número da linha de origem deve ser um inteiro positivo",
+        });
+        continue;
+      }
+      if (
         item.unitCostCents !== undefined &&
         (!Number.isFinite(item.unitCostCents) || item.unitCostCents < 0)
       ) {
@@ -777,9 +788,12 @@ export const bulkCreate = purchasingMutation({
         variantLabel,
         dimensions,
       });
-      const rowKey = item.sourceMaterialId
-        ? `${item.sourceMaterialId.trim()}:${item.sourceDetailId?.trim() ?? ""}`
-        : identityKey;
+      const rowKey = [
+        item.sourceMaterialId?.trim() ?? "",
+        item.sourceDetailId?.trim() ?? "",
+        identityKey,
+        item.sourceRowNumber,
+      ].join(":");
       const importedRow = await ctx.db
         .query("materialImportRows")
         .withIndex("by_source_row", (q) =>
@@ -839,6 +853,7 @@ export const bulkCreate = purchasingMutation({
         materialId,
         sourceMaterialId: item.sourceMaterialId?.trim() || undefined,
         sourceDetailId: item.sourceDetailId?.trim() || undefined,
+        sourceRowNumber: item.sourceRowNumber,
         quantity: item.quantity,
         unitCostCents: item.unitCostCents,
         importedAt: now,

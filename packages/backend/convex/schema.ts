@@ -612,6 +612,7 @@ export default defineSchema({
     materialId: v.id("materials"),
     sourceMaterialId: v.optional(v.string()),
     sourceDetailId: v.optional(v.string()),
+    sourceRowNumber: v.optional(v.number()),
     quantity: v.optional(v.number()),
     unitCostCents: v.optional(v.number()),
     importedAt: v.number(),

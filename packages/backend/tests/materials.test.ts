@@ -304,7 +304,7 @@ describe("materials catalog", () => {
         variantLabel: "850x700mm",
         dimensions: { widthMm: 850, heightMm: 700 },
         sourceMaterialId: "5237",
-        sourceDetailId: "3",
+        sourceRowNumber: 1,
         quantity: 1,
         unit: "pç",
         unitCostCents: 10,
@@ -314,7 +314,17 @@ describe("materials catalog", () => {
         variantLabel: "850x700mm",
         dimensions: { widthMm: 850, heightMm: 700 },
         sourceMaterialId: "5237",
-        sourceDetailId: "7",
+        sourceRowNumber: 2,
+        quantity: 1,
+        unit: "peça",
+        unitCostCents: 10,
+      },
+      {
+        name: "Damper de regulagem manual",
+        variantLabel: "900x850mm",
+        dimensions: { widthMm: 900, heightMm: 850 },
+        sourceMaterialId: "5237",
+        sourceRowNumber: 3,
         quantity: 1,
         unit: "peça",
         unitCostCents: 10,
@@ -325,7 +335,7 @@ describe("materials catalog", () => {
       source: "estoque-2023",
       items,
     });
-    expect(first.created).toBe(1);
+    expect(first.created).toBe(2);
     expect(first.skipped).toBe(1);
 
     const second = await purchasing.mutation(api.materials.bulkCreate, {
@@ -333,13 +343,15 @@ describe("materials catalog", () => {
       items,
     });
     expect(second.created).toBe(0);
-    expect(second.skipped).toBe(2);
+    expect(second.skipped).toBe(3);
 
     const balances = await t.run(async (ctx) => {
       return await ctx.db.query("inventoryBalances").collect();
     });
-    expect(balances).toHaveLength(1);
-    expect(balances[0]?.quantity).toBe(2);
+    expect(balances).toHaveLength(2);
+    expect(
+      balances.reduce((total, balance) => total + balance.quantity, 0)
+    ).toBe(3);
   });
 
   test("stock policy upsert validates; central qty stays scoped to warehouse/purchasing", async () => {

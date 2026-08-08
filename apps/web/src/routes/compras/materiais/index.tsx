@@ -65,6 +65,7 @@ type MaterialImportItem = {
   };
   sourceMaterialId?: string;
   sourceDetailId?: string;
+  sourceRowNumber: number;
   quantity?: number;
   unitCostCents?: number;
   category?: string;
@@ -189,6 +190,7 @@ function MateriaisContent() {
                   dimensions,
                   sourceMaterialId: row.sourceMaterialId?.trim() || undefined,
                   sourceDetailId: row.sourceDetailId?.trim() || undefined,
+                  sourceRowNumber: rowNumber,
                   quantity: row.quantity?.trim()
                     ? Number.parseFloat(row.quantity.replace(",", "."))
                     : undefined,
