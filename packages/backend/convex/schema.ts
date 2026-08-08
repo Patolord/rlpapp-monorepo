@@ -180,7 +180,8 @@ export default defineSchema({
     .index("by_batchId", ["batchId"])
     .index("by_batchName", ["batchName"])
     .index("by_equipment", ["equipmentId"])
-    .index("by_project", ["projectId"]),
+    .index("by_project", ["projectId"])
+    .index("by_project_and_status", ["projectId", "status"]),
 
   // Lote de QR codes enviado à gráfica. Opcionalmente pré-associado a uma obra
   // de destino: o cadastro do técnico herda a obra automaticamente e a bipagem

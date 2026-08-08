@@ -74,6 +74,56 @@ describe("technicianPortal", () => {
     ).rejects.toThrow("Acesso negado a esta obra");
   });
 
+  test("técnico não atribuído pode buscar etiquetas pelo catálogo da obra", async () => {
+    const t = setup();
+    const asTech = await withUser(t, {
+      clerkId: "tech-browse-1",
+      role: "qr_operator",
+    });
+    const projectId = await seedProject(t, "Obra Catálogo");
+    const otherProjectId = await seedProject(t, "Obra Sem Etiquetas");
+    await t.run(async (ctx) => {
+      await ctx.db.insert("qrCodes", {
+        token: "CATALOGO1",
+        status: "active",
+        projectId,
+        batchName: "Lote Catálogo",
+        createdAt: Date.now(),
+      });
+      await ctx.db.insert("qrCodes", {
+        token: "INATIVO1",
+        status: "inactive",
+        projectId,
+        createdAt: Date.now(),
+      });
+      await ctx.db.insert("qrCodes", {
+        token: "OUTRA001",
+        status: "active",
+        projectId: otherProjectId,
+        createdAt: Date.now(),
+      });
+    });
+
+    const projects = await asTech.query(
+      api.technicianPortal.listBrowsableProjects,
+      {}
+    );
+    expect(projects.map((project) => project._id)).toContain(projectId);
+
+    const qrs = await asTech.query(
+      api.technicianPortal.listBrowsableQrsByProject,
+      {
+        projectId,
+        paginationOpts: { cursor: null, numItems: 20 },
+      }
+    );
+    expect(qrs.page).toHaveLength(1);
+    expect(qrs.page[0].token).toBe("CATALOGO1");
+    expect(qrs.page[0].batchName).toBe("Lote Catálogo");
+    expect(qrs.page.some((qr) => qr.token === "OUTRA001")).toBe(false);
+    expect(qrs.page.some((qr) => qr.token === "INATIVO1")).toBe(false);
+  });
+
   test("técnico atribuído lista todos os QRs da obra", async () => {
     const t = setup();
     const asTech = await withUser(t, {
@@ -189,6 +239,9 @@ describe("technicianPortal", () => {
     const t = setup();
     await expect(
       t.query(api.technicianPortal.listMyProjects, {})
+    ).rejects.toThrow("Not authenticated");
+    await expect(
+      t.query(api.technicianPortal.listBrowsableProjects, {})
     ).rejects.toThrow("Not authenticated");
   });
 });
