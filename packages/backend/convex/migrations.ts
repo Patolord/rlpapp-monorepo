@@ -407,7 +407,6 @@ export const backfillCustomerContactsActive = adminMutation({
         }
       );
     }
-
     return {
       scanned: contactsPage.page.length,
       updated,
@@ -510,13 +509,16 @@ export const verifyProjectCustomerAndNumbersPage = adminQuery({
         }
       }
     }
-
     const duplicateLegacyNumbers = [...duplicateIdsByNumber.entries()].map(
       ([legacyNumber, projectIds]) => ({
         legacyNumber,
         projectIds,
         truncated: truncatedNumbers.has(legacyNumber),
       })
+    );
+    const incomplete = projectsPage.page.filter(
+      (project) =>
+        project.customerId === undefined || project.legacyNumber === undefined
     );
     const incomplete = projectsPage.page.filter(
       (project) =>
