@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { adminMutation, adminQuery } from "./lib/rbac";
@@ -8,10 +9,12 @@ import { normalizeCustomerName } from "./lib/customers/helpers";
 import type { Id } from "./_generated/dataModel";
 import {
   allocateNextSku,
+  buildMaterialIdentityKey,
   buildMaterialSearchText,
   ensureSkuCounterAtLeast,
   parseSkuSequence,
 } from "./lib/compras/catalog";
+import { normalizeText } from "./lib/compras/procurement";
 
 /**
  * Backfill idempotente: cria, para cada obra que ainda não tem torres, uma
@@ -457,6 +460,106 @@ export const backfillMaterialCatalog = internalMutation({
       searchTextUpdated,
       statusUpdated,
       maxSkuSequence,
+    };
+  },
+});
+
+/**
+ * Migração paginada e idempotente para o modelo família → variante.
+ *
+ * Rodar primeiro com dryRun e depois repetir páginas usando continueCursor:
+ * npx convex run migrations:backfillMaterialFamilies \
+ *   '{"paginationOpts":{"numItems":100,"cursor":null},"dryRun":true}'
+ */
+export const backfillMaterialFamilies = adminMutation({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    dryRun: v.optional(v.boolean()),
+  },
+  returns: v.object({
+    scanned: v.number(),
+    familiesCreated: v.number(),
+    materialsLinked: v.number(),
+    identitiesUpdated: v.number(),
+    continueCursor: v.string(),
+    isDone: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("materials")
+      .order("asc")
+      .paginate(args.paginationOpts);
+    const dryRun = args.dryRun ?? false;
+    let familiesCreated = 0;
+    let materialsLinked = 0;
+    let identitiesUpdated = 0;
+
+    for (const material of page.page) {
+      let familyId = material.familyId;
+      if (!familyId) {
+        const normalizedName = normalizeText(material.name);
+        const existing = await ctx.db
+          .query("materialFamilies")
+          .withIndex("by_name_normalized", (q) =>
+            q.eq("nameNormalized", normalizedName)
+          )
+          .first();
+        familyId = existing?._id;
+        if (!familyId) {
+          familiesCreated++;
+          if (!dryRun) {
+            familyId = await ctx.db.insert("materialFamilies", {
+              name: material.name.trim(),
+              nameNormalized: normalizedName,
+              category: material.category,
+              baseUnit: material.unit,
+              active: material.active,
+              createdAt: material.createdAt,
+              updatedAt: material.updatedAt ?? material.createdAt,
+            });
+          }
+        }
+        materialsLinked++;
+      }
+
+      if (!familyId) continue;
+      const identityKey = buildMaterialIdentityKey({
+        familyId,
+        manufacturer: material.manufacturer,
+        manufacturerPartNumber: material.manufacturerPartNumber,
+        unit: material.unit,
+        variantLabel: material.variantLabel,
+        dimensions: material.dimensions,
+        technicalAttributes: material.technicalAttributes,
+      });
+      if (material.identityKey !== identityKey) identitiesUpdated++;
+      if (!dryRun) {
+        await ctx.db.patch("materials", material._id, {
+          familyId,
+          identityKey,
+          searchText: buildMaterialSearchText({
+            name: material.name,
+            variantLabel: material.variantLabel,
+            sku: material.sku,
+            barcode: material.barcode,
+            category: material.category,
+            manufacturer: material.manufacturer,
+            manufacturerPartNumber: material.manufacturerPartNumber,
+            brandPreference: material.brandPreference,
+            spec: material.spec,
+          }),
+          updatedAt: Date.now(),
+        });
+      }
+    }
+
+    return {
+      scanned: page.page.length,
+      familiesCreated,
+      materialsLinked,
+      identitiesUpdated,
+      continueCursor: page.continueCursor,
+      isDone: page.isDone,
     };
   },
 });

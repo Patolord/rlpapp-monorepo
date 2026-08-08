@@ -4,17 +4,21 @@ import {
   allocateNextSku,
   assertUniqueBarcode,
   assertUniqueSku,
+  buildMaterialIdentityKey,
   buildMaterialSearchText,
+  formatDimensions,
   materialMatchesSearch,
   normalizeBarcode,
   normalizeSku,
+  normalizeUnit,
+  sanitizeDimensions,
   toMaterialCatalogRow,
   toMaterialListRow,
   validateUnitsPerPurchaseUnit,
 } from "./lib/compras/catalog";
 import { engineeringOrPurchasingQuery, purchasingMutation } from "./lib/rbac";
 import { logAudit, diffFields } from "./lib/audit";
-import { materialStatus, replenishmentState } from "./schema";
+import { materialDimensions, materialStatus, replenishmentState } from "./schema";
 import { normalizeText } from "./lib/compras/procurement";
 import {
   bulkImportResultValidator,
@@ -28,17 +32,22 @@ import {
   getStockPolicy,
 } from "./lib/inventory/stockPolicy";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { QueryCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 
 export const technicalAttributeValidator = v.object({
   key: v.string(),
   value: v.string(),
 });
 
+export const materialDimensionsValidator = materialDimensions;
+
 export const materialValidator = v.object({
   _id: v.id("materials"),
   _creationTime: v.number(),
   name: v.string(),
+  familyId: v.union(v.id("materialFamilies"), v.null()),
+  variantLabel: v.union(v.string(), v.null()),
+  dimensions: v.union(materialDimensionsValidator, v.null()),
   sku: v.union(v.string(), v.null()),
   category: v.union(v.string(), v.null()),
   unit: v.union(v.string(), v.null()),
@@ -58,6 +67,9 @@ export const materialCatalogValidator = v.object({
   _id: v.id("materials"),
   _creationTime: v.number(),
   name: v.string(),
+  familyId: v.union(v.id("materialFamilies"), v.null()),
+  variantLabel: v.union(v.string(), v.null()),
+  dimensions: v.union(materialDimensionsValidator, v.null()),
   sku: v.union(v.string(), v.null()),
   barcode: v.union(v.string(), v.null()),
   manufacturer: v.union(v.string(), v.null()),
@@ -79,6 +91,15 @@ export const materialCatalogValidator = v.object({
   updatedAt: v.union(v.number(), v.null()),
   centralReplenishmentState: replenishmentState,
   centralQuantity: v.union(v.number(), v.null()),
+});
+
+export const materialFamilyValidator = v.object({
+  _id: v.id("materialFamilies"),
+  name: v.string(),
+  nameNormalized: v.string(),
+  category: v.union(v.string(), v.null()),
+  baseUnit: v.union(v.string(), v.null()),
+  active: v.boolean(),
 });
 
 function sanitizeTechnicalAttributes(
@@ -104,6 +125,103 @@ function sanitizeTechnicalAttributes(
     result.push({ key, value });
   }
   return result;
+}
+
+async function findOrCreateFamily(
+  ctx: MutationCtx,
+  input: {
+    familyId?: Id<"materialFamilies">;
+    name: string;
+    category?: string;
+    baseUnit?: string;
+  }
+): Promise<Doc<"materialFamilies">> {
+  if (input.familyId) {
+    const family = await ctx.db.get("materialFamilies", input.familyId);
+    if (!family) throw new Error("Família de material não encontrada");
+    return family;
+  }
+
+  const nameNormalized = normalizeText(input.name);
+  const existing = await ctx.db
+    .query("materialFamilies")
+    .withIndex("by_name_normalized", (q) =>
+      q.eq("nameNormalized", nameNormalized)
+    )
+    .first();
+  if (existing) return existing;
+
+  const now = Date.now();
+  const familyId = await ctx.db.insert("materialFamilies", {
+    name: input.name,
+    nameNormalized,
+    category: input.category,
+    baseUnit: input.baseUnit,
+    active: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const family = await ctx.db.get("materialFamilies", familyId);
+  if (!family) throw new Error("Falha ao criar família de material");
+  return family;
+}
+
+async function assertUniqueIdentity(
+  ctx: QueryCtx | MutationCtx,
+  identityKey: string,
+  excludeMaterialId?: Id<"materials">
+): Promise<void> {
+  const hit = await ctx.db
+    .query("materials")
+    .withIndex("by_identity_key", (q) => q.eq("identityKey", identityKey))
+    .first();
+  if (hit && hit._id !== excludeMaterialId) {
+    const detail = hit.variantLabel ? ` (${hit.variantLabel})` : "";
+    throw new Error(`Material já cadastrado: ${hit.name}${detail}`);
+  }
+}
+
+async function insertUniqueAlias(
+  ctx: MutationCtx,
+  materialId: Id<"materials">,
+  alias: string,
+  createdAt: number
+): Promise<Id<"materialAliases">> {
+  const aliasNormalized = normalizeText(alias);
+  const existing = await ctx.db
+    .query("materialAliases")
+    .withIndex("by_alias_normalized", (q) =>
+      q.eq("aliasNormalized", aliasNormalized)
+    )
+    .first();
+  if (existing) {
+    if (existing.materialId === materialId) return existing._id;
+    throw new Error(`Alias já pertence a outro material: ${alias}`);
+  }
+  return await ctx.db.insert("materialAliases", {
+    alias,
+    aliasNormalized,
+    materialId,
+    createdAt,
+  });
+}
+
+function materialIdentityInput(input: {
+  familyId: Id<"materialFamilies">;
+  manufacturer?: string;
+  manufacturerPartNumber?: string;
+  unit?: string;
+  variantLabel?: string;
+  dimensions?: {
+    widthMm?: number;
+    heightMm?: number;
+    lengthMm?: number;
+    thicknessMm?: number;
+    diameterMm?: number;
+  };
+  technicalAttributes?: Array<{ key: string; value: string }>;
+}) {
+  return buildMaterialIdentityKey(input);
 }
 
 async function buildCatalogRow(
@@ -145,6 +263,98 @@ async function buildCatalogRow(
     centralQuantity,
   };
 }
+
+export const listFamilies = engineeringOrPurchasingQuery({
+  args: { activeOnly: v.optional(v.boolean()) },
+  returns: v.array(materialFamilyValidator),
+  handler: async (ctx, args) => {
+    const families = args.activeOnly
+      ? await ctx.db
+          .query("materialFamilies")
+          .withIndex("by_active", (q) => q.eq("active", true))
+          .collect()
+      : await ctx.db.query("materialFamilies").collect();
+    return families.map((family) => ({
+      _id: family._id,
+      name: family.name,
+      nameNormalized: family.nameNormalized,
+      category: family.category ?? null,
+      baseUnit: family.baseUnit ?? null,
+      active: family.active,
+    }));
+  },
+});
+
+export const findDuplicateCandidates = engineeringOrPurchasingQuery({
+  args: {
+    name: v.string(),
+    familyId: v.optional(v.id("materialFamilies")),
+    variantLabel: v.optional(v.string()),
+    manufacturer: v.optional(v.string()),
+    manufacturerPartNumber: v.optional(v.string()),
+    unit: v.optional(v.string()),
+    dimensions: v.optional(materialDimensionsValidator),
+    technicalAttributes: v.optional(v.array(technicalAttributeValidator)),
+    excludeMaterialId: v.optional(v.id("materials")),
+  },
+  returns: v.array(
+    v.object({
+      materialId: v.id("materials"),
+      name: v.string(),
+      variantLabel: v.union(v.string(), v.null()),
+      sku: v.union(v.string(), v.null()),
+      exact: v.boolean(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const normalizedName = normalizeText(args.name);
+    let familyId = args.familyId;
+    if (!familyId) {
+      const family = await ctx.db
+        .query("materialFamilies")
+        .withIndex("by_name_normalized", (q) =>
+          q.eq("nameNormalized", normalizedName)
+        )
+        .first();
+      familyId = family?._id;
+    }
+
+    const materials = familyId
+      ? await ctx.db
+          .query("materials")
+          .withIndex("by_family", (q) => q.eq("familyId", familyId))
+          .take(25)
+      : await ctx.db.query("materials").order("desc").take(100);
+    const identityKey = familyId
+      ? materialIdentityInput({
+          familyId,
+          manufacturer: args.manufacturer,
+          manufacturerPartNumber: args.manufacturerPartNumber,
+          unit: args.unit,
+          variantLabel: args.variantLabel,
+          dimensions: args.dimensions,
+          technicalAttributes: args.technicalAttributes,
+        })
+      : null;
+
+    return materials
+      .filter((material) => material._id !== args.excludeMaterialId)
+      .filter(
+        (material) =>
+          material.familyId === familyId ||
+          normalizeText(material.name).includes(normalizedName) ||
+          normalizedName.includes(normalizeText(material.name))
+      )
+      .slice(0, 8)
+      .map((material) => ({
+        materialId: material._id,
+        name: material.name,
+        variantLabel: material.variantLabel ?? null,
+        sku: material.sku ?? null,
+        exact: identityKey !== null && material.identityKey === identityKey,
+      }));
+  },
+});
 
 export const list = engineeringOrPurchasingQuery({
   args: {
@@ -337,6 +547,9 @@ export const suggest = engineeringOrPurchasingQuery({
 export const create = purchasingMutation({
   args: {
     name: v.string(),
+    familyId: v.optional(v.id("materialFamilies")),
+    variantLabel: v.optional(v.string()),
+    dimensions: v.optional(materialDimensionsValidator),
     sku: v.optional(v.string()),
     barcode: v.optional(v.string()),
     manufacturer: v.optional(v.string()),
@@ -357,6 +570,10 @@ export const create = purchasingMutation({
     if (!name) throw new Error("Informe o nome do material");
 
     validateUnitsPerPurchaseUnit(args.unitsPerPurchaseUnit);
+    const dimensions = sanitizeDimensions(args.dimensions);
+    const technicalAttributes = sanitizeTechnicalAttributes(
+      args.technicalAttributes
+    );
 
     const sku = args.sku?.trim()
       ? normalizeSku(args.sku)
@@ -373,13 +590,35 @@ export const create = purchasingMutation({
     const manufacturer = args.manufacturer?.trim() || undefined;
     const manufacturerPartNumber =
       args.manufacturerPartNumber?.trim() || undefined;
-    const unit = args.unit?.trim() || undefined;
+    const unit = normalizeUnit(args.unit);
     const purchaseUnit = args.purchaseUnit?.trim() || undefined;
     const spec = args.spec?.trim() || undefined;
     const brandPreference = args.brandPreference?.trim() || undefined;
+    const variantLabel =
+      args.variantLabel?.trim() || formatDimensions(dimensions) || undefined;
+    const family = await findOrCreateFamily(ctx, {
+      familyId: args.familyId,
+      name,
+      category,
+      baseUnit: unit,
+    });
+    const identityKey = materialIdentityInput({
+      familyId: family._id,
+      manufacturer,
+      manufacturerPartNumber,
+      unit,
+      variantLabel,
+      dimensions,
+      technicalAttributes,
+    });
+    await assertUniqueIdentity(ctx, identityKey);
 
     const materialId = await ctx.db.insert("materials", {
-      name,
+      name: family.name,
+      familyId: family._id,
+      variantLabel,
+      dimensions,
+      identityKey,
       sku,
       barcode,
       manufacturer,
@@ -391,9 +630,10 @@ export const create = purchasingMutation({
       trackInventory: args.trackInventory ?? true,
       spec,
       brandPreference,
-      technicalAttributes: sanitizeTechnicalAttributes(args.technicalAttributes),
+      technicalAttributes,
       searchText: buildMaterialSearchText({
-        name,
+        name: family.name,
+        variantLabel,
         sku,
         barcode,
         category,
@@ -411,19 +651,14 @@ export const create = purchasingMutation({
     for (const alias of args.aliases ?? []) {
       const trimmed = alias.trim();
       if (!trimmed) continue;
-      await ctx.db.insert("materialAliases", {
-        alias: trimmed,
-        aliasNormalized: normalizeText(trimmed),
-        materialId,
-        createdAt: now,
-      });
+      await insertUniqueAlias(ctx, materialId, trimmed, now);
     }
 
     await logAudit(ctx, ctx.user, {
       action: "create",
       tableName: "materials",
       recordId: materialId,
-      details: `${sku} — ${name}`,
+      details: `${sku} — ${family.name}${variantLabel ? ` (${variantLabel})` : ""}`,
     });
 
     return materialId;
@@ -432,6 +667,10 @@ export const create = purchasingMutation({
 
 const bulkMaterialItemValidator = v.object({
   name: v.string(),
+  variantLabel: v.optional(v.string()),
+  dimensions: v.optional(materialDimensionsValidator),
+  legacyMaterialId: v.optional(v.string()),
+  legacyDetailId: v.optional(v.string()),
   category: v.optional(v.string()),
   unit: v.optional(v.string()),
   spec: v.optional(v.string()),
@@ -451,9 +690,6 @@ export const bulkCreate = purchasingMutation({
 
     const result = emptyBulkImportResult();
     const now = Date.now();
-    const existing = await ctx.db.query("materials").collect();
-    const existingNames = new Set(existing.map((m) => normalizeText(m.name)));
-
     let firstCreatedId: string | null = null;
 
     for (let i = 0; i < args.items.length; i++) {
@@ -465,18 +701,64 @@ export const bulkCreate = purchasingMutation({
         continue;
       }
 
-      const normalizedName = normalizeText(nameCheck.name);
-      if (existingNames.has(normalizedName)) {
+      const family = await findOrCreateFamily(ctx, {
+        name: nameCheck.name,
+        category: item.category?.trim() || undefined,
+        baseUnit: normalizeUnit(item.unit),
+      });
+      const dimensions = sanitizeDimensions(item.dimensions);
+      const variantLabel =
+        item.variantLabel?.trim() || formatDimensions(dimensions) || undefined;
+      const unit = normalizeUnit(item.unit);
+      const identityKey = materialIdentityInput({
+        familyId: family._id,
+        unit,
+        variantLabel,
+        dimensions,
+      });
+      const existingIdentity = await ctx.db
+        .query("materials")
+        .withIndex("by_identity_key", (q) => q.eq("identityKey", identityKey))
+        .first();
+      const existingLegacy = item.legacyMaterialId
+        ? await ctx.db
+            .query("materials")
+            .withIndex("by_legacy_ids", (q) =>
+              q
+                .eq("legacyMaterialId", item.legacyMaterialId)
+                .eq("legacyDetailId", item.legacyDetailId)
+            )
+            .first()
+        : null;
+      if (existingIdentity || existingLegacy) {
         result.skipped++;
         continue;
       }
 
+      const sku = await allocateNextSku(ctx);
       const materialId = await ctx.db.insert("materials", {
-        name: nameCheck.name,
+        name: family.name,
+        familyId: family._id,
+        variantLabel,
+        dimensions,
+        identityKey,
+        legacyMaterialId: item.legacyMaterialId?.trim() || undefined,
+        legacyDetailId: item.legacyDetailId?.trim() || undefined,
+        importRawDetail: item.variantLabel?.trim() || undefined,
+        sku,
         category: item.category?.trim() || undefined,
-        unit: item.unit?.trim() || undefined,
+        unit,
         spec: item.spec?.trim() || undefined,
         brandPreference: item.brandPreference?.trim() || undefined,
+        searchText: buildMaterialSearchText({
+          name: family.name,
+          variantLabel,
+          sku,
+          category: item.category?.trim() || undefined,
+          brandPreference: item.brandPreference?.trim() || undefined,
+          spec: item.spec?.trim() || undefined,
+        }),
+        trackInventory: true,
         active: true,
         status: "active",
         createdAt: now,
@@ -486,15 +768,9 @@ export const bulkCreate = purchasingMutation({
       for (const alias of item.aliases ?? []) {
         const trimmed = alias.trim();
         if (!trimmed) continue;
-        await ctx.db.insert("materialAliases", {
-          alias: trimmed,
-          aliasNormalized: normalizeText(trimmed),
-          materialId,
-          createdAt: now,
-        });
+        await insertUniqueAlias(ctx, materialId, trimmed, now);
       }
 
-      existingNames.add(normalizedName);
       if (!firstCreatedId) firstCreatedId = materialId;
       result.created++;
     }
@@ -516,6 +792,9 @@ export const update = purchasingMutation({
   args: {
     materialId: v.id("materials"),
     name: v.optional(v.string()),
+    familyId: v.optional(v.id("materialFamilies")),
+    variantLabel: v.optional(v.string()),
+    dimensions: v.optional(materialDimensionsValidator),
     sku: v.optional(v.string()),
     barcode: v.optional(v.union(v.string(), v.null())),
     manufacturer: v.optional(v.string()),
@@ -548,10 +827,24 @@ export const update = purchasingMutation({
     validateUnitsPerPurchaseUnit(args.unitsPerPurchaseUnit);
 
     const updates: Record<string, unknown> = { updatedAt: Date.now() };
+    let familyId = args.familyId ?? material.familyId;
     if (args.name !== undefined) {
       const name = args.name.trim();
       if (!name) throw new Error("Informe o nome do material");
-      updates.name = name;
+      const family = await findOrCreateFamily(ctx, {
+        familyId: args.familyId,
+        name,
+        category: args.category?.trim() || material.category,
+        baseUnit: normalizeUnit(args.unit) ?? material.unit,
+      });
+      familyId = family._id;
+      updates.familyId = family._id;
+      updates.name = family.name;
+    } else if (args.familyId !== undefined) {
+      const family = await ctx.db.get("materialFamilies", args.familyId);
+      if (!family) throw new Error("Família de material não encontrada");
+      updates.name = family.name;
+      updates.familyId = family._id;
     }
     if (args.sku !== undefined) {
       const sku = normalizeSku(args.sku);
@@ -577,7 +870,7 @@ export const update = purchasingMutation({
     if (args.category !== undefined) {
       updates.category = args.category.trim() || undefined;
     }
-    if (args.unit !== undefined) updates.unit = args.unit.trim() || undefined;
+    if (args.unit !== undefined) updates.unit = normalizeUnit(args.unit);
     if (args.purchaseUnit !== undefined) {
       updates.purchaseUnit = args.purchaseUnit.trim() || undefined;
     }
@@ -596,6 +889,12 @@ export const update = purchasingMutation({
         args.technicalAttributes
       );
     }
+    if (args.variantLabel !== undefined) {
+      updates.variantLabel = args.variantLabel.trim() || undefined;
+    }
+    if (args.dimensions !== undefined) {
+      updates.dimensions = sanitizeDimensions(args.dimensions);
+    }
     if (args.active !== undefined) {
       updates.active = args.active;
       if (args.status === undefined) {
@@ -604,9 +903,31 @@ export const update = purchasingMutation({
     }
     if (args.status !== undefined) updates.status = args.status;
 
-    const next = { ...material, ...updates };
+    if (!familyId) {
+      const family = await findOrCreateFamily(ctx, {
+        name: String(updates.name ?? material.name),
+        category: String(updates.category ?? material.category ?? "") || undefined,
+        baseUnit: String(updates.unit ?? material.unit ?? "") || undefined,
+      });
+      familyId = family._id;
+      updates.familyId = family._id;
+      updates.name = family.name;
+    }
+    const next = { ...material, ...updates } as Doc<"materials">;
+    const identityKey = materialIdentityInput({
+      familyId,
+      manufacturer: next.manufacturer,
+      manufacturerPartNumber: next.manufacturerPartNumber,
+      unit: next.unit,
+      variantLabel: next.variantLabel,
+      dimensions: next.dimensions,
+      technicalAttributes: next.technicalAttributes,
+    });
+    await assertUniqueIdentity(ctx, identityKey, args.materialId);
+    updates.identityKey = identityKey;
     updates.searchText = buildMaterialSearchText({
       name: next.name,
+      variantLabel: next.variantLabel,
       sku: next.sku,
       barcode: next.barcode,
       category: next.category,
@@ -662,12 +983,12 @@ export const addAlias = purchasingMutation({
     const alias = args.alias.trim();
     if (!alias) throw new Error("Informe o alias");
 
-    return await ctx.db.insert("materialAliases", {
+    return await insertUniqueAlias(
+      ctx,
+      args.materialId,
       alias,
-      aliasNormalized: normalizeText(alias),
-      materialId: args.materialId,
-      createdAt: Date.now(),
-    });
+      Date.now()
+    );
   },
 });
 

@@ -29,6 +29,21 @@ export const contactValidator = v.object({
   createdAt: v.number(),
 });
 
+export const supplierMaterialValidator = v.object({
+  _id: v.id("supplierMaterials"),
+  supplierId: v.id("suppliers"),
+  materialId: v.id("materials"),
+  materialName: v.string(),
+  materialVariantLabel: v.union(v.string(), v.null()),
+  supplierCode: v.union(v.string(), v.null()),
+  supplierDescription: v.union(v.string(), v.null()),
+  purchaseUnit: v.union(v.string(), v.null()),
+  unitsPerPurchaseUnit: v.union(v.number(), v.null()),
+  leadTimeDays: v.union(v.number(), v.null()),
+  preferred: v.boolean(),
+  active: v.boolean(),
+});
+
 function toSupplierRow(s: {
   _id: import("./_generated/dataModel").Id<"suppliers">;
   _creationTime: number;
@@ -319,6 +334,125 @@ export const removeContact = purchasingMutation({
     });
 
     await ctx.db.delete("supplierContacts", args.contactId);
+    return null;
+  },
+});
+
+export const listMaterialOfferings = engineeringOrPurchasingQuery({
+  args: {
+    materialId: v.optional(v.id("materials")),
+    supplierId: v.optional(v.id("suppliers")),
+  },
+  returns: v.array(supplierMaterialValidator),
+  handler: async (ctx, args) => {
+    const offerings = args.materialId
+      ? await ctx.db
+          .query("supplierMaterials")
+          .withIndex("by_material", (q) => q.eq("materialId", args.materialId))
+          .collect()
+      : args.supplierId
+        ? await ctx.db
+            .query("supplierMaterials")
+            .withIndex("by_supplier", (q) =>
+              q.eq("supplierId", args.supplierId)
+            )
+            .collect()
+        : [];
+    return await Promise.all(
+      offerings.map(async (offering) => {
+        const material = await ctx.db.get("materials", offering.materialId);
+        return {
+          _id: offering._id,
+          supplierId: offering.supplierId,
+          materialId: offering.materialId,
+          materialName: material?.name ?? "Material removido",
+          materialVariantLabel: material?.variantLabel ?? null,
+          supplierCode: offering.supplierCode ?? null,
+          supplierDescription: offering.supplierDescription ?? null,
+          purchaseUnit: offering.purchaseUnit ?? null,
+          unitsPerPurchaseUnit: offering.unitsPerPurchaseUnit ?? null,
+          leadTimeDays: offering.leadTimeDays ?? null,
+          preferred: offering.preferred,
+          active: offering.active,
+        };
+      })
+    );
+  },
+});
+
+export const upsertMaterialOffering = purchasingMutation({
+  args: {
+    supplierId: v.id("suppliers"),
+    materialId: v.id("materials"),
+    supplierCode: v.optional(v.string()),
+    supplierDescription: v.optional(v.string()),
+    purchaseUnit: v.optional(v.string()),
+    unitsPerPurchaseUnit: v.optional(v.number()),
+    leadTimeDays: v.optional(v.number()),
+    preferred: v.optional(v.boolean()),
+    active: v.optional(v.boolean()),
+  },
+  returns: v.id("supplierMaterials"),
+  handler: async (ctx, args) => {
+    const [supplier, material] = await Promise.all([
+      ctx.db.get("suppliers", args.supplierId),
+      ctx.db.get("materials", args.materialId),
+    ]);
+    if (!supplier) throw new Error("Fornecedor não encontrado");
+    if (!material) throw new Error("Material não encontrado");
+    if (
+      args.unitsPerPurchaseUnit !== undefined &&
+      (!Number.isFinite(args.unitsPerPurchaseUnit) ||
+        args.unitsPerPurchaseUnit <= 0)
+    ) {
+      throw new Error("Unidades por embalagem deve ser maior que zero");
+    }
+    if (
+      args.leadTimeDays !== undefined &&
+      (!Number.isInteger(args.leadTimeDays) || args.leadTimeDays < 0)
+    ) {
+      throw new Error("Prazo deve ser um número inteiro não negativo");
+    }
+
+    const existing = await ctx.db
+      .query("supplierMaterials")
+      .withIndex("by_supplier_material", (q) =>
+        q
+          .eq("supplierId", args.supplierId)
+          .eq("materialId", args.materialId)
+      )
+      .unique();
+    const now = Date.now();
+    const values = {
+      supplierCode: args.supplierCode?.trim() || undefined,
+      supplierDescription: args.supplierDescription?.trim() || undefined,
+      purchaseUnit: args.purchaseUnit?.trim() || undefined,
+      unitsPerPurchaseUnit: args.unitsPerPurchaseUnit,
+      leadTimeDays: args.leadTimeDays,
+      preferred: args.preferred ?? existing?.preferred ?? false,
+      active: args.active ?? existing?.active ?? true,
+      updatedAt: now,
+    };
+    if (existing) {
+      await ctx.db.patch("supplierMaterials", existing._id, values);
+      return existing._id;
+    }
+    return await ctx.db.insert("supplierMaterials", {
+      supplierId: args.supplierId,
+      materialId: args.materialId,
+      ...values,
+      createdAt: now,
+    });
+  },
+});
+
+export const removeMaterialOffering = purchasingMutation({
+  args: { offeringId: v.id("supplierMaterials") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const offering = await ctx.db.get("supplierMaterials", args.offeringId);
+    if (!offering) throw new Error("Oferta do fornecedor não encontrada");
+    await ctx.db.delete("supplierMaterials", args.offeringId);
     return null;
   },
 });
