@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { obraLinkSlug } from "@/lib/engenharia/obra-paths";
 
 export const Route = createFileRoute("/app/")({
   component: DashboardPage,
@@ -183,7 +184,7 @@ function CardTitle({
 function ViewAllLink({ label = "Ver todas" }: { label?: string }) {
   return (
     <Link
-      to="/engenharia/relatorios"
+      to="/engenharia/obras"
       className="text-sm font-medium text-primary hover:underline"
     >
       {label}
@@ -237,8 +238,8 @@ function ProjectRow({
 
   return (
     <Link
-      to="/engenharia/relatorios/$projectId"
-      params={{ projectId: project._id }}
+      to="/engenharia/obras/$obraSlug"
+      params={{ obraSlug: obraLinkSlug(project) }}
       className="group flex items-center gap-4 py-3.5"
     >
       <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400">
@@ -334,7 +335,7 @@ function CriticalPendingCard({
           {items.map((item) => (
             <Link
               key={item.title}
-              to="/engenharia/relatorios"
+              to="/engenharia/obras"
               className="group flex items-center gap-3 py-3.5"
             >
               <span

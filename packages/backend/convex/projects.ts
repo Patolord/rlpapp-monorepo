@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internalMutation } from "./_generated/server";
 import { engineeringMutation, engineeringQuery } from "./lib/rbac";
 import { equipmentStatusValidator } from "./equipment";
 import { projectStatus } from "./schema";
@@ -8,6 +9,10 @@ import {
   getLegacyClientLabel,
   isProjectArchived,
 } from "./lib/projects/helpers";
+import {
+  generateUniqueProjectSlug,
+  looksLikeConvexId,
+} from "./lib/engenharia/slug";
 import type { Id } from "./_generated/dataModel";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
@@ -91,6 +96,7 @@ export const list = engineeringQuery({
       _id: v.id("projects"),
       _creationTime: v.number(),
       name: v.string(),
+      slug: v.string(),
       floors: floorsValidator,
       client: v.union(v.string(), v.null()),
       customerId: v.union(v.id("customers"), v.null()),
@@ -146,6 +152,7 @@ export const list = engineeringQuery({
           _id: project._id,
           _creationTime: project._creationTime,
           name: project.name,
+          slug: project.slug ?? project._id,
           floors: project.floors.map((f) => ({
             number: f.number,
             label: f.label,
@@ -171,6 +178,64 @@ export const list = engineeringQuery({
   },
 });
 
+// --- Resolução de obra por slug ou ID legado ---
+
+export const resolve = engineeringQuery({
+  args: { identifier: v.string() },
+  returns: v.union(
+    v.object({
+      _id: v.id("projects"),
+      slug: v.string(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const identifier = args.identifier.trim();
+    if (!identifier) return null;
+
+    const bySlug = await ctx.db
+      .query("projects")
+      .withIndex("by_slug", (q) => q.eq("slug", identifier))
+      .first();
+    if (bySlug) {
+      return {
+        _id: bySlug._id,
+        slug: bySlug.slug ?? bySlug._id,
+      };
+    }
+
+    if (looksLikeConvexId(identifier)) {
+      const project = await ctx.db.get("projects", identifier as Id<"projects">);
+      if (project) {
+        return {
+          _id: project._id,
+          slug: project.slug ?? project._id,
+        };
+      }
+    }
+
+    return null;
+  },
+});
+
+export const backfillSlugs = internalMutation({
+  args: {},
+  returns: v.object({ updated: v.number() }),
+  handler: async (ctx) => {
+    const projects = await ctx.db.query("projects").collect();
+    let updated = 0;
+
+    for (const project of projects) {
+      if (project.slug) continue;
+      const slug = await generateUniqueProjectSlug(ctx, project.name, project._id);
+      await ctx.db.patch("projects", project._id, { slug });
+      updated += 1;
+    }
+
+    return { updated };
+  },
+});
+
 // --- Visão completa de uma obra (árvore andares → aptos → itens) ---
 
 export const getOverview = engineeringQuery({
@@ -179,6 +244,7 @@ export const getOverview = engineeringQuery({
     v.object({
       _id: v.id("projects"),
       name: v.string(),
+      slug: v.string(),
       floors: floorsValidator,
       client: v.union(v.string(), v.null()),
       address: v.union(v.string(), v.null()),
@@ -311,6 +377,7 @@ export const getOverview = engineeringQuery({
     return {
       _id: project._id,
       name: project.name,
+      slug: project.slug ?? project._id,
       floors: project.floors.map((f) => ({
         number: f.number,
         label: f.label,
@@ -360,8 +427,11 @@ export const create = engineeringMutation({
       }
     }
 
+    const slug = await generateUniqueProjectSlug(ctx, name);
+
     const projectId = await ctx.db.insert("projects", {
       name,
+      slug,
       floors: args.floors ? normalizeFloors(args.floors) : [],
       customerId: args.customerId,
       client: args.client?.trim() || undefined,
@@ -636,6 +706,68 @@ export const restore = engineeringMutation({
       },
     });
     return null;
+  },
+});
+
+// Define quais técnicos podem listar QRs/equipamentos desta obra em campo.
+export const setTechnicians = engineeringMutation({
+  args: {
+    projectId: v.id("projects"),
+    technicianIds: v.array(v.id("users")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project) throw new Error("Obra não encontrada");
+    if (isProjectArchived(project)) {
+      throw new Error("Obra arquivada — restaure antes de alterar técnicos");
+    }
+
+    const valid: Id<"users">[] = [];
+    for (const userId of args.technicianIds) {
+      const user = await ctx.db.get("users", userId);
+      if (!user || !user.isActive) continue;
+      // Aceita qr_operator e staff (técnicos internos também atuam em campo).
+      if (user.role === "client") continue;
+      valid.push(user._id);
+    }
+
+    await ctx.db.patch("projects", args.projectId, {
+      technicianIds: valid.length > 0 ? valid : undefined,
+    });
+    await logAudit(ctx, ctx.user, {
+      action: "set_technicians",
+      tableName: "projects",
+      recordId: args.projectId,
+      entityLabel: project.name,
+      details: `${valid.length} técnico(s)`,
+    });
+    return null;
+  },
+});
+
+// Técnicos atribuídos à obra (para UI de edição).
+export const getAssignedTechnicians = engineeringQuery({
+  args: { projectId: v.id("projects") },
+  returns: v.array(
+    v.object({
+      _id: v.id("users"),
+      name: v.string(),
+      role: v.string(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project) return [];
+
+    const out: Array<{ _id: Id<"users">; name: string; role: string }> = [];
+    for (const userId of project.technicianIds ?? []) {
+      const user = await ctx.db.get("users", userId);
+      if (!user) continue;
+      out.push({ _id: user._id, name: user.name, role: user.role });
+    }
+    out.sort((a, b) => a.name.localeCompare(b.name));
+    return out;
   },
 });
 

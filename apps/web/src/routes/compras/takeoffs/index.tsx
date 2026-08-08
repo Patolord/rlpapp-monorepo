@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { obraLinkSlug } from "@/lib/engenharia/obra-paths";
 
 export const Route = createFileRoute("/compras/takeoffs/")({
   component: TakeoffsSupportPage,
@@ -71,8 +72,13 @@ function TakeoffsSupportContent() {
                         size="sm"
                         render={
                           <Link
-                            to="/engenharia/relatorios/$projectId/orcamento"
-                            params={{ projectId: t.projectId }}
+                            to="/engenharia/obras/$obraSlug/orcamento"
+                            params={{
+                              obraSlug: obraLinkSlug({
+                                slug: t.projectSlug,
+                                _id: t.projectId,
+                              }),
+                            }}
                           />
                         }
                       >

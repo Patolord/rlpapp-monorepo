@@ -1,12 +1,12 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute(
-  "/engenharia/relatorios/$projectId/entregas"
+  "/engenharia/obras/$obraSlug/global"
 )({
   beforeLoad: ({ params }) => {
     throw redirect({
-      to: "/engenharia/relatorios/$projectId/global",
-      params: { projectId: params.projectId },
+      to: "/engenharia/obras/$obraSlug",
+      params: { obraSlug: params.obraSlug },
     });
   },
 });

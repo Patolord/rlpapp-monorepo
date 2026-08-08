@@ -51,6 +51,7 @@ export const create = authedMutation({
       labelPhotoIds: args.labelPhotoIds,
       status: args.status ?? "installing",
       createdAt: Date.now(),
+      createdByUserId: ctx.user._id,
     });
   },
 });

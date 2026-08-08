@@ -66,6 +66,7 @@ const DEPARTMENT_LABELS: Record<string, string> = {
   rh: "Recursos Humanos",
   engenharia: "Engenharia",
   compras: "Compras",
+  estoque: "Estoque",
 };
 
 type CreateFormData = {
@@ -193,7 +194,11 @@ function UsuariosContent() {
           | "engenheiro"
           | "qr_operator",
         department: createForm.department
-          ? (createForm.department as "rh" | "engenharia" | "compras")
+          ? (createForm.department as
+              | "rh"
+              | "engenharia"
+              | "compras"
+              | "estoque")
           : undefined,
       });
       toast.success("Usuário criado com sucesso");
@@ -226,7 +231,11 @@ function UsuariosContent() {
               | "qr_operator")
           : undefined,
         department: editForm.department
-          ? (editForm.department as "rh" | "engenharia" | "compras")
+          ? (editForm.department as
+              | "rh"
+              | "engenharia"
+              | "compras"
+              | "estoque")
           : undefined,
       });
       toast.success("Usuário atualizado");

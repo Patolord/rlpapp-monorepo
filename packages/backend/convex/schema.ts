@@ -28,7 +28,8 @@ export const projectStatus = v.union(
 export const departments = v.union(
   v.literal("rh"),
   v.literal("engenharia"),
-  v.literal("compras")
+  v.literal("compras"),
+  v.literal("estoque")
 );
 
 // --- Compras / Materiais / Preços ---
@@ -38,6 +39,13 @@ export const materialStatus = v.union(
   v.literal("active"),
   v.literal("duplicate"),
   v.literal("archived")
+);
+
+export const replenishmentState = v.union(
+  v.literal("unconfigured"),
+  v.literal("healthy"),
+  v.literal("reorder"),
+  v.literal("below_minimum")
 );
 
 export const takeoffStatus = v.union(
@@ -73,6 +81,43 @@ export const priceEventReviewStatus = v.union(
   v.literal("reviewed"),
   v.literal("ignored"),
   v.literal("duplicate")
+);
+
+// --- Estoque ---
+
+export const inventoryLocationType = v.union(
+  v.literal("central"),
+  v.literal("project")
+);
+
+export const inventoryMovementType = v.union(
+  v.literal("entry"),
+  v.literal("transfer"),
+  v.literal("consumption"),
+  v.literal("return"),
+  v.literal("adjustment"),
+  v.literal("reversal")
+);
+
+export const inventoryDocumentStatus = v.union(
+  v.literal("draft"),
+  v.literal("pending_approval"),
+  v.literal("approved"),
+  v.literal("posted"),
+  v.literal("rejected"),
+  v.literal("reversed")
+);
+
+export const inventoryEventType = v.union(
+  v.literal("in"),
+  v.literal("out"),
+  v.literal("adjustment"),
+  v.literal("reversal")
+);
+
+export const inventoryCompatibilityRuleType = v.union(
+  v.literal("forbidden_pair"),
+  v.literal("attributes_must_match")
 );
 
 // --- Engenharia: Contratos e Medições ---
@@ -191,6 +236,8 @@ export default defineSchema({
   // o caminho projectUnits; obras novas usam as tabelas towers/floors/environments.
   projects: defineTable({
     name: v.string(),
+    // Identificador amigável para URLs (estável após criação).
+    slug: v.optional(v.string()),
     // Metadados da obra (todos opcionais para compatibilidade com dados antigos).
     // Legado: rótulo livre do cliente. Preferir `customerId`.
     client: v.optional(v.string()),
@@ -205,6 +252,8 @@ export default defineSchema({
     portalUserIds: v.optional(v.array(v.id("users"))),
     archivedAt: v.optional(v.number()),
     archivedByUserId: v.optional(v.id("users")),
+    // Técnicos (qr_operator ou staff) atribuídos à obra para listar QRs/equipamentos.
+    technicianIds: v.optional(v.array(v.id("users"))),
     floors: v.array(
       v.object({
         // 0 = térreo, 1 = 1º andar, etc.
@@ -217,6 +266,7 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_name", ["name"])
+    .index("by_slug", ["slug"])
     .index("by_status", ["status"])
     .index("by_responsible", ["responsibleId"])
     .index("by_customer", ["customerId"]),
@@ -436,18 +486,6 @@ export default defineSchema({
     .index("by_table", ["tableName", "createdAt"])
     .index("by_record", ["tableName", "recordId", "createdAt"]),
 
-  // Entregas de material por modelo (aba Entregas): controle de logística.
-  materialDeliveries: defineTable({
-    projectId: v.id("projects"),
-    modelo: v.string(),
-    capacidade: v.optional(v.string()),
-    qty: v.number(),
-    date: v.number(),
-    note: v.optional(v.string()),
-  })
-    .index("by_project", ["projectId"])
-    .index("by_project_modelo", ["projectId", "modelo"]),
-
   equipment: defineTable({
     // Cadastro simplificado em campo: descrição geral + foto da etiqueta.
     description: v.optional(v.string()),
@@ -459,6 +497,8 @@ export default defineSchema({
       v.literal("error")
     ),
     createdAt: v.number(),
+    // Técnico que cadastrou o equipamento em campo (aparece em Meus Registros).
+    createdByUserId: v.optional(v.id("users")),
     // Vínculo reverso: item planejado da obra que este equipamento ocupa.
     projectEquipmentId: v.optional(v.id("projectEquipment")),
     // Campos legados (dados antigos em produção antes da simplificação do schema).
@@ -471,7 +511,8 @@ export default defineSchema({
     notes: v.optional(v.string()),
   })
     .index("by_tag", ["tag"])
-    .index("by_projectEquipment", ["projectEquipmentId"]),
+    .index("by_projectEquipment", ["projectEquipmentId"])
+    .index("by_createdByUser", ["createdByUserId", "createdAt"]),
 
   // --- Histórico de conversas com a IA ---
 
@@ -498,10 +539,29 @@ export default defineSchema({
 
   materials: defineTable({
     name: v.string(),
+    // SKU interno (ex.: MAT-000001). Gerado automaticamente, editável.
+    sku: v.optional(v.string()),
+    barcode: v.optional(v.string()),
+    manufacturer: v.optional(v.string()),
+    manufacturerPartNumber: v.optional(v.string()),
     category: v.optional(v.string()),
     unit: v.optional(v.string()),
+    purchaseUnit: v.optional(v.string()),
+    unitsPerPurchaseUnit: v.optional(v.number()),
+    trackInventory: v.optional(v.boolean()),
     spec: v.optional(v.string()),
     brandPreference: v.optional(v.string()),
+    // Pequeno conjunto de propriedades usado nas regras de compatibilidade.
+    technicalAttributes: v.optional(
+      v.array(
+        v.object({
+          key: v.string(),
+          value: v.string(),
+        })
+      )
+    ),
+    // Texto denormalizado para busca (nome, sku, fabricante, etc.).
+    searchText: v.optional(v.string()),
     active: v.boolean(),
     status: v.optional(materialStatus),
     createdAt: v.number(),
@@ -510,7 +570,15 @@ export default defineSchema({
     .index("by_name", ["name"])
     .index("by_active", ["active"])
     .index("by_status", ["status"])
-    .index("by_category", ["category"]),
+    .index("by_category", ["category"])
+    .index("by_sku", ["sku"])
+    .index("by_barcode", ["barcode"])
+    .index("by_searchText", ["searchText"]),
+
+  materialSkuCounters: defineTable({
+    key: v.literal("material"),
+    nextNumber: v.number(),
+  }).index("by_key", ["key"]),
 
   suppliers: defineTable({
     name: v.string(),
@@ -598,6 +666,121 @@ export default defineSchema({
   })
     .index("by_alias_normalized", ["aliasNormalized"])
     .index("by_material", ["materialId"]),
+
+  // --- Estoque central e saldos simplificados por obra ---
+
+  inventoryLocations: defineTable({
+    type: inventoryLocationType,
+    name: v.string(),
+    projectId: v.optional(v.id("projects")),
+    active: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_type", ["type"])
+    .index("by_project", ["projectId"]),
+
+  inventoryDocuments: defineTable({
+    type: inventoryMovementType,
+    status: inventoryDocumentStatus,
+    sourceLocationId: v.optional(v.id("inventoryLocations")),
+    destinationLocationId: v.optional(v.id("inventoryLocations")),
+    projectId: v.optional(v.id("projects")),
+    reference: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    compatibilityIssues: v.optional(
+      v.array(
+        v.object({
+          ruleId: v.id("inventoryCompatibilityRules"),
+          materialAId: v.id("materials"),
+          materialBId: v.id("materials"),
+          message: v.string(),
+        })
+      )
+    ),
+    approvalReason: v.optional(v.string()),
+    approvedByUserId: v.optional(v.id("users")),
+    approvedAt: v.optional(v.number()),
+    rejectedByUserId: v.optional(v.id("users")),
+    rejectedAt: v.optional(v.number()),
+    postedAt: v.optional(v.number()),
+    reversalOfDocumentId: v.optional(v.id("inventoryDocuments")),
+    reversedByDocumentId: v.optional(v.id("inventoryDocuments")),
+    createdByUserId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status", "createdAt"])
+    .index("by_project", ["projectId", "createdAt"])
+    .index("by_created_by", ["createdByUserId", "createdAt"])
+    .index("by_reversal_of", ["reversalOfDocumentId"]),
+
+  inventoryDocumentItems: defineTable({
+    documentId: v.id("inventoryDocuments"),
+    lineNumber: v.number(),
+    materialId: v.id("materials"),
+    quantity: v.number(),
+    unitCostCents: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_document", ["documentId", "lineNumber"])
+    .index("by_material", ["materialId"]),
+
+  inventoryEvents: defineTable({
+    documentId: v.id("inventoryDocuments"),
+    documentItemId: v.id("inventoryDocumentItems"),
+    type: inventoryEventType,
+    locationId: v.id("inventoryLocations"),
+    materialId: v.id("materials"),
+    quantityDelta: v.number(),
+    createdByUserId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_document", ["documentId"])
+    .index("by_location", ["locationId", "createdAt"])
+    .index("by_material", ["materialId", "createdAt"]),
+
+  inventoryBalances: defineTable({
+    locationId: v.id("inventoryLocations"),
+    materialId: v.id("materials"),
+    quantity: v.number(),
+    // MVP: um endereço textual por material no estoque central.
+    physicalAddress: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index("by_location", ["locationId"])
+    .index("by_location_material", ["locationId", "materialId"])
+    .index("by_material", ["materialId"]),
+
+  inventoryStockPolicies: defineTable({
+    locationId: v.id("inventoryLocations"),
+    materialId: v.id("materials"),
+    minimumQuantity: v.number(),
+    reorderPoint: v.number(),
+    targetQuantity: v.number(),
+    leadTimeDays: v.optional(v.number()),
+    updatedAt: v.number(),
+    updatedByUserId: v.id("users"),
+  })
+    .index("by_location", ["locationId"])
+    .index("by_material", ["materialId"])
+    .index("by_location_material", ["locationId", "materialId"]),
+
+  inventoryCompatibilityRules: defineTable({
+    type: inventoryCompatibilityRuleType,
+    name: v.string(),
+    materialAId: v.optional(v.id("materials")),
+    materialBId: v.optional(v.id("materials")),
+    categoryA: v.optional(v.string()),
+    categoryB: v.optional(v.string()),
+    attributeKey: v.optional(v.string()),
+    message: v.string(),
+    active: v.boolean(),
+    createdByUserId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_active", ["active"])
+    .index("by_type", ["type"]),
 
   // --- Engenharia: Contratos e Medições (faturamento por obra) ---
 

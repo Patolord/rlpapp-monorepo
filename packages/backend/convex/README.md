@@ -14,7 +14,6 @@ Os módulos de funções ficam na raiz de `convex/` (arquivos planos, para mante
 | `projectEquipment.ts` | Equipamentos planejados (BOM) e ações de campo via QR |
 | `checklists.ts` | Templates de checklist e conclusão de itens |
 | `equipmentHistory.ts` | Histórico de ações em equipamentos planejados |
-| `deliveries.ts` | Entregas de materiais e resumo BOM vs entregue |
 | `dashboard.ts` | KPIs consolidados (visão diretor) |
 | `reports.ts` | Relatórios por obra (progresso, produtividade) |
 | `portal.ts` | Portal read-only do cliente |

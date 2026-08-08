@@ -4,9 +4,9 @@ import type { Id } from "../convex/_generated/dataModel";
 import { setup, withUser } from "./helpers";
 
 // Histórico unificado do técnico agrupado por obra:
-// maintenanceLogs (instalação/manutenção) + equipmentHistory
-// (installed/tested/finalized). Fontes limitadas a 400 itens cada
-// (MAX_PER_SOURCE em technicianActivity.ts).
+// cadastro de equipamento + maintenanceLogs (instalação/manutenção) +
+// equipmentHistory (installed/tested/finalized). Fontes limitadas a
+// 400 itens cada (MAX_PER_SOURCE em technicianActivity.ts).
 
 type TestConvex = ReturnType<typeof setup>;
 
@@ -57,14 +57,17 @@ async function seedEquipment(
   opts: {
     description?: string;
     projectEquipmentId?: Id<"projectEquipment">;
+    createdByUserId?: Id<"users">;
+    createdAt?: number;
   } = {}
 ): Promise<Id<"equipment">> {
   return t.run(async (ctx) =>
     ctx.db.insert("equipment", {
       description: opts.description ?? "Equipamento de teste",
       status: "operational",
-      createdAt: Date.now(),
+      createdAt: opts.createdAt ?? Date.now(),
       projectEquipmentId: opts.projectEquipmentId,
+      createdByUserId: opts.createdByUserId,
     })
   );
 }
@@ -330,5 +333,75 @@ describe("technicianActivity", () => {
     await expect(
       t.query(api.technicianActivity.listMineProjects, {})
     ).rejects.toThrow("Not authenticated");
+  });
+
+  test("cadastro de equipamento aparece no histórico", async () => {
+    const t = setup();
+    const asTech = await withUser(t, {
+      clerkId: "tech-reg",
+      role: "qr_operator",
+    });
+    const techId = await userIdByClerk(t, "tech-reg");
+
+    const projectId = await seedProject(t, "Obra Cadastro");
+    const equipmentId = await seedEquipment(t, {
+      description: "Condensadora cadastrada",
+      createdByUserId: techId,
+      createdAt: 1500,
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("qrCodes", {
+        token: "CADASTRO1",
+        equipmentId,
+        status: "active",
+        projectId,
+        createdAt: Date.now(),
+      });
+    });
+
+    const projects = await asTech.query(
+      api.technicianActivity.listMineProjects,
+      {}
+    );
+    expect(projects).toHaveLength(1);
+    expect(projects[0]).toMatchObject({
+      projectId,
+      projectName: "Obra Cadastro",
+      count: 1,
+      lastActivityAt: 1500,
+    });
+
+    const page = await asTech.query(
+      api.technicianActivity.listMineForProject,
+      { projectId, paginationOpts: { numItems: 10, cursor: null } }
+    );
+    expect(page.page).toHaveLength(1);
+    expect(page.page[0]).toMatchObject({
+      kind: "registration",
+      label: "Cadastro",
+      title: "Condensadora cadastrada",
+      qrToken: "CADASTRO1",
+    });
+  });
+
+  test("usuário A não vê cadastro do usuário B", async () => {
+    const t = setup();
+    const asA = await withUser(t, {
+      clerkId: "tech-reg-a",
+      role: "qr_operator",
+    });
+    await withUser(t, { clerkId: "tech-reg-b", role: "qr_operator" });
+    const userB = await userIdByClerk(t, "tech-reg-b");
+
+    await seedEquipment(t, {
+      description: "Só do B",
+      createdByUserId: userB,
+    });
+
+    const projects = await asA.query(
+      api.technicianActivity.listMineProjects,
+      {}
+    );
+    expect(projects).toHaveLength(0);
   });
 });

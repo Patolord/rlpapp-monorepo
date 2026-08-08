@@ -9,6 +9,7 @@ import {
   BarChart3,
   Building2,
   ChevronDown,
+  Home,
   Loader2,
   Printer,
   QrCode,
@@ -19,6 +20,11 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getUnitState, type GridFloor, type GridUnit } from "@/components/engenharia/building";
 import { AiChatPanel } from "@/components/engenharia/ai/ai-chat-panel";
+import { AssignTechniciansDialog } from "@/components/engenharia/assign-technicians-dialog";
+import {
+  OBRAS_LIST_PATH,
+  obraLinkSlug,
+} from "@/lib/engenharia/obra-paths";
 
 export type ProjectStatus =
   | "planning"
@@ -30,6 +36,7 @@ export type ProjectStatus =
 export type ProjectOverview = {
   _id: Id<"projects">;
   name: string;
+  slug: string;
   floors: GridFloor[];
   client?: string | null;
   address?: string | null;
@@ -126,14 +133,16 @@ export function ProjectShell({
         <p className="mt-2 text-muted-foreground">
           Esta obra pode ter sido removida.
         </p>
-        <Button
-          variant="outline"
-          className="mt-6"
-          render={<Link to="/engenharia/relatorios" />}
-        >
-          <ArrowLeft className="mr-2 size-4" />
-          Voltar para obras
-        </Button>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+          <Button render={<Link to="/app" />}>
+            <Home className="mr-2 size-4" />
+            Voltar à tela inicial
+          </Button>
+          <Button variant="outline" render={<Link to={OBRAS_LIST_PATH} />}>
+            <ArrowLeft className="mr-2 size-4" />
+            Voltar para obras
+          </Button>
+        </div>
       </div>
     );
   }
@@ -197,7 +206,7 @@ function ProjectShellLayout({
           variant="ghost"
           size="sm"
           className="mb-2 -ml-2"
-          render={<Link to="/engenharia/relatorios" />}
+          render={<Link to={OBRAS_LIST_PATH} />}
         >
           <ArrowLeft className="mr-1.5 size-4" />
           Obras
@@ -229,7 +238,7 @@ function ProjectShellLayout({
               {project.totalItems} equipamentos previstos
             </p>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Button
               variant="outline"
               size="icon"
@@ -239,13 +248,14 @@ function ProjectShellLayout({
             >
               <BarChart3 className="size-4" />
             </Button>
+            <AssignTechniciansDialog projectId={project._id} />
             <Button
               variant="outline"
               size="sm"
               render={
                 <Link
-                  to="/engenharia/relatorios/$projectId/qr-codes"
-                  params={{ projectId: project._id }}
+                  to="/engenharia/obras/$obraSlug/qr-codes"
+                  params={{ obraSlug: obraLinkSlug(project) }}
                 />
               }
             >
@@ -257,8 +267,8 @@ function ProjectShellLayout({
               size="sm"
               render={
                 <Link
-                  to="/engenharia/relatorios/$projectId/orcamento"
-                  params={{ projectId: project._id }}
+                  to="/engenharia/obras/$obraSlug/orcamento"
+                  params={{ obraSlug: obraLinkSlug(project) }}
                 />
               }
             >
@@ -269,8 +279,8 @@ function ProjectShellLayout({
               size="sm"
               render={
                 <Link
-                  to="/engenharia/relatorios/$projectId/medicoes"
-                  params={{ projectId: project._id }}
+                  to="/engenharia/obras/$obraSlug/medicoes"
+                  params={{ obraSlug: obraLinkSlug(project) }}
                 />
               }
             >
@@ -281,8 +291,8 @@ function ProjectShellLayout({
               size="sm"
               render={
                 <Link
-                  to="/engenharia/relatorios/$projectId/imprimir"
-                  params={{ projectId: project._id }}
+                  to="/engenharia/obras/$obraSlug/imprimir"
+                  params={{ obraSlug: obraLinkSlug(project) }}
                 />
               }
             >

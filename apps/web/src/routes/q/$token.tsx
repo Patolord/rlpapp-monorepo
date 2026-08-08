@@ -22,6 +22,7 @@ import {
   Loader2,
   QrCode,
   AlertTriangle,
+  Home,
   LogIn,
   MessageCircle,
   Globe,
@@ -220,6 +221,10 @@ function AuthenticatedContent() {
             Este código QR ({token}) não está registrado no sistema. Gere novos
             códigos na página de administração.
           </p>
+          <Button render={<Link to="/app" />}>
+            <Home className="mr-2 h-4 w-4" />
+            Voltar à tela inicial
+          </Button>
         </div>
       </div>
     );
