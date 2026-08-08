@@ -382,23 +382,35 @@ export const backfillCustomerContactsActive = adminMutation({
   }),
   handler: async (ctx, args) => {
     const batchSize = Math.max(1, Math.min(100, Math.floor(args.batchSize ?? 50)));
-    const contactsPage = await ctx.db.query("customerContacts").paginate({
-      cursor: args.cursor ?? null,
-      numItems: batchSize,
-    });
+    let cursor: string | null = args.cursor ?? null;
+    let scanned = 0;
     let updated = 0;
-    for (const contact of contactsPage.page) {
-      if (contact.active !== undefined) continue;
-      updated += 1;
-      if (!args.dryRun) {
-        await ctx.db.patch("customerContacts", contact._id, { active: true });
+    let isDone = false;
+    let continueCursor = "";
+
+    while (!isDone) {
+      const contactsPage = await ctx.db.query("customerContacts").paginate({
+        cursor,
+        numItems: batchSize,
+      });
+      for (const contact of contactsPage.page) {
+        if (contact.active !== undefined) continue;
+        updated += 1;
+        if (!args.dryRun) {
+          await ctx.db.patch("customerContacts", contact._id, { active: true });
+        }
       }
+      scanned += contactsPage.page.length;
+      continueCursor = contactsPage.continueCursor;
+      isDone = contactsPage.isDone;
+      cursor = contactsPage.continueCursor;
     }
+
     return {
-      scanned: contactsPage.page.length,
+      scanned,
       updated,
-      continueCursor: contactsPage.continueCursor,
-      isDone: contactsPage.isDone,
+      continueCursor,
+      isDone,
     };
   },
 });
@@ -432,45 +444,66 @@ export const verifyProjectCustomerAndNumbers = adminQuery({
   }),
   handler: async (ctx, args) => {
     const batchSize = Math.max(1, Math.min(100, Math.floor(args.batchSize ?? 50)));
-    const projectsPage = await ctx.db.query("projects").paginate({
-      cursor: args.cursor ?? null,
-      numItems: batchSize,
-    });
+    let cursor: string | null = args.cursor ?? null;
+    let projectsScanned = 0;
+    let missingCustomer = 0;
+    let missingLegacyNumber = 0;
+    let isDone = false;
+    let continueCursor = "";
     const duplicateIdsByNumber = new Map<number, Id<"projects">[]>();
-    for (const project of projectsPage.page) {
-      if (project.legacyNumber === undefined) continue;
-      if (duplicateIdsByNumber.has(project.legacyNumber)) continue;
-      const matches = await ctx.db
-        .query("projects")
-        .withIndex("by_legacy_number", (q) =>
-          q.eq("legacyNumber", project.legacyNumber)
-        )
-        .take(2);
-      if (matches.length > 1) {
-        duplicateIdsByNumber.set(
-          project.legacyNumber,
-          matches.map((match) => match._id)
-        );
+    const incomplete: Array<{
+      _id: Id<"projects">;
+      name: string;
+      customerId?: Id<"customers">;
+      legacyNumber?: number;
+    }> = [];
+
+    while (!isDone) {
+      const projectsPage = await ctx.db.query("projects").paginate({
+        cursor,
+        numItems: batchSize,
+      });
+      for (const project of projectsPage.page) {
+        projectsScanned += 1;
+        if (project.customerId === undefined) missingCustomer += 1;
+        if (project.legacyNumber === undefined) {
+          missingLegacyNumber += 1;
+        } else if (!duplicateIdsByNumber.has(project.legacyNumber)) {
+          const matches = await ctx.db
+            .query("projects")
+            .withIndex("by_legacy_number", (q) =>
+              q.eq("legacyNumber", project.legacyNumber)
+            )
+            .collect();
+          if (matches.length > 1) {
+            duplicateIdsByNumber.set(
+              project.legacyNumber,
+              matches.map((match) => match._id)
+            );
+          }
+        }
+        if (
+          project.customerId === undefined ||
+          project.legacyNumber === undefined
+        ) {
+          incomplete.push(project);
+        }
       }
+      continueCursor = projectsPage.continueCursor;
+      isDone = projectsPage.isDone;
+      cursor = projectsPage.continueCursor;
     }
+
     const duplicateLegacyNumbers = [...duplicateIdsByNumber.entries()].map(
       ([legacyNumber, projectIds]) => ({ legacyNumber, projectIds })
     );
-    const incomplete = projectsPage.page.filter(
-      (project) =>
-        project.customerId === undefined || project.legacyNumber === undefined
-    );
 
     return {
-      projectsScanned: projectsPage.page.length,
-      missingCustomer: projectsPage.page.filter(
-        (project) => project.customerId === undefined
-      ).length,
-      missingLegacyNumber: projectsPage.page.filter(
-        (project) => project.legacyNumber === undefined
-      ).length,
-      continueCursor: projectsPage.continueCursor,
-      isDone: projectsPage.isDone,
+      projectsScanned,
+      missingCustomer,
+      missingLegacyNumber,
+      continueCursor,
+      isDone,
       duplicateLegacyNumbers,
       samples: incomplete.slice(0, 20).map((project) => ({
         projectId: project._id,
