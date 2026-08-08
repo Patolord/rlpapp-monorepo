@@ -48,6 +48,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
   const addItem = useMutation(api.takeoffs.addItem);
   const removeItem = useMutation(api.takeoffs.removeItem);
   const applyPrice = useMutation(api.takeoffs.applySuggestedPrice);
+  const promoteItem = useMutation(api.takeoffs.promoteItemToMaterial);
 
   const [activeTakeoffId, setActiveTakeoffId] = useState<Id<"takeoffs"> | null>(null);
   const takeoffDetail = useQuery(
@@ -59,6 +60,9 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
     rawDescription: "",
     quantity: "",
     unit: "",
+    widthMm: "",
+    heightMm: "",
+    customSpecification: "",
   });
   const suggestions = useQuery(
     api.materials.suggest,
@@ -103,8 +107,27 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
         quantity: newLine.quantity ? Number.parseFloat(newLine.quantity) : undefined,
         unit: newLine.unit || undefined,
         materialId,
+        customDimensions:
+          newLine.widthMm || newLine.heightMm
+            ? {
+                widthMm: newLine.widthMm
+                  ? Number.parseFloat(newLine.widthMm.replace(",", "."))
+                  : undefined,
+                heightMm: newLine.heightMm
+                  ? Number.parseFloat(newLine.heightMm.replace(",", "."))
+                  : undefined,
+              }
+            : undefined,
+        customSpecification: newLine.customSpecification || undefined,
       });
-      setNewLine({ rawDescription: "", quantity: "", unit: "" });
+      setNewLine({
+        rawDescription: "",
+        quantity: "",
+        unit: "",
+        widthMm: "",
+        heightMm: "",
+        customSpecification: "",
+      });
       toast.success("Item adicionado");
     } catch (error) {
       toast.error(getErrorMessage(error, "Erro ao adicionar item"));
@@ -215,6 +238,45 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
               />
             </div>
           </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <Label>Largura personalizada (mm)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                value={newLine.widthMm}
+                onChange={(event) =>
+                  setNewLine({ ...newLine, widthMm: event.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label>Altura personalizada (mm)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                value={newLine.heightMm}
+                onChange={(event) =>
+                  setNewLine({ ...newLine, heightMm: event.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label>Detalhe personalizado</Label>
+              <Input
+                value={newLine.customSpecification}
+                onChange={(event) =>
+                  setNewLine({
+                    ...newLine,
+                    customSpecification: event.target.value,
+                  })
+                }
+                placeholder="Cor, acabamento..."
+              />
+            </div>
+          </div>
           <Button onClick={() => void handleAddLine()}>
             <Plus className="mr-2 size-4" />
             Adicionar linha
@@ -249,6 +311,17 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                     {item.materialName && (
                       <div className="text-xs text-muted-foreground">{item.materialName}</div>
                     )}
+                    {item.customDimensions ? (
+                      <div className="text-xs text-muted-foreground">
+                        {item.customDimensions.widthMm ?? "—"} ×{" "}
+                        {item.customDimensions.heightMm ?? "—"} mm
+                      </div>
+                    ) : null}
+                    {item.customSpecification ? (
+                      <div className="text-xs text-muted-foreground">
+                        {item.customSpecification}
+                      </div>
+                    ) : null}
                   </TableCell>
                   <TableCell>
                     {item.quantity ?? "—"}
@@ -302,18 +375,46 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() =>
-                        void removeItem({ itemId: item._id }).then(
-                          () => toast.success("Item removido"),
-                          (e) => toast.error(getErrorMessage(e, "Erro"))
-                        )
-                      }
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      {!item.materialId ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            void promoteItem({ itemId: item._id }).then(
+                              ({ created }) =>
+                                toast.success(
+                                  created
+                                    ? "SKU criado e vinculado"
+                                    : "SKU existente vinculado"
+                                ),
+                              (error) =>
+                                toast.error(
+                                  getErrorMessage(
+                                    error,
+                                    "Apenas Compras pode criar o SKU"
+                                  )
+                                )
+                            )
+                          }
+                        >
+                          Criar SKU
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Remover item"
+                        onClick={() =>
+                          void removeItem({ itemId: item._id }).then(
+                            () => toast.success("Item removido"),
+                            (e) => toast.error(getErrorMessage(e, "Erro"))
+                          )
+                        }
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

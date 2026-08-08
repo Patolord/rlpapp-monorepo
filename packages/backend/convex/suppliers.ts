@@ -345,17 +345,17 @@ export const listMaterialOfferings = engineeringOrPurchasingQuery({
   },
   returns: v.array(supplierMaterialValidator),
   handler: async (ctx, args) => {
-    const offerings = args.materialId
+    const materialId = args.materialId;
+    const supplierId = args.supplierId;
+    const offerings = materialId
       ? await ctx.db
           .query("supplierMaterials")
-          .withIndex("by_material", (q) => q.eq("materialId", args.materialId))
+          .withIndex("by_material", (q) => q.eq("materialId", materialId))
           .collect()
-      : args.supplierId
+      : supplierId
         ? await ctx.db
             .query("supplierMaterials")
-            .withIndex("by_supplier", (q) =>
-              q.eq("supplierId", args.supplierId)
-            )
+            .withIndex("by_supplier", (q) => q.eq("supplierId", supplierId))
             .collect()
         : [];
     return await Promise.all(

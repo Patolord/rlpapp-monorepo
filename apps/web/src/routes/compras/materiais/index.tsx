@@ -29,7 +29,10 @@ import { getErrorMessage } from "@/lib/errors";
 import { splitList } from "@/lib/csv";
 
 const MATERIAL_COLUMN_ALIASES = {
-  name: ["name", "nome", "material"],
+  name: ["name", "nome", "material", "descrição", "descricao"],
+  variantLabel: ["variantlabel", "variante", "detalhe"],
+  legacyMaterialId: ["legacymaterialid", "id"],
+  legacyDetailId: ["legacydetailid", "id detalhe", "iddetalhe"],
   category: ["category", "categoria"],
   unit: ["unit", "unidade", "un"],
   spec: ["spec", "especificacao", "especificação", "specification"],
@@ -39,6 +42,9 @@ const MATERIAL_COLUMN_ALIASES = {
 
 const MATERIAL_TEMPLATE_HEADERS = [
   "name",
+  "variantLabel",
+  "legacyMaterialId",
+  "legacyDetailId",
   "category",
   "unit",
   "spec",
@@ -48,12 +54,33 @@ const MATERIAL_TEMPLATE_HEADERS = [
 
 type MaterialImportItem = {
   name: string;
+  variantLabel?: string;
+  dimensions?: {
+    widthMm?: number;
+    heightMm?: number;
+  };
+  legacyMaterialId?: string;
+  legacyDetailId?: string;
   category?: string;
   unit?: string;
   spec?: string;
   brandPreference?: string;
   aliases?: string[];
 };
+
+function dimensionsFromVariant(
+  value: string | undefined
+): MaterialImportItem["dimensions"] {
+  if (!value) return undefined;
+  const match = /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*mm\b/i.exec(
+    value
+  );
+  if (!match) return undefined;
+  return {
+    widthMm: Number.parseFloat(match[1]!.replace(",", ".")),
+    heightMm: Number.parseFloat(match[2]!.replace(",", ".")),
+  };
+}
 
 export const Route = createFileRoute("/compras/materiais/")({
   component: MateriaisPage,
@@ -112,6 +139,9 @@ function MateriaisContent() {
             templateHeaders={[...MATERIAL_TEMPLATE_HEADERS]}
             templateSampleRow={[
               "Cabo PP 3x2.5",
+              "3x2,5 mm²",
+              "42",
+              "2",
               "Elétrica",
               "m",
               "Flexível",
@@ -120,7 +150,7 @@ function MateriaisContent() {
             ]}
             requiredColumns={["name"]}
             columnAliases={MATERIAL_COLUMN_ALIASES}
-            previewColumns={["name", "category", "unit", "spec"]}
+            previewColumns={["name", "variantLabel", "category", "unit"]}
             mapRow={(row, rowNumber) => {
               const name = row.name?.trim();
               if (!name) {
@@ -131,6 +161,10 @@ function MateriaisContent() {
                 row: rowNumber,
                 item: {
                   name,
+                  variantLabel: row.variantLabel?.trim() || undefined,
+                  dimensions: dimensionsFromVariant(row.variantLabel),
+                  legacyMaterialId: row.legacyMaterialId?.trim() || undefined,
+                  legacyDetailId: row.legacyDetailId?.trim() || undefined,
                   category: row.category?.trim() || undefined,
                   unit: row.unit?.trim() || undefined,
                   spec: row.spec?.trim() || undefined,
@@ -206,6 +240,11 @@ function MateriaisContent() {
                             onClick={() => setDetailMaterial(material)}
                           >
                             <p className="font-medium">{material.name}</p>
+                            {material.variantLabel ? (
+                              <p className="text-xs">
+                                {material.variantLabel}
+                              </p>
+                            ) : null}
                             <p className="text-xs text-muted-foreground">
                               {material.sku ?? "Sem SKU"}
                             </p>
@@ -261,6 +300,9 @@ function MateriaisContent() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-medium">{material.name}</p>
+                        {material.variantLabel ? (
+                          <p className="text-xs">{material.variantLabel}</p>
+                        ) : null}
                         <p className="text-xs text-muted-foreground">
                           {material.sku ?? "Sem SKU"}
                         </p>

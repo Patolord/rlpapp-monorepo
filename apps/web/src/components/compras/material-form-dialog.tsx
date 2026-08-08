@@ -1,7 +1,7 @@
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -26,6 +26,12 @@ export const UNIT_SUGGESTIONS = ["un", "m", "kg", "cx", "pct", "rolo", "m²", "L
 
 export type MaterialFormValues = {
   name: string;
+  variantLabel: string;
+  widthMm: string;
+  heightMm: string;
+  lengthMm: string;
+  thicknessMm: string;
+  diameterMm: string;
   sku: string;
   barcode: string;
   manufacturer: string;
@@ -42,6 +48,12 @@ export type MaterialFormValues = {
 
 export const EMPTY_MATERIAL_FORM: MaterialFormValues = {
   name: "",
+  variantLabel: "",
+  widthMm: "",
+  heightMm: "",
+  lengthMm: "",
+  thicknessMm: "",
+  diameterMm: "",
   sku: "",
   barcode: "",
   manufacturer: "",
@@ -81,6 +93,22 @@ export function parseTechnicalAttributes(
 function materialToForm(material: MaterialCatalogRow): MaterialFormValues {
   return {
     name: material.name,
+    variantLabel: material.variantLabel ?? "",
+    widthMm: material.dimensions?.widthMm
+      ? String(material.dimensions.widthMm)
+      : "",
+    heightMm: material.dimensions?.heightMm
+      ? String(material.dimensions.heightMm)
+      : "",
+    lengthMm: material.dimensions?.lengthMm
+      ? String(material.dimensions.lengthMm)
+      : "",
+    thicknessMm: material.dimensions?.thicknessMm
+      ? String(material.dimensions.thicknessMm)
+      : "",
+    diameterMm: material.dimensions?.diameterMm
+      ? String(material.dimensions.diameterMm)
+      : "",
     sku: material.sku ?? "",
     barcode: material.barcode ?? "",
     manufacturer: material.manufacturer ?? "",
@@ -101,6 +129,21 @@ function materialToForm(material: MaterialCatalogRow): MaterialFormValues {
   };
 }
 
+function dimensionsFromForm(form: MaterialFormValues) {
+  const parse = (value: string) =>
+    value.trim() ? Number.parseFloat(value.replace(",", ".")) : undefined;
+  const dimensions = {
+    widthMm: parse(form.widthMm),
+    heightMm: parse(form.heightMm),
+    lengthMm: parse(form.lengthMm),
+    thicknessMm: parse(form.thicknessMm),
+    diameterMm: parse(form.diameterMm),
+  };
+  return Object.values(dimensions).some((value) => value !== undefined)
+    ? dimensions
+    : undefined;
+}
+
 type MaterialFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -119,6 +162,21 @@ export function MaterialFormDialog({
   const [form, setForm] = useState<MaterialFormValues>(EMPTY_MATERIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
   const isEdit = material != null;
+  const dimensions = dimensionsFromForm(form);
+  const duplicateCandidates = useQuery(
+    api.materials.findDuplicateCandidates,
+    form.name.trim().length >= 2
+      ? {
+          name: form.name,
+          variantLabel: form.variantLabel || undefined,
+          manufacturer: form.manufacturer || undefined,
+          manufacturerPartNumber: form.manufacturerPartNumber || undefined,
+          unit: form.unit || undefined,
+          dimensions,
+          excludeMaterialId: material?._id,
+        }
+      : "skip"
+  );
 
   useEffect(() => {
     if (open) {
@@ -136,6 +194,7 @@ export function MaterialFormDialog({
       const technicalAttributes = parseTechnicalAttributes(
         form.technicalAttributes
       );
+      const submittedDimensions = dimensionsFromForm(form);
       const unitsPerPurchaseUnit = form.unitsPerPurchaseUnit.trim()
         ? Number.parseFloat(form.unitsPerPurchaseUnit)
         : undefined;
@@ -144,6 +203,8 @@ export function MaterialFormDialog({
         await updateMaterial({
           materialId: material._id,
           name: form.name,
+          variantLabel: form.variantLabel || undefined,
+          dimensions: submittedDimensions,
           sku: form.sku || undefined,
           barcode: form.barcode.trim() ? form.barcode : null,
           manufacturer: form.manufacturer || undefined,
@@ -161,6 +222,8 @@ export function MaterialFormDialog({
       } else {
         await createMaterial({
           name: form.name,
+          variantLabel: form.variantLabel || undefined,
+          dimensions: submittedDimensions,
           sku: form.sku.trim() || undefined,
           barcode: form.barcode || undefined,
           manufacturer: form.manufacturer || undefined,
@@ -198,7 +261,7 @@ export function MaterialFormDialog({
           <section className="space-y-3">
             <h3 className="text-sm font-medium">Identificação</h3>
             <div>
-              <Label>Nome</Label>
+              <Label>Família / nome-base</Label>
               <Input
                 value={form.name}
                 onChange={(event) =>
@@ -206,6 +269,33 @@ export function MaterialFormDialog({
                 }
               />
             </div>
+            <div>
+              <Label>Detalhe da variante</Label>
+              <Input
+                value={form.variantLabel}
+                onChange={(event) =>
+                  setForm({ ...form, variantLabel: event.target.value })
+                }
+                placeholder="Ex.: Branca, MAXX 150, 3x2,5 mm²"
+              />
+            </div>
+            {(duplicateCandidates ?? []).length > 0 ? (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">
+                <p className="font-medium">Materiais semelhantes encontrados</p>
+                <ul className="mt-1 space-y-1">
+                  {(duplicateCandidates ?? []).map((candidate) => (
+                    <li key={candidate.materialId}>
+                      {candidate.name}
+                      {candidate.variantLabel
+                        ? ` — ${candidate.variantLabel}`
+                        : ""}{" "}
+                      ({candidate.sku ?? "sem SKU"})
+                      {candidate.exact ? " · duplicata exata" : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <Label>SKU</Label>
@@ -322,6 +412,31 @@ export function MaterialFormDialog({
 
           <section className="space-y-3">
             <h3 className="text-sm font-medium">Dados técnicos</h3>
+            <div>
+              <Label>Dimensões padronizadas (mm)</Label>
+              <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                {[
+                  ["widthMm", "Largura"],
+                  ["heightMm", "Altura"],
+                  ["lengthMm", "Comprimento"],
+                  ["thicknessMm", "Espessura"],
+                  ["diameterMm", "Diâmetro"],
+                ].map(([field, label]) => (
+                  <Input
+                    key={field}
+                    type="number"
+                    min="0"
+                    step="any"
+                    aria-label={`${label} em milímetros`}
+                    placeholder={label}
+                    value={form[field as keyof MaterialFormValues] as string}
+                    onChange={(event) =>
+                      setForm({ ...form, [field]: event.target.value })
+                    }
+                  />
+                ))}
+              </div>
+            </div>
             <div>
               <Label>Especificação</Label>
               <Input
