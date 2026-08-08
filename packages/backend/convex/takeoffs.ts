@@ -10,7 +10,8 @@ import {
   allocateNextSku,
   buildMaterialIdentityKey,
   buildMaterialSearchText,
-  formatDimensions,
+  deriveVariantLabel,
+  findMaterialByIdentity,
   normalizeUnit,
   sanitizeDimensions,
 } from "./lib/compras/catalog";
@@ -443,8 +444,10 @@ export const promoteItemToMaterial = purchasingMutation({
     if (!family) throw new Error("Falha ao criar família de material");
 
     const dimensions = sanitizeDimensions(item.customDimensions);
-    const variantLabel =
-      item.customSpecification?.trim() || formatDimensions(dimensions);
+    const variantLabel = deriveVariantLabel({
+      variantLabel: item.customSpecification,
+      dimensions,
+    });
     const unit = normalizeUnit(item.unit);
     const identityKey = buildMaterialIdentityKey({
       familyId: family._id,
@@ -452,10 +455,11 @@ export const promoteItemToMaterial = purchasingMutation({
       variantLabel,
       dimensions,
     });
-    const existing = await ctx.db
-      .query("materials")
-      .withIndex("by_identity_key", (q) => q.eq("identityKey", identityKey))
-      .first();
+    const existing = await findMaterialByIdentity(ctx, {
+      identityKey,
+      familyId: family._id,
+      familyName: family.name,
+    });
     if (existing) {
       await ctx.db.patch("takeoffItems", item._id, {
         materialId: existing._id,

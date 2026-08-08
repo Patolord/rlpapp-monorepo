@@ -1,7 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -60,6 +60,7 @@ export function MaterialDetailSheet({
     material ? { materialId: material._id } : "skip"
   );
   const upsertOffering = useMutation(api.suppliers.upsertMaterialOffering);
+  const removeOffering = useMutation(api.suppliers.removeMaterialOffering);
   const ensureCentralLocation = useMutation(
     api.inventoryStockPolicies.ensureCentralLocation
   );
@@ -68,6 +69,9 @@ export function MaterialDetailSheet({
   const [submittingAlias, setSubmittingAlias] = useState(false);
   const [supplierId, setSupplierId] = useState("");
   const [supplierCode, setSupplierCode] = useState("");
+  const [supplierPurchaseUnit, setSupplierPurchaseUnit] = useState("");
+  const [supplierLeadTimeDays, setSupplierLeadTimeDays] = useState("");
+  const [preferredSupplier, setPreferredSupplier] = useState(false);
   const [submittingOffering, setSubmittingOffering] = useState(false);
   const [policySheetOpen, setPolicySheetOpen] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<PolicyDraft | null>(null);
@@ -110,9 +114,17 @@ export function MaterialDetailSheet({
         supplierId: supplierId as Id<"suppliers">,
         materialId: material!._id,
         supplierCode: supplierCode || undefined,
+        purchaseUnit: supplierPurchaseUnit || undefined,
+        leadTimeDays: supplierLeadTimeDays
+          ? Number.parseInt(supplierLeadTimeDays, 10)
+          : undefined,
+        preferred: preferredSupplier,
       });
       setSupplierId("");
       setSupplierCode("");
+      setSupplierPurchaseUnit("");
+      setSupplierLeadTimeDays("");
+      setPreferredSupplier(false);
       toast.success("Fornecedor vinculado");
     } catch (error) {
       toast.error(getErrorMessage(error, "Erro ao vincular fornecedor"));
@@ -173,7 +185,7 @@ export function MaterialDetailSheet({
 
             <section className="space-y-2">
               <h3 className="text-sm font-medium">Fornecedores</h3>
-              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+              <div className="grid gap-2 sm:grid-cols-2">
                 <select
                   className="h-9 rounded-md border bg-background px-3 text-sm"
                   value={supplierId}
@@ -192,6 +204,32 @@ export function MaterialDetailSheet({
                   onChange={(event) => setSupplierCode(event.target.value)}
                   placeholder="Código do fornecedor"
                 />
+                <Input
+                  value={supplierPurchaseUnit}
+                  onChange={(event) =>
+                    setSupplierPurchaseUnit(event.target.value)
+                  }
+                  placeholder="Unidade de compra"
+                />
+                <Input
+                  type="number"
+                  min="0"
+                  value={supplierLeadTimeDays}
+                  onChange={(event) =>
+                    setSupplierLeadTimeDays(event.target.value)
+                  }
+                  placeholder="Prazo (dias)"
+                />
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={preferredSupplier}
+                    onChange={(event) =>
+                      setPreferredSupplier(event.target.checked)
+                    }
+                  />
+                  Fornecedor preferido
+                </label>
                 <Button
                   variant="outline"
                   onClick={() => void handleAddOffering()}
@@ -211,11 +249,42 @@ export function MaterialDetailSheet({
                       (item) => item._id === offering.supplierId
                     );
                     return (
-                      <li key={offering._id} className="rounded border px-2 py-1">
-                        {supplier?.name ?? "Fornecedor"}
-                        {offering.supplierCode
-                          ? ` · ${offering.supplierCode}`
-                          : ""}
+                      <li
+                        key={offering._id}
+                        className="flex items-center justify-between gap-2 rounded border px-2 py-1"
+                      >
+                        <span>
+                          {supplier?.name ?? "Fornecedor"}
+                          {offering.supplierCode
+                            ? ` · ${offering.supplierCode}`
+                            : ""}
+                          {offering.purchaseUnit
+                            ? ` · ${offering.purchaseUnit}`
+                            : ""}
+                          {offering.leadTimeDays != null
+                            ? ` · ${offering.leadTimeDays} dias`
+                            : ""}
+                          {offering.preferred ? " · preferido" : ""}
+                        </span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          aria-label="Remover fornecedor"
+                          onClick={() =>
+                            void removeOffering({
+                              offeringId: offering._id,
+                            }).catch((error) =>
+                              toast.error(
+                                getErrorMessage(
+                                  error,
+                                  "Erro ao remover fornecedor"
+                                )
+                              )
+                            )
+                          }
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
                       </li>
                     );
                   })}

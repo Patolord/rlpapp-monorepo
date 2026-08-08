@@ -111,6 +111,57 @@ export function buildMaterialIdentityKey(input: {
   ].join("|");
 }
 
+export async function findMaterialByIdentity(
+  ctx: QueryCtx | MutationCtx,
+  input: {
+    identityKey: string;
+    familyId: Id<"materialFamilies">;
+    familyName: string;
+    excludeMaterialId?: Id<"materials">;
+  }
+): Promise<MaterialDoc | null> {
+  const indexed = await ctx.db
+    .query("materials")
+    .withIndex("by_identity_key", (q) =>
+      q.eq("identityKey", input.identityKey)
+    )
+    .take(2);
+  const indexedDuplicate = indexed.find(
+    (material) => material._id !== input.excludeMaterialId
+  );
+  if (indexedDuplicate) return indexedDuplicate;
+
+  // Durante a migração, compare também linhas ainda sem identityKey.
+  const legacyMaterials = await ctx.db
+    .query("materials")
+    .withIndex("by_identity_key", (q) => q.eq("identityKey", undefined))
+    .take(1000);
+  const familyNameNormalized = normalizeText(input.familyName);
+  for (const material of legacyMaterials) {
+    if (material._id === input.excludeMaterialId) continue;
+    let sameFamily = material.familyId === input.familyId;
+    if (!sameFamily && material.familyId) {
+      const family = await ctx.db.get("materialFamilies", material.familyId);
+      sameFamily = family?.nameNormalized === familyNameNormalized;
+    } else if (!material.familyId) {
+      sameFamily = normalizeText(material.name) === familyNameNormalized;
+    }
+    if (!sameFamily) continue;
+
+    const candidateKey = buildMaterialIdentityKey({
+      familyId: input.familyId,
+      manufacturer: material.manufacturer,
+      manufacturerPartNumber: material.manufacturerPartNumber,
+      unit: material.unit,
+      variantLabel: material.variantLabel,
+      dimensions: material.dimensions,
+      technicalAttributes: material.technicalAttributes,
+    });
+    if (candidateKey === input.identityKey) return material;
+  }
+  return null;
+}
+
 export function formatDimensions(
   dimensions: MaterialDimensions | undefined
 ): string | undefined {
@@ -124,6 +175,13 @@ export function formatDimensions(
     .filter((entry): entry is [string, number] => entry[1] !== undefined)
     .map(([key, value]) => `${key}=${value} mm`)
     .join(", ");
+}
+
+export function deriveVariantLabel(input: {
+  variantLabel?: string;
+  dimensions?: MaterialDimensions;
+}): string | undefined {
+  return input.variantLabel?.trim() || formatDimensions(input.dimensions);
 }
 
 export function buildMaterialSearchText(input: {

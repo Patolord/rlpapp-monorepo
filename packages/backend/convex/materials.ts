@@ -6,7 +6,8 @@ import {
   assertUniqueSku,
   buildMaterialIdentityKey,
   buildMaterialSearchText,
-  formatDimensions,
+  deriveVariantLabel,
+  findMaterialByIdentity,
   materialMatchesSearch,
   normalizeBarcode,
   normalizeSku,
@@ -173,13 +174,17 @@ async function findOrCreateFamily(
 async function assertUniqueIdentity(
   ctx: QueryCtx | MutationCtx,
   identityKey: string,
+  familyId: Id<"materialFamilies">,
+  familyName: string,
   excludeMaterialId?: Id<"materials">
 ): Promise<void> {
-  const hit = await ctx.db
-    .query("materials")
-    .withIndex("by_identity_key", (q) => q.eq("identityKey", identityKey))
-    .first();
-  if (hit && hit._id !== excludeMaterialId) {
+  const hit = await findMaterialByIdentity(ctx, {
+    identityKey,
+    familyId,
+    familyName,
+    excludeMaterialId,
+  });
+  if (hit) {
     const detail = hit.variantLabel ? ` (${hit.variantLabel})` : "";
     throw new Error(`Material já cadastrado: ${hit.name}${detail}`);
   }
@@ -622,8 +627,10 @@ export const create = purchasingMutation({
     const purchaseUnit = args.purchaseUnit?.trim() || undefined;
     const spec = args.spec?.trim() || undefined;
     const brandPreference = args.brandPreference?.trim() || undefined;
-    const variantLabel =
-      args.variantLabel?.trim() || formatDimensions(dimensions) || undefined;
+    const variantLabel = deriveVariantLabel({
+      variantLabel: args.variantLabel,
+      dimensions,
+    });
     const family = await findOrCreateFamily(ctx, {
       familyId: args.familyId,
       name,
@@ -639,7 +646,12 @@ export const create = purchasingMutation({
       dimensions,
       technicalAttributes,
     });
-    await assertUniqueIdentity(ctx, identityKey);
+    await assertUniqueIdentity(
+      ctx,
+      identityKey,
+      family._id,
+      family.name
+    );
 
     const materialId = await ctx.db.insert("materials", {
       name: family.name,
@@ -763,8 +775,10 @@ export const bulkCreate = purchasingMutation({
         baseUnit: normalizeUnit(item.unit),
       });
       const dimensions = sanitizeDimensions(item.dimensions);
-      const variantLabel =
-        item.variantLabel?.trim() || formatDimensions(dimensions) || undefined;
+      const variantLabel = deriveVariantLabel({
+        variantLabel: item.variantLabel,
+        dimensions,
+      });
       const unit = normalizeUnit(item.unit);
       const identityKey = materialIdentityInput({
         familyId: family._id,
@@ -785,10 +799,11 @@ export const bulkCreate = purchasingMutation({
         result.skipped++;
         continue;
       }
-      const existingIdentity = await ctx.db
-        .query("materials")
-        .withIndex("by_identity_key", (q) => q.eq("identityKey", identityKey))
-        .first();
+      const existingIdentity = await findMaterialByIdentity(ctx, {
+        identityKey,
+        familyId: family._id,
+        familyName: family.name,
+      });
       const existingLegacy = item.legacyMaterialId
         ? await ctx.db
             .query("materials")
@@ -1023,7 +1038,13 @@ export const update = purchasingMutation({
       dimensions: next.dimensions,
       technicalAttributes: next.technicalAttributes,
     });
-    await assertUniqueIdentity(ctx, identityKey, args.materialId);
+    await assertUniqueIdentity(
+      ctx,
+      identityKey,
+      familyId,
+      next.name,
+      args.materialId
+    );
     updates.identityKey = identityKey;
     updates.searchText = buildMaterialSearchText({
       name: next.name,

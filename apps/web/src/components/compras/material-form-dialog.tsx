@@ -159,15 +159,23 @@ export function MaterialFormDialog({
 }: MaterialFormDialogProps) {
   const createMaterial = useMutation(api.materials.create);
   const updateMaterial = useMutation(api.materials.update);
+  const families = useQuery(api.materials.listFamilies, { activeOnly: true });
   const [form, setForm] = useState<MaterialFormValues>(EMPTY_MATERIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
   const isEdit = material != null;
   const dimensions = dimensionsFromForm(form);
+  const selectedFamily = (families ?? []).find(
+    (family) =>
+      family.name.localeCompare(form.name.trim(), "pt-BR", {
+        sensitivity: "base",
+      }) === 0
+  );
   const duplicateCandidates = useQuery(
     api.materials.findDuplicateCandidates,
     form.name.trim().length >= 2
       ? {
           name: form.name,
+          familyId: selectedFamily?._id,
           variantLabel: form.variantLabel || undefined,
           manufacturer: form.manufacturer || undefined,
           manufacturerPartNumber: form.manufacturerPartNumber || undefined,
@@ -203,6 +211,7 @@ export function MaterialFormDialog({
         await updateMaterial({
           materialId: material._id,
           name: form.name,
+          familyId: selectedFamily?._id,
           variantLabel: form.variantLabel || null,
           dimensions: submittedDimensions ?? null,
           sku: form.sku || undefined,
@@ -222,6 +231,7 @@ export function MaterialFormDialog({
       } else {
         await createMaterial({
           name: form.name,
+          familyId: selectedFamily?._id,
           variantLabel: form.variantLabel || undefined,
           dimensions: submittedDimensions,
           sku: form.sku.trim() || undefined,
@@ -267,7 +277,13 @@ export function MaterialFormDialog({
                 onChange={(event) =>
                   setForm({ ...form, name: event.target.value })
                 }
+                list="material-family-suggestions"
               />
+              <datalist id="material-family-suggestions">
+                {(families ?? []).map((family) => (
+                  <option key={family._id} value={family.name} />
+                ))}
+              </datalist>
             </div>
             <div>
               <Label>Detalhe da variante</Label>

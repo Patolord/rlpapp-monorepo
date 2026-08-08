@@ -12,6 +12,7 @@ import {
   buildMaterialIdentityKey,
   buildMaterialSearchText,
   ensureSkuCounterAtLeast,
+  findMaterialByIdentity,
   parseSkuSequence,
 } from "./lib/compras/catalog";
 import { normalizeText } from "./lib/compras/procurement";
@@ -481,6 +482,7 @@ export const backfillMaterialFamilies = adminMutation({
     familiesCreated: v.number(),
     materialsLinked: v.number(),
     identitiesUpdated: v.number(),
+    duplicatesMarked: v.number(),
     continueCursor: v.string(),
     isDone: v.boolean(),
   }),
@@ -493,6 +495,7 @@ export const backfillMaterialFamilies = adminMutation({
     let familiesCreated = 0;
     let materialsLinked = 0;
     let identitiesUpdated = 0;
+    let duplicatesMarked = 0;
 
     for (const material of page.page) {
       let familyId = material.familyId;
@@ -522,7 +525,12 @@ export const backfillMaterialFamilies = adminMutation({
         materialsLinked++;
       }
 
-      if (!familyId) continue;
+      if (!familyId) {
+        // Em dry-run a família ainda não existe, mas a execução real atualizará
+        // a identidade depois de criá-la.
+        identitiesUpdated++;
+        continue;
+      }
       const identityKey = buildMaterialIdentityKey({
         familyId,
         manufacturer: material.manufacturer,
@@ -532,6 +540,31 @@ export const backfillMaterialFamilies = adminMutation({
         dimensions: material.dimensions,
         technicalAttributes: material.technicalAttributes,
       });
+      const duplicate = await findMaterialByIdentity(ctx, {
+        identityKey,
+        familyId,
+        familyName: material.name,
+        excludeMaterialId: material._id,
+      });
+      const duplicateIsCanonical =
+        duplicate &&
+        (duplicate.identityKey === identityKey ||
+          duplicate._creationTime < material._creationTime ||
+          (duplicate._creationTime === material._creationTime &&
+            duplicate._id < material._id));
+      if (duplicateIsCanonical) {
+        duplicatesMarked++;
+        if (!dryRun) {
+          await ctx.db.patch("materials", material._id, {
+            familyId,
+            identityKey: undefined,
+            status: "duplicate",
+            active: false,
+            updatedAt: Date.now(),
+          });
+        }
+        continue;
+      }
       if (material.identityKey !== identityKey) identitiesUpdated++;
       if (!dryRun) {
         await ctx.db.patch("materials", material._id, {
@@ -558,8 +591,73 @@ export const backfillMaterialFamilies = adminMutation({
       familiesCreated,
       materialsLinked,
       identitiesUpdated,
+      duplicatesMarked,
       continueCursor: page.continueCursor,
       isDone: page.isDone,
+    };
+  },
+});
+
+export const verifyMaterialFamilyMigration = adminQuery({
+  args: {},
+  returns: v.object({
+    materialsMissingFamily: v.number(),
+    materialsMissingIdentity: v.number(),
+    duplicateIdentityKeys: v.number(),
+    duplicateLegacyRows: v.number(),
+    samples: v.array(
+      v.object({
+        materialId: v.id("materials"),
+        name: v.string(),
+        issue: v.string(),
+      })
+    ),
+  }),
+  handler: async (ctx) => {
+    const materials = await ctx.db.query("materials").collect();
+    const missingFamily = materials.filter((material) => !material.familyId);
+    const missingIdentity = materials.filter(
+      (material) =>
+        material.status !== "duplicate" && !material.identityKey
+    );
+    const identityCounts = new Map<string, number>();
+    const legacyCounts = new Map<string, number>();
+    for (const material of materials) {
+      if (material.identityKey) {
+        identityCounts.set(
+          material.identityKey,
+          (identityCounts.get(material.identityKey) ?? 0) + 1
+        );
+      }
+      if (material.legacyMaterialId) {
+        const key = `${material.legacyMaterialId}:${material.legacyDetailId ?? ""}`;
+        legacyCounts.set(key, (legacyCounts.get(key) ?? 0) + 1);
+      }
+    }
+    const duplicateIdentityKeys = [...identityCounts.values()].filter(
+      (count) => count > 1
+    ).length;
+    const duplicateLegacyRows = [...legacyCounts.values()].filter(
+      (count) => count > 1
+    ).length;
+    const samples = [
+      ...missingFamily.slice(0, 5).map((material) => ({
+        materialId: material._id,
+        name: material.name,
+        issue: "Sem família",
+      })),
+      ...missingIdentity.slice(0, 5).map((material) => ({
+        materialId: material._id,
+        name: material.name,
+        issue: "Sem identidade",
+      })),
+    ].slice(0, 10);
+    return {
+      materialsMissingFamily: missingFamily.length,
+      materialsMissingIdentity: missingIdentity.length,
+      duplicateIdentityKeys,
+      duplicateLegacyRows,
+      samples,
     };
   },
 });

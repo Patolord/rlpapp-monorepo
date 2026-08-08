@@ -43,6 +43,7 @@ function OrcamentoPage() {
 
 function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
   const [now] = useState(() => Date.now());
+  const currentUser = useQuery(api.users.getCurrentUser);
   const takeoffs = useQuery(api.takeoffs.list, { projectId });
   const createTakeoff = useMutation(api.takeoffs.create);
   const addItem = useMutation(api.takeoffs.addItem);
@@ -62,6 +63,9 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
     unit: "",
     widthMm: "",
     heightMm: "",
+    lengthMm: "",
+    thicknessMm: "",
+    diameterMm: "",
     customSpecification: "",
   });
   const suggestions = useQuery(
@@ -108,13 +112,26 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
         unit: newLine.unit || undefined,
         materialId,
         customDimensions:
-          newLine.widthMm || newLine.heightMm
+          newLine.widthMm ||
+          newLine.heightMm ||
+          newLine.lengthMm ||
+          newLine.thicknessMm ||
+          newLine.diameterMm
             ? {
                 widthMm: newLine.widthMm
                   ? Number.parseFloat(newLine.widthMm.replace(",", "."))
                   : undefined,
                 heightMm: newLine.heightMm
                   ? Number.parseFloat(newLine.heightMm.replace(",", "."))
+                  : undefined,
+                lengthMm: newLine.lengthMm
+                  ? Number.parseFloat(newLine.lengthMm.replace(",", "."))
+                  : undefined,
+                thicknessMm: newLine.thicknessMm
+                  ? Number.parseFloat(newLine.thicknessMm.replace(",", "."))
+                  : undefined,
+                diameterMm: newLine.diameterMm
+                  ? Number.parseFloat(newLine.diameterMm.replace(",", "."))
                   : undefined,
               }
             : undefined,
@@ -126,6 +143,9 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
         unit: "",
         widthMm: "",
         heightMm: "",
+        lengthMm: "",
+        thicknessMm: "",
+        diameterMm: "",
         customSpecification: "",
       });
       toast.success("Item adicionado");
@@ -143,6 +163,10 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
     const price = item.estimatedUnitPriceCents ?? 0;
     return sum + qty * price;
   }, 0);
+  const canPromoteMaterial =
+    currentUser?.role === "director" ||
+    currentUser?.role === "admin" ||
+    currentUser?.department === "compras";
 
   return (
     <div className="space-y-6">
@@ -238,7 +262,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
               />
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-5">
             <div>
               <Label>Largura personalizada (mm)</Label>
               <Input
@@ -264,18 +288,54 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
               />
             </div>
             <div>
-              <Label>Detalhe personalizado</Label>
+              <Label>Comprimento (mm)</Label>
               <Input
-                value={newLine.customSpecification}
+                type="number"
+                min="0"
+                step="any"
+                value={newLine.lengthMm}
                 onChange={(event) =>
-                  setNewLine({
-                    ...newLine,
-                    customSpecification: event.target.value,
-                  })
+                  setNewLine({ ...newLine, lengthMm: event.target.value })
                 }
-                placeholder="Cor, acabamento..."
               />
             </div>
+            <div>
+              <Label>Espessura (mm)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                value={newLine.thicknessMm}
+                onChange={(event) =>
+                  setNewLine({ ...newLine, thicknessMm: event.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label>Diâmetro (mm)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                value={newLine.diameterMm}
+                onChange={(event) =>
+                  setNewLine({ ...newLine, diameterMm: event.target.value })
+                }
+              />
+            </div>
+          </div>
+          <div>
+            <Label>Detalhe personalizado</Label>
+            <Input
+              value={newLine.customSpecification}
+              onChange={(event) =>
+                setNewLine({
+                  ...newLine,
+                  customSpecification: event.target.value,
+                })
+              }
+              placeholder="Cor, acabamento..."
+            />
           </div>
           <Button onClick={() => void handleAddLine()}>
             <Plus className="mr-2 size-4" />
@@ -313,8 +373,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                     )}
                     {item.customDimensions ? (
                       <div className="text-xs text-muted-foreground">
-                        {item.customDimensions.widthMm ?? "—"} ×{" "}
-                        {item.customDimensions.heightMm ?? "—"} mm
+                        {formatCustomDimensions(item.customDimensions)}
                       </div>
                     ) : null}
                     {item.customSpecification ? (
@@ -376,7 +435,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      {!item.materialId ? (
+                      {!item.materialId && canPromoteMaterial ? (
                         <Button
                           variant="outline"
                           size="sm"
@@ -424,4 +483,24 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
       </Card>
     </div>
   );
+}
+
+function formatCustomDimensions(dimensions: {
+  widthMm?: number;
+  heightMm?: number;
+  lengthMm?: number;
+  thicknessMm?: number;
+  diameterMm?: number;
+}) {
+  const parts: string[] = [];
+  if (dimensions.widthMm && dimensions.heightMm) {
+    parts.push(`${dimensions.widthMm} × ${dimensions.heightMm} mm`);
+  } else {
+    if (dimensions.widthMm) parts.push(`L ${dimensions.widthMm} mm`);
+    if (dimensions.heightMm) parts.push(`A ${dimensions.heightMm} mm`);
+  }
+  if (dimensions.lengthMm) parts.push(`C ${dimensions.lengthMm} mm`);
+  if (dimensions.thicknessMm) parts.push(`E ${dimensions.thicknessMm} mm`);
+  if (dimensions.diameterMm) parts.push(`Ø ${dimensions.diameterMm} mm`);
+  return parts.join(" · ");
 }
