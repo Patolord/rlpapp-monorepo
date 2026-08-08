@@ -1,11 +1,12 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { Plus, Search } from "lucide-react";
+import { FileUp, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
+import { CsvImportDialog } from "@/components/compras/csv-import-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -28,6 +29,39 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { getErrorMessage } from "@/lib/errors";
+import { splitList } from "@/lib/csv";
+
+const SUPPLIER_COLUMN_ALIASES = {
+  name: ["name", "nome", "fornecedor"],
+  categories: ["categories", "categorias", "categoria"],
+  notes: ["notes", "observacoes", "observações", "obs"],
+  contactName: ["contactname", "contato", "contact_name", "nome_contato"],
+  contactEmail: ["contactemail", "email", "contact_email", "email_contato"],
+  contactWhatsapp: ["contactwhatsapp", "whatsapp", "contact_whatsapp", "telefone"],
+  contactRole: ["contactrole", "cargo", "contact_role", "funcao"],
+} as const;
+
+const SUPPLIER_TEMPLATE_HEADERS = [
+  "name",
+  "categories",
+  "notes",
+  "contactName",
+  "contactEmail",
+  "contactWhatsapp",
+  "contactRole",
+];
+
+type SupplierImportItem = {
+  name: string;
+  categories?: string[];
+  notes?: string;
+  contact?: {
+    name: string;
+    email?: string;
+    whatsapp?: string;
+    role?: string;
+  };
+};
 
 export const Route = createFileRoute("/compras/fornecedores/")({
   component: FornecedoresPage,
@@ -44,6 +78,7 @@ function FornecedoresPage() {
 function FornecedoresContent() {
   const suppliers = useQuery(api.suppliers.list, {});
   const createSupplier = useMutation(api.suppliers.create);
+  const bulkCreateSuppliers = useMutation(api.suppliers.bulkCreate);
   const updateSupplier = useMutation(api.suppliers.update);
 
   const [search, setSearch] = useState("");
@@ -85,7 +120,60 @@ function FornecedoresContent() {
             Cadastro de fornecedores e contatos.
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <div className="flex flex-wrap gap-2">
+          <CsvImportDialog<SupplierImportItem>
+            title="Importar fornecedores (CSV)"
+            templateFilename="fornecedores.csv"
+            templateHeaders={[...SUPPLIER_TEMPLATE_HEADERS]}
+            templateSampleRow={[
+              "Distribuidora XYZ",
+              "Elétrica;HVAC",
+              "Prazo 7 dias",
+              "João",
+              "joao@xyz.com",
+              "5511999999999",
+              "Comercial",
+            ]}
+            requiredColumns={["name"]}
+            columnAliases={SUPPLIER_COLUMN_ALIASES}
+            previewColumns={["name", "categories", "notes", "contactName"]}
+            mapRow={(row, rowNumber) => {
+              const name = row.name?.trim();
+              if (!name) {
+                return { ok: false, row: rowNumber, error: "Nome obrigatório" };
+              }
+
+              const contactName = row.contactName?.trim();
+              const contact =
+                contactName
+                  ? {
+                      name: contactName,
+                      email: row.contactEmail?.trim() || undefined,
+                      whatsapp: row.contactWhatsapp?.trim() || undefined,
+                      role: row.contactRole?.trim() || undefined,
+                    }
+                  : undefined;
+
+              return {
+                ok: true,
+                row: rowNumber,
+                item: {
+                  name,
+                  categories: splitList(row.categories),
+                  notes: row.notes?.trim() || undefined,
+                  contact,
+                },
+              };
+            }}
+            onImportBatch={(items) => bulkCreateSuppliers({ items })}
+            trigger={
+              <Button variant="outline">
+                <FileUp className="mr-2 size-4" />
+                Importar CSV
+              </Button>
+            }
+          />
+          <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger render={<Button><Plus className="mr-2 size-4" />Novo fornecedor</Button>} />
           <DialogContent>
             <DialogHeader>
@@ -108,6 +196,7 @@ function FornecedoresContent() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="relative max-w-sm">

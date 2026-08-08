@@ -3,6 +3,11 @@ import { engineeringOrPurchasingQuery, purchasingMutation } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
 import { materialStatus } from "./schema";
 import { normalizeText } from "./lib/compras/procurement";
+import {
+  bulkImportResultValidator,
+  emptyBulkImportResult,
+  requireTrimmedName,
+} from "./lib/compras/bulkImport";
 
 export const materialValidator = v.object({
   _id: v.id("materials"),
@@ -182,6 +187,88 @@ export const create = purchasingMutation({
     });
 
     return materialId;
+  },
+});
+
+const bulkMaterialItemValidator = v.object({
+  name: v.string(),
+  category: v.optional(v.string()),
+  unit: v.optional(v.string()),
+  spec: v.optional(v.string()),
+  brandPreference: v.optional(v.string()),
+  aliases: v.optional(v.array(v.string())),
+});
+
+export const bulkCreate = purchasingMutation({
+  args: {
+    items: v.array(bulkMaterialItemValidator),
+  },
+  returns: bulkImportResultValidator,
+  handler: async (ctx, args) => {
+    if (args.items.length > 200) {
+      throw new Error("Máximo de 200 materiais por importação");
+    }
+
+    const result = emptyBulkImportResult();
+    const now = Date.now();
+    const existing = await ctx.db.query("materials").collect();
+    const existingNames = new Set(existing.map((m) => normalizeText(m.name)));
+
+    let firstCreatedId: string | null = null;
+
+    for (let i = 0; i < args.items.length; i++) {
+      const row = i + 1;
+      const item = args.items[i]!;
+      const nameCheck = requireTrimmedName(item.name, row, "Nome");
+      if (!nameCheck.ok) {
+        result.errors.push(nameCheck.error);
+        continue;
+      }
+
+      const normalizedName = normalizeText(nameCheck.name);
+      if (existingNames.has(normalizedName)) {
+        result.skipped++;
+        continue;
+      }
+
+      const materialId = await ctx.db.insert("materials", {
+        name: nameCheck.name,
+        category: item.category?.trim() || undefined,
+        unit: item.unit?.trim() || undefined,
+        spec: item.spec?.trim() || undefined,
+        brandPreference: item.brandPreference?.trim() || undefined,
+        active: true,
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      for (const alias of item.aliases ?? []) {
+        const trimmed = alias.trim();
+        if (!trimmed) continue;
+        await ctx.db.insert("materialAliases", {
+          alias: trimmed,
+          aliasNormalized: normalizeText(trimmed),
+          materialId,
+          createdAt: now,
+        });
+      }
+
+      existingNames.add(normalizedName);
+      if (!firstCreatedId) firstCreatedId = materialId;
+      result.created++;
+    }
+
+    if (result.created > 0 && firstCreatedId) {
+      await logAudit(ctx, ctx.user, {
+        action: "create",
+        tableName: "materials",
+        recordId: firstCreatedId,
+        details: `Importação CSV: ${result.created} criados, ${result.skipped} ignorados`,
+      });
+    }
+
+    return result;
   },
 });
 

@@ -22,6 +22,7 @@ import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as lib_audit from "../lib/audit.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_compras_bulkImport from "../lib/compras/bulkImport.js";
 import type * as lib_compras_procurement from "../lib/compras/procurement.js";
 import type * as lib_engenharia_hierarchy from "../lib/engenharia/hierarchy.js";
 import type * as lib_rbac from "../lib/rbac.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/audit": typeof lib_audit;
   "lib/auth": typeof lib_auth;
+  "lib/compras/bulkImport": typeof lib_compras_bulkImport;
   "lib/compras/procurement": typeof lib_compras_procurement;
   "lib/engenharia/hierarchy": typeof lib_engenharia_hierarchy;
   "lib/rbac": typeof lib_rbac;

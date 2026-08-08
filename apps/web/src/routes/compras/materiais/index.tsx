@@ -1,11 +1,12 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { Plus, Search } from "lucide-react";
+import { FileUp, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
+import { CsvImportDialog } from "@/components/compras/csv-import-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -28,6 +29,34 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { getErrorMessage } from "@/lib/errors";
+import { splitList } from "@/lib/csv";
+
+const MATERIAL_COLUMN_ALIASES = {
+  name: ["name", "nome", "material"],
+  category: ["category", "categoria"],
+  unit: ["unit", "unidade", "un"],
+  spec: ["spec", "especificacao", "especificação", "specification"],
+  brandPreference: ["brandpreference", "marca", "brand", "preferencia_marca"],
+  aliases: ["aliases", "alias", "apelidos", "sinonimos"],
+} as const;
+
+const MATERIAL_TEMPLATE_HEADERS = [
+  "name",
+  "category",
+  "unit",
+  "spec",
+  "brandPreference",
+  "aliases",
+];
+
+type MaterialImportItem = {
+  name: string;
+  category?: string;
+  unit?: string;
+  spec?: string;
+  brandPreference?: string;
+  aliases?: string[];
+};
 
 export const Route = createFileRoute("/compras/materiais/")({
   component: MateriaisPage,
@@ -44,6 +73,7 @@ function MateriaisPage() {
 function MateriaisContent() {
   const materials = useQuery(api.materials.list, {});
   const createMaterial = useMutation(api.materials.create);
+  const bulkCreateMaterials = useMutation(api.materials.bulkCreate);
   const updateMaterial = useMutation(api.materials.update);
 
   const [search, setSearch] = useState("");
@@ -108,7 +138,49 @@ function MateriaisContent() {
             Catálogo interno de materiais.
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <div className="flex flex-wrap gap-2">
+          <CsvImportDialog<MaterialImportItem>
+            title="Importar materiais (CSV)"
+            templateFilename="materiais.csv"
+            templateHeaders={[...MATERIAL_TEMPLATE_HEADERS]}
+            templateSampleRow={[
+              "Cabo PP 3x2.5",
+              "Elétrica",
+              "m",
+              "Flexível",
+              "",
+              "pp 3x2.5;cabo pp",
+            ]}
+            requiredColumns={["name"]}
+            columnAliases={MATERIAL_COLUMN_ALIASES}
+            previewColumns={["name", "category", "unit", "spec"]}
+            mapRow={(row, rowNumber) => {
+              const name = row.name?.trim();
+              if (!name) {
+                return { ok: false, row: rowNumber, error: "Nome obrigatório" };
+              }
+              return {
+                ok: true,
+                row: rowNumber,
+                item: {
+                  name,
+                  category: row.category?.trim() || undefined,
+                  unit: row.unit?.trim() || undefined,
+                  spec: row.spec?.trim() || undefined,
+                  brandPreference: row.brandPreference?.trim() || undefined,
+                  aliases: splitList(row.aliases),
+                },
+              };
+            }}
+            onImportBatch={(items) => bulkCreateMaterials({ items })}
+            trigger={
+              <Button variant="outline">
+                <FileUp className="mr-2 size-4" />
+                Importar CSV
+              </Button>
+            }
+          />
+          <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger render={<Button><Plus className="mr-2 size-4" />Novo material</Button>} />
           <DialogContent>
             <DialogHeader>
@@ -139,6 +211,7 @@ function MateriaisContent() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="relative max-w-sm">

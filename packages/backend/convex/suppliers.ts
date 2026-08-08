@@ -2,6 +2,11 @@ import { v } from "convex/values";
 import { engineeringOrPurchasingQuery, purchasingMutation } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
 import { normalizeText } from "./lib/compras/procurement";
+import {
+  bulkImportResultValidator,
+  emptyBulkImportResult,
+  requireTrimmedName,
+} from "./lib/compras/bulkImport";
 
 export const supplierValidator = v.object({
   _id: v.id("suppliers"),
@@ -122,6 +127,90 @@ export const create = purchasingMutation({
       details: name,
     });
     return supplierId;
+  },
+});
+
+const bulkSupplierContactValidator = v.object({
+  name: v.string(),
+  email: v.optional(v.string()),
+  whatsapp: v.optional(v.string()),
+  role: v.optional(v.string()),
+});
+
+const bulkSupplierItemValidator = v.object({
+  name: v.string(),
+  categories: v.optional(v.array(v.string())),
+  notes: v.optional(v.string()),
+  contact: v.optional(bulkSupplierContactValidator),
+});
+
+export const bulkCreate = purchasingMutation({
+  args: {
+    items: v.array(bulkSupplierItemValidator),
+  },
+  returns: bulkImportResultValidator,
+  handler: async (ctx, args) => {
+    if (args.items.length > 200) {
+      throw new Error("Máximo de 200 fornecedores por importação");
+    }
+
+    const result = emptyBulkImportResult();
+    const now = Date.now();
+    const existing = await ctx.db.query("suppliers").collect();
+    const existingNames = new Set(existing.map((s) => normalizeText(s.name)));
+
+    let firstCreatedId: string | null = null;
+
+    for (let i = 0; i < args.items.length; i++) {
+      const row = i + 1;
+      const item = args.items[i]!;
+      const nameCheck = requireTrimmedName(item.name, row, "Nome");
+      if (!nameCheck.ok) {
+        result.errors.push(nameCheck.error);
+        continue;
+      }
+
+      const normalizedName = normalizeText(nameCheck.name);
+      if (existingNames.has(normalizedName)) {
+        result.skipped++;
+        continue;
+      }
+
+      const supplierId = await ctx.db.insert("suppliers", {
+        name: nameCheck.name,
+        categories: item.categories?.map((c) => c.trim()).filter(Boolean),
+        notes: item.notes?.trim() || undefined,
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      if (item.contact?.name?.trim()) {
+        await ctx.db.insert("supplierContacts", {
+          supplierId,
+          name: item.contact.name.trim(),
+          email: item.contact.email?.trim() || undefined,
+          whatsapp: item.contact.whatsapp?.trim() || undefined,
+          role: item.contact.role?.trim() || undefined,
+          createdAt: now,
+        });
+      }
+
+      existingNames.add(normalizedName);
+      if (!firstCreatedId) firstCreatedId = supplierId;
+      result.created++;
+    }
+
+    if (result.created > 0 && firstCreatedId) {
+      await logAudit(ctx, ctx.user, {
+        action: "create",
+        tableName: "suppliers",
+        recordId: firstCreatedId,
+        details: `Importação CSV: ${result.created} criados, ${result.skipped} ignorados`,
+      });
+    }
+
+    return result;
   },
 });
 
