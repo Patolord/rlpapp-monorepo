@@ -228,6 +228,17 @@ function materialIdentityInput(input: {
   return buildMaterialIdentityKey(input);
 }
 
+function nameSimilarity(left: string, right: string): number {
+  const leftTokens = new Set(normalizeText(left).split(" ").filter(Boolean));
+  const rightTokens = new Set(normalizeText(right).split(" ").filter(Boolean));
+  if (leftTokens.size === 0 || rightTokens.size === 0) return 0;
+  let intersection = 0;
+  for (const token of leftTokens) {
+    if (rightTokens.has(token)) intersection++;
+  }
+  return intersection / new Set([...leftTokens, ...rightTokens]).size;
+}
+
 async function buildCatalogRow(
   ctx: QueryCtx,
   material: Doc<"materials">,
@@ -359,7 +370,8 @@ export const findDuplicateCandidates = engineeringOrPurchasingQuery({
         (material) =>
           material.familyId === familyId ||
           normalizeText(material.name).includes(normalizedName) ||
-          normalizedName.includes(normalizeText(material.name))
+          normalizedName.includes(normalizeText(material.name)) ||
+          nameSimilarity(material.name, args.name) >= 0.6
       )
       .slice(0, 8)
       .map((material) => ({
@@ -881,8 +893,8 @@ export const update = purchasingMutation({
     materialId: v.id("materials"),
     name: v.optional(v.string()),
     familyId: v.optional(v.id("materialFamilies")),
-    variantLabel: v.optional(v.string()),
-    dimensions: v.optional(materialDimensionsValidator),
+    variantLabel: v.optional(v.union(v.string(), v.null())),
+    dimensions: v.optional(v.union(materialDimensionsValidator, v.null())),
     sku: v.optional(v.string()),
     barcode: v.optional(v.union(v.string(), v.null())),
     manufacturer: v.optional(v.string()),
@@ -978,10 +990,10 @@ export const update = purchasingMutation({
       );
     }
     if (args.variantLabel !== undefined) {
-      updates.variantLabel = args.variantLabel.trim() || undefined;
+      updates.variantLabel = args.variantLabel?.trim() || undefined;
     }
     if (args.dimensions !== undefined) {
-      updates.dimensions = sanitizeDimensions(args.dimensions);
+      updates.dimensions = sanitizeDimensions(args.dimensions ?? undefined);
     }
     if (args.active !== undefined) {
       updates.active = args.active;

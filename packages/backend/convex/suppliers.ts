@@ -413,6 +413,20 @@ export const upsertMaterialOffering = purchasingMutation({
     ) {
       throw new Error("Prazo deve ser um número inteiro não negativo");
     }
+    const supplierCode = args.supplierCode?.trim() || undefined;
+    if (supplierCode) {
+      const codeOwner = await ctx.db
+        .query("supplierMaterials")
+        .withIndex("by_supplier_code", (q) =>
+          q.eq("supplierId", args.supplierId).eq("supplierCode", supplierCode)
+        )
+        .first();
+      if (codeOwner && codeOwner.materialId !== args.materialId) {
+        throw new Error(
+          `Código ${supplierCode} já está vinculado a outro material deste fornecedor`
+        );
+      }
+    }
 
     const existing = await ctx.db
       .query("supplierMaterials")
@@ -424,7 +438,7 @@ export const upsertMaterialOffering = purchasingMutation({
       .unique();
     const now = Date.now();
     const values = {
-      supplierCode: args.supplierCode?.trim() || undefined,
+      supplierCode,
       supplierDescription: args.supplierDescription?.trim() || undefined,
       purchaseUnit: args.purchaseUnit?.trim() || undefined,
       unitsPerPurchaseUnit: args.unitsPerPurchaseUnit,

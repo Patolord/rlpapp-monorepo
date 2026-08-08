@@ -89,12 +89,18 @@ export function buildMaterialIdentityKey(input: {
     .map(({ key, value }) => `${normalizeText(key)}:${normalizeText(value)}`)
     .sort()
     .join(",");
+  const variantLabel = input.dimensions
+    ? normalizeText(input.variantLabel ?? "").replace(
+        /\b\d+(?:\s+\d+)?\s*x\s*\d+(?:\s+\d+)?\s*mm\b/g,
+        ""
+      ).trim()
+    : normalizeText(input.variantLabel ?? "");
   return [
     input.familyId,
     normalizeText(input.manufacturer ?? ""),
     normalizeText(input.manufacturerPartNumber ?? ""),
     normalizeUnit(input.unit) ?? "",
-    normalizeText(input.variantLabel ?? ""),
+    variantLabel,
     dimensions,
     attributes,
   ].join("|");

@@ -160,7 +160,7 @@ describe("materials catalog", () => {
     await expect(
       purchasing.mutation(api.materials.create, {
         name: "GRELHA SIMPLES FIXA",
-        variantLabel: "Branca 200x200mm",
+        variantLabel: "Branca 200 × 200 mm",
         dimensions: { widthMm: 200, heightMm: 200 },
         unit: "pç",
       })
@@ -233,6 +233,16 @@ describe("materials catalog", () => {
       materialId,
       supplierCode: "B-200",
     });
+    await expect(
+      purchasing.mutation(api.suppliers.upsertMaterialOffering, {
+        supplierId: firstSupplierId,
+        materialId: await purchasing.mutation(api.materials.create, {
+          name: "Detector de temperatura",
+          unit: "un",
+        }),
+        supplierCode: "A-100",
+      })
+    ).rejects.toThrow("já está vinculado");
 
     const offerings = await purchasing.query(
       api.suppliers.listMaterialOfferings,

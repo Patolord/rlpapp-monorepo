@@ -203,8 +203,8 @@ export function MaterialFormDialog({
         await updateMaterial({
           materialId: material._id,
           name: form.name,
-          variantLabel: form.variantLabel || undefined,
-          dimensions: submittedDimensions,
+          variantLabel: form.variantLabel || null,
+          dimensions: submittedDimensions ?? null,
           sku: form.sku || undefined,
           barcode: form.barcode.trim() ? form.barcode : null,
           manufacturer: form.manufacturer || undefined,
