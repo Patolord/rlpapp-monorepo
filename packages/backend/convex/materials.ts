@@ -856,7 +856,7 @@ export const bulkCreate = purchasingMutation({
       const document = await createInventoryDocument(ctx, ctx.user, {
         type: "entry",
         reference: `Importação ${source}`,
-        notes: "Saldo inicial importado do catálogo legado",
+        notes: "Saldo inicial importado da planilha de origem",
         lines: [...inventoryLines.entries()].map(([materialId, line]) => ({
           materialId,
           quantity: line.quantity,
