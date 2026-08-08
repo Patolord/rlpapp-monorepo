@@ -14,6 +14,7 @@ import {
   ShoppingCart,
   Truck,
   UserPlus,
+  Warehouse,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
@@ -75,6 +76,13 @@ function getNavGroups(): NavGroup[] {
       ],
     },
     {
+      key: "estoque",
+      label: "Estoque",
+      items: [
+        { to: "/estoque", label: "Central e Obras", icon: Warehouse, exact: true },
+      ],
+    },
+    {
       key: "configuracoes",
       label: "Configurações",
       items: [
@@ -127,6 +135,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const currentPath = routerState.location.pathname;
   const currentUser = useQuery(api.users.getCurrentUser);
   const isDirector = currentUser?.role === "director";
+  const isAdmin = currentUser?.role === "admin";
   const isEngenheiro = currentUser?.role === "engenheiro";
 
   function isActive(to: string, exact?: boolean) {
@@ -137,13 +146,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const hasEngineeringAccess =
     isDirector || isEngenheiro || currentUser?.department === "engenharia";
   const hasPurchasingAccess =
-    isDirector || currentUser?.department === "compras";
+    isDirector || isAdmin || currentUser?.department === "compras";
+  const hasInventoryAccess =
+    isDirector ||
+    isAdmin ||
+    isEngenheiro ||
+    currentUser?.department === "engenharia" ||
+    currentUser?.department === "compras" ||
+    currentUser?.department === "estoque";
 
-  const navGroups = isDirector
+  const navGroups = isDirector || isAdmin
     ? getNavGroups()
     : getNavGroups().filter((group) => {
         if (group.key === "engenharia") return hasEngineeringAccess;
         if (group.key === "compras") return hasPurchasingAccess;
+        if (group.key === "estoque") return hasInventoryAccess;
         if (group.key === "configuracoes") {
           return hasEngineeringAccess || hasPurchasingAccess;
         }
