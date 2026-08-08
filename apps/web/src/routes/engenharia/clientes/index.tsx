@@ -1,11 +1,12 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { Plus, Search } from "lucide-react";
+import { FileUp, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
+import { CsvImportDialog } from "@/components/compras/csv-import-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +30,55 @@ import {
 } from "@/components/ui/table";
 import { getErrorMessage } from "@/lib/errors";
 
+const CUSTOMER_COLUMN_ALIASES = {
+  name: ["name", "nome", "cliente"],
+  legalName: ["legalname", "legal_name", "razao social", "razão social"],
+  taxId: ["taxid", "tax_id", "cnpj", "cpf", "cnpj/cpf"],
+  email: ["email", "e-mail"],
+  phone: ["phone", "telefone", "celular"],
+  address: ["address", "endereco", "endereço"],
+  notes: ["notes", "observacoes", "observações", "obs"],
+  contactName: ["contactname", "contact_name", "nome_contato", "contato"],
+  contactEmail: ["contactemail", "contact_email", "email_contato"],
+  contactPhone: [
+    "contactphone",
+    "contact_phone",
+    "telefone_contato",
+    "celular_contato",
+  ],
+  contactRole: ["contactrole", "contact_role", "cargo", "funcao", "função"],
+} as const;
+
+const CUSTOMER_TEMPLATE_HEADERS = [
+  "name",
+  "legalName",
+  "taxId",
+  "email",
+  "phone",
+  "address",
+  "notes",
+  "contactName",
+  "contactEmail",
+  "contactPhone",
+  "contactRole",
+];
+
+type CustomerImportItem = {
+  name: string;
+  legalName?: string;
+  taxId?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  notes?: string;
+  contact?: {
+    name: string;
+    email?: string;
+    phone?: string;
+    role?: string;
+  };
+};
+
 export const Route = createFileRoute("/engenharia/clientes/")({
   component: ClientesPage,
 });
@@ -44,6 +94,7 @@ function ClientesPage() {
 function ClientesContent() {
   const customers = useQuery(api.customers.list, { activeOnly: false });
   const createCustomer = useMutation(api.customers.create);
+  const bulkCreateCustomers = useMutation(api.customers.bulkCreate);
   const updateCustomer = useMutation(api.customers.update);
   const archiveCustomer = useMutation(api.customers.archive);
   const restoreCustomer = useMutation(api.customers.restore);
@@ -145,91 +196,152 @@ function ClientesContent() {
             Cadastro mestre de clientes para vincular às obras.
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger render={<Button />}>
-            <Plus className="mr-2 size-4" />
-            Novo cliente
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Novo cliente</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="customer-name">Nome</Label>
-                <Input
-                  id="customer-name"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="customer-legal">Razão social</Label>
-                <Input
-                  id="customer-legal"
-                  value={form.legalName}
-                  onChange={(e) =>
-                    setForm({ ...form, legalName: e.target.value })
+        <div className="flex flex-wrap gap-2">
+          <CsvImportDialog<CustomerImportItem>
+            title="Importar clientes (CSV)"
+            templateFilename="clientes.csv"
+            templateHeaders={[...CUSTOMER_TEMPLATE_HEADERS]}
+            templateSampleRow={[
+              "Construtora Exemplo",
+              "Construtora Exemplo Ltda.",
+              "12.345.678/0001-90",
+              "contato@construtora.com.br",
+              "11999999999",
+              "Av. Exemplo, 100",
+              "Cliente prioritário",
+              "Maria Silva",
+              "maria@construtora.com.br",
+              "11988888888",
+              "Engenharia",
+            ]}
+            requiredColumns={["name"]}
+            columnAliases={CUSTOMER_COLUMN_ALIASES}
+            previewColumns={["name", "legalName", "taxId", "email", "phone"]}
+            mapRow={(row, rowNumber) => {
+              const name = row.name?.trim();
+              if (!name) {
+                return { ok: false, row: rowNumber, error: "Nome obrigatório" };
+              }
+
+              const contactName = row.contactName?.trim();
+              const contact = contactName
+                ? {
+                    name: contactName,
+                    email: row.contactEmail?.trim() || undefined,
+                    phone: row.contactPhone?.trim() || undefined,
+                    role: row.contactRole?.trim() || undefined,
                   }
-                />
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="customer-tax">CNPJ/CPF</Label>
-                  <Input
-                    id="customer-tax"
-                    value={form.taxId}
-                    onChange={(e) =>
-                      setForm({ ...form, taxId: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customer-phone">Telefone</Label>
-                  <Input
-                    id="customer-phone"
-                    value={form.phone}
-                    onChange={(e) =>
-                      setForm({ ...form, phone: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="customer-email">E-mail</Label>
-                <Input
-                  id="customer-email"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="customer-address">Endereço</Label>
-                <Input
-                  id="customer-address"
-                  value={form.address}
-                  onChange={(e) =>
-                    setForm({ ...form, address: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="customer-notes">Observações</Label>
-                <Input
-                  id="customer-notes"
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={handleCreate} disabled={submitting}>
-                Criar
+                : undefined;
+
+              return {
+                ok: true,
+                row: rowNumber,
+                item: {
+                  name,
+                  legalName: row.legalName?.trim() || undefined,
+                  taxId: row.taxId?.trim() || undefined,
+                  email: row.email?.trim() || undefined,
+                  phone: row.phone?.trim() || undefined,
+                  address: row.address?.trim() || undefined,
+                  notes: row.notes?.trim() || undefined,
+                  contact,
+                },
+              };
+            }}
+            onImportBatch={(items) => bulkCreateCustomers({ items })}
+            trigger={
+              <Button variant="outline">
+                <FileUp className="mr-2 size-4" />
+                Importar CSV
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            }
+          />
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger render={<Button />}>
+              <Plus className="mr-2 size-4" />
+              Novo cliente
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Novo cliente</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="customer-name">Nome</Label>
+                  <Input
+                    id="customer-name"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="customer-legal">Razão social</Label>
+                  <Input
+                    id="customer-legal"
+                    value={form.legalName}
+                    onChange={(e) =>
+                      setForm({ ...form, legalName: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="customer-tax">CNPJ/CPF</Label>
+                    <Input
+                      id="customer-tax"
+                      value={form.taxId}
+                      onChange={(e) =>
+                        setForm({ ...form, taxId: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customer-phone">Telefone</Label>
+                    <Input
+                      id="customer-phone"
+                      value={form.phone}
+                      onChange={(e) =>
+                        setForm({ ...form, phone: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="customer-email">E-mail</Label>
+                  <Input
+                    id="customer-email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="customer-address">Endereço</Label>
+                  <Input
+                    id="customer-address"
+                    value={form.address}
+                    onChange={(e) =>
+                      setForm({ ...form, address: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="customer-notes">Observações</Label>
+                  <Input
+                    id="customer-notes"
+                    value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={handleCreate} disabled={submitting}>
+                  Criar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card>

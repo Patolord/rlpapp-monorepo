@@ -30,6 +30,74 @@ describe("customers", () => {
     ).rejects.toThrow("Já existe um cliente com este nome");
   });
 
+  test("importa clientes em lote e ignora nomes e documentos duplicados", async () => {
+    const t = setup();
+    const asDirector = await seedDirector(t);
+
+    await asDirector.mutation(api.customers.create, {
+      name: "Cliente Existente",
+      taxId: "11.111.111/0001-11",
+    });
+
+    const result = await asDirector.mutation(api.customers.bulkCreate, {
+      items: [
+        { name: " cliente   existente ", taxId: "99999999000199" },
+        {
+          name: "Cliente Novo",
+          taxId: "22.222.222/0001-22",
+          email: " financeiro@novo.com ",
+          contact: {
+            name: " Maria ",
+            email: " maria@novo.com ",
+            role: " Financeiro ",
+          },
+        },
+        { name: "Outro Nome", taxId: "22222222000122" },
+        { name: "   " },
+        { name: "Segundo Cliente", taxId: "33333333000133" },
+      ],
+    });
+
+    expect(result).toEqual({
+      created: 2,
+      skipped: 2,
+      errors: [{ row: 4, message: "Nome obrigatório" }],
+    });
+
+    const customers = await asDirector.query(api.customers.list, {
+      includeArchived: true,
+    });
+    expect(customers).toHaveLength(3);
+    const imported = customers.find((customer) => customer.name === "Cliente Novo");
+    expect(imported?.taxId).toBe("22222222000122");
+    expect(imported?.email).toBe("financeiro@novo.com");
+
+    if (!imported) throw new Error("Cliente importado não encontrado");
+    const details = await asDirector.query(api.customers.get, {
+      customerId: imported._id,
+    });
+    expect(details?.contacts).toEqual([
+      expect.objectContaining({
+        name: "Maria",
+        email: "maria@novo.com",
+        role: "Financeiro",
+      }),
+    ]);
+  });
+
+  test("limita a importação de clientes a 200 itens por lote", async () => {
+    const t = setup();
+    const asDirector = await seedDirector(t);
+
+    await expect(
+      asDirector.mutation(api.customers.bulkCreate, {
+        items: Array.from({ length: 201 }, (_, index) => ({
+          name: `Cliente ${index}`,
+        })),
+      })
+    ).rejects.toThrow("Máximo de 200 clientes por importação");
+  });
+
   test("archive e restore preservam o registro", async () => {
     const t = setup();
     const asDirector = await seedDirector(t);
