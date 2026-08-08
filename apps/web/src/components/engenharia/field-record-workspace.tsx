@@ -157,17 +157,22 @@ export function FieldRecordWorkspace({
       </div>
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <Card className="min-w-0">
-          <CardHeader className="border-b">
-            <CardTitle>{actions.find((action) => action.id === activeAction)?.title}</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-5">
-            {activeAction === "manual" && <ManualCodeEntry />}
-            {activeAction === "scan" && <FieldQrScanner />}
-            {activeAction === "projects" && <FieldProjectQrBrowser />}
-            {activeAction === "history" && <SentHistoryByProject />}
-          </CardContent>
-        </Card>
+        {activeAction === "history" ? (
+          <SentHistoryByProject />
+        ) : (
+          <Card className="min-w-0">
+            <CardHeader className="border-b">
+              <CardTitle>
+                {actions.find((action) => action.id === activeAction)?.title}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-5">
+              {activeAction === "manual" && <ManualCodeEntry />}
+              {activeAction === "scan" && <FieldQrScanner />}
+              {activeAction === "projects" && <FieldProjectQrBrowser />}
+            </CardContent>
+          </Card>
+        )}
 
         <PendingRecordsCard records={pending} online={online} />
       </div>
