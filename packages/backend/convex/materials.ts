@@ -788,12 +788,14 @@ export const bulkCreate = purchasingMutation({
         variantLabel,
         dimensions,
       });
-      const rowKey = [
-        item.sourceMaterialId?.trim() ?? "",
-        item.sourceDetailId?.trim() ?? "",
-        identityKey,
-        item.sourceRowNumber,
-      ].join(":");
+      const sourceMaterialId = item.sourceMaterialId?.trim() ?? "";
+      const sourceDetailId = item.sourceDetailId?.trim() ?? "";
+      const rowKey =
+        sourceMaterialId && sourceDetailId
+          ? `${sourceMaterialId}:${sourceDetailId}`
+          : sourceMaterialId
+            ? `${sourceMaterialId}:${sourceDetailId}:${identityKey}:${item.sourceRowNumber}`
+            : identityKey;
       const importedRow = await ctx.db
         .query("materialImportRows")
         .withIndex("by_source_row", (q) =>
