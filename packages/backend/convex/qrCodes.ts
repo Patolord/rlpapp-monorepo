@@ -436,8 +436,8 @@ export const batchCreate = staffMutation({
   args: {
     tokens: v.array(v.string()),
     batchName: v.optional(v.string()),
-    // Obra de destino: o cadastro do técnico herdará a obra automaticamente.
-    projectId: v.optional(v.id("projects")),
+    // Todo novo lote de etiquetas de equipamento pertence a uma obra.
+    projectId: v.id("projects"),
   },
   returns: v.object({
     ids: v.array(v.id("qrCodes")),
@@ -455,10 +455,8 @@ export const batchCreate = staffMutation({
       throw new Error("Cannot create more than 999 QR codes at once");
     }
 
-    if (args.projectId) {
-      const project = await ctx.db.get("projects", args.projectId);
-      if (!project) throw new Error("Obra de destino não encontrada");
-    }
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project) throw new Error("Obra de destino não encontrada");
 
     const batchId = `batch-${Date.now()}`;
     const batchName = args.batchName?.trim() || undefined;
@@ -486,6 +484,7 @@ export const batchCreate = staffMutation({
         status: "active",
         batchId,
         batchName,
+        projectId: args.projectId,
         createdAt: Date.now(),
       });
       ids.push(id);

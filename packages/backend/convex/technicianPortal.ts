@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { STAFF_ROLES, authedQuery } from "./lib/rbac";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -82,7 +83,29 @@ const qrRowValidator = v.object({
   ),
   ambiente: v.union(v.string(), v.null()),
   modelo: v.union(v.string(), v.null()),
+  batchName: v.union(v.string(), v.null()),
 });
+
+async function buildQrRow(ctx: QueryCtx, qr: Doc<"qrCodes">) {
+  const equipment = qr.equipmentId
+    ? await ctx.db.get("equipment", qr.equipmentId)
+    : null;
+  const planned = equipment?.projectEquipmentId
+    ? await ctx.db.get("projectEquipment", equipment.projectEquipmentId)
+    : null;
+
+  return {
+    _id: qr._id,
+    token: qr.token,
+    qrStatus: qr.status,
+    equipmentId: qr.equipmentId ?? null,
+    description: equipment?.description ?? null,
+    status: planned?.status ?? equipment?.status ?? null,
+    ambiente: planned?.ambiente ?? null,
+    modelo: planned?.modelo ?? null,
+    batchName: qr.batchName ?? null,
+  };
+}
 
 export const listQrsByProject = authedQuery({
   args: { projectId: v.id("projects") },
@@ -95,32 +118,89 @@ export const listQrsByProject = authedQuery({
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
-    const rows = await Promise.all(
-      qrCodes.map(async (qr) => {
-        const equipment = qr.equipmentId
-          ? await ctx.db.get("equipment", qr.equipmentId)
-          : null;
-        const planned = equipment?.projectEquipmentId
-          ? await ctx.db.get("projectEquipment", equipment.projectEquipmentId)
-          : null;
-
-        return {
-          _id: qr._id,
-          token: qr.token,
-          qrStatus: qr.status,
-          equipmentId: qr.equipmentId ?? null,
-          description: equipment?.description ?? null,
-          status: planned?.status ?? equipment?.status ?? null,
-          ambiente: planned?.ambiente ?? null,
-          modelo: planned?.modelo ?? null,
-        };
-      })
-    );
+    const rows = await Promise.all(qrCodes.map((qr) => buildQrRow(ctx, qr)));
 
     return rows.sort(
       (a, b) =>
         (a.ambiente ?? "").localeCompare(b.ambiente ?? "") ||
         a.token.localeCompare(b.token)
     );
+  },
+});
+
+const browsableProjectValidator = v.object({
+  _id: v.id("projects"),
+  name: v.string(),
+  client: v.union(v.string(), v.null()),
+  address: v.union(v.string(), v.null()),
+  status: v.union(v.string(), v.null()),
+});
+
+// Catálogo de campo: qualquer usuário autenticado pode localizar etiquetas de
+// equipamento por obra, mesmo sem estar atribuído como técnico. Isso não concede
+// permissões administrativas sobre a obra ou sobre os lotes.
+export const listBrowsableProjects = authedQuery({
+  args: {},
+  returns: v.array(browsableProjectValidator),
+  handler: async (ctx) => {
+    const projects = await ctx.db.query("projects").order("desc").take(200);
+    const visible = projects.filter(
+      (project) => project.status !== "archived" && !project.archivedAt
+    );
+    const withQrs = await Promise.all(
+      visible.map(async (project) => {
+        const qr = await ctx.db
+          .query("qrCodes")
+          .withIndex("by_project_and_status", (q) =>
+            q.eq("projectId", project._id).eq("status", "active")
+          )
+          .first();
+        if (!qr) return null;
+        return {
+          _id: project._id,
+          name: project.name,
+          client: project.client ?? null,
+          address: project.address ?? null,
+          status: project.status ?? null,
+        };
+      })
+    );
+
+    return withQrs
+      .filter((project) => project !== null)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  },
+});
+
+export const listBrowsableQrsByProject = authedQuery({
+  args: {
+    projectId: v.id("projects"),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: v.object({
+    page: v.array(qrRowValidator),
+    isDone: v.boolean(),
+    continueCursor: v.string(),
+    pageStatus: v.optional(v.union(v.string(), v.null())),
+    splitCursor: v.optional(v.union(v.string(), v.null())),
+  }),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project || project.status === "archived" || project.archivedAt) {
+      throw new Error("Obra não disponível");
+    }
+
+    const result = await ctx.db
+      .query("qrCodes")
+      .withIndex("by_project_and_status", (q) =>
+        q.eq("projectId", args.projectId).eq("status", "active")
+      )
+      .order("desc")
+      .paginate(args.paginationOpts);
+
+    return {
+      ...result,
+      page: await Promise.all(result.page.map((qr) => buildQrRow(ctx, qr))),
+    };
   },
 });

@@ -105,6 +105,19 @@ describe("fluxo QR-Obra sem redundância", () => {
     });
     expect(batch?.projectId).toBe(obra.projectId);
 
+    // O QR já pertence à obra antes mesmo do cadastro do equipamento.
+    const qrBeforeRegistration = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("qrCodes")
+        .withIndex("by_token", (q) => q.eq("token", "AAAA0001"))
+        .unique();
+    });
+    expect(qrBeforeRegistration?.projectId).toBe(obra.projectId);
+    const projectQrs = await asAdmin.query(api.qrCodes.listByProject, {
+      projectId: obra.projectId,
+    });
+    expect(projectQrs.map((qr) => qr.token)).toContain("AAAA0001");
+
     // getByToken expõe a obra de destino para o formulário do técnico.
     const byToken = await asAdmin.query(api.qrCodes.getByToken, {
       token: "AAAA0001",
@@ -182,13 +195,17 @@ describe("fluxo QR-Obra sem redundância", () => {
     ).rejects.toThrow('destinado à obra "Obra A"');
   });
 
-  test("regressão: QR livre de lote sem obra ainda cria placeholder", async () => {
+  test("regressão: QR legado sem obra ainda cria placeholder", async () => {
     const t = setup();
     const asAdmin = await withUser(t, { clerkId: "adm-4", role: "admin" });
     const obra = await seedObra(t, "Obra Sul");
 
-    await asAdmin.mutation(api.qrCodes.batchCreate, {
-      tokens: ["DDDD0001"],
+    await t.run(async (ctx) => {
+      await ctx.db.insert("qrCodes", {
+        token: "DDDD0001",
+        status: "active",
+        createdAt: Date.now(),
+      });
     });
     const itemId = await seedPlannedItem(t, obra);
 

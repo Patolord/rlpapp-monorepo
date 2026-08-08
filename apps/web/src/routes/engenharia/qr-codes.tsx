@@ -57,12 +57,13 @@ function QrCodesContent() {
 
   const [prefix, setPrefix] = useState("");
   const [batchName, setBatchName] = useState("");
-  const [projectId, setProjectId] = useState<Id<"projects"> | "none">("none");
+  const [projectId, setProjectId] = useState<Id<"projects"> | "">("");
   const [quantity, setQuantity] = useState("");
   const [generating, setGenerating] = useState(false);
   const [newlyCreated, setNewlyCreated] = useState<string[]>([]);
   const [latestCreateBatch, setLatestCreateBatch] = useState<string | null>(null);
   const [latestCreateBatchName, setLatestCreateBatchName] = useState<string | null>(null);
+  const [latestProjectName, setLatestProjectName] = useState<string | null>(null);
   const [selectedTokens, setSelectedTokens] = useState<Set<string>>(new Set());
   const [previewToken, setPreviewToken] = useState<string | null>(null);
 
@@ -74,9 +75,10 @@ function QrCodesContent() {
   const parsedQuantity = parseInt(quantity, 10);
   const isValidQuantity =
     !isNaN(parsedQuantity) && parsedQuantity > 0 && parsedQuantity <= 999;
+  const selectedProject = projects?.find((project) => project._id === projectId);
 
   async function handleGenerate() {
-    if (!isValidQuantity) return;
+    if (!isValidQuantity || !projectId) return;
     setGenerating(true);
     try {
       const tokens: string[] = [];
@@ -87,12 +89,13 @@ function QrCodesContent() {
       const result = await batchCreate({
         tokens,
         batchName: batchName.trim() || undefined,
-        projectId: projectId === "none" ? undefined : projectId,
+        projectId,
       });
       const createdTokens = result.created.map((qr) => qr.token);
       setNewlyCreated(createdTokens);
       setLatestCreateBatch(result.batchId);
       setLatestCreateBatchName(result.batchName ?? null);
+      setLatestProjectName(selectedProject?.name ?? null);
       setSelectedTokens(new Set(createdTokens));
       setPreviewToken(null);
 
@@ -116,7 +119,7 @@ function QrCodesContent() {
       tokens: newlyCreated,
       baseUrl,
       title: latestCreateBatchName
-        ? `Códigos QR ${latestCreateBatchName} - RLP Engenharia`
+        ? `Códigos QR ${latestCreateBatchName}${latestProjectName ? ` - ${latestProjectName}` : ""} - RLP Engenharia`
         : latestCreateBatch
           ? `Códigos QR ${latestCreateBatch} - RLP Engenharia`
         : "Códigos QR - RLP Engenharia",
@@ -139,7 +142,7 @@ function QrCodesContent() {
       tokens,
       baseUrl,
       title: latestCreateBatchName
-        ? `Códigos QR selecionados ${latestCreateBatchName} - RLP Engenharia`
+        ? `Códigos QR selecionados ${latestCreateBatchName}${latestProjectName ? ` - ${latestProjectName}` : ""} - RLP Engenharia`
         : latestCreateBatch
           ? `Códigos QR selecionados ${latestCreateBatch} - RLP Engenharia`
         : "Códigos QR selecionados - RLP Engenharia",
@@ -206,18 +209,17 @@ function QrCodesContent() {
               />
             </div>
             <div className="flex-1 space-y-2">
-              <Label htmlFor="projectId">Obra de destino (opcional)</Label>
+              <Label htmlFor="projectId">Obra de destino</Label>
               <Select
                 value={projectId}
                 onValueChange={(value) =>
-                  setProjectId(value as Id<"projects"> | "none")
+                  setProjectId(value as Id<"projects">)
                 }
               >
                 <SelectTrigger id="projectId" className="h-12 w-full text-base">
-                  <SelectValue placeholder="Sem obra definida" />
+                  <SelectValue placeholder="Selecione uma obra" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sem obra definida</SelectItem>
                   {projects?.map((project) => (
                     <SelectItem key={project._id} value={project._id}>
                       {project.name}
@@ -253,7 +255,7 @@ function QrCodesContent() {
             </div>
             <Button
               onClick={handleGenerate}
-              disabled={generating || !isValidQuantity}
+              disabled={generating || !isValidQuantity || !projectId}
               className="h-12 text-base"
             >
               {generating ? (
@@ -265,8 +267,8 @@ function QrCodesContent() {
             </Button>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            Com a obra de destino definida, o cadastro do técnico já marca o QR
-            na obra automaticamente.
+            A obra é obrigatória. O lote fica disponível nela imediatamente e o
+            cadastro do técnico mantém esse vínculo automaticamente.
           </p>
         </CardContent>
       </Card>
@@ -321,6 +323,11 @@ function QrCodesContent() {
                     <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
                       {latestCreateBatch ?? "Lote sem identificador"}
                     </p>
+                    {latestProjectName && (
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        Obra: {latestProjectName}
+                      </p>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm text-muted-foreground">
