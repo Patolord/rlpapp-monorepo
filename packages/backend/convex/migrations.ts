@@ -520,10 +520,6 @@ export const verifyProjectCustomerAndNumbersPage = adminQuery({
       (project) =>
         project.customerId === undefined || project.legacyNumber === undefined
     );
-    const incomplete = projectsPage.page.filter(
-      (project) =>
-        project.customerId === undefined || project.legacyNumber === undefined
-    );
 
     return {
       projectsScanned: projectsPage.page.length,
