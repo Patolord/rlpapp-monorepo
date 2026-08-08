@@ -6,6 +6,12 @@ import {
   normalizeCustomerName,
   normalizeTaxId,
 } from "./lib/customers/helpers";
+import {
+  bulkImportResultValidator,
+  emptyBulkImportResult,
+  requireTrimmedName,
+} from "./lib/compras/bulkImport";
+import type { BulkImportResult } from "./lib/compras/bulkImport";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 
@@ -210,6 +216,150 @@ export const create = engineeringMutation({
     });
 
     return customerId;
+  },
+});
+
+const bulkCustomerContactValidator = v.object({
+  name: v.string(),
+  email: v.optional(v.string()),
+  phone: v.optional(v.string()),
+  role: v.optional(v.string()),
+});
+
+const bulkCustomerItemValidator = v.object({
+  name: v.string(),
+  legalName: v.optional(v.string()),
+  taxId: v.optional(v.string()),
+  email: v.optional(v.string()),
+  phone: v.optional(v.string()),
+  address: v.optional(v.string()),
+  notes: v.optional(v.string()),
+  contact: v.optional(bulkCustomerContactValidator),
+});
+
+type BulkCustomerItem = {
+  name: string;
+  legalName?: string;
+  taxId?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  notes?: string;
+  contact?: {
+    name: string;
+    email?: string;
+    phone?: string;
+    role?: string;
+  };
+};
+
+async function bulkCreateCustomers(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  items: BulkCustomerItem[]
+): Promise<BulkImportResult> {
+  const result = emptyBulkImportResult();
+  const now = Date.now();
+  const importedNames = new Set<string>();
+  const importedTaxIds = new Set<string>();
+  let firstCreatedId: Id<"customers"> | null = null;
+
+  for (let i = 0; i < items.length; i++) {
+    const row = i + 1;
+    const item = items[i]!;
+    const nameCheck = requireTrimmedName(item.name, row, "Nome");
+    if (!nameCheck.ok) {
+      result.errors.push(nameCheck.error);
+      continue;
+    }
+
+    const nameNormalized = normalizeCustomerName(nameCheck.name);
+    const taxId = item.taxId ? formatTaxId(item.taxId) : undefined;
+    const taxIdNormalized = taxId ? normalizeTaxId(taxId) : undefined;
+    const existingByName = importedNames.has(nameNormalized)
+      ? true
+      : Boolean(
+          await ctx.db
+            .query("customers")
+            .withIndex("by_name_normalized", (q) =>
+              q.eq("nameNormalized", nameNormalized)
+            )
+            .first()
+        );
+    const existingByTaxId =
+      taxIdNormalized &&
+      (importedTaxIds.has(taxIdNormalized) ||
+        Boolean(
+          await ctx.db
+            .query("customers")
+            .withIndex("by_tax_id_normalized", (q) =>
+              q.eq("taxIdNormalized", taxIdNormalized)
+            )
+            .first()
+        ));
+
+    if (existingByName || existingByTaxId) {
+      result.skipped++;
+      continue;
+    }
+
+    const customerId = await ctx.db.insert("customers", {
+      name: nameCheck.name,
+      nameNormalized,
+      legalName: item.legalName?.trim() || undefined,
+      taxId,
+      taxIdNormalized,
+      email: item.email?.trim() || undefined,
+      phone: item.phone?.trim() || undefined,
+      address: item.address?.trim() || undefined,
+      notes: item.notes?.trim() || undefined,
+      active: true,
+      createdAt: now,
+      updatedAt: now,
+      createdByUserId: user._id,
+      updatedByUserId: user._id,
+    });
+
+    if (item.contact?.name.trim()) {
+      await ctx.db.insert("customerContacts", {
+        customerId,
+        name: item.contact.name.trim(),
+        email: item.contact.email?.trim() || undefined,
+        phone: item.contact.phone?.trim() || undefined,
+        role: item.contact.role?.trim() || undefined,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    importedNames.add(nameNormalized);
+    if (taxIdNormalized) importedTaxIds.add(taxIdNormalized);
+    firstCreatedId ??= customerId;
+    result.created++;
+  }
+
+  if (firstCreatedId) {
+    await logAudit(ctx, user, {
+      action: "create",
+      tableName: "customers",
+      recordId: firstCreatedId,
+      details: `Importação CSV: ${result.created} criados, ${result.skipped} ignorados`,
+    });
+  }
+
+  return result;
+}
+
+export const bulkCreate = engineeringMutation({
+  args: {
+    items: v.array(bulkCustomerItemValidator),
+  },
+  returns: bulkImportResultValidator,
+  handler: async (ctx, args) => {
+    if (args.items.length > 200) {
+      throw new Error("Máximo de 200 clientes por importação");
+    }
+    return await bulkCreateCustomers(ctx, ctx.user, args.items);
   },
 });
 
