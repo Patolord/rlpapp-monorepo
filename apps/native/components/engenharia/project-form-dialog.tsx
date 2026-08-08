@@ -115,13 +115,18 @@ export function ProjectFormDialog({
       label: f.label.trim() || defaultFloorLabel(f.number),
     }));
 
+    const customerChanged =
+      (customerId || null) !== (project?.customerId ?? null);
+
     setSaving(true);
     try {
       if (isEdit && project) {
         await updateProject({
           projectId: project._id,
           name: name.trim(),
-          customerId: customerId as Id<"customers">,
+          ...(customerChanged
+            ? { customerId: customerId as Id<"customers"> }
+            : {}),
           legacyNumber: parsedLegacyNumber,
           floors: payloadFloors,
         });

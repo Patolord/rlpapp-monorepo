@@ -186,6 +186,9 @@ export function ProjectFormDialog({
       endDate: fromDateInput(endDate),
     };
 
+    const customerChanged =
+      (meta.customerId ?? null) !== (project?.customerId ?? null);
+
     setSaving(true);
     const ok = await runWithToast(
       () =>
@@ -195,7 +198,7 @@ export function ProjectFormDialog({
               name: name.trim(),
               legacyNumber: parsedLegacyNumber,
               floors: payloadFloors,
-              customerId: meta.customerId!,
+              ...(customerChanged ? { customerId: meta.customerId! } : {}),
               address: meta.address,
               status: meta.status,
               startDate: meta.startDate,
