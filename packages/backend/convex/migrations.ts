@@ -363,3 +363,85 @@ export const verifyCustomerMigration = adminQuery({
     };
   },
 });
+
+/**
+ * Marca contatos legados como ativos. Idempotente e seguro para executar após
+ * publicar o schema ampliado.
+ */
+export const backfillCustomerContactsActive = adminMutation({
+  args: { dryRun: v.optional(v.boolean()) },
+  returns: v.object({
+    scanned: v.number(),
+    updated: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const contacts = await ctx.db.query("customerContacts").collect();
+    let updated = 0;
+    for (const contact of contacts) {
+      if (contact.active !== undefined) continue;
+      updated += 1;
+      if (!args.dryRun) {
+        await ctx.db.patch("customerContacts", contact._id, { active: true });
+      }
+    }
+    return { scanned: contacts.length, updated };
+  },
+});
+
+/** Audita os vínculos e números manuais antes de encerrar a migração legada. */
+export const verifyProjectCustomerAndNumbers = adminQuery({
+  args: {},
+  returns: v.object({
+    projectsScanned: v.number(),
+    missingCustomer: v.number(),
+    missingLegacyNumber: v.number(),
+    duplicateLegacyNumbers: v.array(
+      v.object({
+        legacyNumber: v.number(),
+        projectIds: v.array(v.id("projects")),
+      })
+    ),
+    samples: v.array(
+      v.object({
+        projectId: v.id("projects"),
+        projectName: v.string(),
+        missingCustomer: v.boolean(),
+        missingLegacyNumber: v.boolean(),
+      })
+    ),
+  }),
+  handler: async (ctx) => {
+    const projects = await ctx.db.query("projects").collect();
+    const projectIdsByNumber = new Map<number, Id<"projects">[]>();
+    for (const project of projects) {
+      if (project.legacyNumber === undefined) continue;
+      const ids = projectIdsByNumber.get(project.legacyNumber) ?? [];
+      ids.push(project._id);
+      projectIdsByNumber.set(project.legacyNumber, ids);
+    }
+    const duplicateLegacyNumbers = [...projectIdsByNumber.entries()]
+      .filter(([, projectIds]) => projectIds.length > 1)
+      .map(([legacyNumber, projectIds]) => ({ legacyNumber, projectIds }));
+    const incomplete = projects.filter(
+      (project) =>
+        project.customerId === undefined || project.legacyNumber === undefined
+    );
+
+    return {
+      projectsScanned: projects.length,
+      missingCustomer: projects.filter(
+        (project) => project.customerId === undefined
+      ).length,
+      missingLegacyNumber: projects.filter(
+        (project) => project.legacyNumber === undefined
+      ).length,
+      duplicateLegacyNumbers,
+      samples: incomplete.slice(0, 20).map((project) => ({
+        projectId: project._id,
+        projectName: project.name,
+        missingCustomer: project.customerId === undefined,
+        missingLegacyNumber: project.legacyNumber === undefined,
+      })),
+    };
+  },
+});

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { engineeringMutation, engineeringQuery } from "./lib/rbac";
 import { medicaoBasis, medicaoStatus, projectStatus } from "./schema";
 import { logAudit } from "./lib/audit";
+import { resolveCustomerLabel } from "./lib/projects/helpers";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 
@@ -483,6 +484,7 @@ export const getOverview = engineeringQuery({
       projectId: v.id("projects"),
       projectName: v.string(),
       projectSlug: v.string(),
+      legacyNumber: v.union(v.number(), v.null()),
       client: v.union(v.string(), v.null()),
       status: v.union(projectStatus, v.null()),
       contractCount: v.number(),
@@ -517,7 +519,8 @@ export const getOverview = engineeringQuery({
           projectId: project._id,
           projectName: project.name,
           projectSlug: project.slug ?? project._id,
-          client: project.client ?? null,
+          legacyNumber: project.legacyNumber ?? null,
+          client: await resolveCustomerLabel(ctx, project),
           status: project.status ?? null,
           contractCount: contracts.length,
           contractTotalCents,

@@ -42,6 +42,7 @@ const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
 interface ProjectInput {
   _id: Id<"projects">;
   name: string;
+  legacyNumber?: number | null;
   floors: { number: number; label: string }[];
   customerId?: Id<"customers"> | null;
   client?: string | null;
@@ -98,6 +99,9 @@ export function ProjectFormDialog({
 
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(project?.name ?? "");
+  const [legacyNumber, setLegacyNumber] = useState(
+    project?.legacyNumber?.toString() ?? ""
+  );
   const [customerId, setCustomerId] = useState<string>(
     project?.customerId ?? ""
   );
@@ -116,6 +120,7 @@ export function ProjectFormDialog({
 
   function reset() {
     setName(project?.name ?? "");
+    setLegacyNumber(project?.legacyNumber?.toString() ?? "");
     setCustomerId(project?.customerId ?? "");
     setAddress(project?.address ?? "");
     setStatus(project?.status ?? "planning");
@@ -156,7 +161,15 @@ export function ProjectFormDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
+    const parsedLegacyNumber = Number(legacyNumber);
+    if (
+      !name.trim() ||
+      !customerId ||
+      !Number.isSafeInteger(parsedLegacyNumber) ||
+      parsedLegacyNumber <= 0
+    ) {
+      return;
+    }
 
     const payloadFloors = floors.map((f) => ({
       number: f.number,
@@ -180,8 +193,9 @@ export function ProjectFormDialog({
           ? updateProject({
               projectId: project._id,
               name: name.trim(),
+              legacyNumber: parsedLegacyNumber,
               floors: payloadFloors,
-              customerId: meta.customerId,
+              customerId: meta.customerId!,
               address: meta.address,
               status: meta.status,
               startDate: meta.startDate,
@@ -189,8 +203,9 @@ export function ProjectFormDialog({
             })
           : createProject({
               name: name.trim(),
+              legacyNumber: parsedLegacyNumber,
               floors: payloadFloors,
-              customerId: meta.customerId ?? undefined,
+              customerId: meta.customerId!,
               address: meta.address ?? undefined,
               status: meta.status,
               startDate: meta.startDate ?? undefined,
@@ -228,31 +243,44 @@ export function ProjectFormDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="project-name">Nome da obra</Label>
-            <Input
-              id="project-name"
-              placeholder="Ex: Edifício Lorena"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
+          <div className="grid gap-3 sm:grid-cols-[1fr_9rem]">
+            <div className="space-y-2">
+              <Label htmlFor="project-name">Nome da obra</Label>
+              <Input
+                id="project-name"
+                placeholder="Ex: Edifício Lorena"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="project-number">Número da obra</Label>
+              <Input
+                id="project-number"
+                type="number"
+                min={1}
+                step={1}
+                placeholder="Ex: 1821"
+                value={legacyNumber}
+                onChange={(e) => setLegacyNumber(e.target.value)}
+                required
+              />
+            </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="project-customer">Cliente</Label>
               <Select
-                value={customerId || "__none__"}
-                onValueChange={(v) =>
-                  setCustomerId(v === "__none__" ? "" : v)
-                }
+                value={customerId || undefined}
+                onValueChange={setCustomerId}
+                required
               >
                 <SelectTrigger id="project-customer">
                   <SelectValue placeholder="Selecione um cliente" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">Sem cliente</SelectItem>
                   {(customers ?? []).map((c) => (
                     <SelectItem key={c._id} value={c._id}>
                       {c.name}
@@ -392,7 +420,16 @@ export function ProjectFormDialog({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={saving || !name.trim()}>
+            <Button
+              type="submit"
+              disabled={
+                saving ||
+                !name.trim() ||
+                !customerId ||
+                !Number.isSafeInteger(Number(legacyNumber)) ||
+                Number(legacyNumber) <= 0
+              }
+            >
               {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
               {isEdit ? "Salvar alterações" : "Criar obra"}
             </Button>

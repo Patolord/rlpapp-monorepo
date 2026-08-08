@@ -2,9 +2,9 @@ import { v } from "convex/values";
 import { authedQuery } from "./lib/rbac";
 import { buildProjectHierarchy } from "./lib/engenharia/hierarchy";
 import {
-  getLegacyClientLabel,
   getPortalUserIds,
   isProjectArchived,
+  resolveCustomerLabel,
 } from "./lib/projects/helpers";
 import { hierarchyReturnValidator } from "./projects";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -22,17 +22,6 @@ const STAFF_ROLES = new Set([
 
 function isStaff(user: Doc<"users">): boolean {
   return STAFF_ROLES.has(user.role);
-}
-
-async function resolveCustomerLabel(
-  ctx: QueryCtx,
-  project: Doc<"projects">
-): Promise<string | null> {
-  if (project.customerId) {
-    const customer = await ctx.db.get("customers", project.customerId);
-    if (customer) return customer.name;
-  }
-  return getLegacyClientLabel(project) ?? null;
 }
 
 async function assertProjectAccess(
@@ -55,6 +44,7 @@ export const listMyProjects = authedQuery({
     v.object({
       _id: v.id("projects"),
       name: v.string(),
+      legacyNumber: v.union(v.number(), v.null()),
       client: v.union(v.string(), v.null()),
       address: v.union(v.string(), v.null()),
       status: v.union(v.string(), v.null()),
@@ -85,6 +75,7 @@ export const listMyProjects = authedQuery({
       out.push({
         _id: project._id,
         name: project.name,
+        legacyNumber: project.legacyNumber ?? null,
         client: customerName,
         address: project.address ?? null,
         status: project.status ?? null,
@@ -112,6 +103,7 @@ export const getProjectSummary = authedQuery({
   returns: v.object({
     _id: v.id("projects"),
     name: v.string(),
+    legacyNumber: v.union(v.number(), v.null()),
     client: v.union(v.string(), v.null()),
     address: v.union(v.string(), v.null()),
     status: v.union(v.string(), v.null()),
@@ -139,6 +131,7 @@ export const getProjectSummary = authedQuery({
     return {
       _id: project._id,
       name: project.name,
+      legacyNumber: project.legacyNumber ?? null,
       client: (await resolveCustomerLabel(ctx, project)) ?? null,
       address: project.address ?? null,
       status: project.status ?? null,

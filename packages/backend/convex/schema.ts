@@ -208,6 +208,9 @@ export default defineSchema({
   customers: defineTable({
     name: v.string(),
     nameNormalized: v.string(),
+    personType: v.optional(
+      v.union(v.literal("pf"), v.literal("pj"))
+    ),
     legalName: v.optional(v.string()),
     taxId: v.optional(v.string()),
     taxIdNormalized: v.optional(v.string()),
@@ -233,9 +236,14 @@ export default defineSchema({
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
     role: v.optional(v.string()),
+    // Optional during the legacy backfill; missing values are treated as active.
+    active: v.optional(v.boolean()),
+    archivedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
-  }).index("by_customer", ["customerId"]),
+  })
+    .index("by_customer", ["customerId"])
+    .index("by_customer_and_active", ["customerId", "active"]),
 
   // Obra (prédio): nome + metadados + lista de andares (legado) + torres.
   //
@@ -250,6 +258,8 @@ export default defineSchema({
     // Legado: rótulo livre do cliente. Preferir `customerId`.
     client: v.optional(v.string()),
     customerId: v.optional(v.id("customers")),
+    // Número da obra no sistema legado. Obrigatório nas novas obras.
+    legacyNumber: v.optional(v.number()),
     address: v.optional(v.string()),
     status: v.optional(projectStatus),
     responsibleId: v.optional(v.id("users")),
@@ -277,7 +287,8 @@ export default defineSchema({
     .index("by_slug", ["slug"])
     .index("by_status", ["status"])
     .index("by_responsible", ["responsibleId"])
-    .index("by_customer", ["customerId"]),
+    .index("by_customer", ["customerId"])
+    .index("by_legacy_number", ["legacyNumber"]),
 
   // --- Hierarquia nova: Torre → Andar → Ambiente ---
 

@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Home,
   Loader2,
+  Pencil,
   Printer,
   QrCode,
   Sparkles,
@@ -21,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { getUnitState, type GridFloor, type GridUnit } from "@/components/engenharia/building";
 import { AiChatPanel } from "@/components/engenharia/ai/ai-chat-panel";
 import { AssignTechniciansDialog } from "@/components/engenharia/assign-technicians-dialog";
+import { ProjectFormDialog } from "@/components/engenharia/project-form-dialog";
 import {
   OBRAS_LIST_PATH,
   obraLinkSlug,
@@ -37,8 +39,11 @@ export type ProjectOverview = {
   _id: Id<"projects">;
   name: string;
   slug: string;
+  legacyNumber?: number | null;
   floors: GridFloor[];
   client?: string | null;
+  customerId?: Id<"customers"> | null;
+  customerName?: string | null;
   address?: string | null;
   status?: ProjectStatus | null;
   responsibleId?: Id<"users"> | null;
@@ -73,8 +78,8 @@ export function ProjectShell({
     if (!project) return "";
 
     const parts: string[] = [
-      `Obra: ${project.name}`,
-      project.client ? `Cliente: ${project.client}` : "",
+      `Obra: ${project.legacyNumber ? `#${project.legacyNumber} · ` : ""}${project.name}`,
+      project.customerName ? `Cliente: ${project.customerName}` : "",
       `Equipamentos previstos: ${project.totalItems}, instalados: ${project.installedItems}`,
     ];
 
@@ -216,6 +221,11 @@ function ProjectShellLayout({
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold">{project.name}</h1>
+              {project.legacyNumber && (
+                <span className="rounded-full border px-2.5 py-0.5 text-xs font-semibold tabular-nums">
+                  #{project.legacyNumber}
+                </span>
+              )}
               <span className="hidden items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium tabular-nums sm:flex">
                 <span className="text-primary">{pct}%</span>
                 <span className="text-muted-foreground">·</span>
@@ -225,6 +235,12 @@ function ProjectShellLayout({
               </span>
             </div>
             <p className="text-sm text-muted-foreground">
+              {project.customerName && (
+                <>
+                  {project.customerName}
+                  {" · "}
+                </>
+              )}
               {project.hierarchyFloors > 0
                 ? `${project.hierarchyFloors} andar${project.hierarchyFloors === 1 ? "" : "es"}`
                 : `${project.floors.length} andar${project.floors.length === 1 ? "" : "es"}`}
@@ -239,6 +255,26 @@ function ProjectShellLayout({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
+            <ProjectFormDialog
+              project={{
+                _id: project._id,
+                name: project.name,
+                legacyNumber: project.legacyNumber,
+                floors: project.floors,
+                customerId: project.customerId,
+                address: project.address,
+                status:
+                  project.status === "archived" ? "planning" : project.status,
+                startDate: project.startDate,
+                endDate: project.endDate,
+              }}
+              trigger={
+                <Button variant="outline" size="sm">
+                  <Pencil className="mr-1.5 size-4" />
+                  Editar
+                </Button>
+              }
+            />
             <Button
               variant="outline"
               size="icon"

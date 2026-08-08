@@ -1,6 +1,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { STAFF_ROLES, authedQuery } from "./lib/rbac";
+import { resolveCustomerLabel } from "./lib/projects/helpers";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 
@@ -30,6 +31,7 @@ export const listMyProjects = authedQuery({
     v.object({
       _id: v.id("projects"),
       name: v.string(),
+      legacyNumber: v.union(v.number(), v.null()),
       client: v.union(v.string(), v.null()),
       address: v.union(v.string(), v.null()),
       status: v.union(v.string(), v.null()),
@@ -56,7 +58,8 @@ export const listMyProjects = authedQuery({
       out.push({
         _id: project._id,
         name: project.name,
-        client: project.client ?? null,
+        legacyNumber: project.legacyNumber ?? null,
+        client: await resolveCustomerLabel(ctx, project),
         address: project.address ?? null,
         status: project.status ?? null,
         qrCount: qrCodes.length,
@@ -173,6 +176,7 @@ export const listQrsByProject = authedQuery({
 const browsableProjectValidator = v.object({
   _id: v.id("projects"),
   name: v.string(),
+  legacyNumber: v.union(v.number(), v.null()),
   client: v.union(v.string(), v.null()),
   address: v.union(v.string(), v.null()),
   status: v.union(v.string(), v.null()),
@@ -196,7 +200,8 @@ export const listBrowsableProjects = authedQuery({
         return {
           _id: project._id,
           name: project.name,
-          client: project.client ?? null,
+          legacyNumber: project.legacyNumber ?? null,
+          client: await resolveCustomerLabel(ctx, project),
           address: project.address ?? null,
           status: project.status ?? null,
         };

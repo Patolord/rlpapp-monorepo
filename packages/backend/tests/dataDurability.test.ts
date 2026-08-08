@@ -19,6 +19,13 @@ async function seedPortalUser(t: ReturnType<typeof setup>, clerkId: string) {
   });
 }
 
+async function seedCustomer(
+  asDirector: Awaited<ReturnType<typeof seedDirector>>,
+  name: string
+) {
+  return await asDirector.mutation(api.customers.create, { name });
+}
+
 describe("customers", () => {
   test("impede nomes duplicados normalizados", async () => {
     const t = setup();
@@ -115,15 +122,138 @@ describe("customers", () => {
     expect(restored?.customer.archivedAt).toBeNull();
     expect(restored?.customer.active).toBe(true);
   });
+
+  test("valida CPF e CNPJ quando o tipo de pessoa é informado", async () => {
+    const t = setup();
+    const asDirector = await seedDirector(t);
+
+    await expect(
+      asDirector.mutation(api.customers.create, {
+        name: "Pessoa Inválida",
+        personType: "pf",
+        taxId: "123",
+      })
+    ).rejects.toThrow("CPF deve conter 11 dígitos");
+
+    const customerId = await asDirector.mutation(api.customers.create, {
+      name: "Pessoa Válida",
+      personType: "pf",
+      taxId: "123.456.789-01",
+    });
+    const details = await asDirector.query(api.customers.get, { customerId });
+    expect(details?.customer.personType).toBe("pf");
+    expect(details?.customer.taxId).toBe("12345678901");
+  });
+
+  test("mantém contatos arquivados no histórico e permite restaurar", async () => {
+    const t = setup();
+    const asDirector = await seedDirector(t);
+    const customerId = await seedCustomer(asDirector, "Cliente com Contatos");
+    const contactId = await asDirector.mutation(api.customers.addContact, {
+      customerId,
+      name: "Maria",
+      email: "maria@example.com",
+      role: "Engenharia",
+    });
+
+    await asDirector.mutation(api.customers.updateContact, {
+      contactId,
+      phone: "11999999999",
+    });
+    await asDirector.mutation(api.customers.removeContact, { contactId });
+
+    const activeOnly = await asDirector.query(api.customers.get, { customerId });
+    expect(activeOnly?.contacts).toHaveLength(0);
+
+    const history = await asDirector.query(api.customers.get, {
+      customerId,
+      includeInactiveContacts: true,
+    });
+    expect(history?.contacts).toEqual([
+      expect.objectContaining({
+        _id: contactId,
+        active: false,
+        email: "maria@example.com",
+        phone: "11999999999",
+        role: "Engenharia",
+      }),
+    ]);
+
+    await asDirector.mutation(api.customers.restoreContact, { contactId });
+    const restored = await asDirector.query(api.customers.get, { customerId });
+    expect(restored?.contacts[0]?.active).toBe(true);
+  });
+});
+
+describe("project customer and legacy number", () => {
+  test("exige número inteiro positivo e impede duplicidade", async () => {
+    const t = setup();
+    const asDirector = await seedDirector(t);
+    const customerId = await seedCustomer(asDirector, "Cliente Numeração");
+
+    await expect(
+      asDirector.mutation(api.projects.create, {
+        name: "Obra Inválida",
+        customerId,
+        legacyNumber: 0,
+      })
+    ).rejects.toThrow("número inteiro positivo");
+
+    await asDirector.mutation(api.projects.create, {
+      name: "Obra 1821",
+      customerId,
+      legacyNumber: 1821,
+    });
+    await expect(
+      asDirector.mutation(api.projects.create, {
+        name: "Outra Obra 1821",
+        customerId,
+        legacyNumber: 1821,
+      })
+    ).rejects.toThrow("Já existe uma obra com o número 1821");
+  });
+
+  test("permite preencher vínculo e número em obra legada", async () => {
+    const t = setup();
+    const asDirector = await seedDirector(t);
+    const customerId = await seedCustomer(asDirector, "Cliente Backfill");
+    const projectId = await t.run(async (ctx) => {
+      return await ctx.db.insert("projects", {
+        name: "Obra sem metadados",
+        floors: [],
+        createdAt: Date.now(),
+      });
+    });
+
+    await asDirector.mutation(api.projects.update, {
+      projectId,
+      customerId,
+      legacyNumber: 1800,
+    });
+    const listed = await asDirector.query(api.projects.list, {});
+    expect(listed).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          _id: projectId,
+          customerId,
+          customerName: "Cliente Backfill",
+          legacyNumber: 1800,
+        }),
+      ])
+    );
+  });
 });
 
 describe("projects archive", () => {
   test("archive preserva contratos, medições e eventos de preço", async () => {
     const t = setup();
     const asDirector = await seedDirector(t);
+    const customerId = await seedCustomer(asDirector, "Cliente Obra Teste");
 
     const projectId = await asDirector.mutation(api.projects.create, {
       name: "Obra Teste",
+      customerId,
+      legacyNumber: 1821,
       floors: [{ number: 1, label: "1º Andar" }],
     });
 
@@ -179,9 +309,12 @@ describe("projects archive", () => {
   test("remove é compatível com archive (não apaga filhos)", async () => {
     const t = setup();
     const asDirector = await seedDirector(t);
+    const customerId = await seedCustomer(asDirector, "Cliente Obra Legado");
 
     const projectId = await asDirector.mutation(api.projects.create, {
       name: "Obra Legado",
+      customerId,
+      legacyNumber: 1821,
     });
 
     await asDirector.mutation(api.projects.remove, { projectId });
@@ -199,6 +332,7 @@ describe("portal access", () => {
     const t = setup();
     const asDirector = await seedDirector(t);
     const asPortal = await seedPortalUser(t, "portal-user-1");
+    const customerId = await seedCustomer(asDirector, "Cliente Portal");
 
     const portalUserId = await t.run(async (ctx) => {
       const user = await ctx.db
@@ -211,6 +345,8 @@ describe("portal access", () => {
 
     const projectId = await asDirector.mutation(api.projects.create, {
       name: "Obra Portal",
+      customerId,
+      legacyNumber: 1821,
     });
 
     await asDirector.mutation(api.projects.setPortalUsers, {
@@ -236,6 +372,7 @@ describe("portal access", () => {
     const t = setup();
     const asDirector = await seedDirector(t);
     const asPortal = await seedPortalUser(t, "portal-user-2");
+    const customerId = await seedCustomer(asDirector, "Cliente Portal Arquivo");
 
     const portalUserId = await t.run(async (ctx) => {
       const user = await ctx.db
@@ -248,6 +385,8 @@ describe("portal access", () => {
 
     const projectId = await asDirector.mutation(api.projects.create, {
       name: "Obra Arquivada Portal",
+      customerId,
+      legacyNumber: 1821,
     });
     await asDirector.mutation(api.projects.setPortalUsers, {
       projectId,

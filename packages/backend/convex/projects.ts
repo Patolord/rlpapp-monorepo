@@ -6,8 +6,9 @@ import { projectStatus } from "./schema";
 import { logAudit, diffFields } from "./lib/audit";
 import { buildProjectHierarchy } from "./lib/engenharia/hierarchy";
 import {
-  getLegacyClientLabel,
+  assertUniqueLegacyNumber,
   isProjectArchived,
+  resolveCustomerLabel,
 } from "./lib/projects/helpers";
 import {
   generateUniqueProjectSlug,
@@ -55,23 +56,10 @@ function autoUnitLabel(floor: number, final: number): string {
   return `${floor}${String(final).padStart(2, "0")}`;
 }
 
-async function resolveCustomerLabel(
-  ctx: { db: import("./_generated/server").QueryCtx["db"] },
-  project: {
-    customerId?: Id<"customers">;
-    client?: string;
-  }
-): Promise<string | null> {
-  if (project.customerId) {
-    const customer = await ctx.db.get("customers", project.customerId);
-    if (customer) return customer.name;
-  }
-  return getLegacyClientLabel(project as import("./_generated/dataModel").Doc<"projects">) ?? null;
-}
-
 function projectSnapshot(project: import("./_generated/dataModel").Doc<"projects">) {
   return {
     name: project.name,
+    legacyNumber: project.legacyNumber,
     customerId: project.customerId,
     client: project.client,
     address: project.address,
@@ -97,6 +85,7 @@ export const list = engineeringQuery({
       _creationTime: v.number(),
       name: v.string(),
       slug: v.string(),
+      legacyNumber: v.union(v.number(), v.null()),
       floors: floorsValidator,
       client: v.union(v.string(), v.null()),
       customerId: v.union(v.id("customers"), v.null()),
@@ -153,6 +142,7 @@ export const list = engineeringQuery({
           _creationTime: project._creationTime,
           name: project.name,
           slug: project.slug ?? project._id,
+          legacyNumber: project.legacyNumber ?? null,
           floors: project.floors.map((f) => ({
             number: f.number,
             label: f.label,
@@ -245,8 +235,11 @@ export const getOverview = engineeringQuery({
       _id: v.id("projects"),
       name: v.string(),
       slug: v.string(),
+      legacyNumber: v.union(v.number(), v.null()),
       floors: floorsValidator,
       client: v.union(v.string(), v.null()),
+      customerId: v.union(v.id("customers"), v.null()),
+      customerName: v.union(v.string(), v.null()),
       address: v.union(v.string(), v.null()),
       status: v.union(projectStatus, v.null()),
       responsibleId: v.union(v.id("users"), v.null()),
@@ -373,16 +366,20 @@ export const getOverview = engineeringQuery({
       .query("environments")
       .withIndex("by_project", (q) => q.eq("projectId", project._id))
       .collect();
+    const customerName = await resolveCustomerLabel(ctx, project);
 
     return {
       _id: project._id,
       name: project.name,
       slug: project.slug ?? project._id,
+      legacyNumber: project.legacyNumber ?? null,
       floors: project.floors.map((f) => ({
         number: f.number,
         label: f.label,
       })),
       client: project.client ?? null,
+      customerId: project.customerId ?? null,
+      customerName,
       address: project.address ?? null,
       status: project.status ?? null,
       responsibleId: project.responsibleId ?? null,
@@ -406,7 +403,8 @@ export const create = engineeringMutation({
     name: v.string(),
     // Andares opcionais: obras novas podem começar vazias e usar torres.
     floors: v.optional(floorsValidator),
-    customerId: v.optional(v.id("customers")),
+    customerId: v.id("customers"),
+    legacyNumber: v.number(),
     client: v.optional(v.string()),
     address: v.optional(v.string()),
     status: v.optional(projectStatus),
@@ -419,13 +417,12 @@ export const create = engineeringMutation({
     const name = args.name.trim();
     if (!name) throw new Error("O nome da obra é obrigatório");
 
-    if (args.customerId) {
-      const customer = await ctx.db.get("customers", args.customerId);
-      if (!customer) throw new Error("Cliente não encontrado");
-      if (customer.archivedAt) {
-        throw new Error("Cliente arquivado — selecione outro ou restaure o cliente");
-      }
+    const customer = await ctx.db.get("customers", args.customerId);
+    if (!customer) throw new Error("Cliente não encontrado");
+    if (customer.archivedAt || !customer.active) {
+      throw new Error("Cliente inativo — selecione outro ou restaure o cliente");
     }
+    await assertUniqueLegacyNumber(ctx, args.legacyNumber);
 
     const slug = await generateUniqueProjectSlug(ctx, name);
 
@@ -434,6 +431,7 @@ export const create = engineeringMutation({
       slug,
       floors: args.floors ? normalizeFloors(args.floors) : [],
       customerId: args.customerId,
+      legacyNumber: args.legacyNumber,
       client: args.client?.trim() || undefined,
       address: args.address?.trim() || undefined,
       status: args.status ?? "planning",
@@ -448,7 +446,11 @@ export const create = engineeringMutation({
       recordId: projectId,
       entityLabel: name,
       details: name,
-      snapshotAfter: { name, customerId: args.customerId },
+      snapshotAfter: {
+        name,
+        customerId: args.customerId,
+        legacyNumber: args.legacyNumber,
+      },
     });
     return projectId;
   },
@@ -460,6 +462,7 @@ export const update = engineeringMutation({
     name: v.optional(v.string()),
     floors: v.optional(floorsValidator),
     customerId: v.optional(v.union(v.id("customers"), v.null())),
+    legacyNumber: v.optional(v.number()),
     client: v.optional(v.union(v.string(), v.null())),
     address: v.optional(v.union(v.string(), v.null())),
     status: v.optional(projectStatus),
@@ -486,15 +489,19 @@ export const update = engineeringMutation({
       updates.floors = normalizeFloors(args.floors);
     }
     if (args.customerId !== undefined) {
-      if (args.customerId !== null) {
-        const customer = await ctx.db.get("customers", args.customerId);
-        if (!customer) throw new Error("Cliente não encontrado");
-        if (customer.archivedAt) {
-          throw new Error("Cliente arquivado — selecione outro ou restaure o cliente");
-        }
+      if (args.customerId === null) {
+        throw new Error("A obra precisa estar vinculada a um cliente");
       }
-      updates.customerId =
-        args.customerId === null ? undefined : args.customerId;
+      const customer = await ctx.db.get("customers", args.customerId);
+      if (!customer) throw new Error("Cliente não encontrado");
+      if (customer.archivedAt || !customer.active) {
+        throw new Error("Cliente inativo — selecione outro ou restaure o cliente");
+      }
+      updates.customerId = args.customerId;
+    }
+    if (args.legacyNumber !== undefined) {
+      await assertUniqueLegacyNumber(ctx, args.legacyNumber, args.projectId);
+      updates.legacyNumber = args.legacyNumber;
     }
     if (args.client !== undefined) {
       updates.client = args.client === null ? undefined : args.client.trim() || undefined;
@@ -528,6 +535,7 @@ export const update = engineeringMutation({
       entityLabel: afterDoc?.name ?? project.name,
       changes: diffFields(before, projectSnapshot(afterDoc!), [
         "name",
+        "legacyNumber",
         "customerId",
         "client",
         "address",
