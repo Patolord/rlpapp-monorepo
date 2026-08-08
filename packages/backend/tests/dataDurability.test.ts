@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
 import { setup, withUser } from "./helpers";
@@ -204,6 +204,7 @@ describe("customers", () => {
   });
 
   test("migra contatos legados em lotes idempotentes", async () => {
+    vi.useFakeTimers();
     const t = setup();
     const asDirector = await seedDirector(t);
     const customerId = await seedCustomer(asDirector, "Cliente Legado");
@@ -214,10 +215,17 @@ describe("customers", () => {
         createdAt: Date.now(),
       });
     });
+    const secondContactId = await t.run(async (ctx) => {
+      return await ctx.db.insert("customerContacts", {
+        customerId,
+        name: "Outro Contato Legado",
+        createdAt: Date.now(),
+      });
+    });
 
     const dryRun = await asDirector.mutation(
       api.migrations.backfillCustomerContactsActive,
-      { dryRun: true }
+      { dryRun: true, batchSize: 1 }
     );
     expect(dryRun.updated).toBe(1);
     await t.run(async (ctx) => {
@@ -226,11 +234,16 @@ describe("customers", () => {
 
     const migrated = await asDirector.mutation(
       api.migrations.backfillCustomerContactsActive,
-      {}
+      { batchSize: 1 }
     );
     expect(migrated.updated).toBe(1);
+    expect(migrated.continuationScheduled).toBe(true);
+    await t.finishAllScheduledFunctions(() => vi.runAllTimers());
     await t.run(async (ctx) => {
       expect((await ctx.db.get("customerContacts", contactId))?.active).toBe(true);
+      expect(
+        (await ctx.db.get("customerContacts", secondContactId))?.active
+      ).toBe(true);
     });
 
     const repeated = await asDirector.mutation(
@@ -238,6 +251,7 @@ describe("customers", () => {
       {}
     );
     expect(repeated.updated).toBe(0);
+    vi.useRealTimers();
   });
 });
 
