@@ -731,7 +731,7 @@ export const assignEquipment = authedMutation({
 
     await ctx.db.patch("qrCodes", qrCode._id, {
       equipmentId: args.equipmentId,
-      projectId,
+      projectId: projectId ?? qrCode.projectId,
     });
 
     return null;

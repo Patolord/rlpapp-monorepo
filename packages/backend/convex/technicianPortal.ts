@@ -86,6 +86,37 @@ const qrRowValidator = v.object({
   batchName: v.union(v.string(), v.null()),
 });
 
+async function collectActiveQrsForProject(
+  ctx: QueryCtx,
+  projectId: Id<"projects">
+): Promise<Doc<"qrCodes">[]> {
+  const byId = new Map<Id<"qrCodes">, Doc<"qrCodes">>();
+
+  const byProject = await ctx.db
+    .query("qrCodes")
+    .withIndex("by_project_and_status", (q) =>
+      q.eq("projectId", projectId).eq("status", "active")
+    )
+    .collect();
+  for (const qr of byProject) byId.set(qr._id, qr);
+
+  const batches = await ctx.db
+    .query("qrBatches")
+    .withIndex("by_project", (q) => q.eq("projectId", projectId))
+    .take(100);
+  for (const batch of batches) {
+    const batchCodes = await ctx.db
+      .query("qrCodes")
+      .withIndex("by_batchId", (q) => q.eq("batchId", batch.batchId))
+      .take(1000);
+    for (const qr of batchCodes) {
+      if (qr.status === "active") byId.set(qr._id, qr);
+    }
+  }
+
+  return Array.from(byId.values());
+}
+
 async function buildQrRow(ctx: QueryCtx, qr: Doc<"qrCodes">) {
   const equipment = qr.equipmentId
     ? await ctx.db.get("equipment", qr.equipmentId)
@@ -143,19 +174,14 @@ export const listBrowsableProjects = authedQuery({
   args: {},
   returns: v.array(browsableProjectValidator),
   handler: async (ctx) => {
-    const projects = await ctx.db.query("projects").order("desc").take(200);
+    const projects = await ctx.db.query("projects").collect();
     const visible = projects.filter(
       (project) => project.status !== "archived" && !project.archivedAt
     );
     const withQrs = await Promise.all(
       visible.map(async (project) => {
-        const qr = await ctx.db
-          .query("qrCodes")
-          .withIndex("by_project_and_status", (q) =>
-            q.eq("projectId", project._id).eq("status", "active")
-          )
-          .first();
-        if (!qr) return null;
+        const activeQrs = await collectActiveQrsForProject(ctx, project._id);
+        if (activeQrs.length === 0) return null;
         return {
           _id: project._id,
           name: project.name,
@@ -190,17 +216,19 @@ export const listBrowsableQrsByProject = authedQuery({
       throw new Error("Obra não disponível");
     }
 
-    const result = await ctx.db
-      .query("qrCodes")
-      .withIndex("by_project_and_status", (q) =>
-        q.eq("projectId", args.projectId).eq("status", "active")
-      )
-      .order("desc")
-      .paginate(args.paginationOpts);
+    const activeQrs = await collectActiveQrsForProject(ctx, args.projectId);
+    activeQrs.sort((a, b) => b.createdAt - a.createdAt);
+
+    const start = args.paginationOpts.cursor
+      ? Number.parseInt(args.paginationOpts.cursor, 10)
+      : 0;
+    const end = start + args.paginationOpts.numItems;
+    const page = activeQrs.slice(start, end);
 
     return {
-      ...result,
-      page: await Promise.all(result.page.map((qr) => buildQrRow(ctx, qr))),
+      page: await Promise.all(page.map((qr) => buildQrRow(ctx, qr))),
+      isDone: end >= activeQrs.length,
+      continueCursor: String(end),
     };
   },
 });

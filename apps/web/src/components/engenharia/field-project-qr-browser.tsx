@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
@@ -100,10 +100,10 @@ export function FieldProjectQrBrowser() {
       </div>
 
       <div className={selectedProjectId ? "block" : "hidden lg:block"}>
-        {selectedProjectId && selectedProject ? (
+        {selectedProjectId ? (
           <ProjectQrList
             projectId={selectedProjectId}
-            projectName={selectedProject.name}
+            projectName={selectedProject?.name ?? "Obra"}
             onBack={() => setSelectedProjectId(null)}
           />
         ) : (
@@ -118,6 +118,21 @@ export function FieldProjectQrBrowser() {
         )}
       </div>
     </div>
+  );
+}
+
+type BrowsableQr = {
+  token: string;
+  description: string | null;
+  modelo: string | null;
+  ambiente: string | null;
+  batchName: string | null;
+};
+
+function qrMatchesSearch(qr: BrowsableQr, term: string) {
+  if (!term) return true;
+  return [qr.token, qr.description, qr.modelo, qr.ambiente, qr.batchName].some(
+    (value) => value?.toLocaleLowerCase("pt-BR").includes(term)
   );
 }
 
@@ -137,11 +152,19 @@ function ProjectQrList({
   );
   const [search, setSearch] = useState("");
   const term = search.trim().toLocaleLowerCase("pt-BR");
-  const filtered = results.filter((qr) =>
-    [qr.token, qr.description, qr.modelo, qr.ambiente, qr.batchName].some(
-      (value) => value?.toLocaleLowerCase("pt-BR").includes(term)
-    )
-  );
+  const filtered = results.filter((qr) => qrMatchesSearch(qr, term));
+  const searchingMore =
+    term.length > 0 &&
+    filtered.length === 0 &&
+    (status === "CanLoadMore" || status === "LoadingMore");
+
+  useEffect(() => {
+    if (!term) return;
+    const hasMatch = results.some((qr) => qrMatchesSearch(qr, term));
+    if (!hasMatch && status === "CanLoadMore") {
+      loadMore(20);
+    }
+  }, [term, results, status, loadMore]);
 
   return (
     <div className="space-y-3">
@@ -181,9 +204,14 @@ function ProjectQrList({
         <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
           Nenhuma etiqueta ativa nesta obra.
         </p>
+      ) : searchingMore ? (
+        <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+          <Loader2 className="mr-2 size-4 animate-spin" />
+          Buscando em todas as etiquetas...
+        </div>
       ) : filtered.length === 0 ? (
         <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Nenhuma etiqueta carregada corresponde à busca.
+          Nenhuma etiqueta corresponde à busca.
         </p>
       ) : (
         <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">

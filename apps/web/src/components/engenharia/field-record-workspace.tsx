@@ -100,6 +100,10 @@ export function FieldRecordWorkspace({
   const pending = usePendingRecords();
   const [activeAction, setActiveAction] = useState<FieldAction>(initialAction);
 
+  useEffect(() => {
+    setActiveAction(initialAction);
+  }, [initialAction]);
+
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5">
       <div>
