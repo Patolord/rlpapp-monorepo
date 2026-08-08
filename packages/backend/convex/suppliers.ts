@@ -1,7 +1,12 @@
 import { v } from "convex/values";
 import { engineeringOrPurchasingQuery, purchasingMutation } from "./lib/rbac";
-import { logAudit } from "./lib/audit";
+import { logAudit, diffFields } from "./lib/audit";
 import { normalizeText } from "./lib/compras/procurement";
+import {
+  bulkImportResultValidator,
+  emptyBulkImportResult,
+  requireTrimmedName,
+} from "./lib/compras/bulkImport";
 
 export const supplierValidator = v.object({
   _id: v.id("suppliers"),
@@ -125,6 +130,90 @@ export const create = purchasingMutation({
   },
 });
 
+const bulkSupplierContactValidator = v.object({
+  name: v.string(),
+  email: v.optional(v.string()),
+  whatsapp: v.optional(v.string()),
+  role: v.optional(v.string()),
+});
+
+const bulkSupplierItemValidator = v.object({
+  name: v.string(),
+  categories: v.optional(v.array(v.string())),
+  notes: v.optional(v.string()),
+  contact: v.optional(bulkSupplierContactValidator),
+});
+
+export const bulkCreate = purchasingMutation({
+  args: {
+    items: v.array(bulkSupplierItemValidator),
+  },
+  returns: bulkImportResultValidator,
+  handler: async (ctx, args) => {
+    if (args.items.length > 200) {
+      throw new Error("Máximo de 200 fornecedores por importação");
+    }
+
+    const result = emptyBulkImportResult();
+    const now = Date.now();
+    const existing = await ctx.db.query("suppliers").collect();
+    const existingNames = new Set(existing.map((s) => normalizeText(s.name)));
+
+    let firstCreatedId: string | null = null;
+
+    for (let i = 0; i < args.items.length; i++) {
+      const row = i + 1;
+      const item = args.items[i]!;
+      const nameCheck = requireTrimmedName(item.name, row, "Nome");
+      if (!nameCheck.ok) {
+        result.errors.push(nameCheck.error);
+        continue;
+      }
+
+      const normalizedName = normalizeText(nameCheck.name);
+      if (existingNames.has(normalizedName)) {
+        result.skipped++;
+        continue;
+      }
+
+      const supplierId = await ctx.db.insert("suppliers", {
+        name: nameCheck.name,
+        categories: item.categories?.map((c) => c.trim()).filter(Boolean),
+        notes: item.notes?.trim() || undefined,
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      if (item.contact?.name?.trim()) {
+        await ctx.db.insert("supplierContacts", {
+          supplierId,
+          name: item.contact.name.trim(),
+          email: item.contact.email?.trim() || undefined,
+          whatsapp: item.contact.whatsapp?.trim() || undefined,
+          role: item.contact.role?.trim() || undefined,
+          createdAt: now,
+        });
+      }
+
+      existingNames.add(normalizedName);
+      if (!firstCreatedId) firstCreatedId = supplierId;
+      result.created++;
+    }
+
+    if (result.created > 0 && firstCreatedId) {
+      await logAudit(ctx, ctx.user, {
+        action: "create",
+        tableName: "suppliers",
+        recordId: firstCreatedId,
+        details: `Importação CSV: ${result.created} criados, ${result.skipped} ignorados`,
+      });
+    }
+
+    return result;
+  },
+});
+
 export const update = purchasingMutation({
   args: {
     supplierId: v.id("suppliers"),
@@ -137,6 +226,13 @@ export const update = purchasingMutation({
   handler: async (ctx, args) => {
     const supplier = await ctx.db.get("suppliers", args.supplierId);
     if (!supplier) throw new Error("Fornecedor não encontrado");
+
+    const before = {
+      name: supplier.name,
+      categories: supplier.categories,
+      notes: supplier.notes,
+      active: supplier.active,
+    };
 
     const updates: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.name !== undefined) {
@@ -151,10 +247,28 @@ export const update = purchasingMutation({
     if (args.active !== undefined) updates.active = args.active;
 
     await ctx.db.patch("suppliers", args.supplierId, updates);
+    const afterDoc = await ctx.db.get("suppliers", args.supplierId);
+    const after = afterDoc
+      ? {
+          name: afterDoc.name,
+          categories: afterDoc.categories,
+          notes: afterDoc.notes,
+          active: afterDoc.active,
+        }
+      : before;
     await logAudit(ctx, ctx.user, {
       action: "update",
       tableName: "suppliers",
       recordId: args.supplierId,
+      entityLabel: after.name,
+      changes: diffFields(before, after, [
+        "name",
+        "categories",
+        "notes",
+        "active",
+      ]),
+      snapshotBefore: before,
+      snapshotAfter: after,
     });
     return null;
   },
@@ -190,6 +304,20 @@ export const removeContact = purchasingMutation({
   args: { contactId: v.id("supplierContacts") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const contact = await ctx.db.get("supplierContacts", args.contactId);
+    if (!contact) throw new Error("Contato não encontrado");
+
+    await logAudit(ctx, ctx.user, {
+      action: "delete",
+      tableName: "supplierContacts",
+      recordId: args.contactId,
+      entityLabel: contact.name,
+      snapshotBefore: {
+        name: contact.name,
+        supplierId: contact.supplierId,
+      },
+    });
+
     await ctx.db.delete("supplierContacts", args.contactId);
     return null;
   },

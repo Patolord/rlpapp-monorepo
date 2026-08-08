@@ -14,6 +14,7 @@ import {
   ShoppingCart,
   Truck,
   UserPlus,
+  Users,
   Warehouse,
   Wrench,
   type LucideIcon,
@@ -53,6 +54,7 @@ function getNavGroups(): NavGroup[] {
       label: "Engenharia",
       items: [
         { to: "/engenharia/obras", label: "Obras", icon: Building2 },
+        { to: "/engenharia/clientes", label: "Clientes", icon: Users },
         { to: "/engenharia/medicoes", label: "Medições", icon: CircleDollarSign },
         { to: "/engenharia", label: "Equipamentos", icon: Wrench, exact: true },
         { to: "/engenharia/qr-codes", label: "Códigos QR", icon: QrCode },

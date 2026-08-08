@@ -30,7 +30,8 @@ export type ProjectStatus =
   | "planning"
   | "in_progress"
   | "completed"
-  | "paused";
+  | "paused"
+  | "archived";
 
 export type ProjectOverview = {
   _id: Id<"projects">;

@@ -13,9 +13,14 @@ import {
   validateUnitsPerPurchaseUnit,
 } from "./lib/compras/catalog";
 import { engineeringOrPurchasingQuery, purchasingMutation } from "./lib/rbac";
-import { logAudit } from "./lib/audit";
+import { logAudit, diffFields } from "./lib/audit";
 import { materialStatus, replenishmentState } from "./schema";
 import { normalizeText } from "./lib/compras/procurement";
+import {
+  bulkImportResultValidator,
+  emptyBulkImportResult,
+  requireTrimmedName,
+} from "./lib/compras/bulkImport";
 import { findInventoryLocation } from "./lib/inventory/operations";
 import {
   canViewCentralInventory,
@@ -425,6 +430,88 @@ export const create = purchasingMutation({
   },
 });
 
+const bulkMaterialItemValidator = v.object({
+  name: v.string(),
+  category: v.optional(v.string()),
+  unit: v.optional(v.string()),
+  spec: v.optional(v.string()),
+  brandPreference: v.optional(v.string()),
+  aliases: v.optional(v.array(v.string())),
+});
+
+export const bulkCreate = purchasingMutation({
+  args: {
+    items: v.array(bulkMaterialItemValidator),
+  },
+  returns: bulkImportResultValidator,
+  handler: async (ctx, args) => {
+    if (args.items.length > 200) {
+      throw new Error("Máximo de 200 materiais por importação");
+    }
+
+    const result = emptyBulkImportResult();
+    const now = Date.now();
+    const existing = await ctx.db.query("materials").collect();
+    const existingNames = new Set(existing.map((m) => normalizeText(m.name)));
+
+    let firstCreatedId: string | null = null;
+
+    for (let i = 0; i < args.items.length; i++) {
+      const row = i + 1;
+      const item = args.items[i]!;
+      const nameCheck = requireTrimmedName(item.name, row, "Nome");
+      if (!nameCheck.ok) {
+        result.errors.push(nameCheck.error);
+        continue;
+      }
+
+      const normalizedName = normalizeText(nameCheck.name);
+      if (existingNames.has(normalizedName)) {
+        result.skipped++;
+        continue;
+      }
+
+      const materialId = await ctx.db.insert("materials", {
+        name: nameCheck.name,
+        category: item.category?.trim() || undefined,
+        unit: item.unit?.trim() || undefined,
+        spec: item.spec?.trim() || undefined,
+        brandPreference: item.brandPreference?.trim() || undefined,
+        active: true,
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      for (const alias of item.aliases ?? []) {
+        const trimmed = alias.trim();
+        if (!trimmed) continue;
+        await ctx.db.insert("materialAliases", {
+          alias: trimmed,
+          aliasNormalized: normalizeText(trimmed),
+          materialId,
+          createdAt: now,
+        });
+      }
+
+      existingNames.add(normalizedName);
+      if (!firstCreatedId) firstCreatedId = materialId;
+      result.created++;
+    }
+
+    if (result.created > 0 && firstCreatedId) {
+      await logAudit(ctx, ctx.user, {
+        action: "create",
+        tableName: "materials",
+        recordId: firstCreatedId,
+        details: `Importação CSV: ${result.created} criados, ${result.skipped} ignorados`,
+      });
+    }
+
+    return result;
+  },
+});
+
 export const update = purchasingMutation({
   args: {
     materialId: v.id("materials"),
@@ -449,6 +536,15 @@ export const update = purchasingMutation({
     const material = await ctx.db.get("materials", args.materialId);
     if (!material) throw new Error("Material não encontrado");
 
+    const before = {
+      name: material.name,
+      category: material.category,
+      unit: material.unit,
+      spec: material.spec,
+      brandPreference: material.brandPreference,
+      active: material.active,
+      status: material.status,
+    };
     validateUnitsPerPurchaseUnit(args.unitsPerPurchaseUnit);
 
     const updates: Record<string, unknown> = { updatedAt: Date.now() };
@@ -521,10 +617,34 @@ export const update = purchasingMutation({
     });
 
     await ctx.db.patch("materials", args.materialId, updates);
+    const afterDoc = await ctx.db.get("materials", args.materialId);
+    const after = afterDoc
+      ? {
+          name: afterDoc.name,
+          category: afterDoc.category,
+          unit: afterDoc.unit,
+          spec: afterDoc.spec,
+          brandPreference: afterDoc.brandPreference,
+          active: afterDoc.active,
+          status: afterDoc.status,
+        }
+      : before;
     await logAudit(ctx, ctx.user, {
       action: "update",
       tableName: "materials",
       recordId: args.materialId,
+      entityLabel: after.name,
+      changes: diffFields(before, after, [
+        "name",
+        "category",
+        "unit",
+        "spec",
+        "brandPreference",
+        "active",
+        "status",
+      ]),
+      snapshotBefore: before,
+      snapshotAfter: after,
     });
     return null;
   },
