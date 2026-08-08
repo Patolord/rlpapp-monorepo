@@ -37,7 +37,6 @@ export const departments = v.union(
 export const materialStatus = v.union(
   v.literal("draft"),
   v.literal("active"),
-  v.literal("duplicate"),
   v.literal("archived")
 );
 
@@ -559,15 +558,11 @@ export default defineSchema({
 
   materials: defineTable({
     name: v.string(),
-    // Migração progressiva: materiais antigos ainda podem não ter família.
-    familyId: v.optional(v.id("materialFamilies")),
+    familyId: v.id("materialFamilies"),
     variantLabel: v.optional(v.string()),
     dimensions: v.optional(materialDimensions),
     // Chave canônica da combinação família + atributos que definem o SKU.
-    identityKey: v.optional(v.string()),
-    legacyMaterialId: v.optional(v.string()),
-    legacyDetailId: v.optional(v.string()),
-    importRawDetail: v.optional(v.string()),
+    identityKey: v.string(),
     // SKU interno (ex.: MAT-000001). Gerado automaticamente, editável.
     sku: v.optional(v.string()),
     barcode: v.optional(v.string()),
@@ -604,8 +599,7 @@ export default defineSchema({
     .index("by_barcode", ["barcode"])
     .index("by_searchText", ["searchText"])
     .index("by_family", ["familyId"])
-    .index("by_identity_key", ["identityKey"])
-    .index("by_legacy_ids", ["legacyMaterialId", "legacyDetailId"]),
+    .index("by_identity_key", ["identityKey"]),
 
   materialSkuCounters: defineTable({
     key: v.literal("material"),
@@ -616,8 +610,8 @@ export default defineSchema({
     source: v.string(),
     rowKey: v.string(),
     materialId: v.id("materials"),
-    legacyMaterialId: v.optional(v.string()),
-    legacyDetailId: v.optional(v.string()),
+    sourceMaterialId: v.optional(v.string()),
+    sourceDetailId: v.optional(v.string()),
     quantity: v.optional(v.number()),
     unitCostCents: v.optional(v.number()),
     importedAt: v.number(),

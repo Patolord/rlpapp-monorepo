@@ -31,8 +31,8 @@ import { splitList } from "@/lib/csv";
 const MATERIAL_COLUMN_ALIASES = {
   name: ["name", "nome", "material", "descrição", "descricao"],
   variantLabel: ["variantlabel", "variante", "detalhe"],
-  legacyMaterialId: ["legacymaterialid", "id"],
-  legacyDetailId: ["legacydetailid", "id detalhe", "iddetalhe"],
+  sourceMaterialId: ["sourcematerialid", "id"],
+  sourceDetailId: ["sourcedetailid", "id detalhe", "iddetalhe"],
   quantity: ["quantity", "quantidade", "qtd"],
   unitCost: ["unitcost", "custo unitário", "custo unitario", "valor"],
   category: ["category", "categoria"],
@@ -45,8 +45,8 @@ const MATERIAL_COLUMN_ALIASES = {
 const MATERIAL_TEMPLATE_HEADERS = [
   "name",
   "variantLabel",
-  "legacyMaterialId",
-  "legacyDetailId",
+  "sourceMaterialId",
+  "sourceDetailId",
   "quantity",
   "unitCost",
   "category",
@@ -63,8 +63,8 @@ type MaterialImportItem = {
     widthMm?: number;
     heightMm?: number;
   };
-  legacyMaterialId?: string;
-  legacyDetailId?: string;
+  sourceMaterialId?: string;
+  sourceDetailId?: string;
   quantity?: number;
   unitCostCents?: number;
   category?: string;
@@ -187,8 +187,8 @@ function MateriaisContent() {
                   name,
                   variantLabel,
                   dimensions,
-                  legacyMaterialId: row.legacyMaterialId?.trim() || undefined,
-                  legacyDetailId: row.legacyDetailId?.trim() || undefined,
+                  sourceMaterialId: row.sourceMaterialId?.trim() || undefined,
+                  sourceDetailId: row.sourceDetailId?.trim() || undefined,
                   quantity: row.quantity?.trim()
                     ? Number.parseFloat(row.quantity.replace(",", "."))
                     : undefined,

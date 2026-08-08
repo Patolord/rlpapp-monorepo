@@ -115,8 +115,6 @@ export async function findMaterialByIdentity(
   ctx: QueryCtx | MutationCtx,
   input: {
     identityKey: string;
-    familyId: Id<"materialFamilies">;
-    familyName: string;
     excludeMaterialId?: Id<"materials">;
   }
 ): Promise<MaterialDoc | null> {
@@ -129,37 +127,7 @@ export async function findMaterialByIdentity(
   const indexedDuplicate = indexed.find(
     (material) => material._id !== input.excludeMaterialId
   );
-  if (indexedDuplicate) return indexedDuplicate;
-
-  // Durante a migração, compare também linhas ainda sem identityKey.
-  const legacyMaterials = await ctx.db
-    .query("materials")
-    .withIndex("by_identity_key", (q) => q.eq("identityKey", undefined))
-    .take(1000);
-  const familyNameNormalized = normalizeText(input.familyName);
-  for (const material of legacyMaterials) {
-    if (material._id === input.excludeMaterialId) continue;
-    let sameFamily = material.familyId === input.familyId;
-    if (!sameFamily && material.familyId) {
-      const family = await ctx.db.get("materialFamilies", material.familyId);
-      sameFamily = family?.nameNormalized === familyNameNormalized;
-    } else if (!material.familyId) {
-      sameFamily = normalizeText(material.name) === familyNameNormalized;
-    }
-    if (!sameFamily) continue;
-
-    const candidateKey = buildMaterialIdentityKey({
-      familyId: input.familyId,
-      manufacturer: material.manufacturer,
-      manufacturerPartNumber: material.manufacturerPartNumber,
-      unit: material.unit,
-      variantLabel: material.variantLabel,
-      dimensions: material.dimensions,
-      technicalAttributes: material.technicalAttributes,
-    });
-    if (candidateKey === input.identityKey) return material;
-  }
-  return null;
+  return indexedDuplicate ?? null;
 }
 
 export function formatDimensions(
@@ -374,7 +342,7 @@ export function toMaterialCatalogRow(m: MaterialDoc) {
     _id: m._id,
     _creationTime: m._creationTime,
     name: m.name,
-    familyId: m.familyId ?? null,
+    familyId: m.familyId,
     variantLabel: m.variantLabel ?? null,
     dimensions: m.dimensions ?? null,
     sku: m.sku ?? null,
@@ -401,7 +369,7 @@ export function toMaterialListRow(m: MaterialDoc) {
     _id: m._id,
     _creationTime: m._creationTime,
     name: m.name,
-    familyId: m.familyId ?? null,
+    familyId: m.familyId,
     variantLabel: m.variantLabel ?? null,
     dimensions: m.dimensions ?? null,
     sku: m.sku ?? null,

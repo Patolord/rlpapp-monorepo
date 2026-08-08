@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
-import { setup, withUser } from "./helpers";
+import { setup } from "./helpers";
 import {
   computeReplenishmentState,
   formatSku,
@@ -186,24 +186,6 @@ describe("materials catalog", () => {
     expect(candidates.some((candidate) => candidate.exact)).toBe(true);
   });
 
-  test("blocks duplicates of legacy rows before migration runs", async () => {
-    const { t, purchasing } = await seedCatalogUsers();
-    await t.run(async (ctx) => {
-      await ctx.db.insert("materials", {
-        name: "Filtro G4",
-        unit: "un",
-        active: true,
-        createdAt: Date.now(),
-      });
-    });
-    await expect(
-      purchasing.mutation(api.materials.create, {
-        name: "filtro g4",
-        unit: "peça",
-      })
-    ).rejects.toThrow("Material já cadastrado");
-  });
-
   test("prevents an alias from pointing to different materials", async () => {
     const { purchasing } = await seedCatalogUsers();
     const firstId = await purchasing.mutation(api.materials.create, {
@@ -314,15 +296,15 @@ describe("materials catalog", () => {
     expect(after?.items[0]?.materialId).toBe(promoted.materialId);
   });
 
-  test("imports legacy variants and opening stock idempotently", async () => {
+  test("imports spreadsheet variants and opening stock idempotently", async () => {
     const { t, purchasing } = await seedCatalogUsers();
     const items = [
       {
         name: "Damper de regulagem manual",
         variantLabel: "850x700mm",
         dimensions: { widthMm: 850, heightMm: 700 },
-        legacyMaterialId: "5237",
-        legacyDetailId: "3",
+        sourceMaterialId: "5237",
+        sourceDetailId: "3",
         quantity: 1,
         unit: "pç",
         unitCostCents: 10,
@@ -331,8 +313,8 @@ describe("materials catalog", () => {
         name: "Damper de regulagem manual",
         variantLabel: "850x700mm",
         dimensions: { widthMm: 850, heightMm: 700 },
-        legacyMaterialId: "5237",
-        legacyDetailId: "7",
+        sourceMaterialId: "5237",
+        sourceDetailId: "7",
         quantity: 1,
         unit: "peça",
         unitCostCents: 10,
@@ -463,94 +445,5 @@ describe("materials catalog", () => {
     });
     expect(engineerCatalog?.centralQuantity).toBeNull();
     expect(engineerCatalog?.centralReplenishmentState).toBe("unconfigured");
-  });
-});
-
-describe("material family migration", () => {
-  test("backfills legacy material rows idempotently", async () => {
-    const t = setup();
-    const admin = await withUser(t, {
-      clerkId: "catalog-admin",
-      role: "admin",
-    });
-    const materialId = await t.run(async (ctx) => {
-      return await ctx.db.insert("materials", {
-        name: "Veneziana fixa",
-        category: "Ventilação",
-        unit: "pç",
-        active: true,
-        createdAt: Date.now(),
-      });
-    });
-
-    const first = await admin.mutation(
-      api.migrations.backfillMaterialFamilies,
-      {
-        paginationOpts: { numItems: 100, cursor: null },
-      }
-    );
-    expect(first.materialsLinked).toBe(1);
-    expect(first.familiesCreated).toBe(1);
-
-    const second = await admin.mutation(
-      api.migrations.backfillMaterialFamilies,
-      {
-        paginationOpts: { numItems: 100, cursor: null },
-      }
-    );
-    expect(second.materialsLinked).toBe(0);
-    expect(second.familiesCreated).toBe(0);
-
-    const material = await t.run(async (ctx) => {
-      return await ctx.db.get("materials", materialId);
-    });
-    expect(material?.familyId).toBeTruthy();
-    expect(material?.identityKey).toBeTruthy();
-  });
-
-  test("keeps one canonical identity and marks legacy collisions", async () => {
-    const t = setup();
-    const admin = await withUser(t, {
-      clerkId: "collision-admin",
-      role: "admin",
-    });
-    await t.run(async (ctx) => {
-      await ctx.db.insert("materials", {
-        name: "Filtro FILLBOX QUAD - G4 + M5",
-        unit: "un",
-        active: true,
-        createdAt: 1,
-      });
-      await ctx.db.insert("materials", {
-        name: "Filtro FILLBOX QUAD - G4 + M5",
-        unit: "un",
-        active: true,
-        createdAt: 2,
-      });
-    });
-
-    const result = await admin.mutation(
-      api.migrations.backfillMaterialFamilies,
-      {
-        paginationOpts: { numItems: 100, cursor: null },
-      }
-    );
-    expect(result.duplicatesMarked).toBe(1);
-
-    const materials = await t.run(async (ctx) => {
-      return await ctx.db.query("materials").collect();
-    });
-    expect(materials.filter((material) => material.identityKey)).toHaveLength(1);
-    expect(
-      materials.filter((material) => material.status === "duplicate")
-    ).toHaveLength(1);
-
-    const verification = await admin.query(
-      api.migrations.verifyMaterialFamilyMigration,
-      {}
-    );
-    expect(verification.duplicateIdentityKeys).toBe(0);
-    expect(verification.materialsMissingFamily).toBe(0);
-    expect(verification.materialsMissingIdentity).toBe(0);
   });
 });

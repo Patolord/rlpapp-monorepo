@@ -50,7 +50,7 @@ export const materialValidator = v.object({
   _id: v.id("materials"),
   _creationTime: v.number(),
   name: v.string(),
-  familyId: v.union(v.id("materialFamilies"), v.null()),
+  familyId: v.id("materialFamilies"),
   variantLabel: v.union(v.string(), v.null()),
   dimensions: v.union(materialDimensionsValidator, v.null()),
   sku: v.union(v.string(), v.null()),
@@ -72,7 +72,7 @@ export const materialCatalogValidator = v.object({
   _id: v.id("materials"),
   _creationTime: v.number(),
   name: v.string(),
-  familyId: v.union(v.id("materialFamilies"), v.null()),
+  familyId: v.id("materialFamilies"),
   variantLabel: v.union(v.string(), v.null()),
   dimensions: v.union(materialDimensionsValidator, v.null()),
   sku: v.union(v.string(), v.null()),
@@ -174,14 +174,10 @@ async function findOrCreateFamily(
 async function assertUniqueIdentity(
   ctx: QueryCtx | MutationCtx,
   identityKey: string,
-  familyId: Id<"materialFamilies">,
-  familyName: string,
   excludeMaterialId?: Id<"materials">
 ): Promise<void> {
   const hit = await findMaterialByIdentity(ctx, {
     identityKey,
-    familyId,
-    familyName,
     excludeMaterialId,
   });
   if (hit) {
@@ -646,12 +642,7 @@ export const create = purchasingMutation({
       dimensions,
       technicalAttributes,
     });
-    await assertUniqueIdentity(
-      ctx,
-      identityKey,
-      family._id,
-      family.name
-    );
+    await assertUniqueIdentity(ctx, identityKey);
 
     const materialId = await ctx.db.insert("materials", {
       name: family.name,
@@ -709,8 +700,8 @@ const bulkMaterialItemValidator = v.object({
   name: v.string(),
   variantLabel: v.optional(v.string()),
   dimensions: v.optional(materialDimensionsValidator),
-  legacyMaterialId: v.optional(v.string()),
-  legacyDetailId: v.optional(v.string()),
+  sourceMaterialId: v.optional(v.string()),
+  sourceDetailId: v.optional(v.string()),
   quantity: v.optional(v.number()),
   unitCostCents: v.optional(v.number()),
   category: v.optional(v.string()),
@@ -786,8 +777,8 @@ export const bulkCreate = purchasingMutation({
         variantLabel,
         dimensions,
       });
-      const rowKey = item.legacyMaterialId
-        ? `${item.legacyMaterialId.trim()}:${item.legacyDetailId?.trim() ?? ""}`
+      const rowKey = item.sourceMaterialId
+        ? `${item.sourceMaterialId.trim()}:${item.sourceDetailId?.trim() ?? ""}`
         : identityKey;
       const importedRow = await ctx.db
         .query("materialImportRows")
@@ -801,20 +792,8 @@ export const bulkCreate = purchasingMutation({
       }
       const existingIdentity = await findMaterialByIdentity(ctx, {
         identityKey,
-        familyId: family._id,
-        familyName: family.name,
       });
-      const existingLegacy = item.legacyMaterialId
-        ? await ctx.db
-            .query("materials")
-            .withIndex("by_legacy_ids", (q) =>
-              q
-                .eq("legacyMaterialId", item.legacyMaterialId)
-                .eq("legacyDetailId", item.legacyDetailId)
-            )
-            .first()
-        : null;
-      let materialId = existingIdentity?._id ?? existingLegacy?._id;
+      let materialId = existingIdentity?._id;
       if (materialId) {
         result.skipped++;
       } else {
@@ -825,9 +804,6 @@ export const bulkCreate = purchasingMutation({
           variantLabel,
           dimensions,
           identityKey,
-          legacyMaterialId: item.legacyMaterialId?.trim() || undefined,
-          legacyDetailId: item.legacyDetailId?.trim() || undefined,
-          importRawDetail: item.variantLabel?.trim() || undefined,
           sku,
           category: item.category?.trim() || undefined,
           unit,
@@ -861,8 +837,8 @@ export const bulkCreate = purchasingMutation({
         source,
         rowKey,
         materialId,
-        legacyMaterialId: item.legacyMaterialId?.trim() || undefined,
-        legacyDetailId: item.legacyDetailId?.trim() || undefined,
+        sourceMaterialId: item.sourceMaterialId?.trim() || undefined,
+        sourceDetailId: item.sourceDetailId?.trim() || undefined,
         quantity: item.quantity,
         unitCostCents: item.unitCostCents,
         importedAt: now,
@@ -1018,16 +994,6 @@ export const update = purchasingMutation({
     }
     if (args.status !== undefined) updates.status = args.status;
 
-    if (!familyId) {
-      const family = await findOrCreateFamily(ctx, {
-        name: String(updates.name ?? material.name),
-        category: String(updates.category ?? material.category ?? "") || undefined,
-        baseUnit: String(updates.unit ?? material.unit ?? "") || undefined,
-      });
-      familyId = family._id;
-      updates.familyId = family._id;
-      updates.name = family.name;
-    }
     const next = { ...material, ...updates } as Doc<"materials">;
     const identityKey = materialIdentityInput({
       familyId,
@@ -1038,13 +1004,7 @@ export const update = purchasingMutation({
       dimensions: next.dimensions,
       technicalAttributes: next.technicalAttributes,
     });
-    await assertUniqueIdentity(
-      ctx,
-      identityKey,
-      familyId,
-      next.name,
-      args.materialId
-    );
+    await assertUniqueIdentity(ctx, identityKey, args.materialId);
     updates.identityKey = identityKey;
     updates.searchText = buildMaterialSearchText({
       name: next.name,

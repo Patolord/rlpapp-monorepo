@@ -457,8 +457,6 @@ export const promoteItemToMaterial = purchasingMutation({
     });
     const existing = await findMaterialByIdentity(ctx, {
       identityKey,
-      familyId: family._id,
-      familyName: family.name,
     });
     if (existing) {
       await ctx.db.patch("takeoffItems", item._id, {
