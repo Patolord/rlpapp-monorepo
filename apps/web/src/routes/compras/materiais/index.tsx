@@ -33,6 +33,8 @@ const MATERIAL_COLUMN_ALIASES = {
   variantLabel: ["variantlabel", "variante", "detalhe"],
   legacyMaterialId: ["legacymaterialid", "id"],
   legacyDetailId: ["legacydetailid", "id detalhe", "iddetalhe"],
+  quantity: ["quantity", "quantidade", "qtd"],
+  unitCost: ["unitcost", "custo unitário", "custo unitario", "valor"],
   category: ["category", "categoria"],
   unit: ["unit", "unidade", "un"],
   spec: ["spec", "especificacao", "especificação", "specification"],
@@ -45,6 +47,8 @@ const MATERIAL_TEMPLATE_HEADERS = [
   "variantLabel",
   "legacyMaterialId",
   "legacyDetailId",
+  "quantity",
+  "unitCost",
   "category",
   "unit",
   "spec",
@@ -61,6 +65,8 @@ type MaterialImportItem = {
   };
   legacyMaterialId?: string;
   legacyDetailId?: string;
+  quantity?: number;
+  unitCostCents?: number;
   category?: string;
   unit?: string;
   spec?: string;
@@ -72,9 +78,10 @@ function dimensionsFromVariant(
   value: string | undefined
 ): MaterialImportItem["dimensions"] {
   if (!value) return undefined;
-  const match = /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*mm\b/i.exec(
-    value
-  );
+  const match =
+    /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*mm(?![²2])/i.exec(
+      value
+    );
   if (!match) return undefined;
   return {
     widthMm: Number.parseFloat(match[1]!.replace(",", ".")),
@@ -134,7 +141,7 @@ function MateriaisContent() {
         </div>
         <div className="flex flex-wrap gap-2">
           <CsvImportDialog<MaterialImportItem>
-            title="Importar materiais (CSV)"
+            title="Importar materiais (CSV ou Excel)"
             templateFilename="materiais.csv"
             templateHeaders={[...MATERIAL_TEMPLATE_HEADERS]}
             templateSampleRow={[
@@ -142,6 +149,8 @@ function MateriaisContent() {
               "3x2,5 mm²",
               "42",
               "2",
+              "200",
+              "0,10",
               "Elétrica",
               "m",
               "Flexível",
@@ -156,15 +165,38 @@ function MateriaisContent() {
               if (!name) {
                 return { ok: false, row: rowNumber, error: "Nome obrigatório" };
               }
+              const variantLabel = row.variantLabel?.trim() || undefined;
+              const dimensions = dimensionsFromVariant(variantLabel);
+              if (
+                variantLabel &&
+                /\d+\s*[x×]\s*\d+/i.test(variantLabel) &&
+                !/mm[²2]/i.test(variantLabel) &&
+                !dimensions
+              ) {
+                return {
+                  ok: false,
+                  row: rowNumber,
+                  error:
+                    "Dimensão ambígua. Revise e informe largura x altura em mm.",
+                };
+              }
               return {
                 ok: true,
                 row: rowNumber,
                 item: {
                   name,
-                  variantLabel: row.variantLabel?.trim() || undefined,
-                  dimensions: dimensionsFromVariant(row.variantLabel),
+                  variantLabel,
+                  dimensions,
                   legacyMaterialId: row.legacyMaterialId?.trim() || undefined,
                   legacyDetailId: row.legacyDetailId?.trim() || undefined,
+                  quantity: row.quantity?.trim()
+                    ? Number.parseFloat(row.quantity.replace(",", "."))
+                    : undefined,
+                  unitCostCents: row.unitCost?.trim()
+                    ? Math.round(
+                        Number.parseFloat(row.unitCost.replace(",", ".")) * 100
+                      )
+                    : undefined,
                   category: row.category?.trim() || undefined,
                   unit: row.unit?.trim() || undefined,
                   spec: row.spec?.trim() || undefined,
@@ -173,7 +205,12 @@ function MateriaisContent() {
                 },
               };
             }}
-            onImportBatch={(items) => bulkCreateMaterials({ items })}
+            onImportBatch={(items) =>
+              bulkCreateMaterials({
+                items,
+                source: "material-catalog-ui",
+              })
+            }
             trigger={
               <Button variant="outline">
                 <FileUp className="mr-2 size-4" />

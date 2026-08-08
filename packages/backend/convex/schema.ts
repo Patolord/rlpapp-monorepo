@@ -612,6 +612,19 @@ export default defineSchema({
     nextNumber: v.number(),
   }).index("by_key", ["key"]),
 
+  materialImportRows: defineTable({
+    source: v.string(),
+    rowKey: v.string(),
+    materialId: v.id("materials"),
+    legacyMaterialId: v.optional(v.string()),
+    legacyDetailId: v.optional(v.string()),
+    quantity: v.optional(v.number()),
+    unitCostCents: v.optional(v.number()),
+    importedAt: v.number(),
+  })
+    .index("by_source_row", ["source", "rowKey"])
+    .index("by_material", ["materialId"]),
+
   suppliers: defineTable({
     name: v.string(),
     categories: v.optional(v.array(v.string())),

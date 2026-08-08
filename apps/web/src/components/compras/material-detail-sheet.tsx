@@ -49,6 +49,10 @@ export function MaterialDetailSheet({
     api.inventoryStockPolicies.listForMaterial,
     material ? { materialId: material._id } : "skip"
   );
+  const variants = useQuery(
+    api.materials.listVariants,
+    material?.familyId ? { familyId: material.familyId } : "skip"
+  );
   const addAlias = useMutation(api.materials.addAlias);
   const suppliers = useQuery(api.suppliers.list, { activeOnly: true });
   const offerings = useQuery(
@@ -234,6 +238,29 @@ export function MaterialDetailSheet({
                 </ul>
               )}
             </section>
+
+            {variants && variants.length > 1 ? (
+              <section className="space-y-2">
+                <h3 className="text-sm font-medium">
+                  Variantes desta família ({variants.length})
+                </h3>
+                <ul className="space-y-1 text-sm">
+                  {variants.map((variant) => (
+                    <li
+                      key={variant._id}
+                      className={
+                        variant._id === material._id
+                          ? "rounded border bg-muted px-2 py-1 font-medium"
+                          : "rounded border px-2 py-1"
+                      }
+                    >
+                      {variant.variantLabel ?? "Sem detalhe"} ·{" "}
+                      {variant.sku ?? "sem SKU"}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
 
             <section className="space-y-2">
               <h3 className="text-sm font-medium">Aliases</h3>

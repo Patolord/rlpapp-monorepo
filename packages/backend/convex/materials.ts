@@ -25,7 +25,11 @@ import {
   emptyBulkImportResult,
   requireTrimmedName,
 } from "./lib/compras/bulkImport";
-import { findInventoryLocation } from "./lib/inventory/operations";
+import {
+  createInventoryDocument,
+  findInventoryLocation,
+  postInventoryDocument,
+} from "./lib/inventory/operations";
 import {
   canViewCentralInventory,
   computeReplenishmentState,
@@ -282,6 +286,18 @@ export const listFamilies = engineeringOrPurchasingQuery({
       baseUnit: family.baseUnit ?? null,
       active: family.active,
     }));
+  },
+});
+
+export const listVariants = engineeringOrPurchasingQuery({
+  args: { familyId: v.id("materialFamilies") },
+  returns: v.array(materialValidator),
+  handler: async (ctx, args) => {
+    const variants = await ctx.db
+      .query("materials")
+      .withIndex("by_family", (q) => q.eq("familyId", args.familyId))
+      .collect();
+    return variants.map(toMaterialListRow);
   },
 });
 
@@ -671,6 +687,8 @@ const bulkMaterialItemValidator = v.object({
   dimensions: v.optional(materialDimensionsValidator),
   legacyMaterialId: v.optional(v.string()),
   legacyDetailId: v.optional(v.string()),
+  quantity: v.optional(v.number()),
+  unitCostCents: v.optional(v.number()),
   category: v.optional(v.string()),
   unit: v.optional(v.string()),
   spec: v.optional(v.string()),
@@ -681,6 +699,7 @@ const bulkMaterialItemValidator = v.object({
 export const bulkCreate = purchasingMutation({
   args: {
     items: v.array(bulkMaterialItemValidator),
+    source: v.optional(v.string()),
   },
   returns: bulkImportResultValidator,
   handler: async (ctx, args) => {
@@ -690,7 +709,12 @@ export const bulkCreate = purchasingMutation({
 
     const result = emptyBulkImportResult();
     const now = Date.now();
+    const source = args.source?.trim() || "catalog-import";
     let firstCreatedId: string | null = null;
+    const inventoryLines = new Map<
+      Id<"materials">,
+      { quantity: number; unitCostCents?: number }
+    >();
 
     for (let i = 0; i < args.items.length; i++) {
       const row = i + 1;
@@ -698,6 +722,26 @@ export const bulkCreate = purchasingMutation({
       const nameCheck = requireTrimmedName(item.name, row, "Nome");
       if (!nameCheck.ok) {
         result.errors.push(nameCheck.error);
+        continue;
+      }
+      if (
+        item.quantity !== undefined &&
+        (!Number.isFinite(item.quantity) || item.quantity < 0)
+      ) {
+        result.errors.push({
+          row,
+          message: "Quantidade deve ser um número não negativo",
+        });
+        continue;
+      }
+      if (
+        item.unitCostCents !== undefined &&
+        (!Number.isFinite(item.unitCostCents) || item.unitCostCents < 0)
+      ) {
+        result.errors.push({
+          row,
+          message: "Custo unitário deve ser um número não negativo",
+        });
         continue;
       }
 
@@ -716,6 +760,19 @@ export const bulkCreate = purchasingMutation({
         variantLabel,
         dimensions,
       });
+      const rowKey = item.legacyMaterialId
+        ? `${item.legacyMaterialId.trim()}:${item.legacyDetailId?.trim() ?? ""}`
+        : identityKey;
+      const importedRow = await ctx.db
+        .query("materialImportRows")
+        .withIndex("by_source_row", (q) =>
+          q.eq("source", source).eq("rowKey", rowKey)
+        )
+        .first();
+      if (importedRow) {
+        result.skipped++;
+        continue;
+      }
       const existingIdentity = await ctx.db
         .query("materials")
         .withIndex("by_identity_key", (q) => q.eq("identityKey", identityKey))
@@ -730,40 +787,42 @@ export const bulkCreate = purchasingMutation({
             )
             .first()
         : null;
-      if (existingIdentity || existingLegacy) {
+      let materialId = existingIdentity?._id ?? existingLegacy?._id;
+      if (materialId) {
         result.skipped++;
-        continue;
-      }
-
-      const sku = await allocateNextSku(ctx);
-      const materialId = await ctx.db.insert("materials", {
-        name: family.name,
-        familyId: family._id,
-        variantLabel,
-        dimensions,
-        identityKey,
-        legacyMaterialId: item.legacyMaterialId?.trim() || undefined,
-        legacyDetailId: item.legacyDetailId?.trim() || undefined,
-        importRawDetail: item.variantLabel?.trim() || undefined,
-        sku,
-        category: item.category?.trim() || undefined,
-        unit,
-        spec: item.spec?.trim() || undefined,
-        brandPreference: item.brandPreference?.trim() || undefined,
-        searchText: buildMaterialSearchText({
+      } else {
+        const sku = await allocateNextSku(ctx);
+        materialId = await ctx.db.insert("materials", {
           name: family.name,
+          familyId: family._id,
           variantLabel,
+          dimensions,
+          identityKey,
+          legacyMaterialId: item.legacyMaterialId?.trim() || undefined,
+          legacyDetailId: item.legacyDetailId?.trim() || undefined,
+          importRawDetail: item.variantLabel?.trim() || undefined,
           sku,
           category: item.category?.trim() || undefined,
-          brandPreference: item.brandPreference?.trim() || undefined,
+          unit,
           spec: item.spec?.trim() || undefined,
-        }),
-        trackInventory: true,
-        active: true,
-        status: "active",
-        createdAt: now,
-        updatedAt: now,
-      });
+          brandPreference: item.brandPreference?.trim() || undefined,
+          searchText: buildMaterialSearchText({
+            name: family.name,
+            variantLabel,
+            sku,
+            category: item.category?.trim() || undefined,
+            brandPreference: item.brandPreference?.trim() || undefined,
+            spec: item.spec?.trim() || undefined,
+          }),
+          trackInventory: true,
+          active: true,
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        });
+        if (!firstCreatedId) firstCreatedId = materialId;
+        result.created++;
+      }
 
       for (const alias of item.aliases ?? []) {
         const trimmed = alias.trim();
@@ -771,8 +830,37 @@ export const bulkCreate = purchasingMutation({
         await insertUniqueAlias(ctx, materialId, trimmed, now);
       }
 
-      if (!firstCreatedId) firstCreatedId = materialId;
-      result.created++;
+      await ctx.db.insert("materialImportRows", {
+        source,
+        rowKey,
+        materialId,
+        legacyMaterialId: item.legacyMaterialId?.trim() || undefined,
+        legacyDetailId: item.legacyDetailId?.trim() || undefined,
+        quantity: item.quantity,
+        unitCostCents: item.unitCostCents,
+        importedAt: now,
+      });
+      if (item.quantity !== undefined && item.quantity > 0) {
+        const current = inventoryLines.get(materialId);
+        inventoryLines.set(materialId, {
+          quantity: (current?.quantity ?? 0) + item.quantity,
+          unitCostCents: item.unitCostCents ?? current?.unitCostCents,
+        });
+      }
+    }
+
+    if (inventoryLines.size > 0) {
+      const document = await createInventoryDocument(ctx, ctx.user, {
+        type: "entry",
+        reference: `Importação ${source}`,
+        notes: "Saldo inicial importado do catálogo legado",
+        lines: [...inventoryLines.entries()].map(([materialId, line]) => ({
+          materialId,
+          quantity: line.quantity,
+          unitCostCents: line.unitCostCents,
+        })),
+      });
+      await postInventoryDocument(ctx, ctx.user, document.documentId);
     }
 
     if (result.created > 0 && firstCreatedId) {
