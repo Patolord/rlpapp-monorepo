@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Select, type SelectOption } from "@/components/ui/select";
 import { getErrorMessage } from "@/lib/errors";
 
 interface FloorDraft {
@@ -28,6 +28,7 @@ interface ProjectInput {
   name: string;
   legacyNumber?: number | null;
   customerId?: Id<"customers"> | null;
+  customerName?: string | null;
   floors: { number: number; label: string }[];
 }
 
@@ -58,6 +59,21 @@ export function ProjectFormDialog({
   const updateProject = useMutation(api.projects.update);
   const customers = useQuery(api.customers.list, { activeOnly: true });
   const isEdit = Boolean(project);
+  const customerOptions: SelectOption[] = (customers ?? []).map((customer) => ({
+    value: customer._id,
+    label: customer.name,
+  }));
+  if (
+    customers !== undefined &&
+    project?.customerId &&
+    !customers.some((customer) => customer._id === project.customerId)
+  ) {
+    customerOptions.unshift({
+      value: project.customerId,
+      label: `${project.customerName ?? "Cliente atual indisponível"} (inativo)`,
+      disabled: true,
+    });
+  }
 
   const [name, setName] = useState(project?.name ?? "");
   const [legacyNumber, setLegacyNumber] = useState(
@@ -190,10 +206,7 @@ export function ProjectFormDialog({
           <Select
             value={customerId}
             onValueChange={setCustomerId}
-            options={(customers ?? []).map((customer) => ({
-              value: customer._id,
-              label: customer.name,
-            }))}
+            options={customerOptions}
             placeholder="Selecione um cliente"
             className="h-12"
           />

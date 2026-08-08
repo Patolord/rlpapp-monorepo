@@ -41,6 +41,7 @@ export const listMyProjects = authedQuery({
   ),
   handler: async (ctx) => {
     const staff = isStaff(ctx.user);
+    const customerLabelCache = new Map<string, string | null>();
     const allProjects = await ctx.db.query("projects").collect();
     const visible = staff
       ? allProjects
@@ -59,7 +60,7 @@ export const listMyProjects = authedQuery({
         _id: project._id,
         name: project.name,
         legacyNumber: project.legacyNumber ?? null,
-        client: await resolveCustomerLabel(ctx, project),
+        client: await resolveCustomerLabel(ctx, project, customerLabelCache),
         address: project.address ?? null,
         status: project.status ?? null,
         qrCount: qrCodes.length,
@@ -190,6 +191,7 @@ export const listBrowsableProjects = authedQuery({
   returns: v.array(browsableProjectValidator),
   handler: async (ctx) => {
     const projects = await ctx.db.query("projects").collect();
+    const customerLabelCache = new Map<string, string | null>();
     const visible = projects.filter(
       (project) => project.status !== "archived" && !project.archivedAt
     );
@@ -201,7 +203,7 @@ export const listBrowsableProjects = authedQuery({
           _id: project._id,
           name: project.name,
           legacyNumber: project.legacyNumber ?? null,
-          client: await resolveCustomerLabel(ctx, project),
+          client: await resolveCustomerLabel(ctx, project, customerLabelCache),
           address: project.address ?? null,
           status: project.status ?? null,
         };

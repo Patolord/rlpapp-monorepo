@@ -106,6 +106,7 @@ export const list = engineeringQuery({
   ),
   handler: async (ctx, args) => {
     let projects = await ctx.db.query("projects").order("desc").collect();
+    const customerLabelCache = new Map<string, string | null>();
     if (!args.includeArchived) {
       projects = projects.filter((p) => !isProjectArchived(p));
     }
@@ -135,7 +136,11 @@ export const list = engineeringQuery({
           responsibleName = responsible?.name ?? null;
         }
 
-        const customerName = await resolveCustomerLabel(ctx, project);
+        const customerName = await resolveCustomerLabel(
+          ctx,
+          project,
+          customerLabelCache
+        );
 
         return {
           _id: project._id,

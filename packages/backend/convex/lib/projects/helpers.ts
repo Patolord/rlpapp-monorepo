@@ -20,11 +20,16 @@ export function getLegacyClientLabel(project: Doc<"projects">): string | undefin
 
 export async function resolveCustomerLabel(
   ctx: Pick<QueryCtx, "db">,
-  project: Pick<Doc<"projects">, "customerId" | "client">
+  project: Pick<Doc<"projects">, "customerId" | "client">,
+  cache?: Map<string, string | null>
 ): Promise<string | null> {
   if (project.customerId) {
+    const cached = cache?.get(project.customerId);
+    if (cached !== undefined) return cached;
     const customer = await ctx.db.get("customers", project.customerId);
-    if (customer) return customer.name;
+    const label = customer?.name ?? (project.client?.trim() || null);
+    cache?.set(project.customerId, label);
+    return label;
   }
   return project.client?.trim() || null;
 }
@@ -41,11 +46,11 @@ export async function assertUniqueLegacyNumber(
   excludeId?: Id<"projects">
 ): Promise<void> {
   assertValidLegacyNumber(legacyNumber);
-  const existing = await ctx.db
+  const matches = await ctx.db
     .query("projects")
     .withIndex("by_legacy_number", (q) => q.eq("legacyNumber", legacyNumber))
-    .first();
-  if (existing && existing._id !== excludeId) {
+    .take(2);
+  if (matches.some((project) => project._id !== excludeId)) {
     throw new Error(`Já existe uma obra com o número ${legacyNumber}`);
   }
 }

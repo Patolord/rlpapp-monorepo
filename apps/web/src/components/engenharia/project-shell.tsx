@@ -255,26 +255,28 @@ function ProjectShellLayout({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <ProjectFormDialog
-              project={{
-                _id: project._id,
-                name: project.name,
-                legacyNumber: project.legacyNumber,
-                floors: project.floors,
-                customerId: project.customerId,
-                address: project.address,
-                status:
-                  project.status === "archived" ? "planning" : project.status,
-                startDate: project.startDate,
-                endDate: project.endDate,
-              }}
-              trigger={
-                <Button variant="outline" size="sm">
-                  <Pencil className="mr-1.5 size-4" />
-                  Editar
-                </Button>
-              }
-            />
+            {project.status !== "archived" && (
+              <ProjectFormDialog
+                project={{
+                  _id: project._id,
+                  name: project.name,
+                  legacyNumber: project.legacyNumber,
+                  floors: project.floors,
+                  customerId: project.customerId,
+                  customerName: project.customerName,
+                  address: project.address,
+                  status: project.status,
+                  startDate: project.startDate,
+                  endDate: project.endDate,
+                }}
+                trigger={
+                  <Button variant="outline" size="sm">
+                    <Pencil className="mr-1.5 size-4" />
+                    Editar
+                  </Button>
+                }
+              />
+            )}
             <Button
               variant="outline"
               size="icon"

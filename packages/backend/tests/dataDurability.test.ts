@@ -138,11 +138,30 @@ describe("customers", () => {
     const customerId = await asDirector.mutation(api.customers.create, {
       name: "Pessoa Válida",
       personType: "pf",
-      taxId: "123.456.789-01",
+      taxId: "529.982.247-25",
     });
     const details = await asDirector.query(api.customers.get, { customerId });
     expect(details?.customer.personType).toBe("pf");
-    expect(details?.customer.taxId).toBe("12345678901");
+    expect(details?.customer.taxId).toBe("52998224725");
+
+    await expect(
+      asDirector.mutation(api.customers.create, {
+        name: "Empresa Inválida",
+        personType: "pj",
+        taxId: "11.111.111/1111-11",
+      })
+    ).rejects.toThrow("CNPJ inválido");
+
+    const companyId = await asDirector.mutation(api.customers.create, {
+      name: "Empresa Válida",
+      personType: "pj",
+      taxId: "04.252.011/0001-10",
+    });
+    const company = await asDirector.query(api.customers.get, {
+      customerId: companyId,
+    });
+    expect(company?.customer.personType).toBe("pj");
+    expect(company?.customer.taxId).toBe("04252011000110");
   });
 
   test("mantém contatos arquivados no histórico e permite restaurar", async () => {
@@ -183,6 +202,43 @@ describe("customers", () => {
     const restored = await asDirector.query(api.customers.get, { customerId });
     expect(restored?.contacts[0]?.active).toBe(true);
   });
+
+  test("migra contatos legados em lotes idempotentes", async () => {
+    const t = setup();
+    const asDirector = await seedDirector(t);
+    const customerId = await seedCustomer(asDirector, "Cliente Legado");
+    const contactId = await t.run(async (ctx) => {
+      return await ctx.db.insert("customerContacts", {
+        customerId,
+        name: "Contato Legado",
+        createdAt: Date.now(),
+      });
+    });
+
+    const dryRun = await asDirector.mutation(
+      api.migrations.backfillCustomerContactsActive,
+      { dryRun: true }
+    );
+    expect(dryRun.updated).toBe(1);
+    await t.run(async (ctx) => {
+      expect((await ctx.db.get("customerContacts", contactId))?.active).toBeUndefined();
+    });
+
+    const migrated = await asDirector.mutation(
+      api.migrations.backfillCustomerContactsActive,
+      {}
+    );
+    expect(migrated.updated).toBe(1);
+    await t.run(async (ctx) => {
+      expect((await ctx.db.get("customerContacts", contactId))?.active).toBe(true);
+    });
+
+    const repeated = await asDirector.mutation(
+      api.migrations.backfillCustomerContactsActive,
+      {}
+    );
+    expect(repeated.updated).toBe(0);
+  });
 });
 
 describe("project customer and legacy number", () => {
@@ -196,6 +252,13 @@ describe("project customer and legacy number", () => {
         name: "Obra Inválida",
         customerId,
         legacyNumber: 0,
+      })
+    ).rejects.toThrow("número inteiro positivo");
+    await expect(
+      asDirector.mutation(api.projects.create, {
+        name: "Obra Fracionária",
+        customerId,
+        legacyNumber: 1821.5,
       })
     ).rejects.toThrow("número inteiro positivo");
 

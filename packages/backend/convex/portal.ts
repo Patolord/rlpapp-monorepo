@@ -55,6 +55,7 @@ export const listMyProjects = authedQuery({
   ),
   handler: async (ctx) => {
     const staff = isStaff(ctx.user);
+    const customerLabelCache = new Map<string, string | null>();
     const allProjects = await ctx.db.query("projects").collect();
     const visible = staff
       ? allProjects.filter((p) => !isProjectArchived(p))
@@ -71,7 +72,11 @@ export const listMyProjects = authedQuery({
         .collect();
       const total = items.length;
       const installed = items.filter((i) => i.status === "operational").length;
-      const customerName = await resolveCustomerLabel(ctx, project);
+      const customerName = await resolveCustomerLabel(
+        ctx,
+        project,
+        customerLabelCache
+      );
       out.push({
         _id: project._id,
         name: project.name,

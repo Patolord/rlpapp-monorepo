@@ -497,6 +497,7 @@ export const getOverview = engineeringQuery({
   ),
   handler: async (ctx) => {
     const projects = await ctx.db.query("projects").order("desc").collect();
+    const customerLabelCache = new Map<string, string | null>();
 
     return await Promise.all(
       projects.map(async (project) => {
@@ -520,7 +521,7 @@ export const getOverview = engineeringQuery({
           projectName: project.name,
           projectSlug: project.slug ?? project._id,
           legacyNumber: project.legacyNumber ?? null,
-          client: await resolveCustomerLabel(ctx, project),
+          client: await resolveCustomerLabel(ctx, project, customerLabelCache),
           status: project.status ?? null,
           contractCount: contracts.length,
           contractTotalCents,

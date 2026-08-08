@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 interface SelectOption {
   label: string;
   value: string;
+  disabled?: boolean;
 }
 
 interface SelectProps {
@@ -54,9 +55,12 @@ function Select({ value, onValueChange, placeholder = "Selecione...", options, c
                 <Pressable
                   className={cn(
                     "flex-row items-center rounded-md px-3 py-2.5",
-                    item.value === value && "bg-accent"
+                    item.value === value && "bg-accent",
+                    item.disabled && "opacity-50"
                   )}
+                  disabled={item.disabled}
                   onPress={() => {
+                    if (item.disabled) return;
                     onValueChange(item.value);
                     setOpen(false);
                   }}

@@ -94,6 +94,8 @@ export function CustomerDetailDialog({
   const [contactForm, setContactForm] =
     useState<ContactForm>(EMPTY_CONTACT);
   const [saving, setSaving] = useState(false);
+  const isArchived = customer.archivedAt !== null;
+  const idPrefix = `customer-${customer._id}`;
 
   const details = useQuery(
     api.customers.get,
@@ -120,7 +122,7 @@ export function CustomerDetailDialog({
   }
 
   async function saveCustomer() {
-    if (!form.name.trim()) return;
+    if (isArchived || !form.name.trim()) return;
     setSaving(true);
     try {
       await updateCustomer({
@@ -143,7 +145,7 @@ export function CustomerDetailDialog({
   }
 
   async function saveContact() {
-    if (!contactForm.name.trim()) return;
+    if (isArchived || !contactForm.name.trim()) return;
     setSaving(true);
     try {
       if (contactForm.contactId) {
@@ -177,6 +179,7 @@ export function CustomerDetailDialog({
     contactId: Id<"customerContacts">,
     active: boolean
   ) {
+    if (isArchived && !active) return;
     try {
       if (active) {
         await archiveContact({ contactId });
@@ -192,9 +195,11 @@ export function CustomerDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={reset}>
-      <DialogTrigger render={<Button variant="outline" size="sm" />}>
-        <Pencil className="mr-1.5 size-3.5" />
-        Gerenciar
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Pencil className="mr-1.5 size-3.5" />
+          Gerenciar
+        </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
@@ -206,19 +211,21 @@ export function CustomerDetailDialog({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor={`customer-name-${customer._id}`}>Nome</Label>
+            <Label htmlFor={`${idPrefix}-name`}>Nome</Label>
             <Input
-              id={`customer-name-${customer._id}`}
+              id={`${idPrefix}-name`}
               value={form.name}
+              disabled={isArchived}
               onChange={(event) =>
                 setForm((current) => ({ ...current, name: event.target.value }))
               }
             />
           </div>
           <div className="space-y-2">
-            <Label>Tipo de pessoa</Label>
+            <Label htmlFor={`${idPrefix}-person-type`}>Tipo de pessoa</Label>
             <Select
               value={form.personType || "__none__"}
+              disabled={isArchived}
               onValueChange={(value) =>
                 setForm((current) => ({
                   ...current,
@@ -227,7 +234,7 @@ export function CustomerDetailDialog({
                 }))
               }
             >
-              <SelectTrigger>
+              <SelectTrigger id={`${idPrefix}-person-type`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -238,9 +245,11 @@ export function CustomerDetailDialog({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Razão social</Label>
+            <Label htmlFor={`${idPrefix}-legal-name`}>Razão social</Label>
             <Input
+              id={`${idPrefix}-legal-name`}
               value={form.legalName}
+              disabled={isArchived}
               onChange={(event) =>
                 setForm((current) => ({
                   ...current,
@@ -250,7 +259,7 @@ export function CustomerDetailDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>
+            <Label htmlFor={`${idPrefix}-tax-id`}>
               {form.personType === "pf"
                 ? "CPF"
                 : form.personType === "pj"
@@ -258,35 +267,43 @@ export function CustomerDetailDialog({
                   : "CPF/CNPJ"}
             </Label>
             <Input
+              id={`${idPrefix}-tax-id`}
               value={form.taxId}
+              disabled={isArchived}
               onChange={(event) =>
                 setForm((current) => ({ ...current, taxId: event.target.value }))
               }
             />
           </div>
           <div className="space-y-2">
-            <Label>E-mail da empresa</Label>
+            <Label htmlFor={`${idPrefix}-email`}>E-mail da empresa</Label>
             <Input
+              id={`${idPrefix}-email`}
               type="email"
               value={form.email}
+              disabled={isArchived}
               onChange={(event) =>
                 setForm((current) => ({ ...current, email: event.target.value }))
               }
             />
           </div>
           <div className="space-y-2">
-            <Label>Telefone da empresa</Label>
+            <Label htmlFor={`${idPrefix}-phone`}>Telefone da empresa</Label>
             <Input
+              id={`${idPrefix}-phone`}
               value={form.phone}
+              disabled={isArchived}
               onChange={(event) =>
                 setForm((current) => ({ ...current, phone: event.target.value }))
               }
             />
           </div>
           <div className="space-y-2 sm:col-span-2">
-            <Label>Endereço</Label>
+            <Label htmlFor={`${idPrefix}-address`}>Endereço</Label>
             <Input
+              id={`${idPrefix}-address`}
               value={form.address}
+              disabled={isArchived}
               onChange={(event) =>
                 setForm((current) => ({
                   ...current,
@@ -296,9 +313,11 @@ export function CustomerDetailDialog({
             />
           </div>
           <div className="space-y-2 sm:col-span-2">
-            <Label>Observações</Label>
+            <Label htmlFor={`${idPrefix}-notes`}>Observações</Label>
             <Input
+              id={`${idPrefix}-notes`}
               value={form.notes}
+              disabled={isArchived}
               onChange={(event) =>
                 setForm((current) => ({ ...current, notes: event.target.value }))
               }
@@ -306,12 +325,14 @@ export function CustomerDetailDialog({
           </div>
         </div>
 
-        <div className="flex justify-end">
-          <Button onClick={saveCustomer} disabled={saving || !form.name.trim()}>
-            {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
-            Salvar dados
-          </Button>
-        </div>
+        {!isArchived && (
+          <div className="flex justify-end">
+            <Button onClick={saveCustomer} disabled={saving || !form.name.trim()}>
+              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Salvar dados
+            </Button>
+          </div>
+        )}
 
         <div className="space-y-3 border-t pt-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -354,7 +375,7 @@ export function CustomerDetailDialog({
                     </p>
                   </div>
                   <div className="flex gap-1">
-                    {contact.active && (
+                    {contact.active && !isArchived && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -372,20 +393,22 @@ export function CustomerDetailDialog({
                         Editar
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        setContactActive(contact._id, contact.active)
-                      }
-                    >
-                      {contact.active ? (
-                        <Archive className="mr-1.5 size-3.5" />
-                      ) : (
-                        <RotateCcw className="mr-1.5 size-3.5" />
-                      )}
-                      {contact.active ? "Arquivar" : "Restaurar"}
-                    </Button>
+                    {(contact.active || !isArchived) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setContactActive(contact._id, contact.active)
+                        }
+                      >
+                        {contact.active ? (
+                          <Archive className="mr-1.5 size-3.5" />
+                        ) : (
+                          <RotateCcw className="mr-1.5 size-3.5" />
+                        )}
+                        {contact.active ? "Arquivar" : "Restaurar"}
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -396,66 +419,84 @@ export function CustomerDetailDialog({
             </p>
           )}
 
-          <div className="grid gap-2 rounded-md bg-muted/40 p-3 sm:grid-cols-2">
-            <Input
-              placeholder="Nome do contato"
-              value={contactForm.name}
-              onChange={(event) =>
-                setContactForm((current) => ({
-                  ...current,
-                  name: event.target.value,
-                }))
-              }
-            />
-            <Input
-              placeholder="Cargo / função"
-              value={contactForm.role}
-              onChange={(event) =>
-                setContactForm((current) => ({
-                  ...current,
-                  role: event.target.value,
-                }))
-              }
-            />
-            <Input
-              type="email"
-              placeholder="E-mail"
-              value={contactForm.email}
-              onChange={(event) =>
-                setContactForm((current) => ({
-                  ...current,
-                  email: event.target.value,
-                }))
-              }
-            />
-            <Input
-              placeholder="Telefone"
-              value={contactForm.phone}
-              onChange={(event) =>
-                setContactForm((current) => ({
-                  ...current,
-                  phone: event.target.value,
-                }))
-              }
-            />
-            <div className="flex justify-end gap-2 sm:col-span-2">
-              {contactForm.contactId && (
+          {!isArchived && (
+            <div className="grid gap-2 rounded-md bg-muted/40 p-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor={`${idPrefix}-contact-name`}>Nome</Label>
+                <Input
+                  id={`${idPrefix}-contact-name`}
+                  value={contactForm.name}
+                  onChange={(event) =>
+                    setContactForm((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor={`${idPrefix}-contact-role`}>
+                  Cargo / função
+                </Label>
+                <Input
+                  id={`${idPrefix}-contact-role`}
+                  value={contactForm.role}
+                  onChange={(event) =>
+                    setContactForm((current) => ({
+                      ...current,
+                      role: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor={`${idPrefix}-contact-email`}>E-mail</Label>
+                <Input
+                  id={`${idPrefix}-contact-email`}
+                  type="email"
+                  value={contactForm.email}
+                  onChange={(event) =>
+                    setContactForm((current) => ({
+                      ...current,
+                      email: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor={`${idPrefix}-contact-phone`}>Telefone</Label>
+                <Input
+                  id={`${idPrefix}-contact-phone`}
+                  value={contactForm.phone}
+                  onChange={(event) =>
+                    setContactForm((current) => ({
+                      ...current,
+                      phone: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="flex justify-end gap-2 sm:col-span-2">
+                {contactForm.contactId && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setContactForm(EMPTY_CONTACT)}
+                  >
+                    Cancelar edição
+                  </Button>
+                )}
                 <Button
-                  variant="ghost"
-                  onClick={() => setContactForm(EMPTY_CONTACT)}
+                  onClick={saveContact}
+                  disabled={saving || !contactForm.name.trim()}
                 >
-                  Cancelar edição
+                  <Plus className="mr-1.5 size-4" />
+                  {contactForm.contactId
+                    ? "Salvar contato"
+                    : "Adicionar contato"}
                 </Button>
-              )}
-              <Button
-                onClick={saveContact}
-                disabled={saving || !contactForm.name.trim()}
-              >
-                <Plus className="mr-1.5 size-4" />
-                {contactForm.contactId ? "Salvar contato" : "Adicionar contato"}
-              </Button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <DialogFooter>

@@ -45,6 +45,7 @@ interface ProjectInput {
   legacyNumber?: number | null;
   floors: { number: number; label: string }[];
   customerId?: Id<"customers"> | null;
+  customerName?: string | null;
   client?: string | null;
   address?: string | null;
   status?: ProjectStatus | null;
@@ -96,6 +97,10 @@ export function ProjectFormDialog({
   const updateProject = useMutation(api.projects.update);
   const customers = useQuery(api.customers.list, { activeOnly: true });
   const isEdit = Boolean(project);
+  const currentCustomerMissing =
+    customers !== undefined &&
+    Boolean(project?.customerId) &&
+    !customers.some((customer) => customer._id === project?.customerId);
 
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(project?.name ?? "");
@@ -276,7 +281,7 @@ export function ProjectFormDialog({
             <div className="space-y-2">
               <Label htmlFor="project-customer">Cliente</Label>
               <Select
-                value={customerId || undefined}
+                value={customerId}
                 onValueChange={setCustomerId}
                 required
               >
@@ -284,6 +289,12 @@ export function ProjectFormDialog({
                   <SelectValue placeholder="Selecione um cliente" />
                 </SelectTrigger>
                 <SelectContent>
+                  {currentCustomerMissing && project?.customerId && (
+                    <SelectItem value={project.customerId} disabled>
+                      {project.customerName ?? "Cliente atual indisponível"}{" "}
+                      (inativo)
+                    </SelectItem>
+                  )}
                   {(customers ?? []).map((c) => (
                     <SelectItem key={c._id} value={c._id}>
                       {c.name}
