@@ -20,7 +20,8 @@ export const projectStatus = v.union(
   v.literal("planning"),
   v.literal("in_progress"),
   v.literal("completed"),
-  v.literal("paused")
+  v.literal("paused"),
+  v.literal("archived")
 );
 
 // Department types
@@ -149,6 +150,40 @@ export default defineSchema({
   // equipamento real (QR) → verde/instalado quando vinculado, vermelho/pendente
   // quando não.
 
+  // --- Clientes (cadastro mestre) ---
+
+  customers: defineTable({
+    name: v.string(),
+    nameNormalized: v.string(),
+    legalName: v.optional(v.string()),
+    taxId: v.optional(v.string()),
+    taxIdNormalized: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    address: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    active: v.boolean(),
+    archivedAt: v.optional(v.number()),
+    archivedByUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    createdByUserId: v.optional(v.id("users")),
+    updatedByUserId: v.optional(v.id("users")),
+  })
+    .index("by_name_normalized", ["nameNormalized"])
+    .index("by_tax_id_normalized", ["taxIdNormalized"])
+    .index("by_active", ["active"]),
+
+  customerContacts: defineTable({
+    customerId: v.id("customers"),
+    name: v.string(),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    role: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  }).index("by_customer", ["customerId"]),
+
   // Obra (prédio): nome + metadados + lista de andares (legado) + torres.
   //
   // Hierarquia nova: Obra → Torre → Andar → Ambiente → Equipamento.
@@ -157,14 +192,19 @@ export default defineSchema({
   projects: defineTable({
     name: v.string(),
     // Metadados da obra (todos opcionais para compatibilidade com dados antigos).
+    // Legado: rótulo livre do cliente. Preferir `customerId`.
     client: v.optional(v.string()),
+    customerId: v.optional(v.id("customers")),
     address: v.optional(v.string()),
     status: v.optional(projectStatus),
     responsibleId: v.optional(v.id("users")),
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
-    // Clientes (role "client") que podem visualizar esta obra no portal.
+    // Legado: usuários role "client" com acesso ao portal. Preferir `portalUserIds`.
     clientIds: v.optional(v.array(v.id("users"))),
+    portalUserIds: v.optional(v.array(v.id("users"))),
+    archivedAt: v.optional(v.number()),
+    archivedByUserId: v.optional(v.id("users")),
     floors: v.array(
       v.object({
         // 0 = térreo, 1 = 1º andar, etc.
@@ -178,7 +218,8 @@ export default defineSchema({
   })
     .index("by_name", ["name"])
     .index("by_status", ["status"])
-    .index("by_responsible", ["responsibleId"]),
+    .index("by_responsible", ["responsibleId"])
+    .index("by_customer", ["customerId"]),
 
   // --- Hierarquia nova: Torre → Andar → Ambiente ---
 
@@ -375,10 +416,25 @@ export default defineSchema({
     tableName: v.string(),
     recordId: v.string(),
     details: v.optional(v.string()),
+    entityLabel: v.optional(v.string()),
+    source: v.optional(v.string()),
+    schemaVersion: v.optional(v.number()),
+    changes: v.optional(
+      v.array(
+        v.object({
+          field: v.string(),
+          previousValue: v.optional(v.string()),
+          newValue: v.optional(v.string()),
+        })
+      )
+    ),
+    snapshotBefore: v.optional(v.string()),
+    snapshotAfter: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])
-    .index("by_table", ["tableName", "createdAt"]),
+    .index("by_table", ["tableName", "createdAt"])
+    .index("by_record", ["tableName", "recordId", "createdAt"]),
 
   // Entregas de material por modelo (aba Entregas): controle de logística.
   materialDeliveries: defineTable({

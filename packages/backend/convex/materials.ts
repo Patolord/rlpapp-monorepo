@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { engineeringOrPurchasingQuery, purchasingMutation } from "./lib/rbac";
-import { logAudit } from "./lib/audit";
+import { logAudit, diffFields } from "./lib/audit";
 import { materialStatus } from "./schema";
 import { normalizeText } from "./lib/compras/procurement";
 import {
@@ -288,6 +288,16 @@ export const update = purchasingMutation({
     const material = await ctx.db.get("materials", args.materialId);
     if (!material) throw new Error("Material não encontrado");
 
+    const before = {
+      name: material.name,
+      category: material.category,
+      unit: material.unit,
+      spec: material.spec,
+      brandPreference: material.brandPreference,
+      active: material.active,
+      status: material.status,
+    };
+
     const updates: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.name !== undefined) {
       const name = args.name.trim();
@@ -304,10 +314,34 @@ export const update = purchasingMutation({
     if (args.status !== undefined) updates.status = args.status;
 
     await ctx.db.patch("materials", args.materialId, updates);
+    const afterDoc = await ctx.db.get("materials", args.materialId);
+    const after = afterDoc
+      ? {
+          name: afterDoc.name,
+          category: afterDoc.category,
+          unit: afterDoc.unit,
+          spec: afterDoc.spec,
+          brandPreference: afterDoc.brandPreference,
+          active: afterDoc.active,
+          status: afterDoc.status,
+        }
+      : before;
     await logAudit(ctx, ctx.user, {
       action: "update",
       tableName: "materials",
       recordId: args.materialId,
+      entityLabel: after.name,
+      changes: diffFields(before, after, [
+        "name",
+        "category",
+        "unit",
+        "spec",
+        "brandPreference",
+        "active",
+        "status",
+      ]),
+      snapshotBefore: before,
+      snapshotAfter: after,
     });
     return null;
   },

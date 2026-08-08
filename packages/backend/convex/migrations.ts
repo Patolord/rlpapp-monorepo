@@ -1,7 +1,10 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
-import { adminMutation } from "./lib/rbac";
+import { adminMutation, adminQuery } from "./lib/rbac";
 import { findOrCreateSystemInProject } from "./systems";
+import { findOrCreateCustomerByName } from "./customers";
+import { getLegacyClientLabel, getPortalUserIds } from "./lib/projects/helpers";
+import { normalizeCustomerName } from "./lib/customers/helpers";
 import type { Id } from "./_generated/dataModel";
 
 /**
@@ -200,5 +203,163 @@ export const backfillSystemsFromEquipmentStrings = internalMutation({
     }
 
     return { systemsCreated, equipmentLinked };
+  },
+});
+
+/**
+ * Backfill idempotente: cria registros em `customers` a partir de `projects.client`
+ * (texto livre) e copia `clientIds` → `portalUserIds`. Não apaga campos legados.
+ *
+ * Rodar com: npx convex run migrations:backfillCustomersFromProjects
+ */
+export const backfillCustomersFromProjects = adminMutation({
+  args: {
+    projectId: v.optional(v.id("projects")),
+    dryRun: v.optional(v.boolean()),
+  },
+  returns: v.object({
+    projectsScanned: v.number(),
+    customersCreated: v.number(),
+    projectsLinked: v.number(),
+    portalUsersCopied: v.number(),
+    skipped: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+    const project = args.projectId
+      ? await ctx.db.get("projects", args.projectId)
+      : null;
+    const projects = args.projectId
+      ? project
+        ? [project]
+        : []
+      : await ctx.db.query("projects").collect();
+
+    let projectsScanned = 0;
+    let customersCreated = 0;
+    let projectsLinked = 0;
+    let portalUsersCopied = 0;
+    let skipped = 0;
+
+    const customerIdByName = new Map<string, Id<"customers">>();
+
+    for (const proj of projects) {
+      projectsScanned++;
+      const legacyLabel = getLegacyClientLabel(proj);
+      const legacyPortalIds = proj.clientIds ?? [];
+      const needsCustomer = !proj.customerId && legacyLabel;
+      const needsPortalCopy =
+        !proj.portalUserIds && legacyPortalIds.length > 0;
+
+      if (!needsCustomer && !needsPortalCopy) {
+        skipped++;
+        continue;
+      }
+
+      const patch: {
+        customerId?: Id<"customers">;
+        portalUserIds?: Id<"users">[];
+      } = {};
+
+      if (needsCustomer && legacyLabel) {
+        const key = normalizeCustomerName(legacyLabel);
+        let customerId = customerIdByName.get(key);
+        if (!customerId) {
+          const existing = await ctx.db
+            .query("customers")
+            .withIndex("by_name_normalized", (q) =>
+              q.eq("nameNormalized", key)
+            )
+            .first();
+          if (existing) {
+            customerId = existing._id;
+          } else if (dryRun) {
+            customersCreated++;
+          } else {
+            const result = await findOrCreateCustomerByName(ctx, {
+              name: legacyLabel,
+              createdByUserId: ctx.user._id,
+            });
+            customerId = result.customerId;
+            if (result.created) customersCreated++;
+          }
+          if (customerId) customerIdByName.set(key, customerId);
+        }
+        if (customerId) {
+          patch.customerId = customerId;
+          projectsLinked++;
+        }
+      }
+
+      if (needsPortalCopy) {
+        patch.portalUserIds = legacyPortalIds;
+        portalUsersCopied++;
+      }
+
+      if (!dryRun && Object.keys(patch).length > 0) {
+        await ctx.db.patch("projects", proj._id, patch);
+      }
+    }
+
+    return {
+      projectsScanned,
+      customersCreated,
+      projectsLinked,
+      portalUsersCopied,
+      skipped,
+    };
+  },
+});
+
+/** Relatório de projetos ainda sem customerId apesar de ter rótulo legado. */
+export const verifyCustomerMigration = adminQuery({
+  args: {},
+  returns: v.object({
+    unmigratedProjects: v.number(),
+    duplicateCustomerNames: v.number(),
+    invalidPortalUserRefs: v.number(),
+    samples: v.array(
+      v.object({
+        projectId: v.id("projects"),
+        projectName: v.string(),
+        legacyClient: v.union(v.string(), v.null()),
+      })
+    ),
+  }),
+  handler: async (ctx) => {
+    const projects = await ctx.db.query("projects").collect();
+    const unmigrated = projects.filter(
+      (p) => !p.customerId && getLegacyClientLabel(p)
+    );
+
+    const nameCounts = new Map<string, number>();
+    for (const customer of await ctx.db.query("customers").collect()) {
+      nameCounts.set(
+        customer.nameNormalized,
+        (nameCounts.get(customer.nameNormalized) ?? 0) + 1
+      );
+    }
+    const duplicateCustomerNames = [...nameCounts.values()].filter(
+      (n) => n > 1
+    ).length;
+
+    let invalidPortalUserRefs = 0;
+    for (const project of projects) {
+      for (const userId of getPortalUserIds(project)) {
+        const user = await ctx.db.get("users", userId);
+        if (!user || !user.isActive) invalidPortalUserRefs++;
+      }
+    }
+
+    return {
+      unmigratedProjects: unmigrated.length,
+      duplicateCustomerNames,
+      invalidPortalUserRefs,
+      samples: unmigrated.slice(0, 10).map((p) => ({
+        projectId: p._id,
+        projectName: p.name,
+        legacyClient: getLegacyClientLabel(p) ?? null,
+      })),
+    };
   },
 });

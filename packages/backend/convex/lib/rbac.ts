@@ -198,6 +198,9 @@ export const staffMutation = customMutation(
 );
 
 /** Apenas director/admin (gestão de usuários e operações sensíveis). */
+export const adminQuery = permissionQuery("admin.manage");
+
+/** Apenas director/admin (gestão de usuários e operações sensíveis). */
 export const adminMutation = permissionMutation("admin.manage");
 
 /** Director/admin, engenheiro, ou staff do departamento engenharia. */

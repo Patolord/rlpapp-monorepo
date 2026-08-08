@@ -30,6 +30,7 @@ import { Route as EngenhariaQrCodesRouteImport } from './routes/engenharia/qr-co
 import { Route as EngenhariaMedicoesRouteImport } from './routes/engenharia/medicoes'
 import { Route as EngenhariaRelatoriosRouteRouteImport } from './routes/engenharia/relatorios/route'
 import { Route as EngenhariaRelatoriosIndexRouteImport } from './routes/engenharia/relatorios/index'
+import { Route as EngenhariaClientesIndexRouteImport } from './routes/engenharia/clientes/index'
 import { Route as ComprasTakeoffsIndexRouteImport } from './routes/compras/takeoffs/index'
 import { Route as ComprasMateriaisIndexRouteImport } from './routes/compras/materiais/index'
 import { Route as ComprasFornecedoresIndexRouteImport } from './routes/compras/fornecedores/index'
@@ -155,6 +156,11 @@ const EngenhariaRelatoriosIndexRoute =
     path: '/',
     getParentRoute: () => EngenhariaRelatoriosRouteRoute,
   } as any)
+const EngenhariaClientesIndexRoute = EngenhariaClientesIndexRouteImport.update({
+  id: '/clientes/',
+  path: '/clientes/',
+  getParentRoute: () => EngenhariaRouteRoute,
+} as any)
 const ComprasTakeoffsIndexRoute = ComprasTakeoffsIndexRouteImport.update({
   id: '/takeoffs/',
   path: '/takeoffs/',
@@ -276,6 +282,7 @@ export interface FileRoutesByFullPath {
   '/compras/fornecedores/': typeof ComprasFornecedoresIndexRoute
   '/compras/materiais/': typeof ComprasMateriaisIndexRoute
   '/compras/takeoffs/': typeof ComprasTakeoffsIndexRoute
+  '/engenharia/clientes/': typeof EngenhariaClientesIndexRoute
   '/engenharia/relatorios/': typeof EngenhariaRelatoriosIndexRoute
   '/engenharia/relatorios/$projectId/assistente': typeof EngenhariaRelatoriosProjectIdAssistenteRoute
   '/engenharia/relatorios/$projectId/entregas': typeof EngenhariaRelatoriosProjectIdEntregasRoute
@@ -310,6 +317,7 @@ export interface FileRoutesByTo {
   '/compras/fornecedores': typeof ComprasFornecedoresIndexRoute
   '/compras/materiais': typeof ComprasMateriaisIndexRoute
   '/compras/takeoffs': typeof ComprasTakeoffsIndexRoute
+  '/engenharia/clientes': typeof EngenhariaClientesIndexRoute
   '/engenharia/relatorios': typeof EngenhariaRelatoriosIndexRoute
   '/engenharia/relatorios/$projectId/assistente': typeof EngenhariaRelatoriosProjectIdAssistenteRoute
   '/engenharia/relatorios/$projectId/entregas': typeof EngenhariaRelatoriosProjectIdEntregasRoute
@@ -350,6 +358,7 @@ export interface FileRoutesById {
   '/compras/fornecedores/': typeof ComprasFornecedoresIndexRoute
   '/compras/materiais/': typeof ComprasMateriaisIndexRoute
   '/compras/takeoffs/': typeof ComprasTakeoffsIndexRoute
+  '/engenharia/clientes/': typeof EngenhariaClientesIndexRoute
   '/engenharia/relatorios/': typeof EngenhariaRelatoriosIndexRoute
   '/engenharia/relatorios/$projectId/assistente': typeof EngenhariaRelatoriosProjectIdAssistenteRoute
   '/engenharia/relatorios/$projectId/entregas': typeof EngenhariaRelatoriosProjectIdEntregasRoute
@@ -391,6 +400,7 @@ export interface FileRouteTypes {
     | '/compras/fornecedores/'
     | '/compras/materiais/'
     | '/compras/takeoffs/'
+    | '/engenharia/clientes/'
     | '/engenharia/relatorios/'
     | '/engenharia/relatorios/$projectId/assistente'
     | '/engenharia/relatorios/$projectId/entregas'
@@ -425,6 +435,7 @@ export interface FileRouteTypes {
     | '/compras/fornecedores'
     | '/compras/materiais'
     | '/compras/takeoffs'
+    | '/engenharia/clientes'
     | '/engenharia/relatorios'
     | '/engenharia/relatorios/$projectId/assistente'
     | '/engenharia/relatorios/$projectId/entregas'
@@ -464,6 +475,7 @@ export interface FileRouteTypes {
     | '/compras/fornecedores/'
     | '/compras/materiais/'
     | '/compras/takeoffs/'
+    | '/engenharia/clientes/'
     | '/engenharia/relatorios/'
     | '/engenharia/relatorios/$projectId/assistente'
     | '/engenharia/relatorios/$projectId/entregas'
@@ -638,6 +650,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/engenharia/relatorios/'
       preLoaderRoute: typeof EngenhariaRelatoriosIndexRouteImport
       parentRoute: typeof EngenhariaRelatoriosRouteRoute
+    }
+    '/engenharia/clientes/': {
+      id: '/engenharia/clientes/'
+      path: '/clientes'
+      fullPath: '/engenharia/clientes/'
+      preLoaderRoute: typeof EngenhariaClientesIndexRouteImport
+      parentRoute: typeof EngenhariaRouteRoute
     }
     '/compras/takeoffs/': {
       id: '/compras/takeoffs/'
@@ -850,6 +869,7 @@ interface EngenhariaRouteRouteChildren {
   EngenhariaIndexRoute: typeof EngenhariaIndexRoute
   EngenhariaEquipamentoIdRoute: typeof EngenhariaEquipamentoIdRoute
   EngenhariaQrTokenRoute: typeof EngenhariaQrTokenRoute
+  EngenhariaClientesIndexRoute: typeof EngenhariaClientesIndexRoute
 }
 
 const EngenhariaRouteRouteChildren: EngenhariaRouteRouteChildren = {
@@ -861,6 +881,7 @@ const EngenhariaRouteRouteChildren: EngenhariaRouteRouteChildren = {
   EngenhariaIndexRoute: EngenhariaIndexRoute,
   EngenhariaEquipamentoIdRoute: EngenhariaEquipamentoIdRoute,
   EngenhariaQrTokenRoute: EngenhariaQrTokenRoute,
+  EngenhariaClientesIndexRoute: EngenhariaClientesIndexRoute,
 }
 
 const EngenhariaRouteRouteWithChildren = EngenhariaRouteRoute._addFileChildren(

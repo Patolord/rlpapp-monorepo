@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { engineeringOrPurchasingQuery, purchasingMutation } from "./lib/rbac";
-import { logAudit } from "./lib/audit";
+import { logAudit, diffFields } from "./lib/audit";
 import { normalizeText } from "./lib/compras/procurement";
 import {
   bulkImportResultValidator,
@@ -227,6 +227,13 @@ export const update = purchasingMutation({
     const supplier = await ctx.db.get("suppliers", args.supplierId);
     if (!supplier) throw new Error("Fornecedor não encontrado");
 
+    const before = {
+      name: supplier.name,
+      categories: supplier.categories,
+      notes: supplier.notes,
+      active: supplier.active,
+    };
+
     const updates: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.name !== undefined) {
       const name = args.name.trim();
@@ -240,10 +247,28 @@ export const update = purchasingMutation({
     if (args.active !== undefined) updates.active = args.active;
 
     await ctx.db.patch("suppliers", args.supplierId, updates);
+    const afterDoc = await ctx.db.get("suppliers", args.supplierId);
+    const after = afterDoc
+      ? {
+          name: afterDoc.name,
+          categories: afterDoc.categories,
+          notes: afterDoc.notes,
+          active: afterDoc.active,
+        }
+      : before;
     await logAudit(ctx, ctx.user, {
       action: "update",
       tableName: "suppliers",
       recordId: args.supplierId,
+      entityLabel: after.name,
+      changes: diffFields(before, after, [
+        "name",
+        "categories",
+        "notes",
+        "active",
+      ]),
+      snapshotBefore: before,
+      snapshotAfter: after,
     });
     return null;
   },
@@ -279,6 +304,20 @@ export const removeContact = purchasingMutation({
   args: { contactId: v.id("supplierContacts") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const contact = await ctx.db.get("supplierContacts", args.contactId);
+    if (!contact) throw new Error("Contato não encontrado");
+
+    await logAudit(ctx, ctx.user, {
+      action: "delete",
+      tableName: "supplierContacts",
+      recordId: args.contactId,
+      entityLabel: contact.name,
+      snapshotBefore: {
+        name: contact.name,
+        supplierId: contact.supplierId,
+      },
+    });
+
     await ctx.db.delete("supplierContacts", args.contactId);
     return null;
   },

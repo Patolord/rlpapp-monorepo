@@ -27,7 +27,7 @@ type ProjectSummary = {
 };
 
 function RelatoriosPage() {
-  const projects = useQuery(api.projects.list);
+  const projects = useQuery(api.projects.list, {});
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

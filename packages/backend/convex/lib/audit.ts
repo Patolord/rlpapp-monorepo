@@ -1,6 +1,35 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 
+export const AUDIT_SCHEMA_VERSION = 1;
+
+export type AuditChange = {
+  field: string;
+  previousValue?: string;
+  newValue?: string;
+};
+
+export type AuditParams = {
+  action: string;
+  tableName: string;
+  recordId: string;
+  details?: string;
+  entityLabel?: string;
+  source?: string;
+  changes?: AuditChange[];
+  snapshotBefore?: unknown;
+  snapshotAfter?: unknown;
+};
+
+function serializeSnapshot(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Registra uma entrada no log de auditoria do sistema.
  * Deve ser chamado dentro de mutations, após uma escrita relevante.
@@ -8,12 +37,7 @@ import type { MutationCtx } from "../_generated/server";
 export async function logAudit(
   ctx: MutationCtx,
   user: Doc<"users">,
-  params: {
-    action: string;
-    tableName: string;
-    recordId: string;
-    details?: string;
-  }
+  params: AuditParams
 ): Promise<void> {
   await ctx.db.insert("auditLogs", {
     userId: user._id,
@@ -21,8 +45,39 @@ export async function logAudit(
     tableName: params.tableName,
     recordId: params.recordId,
     details: params.details,
+    entityLabel: params.entityLabel,
+    source: params.source,
+    schemaVersion: AUDIT_SCHEMA_VERSION,
+    changes: params.changes,
+    snapshotBefore: serializeSnapshot(params.snapshotBefore),
+    snapshotAfter: serializeSnapshot(params.snapshotAfter),
     createdAt: Date.now(),
   });
+}
+
+/** Compara dois objetos planos e retorna mudanças legíveis. */
+export function diffFields<T extends Record<string, unknown>>(
+  before: T,
+  after: T,
+  fields: (keyof T)[]
+): AuditChange[] {
+  const changes: AuditChange[] = [];
+  for (const field of fields) {
+    const prev = before[field];
+    const next = after[field];
+    const prevStr =
+      prev === undefined ? undefined : JSON.stringify(prev);
+    const nextStr =
+      next === undefined ? undefined : JSON.stringify(next);
+    if (prevStr !== nextStr) {
+      changes.push({
+        field: String(field),
+        previousValue: prevStr,
+        newValue: nextStr,
+      });
+    }
+  }
+  return changes;
 }
 
 /**

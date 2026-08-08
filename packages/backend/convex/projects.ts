@@ -2,8 +2,12 @@ import { v } from "convex/values";
 import { engineeringMutation, engineeringQuery } from "./lib/rbac";
 import { equipmentStatusValidator } from "./equipment";
 import { projectStatus } from "./schema";
-import { logAudit } from "./lib/audit";
+import { logAudit, diffFields } from "./lib/audit";
 import { buildProjectHierarchy } from "./lib/engenharia/hierarchy";
+import {
+  getLegacyClientLabel,
+  isProjectArchived,
+} from "./lib/projects/helpers";
 import type { Id } from "./_generated/dataModel";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
@@ -46,10 +50,42 @@ function autoUnitLabel(floor: number, final: number): string {
   return `${floor}${String(final).padStart(2, "0")}`;
 }
 
+async function resolveCustomerLabel(
+  ctx: { db: import("./_generated/server").QueryCtx["db"] },
+  project: {
+    customerId?: Id<"customers">;
+    client?: string;
+  }
+): Promise<string | null> {
+  if (project.customerId) {
+    const customer = await ctx.db.get("customers", project.customerId);
+    if (customer) return customer.name;
+  }
+  return getLegacyClientLabel(project as import("./_generated/dataModel").Doc<"projects">) ?? null;
+}
+
+function projectSnapshot(project: import("./_generated/dataModel").Doc<"projects">) {
+  return {
+    name: project.name,
+    customerId: project.customerId,
+    client: project.client,
+    address: project.address,
+    status: project.status,
+    responsibleId: project.responsibleId,
+    startDate: project.startDate,
+    endDate: project.endDate,
+    portalUserIds: project.portalUserIds,
+    clientIds: project.clientIds,
+    archivedAt: project.archivedAt,
+  };
+}
+
 // --- Listagem de obras (com progresso por ACs) ---
 
 export const list = engineeringQuery({
-  args: {},
+  args: {
+    includeArchived: v.optional(v.boolean()),
+  },
   returns: v.array(
     v.object({
       _id: v.id("projects"),
@@ -57,6 +93,8 @@ export const list = engineeringQuery({
       name: v.string(),
       floors: floorsValidator,
       client: v.union(v.string(), v.null()),
+      customerId: v.union(v.id("customers"), v.null()),
+      customerName: v.union(v.string(), v.null()),
       address: v.union(v.string(), v.null()),
       status: v.union(projectStatus, v.null()),
       responsibleId: v.union(v.id("users"), v.null()),
@@ -64,14 +102,18 @@ export const list = engineeringQuery({
       startDate: v.union(v.number(), v.null()),
       endDate: v.union(v.number(), v.null()),
       createdAt: v.number(),
+      archivedAt: v.union(v.number(), v.null()),
       totalItems: v.number(),
       installedItems: v.number(),
       unitCount: v.number(),
       towerCount: v.number(),
     })
   ),
-  handler: async (ctx) => {
-    const projects = await ctx.db.query("projects").order("desc").collect();
+  handler: async (ctx, args) => {
+    let projects = await ctx.db.query("projects").order("desc").collect();
+    if (!args.includeArchived) {
+      projects = projects.filter((p) => !isProjectArchived(p));
+    }
 
     return await Promise.all(
       projects.map(async (project) => {
@@ -98,6 +140,8 @@ export const list = engineeringQuery({
           responsibleName = responsible?.name ?? null;
         }
 
+        const customerName = await resolveCustomerLabel(ctx, project);
+
         return {
           _id: project._id,
           _creationTime: project._creationTime,
@@ -107,6 +151,8 @@ export const list = engineeringQuery({
             label: f.label,
           })),
           client: project.client ?? null,
+          customerId: project.customerId ?? null,
+          customerName,
           address: project.address ?? null,
           status: project.status ?? null,
           responsibleId: project.responsibleId ?? null,
@@ -114,6 +160,7 @@ export const list = engineeringQuery({
           startDate: project.startDate ?? null,
           endDate: project.endDate ?? null,
           createdAt: project.createdAt,
+          archivedAt: project.archivedAt ?? null,
           totalItems: items.length,
           installedItems,
           unitCount: units.length,
@@ -292,6 +339,7 @@ export const create = engineeringMutation({
     name: v.string(),
     // Andares opcionais: obras novas podem começar vazias e usar torres.
     floors: v.optional(floorsValidator),
+    customerId: v.optional(v.id("customers")),
     client: v.optional(v.string()),
     address: v.optional(v.string()),
     status: v.optional(projectStatus),
@@ -304,9 +352,18 @@ export const create = engineeringMutation({
     const name = args.name.trim();
     if (!name) throw new Error("O nome da obra é obrigatório");
 
+    if (args.customerId) {
+      const customer = await ctx.db.get("customers", args.customerId);
+      if (!customer) throw new Error("Cliente não encontrado");
+      if (customer.archivedAt) {
+        throw new Error("Cliente arquivado — selecione outro ou restaure o cliente");
+      }
+    }
+
     const projectId = await ctx.db.insert("projects", {
       name,
       floors: args.floors ? normalizeFloors(args.floors) : [],
+      customerId: args.customerId,
       client: args.client?.trim() || undefined,
       address: args.address?.trim() || undefined,
       status: args.status ?? "planning",
@@ -319,7 +376,9 @@ export const create = engineeringMutation({
       action: "create",
       tableName: "projects",
       recordId: projectId,
+      entityLabel: name,
       details: name,
+      snapshotAfter: { name, customerId: args.customerId },
     });
     return projectId;
   },
@@ -330,6 +389,7 @@ export const update = engineeringMutation({
     projectId: v.id("projects"),
     name: v.optional(v.string()),
     floors: v.optional(floorsValidator),
+    customerId: v.optional(v.union(v.id("customers"), v.null())),
     client: v.optional(v.union(v.string(), v.null())),
     address: v.optional(v.union(v.string(), v.null())),
     status: v.optional(projectStatus),
@@ -341,7 +401,11 @@ export const update = engineeringMutation({
   handler: async (ctx, args) => {
     const project = await ctx.db.get("projects", args.projectId);
     if (!project) throw new Error("Obra não encontrada");
+    if (isProjectArchived(project)) {
+      throw new Error("Obra arquivada — restaure antes de editar");
+    }
 
+    const before = projectSnapshot(project);
     const updates: Record<string, unknown> = {};
     if (args.name !== undefined) {
       const name = args.name.trim();
@@ -351,6 +415,17 @@ export const update = engineeringMutation({
     if (args.floors !== undefined) {
       updates.floors = normalizeFloors(args.floors);
     }
+    if (args.customerId !== undefined) {
+      if (args.customerId !== null) {
+        const customer = await ctx.db.get("customers", args.customerId);
+        if (!customer) throw new Error("Cliente não encontrado");
+        if (customer.archivedAt) {
+          throw new Error("Cliente arquivado — selecione outro ou restaure o cliente");
+        }
+      }
+      updates.customerId =
+        args.customerId === null ? undefined : args.customerId;
+    }
     if (args.client !== undefined) {
       updates.client = args.client === null ? undefined : args.client.trim() || undefined;
     }
@@ -358,7 +433,12 @@ export const update = engineeringMutation({
       updates.address =
         args.address === null ? undefined : args.address.trim() || undefined;
     }
-    if (args.status !== undefined) updates.status = args.status;
+    if (args.status !== undefined) {
+      if (args.status === "archived") {
+        throw new Error("Use archive para arquivar a obra");
+      }
+      updates.status = args.status;
+    }
     if (args.responsibleId !== undefined) {
       updates.responsibleId = args.responsibleId === null ? undefined : args.responsibleId;
     }
@@ -370,16 +450,78 @@ export const update = engineeringMutation({
     }
 
     await ctx.db.patch("projects", args.projectId, updates);
+    const afterDoc = await ctx.db.get("projects", args.projectId);
     await logAudit(ctx, ctx.user, {
       action: "update",
       tableName: "projects",
       recordId: args.projectId,
+      entityLabel: afterDoc?.name ?? project.name,
+      changes: diffFields(before, projectSnapshot(afterDoc!), [
+        "name",
+        "customerId",
+        "client",
+        "address",
+        "status",
+        "responsibleId",
+        "startDate",
+        "endDate",
+        "portalUserIds",
+        "clientIds",
+        "archivedAt",
+      ]),
+      snapshotBefore: before,
+      snapshotAfter: afterDoc ? projectSnapshot(afterDoc) : undefined,
     });
     return args.projectId;
   },
 });
 
-// Define quais clientes (usuários role "client") podem ver a obra no portal.
+// Define quais usuários do portal podem ver a obra.
+export const setPortalUsers = engineeringMutation({
+  args: {
+    projectId: v.id("projects"),
+    portalUserIds: v.array(v.id("users")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project) throw new Error("Obra não encontrada");
+    if (isProjectArchived(project)) {
+      throw new Error("Obra arquivada — restaure antes de alterar acessos");
+    }
+
+    const before = projectSnapshot(project);
+    const valid: Id<"users">[] = [];
+    for (const userId of args.portalUserIds) {
+      const user = await ctx.db.get("users", userId);
+      if (user) valid.push(user._id);
+    }
+
+    await ctx.db.patch("projects", args.projectId, {
+      portalUserIds: valid.length > 0 ? valid : undefined,
+      // Mantém legado em sincronia durante a transição.
+      clientIds: valid.length > 0 ? valid : undefined,
+    });
+
+    const afterDoc = await ctx.db.get("projects", args.projectId);
+    await logAudit(ctx, ctx.user, {
+      action: "set_portal_users",
+      tableName: "projects",
+      recordId: args.projectId,
+      entityLabel: project.name,
+      details: `${valid.length} usuário(s)`,
+      changes: diffFields(before, projectSnapshot(afterDoc!), [
+        "portalUserIds",
+        "clientIds",
+      ]),
+      snapshotBefore: before,
+      snapshotAfter: afterDoc ? projectSnapshot(afterDoc) : undefined,
+    });
+    return null;
+  },
+});
+
+/** @deprecated Use setPortalUsers */
 export const setClients = engineeringMutation({
   args: {
     projectId: v.id("projects"),
@@ -389,8 +531,11 @@ export const setClients = engineeringMutation({
   handler: async (ctx, args) => {
     const project = await ctx.db.get("projects", args.projectId);
     if (!project) throw new Error("Obra não encontrada");
+    if (isProjectArchived(project)) {
+      throw new Error("Obra arquivada — restaure antes de alterar acessos");
+    }
 
-    // Mantém apenas IDs válidos para evitar referências quebradas.
+    const before = projectSnapshot(project);
     const valid: Id<"users">[] = [];
     for (const userId of args.clientIds) {
       const user = await ctx.db.get("users", userId);
@@ -398,104 +543,131 @@ export const setClients = engineeringMutation({
     }
 
     await ctx.db.patch("projects", args.projectId, {
+      portalUserIds: valid.length > 0 ? valid : undefined,
       clientIds: valid.length > 0 ? valid : undefined,
     });
+
+    const afterDoc = await ctx.db.get("projects", args.projectId);
     await logAudit(ctx, ctx.user, {
       action: "set_clients",
       tableName: "projects",
       recordId: args.projectId,
+      entityLabel: project.name,
       details: `${valid.length} cliente(s)`,
+      changes: diffFields(before, projectSnapshot(afterDoc!), [
+        "portalUserIds",
+        "clientIds",
+      ]),
+      snapshotBefore: before,
+      snapshotAfter: afterDoc ? projectSnapshot(afterDoc) : undefined,
     });
     return null;
   },
 });
 
+export const archive = engineeringMutation({
+  args: { projectId: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project) throw new Error("Obra não encontrada");
+    if (isProjectArchived(project)) return null;
+
+    const now = Date.now();
+    const before = projectSnapshot(project);
+    await ctx.db.patch("projects", args.projectId, {
+      status: "archived",
+      archivedAt: now,
+      archivedByUserId: ctx.user._id,
+    });
+
+    await logAudit(ctx, ctx.user, {
+      action: "archive",
+      tableName: "projects",
+      recordId: args.projectId,
+      entityLabel: project.name,
+      snapshotBefore: before,
+      snapshotAfter: {
+        ...before,
+        status: "archived",
+        archivedAt: now,
+      },
+    });
+    return null;
+  },
+});
+
+export const restore = engineeringMutation({
+  args: {
+    projectId: v.id("projects"),
+    status: v.optional(
+      v.union(
+        v.literal("planning"),
+        v.literal("in_progress"),
+        v.literal("completed"),
+        v.literal("paused")
+      )
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project) throw new Error("Obra não encontrada");
+    if (!isProjectArchived(project)) return null;
+
+    const before = projectSnapshot(project);
+    const nextStatus = args.status ?? "planning";
+    await ctx.db.patch("projects", args.projectId, {
+      status: nextStatus,
+      archivedAt: undefined,
+      archivedByUserId: undefined,
+    });
+
+    await logAudit(ctx, ctx.user, {
+      action: "restore",
+      tableName: "projects",
+      recordId: args.projectId,
+      entityLabel: project.name,
+      snapshotBefore: before,
+      snapshotAfter: {
+        ...before,
+        status: nextStatus,
+        archivedAt: undefined,
+      },
+    });
+    return null;
+  },
+});
+
+/** Compatibilidade: arquiva em vez de excluir permanentemente. */
 export const remove = engineeringMutation({
   args: { projectId: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Remove em cascata: itens, unidades e entregas da obra.
-    const items = await ctx.db
-      .query("projectEquipment")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    for (const item of items) {
-      if (item.linkedEquipmentId) {
-        await ctx.db.patch("equipment", item.linkedEquipmentId, {
-          projectEquipmentId: undefined,
-        });
-      }
-      await ctx.db.delete("projectEquipment", item._id);
-    }
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project) throw new Error("Obra não encontrada");
+    if (isProjectArchived(project)) return null;
 
-    const units = await ctx.db
-      .query("projectUnits")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    for (const unit of units) {
-      await ctx.db.delete("projectUnits", unit._id);
-    }
+    const now = Date.now();
+    const before = projectSnapshot(project);
+    await ctx.db.patch("projects", args.projectId, {
+      status: "archived",
+      archivedAt: now,
+      archivedByUserId: ctx.user._id,
+    });
 
-    const deliveries = await ctx.db
-      .query("materialDeliveries")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    for (const d of deliveries) {
-      await ctx.db.delete("materialDeliveries", d._id);
-    }
-
-    // Takeoffs e histórico de preços vinculados à obra.
-    const takeoffs = await ctx.db
-      .query("takeoffs")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    for (const takeoff of takeoffs) {
-      const takeoffItems = await ctx.db
-        .query("takeoffItems")
-        .withIndex("by_takeoff", (q) => q.eq("takeoffId", takeoff._id))
-        .collect();
-      for (const item of takeoffItems) {
-        await ctx.db.delete("takeoffItems", item._id);
-      }
-      await ctx.db.delete("takeoffs", takeoff._id);
-    }
-
-    const priceEvents = await ctx.db
-      .query("priceEvents")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    for (const event of priceEvents) {
-      await ctx.db.delete("priceEvents", event._id);
-    }
-
-    // Cascata da hierarquia nova: ambientes, andares e torres.
-    const environments = await ctx.db
-      .query("environments")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    for (const env of environments) {
-      await ctx.db.delete("environments", env._id);
-    }
-    const floors = await ctx.db
-      .query("floors")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    for (const floor of floors) {
-      await ctx.db.delete("floors", floor._id);
-    }
-    const towers = await ctx.db
-      .query("towers")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    for (const tower of towers) {
-      await ctx.db.delete("towers", tower._id);
-    }
-
-    await ctx.db.delete("projects", args.projectId);
     await logAudit(ctx, ctx.user, {
-      action: "delete",
+      action: "archive",
       tableName: "projects",
       recordId: args.projectId,
+      entityLabel: project.name,
+      details: "Compat: remove → archive",
+      snapshotBefore: before,
+      snapshotAfter: {
+        ...before,
+        status: "archived",
+        archivedAt: now,
+      },
     });
     return null;
   },

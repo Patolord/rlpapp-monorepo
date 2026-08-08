@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { Loader2, Plus, Trash2, Wand2 } from "lucide-react";
@@ -43,6 +43,7 @@ interface ProjectInput {
   _id: Id<"projects">;
   name: string;
   floors: { number: number; label: string }[];
+  customerId?: Id<"customers"> | null;
   client?: string | null;
   address?: string | null;
   status?: ProjectStatus | null;
@@ -92,11 +93,14 @@ export function ProjectFormDialog({
 }) {
   const createProject = useMutation(api.projects.create);
   const updateProject = useMutation(api.projects.update);
+  const customers = useQuery(api.customers.list, { activeOnly: true });
   const isEdit = Boolean(project);
 
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(project?.name ?? "");
-  const [client, setClient] = useState(project?.client ?? "");
+  const [customerId, setCustomerId] = useState<string>(
+    project?.customerId ?? ""
+  );
   const [address, setAddress] = useState(project?.address ?? "");
   const [status, setStatus] = useState<ProjectStatus>(
     project?.status ?? "planning"
@@ -112,7 +116,7 @@ export function ProjectFormDialog({
 
   function reset() {
     setName(project?.name ?? "");
-    setClient(project?.client ?? "");
+    setCustomerId(project?.customerId ?? "");
     setAddress(project?.address ?? "");
     setStatus(project?.status ?? "planning");
     setStartDate(toDateInput(project?.startDate));
@@ -160,7 +164,9 @@ export function ProjectFormDialog({
     }));
 
     const meta = {
-      client: client.trim() || null,
+      customerId: customerId
+        ? (customerId as Id<"customers">)
+        : null,
       address: address.trim() || null,
       status,
       startDate: fromDateInput(startDate),
@@ -175,12 +181,16 @@ export function ProjectFormDialog({
               projectId: project._id,
               name: name.trim(),
               floors: payloadFloors,
-              ...meta,
+              customerId: meta.customerId,
+              address: meta.address,
+              status: meta.status,
+              startDate: meta.startDate,
+              endDate: meta.endDate,
             })
           : createProject({
               name: name.trim(),
               floors: payloadFloors,
-              client: meta.client ?? undefined,
+              customerId: meta.customerId ?? undefined,
               address: meta.address ?? undefined,
               status: meta.status,
               startDate: meta.startDate ?? undefined,
@@ -231,13 +241,25 @@ export function ProjectFormDialog({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="project-client">Cliente</Label>
-              <Input
-                id="project-client"
-                placeholder="Ex: Construtora XYZ"
-                value={client}
-                onChange={(e) => setClient(e.target.value)}
-              />
+              <Label htmlFor="project-customer">Cliente</Label>
+              <Select
+                value={customerId || "__none__"}
+                onValueChange={(v) =>
+                  setCustomerId(v === "__none__" ? "" : v)
+                }
+              >
+                <SelectTrigger id="project-customer">
+                  <SelectValue placeholder="Selecione um cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Sem cliente</SelectItem>
+                  {(customers ?? []).map((c) => (
+                    <SelectItem key={c._id} value={c._id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="project-status">Status</Label>

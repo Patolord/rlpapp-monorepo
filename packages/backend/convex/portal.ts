@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { authedQuery } from "./lib/rbac";
 import { buildProjectHierarchy } from "./lib/engenharia/hierarchy";
+import {
+  getLegacyClientLabel,
+  getPortalUserIds,
+  isProjectArchived,
+} from "./lib/projects/helpers";
 import { hierarchyReturnValidator } from "./projects";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
@@ -19,6 +24,17 @@ function isStaff(user: Doc<"users">): boolean {
   return STAFF_ROLES.has(user.role);
 }
 
+async function resolveCustomerLabel(
+  ctx: QueryCtx,
+  project: Doc<"projects">
+): Promise<string | null> {
+  if (project.customerId) {
+    const customer = await ctx.db.get("customers", project.customerId);
+    if (customer) return customer.name;
+  }
+  return getLegacyClientLabel(project) ?? null;
+}
+
 async function assertProjectAccess(
   ctx: QueryCtx,
   user: Doc<"users">,
@@ -26,8 +42,9 @@ async function assertProjectAccess(
 ): Promise<Doc<"projects">> {
   const project = await ctx.db.get("projects", projectId);
   if (!project) throw new Error("Obra não encontrada");
+  if (isProjectArchived(project)) throw new Error("Obra arquivada");
   if (isStaff(user)) return project;
-  const allowed = (project.clientIds ?? []).includes(user._id);
+  const allowed = getPortalUserIds(project).includes(user._id);
   if (!allowed) throw new Error("Acesso negado a esta obra");
   return project;
 }
@@ -50,8 +67,11 @@ export const listMyProjects = authedQuery({
     const staff = isStaff(ctx.user);
     const allProjects = await ctx.db.query("projects").collect();
     const visible = staff
-      ? allProjects
-      : allProjects.filter((p) => (p.clientIds ?? []).includes(ctx.user._id));
+      ? allProjects.filter((p) => !isProjectArchived(p))
+      : allProjects.filter(
+          (p) =>
+            !isProjectArchived(p) && getPortalUserIds(p).includes(ctx.user._id)
+        );
 
     const out = [];
     for (const project of visible) {
@@ -61,10 +81,11 @@ export const listMyProjects = authedQuery({
         .collect();
       const total = items.length;
       const installed = items.filter((i) => i.status === "operational").length;
+      const customerName = await resolveCustomerLabel(ctx, project);
       out.push({
         _id: project._id,
         name: project.name,
-        client: project.client ?? null,
+        client: customerName,
         address: project.address ?? null,
         status: project.status ?? null,
         total,
@@ -118,7 +139,7 @@ export const getProjectSummary = authedQuery({
     return {
       _id: project._id,
       name: project.name,
-      client: project.client ?? null,
+      client: (await resolveCustomerLabel(ctx, project)) ?? null,
       address: project.address ?? null,
       status: project.status ?? null,
       startDate: project.startDate ?? null,

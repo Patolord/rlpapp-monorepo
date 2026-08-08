@@ -52,7 +52,7 @@ function QrCodesPage() {
 
 function QrCodesContent() {
   const batchCreate = useMutation(api.qrCodes.batchCreate);
-  const projects = useQuery(api.projects.list);
+  const projects = useQuery(api.projects.list, {});
   const navigate = useNavigate();
 
   const [prefix, setPrefix] = useState("");
