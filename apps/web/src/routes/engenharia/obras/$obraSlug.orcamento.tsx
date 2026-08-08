@@ -43,11 +43,13 @@ function OrcamentoPage() {
 
 function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
   const [now] = useState(() => Date.now());
+  const currentUser = useQuery(api.users.getCurrentUser);
   const takeoffs = useQuery(api.takeoffs.list, { projectId });
   const createTakeoff = useMutation(api.takeoffs.create);
   const addItem = useMutation(api.takeoffs.addItem);
   const removeItem = useMutation(api.takeoffs.removeItem);
   const applyPrice = useMutation(api.takeoffs.applySuggestedPrice);
+  const promoteItem = useMutation(api.takeoffs.promoteItemToMaterial);
 
   const [activeTakeoffId, setActiveTakeoffId] = useState<Id<"takeoffs"> | null>(null);
   const takeoffDetail = useQuery(
@@ -59,6 +61,12 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
     rawDescription: "",
     quantity: "",
     unit: "",
+    widthMm: "",
+    heightMm: "",
+    lengthMm: "",
+    thicknessMm: "",
+    diameterMm: "",
+    customSpecification: "",
   });
   const suggestions = useQuery(
     api.materials.suggest,
@@ -103,8 +111,43 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
         quantity: newLine.quantity ? Number.parseFloat(newLine.quantity) : undefined,
         unit: newLine.unit || undefined,
         materialId,
+        customDimensions:
+          newLine.widthMm ||
+          newLine.heightMm ||
+          newLine.lengthMm ||
+          newLine.thicknessMm ||
+          newLine.diameterMm
+            ? {
+                widthMm: newLine.widthMm
+                  ? Number.parseFloat(newLine.widthMm.replace(",", "."))
+                  : undefined,
+                heightMm: newLine.heightMm
+                  ? Number.parseFloat(newLine.heightMm.replace(",", "."))
+                  : undefined,
+                lengthMm: newLine.lengthMm
+                  ? Number.parseFloat(newLine.lengthMm.replace(",", "."))
+                  : undefined,
+                thicknessMm: newLine.thicknessMm
+                  ? Number.parseFloat(newLine.thicknessMm.replace(",", "."))
+                  : undefined,
+                diameterMm: newLine.diameterMm
+                  ? Number.parseFloat(newLine.diameterMm.replace(",", "."))
+                  : undefined,
+              }
+            : undefined,
+        customSpecification: newLine.customSpecification || undefined,
       });
-      setNewLine({ rawDescription: "", quantity: "", unit: "" });
+      setNewLine({
+        rawDescription: "",
+        quantity: "",
+        unit: "",
+        widthMm: "",
+        heightMm: "",
+        lengthMm: "",
+        thicknessMm: "",
+        diameterMm: "",
+        customSpecification: "",
+      });
       toast.success("Item adicionado");
     } catch (error) {
       toast.error(getErrorMessage(error, "Erro ao adicionar item"));
@@ -120,6 +163,10 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
     const price = item.estimatedUnitPriceCents ?? 0;
     return sum + qty * price;
   }, 0);
+  const canPromoteMaterial =
+    currentUser?.role === "director" ||
+    currentUser?.role === "admin" ||
+    currentUser?.department === "compras";
 
   return (
     <div className="space-y-6">
@@ -215,6 +262,81 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
               />
             </div>
           </div>
+          <div className="grid gap-3 sm:grid-cols-5">
+            <div>
+              <Label>Largura personalizada (mm)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                value={newLine.widthMm}
+                onChange={(event) =>
+                  setNewLine({ ...newLine, widthMm: event.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label>Altura personalizada (mm)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                value={newLine.heightMm}
+                onChange={(event) =>
+                  setNewLine({ ...newLine, heightMm: event.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label>Comprimento (mm)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                value={newLine.lengthMm}
+                onChange={(event) =>
+                  setNewLine({ ...newLine, lengthMm: event.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label>Espessura (mm)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                value={newLine.thicknessMm}
+                onChange={(event) =>
+                  setNewLine({ ...newLine, thicknessMm: event.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label>Diâmetro (mm)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="any"
+                value={newLine.diameterMm}
+                onChange={(event) =>
+                  setNewLine({ ...newLine, diameterMm: event.target.value })
+                }
+              />
+            </div>
+          </div>
+          <div>
+            <Label>Detalhe personalizado</Label>
+            <Input
+              value={newLine.customSpecification}
+              onChange={(event) =>
+                setNewLine({
+                  ...newLine,
+                  customSpecification: event.target.value,
+                })
+              }
+              placeholder="Cor, acabamento..."
+            />
+          </div>
           <Button onClick={() => void handleAddLine()}>
             <Plus className="mr-2 size-4" />
             Adicionar linha
@@ -249,6 +371,16 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                     {item.materialName && (
                       <div className="text-xs text-muted-foreground">{item.materialName}</div>
                     )}
+                    {item.customDimensions ? (
+                      <div className="text-xs text-muted-foreground">
+                        {formatCustomDimensions(item.customDimensions)}
+                      </div>
+                    ) : null}
+                    {item.customSpecification ? (
+                      <div className="text-xs text-muted-foreground">
+                        {item.customSpecification}
+                      </div>
+                    ) : null}
                   </TableCell>
                   <TableCell>
                     {item.quantity ?? "—"}
@@ -302,18 +434,46 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() =>
-                        void removeItem({ itemId: item._id }).then(
-                          () => toast.success("Item removido"),
-                          (e) => toast.error(getErrorMessage(e, "Erro"))
-                        )
-                      }
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      {!item.materialId && canPromoteMaterial ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            void promoteItem({ itemId: item._id }).then(
+                              ({ created }) =>
+                                toast.success(
+                                  created
+                                    ? "SKU criado e vinculado"
+                                    : "SKU existente vinculado"
+                                ),
+                              (error) =>
+                                toast.error(
+                                  getErrorMessage(
+                                    error,
+                                    "Apenas Compras pode criar o SKU"
+                                  )
+                                )
+                            )
+                          }
+                        >
+                          Criar SKU
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Remover item"
+                        onClick={() =>
+                          void removeItem({ itemId: item._id }).then(
+                            () => toast.success("Item removido"),
+                            (e) => toast.error(getErrorMessage(e, "Erro"))
+                          )
+                        }
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -323,4 +483,24 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
       </Card>
     </div>
   );
+}
+
+function formatCustomDimensions(dimensions: {
+  widthMm?: number;
+  heightMm?: number;
+  lengthMm?: number;
+  thicknessMm?: number;
+  diameterMm?: number;
+}) {
+  const parts: string[] = [];
+  if (dimensions.widthMm && dimensions.heightMm) {
+    parts.push(`${dimensions.widthMm} × ${dimensions.heightMm} mm`);
+  } else {
+    if (dimensions.widthMm) parts.push(`L ${dimensions.widthMm} mm`);
+    if (dimensions.heightMm) parts.push(`A ${dimensions.heightMm} mm`);
+  }
+  if (dimensions.lengthMm) parts.push(`C ${dimensions.lengthMm} mm`);
+  if (dimensions.thicknessMm) parts.push(`E ${dimensions.thicknessMm} mm`);
+  if (dimensions.diameterMm) parts.push(`Ø ${dimensions.diameterMm} mm`);
+  return parts.join(" · ");
 }

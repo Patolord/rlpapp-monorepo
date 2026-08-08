@@ -1,7 +1,20 @@
 import { v } from "convex/values";
-import { engineeringMutation, engineeringOrPurchasingQuery } from "./lib/rbac";
+import {
+  engineeringMutation,
+  engineeringOrPurchasingQuery,
+  purchasingMutation,
+} from "./lib/rbac";
 import { logAudit } from "./lib/audit";
-import { takeoffItemStatus, takeoffStatus } from "./schema";
+import { materialDimensions, takeoffItemStatus, takeoffStatus } from "./schema";
+import {
+  allocateNextSku,
+  buildMaterialIdentityKey,
+  buildMaterialSearchText,
+  deriveVariantLabel,
+  findMaterialByIdentity,
+  normalizeUnit,
+  sanitizeDimensions,
+} from "./lib/compras/catalog";
 import {
   normalizeText,
   priceFreshness,
@@ -31,6 +44,8 @@ export const takeoffItemValidator = v.object({
   unit: v.union(v.string(), v.null()),
   materialId: v.union(v.id("materials"), v.null()),
   materialName: v.union(v.string(), v.null()),
+  customDimensions: v.union(materialDimensions, v.null()),
+  customSpecification: v.union(v.string(), v.null()),
   estimatedUnitPriceCents: v.union(v.number(), v.null()),
   notes: v.union(v.string(), v.null()),
   status: v.union(takeoffItemStatus, v.null()),
@@ -229,6 +244,8 @@ export const get = engineeringOrPurchasingQuery({
         unit: item.unit ?? null,
         materialId: item.materialId ?? null,
         materialName,
+        customDimensions: item.customDimensions ?? null,
+        customSpecification: item.customSpecification ?? null,
         estimatedUnitPriceCents: item.estimatedUnitPriceCents ?? null,
         notes: item.notes ?? null,
         status: item.status ?? null,
@@ -300,6 +317,8 @@ export const addItem = engineeringMutation({
     quantity: v.optional(v.number()),
     unit: v.optional(v.string()),
     materialId: v.optional(v.id("materials")),
+    customDimensions: v.optional(materialDimensions),
+    customSpecification: v.optional(v.string()),
     estimatedUnitPriceCents: v.optional(v.number()),
     notes: v.optional(v.string()),
   },
@@ -312,6 +331,7 @@ export const addItem = engineeringMutation({
     if (!rawDescription) throw new Error("Informe a descrição do item");
 
     const now = Date.now();
+    const customDimensions = sanitizeDimensions(args.customDimensions);
     const itemId = await ctx.db.insert("takeoffItems", {
       takeoffId: args.takeoffId,
       projectId: takeoff.projectId,
@@ -319,6 +339,8 @@ export const addItem = engineeringMutation({
       quantity: args.quantity,
       unit: args.unit?.trim() || undefined,
       materialId: args.materialId,
+      customDimensions,
+      customSpecification: args.customSpecification?.trim() || undefined,
       estimatedUnitPriceCents: args.estimatedUnitPriceCents,
       notes: args.notes?.trim() || undefined,
       status: args.materialId ? "matched" : "draft",
@@ -338,6 +360,8 @@ export const updateItem = engineeringMutation({
     quantity: v.optional(v.number()),
     unit: v.optional(v.string()),
     materialId: v.optional(v.id("materials")),
+    customDimensions: v.optional(materialDimensions),
+    customSpecification: v.optional(v.string()),
     estimatedUnitPriceCents: v.optional(v.number()),
     notes: v.optional(v.string()),
     status: v.optional(takeoffItemStatus),
@@ -359,6 +383,13 @@ export const updateItem = engineeringMutation({
       updates.materialId = args.materialId;
       if (args.materialId && !args.status) updates.status = "matched";
     }
+    if (args.customDimensions !== undefined) {
+      updates.customDimensions = sanitizeDimensions(args.customDimensions);
+    }
+    if (args.customSpecification !== undefined) {
+      updates.customSpecification =
+        args.customSpecification.trim() || undefined;
+    }
     if (args.estimatedUnitPriceCents !== undefined) {
       updates.estimatedUnitPriceCents = args.estimatedUnitPriceCents;
     }
@@ -368,6 +399,111 @@ export const updateItem = engineeringMutation({
     await ctx.db.patch("takeoffItems", args.itemId, updates);
     await ctx.db.patch("takeoffs", item.takeoffId, { updatedAt: Date.now() });
     return null;
+  },
+});
+
+export const promoteItemToMaterial = purchasingMutation({
+  args: {
+    itemId: v.id("takeoffItems"),
+    familyName: v.optional(v.string()),
+    category: v.optional(v.string()),
+  },
+  returns: v.object({
+    materialId: v.id("materials"),
+    created: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get("takeoffItems", args.itemId);
+    if (!item) throw new Error("Item não encontrado");
+    if (item.materialId) {
+      return { materialId: item.materialId, created: false };
+    }
+
+    const familyName = (args.familyName ?? item.rawDescription).trim();
+    if (!familyName) throw new Error("Informe o nome da família");
+    const nameNormalized = normalizeText(familyName);
+    let family = await ctx.db
+      .query("materialFamilies")
+      .withIndex("by_name_normalized", (q) =>
+        q.eq("nameNormalized", nameNormalized)
+      )
+      .first();
+    const now = Date.now();
+    if (!family) {
+      const familyId = await ctx.db.insert("materialFamilies", {
+        name: familyName,
+        nameNormalized,
+        category: args.category?.trim() || undefined,
+        baseUnit: normalizeUnit(item.unit),
+        active: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      family = await ctx.db.get("materialFamilies", familyId);
+    }
+    if (!family) throw new Error("Falha ao criar família de material");
+
+    const dimensions = sanitizeDimensions(item.customDimensions);
+    const variantLabel = deriveVariantLabel({
+      variantLabel: item.customSpecification,
+      dimensions,
+    });
+    const unit = normalizeUnit(item.unit);
+    const identityKey = buildMaterialIdentityKey({
+      familyId: family._id,
+      unit,
+      variantLabel,
+      dimensions,
+    });
+    const existing = await findMaterialByIdentity(ctx, {
+      identityKey,
+    });
+    if (existing) {
+      await ctx.db.patch("takeoffItems", item._id, {
+        materialId: existing._id,
+        status: "matched",
+        updatedAt: now,
+      });
+      return { materialId: existing._id, created: false };
+    }
+
+    const sku = await allocateNextSku(ctx);
+    const materialId = await ctx.db.insert("materials", {
+      name: family.name,
+      familyId: family._id,
+      variantLabel,
+      dimensions,
+      identityKey,
+      sku,
+      category: args.category?.trim() || family.category,
+      unit,
+      spec: item.customSpecification,
+      searchText: buildMaterialSearchText({
+        name: family.name,
+        variantLabel,
+        sku,
+        category: args.category?.trim() || family.category,
+        spec: item.customSpecification,
+      }),
+      trackInventory: true,
+      active: true,
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    });
+    await ctx.db.patch("takeoffItems", item._id, {
+      materialId,
+      status: "matched",
+      updatedAt: now,
+    });
+    await ctx.db.patch("takeoffs", item.takeoffId, { updatedAt: now });
+    await logAudit(ctx, ctx.user, {
+      action: "create",
+      tableName: "materials",
+      recordId: materialId,
+      details: `Promovido do takeoff: ${family.name}`,
+    });
+    return { materialId, created: true };
   },
 });
 

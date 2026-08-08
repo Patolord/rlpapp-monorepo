@@ -1,6 +1,12 @@
-/** Normaliza texto para busca/alias (lowercase, trim, espaços colapsados). */
+/** Normaliza texto para busca/alias, ignorando acentos e pontuação. */
 export function normalizeText(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
 }
 
 export type PriceFreshness = "fresh" | "usable" | "old" | "stale";

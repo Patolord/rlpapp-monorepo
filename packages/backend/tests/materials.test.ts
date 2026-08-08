@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
-import { setup, withUser } from "./helpers";
+import { setup } from "./helpers";
 import {
   computeReplenishmentState,
   formatSku,
@@ -146,6 +146,212 @@ describe("materials catalog", () => {
     });
     expect(page.page).toHaveLength(1);
     expect(page.page[0]?.name).toBe("Sensor de temperatura");
+  });
+
+  test("blocks exact variants while allowing different dimensions", async () => {
+    const { purchasing } = await seedCatalogUsers();
+    const firstId = await purchasing.mutation(api.materials.create, {
+      name: "Grelha simples fixa",
+      variantLabel: "Branca 200x200mm",
+      dimensions: { widthMm: 200, heightMm: 200 },
+      unit: "peça",
+    });
+
+    await expect(
+      purchasing.mutation(api.materials.create, {
+        name: "GRELHA SIMPLES FIXA",
+        variantLabel: "Branca 200 × 200 mm",
+        dimensions: { widthMm: 200, heightMm: 200 },
+        unit: "pç",
+      })
+    ).rejects.toThrow("Material já cadastrado");
+
+    const secondId = await purchasing.mutation(api.materials.create, {
+      name: "Grelha simples fixa",
+      variantLabel: "Branca 300x300mm",
+      dimensions: { widthMm: 300, heightMm: 300 },
+      unit: "un",
+    });
+    expect(secondId).not.toBe(firstId);
+
+    const candidates = await purchasing.query(
+      api.materials.findDuplicateCandidates,
+      {
+        name: "grelha simples fixa",
+        variantLabel: "Branca 200x200mm",
+        dimensions: { widthMm: 200, heightMm: 200 },
+        unit: "un",
+      }
+    );
+    expect(candidates.some((candidate) => candidate.exact)).toBe(true);
+  });
+
+  test("prevents an alias from pointing to different materials", async () => {
+    const { purchasing } = await seedCatalogUsers();
+    const firstId = await purchasing.mutation(api.materials.create, {
+      name: "Cabo PP",
+      variantLabel: "3x1,5mm²",
+      unit: "m",
+    });
+    const secondId = await purchasing.mutation(api.materials.create, {
+      name: "Cabo PP",
+      variantLabel: "3x2,5mm²",
+      unit: "m",
+    });
+    await purchasing.mutation(api.materials.addAlias, {
+      materialId: firstId,
+      alias: "cabo flexível pequeno",
+    });
+    await expect(
+      purchasing.mutation(api.materials.addAlias, {
+        materialId: secondId,
+        alias: "Cabo flexivel pequeno",
+      })
+    ).rejects.toThrow("Alias já pertence");
+  });
+
+  test("links many suppliers to one material without changing catalog ownership", async () => {
+    const { purchasing } = await seedCatalogUsers();
+    const materialId = await purchasing.mutation(api.materials.create, {
+      name: "Detector de fumaça",
+      unit: "un",
+    });
+    const firstSupplierId = await purchasing.mutation(api.suppliers.create, {
+      name: "Fornecedor A",
+    });
+    const secondSupplierId = await purchasing.mutation(api.suppliers.create, {
+      name: "Fornecedor B",
+    });
+    await purchasing.mutation(api.suppliers.upsertMaterialOffering, {
+      supplierId: firstSupplierId,
+      materialId,
+      supplierCode: "A-100",
+      preferred: true,
+    });
+    await purchasing.mutation(api.suppliers.upsertMaterialOffering, {
+      supplierId: secondSupplierId,
+      materialId,
+      supplierCode: "B-200",
+    });
+    await expect(
+      purchasing.mutation(api.suppliers.upsertMaterialOffering, {
+        supplierId: firstSupplierId,
+        materialId: await purchasing.mutation(api.materials.create, {
+          name: "Detector de temperatura",
+          unit: "un",
+        }),
+        supplierCode: "A-100",
+      })
+    ).rejects.toThrow("já está vinculado");
+
+    const offerings = await purchasing.query(
+      api.suppliers.listMaterialOfferings,
+      { materialId }
+    );
+    expect(offerings).toHaveLength(2);
+    expect(offerings.map((offering) => offering.supplierCode).sort()).toEqual([
+      "A-100",
+      "B-200",
+    ]);
+  });
+
+  test("keeps custom takeoff dimensions contextual until purchasing promotes them", async () => {
+    const { purchasing, engineer } = await seedCatalogUsers();
+    const takeoffId = await engineer.mutation(api.takeoffs.create, {
+      name: "Dampers especiais",
+    });
+    const itemId = await engineer.mutation(api.takeoffs.addItem, {
+      takeoffId,
+      rawDescription: "Damper de regulagem manual",
+      quantity: 1,
+      unit: "pç",
+      customDimensions: { widthMm: 850, heightMm: 700 },
+      customSpecification: "Galvanizado",
+    });
+
+    const before = await engineer.query(api.takeoffs.get, {
+      takeoffId,
+      now: Date.now(),
+    });
+    expect(before?.items[0]?.materialId).toBeNull();
+    expect(before?.items[0]?.customDimensions).toEqual({
+      widthMm: 850,
+      heightMm: 700,
+    });
+
+    const promoted = await purchasing.mutation(
+      api.takeoffs.promoteItemToMaterial,
+      { itemId }
+    );
+    expect(promoted.created).toBe(true);
+    const material = await purchasing.query(api.materials.get, {
+      materialId: promoted.materialId,
+    });
+    expect(material?.dimensions).toEqual({ widthMm: 850, heightMm: 700 });
+
+    const after = await engineer.query(api.takeoffs.get, {
+      takeoffId,
+      now: Date.now(),
+    });
+    expect(after?.items[0]?.materialId).toBe(promoted.materialId);
+  });
+
+  test("imports spreadsheet variants and opening stock idempotently", async () => {
+    const { t, purchasing } = await seedCatalogUsers();
+    const items = [
+      {
+        name: "Damper de regulagem manual",
+        variantLabel: "850x700mm",
+        dimensions: { widthMm: 850, heightMm: 700 },
+        sourceMaterialId: "5237",
+        sourceRowNumber: 1,
+        quantity: 1,
+        unit: "pç",
+        unitCostCents: 10,
+      },
+      {
+        name: "Damper de regulagem manual",
+        variantLabel: "850x700mm",
+        dimensions: { widthMm: 850, heightMm: 700 },
+        sourceMaterialId: "5237",
+        sourceRowNumber: 2,
+        quantity: 1,
+        unit: "peça",
+        unitCostCents: 10,
+      },
+      {
+        name: "Damper de regulagem manual",
+        variantLabel: "900x850mm",
+        dimensions: { widthMm: 900, heightMm: 850 },
+        sourceMaterialId: "5237",
+        sourceRowNumber: 3,
+        quantity: 1,
+        unit: "peça",
+        unitCostCents: 10,
+      },
+    ];
+
+    const first = await purchasing.mutation(api.materials.bulkCreate, {
+      source: "estoque-2023",
+      items,
+    });
+    expect(first.created).toBe(2);
+    expect(first.skipped).toBe(1);
+
+    const second = await purchasing.mutation(api.materials.bulkCreate, {
+      source: "estoque-2023",
+      items,
+    });
+    expect(second.created).toBe(0);
+    expect(second.skipped).toBe(3);
+
+    const balances = await t.run(async (ctx) => {
+      return await ctx.db.query("inventoryBalances").collect();
+    });
+    expect(balances).toHaveLength(2);
+    expect(
+      balances.reduce((total, balance) => total + balance.quantity, 0)
+    ).toBe(3);
   });
 
   test("stock policy upsert validates; central qty stays scoped to warehouse/purchasing", async () => {

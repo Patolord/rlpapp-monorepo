@@ -6,12 +6,6 @@ import { findOrCreateCustomerByName } from "./customers";
 import { getLegacyClientLabel, getPortalUserIds } from "./lib/projects/helpers";
 import { normalizeCustomerName } from "./lib/customers/helpers";
 import type { Id } from "./_generated/dataModel";
-import {
-  allocateNextSku,
-  buildMaterialSearchText,
-  ensureSkuCounterAtLeast,
-  parseSkuSequence,
-} from "./lib/compras/catalog";
 
 /**
  * Backfill idempotente: cria, para cada obra que ainda não tem torres, uma
@@ -366,97 +360,6 @@ export const verifyCustomerMigration = adminQuery({
         projectName: p.name,
         legacyClient: getLegacyClientLabel(p) ?? null,
       })),
-    };
-  },
-});
-
-/**
- * Backfill idempotente: atribui SKU, searchText e status faltantes aos materiais
- * existentes e inicializa o contador sequencial.
- *
- * Rodar com: npx convex run migrations:backfillMaterialCatalog
- */
-export const backfillMaterialCatalog = internalMutation({
-  args: {},
-  returns: v.object({
-    skusAssigned: v.number(),
-    searchTextUpdated: v.number(),
-    statusUpdated: v.number(),
-    maxSkuSequence: v.number(),
-  }),
-  handler: async (ctx) => {
-    let skusAssigned = 0;
-    let searchTextUpdated = 0;
-    let statusUpdated = 0;
-    let maxSkuSequence = 0;
-
-    const materials = await ctx.db.query("materials").collect();
-
-    for (const material of materials) {
-      if (material.sku) {
-        const sequence = parseSkuSequence(material.sku);
-        if (sequence && sequence > maxSkuSequence) {
-          maxSkuSequence = sequence;
-        }
-      }
-
-      const updates: Record<string, unknown> = {};
-      const searchText = buildMaterialSearchText({
-        name: material.name,
-        sku: material.sku,
-        barcode: material.barcode,
-        category: material.category,
-        manufacturer: material.manufacturer,
-        manufacturerPartNumber: material.manufacturerPartNumber,
-        brandPreference: material.brandPreference,
-        spec: material.spec,
-      });
-      if (material.searchText !== searchText) {
-        updates.searchText = searchText;
-        searchTextUpdated++;
-      }
-      if (!material.status) {
-        updates.status = material.active ? "active" : "archived";
-        statusUpdated++;
-      }
-      if (Object.keys(updates).length > 0) {
-        await ctx.db.patch("materials", material._id, updates);
-      }
-    }
-
-    for (const material of materials) {
-      if (material.sku) continue;
-      const sku = await allocateNextSku(ctx);
-      await ctx.db.patch("materials", material._id, {
-        sku,
-        searchText: buildMaterialSearchText({
-          name: material.name,
-          sku,
-          barcode: material.barcode,
-          category: material.category,
-          manufacturer: material.manufacturer,
-          manufacturerPartNumber: material.manufacturerPartNumber,
-          brandPreference: material.brandPreference,
-          spec: material.spec,
-        }),
-        updatedAt: Date.now(),
-      });
-      skusAssigned++;
-      const sequence = parseSkuSequence(sku);
-      if (sequence && sequence > maxSkuSequence) {
-        maxSkuSequence = sequence;
-      }
-    }
-
-    if (maxSkuSequence > 0) {
-      await ensureSkuCounterAtLeast(ctx, maxSkuSequence);
-    }
-
-    return {
-      skusAssigned,
-      searchTextUpdated,
-      statusUpdated,
-      maxSkuSequence,
     };
   },
 });

@@ -37,7 +37,6 @@ export const departments = v.union(
 export const materialStatus = v.union(
   v.literal("draft"),
   v.literal("active"),
-  v.literal("duplicate"),
   v.literal("archived")
 );
 
@@ -82,6 +81,14 @@ export const priceEventReviewStatus = v.union(
   v.literal("ignored"),
   v.literal("duplicate")
 );
+
+export const materialDimensions = v.object({
+  widthMm: v.optional(v.number()),
+  heightMm: v.optional(v.number()),
+  lengthMm: v.optional(v.number()),
+  thicknessMm: v.optional(v.number()),
+  diameterMm: v.optional(v.number()),
+});
 
 // --- Estoque ---
 
@@ -537,8 +544,25 @@ export default defineSchema({
 
   // --- Compras: catálogo, fornecedores, takeoffs e histórico de preços ---
 
+  materialFamilies: defineTable({
+    name: v.string(),
+    nameNormalized: v.string(),
+    category: v.optional(v.string()),
+    baseUnit: v.optional(v.string()),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_name_normalized", ["nameNormalized"])
+    .index("by_active", ["active"]),
+
   materials: defineTable({
     name: v.string(),
+    familyId: v.id("materialFamilies"),
+    variantLabel: v.optional(v.string()),
+    dimensions: v.optional(materialDimensions),
+    // Chave canônica da combinação família + atributos que definem o SKU.
+    identityKey: v.string(),
     // SKU interno (ex.: MAT-000001). Gerado automaticamente, editável.
     sku: v.optional(v.string()),
     barcode: v.optional(v.string()),
@@ -573,12 +597,28 @@ export default defineSchema({
     .index("by_category", ["category"])
     .index("by_sku", ["sku"])
     .index("by_barcode", ["barcode"])
-    .index("by_searchText", ["searchText"]),
+    .index("by_searchText", ["searchText"])
+    .index("by_family", ["familyId"])
+    .index("by_identity_key", ["identityKey"]),
 
   materialSkuCounters: defineTable({
     key: v.literal("material"),
     nextNumber: v.number(),
   }).index("by_key", ["key"]),
+
+  materialImportRows: defineTable({
+    source: v.string(),
+    rowKey: v.string(),
+    materialId: v.id("materials"),
+    sourceMaterialId: v.optional(v.string()),
+    sourceDetailId: v.optional(v.string()),
+    sourceRowNumber: v.optional(v.number()),
+    quantity: v.optional(v.number()),
+    unitCostCents: v.optional(v.number()),
+    importedAt: v.number(),
+  })
+    .index("by_source_row", ["source", "rowKey"])
+    .index("by_material", ["materialId"]),
 
   suppliers: defineTable({
     name: v.string(),
@@ -600,6 +640,24 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_supplier", ["supplierId"]),
 
+  supplierMaterials: defineTable({
+    supplierId: v.id("suppliers"),
+    materialId: v.id("materials"),
+    supplierCode: v.optional(v.string()),
+    supplierDescription: v.optional(v.string()),
+    purchaseUnit: v.optional(v.string()),
+    unitsPerPurchaseUnit: v.optional(v.number()),
+    leadTimeDays: v.optional(v.number()),
+    preferred: v.boolean(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_supplier", ["supplierId"])
+    .index("by_material", ["materialId"])
+    .index("by_supplier_material", ["supplierId", "materialId"])
+    .index("by_supplier_code", ["supplierId", "supplierCode"]),
+
   takeoffs: defineTable({
     projectId: v.optional(v.id("projects")),
     name: v.string(),
@@ -619,6 +677,8 @@ export default defineSchema({
     quantity: v.optional(v.number()),
     unit: v.optional(v.string()),
     materialId: v.optional(v.id("materials")),
+    customDimensions: v.optional(materialDimensions),
+    customSpecification: v.optional(v.string()),
     estimatedUnitPriceCents: v.optional(v.number()),
     notes: v.optional(v.string()),
     status: v.optional(takeoffItemStatus),

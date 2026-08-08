@@ -1,7 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -49,13 +49,30 @@ export function MaterialDetailSheet({
     api.inventoryStockPolicies.listForMaterial,
     material ? { materialId: material._id } : "skip"
   );
+  const variants = useQuery(
+    api.materials.listVariants,
+    material?.familyId ? { familyId: material.familyId } : "skip"
+  );
   const addAlias = useMutation(api.materials.addAlias);
+  const suppliers = useQuery(api.suppliers.list, { activeOnly: true });
+  const offerings = useQuery(
+    api.suppliers.listMaterialOfferings,
+    material ? { materialId: material._id } : "skip"
+  );
+  const upsertOffering = useMutation(api.suppliers.upsertMaterialOffering);
+  const removeOffering = useMutation(api.suppliers.removeMaterialOffering);
   const ensureCentralLocation = useMutation(
     api.inventoryStockPolicies.ensureCentralLocation
   );
 
   const [aliasInput, setAliasInput] = useState("");
   const [submittingAlias, setSubmittingAlias] = useState(false);
+  const [supplierId, setSupplierId] = useState("");
+  const [supplierCode, setSupplierCode] = useState("");
+  const [supplierPurchaseUnit, setSupplierPurchaseUnit] = useState("");
+  const [supplierLeadTimeDays, setSupplierLeadTimeDays] = useState("");
+  const [preferredSupplier, setPreferredSupplier] = useState(false);
+  const [submittingOffering, setSubmittingOffering] = useState(false);
   const [policySheetOpen, setPolicySheetOpen] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<PolicyDraft | null>(null);
 
@@ -89,6 +106,33 @@ export function MaterialDetailSheet({
     }
   }
 
+  async function handleAddOffering() {
+    if (!supplierId) return;
+    setSubmittingOffering(true);
+    try {
+      await upsertOffering({
+        supplierId: supplierId as Id<"suppliers">,
+        materialId: material!._id,
+        supplierCode: supplierCode || undefined,
+        purchaseUnit: supplierPurchaseUnit || undefined,
+        leadTimeDays: supplierLeadTimeDays
+          ? Number.parseInt(supplierLeadTimeDays, 10)
+          : undefined,
+        preferred: preferredSupplier,
+      });
+      setSupplierId("");
+      setSupplierCode("");
+      setSupplierPurchaseUnit("");
+      setSupplierLeadTimeDays("");
+      setPreferredSupplier(false);
+      toast.success("Fornecedor vinculado");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao vincular fornecedor"));
+    } finally {
+      setSubmittingOffering(false);
+    }
+  }
+
   return (
     <>
       <Sheet open={material !== null} onOpenChange={onOpenChange}>
@@ -106,6 +150,7 @@ export function MaterialDetailSheet({
               <h3 className="text-sm font-medium">Resumo</h3>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 <DetailItem label="SKU" value={material.sku} />
+                <DetailItem label="Variante" value={material.variantLabel} />
                 <DetailItem label="Código de barras" value={material.barcode} />
                 <DetailItem label="Fabricante" value={material.manufacturer} />
                 <DetailItem
@@ -124,6 +169,10 @@ export function MaterialDetailSheet({
                 />
                 <DetailItem label="Especificação" value={material.spec} />
                 <DetailItem
+                  label="Dimensões"
+                  value={formatDimensions(material.dimensions)}
+                />
+                <DetailItem
                   label="Marca preferida"
                   value={material.brandPreference}
                 />
@@ -132,6 +181,115 @@ export function MaterialDetailSheet({
                 state={material.centralReplenishmentState}
                 quantity={material.centralQuantity}
               />
+            </section>
+
+            <section className="space-y-2">
+              <h3 className="text-sm font-medium">Fornecedores</h3>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <select
+                  className="h-9 rounded-md border bg-background px-3 text-sm"
+                  value={supplierId}
+                  onChange={(event) => setSupplierId(event.target.value)}
+                  aria-label="Fornecedor"
+                >
+                  <option value="">Selecione...</option>
+                  {(suppliers ?? []).map((supplier) => (
+                    <option key={supplier._id} value={supplier._id}>
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  value={supplierCode}
+                  onChange={(event) => setSupplierCode(event.target.value)}
+                  placeholder="Código do fornecedor"
+                />
+                <Input
+                  value={supplierPurchaseUnit}
+                  onChange={(event) =>
+                    setSupplierPurchaseUnit(event.target.value)
+                  }
+                  placeholder="Unidade de compra"
+                />
+                <Input
+                  type="number"
+                  min="0"
+                  value={supplierLeadTimeDays}
+                  onChange={(event) =>
+                    setSupplierLeadTimeDays(event.target.value)
+                  }
+                  placeholder="Prazo (dias)"
+                />
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={preferredSupplier}
+                    onChange={(event) =>
+                      setPreferredSupplier(event.target.checked)
+                    }
+                  />
+                  Fornecedor preferido
+                </label>
+                <Button
+                  variant="outline"
+                  onClick={() => void handleAddOffering()}
+                  disabled={!supplierId || submittingOffering}
+                >
+                  Vincular
+                </Button>
+              </div>
+              {(offerings ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum fornecedor vinculado.
+                </p>
+              ) : (
+                <ul className="space-y-1 text-sm">
+                  {(offerings ?? []).map((offering) => {
+                    const supplier = (suppliers ?? []).find(
+                      (item) => item._id === offering.supplierId
+                    );
+                    return (
+                      <li
+                        key={offering._id}
+                        className="flex items-center justify-between gap-2 rounded border px-2 py-1"
+                      >
+                        <span>
+                          {supplier?.name ?? "Fornecedor"}
+                          {offering.supplierCode
+                            ? ` · ${offering.supplierCode}`
+                            : ""}
+                          {offering.purchaseUnit
+                            ? ` · ${offering.purchaseUnit}`
+                            : ""}
+                          {offering.leadTimeDays != null
+                            ? ` · ${offering.leadTimeDays} dias`
+                            : ""}
+                          {offering.preferred ? " · preferido" : ""}
+                        </span>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          aria-label="Remover fornecedor"
+                          onClick={() =>
+                            void removeOffering({
+                              offeringId: offering._id,
+                            }).catch((error) =>
+                              toast.error(
+                                getErrorMessage(
+                                  error,
+                                  "Erro ao remover fornecedor"
+                                )
+                              )
+                            )
+                          }
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </section>
 
             <section className="space-y-2">
@@ -149,6 +307,29 @@ export function MaterialDetailSheet({
                 </ul>
               )}
             </section>
+
+            {variants && variants.length > 1 ? (
+              <section className="space-y-2">
+                <h3 className="text-sm font-medium">
+                  Variantes desta família ({variants.length})
+                </h3>
+                <ul className="space-y-1 text-sm">
+                  {variants.map((variant) => (
+                    <li
+                      key={variant._id}
+                      className={
+                        variant._id === material._id
+                          ? "rounded border bg-muted px-2 py-1 font-medium"
+                          : "rounded border px-2 py-1"
+                      }
+                    >
+                      {variant.variantLabel ?? "Sem detalhe"} ·{" "}
+                      {variant.sku ?? "sem SKU"}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
 
             <section className="space-y-2">
               <h3 className="text-sm font-medium">Aliases</h3>
@@ -256,6 +437,21 @@ export function MaterialDetailSheet({
       />
     </>
   );
+}
+
+function formatDimensions(
+  dimensions: MaterialCatalogRow["dimensions"]
+): string | null {
+  if (!dimensions) return null;
+  if (dimensions.widthMm && dimensions.heightMm) {
+    return `${dimensions.widthMm} × ${dimensions.heightMm} mm`;
+  }
+  if (dimensions.diameterMm) return `Ø ${dimensions.diameterMm} mm`;
+  if (dimensions.lengthMm) return `${dimensions.lengthMm} mm`;
+  return Object.entries(dimensions)
+    .filter((entry): entry is [string, number] => entry[1] !== undefined)
+    .map(([key, value]) => `${key}: ${value} mm`)
+    .join(", ");
 }
 
 function DetailItem({

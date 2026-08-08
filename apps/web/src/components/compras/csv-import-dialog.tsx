@@ -2,6 +2,7 @@ import { Download, FileUp, Loader2 } from "lucide-react";
 import type { ReactElement } from "react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -96,12 +97,12 @@ export function CsvImportDialog<T>({
     const normalizedHeaders = new Set(
       headers.map((h) => h.trim().toLowerCase())
     );
-    for (const aliasList of Object.values(columnAliases)) {
-      for (const alias of aliasList) {
-        normalizedHeaders.add(alias.trim().toLowerCase());
-      }
-    }
-    return requiredColumns.filter((col) => !normalizedHeaders.has(col.toLowerCase()));
+    return requiredColumns.filter((column) => {
+      const aliases = columnAliases[column] ?? [column];
+      return !aliases.some((alias) =>
+        normalizedHeaders.has(alias.trim().toLowerCase())
+      );
+    });
   }, [headers, requiredColumns, columnAliases]);
 
   function resetState() {
@@ -125,12 +126,36 @@ export function CsvImportDialog<T>({
     setFileName(file.name);
 
     try {
-      const text = await file.text();
-      const parsed = parseCsv(text);
-      setHeaders(parsed.headers);
-      setRawRows(parsed.rows);
+      if (/\.xlsx?$/i.test(file.name)) {
+        const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+        const firstSheetName = workbook.SheetNames[0];
+        if (!firstSheetName) throw new Error("A planilha não contém abas");
+        const sheet = workbook.Sheets[firstSheetName];
+        if (!sheet) throw new Error("Não foi possível ler a primeira aba");
+        const matrix = XLSX.utils.sheet_to_json<string[]>(sheet, {
+          header: 1,
+          defval: "",
+          raw: false,
+        });
+        const spreadsheetHeaders = (matrix[0] ?? []).map(String);
+        const rows = matrix.slice(1).map((values) =>
+          Object.fromEntries(
+            spreadsheetHeaders.map((header, index) => [
+              header,
+              String(values[index] ?? ""),
+            ])
+          )
+        );
+        setHeaders(spreadsheetHeaders);
+        setRawRows(rows);
+      } else {
+        const text = await file.text();
+        const parsed = parseCsv(text);
+        setHeaders(parsed.headers);
+        setRawRows(parsed.rows);
+      }
     } catch (error) {
-      toast.error(getErrorMessage(error, "Erro ao ler o arquivo CSV"));
+      toast.error(getErrorMessage(error, "Erro ao ler o arquivo"));
       resetState();
     }
   }
@@ -199,7 +224,7 @@ export function CsvImportDialog<T>({
             <Input
               ref={fileInputRef}
               type="file"
-              accept=".csv,text/csv"
+              accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
               className="hidden"
               onChange={(e) => void handleFileChange(e)}
             />
@@ -211,7 +236,7 @@ export function CsvImportDialog<T>({
             </p>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Selecione um arquivo CSV com cabeçalho na primeira linha.
+              Selecione um arquivo CSV ou Excel com cabeçalho na primeira linha.
             </p>
           )}
 

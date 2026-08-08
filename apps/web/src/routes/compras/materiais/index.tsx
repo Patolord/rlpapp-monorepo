@@ -29,7 +29,12 @@ import { getErrorMessage } from "@/lib/errors";
 import { splitList } from "@/lib/csv";
 
 const MATERIAL_COLUMN_ALIASES = {
-  name: ["name", "nome", "material"],
+  name: ["name", "nome", "material", "descrição", "descricao"],
+  variantLabel: ["variantlabel", "variante", "detalhe"],
+  sourceMaterialId: ["sourcematerialid", "id"],
+  sourceDetailId: ["sourcedetailid", "id detalhe", "iddetalhe"],
+  quantity: ["quantity", "quantidade", "qtd"],
+  unitCost: ["unitcost", "custo unitário", "custo unitario", "valor"],
   category: ["category", "categoria"],
   unit: ["unit", "unidade", "un"],
   spec: ["spec", "especificacao", "especificação", "specification"],
@@ -39,6 +44,11 @@ const MATERIAL_COLUMN_ALIASES = {
 
 const MATERIAL_TEMPLATE_HEADERS = [
   "name",
+  "variantLabel",
+  "sourceMaterialId",
+  "sourceDetailId",
+  "quantity",
+  "unitCost",
   "category",
   "unit",
   "spec",
@@ -48,12 +58,37 @@ const MATERIAL_TEMPLATE_HEADERS = [
 
 type MaterialImportItem = {
   name: string;
+  variantLabel?: string;
+  dimensions?: {
+    widthMm?: number;
+    heightMm?: number;
+  };
+  sourceMaterialId?: string;
+  sourceDetailId?: string;
+  sourceRowNumber: number;
+  quantity?: number;
+  unitCostCents?: number;
   category?: string;
   unit?: string;
   spec?: string;
   brandPreference?: string;
   aliases?: string[];
 };
+
+function dimensionsFromVariant(
+  value: string | undefined
+): MaterialImportItem["dimensions"] {
+  if (!value) return undefined;
+  const match =
+    /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*mm(?![²2])/i.exec(
+      value
+    );
+  if (!match) return undefined;
+  return {
+    widthMm: Number.parseFloat(match[1]!.replace(",", ".")),
+    heightMm: Number.parseFloat(match[2]!.replace(",", ".")),
+  };
+}
 
 export const Route = createFileRoute("/compras/materiais/")({
   component: MateriaisPage,
@@ -107,11 +142,16 @@ function MateriaisContent() {
         </div>
         <div className="flex flex-wrap gap-2">
           <CsvImportDialog<MaterialImportItem>
-            title="Importar materiais (CSV)"
+            title="Importar materiais (CSV ou Excel)"
             templateFilename="materiais.csv"
             templateHeaders={[...MATERIAL_TEMPLATE_HEADERS]}
             templateSampleRow={[
               "Cabo PP 3x2.5",
+              "3x2,5 mm²",
+              "42",
+              "2",
+              "200",
+              "0,10",
               "Elétrica",
               "m",
               "Flexível",
@@ -120,17 +160,45 @@ function MateriaisContent() {
             ]}
             requiredColumns={["name"]}
             columnAliases={MATERIAL_COLUMN_ALIASES}
-            previewColumns={["name", "category", "unit", "spec"]}
+            previewColumns={["name", "variantLabel", "category", "unit"]}
             mapRow={(row, rowNumber) => {
               const name = row.name?.trim();
               if (!name) {
                 return { ok: false, row: rowNumber, error: "Nome obrigatório" };
+              }
+              const variantLabel = row.variantLabel?.trim() || undefined;
+              const dimensions = dimensionsFromVariant(variantLabel);
+              if (
+                variantLabel &&
+                /\d+\s*[x×]\s*\d+/i.test(variantLabel) &&
+                !/mm[²2]/i.test(variantLabel) &&
+                !dimensions
+              ) {
+                return {
+                  ok: false,
+                  row: rowNumber,
+                  error:
+                    "Dimensão ambígua. Revise e informe largura x altura em mm.",
+                };
               }
               return {
                 ok: true,
                 row: rowNumber,
                 item: {
                   name,
+                  variantLabel,
+                  dimensions,
+                  sourceMaterialId: row.sourceMaterialId?.trim() || undefined,
+                  sourceDetailId: row.sourceDetailId?.trim() || undefined,
+                  sourceRowNumber: rowNumber,
+                  quantity: row.quantity?.trim()
+                    ? Number.parseFloat(row.quantity.replace(",", "."))
+                    : undefined,
+                  unitCostCents: row.unitCost?.trim()
+                    ? Math.round(
+                        Number.parseFloat(row.unitCost.replace(",", ".")) * 100
+                      )
+                    : undefined,
                   category: row.category?.trim() || undefined,
                   unit: row.unit?.trim() || undefined,
                   spec: row.spec?.trim() || undefined,
@@ -139,7 +207,12 @@ function MateriaisContent() {
                 },
               };
             }}
-            onImportBatch={(items) => bulkCreateMaterials({ items })}
+            onImportBatch={(items) =>
+              bulkCreateMaterials({
+                items,
+                source: "material-catalog-ui",
+              })
+            }
             trigger={
               <Button variant="outline">
                 <FileUp className="mr-2 size-4" />
@@ -206,6 +279,11 @@ function MateriaisContent() {
                             onClick={() => setDetailMaterial(material)}
                           >
                             <p className="font-medium">{material.name}</p>
+                            {material.variantLabel ? (
+                              <p className="text-xs">
+                                {material.variantLabel}
+                              </p>
+                            ) : null}
                             <p className="text-xs text-muted-foreground">
                               {material.sku ?? "Sem SKU"}
                             </p>
@@ -261,6 +339,9 @@ function MateriaisContent() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-medium">{material.name}</p>
+                        {material.variantLabel ? (
+                          <p className="text-xs">{material.variantLabel}</p>
+                        ) : null}
                         <p className="text-xs text-muted-foreground">
                           {material.sku ?? "Sem SKU"}
                         </p>

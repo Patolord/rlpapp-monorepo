@@ -52,8 +52,28 @@ async function seedInventoryFixture() {
       floors: [],
       createdAt: now,
     });
+    const equipmentFamilyId = await ctx.db.insert("materialFamilies", {
+      name: "Equipamento",
+      nameNormalized: "equipamento",
+      category: "equipamento",
+      baseUnit: "un",
+      active: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const cableFamilyId = await ctx.db.insert("materialFamilies", {
+      name: "Cabo",
+      nameNormalized: "cabo",
+      category: "cabo",
+      baseUnit: "m",
+      active: true,
+      createdAt: now,
+      updatedAt: now,
+    });
     const equipmentId = await ctx.db.insert("materials", {
       name: "Equipamento 220V",
+      familyId: equipmentFamilyId,
+      identityKey: "inventory-test-equipment-220v",
       category: "equipamento",
       unit: "un",
       technicalAttributes: [{ key: "tensao", value: "220v" }],
@@ -63,6 +83,8 @@ async function seedInventoryFixture() {
     });
     const cableId = await ctx.db.insert("materials", {
       name: "Cabo 110V",
+      familyId: cableFamilyId,
+      identityKey: "inventory-test-cable-110v",
       category: "cabo",
       unit: "m",
       technicalAttributes: [{ key: "tensao", value: "110v" }],

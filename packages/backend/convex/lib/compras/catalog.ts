@@ -6,6 +6,30 @@ export const SKU_PREFIX = "MAT";
 export const SKU_COUNTER_KEY = "material" as const;
 
 export type MaterialDoc = Doc<"materials">;
+export type MaterialDimensions = {
+  widthMm?: number;
+  heightMm?: number;
+  lengthMm?: number;
+  thicknessMm?: number;
+  diameterMm?: number;
+};
+
+const UNIT_ALIASES: Record<string, string> = {
+  peca: "un",
+  pc: "un",
+  un: "un",
+  unidade: "un",
+  unidades: "un",
+  metro: "m",
+  metros: "m",
+  m: "m",
+  kg: "kg",
+  quilograma: "kg",
+  quilogramas: "kg",
+  l: "L",
+  litro: "L",
+  litros: "L",
+};
 
 export type ReplenishmentState =
   | "unconfigured"
@@ -25,8 +49,112 @@ export function normalizeBarcode(value: string): string {
   return value.trim();
 }
 
+export function normalizeUnit(value: string | undefined): string | undefined {
+  if (!value?.trim()) return undefined;
+  const key = normalizeText(value).replace(/[^a-z0-9]/g, "");
+  return UNIT_ALIASES[key] ?? value.trim();
+}
+
+export function sanitizeDimensions(
+  dimensions: MaterialDimensions | undefined
+): MaterialDimensions | undefined {
+  if (!dimensions) return undefined;
+  const entries = Object.entries(dimensions).filter(
+    ([, value]) => value !== undefined
+  );
+  if (entries.length === 0) return undefined;
+  for (const [key, value] of entries) {
+    if (!Number.isFinite(value) || (value as number) <= 0) {
+      throw new Error(`Dimensão inválida: ${key}`);
+    }
+  }
+  return Object.fromEntries(entries) as MaterialDimensions;
+}
+
+export function buildMaterialIdentityKey(input: {
+  familyId: Id<"materialFamilies">;
+  manufacturer?: string;
+  manufacturerPartNumber?: string;
+  unit?: string;
+  variantLabel?: string;
+  dimensions?: MaterialDimensions;
+  technicalAttributes?: Array<{ key: string; value: string }>;
+}): string {
+  const dimensions = Object.entries(input.dimensions ?? {})
+    .filter((entry): entry is [string, number] => entry[1] !== undefined)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}:${value}`)
+    .join(",");
+  const attributes = [...(input.technicalAttributes ?? [])]
+    .map(({ key, value }) => `${normalizeText(key)}:${normalizeText(value)}`)
+    .sort()
+    .join(",");
+  let variantLabel = normalizeText(input.variantLabel ?? "");
+  if (input.dimensions?.widthMm && input.dimensions.heightMm) {
+    const width = String(input.dimensions.widthMm);
+    const height = String(input.dimensions.heightMm);
+    for (const dimensionText of [
+      normalizeText(`${width}x${height}mm`),
+      normalizeText(`${width} × ${height} mm`),
+    ]) {
+      variantLabel = variantLabel.replace(dimensionText, "").trim();
+    }
+  }
+  return [
+    input.familyId,
+    normalizeText(input.manufacturer ?? ""),
+    normalizeText(input.manufacturerPartNumber ?? ""),
+    normalizeUnit(input.unit) ?? "",
+    variantLabel,
+    dimensions,
+    attributes,
+  ].join("|");
+}
+
+export async function findMaterialByIdentity(
+  ctx: QueryCtx | MutationCtx,
+  input: {
+    identityKey: string;
+    excludeMaterialId?: Id<"materials">;
+  }
+): Promise<MaterialDoc | null> {
+  const indexed = await ctx.db
+    .query("materials")
+    .withIndex("by_identity_key", (q) =>
+      q.eq("identityKey", input.identityKey)
+    )
+    .take(2);
+  const indexedDuplicate = indexed.find(
+    (material) => material._id !== input.excludeMaterialId
+  );
+  return indexedDuplicate ?? null;
+}
+
+export function formatDimensions(
+  dimensions: MaterialDimensions | undefined
+): string | undefined {
+  if (!dimensions) return undefined;
+  if (dimensions.widthMm && dimensions.heightMm) {
+    return `${dimensions.widthMm}×${dimensions.heightMm} mm`;
+  }
+  if (dimensions.diameterMm) return `Ø ${dimensions.diameterMm} mm`;
+  if (dimensions.lengthMm) return `${dimensions.lengthMm} mm`;
+  return Object.entries(dimensions)
+    .filter((entry): entry is [string, number] => entry[1] !== undefined)
+    .map(([key, value]) => `${key}=${value} mm`)
+    .join(", ");
+}
+
+export function deriveVariantLabel(input: {
+  variantLabel?: string;
+  dimensions?: MaterialDimensions;
+}): string | undefined {
+  return input.variantLabel?.trim() || formatDimensions(input.dimensions);
+}
+
 export function buildMaterialSearchText(input: {
   name: string;
+  variantLabel?: string;
   sku?: string;
   barcode?: string;
   category?: string;
@@ -37,6 +165,7 @@ export function buildMaterialSearchText(input: {
 }): string {
   const parts = [
     input.name,
+    input.variantLabel,
     input.sku,
     input.barcode,
     input.category,
@@ -213,6 +342,9 @@ export function toMaterialCatalogRow(m: MaterialDoc) {
     _id: m._id,
     _creationTime: m._creationTime,
     name: m.name,
+    familyId: m.familyId,
+    variantLabel: m.variantLabel ?? null,
+    dimensions: m.dimensions ?? null,
     sku: m.sku ?? null,
     barcode: m.barcode ?? null,
     manufacturer: m.manufacturer ?? null,
@@ -237,6 +369,9 @@ export function toMaterialListRow(m: MaterialDoc) {
     _id: m._id,
     _creationTime: m._creationTime,
     name: m.name,
+    familyId: m.familyId,
+    variantLabel: m.variantLabel ?? null,
+    dimensions: m.dimensions ?? null,
     sku: m.sku ?? null,
     category: m.category ?? null,
     unit: m.unit ?? null,
