@@ -86,6 +86,27 @@ const qrRowValidator = v.object({
   batchName: v.union(v.string(), v.null()),
 });
 
+async function collectBatchOnlyActiveQrs(
+  ctx: QueryCtx,
+  projectId: Id<"projects">
+): Promise<Doc<"qrCodes">[]> {
+  const out: Doc<"qrCodes">[] = [];
+  const batches = await ctx.db
+    .query("qrBatches")
+    .withIndex("by_project", (q) => q.eq("projectId", projectId))
+    .collect();
+  for (const batch of batches) {
+    const batchCodes = await ctx.db
+      .query("qrCodes")
+      .withIndex("by_batchId", (q) => q.eq("batchId", batch.batchId))
+      .collect();
+    for (const qr of batchCodes) {
+      if (qr.status === "active" && !qr.projectId) out.push(qr);
+    }
+  }
+  return out;
+}
+
 async function collectActiveQrsForProject(
   ctx: QueryCtx,
   projectId: Id<"projects">
@@ -100,18 +121,8 @@ async function collectActiveQrsForProject(
     .collect();
   for (const qr of byProject) byId.set(qr._id, qr);
 
-  const batches = await ctx.db
-    .query("qrBatches")
-    .withIndex("by_project", (q) => q.eq("projectId", projectId))
-    .take(100);
-  for (const batch of batches) {
-    const batchCodes = await ctx.db
-      .query("qrCodes")
-      .withIndex("by_batchId", (q) => q.eq("batchId", batch.batchId))
-      .take(1000);
-    for (const qr of batchCodes) {
-      if (qr.status === "active") byId.set(qr._id, qr);
-    }
+  for (const qr of await collectBatchOnlyActiveQrs(ctx, projectId)) {
+    byId.set(qr._id, qr);
   }
 
   return Array.from(byId.values());
@@ -216,19 +227,59 @@ export const listBrowsableQrsByProject = authedQuery({
       throw new Error("Obra não disponível");
     }
 
-    const activeQrs = await collectActiveQrsForProject(ctx, args.projectId);
-    activeQrs.sort((a, b) => b.createdAt - a.createdAt);
+    const rawCursor = args.paginationOpts.cursor;
 
-    const start = args.paginationOpts.cursor
-      ? Number.parseInt(args.paginationOpts.cursor, 10)
+    if (!rawCursor || rawCursor.startsWith("p:")) {
+      const innerCursor =
+        rawCursor?.startsWith("p:") && rawCursor.length > 2
+          ? rawCursor.slice(2)
+          : null;
+
+      const result = await ctx.db
+        .query("qrCodes")
+        .withIndex("by_project_and_status", (q) =>
+          q.eq("projectId", args.projectId).eq("status", "active")
+        )
+        .order("desc")
+        .paginate({
+          numItems: args.paginationOpts.numItems,
+          cursor: innerCursor,
+        });
+
+      if (!result.isDone) {
+        return {
+          page: await Promise.all(result.page.map((qr) => buildQrRow(ctx, qr))),
+          isDone: false,
+          continueCursor: `p:${result.continueCursor}`,
+        };
+      }
+
+      if (result.page.length > 0) {
+        const batchOnlyQrs = await collectBatchOnlyActiveQrs(
+          ctx,
+          args.projectId
+        );
+        return {
+          page: await Promise.all(result.page.map((qr) => buildQrRow(ctx, qr))),
+          isDone: batchOnlyQrs.length === 0,
+          continueCursor:
+            batchOnlyQrs.length > 0 ? "b:0" : result.continueCursor,
+        };
+      }
+    }
+
+    const start = rawCursor?.startsWith("b:")
+      ? Number.parseInt(rawCursor.slice(2), 10)
       : 0;
+    const batchOnlyQrs = await collectBatchOnlyActiveQrs(ctx, args.projectId);
+    batchOnlyQrs.sort((a, b) => b.createdAt - a.createdAt);
     const end = start + args.paginationOpts.numItems;
-    const page = activeQrs.slice(start, end);
+    const page = batchOnlyQrs.slice(start, end);
 
     return {
       page: await Promise.all(page.map((qr) => buildQrRow(ctx, qr))),
-      isDone: end >= activeQrs.length,
-      continueCursor: String(end),
+      isDone: end >= batchOnlyQrs.length,
+      continueCursor: `b:${end}`,
     };
   },
 });
