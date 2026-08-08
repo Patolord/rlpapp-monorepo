@@ -1,11 +1,12 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, usePaginatedQuery } from "convex/react";
-import { Plus, Search } from "lucide-react";
+import { FileUp, Plus, Search } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
+import { CsvImportDialog } from "@/components/compras/csv-import-dialog";
 import { MaterialDetailSheet } from "@/components/compras/material-detail-sheet";
 import {
   MaterialFormDialog,
@@ -25,6 +26,34 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getErrorMessage } from "@/lib/errors";
+import { splitList } from "@/lib/csv";
+
+const MATERIAL_COLUMN_ALIASES = {
+  name: ["name", "nome", "material"],
+  category: ["category", "categoria"],
+  unit: ["unit", "unidade", "un"],
+  spec: ["spec", "especificacao", "especificação", "specification"],
+  brandPreference: ["brandpreference", "marca", "brand", "preferencia_marca"],
+  aliases: ["aliases", "alias", "apelidos", "sinonimos"],
+} as const;
+
+const MATERIAL_TEMPLATE_HEADERS = [
+  "name",
+  "category",
+  "unit",
+  "spec",
+  "brandPreference",
+  "aliases",
+];
+
+type MaterialImportItem = {
+  name: string;
+  category?: string;
+  unit?: string;
+  spec?: string;
+  brandPreference?: string;
+  aliases?: string[];
+};
 
 export const Route = createFileRoute("/compras/materiais/")({
   component: MateriaisPage,
@@ -47,6 +76,7 @@ function MateriaisContent() {
   const [detailMaterial, setDetailMaterial] =
     useState<MaterialCatalogRow | null>(null);
   const updateMaterial = useMutation(api.materials.update);
+  const bulkCreateMaterials = useMutation(api.materials.bulkCreate);
 
   const catalog = usePaginatedQuery(
     api.materials.listCatalog,
@@ -75,15 +105,58 @@ function MateriaisContent() {
             Catálogo interno com SKU, identificação e políticas de reposição.
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setEditMaterial(null);
-            setFormOpen(true);
-          }}
-        >
-          <Plus className="mr-2 size-4" />
-          Novo material
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <CsvImportDialog<MaterialImportItem>
+            title="Importar materiais (CSV)"
+            templateFilename="materiais.csv"
+            templateHeaders={[...MATERIAL_TEMPLATE_HEADERS]}
+            templateSampleRow={[
+              "Cabo PP 3x2.5",
+              "Elétrica",
+              "m",
+              "Flexível",
+              "",
+              "pp 3x2.5;cabo pp",
+            ]}
+            requiredColumns={["name"]}
+            columnAliases={MATERIAL_COLUMN_ALIASES}
+            previewColumns={["name", "category", "unit", "spec"]}
+            mapRow={(row, rowNumber) => {
+              const name = row.name?.trim();
+              if (!name) {
+                return { ok: false, row: rowNumber, error: "Nome obrigatório" };
+              }
+              return {
+                ok: true,
+                row: rowNumber,
+                item: {
+                  name,
+                  category: row.category?.trim() || undefined,
+                  unit: row.unit?.trim() || undefined,
+                  spec: row.spec?.trim() || undefined,
+                  brandPreference: row.brandPreference?.trim() || undefined,
+                  aliases: splitList(row.aliases),
+                },
+              };
+            }}
+            onImportBatch={(items) => bulkCreateMaterials({ items })}
+            trigger={
+              <Button variant="outline">
+                <FileUp className="mr-2 size-4" />
+                Importar CSV
+              </Button>
+            }
+          />
+          <Button
+            onClick={() => {
+              setEditMaterial(null);
+              setFormOpen(true);
+            }}
+          >
+            <Plus className="mr-2 size-4" />
+            Novo material
+          </Button>
+        </div>
       </div>
 
       <div className="relative max-w-sm">
