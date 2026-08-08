@@ -175,6 +175,17 @@ describe("materials catalog", () => {
       })
     ).rejects.toThrow("Estoque mínimo");
 
+    // Estoque não tem compras.write — precisa de upsertFromWarehouse.
+    await expect(
+      warehouse.mutation(api.inventoryStockPolicies.upsert, {
+        locationId,
+        materialId,
+        minimumQuantity: 2,
+        reorderPoint: 5,
+        targetQuantity: 20,
+      })
+    ).rejects.toThrow("compras");
+
     const policyId = await warehouse.mutation(
       api.inventoryStockPolicies.upsertFromWarehouse,
       {
@@ -187,6 +198,13 @@ describe("materials catalog", () => {
       }
     );
     expect(policyId).toBeTruthy();
+
+    // Estoque também pode garantir o local central (staff + canManageStockPolicy).
+    const ensured = await warehouse.mutation(
+      api.inventoryStockPolicies.ensureCentralLocation,
+      {}
+    );
+    expect(ensured).toBe(locationId);
 
     const readable = await purchasing.query(
       api.inventoryStockPolicies.getForLocation,

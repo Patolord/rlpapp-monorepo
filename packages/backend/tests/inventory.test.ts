@@ -392,6 +392,69 @@ describe("estoque central e obras", () => {
     });
   });
 
+  test("listDocuments para Engenharia pagina só obras sem páginas vazias", async () => {
+    const { t, ids, purchasing, warehouse, engineer } =
+      await seedInventoryFixture();
+
+    // Várias entradas do central intercaladas com poucas movimentações de obra.
+    for (let i = 0; i < 8; i += 1) {
+      await createAndPostEntry(purchasing, [
+        { materialId: ids.equipmentId, quantity: 1 },
+      ]);
+    }
+
+    await createAndPostEntry(purchasing, [
+      { materialId: ids.equipmentId, quantity: 20 },
+    ]);
+    for (let i = 0; i < 5; i += 1) {
+      const transfer = await warehouse.mutation(api.inventory.createDocument, {
+        type: "transfer",
+        projectId: ids.projectId,
+        lines: [{ materialId: ids.equipmentId, quantity: 1 }],
+      });
+      await warehouse.mutation(api.inventory.postDocument, {
+        documentId: transfer.documentId,
+      });
+      // Mais documentos do central entre as transferências.
+      await createAndPostEntry(purchasing, [
+        { materialId: ids.equipmentId, quantity: 1 },
+      ]);
+    }
+
+    const first = await engineer.query(api.inventory.listDocuments, {
+      paginationOpts: { numItems: 3, cursor: null },
+    });
+    expect(first.page).toHaveLength(3);
+    expect(first.page.every((document) => document.projectId != null)).toBe(
+      true
+    );
+    expect(first.isDone).toBe(false);
+
+    const second = await engineer.query(api.inventory.listDocuments, {
+      paginationOpts: { numItems: 3, cursor: first.continueCursor },
+    });
+    expect(second.page).toHaveLength(2);
+    expect(second.page.every((document) => document.projectId != null)).toBe(
+      true
+    );
+    expect(second.isDone).toBe(true);
+
+    const seen = new Set(
+      [...first.page, ...second.page].map((document) => document._id)
+    );
+    expect(seen.size).toBe(5);
+
+    // Quem vê o central continua recebendo a lista completa paginada.
+    const centralView = await warehouse.query(api.inventory.listDocuments, {
+      paginationOpts: { numItems: 5, cursor: null },
+    });
+    expect(centralView.page).toHaveLength(5);
+    const totalCentralDocs = await t.run(async (ctx) => {
+      return (await ctx.db.query("inventoryDocuments").collect()).length;
+    });
+    expect(totalCentralDocs).toBeGreaterThan(5);
+  });
+
   test("estorno cria eventos compensatórios e preserva o documento original", async () => {
     const { t, ids, purchasing, warehouse } = await seedInventoryFixture();
     const entryDocumentId = await createAndPostEntry(purchasing, [
