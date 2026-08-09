@@ -6,6 +6,8 @@ import {
   Building2,
   ChevronsUpDown,
   ClipboardList,
+  FileText,
+  HardHat,
   LayoutDashboard,
   Package,
   QrCode,
@@ -53,6 +55,8 @@ function getNavGroups(): NavGroup[] {
       items: [
         { to: "/engenharia/obras", label: "Obras", icon: Building2 },
         { to: "/engenharia/clientes", label: "Clientes", icon: Users },
+        { to: "/engenharia/empreiteiros", label: "Empreiteiros", icon: HardHat },
+        { to: "/engenharia/contratos", label: "Contratos", icon: FileText },
         { to: "/engenharia/qr-codes", label: "Códigos QR", icon: QrCode },
         {
           to: "/engenharia/registro-de-campo",

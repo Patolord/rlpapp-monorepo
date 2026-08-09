@@ -541,3 +541,233 @@ export const verifyProjectCustomerAndNumbersPage = adminQuery({
     };
   },
 });
+
+/**
+ * Backfill de contratos legados para o modelo unificado:
+ * - direction = client_sale
+ * - customerId da obra (quando existir)
+ * - kind = base para o mais antigo da obra; addendum para os demais
+ * - um item de serviço com o valor total do contrato
+ *
+ * Idempotente: pula contratos que já possuem direction e itens de serviço.
+ */
+export const backfillUnifiedContracts = adminMutation({
+  args: {
+    cursor: v.optional(v.union(v.string(), v.null())),
+    batchSize: v.optional(v.number()),
+  },
+  returns: v.object({
+    scanned: v.number(),
+    updated: v.number(),
+    serviceItemsCreated: v.number(),
+    missingCustomer: v.number(),
+    continueCursor: v.string(),
+    isDone: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const batchSize = Math.max(
+      1,
+      Math.min(100, Math.floor(args.batchSize ?? 50))
+    );
+    const page = await ctx.db.query("contracts").paginate({
+      cursor: args.cursor ?? null,
+      numItems: batchSize,
+    });
+
+    let updated = 0;
+    let serviceItemsCreated = 0;
+    let missingCustomer = 0;
+
+    // Classifica base/aditivo por obra usando todos os contratos da obra
+    // (não só a página), para manter ordenação estável.
+    const kindByContractId = new Map<Id<"contracts">, "base" | "addendum">();
+    const parentByContractId = new Map<Id<"contracts">, Id<"contracts">>();
+    const projectIds = new Set<Id<"projects">>();
+    for (const contract of page.page) {
+      if (contract.projectId) projectIds.add(contract.projectId);
+    }
+    for (const projectId of projectIds) {
+      const projectContracts = await ctx.db
+        .query("contracts")
+        .withIndex("by_project", (q) => q.eq("projectId", projectId))
+        .collect();
+      const byDirection = new Map<string, typeof projectContracts>();
+      for (const contract of projectContracts) {
+        const direction = contract.direction ?? "client_sale";
+        const group = byDirection.get(direction) ?? [];
+        group.push(contract);
+        byDirection.set(direction, group);
+      }
+      for (const directionContracts of byDirection.values()) {
+        directionContracts.sort((a, b) => a.createdAt - b.createdAt);
+        const base = directionContracts[0];
+        if (!base) continue;
+        kindByContractId.set(base._id, "base");
+        for (let i = 1; i < directionContracts.length; i++) {
+          const addendum = directionContracts[i]!;
+          kindByContractId.set(addendum._id, "addendum");
+          parentByContractId.set(addendum._id, base._id);
+        }
+      }
+    }
+
+    const now = Date.now();
+    for (const contract of page.page) {
+      const existingItems = await ctx.db
+        .query("contractServiceItems")
+        .withIndex("by_contract", (q) => q.eq("contractId", contract._id))
+        .take(1);
+
+      const direction = contract.direction ?? "client_sale";
+      const kind =
+        kindByContractId.get(contract._id) ?? (contract.kind ?? "base");
+      const parentContractId =
+        kind === "addendum"
+          ? (parentByContractId.get(contract._id) ??
+            contract.parentContractId)
+          : undefined;
+      const needsMeta =
+        contract.direction === undefined ||
+        contract.kind === undefined ||
+        (contract.projectId !== undefined &&
+          contract.customerId === undefined &&
+          direction === "client_sale") ||
+        (contract.projectId !== undefined &&
+          (kind !== contract.kind ||
+            parentContractId !== contract.parentContractId));
+
+      let customerId = contract.customerId;
+      if (
+        contract.projectId &&
+        !customerId &&
+        direction === "client_sale"
+      ) {
+        const project = await ctx.db.get("projects", contract.projectId);
+        customerId = project?.customerId;
+        if (!customerId) missingCustomer++;
+      }
+
+      if (needsMeta) {
+        const patch: {
+          direction: typeof direction;
+          kind: typeof kind;
+          parentContractId?: Id<"contracts">;
+          customerId?: Id<"customers">;
+          updatedAt: number;
+        } = {
+          direction,
+          kind,
+          parentContractId,
+          updatedAt: now,
+        };
+        if (direction === "client_sale") {
+          patch.customerId = customerId;
+        }
+        await ctx.db.patch("contracts", contract._id, patch);
+        updated++;
+      }
+
+      if (existingItems.length === 0 && contract.valueCents > 0) {
+        await ctx.db.insert("contractServiceItems", {
+          contractId: contract._id,
+          description: "Serviços do contrato",
+          valueCents: contract.valueCents,
+          order: 0,
+          createdAt: now,
+        });
+        serviceItemsCreated++;
+      }
+    }
+
+    return {
+      scanned: page.page.length,
+      updated,
+      serviceItemsCreated,
+      missingCustomer,
+      continueCursor: page.continueCursor,
+      isDone: page.isDone,
+    };
+  },
+});
+
+export const verifyUnifiedContractsPage = adminQuery({
+  args: {
+    cursor: v.optional(v.union(v.string(), v.null())),
+    batchSize: v.optional(v.number()),
+  },
+  returns: v.object({
+    scanned: v.number(),
+    missingDirection: v.number(),
+    missingServiceItems: v.number(),
+    missingCustomerOnClientSale: v.number(),
+    continueCursor: v.string(),
+    isDone: v.boolean(),
+    samples: v.array(
+      v.object({
+        contractId: v.id("contracts"),
+        title: v.string(),
+        missingDirection: v.boolean(),
+        missingServiceItems: v.boolean(),
+        missingCustomerOnClientSale: v.boolean(),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const batchSize = Math.max(
+      1,
+      Math.min(100, Math.floor(args.batchSize ?? 50))
+    );
+    const page = await ctx.db.query("contracts").paginate({
+      cursor: args.cursor ?? null,
+      numItems: batchSize,
+    });
+
+    let missingDirection = 0;
+    let missingServiceItems = 0;
+    let missingCustomerOnClientSale = 0;
+    const samples: Array<{
+      contractId: Id<"contracts">;
+      title: string;
+      missingDirection: boolean;
+      missingServiceItems: boolean;
+      missingCustomerOnClientSale: boolean;
+    }> = [];
+
+    for (const contract of page.page) {
+      const noDirection = contract.direction === undefined;
+      const items = await ctx.db
+        .query("contractServiceItems")
+        .withIndex("by_contract", (q) => q.eq("contractId", contract._id))
+        .take(1);
+      const noItems = items.length === 0;
+      const isClientSale =
+        contract.direction === undefined ||
+        contract.direction === "client_sale";
+      const noCustomer = isClientSale && !contract.customerId;
+
+      if (noDirection) missingDirection++;
+      if (noItems) missingServiceItems++;
+      if (noCustomer) missingCustomerOnClientSale++;
+
+      if ((noDirection || noItems || noCustomer) && samples.length < 20) {
+        samples.push({
+          contractId: contract._id,
+          title: contract.title,
+          missingDirection: noDirection,
+          missingServiceItems: noItems,
+          missingCustomerOnClientSale: noCustomer,
+        });
+      }
+    }
+
+    return {
+      scanned: page.page.length,
+      missingDirection,
+      missingServiceItems,
+      missingCustomerOnClientSale,
+      continueCursor: page.continueCursor,
+      isDone: page.isDone,
+      samples,
+    };
+  },
+});

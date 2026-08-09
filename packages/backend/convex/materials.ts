@@ -50,7 +50,7 @@ export const materialValidator = v.object({
   _id: v.id("materials"),
   _creationTime: v.number(),
   name: v.string(),
-  familyId: v.id("materialFamilies"),
+  familyId: v.union(v.id("materialFamilies"), v.null()),
   variantLabel: v.union(v.string(), v.null()),
   dimensions: v.union(materialDimensionsValidator, v.null()),
   sku: v.union(v.string(), v.null()),
@@ -72,7 +72,7 @@ export const materialCatalogValidator = v.object({
   _id: v.id("materials"),
   _creationTime: v.number(),
   name: v.string(),
-  familyId: v.id("materialFamilies"),
+  familyId: v.union(v.id("materialFamilies"), v.null()),
   variantLabel: v.union(v.string(), v.null()),
   dimensions: v.union(materialDimensionsValidator, v.null()),
   sku: v.union(v.string(), v.null()),
@@ -1012,6 +1012,11 @@ export const update = purchasingMutation({
     if (args.status !== undefined) updates.status = args.status;
 
     const next = { ...material, ...updates } as Doc<"materials">;
+    if (!familyId) {
+      throw new Error(
+        "Material sem família — defina a família antes de atualizar"
+      );
+    }
     const identityKey = materialIdentityInput({
       familyId,
       manufacturer: next.manufacturer,

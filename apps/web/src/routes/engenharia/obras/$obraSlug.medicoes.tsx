@@ -1,6 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { formatCurrency, formatDate } from "@rlpapp/shared";
 import {
@@ -15,9 +15,6 @@ import {
 
 import { AuthShell } from "@/components/auth-shell";
 import { ProjectShell } from "@/components/engenharia/project-shell";
-import {
-  ContractFormDialog,
-} from "@/components/engenharia/medicoes/contract-form-dialog";
 import {
   MedicaoFormDialog,
   type ContractOption,
@@ -40,6 +37,7 @@ import {
 } from "@/components/ui/table";
 import { runWithToast } from "@/lib/errors";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
+import { obraLinkSlug } from "@/lib/engenharia/obra-paths";
 
 export const Route = createFileRoute(
   "/engenharia/obras/$obraSlug/medicoes"
@@ -52,7 +50,12 @@ function MedicoesPage() {
   return (
     <AuthShell>
       <ProjectShell projectId={projectId}>
-        {() => <MedicoesContent projectId={projectId as Id<"projects">} />}
+        {(project) => (
+          <MedicoesContent
+            projectId={projectId as Id<"projects">}
+            obraSlug={obraLinkSlug(project)}
+          />
+        )}
       </ProjectShell>
     </AuthShell>
   );
@@ -85,7 +88,13 @@ type Medicao = {
   paidAt: number | null;
 };
 
-function MedicoesContent({ projectId }: { projectId: Id<"projects"> }) {
+function MedicoesContent({
+  projectId,
+  obraSlug,
+}: {
+  projectId: Id<"projects">;
+  obraSlug: string;
+}) {
   const contracts = useQuery(api.medicoes.listContracts, { projectId });
   const medicoes = useQuery(api.medicoes.listMedicoes, { projectId });
 
@@ -110,18 +119,27 @@ function MedicoesContent({ projectId }: { projectId: Id<"projects"> }) {
         <div>
           <h2 className="text-xl font-bold">Medições</h2>
           <p className="text-sm text-muted-foreground">
-            Cobranças por serviços realizados, deduzidas dos contratos da obra.
+            Cobranças por serviços realizados, deduzidas dos contratos de venda
+            ao cliente desta obra.
           </p>
         </div>
-        <ContractFormDialog
-          projectId={projectId}
-          trigger={
-            <Button variant="outline">
-              <Plus className="mr-2 size-4" />
-              Novo contrato
-            </Button>
-          }
-        />
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" render={<Link to="/engenharia/obras/$obraSlug/contratos" params={{ obraSlug }} />}>
+            Gerenciar contratos
+          </Button>
+          {contractOptions.length > 0 && (
+            <MedicaoFormDialog
+              projectId={projectId}
+              contracts={contractOptions}
+              trigger={
+                <Button>
+                  <Plus className="mr-2 size-4" />
+                  Nova medição
+                </Button>
+              }
+            />
+          )}
+        </div>
       </div>
 
       {contracts !== undefined && contracts.length > 0 && (
@@ -142,7 +160,7 @@ function MedicoesContent({ projectId }: { projectId: Id<"projects"> }) {
       {contracts === undefined || medicoes === undefined ? (
         <Card className="h-40 animate-pulse" />
       ) : contracts.length === 0 ? (
-        <EmptyState projectId={projectId} />
+        <EmptyState obraSlug={obraSlug} />
       ) : (
         contracts.map((contract) => (
           <ContractCard
@@ -177,7 +195,7 @@ function TotalStat({
   );
 }
 
-function EmptyState({ projectId }: { projectId: Id<"projects"> }) {
+function EmptyState({ obraSlug }: { obraSlug: string }) {
   return (
     <Card>
       <CardContent className="flex flex-col items-center gap-4 py-14 text-center">
@@ -185,21 +203,25 @@ function EmptyState({ projectId }: { projectId: Id<"projects"> }) {
           <CircleDollarSign className="size-7" />
         </div>
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold">Nenhum contrato cadastrado</h3>
+          <h3 className="text-lg font-semibold">
+            Nenhum contrato elegível para medições
+          </h3>
           <p className="max-w-sm text-sm text-muted-foreground">
-            Cadastre o contrato da obra para começar a registrar as medições
-            contra o valor contratado.
+            Cadastre um contrato de venda ao cliente nesta obra para começar a
+            registrar medições.
           </p>
         </div>
-        <ContractFormDialog
-          projectId={projectId}
-          trigger={
-            <Button>
-              <Plus className="mr-2 size-4" />
-              Criar primeiro contrato
-            </Button>
+        <Button
+          render={
+            <Link
+              to="/engenharia/obras/$obraSlug/contratos"
+              params={{ obraSlug }}
+            />
           }
-        />
+        >
+          <Plus className="mr-2 size-4" />
+          Ir para contratos
+        </Button>
       </CardContent>
     </Card>
   );
@@ -216,20 +238,10 @@ function ContractCard({
   contractOptions: ContractOption[];
   medicoes: Medicao[];
 }) {
-  const removeContract = useMutation(api.medicoes.removeContract);
   const pctMedido =
     contract.valueCents > 0
       ? Math.round((contract.medidoCents / contract.valueCents) * 100)
       : 0;
-
-  async function handleRemove() {
-    if (!window.confirm(`Excluir o contrato "${contract.title}"?`)) return;
-    await runWithToast(
-      () => removeContract({ contractId: contract._id }),
-      "Contrato excluído",
-      "Não foi possível excluir o contrato"
-    );
-  }
 
   return (
     <Card>
@@ -248,44 +260,17 @@ function ContractCard({
               {contract.notes ? ` · ${contract.notes}` : ""}
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <ContractFormDialog
-              projectId={projectId}
-              contract={{
-                _id: contract._id,
-                title: contract.title,
-                valueCents: contract.valueCents,
-                notes: contract.notes,
-                signedAt: contract.signedAt,
-              }}
-              trigger={
-                <Button variant="ghost" size="icon" title="Editar contrato">
-                  <Pencil className="size-4" />
-                </Button>
-              }
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              title="Excluir contrato"
-              className="text-muted-foreground hover:text-destructive"
-              disabled={contract.medicaoCount > 0}
-              onClick={() => void handleRemove()}
-            >
-              <Trash2 className="size-4" />
-            </Button>
-            <MedicaoFormDialog
-              projectId={projectId}
-              contracts={contractOptions}
-              defaultContractId={contract._id}
-              trigger={
-                <Button size="sm">
-                  <Plus className="mr-1.5 size-4" />
-                  Nova medição
-                </Button>
-              }
-            />
-          </div>
+          <MedicaoFormDialog
+            projectId={projectId}
+            contracts={contractOptions}
+            defaultContractId={contract._id}
+            trigger={
+              <Button size="sm">
+                <Plus className="mr-1.5 size-4" />
+                Nova medição
+              </Button>
+            }
+          />
         </div>
 
         <div className="space-y-1.5">
