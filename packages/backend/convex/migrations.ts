@@ -591,14 +591,23 @@ export const backfillUnifiedContracts = adminMutation({
         .query("contracts")
         .withIndex("by_project", (q) => q.eq("projectId", projectId))
         .collect();
-      projectContracts.sort((a, b) => a.createdAt - b.createdAt);
-      const base = projectContracts[0];
-      if (!base) continue;
-      kindByContractId.set(base._id, "base");
-      for (let i = 1; i < projectContracts.length; i++) {
-        const addendum = projectContracts[i]!;
-        kindByContractId.set(addendum._id, "addendum");
-        parentByContractId.set(addendum._id, base._id);
+      const byDirection = new Map<string, typeof projectContracts>();
+      for (const contract of projectContracts) {
+        const direction = contract.direction ?? "client_sale";
+        const group = byDirection.get(direction) ?? [];
+        group.push(contract);
+        byDirection.set(direction, group);
+      }
+      for (const directionContracts of byDirection.values()) {
+        directionContracts.sort((a, b) => a.createdAt - b.createdAt);
+        const base = directionContracts[0];
+        if (!base) continue;
+        kindByContractId.set(base._id, "base");
+        for (let i = 1; i < directionContracts.length; i++) {
+          const addendum = directionContracts[i]!;
+          kindByContractId.set(addendum._id, "addendum");
+          parentByContractId.set(addendum._id, base._id);
+        }
       }
     }
 
@@ -609,14 +618,20 @@ export const backfillUnifiedContracts = adminMutation({
         .withIndex("by_contract", (q) => q.eq("contractId", contract._id))
         .take(1);
 
+      const direction = contract.direction ?? "client_sale";
       const needsMeta =
         contract.direction === undefined ||
         contract.kind === undefined ||
         (contract.projectId !== undefined &&
-          contract.customerId === undefined);
+          contract.customerId === undefined &&
+          direction === "client_sale");
 
       let customerId = contract.customerId;
-      if (contract.projectId && !customerId) {
+      if (
+        contract.projectId &&
+        !customerId &&
+        direction === "client_sale"
+      ) {
         const project = await ctx.db.get("projects", contract.projectId);
         customerId = project?.customerId;
         if (!customerId) missingCustomer++;
@@ -631,13 +646,22 @@ export const backfillUnifiedContracts = adminMutation({
             ? (parentByContractId.get(contract._id) ??
               contract.parentContractId)
             : undefined;
-        await ctx.db.patch("contracts", contract._id, {
-          direction: contract.direction ?? "client_sale",
+        const patch: {
+          direction: typeof direction;
+          kind: typeof kind;
+          parentContractId?: Id<"contracts">;
+          customerId?: Id<"customers">;
+          updatedAt: number;
+        } = {
+          direction,
           kind,
           parentContractId,
-          customerId,
           updatedAt: now,
-        });
+        };
+        if (direction === "client_sale") {
+          patch.customerId = customerId;
+        }
+        await ctx.db.patch("contracts", contract._id, patch);
         updated++;
       }
 
