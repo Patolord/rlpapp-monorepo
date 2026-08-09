@@ -619,12 +619,22 @@ export const backfillUnifiedContracts = adminMutation({
         .take(1);
 
       const direction = contract.direction ?? "client_sale";
+      const kind =
+        kindByContractId.get(contract._id) ?? (contract.kind ?? "base");
+      const parentContractId =
+        kind === "addendum"
+          ? (parentByContractId.get(contract._id) ??
+            contract.parentContractId)
+          : undefined;
       const needsMeta =
         contract.direction === undefined ||
         contract.kind === undefined ||
         (contract.projectId !== undefined &&
           contract.customerId === undefined &&
-          direction === "client_sale");
+          direction === "client_sale") ||
+        (contract.projectId !== undefined &&
+          (kind !== contract.kind ||
+            parentContractId !== contract.parentContractId));
 
       let customerId = contract.customerId;
       if (
@@ -638,14 +648,6 @@ export const backfillUnifiedContracts = adminMutation({
       }
 
       if (needsMeta) {
-        const kind =
-          kindByContractId.get(contract._id) ??
-          (contract.kind ?? "base");
-        const parentContractId =
-          kind === "addendum"
-            ? (parentByContractId.get(contract._id) ??
-              contract.parentContractId)
-            : undefined;
         const patch: {
           direction: typeof direction;
           kind: typeof kind;
