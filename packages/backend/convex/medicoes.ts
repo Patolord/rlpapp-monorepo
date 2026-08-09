@@ -3,6 +3,7 @@ import { engineeringMutation, engineeringQuery } from "./lib/rbac";
 import { medicaoBasis, medicaoStatus, projectStatus } from "./schema";
 import { logAudit } from "./lib/audit";
 import { resolveCustomerLabel } from "./lib/projects/helpers";
+import { assertEligibleForMedicao } from "./lib/contracts/helpers";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 
@@ -73,6 +74,10 @@ const medicaoValidator = v.object({
 // Contratos
 // ---------------------------------------------------------------------------
 
+/**
+ * Lista contratos elegíveis para medições nesta obra (venda ao cliente).
+ * Criação/edição de contratos passa a ser feita em `api.contracts`.
+ */
 export const listContracts = engineeringQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(contractSummaryValidator),
@@ -82,13 +87,22 @@ export const listContracts = engineeringQuery({
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
+    const eligible = contracts.filter((contract) => {
+      try {
+        assertEligibleForMedicao(contract);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+
     return await Promise.all(
-      contracts.map(async (contract) => {
+      eligible.map(async (contract) => {
         const medicoes = await getMedicoesByContract(ctx, contract._id);
         const { medidoCents, aprovadoCents, pagoCents } = sumCents(medicoes);
         return {
           _id: contract._id,
-          projectId: contract.projectId,
+          projectId: args.projectId,
           title: contract.title,
           valueCents: contract.valueCents,
           notes: contract.notes ?? null,
@@ -102,114 +116,6 @@ export const listContracts = engineeringQuery({
         };
       })
     );
-  },
-});
-
-export const createContract = engineeringMutation({
-  args: {
-    projectId: v.id("projects"),
-    title: v.string(),
-    valueCents: v.number(),
-    notes: v.optional(v.string()),
-    signedAt: v.optional(v.number()),
-  },
-  returns: v.id("contracts"),
-  handler: async (ctx, args) => {
-    const project = await ctx.db.get("projects", args.projectId);
-    if (!project) throw new Error("Obra não encontrada");
-    const title = args.title.trim();
-    if (!title) throw new Error("Informe o título do contrato");
-    if (args.valueCents <= 0) {
-      throw new Error("O valor do contrato deve ser maior que zero");
-    }
-
-    const contractId = await ctx.db.insert("contracts", {
-      projectId: args.projectId,
-      title,
-      valueCents: Math.round(args.valueCents),
-      notes: args.notes,
-      signedAt: args.signedAt,
-      createdAt: Date.now(),
-    });
-
-    await logAudit(ctx, ctx.user, {
-      action: "create",
-      tableName: "contracts",
-      recordId: contractId,
-      details: `Contrato "${title}" criado na obra ${project.name}`,
-    });
-
-    return contractId;
-  },
-});
-
-export const updateContract = engineeringMutation({
-  args: {
-    contractId: v.id("contracts"),
-    title: v.optional(v.string()),
-    valueCents: v.optional(v.number()),
-    notes: v.optional(v.string()),
-    signedAt: v.optional(v.union(v.number(), v.null())),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const contract = await ctx.db.get("contracts", args.contractId);
-    if (!contract) throw new Error("Contrato não encontrado");
-
-    const patch: Partial<Doc<"contracts">> = {};
-    if (args.title !== undefined) {
-      const title = args.title.trim();
-      if (!title) throw new Error("Informe o título do contrato");
-      patch.title = title;
-    }
-    if (args.valueCents !== undefined) {
-      if (args.valueCents <= 0) {
-        throw new Error("O valor do contrato deve ser maior que zero");
-      }
-      patch.valueCents = Math.round(args.valueCents);
-    }
-    if (args.notes !== undefined) patch.notes = args.notes;
-    if (args.signedAt !== undefined) patch.signedAt = args.signedAt ?? undefined;
-
-    await ctx.db.patch("contracts", args.contractId, patch);
-
-    await logAudit(ctx, ctx.user, {
-      action: "update",
-      tableName: "contracts",
-      recordId: args.contractId,
-    });
-
-    return null;
-  },
-});
-
-export const removeContract = engineeringMutation({
-  args: { contractId: v.id("contracts") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const contract = await ctx.db.get("contracts", args.contractId);
-    if (!contract) throw new Error("Contrato não encontrado");
-
-    const medicao = await ctx.db
-      .query("medicoes")
-      .withIndex("by_contract", (q) => q.eq("contractId", args.contractId))
-      .first();
-    if (medicao) {
-      throw new Error(
-        "Não é possível excluir: o contrato possui medições. Exclua as medições primeiro."
-      );
-    }
-
-    await ctx.db.delete("contracts", args.contractId);
-
-    await logAudit(ctx, ctx.user, {
-      action: "delete",
-      tableName: "contracts",
-      recordId: args.contractId,
-      details: `Contrato "${contract.title}" excluído`,
-    });
-
-    return null;
   },
 });
 
@@ -301,6 +207,8 @@ export const createMedicao = engineeringMutation({
   handler: async (ctx, args) => {
     const contract = await ctx.db.get("contracts", args.contractId);
     if (!contract) throw new Error("Contrato não encontrado");
+    assertEligibleForMedicao(contract);
+    const projectId = contract.projectId!;
 
     let amountCents: number;
     let percent: number | undefined;
@@ -325,7 +233,7 @@ export const createMedicao = engineeringMutation({
       existing.reduce((max, m) => Math.max(max, m.sequence), 0) + 1;
 
     const medicaoId = await ctx.db.insert("medicoes", {
-      projectId: contract.projectId,
+      projectId,
       contractId: args.contractId,
       sequence,
       description: args.description?.trim() || undefined,
@@ -505,12 +413,20 @@ export const getOverview = engineeringQuery({
           .query("contracts")
           .withIndex("by_project", (q) => q.eq("projectId", project._id))
           .collect();
+        const eligible = contracts.filter((contract) => {
+          try {
+            assertEligibleForMedicao(contract);
+            return true;
+          } catch {
+            return false;
+          }
+        });
         const medicoes = await ctx.db
           .query("medicoes")
           .withIndex("by_project", (q) => q.eq("projectId", project._id))
           .collect();
 
-        const contractTotalCents = contracts.reduce(
+        const contractTotalCents = eligible.reduce(
           (sum, c) => sum + c.valueCents,
           0
         );
@@ -523,7 +439,7 @@ export const getOverview = engineeringQuery({
           legacyNumber: project.legacyNumber ?? null,
           client: await resolveCustomerLabel(ctx, project, customerLabelCache),
           status: project.status ?? null,
-          contractCount: contracts.length,
+          contractCount: eligible.length,
           contractTotalCents,
           medidoCents,
           aprovadoCents,

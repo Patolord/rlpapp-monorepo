@@ -143,6 +143,18 @@ export const medicaoStatus = v.union(
   v.literal("paga")
 );
 
+/** Direção do contrato: venda de serviço ao cliente ou contratação de empreiteiro. */
+export const contractDirection = v.union(
+  v.literal("client_sale"),
+  v.literal("contractor_hire")
+);
+
+/** Classificação do contrato: base (principal) ou aditivo. */
+export const contractKind = v.union(
+  v.literal("base"),
+  v.literal("addendum")
+);
+
 export default defineSchema({
   users: defineTable({
     name: v.string(),
@@ -570,11 +582,14 @@ export default defineSchema({
 
   materials: defineTable({
     name: v.string(),
-    familyId: v.id("materialFamilies"),
+    // Optional for legacy/incomplete rows that block schema push.
+    // New materials must still set familyId in mutations.
+    familyId: v.optional(v.id("materialFamilies")),
     variantLabel: v.optional(v.string()),
     dimensions: v.optional(materialDimensions),
     // Chave canônica da combinação família + atributos que definem o SKU.
-    identityKey: v.string(),
+    // Optional for the same legacy-row reason as familyId.
+    identityKey: v.optional(v.string()),
     // SKU interno (ex.: MAT-000001). Gerado automaticamente, editável.
     sku: v.optional(v.string()),
     barcode: v.optional(v.string()),
@@ -854,21 +869,86 @@ export default defineSchema({
     .index("by_active", ["active"])
     .index("by_type", ["type"]),
 
-  // --- Engenharia: Contratos e Medições (faturamento por obra) ---
+  // --- Engenharia: Empreiteiros (cadastro mestre) ---
 
-  // Contrato de uma obra. Uma obra pode ter vários (original + aditivos).
+  contractors: defineTable({
+    name: v.string(),
+    nameNormalized: v.string(),
+    personType: v.optional(v.union(v.literal("pf"), v.literal("pj"))),
+    legalName: v.optional(v.string()),
+    taxId: v.optional(v.string()),
+    taxIdNormalized: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    address: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    active: v.boolean(),
+    archivedAt: v.optional(v.number()),
+    archivedByUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    createdByUserId: v.optional(v.id("users")),
+    updatedByUserId: v.optional(v.id("users")),
+  })
+    .index("by_name_normalized", ["nameNormalized"])
+    .index("by_tax_id_normalized", ["taxIdNormalized"])
+    .index("by_active", ["active"]),
+
+  contractorContacts: defineTable({
+    contractorId: v.id("contractors"),
+    name: v.string(),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    role: v.optional(v.string()),
+    active: v.optional(v.boolean()),
+    archivedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_contractor", ["contractorId"])
+    .index("by_contractor_and_active", ["contractorId", "active"]),
+
+  // --- Engenharia: Contratos e Medições ---
+
+  // Registro unificado: venda ao cliente ou contratação de empreiteiro.
+  // Pode ou não estar vinculado a uma obra. Valor total é a soma dos itens
+  // de serviço (valueCents denormalizado).
+  // Campos novos são opcionais durante o backfill; documentos legados sem
+  // `direction` são tratados como client_sale.
   // Nota: futuramente o saldo do contrato também será abatido por compras de
   // material atribuídas à obra (ainda não rastreado).
   contracts: defineTable({
-    projectId: v.id("projects"),
+    projectId: v.optional(v.id("projects")),
+    direction: v.optional(contractDirection),
+    kind: v.optional(contractKind),
+    parentContractId: v.optional(v.id("contracts")),
+    customerId: v.optional(v.id("customers")),
+    contractorId: v.optional(v.id("contractors")),
     title: v.string(),
     valueCents: v.number(),
     notes: v.optional(v.string()),
     signedAt: v.optional(v.number()),
     createdAt: v.number(),
-  }).index("by_project", ["projectId"]),
+    updatedAt: v.optional(v.number()),
+    createdByUserId: v.optional(v.id("users")),
+    updatedByUserId: v.optional(v.id("users")),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_customer", ["customerId"])
+    .index("by_contractor", ["contractorId"])
+    .index("by_direction", ["direction"])
+    .index("by_parent", ["parentContractId"]),
 
-  // Medição: cobrança por serviços realizados, vinculada a um contrato.
+  contractServiceItems: defineTable({
+    contractId: v.id("contracts"),
+    description: v.string(),
+    valueCents: v.number(),
+    order: v.number(),
+    createdAt: v.number(),
+  }).index("by_contract", ["contractId"]),
+
+  // Medição: cobrança por serviços realizados, vinculada a um contrato
+  // de venda ao cliente com obra (client_sale + projectId).
   medicoes: defineTable({
     projectId: v.id("projects"),
     contractId: v.id("contracts"),

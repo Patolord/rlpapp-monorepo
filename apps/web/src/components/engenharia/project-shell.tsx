@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import type { ProjectHierarchy } from "@/components/engenharia/building-panel/hierarchy";
 import {
@@ -198,6 +198,7 @@ function ProjectShellLayout({
   const overdue = project.units.filter(
     (u) => getUnitState(u, now).overdue
   ).length;
+  const slug = obraLinkSlug(project);
 
   return (
     <div
@@ -293,7 +294,7 @@ function ProjectShellLayout({
               render={
                 <Link
                   to="/engenharia/obras/$obraSlug/qr-codes"
-                  params={{ obraSlug: obraLinkSlug(project) }}
+                  params={{ obraSlug: slug }}
                 />
               }
             >
@@ -305,32 +306,8 @@ function ProjectShellLayout({
               size="sm"
               render={
                 <Link
-                  to="/engenharia/obras/$obraSlug/orcamento"
-                  params={{ obraSlug: obraLinkSlug(project) }}
-                />
-              }
-            >
-              Orçamento
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              render={
-                <Link
-                  to="/engenharia/obras/$obraSlug/medicoes"
-                  params={{ obraSlug: obraLinkSlug(project) }}
-                />
-              }
-            >
-              Medições
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              render={
-                <Link
                   to="/engenharia/obras/$obraSlug/imprimir"
-                  params={{ obraSlug: obraLinkSlug(project) }}
+                  params={{ obraSlug: slug }}
                 />
               }
             >
@@ -339,6 +316,8 @@ function ProjectShellLayout({
             </Button>
           </div>
         </div>
+
+        <ObraModuleNav obraSlug={slug} />
       </div>
 
       {metricsOpen && (
@@ -370,6 +349,84 @@ function ProjectShellLayout({
         onOpenChange={setAiOpenPersist}
       />
     </div>
+  );
+}
+
+const OBRA_MODULES = [
+  {
+    key: "hub",
+    label: "Hub",
+    to: "/engenharia/obras/$obraSlug" as const,
+    match: "exact" as const,
+  },
+  {
+    key: "predio",
+    label: "Prédio",
+    to: "/engenharia/obras/$obraSlug/predio" as const,
+    match: "prefix" as const,
+  },
+  {
+    key: "orcamento",
+    label: "Orçamento",
+    to: "/engenharia/obras/$obraSlug/orcamento" as const,
+    match: "prefix" as const,
+  },
+  {
+    key: "contratos",
+    label: "Contratos",
+    to: "/engenharia/obras/$obraSlug/contratos" as const,
+    match: "prefix" as const,
+  },
+  {
+    key: "medicoes",
+    label: "Medições",
+    to: "/engenharia/obras/$obraSlug/medicoes" as const,
+    match: "prefix" as const,
+  },
+  {
+    key: "compras",
+    label: "Compras",
+    to: "/engenharia/obras/$obraSlug/compras" as const,
+    match: "prefix" as const,
+  },
+];
+
+function ObraModuleNav({ obraSlug }: { obraSlug: string }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const base = `/engenharia/obras/${obraSlug}`;
+
+  function isActive(mod: (typeof OBRA_MODULES)[number]) {
+    if (mod.match === "exact") {
+      return pathname === base || pathname === `${base}/`;
+    }
+    return pathname.startsWith(`${base}/${mod.key}`);
+  }
+
+  return (
+    <nav
+      aria-label="Módulos da obra"
+      className="mt-4 flex flex-wrap gap-x-1 gap-y-1 border-b"
+    >
+      {OBRA_MODULES.map((mod) => {
+        const active = isActive(mod);
+        return (
+          <Link
+            key={mod.key}
+            to={mod.to}
+            params={{ obraSlug }}
+            className={cn(
+              "-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors",
+              active
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+            aria-current={active ? "page" : undefined}
+          >
+            {mod.label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
