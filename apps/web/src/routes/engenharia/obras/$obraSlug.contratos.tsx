@@ -45,6 +45,7 @@ function ObraContratosPage() {
           <ContractsPage
             lockedProjectId={projectId as Id<"projects">}
             defaultCustomerId={project.customerId}
+            defaultCustomerName={project.customerName}
             title="Contratos da obra"
             description="Vendas ao cliente e contratações de empreiteiros vinculadas a esta obra."
             autoOpenCreate={novo}

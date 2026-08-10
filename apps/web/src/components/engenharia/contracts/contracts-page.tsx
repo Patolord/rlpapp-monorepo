@@ -46,6 +46,7 @@ const KIND_LABELS: Record<ContractKind, string> = {
 export function ContractsPage({
   lockedProjectId,
   defaultCustomerId,
+  defaultCustomerName,
   title = "Contratos",
   description = "Contratos de venda ao cliente e contratação de empreiteiros.",
   autoOpenCreate = false,
@@ -53,6 +54,7 @@ export function ContractsPage({
 }: {
   lockedProjectId?: Id<"projects">;
   defaultCustomerId?: Id<"customers"> | null;
+  defaultCustomerName?: string | null;
   title?: string;
   description?: string;
   autoOpenCreate?: boolean;
@@ -109,6 +111,7 @@ export function ContractsPage({
         <ContractFormDialog
           lockedProjectId={lockedProjectId}
           defaultCustomerId={defaultCustomerId}
+          defaultCustomerName={defaultCustomerName}
           open={createOpen}
           onOpenChange={setCreateOpen}
           trigger={
@@ -171,6 +174,7 @@ export function ContractsPage({
             <EmptyState
               lockedProjectId={lockedProjectId}
               defaultCustomerId={defaultCustomerId}
+              defaultCustomerName={defaultCustomerName}
             />
           ) : (
             <Table>
@@ -253,6 +257,8 @@ export function ContractsPage({
                           <ContractFormDialog
                             contractId={contract._id}
                             lockedProjectId={lockedProjectId}
+                            defaultCustomerId={defaultCustomerId}
+                            defaultCustomerName={defaultCustomerName}
                             trigger={
                               <Button
                                 variant="ghost"
@@ -302,9 +308,11 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
 function EmptyState({
   lockedProjectId,
   defaultCustomerId,
+  defaultCustomerName,
 }: {
   lockedProjectId?: Id<"projects">;
   defaultCustomerId?: Id<"customers"> | null;
+  defaultCustomerName?: string | null;
 }) {
   return (
     <div className="flex flex-col items-center gap-4 py-14 text-center">
@@ -321,6 +329,7 @@ function EmptyState({
       <ContractFormDialog
         lockedProjectId={lockedProjectId}
         defaultCustomerId={defaultCustomerId}
+        defaultCustomerName={defaultCustomerName}
         trigger={
           <Button>
             <Plus className="mr-2 size-4" />
