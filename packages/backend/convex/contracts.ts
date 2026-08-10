@@ -269,6 +269,61 @@ export const listBaseOptions = engineeringQuery({
   },
 });
 
+/** Contratos sem obra vinculada — opções para vincular ao criar uma obra. */
+export const listUnassignedOptions = engineeringQuery({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("contracts"),
+      title: v.string(),
+      direction: contractDirection,
+      valueCents: v.number(),
+      customerName: v.union(v.string(), v.null()),
+      contractorName: v.union(v.string(), v.null()),
+    })
+  ),
+  handler: async (ctx) => {
+    const unassigned = await ctx.db
+      .query("contracts")
+      .withIndex("by_project", (q) => q.eq("projectId", undefined))
+      .take(100);
+
+    const customerIds = new Set<Id<"customers">>();
+    const contractorIds = new Set<Id<"contractors">>();
+    for (const contract of unassigned) {
+      if (contract.customerId) customerIds.add(contract.customerId);
+      if (contract.contractorId) contractorIds.add(contract.contractorId);
+    }
+
+    const customerNames = new Map<Id<"customers">, string | null>();
+    for (const customerId of customerIds) {
+      const customer = await ctx.db.get("customers", customerId);
+      customerNames.set(customerId, customer?.name ?? null);
+    }
+
+    const contractorNames = new Map<Id<"contractors">, string | null>();
+    for (const contractorId of contractorIds) {
+      const contractor = await ctx.db.get("contractors", contractorId);
+      contractorNames.set(contractorId, contractor?.name ?? null);
+    }
+
+    return unassigned
+      .map((contract) => ({
+        _id: contract._id,
+        title: contract.title,
+        direction: resolveContractDirection(contract),
+        valueCents: contract.valueCents,
+        customerName: contract.customerId
+          ? (customerNames.get(contract.customerId) ?? null)
+          : null,
+        contractorName: contract.contractorId
+          ? (contractorNames.get(contract.contractorId) ?? null)
+          : null,
+      }))
+      .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+  },
+});
+
 /** Contratos elegíveis para medições (venda ao cliente + obra). */
 export const listForMedicoes = engineeringQuery({
   args: { projectId: v.id("projects") },

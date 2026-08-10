@@ -4,6 +4,11 @@ import { engineeringMutation, engineeringQuery } from "./lib/rbac";
 import { equipmentStatusValidator } from "./equipment";
 import { projectStatus } from "./schema";
 import { logAudit, diffFields } from "./lib/audit";
+import {
+  assertParentContract,
+  resolveContractDirection,
+  resolveContractKind,
+} from "./lib/contracts/helpers";
 import { buildProjectHierarchy } from "./lib/engenharia/hierarchy";
 import {
   assertUniqueLegacyNumber,
@@ -14,7 +19,8 @@ import {
   generateUniqueProjectSlug,
   looksLikeConvexId,
 } from "./lib/engenharia/slug";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
 const equipKindValidator = v.union(
@@ -403,6 +409,99 @@ export const getOverview = engineeringQuery({
 
 // --- CRUD de obra ---
 
+async function insertProject(
+  ctx: MutationCtx & { user: Doc<"users"> },
+  args: {
+    name: string;
+    floors?: Array<{ number: number; label: string }>;
+    customerId: Id<"customers">;
+    legacyNumber: number;
+    client?: string;
+    address?: string;
+    status?: Doc<"projects">["status"];
+    responsibleId?: Id<"users">;
+    startDate?: number;
+    endDate?: number;
+  }
+): Promise<Id<"projects">> {
+  const name = args.name.trim();
+  if (!name) throw new Error("O nome da obra é obrigatório");
+
+  const customer = await ctx.db.get("customers", args.customerId);
+  if (!customer) throw new Error("Cliente não encontrado");
+  if (customer.archivedAt || !customer.active) {
+    throw new Error("Cliente inativo — selecione outro ou restaure o cliente");
+  }
+  await assertUniqueLegacyNumber(ctx, args.legacyNumber);
+
+  const slug = await generateUniqueProjectSlug(ctx, name);
+
+  const projectId = await ctx.db.insert("projects", {
+    name,
+    slug,
+    floors: args.floors ? normalizeFloors(args.floors) : [],
+    customerId: args.customerId,
+    legacyNumber: args.legacyNumber,
+    client: args.client?.trim() || undefined,
+    address: args.address?.trim() || undefined,
+    status: args.status ?? "planning",
+    responsibleId: args.responsibleId,
+    startDate: args.startDate,
+    endDate: args.endDate,
+    createdAt: Date.now(),
+  });
+  await logAudit(ctx, ctx.user, {
+    action: "create",
+    tableName: "projects",
+    recordId: projectId,
+    entityLabel: name,
+    details: name,
+    snapshotAfter: {
+      name,
+      customerId: args.customerId,
+      legacyNumber: args.legacyNumber,
+    },
+  });
+  return projectId;
+}
+
+async function attachUnassignedContract(
+  ctx: MutationCtx & { user: Doc<"users"> },
+  args: {
+    contractId: Id<"contracts">;
+    projectId: Id<"projects">;
+  }
+): Promise<Id<"contracts">> {
+  const contract = await ctx.db.get("contracts", args.contractId);
+  if (!contract) throw new Error("Contrato não encontrado");
+  if (contract.projectId) {
+    throw new Error("Contrato já está vinculado a outra obra");
+  }
+
+  const direction = resolveContractDirection(contract);
+  const kind = resolveContractKind(contract);
+  await assertParentContract(ctx, {
+    kind,
+    parentContractId: contract.parentContractId,
+    projectId: args.projectId,
+    direction,
+    excludeId: args.contractId,
+  });
+
+  await ctx.db.patch("contracts", args.contractId, {
+    projectId: args.projectId,
+    updatedAt: Date.now(),
+    updatedByUserId: ctx.user._id,
+  });
+  await logAudit(ctx, ctx.user, {
+    action: "update",
+    tableName: "contracts",
+    recordId: args.contractId,
+    details: `Contrato vinculado à obra ${args.projectId}`,
+  });
+  return args.contractId;
+}
+
 export const create = engineeringMutation({
   args: {
     name: v.string(),
@@ -419,45 +518,38 @@ export const create = engineeringMutation({
   },
   returns: v.id("projects"),
   handler: async (ctx, args) => {
-    const name = args.name.trim();
-    if (!name) throw new Error("O nome da obra é obrigatório");
+    return await insertProject(ctx, args);
+  },
+});
 
-    const customer = await ctx.db.get("customers", args.customerId);
-    if (!customer) throw new Error("Cliente não encontrado");
-    if (customer.archivedAt || !customer.active) {
-      throw new Error("Cliente inativo — selecione outro ou restaure o cliente");
-    }
-    await assertUniqueLegacyNumber(ctx, args.legacyNumber);
-
-    const slug = await generateUniqueProjectSlug(ctx, name);
-
-    const projectId = await ctx.db.insert("projects", {
-      name,
-      slug,
-      floors: args.floors ? normalizeFloors(args.floors) : [],
+/** Cria a obra e, se informado, vincula um contrato ainda sem obra — numa única transação. */
+export const createWithOptionalContract = engineeringMutation({
+  args: {
+    name: v.string(),
+    customerId: v.id("customers"),
+    legacyNumber: v.number(),
+    contractId: v.optional(v.id("contracts")),
+  },
+  returns: v.object({
+    projectId: v.id("projects"),
+    linkedContractId: v.union(v.id("contracts"), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    const projectId = await insertProject(ctx, {
+      name: args.name,
       customerId: args.customerId,
       legacyNumber: args.legacyNumber,
-      client: args.client?.trim() || undefined,
-      address: args.address?.trim() || undefined,
-      status: args.status ?? "planning",
-      responsibleId: args.responsibleId,
-      startDate: args.startDate,
-      endDate: args.endDate,
-      createdAt: Date.now(),
     });
-    await logAudit(ctx, ctx.user, {
-      action: "create",
-      tableName: "projects",
-      recordId: projectId,
-      entityLabel: name,
-      details: name,
-      snapshotAfter: {
-        name,
-        customerId: args.customerId,
-        legacyNumber: args.legacyNumber,
-      },
+
+    if (!args.contractId) {
+      return { projectId, linkedContractId: null };
+    }
+
+    const linkedContractId = await attachUnassignedContract(ctx, {
+      contractId: args.contractId,
+      projectId,
     });
-    return projectId;
+    return { projectId, linkedContractId };
   },
 });
 

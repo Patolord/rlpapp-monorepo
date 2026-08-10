@@ -84,17 +84,31 @@ export function ContractFormDialog({
   lockedProjectId,
   defaultCustomerId,
   trigger,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   contractId?: Id<"contracts">;
   lockedProjectId?: Id<"projects">;
   defaultCustomerId?: Id<"customers"> | null;
   trigger: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const createContract = useMutation(api.contracts.create);
   const updateContract = useMutation(api.contracts.update);
   const isEdit = Boolean(contractId);
 
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+
+  function setOpen(next: boolean) {
+    if (isControlled) {
+      onOpenChange?.(next);
+    } else {
+      setInternalOpen(next);
+    }
+  }
 
   const detail = useQuery(
     api.contracts.get,
