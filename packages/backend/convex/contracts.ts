@@ -283,25 +283,44 @@ export const listUnassignedOptions = engineeringQuery({
     })
   ),
   handler: async (ctx) => {
-    const contracts = await ctx.db.query("contracts").collect();
-    const unassigned = contracts.filter((c) => !c.projectId);
-    const caches = emptyCaches();
+    const unassigned = await ctx.db
+      .query("contracts")
+      .withIndex("by_project", (q) => q.eq("projectId", undefined))
+      .take(100);
 
-    const rows = await Promise.all(
-      unassigned.map(async (contract) => {
-        const row = await resolveContractRow(ctx, contract, caches);
-        return {
-          _id: row._id,
-          title: row.title,
-          direction: row.direction,
-          valueCents: row.valueCents,
-          customerName: row.customerName,
-          contractorName: row.contractorName,
-        };
-      })
-    );
+    const customerIds = new Set<Id<"customers">>();
+    const contractorIds = new Set<Id<"contractors">>();
+    for (const contract of unassigned) {
+      if (contract.customerId) customerIds.add(contract.customerId);
+      if (contract.contractorId) contractorIds.add(contract.contractorId);
+    }
 
-    return rows.sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+    const customerNames = new Map<Id<"customers">, string | null>();
+    for (const customerId of customerIds) {
+      const customer = await ctx.db.get("customers", customerId);
+      customerNames.set(customerId, customer?.name ?? null);
+    }
+
+    const contractorNames = new Map<Id<"contractors">, string | null>();
+    for (const contractorId of contractorIds) {
+      const contractor = await ctx.db.get("contractors", contractorId);
+      contractorNames.set(contractorId, contractor?.name ?? null);
+    }
+
+    return unassigned
+      .map((contract) => ({
+        _id: contract._id,
+        title: contract.title,
+        direction: resolveContractDirection(contract),
+        valueCents: contract.valueCents,
+        customerName: contract.customerId
+          ? (customerNames.get(contract.customerId) ?? null)
+          : null,
+        contractorName: contract.contractorId
+          ? (contractorNames.get(contract.contractorId) ?? null)
+          : null,
+      }))
+      .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
   },
 });
 

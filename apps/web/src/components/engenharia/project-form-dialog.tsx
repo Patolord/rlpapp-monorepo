@@ -49,9 +49,10 @@ export function ProjectFormDialog({
   trigger: ReactNode;
 }) {
   const navigate = useNavigate();
-  const createProject = useMutation(api.projects.create);
+  const createProjectWithOptionalContract = useMutation(
+    api.projects.createWithOptionalContract
+  );
   const updateProject = useMutation(api.projects.update);
-  const updateContract = useMutation(api.contracts.update);
   const customers = useQuery(api.customers.list, { activeOnly: true });
   const isEdit = Boolean(project);
   const currentCustomerMissing =
@@ -121,22 +122,15 @@ export function ProjectFormDialog({
     }
 
     try {
-      const projectId = await createProject({
-        name: name.trim(),
-        legacyNumber: parsedLegacyNumber,
-        customerId: customerId as Id<"customers">,
-      });
-
-      const linkedContractId = contractId
-        ? (contractId as Id<"contracts">)
-        : null;
-
-      if (linkedContractId) {
-        await updateContract({
-          contractId: linkedContractId,
-          projectId,
+      const { projectId, linkedContractId } =
+        await createProjectWithOptionalContract({
+          name: name.trim(),
+          legacyNumber: parsedLegacyNumber,
+          customerId: customerId as Id<"customers">,
+          ...(contractId
+            ? { contractId: contractId as Id<"contracts"> }
+            : {}),
         });
-      }
 
       toast.success("Obra criada");
       setOpen(false);
