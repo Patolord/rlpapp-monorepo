@@ -77,19 +77,27 @@ export async function paginateInventoryDocuments(
   continueCursor: string;
 }> {
   if (args.projectId) {
-    const results = await ctx.db
-      .query("inventoryDocuments")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId!))
-      .order("desc")
-      .paginate({
-        numItems: args.numItems,
-        cursor: args.cursor,
-      });
-    const page = args.status
-      ? results.page.filter((document) => document.status === args.status)
-      : results.page;
+    const results = args.status
+      ? await ctx.db
+          .query("inventoryDocuments")
+          .withIndex("by_project_status", (q) =>
+            q.eq("projectId", args.projectId!).eq("status", args.status!)
+          )
+          .order("desc")
+          .paginate({
+            numItems: args.numItems,
+            cursor: args.cursor,
+          })
+      : await ctx.db
+          .query("inventoryDocuments")
+          .withIndex("by_project", (q) => q.eq("projectId", args.projectId!))
+          .order("desc")
+          .paginate({
+            numItems: args.numItems,
+            cursor: args.cursor,
+          });
     return {
-      page,
+      page: results.page,
       isDone: results.isDone,
       continueCursor: results.continueCursor,
     };

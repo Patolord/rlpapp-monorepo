@@ -49,6 +49,20 @@ function ObraEstoquePage() {
   );
 }
 
+function canReadEstoque(user: {
+  role: string;
+  department?: string | null;
+}): boolean {
+  return (
+    user.role === "director" ||
+    user.role === "admin" ||
+    user.role === "engenheiro" ||
+    user.department === "engenharia" ||
+    user.department === "compras" ||
+    user.department === "estoque"
+  );
+}
+
 function ObraEstoqueContent({
   project,
   projectId,
@@ -56,18 +70,29 @@ function ObraEstoqueContent({
   project: ProjectOverview;
   projectId: Id<"projects">;
 }) {
-  const access = useQuery(api.inventory.getAccess, {});
-  const materials = useQuery(api.inventory.listMaterialOptions, {});
-  const projects = useQuery(api.inventory.listProjects, {});
-  const summaries = useQuery(api.inventory.listProjectSummaries, {});
+  const currentUser = useQuery(api.users.getCurrentUser, {});
+  const hasEstoqueRead =
+    currentUser !== undefined &&
+    currentUser !== null &&
+    canReadEstoque(currentUser);
+  const inventoryArgs = hasEstoqueRead ? {} : "skip";
+  const projectInventoryArgs = hasEstoqueRead ? { projectId } : "skip";
+
+  const access = useQuery(api.inventory.getAccess, inventoryArgs);
+  const materials = useQuery(api.inventory.listMaterialOptions, inventoryArgs);
+  const projects = useQuery(api.inventory.listProjects, inventoryArgs);
+  const summaries = useQuery(
+    api.inventory.listProjectSummaries,
+    inventoryArgs
+  );
   const balances = usePaginatedQuery(
     api.inventory.listBalances,
-    { projectId },
+    projectInventoryArgs,
     { initialNumItems: 100 }
   );
   const documents = usePaginatedQuery(
     api.inventory.listDocuments,
-    { projectId },
+    projectInventoryArgs,
     { initialNumItems: 20 }
   );
 
@@ -86,6 +111,25 @@ function ObraEstoqueContent({
         balance.category?.toLocaleLowerCase("pt-BR").includes(term)
     );
   }, [balances.results, search]);
+
+  if (currentUser === undefined) {
+    return (
+      <div className="py-16 text-center text-sm text-muted-foreground">
+        Carregando estoque da obra...
+      </div>
+    );
+  }
+
+  if (!hasEstoqueRead) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <h1 className="text-2xl font-bold">Acesso restrito</h1>
+        <p className="mt-2 text-muted-foreground">
+          Acesso restrito às áreas de estoque, compras ou engenharia.
+        </p>
+      </div>
+    );
+  }
 
   if (!access || !materials || !projects || !summaries) {
     return (
