@@ -170,11 +170,7 @@ export function ContractFormDialog({
       setKind(detail.kind);
       setProjectId(detail.projectId ?? "");
       setParentContractId(detail.parentContractId ?? "");
-      setCustomerId(
-        lockedProjectId && defaultCustomerId && detail.direction === "client_sale"
-          ? defaultCustomerId
-          : (detail.customerId ?? "")
-      );
+      setCustomerId(detail.customerId ?? "");
       setContractorId(detail.contractorId ?? "");
       setSignedAt(toDateInput(detail.signedAt));
       setNotes(detail.notes ?? "");
@@ -342,11 +338,7 @@ export function ContractFormDialog({
       parentContractId:
         kind === "addendum" ? (parentContractId as Id<"contracts">) : null,
       customerId:
-        direction === "client_sale"
-          ? ((lockedProjectId && defaultCustomerId
-              ? defaultCustomerId
-              : customerId) as Id<"customers">)
-          : null,
+        direction === "client_sale" ? (customerId as Id<"customers">) : null,
       contractorId:
         direction === "contractor_hire"
           ? (contractorId as Id<"contractors">)
@@ -380,7 +372,9 @@ export function ContractFormDialog({
   }
 
   const loadingEdit = Boolean(open && contractId && detail === undefined);
-  const usesObraCustomer = Boolean(lockedProjectId && defaultCustomerId);
+  const usesObraCustomer =
+    Boolean(lockedProjectId && defaultCustomerId) &&
+    (!isEdit || customerId === defaultCustomerId);
   const obraCustomerLabel =
     defaultCustomerName ??
     customers?.find((customer) => customer._id === defaultCustomerId)?.name ??
@@ -429,7 +423,7 @@ export function ContractFormDialog({
                     setParentContractId("");
                     if (next === "client_sale") {
                       setContractorId("");
-                      if (defaultCustomerId) {
+                      if (!isEdit && defaultCustomerId) {
                         setCustomerId(defaultCustomerId);
                       }
                     } else {
