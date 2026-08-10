@@ -81,7 +81,7 @@ function getNavGroups(): NavGroup[] {
       key: "estoque",
       label: "Estoque",
       items: [
-        { to: "/estoque", label: "Central e Obras", icon: Warehouse, exact: true },
+        { to: "/estoque", label: "Estoque central", icon: Warehouse, exact: true },
       ],
     },
     {

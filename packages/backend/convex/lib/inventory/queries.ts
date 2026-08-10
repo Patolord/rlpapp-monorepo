@@ -69,12 +69,32 @@ export async function paginateInventoryDocuments(
     numItems: number;
     cursor: string | null;
     projectOnly: boolean;
+    projectId?: Id<"projects">;
   }
 ): Promise<{
   page: Doc<"inventoryDocuments">[];
   isDone: boolean;
   continueCursor: string;
 }> {
+  if (args.projectId) {
+    const results = await ctx.db
+      .query("inventoryDocuments")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId!))
+      .order("desc")
+      .paginate({
+        numItems: args.numItems,
+        cursor: args.cursor,
+      });
+    const page = args.status
+      ? results.page.filter((document) => document.status === args.status)
+      : results.page;
+    return {
+      page,
+      isDone: results.isDone,
+      continueCursor: results.continueCursor,
+    };
+  }
+
   const paginateBase = async (paginationOpts: {
     numItems: number;
     cursor: string | null;

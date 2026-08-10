@@ -1,23 +1,19 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
 import { usePaginatedQuery, useQuery } from "convex/react";
-import {
-  CheckCircle2,
-  History,
-  Package,
-  Search,
-  ShieldAlert,
-  Warehouse,
-} from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { History, Package, Search, Warehouse } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { AuthShell } from "@/components/auth-shell";
-import { InventoryAddressDialog } from "@/components/estoque/inventory-address-dialog";
-import { InventoryApprovals } from "@/components/estoque/inventory-approvals";
+import { StockHealthBadge } from "@/components/compras/material-replenishment-badge";
 import { InventoryDocumentsHistory } from "@/components/estoque/inventory-documents-history";
 import { InventoryMovementDialog } from "@/components/estoque/inventory-movement-dialog";
-import { InventoryRules } from "@/components/estoque/inventory-rules";
-import { StockHealthBadge } from "@/components/compras/material-replenishment-badge";
+import {
+  ProjectShell,
+  type ProjectOverview,
+} from "@/components/engenharia/project-shell";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,116 +25,110 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useObraProjectId } from "@/lib/engenharia/obra-context";
 
-export const Route = createFileRoute("/estoque/")({
-  component: EstoquePage,
+export const Route = createFileRoute("/engenharia/obras/$obraSlug/estoque")({
+  component: ObraEstoquePage,
 });
 
-type Section = "central" | "movimentacoes" | "aprovacoes" | "regras";
+type Section = "saldos" | "movimentacoes";
 
-function EstoquePage() {
+function ObraEstoquePage() {
+  const projectId = useObraProjectId();
   return (
     <AuthShell>
-      <EstoqueContent />
+      <ProjectShell projectId={projectId}>
+        {(project) => (
+          <ObraEstoqueContent
+            project={project}
+            projectId={projectId as Id<"projects">}
+          />
+        )}
+      </ProjectShell>
     </AuthShell>
   );
 }
 
-function EstoqueContent() {
+function ObraEstoqueContent({
+  project,
+  projectId,
+}: {
+  project: ProjectOverview;
+  projectId: Id<"projects">;
+}) {
   const access = useQuery(api.inventory.getAccess, {});
   const materials = useQuery(api.inventory.listMaterialOptions, {});
   const projects = useQuery(api.inventory.listProjects, {});
-  const approvals = useQuery(api.inventory.listPendingApprovals, {});
-  const rules = useQuery(api.inventory.listRules, {});
-  const centralBalances = usePaginatedQuery(
+  const summaries = useQuery(api.inventory.listProjectSummaries, {});
+  const balances = usePaginatedQuery(
     api.inventory.listBalances,
-    access?.canViewCentral ? {} : "skip",
+    { projectId },
     { initialNumItems: 100 }
   );
   const documents = usePaginatedQuery(
     api.inventory.listDocuments,
-    {},
+    { projectId },
     { initialNumItems: 20 }
   );
 
-  const [section, setSection] = useState<Section>("central");
+  const [section, setSection] = useState<Section>("saldos");
   const [search, setSearch] = useState("");
 
-  const filteredCentralBalances = useMemo(() => {
+  const summary = summaries?.find((item) => item.projectId === projectId);
+
+  const filteredBalances = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("pt-BR");
-    if (!term) return centralBalances.results;
-    return centralBalances.results.filter(
+    if (!term) return balances.results;
+    return balances.results.filter(
       (balance) =>
         balance.materialName.toLocaleLowerCase("pt-BR").includes(term) ||
         balance.materialSku?.toLocaleLowerCase("pt-BR").includes(term) ||
-        balance.category?.toLocaleLowerCase("pt-BR").includes(term) ||
-        balance.physicalAddress?.toLocaleLowerCase("pt-BR").includes(term)
+        balance.category?.toLocaleLowerCase("pt-BR").includes(term)
     );
-  }, [centralBalances.results, search]);
+  }, [balances.results, search]);
 
-  useEffect(() => {
-    if (access && !access.canViewCentral && section === "central") {
-      setSection("movimentacoes");
-    }
-  }, [access, section]);
-
-  if (!access || !materials || !projects || !approvals || !rules) {
+  if (!access || !materials || !projects || !summaries) {
     return (
-      <div className="mx-auto max-w-7xl py-16 text-center text-sm text-muted-foreground">
-        Carregando estoque...
+      <div className="py-16 text-center text-sm text-muted-foreground">
+        Carregando estoque da obra...
       </div>
     );
   }
 
-  const sections: Array<{ key: Section; label: string; icon: typeof Package }> = [
-    ...(access.canViewCentral
-      ? [{ key: "central" as const, label: "Central", icon: Warehouse }]
-      : []),
-    { key: "movimentacoes", label: "Movimentações", icon: History },
-    ...(access.isEngineer
-      ? [{ key: "aprovacoes" as const, label: "Aprovações", icon: ShieldAlert }]
-      : []),
-    { key: "regras", label: "Regras", icon: CheckCircle2 },
-  ];
+  const sections: Array<{ key: Section; label: string; icon: typeof Package }> =
+    [
+      { key: "saldos", label: "Saldos", icon: Warehouse },
+      { key: "movimentacoes", label: "Movimentações", icon: History },
+    ];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Estoque central</h1>
+          <h2 className="text-xl font-bold">Estoque da obra</h2>
           <p className="text-sm text-muted-foreground">
-            Controle do armazém central, entradas e envios para as obras.
+            Materiais disponíveis e movimentações de {project.name}.
           </p>
         </div>
         <InventoryMovementDialog
           access={access}
           materials={materials}
           projects={projects}
+          fixedProjectId={projectId}
+          scope="obra"
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {access.canViewCentral && (
-          <MetricCard
-            icon={Package}
-            label="Materiais no central"
-            value={String(
-              centralBalances.results.filter((balance) => balance.quantity > 0)
-                .length
-            )}
-          />
-        )}
-        <MetricCard
-          icon={History}
-          label="Movimentações carregadas"
-          value={String(documents.results.length)}
-        />
-        <MetricCard
-          icon={ShieldAlert}
-          label="Suas aprovações pendentes"
-          value={String(approvals.length)}
-        />
-      </div>
+      {summary && (
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="secondary">
+            {summary.materialCount} material(is) com saldo
+          </Badge>
+          <Badge variant="secondary">{summary.transferCount} envios</Badge>
+          <Badge variant="secondary">{summary.consumptionCount} consumos</Badge>
+          <Badge variant="secondary">{summary.returnCount} retornos</Badge>
+        </div>
+      )}
 
       <div className="flex gap-1 overflow-x-auto rounded-xl border bg-white p-1">
         {sections.map((item) => (
@@ -155,14 +145,14 @@ function EstoqueContent() {
         ))}
       </div>
 
-      {section === "central" && (
+      {section === "saldos" && (
         <Card>
           <CardHeader>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <CardTitle>Estoque central</CardTitle>
+                <CardTitle>Materiais na obra</CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Saldos e endereço físico de cada material.
+                  Saldos disponíveis neste projeto.
                 </p>
               </div>
               <div className="relative w-full sm:w-80">
@@ -171,16 +161,16 @@ function EstoqueContent() {
                   className="pl-9"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Buscar material ou localização"
+                  placeholder="Buscar material"
                 />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            {centralBalances.status === "LoadingFirstPage" ? (
+            {balances.status === "LoadingFirstPage" ? (
               <LoadingMessage />
-            ) : filteredCentralBalances.length === 0 ? (
-              <EmptyMessage text="Nenhum material no estoque central." />
+            ) : filteredBalances.length === 0 ? (
+              <EmptyMessage text="Esta obra ainda não possui materiais." />
             ) : (
               <>
                 <Table>
@@ -188,13 +178,12 @@ function EstoqueContent() {
                     <TableRow>
                       <TableHead>Material</TableHead>
                       <TableHead>Categoria</TableHead>
-                      <TableHead className="text-right">Saldo</TableHead>
+                      <TableHead className="text-right">Disponível</TableHead>
                       <TableHead>Saúde</TableHead>
-                      <TableHead>Localização</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredCentralBalances.map((balance) => (
+                    {filteredBalances.map((balance) => (
                       <TableRow key={balance._id}>
                         <TableCell className="font-medium">
                           <div>
@@ -218,26 +207,15 @@ function EstoqueContent() {
                             }
                           />
                         </TableCell>
-                        <TableCell>
-                          {access.canWriteCentral ? (
-                            <InventoryAddressDialog
-                              balanceId={balance._id}
-                              materialName={balance.materialName}
-                              currentAddress={balance.physicalAddress}
-                            />
-                          ) : (
-                            balance.physicalAddress ?? "—"
-                          )}
-                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-                {centralBalances.status === "CanLoadMore" && (
+                {balances.status === "CanLoadMore" && (
                   <div className="mt-4 text-center">
                     <Button
                       variant="outline"
-                      onClick={() => centralBalances.loadMore(100)}
+                      onClick={() => balances.loadMore(100)}
                     >
                       Carregar mais
                     </Button>
@@ -255,47 +233,16 @@ function EstoqueContent() {
             <CardTitle>Histórico de movimentações</CardTitle>
           </CardHeader>
           <CardContent>
-            <InventoryDocumentsHistory access={access} documents={documents} />
+            <InventoryDocumentsHistory
+              access={access}
+              documents={documents}
+              showProjectName={false}
+              emptyText="Nenhuma movimentação registrada para esta obra."
+            />
           </CardContent>
         </Card>
       )}
-
-      {section === "aprovacoes" && (
-        <InventoryApprovals approvals={approvals} />
-      )}
-
-      {section === "regras" && (
-        <InventoryRules
-          rules={rules}
-          materials={materials}
-          canConfigure={access.canConfigureRules}
-        />
-      )}
     </div>
-  );
-}
-
-function MetricCard({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof Package;
-  label: string;
-  value: string;
-}) {
-  return (
-    <Card>
-      <CardContent className="flex items-center gap-4 p-5">
-        <div className="rounded-xl bg-primary/10 p-3 text-primary">
-          <Icon className="size-5" />
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="text-2xl font-bold">{value}</p>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
