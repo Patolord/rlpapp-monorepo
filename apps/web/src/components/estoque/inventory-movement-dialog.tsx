@@ -61,7 +61,16 @@ const emptyLine = (): FormLine => {
   return { id: nextLineId, materialId: "", quantity: "" };
 };
 
-function allowedTypes(access: Access): MovementType[] {
+function allowedTypes(
+  access: Access,
+  scope: "central" | "obra"
+): MovementType[] {
+  if (scope === "obra") {
+    const types: MovementType[] = [];
+    if (access.canCreateProjectMovement) types.push("consumption", "return");
+    if (access.canWriteCentral) types.push("adjustment");
+    return types;
+  }
   const types: MovementType[] = [];
   if (access.canCreateEntry) types.push("entry");
   if (access.canWriteCentral) types.push("transfer", "adjustment");
@@ -73,17 +82,21 @@ export function InventoryMovementDialog({
   access,
   materials,
   projects,
+  fixedProjectId,
+  scope = "central",
 }: {
   access: Access;
   materials: Material[];
   projects: Project[];
+  fixedProjectId?: Id<"projects">;
+  scope?: "central" | "obra";
 }) {
   const createDocument = useMutation(api.inventory.createDocument);
   const postDocument = useMutation(api.inventory.postDocument);
-  const types = allowedTypes(access);
+  const types = allowedTypes(access, scope);
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<MovementType>(types[0] ?? "entry");
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useState(fixedProjectId ?? "");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<FormLine[]>([emptyLine()]);
@@ -121,7 +134,7 @@ export function InventoryMovementDialog({
 
   function reset() {
     setType(types[0] ?? "entry");
-    setProjectId("");
+    setProjectId(fixedProjectId ?? "");
     setReference("");
     setNotes("");
     setLines([emptyLine()]);
@@ -140,7 +153,8 @@ export function InventoryMovementDialog({
       materialId: line.materialId,
       quantity: Number(line.quantity.replace(",", ".")),
     }));
-    if (requiresProject && !projectId) {
+    const effectiveProjectId = fixedProjectId ?? projectId;
+    if (requiresProject && !effectiveProjectId) {
       toast.error("Selecione a obra");
       return;
     }
@@ -157,8 +171,8 @@ export function InventoryMovementDialog({
     try {
       const result = await createDocument({
         type,
-        projectId: projectId
-          ? (projectId as Id<"projects">)
+        projectId: effectiveProjectId
+          ? (effectiveProjectId as Id<"projects">)
           : undefined,
         reference: reference.trim() || undefined,
         notes: notes.trim() || undefined,
@@ -234,7 +248,7 @@ export function InventoryMovementDialog({
             </Select>
           </div>
 
-          {type !== "entry" && (
+          {type !== "entry" && !fixedProjectId && (
             <div className="space-y-1.5">
               <Label>
                 Obra {requiresProject ? "" : "(opcional; vazio = central)"}

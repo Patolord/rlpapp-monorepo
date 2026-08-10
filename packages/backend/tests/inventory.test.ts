@@ -477,6 +477,36 @@ describe("estoque central e obras", () => {
     expect(totalCentralDocs).toBeGreaterThan(5);
   });
 
+  test("listDocuments com projectId retorna só movimentações da obra", async () => {
+    const { ids, purchasing, warehouse } = await seedInventoryFixture();
+
+    for (let i = 0; i < 3; i += 1) {
+      await createAndPostEntry(purchasing, [
+        { materialId: ids.equipmentId, quantity: 1 },
+      ]);
+    }
+
+    for (let i = 0; i < 2; i += 1) {
+      const transfer = await warehouse.mutation(api.inventory.createDocument, {
+        type: "transfer",
+        projectId: ids.projectId,
+        lines: [{ materialId: ids.equipmentId, quantity: 1 }],
+      });
+      await warehouse.mutation(api.inventory.postDocument, {
+        documentId: transfer.documentId,
+      });
+    }
+
+    const scoped = await warehouse.query(api.inventory.listDocuments, {
+      projectId: ids.projectId,
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    expect(scoped.page).toHaveLength(2);
+    expect(
+      scoped.page.every((document) => document.projectId === ids.projectId)
+    ).toBe(true);
+  });
+
   test("estorno cria eventos compensatórios e preserva o documento original", async () => {
     const { t, ids, purchasing, warehouse } = await seedInventoryFixture();
     const entryDocumentId = await createAndPostEntry(purchasing, [

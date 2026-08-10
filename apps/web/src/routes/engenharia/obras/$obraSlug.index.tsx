@@ -5,6 +5,7 @@ import {
   ClipboardCheck,
   FileText,
   Package,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 
@@ -40,7 +41,8 @@ type ModuleTile = {
     | "/engenharia/obras/$obraSlug/orcamento"
     | "/engenharia/obras/$obraSlug/contratos"
     | "/engenharia/obras/$obraSlug/medicoes"
-    | "/engenharia/obras/$obraSlug/compras";
+    | "/engenharia/obras/$obraSlug/compras"
+    | "/engenharia/obras/$obraSlug/estoque";
   label: string;
   description: string;
   icon: LucideIcon;
@@ -88,6 +90,12 @@ function ObraHubContent({ project }: { project: ProjectOverview }) {
       label: "Compras",
       description: "Takeoffs da obra e preços de referência",
       icon: Package,
+    },
+    {
+      to: "/engenharia/obras/$obraSlug/estoque",
+      label: "Estoque",
+      description: "Saldos e movimentações desta obra",
+      icon: Warehouse,
     },
   ];
 

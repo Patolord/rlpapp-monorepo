@@ -69,12 +69,40 @@ export async function paginateInventoryDocuments(
     numItems: number;
     cursor: string | null;
     projectOnly: boolean;
+    projectId?: Id<"projects">;
   }
 ): Promise<{
   page: Doc<"inventoryDocuments">[];
   isDone: boolean;
   continueCursor: string;
 }> {
+  if (args.projectId) {
+    const results = args.status
+      ? await ctx.db
+          .query("inventoryDocuments")
+          .withIndex("by_project_status", (q) =>
+            q.eq("projectId", args.projectId!).eq("status", args.status!)
+          )
+          .order("desc")
+          .paginate({
+            numItems: args.numItems,
+            cursor: args.cursor,
+          })
+      : await ctx.db
+          .query("inventoryDocuments")
+          .withIndex("by_project", (q) => q.eq("projectId", args.projectId!))
+          .order("desc")
+          .paginate({
+            numItems: args.numItems,
+            cursor: args.cursor,
+          });
+    return {
+      page: results.page,
+      isDone: results.isDone,
+      continueCursor: results.continueCursor,
+    };
+  }
+
   const paginateBase = async (paginationOpts: {
     numItems: number;
     cursor: string | null;

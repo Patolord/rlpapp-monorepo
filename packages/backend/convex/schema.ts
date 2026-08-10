@@ -798,6 +798,7 @@ export default defineSchema({
   })
     .index("by_status", ["status", "createdAt"])
     .index("by_project", ["projectId", "createdAt"])
+    .index("by_project_status", ["projectId", "status", "createdAt"])
     .index("by_created_by", ["createdByUserId", "createdAt"])
     .index("by_reversal_of", ["reversalOfDocumentId"]),
 

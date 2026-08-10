@@ -272,6 +272,7 @@ export const listProjectSummaries = inventoryQuery({
 export const listDocuments = inventoryQuery({
   args: {
     status: v.optional(inventoryDocumentStatus),
+    projectId: v.optional(v.id("projects")),
     paginationOpts: paginationOptsValidator,
   },
   returns: v.object({
@@ -284,9 +285,12 @@ export const listDocuments = inventoryQuery({
   handler: async (ctx, args) => {
     const results = await paginateInventoryDocuments(ctx, {
       status: args.status,
+      projectId: args.projectId,
       numItems: args.paginationOpts.numItems,
       cursor: args.paginationOpts.cursor,
-      projectOnly: !canViewCentralInventory(ctx.user),
+      projectOnly: args.projectId
+        ? true
+        : !canViewCentralInventory(ctx.user),
     });
     return {
       ...results,
