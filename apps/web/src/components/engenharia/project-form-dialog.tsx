@@ -76,6 +76,32 @@ export function ProjectFormDialog({
     open && !isEdit ? {} : "skip"
   );
 
+  const customerItems = Object.fromEntries([
+    ...(currentCustomerMissing && project?.customerId
+      ? [
+          [
+            project.customerId,
+            `${project.customerName ?? "Cliente atual indisponível"} (inativo)`,
+          ] as const,
+        ]
+      : []),
+    ...(customers ?? []).map((c) => [c._id, c.name] as const),
+  ]);
+
+  const contractItems = Object.fromEntries([
+    ["__none__", "Nenhum (criar depois)"] as const,
+    ...(unassignedContracts ?? []).map((contract) => {
+      const counterparty =
+        contract.direction === "client_sale"
+          ? contract.customerName
+          : contract.contractorName;
+      const label = counterparty
+        ? `${contract.title} · ${counterparty}`
+        : contract.title;
+      return [contract._id, label] as const;
+    }),
+  ]);
+
   function reset() {
     setName(project?.name ?? "");
     setLegacyNumber(project?.legacyNumber?.toString() ?? "");
@@ -196,8 +222,16 @@ export function ProjectFormDialog({
 
           <div className="space-y-2">
             <Label htmlFor="project-customer">Cliente</Label>
-            <Select value={customerId} onValueChange={setCustomerId} required>
-              <SelectTrigger id="project-customer">
+            <Select
+              value={customerId || undefined}
+              items={customerItems}
+              onValueChange={setCustomerId}
+              required
+            >
+              <SelectTrigger
+                id="project-customer"
+                className="w-full bg-transparent [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate"
+              >
                 <SelectValue placeholder="Selecione um cliente" />
               </SelectTrigger>
               <SelectContent>
@@ -221,14 +255,18 @@ export function ProjectFormDialog({
               <Label htmlFor="project-contract">Contrato existente</Label>
               <Select
                 value={contractId || "__none__"}
+                items={contractItems}
                 onValueChange={(value) =>
                   setContractId(value === "__none__" ? "" : value)
                 }
               >
-                <SelectTrigger id="project-contract">
+                <SelectTrigger
+                  id="project-contract"
+                  className="w-full bg-transparent [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate"
+                >
                   <SelectValue placeholder="Nenhum (criar depois)" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="min-w-[var(--anchor-width)]">
                   <SelectItem value="__none__">Nenhum (criar depois)</SelectItem>
                   {(unassignedContracts ?? []).map((contract) => {
                     const counterparty =
@@ -236,11 +274,25 @@ export function ProjectFormDialog({
                         ? contract.customerName
                         : contract.contractorName;
                     return (
-                      <SelectItem key={contract._id} value={contract._id}>
-                        {contract.title}
-                        {counterparty ? ` · ${counterparty}` : ""} (
-                        {DIRECTION_LABELS[contract.direction]} ·{" "}
-                        {formatCurrency(contract.valueCents)})
+                      <SelectItem
+                        key={contract._id}
+                        value={contract._id}
+                        className="items-start py-2"
+                      >
+                        <span className="flex min-w-0 flex-col gap-0.5">
+                          <span className="truncate font-medium leading-tight">
+                            {contract.title}
+                          </span>
+                          <span className="text-muted-foreground truncate text-xs leading-tight">
+                            {[
+                              counterparty,
+                              DIRECTION_LABELS[contract.direction],
+                              formatCurrency(contract.valueCents),
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                        </span>
                       </SelectItem>
                     );
                   })}
