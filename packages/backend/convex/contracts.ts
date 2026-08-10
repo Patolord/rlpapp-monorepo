@@ -269,6 +269,42 @@ export const listBaseOptions = engineeringQuery({
   },
 });
 
+/** Contratos sem obra vinculada — opções para vincular ao criar uma obra. */
+export const listUnassignedOptions = engineeringQuery({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("contracts"),
+      title: v.string(),
+      direction: contractDirection,
+      valueCents: v.number(),
+      customerName: v.union(v.string(), v.null()),
+      contractorName: v.union(v.string(), v.null()),
+    })
+  ),
+  handler: async (ctx) => {
+    const contracts = await ctx.db.query("contracts").collect();
+    const unassigned = contracts.filter((c) => !c.projectId);
+    const caches = emptyCaches();
+
+    const rows = await Promise.all(
+      unassigned.map(async (contract) => {
+        const row = await resolveContractRow(ctx, contract, caches);
+        return {
+          _id: row._id,
+          title: row.title,
+          direction: row.direction,
+          valueCents: row.valueCents,
+          customerName: row.customerName,
+          contractorName: row.contractorName,
+        };
+      })
+    );
+
+    return rows.sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+  },
+});
+
 /** Contratos elegíveis para medições (venda ao cliente + obra). */
 export const listForMedicoes = engineeringQuery({
   args: { projectId: v.id("projects") },

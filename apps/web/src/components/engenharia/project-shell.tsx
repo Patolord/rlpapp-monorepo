@@ -262,13 +262,8 @@ function ProjectShellLayout({
                   _id: project._id,
                   name: project.name,
                   legacyNumber: project.legacyNumber,
-                  floors: project.floors,
                   customerId: project.customerId,
                   customerName: project.customerName,
-                  address: project.address,
-                  status: project.status,
-                  startDate: project.startDate,
-                  endDate: project.endDate,
                 }}
                 trigger={
                   <Button variant="outline" size="sm">

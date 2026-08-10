@@ -1,9 +1,9 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, Plus, Trash2 } from "lucide-react-native";
+import { Loader2 } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Alert, View } from "react-native";
 
 import { Button, ButtonText } from "@/components/ui/button";
 import {
@@ -18,32 +18,12 @@ import { Label } from "@/components/ui/label";
 import { Select, type SelectOption } from "@/components/ui/select";
 import { getErrorMessage } from "@/lib/errors";
 
-interface FloorDraft {
-  number: number;
-  label: string;
-}
-
 interface ProjectInput {
   _id: Id<"projects">;
   name: string;
   legacyNumber?: number | null;
   customerId?: Id<"customers"> | null;
   customerName?: string | null;
-  floors: { number: number; label: string }[];
-}
-
-function defaultFloorLabel(n: number): string {
-  return n === 0 ? "Térreo" : `${n}º Andar`;
-}
-
-function initialFloors(project?: ProjectInput): FloorDraft[] {
-  if (project) {
-    return project.floors
-      .slice()
-      .sort((a, b) => a.number - b.number)
-      .map((f) => ({ number: f.number, label: f.label }));
-  }
-  return [{ number: 0, label: defaultFloorLabel(0) }];
 }
 
 export function ProjectFormDialog({
@@ -82,9 +62,6 @@ export function ProjectFormDialog({
   const [customerId, setCustomerId] = useState<string>(
     project?.customerId ?? ""
   );
-  const [floors, setFloors] = useState<FloorDraft[]>(() =>
-    initialFloors(project)
-  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -92,27 +69,8 @@ export function ProjectFormDialog({
       setName(project?.name ?? "");
       setLegacyNumber(project?.legacyNumber?.toString() ?? "");
       setCustomerId(project?.customerId ?? "");
-      setFloors(initialFloors(project));
     }
   }, [open, project]);
-
-  function addFloor() {
-    setFloors((prev) => {
-      const nextNumber =
-        prev.length === 0 ? 0 : Math.max(...prev.map((f) => f.number)) + 1;
-      return [...prev, { number: nextNumber, label: defaultFloorLabel(nextNumber) }];
-    });
-  }
-
-  function removeFloor(index: number) {
-    setFloors((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function updateFloor(index: number, label: string) {
-    setFloors((prev) =>
-      prev.map((f, i) => (i === index ? { ...f, label } : f))
-    );
-  }
 
   async function handleSubmit() {
     const parsedLegacyNumber = Number(legacyNumber);
@@ -120,16 +78,10 @@ export function ProjectFormDialog({
       !name.trim() ||
       !customerId ||
       !Number.isSafeInteger(parsedLegacyNumber) ||
-      parsedLegacyNumber <= 0 ||
-      floors.length === 0
+      parsedLegacyNumber <= 0
     ) {
       return;
     }
-
-    const payloadFloors = floors.map((f) => ({
-      number: f.number,
-      label: f.label.trim() || defaultFloorLabel(f.number),
-    }));
 
     const customerChanged =
       (customerId || null) !== (project?.customerId ?? null);
@@ -144,14 +96,12 @@ export function ProjectFormDialog({
             ? { customerId: customerId as Id<"customers"> }
             : {}),
           legacyNumber: parsedLegacyNumber,
-          floors: payloadFloors,
         });
       } else {
         await createProject({
           name: name.trim(),
           customerId: customerId as Id<"customers">,
           legacyNumber: parsedLegacyNumber,
-          floors: payloadFloors,
         });
       }
       onClose();
@@ -175,7 +125,7 @@ export function ProjectFormDialog({
       <DialogHeader>
         <DialogTitle>{isEdit ? "Editar obra" : "Nova obra"}</DialogTitle>
         <DialogDescription>
-          Monte o prédio andar por andar. Cada andar recebe um nome.
+          Só o essencial agora. Andares, prazos e o restante entram depois.
         </DialogDescription>
       </DialogHeader>
 
@@ -210,44 +160,6 @@ export function ProjectFormDialog({
             placeholder="Selecione um cliente"
             className="h-12"
           />
-        </View>
-
-        <View className="gap-2">
-          <View className="flex-row items-center justify-between">
-            <Label>Andares</Label>
-            <Text className="text-sm text-muted-foreground">
-              {floors.length} andar{floors.length === 1 ? "" : "es"}
-            </Text>
-          </View>
-
-          <View className="gap-2">
-            {floors.map((floor, index) => (
-              <View key={index} className="flex-row items-center gap-2">
-                <Input
-                  value={floor.label}
-                  onChangeText={(v) => updateFloor(index, v)}
-                  placeholder={defaultFloorLabel(floor.number)}
-                  className="h-12 flex-1"
-                />
-                <Pressable
-                  onPress={() => removeFloor(index)}
-                  disabled={floors.length === 1}
-                  hitSlop={6}
-                  className="h-12 w-12 items-center justify-center rounded-md"
-                  style={{ opacity: floors.length === 1 ? 0.4 : 1 }}
-                >
-                  <Trash2 size={18} color="#ef4444" />
-                </Pressable>
-              </View>
-            ))}
-          </View>
-
-          <Button variant="outline" className="w-full" onPress={addFloor}>
-            <Plus size={16} color="#1a1a2e" />
-            <ButtonText variant="outline" className="ml-1.5">
-              Adicionar andar
-            </ButtonText>
-          </Button>
         </View>
       </View>
 

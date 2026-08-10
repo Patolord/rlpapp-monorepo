@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
@@ -48,16 +48,27 @@ export function ContractsPage({
   defaultCustomerId,
   title = "Contratos",
   description = "Contratos de venda ao cliente e contratação de empreiteiros.",
+  autoOpenCreate = false,
+  onAutoOpenCreateHandled,
 }: {
   lockedProjectId?: Id<"projects">;
   defaultCustomerId?: Id<"customers"> | null;
   title?: string;
   description?: string;
+  autoOpenCreate?: boolean;
+  onAutoOpenCreateHandled?: () => void;
 }) {
   const [search, setSearch] = useState("");
   const [directionFilter, setDirectionFilter] = useState<
     "all" | ContractDirection
   >("all");
+  const [createOpen, setCreateOpen] = useState(false);
+
+  useEffect(() => {
+    if (!autoOpenCreate) return;
+    setCreateOpen(true);
+    onAutoOpenCreateHandled?.();
+  }, [autoOpenCreate, onAutoOpenCreateHandled]);
 
   const contracts = useQuery(api.contracts.list, {
     projectId: lockedProjectId,
@@ -98,6 +109,8 @@ export function ContractsPage({
         <ContractFormDialog
           lockedProjectId={lockedProjectId}
           defaultCustomerId={defaultCustomerId}
+          open={createOpen}
+          onOpenChange={setCreateOpen}
           trigger={
             <Button>
               <Plus className="mr-2 size-4" />
