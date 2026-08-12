@@ -41,12 +41,20 @@ type FormLine = {
 };
 
 export const MOVEMENT_LABELS: Record<MovementType, string> = {
-  entry: "Entrada no central",
+  entry: "Entrada no estoque",
   transfer: "Envio para obra",
-  consumption: "Consumo na obra",
-  return: "Retorno ao central",
+  consumption: "Consumo",
+  return: "Retorno de obra / fornecedor",
   adjustment: "Ajuste de saldo",
 };
+
+function movementLabel(
+  type: MovementType,
+  scope: "central" | "obra"
+): string {
+  if (type === "return" && scope === "obra") return "Retorno ao estoque";
+  return MOVEMENT_LABELS[type];
+}
 
 let nextLineId = 0;
 const emptyLine = (): FormLine => {
@@ -67,7 +75,7 @@ export function allowedMovementTypes(
   const types: MovementType[] = [];
   if (access.canCreateEntry) types.push("entry");
   if (access.canWriteCentral) types.push("transfer", "adjustment");
-  if (access.canCreateProjectMovement) types.push("consumption", "return");
+  if (access.canCreateProjectMovement) types.push("return");
   return types;
 }
 
@@ -100,9 +108,12 @@ export function InventoryMovementForm({
   const typeItems = useMemo(
     () =>
       Object.fromEntries(
-        types.map((movementType) => [movementType, MOVEMENT_LABELS[movementType]])
+        types.map((movementType) => [
+          movementType,
+          movementLabel(movementType, scope),
+        ])
       ),
-    [types]
+    [types, scope]
   );
   const projectItems = useMemo(
     () => Object.fromEntries(projects.map((project) => [project._id, project.name])),
@@ -235,7 +246,7 @@ export function InventoryMovementForm({
                     : "bg-white"
                 )}
               >
-                {MOVEMENT_LABELS[movementType]}
+                {movementLabel(movementType, scope)}
               </button>
             ))}
           </div>
@@ -251,7 +262,7 @@ export function InventoryMovementForm({
             <SelectContent>
               {types.map((movementType) => (
                 <SelectItem key={movementType} value={movementType}>
-                  {MOVEMENT_LABELS[movementType]}
+                  {movementLabel(movementType, scope)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -262,7 +273,9 @@ export function InventoryMovementForm({
       {type !== "entry" && !fixedProjectId && (
         <div className="space-y-1.5">
           <Label>
-            Obra {requiresProject ? "" : "(opcional; vazio = central)"}
+            {type === "return" && scope === "central"
+              ? "Obra (se o material voltou de uma obra)"
+              : `Obra ${requiresProject ? "" : "(opcional; vazio = central)"}`}
           </Label>
           <Select
             value={projectId}
