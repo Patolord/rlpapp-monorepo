@@ -17,6 +17,7 @@ import {
   UserPlus,
   Users,
   Warehouse,
+  ArrowLeftRight,
   type LucideIcon,
 } from "lucide-react";
 
@@ -81,6 +82,7 @@ function getNavGroups(): NavGroup[] {
       key: "estoque",
       label: "Estoque",
       items: [
+        { to: "/estoque/movimentacao", label: "Nova movimentação", icon: ArrowLeftRight },
         { to: "/estoque", label: "Estoque central", icon: Warehouse, exact: true },
       ],
     },

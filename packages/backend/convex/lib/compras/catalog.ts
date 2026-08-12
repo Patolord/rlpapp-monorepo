@@ -357,6 +357,7 @@ export function toMaterialCatalogRow(m: MaterialDoc) {
     spec: m.spec ?? null,
     brandPreference: m.brandPreference ?? null,
     technicalAttributes: m.technicalAttributes ?? null,
+    imageId: m.imageId ?? null,
     active: m.active,
     status: m.status ?? null,
     createdAt: m.createdAt,

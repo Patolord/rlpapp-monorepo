@@ -146,6 +146,13 @@ export function MaterialDetailSheet({
           </SheetHeader>
 
           <div className="space-y-6 px-4 pb-4">
+            {material.imageUrl ? (
+              <img
+                src={material.imageUrl}
+                alt={material.name}
+                className="h-40 w-40 rounded-md border object-cover"
+              />
+            ) : null}
             <section className="space-y-2">
               <h3 className="text-sm font-medium">Resumo</h3>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">

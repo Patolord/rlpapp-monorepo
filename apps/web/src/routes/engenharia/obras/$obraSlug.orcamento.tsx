@@ -238,6 +238,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                   }}
                 >
                   {s.name}
+                  {s.variantLabel ? ` — ${s.variantLabel}` : ""}
                 </Button>
               ))}
               <Button size="sm" variant="ghost" onClick={() => void handleAddLine()}>

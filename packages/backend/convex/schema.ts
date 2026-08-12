@@ -613,6 +613,7 @@ export default defineSchema({
     ),
     // Texto denormalizado para busca (nome, sku, fabricante, etc.).
     searchText: v.optional(v.string()),
+    imageId: v.optional(v.id("_storage")),
     active: v.boolean(),
     status: v.optional(materialStatus),
     createdAt: v.number(),
@@ -626,7 +627,11 @@ export default defineSchema({
     .index("by_barcode", ["barcode"])
     .index("by_searchText", ["searchText"])
     .index("by_family", ["familyId"])
-    .index("by_identity_key", ["identityKey"]),
+    .index("by_identity_key", ["identityKey"])
+    .searchIndex("search_text", {
+      searchField: "searchText",
+      filterFields: ["active"],
+    }),
 
   materialSkuCounters: defineTable({
     key: v.literal("material"),

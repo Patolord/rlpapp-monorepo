@@ -1,8 +1,8 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, usePaginatedQuery } from "convex/react";
-import { FileUp, Plus, Search } from "lucide-react";
-import { useState } from "react";
+import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
+import { FileUp, Plus } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
@@ -12,21 +12,14 @@ import {
   MaterialFormDialog,
   type MaterialCatalogRow,
 } from "@/components/compras/material-form-dialog";
-import { MaterialReplenishmentBadge } from "@/components/compras/material-replenishment-badge";
-import { Badge } from "@/components/ui/badge";
+import { MaterialsDataTable } from "@/components/compras/materials-table/materials-data-table";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { getErrorMessage } from "@/lib/errors";
 import { splitList } from "@/lib/csv";
+import {
+  parseCatalogRowAttributes,
+  type MaterialDimensions,
+} from "@/lib/material-import";
 
 const MATERIAL_COLUMN_ALIASES = {
   name: ["name", "nome", "material", "descrição", "descricao"],
@@ -40,29 +33,41 @@ const MATERIAL_COLUMN_ALIASES = {
   spec: ["spec", "especificacao", "especificação", "specification"],
   brandPreference: ["brandpreference", "marca", "brand", "preferencia_marca"],
   aliases: ["aliases", "alias", "apelidos", "sinonimos"],
+  widthMm: ["widthmm", "largura", "larguramm"],
+  heightMm: ["heightmm", "altura", "alturamm"],
+  lengthMm: ["lengthmm", "comprimento", "comprimentomm"],
+  thicknessMm: ["thicknessmm", "espessura", "espessuramm"],
+  diameterMm: ["diametermm", "diametro", "diâmetro"],
+  finish: ["finish", "acabamento"],
+  tubeSize: ["tubesize", "bitola", "diametro_tubo"],
+  application: ["application", "aplicacao", "aplicação"],
+  attributesJson: ["attributesjson", "atributos", "attributes"],
 } as const;
 
 const MATERIAL_TEMPLATE_HEADERS = [
   "name",
   "variantLabel",
-  "sourceMaterialId",
-  "sourceDetailId",
-  "quantity",
-  "unitCost",
   "category",
   "unit",
+  "widthMm",
+  "heightMm",
+  "lengthMm",
+  "thicknessMm",
+  "diameterMm",
+  "finish",
+  "tubeSize",
+  "application",
   "spec",
-  "brandPreference",
   "aliases",
+  "quantity",
+  "unitCost",
 ];
 
 type MaterialImportItem = {
   name: string;
   variantLabel?: string;
-  dimensions?: {
-    widthMm?: number;
-    heightMm?: number;
-  };
+  dimensions?: MaterialDimensions;
+  technicalAttributes?: Array<{ key: string; value: string }>;
   sourceMaterialId?: string;
   sourceDetailId?: string;
   sourceRowNumber: number;
@@ -75,19 +80,13 @@ type MaterialImportItem = {
   aliases?: string[];
 };
 
-function dimensionsFromVariant(
-  value: string | undefined
-): MaterialImportItem["dimensions"] {
-  if (!value) return undefined;
-  const match =
-    /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*mm(?![²2])/i.exec(
-      value
-    );
-  if (!match) return undefined;
-  return {
-    widthMm: Number.parseFloat(match[1]!.replace(",", ".")),
-    heightMm: Number.parseFloat(match[2]!.replace(",", ".")),
-  };
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
 }
 
 export const Route = createFileRoute("/compras/materiais/")({
@@ -104,6 +103,9 @@ function MateriaisPage() {
 
 function MateriaisContent() {
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const [category, setCategory] = useState("");
+  const [activeOnly, setActiveOnly] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editMaterial, setEditMaterial] = useState<MaterialCatalogRow | null>(
     null
@@ -112,24 +114,45 @@ function MateriaisContent() {
     useState<MaterialCatalogRow | null>(null);
   const updateMaterial = useMutation(api.materials.update);
   const bulkCreateMaterials = useMutation(api.materials.bulkCreate);
+  const categories = useQuery(api.materials.listCategories) ?? [];
 
   const catalog = usePaginatedQuery(
     api.materials.listCatalog,
-    { search: search.trim() || undefined },
+    {
+      search: debouncedSearch.trim() || undefined,
+      category: category || undefined,
+      activeOnly: activeOnly || undefined,
+    },
     { initialNumItems: 25 }
   );
 
-  async function toggleActive(material: MaterialCatalogRow) {
-    try {
-      await updateMaterial({
-        materialId: material._id,
-        active: !material.active,
-      });
-      toast.success(material.active ? "Material arquivado" : "Material reativado");
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Erro ao atualizar"));
-    }
-  }
+  const toggleActive = useCallback(
+    async (material: MaterialCatalogRow) => {
+      try {
+        await updateMaterial({
+          materialId: material._id,
+          active: !material.active,
+        });
+        toast.success(
+          material.active ? "Material arquivado" : "Material reativado"
+        );
+      } catch (error) {
+        toast.error(getErrorMessage(error, "Erro ao atualizar"));
+      }
+    },
+    [updateMaterial]
+  );
+
+  const openCreate = useCallback(() => {
+    setEditMaterial(null);
+    setFormOpen(true);
+  }, []);
+
+  const openEdit = useCallback((material: MaterialCatalogRow) => {
+    setDetailMaterial(null);
+    setEditMaterial(material);
+    setFormOpen(true);
+  }, []);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -146,17 +169,22 @@ function MateriaisContent() {
             templateFilename="materiais.csv"
             templateHeaders={[...MATERIAL_TEMPLATE_HEADERS]}
             templateSampleRow={[
-              "Cabo PP 3x2.5",
-              "3x2,5 mm²",
-              "42",
-              "2",
-              "200",
-              "0,10",
-              "Elétrica",
+              "Tubo de Cobre",
+              'Split – 1/4"',
+              "Ar Condicionado",
               "m",
-              "Flexível",
               "",
-              "pp 3x2.5;cabo pp",
+              "",
+              "",
+              "",
+              "",
+              "",
+              '1/4"',
+              "Split",
+              '1/4"; aplicação Split',
+              "cobre de 1/4",
+              "",
+              "",
             ]}
             requiredColumns={["name"]}
             columnAliases={MATERIAL_COLUMN_ALIASES}
@@ -167,12 +195,12 @@ function MateriaisContent() {
                 return { ok: false, row: rowNumber, error: "Nome obrigatório" };
               }
               const variantLabel = row.variantLabel?.trim() || undefined;
-              const dimensions = dimensionsFromVariant(variantLabel);
+              const parsed = parseCatalogRowAttributes(row);
               if (
                 variantLabel &&
                 /\d+\s*[x×]\s*\d+/i.test(variantLabel) &&
                 !/mm[²2]/i.test(variantLabel) &&
-                !dimensions
+                !parsed.dimensions?.widthMm
               ) {
                 return {
                   ok: false,
@@ -187,7 +215,8 @@ function MateriaisContent() {
                 item: {
                   name,
                   variantLabel,
-                  dimensions,
+                  dimensions: parsed.dimensions,
+                  technicalAttributes: parsed.technicalAttributes,
                   sourceMaterialId: row.sourceMaterialId?.trim() || undefined,
                   sourceDetailId: row.sourceDetailId?.trim() || undefined,
                   sourceRowNumber: rowNumber,
@@ -220,161 +249,32 @@ function MateriaisContent() {
               </Button>
             }
           />
-          <Button
-            onClick={() => {
-              setEditMaterial(null);
-              setFormOpen(true);
-            }}
-          >
+          <Button onClick={openCreate}>
             <Plus className="mr-2 size-4" />
             Novo material
           </Button>
         </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          className="pl-9"
-          placeholder="Buscar por nome, SKU, fabricante..."
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Catálogo</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {catalog.status === "LoadingFirstPage" ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              Carregando materiais...
-            </p>
-          ) : catalog.results.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              Nenhum material encontrado.
-            </p>
-          ) : (
-            <>
-              <div className="hidden md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Material</TableHead>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead>Unidade</TableHead>
-                      <TableHead>Reposição</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {catalog.results.map((material) => (
-                      <TableRow key={material._id}>
-                        <TableCell>
-                          <button
-                            type="button"
-                            className="text-left"
-                            onClick={() => setDetailMaterial(material)}
-                          >
-                            <p className="font-medium">{material.name}</p>
-                            {material.variantLabel ? (
-                              <p className="text-xs">
-                                {material.variantLabel}
-                              </p>
-                            ) : null}
-                            <p className="text-xs text-muted-foreground">
-                              {material.sku ?? "Sem SKU"}
-                            </p>
-                          </button>
-                        </TableCell>
-                        <TableCell>{material.category ?? "—"}</TableCell>
-                        <TableCell>{material.unit ?? "—"}</TableCell>
-                        <TableCell>
-                          <MaterialReplenishmentBadge
-                            state={material.centralReplenishmentState}
-                            quantity={material.centralQuantity}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={material.active ? "default" : "secondary"}
-                          >
-                            {material.active ? "Ativo" : "Inativo"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setDetailMaterial(material)}
-                            >
-                              Detalhes
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => void toggleActive(material)}
-                            >
-                              {material.active ? "Arquivar" : "Reativar"}
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div className="space-y-3 md:hidden">
-                {catalog.results.map((material) => (
-                  <button
-                    type="button"
-                    key={material._id}
-                    className="w-full rounded-xl border bg-white p-4 text-left shadow-sm"
-                    onClick={() => setDetailMaterial(material)}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium">{material.name}</p>
-                        {material.variantLabel ? (
-                          <p className="text-xs">{material.variantLabel}</p>
-                        ) : null}
-                        <p className="text-xs text-muted-foreground">
-                          {material.sku ?? "Sem SKU"}
-                        </p>
-                      </div>
-                      <Badge
-                        variant={material.active ? "default" : "secondary"}
-                      >
-                        {material.active ? "Ativo" : "Inativo"}
-                      </Badge>
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                      <span>{material.category ?? "Sem categoria"}</span>
-                      <span>{material.unit ?? "—"}</span>
-                      <MaterialReplenishmentBadge
-                        state={material.centralReplenishmentState}
-                        quantity={material.centralQuantity}
-                      />
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              {catalog.status === "CanLoadMore" && (
-                <div className="mt-4 text-center">
-                  <Button variant="outline" onClick={() => catalog.loadMore(25)}>
-                    Carregar mais
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+      <MaterialsDataTable
+        data={catalog.results}
+        status={catalog.status}
+        search={search}
+        onSearchChange={setSearch}
+        category={category}
+        onCategoryChange={setCategory}
+        categories={categories}
+        activeOnly={activeOnly}
+        onActiveOnlyChange={setActiveOnly}
+        onLoadMore={() => catalog.loadMore(25)}
+        onCreate={openCreate}
+        hasActiveFilters={
+          Boolean(debouncedSearch.trim()) || Boolean(category)
+        }
+        onOpenDetail={setDetailMaterial}
+        onEdit={openEdit}
+        onToggleActive={(material) => void toggleActive(material)}
+      />
 
       <MaterialFormDialog
         open={formOpen}
@@ -387,11 +287,7 @@ function MateriaisContent() {
         onOpenChange={(open) => {
           if (!open) setDetailMaterial(null);
         }}
-        onEdit={(material) => {
-          setDetailMaterial(null);
-          setEditMaterial(material);
-          setFormOpen(true);
-        }}
+        onEdit={openEdit}
       />
     </div>
   );

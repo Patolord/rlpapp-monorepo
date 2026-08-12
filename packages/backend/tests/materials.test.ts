@@ -99,6 +99,29 @@ describe("catalog helpers", () => {
   });
 });
 
+async function storeImageWithContentType(
+  t: ReturnType<typeof setup>,
+  bytes: string,
+  contentType: string
+): Promise<Id<"_storage">> {
+  return await t.run(async (ctx) => {
+    const imageId = await ctx.storage.store(
+      new Blob([bytes], { type: contentType })
+    );
+    // convex-test's storage.store does not persist Blob.type as contentType.
+    await (
+      ctx.db as unknown as {
+        patch: (
+          table: "_storage",
+          id: Id<"_storage">,
+          value: { contentType: string }
+        ) => Promise<void>;
+      }
+    ).patch("_storage", imageId, { contentType });
+    return imageId;
+  });
+}
+
 describe("materials catalog", () => {
   test("create auto-generates SKU and rejects duplicates", async () => {
     const { purchasing } = await seedCatalogUsers();
@@ -148,6 +171,104 @@ describe("materials catalog", () => {
     expect(page.page[0]?.name).toBe("Sensor de temperatura");
   });
 
+  test("stores, replaces and clears material image", async () => {
+    const { t, purchasing, warehouse } = await seedCatalogUsers();
+
+    await expect(
+      warehouse.mutation(api.materials.generateUploadUrl, {})
+    ).rejects.toThrow("compras");
+
+    const uploadUrl = await purchasing.mutation(
+      api.materials.generateUploadUrl,
+      {}
+    );
+    expect(typeof uploadUrl).toBe("string");
+    expect(uploadUrl.length).toBeGreaterThan(0);
+
+    const firstImageId = await storeImageWithContentType(
+      t,
+      "first",
+      "image/png"
+    );
+    const materialId = await purchasing.mutation(api.materials.create, {
+      name: "Perfil de alumínio",
+      unit: "m",
+      imageId: firstImageId,
+    });
+    const created = await purchasing.query(api.materials.get, { materialId });
+    expect(created?.imageId).toBe(firstImageId);
+    expect(created?.imageUrl).toEqual(expect.any(String));
+
+    const secondImageId = await storeImageWithContentType(
+      t,
+      "second",
+      "image/png"
+    );
+    await purchasing.mutation(api.materials.update, {
+      materialId,
+      imageId: secondImageId,
+    });
+    const replaced = await purchasing.query(api.materials.get, { materialId });
+    expect(replaced?.imageId).toBe(secondImageId);
+
+    await purchasing.mutation(api.materials.update, {
+      materialId,
+      imageId: null,
+    });
+    const cleared = await purchasing.query(api.materials.get, { materialId });
+    expect(cleared?.imageId).toBeNull();
+    expect(cleared?.imageUrl).toBeNull();
+  });
+
+  test("rejects unsupported material image content types", async () => {
+    const { t, purchasing } = await seedCatalogUsers();
+
+    const gifId = await storeImageWithContentType(t, "gif", "image/gif");
+
+    await expect(
+      purchasing.mutation(api.materials.create, {
+        name: "Material com GIF",
+        unit: "un",
+        imageId: gifId,
+      })
+    ).rejects.toThrow("JPG, PNG ou WebP");
+
+    const materialId = await purchasing.mutation(api.materials.create, {
+      name: "Material sem imagem",
+      unit: "un",
+    });
+    await expect(
+      purchasing.mutation(api.materials.update, {
+        materialId,
+        imageId: gifId,
+      })
+    ).rejects.toThrow("JPG, PNG ou WebP");
+  });
+
+  test("listCatalog and listCategories support category filter", async () => {
+    const { purchasing } = await seedCatalogUsers();
+    await purchasing.mutation(api.materials.create, {
+      name: "Tubo de cobre",
+      category: "Ar Condicionado",
+      unit: "m",
+    });
+    await purchasing.mutation(api.materials.create, {
+      name: "Cabo flexível",
+      category: "Elétrica",
+      unit: "m",
+    });
+
+    const categories = await purchasing.query(api.materials.listCategories, {});
+    expect(categories).toEqual(["Ar Condicionado", "Elétrica"]);
+
+    const page = await purchasing.query(api.materials.listCatalog, {
+      category: "Elétrica",
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    expect(page.page).toHaveLength(1);
+    expect(page.page[0]?.name).toBe("Cabo flexível");
+  });
+
   test("blocks exact variants while allowing different dimensions", async () => {
     const { purchasing } = await seedCatalogUsers();
     const firstId = await purchasing.mutation(api.materials.create, {
@@ -186,28 +307,38 @@ describe("materials catalog", () => {
     expect(candidates.some((candidate) => candidate.exact)).toBe(true);
   });
 
-  test("prevents an alias from pointing to different materials", async () => {
+  test("shared aliases can point to several variants of the same family", async () => {
     const { purchasing } = await seedCatalogUsers();
     const firstId = await purchasing.mutation(api.materials.create, {
-      name: "Cabo PP",
-      variantLabel: "3x1,5mm²",
+      name: "Tubo de Cobre",
+      variantLabel: 'Split – 1"',
       unit: "m",
+      aliases: ['cobre de 1"'],
     });
     const secondId = await purchasing.mutation(api.materials.create, {
-      name: "Cabo PP",
-      variantLabel: "3x2,5mm²",
+      name: "Tubo de Cobre",
+      variantLabel: 'VRF – 1"',
       unit: "m",
+      aliases: ['cobre de 1"'],
     });
+    expect(secondId).not.toBe(firstId);
+
     await purchasing.mutation(api.materials.addAlias, {
       materialId: firstId,
-      alias: "cabo flexível pequeno",
+      alias: "cobre de 1",
     });
-    await expect(
-      purchasing.mutation(api.materials.addAlias, {
-        materialId: secondId,
-        alias: "Cabo flexivel pequeno",
-      })
-    ).rejects.toThrow("Alias já pertence");
+    await purchasing.mutation(api.materials.addAlias, {
+      materialId: secondId,
+      alias: "cobre de 1",
+    });
+
+    const suggestions = await purchasing.query(api.materials.suggest, {
+      term: "cobre de 1",
+      limit: 8,
+    });
+    const ids = suggestions.map((item) => item._id);
+    expect(ids).toContain(firstId);
+    expect(ids).toContain(secondId);
   });
 
   test("links many suppliers to one material without changing catalog ownership", async () => {
@@ -446,6 +577,7 @@ describe("materials catalog", () => {
     expect(balances.page[0]?.replenishmentState).toBe("reorder");
     expect(balances.page[0]?.suggestedOrderQuantity).toBe(16);
     expect(balances.page[0]?.materialSku).toBeTruthy();
+    expect(balances.page[0]).toHaveProperty("variantLabel");
 
     const purchasingCatalog = await purchasing.query(api.materials.get, {
       materialId,
@@ -457,5 +589,104 @@ describe("materials catalog", () => {
     });
     expect(engineerCatalog?.centralQuantity).toBeNull();
     expect(engineerCatalog?.centralReplenishmentState).toBe("unconfigured");
+  });
+
+  test("estoque and compras can quick-create materials; engineer cannot", async () => {
+    const { purchasing, warehouse, engineer } = await seedCatalogUsers();
+
+    const fromWarehouse = await warehouse.mutation(
+      api.inventory.quickCreateMaterial,
+      {
+        name: "Isolamento Térmico",
+        variantLabel: 'Split – 1/4" – esp. 9 mm',
+        unit: "m",
+        category: "Ar Condicionado",
+      }
+    );
+    expect(fromWarehouse.name).toBe("Isolamento Térmico");
+    expect(fromWarehouse.variantLabel).toBe('Split – 1/4" – esp. 9 mm');
+    expect(fromWarehouse.sku).toMatch(/^MAT-\d{6}$/);
+    expect(fromWarehouse.unit).toBe("m");
+
+    const fromPurchasing = await purchasing.mutation(
+      api.inventory.quickCreateMaterial,
+      {
+        name: "Isolamento Térmico",
+        variantLabel: 'Split – 1/2" – esp. 9 mm',
+        unit: "m",
+        category: "Ar Condicionado",
+      }
+    );
+    expect(fromPurchasing.materialId).not.toBe(fromWarehouse.materialId);
+
+    await expect(
+      warehouse.mutation(api.inventory.quickCreateMaterial, {
+        name: "Isolamento Térmico",
+        variantLabel: 'Split – 1/4" – esp. 9 mm',
+        unit: "m",
+      })
+    ).rejects.toThrow("Material já cadastrado");
+
+    await expect(
+      warehouse.mutation(api.inventory.quickCreateMaterial, { name: "   " })
+    ).rejects.toThrow("Informe o nome do material");
+
+    await expect(
+      engineer.mutation(api.inventory.quickCreateMaterial, {
+        name: "Tubo de Cobre",
+        unit: "m",
+      })
+    ).rejects.toThrow("estoque ou compras");
+
+    const suggestions = await warehouse.query(api.materials.suggest, {
+      term: "isolamento",
+      limit: 8,
+    });
+    expect(
+      suggestions.some((item) => item.variantLabel?.includes("1/4"))
+    ).toBe(true);
+
+    const access = await warehouse.query(api.inventory.getAccess, {});
+    expect(access.canQuickCreateMaterial).toBe(true);
+    const engineerAccess = await engineer.query(api.inventory.getAccess, {});
+    expect(engineerAccess.canQuickCreateMaterial).toBe(false);
+  });
+
+  test("bulkCreate stores dimensions and technical attributes", async () => {
+    const { purchasing } = await seedCatalogUsers();
+    const result = await purchasing.mutation(api.materials.bulkCreate, {
+      source: "catalog-attrs",
+      items: [
+        {
+          name: "Tubo de Cobre",
+          variantLabel: 'Split – 1/4"',
+          sourceRowNumber: 1,
+          category: "Ar Condicionado",
+          unit: "m",
+          dimensions: { thicknessMm: 9 },
+          technicalAttributes: [
+            { key: "tubeSize", value: '1/4"' },
+            { key: "application", value: "Split" },
+          ],
+        },
+      ],
+    });
+    expect(result.created).toBe(1);
+
+    const suggestions = await purchasing.query(api.materials.suggest, {
+      term: "cobre",
+    });
+    const created = suggestions.find((item) => item.variantLabel?.includes("1/4"));
+    expect(created).toBeTruthy();
+    const material = await purchasing.query(api.materials.get, {
+      materialId: created!._id,
+    });
+    expect(material?.dimensions?.thicknessMm).toBe(9);
+    expect(material?.technicalAttributes).toEqual(
+      expect.arrayContaining([
+        { key: "tubesize", value: '1/4"' },
+        { key: "application", value: "Split" },
+      ])
+    );
   });
 });

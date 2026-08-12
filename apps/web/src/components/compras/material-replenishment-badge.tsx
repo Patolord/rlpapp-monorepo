@@ -15,29 +15,46 @@ const LABELS: Record<ReplenishmentState, string> = {
 
 const VARIANTS: Record<
   ReplenishmentState,
-  "default" | "secondary" | "outline" | "destructive"
+  "default" | "secondary" | "outline" | "destructive" | "success" | "warning"
 > = {
   unconfigured: "secondary",
-  healthy: "default",
-  reorder: "outline",
+  healthy: "success",
+  reorder: "warning",
   below_minimum: "destructive",
 };
+
+const QUIET_PLAIN_STATES = new Set<ReplenishmentState>([
+  "unconfigured",
+  "healthy",
+]);
 
 export function MaterialReplenishmentBadge({
   state,
   quantity,
+  tone = "default",
 }: {
   state: ReplenishmentState;
   quantity?: number | null;
+  tone?: "default" | "quiet";
 }) {
-  return (
-    <div className="flex flex-col items-start gap-0.5">
+  const showQuantity =
+    quantity !== null && quantity !== undefined && state !== "unconfigured";
+
+  const label =
+    tone === "quiet" && QUIET_PLAIN_STATES.has(state) ? (
+      <span className="text-xs text-muted-foreground">{LABELS[state]}</span>
+    ) : (
       <Badge variant={VARIANTS[state]}>{LABELS[state]}</Badge>
-      {quantity !== null && quantity !== undefined && state !== "unconfigured" && (
-        <span className="text-xs text-muted-foreground">
+    );
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+      {label}
+      {showQuantity ? (
+        <span className="text-xs text-muted-foreground tabular-nums">
           Central: {quantity}
         </span>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -45,18 +62,27 @@ export function MaterialReplenishmentBadge({
 export function StockHealthBadge({
   state,
   suggestedOrderQuantity,
+  tone = "default",
 }: {
   state: ReplenishmentState;
   suggestedOrderQuantity?: number | null;
+  tone?: "default" | "quiet";
 }) {
-  return (
-    <div className="flex flex-col items-start gap-0.5">
+  const label =
+    tone === "quiet" && QUIET_PLAIN_STATES.has(state) ? (
+      <span className="text-xs text-muted-foreground">{LABELS[state]}</span>
+    ) : (
       <Badge variant={VARIANTS[state]}>{LABELS[state]}</Badge>
-      {suggestedOrderQuantity != null && suggestedOrderQuantity > 0 && (
-        <span className="text-xs text-muted-foreground">
+    );
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+      {label}
+      {suggestedOrderQuantity != null && suggestedOrderQuantity > 0 ? (
+        <span className="text-xs text-muted-foreground tabular-nums">
           Sugerido: {suggestedOrderQuantity}
         </span>
-      )}
+      ) : null}
     </div>
   );
 }

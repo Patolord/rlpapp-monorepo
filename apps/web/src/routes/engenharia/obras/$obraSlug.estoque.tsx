@@ -2,11 +2,11 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
 import { usePaginatedQuery, useQuery } from "convex/react";
-import { History, Package, Search, Warehouse } from "lucide-react";
-import { useMemo, useState } from "react";
+import { History, Package, Warehouse } from "lucide-react";
+import { useState } from "react";
 
 import { AuthShell } from "@/components/auth-shell";
-import { StockHealthBadge } from "@/components/compras/material-replenishment-badge";
+import { BalancesDataTable } from "@/components/estoque/balances-table/balances-data-table";
 import { InventoryDocumentsHistory } from "@/components/estoque/inventory-documents-history";
 import { InventoryMovementDialog } from "@/components/estoque/inventory-movement-dialog";
 import {
@@ -16,15 +16,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
 
 export const Route = createFileRoute("/engenharia/obras/$obraSlug/estoque")({
@@ -79,7 +70,6 @@ function ObraEstoqueContent({
   const projectInventoryArgs = hasEstoqueRead ? { projectId } : "skip";
 
   const access = useQuery(api.inventory.getAccess, inventoryArgs);
-  const materials = useQuery(api.inventory.listMaterialOptions, inventoryArgs);
   const projects = useQuery(api.inventory.listProjects, inventoryArgs);
   const summaries = useQuery(
     api.inventory.listProjectSummaries,
@@ -97,20 +87,8 @@ function ObraEstoqueContent({
   );
 
   const [section, setSection] = useState<Section>("saldos");
-  const [search, setSearch] = useState("");
 
   const summary = summaries?.find((item) => item.projectId === projectId);
-
-  const filteredBalances = useMemo(() => {
-    const term = search.trim().toLocaleLowerCase("pt-BR");
-    if (!term) return balances.results;
-    return balances.results.filter(
-      (balance) =>
-        balance.materialName.toLocaleLowerCase("pt-BR").includes(term) ||
-        balance.materialSku?.toLocaleLowerCase("pt-BR").includes(term) ||
-        balance.category?.toLocaleLowerCase("pt-BR").includes(term)
-    );
-  }, [balances.results, search]);
 
   if (currentUser === undefined) {
     return (
@@ -131,7 +109,7 @@ function ObraEstoqueContent({
     );
   }
 
-  if (!access || !materials || !projects || !summaries) {
+  if (!access || !projects || !summaries) {
     return (
       <div className="py-16 text-center text-sm text-muted-foreground">
         Carregando estoque da obra...
@@ -156,7 +134,6 @@ function ObraEstoqueContent({
         </div>
         <InventoryMovementDialog
           access={access}
-          materials={materials}
           projects={projects}
           fixedProjectId={projectId}
           scope="obra"
@@ -190,85 +167,15 @@ function ObraEstoqueContent({
       </div>
 
       {section === "saldos" && (
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle>Materiais na obra</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Saldos disponíveis neste projeto.
-                </p>
-              </div>
-              <div className="relative w-full sm:w-80">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  className="pl-9"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Buscar material"
-                />
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {balances.status === "LoadingFirstPage" ? (
-              <LoadingMessage />
-            ) : filteredBalances.length === 0 ? (
-              <EmptyMessage text="Esta obra ainda não possui materiais." />
-            ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Material</TableHead>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead className="text-right">Disponível</TableHead>
-                      <TableHead>Saúde</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredBalances.map((balance) => (
-                      <TableRow key={balance._id}>
-                        <TableCell className="font-medium">
-                          <div>
-                            <p>{balance.materialName}</p>
-                            {balance.materialSku && (
-                              <p className="text-xs text-muted-foreground">
-                                {balance.materialSku}
-                              </p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>{balance.category ?? "—"}</TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {balance.quantity} {balance.unit ?? ""}
-                        </TableCell>
-                        <TableCell>
-                          <StockHealthBadge
-                            state={balance.replenishmentState}
-                            suggestedOrderQuantity={
-                              balance.suggestedOrderQuantity
-                            }
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {balances.status === "CanLoadMore" && (
-                  <div className="mt-4 text-center">
-                    <Button
-                      variant="outline"
-                      onClick={() => balances.loadMore(100)}
-                    >
-                      Carregar mais
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
+        <BalancesDataTable
+          data={balances.results}
+          status={balances.status}
+          onLoadMore={() => balances.loadMore(100)}
+          showLocation={false}
+          quantityLabel="Disponível"
+          searchPlaceholder="Buscar material"
+          emptyMessage="Esta obra ainda não possui materiais."
+        />
       )}
 
       {section === "movimentacoes" && (
@@ -287,19 +194,5 @@ function ObraEstoqueContent({
         </Card>
       )}
     </div>
-  );
-}
-
-function LoadingMessage() {
-  return (
-    <p className="py-12 text-center text-sm text-muted-foreground">
-      Carregando...
-    </p>
-  );
-}
-
-function EmptyMessage({ text }: { text: string }) {
-  return (
-    <p className="py-12 text-center text-sm text-muted-foreground">{text}</p>
   );
 }
