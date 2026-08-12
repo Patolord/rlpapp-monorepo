@@ -17,6 +17,16 @@ const DIMENSION_KEYS = [
 const SKIP_JSON_KEYS = new Set<string>(["sources", "sourceConflict"]);
 const COLUMN_ATTRIBUTE_KEYS = ["finish", "tubeSize", "application"] as const;
 
+function normalizeAttributeKey(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 export function parsePositiveNumber(
   value: string | undefined
 ): number | undefined {
@@ -121,7 +131,9 @@ export function parseCatalogRowAttributes(row: Record<string, string>): {
 
   const attributeMap = new Map<string, string>();
   for (const attribute of [...jsonAttributes, ...columnAttributes]) {
-    attributeMap.set(attribute.key, attribute.value);
+    const normalizedKey = normalizeAttributeKey(attribute.key);
+    if (!normalizedKey) continue;
+    attributeMap.set(normalizedKey, attribute.value);
   }
 
   return {
