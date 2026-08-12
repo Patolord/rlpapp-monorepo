@@ -26,6 +26,7 @@ import { Route as ComprasIndexRouteImport } from './routes/compras/index'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as QTokenRouteImport } from './routes/q/$token'
 import { Route as PortalProjectIdRouteImport } from './routes/portal/$projectId'
+import { Route as EstoqueMovimentacaoRouteImport } from './routes/estoque/movimentacao'
 import { Route as EngenhariaUsuariosRouteImport } from './routes/engenharia/usuarios'
 import { Route as EngenhariaRegistroDeCampoRouteImport } from './routes/engenharia/registro-de-campo'
 import { Route as EngenhariaQrCodesRouteImport } from './routes/engenharia/qr-codes'
@@ -149,6 +150,11 @@ const PortalProjectIdRoute = PortalProjectIdRouteImport.update({
   id: '/portal/$projectId',
   path: '/portal/$projectId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const EstoqueMovimentacaoRoute = EstoqueMovimentacaoRouteImport.update({
+  id: '/movimentacao',
+  path: '/movimentacao',
+  getParentRoute: () => EstoqueRouteRoute,
 } as any)
 const EngenhariaUsuariosRoute = EngenhariaUsuariosRouteImport.update({
   id: '/usuarios',
@@ -384,6 +390,7 @@ export interface FileRoutesByFullPath {
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/engenharia/registro-de-campo': typeof EngenhariaRegistroDeCampoRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
+  '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
   '/q/$token': typeof QTokenRoute
   '/app/': typeof AppIndexRoute
@@ -435,6 +442,7 @@ export interface FileRoutesByTo {
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/engenharia/registro-de-campo': typeof EngenhariaRegistroDeCampoRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
+  '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
   '/q/$token': typeof QTokenRoute
   '/app': typeof AppIndexRoute
@@ -491,6 +499,7 @@ export interface FileRoutesById {
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/engenharia/registro-de-campo': typeof EngenhariaRegistroDeCampoRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
+  '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
   '/q/$token': typeof QTokenRoute
   '/app/': typeof AppIndexRoute
@@ -550,6 +559,7 @@ export interface FileRouteTypes {
     | '/engenharia/qr-codes'
     | '/engenharia/registro-de-campo'
     | '/engenharia/usuarios'
+    | '/estoque/movimentacao'
     | '/portal/$projectId'
     | '/q/$token'
     | '/app/'
@@ -601,6 +611,7 @@ export interface FileRouteTypes {
     | '/engenharia/qr-codes'
     | '/engenharia/registro-de-campo'
     | '/engenharia/usuarios'
+    | '/estoque/movimentacao'
     | '/portal/$projectId'
     | '/q/$token'
     | '/app'
@@ -656,6 +667,7 @@ export interface FileRouteTypes {
     | '/engenharia/qr-codes'
     | '/engenharia/registro-de-campo'
     | '/engenharia/usuarios'
+    | '/estoque/movimentacao'
     | '/portal/$projectId'
     | '/q/$token'
     | '/app/'
@@ -832,6 +844,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/portal/$projectId'
       preLoaderRoute: typeof PortalProjectIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/estoque/movimentacao': {
+      id: '/estoque/movimentacao'
+      path: '/movimentacao'
+      fullPath: '/estoque/movimentacao'
+      preLoaderRoute: typeof EstoqueMovimentacaoRouteImport
+      parentRoute: typeof EstoqueRouteRoute
     }
     '/engenharia/usuarios': {
       id: '/engenharia/usuarios'
@@ -1271,10 +1290,12 @@ const EngenhariaRouteRouteWithChildren = EngenhariaRouteRoute._addFileChildren(
 )
 
 interface EstoqueRouteRouteChildren {
+  EstoqueMovimentacaoRoute: typeof EstoqueMovimentacaoRoute
   EstoqueIndexRoute: typeof EstoqueIndexRoute
 }
 
 const EstoqueRouteRouteChildren: EstoqueRouteRouteChildren = {
+  EstoqueMovimentacaoRoute: EstoqueMovimentacaoRoute,
   EstoqueIndexRoute: EstoqueIndexRoute,
 }
 

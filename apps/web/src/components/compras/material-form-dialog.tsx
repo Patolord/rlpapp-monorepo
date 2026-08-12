@@ -2,7 +2,8 @@ import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
-import { useEffect, useState } from "react";
+import { ImagePlus, Package, X } from "lucide-react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -17,12 +18,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { getErrorMessage } from "@/lib/errors";
+import { uploadPhotos } from "@/lib/upload-photos";
 
 export type MaterialCatalogRow = FunctionReturnType<
   typeof api.materials.listCatalog
 >["page"][number];
 
 export const UNIT_SUGGESTIONS = ["un", "m", "kg", "cx", "pct", "rolo", "m²", "L"];
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 export type MaterialFormValues = {
   name: string;
@@ -159,9 +163,14 @@ export function MaterialFormDialog({
 }: MaterialFormDialogProps) {
   const createMaterial = useMutation(api.materials.create);
   const updateMaterial = useMutation(api.materials.update);
+  const generateUploadUrl = useMutation(api.materials.generateUploadUrl);
   const families = useQuery(api.materials.listFamilies, { activeOnly: true });
   const [form, setForm] = useState<MaterialFormValues>(EMPTY_MATERIAL_FORM);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageRemoved, setImageRemoved] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const isEdit = material != null;
   const dimensions = dimensionsFromForm(form);
   const selectedFamily = (families ?? []).find(
@@ -189,8 +198,50 @@ export function MaterialFormDialog({
   useEffect(() => {
     if (open) {
       setForm(material ? materialToForm(material) : EMPTY_MATERIAL_FORM);
+      setImageFile(null);
+      setImageRemoved(false);
     }
   }, [open, material]);
+
+  useEffect(() => {
+    if (imageFile) {
+      const url = URL.createObjectURL(imageFile);
+      setImagePreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setImagePreviewUrl(
+      imageRemoved ? null : (material?.imageUrl ?? null)
+    );
+    return undefined;
+  }, [imageFile, imageRemoved, material?.imageUrl]);
+
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem");
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast.error("A imagem deve ter no máximo 5 MB");
+      return;
+    }
+    setImageFile(file);
+    setImageRemoved(false);
+  }
+
+  async function resolveImageId(): Promise<
+    Id<"_storage"> | null | undefined
+  > {
+    if (imageFile) {
+      const [storageId] = await uploadPhotos(generateUploadUrl, [imageFile]);
+      if (!storageId) throw new Error("Falha no upload da imagem");
+      return storageId;
+    }
+    if (imageRemoved) return null;
+    return undefined;
+  }
 
   async function handleSubmit() {
     if (!form.name.trim()) {
@@ -206,6 +257,7 @@ export function MaterialFormDialog({
       const unitsPerPurchaseUnit = form.unitsPerPurchaseUnit.trim()
         ? Number.parseFloat(form.unitsPerPurchaseUnit)
         : undefined;
+      const imageId = await resolveImageId();
 
       if (isEdit && material) {
         await updateMaterial({
@@ -226,6 +278,7 @@ export function MaterialFormDialog({
           spec: form.spec || undefined,
           brandPreference: form.brandPreference || undefined,
           technicalAttributes,
+          ...(imageId !== undefined ? { imageId } : {}),
         });
         toast.success("Material atualizado");
       } else {
@@ -246,6 +299,7 @@ export function MaterialFormDialog({
           spec: form.spec || undefined,
           brandPreference: form.brandPreference || undefined,
           technicalAttributes,
+          ...(imageId ? { imageId } : {}),
         });
         toast.success("Material criado");
       }
@@ -363,6 +417,59 @@ export function MaterialFormDialog({
                 onChange={(event) =>
                   setForm({ ...form, category: event.target.value })
                 }
+              />
+            </div>
+            <div>
+              <Label>Imagem</Label>
+              <div className="mt-1 flex items-start gap-3">
+                <span className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted">
+                  {imagePreviewUrl ? (
+                    <img
+                      src={imagePreviewUrl}
+                      alt="Pré-visualização do material"
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <Package className="size-6 text-muted-foreground/70" />
+                  )}
+                </span>
+                <div className="min-w-0 space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => imageInputRef.current?.click()}
+                    >
+                      <ImagePlus className="size-4" />
+                      {imagePreviewUrl ? "Trocar imagem" : "Anexar imagem"}
+                    </Button>
+                    {imagePreviewUrl ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setImageFile(null);
+                          setImageRemoved(true);
+                        }}
+                      >
+                        <X className="size-4" />
+                        Remover
+                      </Button>
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    JPG, PNG ou WebP. Máximo 5 MB.
+                  </p>
+                </div>
+              </div>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageChange}
               />
             </div>
           </section>

@@ -613,6 +613,7 @@ export default defineSchema({
     ),
     // Texto denormalizado para busca (nome, sku, fabricante, etc.).
     searchText: v.optional(v.string()),
+    imageId: v.optional(v.id("_storage")),
     active: v.boolean(),
     status: v.optional(materialStatus),
     createdAt: v.number(),

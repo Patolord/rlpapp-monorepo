@@ -11,8 +11,10 @@ import {
   inventoryQuery,
   inventoryRulesMutation,
   staffMutation,
+  warehouseOrPurchasingMutation,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
+import { createMaterialInternal } from "./materials";
 import {
   createInventoryDocument,
   findInventoryLocation,
@@ -90,6 +92,7 @@ export const getAccess = inventoryQuery({
     canCreateEntry: v.boolean(),
     canCreateProjectMovement: v.boolean(),
     canConfigureRules: v.boolean(),
+    canQuickCreateMaterial: v.boolean(),
     isEngineer: v.boolean(),
   }),
   handler: async (ctx) => {
@@ -99,13 +102,15 @@ export const getAccess = inventoryQuery({
     const isEngineer =
       ctx.user.role === "engenheiro" ||
       ctx.user.department === "engenharia";
+    const isPurchasing = ctx.user.department === "compras";
     return {
       canViewCentral: canViewCentralInventory(ctx.user),
       canWriteCentral: isAdmin || isWarehouse,
       canCreateEntry:
-        isAdmin || isWarehouse || ctx.user.department === "compras",
+        isAdmin || isWarehouse || isPurchasing,
       canCreateProjectMovement: isAdmin || isWarehouse || isEngineer,
       canConfigureRules: isAdmin,
+      canQuickCreateMaterial: isAdmin || isWarehouse || isPurchasing,
       isEngineer: ctx.user.role === "engenheiro",
     };
   },
@@ -117,6 +122,7 @@ export const listMaterialOptions = inventoryQuery({
     v.object({
       _id: v.id("materials"),
       name: v.string(),
+      variantLabel: v.union(v.string(), v.null()),
       sku: v.union(v.string(), v.null()),
       category: v.union(v.string(), v.null()),
       unit: v.union(v.string(), v.null()),
@@ -136,17 +142,51 @@ export const listMaterialOptions = inventoryQuery({
         (material) =>
           !search ||
           material.name.toLocaleLowerCase("pt-BR").includes(search) ||
+          material.variantLabel?.toLocaleLowerCase("pt-BR").includes(search) ||
           material.category?.toLocaleLowerCase("pt-BR").includes(search) ||
           material.sku?.toLocaleLowerCase("pt-BR").includes(search)
       )
       .map((material) => ({
         _id: material._id,
         name: material.name,
+        variantLabel: material.variantLabel ?? null,
         sku: material.sku ?? null,
         category: material.category ?? null,
         unit: material.unit ?? null,
         technicalAttributes: material.technicalAttributes ?? [],
       }));
+  },
+});
+
+export const quickCreateMaterial = warehouseOrPurchasingMutation({
+  args: {
+    name: v.string(),
+    variantLabel: v.optional(v.string()),
+    unit: v.optional(v.string()),
+    category: v.optional(v.string()),
+  },
+  returns: v.object({
+    materialId: v.id("materials"),
+    name: v.string(),
+    variantLabel: v.union(v.string(), v.null()),
+    sku: v.string(),
+    unit: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    const created = await createMaterialInternal(ctx, ctx.user, {
+      name: args.name,
+      variantLabel: args.variantLabel,
+      unit: args.unit,
+      category: args.category,
+      trackInventory: true,
+    });
+    return {
+      materialId: created.materialId,
+      name: created.name,
+      variantLabel: created.variantLabel ?? null,
+      sku: created.sku,
+      unit: created.unit ?? null,
+    };
   },
 });
 
@@ -182,6 +222,7 @@ export const listBalances = inventoryQuery({
         locationName: v.string(),
         materialId: v.id("materials"),
         materialName: v.string(),
+        variantLabel: v.union(v.string(), v.null()),
         materialSku: v.union(v.string(), v.null()),
         category: v.union(v.string(), v.null()),
         unit: v.union(v.string(), v.null()),
@@ -232,6 +273,7 @@ export const listBalances = inventoryQuery({
             locationName: location.name,
             materialId: balance.materialId,
             materialName: material?.name ?? "Material removido",
+            variantLabel: material?.variantLabel ?? null,
             materialSku: replenishment.materialSku,
             category: material?.category ?? null,
             unit: material?.unit ?? null,

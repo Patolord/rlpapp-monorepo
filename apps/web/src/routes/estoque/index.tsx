@@ -1,34 +1,23 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import {
   CheckCircle2,
   History,
   Package,
-  Search,
+  Plus,
   ShieldAlert,
   Warehouse,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AuthShell } from "@/components/auth-shell";
-import { InventoryAddressDialog } from "@/components/estoque/inventory-address-dialog";
 import { InventoryApprovals } from "@/components/estoque/inventory-approvals";
 import { InventoryDocumentsHistory } from "@/components/estoque/inventory-documents-history";
-import { InventoryMovementDialog } from "@/components/estoque/inventory-movement-dialog";
 import { InventoryRules } from "@/components/estoque/inventory-rules";
-import { StockHealthBadge } from "@/components/compras/material-replenishment-badge";
+import { BalancesDataTable } from "@/components/estoque/balances-table/balances-data-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 export const Route = createFileRoute("/estoque/")({
   component: EstoquePage,
@@ -47,7 +36,6 @@ function EstoquePage() {
 function EstoqueContent() {
   const access = useQuery(api.inventory.getAccess, {});
   const materials = useQuery(api.inventory.listMaterialOptions, {});
-  const projects = useQuery(api.inventory.listProjects, {});
   const approvals = useQuery(api.inventory.listPendingApprovals, {});
   const rules = useQuery(api.inventory.listRules, {});
   const centralBalances = usePaginatedQuery(
@@ -62,19 +50,6 @@ function EstoqueContent() {
   );
 
   const [section, setSection] = useState<Section>("central");
-  const [search, setSearch] = useState("");
-
-  const filteredCentralBalances = useMemo(() => {
-    const term = search.trim().toLocaleLowerCase("pt-BR");
-    if (!term) return centralBalances.results;
-    return centralBalances.results.filter(
-      (balance) =>
-        balance.materialName.toLocaleLowerCase("pt-BR").includes(term) ||
-        balance.materialSku?.toLocaleLowerCase("pt-BR").includes(term) ||
-        balance.category?.toLocaleLowerCase("pt-BR").includes(term) ||
-        balance.physicalAddress?.toLocaleLowerCase("pt-BR").includes(term)
-    );
-  }, [centralBalances.results, search]);
 
   useEffect(() => {
     if (access && !access.canViewCentral && section === "central") {
@@ -82,7 +57,7 @@ function EstoqueContent() {
     }
   }, [access, section]);
 
-  if (!access || !materials || !projects || !approvals || !rules) {
+  if (!access || !materials || !approvals || !rules) {
     return (
       <div className="mx-auto max-w-7xl py-16 text-center text-sm text-muted-foreground">
         Carregando estoque...
@@ -110,11 +85,10 @@ function EstoqueContent() {
             Controle do armazém central, entradas e envios para as obras.
           </p>
         </div>
-        <InventoryMovementDialog
-          access={access}
-          materials={materials}
-          projects={projects}
-        />
+        <Button render={<Link to="/estoque/movimentacao" />}>
+          <Plus className="mr-2 size-4" />
+          Nova movimentação
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -156,97 +130,16 @@ function EstoqueContent() {
       </div>
 
       {section === "central" && (
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle>Estoque central</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Saldos e endereço físico de cada material.
-                </p>
-              </div>
-              <div className="relative w-full sm:w-80">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  className="pl-9"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Buscar material ou localização"
-                />
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {centralBalances.status === "LoadingFirstPage" ? (
-              <LoadingMessage />
-            ) : filteredCentralBalances.length === 0 ? (
-              <EmptyMessage text="Nenhum material no estoque central." />
-            ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Material</TableHead>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead className="text-right">Saldo</TableHead>
-                      <TableHead>Saúde</TableHead>
-                      <TableHead>Localização</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredCentralBalances.map((balance) => (
-                      <TableRow key={balance._id}>
-                        <TableCell className="font-medium">
-                          <div>
-                            <p>{balance.materialName}</p>
-                            {balance.materialSku && (
-                              <p className="text-xs text-muted-foreground">
-                                {balance.materialSku}
-                              </p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>{balance.category ?? "—"}</TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {balance.quantity} {balance.unit ?? ""}
-                        </TableCell>
-                        <TableCell>
-                          <StockHealthBadge
-                            state={balance.replenishmentState}
-                            suggestedOrderQuantity={
-                              balance.suggestedOrderQuantity
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {access.canWriteCentral ? (
-                            <InventoryAddressDialog
-                              balanceId={balance._id}
-                              materialName={balance.materialName}
-                              currentAddress={balance.physicalAddress}
-                            />
-                          ) : (
-                            balance.physicalAddress ?? "—"
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {centralBalances.status === "CanLoadMore" && (
-                  <div className="mt-4 text-center">
-                    <Button
-                      variant="outline"
-                      onClick={() => centralBalances.loadMore(100)}
-                    >
-                      Carregar mais
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
+        <BalancesDataTable
+          data={centralBalances.results}
+          status={centralBalances.status}
+          onLoadMore={() => centralBalances.loadMore(100)}
+          showLocation
+          canEditLocation={access.canWriteCentral}
+          quantityLabel="Saldo"
+          searchPlaceholder="Buscar material ou localização"
+          emptyMessage="Nenhum material no estoque central."
+        />
       )}
 
       {section === "movimentacoes" && (
@@ -296,19 +189,5 @@ function MetricCard({
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function LoadingMessage() {
-  return (
-    <p className="py-12 text-center text-sm text-muted-foreground">
-      Carregando...
-    </p>
-  );
-}
-
-function EmptyMessage({ text }: { text: string }) {
-  return (
-    <p className="py-12 text-center text-sm text-muted-foreground">{text}</p>
   );
 }

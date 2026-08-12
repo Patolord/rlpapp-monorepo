@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { getErrorMessage } from "@/lib/errors";
+import { formatMaterialLabel } from "@/lib/material-import";
 
 type Rule = FunctionReturnType<typeof api.inventory.listRules>[number];
 type Material = FunctionReturnType<
@@ -183,7 +184,10 @@ export function InventoryRules({
                                 key={material._id}
                                 value={material._id}
                               >
-                                {material.name}
+                                {formatMaterialLabel(
+                                  material.name,
+                                  material.variantLabel
+                                )}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -204,7 +208,10 @@ export function InventoryRules({
                                 key={material._id}
                                 value={material._id}
                               >
-                                {material.name}
+                                {formatMaterialLabel(
+                                  material.name,
+                                  material.variantLabel
+                                )}
                               </SelectItem>
                             ))}
                           </SelectContent>

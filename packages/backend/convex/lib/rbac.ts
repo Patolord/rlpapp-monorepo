@@ -241,5 +241,21 @@ export const inventoryQuery = permissionQuery("estoque.read");
 /** Equipe de Estoque — conclusão, transferência, ajuste e estorno. */
 export const inventoryMutation = permissionMutation("estoque.write");
 
+/** Estoque ou Compras — cadastro rápido de material a partir da movimentação. */
+export const warehouseOrPurchasingMutation = customMutation(
+  mutation,
+  customCtx(async (ctx) => {
+    const user = await requireUser(ctx);
+    assertStaff(user);
+    if (
+      !hasPermission(user, "estoque.write") &&
+      !hasPermission(user, "compras.write")
+    ) {
+      throw new Error("Acesso restrito à equipe de estoque ou compras");
+    }
+    return { user };
+  })
+);
+
 /** Director/admin — configuração das regras de compatibilidade. */
 export const inventoryRulesMutation = permissionMutation("estoque.rules");
