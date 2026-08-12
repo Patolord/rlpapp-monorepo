@@ -110,6 +110,7 @@ export function MaterialsDataTable({
               <Input
                 className="pl-9"
                 placeholder="Buscar por nome, SKU, fabricante..."
+                aria-label="Buscar materiais"
                 value={search}
                 onChange={(event) => onSearchChange(event.target.value)}
               />

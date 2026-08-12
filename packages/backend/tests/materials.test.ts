@@ -99,6 +99,29 @@ describe("catalog helpers", () => {
   });
 });
 
+async function storeImageWithContentType(
+  t: ReturnType<typeof setup>,
+  bytes: string,
+  contentType: string
+): Promise<Id<"_storage">> {
+  return await t.run(async (ctx) => {
+    const imageId = await ctx.storage.store(
+      new Blob([bytes], { type: contentType })
+    );
+    // convex-test's storage.store does not persist Blob.type as contentType.
+    await (
+      ctx.db as unknown as {
+        patch: (
+          table: "_storage",
+          id: Id<"_storage">,
+          value: { contentType: string }
+        ) => Promise<void>;
+      }
+    ).patch("_storage", imageId, { contentType });
+    return imageId;
+  });
+}
+
 describe("materials catalog", () => {
   test("create auto-generates SKU and rejects duplicates", async () => {
     const { purchasing } = await seedCatalogUsers();
@@ -162,11 +185,11 @@ describe("materials catalog", () => {
     expect(typeof uploadUrl).toBe("string");
     expect(uploadUrl.length).toBeGreaterThan(0);
 
-    const firstImageId = await t.run(async (ctx) => {
-      return await ctx.storage.store(
-        new Blob(["first"], { type: "image/png" })
-      );
-    });
+    const firstImageId = await storeImageWithContentType(
+      t,
+      "first",
+      "image/png"
+    );
     const materialId = await purchasing.mutation(api.materials.create, {
       name: "Perfil de alumínio",
       unit: "m",
@@ -176,11 +199,11 @@ describe("materials catalog", () => {
     expect(created?.imageId).toBe(firstImageId);
     expect(created?.imageUrl).toEqual(expect.any(String));
 
-    const secondImageId = await t.run(async (ctx) => {
-      return await ctx.storage.store(
-        new Blob(["second"], { type: "image/png" })
-      );
-    });
+    const secondImageId = await storeImageWithContentType(
+      t,
+      "second",
+      "image/png"
+    );
     await purchasing.mutation(api.materials.update, {
       materialId,
       imageId: secondImageId,
@@ -195,6 +218,31 @@ describe("materials catalog", () => {
     const cleared = await purchasing.query(api.materials.get, { materialId });
     expect(cleared?.imageId).toBeNull();
     expect(cleared?.imageUrl).toBeNull();
+  });
+
+  test("rejects unsupported material image content types", async () => {
+    const { t, purchasing } = await seedCatalogUsers();
+
+    const gifId = await storeImageWithContentType(t, "gif", "image/gif");
+
+    await expect(
+      purchasing.mutation(api.materials.create, {
+        name: "Material com GIF",
+        unit: "un",
+        imageId: gifId,
+      })
+    ).rejects.toThrow("JPG, PNG ou WebP");
+
+    const materialId = await purchasing.mutation(api.materials.create, {
+      name: "Material sem imagem",
+      unit: "un",
+    });
+    await expect(
+      purchasing.mutation(api.materials.update, {
+        materialId,
+        imageId: gifId,
+      })
+    ).rejects.toThrow("JPG, PNG ou WebP");
   });
 
   test("listCatalog and listCategories support category filter", async () => {

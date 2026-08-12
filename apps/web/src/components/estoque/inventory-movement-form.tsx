@@ -137,19 +137,34 @@ export function InventoryMovementForm({
   }
 
   async function submit() {
-    const parsedLines = lines.map((line) => ({
-      materialId: line.material?.materialId,
-      quantity: Number(line.quantity.replace(",", ".")),
-    }));
+    const retainedLines = lines.filter(
+      (line) => line.material || line.quantity.trim()
+    );
+    const parsedLines = retainedLines.map((line) => {
+      const quantityText = line.quantity.trim();
+      return {
+        materialId: line.material?.materialId,
+        quantity: quantityText
+          ? Number(quantityText.replace(",", "."))
+          : Number.NaN,
+      };
+    });
     const effectiveProjectId = fixedProjectId ?? projectId;
     if (requiresProject && !effectiveProjectId) {
       toast.error("Selecione a obra");
       return;
     }
     if (
-      parsedLines.some(
-        (line) => !line.materialId || !Number.isFinite(line.quantity)
-      )
+      parsedLines.length === 0 ||
+      parsedLines.some((line) => {
+        if (!line.materialId || !Number.isFinite(line.quantity)) {
+          return true;
+        }
+        if (type === "adjustment") {
+          return line.quantity === 0;
+        }
+        return line.quantity <= 0;
+      })
     ) {
       toast.error("Preencha o material e a quantidade de todas as linhas");
       return;

@@ -66,6 +66,7 @@ export function MaterialImageThumb({
         type="button"
         aria-label={`Ver imagem de ${alt}`}
         className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        closeOnClick={canHover ? undefined : false}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();

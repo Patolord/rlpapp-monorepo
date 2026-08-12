@@ -115,9 +115,9 @@ export function DataTable<TData extends RowData>({
                 ))}
               </div>
             ) : null}
-            {footer}
           </>
         )}
+        {footer}
       </div>
     </div>
   );

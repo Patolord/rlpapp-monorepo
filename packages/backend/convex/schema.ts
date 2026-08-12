@@ -627,7 +627,11 @@ export default defineSchema({
     .index("by_barcode", ["barcode"])
     .index("by_searchText", ["searchText"])
     .index("by_family", ["familyId"])
-    .index("by_identity_key", ["identityKey"]),
+    .index("by_identity_key", ["identityKey"])
+    .searchIndex("search_text", {
+      searchField: "searchText",
+      filterFields: ["active"],
+    }),
 
   materialSkuCounters: defineTable({
     key: v.literal("material"),

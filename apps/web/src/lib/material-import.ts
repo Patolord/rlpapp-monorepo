@@ -21,7 +21,7 @@ export function parsePositiveNumber(
   value: string | undefined
 ): number | undefined {
   if (!value?.trim()) return undefined;
-  const parsed = Number.parseFloat(value.replace(",", "."));
+  const parsed = Number.parseFloat(value.replace(/\./g, "").replace(",", "."));
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
@@ -32,10 +32,10 @@ export function dimensionsFromVariant(
   const match =
     /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*mm(?![²2])/i.exec(value);
   if (!match) return undefined;
-  return {
-    widthMm: Number.parseFloat(match[1]!.replace(",", ".")),
-    heightMm: Number.parseFloat(match[2]!.replace(",", ".")),
-  };
+  const widthMm = parsePositiveNumber(match[1]);
+  const heightMm = parsePositiveNumber(match[2]);
+  if (widthMm === undefined || heightMm === undefined) return undefined;
+  return { widthMm, heightMm };
 }
 
 function mergeDimensions(

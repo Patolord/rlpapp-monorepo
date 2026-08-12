@@ -140,6 +140,7 @@ export function BalancesDataTable({
               <Input
                 className="pl-9"
                 placeholder={searchPlaceholder}
+                aria-label={searchPlaceholder}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />

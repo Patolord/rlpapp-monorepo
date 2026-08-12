@@ -80,7 +80,7 @@ export function createBalancesColumns({
           {row.original.quantity} {row.original.unit ?? ""}
         </span>
       ),
-      sortFn: "alphanumeric",
+      sortFn: "basic",
     }),
     columnHelper.accessor("replenishmentState", {
       id: "health",

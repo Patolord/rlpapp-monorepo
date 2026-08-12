@@ -435,14 +435,27 @@ export const listCatalog = engineeringOrPurchasingQuery({
     const search = args.search?.trim();
     const category = args.category?.trim();
     let results;
-    if (search || category) {
-      const all = category
-        ? await ctx.db
-            .query("materials")
-            .withIndex("by_category", (q) => q.eq("category", category))
-            .order("desc")
-            .collect()
-        : await ctx.db.query("materials").order("desc").collect();
+    if (search && !category) {
+      const searchQuery = normalizeText(search) || search;
+      results = await ctx.db
+        .query("materials")
+        .withSearchIndex("search_text", (q) => {
+          const queried = q.search("searchText", searchQuery);
+          return args.activeOnly ? queried.eq("active", true) : queried;
+        })
+        .paginate(args.paginationOpts);
+      results = {
+        ...results,
+        page: results.page.filter((material) =>
+          materialMatchesSearch(material, search)
+        ),
+      };
+    } else if (category) {
+      const all = await ctx.db
+        .query("materials")
+        .withIndex("by_category", (q) => q.eq("category", category))
+        .order("desc")
+        .collect();
       const filtered = all.filter((material) => {
         if (args.activeOnly && !material.active) return false;
         if (search && !materialMatchesSearch(material, search)) return false;
@@ -486,7 +499,7 @@ export const listCategories = engineeringOrPurchasingQuery({
   args: {},
   returns: v.array(v.string()),
   handler: async (ctx) => {
-    // eslint-disable-next-line @convex-dev/no-query-collect -- distinct category list; catalog size is bounded
+    // eslint-disable-next-line @convex-dev/no-collect-in-query -- distinct category list; catalog size is bounded
     const materials = await ctx.db.query("materials").collect();
     const categories = new Set<string>();
     for (const material of materials) {
@@ -643,12 +656,35 @@ export type CreateMaterialInput = {
   imageId?: Id<"_storage">;
 };
 
+const ALLOWED_MATERIAL_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
+async function assertAllowedMaterialImage(
+  ctx: MutationCtx,
+  imageId: Id<"_storage">
+): Promise<void> {
+  const metadata = await ctx.db.system.get("_storage", imageId);
+  if (!metadata) {
+    throw new Error("Imagem não encontrada");
+  }
+  if (
+    !metadata.contentType ||
+    !ALLOWED_MATERIAL_IMAGE_TYPES.has(metadata.contentType)
+  ) {
+    throw new Error("A imagem deve ser JPG, PNG ou WebP");
+  }
+}
+
 async function replaceMaterialImage(
   ctx: MutationCtx,
   previous: Id<"_storage"> | undefined,
   next: Id<"_storage"> | null | undefined
 ): Promise<Id<"_storage"> | undefined> {
   if (next === undefined) return previous;
+  if (next) await assertAllowedMaterialImage(ctx, next);
   if (previous && previous !== next) {
     await ctx.storage.delete(previous);
   }
@@ -670,6 +706,9 @@ export async function createMaterialInternal(
   if (!name) throw new Error("Informe o nome do material");
 
   validateUnitsPerPurchaseUnit(args.unitsPerPurchaseUnit);
+  if (args.imageId) {
+    await assertAllowedMaterialImage(ctx, args.imageId);
+  }
   const dimensions = sanitizeDimensions(args.dimensions);
   const technicalAttributes = sanitizeTechnicalAttributes(
     args.technicalAttributes

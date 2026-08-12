@@ -27,6 +27,16 @@ export type MaterialCatalogRow = FunctionReturnType<
 export const UNIT_SUGGESTIONS = ["un", "m", "kg", "cx", "pct", "rolo", "m²", "L"];
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
+const ALLOWED_IMAGE_ACCEPT = ALLOWED_IMAGE_MIME_TYPES.join(",");
+
+function isAllowedImageMimeType(type: string): boolean {
+  return (ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(type);
+}
 
 export type MaterialFormValues = {
   name: string;
@@ -219,8 +229,8 @@ export function MaterialFormDialog({
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Selecione um arquivo de imagem");
+    if (!isAllowedImageMimeType(file.type)) {
+      toast.error("Selecione uma imagem JPG, PNG ou WebP");
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
@@ -467,7 +477,7 @@ export function MaterialFormDialog({
               <input
                 ref={imageInputRef}
                 type="file"
-                accept="image/*"
+                accept={ALLOWED_IMAGE_ACCEPT}
                 className="hidden"
                 onChange={handleImageChange}
               />
