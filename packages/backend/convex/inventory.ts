@@ -111,7 +111,7 @@ export const getAccess = inventoryQuery({
       canCreateProjectMovement: isAdmin || isWarehouse || isEngineer,
       canConfigureRules: isAdmin,
       canQuickCreateMaterial: isAdmin || isWarehouse || isPurchasing,
-      isEngineer: ctx.user.role === "engenheiro",
+      isEngineer,
     };
   },
 });
