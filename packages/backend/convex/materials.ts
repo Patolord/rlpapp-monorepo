@@ -21,6 +21,7 @@ import {
   engineeringOrPurchasingQuery,
   inventoryQuery,
   purchasingMutation,
+  purchasingQuery,
 } from "./lib/rbac";
 import { logAudit, diffFields } from "./lib/audit";
 import { materialDimensions, materialStatus, replenishmentState } from "./schema";
@@ -40,6 +41,10 @@ import {
   computeReplenishmentState,
   getStockPolicy,
 } from "./lib/inventory/stockPolicy";
+import {
+  executeMaterialMerge,
+  previewMaterialMerge,
+} from "./lib/compras/mergeMaterials";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 
@@ -1280,5 +1285,59 @@ export const listAliases = engineeringOrPurchasingQuery({
       alias: a.alias,
       createdAt: a.createdAt,
     }));
+  },
+});
+
+const mergeMaterialSummaryValidator = v.object({
+  _id: v.id("materials"),
+  name: v.string(),
+  variantLabel: v.union(v.string(), v.null()),
+  sku: v.union(v.string(), v.null()),
+  active: v.boolean(),
+});
+
+export const mergePreview = purchasingQuery({
+  args: {
+    sourceId: v.id("materials"),
+    targetId: v.id("materials"),
+  },
+  returns: v.object({
+    source: mergeMaterialSummaryValidator,
+    target: mergeMaterialSummaryValidator,
+    locations: v.array(
+      v.object({
+        locationId: v.id("inventoryLocations"),
+        locationName: v.string(),
+        sourceQuantity: v.number(),
+        targetQuantity: v.number(),
+        mergedQuantity: v.number(),
+      })
+    ),
+    takeoffItemCount: v.number(),
+    priceEventCount: v.number(),
+    offeringCount: v.number(),
+    aliasCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    return await previewMaterialMerge(ctx, args.sourceId, args.targetId);
+  },
+});
+
+export const merge = purchasingMutation({
+  args: {
+    sourceId: v.id("materials"),
+    targetId: v.id("materials"),
+  },
+  returns: v.object({
+    sourceId: v.id("materials"),
+    targetId: v.id("materials"),
+  }),
+  handler: async (ctx, args) => {
+    return await executeMaterialMerge(
+      ctx,
+      ctx.user,
+      args.sourceId,
+      args.targetId
+    );
   },
 });
