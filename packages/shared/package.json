@@ -8,13 +8,16 @@
     "./formatters": "./src/formatters.ts",
     "./labels": "./src/labels.ts",
     "./usernames": "./src/usernames.ts",
-    "./clerkErrors": "./src/clerkErrors.ts"
+    "./clerkErrors": "./src/clerkErrors.ts",
+    "./engenharia/nbr16401": "./src/engenharia/nbr16401.ts"
   },
   "devDependencies": {
     "@rlpapp/config": "workspace:*",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "^4.1.8"
   },
   "scripts": {
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test": "vitest run"
   }
 }
