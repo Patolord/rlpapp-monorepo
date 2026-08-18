@@ -39,25 +39,45 @@ function isPurchasing(user: Doc<"users">): boolean {
   return user.department === "compras";
 }
 
-function assertCanCreate(
+function isAssignedTechnician(
   user: Doc<"users">,
-  type: InventoryMovementType
-): void {
+  project: Doc<"projects"> | null
+): boolean {
+  if (!project) return false;
+  return (project.technicianIds ?? []).includes(user._id);
+}
+
+async function assertCanCreate(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  type: InventoryMovementType,
+  projectId?: Id<"projects">
+): Promise<void> {
   if (isAdmin(user) || hasPermission(user, "estoque.write")) return;
   if (type === "entry" && isPurchasing(user)) return;
   if ((type === "consumption" || type === "return") && isEngineering(user)) {
     return;
   }
+  if (type === "consumption" && projectId) {
+    const project = await ctx.db.get("projects", projectId);
+    if (isAssignedTechnician(user, project)) return;
+  }
   throw new Error("Você não pode registrar este tipo de movimentação");
 }
 
-function assertCanPost(
+async function assertCanPost(
+  ctx: MutationCtx,
   user: Doc<"users">,
-  type: InventoryMovementType | "reversal"
-): void {
+  type: InventoryMovementType | "reversal",
+  projectId?: Id<"projects">
+): Promise<void> {
   if (isAdmin(user) || hasPermission(user, "estoque.write")) return;
   if (type === "entry" && isPurchasing(user)) return;
   if (type === "consumption" && isEngineering(user)) return;
+  if (type === "consumption" && projectId) {
+    const project = await ctx.db.get("projects", projectId);
+    if (isAssignedTechnician(user, project)) return;
+  }
   throw new Error("Você não pode concluir este tipo de movimentação");
 }
 
@@ -214,7 +234,7 @@ export async function createInventoryDocument(
   status: "draft" | "pending_approval";
   issueCount: number;
 }> {
-  assertCanCreate(user, input.type);
+  await assertCanCreate(ctx, user, input.type, input.projectId);
   validateLines(input.type, input.lines);
   await validateMaterials(ctx, input.lines);
 
@@ -271,6 +291,28 @@ export async function createInventoryDocument(
   });
 
   return { documentId, status, issueCount: issues.length };
+}
+
+export async function createAndPostConsumption(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  input: {
+    projectId: Id<"projects">;
+    lines: InventoryLineInput[];
+    notes?: string;
+  }
+): Promise<Id<"inventoryDocuments">> {
+  const created = await createInventoryDocument(ctx, user, {
+    type: "consumption",
+    projectId: input.projectId,
+    notes: input.notes,
+    lines: input.lines,
+  });
+  if (created.status !== "draft") {
+    throw new Error("Consumo em campo não pode exigir aprovação");
+  }
+  await postInventoryDocument(ctx, user, created.documentId);
+  return created.documentId;
 }
 
 type InventoryDelta = {
@@ -410,7 +452,7 @@ export async function postInventoryDocument(
   if (document.type === "reversal") {
     throw new Error("Estornos são concluídos automaticamente");
   }
-  assertCanPost(user, document.type);
+  await assertCanPost(ctx, user, document.type, document.projectId);
   if (document.status === "pending_approval") {
     throw new Error("A movimentação aguarda aprovação do engenheiro da obra");
   }

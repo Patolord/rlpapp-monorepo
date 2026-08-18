@@ -1,6 +1,6 @@
 import "@/global.css";
-import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
-import { tokenCache } from "@clerk/clerk-expo/token-cache";
+import { ClerkProvider, useAuth } from "@clerk/expo";
+import { tokenCache } from "@clerk/expo/token-cache";
 import { env } from "@rlpapp/env/native";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { ConvexReactClient, useConvexAuth, useMutation } from "convex/react";

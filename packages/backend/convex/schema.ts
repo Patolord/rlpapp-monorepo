@@ -195,6 +195,19 @@ export const inventoryCompatibilityRuleType = v.union(
   v.literal("attributes_must_match")
 );
 
+export const inventoryRequestStatus = v.union(
+  v.literal("pending"),
+  v.literal("approved"),
+  v.literal("rejected"),
+  v.literal("cancelled"),
+  v.literal("fulfilled")
+);
+
+export const inventoryRequestReason = v.union(
+  v.literal("replenishment"),
+  v.literal("new")
+);
+
 // --- Engenharia: Contratos e Medições ---
 
 // Como o valor da medição foi determinado (flexível para bases futuras).
@@ -963,6 +976,35 @@ export default defineSchema({
   })
     .index("by_active", ["active"])
     .index("by_type", ["type"]),
+
+  inventoryRequests: defineTable({
+    projectId: v.id("projects"),
+    status: inventoryRequestStatus,
+    requestedByUserId: v.id("users"),
+    notes: v.optional(v.string()),
+    reviewedByUserId: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+    reviewNotes: v.optional(v.string()),
+    fulfilledByDocumentId: v.optional(v.id("inventoryDocuments")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_project", ["projectId", "createdAt"])
+    .index("by_status", ["status", "createdAt"])
+    .index("by_requested_by", ["requestedByUserId", "createdAt"])
+    .index("by_project_status", ["projectId", "status", "createdAt"]),
+
+  inventoryRequestItems: defineTable({
+    requestId: v.id("inventoryRequests"),
+    materialId: v.id("materials"),
+    quantity: v.number(),
+    unit: v.optional(v.string()),
+    reason: inventoryRequestReason,
+    markedDepleted: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_request", ["requestId"])
+    .index("by_material", ["materialId"]),
 
   // --- Engenharia: Empreiteiros (cadastro mestre) ---
 

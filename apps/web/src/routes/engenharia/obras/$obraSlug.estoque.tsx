@@ -2,13 +2,14 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
 import { usePaginatedQuery, useQuery } from "convex/react";
-import { History, Package, Warehouse } from "lucide-react";
+import { History, ClipboardList, Package, Warehouse } from "lucide-react";
 import { useState } from "react";
 
 import { AuthShell } from "@/components/auth-shell";
 import { BalancesDataTable } from "@/components/estoque/balances-table/balances-data-table";
 import { InventoryDocumentsHistory } from "@/components/estoque/inventory-documents-history";
 import { InventoryMovementDialog } from "@/components/estoque/inventory-movement-dialog";
+import { ObraMaterialRequests } from "@/components/estoque/obra-material-requests";
 import {
   ProjectShell,
   type ProjectOverview,
@@ -22,7 +23,7 @@ export const Route = createFileRoute("/engenharia/obras/$obraSlug/estoque")({
   component: ObraEstoquePage,
 });
 
-type Section = "saldos" | "movimentacoes";
+type Section = "saldos" | "movimentacoes" | "solicitacoes";
 
 function ObraEstoquePage() {
   const projectId = useObraProjectId();
@@ -85,10 +86,17 @@ function ObraEstoqueContent({
     projectInventoryArgs,
     { initialNumItems: 20 }
   );
+  const materialRequests = useQuery(
+    api.inventoryRequests.listOfficeRequests,
+    hasEstoqueRead ? { projectId } : "skip"
+  );
 
   const [section, setSection] = useState<Section>("saldos");
 
   const summary = summaries?.find((item) => item.projectId === projectId);
+  const pendingRequestCount =
+    materialRequests?.filter((request) => request.status === "pending").length ??
+    0;
 
   if (currentUser === undefined) {
     return (
@@ -109,7 +117,7 @@ function ObraEstoqueContent({
     );
   }
 
-  if (!access || !projects || !summaries) {
+  if (!access || !projects || !summaries || materialRequests === undefined) {
     return (
       <div className="py-16 text-center text-sm text-muted-foreground">
         Carregando estoque da obra...
@@ -121,6 +129,7 @@ function ObraEstoqueContent({
     [
       { key: "saldos", label: "Saldos", icon: Warehouse },
       { key: "movimentacoes", label: "Movimentações", icon: History },
+      { key: "solicitacoes", label: "Solicitações", icon: ClipboardList },
     ];
 
   return (
@@ -162,6 +171,11 @@ function ObraEstoqueContent({
           >
             <item.icon className="mr-1.5 size-4" />
             {item.label}
+            {item.key === "solicitacoes" && pendingRequestCount > 0 ? (
+              <Badge variant="warning" className="ml-1.5">
+                {pendingRequestCount}
+              </Badge>
+            ) : null}
           </Button>
         ))}
       </div>
@@ -192,6 +206,24 @@ function ObraEstoqueContent({
             />
           </CardContent>
         </Card>
+      )}
+
+      {section === "solicitacoes" && (
+        <ObraMaterialRequests
+          access={access}
+          projects={projects}
+          requests={[...materialRequests].sort((a, b) => {
+            const order: Record<string, number> = {
+              pending: 0,
+              approved: 1,
+              fulfilled: 2,
+              rejected: 3,
+              cancelled: 4,
+            };
+            return (order[a.status] ?? 9) - (order[b.status] ?? 9);
+          })}
+          emptyText="Nenhum pedido de material nesta obra."
+        />
       )}
     </div>
   );

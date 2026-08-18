@@ -14,7 +14,7 @@
     "lint": "eslint app components lib contexts"
   },
   "dependencies": {
-    "@clerk/clerk-expo": "^2.19.31",
+    "@clerk/expo": "^4.5.0",
     "@expo/metro-runtime": "~55.0.11",
     "@expo/vector-icons": "^15.1.1",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -77,10 +77,5 @@
     "tailwindcss": "^4.3.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.61.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "lightningcss": "1.30.1"
-    }
   }
 }

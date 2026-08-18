@@ -94,6 +94,8 @@ export const getAccess = inventoryQuery({
     canConfigureRules: v.boolean(),
     canQuickCreateMaterial: v.boolean(),
     isEngineer: v.boolean(),
+    canReviewMaterialRequests: v.boolean(),
+    canFulfillMaterialRequests: v.boolean(),
   }),
   handler: async (ctx) => {
     const isAdmin =
@@ -112,6 +114,9 @@ export const getAccess = inventoryQuery({
       canConfigureRules: isAdmin,
       canQuickCreateMaterial: isAdmin || isWarehouse || isPurchasing,
       isEngineer,
+      canReviewMaterialRequests:
+        isAdmin || isEngineer,
+      canFulfillMaterialRequests: isAdmin || isWarehouse,
     };
   },
 });

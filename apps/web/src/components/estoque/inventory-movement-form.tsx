@@ -1,7 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -26,6 +26,13 @@ import { cn } from "@/lib/utils";
 
 type Access = FunctionReturnType<typeof api.inventory.getAccess>;
 type Project = FunctionReturnType<typeof api.inventory.listProjects>[number];
+type PrefillLine = {
+  materialId: Id<"materials">;
+  name: string;
+  variantLabel: string | null;
+  unit: string | null;
+  quantity: number;
+};
 
 export type MovementType =
   | "entry"
@@ -62,6 +69,20 @@ const emptyLine = (): FormLine => {
   return { id: nextLineId, material: null, quantity: "" };
 };
 
+function lineFromPrefill(line: PrefillLine): FormLine {
+  nextLineId += 1;
+  return {
+    id: nextLineId,
+    material: {
+      materialId: line.materialId,
+      name: line.name,
+      variantLabel: line.variantLabel,
+      unit: line.unit,
+    },
+    quantity: String(line.quantity),
+  };
+}
+
 export function allowedMovementTypes(
   access: Access,
   scope: "central" | "obra"
@@ -85,6 +106,9 @@ export function InventoryMovementForm({
   fixedProjectId,
   scope = "central",
   layout = "page",
+  requestId,
+  prefillLines,
+  lockType,
   onSuccess,
 }: {
   access: Access;
@@ -92,18 +116,35 @@ export function InventoryMovementForm({
   fixedProjectId?: Id<"projects">;
   scope?: "central" | "obra";
   layout?: "page" | "dialog";
+  requestId?: Id<"inventoryRequests">;
+  prefillLines?: PrefillLine[];
+  lockType?: MovementType;
   onSuccess?: () => void;
 }) {
   const createDocument = useMutation(api.inventory.createDocument);
   const postDocument = useMutation(api.inventory.postDocument);
+  const markFulfilled = useMutation(api.inventoryRequests.markFulfilled);
   const types = allowedMovementTypes(access, scope);
-  const [type, setType] = useState<MovementType>(types[0] ?? "entry");
+  const [type, setType] = useState<MovementType>(
+    lockType ?? types[0] ?? "entry"
+  );
   const [projectId, setProjectId] = useState(fixedProjectId ?? "");
+  const [sourceRequestId, setSourceRequestId] = useState(requestId ?? "");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
   const [showDetails, setShowDetails] = useState(false);
-  const [lines, setLines] = useState<FormLine[]>([emptyLine()]);
+  const [lines, setLines] = useState<FormLine[]>(() =>
+    prefillLines && prefillLines.length > 0
+      ? prefillLines.map(lineFromPrefill)
+      : [emptyLine()]
+  );
   const [submitting, setSubmitting] = useState(false);
+  const approvedRequests = useQuery(
+    api.inventoryRequests.listOfficeRequests,
+    !requestId && access.canFulfillMaterialRequests && scope === "central"
+      ? { status: "approved" as const }
+      : "skip"
+  );
 
   const typeItems = useMemo(
     () =>
@@ -119,6 +160,16 @@ export function InventoryMovementForm({
     () => Object.fromEntries(projects.map((project) => [project._id, project.name])),
     [projects]
   );
+  const requestItems = useMemo(
+    () =>
+      Object.fromEntries(
+        (approvedRequests ?? []).map((request) => [
+          request._id,
+          `${request.projectName} · ${request.items.length} item(ns)`,
+        ])
+      ),
+    [approvedRequests]
+  );
 
   const requiresProject = type !== "entry" && type !== "adjustment";
   const canPostImmediately =
@@ -131,12 +182,43 @@ export function InventoryMovementForm({
   ).length;
 
   function reset() {
-    setType(types[0] ?? "entry");
+    setType(lockType ?? types[0] ?? "entry");
     setProjectId(fixedProjectId ?? "");
+    setSourceRequestId(requestId ?? "");
     setReference("");
     setNotes("");
     setShowDetails(false);
-    setLines([emptyLine()]);
+    setLines(
+      prefillLines && prefillLines.length > 0
+        ? prefillLines.map(lineFromPrefill)
+        : [emptyLine()]
+    );
+  }
+
+  function applyApprovedRequest(id: string) {
+    setSourceRequestId(id);
+    const request = approvedRequests?.find((item) => item._id === id);
+    if (!request) return;
+    setType("transfer");
+    setProjectId(request.projectId);
+    setLines(
+      request.items.map((item) =>
+        lineFromPrefill({
+          materialId: item.materialId,
+          name: item.materialName,
+          variantLabel: item.variantLabel,
+          unit: item.unit,
+          quantity: item.quantity,
+        })
+      )
+    );
+  }
+
+  function handleTypeChange(next: MovementType) {
+    setType(next);
+    if (next !== "transfer" && !requestId) {
+      setSourceRequestId("");
+    }
   }
 
   function updateLine(index: number, patch: Partial<FormLine>) {
@@ -202,7 +284,15 @@ export function InventoryMovementForm({
         );
       } else if (canPostImmediately) {
         await postDocument({ documentId: result.documentId });
-        toast.success("Movimentação concluída");
+        if (sourceRequestId && type === "transfer") {
+          await markFulfilled({
+            requestId: sourceRequestId as Id<"inventoryRequests">,
+            documentId: result.documentId,
+          });
+        }
+        toast.success(
+          sourceRequestId ? "Pedido enviado à obra" : "Movimentação concluída"
+        );
       } else {
         toast.success("Movimentação registrada para conclusão pelo Estoque");
       }
@@ -215,7 +305,7 @@ export function InventoryMovementForm({
     }
   }
 
-  if (types.length === 0) return null;
+  if (!lockType && types.length === 0) return null;
 
   const submitLabel = submitting
     ? "Registrando..."
@@ -230,6 +320,7 @@ export function InventoryMovementForm({
         layout === "page" && "min-h-[calc(100dvh-8rem)]"
       )}
     >
+      {!lockType && (
       <div className="space-y-2">
         <Label>Tipo</Label>
         {layout === "page" ? (
@@ -238,7 +329,7 @@ export function InventoryMovementForm({
               <button
                 key={movementType}
                 type="button"
-                onClick={() => setType(movementType)}
+                onClick={() => handleTypeChange(movementType)}
                 className={cn(
                   "min-h-12 rounded-xl border px-3 py-2 text-left text-sm font-medium",
                   type === movementType
@@ -254,7 +345,7 @@ export function InventoryMovementForm({
           <Select
             value={type}
             items={typeItems}
-            onValueChange={(value) => setType(value as MovementType)}
+            onValueChange={(value) => handleTypeChange(value as MovementType)}
           >
             <SelectTrigger>
               <SelectValue />
@@ -269,8 +360,34 @@ export function InventoryMovementForm({
           </Select>
         )}
       </div>
+      )}
 
-      {type !== "entry" && !fixedProjectId && (
+      {type === "transfer" &&
+        !requestId &&
+        approvedRequests &&
+        approvedRequests.length > 0 && (
+          <div className="space-y-1.5">
+            <Label>Pedido aprovado</Label>
+            <Select
+              value={sourceRequestId}
+              items={requestItems}
+              onValueChange={applyApprovedRequest}
+            >
+              <SelectTrigger className="min-h-12">
+                <SelectValue placeholder="Preencher a partir de um pedido" />
+              </SelectTrigger>
+              <SelectContent>
+                {approvedRequests.map((request) => (
+                  <SelectItem key={request._id} value={request._id}>
+                    {request.projectName} · {request.items.length} item(ns)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+      {type !== "entry" && !fixedProjectId && !sourceRequestId && (
         <div className="space-y-1.5">
           <Label>
             {type === "return" && scope === "central"

@@ -7,7 +7,7 @@ import {
 import { UserButton } from "@clerk/tanstack-react-start";
 import { useQuery } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { Building2, Keyboard, ArrowLeft, History } from "lucide-react";
+import { Building2, Keyboard, ArrowLeft, History, Package } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -125,6 +125,13 @@ function QrOperadorPage() {
                       {pendingCount}
                     </Badge>
                   )}
+                </Button>
+                <Button
+                  className="h-12 w-full text-base sm:col-span-2"
+                  render={<Link to="/qr-operador/estoque" />}
+                >
+                  <Package className="mr-2 h-5 w-5" />
+                  Estoque da obra
                 </Button>
               </div>
             </CardContent>

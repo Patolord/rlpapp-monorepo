@@ -1,4 +1,6 @@
-import { useSignIn } from "@clerk/clerk-expo";
+// Entry "legacy": keeps the useSignIn setActive/status API used by this flow
+// (the default @clerk/expo export uses the Core 3 signals API).
+import { useSignIn } from "@clerk/expo/legacy";
 import { useRouter } from "expo-router";
 import React from "react";
 import { Alert, Text, View } from "react-native";

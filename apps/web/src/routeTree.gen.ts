@@ -24,6 +24,7 @@ import { Route as EstoqueIndexRouteImport } from './routes/estoque/index'
 import { Route as EngenhariaIndexRouteImport } from './routes/engenharia/index'
 import { Route as ComprasIndexRouteImport } from './routes/compras/index'
 import { Route as AppIndexRouteImport } from './routes/app/index'
+import { Route as QrOperadorEstoqueRouteImport } from './routes/qr-operador_.estoque'
 import { Route as QTokenRouteImport } from './routes/q/$token'
 import { Route as PortalProjectIdRouteImport } from './routes/portal/$projectId'
 import { Route as EstoqueMovimentacaoRouteImport } from './routes/estoque/movimentacao'
@@ -34,6 +35,7 @@ import { Route as EngenhariaMedicoesRouteImport } from './routes/engenharia/medi
 import { Route as EngenhariaContratosRouteImport } from './routes/engenharia/contratos'
 import { Route as EngenhariaRelatoriosRouteRouteImport } from './routes/engenharia/relatorios/route'
 import { Route as EngenhariaObrasRouteRouteImport } from './routes/engenharia/obras/route'
+import { Route as QrOperadorEstoqueIndexRouteImport } from './routes/qr-operador_.estoque.index'
 import { Route as EngenhariaRelatoriosIndexRouteImport } from './routes/engenharia/relatorios/index'
 import { Route as EngenhariaObrasIndexRouteImport } from './routes/engenharia/obras/index'
 import { Route as EngenhariaEmpreiteirosIndexRouteImport } from './routes/engenharia/empreiteiros/index'
@@ -43,6 +45,7 @@ import { Route as ComprasMateriaisIndexRouteImport } from './routes/compras/mate
 import { Route as ComprasFornecedoresIndexRouteImport } from './routes/compras/fornecedores/index'
 import { Route as ComprasFilaRevisaoIndexRouteImport } from './routes/compras/fila-revisao/index'
 import { Route as ComprasEventosPrecoIndexRouteImport } from './routes/compras/eventos-preco/index'
+import { Route as QrOperadorEstoqueObraSlugRouteImport } from './routes/qr-operador_.estoque.$obraSlug'
 import { Route as EngenhariaRelatoriosProjectIdRouteImport } from './routes/engenharia/relatorios/$projectId'
 import { Route as EngenhariaQrTokenRouteImport } from './routes/engenharia/qr/$token'
 import { Route as EngenhariaObrasObraSlugRouteImport } from './routes/engenharia/obras/$obraSlug'
@@ -142,6 +145,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const QrOperadorEstoqueRoute = QrOperadorEstoqueRouteImport.update({
+  id: '/qr-operador_/estoque',
+  path: '/qr-operador/estoque',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const QTokenRoute = QTokenRouteImport.update({
   id: '/q/$token',
   path: '/q/$token',
@@ -194,6 +202,11 @@ const EngenhariaObrasRouteRoute = EngenhariaObrasRouteRouteImport.update({
   path: '/obras',
   getParentRoute: () => EngenhariaRouteRoute,
 } as any)
+const QrOperadorEstoqueIndexRoute = QrOperadorEstoqueIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => QrOperadorEstoqueRoute,
+} as any)
 const EngenhariaRelatoriosIndexRoute =
   EngenhariaRelatoriosIndexRouteImport.update({
     id: '/',
@@ -242,6 +255,12 @@ const ComprasEventosPrecoIndexRoute =
     id: '/eventos-preco/',
     path: '/eventos-preco/',
     getParentRoute: () => ComprasRouteRoute,
+  } as any)
+const QrOperadorEstoqueObraSlugRoute =
+  QrOperadorEstoqueObraSlugRouteImport.update({
+    id: '/$obraSlug',
+    path: '/$obraSlug',
+    getParentRoute: () => QrOperadorEstoqueRoute,
   } as any)
 const EngenhariaRelatoriosProjectIdRoute =
   EngenhariaRelatoriosProjectIdRouteImport.update({
@@ -400,6 +419,7 @@ export interface FileRoutesByFullPath {
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
   '/q/$token': typeof QTokenRoute
+  '/qr-operador/estoque': typeof QrOperadorEstoqueRouteWithChildren
   '/app/': typeof AppIndexRoute
   '/compras/': typeof ComprasIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
@@ -409,6 +429,7 @@ export interface FileRoutesByFullPath {
   '/engenharia/obras/$obraSlug': typeof EngenhariaObrasObraSlugRouteWithChildren
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdRouteWithChildren
+  '/qr-operador/estoque/$obraSlug': typeof QrOperadorEstoqueObraSlugRoute
   '/compras/eventos-preco/': typeof ComprasEventosPrecoIndexRoute
   '/compras/fila-revisao/': typeof ComprasFilaRevisaoIndexRoute
   '/compras/fornecedores/': typeof ComprasFornecedoresIndexRoute
@@ -418,6 +439,7 @@ export interface FileRoutesByFullPath {
   '/engenharia/empreiteiros/': typeof EngenhariaEmpreiteirosIndexRoute
   '/engenharia/obras/': typeof EngenhariaObrasIndexRoute
   '/engenharia/relatorios/': typeof EngenhariaRelatoriosIndexRoute
+  '/qr-operador/estoque/': typeof QrOperadorEstoqueIndexRoute
   '/engenharia/obras/$obraSlug/assistente': typeof EngenhariaObrasObraSlugAssistenteRoute
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
@@ -460,6 +482,7 @@ export interface FileRoutesByTo {
   '/portal': typeof PortalIndexRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
+  '/qr-operador/estoque/$obraSlug': typeof QrOperadorEstoqueObraSlugRoute
   '/compras/eventos-preco': typeof ComprasEventosPrecoIndexRoute
   '/compras/fila-revisao': typeof ComprasFilaRevisaoIndexRoute
   '/compras/fornecedores': typeof ComprasFornecedoresIndexRoute
@@ -469,6 +492,7 @@ export interface FileRoutesByTo {
   '/engenharia/empreiteiros': typeof EngenhariaEmpreiteirosIndexRoute
   '/engenharia/obras': typeof EngenhariaObrasIndexRoute
   '/engenharia/relatorios': typeof EngenhariaRelatoriosIndexRoute
+  '/qr-operador/estoque': typeof QrOperadorEstoqueIndexRoute
   '/engenharia/obras/$obraSlug/assistente': typeof EngenhariaObrasObraSlugAssistenteRoute
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
@@ -511,6 +535,7 @@ export interface FileRoutesById {
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
   '/q/$token': typeof QTokenRoute
+  '/qr-operador_/estoque': typeof QrOperadorEstoqueRouteWithChildren
   '/app/': typeof AppIndexRoute
   '/compras/': typeof ComprasIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
@@ -520,6 +545,7 @@ export interface FileRoutesById {
   '/engenharia/obras/$obraSlug': typeof EngenhariaObrasObraSlugRouteWithChildren
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdRouteWithChildren
+  '/qr-operador_/estoque/$obraSlug': typeof QrOperadorEstoqueObraSlugRoute
   '/compras/eventos-preco/': typeof ComprasEventosPrecoIndexRoute
   '/compras/fila-revisao/': typeof ComprasFilaRevisaoIndexRoute
   '/compras/fornecedores/': typeof ComprasFornecedoresIndexRoute
@@ -529,6 +555,7 @@ export interface FileRoutesById {
   '/engenharia/empreiteiros/': typeof EngenhariaEmpreiteirosIndexRoute
   '/engenharia/obras/': typeof EngenhariaObrasIndexRoute
   '/engenharia/relatorios/': typeof EngenhariaRelatoriosIndexRoute
+  '/qr-operador_/estoque/': typeof QrOperadorEstoqueIndexRoute
   '/engenharia/obras/$obraSlug/assistente': typeof EngenhariaObrasObraSlugAssistenteRoute
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
@@ -572,6 +599,7 @@ export interface FileRouteTypes {
     | '/estoque/movimentacao'
     | '/portal/$projectId'
     | '/q/$token'
+    | '/qr-operador/estoque'
     | '/app/'
     | '/compras/'
     | '/engenharia/'
@@ -581,6 +609,7 @@ export interface FileRouteTypes {
     | '/engenharia/obras/$obraSlug'
     | '/engenharia/qr/$token'
     | '/engenharia/relatorios/$projectId'
+    | '/qr-operador/estoque/$obraSlug'
     | '/compras/eventos-preco/'
     | '/compras/fila-revisao/'
     | '/compras/fornecedores/'
@@ -590,6 +619,7 @@ export interface FileRouteTypes {
     | '/engenharia/empreiteiros/'
     | '/engenharia/obras/'
     | '/engenharia/relatorios/'
+    | '/qr-operador/estoque/'
     | '/engenharia/obras/$obraSlug/assistente'
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
@@ -632,6 +662,7 @@ export interface FileRouteTypes {
     | '/portal'
     | '/engenharia/equipamento/$id'
     | '/engenharia/qr/$token'
+    | '/qr-operador/estoque/$obraSlug'
     | '/compras/eventos-preco'
     | '/compras/fila-revisao'
     | '/compras/fornecedores'
@@ -641,6 +672,7 @@ export interface FileRouteTypes {
     | '/engenharia/empreiteiros'
     | '/engenharia/obras'
     | '/engenharia/relatorios'
+    | '/qr-operador/estoque'
     | '/engenharia/obras/$obraSlug/assistente'
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
@@ -682,6 +714,7 @@ export interface FileRouteTypes {
     | '/estoque/movimentacao'
     | '/portal/$projectId'
     | '/q/$token'
+    | '/qr-operador_/estoque'
     | '/app/'
     | '/compras/'
     | '/engenharia/'
@@ -691,6 +724,7 @@ export interface FileRouteTypes {
     | '/engenharia/obras/$obraSlug'
     | '/engenharia/qr/$token'
     | '/engenharia/relatorios/$projectId'
+    | '/qr-operador_/estoque/$obraSlug'
     | '/compras/eventos-preco/'
     | '/compras/fila-revisao/'
     | '/compras/fornecedores/'
@@ -700,6 +734,7 @@ export interface FileRouteTypes {
     | '/engenharia/empreiteiros/'
     | '/engenharia/obras/'
     | '/engenharia/relatorios/'
+    | '/qr-operador_/estoque/'
     | '/engenharia/obras/$obraSlug/assistente'
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
@@ -734,6 +769,7 @@ export interface RootRouteChildren {
   SignUpRoute: typeof SignUpRoute
   PortalProjectIdRoute: typeof PortalProjectIdRoute
   QTokenRoute: typeof QTokenRoute
+  QrOperadorEstoqueRoute: typeof QrOperadorEstoqueRouteWithChildren
   PortalIndexRoute: typeof PortalIndexRoute
 }
 
@@ -844,6 +880,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/qr-operador_/estoque': {
+      id: '/qr-operador_/estoque'
+      path: '/qr-operador/estoque'
+      fullPath: '/qr-operador/estoque'
+      preLoaderRoute: typeof QrOperadorEstoqueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/q/$token': {
       id: '/q/$token'
       path: '/q/$token'
@@ -914,6 +957,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaObrasRouteRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
+    '/qr-operador_/estoque/': {
+      id: '/qr-operador_/estoque/'
+      path: '/'
+      fullPath: '/qr-operador/estoque/'
+      preLoaderRoute: typeof QrOperadorEstoqueIndexRouteImport
+      parentRoute: typeof QrOperadorEstoqueRoute
+    }
     '/engenharia/relatorios/': {
       id: '/engenharia/relatorios/'
       path: '/'
@@ -976,6 +1026,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/compras/eventos-preco/'
       preLoaderRoute: typeof ComprasEventosPrecoIndexRouteImport
       parentRoute: typeof ComprasRouteRoute
+    }
+    '/qr-operador_/estoque/$obraSlug': {
+      id: '/qr-operador_/estoque/$obraSlug'
+      path: '/$obraSlug'
+      fullPath: '/qr-operador/estoque/$obraSlug'
+      preLoaderRoute: typeof QrOperadorEstoqueObraSlugRouteImport
+      parentRoute: typeof QrOperadorEstoqueRoute
     }
     '/engenharia/relatorios/$projectId': {
       id: '/engenharia/relatorios/$projectId'
@@ -1325,6 +1382,19 @@ const EstoqueRouteRouteWithChildren = EstoqueRouteRoute._addFileChildren(
   EstoqueRouteRouteChildren,
 )
 
+interface QrOperadorEstoqueRouteChildren {
+  QrOperadorEstoqueObraSlugRoute: typeof QrOperadorEstoqueObraSlugRoute
+  QrOperadorEstoqueIndexRoute: typeof QrOperadorEstoqueIndexRoute
+}
+
+const QrOperadorEstoqueRouteChildren: QrOperadorEstoqueRouteChildren = {
+  QrOperadorEstoqueObraSlugRoute: QrOperadorEstoqueObraSlugRoute,
+  QrOperadorEstoqueIndexRoute: QrOperadorEstoqueIndexRoute,
+}
+
+const QrOperadorEstoqueRouteWithChildren =
+  QrOperadorEstoqueRoute._addFileChildren(QrOperadorEstoqueRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRouteRoute: AppRouteRouteWithChildren,
@@ -1338,6 +1408,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignUpRoute: SignUpRoute,
   PortalProjectIdRoute: PortalProjectIdRoute,
   QTokenRoute: QTokenRoute,
+  QrOperadorEstoqueRoute: QrOperadorEstoqueRouteWithChildren,
   PortalIndexRoute: PortalIndexRoute,
 }
 export const routeTree = rootRouteImport

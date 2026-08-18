@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { STAFF_ROLES, authedQuery } from "./lib/rbac";
 import { resolveCustomerLabel } from "./lib/projects/helpers";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { QueryCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 
 // Portal do técnico em campo: lista obras atribuídas (technicianIds) e os
 // QRs/equipamentos de cada obra. Staff enxerga todas as obras.
@@ -13,7 +13,7 @@ function isStaff(user: Doc<"users">): boolean {
 }
 
 export async function assertTechnicianProjectAccess(
-  ctx: QueryCtx,
+  ctx: QueryCtx | MutationCtx,
   user: Doc<"users">,
   projectId: Id<"projects">
 ): Promise<Doc<"projects">> {
@@ -31,6 +31,7 @@ export const listMyProjects = authedQuery({
     v.object({
       _id: v.id("projects"),
       name: v.string(),
+      slug: v.union(v.string(), v.null()),
       legacyNumber: v.union(v.number(), v.null()),
       client: v.union(v.string(), v.null()),
       address: v.union(v.string(), v.null()),
@@ -59,6 +60,7 @@ export const listMyProjects = authedQuery({
       out.push({
         _id: project._id,
         name: project.name,
+        slug: project.slug ?? null,
         legacyNumber: project.legacyNumber ?? null,
         client: await resolveCustomerLabel(ctx, project, customerLabelCache),
         address: project.address ?? null,
