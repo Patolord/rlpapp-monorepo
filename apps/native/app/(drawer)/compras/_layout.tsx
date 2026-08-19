@@ -2,11 +2,12 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { Tabs, useNavigation } from "expo-router";
 import {
-  Building2,
-  ClipboardList,
   LayoutGrid,
   Menu,
-  UserCog,
+  Package,
+  Receipt,
+  ClipboardList,
+  Truck,
 } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,16 +16,12 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import { COLORS } from "@/lib/colors";
 
-const ACTIVE = "#f59e0b";
+const ACTIVE = "#3b82f6";
 
-export default function EngenhariaTabsLayout() {
+export default function ComprasTabsLayout() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<{ openDrawer: () => void }>();
   const { isDark } = useAppTheme();
-
-  const currentUser = useQuery(api.users.getCurrentUser);
-  const isAdmin =
-    currentUser?.role === "director" || currentUser?.role === "admin";
 
   const bg = isDark ? COLORS.dark.background : COLORS.light.background;
   const fg = isDark ? COLORS.dark.foreground : COLORS.light.foreground;
@@ -48,7 +45,7 @@ export default function EngenhariaTabsLayout() {
             <Menu size={20} color={fg} />
           </Pressable>
           <Text className="text-xl font-bold" style={{ color: fg }}>
-            Engenharia
+            Compras
           </Text>
         </View>
         <ThemeToggle />
@@ -67,7 +64,7 @@ export default function EngenhariaTabsLayout() {
             paddingBottom: insets.bottom > 0 ? insets.bottom - 4 : 6,
             paddingTop: 6,
           },
-          tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+          tabBarLabelStyle: { fontSize: 10, fontWeight: "600" },
           sceneStyle: { backgroundColor: bg },
         }}
       >
@@ -81,38 +78,41 @@ export default function EngenhariaTabsLayout() {
           }}
         />
         <Tabs.Screen
-          name="registro"
+          name="materiais"
           options={{
-            title: "Registro",
+            title: "Materiais",
+            tabBarIcon: ({ color, size }) => (
+              <Package size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="fornecedores"
+          options={{
+            title: "Fornecedores",
+            tabBarIcon: ({ color, size }) => (
+              <Truck size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="fila-revisao"
+          options={{
+            title: "Revisão",
             tabBarIcon: ({ color, size }) => (
               <ClipboardList size={size} color={color} />
             ),
           }}
         />
         <Tabs.Screen
-          name="obras"
+          name="eventos-preco"
           options={{
-            title: "Obras",
+            title: "Preços",
             tabBarIcon: ({ color, size }) => (
-              <Building2 size={size} color={color} />
+              <Receipt size={size} color={color} />
             ),
           }}
         />
-        <Tabs.Screen
-          name="usuarios"
-          options={{
-            title: "Usuários",
-            href: isAdmin ? undefined : null,
-            tabBarIcon: ({ color, size }) => (
-              <UserCog size={size} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen name="medicoes" options={{ href: null }} />
-        <Tabs.Screen name="contratos" options={{ href: null }} />
-        <Tabs.Screen name="empreiteiros" options={{ href: null }} />
-        <Tabs.Screen name="clientes" options={{ href: null }} />
-        <Tabs.Screen name="qr-codes" options={{ href: null }} />
       </Tabs>
     </View>
   );

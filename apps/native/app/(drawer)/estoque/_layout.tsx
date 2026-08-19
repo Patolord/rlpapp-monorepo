@@ -2,11 +2,10 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { Tabs, useNavigation } from "expo-router";
 import {
-  Building2,
-  ClipboardList,
-  LayoutGrid,
+  History,
   Menu,
-  UserCog,
+  ShieldAlert,
+  Warehouse,
 } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,16 +14,18 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAppTheme } from "@/contexts/app-theme-context";
 import { COLORS } from "@/lib/colors";
 
-const ACTIVE = "#f59e0b";
+const ACTIVE = "#10b981";
 
-export default function EngenhariaTabsLayout() {
+export default function EstoqueTabsLayout() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<{ openDrawer: () => void }>();
   const { isDark } = useAppTheme();
 
   const currentUser = useQuery(api.users.getCurrentUser);
-  const isAdmin =
-    currentUser?.role === "director" || currentUser?.role === "admin";
+  const isEngineer =
+    currentUser?.role === "director" ||
+    currentUser?.role === "engenheiro" ||
+    currentUser?.role === "admin";
 
   const bg = isDark ? COLORS.dark.background : COLORS.light.background;
   const fg = isDark ? COLORS.dark.foreground : COLORS.light.foreground;
@@ -48,7 +49,7 @@ export default function EngenhariaTabsLayout() {
             <Menu size={20} color={fg} />
           </Pressable>
           <Text className="text-xl font-bold" style={{ color: fg }}>
-            Engenharia
+            Estoque
           </Text>
         </View>
         <ThemeToggle />
@@ -74,45 +75,31 @@ export default function EngenhariaTabsLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: "Painel",
+            title: "Central",
             tabBarIcon: ({ color, size }) => (
-              <LayoutGrid size={size} color={color} />
+              <Warehouse size={size} color={color} />
             ),
           }}
         />
         <Tabs.Screen
-          name="registro"
+          name="movimentacoes"
           options={{
-            title: "Registro",
+            title: "Movimentações",
             tabBarIcon: ({ color, size }) => (
-              <ClipboardList size={size} color={color} />
+              <History size={size} color={color} />
             ),
           }}
         />
         <Tabs.Screen
-          name="obras"
+          name="aprovacoes"
           options={{
-            title: "Obras",
+            title: "Aprovações",
+            href: isEngineer ? undefined : null,
             tabBarIcon: ({ color, size }) => (
-              <Building2 size={size} color={color} />
+              <ShieldAlert size={size} color={color} />
             ),
           }}
         />
-        <Tabs.Screen
-          name="usuarios"
-          options={{
-            title: "Usuários",
-            href: isAdmin ? undefined : null,
-            tabBarIcon: ({ color, size }) => (
-              <UserCog size={size} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen name="medicoes" options={{ href: null }} />
-        <Tabs.Screen name="contratos" options={{ href: null }} />
-        <Tabs.Screen name="empreiteiros" options={{ href: null }} />
-        <Tabs.Screen name="clientes" options={{ href: null }} />
-        <Tabs.Screen name="qr-codes" options={{ href: null }} />
       </Tabs>
     </View>
   );

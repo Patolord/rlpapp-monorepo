@@ -38,6 +38,10 @@ async function validateRequest(
   request: Request
 ): Promise<ClerkWebhookEvent | null> {
   const secret = env.CLERK_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error("CLERK_WEBHOOK_SECRET não configurado");
+    return null;
+  }
 
   const svixId = request.headers.get("svix-id");
   const svixTimestamp = request.headers.get("svix-timestamp");

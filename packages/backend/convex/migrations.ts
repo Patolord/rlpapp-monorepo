@@ -771,3 +771,112 @@ export const verifyUnifiedContractsPage = adminQuery({
     };
   },
 });
+
+/**
+ * Converte fornecedores do cadastro antigo (`isActive`, contato embutido)
+ * para o catálogo novo (`active`, `createdAt`, `supplierContacts`).
+ *
+ * Rodar com: npx convex run migrations:backfillSuppliersCatalog
+ */
+type LegacySupplier = {
+  _id: Id<"suppliers">;
+  _creationTime: number;
+  name: string;
+  notes?: string;
+  active?: boolean;
+  createdAt?: number;
+  isActive?: boolean;
+  address?: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+};
+
+export const backfillSuppliersCatalog = internalMutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+  },
+  returns: v.object({
+    scanned: v.number(),
+    updated: v.number(),
+    contactsCreated: v.number(),
+    skipped: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? false;
+    const suppliers = (await ctx.db
+      .query("suppliers")
+      .collect()) as LegacySupplier[];
+    let updated = 0;
+    let contactsCreated = 0;
+    let skipped = 0;
+
+    for (const supplier of suppliers) {
+      const needsActive = supplier.active === undefined;
+      const needsCreatedAt = supplier.createdAt === undefined;
+      const hasLegacyFields =
+        supplier.isActive !== undefined ||
+        supplier.address !== undefined ||
+        supplier.contactName !== undefined ||
+        supplier.email !== undefined ||
+        supplier.phone !== undefined;
+
+      if (!needsActive && !needsCreatedAt && !hasLegacyFields) {
+        skipped++;
+        continue;
+      }
+
+      const existingContact = await ctx.db
+        .query("supplierContacts")
+        .withIndex("by_supplier", (q) => q.eq("supplierId", supplier._id))
+        .first();
+
+      const contactName = supplier.contactName?.trim();
+      const shouldCreateContact =
+        !existingContact &&
+        Boolean(
+          contactName || supplier.email?.trim() || supplier.phone?.trim()
+        );
+
+      const address = supplier.address?.trim();
+      let notes = supplier.notes;
+      if (address && !notes?.includes(address)) {
+        const addressLine = `Endereço: ${address}`;
+        notes = notes?.trim()
+          ? `${notes.trim()}\n${addressLine}`
+          : addressLine;
+      }
+
+      if (!dryRun) {
+        if (shouldCreateContact) {
+          await ctx.db.insert("supplierContacts", {
+            supplierId: supplier._id,
+            name: contactName || supplier.name,
+            email: supplier.email?.trim() || undefined,
+            whatsapp: supplier.phone?.trim() || undefined,
+            createdAt: supplier._creationTime,
+          });
+          contactsCreated++;
+        }
+
+        await ctx.db.replace("suppliers", supplier._id, {
+          name: supplier.name,
+          notes,
+          active: supplier.active ?? supplier.isActive ?? true,
+          createdAt: supplier.createdAt ?? supplier._creationTime,
+        });
+      } else if (shouldCreateContact) {
+        contactsCreated++;
+      }
+
+      updated++;
+    }
+
+    return {
+      scanned: suppliers.length,
+      updated,
+      contactsCreated,
+      skipped,
+    };
+  },
+});

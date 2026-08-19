@@ -4,10 +4,13 @@ import { useConvex, useQuery } from "convex/react";
 import { useRouter } from "expo-router";
 import {
   AlertTriangle,
+  BarChart3,
   ChevronRight,
   CloudUpload,
+  FileText,
   HardHat,
   QrCode,
+  Users,
   Wrench,
 } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
@@ -160,7 +163,73 @@ export default function EngenhariaDashboardScreen() {
           </View>
         )}
       </View>
+      <View className="gap-3">
+        <Text className="text-lg font-semibold text-foreground">
+          Acesso rápido
+        </Text>
+        <View className="gap-2">
+          <QuickAccessCard
+            icon={<BarChart3 size={20} color="#f59e0b" />}
+            label="Medições"
+            description="Visão geral de medições"
+            onPress={() => router.navigate("/(drawer)/engenharia/medicoes")}
+          />
+          <QuickAccessCard
+            icon={<FileText size={20} color="#f59e0b" />}
+            label="Contratos"
+            description="Gestão de contratos"
+            onPress={() => router.navigate("/(drawer)/engenharia/contratos")}
+          />
+          <QuickAccessCard
+            icon={<HardHat size={20} color="#f59e0b" />}
+            label="Empreiteiros"
+            description="Empreiteiros e subempreiteiros"
+            onPress={() => router.navigate("/(drawer)/engenharia/empreiteiros")}
+          />
+          <QuickAccessCard
+            icon={<Users size={20} color="#f59e0b" />}
+            label="Clientes"
+            description="Gestão de clientes"
+            onPress={() => router.navigate("/(drawer)/engenharia/clientes")}
+          />
+          <QuickAccessCard
+            icon={<QrCode size={20} color="#f59e0b" />}
+            label="QR Codes"
+            description="Gerenciar códigos QR"
+            onPress={() => router.navigate("/(drawer)/engenharia/qr-codes")}
+          />
+        </View>
+      </View>
     </ScrollView>
+  );
+}
+
+function QuickAccessCard({
+  icon,
+  label,
+  description,
+  onPress,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress}>
+      <Card className="flex-row items-center gap-3 p-4">
+        <View className="h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10">
+          {icon}
+        </View>
+        <View className="flex-1">
+          <Text className="text-base font-semibold text-foreground">
+            {label}
+          </Text>
+          <Text className="text-sm text-muted-foreground">{description}</Text>
+        </View>
+        <ChevronRight size={20} color="#9ca3af" />
+      </Card>
+    </Pressable>
   );
 }
 

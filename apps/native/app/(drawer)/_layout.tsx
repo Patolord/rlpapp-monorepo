@@ -3,12 +3,16 @@ import { useQuery } from "convex/react";
 import { useAuth } from "@clerk/clerk-expo";
 import type { DrawerContentComponentProps } from "@react-navigation/drawer";
 import { DrawerContentScrollView, DrawerItemList } from "@react-navigation/drawer";
-import { Redirect } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import {
-  Home,
-  Users,
+  Building2,
   HardHat,
+  Home,
+  Package,
+  ShoppingCart,
+  Users,
+  Warehouse,
 } from "lucide-react-native";
 import React, { useCallback } from "react";
 import { Text, View } from "react-native";
@@ -29,7 +33,6 @@ function DrawerLayout() {
     return <View style={{ flex: 1, backgroundColor: bg }} />;
   }
 
-  // Áreas internas exigem login (mesma regra do web)
   if (!isSignedIn) {
     return <Redirect href="/(auth)/sign-in" />;
   }
@@ -46,6 +49,7 @@ function RoleAwareDrawer({
   bg: string;
   isSignedIn: boolean;
 }) {
+  const router = useRouter();
   const currentUser = useQuery(
     api.users.getCurrentUser,
     isSignedIn ? undefined : "skip"
@@ -56,6 +60,9 @@ function RoleAwareDrawer({
 
   const showRh = isDirector || (!isEngenheiro && userDept === "rh");
   const showEngenharia = isDirector || isEngenheiro || userDept === "engenharia";
+  const showCompras = isDirector || userDept === "compras";
+  const showEstoque = isDirector || userDept === "estoque" || userDept === "compras" || isEngenheiro;
+  const showPortal = isDirector || currentUser?.role === "client";
 
   const drawerContent = useCallback(
     (props: DrawerContentComponentProps) => (
@@ -69,22 +76,8 @@ function RoleAwareDrawer({
     [bg]
   );
 
-  // qr_operator só interage com equipamentos via QR (fluxo web /q/$token)
   if (currentUser?.role === "qr_operator") {
-    return (
-      <View
-        style={{ flex: 1, backgroundColor: bg }}
-        className="items-center justify-center gap-4 px-8"
-      >
-        <Text
-          style={{ color: fg }}
-          className="text-center text-base font-medium"
-        >
-          Seu perfil acessa o sistema apenas pelos QR codes dos equipamentos.
-        </Text>
-        <SignOutButton />
-      </View>
-    );
+    return <Redirect href="/qr-operador" />;
   }
 
   return (
@@ -122,6 +115,33 @@ function RoleAwareDrawer({
           drawerLabel: "Engenharia",
           drawerIcon: ({ size, color }) => <HardHat size={size} color={color} />,
           drawerItemStyle: showEngenharia ? undefined : { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="compras"
+        options={{
+          headerTitle: "Compras",
+          drawerLabel: "Compras",
+          drawerIcon: ({ size, color }) => <ShoppingCart size={size} color={color} />,
+          drawerItemStyle: showCompras ? undefined : { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="estoque"
+        options={{
+          headerTitle: "Estoque",
+          drawerLabel: "Estoque",
+          drawerIcon: ({ size, color }) => <Warehouse size={size} color={color} />,
+          drawerItemStyle: showEstoque ? undefined : { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="portal"
+        options={{
+          headerTitle: "Portal",
+          drawerLabel: "Portal",
+          drawerIcon: ({ size, color }) => <Building2 size={size} color={color} />,
+          drawerItemStyle: showPortal ? undefined : { display: "none" },
         }}
       />
     </Drawer>
