@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@calcom/embed-react": "^1.5.3",
+    "@portabletext/react": "^7.0.1",
     "@sanity/image-url": "^2.0.2",
     "@tailwindcss/typography": "^0.5.19",
     "@vercel/analytics": "^1.6.1",

@@ -1,5 +1,19 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { STAFF_ROLES } from "../rbac";
+
+export async function assertTechnicianProjectAccess(
+  ctx: QueryCtx | MutationCtx,
+  user: Doc<"users">,
+  projectId: Id<"projects">
+): Promise<Doc<"projects">> {
+  const project = await ctx.db.get("projects", projectId);
+  if (!project) throw new Error("Obra não encontrada");
+  if (STAFF_ROLES.includes(user.role)) return project;
+  const allowed = (project.technicianIds ?? []).includes(user._id);
+  if (!allowed) throw new Error("Acesso negado a esta obra");
+  return project;
+}
 
 export function isProjectArchived(project: Doc<"projects">): boolean {
   return (

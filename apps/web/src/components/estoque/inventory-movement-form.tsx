@@ -123,7 +123,6 @@ export function InventoryMovementForm({
 }) {
   const createDocument = useMutation(api.inventory.createDocument);
   const postDocument = useMutation(api.inventory.postDocument);
-  const markFulfilled = useMutation(api.inventoryRequests.markFulfilled);
   const types = allowedMovementTypes(access, scope);
   const [type, setType] = useState<MovementType>(
     lockType ?? types[0] ?? "entry"
@@ -283,13 +282,13 @@ export function InventoryMovementForm({
           `${result.issueCount} incompatibilidade(s) encontrada(s). Aguardando o engenheiro responsável.`
         );
       } else if (canPostImmediately) {
-        await postDocument({ documentId: result.documentId });
-        if (sourceRequestId && type === "transfer") {
-          await markFulfilled({
-            requestId: sourceRequestId as Id<"inventoryRequests">,
-            documentId: result.documentId,
-          });
-        }
+        await postDocument({
+          documentId: result.documentId,
+          requestId:
+            sourceRequestId && type === "transfer"
+              ? (sourceRequestId as Id<"inventoryRequests">)
+              : undefined,
+        });
         toast.success(
           sourceRequestId ? "Pedido enviado à obra" : "Movimentação concluída"
         );

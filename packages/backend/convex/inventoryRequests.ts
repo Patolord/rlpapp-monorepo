@@ -15,10 +15,10 @@ import { logAudit } from "./lib/audit";
 import { findInventoryLocation } from "./lib/inventory/operations";
 import {
   MAX_INVENTORY_REQUEST_LINES,
-  canFulfillMaterialRequests,
   canReviewMaterialRequests,
   consumeRemainingOnObra,
   enrichRequest,
+  fulfillInventoryRequest,
   listRequestsByFilter,
   requireAssignedProject,
   resolveProjectByIdentifier,
@@ -266,7 +266,11 @@ export const searchCatalog = authedQuery({
           q.search("searchText", searchQuery).eq("active", true)
         )
         .take(20);
-    } catch {
+    } catch (error) {
+      console.error("inventoryRequests.searchCatalog search index failed", {
+        search: searchQuery,
+        error,
+      });
       indexed = [];
     }
     if (indexed.length > 0) {
@@ -346,6 +350,7 @@ export const createRequest = authedMutation({
     }
 
     const seen = new Set<string>();
+    const materials = new Map<Id<"materials">, Doc<"materials">>();
     for (const item of args.items) {
       if (seen.has(item.materialId)) {
         throw new Error("Há materiais repetidos no pedido");
@@ -358,11 +363,12 @@ export const createRequest = authedMutation({
       if (!material || !material.active) {
         throw new Error("Use apenas materiais ativos do catálogo");
       }
+      materials.set(item.materialId, material);
     }
 
+    const location = await findInventoryLocation(ctx, args.projectId);
     for (const item of args.items) {
       if (!item.markedDepleted) continue;
-      const location = await findInventoryLocation(ctx, args.projectId);
       if (!location) continue;
       const balance = await ctx.db
         .query("inventoryBalances")
@@ -391,7 +397,7 @@ export const createRequest = authedMutation({
     });
 
     for (const item of args.items) {
-      const material = await ctx.db.get("materials", item.materialId);
+      const material = materials.get(item.materialId);
       await ctx.db.insert("inventoryRequestItems", {
         requestId,
         materialId: item.materialId,
@@ -514,36 +520,7 @@ export const markFulfilled = inventoryMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    if (!canFulfillMaterialRequests(ctx.user)) {
-      throw new Error("Apenas o Estoque pode registrar o envio");
-    }
-    const request = await ctx.db.get("inventoryRequests", args.requestId);
-    if (!request) throw new Error("Pedido não encontrado");
-    if (request.status !== "approved") {
-      throw new Error("Só é possível enviar pedidos já aprovados");
-    }
-    const document = await ctx.db.get("inventoryDocuments", args.documentId);
-    if (!document) throw new Error("Movimentação não encontrada");
-    if (document.type !== "transfer") {
-      throw new Error("Vincule uma transferência para a obra");
-    }
-    if (document.projectId !== request.projectId) {
-      throw new Error("A transferência precisa ser da mesma obra do pedido");
-    }
-    if (document.status !== "posted") {
-      throw new Error("Conclua a transferência antes de marcar o pedido como enviado");
-    }
-
-    await ctx.db.patch("inventoryRequests", args.requestId, {
-      status: "fulfilled",
-      fulfilledByDocumentId: args.documentId,
-      updatedAt: Date.now(),
-    });
-    await logAudit(ctx, ctx.user, {
-      action: "fulfill",
-      tableName: "inventoryRequests",
-      recordId: args.requestId,
-    });
+    await fulfillInventoryRequest(ctx, ctx.user, args);
     return null;
   },
 });

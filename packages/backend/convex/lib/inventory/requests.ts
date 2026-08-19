@@ -1,8 +1,9 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { logAudit } from "../audit";
 import { looksLikeConvexId } from "../engenharia/slug";
+import { assertTechnicianProjectAccess } from "../projects/helpers";
 import { hasPermission } from "../rbac";
-import { assertTechnicianProjectAccess } from "../../technicianPortal";
 import { createAndPostConsumption, findInventoryLocation } from "./operations";
 
 export const MAX_INVENTORY_REQUEST_LINES = 20;
@@ -198,6 +199,71 @@ export async function listRequestsByFilter(
   return await ctx.db.query("inventoryRequests").order("desc").take(limit);
 }
 
+export async function fulfillInventoryRequest(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  input: {
+    requestId: Id<"inventoryRequests">;
+    documentId: Id<"inventoryDocuments">;
+  }
+): Promise<void> {
+  if (!canFulfillMaterialRequests(user)) {
+    throw new Error("Apenas o Estoque pode registrar o envio");
+  }
+  const request = await ctx.db.get("inventoryRequests", input.requestId);
+  if (!request) throw new Error("Pedido não encontrado");
+  if (request.status === "fulfilled") {
+    if (request.fulfilledByDocumentId === input.documentId) {
+      return;
+    }
+    throw new Error("Este pedido já foi enviado com outra movimentação");
+  }
+  if (request.status !== "approved") {
+    throw new Error("Só é possível enviar pedidos já aprovados");
+  }
+  const document = await ctx.db.get("inventoryDocuments", input.documentId);
+  if (!document) throw new Error("Movimentação não encontrada");
+  if (document.type !== "transfer") {
+    throw new Error("Vincule uma transferência para a obra");
+  }
+  if (document.projectId !== request.projectId) {
+    throw new Error("A transferência precisa ser da mesma obra do pedido");
+  }
+  if (document.status !== "posted") {
+    throw new Error("Conclua a transferência antes de marcar o pedido como enviado");
+  }
+
+  const [requestItems, documentItems] = await Promise.all([
+    loadRequestItems(ctx, input.requestId),
+    ctx.db
+      .query("inventoryDocumentItems")
+      .withIndex("by_document", (q) => q.eq("documentId", input.documentId))
+      .collect(),
+  ]);
+  const requestedMaterialIds = new Set(
+    requestItems.map((item) => item.materialId)
+  );
+  const overlaps = documentItems.some((item) =>
+    requestedMaterialIds.has(item.materialId)
+  );
+  if (!overlaps) {
+    throw new Error(
+      "A transferência precisa incluir pelo menos um material do pedido"
+    );
+  }
+
+  await ctx.db.patch("inventoryRequests", input.requestId, {
+    status: "fulfilled",
+    fulfilledByDocumentId: input.documentId,
+    updatedAt: Date.now(),
+  });
+  await logAudit(ctx, user, {
+    action: "fulfill",
+    tableName: "inventoryRequests",
+    recordId: input.requestId,
+  });
+}
+
 export async function sentAndConsumedByMaterial(
   ctx: QueryCtx,
   projectId: Id<"projects">
@@ -205,26 +271,63 @@ export async function sentAndConsumedByMaterial(
   sent: Map<Id<"materials">, number>;
   consumed: Map<Id<"materials">, number>;
 }> {
-  const documents = await ctx.db
-    .query("inventoryDocuments")
-    .withIndex("by_project", (q) => q.eq("projectId", projectId))
-    .order("desc")
-    .take(500);
-  const posted = documents.filter((document) => document.status === "posted");
   const sent = new Map<Id<"materials">, number>();
   const consumed = new Map<Id<"materials">, number>();
+  const location = await findInventoryLocation(ctx, projectId);
+  if (!location) return { sent, consumed };
 
-  for (const document of posted) {
-    if (document.type !== "transfer" && document.type !== "consumption") {
+  const events = await ctx.db
+    .query("inventoryEvents")
+    .withIndex("by_location", (q) => q.eq("locationId", location._id))
+    .collect();
+
+  const documents = new Map<
+    Id<"inventoryDocuments">,
+    Doc<"inventoryDocuments"> | null
+  >();
+  const getDocument = async (documentId: Id<"inventoryDocuments">) => {
+    if (!documents.has(documentId)) {
+      documents.set(
+        documentId,
+        await ctx.db.get("inventoryDocuments", documentId)
+      );
+    }
+    return documents.get(documentId) ?? null;
+  };
+
+  const add = (
+    target: Map<Id<"materials">, number>,
+    materialId: Id<"materials">,
+    quantity: number
+  ) => {
+    target.set(materialId, (target.get(materialId) ?? 0) + quantity);
+  };
+
+  for (const event of events) {
+    if (event.type === "in") {
+      add(sent, event.materialId, event.quantityDelta);
       continue;
     }
-    const items = await ctx.db
-      .query("inventoryDocumentItems")
-      .withIndex("by_document", (q) => q.eq("documentId", document._id))
-      .collect();
-    const target = document.type === "transfer" ? sent : consumed;
-    for (const item of items) {
-      target.set(item.materialId, (target.get(item.materialId) ?? 0) + item.quantity);
+    if (event.type === "adjustment") continue;
+
+    const document = await getDocument(event.documentId);
+    if (!document) continue;
+
+    if (event.type === "out") {
+      if (document.type === "consumption") {
+        add(consumed, event.materialId, -event.quantityDelta);
+      }
+      continue;
+    }
+
+    if (event.type !== "reversal") continue;
+    const original = document.reversalOfDocumentId
+      ? await getDocument(document.reversalOfDocumentId)
+      : null;
+    if (original?.type === "transfer") {
+      add(sent, event.materialId, event.quantityDelta);
+    } else if (original?.type === "consumption") {
+      add(consumed, event.materialId, -event.quantityDelta);
     }
   }
 

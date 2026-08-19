@@ -1,28 +1,20 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { STAFF_ROLES, authedQuery } from "./lib/rbac";
-import { resolveCustomerLabel } from "./lib/projects/helpers";
+import {
+  assertTechnicianProjectAccess,
+  resolveCustomerLabel,
+} from "./lib/projects/helpers";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
+
+export { assertTechnicianProjectAccess };
 
 // Portal do técnico em campo: lista obras atribuídas (technicianIds) e os
 // QRs/equipamentos de cada obra. Staff enxerga todas as obras.
 
 function isStaff(user: Doc<"users">): boolean {
   return STAFF_ROLES.includes(user.role);
-}
-
-export async function assertTechnicianProjectAccess(
-  ctx: QueryCtx | MutationCtx,
-  user: Doc<"users">,
-  projectId: Id<"projects">
-): Promise<Doc<"projects">> {
-  const project = await ctx.db.get("projects", projectId);
-  if (!project) throw new Error("Obra não encontrada");
-  if (isStaff(user)) return project;
-  const allowed = (project.technicianIds ?? []).includes(user._id);
-  if (!allowed) throw new Error("Acesso negado a esta obra");
-  return project;
 }
 
 export const listMyProjects = authedQuery({

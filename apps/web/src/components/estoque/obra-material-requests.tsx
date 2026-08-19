@@ -187,8 +187,9 @@ export function ObraMaterialRequests({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5">
-            <Label>Justificativa</Label>
+            <Label htmlFor="justificativa">Justificativa</Label>
             <Textarea
+              id="justificativa"
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               placeholder="Por que este pedido pode ou não ser atendido"

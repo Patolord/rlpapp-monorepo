@@ -293,4 +293,232 @@ describe("pedidos de material da obra", () => {
     expect(requests[0]?.status).toBe("fulfilled");
     expect(await projectBalance(t, ids.projectId, ids.tapeId)).toBe(7);
   });
+
+  test("estorno de transferência reduz o total enviado à obra", async () => {
+    const { ids, purchasing, warehouse, tech } = await seedFieldInventory();
+    const documentId = await sendToObra(
+      purchasing,
+      warehouse,
+      ids.projectId,
+      ids.copperId,
+      10
+    );
+    const before = await tech.query(api.inventoryRequests.listObraBalances, {
+      projectId: ids.projectId,
+    });
+    expect(before[0]?.sentQuantity).toBe(10);
+
+    await warehouse.mutation(api.inventory.reverseDocument, {
+      documentId,
+      reason: "Envio duplicado",
+    });
+
+    const after = await tech.query(api.inventoryRequests.listObraBalances, {
+      projectId: ids.projectId,
+    });
+    const copper = after.find((row) => row.materialId === ids.copperId);
+    expect(copper?.sentQuantity).toBe(0);
+    expect(copper?.quantity).toBe(0);
+  });
+
+  test("não-revisor não aprova pedido", async () => {
+    const { ids, warehouse, purchasing, tech } = await seedFieldInventory();
+    const requestId = await tech.mutation(api.inventoryRequests.createRequest, {
+      projectId: ids.projectId,
+      items: [
+        {
+          materialId: ids.copperId,
+          quantity: 2,
+          reason: "replenishment",
+        },
+      ],
+    });
+
+    await expect(
+      warehouse.mutation(api.inventoryRequests.reviewRequest, {
+        requestId,
+        decision: "approve",
+        reason: "Não deveria",
+      })
+    ).rejects.toThrow("Apenas engenharia ou administradores validam pedidos");
+    await expect(
+      purchasing.mutation(api.inventoryRequests.reviewRequest, {
+        requestId,
+        decision: "approve",
+        reason: "Não deveria",
+      })
+    ).rejects.toThrow("Apenas engenharia ou administradores validam pedidos");
+  });
+
+  test("recusa exige justificativa não vazia", async () => {
+    const { ids, tech, engineer } = await seedFieldInventory();
+    const requestId = await tech.mutation(api.inventoryRequests.createRequest, {
+      projectId: ids.projectId,
+      items: [
+        {
+          materialId: ids.copperId,
+          quantity: 2,
+          reason: "replenishment",
+        },
+      ],
+    });
+
+    await expect(
+      engineer.mutation(api.inventoryRequests.reviewRequest, {
+        requestId,
+        decision: "reject",
+        reason: "   ",
+      })
+    ).rejects.toThrow("Informe a justificativa");
+  });
+
+  test("somente o autor cancela pedido pendente", async () => {
+    const { ids, tech, engineer } = await seedFieldInventory();
+    const requestId = await tech.mutation(api.inventoryRequests.createRequest, {
+      projectId: ids.projectId,
+      items: [
+        {
+          materialId: ids.copperId,
+          quantity: 2,
+          reason: "replenishment",
+        },
+      ],
+    });
+
+    await expect(
+      engineer.mutation(api.inventoryRequests.cancelRequest, { requestId })
+    ).rejects.toThrow("Só quem pediu pode cancelar");
+  });
+
+  test("cancelamento recusa pedido que não está pendente", async () => {
+    const { ids, tech, engineer } = await seedFieldInventory();
+    const requestId = await tech.mutation(api.inventoryRequests.createRequest, {
+      projectId: ids.projectId,
+      items: [
+        {
+          materialId: ids.copperId,
+          quantity: 2,
+          reason: "replenishment",
+        },
+      ],
+    });
+    await engineer.mutation(api.inventoryRequests.reviewRequest, {
+      requestId,
+      decision: "approve",
+      reason: "Ok",
+    });
+
+    await expect(
+      tech.mutation(api.inventoryRequests.cancelRequest, { requestId })
+    ).rejects.toThrow("Somente pedidos pendentes podem ser cancelados");
+  });
+
+  test("envio recusa pedido ainda pendente", async () => {
+    const { ids, purchasing, warehouse, tech } = await seedFieldInventory();
+    const requestId = await tech.mutation(api.inventoryRequests.createRequest, {
+      projectId: ids.projectId,
+      items: [
+        {
+          materialId: ids.tapeId,
+          quantity: 5,
+          reason: "replenishment",
+        },
+      ],
+    });
+    const documentId = await sendToObra(
+      purchasing,
+      warehouse,
+      ids.projectId,
+      ids.tapeId,
+      5
+    );
+
+    await expect(
+      warehouse.mutation(api.inventoryRequests.markFulfilled, {
+        requestId,
+        documentId,
+      })
+    ).rejects.toThrow("Só é possível enviar pedidos já aprovados");
+  });
+
+  test("envio recusa transferência de outra obra", async () => {
+    const { t, ids, purchasing, warehouse, tech, engineer } =
+      await seedFieldInventory();
+    const requestId = await tech.mutation(api.inventoryRequests.createRequest, {
+      projectId: ids.projectId,
+      items: [
+        {
+          materialId: ids.tapeId,
+          quantity: 5,
+          reason: "replenishment",
+        },
+      ],
+    });
+    await engineer.mutation(api.inventoryRequests.reviewRequest, {
+      requestId,
+      decision: "approve",
+      reason: "Ok",
+    });
+
+    const otherProjectId = await t.run(async (ctx) => {
+      return await ctx.db.insert("projects", {
+        name: "Outra Obra",
+        slug: "outra-obra",
+        responsibleId: ids.engineerUserId,
+        technicianIds: [ids.techUserId],
+        floors: [],
+        createdAt: Date.now(),
+      });
+    });
+    const documentId = await sendToObra(
+      purchasing,
+      warehouse,
+      otherProjectId,
+      ids.tapeId,
+      5
+    );
+
+    await expect(
+      warehouse.mutation(api.inventoryRequests.markFulfilled, {
+        requestId,
+        documentId,
+      })
+    ).rejects.toThrow("A transferência precisa ser da mesma obra do pedido");
+  });
+
+  test("envio recusa transferência sem material do pedido", async () => {
+    const { ids, purchasing, warehouse, tech, engineer } =
+      await seedFieldInventory();
+    const requestId = await tech.mutation(api.inventoryRequests.createRequest, {
+      projectId: ids.projectId,
+      items: [
+        {
+          materialId: ids.tapeId,
+          quantity: 5,
+          reason: "replenishment",
+        },
+      ],
+    });
+    await engineer.mutation(api.inventoryRequests.reviewRequest, {
+      requestId,
+      decision: "approve",
+      reason: "Ok",
+    });
+    const documentId = await sendToObra(
+      purchasing,
+      warehouse,
+      ids.projectId,
+      ids.copperId,
+      5
+    );
+
+    await expect(
+      warehouse.mutation(api.inventoryRequests.markFulfilled, {
+        requestId,
+        documentId,
+      })
+    ).rejects.toThrow(
+      "A transferência precisa incluir pelo menos um material do pedido"
+    );
+  });
 });
