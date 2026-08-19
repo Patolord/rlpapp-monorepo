@@ -1,6 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { Building2, ChevronRight } from "lucide-react-native";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
@@ -54,10 +54,7 @@ export default function PortalHomeScreen() {
           <Pressable
             key={project._id}
             onPress={() =>
-              router.push({
-                pathname: "/portal-projeto/[projectId]",
-                params: { projectId: project._id },
-              })
+              router.push(`/portal-projeto/${project._id}` as Href)
             }
           >
             <Card className="gap-3 p-4">

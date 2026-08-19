@@ -130,7 +130,7 @@ function MovimentacoesContent() {
                   type={item.type}
                   productName={item.product?.name ?? "Produto não encontrado"}
                   qtyDelta={item.qtyDelta}
-                  unit={item.product?.unit}
+                  unit={item.product?.unit ?? undefined}
                   createdAt={item.createdAt}
                   refType={item.refType}
                   refId={item.refId}

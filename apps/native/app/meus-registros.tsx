@@ -218,10 +218,7 @@ function ProjectsTab() {
       renderItem={({ item }) => (
         <Pressable
           onPress={() =>
-            router.push({
-              pathname: "/portal-projeto/[projectId]",
-              params: { projectId: item._id },
-            })
+            router.push(`/portal-projeto/${item._id}` as Href)
           }
         >
           <Card className="flex-row items-center gap-3 p-4">
@@ -290,7 +287,18 @@ function HistoryTab() {
   );
 }
 
-function LogCard({ log }: { log: { _id: string; logType: string; status: string; createdAt: number; equipment: { description: string } | null; qrToken: string | null } }) {
+function LogCard({
+  log,
+}: {
+  log: {
+    _id: string;
+    type?: string;
+    status: string;
+    createdAt: number;
+    equipment: { description: string | undefined } | null;
+    qrToken: string | null;
+  };
+}) {
   const synced = true;
 
   return (
@@ -301,7 +309,7 @@ function LogCard({ log }: { log: { _id: string; logType: string; status: string;
             {log.equipment?.description ?? "Equipamento"}
           </Text>
           <Text className="text-xs text-muted-foreground">
-            {logTypeLabels[log.logType] ?? log.logType}
+            {logTypeLabels[log.type ?? "maintenance"] ?? log.type ?? "Manutenção"}
             {log.qrToken ? ` · ${log.qrToken}` : ""}
           </Text>
         </View>

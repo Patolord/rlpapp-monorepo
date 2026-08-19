@@ -54,13 +54,16 @@ function AprovacoesContent() {
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const pendingApprovals = useQuery(api.inventory.listPendingApprovals);
-  const approveAction = useMutation(api.inventory.approveRequest);
-  const rejectAction = useMutation(api.inventory.rejectRequest);
+  const reviewDocument = useMutation(api.inventory.reviewDocument);
 
   const handleApprove = async (id: string) => {
     setLoadingId(id);
     try {
-      await approveAction({ requestId: id as never });
+      await reviewDocument({
+        documentId: id as never,
+        decision: "approve",
+        reason: "Aprovado via app",
+      });
     } finally {
       setLoadingId(null);
     }
@@ -69,7 +72,11 @@ function AprovacoesContent() {
   const handleReject = async (id: string) => {
     setLoadingId(id);
     try {
-      await rejectAction({ requestId: id as never });
+      await reviewDocument({
+        documentId: id as never,
+        decision: "reject",
+        reason: "Rejeitado via app",
+      });
     } finally {
       setLoadingId(null);
     }
@@ -106,18 +113,29 @@ function AprovacoesContent() {
             <FlatList
               data={pendingApprovals}
               keyExtractor={(item) => item._id}
-              renderItem={({ item }) => (
-                <ApprovalCard
-                  materialName={item.materialName ?? "Material"}
-                  quantity={item.quantity}
-                  unit={item.unit}
-                  requesterName={item.requesterName ?? "Desconhecido"}
-                  createdAt={item.createdAt}
-                  onApprove={() => handleApprove(item._id)}
-                  onReject={() => handleReject(item._id)}
-                  isLoading={loadingId === item._id}
-                />
-              )}
+              renderItem={({ item }) => {
+                const firstItem = item.items[0];
+                const totalQty = item.items.reduce(
+                  (sum, line) => sum + line.quantity,
+                  0,
+                );
+                return (
+                  <ApprovalCard
+                    materialName={
+                      firstItem?.materialName ??
+                      (item.items.length > 1
+                        ? `${item.items.length} materiais`
+                        : "Material")
+                    }
+                    quantity={totalQty}
+                    requesterName={item.createdByName}
+                    createdAt={item.createdAt}
+                    onApprove={() => handleApprove(item._id)}
+                    onReject={() => handleReject(item._id)}
+                    isLoading={loadingId === item._id}
+                  />
+                );
+              }}
               ItemSeparatorComponent={() => <View className="h-3" />}
               scrollEnabled={false}
             />

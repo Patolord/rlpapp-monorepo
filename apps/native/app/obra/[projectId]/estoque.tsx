@@ -68,17 +68,18 @@ export default function EstoqueScreen() {
                 <Badge variant="outline">{balance.physicalAddress}</Badge>
               </View>
             )}
-            {balance.replenishmentState !== "ok" && (
+            {balance.replenishmentState !== "healthy" &&
+              balance.replenishmentState !== "unconfigured" && (
               <Badge
                 variant={
-                  balance.replenishmentState === "critical"
+                  balance.replenishmentState === "below_minimum"
                     ? "destructive"
                     : "secondary"
                 }
               >
-                {balance.replenishmentState === "critical"
+                {balance.replenishmentState === "below_minimum"
                   ? "Crítico"
-                  : balance.replenishmentState === "low"
+                  : balance.replenishmentState === "reorder"
                     ? "Baixo"
                     : balance.replenishmentState}
               </Badge>

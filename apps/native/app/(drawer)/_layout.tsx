@@ -3,7 +3,7 @@ import { useQuery } from "convex/react";
 import { useAuth } from "@clerk/clerk-expo";
 import type { DrawerContentComponentProps } from "@react-navigation/drawer";
 import { DrawerContentScrollView, DrawerItemList } from "@react-navigation/drawer";
-import { Redirect, useRouter } from "expo-router";
+import { Redirect, useRouter, type Href } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import {
   Building2,
@@ -77,7 +77,7 @@ function RoleAwareDrawer({
   );
 
   if (currentUser?.role === "qr_operator") {
-    return <Redirect href="/qr-operador" />;
+    return <Redirect href={"/qr-operador" as Href} />;
   }
 
   return (

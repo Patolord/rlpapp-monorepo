@@ -1,7 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useConvex, useQuery } from "convex/react";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import {
   AlertTriangle,
   BarChart3,
@@ -172,31 +172,31 @@ export default function EngenhariaDashboardScreen() {
             icon={<BarChart3 size={20} color="#f59e0b" />}
             label="Medições"
             description="Visão geral de medições"
-            onPress={() => router.navigate("/(drawer)/engenharia/medicoes")}
+            onPress={() => router.navigate("/(drawer)/engenharia/medicoes" as Href)}
           />
           <QuickAccessCard
             icon={<FileText size={20} color="#f59e0b" />}
             label="Contratos"
             description="Gestão de contratos"
-            onPress={() => router.navigate("/(drawer)/engenharia/contratos")}
+            onPress={() => router.navigate("/(drawer)/engenharia/contratos" as Href)}
           />
           <QuickAccessCard
             icon={<HardHat size={20} color="#f59e0b" />}
             label="Empreiteiros"
             description="Empreiteiros e subempreiteiros"
-            onPress={() => router.navigate("/(drawer)/engenharia/empreiteiros")}
+            onPress={() => router.navigate("/(drawer)/engenharia/empreiteiros" as Href)}
           />
           <QuickAccessCard
             icon={<Users size={20} color="#f59e0b" />}
             label="Clientes"
             description="Gestão de clientes"
-            onPress={() => router.navigate("/(drawer)/engenharia/clientes")}
+            onPress={() => router.navigate("/(drawer)/engenharia/clientes" as Href)}
           />
           <QuickAccessCard
             icon={<QrCode size={20} color="#f59e0b" />}
             label="QR Codes"
             description="Gerenciar códigos QR"
-            onPress={() => router.navigate("/(drawer)/engenharia/qr-codes")}
+            onPress={() => router.navigate("/(drawer)/engenharia/qr-codes" as Href)}
           />
         </View>
       </View>
