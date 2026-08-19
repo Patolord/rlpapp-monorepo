@@ -1,4 +1,6 @@
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator } from "react-native";
+
+import { Text, View } from "./rn";
 
 import { cn } from "./lib/cn";
 

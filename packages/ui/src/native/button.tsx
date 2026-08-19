@@ -1,5 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import { Pressable, Text } from "react-native";
+import { Pressable, Text } from "./rn";
 
 import { cn } from "./lib/cn";
 
