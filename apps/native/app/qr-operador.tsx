@@ -31,9 +31,9 @@ function usePendingCount() {
   }, []);
 
   useEffect(() => {
-    refresh();
+    void refresh();
     const unsub = subscribeQueue(() => {
-      refresh();
+      void refresh();
     });
     return unsub;
   }, [refresh]);
