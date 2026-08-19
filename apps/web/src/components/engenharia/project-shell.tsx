@@ -367,6 +367,12 @@ const OBRA_MODULES = [
     match: "prefix" as const,
   },
   {
+    key: "dutos",
+    label: "Dutos",
+    to: "/engenharia/obras/$obraSlug/dutos" as const,
+    match: "prefix" as const,
+  },
+  {
     key: "contratos",
     label: "Contratos",
     to: "/engenharia/obras/$obraSlug/contratos" as const,

@@ -17,6 +17,7 @@ import type * as contractors from "../contractors.js";
 import type * as contracts from "../contracts.js";
 import type * as customers from "../customers.js";
 import type * as dashboard from "../dashboard.js";
+import type * as ductEstimates from "../ductEstimates.js";
 import type * as environments from "../environments.js";
 import type * as equipment from "../equipment.js";
 import type * as equipmentHistory from "../equipmentHistory.js";
@@ -76,6 +77,7 @@ declare const fullApi: ApiFromModules<{
   contracts: typeof contracts;
   customers: typeof customers;
   dashboard: typeof dashboard;
+  ductEstimates: typeof ductEstimates;
   environments: typeof environments;
   equipment: typeof equipment;
   equipmentHistory: typeof equipmentHistory;
