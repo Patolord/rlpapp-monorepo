@@ -1,5 +1,11 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
+import {
+  Authenticated,
+  AuthLoading,
+  Unauthenticated,
+  usePaginatedQuery,
+  useQuery,
+} from "convex/react";
 import {
   Lock,
   Package,
@@ -8,7 +14,7 @@ import {
   Search,
 } from "lucide-react-native";
 import { useState, useMemo } from "react";
-import { FlatList, Text, View } from "react-native";
+import { FlatList, Pressable, Text, View } from "react-native";
 import { Link } from "expo-router";
 
 import {
@@ -54,23 +60,43 @@ export default function EstoqueCentralScreen() {
 function CentralContent() {
   const [search, setSearch] = useState("");
 
-  const access = useQuery(api.inventory.getAccess);
-  const balances = useQuery(api.inventory.listBalances, { limit: 200 });
-  const events = useQuery(api.inventory.listEvents, { limit: 50 });
-  const pendingApprovals = useQuery(api.inventory.listPendingApprovals);
+  const access = useQuery(api.inventory.getAccess, {});
+  const canViewCentral = access?.canViewCentral === true;
+  const { results: balances, status, loadMore } = usePaginatedQuery(
+    api.inventory.listBalances,
+    canViewCentral ? {} : "skip",
+    { initialNumItems: 100 }
+  );
+  const events = useQuery(
+    api.inventory.listEvents,
+    canViewCentral ? { limit: 50 } : "skip"
+  );
+  const pendingApprovals = useQuery(
+    api.inventory.listPendingApprovals,
+    access ? {} : "skip"
+  );
 
   const filteredBalances = useMemo(() => {
-    if (!balances) return [];
     if (!search.trim()) return balances;
     const term = search.toLowerCase();
     return balances.filter(
       (b) =>
-        b.materialName?.toLowerCase().includes(term) ||
-        b.location?.toLowerCase().includes(term)
+        b.materialName.toLowerCase().includes(term) ||
+        b.locationName.toLowerCase().includes(term)
     );
   }, [balances, search]);
 
   if (!access) return <LoadingState />;
+
+  if (!access.canViewCentral) {
+    return (
+      <EmptyState
+        variant="plain"
+        title="Acesso restrito"
+        description="A Engenharia só pode consultar estoques de obras."
+      />
+    );
+  }
 
   return (
     <View className="gap-4 flex-1">
@@ -89,7 +115,7 @@ function CentralContent() {
             <Text className="text-muted-foreground text-xs">Materiais</Text>
           </View>
           <Text className="text-foreground text-lg font-bold">
-            {balances?.length ?? 0}
+            {balances.length}
           </Text>
         </View>
         <View className="flex-1 rounded-lg border border-border bg-card p-3">
@@ -134,7 +160,7 @@ function CentralContent() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-1">
-          {!balances ? (
+          {status === "LoadingFirstPage" ? (
             <LoadingState size="small" />
           ) : filteredBalances.length === 0 ? (
             <EmptyState
@@ -147,14 +173,29 @@ function CentralContent() {
               keyExtractor={(item) => item._id}
               renderItem={({ item }) => (
                 <BalanceCard
-                  name={item.materialName ?? "Material"}
+                  name={item.materialName}
                   quantity={item.quantity}
                   unit={item.unit ?? "un"}
-                  location={item.location}
+                  location={item.locationName}
                 />
               )}
               ItemSeparatorComponent={() => <View className="h-2" />}
               scrollEnabled={false}
+              ListFooterComponent={
+                status === "CanLoadMore" || status === "LoadingMore" ? (
+                  <Pressable
+                    onPress={() => loadMore(100)}
+                    disabled={status === "LoadingMore"}
+                    className="items-center py-3"
+                  >
+                    <Text className="text-sm font-medium text-primary">
+                      {status === "LoadingMore"
+                        ? "Carregando…"
+                        : "Carregar mais"}
+                    </Text>
+                  </Pressable>
+                ) : null
+              }
             />
           )}
         </CardContent>

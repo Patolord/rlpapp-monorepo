@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "br.com.rlpeng.app",
+      "bundleIdentifier": "com.upcraft.rlpapp",
       "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "O app usa a câmera para ler QR codes de equipamentos e registrar fotos de instalações e manutenções.",
@@ -18,9 +18,10 @@
       }
     },
     "android": {
-      "package": "br.com.rlpeng.app",
+      "package": "com.upcraft.rlpapp",
       "versionCode": 1,
       "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
@@ -29,6 +30,9 @@
       },
       "permissions": [
         "android.permission.CAMERA"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -71,6 +75,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f204a639-1a66-4001-bf16-c8ca6076d5d2"
+      }
+    },
+    "owner": "sqpaloma"
   }
 }

@@ -3,6 +3,7 @@ import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { Slot, useLocalSearchParams, useRouter, useSegments } from "expo-router";
 import {
+  ArrowLeft,
   Building2,
   Calculator,
   FileText,
@@ -16,6 +17,7 @@ import {
 import type { LucideIcon } from "lucide-react-native";
 import { useRef } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppTheme } from "@/contexts/app-theme-context";
 import { COLORS } from "@/lib/colors";
@@ -47,11 +49,13 @@ function resolveActiveSegment(segments: string[]): string {
 export default function ProjectTabsLayout() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
   const { isDark } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const segments = useSegments();
   const scrollRef = useRef<ScrollView>(null);
 
   const bg = isDark ? COLORS.dark.background : COLORS.light.background;
+  const fg = isDark ? COLORS.dark.foreground : COLORS.light.foreground;
   const chipBg = isDark ? "#1e293b" : "#e2e8f0";
   const chipActiveBg = isDark ? "#f59e0b" : "#f59e0b";
   const chipText = isDark ? "#94a3b8" : "#64748b";
@@ -73,15 +77,34 @@ export default function ProjectTabsLayout() {
     } as any);
   }
 
+  function goBack() {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(drawer)");
+  }
+
   return (
-    <View style={{ flex: 1, backgroundColor: bg }}>
+    <View style={{ flex: 1, backgroundColor: bg, paddingTop: insets.top }}>
       <View className="border-b border-border/40 bg-card/80 pb-2 pt-3">
-        <Text
-          className="px-5 text-lg font-bold text-foreground"
-          numberOfLines={1}
-        >
-          {project?.name ?? "Obra"}
-        </Text>
+        <View className="flex-row items-center gap-3 px-4">
+          <Pressable
+            onPress={goBack}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Voltar"
+            className="h-9 w-9 items-center justify-center rounded-full bg-card"
+          >
+            <ArrowLeft size={20} color={fg} />
+          </Pressable>
+          <Text
+            className="flex-1 text-lg font-bold text-foreground"
+            numberOfLines={1}
+          >
+            {project?.name ?? "Obra"}
+          </Text>
+        </View>
 
         <ScrollView
           ref={scrollRef}
