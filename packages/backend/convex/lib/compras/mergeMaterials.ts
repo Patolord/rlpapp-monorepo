@@ -366,8 +366,17 @@ async function mergeCompatibility(
   targetId: Id<"materials">,
   now: number
 ): Promise<void> {
-  const rules = await loadRulesForMaterial(ctx, sourceId);
-  for (const rule of rules) {
+  const [sourceRules, targetRules] = await Promise.all([
+    loadRulesForMaterial(ctx, sourceId),
+    loadRulesForMaterial(ctx, targetId),
+  ]);
+  const pairKeys = new Set(
+    targetRules.map((rule) =>
+      materialPairKey(rule.materialAId, rule.materialBId)
+    )
+  );
+
+  for (const rule of sourceRules) {
     const nextA =
       rule.materialAId === sourceId ? targetId : rule.materialAId;
     const nextB =
@@ -377,25 +386,8 @@ async function mergeCompatibility(
       await ctx.db.delete("inventoryCompatibilityRules", rule._id);
       continue;
     }
-    const candidateIds = [nextA, nextB].filter(
-      (id): id is Id<"materials"> => id !== undefined
-    );
-    let duplicate = false;
-    for (const candidateId of candidateIds) {
-      const others = await loadRulesForMaterial(ctx, candidateId);
-      if (
-        others.some(
-          (other) =>
-            other._id !== rule._id &&
-            materialPairKey(other.materialAId, other.materialBId) ===
-              materialPairKey(nextA, nextB)
-        )
-      ) {
-        duplicate = true;
-        break;
-      }
-    }
-    if (duplicate) {
+    const remappedKey = materialPairKey(nextA, nextB);
+    if (pairKeys.has(remappedKey)) {
       await ctx.db.delete("inventoryCompatibilityRules", rule._id);
       continue;
     }
@@ -404,6 +396,7 @@ async function mergeCompatibility(
       materialBId: nextB,
       updatedAt: now,
     });
+    pairKeys.add(remappedKey);
   }
 }
 
