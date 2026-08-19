@@ -31,9 +31,9 @@ function usePendingCount() {
   }, []);
 
   useEffect(() => {
-    refresh();
+    void refresh();
     const unsub = subscribeQueue(() => {
-      refresh();
+      void refresh();
     });
     return unsub;
   }, [refresh]);
@@ -147,10 +147,7 @@ function OperatorHub() {
 
         <Pressable
           onPress={() =>
-            router.push({
-              pathname: "/meus-registros" as Href,
-              params: { action: "manual" },
-            })
+            router.push("/meus-registros?action=manual" as Href)
           }
         >
           <Card className="flex-row items-center gap-4 p-4" style={{ backgroundColor: surface }}>
@@ -167,10 +164,7 @@ function OperatorHub() {
 
         <Pressable
           onPress={() =>
-            router.push({
-              pathname: "/meus-registros" as Href,
-              params: { action: "history" },
-            })
+            router.push("/meus-registros?action=history" as Href)
           }
         >
           <Card className="flex-row items-center gap-4 p-4" style={{ backgroundColor: surface }}>
@@ -204,10 +198,7 @@ function OperatorHub() {
               <Pressable
                 key={project._id}
                 onPress={() =>
-                  router.push({
-                    pathname: "/portal-projeto/[projectId]",
-                    params: { projectId: project._id },
-                  })
+                  router.push(`/portal-projeto/${project._id}` as Href)
                 }
               >
                 <Card className="flex-row items-center gap-3 p-4">

@@ -689,4 +689,203 @@ describe("materials catalog", () => {
       ])
     );
   });
+
+  test("merge sums stock, re-points history, aliases source name, and archives origin", async () => {
+    const { t, purchasing, engineer } = await seedCatalogUsers();
+    const targetId = await purchasing.mutation(api.materials.create, {
+      name: "Grelha de Insuflamento com Registro Anodizado",
+      variantLabel: "180x240mm",
+      unit: "un",
+    });
+    const sourceId = await purchasing.mutation(api.materials.create, {
+      name: "Grelha com Registro Anodizado",
+      variantLabel: "18x24cm",
+      unit: "un",
+    });
+    const source = await purchasing.query(api.materials.get, {
+      materialId: sourceId,
+    });
+    const sourceSku = source?.sku;
+    expect(sourceSku).toBeTruthy();
+
+    const created = await purchasing.mutation(api.inventory.createDocument, {
+      type: "entry",
+      lines: [
+        { materialId: targetId, quantity: 12 },
+        { materialId: sourceId, quantity: 3 },
+      ],
+    });
+    await purchasing.mutation(api.inventory.postDocument, {
+      documentId: created.documentId,
+    });
+
+    const takeoffId = await engineer.mutation(api.takeoffs.create, {
+      name: "Bocas de ar",
+    });
+    const takeoffItemId = await engineer.mutation(api.takeoffs.addItem, {
+      takeoffId,
+      rawDescription: "Grelha anodizada 18x24",
+      materialId: sourceId,
+      quantity: 2,
+      unit: "un",
+    });
+    await purchasing.mutation(api.priceEvents.add, {
+      materialId: sourceId,
+      unitPriceCents: 4500,
+      source: "manual",
+      occurredAt: Date.now(),
+    });
+
+    const supplierId = await purchasing.mutation(api.suppliers.create, {
+      name: "Fornecedor Grelhas",
+    });
+    await purchasing.mutation(api.suppliers.upsertMaterialOffering, {
+      supplierId,
+      materialId: sourceId,
+      supplierCode: "GR-180",
+    });
+    await purchasing.mutation(api.suppliers.upsertMaterialOffering, {
+      supplierId,
+      materialId: targetId,
+      supplierCode: "GR-CANON",
+    });
+
+    const extraId = await purchasing.mutation(api.materials.create, {
+      name: "Difusor Linear",
+      unit: "un",
+    });
+    await t.run(async (ctx) => {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", "purchasing"))
+        .unique();
+      if (!user) throw new Error("Usuário de compras não encontrado");
+      const now = Date.now();
+      await ctx.db.insert("inventoryCompatibilityRules", {
+        type: "forbidden_pair",
+        name: "source-x",
+        materialAId: sourceId,
+        materialBId: extraId,
+        message: "incompatível",
+        active: true,
+        createdByUserId: user._id,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.db.insert("inventoryCompatibilityRules", {
+        type: "forbidden_pair",
+        name: "target-x",
+        materialAId: targetId,
+        materialBId: extraId,
+        message: "incompatível",
+        active: true,
+        createdByUserId: user._id,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    const preview = await purchasing.query(api.materials.mergePreview, {
+      sourceId,
+      targetId,
+    });
+    expect(preview.ok).toBe(true);
+    if (!preview.ok) throw new Error("preview deveria suceder");
+    expect(
+      preview.locations.some((location) => location.mergedQuantity === 15)
+    ).toBe(true);
+
+    const result = await purchasing.mutation(api.materials.merge, {
+      sourceId,
+      targetId,
+    });
+    expect(result.targetId).toBe(targetId);
+
+    const balances = await t.run(async (ctx) => {
+      const sourceBalances = await ctx.db
+        .query("inventoryBalances")
+        .withIndex("by_material", (q) => q.eq("materialId", sourceId))
+        .collect();
+      const targetBalances = await ctx.db
+        .query("inventoryBalances")
+        .withIndex("by_material", (q) => q.eq("materialId", targetId))
+        .collect();
+      const takeoffItem = await ctx.db.get("takeoffItems", takeoffItemId);
+      const priceEvents = await ctx.db
+        .query("priceEvents")
+        .withIndex("by_material", (q) => q.eq("materialId", targetId))
+        .collect();
+      const sourceOfferings = await ctx.db
+        .query("supplierMaterials")
+        .withIndex("by_material", (q) => q.eq("materialId", sourceId))
+        .collect();
+      const targetOfferings = await ctx.db
+        .query("supplierMaterials")
+        .withIndex("by_material", (q) => q.eq("materialId", targetId))
+        .collect();
+      return {
+        sourceBalanceCount: sourceBalances.length,
+        targetQuantity: targetBalances.reduce(
+          (sum, balance) => sum + balance.quantity,
+          0
+        ),
+        takeoffMaterialId: takeoffItem?.materialId,
+        priceEventCount: priceEvents.length,
+        sourceOfferingCount: sourceOfferings.length,
+        targetOfferingCodes: targetOfferings
+          .map((offering) => offering.supplierCode)
+          .sort(),
+      };
+    });
+    expect(balances.sourceBalanceCount).toBe(0);
+    expect(balances.targetQuantity).toBe(15);
+    expect(balances.takeoffMaterialId).toBe(targetId);
+    expect(balances.priceEventCount).toBe(1);
+    expect(balances.sourceOfferingCount).toBe(0);
+    expect(balances.targetOfferingCodes).toEqual(["GR-CANON"]);
+
+    const archived = await purchasing.query(api.materials.get, {
+      materialId: sourceId,
+    });
+    expect(archived?.active).toBe(false);
+    expect(archived?.status).toBe("archived");
+    expect(archived?.sku).toBeNull();
+
+    const suggestions = await purchasing.query(api.materials.suggest, {
+      term: "Grelha com Registro Anodizado",
+    });
+    expect(suggestions.some((item) => item._id === targetId)).toBe(true);
+    expect(suggestions.some((item) => item._id === sourceId)).toBe(false);
+
+    const skuSuggestions = await purchasing.query(api.materials.suggest, {
+      term: sourceSku!,
+    });
+    expect(skuSuggestions.some((item) => item._id === targetId)).toBe(true);
+
+    const compatibility = await t.run(async (ctx) => {
+      const rules = await ctx.db.query("inventoryCompatibilityRules").collect();
+      return rules.map((rule) => ({
+        materialAId: rule.materialAId,
+        materialBId: rule.materialBId,
+      }));
+    });
+    expect(compatibility).toHaveLength(1);
+    const remaining = compatibility[0];
+    expect(
+      remaining &&
+        new Set([remaining.materialAId, remaining.materialBId])
+    ).toEqual(new Set([targetId, extraId]));
+
+    const archivedPreview = await purchasing.query(api.materials.mergePreview, {
+      sourceId,
+      targetId,
+    });
+    expect(archivedPreview.ok).toBe(false);
+    if (archivedPreview.ok) throw new Error("preview arquivado deveria falhar");
+    expect(archivedPreview.error).toMatch(/mesclado ou arquivado/);
+
+    await expect(
+      purchasing.mutation(api.materials.merge, { sourceId, targetId })
+    ).rejects.toThrow("já foi mesclado");
+  });
 });

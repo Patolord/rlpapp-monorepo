@@ -1,5 +1,6 @@
-import { View, Text } from "react-native";
 import type { StyleProp, ViewStyle } from "react-native";
+
+import { Text, View } from "./rn";
 
 import { cn } from "./lib/cn";
 

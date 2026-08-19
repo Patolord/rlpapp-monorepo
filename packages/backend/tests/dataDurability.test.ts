@@ -334,10 +334,13 @@ describe("projects archive", () => {
       floors: [{ number: 1, label: "1º Andar" }],
     });
 
-    const contractId = await asDirector.mutation(api.medicoes.createContract, {
-      projectId,
+    const contractId = await asDirector.mutation(api.contracts.create, {
       title: "Contrato principal",
-      valueCents: 1_000_000,
+      direction: "client_sale",
+      kind: "base",
+      projectId,
+      customerId,
+      serviceItems: [{ description: "Escopo", valueCents: 1_000_000 }],
     });
 
     await asDirector.mutation(api.medicoes.createMedicao, {

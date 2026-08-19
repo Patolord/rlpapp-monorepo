@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Text, View } from "react-native";
+import { Text, View } from "./rn";
 
 import { cn } from "./lib/cn";
 import { Card } from "./card";

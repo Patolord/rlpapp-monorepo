@@ -1,4 +1,5 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { FileUp, Plus } from "lucide-react";
@@ -112,6 +113,12 @@ function MateriaisContent() {
   );
   const [detailMaterial, setDetailMaterial] =
     useState<MaterialCatalogRow | null>(null);
+  const [mergedDetailId, setMergedDetailId] =
+    useState<Id<"materials"> | null>(null);
+  const mergedDetail = useQuery(
+    api.materials.get,
+    mergedDetailId ? { materialId: mergedDetailId } : "skip"
+  );
   const updateMaterial = useMutation(api.materials.update);
   const bulkCreateMaterials = useMutation(api.materials.bulkCreate);
   const categories = useQuery(api.materials.listCategories) ?? [];
@@ -271,7 +278,10 @@ function MateriaisContent() {
         hasActiveFilters={
           Boolean(debouncedSearch.trim()) || Boolean(category)
         }
-        onOpenDetail={setDetailMaterial}
+        onOpenDetail={(material) => {
+          setMergedDetailId(null);
+          setDetailMaterial(material);
+        }}
         onEdit={openEdit}
         onToggleActive={(material) => void toggleActive(material)}
       />
@@ -283,11 +293,17 @@ function MateriaisContent() {
       />
 
       <MaterialDetailSheet
-        material={detailMaterial}
+        material={mergedDetail ?? detailMaterial}
         onOpenChange={(open) => {
-          if (!open) setDetailMaterial(null);
+          if (!open) {
+            setDetailMaterial(null);
+            setMergedDetailId(null);
+          }
         }}
         onEdit={openEdit}
+        onMerged={(targetId) => {
+          setMergedDetailId(targetId);
+        }}
       />
     </div>
   );
