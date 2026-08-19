@@ -32,6 +32,15 @@ type MaterialMergeDialogProps = {
   onMerged: (targetId: Id<"materials">) => void;
 };
 
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
+}
+
 export function MaterialMergeDialog({
   open,
   onOpenChange,
@@ -40,15 +49,15 @@ export function MaterialMergeDialog({
 }: MaterialMergeDialogProps) {
   const mergeMaterials = useMutation(api.materials.merge);
   const [term, setTerm] = useState("");
+  const debouncedTerm = useDebouncedValue(term, 300);
   const [selected, setSelected] = useState<MergeCandidate | null>(null);
   const [keepCurrent, setKeepCurrent] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  const trimmedTerm = debouncedTerm.trim();
   const suggestions = useQuery(
     api.materials.suggest,
-    open && term.trim().length >= 2
-      ? { term: term.trim(), limit: 8 }
-      : "skip"
+    open && trimmedTerm.length >= 2 ? { term: trimmedTerm, limit: 8 } : "skip"
   );
 
   const sourceId = keepCurrent ? selected?._id : current._id;
@@ -179,7 +188,11 @@ export function MaterialMergeDialog({
             </fieldset>
           ) : null}
 
-          {preview ? (
+          {preview && preview.ok === false ? (
+            <p className="text-sm text-destructive">{preview.error}</p>
+          ) : null}
+
+          {preview && preview.ok ? (
             <div className="space-y-2 rounded-md border p-3 text-sm">
               <p className="font-medium">Saldos após a mescla</p>
               {preview.locations.length === 0 ? (
@@ -209,7 +222,7 @@ export function MaterialMergeDialog({
           </Button>
           <Button
             onClick={() => void handleConfirm()}
-            disabled={!selected || submitting || preview === undefined}
+            disabled={!selected || submitting || preview?.ok !== true}
           >
             {submitting ? "Mesclando..." : "Confirmar mescla"}
           </Button>

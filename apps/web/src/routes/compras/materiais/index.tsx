@@ -302,7 +302,6 @@ function MateriaisContent() {
         }}
         onEdit={openEdit}
         onMerged={(targetId) => {
-          setDetailMaterial(null);
           setMergedDetailId(targetId);
         }}
       />

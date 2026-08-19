@@ -30,6 +30,12 @@ export type MergePreview = {
   aliasCount: number;
 };
 
+export type MergePreviewResult =
+  | ({ ok: true } & MergePreview)
+  | { ok: false; error: string };
+
+const PREVIEW_COUNT_LIMIT = 100;
+
 function summarize(material: Doc<"materials">): MergeMaterialSummary {
   return {
     _id: material._id,
@@ -60,6 +66,15 @@ export async function loadMergePair(
   if (!source.active || source.status === "archived") {
     throw new Error("Material de origem já foi mesclado ou arquivado");
   }
+  if (
+    source.unit !== target.unit ||
+    source.purchaseUnit !== target.purchaseUnit ||
+    source.unitsPerPurchaseUnit !== target.unitsPerPurchaseUnit
+  ) {
+    throw new Error(
+      "Os materiais precisam ter a mesma unidade, unidade de compra e quantidade por unidade de compra"
+    );
+  }
   return { source, target };
 }
 
@@ -75,16 +90,28 @@ async function countByMaterial(
   const rows = await ctx.db
     .query(table)
     .withIndex("by_material", (q) => q.eq("materialId", materialId))
-    .collect();
-  return rows.length;
+    .take(PREVIEW_COUNT_LIMIT + 1);
+  return Math.min(rows.length, PREVIEW_COUNT_LIMIT);
 }
 
 export async function previewMaterialMerge(
   ctx: QueryCtx | MutationCtx,
   sourceId: Id<"materials">,
   targetId: Id<"materials">
-): Promise<MergePreview> {
-  const { source, target } = await loadMergePair(ctx, sourceId, targetId);
+): Promise<MergePreviewResult> {
+  let source: Doc<"materials">;
+  let target: Doc<"materials">;
+  try {
+    ({ source, target } = await loadMergePair(ctx, sourceId, targetId));
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Não foi possível mesclar os materiais",
+    };
+  }
   const sourceBalances = await ctx.db
     .query("inventoryBalances")
     .withIndex("by_material", (q) => q.eq("materialId", sourceId))
@@ -101,33 +128,43 @@ export async function previewMaterialMerge(
     ...targetBalances.map((balance) => balance.locationId),
   ]);
 
-  const locations: MergeLocationPreview[] = [];
-  for (const locationId of locationIds) {
-    const location = await ctx.db.get("inventoryLocations", locationId);
-    const sourceQuantity =
-      sourceBalances.find((balance) => balance.locationId === locationId)
-        ?.quantity ?? 0;
-    const targetQuantity = targetQtyByLocation.get(locationId) ?? 0;
-    locations.push({
-      locationId,
-      locationName: location?.name ?? "Local",
-      sourceQuantity,
-      targetQuantity,
-      mergedQuantity: sourceQuantity + targetQuantity,
-    });
-  }
+  const locations = await Promise.all(
+    [...locationIds].map(async (locationId) => {
+      const location = await ctx.db.get("inventoryLocations", locationId);
+      const sourceQuantity =
+        sourceBalances.find((balance) => balance.locationId === locationId)
+          ?.quantity ?? 0;
+      const targetQuantity = targetQtyByLocation.get(locationId) ?? 0;
+      return {
+        locationId,
+        locationName: location?.name ?? "Local",
+        sourceQuantity,
+        targetQuantity,
+        mergedQuantity: sourceQuantity + targetQuantity,
+      };
+    })
+  );
   locations.sort((a, b) =>
     a.locationName.localeCompare(b.locationName, "pt-BR")
   );
 
+  const [takeoffItemCount, priceEventCount, offeringCount, aliasCount] =
+    await Promise.all([
+      countByMaterial(ctx, "takeoffItems", sourceId),
+      countByMaterial(ctx, "priceEvents", sourceId),
+      countByMaterial(ctx, "supplierMaterials", sourceId),
+      countByMaterial(ctx, "materialAliases", sourceId),
+    ]);
+
   return {
+    ok: true,
     source: summarize(source),
     target: summarize(target),
     locations,
-    takeoffItemCount: await countByMaterial(ctx, "takeoffItems", sourceId),
-    priceEventCount: await countByMaterial(ctx, "priceEvents", sourceId),
-    offeringCount: await countByMaterial(ctx, "supplierMaterials", sourceId),
-    aliasCount: await countByMaterial(ctx, "materialAliases", sourceId),
+    takeoffItemCount,
+    priceEventCount,
+    offeringCount,
+    aliasCount,
   };
 }
 
@@ -293,13 +330,43 @@ async function mergeAliases(
   }
 }
 
+function materialPairKey(
+  materialAId: Id<"materials"> | undefined,
+  materialBId: Id<"materials"> | undefined
+): string {
+  const left = materialAId ?? "";
+  const right = materialBId ?? "";
+  return left < right ? `${left}:${right}` : `${right}:${left}`;
+}
+
+async function loadRulesForMaterial(
+  ctx: MutationCtx,
+  materialId: Id<"materials">
+): Promise<Doc<"inventoryCompatibilityRules">[]> {
+  const [asA, asB] = await Promise.all([
+    ctx.db
+      .query("inventoryCompatibilityRules")
+      .withIndex("by_material_a", (q) => q.eq("materialAId", materialId))
+      .collect(),
+    ctx.db
+      .query("inventoryCompatibilityRules")
+      .withIndex("by_material_b", (q) => q.eq("materialBId", materialId))
+      .collect(),
+  ]);
+  const byId = new Map<string, Doc<"inventoryCompatibilityRules">>();
+  for (const rule of [...asA, ...asB]) {
+    byId.set(rule._id, rule);
+  }
+  return [...byId.values()];
+}
+
 async function mergeCompatibility(
   ctx: MutationCtx,
   sourceId: Id<"materials">,
   targetId: Id<"materials">,
   now: number
 ): Promise<void> {
-  const rules = await ctx.db.query("inventoryCompatibilityRules").collect();
+  const rules = await loadRulesForMaterial(ctx, sourceId);
   for (const rule of rules) {
     const nextA =
       rule.materialAId === sourceId ? targetId : rule.materialAId;
@@ -307,6 +374,28 @@ async function mergeCompatibility(
       rule.materialBId === sourceId ? targetId : rule.materialBId;
     if (nextA === rule.materialAId && nextB === rule.materialBId) continue;
     if (nextA && nextB && nextA === nextB) {
+      await ctx.db.delete("inventoryCompatibilityRules", rule._id);
+      continue;
+    }
+    const candidateIds = [nextA, nextB].filter(
+      (id): id is Id<"materials"> => id !== undefined
+    );
+    let duplicate = false;
+    for (const candidateId of candidateIds) {
+      const others = await loadRulesForMaterial(ctx, candidateId);
+      if (
+        others.some(
+          (other) =>
+            other._id !== rule._id &&
+            materialPairKey(other.materialAId, other.materialBId) ===
+              materialPairKey(nextA, nextB)
+        )
+      ) {
+        duplicate = true;
+        break;
+      }
+    }
+    if (duplicate) {
       await ctx.db.delete("inventoryCompatibilityRules", rule._id);
       continue;
     }
@@ -327,13 +416,23 @@ async function mergeDocumentIssues(
   for (const documentId of documentIds) {
     const document = await ctx.db.get("inventoryDocuments", documentId);
     if (!document?.compatibilityIssues?.length) continue;
-    const issues = document.compatibilityIssues.map((issue) => ({
-      ...issue,
-      materialAId:
-        issue.materialAId === sourceId ? targetId : issue.materialAId,
-      materialBId:
-        issue.materialBId === sourceId ? targetId : issue.materialBId,
-    }));
+    const seen = new Set<string>();
+    const issues = [];
+    for (const issue of document.compatibilityIssues) {
+      const materialAId =
+        issue.materialAId === sourceId ? targetId : issue.materialAId;
+      const materialBId =
+        issue.materialBId === sourceId ? targetId : issue.materialBId;
+      if (materialAId === materialBId) continue;
+      const key = `${issue.ruleId}:${materialPairKey(materialAId, materialBId)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      issues.push({
+        ...issue,
+        materialAId,
+        materialBId,
+      });
+    }
     await ctx.db.patch("inventoryDocuments", documentId, {
       compatibilityIssues: issues,
     });

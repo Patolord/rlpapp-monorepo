@@ -1301,23 +1301,30 @@ export const mergePreview = purchasingQuery({
     sourceId: v.id("materials"),
     targetId: v.id("materials"),
   },
-  returns: v.object({
-    source: mergeMaterialSummaryValidator,
-    target: mergeMaterialSummaryValidator,
-    locations: v.array(
-      v.object({
-        locationId: v.id("inventoryLocations"),
-        locationName: v.string(),
-        sourceQuantity: v.number(),
-        targetQuantity: v.number(),
-        mergedQuantity: v.number(),
-      })
-    ),
-    takeoffItemCount: v.number(),
-    priceEventCount: v.number(),
-    offeringCount: v.number(),
-    aliasCount: v.number(),
-  }),
+  returns: v.union(
+    v.object({
+      ok: v.literal(true),
+      source: mergeMaterialSummaryValidator,
+      target: mergeMaterialSummaryValidator,
+      locations: v.array(
+        v.object({
+          locationId: v.id("inventoryLocations"),
+          locationName: v.string(),
+          sourceQuantity: v.number(),
+          targetQuantity: v.number(),
+          mergedQuantity: v.number(),
+        })
+      ),
+      takeoffItemCount: v.number(),
+      priceEventCount: v.number(),
+      offeringCount: v.number(),
+      aliasCount: v.number(),
+    }),
+    v.object({
+      ok: v.literal(false),
+      error: v.string(),
+    })
+  ),
   handler: async (ctx, args) => {
     return await previewMaterialMerge(ctx, args.sourceId, args.targetId);
   },

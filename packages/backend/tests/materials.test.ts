@@ -750,10 +750,47 @@ describe("materials catalog", () => {
       supplierCode: "GR-CANON",
     });
 
+    const extraId = await purchasing.mutation(api.materials.create, {
+      name: "Difusor Linear",
+      unit: "un",
+    });
+    await t.run(async (ctx) => {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", "purchasing"))
+        .unique();
+      if (!user) throw new Error("Usuário de compras não encontrado");
+      const now = Date.now();
+      await ctx.db.insert("inventoryCompatibilityRules", {
+        type: "forbidden_pair",
+        name: "source-x",
+        materialAId: sourceId,
+        materialBId: extraId,
+        message: "incompatível",
+        active: true,
+        createdByUserId: user._id,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await ctx.db.insert("inventoryCompatibilityRules", {
+        type: "forbidden_pair",
+        name: "target-x",
+        materialAId: targetId,
+        materialBId: extraId,
+        message: "incompatível",
+        active: true,
+        createdByUserId: user._id,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
     const preview = await purchasing.query(api.materials.mergePreview, {
       sourceId,
       targetId,
     });
+    expect(preview.ok).toBe(true);
+    if (!preview.ok) throw new Error("preview deveria suceder");
     expect(
       preview.locations.some((location) => location.mergedQuantity === 15)
     ).toBe(true);
@@ -824,6 +861,28 @@ describe("materials catalog", () => {
       term: sourceSku!,
     });
     expect(skuSuggestions.some((item) => item._id === targetId)).toBe(true);
+
+    const compatibility = await t.run(async (ctx) => {
+      const rules = await ctx.db.query("inventoryCompatibilityRules").collect();
+      return rules.map((rule) => ({
+        materialAId: rule.materialAId,
+        materialBId: rule.materialBId,
+      }));
+    });
+    expect(compatibility).toHaveLength(1);
+    const remaining = compatibility[0];
+    expect(
+      remaining &&
+        new Set([remaining.materialAId, remaining.materialBId])
+    ).toEqual(new Set([targetId, extraId]));
+
+    const archivedPreview = await purchasing.query(api.materials.mergePreview, {
+      sourceId,
+      targetId,
+    });
+    expect(archivedPreview.ok).toBe(false);
+    if (archivedPreview.ok) throw new Error("preview arquivado deveria falhar");
+    expect(archivedPreview.error).toMatch(/mesclado ou arquivado/);
 
     await expect(
       purchasing.mutation(api.materials.merge, { sourceId, targetId })
