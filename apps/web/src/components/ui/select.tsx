@@ -30,7 +30,8 @@ function getNodeText(node: React.ReactNode): string {
 function getComponentDisplayName(type: unknown): string {
   if (typeof type === "string") return type;
   if (typeof type === "function") {
-    return type.displayName || type.name || "";
+    const fn = type as { displayName?: string; name?: string };
+    return fn.displayName || fn.name || "";
   }
   if (typeof type === "object" && type && "displayName" in type) {
     return String((type as { displayName?: string }).displayName ?? "");

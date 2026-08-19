@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { MaterialReplenishmentBadge } from "@/components/compras/material-replenishment-badge";
 import type { MaterialCatalogRow } from "@/components/compras/material-form-dialog";
+import { MaterialMergeDialog } from "@/components/compras/material-merge-dialog";
 import { MaterialStockPolicySheet } from "@/components/compras/material-stock-policy-sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ type MaterialDetailSheetProps = {
   material: MaterialCatalogRow | null;
   onOpenChange: (open: boolean) => void;
   onEdit: (material: MaterialCatalogRow) => void;
+  onMerged?: (targetId: Id<"materials">) => void;
 };
 
 type PolicyDraft = {
@@ -40,6 +42,7 @@ export function MaterialDetailSheet({
   material,
   onOpenChange,
   onEdit,
+  onMerged,
 }: MaterialDetailSheetProps) {
   const aliases = useQuery(
     api.materials.listAliases,
@@ -75,6 +78,7 @@ export function MaterialDetailSheet({
   const [submittingOffering, setSubmittingOffering] = useState(false);
   const [policySheetOpen, setPolicySheetOpen] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<PolicyDraft | null>(null);
+  const [mergeOpen, setMergeOpen] = useState(false);
 
   useEffect(() => {
     if (!material) return;
@@ -87,6 +91,7 @@ export function MaterialDetailSheet({
     if (!material) {
       setPolicySheetOpen(false);
       setEditingPolicy(null);
+      setMergeOpen(false);
     }
   }, [material]);
 
@@ -424,7 +429,12 @@ export function MaterialDetailSheet({
             </section>
           </div>
 
-          <SheetFooter>
+          <SheetFooter className="gap-2 sm:justify-between">
+            {material.active ? (
+              <Button variant="outline" onClick={() => setMergeOpen(true)}>
+                Mesclar com…
+              </Button>
+            ) : null}
             <Button variant="outline" onClick={() => onEdit(material)}>
               Editar material
             </Button>
@@ -441,6 +451,21 @@ export function MaterialDetailSheet({
         materialId={material._id}
         materialName={material.name}
         existingPolicy={editingPolicy}
+      />
+
+      <MaterialMergeDialog
+        open={mergeOpen}
+        onOpenChange={setMergeOpen}
+        current={{
+          _id: material._id,
+          name: material.name,
+          variantLabel: material.variantLabel,
+          sku: material.sku,
+        }}
+        onMerged={(targetId) => {
+          setMergeOpen(false);
+          onMerged?.(targetId);
+        }}
       />
     </>
   );

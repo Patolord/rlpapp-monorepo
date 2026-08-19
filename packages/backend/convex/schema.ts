@@ -975,7 +975,9 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_active", ["active"])
-    .index("by_type", ["type"]),
+    .index("by_type", ["type"])
+    .index("by_material_a", ["materialAId"])
+    .index("by_material_b", ["materialBId"]),
 
   inventoryRequests: defineTable({
     projectId: v.id("projects"),

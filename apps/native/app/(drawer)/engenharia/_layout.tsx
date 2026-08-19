@@ -108,6 +108,11 @@ export default function EngenhariaTabsLayout() {
             ),
           }}
         />
+        <Tabs.Screen name="medicoes" options={{ href: null }} />
+        <Tabs.Screen name="contratos" options={{ href: null }} />
+        <Tabs.Screen name="empreiteiros" options={{ href: null }} />
+        <Tabs.Screen name="clientes" options={{ href: null }} />
+        <Tabs.Screen name="qr-codes" options={{ href: null }} />
       </Tabs>
     </View>
   );

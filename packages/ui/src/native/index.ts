@@ -1,5 +1,3 @@
-import "./nativewind-env";
-
 export { cn } from "./lib/cn";
 export { Badge, badgeVariants, badgeTextVariants } from "./badge";
 export {
