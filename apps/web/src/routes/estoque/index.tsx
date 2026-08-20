@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import {
   CheckCircle2,
+  ClipboardList,
   History,
   Package,
   Plus,
@@ -15,6 +16,7 @@ import { AuthShell } from "@/components/auth-shell";
 import { InventoryApprovals } from "@/components/estoque/inventory-approvals";
 import { InventoryDocumentsHistory } from "@/components/estoque/inventory-documents-history";
 import { InventoryRules } from "@/components/estoque/inventory-rules";
+import { ObraMaterialRequests } from "@/components/estoque/obra-material-requests";
 import { BalancesDataTable } from "@/components/estoque/balances-table/balances-data-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +25,7 @@ export const Route = createFileRoute("/estoque/")({
   component: EstoquePage,
 });
 
-type Section = "central" | "movimentacoes" | "aprovacoes" | "regras";
+type Section = "central" | "movimentacoes" | "pedidos" | "aprovacoes" | "regras";
 
 function EstoquePage() {
   return (
@@ -38,6 +40,8 @@ function EstoqueContent() {
   const materials = useQuery(api.inventory.listMaterialOptions, {});
   const approvals = useQuery(api.inventory.listPendingApprovals, {});
   const rules = useQuery(api.inventory.listRules, {});
+  const projects = useQuery(api.inventory.listProjects, {});
+  const materialRequests = useQuery(api.inventoryRequests.listOfficeRequests, {});
   const centralBalances = usePaginatedQuery(
     api.inventory.listBalances,
     access?.canViewCentral ? {} : "skip",
@@ -57,7 +61,7 @@ function EstoqueContent() {
     }
   }, [access, section]);
 
-  if (!access || !materials || !approvals || !rules) {
+  if (!access || !materials || !approvals || !rules || !projects || !materialRequests) {
     return (
       <div className="mx-auto max-w-7xl py-16 text-center text-sm text-muted-foreground">
         Carregando estoque...
@@ -70,6 +74,11 @@ function EstoqueContent() {
       ? [{ key: "central" as const, label: "Central", icon: Warehouse }]
       : []),
     { key: "movimentacoes", label: "Movimentações", icon: History },
+    {
+      key: "pedidos" as const,
+      label: "Pedidos de obra",
+      icon: ClipboardList,
+    },
     ...(access.isEngineer
       ? [{ key: "aprovacoes" as const, label: "Aprovações", icon: ShieldAlert }]
       : []),
@@ -151,6 +160,33 @@ function EstoqueContent() {
             <InventoryDocumentsHistory access={access} documents={documents} />
           </CardContent>
         </Card>
+      )}
+
+      {section === "pedidos" && (
+        <div className="space-y-8">
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold">Aguardando envio</h2>
+            <ObraMaterialRequests
+              access={access}
+              projects={projects}
+              requests={materialRequests.filter(
+                (request) => request.status === "approved"
+              )}
+              emptyText="Nenhum pedido aprovado aguardando envio."
+            />
+          </section>
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold">Aguardando validação</h2>
+            <ObraMaterialRequests
+              access={access}
+              projects={projects}
+              requests={materialRequests.filter(
+                (request) => request.status === "pending"
+              )}
+              emptyText="Nenhum pedido pendente de engenharia."
+            />
+          </section>
+        </div>
       )}
 
       {section === "aprovacoes" && (

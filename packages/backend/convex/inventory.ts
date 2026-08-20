@@ -32,6 +32,11 @@ import {
   canViewCentralInventory,
   enrichBalanceWithReplenishment,
 } from "./lib/inventory/stockPolicy";
+import {
+  canFulfillMaterialRequests,
+  canReviewMaterialRequests,
+  fulfillInventoryRequest,
+} from "./lib/inventory/requests";
 import { replenishmentState } from "./schema";
 import type { Doc } from "./_generated/dataModel";
 
@@ -94,6 +99,8 @@ export const getAccess = inventoryQuery({
     canConfigureRules: v.boolean(),
     canQuickCreateMaterial: v.boolean(),
     isEngineer: v.boolean(),
+    canReviewMaterialRequests: v.boolean(),
+    canFulfillMaterialRequests: v.boolean(),
   }),
   handler: async (ctx) => {
     const isAdmin =
@@ -112,6 +119,8 @@ export const getAccess = inventoryQuery({
       canConfigureRules: isAdmin,
       canQuickCreateMaterial: isAdmin || isWarehouse || isPurchasing,
       isEngineer,
+      canReviewMaterialRequests: canReviewMaterialRequests(ctx.user),
+      canFulfillMaterialRequests: canFulfillMaterialRequests(ctx.user),
     };
   },
 });
@@ -529,9 +538,27 @@ export const createDocument = staffMutation({
 });
 
 export const postDocument = staffMutation({
-  args: { documentId: v.id("inventoryDocuments") },
+  args: {
+    documentId: v.id("inventoryDocuments"),
+    requestId: v.optional(v.id("inventoryRequests")),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
+    if (args.requestId) {
+      const document = await ctx.db.get(
+        "inventoryDocuments",
+        args.documentId
+      );
+      if (!document) throw new Error("Movimentação não encontrada");
+      if (document.status !== "posted") {
+        await postInventoryDocument(ctx, ctx.user, args.documentId);
+      }
+      await fulfillInventoryRequest(ctx, ctx.user, {
+        requestId: args.requestId,
+        documentId: args.documentId,
+      });
+      return null;
+    }
     await postInventoryDocument(ctx, ctx.user, args.documentId);
     return null;
   },

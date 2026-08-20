@@ -1,5 +1,5 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import { Authenticated, Unauthenticated, AuthLoading, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { useRouter, Link } from "expo-router";

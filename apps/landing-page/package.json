@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@calcom/embed-react": "^1.5.3",
+    "@portabletext/react": "^7.0.1",
     "@sanity/image-url": "^2.0.2",
     "@tailwindcss/typography": "^0.5.19",
     "@vercel/analytics": "^1.6.1",
@@ -22,7 +23,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "^1.14.0",
     "next": "16.2.6",
-    "next-sanity": "^12.0.10",
+    "next-sanity": "^13.3.3",
     "nuqs": "^2.8.6",
     "react": "19.2.6",
     "react-dom": "19.2.6",

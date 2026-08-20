@@ -1,6 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth } from "@clerk/expo";
 import type { DrawerContentComponentProps } from "@react-navigation/drawer";
 import { DrawerContentScrollView, DrawerItemList } from "@react-navigation/drawer";
 import { Redirect, useRouter, type Href } from "expo-router";
