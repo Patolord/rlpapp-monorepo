@@ -2,7 +2,7 @@ import { useAuth } from "@clerk/tanstack-react-start";
 // Entry "legacy": mantém a API useSignIn com setActive/status usada neste fluxo
 // (a entry principal do Clerk v6 expõe a nova API de signals, incompatível).
 import { useSignIn } from "@clerk/tanstack-react-start/legacy";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
@@ -156,6 +156,14 @@ function LoginForm() {
               {loading && <Loader2 className="mr-2 size-5 animate-spin" />}
               Entrar
             </Button>
+            <p className="text-center text-sm text-muted-foreground">
+              <Link
+                to="/politica-privacidade"
+                className="text-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Política de Privacidade
+              </Link>
+            </p>
           </form>
         </CardContent>
       </Card>

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as QrOperadorRouteImport } from './routes/qr-operador'
+import { Route as PoliticaPrivacidadeRouteImport } from './routes/politica-privacidade'
 import { Route as MeusRegistrosRouteImport } from './routes/meus-registros'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as EstoqueRouteRouteImport } from './routes/estoque/route'
@@ -31,6 +32,7 @@ import { Route as EstoqueMovimentacaoRouteImport } from './routes/estoque/movime
 import { Route as EngenhariaUsuariosRouteImport } from './routes/engenharia/usuarios'
 import { Route as EngenhariaRegistroDeCampoRouteImport } from './routes/engenharia/registro-de-campo'
 import { Route as EngenhariaQrCodesRouteImport } from './routes/engenharia/qr-codes'
+import { Route as EngenhariaPoliticaPrivacidadeRouteImport } from './routes/engenharia/politica-privacidade'
 import { Route as EngenhariaMedicoesRouteImport } from './routes/engenharia/medicoes'
 import { Route as EngenhariaContratosRouteImport } from './routes/engenharia/contratos'
 import { Route as EngenhariaRelatoriosRouteRouteImport } from './routes/engenharia/relatorios/route'
@@ -83,6 +85,11 @@ const SignInRoute = SignInRouteImport.update({
 const QrOperadorRoute = QrOperadorRouteImport.update({
   id: '/qr-operador',
   path: '/qr-operador',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PoliticaPrivacidadeRoute = PoliticaPrivacidadeRouteImport.update({
+  id: '/politica-privacidade',
+  path: '/politica-privacidade',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MeusRegistrosRoute = MeusRegistrosRouteImport.update({
@@ -181,6 +188,12 @@ const EngenhariaQrCodesRoute = EngenhariaQrCodesRouteImport.update({
   path: '/qr-codes',
   getParentRoute: () => EngenhariaRouteRoute,
 } as any)
+const EngenhariaPoliticaPrivacidadeRoute =
+  EngenhariaPoliticaPrivacidadeRouteImport.update({
+    id: '/politica-privacidade',
+    path: '/politica-privacidade',
+    getParentRoute: () => EngenhariaRouteRoute,
+  } as any)
 const EngenhariaMedicoesRoute = EngenhariaMedicoesRouteImport.update({
   id: '/medicoes',
   path: '/medicoes',
@@ -406,6 +419,7 @@ export interface FileRoutesByFullPath {
   '/estoque': typeof EstoqueRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/meus-registros': typeof MeusRegistrosRoute
+  '/politica-privacidade': typeof PoliticaPrivacidadeRoute
   '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
@@ -413,6 +427,7 @@ export interface FileRoutesByFullPath {
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
   '/engenharia/contratos': typeof EngenhariaContratosRoute
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
+  '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/engenharia/registro-de-campo': typeof EngenhariaRegistroDeCampoRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
@@ -464,11 +479,13 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/meus-registros': typeof MeusRegistrosRoute
+  '/politica-privacidade': typeof PoliticaPrivacidadeRoute
   '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/engenharia/contratos': typeof EngenhariaContratosRoute
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
+  '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/engenharia/registro-de-campo': typeof EngenhariaRegistroDeCampoRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
@@ -522,6 +539,7 @@ export interface FileRoutesById {
   '/estoque': typeof EstoqueRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/meus-registros': typeof MeusRegistrosRoute
+  '/politica-privacidade': typeof PoliticaPrivacidadeRoute
   '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
@@ -529,6 +547,7 @@ export interface FileRoutesById {
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
   '/engenharia/contratos': typeof EngenhariaContratosRoute
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
+  '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
   '/engenharia/registro-de-campo': typeof EngenhariaRegistroDeCampoRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
@@ -586,6 +605,7 @@ export interface FileRouteTypes {
     | '/estoque'
     | '/login'
     | '/meus-registros'
+    | '/politica-privacidade'
     | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
@@ -593,6 +613,7 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios'
     | '/engenharia/contratos'
     | '/engenharia/medicoes'
+    | '/engenharia/politica-privacidade'
     | '/engenharia/qr-codes'
     | '/engenharia/registro-de-campo'
     | '/engenharia/usuarios'
@@ -644,11 +665,13 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/meus-registros'
+    | '/politica-privacidade'
     | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
     | '/engenharia/contratos'
     | '/engenharia/medicoes'
+    | '/engenharia/politica-privacidade'
     | '/engenharia/qr-codes'
     | '/engenharia/registro-de-campo'
     | '/engenharia/usuarios'
@@ -701,6 +724,7 @@ export interface FileRouteTypes {
     | '/estoque'
     | '/login'
     | '/meus-registros'
+    | '/politica-privacidade'
     | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
@@ -708,6 +732,7 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios'
     | '/engenharia/contratos'
     | '/engenharia/medicoes'
+    | '/engenharia/politica-privacidade'
     | '/engenharia/qr-codes'
     | '/engenharia/registro-de-campo'
     | '/engenharia/usuarios'
@@ -764,6 +789,7 @@ export interface RootRouteChildren {
   EstoqueRouteRoute: typeof EstoqueRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
   MeusRegistrosRoute: typeof MeusRegistrosRoute
+  PoliticaPrivacidadeRoute: typeof PoliticaPrivacidadeRoute
   QrOperadorRoute: typeof QrOperadorRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
@@ -794,6 +820,13 @@ declare module '@tanstack/react-router' {
       path: '/qr-operador'
       fullPath: '/qr-operador'
       preLoaderRoute: typeof QrOperadorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/politica-privacidade': {
+      id: '/politica-privacidade'
+      path: '/politica-privacidade'
+      fullPath: '/politica-privacidade'
+      preLoaderRoute: typeof PoliticaPrivacidadeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/meus-registros': {
@@ -927,6 +960,13 @@ declare module '@tanstack/react-router' {
       path: '/qr-codes'
       fullPath: '/engenharia/qr-codes'
       preLoaderRoute: typeof EngenhariaQrCodesRouteImport
+      parentRoute: typeof EngenhariaRouteRoute
+    }
+    '/engenharia/politica-privacidade': {
+      id: '/engenharia/politica-privacidade'
+      path: '/politica-privacidade'
+      fullPath: '/engenharia/politica-privacidade'
+      preLoaderRoute: typeof EngenhariaPoliticaPrivacidadeRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
     '/engenharia/medicoes': {
@@ -1339,6 +1379,7 @@ interface EngenhariaRouteRouteChildren {
   EngenhariaRelatoriosRouteRoute: typeof EngenhariaRelatoriosRouteRouteWithChildren
   EngenhariaContratosRoute: typeof EngenhariaContratosRoute
   EngenhariaMedicoesRoute: typeof EngenhariaMedicoesRoute
+  EngenhariaPoliticaPrivacidadeRoute: typeof EngenhariaPoliticaPrivacidadeRoute
   EngenhariaQrCodesRoute: typeof EngenhariaQrCodesRoute
   EngenhariaRegistroDeCampoRoute: typeof EngenhariaRegistroDeCampoRoute
   EngenhariaUsuariosRoute: typeof EngenhariaUsuariosRoute
@@ -1354,6 +1395,7 @@ const EngenhariaRouteRouteChildren: EngenhariaRouteRouteChildren = {
   EngenhariaRelatoriosRouteRoute: EngenhariaRelatoriosRouteRouteWithChildren,
   EngenhariaContratosRoute: EngenhariaContratosRoute,
   EngenhariaMedicoesRoute: EngenhariaMedicoesRoute,
+  EngenhariaPoliticaPrivacidadeRoute: EngenhariaPoliticaPrivacidadeRoute,
   EngenhariaQrCodesRoute: EngenhariaQrCodesRoute,
   EngenhariaRegistroDeCampoRoute: EngenhariaRegistroDeCampoRoute,
   EngenhariaUsuariosRoute: EngenhariaUsuariosRoute,
@@ -1403,6 +1445,7 @@ const rootRouteChildren: RootRouteChildren = {
   EstoqueRouteRoute: EstoqueRouteRouteWithChildren,
   LoginRoute: LoginRoute,
   MeusRegistrosRoute: MeusRegistrosRoute,
+  PoliticaPrivacidadeRoute: PoliticaPrivacidadeRoute,
   QrOperadorRoute: QrOperadorRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
@@ -1414,13 +1457,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

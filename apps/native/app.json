@@ -29,9 +29,13 @@
         "backgroundColor": "#121924"
       },
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
       "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -88,6 +92,12 @@
         "projectId": "f204a639-1a66-4001-bf16-c8ca6076d5d2"
       }
     },
-    "owner": "sqpaloma"
+    "owner": "sqpaloma",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f204a639-1a66-4001-bf16-c8ca6076d5d2"
+    }
   }
 }
