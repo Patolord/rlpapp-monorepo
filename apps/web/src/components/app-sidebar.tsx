@@ -18,6 +18,7 @@ import {
   Users,
   Warehouse,
   ArrowLeftRight,
+  Shield,
   type LucideIcon,
 } from "lucide-react";
 
@@ -91,6 +92,11 @@ function getNavGroups(): NavGroup[] {
       label: "Configurações",
       items: [
         { to: "/engenharia/usuarios", label: "Usuários", icon: UserPlus },
+        {
+          to: "/engenharia/politica-privacidade",
+          label: "Política de Privacidade",
+          icon: Shield,
+        },
       ],
     },
   ];
