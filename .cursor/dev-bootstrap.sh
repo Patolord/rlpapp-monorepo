@@ -26,22 +26,35 @@ fi
 
 convex() { pnpm -F @rlpapp/backend exec convex "$@"; }
 
+# Placeholder Convex env vars the schema requires. Replace with real Clerk
+# values to enable authentication, e.g.
+#   pnpm -F @rlpapp/backend exec convex env set CLERK_SECRET_KEY <real-key>
+set_placeholder_env() {
+  convex env set CLERK_SECRET_KEY "sk_test_placeholder_dev_only" || true
+  convex env set CLERK_WEBHOOK_SECRET "whsec_placeholder_dev_only" || true
+}
+
 # 2. Create/configure the local anonymous deployment. The very first push can
-#    fail because required Convex env vars are not set yet; the deployment is
-#    still created, so tolerate that failure and set the vars next.
+#    fail because the required env vars are not set yet; the deployment is still
+#    created, so tolerate that failure and set the vars next.
 convex dev --once || true
 
-# 3. Ensure the Convex env vars the schema requires exist. Placeholders keep the
-#    isolated dev deployment pushable; run e.g.
-#      pnpm -F @rlpapp/backend exec convex env set CLERK_SECRET_KEY <real-key>
-#    to enable real Clerk authentication.
-convex env get CLERK_SECRET_KEY >/dev/null 2>&1 \
-  || convex env set CLERK_SECRET_KEY "sk_test_placeholder_dev_only"
-convex env get CLERK_WEBHOOK_SECRET >/dev/null 2>&1 \
-  || convex env set CLERK_WEBHOOK_SECRET "whsec_placeholder_dev_only"
+# 3. Set the required env vars (idempotent).
+set_placeholder_env
 
-# 4. Push schema + functions now that the required env vars are present.
-convex dev --once
+# 4. Push schema + functions. On a brand-new deployment the env-var write can
+#    take a moment to propagate before a push sees it, so retry a few times,
+#    re-asserting the vars each attempt. Best-effort: the persistent
+#    `convex dev` terminal converges on its own once the vars exist, so a
+#    transient failure here must not abort the whole start phase.
+for attempt in 1 2 3 4 5; do
+  if convex dev --once; then
+    break
+  fi
+  echo "dev-bootstrap: convex push attempt ${attempt} failed; re-asserting env vars and retrying..."
+  set_placeholder_env
+  sleep 5
+done
 
 # 5. Web app: point it at the local Convex deployment. The placeholder Clerk
 #    publishable key is a well-formed test key so ClerkProvider initializes;
