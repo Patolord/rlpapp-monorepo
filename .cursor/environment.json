@@ -1,0 +1,15 @@
+{
+  "name": "rlpapp",
+  "install": "pnpm install --frozen-lockfile",
+  "start": "bash .cursor/dev-bootstrap.sh",
+  "terminals": [
+    {
+      "name": "convex-backend",
+      "command": "cd packages/backend && CONVEX_AGENT_MODE=anonymous pnpm exec convex dev"
+    },
+    {
+      "name": "web",
+      "command": "pnpm dev:web"
+    }
+  ]
+}
