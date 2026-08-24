@@ -9,112 +9,76 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SignUpRouteImport } from './routes/sign-up'
-import { Route as SignInRouteImport } from './routes/sign-in'
-import { Route as QrOperadorRouteImport } from './routes/qr-operador'
-import { Route as PoliticaPrivacidadeRouteImport } from './routes/politica-privacidade'
-import { Route as MeusRegistrosRouteImport } from './routes/meus-registros'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as EstoqueRouteRouteImport } from './routes/estoque/route'
-import { Route as EngenhariaRouteRouteImport } from './routes/engenharia/route'
-import { Route as ComprasRouteRouteImport } from './routes/compras/route'
-import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as PortalIndexRouteImport } from './routes/portal/index'
-import { Route as EstoqueIndexRouteImport } from './routes/estoque/index'
-import { Route as EngenhariaIndexRouteImport } from './routes/engenharia/index'
-import { Route as ComprasIndexRouteImport } from './routes/compras/index'
+import { Route as AppRouteRouteImport } from './routes/app/route'
+import { Route as ComprasRouteRouteImport } from './routes/compras/route'
+import { Route as EngenhariaRouteRouteImport } from './routes/engenharia/route'
+import { Route as EstoqueRouteRouteImport } from './routes/estoque/route'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as MeusRegistrosRouteImport } from './routes/meus-registros'
+import { Route as PoliticaPrivacidadeRouteImport } from './routes/politica-privacidade'
+import { Route as QrOperadorRouteImport } from './routes/qr-operador'
+import { Route as RhRouteRouteImport } from './routes/rh/route'
+import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as AppIndexRouteImport } from './routes/app/index'
-import { Route as QrOperadorEstoqueRouteImport } from './routes/qr-operador_.estoque'
-import { Route as QTokenRouteImport } from './routes/q/$token'
-import { Route as PortalProjectIdRouteImport } from './routes/portal/$projectId'
-import { Route as EstoqueMovimentacaoRouteImport } from './routes/estoque/movimentacao'
-import { Route as EngenhariaUsuariosRouteImport } from './routes/engenharia/usuarios'
-import { Route as EngenhariaRegistroDeCampoRouteImport } from './routes/engenharia/registro-de-campo'
-import { Route as EngenhariaQrCodesRouteImport } from './routes/engenharia/qr-codes'
-import { Route as EngenhariaPoliticaPrivacidadeRouteImport } from './routes/engenharia/politica-privacidade'
-import { Route as EngenhariaMedicoesRouteImport } from './routes/engenharia/medicoes'
+import { Route as ComprasIndexRouteImport } from './routes/compras/index'
+import { Route as EngenhariaIndexRouteImport } from './routes/engenharia/index'
 import { Route as EngenhariaContratosRouteImport } from './routes/engenharia/contratos'
-import { Route as EngenhariaRelatoriosRouteRouteImport } from './routes/engenharia/relatorios/route'
+import { Route as EngenhariaMedicoesRouteImport } from './routes/engenharia/medicoes'
 import { Route as EngenhariaObrasRouteRouteImport } from './routes/engenharia/obras/route'
-import { Route as QrOperadorEstoqueIndexRouteImport } from './routes/qr-operador_.estoque.index'
-import { Route as EngenhariaRelatoriosIndexRouteImport } from './routes/engenharia/relatorios/index'
-import { Route as EngenhariaObrasIndexRouteImport } from './routes/engenharia/obras/index'
-import { Route as EngenhariaEmpreiteirosIndexRouteImport } from './routes/engenharia/empreiteiros/index'
-import { Route as EngenhariaClientesIndexRouteImport } from './routes/engenharia/clientes/index'
-import { Route as ComprasTakeoffsIndexRouteImport } from './routes/compras/takeoffs/index'
-import { Route as ComprasMateriaisIndexRouteImport } from './routes/compras/materiais/index'
-import { Route as ComprasFornecedoresIndexRouteImport } from './routes/compras/fornecedores/index'
-import { Route as ComprasFilaRevisaoIndexRouteImport } from './routes/compras/fila-revisao/index'
+import { Route as EngenhariaPoliticaPrivacidadeRouteImport } from './routes/engenharia/politica-privacidade'
+import { Route as EngenhariaQrCodesRouteImport } from './routes/engenharia/qr-codes'
+import { Route as EngenhariaRegistroDeCampoRouteImport } from './routes/engenharia/registro-de-campo'
+import { Route as EngenhariaRelatoriosRouteRouteImport } from './routes/engenharia/relatorios/route'
+import { Route as EngenhariaUsuariosRouteImport } from './routes/engenharia/usuarios'
+import { Route as EstoqueIndexRouteImport } from './routes/estoque/index'
+import { Route as EstoqueMovimentacaoRouteImport } from './routes/estoque/movimentacao'
+import { Route as PortalIndexRouteImport } from './routes/portal/index'
+import { Route as PortalProjectIdRouteImport } from './routes/portal/$projectId'
+import { Route as QTokenRouteImport } from './routes/q/$token'
+import { Route as QrOperadorEstoqueRouteImport } from './routes/qr-operador_.estoque'
+import { Route as RhIndexRouteImport } from './routes/rh/index'
 import { Route as ComprasEventosPrecoIndexRouteImport } from './routes/compras/eventos-preco/index'
-import { Route as QrOperadorEstoqueObraSlugRouteImport } from './routes/qr-operador_.estoque.$obraSlug'
-import { Route as EngenhariaRelatoriosProjectIdRouteImport } from './routes/engenharia/relatorios/$projectId'
-import { Route as EngenhariaQrTokenRouteImport } from './routes/engenharia/qr/$token'
-import { Route as EngenhariaObrasObraSlugRouteImport } from './routes/engenharia/obras/$obraSlug'
+import { Route as ComprasFilaRevisaoIndexRouteImport } from './routes/compras/fila-revisao/index'
+import { Route as ComprasFornecedoresIndexRouteImport } from './routes/compras/fornecedores/index'
+import { Route as ComprasMateriaisIndexRouteImport } from './routes/compras/materiais/index'
+import { Route as ComprasTakeoffsIndexRouteImport } from './routes/compras/takeoffs/index'
+import { Route as EngenhariaClientesIndexRouteImport } from './routes/engenharia/clientes/index'
+import { Route as EngenhariaEmpreiteirosIndexRouteImport } from './routes/engenharia/empreiteiros/index'
 import { Route as EngenhariaEquipamentoIdRouteImport } from './routes/engenharia/equipamento/$id'
-import { Route as EngenhariaRelatoriosProjectIdIndexRouteImport } from './routes/engenharia/relatorios/$projectId.index'
+import { Route as EngenhariaObrasIndexRouteImport } from './routes/engenharia/obras/index'
+import { Route as EngenhariaObrasObraSlugRouteImport } from './routes/engenharia/obras/$obraSlug'
+import { Route as EngenhariaQrTokenRouteImport } from './routes/engenharia/qr/$token'
+import { Route as EngenhariaRelatoriosIndexRouteImport } from './routes/engenharia/relatorios/index'
+import { Route as EngenhariaRelatoriosProjectIdRouteImport } from './routes/engenharia/relatorios/$projectId'
+import { Route as QrOperadorEstoqueIndexRouteImport } from './routes/qr-operador_.estoque.index'
+import { Route as QrOperadorEstoqueObraSlugRouteImport } from './routes/qr-operador_.estoque.$obraSlug'
+import { Route as RhFolhaIndexRouteImport } from './routes/rh/folha/index'
+import { Route as RhFuncionariosIndexRouteImport } from './routes/rh/funcionarios/index'
 import { Route as EngenhariaObrasObraSlugIndexRouteImport } from './routes/engenharia/obras/$obraSlug.index'
-import { Route as EngenhariaRelatoriosProjectIdQrCodesRouteImport } from './routes/engenharia/relatorios/$projectId.qr-codes'
-import { Route as EngenhariaRelatoriosProjectIdOrcamentoRouteImport } from './routes/engenharia/relatorios/$projectId.orcamento'
-import { Route as EngenhariaRelatoriosProjectIdMedicoesRouteImport } from './routes/engenharia/relatorios/$projectId.medicoes'
-import { Route as EngenhariaRelatoriosProjectIdImprimirRouteImport } from './routes/engenharia/relatorios/$projectId.imprimir'
-import { Route as EngenhariaRelatoriosProjectIdGlobalRouteImport } from './routes/engenharia/relatorios/$projectId.global'
-import { Route as EngenhariaRelatoriosProjectIdAssistenteRouteImport } from './routes/engenharia/relatorios/$projectId.assistente'
-import { Route as EngenhariaObrasObraSlugQrCodesRouteImport } from './routes/engenharia/obras/$obraSlug.qr-codes'
-import { Route as EngenhariaObrasObraSlugPredioRouteImport } from './routes/engenharia/obras/$obraSlug.predio'
-import { Route as EngenhariaObrasObraSlugOrcamentoRouteImport } from './routes/engenharia/obras/$obraSlug.orcamento'
-import { Route as EngenhariaObrasObraSlugMedicoesRouteImport } from './routes/engenharia/obras/$obraSlug.medicoes'
-import { Route as EngenhariaObrasObraSlugImprimirRouteImport } from './routes/engenharia/obras/$obraSlug.imprimir'
-import { Route as EngenhariaObrasObraSlugGlobalRouteImport } from './routes/engenharia/obras/$obraSlug.global'
-import { Route as EngenhariaObrasObraSlugEstoqueRouteImport } from './routes/engenharia/obras/$obraSlug.estoque'
-import { Route as EngenhariaObrasObraSlugDutosRouteImport } from './routes/engenharia/obras/$obraSlug.dutos'
-import { Route as EngenhariaObrasObraSlugContratosRouteImport } from './routes/engenharia/obras/$obraSlug.contratos'
-import { Route as EngenhariaObrasObraSlugComprasRouteImport } from './routes/engenharia/obras/$obraSlug.compras'
 import { Route as EngenhariaObrasObraSlugAssistenteRouteImport } from './routes/engenharia/obras/$obraSlug.assistente'
+import { Route as EngenhariaObrasObraSlugComprasRouteImport } from './routes/engenharia/obras/$obraSlug.compras'
+import { Route as EngenhariaObrasObraSlugContratosRouteImport } from './routes/engenharia/obras/$obraSlug.contratos'
+import { Route as EngenhariaObrasObraSlugDutosRouteImport } from './routes/engenharia/obras/$obraSlug.dutos'
+import { Route as EngenhariaObrasObraSlugEstoqueRouteImport } from './routes/engenharia/obras/$obraSlug.estoque'
+import { Route as EngenhariaObrasObraSlugGlobalRouteImport } from './routes/engenharia/obras/$obraSlug.global'
+import { Route as EngenhariaObrasObraSlugImprimirRouteImport } from './routes/engenharia/obras/$obraSlug.imprimir'
+import { Route as EngenhariaObrasObraSlugMedicoesRouteImport } from './routes/engenharia/obras/$obraSlug.medicoes'
+import { Route as EngenhariaObrasObraSlugOrcamentoRouteImport } from './routes/engenharia/obras/$obraSlug.orcamento'
+import { Route as EngenhariaObrasObraSlugPredioRouteImport } from './routes/engenharia/obras/$obraSlug.predio'
+import { Route as EngenhariaObrasObraSlugQrCodesRouteImport } from './routes/engenharia/obras/$obraSlug.qr-codes'
+import { Route as EngenhariaRelatoriosProjectIdIndexRouteImport } from './routes/engenharia/relatorios/$projectId.index'
+import { Route as EngenhariaRelatoriosProjectIdAssistenteRouteImport } from './routes/engenharia/relatorios/$projectId.assistente'
+import { Route as EngenhariaRelatoriosProjectIdGlobalRouteImport } from './routes/engenharia/relatorios/$projectId.global'
+import { Route as EngenhariaRelatoriosProjectIdImprimirRouteImport } from './routes/engenharia/relatorios/$projectId.imprimir'
+import { Route as EngenhariaRelatoriosProjectIdMedicoesRouteImport } from './routes/engenharia/relatorios/$projectId.medicoes'
+import { Route as EngenhariaRelatoriosProjectIdOrcamentoRouteImport } from './routes/engenharia/relatorios/$projectId.orcamento'
+import { Route as EngenhariaRelatoriosProjectIdQrCodesRouteImport } from './routes/engenharia/relatorios/$projectId.qr-codes'
 
-const SignUpRoute = SignUpRouteImport.update({
-  id: '/sign-up',
-  path: '/sign-up',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SignInRoute = SignInRouteImport.update({
-  id: '/sign-in',
-  path: '/sign-in',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const QrOperadorRoute = QrOperadorRouteImport.update({
-  id: '/qr-operador',
-  path: '/qr-operador',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PoliticaPrivacidadeRoute = PoliticaPrivacidadeRouteImport.update({
-  id: '/politica-privacidade',
-  path: '/politica-privacidade',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MeusRegistrosRoute = MeusRegistrosRouteImport.update({
-  id: '/meus-registros',
-  path: '/meus-registros',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EstoqueRouteRoute = EstoqueRouteRouteImport.update({
-  id: '/estoque',
-  path: '/estoque',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EngenhariaRouteRoute = EngenhariaRouteRouteImport.update({
-  id: '/engenharia',
-  path: '/engenharia',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ComprasRouteRoute = ComprasRouteRouteImport.update({
-  id: '/compras',
-  path: '/compras',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRouteRoute = AppRouteRouteImport.update({
@@ -122,70 +86,84 @@ const AppRouteRoute = AppRouteRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const ComprasRouteRoute = ComprasRouteRouteImport.update({
+  id: '/compras',
+  path: '/compras',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PortalIndexRoute = PortalIndexRouteImport.update({
-  id: '/portal/',
-  path: '/portal/',
+const EngenhariaRouteRoute = EngenhariaRouteRouteImport.update({
+  id: '/engenharia',
+  path: '/engenharia',
   getParentRoute: () => rootRouteImport,
 } as any)
-const EstoqueIndexRoute = EstoqueIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => EstoqueRouteRoute,
+const EstoqueRouteRoute = EstoqueRouteRouteImport.update({
+  id: '/estoque',
+  path: '/estoque',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const EngenhariaIndexRoute = EngenhariaIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => EngenhariaRouteRoute,
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const ComprasIndexRoute = ComprasIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ComprasRouteRoute,
+const MeusRegistrosRoute = MeusRegistrosRouteImport.update({
+  id: '/meus-registros',
+  path: '/meus-registros',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PoliticaPrivacidadeRoute = PoliticaPrivacidadeRouteImport.update({
+  id: '/politica-privacidade',
+  path: '/politica-privacidade',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QrOperadorRoute = QrOperadorRouteImport.update({
+  id: '/qr-operador',
+  path: '/qr-operador',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RhRouteRoute = RhRouteRouteImport.update({
+  id: '/rh',
+  path: '/rh',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInRoute = SignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignUpRoute = SignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRouteRoute,
 } as any)
-const QrOperadorEstoqueRoute = QrOperadorEstoqueRouteImport.update({
-  id: '/qr-operador_/estoque',
-  path: '/qr-operador/estoque',
-  getParentRoute: () => rootRouteImport,
+const ComprasIndexRoute = ComprasIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ComprasRouteRoute,
 } as any)
-const QTokenRoute = QTokenRouteImport.update({
-  id: '/q/$token',
-  path: '/q/$token',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PortalProjectIdRoute = PortalProjectIdRouteImport.update({
-  id: '/portal/$projectId',
-  path: '/portal/$projectId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EstoqueMovimentacaoRoute = EstoqueMovimentacaoRouteImport.update({
-  id: '/movimentacao',
-  path: '/movimentacao',
-  getParentRoute: () => EstoqueRouteRoute,
-} as any)
-const EngenhariaUsuariosRoute = EngenhariaUsuariosRouteImport.update({
-  id: '/usuarios',
-  path: '/usuarios',
+const EngenhariaIndexRoute = EngenhariaIndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => EngenhariaRouteRoute,
 } as any)
-const EngenhariaRegistroDeCampoRoute =
-  EngenhariaRegistroDeCampoRouteImport.update({
-    id: '/registro-de-campo',
-    path: '/registro-de-campo',
-    getParentRoute: () => EngenhariaRouteRoute,
-  } as any)
-const EngenhariaQrCodesRoute = EngenhariaQrCodesRouteImport.update({
-  id: '/qr-codes',
-  path: '/qr-codes',
+const EngenhariaContratosRoute = EngenhariaContratosRouteImport.update({
+  id: '/contratos',
+  path: '/contratos',
+  getParentRoute: () => EngenhariaRouteRoute,
+} as any)
+const EngenhariaMedicoesRoute = EngenhariaMedicoesRouteImport.update({
+  id: '/medicoes',
+  path: '/medicoes',
+  getParentRoute: () => EngenhariaRouteRoute,
+} as any)
+const EngenhariaObrasRouteRoute = EngenhariaObrasRouteRouteImport.update({
+  id: '/obras',
+  path: '/obras',
   getParentRoute: () => EngenhariaRouteRoute,
 } as any)
 const EngenhariaPoliticaPrivacidadeRoute =
@@ -194,62 +172,72 @@ const EngenhariaPoliticaPrivacidadeRoute =
     path: '/politica-privacidade',
     getParentRoute: () => EngenhariaRouteRoute,
   } as any)
-const EngenhariaMedicoesRoute = EngenhariaMedicoesRouteImport.update({
-  id: '/medicoes',
-  path: '/medicoes',
+const EngenhariaQrCodesRoute = EngenhariaQrCodesRouteImport.update({
+  id: '/qr-codes',
+  path: '/qr-codes',
   getParentRoute: () => EngenhariaRouteRoute,
 } as any)
-const EngenhariaContratosRoute = EngenhariaContratosRouteImport.update({
-  id: '/contratos',
-  path: '/contratos',
-  getParentRoute: () => EngenhariaRouteRoute,
-} as any)
+const EngenhariaRegistroDeCampoRoute =
+  EngenhariaRegistroDeCampoRouteImport.update({
+    id: '/registro-de-campo',
+    path: '/registro-de-campo',
+    getParentRoute: () => EngenhariaRouteRoute,
+  } as any)
 const EngenhariaRelatoriosRouteRoute =
   EngenhariaRelatoriosRouteRouteImport.update({
     id: '/relatorios',
     path: '/relatorios',
     getParentRoute: () => EngenhariaRouteRoute,
   } as any)
-const EngenhariaObrasRouteRoute = EngenhariaObrasRouteRouteImport.update({
-  id: '/obras',
-  path: '/obras',
+const EngenhariaUsuariosRoute = EngenhariaUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
   getParentRoute: () => EngenhariaRouteRoute,
 } as any)
-const QrOperadorEstoqueIndexRoute = QrOperadorEstoqueIndexRouteImport.update({
+const EstoqueIndexRoute = EstoqueIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => QrOperadorEstoqueRoute,
+  getParentRoute: () => EstoqueRouteRoute,
 } as any)
-const EngenhariaRelatoriosIndexRoute =
-  EngenhariaRelatoriosIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => EngenhariaRelatoriosRouteRoute,
-  } as any)
-const EngenhariaObrasIndexRoute = EngenhariaObrasIndexRouteImport.update({
+const EstoqueMovimentacaoRoute = EstoqueMovimentacaoRouteImport.update({
+  id: '/movimentacao',
+  path: '/movimentacao',
+  getParentRoute: () => EstoqueRouteRoute,
+} as any)
+const PortalIndexRoute = PortalIndexRouteImport.update({
+  id: '/portal/',
+  path: '/portal/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalProjectIdRoute = PortalProjectIdRouteImport.update({
+  id: '/portal/$projectId',
+  path: '/portal/$projectId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QTokenRoute = QTokenRouteImport.update({
+  id: '/q/$token',
+  path: '/q/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QrOperadorEstoqueRoute = QrOperadorEstoqueRouteImport.update({
+  id: '/qr-operador_/estoque',
+  path: '/qr-operador/estoque',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RhIndexRoute = RhIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => EngenhariaObrasRouteRoute,
+  getParentRoute: () => RhRouteRoute,
 } as any)
-const EngenhariaEmpreiteirosIndexRoute =
-  EngenhariaEmpreiteirosIndexRouteImport.update({
-    id: '/empreiteiros/',
-    path: '/empreiteiros/',
-    getParentRoute: () => EngenhariaRouteRoute,
+const ComprasEventosPrecoIndexRoute =
+  ComprasEventosPrecoIndexRouteImport.update({
+    id: '/eventos-preco/',
+    path: '/eventos-preco/',
+    getParentRoute: () => ComprasRouteRoute,
   } as any)
-const EngenhariaClientesIndexRoute = EngenhariaClientesIndexRouteImport.update({
-  id: '/clientes/',
-  path: '/clientes/',
-  getParentRoute: () => EngenhariaRouteRoute,
-} as any)
-const ComprasTakeoffsIndexRoute = ComprasTakeoffsIndexRouteImport.update({
-  id: '/takeoffs/',
-  path: '/takeoffs/',
-  getParentRoute: () => ComprasRouteRoute,
-} as any)
-const ComprasMateriaisIndexRoute = ComprasMateriaisIndexRouteImport.update({
-  id: '/materiais/',
-  path: '/materiais/',
+const ComprasFilaRevisaoIndexRoute = ComprasFilaRevisaoIndexRouteImport.update({
+  id: '/fila-revisao/',
+  path: '/fila-revisao/',
   getParentRoute: () => ComprasRouteRoute,
 } as any)
 const ComprasFornecedoresIndexRoute =
@@ -258,22 +246,52 @@ const ComprasFornecedoresIndexRoute =
     path: '/fornecedores/',
     getParentRoute: () => ComprasRouteRoute,
   } as any)
-const ComprasFilaRevisaoIndexRoute = ComprasFilaRevisaoIndexRouteImport.update({
-  id: '/fila-revisao/',
-  path: '/fila-revisao/',
+const ComprasMateriaisIndexRoute = ComprasMateriaisIndexRouteImport.update({
+  id: '/materiais/',
+  path: '/materiais/',
   getParentRoute: () => ComprasRouteRoute,
 } as any)
-const ComprasEventosPrecoIndexRoute =
-  ComprasEventosPrecoIndexRouteImport.update({
-    id: '/eventos-preco/',
-    path: '/eventos-preco/',
-    getParentRoute: () => ComprasRouteRoute,
+const ComprasTakeoffsIndexRoute = ComprasTakeoffsIndexRouteImport.update({
+  id: '/takeoffs/',
+  path: '/takeoffs/',
+  getParentRoute: () => ComprasRouteRoute,
+} as any)
+const EngenhariaClientesIndexRoute = EngenhariaClientesIndexRouteImport.update({
+  id: '/clientes/',
+  path: '/clientes/',
+  getParentRoute: () => EngenhariaRouteRoute,
+} as any)
+const EngenhariaEmpreiteirosIndexRoute =
+  EngenhariaEmpreiteirosIndexRouteImport.update({
+    id: '/empreiteiros/',
+    path: '/empreiteiros/',
+    getParentRoute: () => EngenhariaRouteRoute,
   } as any)
-const QrOperadorEstoqueObraSlugRoute =
-  QrOperadorEstoqueObraSlugRouteImport.update({
-    id: '/$obraSlug',
-    path: '/$obraSlug',
-    getParentRoute: () => QrOperadorEstoqueRoute,
+const EngenhariaEquipamentoIdRoute = EngenhariaEquipamentoIdRouteImport.update({
+  id: '/equipamento/$id',
+  path: '/equipamento/$id',
+  getParentRoute: () => EngenhariaRouteRoute,
+} as any)
+const EngenhariaObrasIndexRoute = EngenhariaObrasIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => EngenhariaObrasRouteRoute,
+} as any)
+const EngenhariaObrasObraSlugRoute = EngenhariaObrasObraSlugRouteImport.update({
+  id: '/$obraSlug',
+  path: '/$obraSlug',
+  getParentRoute: () => EngenhariaObrasRouteRoute,
+} as any)
+const EngenhariaQrTokenRoute = EngenhariaQrTokenRouteImport.update({
+  id: '/qr/$token',
+  path: '/qr/$token',
+  getParentRoute: () => EngenhariaRouteRoute,
+} as any)
+const EngenhariaRelatoriosIndexRoute =
+  EngenhariaRelatoriosIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => EngenhariaRelatoriosRouteRoute,
   } as any)
 const EngenhariaRelatoriosProjectIdRoute =
   EngenhariaRelatoriosProjectIdRouteImport.update({
@@ -281,127 +299,31 @@ const EngenhariaRelatoriosProjectIdRoute =
     path: '/$projectId',
     getParentRoute: () => EngenhariaRelatoriosRouteRoute,
   } as any)
-const EngenhariaQrTokenRoute = EngenhariaQrTokenRouteImport.update({
-  id: '/qr/$token',
-  path: '/qr/$token',
-  getParentRoute: () => EngenhariaRouteRoute,
+const QrOperadorEstoqueIndexRoute = QrOperadorEstoqueIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => QrOperadorEstoqueRoute,
 } as any)
-const EngenhariaObrasObraSlugRoute = EngenhariaObrasObraSlugRouteImport.update({
-  id: '/$obraSlug',
-  path: '/$obraSlug',
-  getParentRoute: () => EngenhariaObrasRouteRoute,
-} as any)
-const EngenhariaEquipamentoIdRoute = EngenhariaEquipamentoIdRouteImport.update({
-  id: '/equipamento/$id',
-  path: '/equipamento/$id',
-  getParentRoute: () => EngenhariaRouteRoute,
-} as any)
-const EngenhariaRelatoriosProjectIdIndexRoute =
-  EngenhariaRelatoriosProjectIdIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
+const QrOperadorEstoqueObraSlugRoute =
+  QrOperadorEstoqueObraSlugRouteImport.update({
+    id: '/$obraSlug',
+    path: '/$obraSlug',
+    getParentRoute: () => QrOperadorEstoqueRoute,
   } as any)
+const RhFolhaIndexRoute = RhFolhaIndexRouteImport.update({
+  id: '/folha/',
+  path: '/folha/',
+  getParentRoute: () => RhRouteRoute,
+} as any)
+const RhFuncionariosIndexRoute = RhFuncionariosIndexRouteImport.update({
+  id: '/funcionarios/',
+  path: '/funcionarios/',
+  getParentRoute: () => RhRouteRoute,
+} as any)
 const EngenhariaObrasObraSlugIndexRoute =
   EngenhariaObrasObraSlugIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => EngenhariaObrasObraSlugRoute,
-  } as any)
-const EngenhariaRelatoriosProjectIdQrCodesRoute =
-  EngenhariaRelatoriosProjectIdQrCodesRouteImport.update({
-    id: '/qr-codes',
-    path: '/qr-codes',
-    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
-  } as any)
-const EngenhariaRelatoriosProjectIdOrcamentoRoute =
-  EngenhariaRelatoriosProjectIdOrcamentoRouteImport.update({
-    id: '/orcamento',
-    path: '/orcamento',
-    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
-  } as any)
-const EngenhariaRelatoriosProjectIdMedicoesRoute =
-  EngenhariaRelatoriosProjectIdMedicoesRouteImport.update({
-    id: '/medicoes',
-    path: '/medicoes',
-    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
-  } as any)
-const EngenhariaRelatoriosProjectIdImprimirRoute =
-  EngenhariaRelatoriosProjectIdImprimirRouteImport.update({
-    id: '/imprimir',
-    path: '/imprimir',
-    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
-  } as any)
-const EngenhariaRelatoriosProjectIdGlobalRoute =
-  EngenhariaRelatoriosProjectIdGlobalRouteImport.update({
-    id: '/global',
-    path: '/global',
-    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
-  } as any)
-const EngenhariaRelatoriosProjectIdAssistenteRoute =
-  EngenhariaRelatoriosProjectIdAssistenteRouteImport.update({
-    id: '/assistente',
-    path: '/assistente',
-    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
-  } as any)
-const EngenhariaObrasObraSlugQrCodesRoute =
-  EngenhariaObrasObraSlugQrCodesRouteImport.update({
-    id: '/qr-codes',
-    path: '/qr-codes',
-    getParentRoute: () => EngenhariaObrasObraSlugRoute,
-  } as any)
-const EngenhariaObrasObraSlugPredioRoute =
-  EngenhariaObrasObraSlugPredioRouteImport.update({
-    id: '/predio',
-    path: '/predio',
-    getParentRoute: () => EngenhariaObrasObraSlugRoute,
-  } as any)
-const EngenhariaObrasObraSlugOrcamentoRoute =
-  EngenhariaObrasObraSlugOrcamentoRouteImport.update({
-    id: '/orcamento',
-    path: '/orcamento',
-    getParentRoute: () => EngenhariaObrasObraSlugRoute,
-  } as any)
-const EngenhariaObrasObraSlugMedicoesRoute =
-  EngenhariaObrasObraSlugMedicoesRouteImport.update({
-    id: '/medicoes',
-    path: '/medicoes',
-    getParentRoute: () => EngenhariaObrasObraSlugRoute,
-  } as any)
-const EngenhariaObrasObraSlugImprimirRoute =
-  EngenhariaObrasObraSlugImprimirRouteImport.update({
-    id: '/imprimir',
-    path: '/imprimir',
-    getParentRoute: () => EngenhariaObrasObraSlugRoute,
-  } as any)
-const EngenhariaObrasObraSlugGlobalRoute =
-  EngenhariaObrasObraSlugGlobalRouteImport.update({
-    id: '/global',
-    path: '/global',
-    getParentRoute: () => EngenhariaObrasObraSlugRoute,
-  } as any)
-const EngenhariaObrasObraSlugEstoqueRoute =
-  EngenhariaObrasObraSlugEstoqueRouteImport.update({
-    id: '/estoque',
-    path: '/estoque',
-    getParentRoute: () => EngenhariaObrasObraSlugRoute,
-  } as any)
-const EngenhariaObrasObraSlugDutosRoute =
-  EngenhariaObrasObraSlugDutosRouteImport.update({
-    id: '/dutos',
-    path: '/dutos',
-    getParentRoute: () => EngenhariaObrasObraSlugRoute,
-  } as any)
-const EngenhariaObrasObraSlugContratosRoute =
-  EngenhariaObrasObraSlugContratosRouteImport.update({
-    id: '/contratos',
-    path: '/contratos',
-    getParentRoute: () => EngenhariaObrasObraSlugRoute,
-  } as any)
-const EngenhariaObrasObraSlugComprasRoute =
-  EngenhariaObrasObraSlugComprasRouteImport.update({
-    id: '/compras',
-    path: '/compras',
     getParentRoute: () => EngenhariaObrasObraSlugRoute,
   } as any)
 const EngenhariaObrasObraSlugAssistenteRoute =
@@ -410,6 +332,108 @@ const EngenhariaObrasObraSlugAssistenteRoute =
     path: '/assistente',
     getParentRoute: () => EngenhariaObrasObraSlugRoute,
   } as any)
+const EngenhariaObrasObraSlugComprasRoute =
+  EngenhariaObrasObraSlugComprasRouteImport.update({
+    id: '/compras',
+    path: '/compras',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
+const EngenhariaObrasObraSlugContratosRoute =
+  EngenhariaObrasObraSlugContratosRouteImport.update({
+    id: '/contratos',
+    path: '/contratos',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
+const EngenhariaObrasObraSlugDutosRoute =
+  EngenhariaObrasObraSlugDutosRouteImport.update({
+    id: '/dutos',
+    path: '/dutos',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
+const EngenhariaObrasObraSlugEstoqueRoute =
+  EngenhariaObrasObraSlugEstoqueRouteImport.update({
+    id: '/estoque',
+    path: '/estoque',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
+const EngenhariaObrasObraSlugGlobalRoute =
+  EngenhariaObrasObraSlugGlobalRouteImport.update({
+    id: '/global',
+    path: '/global',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
+const EngenhariaObrasObraSlugImprimirRoute =
+  EngenhariaObrasObraSlugImprimirRouteImport.update({
+    id: '/imprimir',
+    path: '/imprimir',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
+const EngenhariaObrasObraSlugMedicoesRoute =
+  EngenhariaObrasObraSlugMedicoesRouteImport.update({
+    id: '/medicoes',
+    path: '/medicoes',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
+const EngenhariaObrasObraSlugOrcamentoRoute =
+  EngenhariaObrasObraSlugOrcamentoRouteImport.update({
+    id: '/orcamento',
+    path: '/orcamento',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
+const EngenhariaObrasObraSlugPredioRoute =
+  EngenhariaObrasObraSlugPredioRouteImport.update({
+    id: '/predio',
+    path: '/predio',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
+const EngenhariaObrasObraSlugQrCodesRoute =
+  EngenhariaObrasObraSlugQrCodesRouteImport.update({
+    id: '/qr-codes',
+    path: '/qr-codes',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
+const EngenhariaRelatoriosProjectIdIndexRoute =
+  EngenhariaRelatoriosProjectIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
+  } as any)
+const EngenhariaRelatoriosProjectIdAssistenteRoute =
+  EngenhariaRelatoriosProjectIdAssistenteRouteImport.update({
+    id: '/assistente',
+    path: '/assistente',
+    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
+  } as any)
+const EngenhariaRelatoriosProjectIdGlobalRoute =
+  EngenhariaRelatoriosProjectIdGlobalRouteImport.update({
+    id: '/global',
+    path: '/global',
+    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
+  } as any)
+const EngenhariaRelatoriosProjectIdImprimirRoute =
+  EngenhariaRelatoriosProjectIdImprimirRouteImport.update({
+    id: '/imprimir',
+    path: '/imprimir',
+    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
+  } as any)
+const EngenhariaRelatoriosProjectIdMedicoesRoute =
+  EngenhariaRelatoriosProjectIdMedicoesRouteImport.update({
+    id: '/medicoes',
+    path: '/medicoes',
+    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
+  } as any)
+const EngenhariaRelatoriosProjectIdOrcamentoRoute =
+  EngenhariaRelatoriosProjectIdOrcamentoRouteImport.update({
+    id: '/orcamento',
+    path: '/orcamento',
+    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
+  } as any)
+const EngenhariaRelatoriosProjectIdQrCodesRoute =
+  EngenhariaRelatoriosProjectIdQrCodesRouteImport.update({
+    id: '/qr-codes',
+    path: '/qr-codes',
+    getParentRoute: () => EngenhariaRelatoriosProjectIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -417,6 +441,7 @@ export interface FileRoutesByFullPath {
   '/compras': typeof ComprasRouteRouteWithChildren
   '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/estoque': typeof EstoqueRouteRouteWithChildren
+  '/rh': typeof RhRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/meus-registros': typeof MeusRegistrosRoute
   '/politica-privacidade': typeof PoliticaPrivacidadeRoute
@@ -440,6 +465,7 @@ export interface FileRoutesByFullPath {
   '/engenharia/': typeof EngenhariaIndexRoute
   '/estoque/': typeof EstoqueIndexRoute
   '/portal/': typeof PortalIndexRoute
+  '/rh/': typeof RhIndexRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/obras/$obraSlug': typeof EngenhariaObrasObraSlugRouteWithChildren
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
@@ -455,6 +481,8 @@ export interface FileRoutesByFullPath {
   '/engenharia/obras/': typeof EngenhariaObrasIndexRoute
   '/engenharia/relatorios/': typeof EngenhariaRelatoriosIndexRoute
   '/qr-operador/estoque/': typeof QrOperadorEstoqueIndexRoute
+  '/rh/folha/': typeof RhFolhaIndexRoute
+  '/rh/funcionarios/': typeof RhFuncionariosIndexRoute
   '/engenharia/obras/$obraSlug/assistente': typeof EngenhariaObrasObraSlugAssistenteRoute
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
@@ -497,6 +525,7 @@ export interface FileRoutesByTo {
   '/engenharia': typeof EngenhariaIndexRoute
   '/estoque': typeof EstoqueIndexRoute
   '/portal': typeof PortalIndexRoute
+  '/rh': typeof RhIndexRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
   '/qr-operador/estoque/$obraSlug': typeof QrOperadorEstoqueObraSlugRoute
@@ -510,6 +539,8 @@ export interface FileRoutesByTo {
   '/engenharia/obras': typeof EngenhariaObrasIndexRoute
   '/engenharia/relatorios': typeof EngenhariaRelatoriosIndexRoute
   '/qr-operador/estoque': typeof QrOperadorEstoqueIndexRoute
+  '/rh/folha': typeof RhFolhaIndexRoute
+  '/rh/funcionarios': typeof RhFuncionariosIndexRoute
   '/engenharia/obras/$obraSlug/assistente': typeof EngenhariaObrasObraSlugAssistenteRoute
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
@@ -537,6 +568,7 @@ export interface FileRoutesById {
   '/compras': typeof ComprasRouteRouteWithChildren
   '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/estoque': typeof EstoqueRouteRouteWithChildren
+  '/rh': typeof RhRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/meus-registros': typeof MeusRegistrosRoute
   '/politica-privacidade': typeof PoliticaPrivacidadeRoute
@@ -560,6 +592,7 @@ export interface FileRoutesById {
   '/engenharia/': typeof EngenhariaIndexRoute
   '/estoque/': typeof EstoqueIndexRoute
   '/portal/': typeof PortalIndexRoute
+  '/rh/': typeof RhIndexRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/obras/$obraSlug': typeof EngenhariaObrasObraSlugRouteWithChildren
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
@@ -575,6 +608,8 @@ export interface FileRoutesById {
   '/engenharia/obras/': typeof EngenhariaObrasIndexRoute
   '/engenharia/relatorios/': typeof EngenhariaRelatoriosIndexRoute
   '/qr-operador_/estoque/': typeof QrOperadorEstoqueIndexRoute
+  '/rh/folha/': typeof RhFolhaIndexRoute
+  '/rh/funcionarios/': typeof RhFuncionariosIndexRoute
   '/engenharia/obras/$obraSlug/assistente': typeof EngenhariaObrasObraSlugAssistenteRoute
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
@@ -603,6 +638,7 @@ export interface FileRouteTypes {
     | '/compras'
     | '/engenharia'
     | '/estoque'
+    | '/rh'
     | '/login'
     | '/meus-registros'
     | '/politica-privacidade'
@@ -626,6 +662,7 @@ export interface FileRouteTypes {
     | '/engenharia/'
     | '/estoque/'
     | '/portal/'
+    | '/rh/'
     | '/engenharia/equipamento/$id'
     | '/engenharia/obras/$obraSlug'
     | '/engenharia/qr/$token'
@@ -641,6 +678,8 @@ export interface FileRouteTypes {
     | '/engenharia/obras/'
     | '/engenharia/relatorios/'
     | '/qr-operador/estoque/'
+    | '/rh/folha/'
+    | '/rh/funcionarios/'
     | '/engenharia/obras/$obraSlug/assistente'
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
@@ -683,6 +722,7 @@ export interface FileRouteTypes {
     | '/engenharia'
     | '/estoque'
     | '/portal'
+    | '/rh'
     | '/engenharia/equipamento/$id'
     | '/engenharia/qr/$token'
     | '/qr-operador/estoque/$obraSlug'
@@ -696,6 +736,8 @@ export interface FileRouteTypes {
     | '/engenharia/obras'
     | '/engenharia/relatorios'
     | '/qr-operador/estoque'
+    | '/rh/folha'
+    | '/rh/funcionarios'
     | '/engenharia/obras/$obraSlug/assistente'
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
@@ -722,6 +764,7 @@ export interface FileRouteTypes {
     | '/compras'
     | '/engenharia'
     | '/estoque'
+    | '/rh'
     | '/login'
     | '/meus-registros'
     | '/politica-privacidade'
@@ -745,6 +788,7 @@ export interface FileRouteTypes {
     | '/engenharia/'
     | '/estoque/'
     | '/portal/'
+    | '/rh/'
     | '/engenharia/equipamento/$id'
     | '/engenharia/obras/$obraSlug'
     | '/engenharia/qr/$token'
@@ -760,6 +804,8 @@ export interface FileRouteTypes {
     | '/engenharia/obras/'
     | '/engenharia/relatorios/'
     | '/qr-operador_/estoque/'
+    | '/rh/folha/'
+    | '/rh/funcionarios/'
     | '/engenharia/obras/$obraSlug/assistente'
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
@@ -787,6 +833,7 @@ export interface RootRouteChildren {
   ComprasRouteRoute: typeof ComprasRouteRouteWithChildren
   EngenhariaRouteRoute: typeof EngenhariaRouteRouteWithChildren
   EstoqueRouteRoute: typeof EstoqueRouteRouteWithChildren
+  RhRouteRoute: typeof RhRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
   MeusRegistrosRoute: typeof MeusRegistrosRoute
   PoliticaPrivacidadeRoute: typeof PoliticaPrivacidadeRoute
@@ -801,67 +848,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/sign-up': {
-      id: '/sign-up'
-      path: '/sign-up'
-      fullPath: '/sign-up'
-      preLoaderRoute: typeof SignUpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sign-in': {
-      id: '/sign-in'
-      path: '/sign-in'
-      fullPath: '/sign-in'
-      preLoaderRoute: typeof SignInRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/qr-operador': {
-      id: '/qr-operador'
-      path: '/qr-operador'
-      fullPath: '/qr-operador'
-      preLoaderRoute: typeof QrOperadorRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/politica-privacidade': {
-      id: '/politica-privacidade'
-      path: '/politica-privacidade'
-      fullPath: '/politica-privacidade'
-      preLoaderRoute: typeof PoliticaPrivacidadeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/meus-registros': {
-      id: '/meus-registros'
-      path: '/meus-registros'
-      fullPath: '/meus-registros'
-      preLoaderRoute: typeof MeusRegistrosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/estoque': {
-      id: '/estoque'
-      path: '/estoque'
-      fullPath: '/estoque'
-      preLoaderRoute: typeof EstoqueRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/engenharia': {
-      id: '/engenharia'
-      path: '/engenharia'
-      fullPath: '/engenharia'
-      preLoaderRoute: typeof EngenhariaRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/compras': {
-      id: '/compras'
-      path: '/compras'
-      fullPath: '/compras'
-      preLoaderRoute: typeof ComprasRouteRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app': {
@@ -871,40 +862,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/compras': {
+      id: '/compras'
+      path: '/compras'
+      fullPath: '/compras'
+      preLoaderRoute: typeof ComprasRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/portal/': {
-      id: '/portal/'
-      path: '/portal'
-      fullPath: '/portal/'
-      preLoaderRoute: typeof PortalIndexRouteImport
+    '/engenharia': {
+      id: '/engenharia'
+      path: '/engenharia'
+      fullPath: '/engenharia'
+      preLoaderRoute: typeof EngenhariaRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/estoque/': {
-      id: '/estoque/'
-      path: '/'
-      fullPath: '/estoque/'
-      preLoaderRoute: typeof EstoqueIndexRouteImport
-      parentRoute: typeof EstoqueRouteRoute
+    '/estoque': {
+      id: '/estoque'
+      path: '/estoque'
+      fullPath: '/estoque'
+      preLoaderRoute: typeof EstoqueRouteRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/engenharia/': {
-      id: '/engenharia/'
-      path: '/'
-      fullPath: '/engenharia/'
-      preLoaderRoute: typeof EngenhariaIndexRouteImport
-      parentRoute: typeof EngenhariaRouteRoute
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/compras/': {
-      id: '/compras/'
-      path: '/'
-      fullPath: '/compras/'
-      preLoaderRoute: typeof ComprasIndexRouteImport
-      parentRoute: typeof ComprasRouteRoute
+    '/meus-registros': {
+      id: '/meus-registros'
+      path: '/meus-registros'
+      fullPath: '/meus-registros'
+      preLoaderRoute: typeof MeusRegistrosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/politica-privacidade': {
+      id: '/politica-privacidade'
+      path: '/politica-privacidade'
+      fullPath: '/politica-privacidade'
+      preLoaderRoute: typeof PoliticaPrivacidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/qr-operador': {
+      id: '/qr-operador'
+      path: '/qr-operador'
+      fullPath: '/qr-operador'
+      preLoaderRoute: typeof QrOperadorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rh': {
+      id: '/rh'
+      path: '/rh'
+      fullPath: '/rh'
+      preLoaderRoute: typeof RhRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-up': {
+      id: '/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/app/': {
       id: '/app/'
@@ -913,67 +939,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRouteRoute
     }
-    '/qr-operador_/estoque': {
-      id: '/qr-operador_/estoque'
-      path: '/qr-operador/estoque'
-      fullPath: '/qr-operador/estoque'
-      preLoaderRoute: typeof QrOperadorEstoqueRouteImport
-      parentRoute: typeof rootRouteImport
+    '/compras/': {
+      id: '/compras/'
+      path: '/'
+      fullPath: '/compras/'
+      preLoaderRoute: typeof ComprasIndexRouteImport
+      parentRoute: typeof ComprasRouteRoute
     }
-    '/q/$token': {
-      id: '/q/$token'
-      path: '/q/$token'
-      fullPath: '/q/$token'
-      preLoaderRoute: typeof QTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/portal/$projectId': {
-      id: '/portal/$projectId'
-      path: '/portal/$projectId'
-      fullPath: '/portal/$projectId'
-      preLoaderRoute: typeof PortalProjectIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/estoque/movimentacao': {
-      id: '/estoque/movimentacao'
-      path: '/movimentacao'
-      fullPath: '/estoque/movimentacao'
-      preLoaderRoute: typeof EstoqueMovimentacaoRouteImport
-      parentRoute: typeof EstoqueRouteRoute
-    }
-    '/engenharia/usuarios': {
-      id: '/engenharia/usuarios'
-      path: '/usuarios'
-      fullPath: '/engenharia/usuarios'
-      preLoaderRoute: typeof EngenhariaUsuariosRouteImport
-      parentRoute: typeof EngenhariaRouteRoute
-    }
-    '/engenharia/registro-de-campo': {
-      id: '/engenharia/registro-de-campo'
-      path: '/registro-de-campo'
-      fullPath: '/engenharia/registro-de-campo'
-      preLoaderRoute: typeof EngenhariaRegistroDeCampoRouteImport
-      parentRoute: typeof EngenhariaRouteRoute
-    }
-    '/engenharia/qr-codes': {
-      id: '/engenharia/qr-codes'
-      path: '/qr-codes'
-      fullPath: '/engenharia/qr-codes'
-      preLoaderRoute: typeof EngenhariaQrCodesRouteImport
-      parentRoute: typeof EngenhariaRouteRoute
-    }
-    '/engenharia/politica-privacidade': {
-      id: '/engenharia/politica-privacidade'
-      path: '/politica-privacidade'
-      fullPath: '/engenharia/politica-privacidade'
-      preLoaderRoute: typeof EngenhariaPoliticaPrivacidadeRouteImport
-      parentRoute: typeof EngenhariaRouteRoute
-    }
-    '/engenharia/medicoes': {
-      id: '/engenharia/medicoes'
-      path: '/medicoes'
-      fullPath: '/engenharia/medicoes'
-      preLoaderRoute: typeof EngenhariaMedicoesRouteImport
+    '/engenharia/': {
+      id: '/engenharia/'
+      path: '/'
+      fullPath: '/engenharia/'
+      preLoaderRoute: typeof EngenhariaIndexRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
     '/engenharia/contratos': {
@@ -983,11 +960,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaContratosRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
-    '/engenharia/relatorios': {
-      id: '/engenharia/relatorios'
-      path: '/relatorios'
-      fullPath: '/engenharia/relatorios'
-      preLoaderRoute: typeof EngenhariaRelatoriosRouteRouteImport
+    '/engenharia/medicoes': {
+      id: '/engenharia/medicoes'
+      path: '/medicoes'
+      fullPath: '/engenharia/medicoes'
+      preLoaderRoute: typeof EngenhariaMedicoesRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
     '/engenharia/obras': {
@@ -997,60 +974,95 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaObrasRouteRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
-    '/qr-operador_/estoque/': {
-      id: '/qr-operador_/estoque/'
-      path: '/'
-      fullPath: '/qr-operador/estoque/'
-      preLoaderRoute: typeof QrOperadorEstoqueIndexRouteImport
-      parentRoute: typeof QrOperadorEstoqueRoute
-    }
-    '/engenharia/relatorios/': {
-      id: '/engenharia/relatorios/'
-      path: '/'
-      fullPath: '/engenharia/relatorios/'
-      preLoaderRoute: typeof EngenhariaRelatoriosIndexRouteImport
-      parentRoute: typeof EngenhariaRelatoriosRouteRoute
-    }
-    '/engenharia/obras/': {
-      id: '/engenharia/obras/'
-      path: '/'
-      fullPath: '/engenharia/obras/'
-      preLoaderRoute: typeof EngenhariaObrasIndexRouteImport
-      parentRoute: typeof EngenhariaObrasRouteRoute
-    }
-    '/engenharia/empreiteiros/': {
-      id: '/engenharia/empreiteiros/'
-      path: '/empreiteiros'
-      fullPath: '/engenharia/empreiteiros/'
-      preLoaderRoute: typeof EngenhariaEmpreiteirosIndexRouteImport
+    '/engenharia/politica-privacidade': {
+      id: '/engenharia/politica-privacidade'
+      path: '/politica-privacidade'
+      fullPath: '/engenharia/politica-privacidade'
+      preLoaderRoute: typeof EngenhariaPoliticaPrivacidadeRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
-    '/engenharia/clientes/': {
-      id: '/engenharia/clientes/'
-      path: '/clientes'
-      fullPath: '/engenharia/clientes/'
-      preLoaderRoute: typeof EngenhariaClientesIndexRouteImport
+    '/engenharia/qr-codes': {
+      id: '/engenharia/qr-codes'
+      path: '/qr-codes'
+      fullPath: '/engenharia/qr-codes'
+      preLoaderRoute: typeof EngenhariaQrCodesRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
-    '/compras/takeoffs/': {
-      id: '/compras/takeoffs/'
-      path: '/takeoffs'
-      fullPath: '/compras/takeoffs/'
-      preLoaderRoute: typeof ComprasTakeoffsIndexRouteImport
-      parentRoute: typeof ComprasRouteRoute
+    '/engenharia/registro-de-campo': {
+      id: '/engenharia/registro-de-campo'
+      path: '/registro-de-campo'
+      fullPath: '/engenharia/registro-de-campo'
+      preLoaderRoute: typeof EngenhariaRegistroDeCampoRouteImport
+      parentRoute: typeof EngenhariaRouteRoute
     }
-    '/compras/materiais/': {
-      id: '/compras/materiais/'
-      path: '/materiais'
-      fullPath: '/compras/materiais/'
-      preLoaderRoute: typeof ComprasMateriaisIndexRouteImport
-      parentRoute: typeof ComprasRouteRoute
+    '/engenharia/relatorios': {
+      id: '/engenharia/relatorios'
+      path: '/relatorios'
+      fullPath: '/engenharia/relatorios'
+      preLoaderRoute: typeof EngenhariaRelatoriosRouteRouteImport
+      parentRoute: typeof EngenhariaRouteRoute
     }
-    '/compras/fornecedores/': {
-      id: '/compras/fornecedores/'
-      path: '/fornecedores'
-      fullPath: '/compras/fornecedores/'
-      preLoaderRoute: typeof ComprasFornecedoresIndexRouteImport
+    '/engenharia/usuarios': {
+      id: '/engenharia/usuarios'
+      path: '/usuarios'
+      fullPath: '/engenharia/usuarios'
+      preLoaderRoute: typeof EngenhariaUsuariosRouteImport
+      parentRoute: typeof EngenhariaRouteRoute
+    }
+    '/estoque/': {
+      id: '/estoque/'
+      path: '/'
+      fullPath: '/estoque/'
+      preLoaderRoute: typeof EstoqueIndexRouteImport
+      parentRoute: typeof EstoqueRouteRoute
+    }
+    '/estoque/movimentacao': {
+      id: '/estoque/movimentacao'
+      path: '/movimentacao'
+      fullPath: '/estoque/movimentacao'
+      preLoaderRoute: typeof EstoqueMovimentacaoRouteImport
+      parentRoute: typeof EstoqueRouteRoute
+    }
+    '/portal/': {
+      id: '/portal/'
+      path: '/portal'
+      fullPath: '/portal/'
+      preLoaderRoute: typeof PortalIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portal/$projectId': {
+      id: '/portal/$projectId'
+      path: '/portal/$projectId'
+      fullPath: '/portal/$projectId'
+      preLoaderRoute: typeof PortalProjectIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/q/$token': {
+      id: '/q/$token'
+      path: '/q/$token'
+      fullPath: '/q/$token'
+      preLoaderRoute: typeof QTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/qr-operador_/estoque': {
+      id: '/qr-operador_/estoque'
+      path: '/qr-operador/estoque'
+      fullPath: '/qr-operador/estoque'
+      preLoaderRoute: typeof QrOperadorEstoqueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rh/': {
+      id: '/rh/'
+      path: '/'
+      fullPath: '/rh/'
+      preLoaderRoute: typeof RhIndexRouteImport
+      parentRoute: typeof RhRouteRoute
+    }
+    '/compras/eventos-preco/': {
+      id: '/compras/eventos-preco/'
+      path: '/eventos-preco'
+      fullPath: '/compras/eventos-preco/'
+      preLoaderRoute: typeof ComprasEventosPrecoIndexRouteImport
       parentRoute: typeof ComprasRouteRoute
     }
     '/compras/fila-revisao/': {
@@ -1060,40 +1072,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ComprasFilaRevisaoIndexRouteImport
       parentRoute: typeof ComprasRouteRoute
     }
-    '/compras/eventos-preco/': {
-      id: '/compras/eventos-preco/'
-      path: '/eventos-preco'
-      fullPath: '/compras/eventos-preco/'
-      preLoaderRoute: typeof ComprasEventosPrecoIndexRouteImport
+    '/compras/fornecedores/': {
+      id: '/compras/fornecedores/'
+      path: '/fornecedores'
+      fullPath: '/compras/fornecedores/'
+      preLoaderRoute: typeof ComprasFornecedoresIndexRouteImport
       parentRoute: typeof ComprasRouteRoute
     }
-    '/qr-operador_/estoque/$obraSlug': {
-      id: '/qr-operador_/estoque/$obraSlug'
-      path: '/$obraSlug'
-      fullPath: '/qr-operador/estoque/$obraSlug'
-      preLoaderRoute: typeof QrOperadorEstoqueObraSlugRouteImport
-      parentRoute: typeof QrOperadorEstoqueRoute
+    '/compras/materiais/': {
+      id: '/compras/materiais/'
+      path: '/materiais'
+      fullPath: '/compras/materiais/'
+      preLoaderRoute: typeof ComprasMateriaisIndexRouteImport
+      parentRoute: typeof ComprasRouteRoute
     }
-    '/engenharia/relatorios/$projectId': {
-      id: '/engenharia/relatorios/$projectId'
-      path: '/$projectId'
-      fullPath: '/engenharia/relatorios/$projectId'
-      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdRouteImport
-      parentRoute: typeof EngenhariaRelatoriosRouteRoute
+    '/compras/takeoffs/': {
+      id: '/compras/takeoffs/'
+      path: '/takeoffs'
+      fullPath: '/compras/takeoffs/'
+      preLoaderRoute: typeof ComprasTakeoffsIndexRouteImport
+      parentRoute: typeof ComprasRouteRoute
     }
-    '/engenharia/qr/$token': {
-      id: '/engenharia/qr/$token'
-      path: '/qr/$token'
-      fullPath: '/engenharia/qr/$token'
-      preLoaderRoute: typeof EngenhariaQrTokenRouteImport
+    '/engenharia/clientes/': {
+      id: '/engenharia/clientes/'
+      path: '/clientes'
+      fullPath: '/engenharia/clientes/'
+      preLoaderRoute: typeof EngenhariaClientesIndexRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
-    '/engenharia/obras/$obraSlug': {
-      id: '/engenharia/obras/$obraSlug'
-      path: '/$obraSlug'
-      fullPath: '/engenharia/obras/$obraSlug'
-      preLoaderRoute: typeof EngenhariaObrasObraSlugRouteImport
-      parentRoute: typeof EngenhariaObrasRouteRoute
+    '/engenharia/empreiteiros/': {
+      id: '/engenharia/empreiteiros/'
+      path: '/empreiteiros'
+      fullPath: '/engenharia/empreiteiros/'
+      preLoaderRoute: typeof EngenhariaEmpreiteirosIndexRouteImport
+      parentRoute: typeof EngenhariaRouteRoute
     }
     '/engenharia/equipamento/$id': {
       id: '/engenharia/equipamento/$id'
@@ -1102,12 +1114,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaEquipamentoIdRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
-    '/engenharia/relatorios/$projectId/': {
-      id: '/engenharia/relatorios/$projectId/'
+    '/engenharia/obras/': {
+      id: '/engenharia/obras/'
       path: '/'
-      fullPath: '/engenharia/relatorios/$projectId/'
-      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdIndexRouteImport
-      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
+      fullPath: '/engenharia/obras/'
+      preLoaderRoute: typeof EngenhariaObrasIndexRouteImport
+      parentRoute: typeof EngenhariaObrasRouteRoute
+    }
+    '/engenharia/obras/$obraSlug': {
+      id: '/engenharia/obras/$obraSlug'
+      path: '/$obraSlug'
+      fullPath: '/engenharia/obras/$obraSlug'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugRouteImport
+      parentRoute: typeof EngenhariaObrasRouteRoute
+    }
+    '/engenharia/qr/$token': {
+      id: '/engenharia/qr/$token'
+      path: '/qr/$token'
+      fullPath: '/engenharia/qr/$token'
+      preLoaderRoute: typeof EngenhariaQrTokenRouteImport
+      parentRoute: typeof EngenhariaRouteRoute
+    }
+    '/engenharia/relatorios/': {
+      id: '/engenharia/relatorios/'
+      path: '/'
+      fullPath: '/engenharia/relatorios/'
+      preLoaderRoute: typeof EngenhariaRelatoriosIndexRouteImport
+      parentRoute: typeof EngenhariaRelatoriosRouteRoute
+    }
+    '/engenharia/relatorios/$projectId': {
+      id: '/engenharia/relatorios/$projectId'
+      path: '/$projectId'
+      fullPath: '/engenharia/relatorios/$projectId'
+      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdRouteImport
+      parentRoute: typeof EngenhariaRelatoriosRouteRoute
+    }
+    '/qr-operador_/estoque/': {
+      id: '/qr-operador_/estoque/'
+      path: '/'
+      fullPath: '/qr-operador/estoque/'
+      preLoaderRoute: typeof QrOperadorEstoqueIndexRouteImport
+      parentRoute: typeof QrOperadorEstoqueRoute
+    }
+    '/qr-operador_/estoque/$obraSlug': {
+      id: '/qr-operador_/estoque/$obraSlug'
+      path: '/$obraSlug'
+      fullPath: '/qr-operador/estoque/$obraSlug'
+      preLoaderRoute: typeof QrOperadorEstoqueObraSlugRouteImport
+      parentRoute: typeof QrOperadorEstoqueRoute
+    }
+    '/rh/folha/': {
+      id: '/rh/folha/'
+      path: '/folha'
+      fullPath: '/rh/folha/'
+      preLoaderRoute: typeof RhFolhaIndexRouteImport
+      parentRoute: typeof RhRouteRoute
+    }
+    '/rh/funcionarios/': {
+      id: '/rh/funcionarios/'
+      path: '/funcionarios'
+      fullPath: '/rh/funcionarios/'
+      preLoaderRoute: typeof RhFuncionariosIndexRouteImport
+      parentRoute: typeof RhRouteRoute
     }
     '/engenharia/obras/$obraSlug/': {
       id: '/engenharia/obras/$obraSlug/'
@@ -1116,109 +1184,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaObrasObraSlugIndexRouteImport
       parentRoute: typeof EngenhariaObrasObraSlugRoute
     }
-    '/engenharia/relatorios/$projectId/qr-codes': {
-      id: '/engenharia/relatorios/$projectId/qr-codes'
-      path: '/qr-codes'
-      fullPath: '/engenharia/relatorios/$projectId/qr-codes'
-      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdQrCodesRouteImport
-      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
-    }
-    '/engenharia/relatorios/$projectId/orcamento': {
-      id: '/engenharia/relatorios/$projectId/orcamento'
-      path: '/orcamento'
-      fullPath: '/engenharia/relatorios/$projectId/orcamento'
-      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdOrcamentoRouteImport
-      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
-    }
-    '/engenharia/relatorios/$projectId/medicoes': {
-      id: '/engenharia/relatorios/$projectId/medicoes'
-      path: '/medicoes'
-      fullPath: '/engenharia/relatorios/$projectId/medicoes'
-      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdMedicoesRouteImport
-      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
-    }
-    '/engenharia/relatorios/$projectId/imprimir': {
-      id: '/engenharia/relatorios/$projectId/imprimir'
-      path: '/imprimir'
-      fullPath: '/engenharia/relatorios/$projectId/imprimir'
-      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdImprimirRouteImport
-      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
-    }
-    '/engenharia/relatorios/$projectId/global': {
-      id: '/engenharia/relatorios/$projectId/global'
-      path: '/global'
-      fullPath: '/engenharia/relatorios/$projectId/global'
-      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdGlobalRouteImport
-      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
-    }
-    '/engenharia/relatorios/$projectId/assistente': {
-      id: '/engenharia/relatorios/$projectId/assistente'
+    '/engenharia/obras/$obraSlug/assistente': {
+      id: '/engenharia/obras/$obraSlug/assistente'
       path: '/assistente'
-      fullPath: '/engenharia/relatorios/$projectId/assistente'
-      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdAssistenteRouteImport
-      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
-    }
-    '/engenharia/obras/$obraSlug/qr-codes': {
-      id: '/engenharia/obras/$obraSlug/qr-codes'
-      path: '/qr-codes'
-      fullPath: '/engenharia/obras/$obraSlug/qr-codes'
-      preLoaderRoute: typeof EngenhariaObrasObraSlugQrCodesRouteImport
-      parentRoute: typeof EngenhariaObrasObraSlugRoute
-    }
-    '/engenharia/obras/$obraSlug/predio': {
-      id: '/engenharia/obras/$obraSlug/predio'
-      path: '/predio'
-      fullPath: '/engenharia/obras/$obraSlug/predio'
-      preLoaderRoute: typeof EngenhariaObrasObraSlugPredioRouteImport
-      parentRoute: typeof EngenhariaObrasObraSlugRoute
-    }
-    '/engenharia/obras/$obraSlug/orcamento': {
-      id: '/engenharia/obras/$obraSlug/orcamento'
-      path: '/orcamento'
-      fullPath: '/engenharia/obras/$obraSlug/orcamento'
-      preLoaderRoute: typeof EngenhariaObrasObraSlugOrcamentoRouteImport
-      parentRoute: typeof EngenhariaObrasObraSlugRoute
-    }
-    '/engenharia/obras/$obraSlug/medicoes': {
-      id: '/engenharia/obras/$obraSlug/medicoes'
-      path: '/medicoes'
-      fullPath: '/engenharia/obras/$obraSlug/medicoes'
-      preLoaderRoute: typeof EngenhariaObrasObraSlugMedicoesRouteImport
-      parentRoute: typeof EngenhariaObrasObraSlugRoute
-    }
-    '/engenharia/obras/$obraSlug/imprimir': {
-      id: '/engenharia/obras/$obraSlug/imprimir'
-      path: '/imprimir'
-      fullPath: '/engenharia/obras/$obraSlug/imprimir'
-      preLoaderRoute: typeof EngenhariaObrasObraSlugImprimirRouteImport
-      parentRoute: typeof EngenhariaObrasObraSlugRoute
-    }
-    '/engenharia/obras/$obraSlug/global': {
-      id: '/engenharia/obras/$obraSlug/global'
-      path: '/global'
-      fullPath: '/engenharia/obras/$obraSlug/global'
-      preLoaderRoute: typeof EngenhariaObrasObraSlugGlobalRouteImport
-      parentRoute: typeof EngenhariaObrasObraSlugRoute
-    }
-    '/engenharia/obras/$obraSlug/estoque': {
-      id: '/engenharia/obras/$obraSlug/estoque'
-      path: '/estoque'
-      fullPath: '/engenharia/obras/$obraSlug/estoque'
-      preLoaderRoute: typeof EngenhariaObrasObraSlugEstoqueRouteImport
-      parentRoute: typeof EngenhariaObrasObraSlugRoute
-    }
-    '/engenharia/obras/$obraSlug/dutos': {
-      id: '/engenharia/obras/$obraSlug/dutos'
-      path: '/dutos'
-      fullPath: '/engenharia/obras/$obraSlug/dutos'
-      preLoaderRoute: typeof EngenhariaObrasObraSlugDutosRouteImport
-      parentRoute: typeof EngenhariaObrasObraSlugRoute
-    }
-    '/engenharia/obras/$obraSlug/contratos': {
-      id: '/engenharia/obras/$obraSlug/contratos'
-      path: '/contratos'
-      fullPath: '/engenharia/obras/$obraSlug/contratos'
-      preLoaderRoute: typeof EngenhariaObrasObraSlugContratosRouteImport
+      fullPath: '/engenharia/obras/$obraSlug/assistente'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugAssistenteRouteImport
       parentRoute: typeof EngenhariaObrasObraSlugRoute
     }
     '/engenharia/obras/$obraSlug/compras': {
@@ -1228,12 +1198,117 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaObrasObraSlugComprasRouteImport
       parentRoute: typeof EngenhariaObrasObraSlugRoute
     }
-    '/engenharia/obras/$obraSlug/assistente': {
-      id: '/engenharia/obras/$obraSlug/assistente'
-      path: '/assistente'
-      fullPath: '/engenharia/obras/$obraSlug/assistente'
-      preLoaderRoute: typeof EngenhariaObrasObraSlugAssistenteRouteImport
+    '/engenharia/obras/$obraSlug/contratos': {
+      id: '/engenharia/obras/$obraSlug/contratos'
+      path: '/contratos'
+      fullPath: '/engenharia/obras/$obraSlug/contratos'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugContratosRouteImport
       parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
+    '/engenharia/obras/$obraSlug/dutos': {
+      id: '/engenharia/obras/$obraSlug/dutos'
+      path: '/dutos'
+      fullPath: '/engenharia/obras/$obraSlug/dutos'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugDutosRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
+    '/engenharia/obras/$obraSlug/estoque': {
+      id: '/engenharia/obras/$obraSlug/estoque'
+      path: '/estoque'
+      fullPath: '/engenharia/obras/$obraSlug/estoque'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugEstoqueRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
+    '/engenharia/obras/$obraSlug/global': {
+      id: '/engenharia/obras/$obraSlug/global'
+      path: '/global'
+      fullPath: '/engenharia/obras/$obraSlug/global'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugGlobalRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
+    '/engenharia/obras/$obraSlug/imprimir': {
+      id: '/engenharia/obras/$obraSlug/imprimir'
+      path: '/imprimir'
+      fullPath: '/engenharia/obras/$obraSlug/imprimir'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugImprimirRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
+    '/engenharia/obras/$obraSlug/medicoes': {
+      id: '/engenharia/obras/$obraSlug/medicoes'
+      path: '/medicoes'
+      fullPath: '/engenharia/obras/$obraSlug/medicoes'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugMedicoesRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
+    '/engenharia/obras/$obraSlug/orcamento': {
+      id: '/engenharia/obras/$obraSlug/orcamento'
+      path: '/orcamento'
+      fullPath: '/engenharia/obras/$obraSlug/orcamento'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugOrcamentoRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
+    '/engenharia/obras/$obraSlug/predio': {
+      id: '/engenharia/obras/$obraSlug/predio'
+      path: '/predio'
+      fullPath: '/engenharia/obras/$obraSlug/predio'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugPredioRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
+    '/engenharia/obras/$obraSlug/qr-codes': {
+      id: '/engenharia/obras/$obraSlug/qr-codes'
+      path: '/qr-codes'
+      fullPath: '/engenharia/obras/$obraSlug/qr-codes'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugQrCodesRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
+    '/engenharia/relatorios/$projectId/': {
+      id: '/engenharia/relatorios/$projectId/'
+      path: '/'
+      fullPath: '/engenharia/relatorios/$projectId/'
+      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdIndexRouteImport
+      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
+    }
+    '/engenharia/relatorios/$projectId/assistente': {
+      id: '/engenharia/relatorios/$projectId/assistente'
+      path: '/assistente'
+      fullPath: '/engenharia/relatorios/$projectId/assistente'
+      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdAssistenteRouteImport
+      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
+    }
+    '/engenharia/relatorios/$projectId/global': {
+      id: '/engenharia/relatorios/$projectId/global'
+      path: '/global'
+      fullPath: '/engenharia/relatorios/$projectId/global'
+      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdGlobalRouteImport
+      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
+    }
+    '/engenharia/relatorios/$projectId/imprimir': {
+      id: '/engenharia/relatorios/$projectId/imprimir'
+      path: '/imprimir'
+      fullPath: '/engenharia/relatorios/$projectId/imprimir'
+      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdImprimirRouteImport
+      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
+    }
+    '/engenharia/relatorios/$projectId/medicoes': {
+      id: '/engenharia/relatorios/$projectId/medicoes'
+      path: '/medicoes'
+      fullPath: '/engenharia/relatorios/$projectId/medicoes'
+      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdMedicoesRouteImport
+      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
+    }
+    '/engenharia/relatorios/$projectId/orcamento': {
+      id: '/engenharia/relatorios/$projectId/orcamento'
+      path: '/orcamento'
+      fullPath: '/engenharia/relatorios/$projectId/orcamento'
+      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdOrcamentoRouteImport
+      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
+    }
+    '/engenharia/relatorios/$projectId/qr-codes': {
+      id: '/engenharia/relatorios/$projectId/qr-codes'
+      path: '/qr-codes'
+      fullPath: '/engenharia/relatorios/$projectId/qr-codes'
+      preLoaderRoute: typeof EngenhariaRelatoriosProjectIdQrCodesRouteImport
+      parentRoute: typeof EngenhariaRelatoriosProjectIdRoute
     }
   }
 }
@@ -1424,6 +1499,21 @@ const EstoqueRouteRouteWithChildren = EstoqueRouteRoute._addFileChildren(
   EstoqueRouteRouteChildren,
 )
 
+interface RhRouteRouteChildren {
+  RhIndexRoute: typeof RhIndexRoute
+  RhFolhaIndexRoute: typeof RhFolhaIndexRoute
+  RhFuncionariosIndexRoute: typeof RhFuncionariosIndexRoute
+}
+
+const RhRouteRouteChildren: RhRouteRouteChildren = {
+  RhIndexRoute: RhIndexRoute,
+  RhFolhaIndexRoute: RhFolhaIndexRoute,
+  RhFuncionariosIndexRoute: RhFuncionariosIndexRoute,
+}
+
+const RhRouteRouteWithChildren =
+  RhRouteRoute._addFileChildren(RhRouteRouteChildren)
+
 interface QrOperadorEstoqueRouteChildren {
   QrOperadorEstoqueObraSlugRoute: typeof QrOperadorEstoqueObraSlugRoute
   QrOperadorEstoqueIndexRoute: typeof QrOperadorEstoqueIndexRoute
@@ -1443,6 +1533,7 @@ const rootRouteChildren: RootRouteChildren = {
   ComprasRouteRoute: ComprasRouteRouteWithChildren,
   EngenhariaRouteRoute: EngenhariaRouteRouteWithChildren,
   EstoqueRouteRoute: EstoqueRouteRouteWithChildren,
+  RhRouteRoute: RhRouteRouteWithChildren,
   LoginRoute: LoginRoute,
   MeusRegistrosRoute: MeusRegistrosRoute,
   PoliticaPrivacidadeRoute: PoliticaPrivacidadeRoute,

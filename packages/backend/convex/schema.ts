@@ -32,6 +32,23 @@ export const departments = v.union(
   v.literal("estoque")
 );
 
+export const employeeStatus = v.union(
+  v.literal("active"),
+  v.literal("on_leave"),
+  v.literal("terminated")
+);
+
+export const employeePaymentMethod = v.union(
+  v.literal("pix"),
+  v.literal("tbi"),
+  v.literal("other")
+);
+
+export const payrollRunStatus = v.union(
+  v.literal("draft"),
+  v.literal("closed")
+);
+
 // --- Compras / Materiais / Preços ---
 
 export const materialStatus = v.union(
@@ -1141,4 +1158,105 @@ export default defineSchema({
   })
     .index("by_equipment", ["equipmentId"])
     .index("by_createdByUser", ["createdByUserId", "createdAt"]),
+
+  // --- RH: Funcionários e Folha de pagamento ---
+
+  employees: defineTable({
+    code: v.optional(v.string()),
+    name: v.string(),
+    nameNormalized: v.string(),
+    cpf: v.optional(v.string()),
+    cpfNormalized: v.optional(v.string()),
+    jobTitle: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    hiredAt: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    status: employeeStatus,
+    archivedAt: v.optional(v.number()),
+    archivedByUserId: v.optional(v.id("users")),
+    paymentMethod: employeePaymentMethod,
+    pixKey: v.optional(v.string()),
+    baseSalaryCents: v.number(),
+    receivesFoodBasket: v.boolean(),
+    dailyTransitCents: v.number(),
+    defaultTransportFoodDays: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    createdByUserId: v.optional(v.id("users")),
+    updatedByUserId: v.optional(v.id("users")),
+  })
+    .index("by_name_normalized", ["nameNormalized"])
+    .index("by_code", ["code"])
+    .index("by_cpf_normalized", ["cpfNormalized"])
+    .index("by_status", ["status"]),
+
+  payrollRuns: defineTable({
+    year: v.number(),
+    paymentMonth: v.number(),
+    referenceYear: v.number(),
+    referenceMonth: v.number(),
+    paymentDay: v.number(),
+    status: payrollRunStatus,
+    mealVoucherPerDayCents: v.number(),
+    foodBasketCents: v.number(),
+    defaultDailyTransitCents: v.number(),
+    defaultTransportFoodDays: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    createdByUserId: v.optional(v.id("users")),
+    updatedByUserId: v.optional(v.id("users")),
+    closedAt: v.optional(v.number()),
+    closedByUserId: v.optional(v.id("users")),
+  }).index("by_year_and_payment_month", ["year", "paymentMonth"]),
+
+  payrollLines: defineTable({
+    runId: v.id("payrollRuns"),
+    employeeId: v.id("employees"),
+    code: v.optional(v.string()),
+    name: v.string(),
+    jobTitle: v.optional(v.string()),
+    baseSalaryCents: v.number(),
+    paymentMethod: employeePaymentMethod,
+    earningsCents: v.number(),
+    deductionsCents: v.number(),
+    foodBasketEnabled: v.boolean(),
+    transportFoodDays: v.number(),
+    dailyTransitCents: v.number(),
+    supplementCents: v.number(),
+    thirteenthFirstCents: v.number(),
+    thirteenthSecondCents: v.number(),
+    manualLoanDeductionCents: v.number(),
+    awayNotes: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    paid: v.boolean(),
+    paidAt: v.optional(v.number()),
+    paidByUserId: v.optional(v.id("users")),
+    mealVoucherCents: v.number(),
+    transitVoucherCents: v.number(),
+    foodBasketCents: v.number(),
+    scheduledLoanDeductionCents: v.number(),
+    totalLoanDeductionCents: v.number(),
+    totalPaymentCents: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_run", ["runId"])
+    .index("by_employee", ["employeeId"])
+    .index("by_run_and_employee", ["runId", "employeeId"]),
+
+  employeeLoans: defineTable({
+    employeeId: v.id("employees"),
+    totalCents: v.number(),
+    installmentCount: v.number(),
+    installmentCents: v.number(),
+    startYear: v.number(),
+    startMonth: v.number(),
+    description: v.optional(v.string()),
+    archivedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    createdByUserId: v.optional(v.id("users")),
+    updatedByUserId: v.optional(v.id("users")),
+  }).index("by_employee", ["employeeId"]),
 });
