@@ -7,22 +7,26 @@ export async function verifyMcpOAuthToken(
 ): Promise<AuthInfo | undefined> {
   if (!bearerToken) return undefined;
 
-  const clerkAuth = await auth({ acceptsToken: "oauth_token" });
-  if (
-    clerkAuth.tokenType !== "oauth_token" ||
-    !clerkAuth.isAuthenticated ||
-    typeof clerkAuth.subject !== "string" ||
-    clerkAuth.subject.length === 0
-  ) {
+  try {
+    const clerkAuth = await auth({ acceptsToken: "oauth_token" });
+    if (
+      clerkAuth.tokenType !== "oauth_token" ||
+      !clerkAuth.isAuthenticated ||
+      typeof clerkAuth.subject !== "string" ||
+      clerkAuth.subject.length === 0
+    ) {
+      return undefined;
+    }
+
+    return {
+      token: bearerToken,
+      clientId: clerkAuth.id ?? "clerk",
+      scopes: clerkAuth.scopes ?? [],
+      extra: { userId: clerkAuth.subject },
+    };
+  } catch {
     return undefined;
   }
-
-  return {
-    token: bearerToken,
-    clientId: clerkAuth.id ?? "clerk",
-    scopes: clerkAuth.scopes ?? [],
-    extra: { userId: clerkAuth.subject },
-  };
 }
 
 export function getAuthUserId(

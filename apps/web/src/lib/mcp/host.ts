@@ -10,7 +10,8 @@ export function isAllowedHost(
   allowedHosts: string[]
 ): boolean {
   if (!hostHeader) return false;
-  const host = hostHeader.split(",")[0]?.trim().toLowerCase();
+  if (hostHeader.includes(",")) return false;
+  const host = hostHeader.trim().toLowerCase();
   if (!host) return false;
   return allowedHosts.includes(host);
 }

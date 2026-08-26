@@ -21,4 +21,11 @@ describe("MCP host allow-list", () => {
     expect(isAllowedHost(null, allowed)).toBe(false);
     expect(isAllowedHost("evil.example", allowed)).toBe(false);
   });
+
+  test("rejects a multi-value Host header", () => {
+    const allowed = parseAllowedHosts("app.rlpeng.com.br");
+    expect(isAllowedHost("app.rlpeng.com.br,evil.example", allowed)).toBe(
+      false
+    );
+  });
 });

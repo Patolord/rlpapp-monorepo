@@ -41,13 +41,18 @@ describe("MCP engineering equipment query", () => {
 
   test("engenheiro lê o recorte sem IDs de storage", async () => {
     const t = setup();
-    const equipmentId = await t.run(async (ctx) => {
-      return await ctx.db.insert("equipment", {
+    const { equipmentId, labelPhotoId } = await t.run(async (ctx) => {
+      const labelPhotoId = await ctx.storage.store(
+        new Blob(["label"], { type: "image/jpeg" })
+      );
+      const equipmentId = await ctx.db.insert("equipment", {
         description: "Condensadora",
         status: "operational",
         createdAt: 1,
         notes: "ok",
+        labelPhotoIds: [labelPhotoId],
       });
+      return { equipmentId, labelPhotoId };
     });
 
     const asEngineer = await withUser(t, {
@@ -68,5 +73,6 @@ describe("MCP engineering equipment query", () => {
       notes: "ok",
     });
     expect(equipment).not.toHaveProperty("labelPhotoIds");
+    expect(JSON.stringify(equipment)).not.toContain(labelPhotoId);
   });
 });

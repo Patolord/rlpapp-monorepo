@@ -1,7 +1,11 @@
 import type { McpServer, ServerContext } from "@modelcontextprotocol/server";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 
-import type { EngineeringAdapterFactory } from "./adapter";
+import type {
+  EngineeringAdapterFactory,
+  ProjectHierarchyResult,
+  ProjectOverviewResult,
+} from "./adapter";
 import { getAuthUserId } from "./auth";
 import { sanitizeErrorMessage } from "./errors";
 import {
@@ -43,6 +47,43 @@ async function resolveAdapter(
     throw new Error("Not authenticated");
   }
   return await factory(userId);
+}
+
+function omitQrToken<T extends { token?: unknown }>(item: T): Omit<T, "token"> {
+  const { token: _token, ...rest } = item;
+  return rest;
+}
+
+function withoutQrTokensFromOverview(
+  overview: ProjectOverviewResult
+): unknown {
+  if (!overview) return overview;
+  return {
+    ...overview,
+    units: overview.units.map((unit) => ({
+      ...unit,
+      equipment: unit.equipment.map(omitQrToken),
+    })),
+  };
+}
+
+function withoutQrTokensFromHierarchy(
+  hierarchy: ProjectHierarchyResult
+): unknown {
+  if (!hierarchy) return hierarchy;
+  return {
+    ...hierarchy,
+    towers: hierarchy.towers.map((tower) => ({
+      ...tower,
+      floors: tower.floors.map((floor) => ({
+        ...floor,
+        environments: floor.environments.map((environment) => ({
+          ...environment,
+          equipment: environment.equipment.map(omitQrToken),
+        })),
+      })),
+    })),
+  };
 }
 
 export function registerEngineeringTools(
@@ -132,7 +173,9 @@ export function registerEngineeringTools(
         const overview = await adapter.getProjectOverview({
           projectId: args.projectId as Id<"projects">,
         });
-        return jsonResult({ overview });
+        return jsonResult({
+          overview: withoutQrTokensFromOverview(overview),
+        });
       } catch (error) {
         return errorResult(error);
       }
@@ -155,7 +198,9 @@ export function registerEngineeringTools(
         const hierarchy = await adapter.getProjectHierarchy({
           projectId: args.projectId as Id<"projects">,
         });
-        return jsonResult({ hierarchy });
+        return jsonResult({
+          hierarchy: withoutQrTokensFromHierarchy(hierarchy),
+        });
       } catch (error) {
         return errorResult(error);
       }

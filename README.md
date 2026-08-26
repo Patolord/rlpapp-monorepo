@@ -97,7 +97,7 @@ Ferramentas: `list_projects`, `resolve_project`, `get_project_overview`, `get_pr
 ### 1. Gerar o par de chaves de delegação
 
 ```bash
-node --input-type=module -e "
+pnpm --dir apps/web exec node --input-type=module -e "
 import { generateKeyPair, exportPKCS8, exportJWK } from 'jose';
 const { publicKey, privateKey } = await generateKeyPair('RS256', { extractable: true });
 const pkcs8 = await exportPKCS8(privateKey);

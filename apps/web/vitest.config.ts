@@ -6,6 +6,6 @@ export default defineConfig({
   test: {
     name: "unit",
     environment: "node",
-    include: ["src/lib/mcp/**/*.test.ts"],
+    include: ["src/**/*.test.ts"],
   },
 });

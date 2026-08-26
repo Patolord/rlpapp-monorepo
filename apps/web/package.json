@@ -9,6 +9,7 @@
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run --config vitest.config.ts",
+    "test:mcp": "vitest run --config vitest.config.ts src/lib/mcp",
     "test:e2e": "playwright test",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"

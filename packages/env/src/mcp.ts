@@ -4,7 +4,7 @@ const mcpEnvSchema = z.object({
   VITE_CONVEX_URL: z.url(),
   VITE_CLERK_PUBLISHABLE_KEY: z.string().min(1),
   MCP_RESOURCE_URL: z.url(),
-  MCP_JWT_ISSUER: z.string().min(1),
+  MCP_JWT_ISSUER: z.url(),
   MCP_JWT_PRIVATE_KEY: z.string().min(1),
   MCP_ALLOWED_HOSTS: z.string().min(1),
   MCP_JWT_KEY_ID: z.string().min(1).default("mcp-delegation"),
@@ -38,7 +38,7 @@ export function getMcpEnv(): McpEnv {
     MCP_JWT_ISSUER: readValue("MCP_JWT_ISSUER"),
     MCP_JWT_PRIVATE_KEY: readValue("MCP_JWT_PRIVATE_KEY"),
     MCP_ALLOWED_HOSTS: readValue("MCP_ALLOWED_HOSTS"),
-    MCP_JWT_KEY_ID: readValue("MCP_JWT_KEY_ID") ?? "mcp-delegation",
+    MCP_JWT_KEY_ID: readValue("MCP_JWT_KEY_ID"),
   });
   return cached;
 }
