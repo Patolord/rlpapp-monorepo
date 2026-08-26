@@ -20,6 +20,38 @@ export const get = authedQuery({
   },
 });
 
+const engineeringEquipmentReturn = v.object({
+  _id: v.id("equipment"),
+  description: v.union(v.string(), v.null()),
+  status: equipmentStatusValidator,
+  createdAt: v.number(),
+  projectEquipmentId: v.union(v.id("projectEquipment"), v.null()),
+  createdByUserId: v.union(v.id("users"), v.null()),
+  tag: v.union(v.string(), v.null()),
+  type: v.union(v.string(), v.null()),
+  notes: v.union(v.string(), v.null()),
+});
+
+export const getForEngineering = engineeringQuery({
+  args: { id: v.id("equipment") },
+  returns: v.union(engineeringEquipmentReturn, v.null()),
+  handler: async (ctx, args) => {
+    const equipment = await ctx.db.get("equipment", args.id);
+    if (!equipment) return null;
+    return {
+      _id: equipment._id,
+      description: equipment.description ?? null,
+      status: equipment.status,
+      createdAt: equipment.createdAt,
+      projectEquipmentId: equipment.projectEquipmentId ?? null,
+      createdByUserId: equipment.createdByUserId ?? null,
+      tag: equipment.tag ?? null,
+      type: equipment.type ?? null,
+      notes: equipment.notes ?? null,
+    };
+  },
+});
+
 export const list = staffQuery({
   args: {},
   handler: async (ctx) => {

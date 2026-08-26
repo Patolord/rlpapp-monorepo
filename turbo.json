@@ -30,7 +30,13 @@
         "WHATSAPP_ACCESS_TOKEN",
         "WHATSAPP_APP_SECRET",
         "WHATSAPP_PHONE_NUMBER_ID",
-        "WHATSAPP_VERIFY_TOKEN"
+        "WHATSAPP_VERIFY_TOKEN",
+        "MCP_RESOURCE_URL",
+        "MCP_JWT_ISSUER",
+        "MCP_JWT_PRIVATE_KEY",
+        "MCP_JWT_JWKS",
+        "MCP_JWT_KEY_ID",
+        "MCP_ALLOWED_HOSTS"
       ]
     },
     "lint": {
