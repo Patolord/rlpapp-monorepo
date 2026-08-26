@@ -2,10 +2,16 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { formatCurrency } from "@rlpapp/shared";
 import { useMutation, useQuery } from "convex/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getErrorMessage } from "@/lib/errors";
@@ -26,6 +32,36 @@ function monthOptions(fromYear: number, toYear: number) {
     }
   }
   return options;
+}
+
+function monthKey(year: number, month: number) {
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+function SyncedInput({
+  value,
+  disabled,
+  className,
+  onCommit,
+}: {
+  value: string;
+  disabled?: boolean;
+  className?: string;
+  onCommit: (value: string) => void;
+}) {
+  const [text, setText] = useState(value);
+  useEffect(() => {
+    setText(value);
+  }, [value]);
+  return (
+    <Input
+      className={className}
+      disabled={disabled}
+      value={text}
+      onChange={(event) => setText(event.target.value)}
+      onBlur={() => onCommit(text)}
+    />
+  );
 }
 
 export function PayrollLoanDialog({
@@ -61,7 +97,19 @@ export function PayrollLoanDialog({
   const [avulso, setAvulso] = useState(
     formatCentsInput(manualLoanDeductionCents)
   );
+  const [newTotal, setNewTotal] = useState("");
+  const [newCount, setNewCount] = useState("10");
+  const [newStart, setNewStart] = useState(monthKey(year, paymentMonth));
   const options = monthOptions(year - 1, year + 1);
+
+  function commitLoan(
+    patch: Parameters<typeof updateLoan>[0],
+    fallback: string
+  ) {
+    void updateLoan(patch).catch((error) =>
+      toast.error(getErrorMessage(error, fallback))
+    );
+  }
 
   async function saveAvulso() {
     try {
@@ -74,53 +122,88 @@ export function PayrollLoanDialog({
     }
   }
 
+  async function handleCreateLoan() {
+    try {
+      if (!newTotal.trim()) {
+        toast.error("Informe o valor total");
+        return;
+      }
+      const totalCents = parsePayrollAmountToCents(newTotal);
+      const installmentCount = Math.max(
+        1,
+        Number.parseInt(newCount, 10) || 1
+      );
+      const [startYear, startMonth] = newStart.split("-").map(Number);
+      await createLoan({
+        employeeId,
+        totalCents,
+        installmentCount,
+        startYear,
+        startMonth,
+      });
+      setNewTotal("");
+      setNewCount("10");
+      setNewStart(monthKey(year, paymentMonth));
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao criar empréstimo"));
+    }
+  }
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6"
-      onClick={onClose}
-    >
-      <div
-        className="bg-card max-h-[88vh] w-[780px] max-w-full overflow-auto rounded-[var(--radius)] border border-border shadow-xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-border bg-card px-5 py-4">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="flex max-h-[88vh] w-[780px] max-w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[780px]">
+        <DialogHeader className="sticky top-0 z-10 flex-row items-center justify-between space-y-0 border-b border-border px-5 py-4 pr-12 text-left">
           <div>
             <div className="text-[11px] font-bold tracking-[0.06em] text-muted-foreground uppercase">
               Empréstimos
             </div>
-            <div className="text-base font-bold">
+            <DialogTitle className="text-base font-bold">
               {employeeName}
               {jobTitle ? ` · ${jobTitle}` : ""}
-            </div>
+            </DialogTitle>
           </div>
-          <div className="flex items-center gap-2">
-            {!closed && (
-              <Button
-                size="sm"
-                onClick={() =>
-                  void createLoan({
-                    employeeId,
-                    totalCents: 100_000,
-                    installmentCount: 10,
-                    installmentCents: 10_000,
-                    startYear: year,
-                    startMonth: paymentMonth,
-                  }).catch((error) =>
-                    toast.error(
-                      getErrorMessage(error, "Erro ao criar empréstimo")
-                    )
-                  )
-                }
-              >
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Fechar
+          </Button>
+        </DialogHeader>
+        <div className="flex flex-col gap-3 overflow-auto p-5">
+          {!closed && (
+            <div className="flex flex-wrap items-end gap-3 rounded-[var(--radius)] border border-dashed border-border px-4 py-3">
+              <label className="flex flex-col gap-1 text-[10.5px] font-semibold tracking-[0.04em] text-muted-foreground uppercase">
+                Valor total (R$)
+                <Input
+                  className="h-8 w-[110px] text-right text-sm font-semibold tabular-nums"
+                  value={newTotal}
+                  onChange={(event) => setNewTotal(event.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-[10.5px] font-semibold tracking-[0.04em] text-muted-foreground uppercase">
+                Nº parcelas
+                <Input
+                  className="h-8 w-20 text-right text-sm font-semibold tabular-nums"
+                  value={newCount}
+                  onChange={(event) => setNewCount(event.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-[10.5px] font-semibold tracking-[0.04em] text-muted-foreground uppercase">
+                Início do desconto
+                <select
+                  className="h-8 rounded-md border border-border bg-background px-2 text-sm font-semibold"
+                  value={newStart}
+                  onChange={(event) => setNewStart(event.target.value)}
+                >
+                  {options.map((option) => (
+                    <option key={option.key} value={option.key}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button size="sm" onClick={() => void handleCreateLoan()}>
                 + Novo empréstimo
               </Button>
-            )}
-            <Button variant="outline" size="sm" onClick={onClose}>
-              Fechar
-            </Button>
-          </div>
-        </div>
-        <div className="flex flex-col gap-3 p-5">
+            </div>
+          )}
           {loans === undefined ? (
             <p className="text-sm text-muted-foreground">Carregando...</p>
           ) : loans.length === 0 ? (
@@ -136,58 +219,79 @@ export function PayrollLoanDialog({
                 <div className="flex flex-wrap items-end gap-3">
                   <label className="flex flex-col gap-1 text-[10.5px] font-semibold tracking-[0.04em] text-muted-foreground uppercase">
                     Valor total (R$)
-                    <Input
+                    <SyncedInput
                       className="h-8 w-[110px] text-right text-sm font-semibold tabular-nums"
                       disabled={closed}
-                      defaultValue={formatCentsInput(loan.totalCents)}
-                      onBlur={(event) => {
-                        const totalCents = parsePayrollAmountToCents(
-                          event.target.value || "0"
-                        );
-                        void updateLoan({
-                          loanId: loan._id,
-                          totalCents,
-                          installmentCents: Math.round(
-                            totalCents / loan.installmentCount
-                          ),
-                        });
+                      value={formatCentsInput(loan.totalCents)}
+                      onCommit={(value) => {
+                        try {
+                          const totalCents = parsePayrollAmountToCents(
+                            value || "0"
+                          );
+                          commitLoan(
+                            {
+                              loanId: loan._id,
+                              totalCents,
+                              installmentCents: Math.round(
+                                totalCents / loan.installmentCount
+                              ),
+                            },
+                            "Erro ao atualizar empréstimo"
+                          );
+                        } catch (error) {
+                          toast.error(
+                            getErrorMessage(error, "Erro ao atualizar empréstimo")
+                          );
+                        }
                       }}
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-[10.5px] font-semibold tracking-[0.04em] text-muted-foreground uppercase">
                     Nº parcelas
-                    <Input
+                    <SyncedInput
                       className="h-8 w-20 text-right text-sm font-semibold tabular-nums"
                       disabled={closed}
-                      defaultValue={String(loan.installmentCount)}
-                      onBlur={(event) => {
+                      value={String(loan.installmentCount)}
+                      onCommit={(value) => {
                         const installmentCount = Math.max(
                           1,
-                          Number.parseInt(event.target.value, 10) || 1
+                          Number.parseInt(value, 10) || 1
                         );
-                        void updateLoan({
-                          loanId: loan._id,
-                          installmentCount,
-                          installmentCents: Math.round(
-                            loan.totalCents / installmentCount
-                          ),
-                        });
+                        commitLoan(
+                          {
+                            loanId: loan._id,
+                            installmentCount,
+                            installmentCents: Math.round(
+                              loan.totalCents / installmentCount
+                            ),
+                          },
+                          "Erro ao atualizar empréstimo"
+                        );
                       }}
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-[10.5px] font-semibold tracking-[0.04em] text-muted-foreground uppercase">
                     Valor da parcela (R$)
-                    <Input
+                    <SyncedInput
                       className="h-8 w-[110px] text-right text-sm font-semibold tabular-nums"
                       disabled={closed}
-                      defaultValue={formatCentsInput(loan.installmentCents)}
-                      onBlur={(event) => {
-                        void updateLoan({
-                          loanId: loan._id,
-                          installmentCents: parsePayrollAmountToCents(
-                            event.target.value || "0"
-                          ),
-                        });
+                      value={formatCentsInput(loan.installmentCents)}
+                      onCommit={(value) => {
+                        try {
+                          commitLoan(
+                            {
+                              loanId: loan._id,
+                              installmentCents: parsePayrollAmountToCents(
+                                value || "0"
+                              ),
+                            },
+                            "Erro ao atualizar empréstimo"
+                          );
+                        } catch (error) {
+                          toast.error(
+                            getErrorMessage(error, "Erro ao atualizar empréstimo")
+                          );
+                        }
                       }}
                     />
                   </label>
@@ -201,11 +305,14 @@ export function PayrollLoanDialog({
                         const [startYear, startMonth] = event.target.value
                           .split("-")
                           .map(Number);
-                        void updateLoan({
-                          loanId: loan._id,
-                          startYear,
-                          startMonth,
-                        });
+                        commitLoan(
+                          {
+                            loanId: loan._id,
+                            startYear,
+                            startMonth,
+                          },
+                          "Erro ao atualizar empréstimo"
+                        );
                       }}
                     >
                       {options.map((option) => (
@@ -217,7 +324,7 @@ export function PayrollLoanDialog({
                   </label>
                   <div className="flex flex-col gap-1 text-[10.5px] font-semibold tracking-[0.04em] text-muted-foreground uppercase">
                     Término
-                    <div className="flex h-8 items-center text-sm font-bold text-foreground normal-case tracking-normal">
+                    <div className="flex h-8 items-center text-sm font-bold tracking-normal text-foreground normal-case">
                       {MONTH_LABELS[loan.endMonth - 1]}/
                       {String(loan.endYear).slice(-2)}
                     </div>
@@ -229,7 +336,11 @@ export function PayrollLoanDialog({
                       className="ml-auto text-destructive"
                       onClick={() => {
                         if (!confirm("Excluir este empréstimo?")) return;
-                        void archiveLoan({ loanId: loan._id });
+                        void archiveLoan({ loanId: loan._id }).catch((error) =>
+                          toast.error(
+                            getErrorMessage(error, "Erro ao excluir empréstimo")
+                          )
+                        );
                       }}
                     >
                       Excluir
@@ -284,7 +395,7 @@ export function PayrollLoanDialog({
             />
           </Label>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

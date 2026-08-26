@@ -75,6 +75,42 @@ describe("payroll helpers", () => {
     expect(may.paidCount).toBe(0);
   });
 
+  test("caps each period by remaining total and settles the last balance", () => {
+    const loan = {
+      totalCents: 100_000,
+      installmentCount: 3,
+      installmentCents: 33_333,
+      startYear: 2026,
+      startMonth: 1,
+    };
+    const january = loanStatus(loan, 2026, 1);
+    expect(january.dueCents).toBe(33_333);
+    expect(january.outstandingCents).toBe(66_667);
+    expect(january.settled).toBe(false);
+    const february = loanStatus(loan, 2026, 2);
+    expect(february.dueCents).toBe(33_333);
+    expect(february.outstandingCents).toBe(33_334);
+    const march = loanStatus(loan, 2026, 3);
+    expect(march.dueCents).toBe(33_334);
+    expect(march.outstandingCents).toBe(0);
+    expect(march.settled).toBe(true);
+
+    const oversized = {
+      totalCents: 100_000,
+      installmentCount: 10,
+      installmentCents: 15_000,
+      startYear: 2026,
+      startMonth: 1,
+    };
+    const july = loanStatus(oversized, 2026, 7);
+    expect(july.dueCents).toBe(10_000);
+    expect(july.outstandingCents).toBe(0);
+    expect(july.settled).toBe(true);
+    const august = loanStatus(oversized, 2026, 8);
+    expect(august.dueCents).toBe(0);
+    expect(august.settled).toBe(true);
+  });
+
   test("formats competência labels", () => {
     expect(
       formatPayrollRunLabel({

@@ -132,18 +132,21 @@ async function assertUniqueEmployeeIdentity(
       q.eq("nameNormalized", nameNormalized)
     )
     .collect();
-  const nameConflict = existingByName.find((row) => row._id !== params.excludeId);
+  const nameConflict = existingByName.find(
+    (row) => row._id !== params.excludeId && !row.archivedAt
+  );
   if (nameConflict) {
     throw new Error("Já existe um funcionário com este nome");
   }
 
   if (params.code) {
+    const code = params.code;
     const existingByCode = await ctx.db
       .query("employees")
-      .withIndex("by_code", (q) => q.eq("code", params.code))
+      .withIndex("by_code", (q) => q.eq("code", code))
       .collect();
     const codeConflict = existingByCode.find(
-      (row) => row._id !== params.excludeId
+      (row) => row._id !== params.excludeId && !row.archivedAt
     );
     if (codeConflict) {
       throw new Error("Já existe um funcionário com este código");
@@ -158,7 +161,9 @@ async function assertUniqueEmployeeIdentity(
         q.eq("cpfNormalized", cpfNormalized)
       )
       .collect();
-    const cpfConflict = existingByCpf.find((row) => row._id !== params.excludeId);
+    const cpfConflict = existingByCpf.find(
+      (row) => row._id !== params.excludeId && !row.archivedAt
+    );
     if (cpfConflict) {
       throw new Error("Já existe um funcionário com este CPF");
     }

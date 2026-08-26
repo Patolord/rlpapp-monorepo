@@ -45,6 +45,19 @@ describe("employees API", () => {
       includeArchived: true,
     });
     expect(archived[0]?.archivedAt).not.toBeNull();
+
+    await hr.mutation(api.employees.restore, { employeeId });
+    const restored = await hr.query(api.employees.list, {});
+    expect(restored).toHaveLength(1);
+    expect(restored[0]?._id).toBe(employeeId);
+
+    await hr.mutation(api.employees.archive, { employeeId });
+    await expect(
+      hr.mutation(api.employees.update, {
+        employeeId,
+        jobTitle: "AJUDANTE",
+      })
+    ).rejects.toThrow(/arquivado/i);
   });
 
   test("blocks engenharia and duplicate identity", async () => {

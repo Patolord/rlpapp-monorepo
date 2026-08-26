@@ -9,6 +9,13 @@ import { toast } from "sonner";
 
 import { PayrollLoanDialog } from "@/components/rh/payroll-loan-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { getErrorMessage } from "@/lib/errors";
 import { formatPayrollRunLabel } from "@/lib/rh/labels";
@@ -53,7 +60,10 @@ function runOptions(centerYear: number) {
 }
 
 function exportCsv(lines: Line[], key: string) {
-  const esc = (value: string) => `"${value.replace(/"/g, '""')}"`;
+  const esc = (value: string) => {
+    const neutralized = /^[=+\-@]/.test(value) ? `'${value}` : value;
+    return `"${neutralized.replace(/"/g, '""')}"`;
+  };
   const num = (cents: number) => (cents / 100).toFixed(2).replace(".", ",");
   const head = [
     "Cod",
@@ -154,9 +164,6 @@ export function PayrollWorkspace() {
   const [paymentMonth, setPaymentMonth] = useState(initial.month);
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
-  const [createAttemptedKey, setCreateAttemptedKey] = useState<string | null>(
-    null
-  );
   const [addOpen, setAddOpen] = useState(false);
   const [loanLine, setLoanLine] = useState<Line | null>(null);
 
@@ -172,28 +179,6 @@ export function PayrollWorkspace() {
   const addEmployeeToRun = useMutation(api.payroll.addEmployeeToRun);
   const closeRun = useMutation(api.payroll.closeRun);
   const reopenRun = useMutation(api.payroll.reopenRun);
-  const selectedKey = monthKey(year, paymentMonth);
-
-  useEffect(() => {
-    if (!workspace || workspace.run || creating) return;
-    if (createAttemptedKey === selectedKey) return;
-    setCreating(true);
-    setCreateAttemptedKey(selectedKey);
-    void createRun({ year, paymentMonth })
-      .catch((error) =>
-        toast.error(getErrorMessage(error, "Erro ao abrir a competência"))
-      )
-      .finally(() => setCreating(false));
-  }, [
-    workspace,
-    year,
-    paymentMonth,
-    creating,
-    createRun,
-    createAttemptedKey,
-    selectedKey,
-  ]);
-
   const run = workspace?.run ?? null;
   const closed = run?.status === "closed";
   const lines = useMemo(() => workspace?.lines ?? [], [workspace?.lines]);
@@ -254,11 +239,29 @@ export function PayrollWorkspace() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => exportCsv(lines, monthKey(year, paymentMonth))}
+            onClick={() => exportCsv(filtered, monthKey(year, paymentMonth))}
             disabled={lines.length === 0}
           >
             Exportar CSV
           </Button>
+          {!run && (
+            <Button
+              size="sm"
+              disabled={creating || workspace === undefined}
+              onClick={() => {
+                setCreating(true);
+                void createRun({ year, paymentMonth })
+                  .catch((error) =>
+                    toast.error(
+                      getErrorMessage(error, "Erro ao abrir a competência")
+                    )
+                  )
+                  .finally(() => setCreating(false));
+              }}
+            >
+              Abrir competência
+            </Button>
+          )}
           <Button
             size="sm"
             disabled={!run || closed}
@@ -408,10 +411,17 @@ export function PayrollWorkspace() {
             </tr>
           </thead>
           <tbody>
-            {workspace === undefined || (!run && creating) ? (
+            {workspace === undefined || creating ? (
               <tr>
                 <td colSpan={21} className="px-4 py-8 text-muted-foreground">
                   Carregando folha...
+                </td>
+              </tr>
+            ) : !run ? (
+              <tr>
+                <td colSpan={21} className="px-4 py-8 text-muted-foreground">
+                  Nenhuma competência aberta. Use Abrir competência para iniciar
+                  esta folha.
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
@@ -824,20 +834,16 @@ function AddEmployeeDialog({
   const [employeeId, setEmployeeId] = useState<string>(available[0]?._id ?? "");
   const [submitting, setSubmitting] = useState(false);
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6"
-      onClick={onClose}
-    >
-      <div
-        className="w-[420px] max-w-full space-y-4 rounded-[var(--radius)] border border-border bg-card p-5"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="space-y-4 sm:max-w-[420px]">
+        <DialogHeader>
           <div className="text-[11px] font-bold tracking-[0.06em] text-muted-foreground uppercase">
             Folha
           </div>
-          <h2 className="text-base font-bold">Adicionar funcionário</h2>
-        </div>
+          <DialogTitle className="text-base font-bold">
+            Adicionar funcionário
+          </DialogTitle>
+        </DialogHeader>
         {available.length > 0 && (
           <label className="flex flex-col gap-1 text-sm">
             Cadastro existente
@@ -877,7 +883,7 @@ function AddEmployeeDialog({
             onChange={(event) => setName(event.target.value)}
           />
         </label>
-        <div className="flex justify-end gap-2">
+        <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
@@ -894,9 +900,9 @@ function AddEmployeeDialog({
           >
             Criar e incluir
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

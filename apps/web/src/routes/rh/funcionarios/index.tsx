@@ -2,7 +2,7 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { Plus, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { AuthShell } from "@/components/auth-shell";
 import {
@@ -40,20 +40,10 @@ function FuncionariosContent() {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [includeArchived, setIncludeArchived] = useState(false);
-  const employees = useQuery(api.employees.list, { includeArchived });
-
-  const filtered = useMemo(() => {
-    if (!employees) return [];
-    if (!search.trim()) return employees;
-    const term = search.toLowerCase();
-    return employees.filter(
-      (employee) =>
-        employee.name.toLowerCase().includes(term) ||
-        (employee.jobTitle?.toLowerCase().includes(term) ?? false) ||
-        (employee.code?.includes(term) ?? false) ||
-        (employee.cpf?.includes(term) ?? false)
-    );
-  }, [employees, search]);
+  const employees = useQuery(api.employees.list, {
+    includeArchived,
+    search: search.trim() || undefined,
+  });
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -113,19 +103,19 @@ function FuncionariosContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.length === 0 ? (
+                {employees.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={7}
                       className="py-8 text-center text-muted-foreground"
                     >
-                      {employees?.length
+                      {search.trim()
                         ? "Nenhum funcionário corresponde à busca."
                         : "Nenhum funcionário cadastrado."}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((employee) => (
+                  employees.map((employee) => (
                   <TableRow key={employee._id}>
                     <TableCell className="text-muted-foreground">
                       {employee.code ?? "—"}

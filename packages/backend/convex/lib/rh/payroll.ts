@@ -107,9 +107,25 @@ export function loanStatus(
   const totalCents = Math.max(0, Math.round(loan.totalCents));
   const end = start + installmentCount - 1;
   const paidCount = Math.min(Math.max(current - start + 1, 0), installmentCount);
+  const paidAfterPeriods = (periods: number) => {
+    if (periods <= 0) return 0;
+    if (periods >= installmentCount) return totalCents;
+    return Math.min(periods * installmentCents, totalCents);
+  };
+  const remainingBeforeThisPeriod = Math.max(
+    totalCents - paidAfterPeriods(Math.max(paidCount - 1, 0)),
+    0
+  );
   const dueCents =
-    current >= start && current <= end ? installmentCents : 0;
-  const outstandingCents = Math.max(totalCents - paidCount * installmentCents, 0);
+    current >= start && current <= end
+      ? current === end
+        ? remainingBeforeThisPeriod
+        : Math.min(installmentCents, remainingBeforeThisPeriod)
+      : 0;
+  const outstandingCents = Math.max(
+    totalCents - paidAfterPeriods(paidCount),
+    0
+  );
   const endKey = fromMonthIndex(end);
   return {
     installmentCount,
@@ -120,7 +136,7 @@ export function loanStatus(
     outstandingCents,
     endYear: endKey.year,
     endMonth: endKey.month,
-    settled: paidCount >= installmentCount,
+    settled: outstandingCents === 0 && current >= start,
     progressPercent: installmentCount
       ? Math.round((paidCount / installmentCount) * 100)
       : 0,

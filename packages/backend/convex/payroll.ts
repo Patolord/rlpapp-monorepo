@@ -265,9 +265,7 @@ async function insertLineFromEmployee(
     transportFoodDays:
       source?.transportFoodDays ??
       (source ? run.defaultTransportFoodDays : employee.defaultTransportFoodDays),
-    dailyTransitCents:
-      source?.dailyTransitCents ??
-      (source ? employee.dailyTransitCents : employee.dailyTransitCents),
+    dailyTransitCents: source?.dailyTransitCents ?? employee.dailyTransitCents,
     supplementCents: source?.supplementCents ?? 0,
     thirteenthFirstCents: source?.thirteenthFirstCents ?? 0,
     thirteenthSecondCents: source?.thirteenthSecondCents ?? 0,
@@ -554,7 +552,13 @@ export const createRun = hrMutation({
         .collect();
       for (const line of previousLines) {
         const employee = await ctx.db.get("employees", line.employeeId);
-        if (!employee || employee.archivedAt) continue;
+        if (
+          !employee ||
+          employee.archivedAt ||
+          employee.status === "terminated"
+        ) {
+          continue;
+        }
         await insertLineFromEmployee(ctx, run, employee, line);
       }
     } else {
@@ -816,6 +820,19 @@ export const updateLine = hrMutation({
     }
     if (args.notes !== undefined) extra.notes = args.notes?.trim() || undefined;
 
+    if (args.name !== undefined) {
+      const nameNormalized = normalizeCustomerName(extra.name!);
+      const existingByName = await ctx.db
+        .query("employees")
+        .withIndex("by_name_normalized", (q) =>
+          q.eq("nameNormalized", nameNormalized)
+        )
+        .collect();
+      if (existingByName.some((row) => row._id !== line.employeeId)) {
+        throw new Error("Já existe um funcionário com este nome");
+      }
+    }
+
     await recomputeLine(ctx, run, line, extra);
 
     const identityPatch: Partial<Doc<"employees">> = {};
@@ -857,6 +874,13 @@ export const togglePaid = hrMutation({
       paidAt: args.paid ? Date.now() : undefined,
       paidByUserId: args.paid ? ctx.user._id : undefined,
       updatedAt: Date.now(),
+    });
+    await logAudit(ctx, ctx.user, {
+      action: "update",
+      tableName: "payrollLines",
+      recordId: args.lineId,
+      entityLabel: line.name,
+      details: args.paid ? "Pagamento confirmado" : "Pagamento desfeito",
     });
     return null;
   },
@@ -1028,11 +1052,7 @@ export const updateLoan = hrMutation({
     if (args.description !== undefined) {
       updates.description = args.description?.trim() || undefined;
     }
-    if (
-      args.totalCents !== undefined &&
-      args.installmentCents === undefined &&
-      args.installmentCount !== undefined
-    ) {
+    if (args.totalCents !== undefined && args.installmentCents === undefined) {
       updates.installmentCents = Math.round(
         (updates.totalCents ?? loan.totalCents) /
           (updates.installmentCount ?? loan.installmentCount)
@@ -1040,6 +1060,19 @@ export const updateLoan = hrMutation({
     }
     await ctx.db.patch("employeeLoans", args.loanId, updates);
     await recomputeEmployeeDraftLines(ctx, loan.employeeId);
+    await logAudit(ctx, ctx.user, {
+      action: "update",
+      tableName: "employeeLoans",
+      recordId: args.loanId,
+      details: "Empréstimo atualizado",
+      snapshotAfter: {
+        totalCents: updates.totalCents ?? loan.totalCents,
+        installmentCount: updates.installmentCount ?? loan.installmentCount,
+        installmentCents: updates.installmentCents ?? loan.installmentCents,
+        startYear: updates.startYear ?? loan.startYear,
+        startMonth: updates.startMonth ?? loan.startMonth,
+      },
+    });
     return null;
   },
 });
@@ -1057,6 +1090,12 @@ export const archiveLoan = hrMutation({
       updatedByUserId: ctx.user._id,
     });
     await recomputeEmployeeDraftLines(ctx, loan.employeeId);
+    await logAudit(ctx, ctx.user, {
+      action: "archive",
+      tableName: "employeeLoans",
+      recordId: args.loanId,
+      details: "Empréstimo excluído",
+    });
     return null;
   },
 });
