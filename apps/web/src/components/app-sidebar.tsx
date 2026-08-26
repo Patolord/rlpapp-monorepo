@@ -19,6 +19,7 @@ import {
   Warehouse,
   ArrowLeftRight,
   Shield,
+  Banknote,
   type LucideIcon,
 } from "lucide-react";
 
@@ -77,6 +78,14 @@ function getNavGroups(): NavGroup[] {
         { to: "/compras/takeoffs", label: "Takeoffs", icon: ClipboardList },
         { to: "/compras/eventos-preco", label: "Eventos de Preço", icon: Receipt },
         { to: "/compras/fila-revisao", label: "Fila de Revisão", icon: ClipboardList },
+      ],
+    },
+    {
+      key: "rh",
+      label: "Recursos Humanos",
+      items: [
+        { to: "/rh/folha", label: "Folha de pagamento", icon: Banknote },
+        { to: "/rh/funcionarios", label: "Funcionários", icon: Users },
       ],
     },
     {
@@ -164,6 +173,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     currentUser?.department === "engenharia" ||
     currentUser?.department === "compras" ||
     currentUser?.department === "estoque";
+  const hasRhAccess =
+    isDirector || isAdmin || currentUser?.department === "rh";
 
   const navGroups = isDirector || isAdmin
     ? getNavGroups()
@@ -171,6 +182,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         if (group.key === "engenharia") return hasEngineeringAccess;
         if (group.key === "compras") return hasPurchasingAccess;
         if (group.key === "estoque") return hasInventoryAccess;
+        if (group.key === "rh") return hasRhAccess;
         if (group.key === "configuracoes") {
           return hasEngineeringAccess || hasPurchasingAccess;
         }

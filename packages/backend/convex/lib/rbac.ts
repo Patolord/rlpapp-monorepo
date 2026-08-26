@@ -34,6 +34,8 @@ export type Permission =
   | "estoque.read"
   | "estoque.write"
   | "estoque.rules"
+  | "rh.read"
+  | "rh.write"
   | "admin.manage";
 
 /**
@@ -42,6 +44,7 @@ export type Permission =
  * - engenheiro: engenharia.* + suprimentos.read (independente de departamento)
  * - staff do departamento engenharia: engenharia.* + suprimentos.read
  * - staff do departamento compras: compras.* + suprimentos.read
+ * - staff do departamento rh: rh.*
  * - qr_operator: nenhuma permissão (usa apenas endpoints authed*)
  */
 export function hasPermission(
@@ -75,6 +78,9 @@ export function hasPermission(
       return user.department === "estoque";
     case "estoque.rules":
       return false;
+    case "rh.read":
+    case "rh.write":
+      return user.department === "rh";
     case "admin.manage":
       return false;
   }
@@ -89,6 +95,8 @@ const PERMISSION_DENIED_MESSAGE: Record<Permission, string> = {
   "estoque.read": "Acesso restrito às áreas de estoque, compras ou engenharia",
   "estoque.write": "Acesso restrito à equipe de estoque",
   "estoque.rules": "Apenas administradores podem configurar regras de estoque",
+  "rh.read": "Acesso restrito à área de recursos humanos",
+  "rh.write": "Acesso restrito à área de recursos humanos",
   "admin.manage": "Insufficient permissions",
 };
 
@@ -259,3 +267,9 @@ export const warehouseOrPurchasingMutation = customMutation(
 
 /** Director/admin — configuração das regras de compatibilidade. */
 export const inventoryRulesMutation = permissionMutation("estoque.rules");
+
+/** Director/admin ou staff do departamento RH. */
+export const hrQuery = permissionQuery("rh.read");
+
+/** Director/admin ou staff do departamento RH. */
+export const hrMutation = permissionMutation("rh.write");
