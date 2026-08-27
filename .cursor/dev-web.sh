@@ -3,8 +3,8 @@
 # Web dev server for the rlpapp Cloud Agent environment.
 #
 # The web app's client env vars (Clerk publishable key, server Clerk secret)
-# come from Doppler via `doppler run` when a DOPPLER_TOKEN is available. We
-# always override VITE_CONVEX_URL / VITE_CONVEX_SITE_URL to point at this
+# come from Doppler via `doppler run` when a DOPPLER_SERVICE_TOKEN is available.
+# We always override VITE_CONVEX_URL / VITE_CONVEX_SITE_URL to point at this
 # agent's *local anonymous* Convex deployment (started by the convex-backend
 # terminal), so the frontend talks to the isolated backend rather than the
 # shared team Convex that Doppler may reference.
@@ -15,6 +15,10 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+
+# The Doppler CLI reads DOPPLER_TOKEN; expose our clearly-named Cloud Agent
+# secret (DOPPLER_SERVICE_TOKEN) under that name.
+export DOPPLER_TOKEN="${DOPPLER_SERVICE_TOKEN:-${DOPPLER_TOKEN:-}}"
 
 LOCAL_CONVEX_URL="http://127.0.0.1:3210"
 LOCAL_CONVEX_SITE_URL="http://127.0.0.1:3211"
@@ -28,9 +32,9 @@ if [ -n "${DOPPLER_TOKEN:-}" ] && command -v doppler >/dev/null 2>&1 \
     pnpm -F web exec vite dev
 else
   if [ -n "${DOPPLER_TOKEN:-}" ]; then
-    echo "dev-web: WARNING: DOPPLER_TOKEN set but Doppler secrets unavailable; using placeholder Clerk credentials." >&2
+    echo "dev-web: WARNING: DOPPLER_SERVICE_TOKEN set but Doppler secrets unavailable; using placeholder Clerk credentials." >&2
   else
-    echo "dev-web: DOPPLER_TOKEN not set — starting with placeholder Clerk credentials."
+    echo "dev-web: DOPPLER_SERVICE_TOKEN not set — starting with placeholder Clerk credentials."
   fi
   PK="pk_test_$(printf 'placeholder-00.clerk.accounts.dev$' | base64 | tr -d '\n')"
   exec env \

@@ -4,7 +4,8 @@
 #
 # The repo uses Doppler (project `rlpeng`, config `dev`) as the source of truth
 # for local secrets. In a Cloud Agent, provide a Doppler *service token* as the
-# secret DOPPLER_TOKEN (Secrets panel) so secrets can be read non-interactively.
+# secret DOPPLER_SERVICE_TOKEN (Secrets panel) so secrets can be read
+# non-interactively.
 #
 # Convex is kept isolated per the repo's own agent-mode rule
 # (local-development-agent-mode.mdc): this cloud agent runs an *anonymous* local
@@ -17,6 +18,11 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+
+# The Doppler CLI reads DOPPLER_TOKEN; expose our clearly-named Cloud Agent
+# secret (DOPPLER_SERVICE_TOKEN) under that name. A pre-existing DOPPLER_TOKEN
+# is still honored as a fallback.
+export DOPPLER_TOKEN="${DOPPLER_SERVICE_TOKEN:-${DOPPLER_TOKEN:-}}"
 
 BACKEND_ENV="packages/backend/.env.local"
 export CONVEX_AGENT_MODE=anonymous
@@ -42,12 +48,12 @@ if [ -n "${DOPPLER_TOKEN:-}" ] && command -v doppler >/dev/null 2>&1; then
     v="$(dop_get OPENAI_API_KEY)"; [ -n "$v" ] && OPENAI_API_KEY_VAL="$v"
     SECRETS_SOURCE="doppler"
   else
-    echo "dev-bootstrap: WARNING: DOPPLER_TOKEN set but 'doppler secrets download' failed (check token scope: project rlpeng / config dev). Using placeholders." >&2
+    echo "dev-bootstrap: WARNING: DOPPLER_SERVICE_TOKEN set but 'doppler secrets download' failed (check token scope: project rlpeng / config dev). Using placeholders." >&2
   fi
 elif [ -n "${DOPPLER_TOKEN:-}" ]; then
-  echo "dev-bootstrap: WARNING: DOPPLER_TOKEN set but Doppler CLI unavailable; using placeholders." >&2
+  echo "dev-bootstrap: WARNING: DOPPLER_SERVICE_TOKEN set but Doppler CLI unavailable; using placeholders." >&2
 else
-  echo "dev-bootstrap: DOPPLER_TOKEN not set — using placeholder Clerk credentials. Add it (project rlpeng / config dev) to use real secrets." >&2
+  echo "dev-bootstrap: DOPPLER_SERVICE_TOKEN not set — using placeholder Clerk credentials. Add it (project rlpeng / config dev) to use real secrets." >&2
 fi
 echo "dev-bootstrap: secrets source = ${SECRETS_SOURCE}"
 
