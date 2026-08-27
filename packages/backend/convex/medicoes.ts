@@ -3,7 +3,7 @@ import { engineeringMutation, engineeringQuery } from "./lib/rbac";
 import { medicaoBasis, medicaoStatus, projectStatus } from "./schema";
 import { logAudit } from "./lib/audit";
 import { resolveCustomerLabel } from "./lib/projects/helpers";
-import { assertEligibleForMedicao } from "./lib/contracts/helpers";
+import { assertContractEligibleForMeasurement } from "./model/contracts/rules";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 
@@ -89,7 +89,7 @@ export const listContracts = engineeringQuery({
 
     const eligible = contracts.filter((contract) => {
       try {
-        assertEligibleForMedicao(contract);
+        assertContractEligibleForMeasurement(contract);
         return true;
       } catch {
         return false;
@@ -207,7 +207,7 @@ export const createMedicao = engineeringMutation({
   handler: async (ctx, args) => {
     const contract = await ctx.db.get("contracts", args.contractId);
     if (!contract) throw new Error("Contrato não encontrado");
-    assertEligibleForMedicao(contract);
+    assertContractEligibleForMeasurement(contract);
     const projectId = contract.projectId!;
 
     let amountCents: number;
@@ -415,7 +415,7 @@ export const getOverview = engineeringQuery({
           .collect();
         const eligible = contracts.filter((contract) => {
           try {
-            assertEligibleForMedicao(contract);
+            assertContractEligibleForMeasurement(contract);
             return true;
           } catch {
             return false;

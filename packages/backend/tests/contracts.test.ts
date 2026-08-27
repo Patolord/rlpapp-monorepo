@@ -3,29 +3,31 @@ import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
 import { setup } from "./helpers";
 import {
-  assertEligibleForMedicao,
-  assertValidCounterparty,
-  normalizeServiceItems,
-  sumServiceItemCents,
-} from "../convex/lib/contracts/helpers";
+  assertContractEligibleForMeasurement,
+  assertValidContractCounterparty,
+} from "../convex/model/contracts/rules";
+import {
+  normalizeContractServiceItems,
+  sumContractServiceItemCents,
+} from "../convex/model/contracts/serviceItems";
 
 describe("contract helpers", () => {
-  test("assertValidCounterparty requires matching counterparty", () => {
+  test("assertValidContractCounterparty requires matching counterparty", () => {
     expect(() =>
-      assertValidCounterparty({ direction: "client_sale" })
+      assertValidContractCounterparty({ direction: "client_sale" })
     ).toThrow("cliente");
     expect(() =>
-      assertValidCounterparty({
+      assertValidContractCounterparty({
         direction: "client_sale",
         customerId: "jd7abc" as Id<"customers">,
         contractorId: "jd7xyz" as Id<"contractors">,
       })
     ).toThrow("empreiteiro");
     expect(() =>
-      assertValidCounterparty({ direction: "contractor_hire" })
+      assertValidContractCounterparty({ direction: "contractor_hire" })
     ).toThrow("empreiteiro");
     expect(() =>
-      assertValidCounterparty({
+      assertValidContractCounterparty({
         direction: "contractor_hire",
         customerId: "jd7abc" as Id<"customers">,
         contractorId: "jd7xyz" as Id<"contractors">,
@@ -33,9 +35,11 @@ describe("contract helpers", () => {
     ).toThrow("cliente");
   });
 
-  test("normalizeServiceItems sums and validates", () => {
-    expect(() => normalizeServiceItems([])).toThrow("ao menos um serviço");
-    const items = normalizeServiceItems([
+  test("normalizeContractServiceItems sums and validates", () => {
+    expect(() => normalizeContractServiceItems([])).toThrow(
+      "ao menos um serviço"
+    );
+    const items = normalizeContractServiceItems([
       { description: " Instalação ", valueCents: 10050.4 },
       { description: "Comissionamento", valueCents: 2000 },
     ]);
@@ -43,18 +47,18 @@ describe("contract helpers", () => {
       { description: "Instalação", valueCents: 10050 },
       { description: "Comissionamento", valueCents: 2000 },
     ]);
-    expect(sumServiceItemCents(items)).toBe(12050);
+    expect(sumContractServiceItemCents(items)).toBe(12050);
   });
 
-  test("assertEligibleForMedicao allows only obra client sales", () => {
+  test("assertContractEligibleForMeasurement allows project client sales", () => {
     expect(() =>
-      assertEligibleForMedicao({
+      assertContractEligibleForMeasurement({
         direction: "contractor_hire",
         projectId: "p1" as Id<"projects">,
       } as never)
     ).toThrow("venda ao cliente");
     expect(() =>
-      assertEligibleForMedicao({
+      assertContractEligibleForMeasurement({
         direction: "client_sale",
       } as never)
     ).toThrow("vinculados a uma obra");
