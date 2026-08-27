@@ -4,7 +4,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "inputs": ["$TURBO_DEFAULT$"],
       "outputs": [
         ".next/**",
         "!.next/cache/**",
@@ -14,14 +14,21 @@
         ".output/**"
       ],
       "env": [
+        "CONVEX_DEPLOYMENT",
+        "CONVEX_URL",
+        "CONVEX_SITE_URL",
         "CONVEX_SECRET_KEY",
         "VITE_CONVEX_URL",
         "VITE_CONVEX_SITE_URL",
         "VITE_CLERK_PUBLISHABLE_KEY",
+        "EXPO_PUBLIC_CONVEX_URL",
+        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY",
         "CLERK_SECRET_KEY",
         "VITE_CLERK_JWT_ISSUER_DOMAIN",
         "CLERK_JWT_ISSUER_DOMAIN",
         "CLERK_PUBLISHABLE_KEY",
+        "CLERK_WEBHOOK_SECRET",
+        "OPENAI_API_KEY",
         "UMAMI_WEBSITE_ID",
         "AI_GATEWAY_API_KEY",
         "UPSTASH_REDIS_REST_URL",
@@ -30,7 +37,9 @@
         "WHATSAPP_ACCESS_TOKEN",
         "WHATSAPP_APP_SECRET",
         "WHATSAPP_PHONE_NUMBER_ID",
-        "WHATSAPP_VERIFY_TOKEN"
+        "WHATSAPP_VERIFY_TOKEN",
+        "E2E_CLERK_USER_USERNAME",
+        "E2E_CLERK_USER_PASSWORD"
       ]
     },
     "lint": {

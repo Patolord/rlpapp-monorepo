@@ -17,7 +17,8 @@
     "dev:web:server": "turbo -F web -F @rlpapp/backend dev",
     "dev:server": "turbo -F @rlpapp/backend dev",
     "dev:setup": "turbo -F @rlpapp/backend dev:setup",
-    "dev:agent": "pnpm -F @rlpapp/internal-agent dev:tui"
+    "dev:agent": "pnpm -F @rlpapp/internal-agent dev:tui",
+    "secrets:setup": "doppler setup --no-interactive"
   },
   "dependencies": {
     "@rlpapp/env": "workspace:*",

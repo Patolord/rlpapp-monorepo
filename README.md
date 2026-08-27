@@ -45,17 +45,17 @@ pnpm run dev:setup
 
 Siga os prompts para criar/conectar um projeto Convex. Isso gera o `packages/backend/.env.local`.
 
-### 3. Configurar variáveis de ambiente
+### 3. Configurar secrets com Doppler
 
-Cada app tem um `.env.example` com as variáveis necessárias:
+O CLI precisa estar instalado e autenticado (`brew install dopplerhq/cli/doppler` + `doppler login`).
 
 ```bash
-cp packages/backend/.env.example packages/backend/.env.local  # já gerado pelo dev:setup
-cp apps/web/.env.example apps/web/.env
-cp apps/native/.env.example apps/native/.env
+pnpm secrets:setup
 ```
 
-Preencha com os valores do seu deployment Convex e do Clerk Dashboard.
+Isso associa o diretório ao projeto Doppler `rlpeng` / config `dev`. Os scripts `pnpm dev*` injetam os secrets via `doppler run` — não é necessário copiar `.env` localmente.
+
+Para editar secrets: `doppler open` ou o [dashboard](https://dashboard.doppler.com).
 
 ### 4. Configurar o Clerk
 

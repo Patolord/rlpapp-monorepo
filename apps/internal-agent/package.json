@@ -10,8 +10,8 @@
     "#evals/*": "./evals/*"
   },
   "scripts": {
-    "dev": "eve dev --no-ui",
-    "dev:tui": "eve dev",
+    "dev": "doppler run -- eve dev --no-ui",
+    "dev:tui": "doppler run -- eve dev",
     "build": "eve build",
     "start": "eve start",
     "check-types": "tsc --noEmit",
