@@ -4,12 +4,12 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "serve": "vite preview",
-    "dev": "vite dev",
+    "serve": "doppler run -- vite preview",
+    "dev": "doppler run -- vite dev",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test:e2e": "playwright test",
-    "storybook": "storybook dev -p 6006",
+    "test:e2e": "doppler run -- playwright test",
+    "storybook": "doppler run -- storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
   "dependencies": {
