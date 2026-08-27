@@ -1,0 +1,7 @@
+# Source of truth for local secrets (doppler login + config `dev`).
+# Vercel / Convex dashboard / EAS still need their own copies unless a
+# Doppler integration is connected.
+setup:
+  - project: rlpeng
+    config: dev
+    path: .

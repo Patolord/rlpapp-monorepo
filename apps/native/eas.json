@@ -10,10 +10,6 @@
       "node": "22.16.0",
       "android": {
         "buildType": "apk"
-      },
-      "env": {
-        "EXPO_PUBLIC_CONVEX_URL": "https://giddy-dodo-889.convex.cloud",
-        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_bWF0dXJlLWphZ3Vhci02MC5jbGVyay5hY2NvdW50cy5kZXYk"
       }
     },
     "preview": {
@@ -22,10 +18,6 @@
       "node": "22.16.0",
       "android": {
         "buildType": "apk"
-      },
-      "env": {
-        "EXPO_PUBLIC_CONVEX_URL": "https://giddy-dodo-889.convex.cloud",
-        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_bWF0dXJlLWphZ3Vhci02MC5jbGVyay5hY2NvdW50cy5kZXYk"
       }
     },
     "production": {
@@ -34,10 +26,6 @@
       "node": "22.16.0",
       "android": {
         "buildType": "app-bundle"
-      },
-      "env": {
-        "EXPO_PUBLIC_CONVEX_URL": "https://giddy-dodo-889.convex.cloud",
-        "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_bWF0dXJlLWphZ3Vhci02MC5jbGVyay5hY2NvdW50cy5kZXYk"
       }
     }
   },
