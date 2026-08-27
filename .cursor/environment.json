@@ -1,6 +1,6 @@
 {
   "name": "rlpapp",
-  "install": "pnpm install --frozen-lockfile",
+  "install": "bash .cursor/install.sh",
   "start": "bash .cursor/dev-bootstrap.sh",
   "terminals": [
     {
@@ -9,7 +9,7 @@
     },
     {
       "name": "web",
-      "command": "pnpm dev:web"
+      "command": "bash .cursor/dev-web.sh"
     }
   ]
 }
