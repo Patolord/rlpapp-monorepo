@@ -1,105 +1,99 @@
 # Convex backend
 
-Os módulos de funções ficam na raiz de `convex/` (arquivos planos, para manter os caminhos gerados `api.<módulo>.*` estáveis), organizados logicamente por domínio. O código compartilhado fica em `lib/`, agrupado por feature.
+Public Convex function files stay at the root of `convex/` so generated paths
+such as `api.contracts.list` remain stable. Most business logic belongs in
+ordinary TypeScript functions under `model/`, grouped by domain and cohesive
+capability.
 
-## Módulos por domínio
+## Structure
 
-### Engenharia (obras e hierarquia)
-
-| Módulo | Responsabilidade |
-| --- | --- |
-| `projects.ts` | CRUD de obras, clientes vinculados, geração de layout, hierarquia |
-| `towers.ts` / `floors.ts` / `environments.ts` | Hierarquia Torre → Andar → Ambiente |
-| `projectUnits.ts` | Unidades legadas (apartamentos) |
-| `projectEquipment.ts` | Equipamentos planejados (BOM) e ações de campo via QR |
-| `checklists.ts` | Templates de checklist e conclusão de itens |
-| `equipmentHistory.ts` | Histórico de ações em equipamentos planejados |
-| `dashboard.ts` | KPIs consolidados (visão diretor) |
-| `reports.ts` | Relatórios por obra (progresso, produtividade) |
-| `portal.ts` | Portal read-only do cliente |
-
-### Compras (procurement)
-
-| Módulo | Responsabilidade |
-| --- | --- |
-| `materials.ts` | Catálogo de materiais, aliases e busca normalizada |
-| `suppliers.ts` | Fornecedores e contatos |
-| `takeoffs.ts` | Takeoffs (levantamentos) e itens com preço sugerido |
-| `priceEvents.ts` | Eventos de preço, fila de revisão e frescor |
-
-### Equipamentos e QR
-
-| Módulo | Responsabilidade |
-| --- | --- |
-| `equipment.ts` | Registro de equipamentos físicos |
-| `qrCodes.ts` | Ciclo de vida de tokens QR (lotes, vínculo, lookup público) |
-| `maintenanceLogs.ts` | Logs de instalação/manutenção com fotos |
-
-### Usuários e autenticação
-
-| Módulo | Responsabilidade |
-| --- | --- |
-| `users.ts` | Usuário atual, sync com Clerk (webhook), CRUD de usuários |
-| `userAdmin.ts` | Action Node: criação de usuário via API do Clerk |
-| `http.ts` | Rotas HTTP (`POST /clerk-users-webhook`) |
-| `auth.config.ts` | Providers JWT (Clerk) |
-
-### Assistente de IA
-
-| Módulo | Responsabilidade |
-| --- | --- |
-| `ai.ts` | Actions OpenAI (propor layout, interpretar arquivos/chat) |
-| `aiChat.ts` | Sessões e mensagens de chat por obra |
-| `aiIntents.ts` | Validators de intents e aplicação na hierarquia da obra |
-
-### Infra
-
-| Módulo | Responsabilidade |
-| --- | --- |
-| `schema.ts` | Schema do banco (tabelas, índices, enums compartilhados) |
-| `migrations.ts` | Backfills idempotentes (admin) |
-| `healthCheck.ts` | Liveness |
-| `convex.config.ts` | Configuração do app |
-
-## Código compartilhado (`lib/`)
-
-```
-lib/
-  auth.ts              Identidade: requireAuth, getUserByIdentity, getUserRef
-  rbac.ts              Autorização centralizada: permissões, política, gates e wrappers
-  audit.ts             logAudit e logEquipmentHistory
-  engenharia/
-    hierarchy.ts       buildProjectHierarchy (árvore Torre → Andar → Ambiente → Equipamento)
-  compras/
-    procurement.ts     Normalização de texto, frescor de preço, markup, revisão
+```text
+convex/
+  contracts.ts          Public queries and mutations
+  materials.ts
+  projects.ts
+  model/
+    contracts/          Contract rules, operations, and read models
+    engineering/
+    procurement/
+    inventory/
+    identity/
+    hr/
+    ai/
+  lib/
+    auth.ts             Authentication primitives
+    rbac.ts             Authorization policy and function wrappers
+    audit.ts            Audit recording
 ```
 
-### Controle de acesso (RBAC — `lib/rbac.ts`)
+Directories under `model/` are added as their domains are migrated. Existing
+domain code under `lib/` is moved incrementally rather than through a single
+repository-wide rewrite.
 
-Toda autorização vive em `lib/rbac.ts`, em quatro camadas:
+## Model conventions
 
-1. **Permissões** (`Permission`): `engenharia.read|write`, `compras.read|write`, `suprimentos.read` (leitura compartilhada de materiais/fornecedores/preços/takeoffs) e `admin.manage`.
-2. **Política** (`hasPermission(user, permission)`): director/admin têm tudo; engenheiro e staff de engenharia têm `engenharia.*` + `suprimentos.read`; staff de compras tem `compras.*` + `suprimentos.read`; `qr_operator` não tem permissões.
-3. **Gates**: `requireUser`, `requirePermission`, `assertStaff`, `assertAdmin`, `requireStaff`/`requireRole` (uso manual em handlers, ex.: `qrCodes.ts`).
-4. **Wrappers**: `permissionQuery(perm)` / `permissionMutation(perm)` geram os wrappers nomeados.
+- Use English for backend folders, files, types, and function names.
+- Keep public function names and paths stable during architectural refactors.
+- Public functions define argument validators, return validators, and the
+  appropriate authentication or authorization wrapper.
+- Public handlers should primarily call explicitly named model functions such
+  as `createContract`, `getContractById`, or `listContracts`.
+- Keep related behavior together. Split a file when it contains distinct
+  capabilities, not once per function.
+- Call ordinary TypeScript model functions directly from queries and mutations
+  to keep work in one Convex transaction.
+- Do not import reusable implementation from root public-function files.
+- Do not create catch-all `helpers.ts`, `utils.ts`, or shared domain libraries.
+- Keep authentication, authorization, and auditing focused in `lib/`; keep
+  business rules in their owning model domain.
+- Files using `"use node"` contain actions and Node-runtime helpers only.
 
-Nunca use `query`/`mutation` puros em funções públicas que acessam dados de usuário. Use os wrappers:
+Domain terminology is defined in the repository-level `CONTEXT.md`.
 
-- `authedQuery` / `authedMutation` — qualquer usuário ativo, inclui `qr_operator`
-- `staffQuery` / `staffMutation` — roles internas (exclui `qr_operator`)
-- `adminMutation` — apenas director/admin (`admin.manage`)
-- `engineeringQuery` / `engineeringMutation` — `engenharia.read` / `engenharia.write`
-- `purchasingQuery` / `purchasingMutation` — `compras.read` / `compras.write`
-- `engineeringOrPurchasingQuery` — `suprimentos.read`
+## Domain areas
 
-Todos injetam `ctx.user` (documento `users` autenticado e ativo) no handler.
+- `engineering`: projects, hierarchy, systems, equipment planning, field work,
+  QR tracking, and project reporting.
+- `contracts`: customers, contractors, agreements, service items, and
+  measurements.
+- `procurement`: material catalog, suppliers, takeoffs, and price events.
+- `inventory`: locations, movement documents, balances, requests, and stock
+  policies.
+- `identity`: users and authentication integration.
+- `hr`: employees, payroll runs, and loans.
+- `ai`: chat, interpretation, and application of engineering intents.
 
-**Regra:** novas regras de acesso entram na política (`Permission` + `hasPermission`), não em novos wrappers ad hoc. Precisa de um novo escopo? Adicione a permissão ao mapa e crie o wrapper com `permissionQuery`/`permissionMutation`.
+## Access control
 
-## Convenções
+Authorization policy lives in `lib/rbac.ts`:
 
-- Arquivos de função ficam planos na raiz: mover um arquivo muda o caminho `api.*` e quebra os frontends (`apps/web`, `apps/native`).
-- Helpers em `lib/` não aparecem no `api` gerado — podem ser reorganizados livremente.
-- Novos helpers de domínio: coloque no subdiretório do domínio (`lib/engenharia/`, `lib/compras/`). Autorização vai sempre em `lib/rbac.ts`; auditoria em `lib/audit.ts`.
+1. `Permission` defines supported permissions.
+2. `hasPermission` is the central role and department policy.
+3. Gate functions perform manual authorization checks when needed.
+4. Named wrappers authenticate the caller and add `ctx.user`.
 
-Docs: https://docs.convex.dev/functions
+Public functions that access user data use the appropriate wrapper rather than
+raw `query` or `mutation`:
+
+- `authedQuery` / `authedMutation`: any active user.
+- `staffQuery` / `staffMutation`: internal roles.
+- `adminQuery` / `adminMutation`: directors and administrators.
+- `engineeringQuery` / `engineeringMutation`: engineering access.
+- `purchasingQuery` / `purchasingMutation`: procurement access.
+- `inventoryQuery` / `inventoryMutation`: inventory access.
+- `hrQuery` / `hrMutation`: HR access.
+
+New access rules belong in the central permission policy rather than ad hoc
+wrappers.
+
+## Verification
+
+After migrating a domain:
+
+1. Regenerate Convex types with `npx convex dev` in an isolated development
+   deployment.
+2. Run `pnpm test`.
+3. Run `pnpm lint`.
+4. Run `pnpm check-types`.
+
+Production deployment is not part of this development workflow.
