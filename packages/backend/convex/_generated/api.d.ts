@@ -11,10 +11,16 @@
 import type * as ai from "../ai.js";
 import type * as aiChat from "../aiChat.js";
 import type * as aiIntents from "../aiIntents.js";
+import type * as attendance from "../attendance.js";
+import type * as attendancePhoto from "../attendancePhoto.js";
+import type * as attendanceSchema from "../attendanceSchema.js";
+import type * as attendanceStore from "../attendanceStore.js";
+import type * as attendanceSync from "../attendanceSync.js";
 import type * as auditLogs from "../auditLogs.js";
 import type * as checklists from "../checklists.js";
 import type * as contractors from "../contractors.js";
 import type * as contracts from "../contracts.js";
+import type * as crons from "../crons.js";
 import type * as customers from "../customers.js";
 import type * as dashboard from "../dashboard.js";
 import type * as ductEstimates from "../ductEstimates.js";
@@ -28,10 +34,14 @@ import type * as http from "../http.js";
 import type * as inventory from "../inventory.js";
 import type * as inventoryRequests from "../inventoryRequests.js";
 import type * as inventoryStockPolicies from "../inventoryStockPolicies.js";
+import type * as lib_attendance from "../lib/attendance.js";
+import type * as lib_attendanceAggregate from "../lib/attendanceAggregate.js";
+import type * as lib_attendanceQueue from "../lib/attendanceQueue.js";
 import type * as lib_audit from "../lib/audit.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_compras_bulkImport from "../lib/compras/bulkImport.js";
 import type * as lib_compras_catalog from "../lib/compras/catalog.js";
+import type * as lib_compras_mergeMaterials from "../lib/compras/mergeMaterials.js";
 import type * as lib_compras_procurement from "../lib/compras/procurement.js";
 import type * as lib_contracts_helpers from "../lib/contracts/helpers.js";
 import type * as lib_customers_helpers from "../lib/customers/helpers.js";
@@ -45,6 +55,7 @@ import type * as lib_inventory_stockPolicy from "../lib/inventory/stockPolicy.js
 import type * as lib_projects_helpers from "../lib/projects/helpers.js";
 import type * as lib_rbac from "../lib/rbac.js";
 import type * as lib_rh_payroll from "../lib/rh/payroll.js";
+import type * as lib_rhid from "../lib/rhid.js";
 import type * as maintenanceLogs from "../maintenanceLogs.js";
 import type * as materials from "../materials.js";
 import type * as medicoes from "../medicoes.js";
@@ -76,10 +87,16 @@ declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   aiChat: typeof aiChat;
   aiIntents: typeof aiIntents;
+  attendance: typeof attendance;
+  attendancePhoto: typeof attendancePhoto;
+  attendanceSchema: typeof attendanceSchema;
+  attendanceStore: typeof attendanceStore;
+  attendanceSync: typeof attendanceSync;
   auditLogs: typeof auditLogs;
   checklists: typeof checklists;
   contractors: typeof contractors;
   contracts: typeof contracts;
+  crons: typeof crons;
   customers: typeof customers;
   dashboard: typeof dashboard;
   ductEstimates: typeof ductEstimates;
@@ -93,10 +110,14 @@ declare const fullApi: ApiFromModules<{
   inventory: typeof inventory;
   inventoryRequests: typeof inventoryRequests;
   inventoryStockPolicies: typeof inventoryStockPolicies;
+  "lib/attendance": typeof lib_attendance;
+  "lib/attendanceAggregate": typeof lib_attendanceAggregate;
+  "lib/attendanceQueue": typeof lib_attendanceQueue;
   "lib/audit": typeof lib_audit;
   "lib/auth": typeof lib_auth;
   "lib/compras/bulkImport": typeof lib_compras_bulkImport;
   "lib/compras/catalog": typeof lib_compras_catalog;
+  "lib/compras/mergeMaterials": typeof lib_compras_mergeMaterials;
   "lib/compras/procurement": typeof lib_compras_procurement;
   "lib/contracts/helpers": typeof lib_contracts_helpers;
   "lib/customers/helpers": typeof lib_customers_helpers;
@@ -110,6 +131,7 @@ declare const fullApi: ApiFromModules<{
   "lib/projects/helpers": typeof lib_projects_helpers;
   "lib/rbac": typeof lib_rbac;
   "lib/rh/payroll": typeof lib_rh_payroll;
+  "lib/rhid": typeof lib_rhid;
   maintenanceLogs: typeof maintenanceLogs;
   materials: typeof materials;
   medicoes: typeof medicoes;
@@ -158,4 +180,7 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  attendanceWorkpool: import("@convex-dev/workpool/_generated/component.js").ComponentApi<"attendanceWorkpool">;
+  attendanceCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"attendanceCounts">;
+};

@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { attendanceTables } from "./attendanceSchema";
 
 // User roles
 export const userRoles = v.union(
@@ -254,6 +255,7 @@ export const contractKind = v.union(
 );
 
 export default defineSchema({
+  ...attendanceTables,
   users: defineTable({
     name: v.string(),
     // Email é opcional: usuários podem ser criados apenas com username no Clerk.

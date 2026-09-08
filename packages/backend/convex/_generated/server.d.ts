@@ -28,6 +28,11 @@ type Env = {
   readonly CLERK_SECRET_KEY: string;
   readonly CLERK_WEBHOOK_SECRET: string | undefined;
   readonly OPENAI_API_KEY: string | undefined;
+  readonly RHID_DOMAIN: string | undefined;
+  readonly RHID_EMAIL: string | undefined;
+  readonly RHID_MEDIA_ALLOWED_HOSTS: string | undefined;
+  readonly RHID_PASSWORD: string | undefined;
+  readonly RHID_WEB_ORIGIN: string | undefined;
 };
 
 /**

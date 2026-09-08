@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server";
 import { Webhook } from "svix";
 import { internal } from "./_generated/api";
 import { env, httpAction } from "./_generated/server";
+import { photo, photoOptions } from "./attendancePhoto";
 
 type ClerkEmailAddress = {
   id: string;
@@ -100,6 +101,9 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
 });
 
 const http = httpRouter();
+
+http.route({ path: "/attendance/photo", method: "GET", handler: photo });
+http.route({ path: "/attendance/photo", method: "OPTIONS", handler: photoOptions });
 
 http.route({
   path: "/clerk-users-webhook",
