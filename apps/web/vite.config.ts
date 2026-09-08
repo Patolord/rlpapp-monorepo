@@ -44,11 +44,19 @@ export default defineConfig({
       }]
     },
     workbox: {
+      importScripts: ["attendance-cache-cleanup.js"],
       globPatterns: ["**/*.{js,css,ico,png,svg,woff2}"],
       // SSR: não existe index.html para fallback de navegação.
       navigateFallback: undefined,
       maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       runtimeCaching: [{
+        // Attendance and authenticated media are online-only, before generic caches.
+        urlPattern: ({ url, request }) =>
+          /^\/rh\/ponto(?:\/|$)/.test(url.pathname) ||
+          url.pathname === "/attendance/photo" ||
+          request.headers.has("authorization"),
+        handler: "NetworkOnly",
+      }, {
         // Páginas: rede primeiro, cache como fallback offline.
         urlPattern: ({
           request
