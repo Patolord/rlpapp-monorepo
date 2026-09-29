@@ -52,6 +52,9 @@ type ActivityItem = {
   qrToken: string | null;
   notes: string | null;
   projectId: Id<"projects"> | null;
+  authorId: Id<"users"> | null;
+  // Nome gravado no próprio registro (logs antigos não têm createdByUserId).
+  authorFallback: string | null;
 };
 
 const LOG_LABELS: Record<string, string> = {
@@ -164,6 +167,8 @@ async function logToItem(
     qrToken: qr?.token ?? null,
     notes: log.notes ?? null,
     projectId,
+    authorId: log.createdByUserId ?? null,
+    authorFallback: log.technicianName || null,
   };
 }
 
@@ -186,6 +191,8 @@ async function registrationToItem(
     qrToken: qr?.token ?? null,
     notes: null,
     projectId,
+    authorId: equipment.createdByUserId ?? null,
+    authorFallback: null,
   };
 }
 
@@ -223,6 +230,8 @@ async function historyToItem(
     qrToken,
     notes: entry.notes ?? null,
     projectId: planned.projectId,
+    authorId: entry.userId,
+    authorFallback: null,
   };
 }
 
@@ -267,6 +276,66 @@ async function collectMyActivity(
 
   items.sort((a, b) => b.createdAt - a.createdAt);
   return items;
+}
+
+// Toda a atividade de campo de uma obra, de todos os técnicos. Parte dos itens
+// planejados e das etiquetas da obra; só mantém itens cuja obra resolvida é a
+// mesma (mesmo critério do histórico por técnico).
+async function collectProjectActivity(
+  ctx: QueryCtx,
+  projectId: Id<"projects">
+): Promise<ActivityItem[]> {
+  const caches = newCaches();
+
+  const plannedItems = await ctx.db
+    .query("projectEquipment")
+    .withIndex("by_project", (q) => q.eq("projectId", projectId))
+    .collect();
+  const equipmentIds = new Set<Id<"equipment">>();
+  for (const planned of plannedItems) {
+    caches.planned.set(planned._id, planned);
+    if (planned.linkedEquipmentId) equipmentIds.add(planned.linkedEquipmentId);
+  }
+
+  const qrCodes = await ctx.db
+    .query("qrCodes")
+    .withIndex("by_project", (q) => q.eq("projectId", projectId))
+    .collect();
+  for (const qr of qrCodes) {
+    if (qr.equipmentId) equipmentIds.add(qr.equipmentId);
+  }
+
+  const items: ActivityItem[] = [];
+  for (const equipmentId of equipmentIds) {
+    const equipment = await getEquipmentCached(ctx, caches, equipmentId);
+    if (!equipment) continue;
+    if (equipment.createdByUserId) {
+      items.push(await registrationToItem(ctx, caches, equipment));
+    }
+    const logs = await ctx.db
+      .query("maintenanceLogs")
+      .withIndex("by_equipment", (q) => q.eq("equipmentId", equipmentId))
+      .collect();
+    for (const log of logs) {
+      items.push(await logToItem(ctx, caches, log));
+    }
+  }
+
+  for (const planned of plannedItems) {
+    const history = await ctx.db
+      .query("equipmentHistory")
+      .withIndex("by_equipment", (q) => q.eq("equipmentId", planned._id))
+      .collect();
+    for (const entry of history) {
+      if (!SERVICE_ACTIONS.has(entry.action)) continue;
+      const item = await historyToItem(ctx, caches, entry);
+      if (item) items.push(item);
+    }
+  }
+
+  const inProject = items.filter((item) => item.projectId === projectId);
+  inProject.sort((a, b) => b.createdAt - a.createdAt);
+  return inProject;
 }
 
 // Normaliza projectId (obras apagadas viram "Sem obra") e devolve o mapa de
@@ -431,13 +500,78 @@ export const listMineForProject = authedQuery({
       : 0;
     const end = offset + args.paginationOpts.numItems;
     const page = filtered.slice(offset, end).map((item) => {
-      const { projectId: _projectId, ...rest } = item;
+      const {
+        projectId: _projectId,
+        authorId: _authorId,
+        authorFallback: _authorFallback,
+        ...rest
+      } = item;
       return rest;
     });
 
     return {
       page,
       isDone: end >= filtered.length,
+      continueCursor: String(end),
+    };
+  },
+});
+
+// Serviços de campo de uma obra, de todos os técnicos (aba "Serviços" do
+// Buscar por obra). userId opcional filtra por técnico.
+export const listProjectActivity = authedQuery({
+  args: {
+    projectId: v.id("projects"),
+    paginationOpts: paginationOptsValidator,
+    userId: v.optional(v.id("users")),
+  },
+  returns: v.object({
+    page: v.array(
+      v.object({
+        ...activityItemValidator.fields,
+        authorName: v.union(v.string(), v.null()),
+      })
+    ),
+    isDone: v.boolean(),
+    continueCursor: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    if (!hasPermission(ctx.user, "engenharia.read")) {
+      throw new Error("Sem permissão para ver os serviços da obra");
+    }
+
+    const items = (await collectProjectActivity(ctx, args.projectId)).filter(
+      (item) => !args.userId || item.authorId === args.userId
+    );
+
+    const offset = args.paginationOpts.cursor
+      ? parseInt(args.paginationOpts.cursor, 10)
+      : 0;
+    const end = offset + args.paginationOpts.numItems;
+
+    const authorNames = new Map<Id<"users">, string | null>();
+    const page = [];
+    for (const item of items.slice(offset, end)) {
+      const {
+        projectId: _projectId,
+        authorId,
+        authorFallback,
+        ...rest
+      } = item;
+      let authorName = authorFallback;
+      if (authorId) {
+        if (!authorNames.has(authorId)) {
+          const author = await ctx.db.get("users", authorId);
+          authorNames.set(authorId, author?.name ?? null);
+        }
+        authorName = authorNames.get(authorId) ?? authorFallback;
+      }
+      page.push({ ...rest, authorName });
+    }
+
+    return {
+      page,
+      isDone: end >= items.length,
       continueCursor: String(end),
     };
   },
