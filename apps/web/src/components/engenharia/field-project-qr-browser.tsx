@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
@@ -99,6 +99,11 @@ export function FieldProjectQrBrowser() {
                       {[project.client, project.address].filter(Boolean).join(" · ")}
                     </p>
                   )}
+                  <p className="text-xs text-muted-foreground">
+                    {project.qrCount} etiqueta{project.qrCount === 1 ? "" : "s"} ·{" "}
+                    {project.registeredCount} cadastrada
+                    {project.registeredCount === 1 ? "" : "s"}
+                  </p>
                 </div>
                 <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
               </button>
@@ -110,8 +115,11 @@ export function FieldProjectQrBrowser() {
       <div className={selectedProjectId ? "block" : "hidden lg:block"}>
         {selectedProjectId ? (
           <ProjectQrList
+            key={selectedProjectId}
             projectId={selectedProjectId}
             projectName={selectedProject?.name ?? "Obra"}
+            qrCount={selectedProject?.qrCount ?? null}
+            registeredCount={selectedProject?.registeredCount ?? null}
             onBack={() => setSelectedProjectId(null)}
           />
         ) : (
@@ -129,38 +137,51 @@ export function FieldProjectQrBrowser() {
   );
 }
 
-type BrowsableQr = {
-  token: string;
-  description: string | null;
-  modelo: string | null;
-  ambiente: string | null;
-  batchName: string | null;
-};
+type QrFilter = "all" | "registered" | "free";
 
-function qrMatchesSearch(qr: BrowsableQr, term: string) {
-  if (!term) return true;
-  return [qr.token, qr.description, qr.modelo, qr.ambiente, qr.batchName].some(
-    (value) => value?.toLocaleLowerCase("pt-BR").includes(term)
-  );
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
 }
 
 function ProjectQrList({
   projectId,
   projectName,
+  qrCount,
+  registeredCount,
   onBack,
 }: {
   projectId: Id<"projects">;
   projectName: string;
+  qrCount: number | null;
+  registeredCount: number | null;
   onBack: () => void;
 }) {
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<QrFilter>("all");
+  const debouncedSearch = useDebouncedValue(search.trim(), 300);
   const { results, status, loadMore } = usePaginatedQuery(
     api.technicianPortal.listBrowsableQrsByProject,
-    { projectId },
+    { projectId, search: debouncedSearch || undefined, filter },
     { initialNumItems: 20 }
   );
-  const [search, setSearch] = useState("");
-  const term = search.trim().toLocaleLowerCase("pt-BR");
-  const filtered = results.filter((qr) => qrMatchesSearch(qr, term));
+  const searching = debouncedSearch.length > 0;
+  const filterOptions: Array<{ id: QrFilter; label: string; count: number | null }> = [
+    { id: "all", label: "Todas", count: qrCount },
+    { id: "registered", label: "Cadastradas", count: registeredCount },
+    {
+      id: "free",
+      label: "Livres",
+      count:
+        qrCount !== null && registeredCount !== null
+          ? qrCount - registeredCount
+          : null,
+    },
+  ];
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -189,6 +210,25 @@ function ProjectQrList({
           className="h-11 pl-9"
         />
       </div>
+      <div className="flex flex-wrap gap-2">
+        {filterOptions.map((option) => (
+          <Button
+            key={option.id}
+            type="button"
+            size="sm"
+            variant={filter === option.id ? "default" : "outline"}
+            aria-pressed={filter === option.id}
+            onClick={() => setFilter(option.id)}
+          >
+            {option.label}
+            {option.count !== null && (
+              <span className="ml-1 tabular-nums opacity-80">
+                ({option.count})
+              </span>
+            )}
+          </Button>
+        ))}
+      </div>
 
       {status === "LoadingFirstPage" ? (
         <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
@@ -197,15 +237,17 @@ function ProjectQrList({
         </div>
       ) : results.length === 0 ? (
         <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Nenhuma etiqueta ativa nesta obra.
-        </p>
-      ) : filtered.length === 0 ? (
-        <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Nenhuma etiqueta corresponde à busca.
+          {searching
+            ? "Nenhuma etiqueta corresponde à busca."
+            : filter === "registered"
+              ? "Nenhuma etiqueta cadastrada nesta obra."
+              : filter === "free"
+                ? "Nenhuma etiqueta livre nesta obra."
+                : "Nenhuma etiqueta ativa nesta obra."}
         </p>
       ) : (
         <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
-          {filtered.map((qr) => {
+          {results.map((qr) => {
             const title =
               qr.description ||
               [qr.modelo, qr.ambiente].filter(Boolean).join(" · ") ||
