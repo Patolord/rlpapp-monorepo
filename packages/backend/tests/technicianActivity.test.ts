@@ -404,4 +404,87 @@ describe("technicianActivity", () => {
     );
     expect(projects).toHaveLength(0);
   });
+  test("admin consulta o histórico de outro técnico; técnico não", async () => {
+    const t = setup();
+    const asAdmin = await withUser(t, {
+      clerkId: "admin-rodrigo",
+      role: "admin",
+    });
+    const asTech = await withUser(t, {
+      clerkId: "tech-valdinei",
+      role: "qr_operator",
+    });
+    const asOtherTech = await withUser(t, {
+      clerkId: "tech-outro",
+      role: "qr_operator",
+    });
+    const valdineiId = await userIdByClerk(t, "tech-valdinei");
+    const adminId = await userIdByClerk(t, "admin-rodrigo");
+
+    const projectId = await seedProject(t, "Obra Lorena");
+    const plannedId = await seedPlanned(t, projectId);
+    const equipmentId = await seedEquipment(t, {
+      projectEquipmentId: plannedId,
+      createdByUserId: valdineiId,
+      createdAt: 1000,
+    });
+    await seedLog(t, valdineiId, equipmentId, 2000);
+
+    expect(
+      await asAdmin.query(api.technicianActivity.listMineProjects, {})
+    ).toHaveLength(0);
+
+    const projects = await asAdmin.query(
+      api.technicianActivity.listMineProjects,
+      { userId: valdineiId }
+    );
+    expect(projects).toEqual([
+      {
+        projectId,
+        projectName: "Obra Lorena",
+        count: 2,
+        lastActivityAt: 2000,
+      },
+    ]);
+
+    const page = await asAdmin.query(
+      api.technicianActivity.listMineForProject,
+      {
+        projectId,
+        userId: valdineiId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      }
+    );
+    expect(page.page.map((item) => item.label)).toEqual([
+      "Manutenção",
+      "Cadastro",
+    ]);
+
+    const users = await asAdmin.query(
+      api.technicianActivity.listActivityUsers,
+      {}
+    );
+    expect(users?.map((user) => user._id)).toContain(valdineiId);
+
+    expect(
+      await asTech.query(api.technicianActivity.listActivityUsers, {})
+    ).toBeNull();
+    expect(
+      await asTech.query(api.technicianActivity.listMineProjects, {
+        userId: valdineiId,
+      })
+    ).toHaveLength(1);
+    await expect(
+      asOtherTech.query(api.technicianActivity.listMineProjects, {
+        userId: valdineiId,
+      })
+    ).rejects.toThrow("Sem permissão");
+    await expect(
+      asTech.query(api.technicianActivity.listMineForProject, {
+        projectId,
+        userId: adminId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      })
+    ).rejects.toThrow("Sem permissão");
+  });
 });

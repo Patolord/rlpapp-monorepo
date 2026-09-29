@@ -124,6 +124,85 @@ describe("technicianPortal", () => {
     expect(qrs.page.some((qr) => qr.token === "INATIVO1")).toBe(false);
   });
 
+  test("busca e filtro do catálogo alcançam etiquetas fora da primeira página", async () => {
+    const t = setup();
+    const asAdmin = await withUser(t, {
+      clerkId: "admin-browse-1",
+      role: "admin",
+    });
+    const adminId = await userIdByClerk(t, "admin-browse-1");
+    const projectId = await seedProject(t, "Obra Lorena");
+
+    await t.run(async (ctx) => {
+      const equipmentId = await ctx.db.insert("equipment", {
+        description: "Condensadora Bloco B",
+        status: "installing",
+        createdAt: 1,
+        createdByUserId: adminId,
+      });
+      await ctx.db.insert("qrCodes", {
+        token: "LORENAOLD1",
+        status: "active",
+        projectId,
+        equipmentId,
+        createdAt: 1,
+      });
+      for (let i = 0; i < 30; i++) {
+        await ctx.db.insert("qrCodes", {
+          token: `LORENANEW${i}`,
+          status: "active",
+          projectId,
+          createdAt: 100 + i,
+        });
+      }
+    });
+
+    const firstPage = await asAdmin.query(
+      api.technicianPortal.listBrowsableQrsByProject,
+      { projectId, paginationOpts: { cursor: null, numItems: 20 } }
+    );
+    expect(firstPage.page.some((qr) => qr.token === "LORENAOLD1")).toBe(false);
+
+    const bySearch = await asAdmin.query(
+      api.technicianPortal.listBrowsableQrsByProject,
+      {
+        projectId,
+        search: "  condensadora ",
+        paginationOpts: { cursor: null, numItems: 20 },
+      }
+    );
+    expect(bySearch.page.map((qr) => qr.token)).toEqual(["LORENAOLD1"]);
+    expect(bySearch.isDone).toBe(true);
+
+    const registered = await asAdmin.query(
+      api.technicianPortal.listBrowsableQrsByProject,
+      {
+        projectId,
+        filter: "registered",
+        paginationOpts: { cursor: null, numItems: 20 },
+      }
+    );
+    expect(registered.page.map((qr) => qr.token)).toEqual(["LORENAOLD1"]);
+
+    const free = await asAdmin.query(
+      api.technicianPortal.listBrowsableQrsByProject,
+      {
+        projectId,
+        filter: "free",
+        paginationOpts: { cursor: null, numItems: 50 },
+      }
+    );
+    expect(free.page).toHaveLength(30);
+
+    const projects = await asAdmin.query(
+      api.technicianPortal.listBrowsableProjects,
+      {}
+    );
+    const lorena = projects.find((project) => project._id === projectId);
+    expect(lorena?.qrCount).toBe(31);
+    expect(lorena?.registeredCount).toBe(1);
+  });
+
   test("técnico atribuído lista todos os QRs da obra", async () => {
     const t = setup();
     const asTech = await withUser(t, {

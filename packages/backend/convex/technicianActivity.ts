@@ -2,7 +2,7 @@ import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
-import { authedQuery } from "./lib/rbac";
+import { authedQuery, hasPermission } from "./lib/rbac";
 
 // Histórico unificado de serviços do técnico (qr_operator ou staff), agrupado
 // por obra: cadastro de equipamento, registros de instalação/manutenção
@@ -295,10 +295,56 @@ async function resolveProjects(
   return names;
 }
 
-// Obras nas quais o usuário logado realizou serviços, com contagem e data da
+// Sem userId, o histórico é do próprio usuário. Consultar o histórico de outro
+// técnico exige engenharia.read.
+function resolveTargetUserId(
+  user: Doc<"users">,
+  userId: Id<"users"> | undefined
+): Id<"users"> {
+  if (!userId || userId === user._id) return user._id;
+  if (!hasPermission(user, "engenharia.read")) {
+    throw new Error("Sem permissão para ver o histórico de outros usuários");
+  }
+  return userId;
+}
+
+// Usuários cujo histórico pode ser consultado no Registro de campo. Retorna
+// null para quem só pode ver o próprio histórico.
+export const listActivityUsers = authedQuery({
+  args: {},
+  returns: v.union(
+    v.array(
+      v.object({
+        _id: v.id("users"),
+        name: v.string(),
+        role: v.string(),
+        isActive: v.boolean(),
+      })
+    ),
+    v.null()
+  ),
+  handler: async (ctx) => {
+    if (!hasPermission(ctx.user, "engenharia.read")) return null;
+    const users = await ctx.db.query("users").collect();
+    return users
+      .map((user) => ({
+        _id: user._id,
+        name: user.name,
+        role: user.role,
+        isActive: user.isActive,
+      }))
+      .sort(
+        (a, b) =>
+          Number(b.isActive) - Number(a.isActive) ||
+          a.name.localeCompare(b.name, "pt-BR")
+      );
+  },
+});
+
+// Obras nas quais o usuário realizou serviços, com contagem e data da
 // última atividade. projectId/projectName nulos = grupo "Sem obra".
 export const listMineProjects = authedQuery({
-  args: {},
+  args: { userId: v.optional(v.id("users")) },
   returns: v.array(
     v.object({
       projectId: v.union(v.id("projects"), v.null()),
@@ -307,8 +353,11 @@ export const listMineProjects = authedQuery({
       lastActivityAt: v.number(),
     })
   ),
-  handler: async (ctx) => {
-    const items = await collectMyActivity(ctx, ctx.user._id);
+  handler: async (ctx, args) => {
+    const items = await collectMyActivity(
+      ctx,
+      resolveTargetUserId(ctx.user, args.userId)
+    );
     const projectNames = await resolveProjects(ctx, items);
 
     const groups = new Map<
@@ -357,6 +406,7 @@ export const listMineForProject = authedQuery({
   args: {
     projectId: v.union(v.id("projects"), v.null()),
     paginationOpts: paginationOptsValidator,
+    userId: v.optional(v.id("users")),
   },
   returns: v.object({
     page: v.array(activityItemValidator),
@@ -364,7 +414,10 @@ export const listMineForProject = authedQuery({
     continueCursor: v.string(),
   }),
   handler: async (ctx, args) => {
-    const items = await collectMyActivity(ctx, ctx.user._id);
+    const items = await collectMyActivity(
+      ctx,
+      resolveTargetUserId(ctx.user, args.userId)
+    );
     // Normaliza obras apagadas para "Sem obra" (mesmo critério do
     // listMineProjects).
     await resolveProjects(ctx, items);

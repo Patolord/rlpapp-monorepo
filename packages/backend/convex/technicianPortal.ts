@@ -168,6 +168,18 @@ export const listQrsByProject = authedQuery({
   },
 });
 
+type QrRow = Awaited<ReturnType<typeof buildQrRow>>;
+
+function qrRowMatchesSearch(row: QrRow, term: string): boolean {
+  return [
+    row.token,
+    row.description,
+    row.modelo,
+    row.ambiente,
+    row.batchName,
+  ].some((value) => value?.toLocaleLowerCase("pt-BR").includes(term));
+}
+
 const browsableProjectValidator = v.object({
   _id: v.id("projects"),
   name: v.string(),
@@ -175,7 +187,15 @@ const browsableProjectValidator = v.object({
   client: v.union(v.string(), v.null()),
   address: v.union(v.string(), v.null()),
   status: v.union(v.string(), v.null()),
+  qrCount: v.number(),
+  registeredCount: v.number(),
 });
+
+const qrBrowseFilterValidator = v.union(
+  v.literal("all"),
+  v.literal("registered"),
+  v.literal("free")
+);
 
 // Catálogo de campo: qualquer usuário autenticado pode localizar etiquetas de
 // equipamento por obra, mesmo sem estar atribuído como técnico. Isso não concede
@@ -200,6 +220,8 @@ export const listBrowsableProjects = authedQuery({
           client: await resolveCustomerLabel(ctx, project, customerLabelCache),
           address: project.address ?? null,
           status: project.status ?? null,
+          qrCount: activeQrs.length,
+          registeredCount: activeQrs.filter((qr) => qr.equipmentId).length,
         };
       })
     );
@@ -210,10 +232,14 @@ export const listBrowsableProjects = authedQuery({
   },
 });
 
+// Busca e filtro são aplicados no servidor antes da paginação; filtrar só a
+// página carregada no cliente escondia etiquetas de obras grandes.
 export const listBrowsableQrsByProject = authedQuery({
   args: {
     projectId: v.id("projects"),
     paginationOpts: paginationOptsValidator,
+    search: v.optional(v.string()),
+    filter: v.optional(qrBrowseFilterValidator),
   },
   returns: v.object({
     page: v.array(qrRowValidator),
@@ -228,18 +254,36 @@ export const listBrowsableQrsByProject = authedQuery({
       throw new Error("Obra não disponível");
     }
 
-    const activeQrs = await collectActiveQrsForProject(ctx, args.projectId);
+    const filter = args.filter ?? "all";
+    const activeQrs = (
+      await collectActiveQrsForProject(ctx, args.projectId)
+    ).filter((qr) => {
+      if (filter === "registered") return Boolean(qr.equipmentId);
+      if (filter === "free") return !qr.equipmentId;
+      return true;
+    });
     activeQrs.sort((a, b) => b.createdAt - a.createdAt);
 
     const start = args.paginationOpts.cursor
       ? Number.parseInt(args.paginationOpts.cursor, 10)
       : 0;
     const end = start + args.paginationOpts.numItems;
-    const page = activeQrs.slice(start, end);
 
+    const term = (args.search ?? "").trim().toLocaleLowerCase("pt-BR");
+    if (!term) {
+      const page = activeQrs.slice(start, end);
+      return {
+        page: await Promise.all(page.map((qr) => buildQrRow(ctx, qr))),
+        isDone: end >= activeQrs.length,
+        continueCursor: String(end),
+      };
+    }
+
+    const rows = await Promise.all(activeQrs.map((qr) => buildQrRow(ctx, qr)));
+    const matches = rows.filter((row) => qrRowMatchesSearch(row, term));
     return {
-      page: await Promise.all(page.map((qr) => buildQrRow(ctx, qr))),
-      isDone: end >= activeQrs.length,
+      page: matches.slice(start, end),
+      isDone: end >= matches.length,
       continueCursor: String(end),
     };
   },
