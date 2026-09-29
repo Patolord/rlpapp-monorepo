@@ -107,8 +107,13 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-// Public and read-only: only non-sensitive fields (id, code, name, description).
 const handleMaterialLookup = httpAction(async (ctx, request) => {
+  const token = env.MATERIAL_LOOKUP_TOKEN;
+  if (!token) return json({ error: "Material lookup is not configured" }, 503);
+  if (request.headers.get("Authorization") !== `Bearer ${token}`) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
   const query = new URL(request.url).searchParams.get("q")?.trim() ?? "";
   if (!query || query.length > MAX_LOOKUP_QUERY_LENGTH) {
     return json(
