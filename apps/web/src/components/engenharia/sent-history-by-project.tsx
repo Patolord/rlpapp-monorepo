@@ -26,6 +26,7 @@ import {
   ChevronDown,
   ChevronRight,
   History,
+  UserRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -207,7 +208,7 @@ function ProjectActivityList({
   );
 }
 
-type ActivityItem = {
+export type ActivityItem = {
   kind: "maintenanceLog" | "fieldAction" | "registration";
   id: string;
   createdAt: number;
@@ -216,6 +217,7 @@ type ActivityItem = {
   status: "installing" | "operational" | "warning" | "error" | null;
   qrToken: string | null;
   notes: string | null;
+  authorName?: string | null;
 };
 
 function activityBadgeVariant(
@@ -227,7 +229,7 @@ function activityBadgeVariant(
   return "secondary";
 }
 
-function ActivityCard({ item }: { item: ActivityItem }) {
+export function ActivityCard({ item }: { item: ActivityItem }) {
   const content = (
     <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
       <div className="min-w-0 space-y-1.5">
@@ -247,6 +249,12 @@ function ActivityCard({ item }: { item: ActivityItem }) {
           <Calendar className="h-3.5 w-3.5" />
           {formatDate(item.createdAt, true)}
         </p>
+        {item.authorName && (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <UserRound className="h-3.5 w-3.5" />
+            {item.authorName}
+          </p>
+        )}
       </div>
       {item.qrToken && (
         <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />

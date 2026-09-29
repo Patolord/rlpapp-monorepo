@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Building2,
   ChevronRight,
+  History,
   Loader2,
   MapPin,
   QrCode,
@@ -16,10 +17,19 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ActivityCard } from "@/components/engenharia/sent-history-by-project";
 import { StatusBadge } from "@/components/engenharia/status-badge";
 
 export function FieldProjectQrBrowser() {
   const projects = useQuery(api.technicianPortal.listBrowsableProjects);
+  const activityUsers = useQuery(api.technicianActivity.listActivityUsers);
   const [search, setSearch] = useState("");
   const [selectedProjectId, setSelectedProjectId] =
     useState<Id<"projects"> | null>(null);
@@ -114,8 +124,10 @@ export function FieldProjectQrBrowser() {
 
       <div className={selectedProjectId ? "block" : "hidden lg:block"}>
         {selectedProjectId ? (
-          <ProjectQrList
+          <ProjectDetail
             key={selectedProjectId}
+            canViewServices={Boolean(activityUsers)}
+            activityUsers={activityUsers ?? []}
             projectId={selectedProjectId}
             projectName={selectedProject?.name ?? "Obra"}
             qrCount={selectedProject?.qrCount ?? null}
@@ -148,18 +160,167 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-function ProjectQrList({
+type ActivityUser = { _id: Id<"users">; name: string; isActive: boolean };
+
+function ProjectDetail({
   projectId,
   projectName,
   qrCount,
   registeredCount,
+  canViewServices,
+  activityUsers,
   onBack,
 }: {
   projectId: Id<"projects">;
   projectName: string;
   qrCount: number | null;
   registeredCount: number | null;
+  canViewServices: boolean;
+  activityUsers: ActivityUser[];
   onBack: () => void;
+}) {
+  const [tab, setTab] = useState<"labels" | "services">("labels");
+  const showServices = canViewServices && tab === "services";
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="lg:hidden"
+          aria-label="Voltar para obras"
+          onClick={onBack}
+        >
+          <ArrowLeft className="size-4" />
+        </Button>
+        <div className="min-w-0">
+          <p className="truncate font-semibold">{projectName}</p>
+          <p className="text-xs text-muted-foreground">
+            {showServices
+              ? "Serviços registrados em campo nesta obra"
+              : "Etiquetas de equipamento disponíveis"}
+          </p>
+        </div>
+      </div>
+      {canViewServices && (
+        <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+          {(
+            [
+              { id: "labels", label: "Etiquetas", icon: QrCode },
+              { id: "services", label: "Serviços", icon: History },
+            ] as const
+          ).map((option) => {
+            const Icon = option.icon;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                aria-pressed={tab === option.id}
+                onClick={() => setTab(option.id)}
+                className="flex h-9 items-center justify-center gap-2 rounded-md text-sm font-medium text-muted-foreground transition-colors aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm"
+              >
+                <Icon className="size-4" />
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {showServices ? (
+        <ProjectServicesList projectId={projectId} activityUsers={activityUsers} />
+      ) : (
+        <ProjectQrList
+          projectId={projectId}
+          qrCount={qrCount}
+          registeredCount={registeredCount}
+        />
+      )}
+    </div>
+  );
+}
+
+const ALL_USERS = "all";
+
+function ProjectServicesList({
+  projectId,
+  activityUsers,
+}: {
+  projectId: Id<"projects">;
+  activityUsers: ActivityUser[];
+}) {
+  const [selectedUser, setSelectedUser] = useState<string>(ALL_USERS);
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.technicianActivity.listProjectActivity,
+    {
+      projectId,
+      userId:
+        selectedUser === ALL_USERS ? undefined : (selectedUser as Id<"users">),
+    },
+    { initialNumItems: 20 }
+  );
+
+  return (
+    <div className="space-y-3">
+      <Select
+        value={selectedUser}
+        onValueChange={(value) => setSelectedUser(value || ALL_USERS)}
+      >
+        <SelectTrigger className="h-11">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL_USERS}>Todos os técnicos</SelectItem>
+          {activityUsers.map((user) => (
+            <SelectItem key={user._id} value={user._id}>
+              {user.isActive ? user.name : `${user.name} (inativo)`}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {status === "LoadingFirstPage" ? (
+        <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+          <Loader2 className="mr-2 size-4 animate-spin" />
+          Carregando serviços...
+        </div>
+      ) : results.length === 0 ? (
+        <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+          {selectedUser === ALL_USERS
+            ? "Nenhum serviço registrado nesta obra."
+            : "Este técnico não registrou serviços nesta obra."}
+        </p>
+      ) : (
+        <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+          {results.map((item) => (
+            <ActivityCard key={`${item.kind}:${item.id}`} item={item} />
+          ))}
+        </div>
+      )}
+
+      {status === "CanLoadMore" && (
+        <Button variant="outline" className="w-full" onClick={() => loadMore(20)}>
+          Carregar mais serviços
+        </Button>
+      )}
+      {status === "LoadingMore" && (
+        <Button variant="outline" className="w-full" disabled>
+          <Loader2 className="mr-2 size-4 animate-spin" />
+          Carregando...
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function ProjectQrList({
+  projectId,
+  qrCount,
+  registeredCount,
+}: {
+  projectId: Id<"projects">;
+  qrCount: number | null;
+  registeredCount: number | null;
 }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<QrFilter>("all");
@@ -184,23 +345,6 @@ function ProjectQrList({
   ];
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="lg:hidden"
-          aria-label="Voltar para obras"
-          onClick={onBack}
-        >
-          <ArrowLeft className="size-4" />
-        </Button>
-        <div className="min-w-0">
-          <p className="truncate font-semibold">{projectName}</p>
-          <p className="text-xs text-muted-foreground">
-            Etiquetas de equipamento disponíveis
-          </p>
-        </div>
-      </div>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input

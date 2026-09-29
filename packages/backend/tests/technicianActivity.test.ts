@@ -487,4 +487,107 @@ describe("technicianActivity", () => {
       })
     ).rejects.toThrow("Sem permissão");
   });
+  test("serviços da obra reúnem todos os técnicos com autor", async () => {
+    const t = setup();
+    const asAdmin = await withUser(t, {
+      clerkId: "admin-obra",
+      role: "admin",
+    });
+    const asTech = await withUser(t, {
+      clerkId: "tech-obra-valdinei",
+      role: "qr_operator",
+      name: "Valdinei",
+    });
+    await withUser(t, {
+      clerkId: "tech-obra-joao",
+      role: "qr_operator",
+      name: "João",
+    });
+    const valdineiId = await userIdByClerk(t, "tech-obra-valdinei");
+    const joaoId = await userIdByClerk(t, "tech-obra-joao");
+
+    const lorenaId = await seedProject(t, "Obra Lorena");
+    const otherId = await seedProject(t, "Obra Outra");
+    const plannedId = await seedPlanned(t, lorenaId);
+    const otherPlannedId = await seedPlanned(t, otherId);
+
+    const linkedId = await seedEquipment(t, {
+      projectEquipmentId: plannedId,
+      createdByUserId: valdineiId,
+      createdAt: 1000,
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch("projectEquipment", plannedId, {
+        linkedEquipmentId: linkedId,
+      });
+    });
+    const qrOnlyId = await seedEquipment(t, {
+      description: "Evaporadora Bloco B",
+      createdByUserId: joaoId,
+      createdAt: 1500,
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("qrCodes", {
+        token: "LORENAQR1",
+        status: "active",
+        projectId: lorenaId,
+        equipmentId: qrOnlyId,
+        createdAt: 1500,
+      });
+      await ctx.db.insert("maintenanceLogs", {
+        equipmentId: qrOnlyId,
+        type: "installation",
+        technicianName: "Técnico Antigo",
+        status: "installing",
+        photoIds: [],
+        createdAt: 1600,
+      });
+    });
+    await seedLog(t, valdineiId, linkedId, 2000);
+    await seedFieldAction(t, joaoId, plannedId, "installed", 3000);
+    await seedFieldAction(t, joaoId, plannedId, "qr_linked", 3100);
+    await seedFieldAction(t, valdineiId, otherPlannedId, "installed", 4000);
+
+    const all = await asAdmin.query(
+      api.technicianActivity.listProjectActivity,
+      { projectId: lorenaId, paginationOpts: { cursor: null, numItems: 20 } }
+    );
+    expect(
+      all.page.map((item) => [item.label, item.authorName, item.createdAt])
+    ).toEqual([
+      ["Instalado", "João", 3000],
+      ["Manutenção", "Valdinei", 2000],
+      ["Instalação", "Técnico Antigo", 1600],
+      ["Cadastro", "João", 1500],
+      ["Cadastro", "Valdinei", 1000],
+    ]);
+    expect(all.isDone).toBe(true);
+
+    const onlyValdinei = await asAdmin.query(
+      api.technicianActivity.listProjectActivity,
+      {
+        projectId: lorenaId,
+        userId: valdineiId,
+        paginationOpts: { cursor: null, numItems: 20 },
+      }
+    );
+    expect(onlyValdinei.page.map((item) => item.label)).toEqual([
+      "Manutenção",
+      "Cadastro",
+    ]);
+
+    const firstPage = await asAdmin.query(
+      api.technicianActivity.listProjectActivity,
+      { projectId: lorenaId, paginationOpts: { cursor: null, numItems: 2 } }
+    );
+    expect(firstPage.page).toHaveLength(2);
+    expect(firstPage.isDone).toBe(false);
+
+    await expect(
+      asTech.query(api.technicianActivity.listProjectActivity, {
+        projectId: lorenaId,
+        paginationOpts: { cursor: null, numItems: 20 },
+      })
+    ).rejects.toThrow("Sem permissão");
+  });
 });
