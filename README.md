@@ -66,7 +66,7 @@ Guia oficial: [Convex + Clerk](https://docs.convex.dev/auth/clerk)
 3. No **Convex Dashboard** (Settings > Environment Variables), defina:
    - `CLERK_JWT_ISSUER_DOMAIN` — domínio do issuer do Clerk
    - `CLERK_WEBHOOK_SECRET` — secret do webhook (Clerk Dashboard > Webhooks, endpoint `https://<deployment>.convex.site/clerk-users-webhook`, eventos `user.created`, `user.updated`, `user.deleted`)
-   - `MATERIAL_LOOKUP_TOKEN` — opcional; habilita `GET https://<deployment>.convex.site/materials/lookup?q=<texto>` (header `Authorization: Bearer <token>`) para agentes externos consultarem a descrição canônica de um material
+   - `MATERIAL_LOOKUP_TOKEN` — opcional; habilita `GET https://<deployment>.convex.site/materials/lookup?q=<texto>` (header `Authorization: Bearer <token>`) para agentes externos consultarem a descrição canônica de um material. Sem ele o endpoint responde 503. Gere com `npx convex env set MATERIAL_LOOKUP_TOKEN "$(openssl rand -hex 24)"`
 
 ### 5. Rodar em desenvolvimento
 
