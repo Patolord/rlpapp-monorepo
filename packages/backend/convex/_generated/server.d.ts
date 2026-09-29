@@ -28,7 +28,6 @@ type Env = {
   readonly CLERK_SECRET_KEY: string;
   readonly CLERK_WEBHOOK_SECRET: string | undefined;
   readonly OPENAI_API_KEY: string | undefined;
-  readonly MATERIAL_LOOKUP_TOKEN: string | undefined;
 };
 
 /**

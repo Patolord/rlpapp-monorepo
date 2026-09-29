@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import { internal } from "../convex/_generated/api";
 import { buildMaterialSearchText } from "../convex/lib/compras/catalog";
 import {
@@ -165,33 +165,18 @@ describe("findMaterial", () => {
 });
 
 describe("GET /materials/lookup", () => {
-  afterEach(() => {
-    delete process.env.MATERIAL_LOOKUP_TOKEN;
-  });
-
-  test("is disabled until a token is configured", async () => {
+  test("rejects malformed input", async () => {
     const t = await seedCatalog();
-    const response = await t.fetch("/materials/lookup?q=manta%20duto");
-    expect(response.status).toBe(503);
-  });
-
-  test("rejects missing token and malformed input", async () => {
-    process.env.MATERIAL_LOOKUP_TOKEN = "secret";
-    const t = await seedCatalog();
-    expect((await t.fetch("/materials/lookup?q=manta")).status).toBe(401);
-    const auth = { headers: { Authorization: "Bearer secret" } };
-    expect((await t.fetch("/materials/lookup", auth)).status).toBe(400);
+    expect((await t.fetch("/materials/lookup")).status).toBe(400);
     expect(
-      (await t.fetch(`/materials/lookup?q=${"a".repeat(201)}`, auth)).status
+      (await t.fetch(`/materials/lookup?q=${"a".repeat(201)}`)).status
     ).toBe(400);
   });
 
   test("returns the canonical record", async () => {
-    process.env.MATERIAL_LOOKUP_TOKEN = "secret";
     const t = await seedCatalog();
     const response = await t.fetch(
-      `/materials/lookup?q=${encodeURIComponent("isolamento de duto")}`,
-      { headers: { Authorization: "Bearer secret" } }
+      `/materials/lookup?q=${encodeURIComponent("isolamento de duto")}`
     );
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
