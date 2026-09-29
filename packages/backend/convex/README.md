@@ -23,6 +23,7 @@ Os módulos de funções ficam na raiz de `convex/` (arquivos planos, para mante
 | Módulo | Responsabilidade |
 | --- | --- |
 | `materials.ts` | Catálogo de materiais, aliases e busca normalizada |
+| `materialLookup.ts` | `findMaterial` (interno): consulta em linguagem natural → registro canônico (SKU → alias → nome → busca) |
 | `suppliers.ts` | Fornecedores e contatos |
 | `takeoffs.ts` | Takeoffs (levantamentos) e itens com preço sugerido |
 | `priceEvents.ts` | Eventos de preço, fila de revisão e frescor |
@@ -41,7 +42,7 @@ Os módulos de funções ficam na raiz de `convex/` (arquivos planos, para mante
 | --- | --- |
 | `users.ts` | Usuário atual, sync com Clerk (webhook), CRUD de usuários |
 | `userAdmin.ts` | Action Node: criação de usuário via API do Clerk |
-| `http.ts` | Rotas HTTP (`POST /clerk-users-webhook`) |
+| `http.ts` | Rotas HTTP (`POST /clerk-users-webhook`, `GET /materials/lookup`) |
 | `auth.config.ts` | Providers JWT (Clerk) |
 
 ### Assistente de IA
