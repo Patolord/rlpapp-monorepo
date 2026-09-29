@@ -31,10 +31,8 @@ const LEADING_CONNECTORS = new Set([
   "de", "da", "do", "das", "dos", "o", "a", "os", "as", "e",
 ]);
 
-const STOPWORDS = new Set([
-  ...LEADING_CONNECTORS,
-  "com", "para", "em", "sem", "no", "na",
-]);
+// "com"/"sem" are kept: they flip a spec ("tubo sem costura" ≠ "tubo com costura").
+const STOPWORDS = new Set([...LEADING_CONNECTORS, "para", "em", "no", "na"]);
 
 /** "Me dá o nome completo do Isolamento de Duto?" → "isolamento de duto". */
 export function normalizeLookupQuery(raw: string): string {
@@ -70,7 +68,7 @@ function tokenMatches(token: string, haystack: string[]): boolean {
     (word) =>
       word === token ||
       word === singular ||
-      (token.length >= 3 && word.startsWith(token))
+      (token.length >= 4 && word.startsWith(token))
   );
 }
 

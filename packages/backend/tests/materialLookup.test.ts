@@ -1,10 +1,11 @@
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { internal } from "../convex/_generated/api";
 import { buildMaterialSearchText } from "../convex/lib/compras/catalog";
 import {
   describeMaterial,
   extractSkuCandidates,
   normalizeLookupQuery,
+  tokenCoverage,
 } from "../convex/lib/compras/materialLookup";
 import { normalizeText } from "../convex/lib/compras/procurement";
 import { setup } from "./helpers";
@@ -87,6 +88,11 @@ describe("lookup helpers", () => {
     expect(extractSkuCandidates("manta duto")).toEqual([]);
   });
 
+  test("tokenCoverage keeps com/sem so opposite specs don't fully match", () => {
+    expect(tokenCoverage("tubo sem costura", "tubo com costura")).toBeLessThan(1);
+    expect(tokenCoverage("tubo sem costura", "tubo sem costura")).toBe(1);
+  });
+
   test("describeMaterial joins name, variant and spec", () => {
     expect(describeMaterial({ name: "Cabo", variantLabel: "2,5 mm" })).toBe(
       "Cabo — 2,5 mm"
@@ -148,6 +154,36 @@ describe("findMaterial", () => {
     ]);
   });
 
+  test("inactive rows sharing an alias don't hide other active matches", async () => {
+    const t = setup();
+    await t.run(async (ctx) => {
+      const now = Date.now();
+      for (let i = 0; i < 8; i++) {
+        const materialId = await ctx.db.insert("materials", {
+          name: `Fita ${i}`,
+          sku: `MAT-00090${i}`,
+          active: i >= 6,
+          createdAt: now,
+        });
+        await ctx.db.insert("materialAliases", {
+          alias: "fita isolante",
+          aliasNormalized: "fita isolante",
+          materialId,
+          createdAt: now,
+        });
+      }
+    });
+    const result = await t.query(internal.materialLookup.findMaterial, {
+      query: "fita isolante",
+    });
+    expect(result.status).toBe("ambiguous");
+    if (result.status !== "ambiguous") return;
+    expect(result.candidates.map((c) => c.code).sort()).toEqual([
+      "MAT-000906",
+      "MAT-000907",
+    ]);
+  });
+
   test("ignores inactive materials and suggests partial matches", async () => {
     const t = await seedCatalog();
     const inactive = await t.query(internal.materialLookup.findMaterial, {
@@ -165,8 +201,13 @@ describe("findMaterial", () => {
 });
 
 describe("GET /materials/lookup", () => {
-  afterEach(() => {
+  const originalToken = process.env.MATERIAL_LOOKUP_TOKEN;
+  beforeEach(() => {
     delete process.env.MATERIAL_LOOKUP_TOKEN;
+  });
+  afterEach(() => {
+    if (originalToken === undefined) delete process.env.MATERIAL_LOOKUP_TOKEN;
+    else process.env.MATERIAL_LOOKUP_TOKEN = originalToken;
   });
 
   test("is disabled until a token is configured", async () => {

@@ -10,6 +10,9 @@ import {
 
 const MAX_CANDIDATES = 5;
 const SEARCH_LIMIT = 10;
+// Read every row for an exact key (aliases/family variants are small sets) so
+// inactive rows can't hide other active matches and turn "ambiguous" into "found".
+const EXACT_MATCH_LIMIT = 100;
 
 const lookupMaterialValidator = v.object({
   id: v.id("materials"),
@@ -105,7 +108,7 @@ export const findMaterial = internalQuery({
     const aliasHits = await ctx.db
       .query("materialAliases")
       .withIndex("by_alias_normalized", (q) => q.eq("aliasNormalized", query))
-      .take(MAX_CANDIDATES);
+      .take(EXACT_MATCH_LIMIT);
     const byAlias = await activeMaterials(
       ctx,
       aliasHits.map((alias) => alias.materialId)
@@ -120,7 +123,7 @@ export const findMaterial = internalQuery({
       const variants = await ctx.db
         .query("materials")
         .withIndex("by_family", (q) => q.eq("familyId", family._id))
-        .take(SEARCH_LIMIT);
+        .take(EXACT_MATCH_LIMIT);
       const byName = variants.filter((material) => material.active);
       if (byName.length > 0) return resolve(byName, "name");
     }
