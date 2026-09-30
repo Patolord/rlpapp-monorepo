@@ -82,8 +82,6 @@ const qrRowValidator = v.object({
   ambiente: v.union(v.string(), v.null()),
   modelo: v.union(v.string(), v.null()),
   batchName: v.union(v.string(), v.null()),
-  // Etiqueta livre de lote sem obra de destino: pode ser usada em qualquer obra.
-  unassigned: v.boolean(),
 });
 
 async function collectBatchOnlyActiveQrs(
@@ -128,41 +126,7 @@ async function collectActiveQrsForProject(
   return Array.from(byId.values());
 }
 
-// Etiquetas livres sem obra: ativas, sem equipamento, de lotes sem obra de
-// destino. São as mesmas oferecidas no "Vincular QR Code" de qualquer obra.
-async function collectUnassignedFreeQrs(
-  ctx: QueryCtx
-): Promise<Doc<"qrCodes">[]> {
-  const pool = await ctx.db
-    .query("qrCodes")
-    .withIndex("by_project_and_status", (q) =>
-      q.eq("projectId", undefined).eq("status", "active")
-    )
-    .collect();
-  const batchHasDestination = new Map<string, boolean>();
-  const out: Doc<"qrCodes">[] = [];
-  for (const qr of pool) {
-    if (!qr.batchId || qr.equipmentId) continue;
-    let hasDestination = batchHasDestination.get(qr.batchId);
-    if (hasDestination === undefined) {
-      const batchId = qr.batchId;
-      const batch = await ctx.db
-        .query("qrBatches")
-        .withIndex("by_batchId", (q) => q.eq("batchId", batchId))
-        .first();
-      hasDestination = Boolean(batch?.projectId);
-      batchHasDestination.set(batchId, hasDestination);
-    }
-    if (!hasDestination) out.push(qr);
-  }
-  return out;
-}
-
-async function buildQrRow(
-  ctx: QueryCtx,
-  qr: Doc<"qrCodes">,
-  unassigned = false
-) {
+async function buildQrRow(ctx: QueryCtx, qr: Doc<"qrCodes">) {
   const equipment = qr.equipmentId
     ? await ctx.db.get("equipment", qr.equipmentId)
     : null;
@@ -180,7 +144,6 @@ async function buildQrRow(
     ambiente: planned?.ambiente ?? null,
     modelo: planned?.modelo ?? null,
     batchName: qr.batchName ?? null,
-    unassigned,
   };
 }
 
@@ -226,8 +189,6 @@ const browsableProjectValidator = v.object({
   status: v.union(v.string(), v.null()),
   qrCount: v.number(),
   registeredCount: v.number(),
-  // Etiquetas livres sem obra (mesmo total em todas as obras).
-  unassignedCount: v.number(),
 });
 
 const qrBrowseFilterValidator = v.union(
@@ -248,11 +209,10 @@ export const listBrowsableProjects = authedQuery({
     const visible = projects.filter(
       (project) => project.status !== "archived" && !project.archivedAt
     );
-    const unassignedCount = (await collectUnassignedFreeQrs(ctx)).length;
     const withQrs = await Promise.all(
       visible.map(async (project) => {
         const activeQrs = await collectActiveQrsForProject(ctx, project._id);
-        if (activeQrs.length === 0 && unassignedCount === 0) return null;
+        if (activeQrs.length === 0) return null;
         return {
           _id: project._id,
           name: project.name,
@@ -262,7 +222,6 @@ export const listBrowsableProjects = authedQuery({
           status: project.status ?? null,
           qrCount: activeQrs.length,
           registeredCount: activeQrs.filter((qr) => qr.equipmentId).length,
-          unassignedCount,
         };
       })
     );
@@ -296,22 +255,14 @@ export const listBrowsableQrsByProject = authedQuery({
     }
 
     const filter = args.filter ?? "all";
-    const projectQrs = (
+    const activeQrs = (
       await collectActiveQrsForProject(ctx, args.projectId)
     ).filter((qr) => {
       if (filter === "registered") return Boolean(qr.equipmentId);
       if (filter === "free") return !qr.equipmentId;
       return true;
     });
-    projectQrs.sort((a, b) => b.createdAt - a.createdAt);
-    const unassignedQrs =
-      filter === "registered" ? [] : await collectUnassignedFreeQrs(ctx);
-    unassignedQrs.sort((a, b) => b.createdAt - a.createdAt);
-    const unassignedIds = new Set(unassignedQrs.map((qr) => qr._id));
-    // Etiquetas da obra primeiro; depois as livres sem obra.
-    const activeQrs = [...projectQrs, ...unassignedQrs];
-    const toRow = (qr: Doc<"qrCodes">) =>
-      buildQrRow(ctx, qr, unassignedIds.has(qr._id));
+    activeQrs.sort((a, b) => b.createdAt - a.createdAt);
 
     const start = args.paginationOpts.cursor
       ? Number.parseInt(args.paginationOpts.cursor, 10)
@@ -322,13 +273,13 @@ export const listBrowsableQrsByProject = authedQuery({
     if (!term) {
       const page = activeQrs.slice(start, end);
       return {
-        page: await Promise.all(page.map(toRow)),
+        page: await Promise.all(page.map((qr) => buildQrRow(ctx, qr))),
         isDone: end >= activeQrs.length,
         continueCursor: String(end),
       };
     }
 
-    const rows = await Promise.all(activeQrs.map(toRow));
+    const rows = await Promise.all(activeQrs.map((qr) => buildQrRow(ctx, qr)));
     const matches = rows.filter((row) => qrRowMatchesSearch(row, term));
     return {
       page: matches.slice(start, end),
