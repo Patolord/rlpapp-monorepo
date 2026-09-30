@@ -132,6 +132,7 @@ export function FieldProjectQrBrowser() {
             projectName={selectedProject?.name ?? "Obra"}
             qrCount={selectedProject?.qrCount ?? null}
             registeredCount={selectedProject?.registeredCount ?? null}
+            unassignedCount={selectedProject?.unassignedCount ?? null}
             onBack={() => setSelectedProjectId(null)}
           />
         ) : (
@@ -167,6 +168,7 @@ function ProjectDetail({
   projectName,
   qrCount,
   registeredCount,
+  unassignedCount,
   canViewServices,
   activityUsers,
   onBack,
@@ -175,6 +177,7 @@ function ProjectDetail({
   projectName: string;
   qrCount: number | null;
   registeredCount: number | null;
+  unassignedCount: number | null;
   canViewServices: boolean;
   activityUsers: ActivityUser[];
   onBack: () => void;
@@ -234,6 +237,7 @@ function ProjectDetail({
           projectId={projectId}
           qrCount={qrCount}
           registeredCount={registeredCount}
+          unassignedCount={unassignedCount}
         />
       )}
     </div>
@@ -317,10 +321,12 @@ function ProjectQrList({
   projectId,
   qrCount,
   registeredCount,
+  unassignedCount,
 }: {
   projectId: Id<"projects">;
   qrCount: number | null;
   registeredCount: number | null;
+  unassignedCount: number | null;
 }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<QrFilter>("all");
@@ -332,14 +338,21 @@ function ProjectQrList({
   );
   const searching = debouncedSearch.length > 0;
   const filterOptions: Array<{ id: QrFilter; label: string; count: number | null }> = [
-    { id: "all", label: "Todas", count: qrCount },
+    {
+      id: "all",
+      label: "Todas",
+      count:
+        qrCount !== null && unassignedCount !== null
+          ? qrCount + unassignedCount
+          : null,
+    },
     { id: "registered", label: "Cadastradas", count: registeredCount },
     {
       id: "free",
       label: "Livres",
       count:
-        qrCount !== null && registeredCount !== null
-          ? qrCount - registeredCount
+        qrCount !== null && registeredCount !== null && unassignedCount !== null
+          ? qrCount - registeredCount + unassignedCount
           : null,
     },
   ];
@@ -415,6 +428,9 @@ function ProjectQrList({
                       <StatusBadge status={qr.status} />
                     ) : (
                       <Badge variant="outline">Livre</Badge>
+                    )}
+                    {qr.unassigned && (
+                      <Badge variant="secondary">Sem obra</Badge>
                     )}
                   </div>
                   <p className="truncate text-sm">{title}</p>
