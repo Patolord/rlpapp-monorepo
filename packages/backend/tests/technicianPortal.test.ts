@@ -203,6 +203,119 @@ describe("technicianPortal", () => {
     expect(lorena?.registeredCount).toBe(1);
   });
 
+  test("catálogo inclui etiquetas livres de lotes sem obra de destino", async () => {
+    const t = setup();
+    const asTech = await withUser(t, {
+      clerkId: "tech-unassigned-1",
+      role: "qr_operator",
+    });
+    const techId = await userIdByClerk(t, "tech-unassigned-1");
+    const lorenaId = await seedProject(t, "Obra Lorena");
+    const otherId = await seedProject(t, "Obra Outra");
+
+    await t.run(async (ctx) => {
+      const equipmentId = await ctx.db.insert("equipment", {
+        description: "Cadastrado sem obra",
+        status: "installing",
+        createdAt: 1,
+        createdByUserId: techId,
+      });
+      await ctx.db.insert("qrBatches", {
+        batchId: "batch-sem-destino",
+        createdAt: 1,
+      });
+      await ctx.db.insert("qrBatches", {
+        batchId: "batch-outra",
+        projectId: otherId,
+        createdAt: 1,
+      });
+      await ctx.db.insert("qrCodes", {
+        token: "LORENA01",
+        status: "active",
+        projectId: lorenaId,
+        createdAt: 10,
+      });
+      await ctx.db.insert("qrCodes", {
+        token: "LEGADO01",
+        status: "active",
+        batchId: "batch-legado",
+        createdAt: 20,
+      });
+      await ctx.db.insert("qrCodes", {
+        token: "SEMDEST1",
+        status: "active",
+        batchId: "batch-sem-destino",
+        createdAt: 30,
+      });
+      await ctx.db.insert("qrCodes", {
+        token: "OUTRADST",
+        status: "active",
+        batchId: "batch-outra",
+        createdAt: 40,
+      });
+      await ctx.db.insert("qrCodes", {
+        token: "USADO001",
+        status: "active",
+        batchId: "batch-legado",
+        equipmentId,
+        createdAt: 50,
+      });
+      await ctx.db.insert("qrCodes", {
+        token: "INATIVO2",
+        status: "inactive",
+        batchId: "batch-legado",
+        createdAt: 60,
+      });
+      await ctx.db.insert("qrCodes", {
+        token: "SEMLOTE1",
+        status: "active",
+        createdAt: 70,
+      });
+    });
+
+    const all = await asTech.query(
+      api.technicianPortal.listBrowsableQrsByProject,
+      { projectId: lorenaId, paginationOpts: { cursor: null, numItems: 20 } }
+    );
+    expect(all.page.map((qr) => [qr.token, qr.unassigned])).toEqual([
+      ["LORENA01", false],
+      ["SEMDEST1", true],
+      ["LEGADO01", true],
+    ]);
+
+    const free = await asTech.query(
+      api.technicianPortal.listBrowsableQrsByProject,
+      {
+        projectId: lorenaId,
+        filter: "free",
+        search: "legado",
+        paginationOpts: { cursor: null, numItems: 20 },
+      }
+    );
+    expect(free.page.map((qr) => qr.token)).toEqual(["LEGADO01"]);
+
+    const registered = await asTech.query(
+      api.technicianPortal.listBrowsableQrsByProject,
+      {
+        projectId: lorenaId,
+        filter: "registered",
+        paginationOpts: { cursor: null, numItems: 20 },
+      }
+    );
+    expect(registered.page).toHaveLength(0);
+
+    const projects = await asTech.query(
+      api.technicianPortal.listBrowsableProjects,
+      {}
+    );
+    const lorena = projects.find((project) => project._id === lorenaId);
+    expect(lorena).toMatchObject({
+      qrCount: 1,
+      registeredCount: 0,
+      unassignedCount: 2,
+    });
+  });
+
   test("técnico atribuído lista todos os QRs da obra", async () => {
     const t = setup();
     const asTech = await withUser(t, {
