@@ -34,6 +34,7 @@ import {
   X,
 } from "lucide-react";
 import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
+import { BatchesWithoutProjectCard } from "@/components/engenharia/batches-without-project-card";
 import { printQrCodes } from "@/lib/qr-print";
 
 const filterModes = ["all", "linked", "free", "latest_batch"] as const;
@@ -282,6 +283,8 @@ function PageContent() {
         <MetricCard title="Vinculados" value={stats ? stats.linked.toString() : "..."} description="com equipamento vinculado" icon={<Link2 className="h-4 w-4 text-blue-500" />} />
         <MetricCard title="Livres" value={stats ? stats.free.toString() : "..."} description="disponíveis para vínculo" icon={<Link2Off className="h-4 w-4 text-gray-400" />} />
       </div>
+
+      <BatchesWithoutProjectCard />
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Card>
