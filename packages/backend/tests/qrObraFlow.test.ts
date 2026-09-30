@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { api } from "../convex/_generated/api";
+import { api, internal } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
 import { setup, withUser } from "./helpers";
 
@@ -323,5 +323,156 @@ describe("fluxo QR-Obra sem redundância", () => {
     });
     expect(qr?.equipmentId).toBeDefined();
     expect(qr?.projectId).toBeUndefined();
+  });
+  test("lote antigo sem obra: definir obra traz etiquetas cadastradas para a obra", async () => {
+    const t = setup();
+    const asEng = await withUser(t, {
+      clerkId: "eng-lote-sem-obra",
+      role: "engenheiro",
+      department: "engenharia",
+    });
+    const asTech = await withUser(t, {
+      clerkId: "tech-lote-sem-obra",
+      role: "qr_operator",
+    });
+    const { projectId: lorenaId } = await seedObra(t, "Lorena");
+    const { projectId: otherId } = await seedObra(t, "Outra");
+
+    const plannedElsewhere = await t.run(async (ctx) =>
+      ctx.db.insert("projectEquipment", {
+        projectId: otherId,
+        system: "VRF 1",
+        ambiente: "Sala",
+        kind: "evaporadora",
+        modelo: "EV-1",
+        capacidade: "9000",
+        status: "installing",
+      })
+    );
+
+    await t.run(async (ctx) => {
+      const registered = await ctx.db.insert("equipment", {
+        description: "21 final 1 em teste de 24h",
+        status: "installing",
+        createdAt: 1,
+      });
+      const linked = await ctx.db.insert("equipment", {
+        description: "Já num item planejado",
+        status: "installing",
+        projectEquipmentId: plannedElsewhere,
+        createdAt: 1,
+      });
+      await ctx.db.insert("qrCodes", {
+        token: "LORENA-BY4LDV",
+        status: "active",
+        batchId: "batch-legado",
+        batchName: "Lorena antigo",
+        equipmentId: registered,
+        createdAt: 1,
+      });
+      await ctx.db.insert("qrCodes", {
+        token: "LORENA-FREE01",
+        status: "active",
+        batchId: "batch-legado",
+        batchName: "Lorena antigo",
+        createdAt: 2,
+      });
+      await ctx.db.insert("qrCodes", {
+        token: "LORENA-LINKED",
+        status: "active",
+        batchId: "batch-legado",
+        batchName: "Lorena antigo",
+        equipmentId: linked,
+        projectId: otherId,
+        createdAt: 3,
+      });
+    });
+
+    const before = await asEng.query(api.qrCodes.listBatchesWithoutProject, {});
+    expect(before).toEqual([
+      {
+        batchId: "batch-legado",
+        batchName: "Lorena antigo",
+        createdAt: 1,
+        total: 2,
+        registered: 1,
+        sampleTokens: ["LORENA-BY4LDV", "LORENA-FREE01"],
+      },
+    ]);
+    const catalogBefore = await asTech.query(
+      api.technicianPortal.listBrowsableQrsByProject,
+      { projectId: lorenaId, paginationOpts: { cursor: null, numItems: 20 } }
+    );
+    expect(catalogBefore.page).toHaveLength(0);
+
+    await expect(
+      asTech.mutation(api.qrCodes.setBatchProject, {
+        batchId: "batch-legado",
+        projectId: lorenaId,
+      })
+    ).rejects.toThrow();
+
+    const result = await asEng.mutation(api.qrCodes.setBatchProject, {
+      batchId: "batch-legado",
+      projectId: lorenaId,
+    });
+    expect(result).toEqual({ updated: 2, kept: 1 });
+
+    expect(
+      await asEng.query(api.qrCodes.listBatchesWithoutProject, {})
+    ).toEqual([]);
+
+    const catalog = await asTech.query(
+      api.technicianPortal.listBrowsableQrsByProject,
+      {
+        projectId: lorenaId,
+        filter: "registered",
+        paginationOpts: { cursor: null, numItems: 20 },
+      }
+    );
+    expect(catalog.page.map((qr) => [qr.token, qr.description])).toEqual([
+      ["LORENA-BY4LDV", "21 final 1 em teste de 24h"],
+    ]);
+
+    const linkedQr = await t.run(async (ctx) =>
+      ctx.db
+        .query("qrCodes")
+        .withIndex("by_token", (q) => q.eq("token", "LORENA-LINKED"))
+        .unique()
+    );
+    expect(linkedQr?.projectId).toBe(otherId);
+
+    const qrData = await asTech.query(api.qrCodes.getByToken, {
+      token: "LORENA-FREE01",
+    });
+    expect(qrData?.batchProject?.projectId).toBe(lorenaId);
+  });
+  test("backfill mantém a obra herdada de QR cadastrado sem item planejado", async () => {
+    const t = setup();
+    const { projectId } = await seedObra(t, "Lorena");
+    await t.run(async (ctx) => {
+      const equipmentId = await ctx.db.insert("equipment", {
+        description: "Cadastrado em campo",
+        status: "installing",
+        createdAt: 1,
+      });
+      await ctx.db.insert("qrCodes", {
+        token: "HERDADO1",
+        status: "active",
+        equipmentId,
+        projectId,
+        createdAt: 1,
+      });
+    });
+
+    const result = await t.mutation(internal.qrCodes.backfillQrProjectIds, {});
+    expect(result.patched).toBe(0);
+    const qr = await t.run(async (ctx) =>
+      ctx.db
+        .query("qrCodes")
+        .withIndex("by_token", (q) => q.eq("token", "HERDADO1"))
+        .unique()
+    );
+    expect(qr?.projectId).toBe(projectId);
   });
 });
