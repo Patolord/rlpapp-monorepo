@@ -11,6 +11,7 @@ capability.
 convex/
   contracts.ts          Public queries and mutations
   materials.ts
+  materialLookup.ts     Internal natural-language material lookup
   projects.ts
   model/
     contracts/          Contract rules, operations, and read models
@@ -90,8 +91,8 @@ wrappers.
 
 After migrating a domain:
 
-1. Regenerate Convex types with `npx convex dev` in an isolated development
-   deployment.
+1. Regenerate Convex types with `npx convex dev --once` in an isolated
+   development deployment (`CONVEX_AGENT_MODE=anonymous` for agents).
 2. Run `pnpm test`.
 3. Run `pnpm lint`.
 4. Run `pnpm check-types`.

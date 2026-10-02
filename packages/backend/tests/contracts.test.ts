@@ -142,6 +142,31 @@ describe("contracts API", () => {
     expect(hire.direction).toBe("contractor_hire");
   });
 
+  test("get returns the contract detail with its service items", async () => {
+    const { engineer, customerId, projectId } = await seedEngineering();
+
+    const contractId = await engineer.mutation(api.contracts.create, {
+      title: "Contrato detalhado",
+      direction: "client_sale",
+      kind: "base",
+      projectId,
+      customerId,
+      serviceItems: [
+        { description: "Instalação VRF", valueCents: 100_000 },
+        { description: "Startup", valueCents: 25_000 },
+      ],
+    });
+
+    const detail = await engineer.query(api.contracts.get, { contractId });
+    expect(detail).not.toBeNull();
+    expect(detail!.title).toBe("Contrato detalhado");
+    expect(detail!.valueCents).toBe(125_000);
+    expect(detail!.serviceItems.map((item) => item.description)).toEqual([
+      "Instalação VRF",
+      "Startup",
+    ]);
+  });
+
   test("rejects medicoes on contractor contracts", async () => {
     const { engineer, contractorId, projectId } = await seedEngineering();
 

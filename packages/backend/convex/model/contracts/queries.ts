@@ -2,7 +2,7 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
 import { resolveCustomerLabel } from "../../lib/projects/helpers";
 import {
-  assertContractEligibleForMeasurement,
+  isContractEligibleForMeasurement,
   resolveContractDirection,
   resolveContractKind,
   type ContractDirection,
@@ -168,7 +168,15 @@ export async function getContractById(
 ) {
   const contract = await ctx.db.get("contracts", contractId);
   if (!contract) return null;
-  return await resolveContractRow(ctx, contract, createContractRowCaches());
+  const row = await resolveContractRow(
+    ctx,
+    contract,
+    createContractRowCaches()
+  );
+  // The detail validator exposes the full `serviceItems` list; the count is
+  // a list-row projection and would fail strict return validation here.
+  const { serviceItemCount: _serviceItemCount, ...detail } = row;
+  return detail;
 }
 
 export async function listBaseContractOptions(
@@ -268,14 +276,7 @@ export async function listContractsForMeasurements(
     .query("contracts")
     .withIndex("by_project", (q) => q.eq("projectId", projectId))
     .collect();
-  const eligibleContracts = contracts.filter((contract) => {
-    try {
-      assertContractEligibleForMeasurement(contract);
-      return true;
-    } catch {
-      return false;
-    }
-  });
+  const eligibleContracts = contracts.filter(isContractEligibleForMeasurement);
 
   return await Promise.all(
     eligibleContracts.map(async (contract) => {
@@ -313,14 +314,9 @@ export async function getContractBillingOverview(ctx: QueryCtx) {
         .query("contracts")
         .withIndex("by_project", (q) => q.eq("projectId", project._id))
         .collect();
-      const eligibleContracts = contracts.filter((contract) => {
-        try {
-          assertContractEligibleForMeasurement(contract);
-          return true;
-        } catch {
-          return false;
-        }
-      });
+      const eligibleContracts = contracts.filter(
+        isContractEligibleForMeasurement
+      );
       const measurements = await ctx.db
         .query("medicoes")
         .withIndex("by_project", (q) => q.eq("projectId", project._id))

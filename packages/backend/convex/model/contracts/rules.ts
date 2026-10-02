@@ -40,6 +40,15 @@ export function assertValidContractCounterparty(args: {
   }
 }
 
+export function isContractEligibleForMeasurement(
+  contract: Doc<"contracts">
+): boolean {
+  return (
+    resolveContractDirection(contract) === "client_sale" &&
+    contract.projectId !== undefined
+  );
+}
+
 export function assertContractEligibleForMeasurement(
   contract: Doc<"contracts">
 ): void {
