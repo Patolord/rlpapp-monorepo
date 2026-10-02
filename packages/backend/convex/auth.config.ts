@@ -13,8 +13,16 @@ const providers: AuthConfig["providers"] = [
   },
 ];
 
-const mcpIssuer = process.env.MCP_JWT_ISSUER;
-const mcpJwks = process.env.MCP_JWT_JWKS;
+// Convex evaluates this file at push time and fails the whole push when an
+// *unset* variable is read via `process.env.NAME` ("used in auth config file
+// but its value was not set"). The MCP provider is optional, so probe for the
+// key before reading it; otherwise every deployment without MCP configured
+// (local, dev, prod) would stop deploying.
+const env: Record<string, string | undefined> = process.env;
+const readOptional = (name: string): string | undefined =>
+  name in env ? env[name] : undefined;
+const mcpIssuer = readOptional("MCP_JWT_ISSUER");
+const mcpJwks = readOptional("MCP_JWT_JWKS");
 if (mcpIssuer && mcpJwks) {
   providers.push({
     type: "customJwt",

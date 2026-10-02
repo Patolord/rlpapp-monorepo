@@ -33,6 +33,7 @@ import type * as lib_auth from "../lib/auth.js";
 import type * as lib_compras_bulkImport from "../lib/compras/bulkImport.js";
 import type * as lib_compras_catalog from "../lib/compras/catalog.js";
 import type * as lib_compras_materialLookup from "../lib/compras/materialLookup.js";
+import type * as lib_compras_mergeMaterials from "../lib/compras/mergeMaterials.js";
 import type * as lib_compras_procurement from "../lib/compras/procurement.js";
 import type * as lib_contracts_helpers from "../lib/contracts/helpers.js";
 import type * as lib_customers_helpers from "../lib/customers/helpers.js";
@@ -100,6 +101,7 @@ declare const fullApi: ApiFromModules<{
   "lib/compras/bulkImport": typeof lib_compras_bulkImport;
   "lib/compras/catalog": typeof lib_compras_catalog;
   "lib/compras/materialLookup": typeof lib_compras_materialLookup;
+  "lib/compras/mergeMaterials": typeof lib_compras_mergeMaterials;
   "lib/compras/procurement": typeof lib_compras_procurement;
   "lib/contracts/helpers": typeof lib_contracts_helpers;
   "lib/customers/helpers": typeof lib_customers_helpers;
