@@ -21,9 +21,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { getErrorMessage } from "@/lib/errors";
 import {
+  INVALID_PDF_MESSAGE,
   MAX_PDF_BYTES,
   TECHNICIAN_ACCESS_OPTIONS,
   formatFileSize,
+  hasPdfSignature,
   isPdfFile,
   suggestDocumentName,
   uploadPdf,
@@ -57,6 +59,7 @@ export function ProjectDocumentDialog({
     projectId,
   });
   const generateUploadUrl = useMutation(api.projectDocuments.generateUploadUrl);
+  const discardUpload = useMutation(api.projectDocuments.discardUpload);
   const createDocument = useMutation(api.projectDocuments.create);
   const updateDocument = useMutation(api.projectDocuments.update);
 
@@ -80,17 +83,24 @@ export function ProjectDocumentDialog({
     );
   }, [open, document]);
 
-  function pickFile(next: File | null) {
-    if (!next) {
-      setFile(null);
-      return;
-    }
+  async function pickFile(next: File | null) {
+    // Qualquer escolha substitui a anterior: um arquivo recusado não pode
+    // deixar o anterior "preso" no formulário. Limpar o input permite
+    // escolher o mesmo arquivo de novo.
+    setFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (!next) return;
+
     if (!isPdfFile(next)) {
       toast.error("Apenas arquivos PDF são aceitos");
       return;
     }
     if (next.size > MAX_PDF_BYTES) {
       toast.error("O PDF deve ter no máximo 50 MB");
+      return;
+    }
+    if (!(await hasPdfSignature(next))) {
+      toast.error(INVALID_PDF_MESSAGE);
       return;
     }
     setFile(next);
@@ -132,14 +142,20 @@ export function ProjectDocumentDialog({
         toast.success("Documento atualizado");
       } else if (file) {
         const storageId = await uploadPdf(generateUploadUrl, file);
-        await createDocument({
-          projectId,
-          storageId,
-          name,
-          description: description.trim() || undefined,
-          technicianAccess: access,
-          allowedTechnicianIds,
-        });
+        try {
+          await createDocument({
+            projectId,
+            storageId,
+            name,
+            description: description.trim() || undefined,
+            technicianAccess: access,
+            allowedTechnicianIds,
+          });
+        } catch (error) {
+          // O arquivo já subiu; sem cadastro ele ficaria órfão no storage.
+          await discardUpload({ storageId }).catch(() => undefined);
+          throw error;
+        }
         toast.success("PDF enviado");
       }
       setOpen(false);
@@ -182,7 +198,7 @@ export function ProjectDocumentDialog({
                 accept="application/pdf,.pdf"
                 className="sr-only"
                 onChange={(event) =>
-                  pickFile(event.target.files?.[0] ?? null)
+                  void pickFile(event.target.files?.[0] ?? null)
                 }
               />
               <button
@@ -191,7 +207,7 @@ export function ProjectDocumentDialog({
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => {
                   event.preventDefault();
-                  pickFile(event.dataTransfer.files?.[0] ?? null);
+                  void pickFile(event.dataTransfer.files?.[0] ?? null);
                 }}
                 className={cn(
                   "flex w-full items-center gap-3 rounded-lg border border-dashed p-4 text-left transition-colors",

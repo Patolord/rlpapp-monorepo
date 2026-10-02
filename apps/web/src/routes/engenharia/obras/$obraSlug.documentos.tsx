@@ -18,6 +18,7 @@ function ObraDocumentosPage() {
           <ProjectDocumentsPanel
             projectId={project._id}
             projectName={project.name}
+            archived={project.status === "archived"}
           />
         )}
       </ProjectShell>

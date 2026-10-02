@@ -4,6 +4,7 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
 import {
+  Archive,
   Download,
   ExternalLink,
   FileText,
@@ -30,9 +31,10 @@ import { getErrorMessage } from "@/lib/errors";
 import {
   TECHNICIAN_ACCESS_LABELS,
   downloadBlob,
-  fetchPdfBlob,
   formatFileSize,
+  openPdfInNewTab,
 } from "@/lib/project-documents";
+import { useDocumentBlobFetcher } from "@/lib/use-document-blob";
 
 type OfficeDocument = FunctionReturnType<
   typeof api.projectDocuments.listByProject
@@ -41,9 +43,12 @@ type OfficeDocument = FunctionReturnType<
 export function ProjectDocumentsPanel({
   projectId,
   projectName,
+  archived = false,
 }: {
   projectId: Id<"projects">;
   projectName: string;
+  /** Obra arquivada: só consulta e remoção; envio/edição ficam bloqueados. */
+  archived?: boolean;
 }) {
   const documents = useQuery(api.projectDocuments.listByProject, { projectId });
   const removeDocument = useMutation(api.projectDocuments.remove);
@@ -83,16 +88,26 @@ export function ProjectDocumentsPanel({
             )}
           </p>
         </div>
-        <ProjectDocumentDialog
-          projectId={projectId}
-          trigger={
-            <Button>
-              <Upload className="mr-1.5 size-4" />
-              Enviar PDF
-            </Button>
-          }
-        />
+        {!archived && (
+          <ProjectDocumentDialog
+            projectId={projectId}
+            trigger={
+              <Button>
+                <Upload className="mr-1.5 size-4" />
+                Enviar PDF
+              </Button>
+            }
+          />
+        )}
       </div>
+
+      {archived && (
+        <p className="flex items-center gap-2 rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+          <Archive className="size-4 shrink-0" />
+          Obra arquivada: os documentos continuam disponíveis para consulta,
+          mas restaure a obra para enviar ou editar PDFs.
+        </p>
+      )}
 
       {documents === undefined ? (
         <div className="flex min-h-40 items-center justify-center">
@@ -108,15 +123,17 @@ export function ProjectDocumentsPanel({
               arquivo, quais técnicos podem ver e baixar.
             </p>
           </div>
-          <ProjectDocumentDialog
-            projectId={projectId}
-            trigger={
-              <Button variant="outline">
-                <Upload className="mr-1.5 size-4" />
-                Enviar o primeiro PDF
-              </Button>
-            }
-          />
+          {!archived && (
+            <ProjectDocumentDialog
+              projectId={projectId}
+              trigger={
+                <Button variant="outline">
+                  <Upload className="mr-1.5 size-4" />
+                  Enviar o primeiro PDF
+                </Button>
+              }
+            />
+          )}
         </div>
       ) : (
         <ul className="divide-y rounded-xl border bg-card">
@@ -125,6 +142,7 @@ export function ProjectDocumentsPanel({
               key={document._id}
               projectId={projectId}
               document={document}
+              archived={archived}
               onRemove={() => setRemoving(document)}
             />
           ))}
@@ -171,25 +189,42 @@ export function ProjectDocumentsPanel({
 function DocumentRow({
   projectId,
   document,
+  archived,
   onRemove,
 }: {
   projectId: Id<"projects">;
   document: OfficeDocument;
+  archived: boolean;
   onRemove: () => void;
 }) {
-  const [downloading, setDownloading] = useState(false);
+  const fetchBlob = useDocumentBlobFetcher();
+  const [busy, setBusy] = useState<"open" | "download" | null>(null);
 
-  async function handleDownload() {
-    if (!document.url) return;
-    setDownloading(true);
+  async function run(kind: "open" | "download", action: () => Promise<void>) {
+    setBusy(kind);
     try {
-      downloadBlob(await fetchPdfBlob(document.url), document.fileName);
+      await action();
     } catch (error) {
-      toast.error(getErrorMessage(error, "Não foi possível baixar"));
+      toast.error(
+        getErrorMessage(
+          error,
+          kind === "open" ? "Não foi possível abrir" : "Não foi possível baixar"
+        )
+      );
     } finally {
-      setDownloading(false);
+      setBusy(null);
     }
   }
+
+  const handleOpen = () =>
+    run("open", () =>
+      openPdfInNewTab(() => fetchBlob(document._id), document.fileName)
+    );
+
+  const handleDownload = () =>
+    run("download", async () => {
+      downloadBlob(await fetchBlob(document._id), document.fileName);
+    });
 
   const accessVariant =
     document.technicianAccess === "none"
@@ -235,41 +270,44 @@ function DocumentRow({
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
-        {document.url && (
-          <Button
-            variant="outline"
-            size="sm"
-            render={
-              <a href={document.url} target="_blank" rel="noopener noreferrer" />
-            }
-          >
-            <ExternalLink className="mr-1.5 size-3.5" />
-            Abrir
-          </Button>
-        )}
         <Button
           variant="outline"
           size="sm"
-          disabled={!document.url || downloading}
+          disabled={busy !== null}
+          onClick={() => void handleOpen()}
+        >
+          {busy === "open" ? (
+            <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+          ) : (
+            <ExternalLink className="mr-1.5 size-3.5" />
+          )}
+          Abrir
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={busy !== null}
           onClick={() => void handleDownload()}
         >
-          {downloading ? (
+          {busy === "download" ? (
             <Loader2 className="mr-1.5 size-3.5 animate-spin" />
           ) : (
             <Download className="mr-1.5 size-3.5" />
           )}
           Baixar
         </Button>
-        <ProjectDocumentDialog
-          projectId={projectId}
-          document={document}
-          trigger={
-            <Button variant="outline" size="sm">
-              <Pencil className="mr-1.5 size-3.5" />
-              Editar
-            </Button>
-          }
-        />
+        {!archived && (
+          <ProjectDocumentDialog
+            projectId={projectId}
+            document={document}
+            trigger={
+              <Button variant="outline" size="sm">
+                <Pencil className="mr-1.5 size-3.5" />
+                Editar
+              </Button>
+            }
+          />
+        )}
         <Button
           variant="ghost"
           size="icon-sm"
