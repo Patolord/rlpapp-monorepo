@@ -24,6 +24,16 @@ export const projectStatus = v.union(
   v.literal("archived")
 );
 
+// Quem, em campo, pode ver/baixar um documento da obra.
+// - none: apenas escritório (engenharia)
+// - all: todos os técnicos atribuídos à obra (projects.technicianIds)
+// - selected: somente os técnicos listados em allowedTechnicianIds
+export const projectDocumentTechnicianAccess = v.union(
+  v.literal("none"),
+  v.literal("all"),
+  v.literal("selected")
+);
+
 // Department types
 export const departments = v.union(
   v.literal("rh"),
@@ -399,6 +409,26 @@ export default defineSchema({
     .index("by_responsible", ["responsibleId"])
     .index("by_customer", ["customerId"])
     .index("by_legacy_number", ["legacyNumber"]),
+
+  // Documentos (PDF) anexados à obra pela engenharia, com acesso opcional
+  // para os técnicos de campo visualizarem/baixarem.
+  projectDocuments: defineTable({
+    projectId: v.id("projects"),
+    storageId: v.id("_storage"),
+    // Nome exibido (sem depender do nome original do arquivo).
+    name: v.string(),
+    description: v.optional(v.string()),
+    contentType: v.string(),
+    sizeBytes: v.number(),
+    technicianAccess: projectDocumentTechnicianAccess,
+    // Só usado quando technicianAccess === "selected".
+    allowedTechnicianIds: v.optional(v.array(v.id("users"))),
+    uploadedByUserId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_project", ["projectId"])
+    .index("by_storage", ["storageId"]),
 
   // --- Hierarquia nova: Torre → Andar → Ambiente ---
 
