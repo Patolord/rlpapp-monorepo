@@ -14,7 +14,7 @@ import {
   staffMutation,
   staffQuery,
 } from "./lib/rbac";
-import { logEquipmentHistory } from "./lib/audit";
+import { logAudit, logEquipmentHistory } from "./lib/audit";
 import type { Doc, Id } from "./_generated/dataModel";
 
 const qrCodeStatus = v.union(v.literal("active"), v.literal("inactive"));
@@ -618,6 +618,141 @@ export const listAvailableBatches = engineeringQuery({
           };
         })
     );
+  },
+});
+
+// Lotes cujas etiquetas não pertencem a nenhuma obra (lotes antigos, criados
+// antes da obra de destino ser obrigatória). Etiquetas cadastradas desses lotes
+// não aparecem em nenhuma obra até o lote receber uma obra.
+export const listBatchesWithoutProject = engineeringQuery({
+  args: {},
+  returns: v.array(
+    v.object({
+      batchId: v.string(),
+      batchName: v.union(v.string(), v.null()),
+      createdAt: v.number(),
+      total: v.number(),
+      registered: v.number(),
+      sampleTokens: v.array(v.string()),
+    })
+  ),
+  handler: async (ctx) => {
+    const orphans = await ctx.db
+      .query("qrCodes")
+      .withIndex("by_project", (q) => q.eq("projectId", undefined))
+      .collect();
+
+    const hasDestination = new Map<string, boolean>();
+    const batches = new Map<
+      string,
+      {
+        batchId: string;
+        batchName: string | null;
+        createdAt: number;
+        total: number;
+        registered: number;
+        sampleTokens: string[];
+      }
+    >();
+    for (const qr of orphans) {
+      if (!qr.batchId || qr.status !== "active") continue;
+      let destination = hasDestination.get(qr.batchId);
+      if (destination === undefined) {
+        destination = (await getBatchDestination(ctx, qr.batchId)) !== null;
+        hasDestination.set(qr.batchId, destination);
+      }
+      if (destination) continue;
+
+      let batch = batches.get(qr.batchId);
+      if (!batch) {
+        batch = {
+          batchId: qr.batchId,
+          batchName: qr.batchName ?? null,
+          createdAt: qr.createdAt,
+          total: 0,
+          registered: 0,
+          sampleTokens: [],
+        };
+        batches.set(qr.batchId, batch);
+      }
+      batch.total++;
+      if (qr.equipmentId) batch.registered++;
+      if (batch.sampleTokens.length < 3) batch.sampleTokens.push(qr.token);
+    }
+
+    return [...batches.values()].sort(
+      (a, b) => b.registered - a.registered || b.createdAt - a.createdAt
+    );
+  },
+});
+
+// Define (ou troca) a obra de destino de um lote e grava a obra nas etiquetas
+// do lote. Etiquetas cujo equipamento já está num item planejado mantêm a obra
+// do item planejado, que é a fonte de verdade.
+export const setBatchProject = engineeringMutation({
+  args: {
+    batchId: v.string(),
+    projectId: v.id("projects"),
+  },
+  returns: v.object({ updated: v.number(), kept: v.number() }),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project) throw new Error("Obra não encontrada");
+
+    const codes = await ctx.db
+      .query("qrCodes")
+      .withIndex("by_batchId", (q) => q.eq("batchId", args.batchId))
+      .collect();
+    if (codes.length === 0) throw new Error("Lote não encontrado");
+
+    const batch = await ctx.db
+      .query("qrBatches")
+      .withIndex("by_batchId", (q) => q.eq("batchId", args.batchId))
+      .first();
+    const previousProjectId = batch?.projectId;
+    if (batch) {
+      await ctx.db.patch("qrBatches", batch._id, { projectId: args.projectId });
+    } else {
+      await ctx.db.insert("qrBatches", {
+        batchId: args.batchId,
+        name: codes[0]?.batchName,
+        projectId: args.projectId,
+        createdAt: Math.min(...codes.map((qr) => qr.createdAt)),
+      });
+    }
+
+    let updated = 0;
+    let kept = 0;
+    for (const qr of codes) {
+      if (qr.equipmentId) {
+        const equipment = await ctx.db.get("equipment", qr.equipmentId);
+        if (equipment?.projectEquipmentId) {
+          kept++;
+          continue;
+        }
+      }
+      if (qr.projectId !== args.projectId) {
+        await ctx.db.patch("qrCodes", qr._id, { projectId: args.projectId });
+        updated++;
+      }
+    }
+
+    await logAudit(ctx, ctx.user, {
+      action: "update",
+      tableName: "qrBatches",
+      recordId: args.batchId,
+      entityLabel: codes[0]?.batchName ?? args.batchId,
+      details: `Obra do lote definida como ${project.name} (${updated} etiqueta(s) atualizada(s))`,
+      changes: [
+        {
+          field: "projectId",
+          previousValue: previousProjectId,
+          newValue: args.projectId,
+        },
+      ],
+    });
+
+    return { updated, kept };
   },
 });
 
@@ -1256,7 +1391,8 @@ export const backfillQrProjectIds = internalMutation({
       const planned = equipment?.projectEquipmentId
         ? await ctx.db.get("projectEquipment", equipment.projectEquipmentId)
         : null;
-      const projectId = planned?.projectId;
+      // Sem item planejado, mantém a obra herdada do lote em vez de apagá-la.
+      const projectId = planned?.projectId ?? qr.projectId;
       if (qr.projectId !== projectId) {
         await ctx.db.patch("qrCodes", qr._id, { projectId });
         patched++;
