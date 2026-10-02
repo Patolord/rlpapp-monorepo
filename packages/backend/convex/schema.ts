@@ -876,7 +876,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_alias_normalized", ["aliasNormalized"])
-    .index("by_material", ["materialId"]),
+    .index("by_material", ["materialId"])
+    .searchIndex("search_alias", { searchField: "aliasNormalized" }),
 
   // --- Estoque central e saldos simplificados por obra ---
 

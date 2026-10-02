@@ -5,6 +5,14 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Card,
   CardContent,
@@ -18,22 +26,53 @@ import {
   ChevronDown,
   ChevronRight,
   History,
+  UserRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Histórico de serviços do usuário logado agrupado por obra: cadastro de
 // equipamento, registros de instalação/manutenção + ações de campo
 // (instalado/testado/finalizado).
+// Quem tem acesso à engenharia pode escolher outro técnico para consultar.
+const MINE = "mine";
+
 export function SentHistoryByProject() {
-  const projects = useQuery(api.technicianActivity.listMineProjects);
+  const activityUsers = useQuery(api.technicianActivity.listActivityUsers);
+  const [selectedUser, setSelectedUser] = useState<string>(MINE);
+  const userId =
+    selectedUser === MINE ? undefined : (selectedUser as Id<"users">);
+  const projects = useQuery(api.technicianActivity.listMineProjects, {
+    userId,
+  });
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="space-y-3">
         <CardTitle className="flex items-center gap-2">
           <History className="h-5 w-5 text-muted-foreground" />
           Histórico enviado
         </CardTitle>
+        {activityUsers && activityUsers.length > 0 && (
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Técnico</Label>
+            <Select
+              value={selectedUser}
+              onValueChange={(value) => setSelectedUser(value || MINE)}
+            >
+              <SelectTrigger className="h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={MINE}>Meu histórico</SelectItem>
+                {activityUsers.map((user) => (
+                  <SelectItem key={user._id} value={user._id}>
+                    {user.isActive ? user.name : `${user.name} (inativo)`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-3">
         {projects === undefined ? (
@@ -45,7 +84,8 @@ export function SentHistoryByProject() {
         ) : (
           projects.map((group) => (
             <ProjectGroup
-              key={group.projectId ?? "none"}
+              key={`${selectedUser}:${group.projectId ?? "none"}`}
+              userId={userId}
               projectId={group.projectId}
               projectName={group.projectName}
               count={group.count}
@@ -69,12 +109,14 @@ function formatDate(timestamp: number, withTime = false) {
 }
 
 function ProjectGroup({
+  userId,
   projectId,
   projectName,
   count,
   lastActivityAt,
   defaultOpen,
 }: {
+  userId: Id<"users"> | undefined;
   projectId: Id<"projects"> | null;
   projectName: string | null;
   count: number;
@@ -116,7 +158,7 @@ function ProjectGroup({
       </button>
       {open && (
         <div className="space-y-3 border-t p-3">
-          <ProjectActivityList projectId={projectId} />
+          <ProjectActivityList userId={userId} projectId={projectId} />
         </div>
       )}
     </div>
@@ -124,13 +166,15 @@ function ProjectGroup({
 }
 
 function ProjectActivityList({
+  userId,
   projectId,
 }: {
+  userId: Id<"users"> | undefined;
   projectId: Id<"projects"> | null;
 }) {
   const { results, status, loadMore } = usePaginatedQuery(
     api.technicianActivity.listMineForProject,
-    { projectId },
+    { projectId, userId },
     { initialNumItems: 10 }
   );
 
@@ -164,7 +208,7 @@ function ProjectActivityList({
   );
 }
 
-type ActivityItem = {
+export type ActivityItem = {
   kind: "maintenanceLog" | "fieldAction" | "registration";
   id: string;
   createdAt: number;
@@ -173,6 +217,7 @@ type ActivityItem = {
   status: "installing" | "operational" | "warning" | "error" | null;
   qrToken: string | null;
   notes: string | null;
+  authorName?: string | null;
 };
 
 function activityBadgeVariant(
@@ -184,7 +229,7 @@ function activityBadgeVariant(
   return "secondary";
 }
 
-function ActivityCard({ item }: { item: ActivityItem }) {
+export function ActivityCard({ item }: { item: ActivityItem }) {
   const content = (
     <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
       <div className="min-w-0 space-y-1.5">
@@ -204,6 +249,12 @@ function ActivityCard({ item }: { item: ActivityItem }) {
           <Calendar className="h-3.5 w-3.5" />
           {formatDate(item.createdAt, true)}
         </p>
+        {item.authorName && (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <UserRound className="h-3.5 w-3.5" />
+            {item.authorName}
+          </p>
+        )}
       </div>
       {item.qrToken && (
         <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Building2,
   ChevronRight,
+  History,
   Loader2,
   MapPin,
   QrCode,
@@ -16,10 +17,19 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ActivityCard } from "@/components/engenharia/sent-history-by-project";
 import { StatusBadge } from "@/components/engenharia/status-badge";
 
 export function FieldProjectQrBrowser() {
   const projects = useQuery(api.technicianPortal.listBrowsableProjects);
+  const activityUsers = useQuery(api.technicianActivity.listActivityUsers);
   const [search, setSearch] = useState("");
   const [selectedProjectId, setSelectedProjectId] =
     useState<Id<"projects"> | null>(null);
@@ -99,6 +109,11 @@ export function FieldProjectQrBrowser() {
                       {[project.client, project.address].filter(Boolean).join(" · ")}
                     </p>
                   )}
+                  <p className="text-xs text-muted-foreground">
+                    {project.qrCount} etiqueta{project.qrCount === 1 ? "" : "s"} ·{" "}
+                    {project.registeredCount} cadastrada
+                    {project.registeredCount === 1 ? "" : "s"}
+                  </p>
                 </div>
                 <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
               </button>
@@ -109,9 +124,14 @@ export function FieldProjectQrBrowser() {
 
       <div className={selectedProjectId ? "block" : "hidden lg:block"}>
         {selectedProjectId ? (
-          <ProjectQrList
+          <ProjectDetail
+            key={selectedProjectId}
+            canViewServices={Boolean(activityUsers)}
+            activityUsers={activityUsers ?? []}
             projectId={selectedProjectId}
             projectName={selectedProject?.name ?? "Obra"}
+            qrCount={selectedProject?.qrCount ?? null}
+            registeredCount={selectedProject?.registeredCount ?? null}
             onBack={() => setSelectedProjectId(null)}
           />
         ) : (
@@ -129,38 +149,39 @@ export function FieldProjectQrBrowser() {
   );
 }
 
-type BrowsableQr = {
-  token: string;
-  description: string | null;
-  modelo: string | null;
-  ambiente: string | null;
-  batchName: string | null;
-};
+type QrFilter = "all" | "registered" | "free";
 
-function qrMatchesSearch(qr: BrowsableQr, term: string) {
-  if (!term) return true;
-  return [qr.token, qr.description, qr.modelo, qr.ambiente, qr.batchName].some(
-    (value) => value?.toLocaleLowerCase("pt-BR").includes(term)
-  );
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
 }
 
-function ProjectQrList({
+type ActivityUser = { _id: Id<"users">; name: string; isActive: boolean };
+
+function ProjectDetail({
   projectId,
   projectName,
+  qrCount,
+  registeredCount,
+  canViewServices,
+  activityUsers,
   onBack,
 }: {
   projectId: Id<"projects">;
   projectName: string;
+  qrCount: number | null;
+  registeredCount: number | null;
+  canViewServices: boolean;
+  activityUsers: ActivityUser[];
   onBack: () => void;
 }) {
-  const { results, status, loadMore } = usePaginatedQuery(
-    api.technicianPortal.listBrowsableQrsByProject,
-    { projectId },
-    { initialNumItems: 20 }
-  );
-  const [search, setSearch] = useState("");
-  const term = search.trim().toLocaleLowerCase("pt-BR");
-  const filtered = results.filter((qr) => qrMatchesSearch(qr, term));
+  const [tab, setTab] = useState<"labels" | "services">("labels");
+  const showServices = canViewServices && tab === "services";
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -176,10 +197,154 @@ function ProjectQrList({
         <div className="min-w-0">
           <p className="truncate font-semibold">{projectName}</p>
           <p className="text-xs text-muted-foreground">
-            Etiquetas de equipamento disponíveis
+            {showServices
+              ? "Serviços registrados em campo nesta obra"
+              : "Etiquetas de equipamento disponíveis"}
           </p>
         </div>
       </div>
+      {canViewServices && (
+        <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+          {(
+            [
+              { id: "labels", label: "Etiquetas", icon: QrCode },
+              { id: "services", label: "Serviços", icon: History },
+            ] as const
+          ).map((option) => {
+            const Icon = option.icon;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                aria-pressed={tab === option.id}
+                onClick={() => setTab(option.id)}
+                className="flex h-9 items-center justify-center gap-2 rounded-md text-sm font-medium text-muted-foreground transition-colors aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm"
+              >
+                <Icon className="size-4" />
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {showServices ? (
+        <ProjectServicesList projectId={projectId} activityUsers={activityUsers} />
+      ) : (
+        <ProjectQrList
+          projectId={projectId}
+          qrCount={qrCount}
+          registeredCount={registeredCount}
+        />
+      )}
+    </div>
+  );
+}
+
+const ALL_USERS = "all";
+
+function ProjectServicesList({
+  projectId,
+  activityUsers,
+}: {
+  projectId: Id<"projects">;
+  activityUsers: ActivityUser[];
+}) {
+  const [selectedUser, setSelectedUser] = useState<string>(ALL_USERS);
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.technicianActivity.listProjectActivity,
+    {
+      projectId,
+      userId:
+        selectedUser === ALL_USERS ? undefined : (selectedUser as Id<"users">),
+    },
+    { initialNumItems: 20 }
+  );
+
+  return (
+    <div className="space-y-3">
+      <Select
+        value={selectedUser}
+        onValueChange={(value) => setSelectedUser(value || ALL_USERS)}
+      >
+        <SelectTrigger className="h-11">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL_USERS}>Todos os técnicos</SelectItem>
+          {activityUsers.map((user) => (
+            <SelectItem key={user._id} value={user._id}>
+              {user.isActive ? user.name : `${user.name} (inativo)`}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {status === "LoadingFirstPage" ? (
+        <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+          <Loader2 className="mr-2 size-4 animate-spin" />
+          Carregando serviços...
+        </div>
+      ) : results.length === 0 ? (
+        <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+          {selectedUser === ALL_USERS
+            ? "Nenhum serviço registrado nesta obra."
+            : "Este técnico não registrou serviços nesta obra."}
+        </p>
+      ) : (
+        <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+          {results.map((item) => (
+            <ActivityCard key={`${item.kind}:${item.id}`} item={item} />
+          ))}
+        </div>
+      )}
+
+      {status === "CanLoadMore" && (
+        <Button variant="outline" className="w-full" onClick={() => loadMore(20)}>
+          Carregar mais serviços
+        </Button>
+      )}
+      {status === "LoadingMore" && (
+        <Button variant="outline" className="w-full" disabled>
+          <Loader2 className="mr-2 size-4 animate-spin" />
+          Carregando...
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function ProjectQrList({
+  projectId,
+  qrCount,
+  registeredCount,
+}: {
+  projectId: Id<"projects">;
+  qrCount: number | null;
+  registeredCount: number | null;
+}) {
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<QrFilter>("all");
+  const debouncedSearch = useDebouncedValue(search.trim(), 300);
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.technicianPortal.listBrowsableQrsByProject,
+    { projectId, search: debouncedSearch || undefined, filter },
+    { initialNumItems: 20 }
+  );
+  const searching = debouncedSearch.length > 0;
+  const filterOptions: Array<{ id: QrFilter; label: string; count: number | null }> = [
+    { id: "all", label: "Todas", count: qrCount },
+    { id: "registered", label: "Cadastradas", count: registeredCount },
+    {
+      id: "free",
+      label: "Livres",
+      count:
+        qrCount !== null && registeredCount !== null
+          ? qrCount - registeredCount
+          : null,
+    },
+  ];
+  return (
+    <div className="space-y-3">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -189,6 +354,25 @@ function ProjectQrList({
           className="h-11 pl-9"
         />
       </div>
+      <div className="flex flex-wrap gap-2">
+        {filterOptions.map((option) => (
+          <Button
+            key={option.id}
+            type="button"
+            size="sm"
+            variant={filter === option.id ? "default" : "outline"}
+            aria-pressed={filter === option.id}
+            onClick={() => setFilter(option.id)}
+          >
+            {option.label}
+            {option.count !== null && (
+              <span className="ml-1 tabular-nums opacity-80">
+                ({option.count})
+              </span>
+            )}
+          </Button>
+        ))}
+      </div>
 
       {status === "LoadingFirstPage" ? (
         <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
@@ -197,15 +381,17 @@ function ProjectQrList({
         </div>
       ) : results.length === 0 ? (
         <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Nenhuma etiqueta ativa nesta obra.
-        </p>
-      ) : filtered.length === 0 ? (
-        <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Nenhuma etiqueta corresponde à busca.
+          {searching
+            ? "Nenhuma etiqueta corresponde à busca."
+            : filter === "registered"
+              ? "Nenhuma etiqueta cadastrada nesta obra."
+              : filter === "free"
+                ? "Nenhuma etiqueta livre nesta obra."
+                : "Nenhuma etiqueta ativa nesta obra."}
         </p>
       ) : (
         <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
-          {filtered.map((qr) => {
+          {results.map((qr) => {
             const title =
               qr.description ||
               [qr.modelo, qr.ambiente].filter(Boolean).join(" · ") ||
