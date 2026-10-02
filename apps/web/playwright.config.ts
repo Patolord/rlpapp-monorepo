@@ -1,14 +1,6 @@
-import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
-// Playwright roda fora do Vite, então carrega o .env.local manualmente.
-try {
-  process.loadEnvFile(fileURLToPath(new URL("./.env.local", import.meta.url)));
-} catch {
-  // Sem .env.local (ex.: CI) — as variáveis devem vir do ambiente.
-}
-
-// @clerk/testing espera CLERK_PUBLISHABLE_KEY; o app usa o prefixo VITE_.
+// Secrets vêm do Doppler (`pnpm test:e2e` → `doppler run`).
 process.env.CLERK_PUBLISHABLE_KEY ??= process.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 export default defineConfig({

@@ -14,6 +14,8 @@ const dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(file
 
 // More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
 export default defineConfig({
+  // Secrets come from Doppler (`doppler run`); do not load .env files.
+  envDir: false,
   plugins: [tsconfigPaths(), tailwindcss(), tanstackStart(), nitro({
     preset: "vercel"
   }), viteReact(), VitePWA({

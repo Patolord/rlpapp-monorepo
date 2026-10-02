@@ -17,8 +17,8 @@
     "./convex/*": "./convex/*"
   },
   "scripts": {
-    "dev": "convex dev",
-    "dev:setup": "convex dev --configure --until-success",
+    "dev": "doppler run -- convex dev",
+    "dev:setup": "doppler run -- convex dev --configure --until-success",
     "check-types": "tsc -p convex --noEmit",
     "lint": "eslint convex",
     "test": "vitest run"

@@ -45,17 +45,17 @@ pnpm run dev:setup
 
 Siga os prompts para criar/conectar um projeto Convex. Isso gera o `packages/backend/.env.local`.
 
-### 3. Configurar variáveis de ambiente
+### 3. Configurar secrets com Doppler
 
-Cada app tem um `.env.example` com as variáveis necessárias:
+O CLI precisa estar instalado e autenticado (`brew install dopplerhq/cli/doppler` + `doppler login`).
 
 ```bash
-cp packages/backend/.env.example packages/backend/.env.local  # já gerado pelo dev:setup
-cp apps/web/.env.example apps/web/.env
-cp apps/native/.env.example apps/native/.env
+pnpm secrets:setup
 ```
 
-Preencha com os valores do seu deployment Convex e do Clerk Dashboard.
+Isso associa o diretório ao projeto Doppler `rlpeng` / config `dev`. Os scripts `pnpm dev*` injetam os secrets via `doppler run` — não é necessário copiar `.env` localmente.
+
+Para editar secrets: `doppler open` ou o [dashboard](https://dashboard.doppler.com).
 
 ### 4. Configurar o Clerk
 
@@ -66,6 +66,7 @@ Guia oficial: [Convex + Clerk](https://docs.convex.dev/auth/clerk)
 3. No **Convex Dashboard** (Settings > Environment Variables), defina:
    - `CLERK_JWT_ISSUER_DOMAIN` — domínio do issuer do Clerk
    - `CLERK_WEBHOOK_SECRET` — secret do webhook (Clerk Dashboard > Webhooks, endpoint `https://<deployment>.convex.site/clerk-users-webhook`, eventos `user.created`, `user.updated`, `user.deleted`)
+   - `MATERIAL_LOOKUP_TOKEN` — opcional; habilita `GET https://<deployment>.convex.site/materials/lookup?q=<texto>` (header `Authorization: Bearer <token>`) para agentes externos consultarem a descrição canônica de um material. Sem ele o endpoint responde 503. Gere com `npx convex env set MATERIAL_LOOKUP_TOKEN "$(openssl rand -hex 24)"`
 
 ### 5. Rodar em desenvolvimento
 

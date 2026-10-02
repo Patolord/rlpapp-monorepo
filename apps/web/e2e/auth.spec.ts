@@ -1,7 +1,6 @@
 import { setupClerkTestingToken } from "@clerk/testing/playwright";
 import { expect, test } from "@playwright/test";
 
-// Credenciais do usuário de teste do Clerk (instância dev), definidas no .env.local.
 const username = process.env.E2E_CLERK_USER_USERNAME;
 const password = process.env.E2E_CLERK_USER_PASSWORD;
 

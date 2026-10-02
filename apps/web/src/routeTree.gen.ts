@@ -16,11 +16,13 @@ import { Route as PoliticaPrivacidadeRouteImport } from './routes/politica-priva
 import { Route as MeusRegistrosRouteImport } from './routes/meus-registros'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as RhRouteRouteImport } from './routes/rh/route'
 import { Route as EstoqueRouteRouteImport } from './routes/estoque/route'
 import { Route as EngenhariaRouteRouteImport } from './routes/engenharia/route'
 import { Route as ComprasRouteRouteImport } from './routes/compras/route'
 import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RhIndexRouteImport } from './routes/rh/index'
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
 import { Route as EstoqueIndexRouteImport } from './routes/estoque/index'
 import { Route as EngenhariaIndexRouteImport } from './routes/engenharia/index'
@@ -39,6 +41,8 @@ import { Route as EngenhariaContratosRouteImport } from './routes/engenharia/con
 import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './routes/[.]well-known/oauth-authorization-server'
 import { Route as EngenhariaRelatoriosRouteRouteImport } from './routes/engenharia/relatorios/route'
 import { Route as EngenhariaObrasRouteRouteImport } from './routes/engenharia/obras/route'
+import { Route as RhFuncionariosIndexRouteImport } from './routes/rh/funcionarios/index'
+import { Route as RhFolhaIndexRouteImport } from './routes/rh/folha/index'
 import { Route as QrOperadorEstoqueIndexRouteImport } from './routes/qr-operador_.estoque.index'
 import { Route as EngenhariaRelatoriosIndexRouteImport } from './routes/engenharia/relatorios/index'
 import { Route as EngenhariaObrasIndexRouteImport } from './routes/engenharia/obras/index'
@@ -110,6 +114,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RhRouteRoute = RhRouteRouteImport.update({
+  id: '/rh',
+  path: '/rh',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EstoqueRouteRoute = EstoqueRouteRouteImport.update({
   id: '/estoque',
   path: '/estoque',
@@ -134,6 +143,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const RhIndexRoute = RhIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => RhRouteRoute,
 } as any)
 const PortalIndexRoute = PortalIndexRouteImport.update({
   id: '/portal/',
@@ -228,6 +242,16 @@ const EngenhariaObrasRouteRoute = EngenhariaObrasRouteRouteImport.update({
   id: '/obras',
   path: '/obras',
   getParentRoute: () => EngenhariaRouteRoute,
+} as any)
+const RhFuncionariosIndexRoute = RhFuncionariosIndexRouteImport.update({
+  id: '/funcionarios/',
+  path: '/funcionarios/',
+  getParentRoute: () => RhRouteRoute,
+} as any)
+const RhFolhaIndexRoute = RhFolhaIndexRouteImport.update({
+  id: '/folha/',
+  path: '/folha/',
+  getParentRoute: () => RhRouteRoute,
 } as any)
 const QrOperadorEstoqueIndexRoute = QrOperadorEstoqueIndexRouteImport.update({
   id: '/',
@@ -437,6 +461,7 @@ export interface FileRoutesByFullPath {
   '/compras': typeof ComprasRouteRouteWithChildren
   '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/estoque': typeof EstoqueRouteRouteWithChildren
+  '/rh': typeof RhRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/meus-registros': typeof MeusRegistrosRoute
@@ -462,6 +487,7 @@ export interface FileRoutesByFullPath {
   '/engenharia/': typeof EngenhariaIndexRoute
   '/estoque/': typeof EstoqueIndexRoute
   '/portal/': typeof PortalIndexRoute
+  '/rh/': typeof RhIndexRoute
   '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/obras/$obraSlug': typeof EngenhariaObrasObraSlugRouteWithChildren
@@ -478,6 +504,8 @@ export interface FileRoutesByFullPath {
   '/engenharia/obras/': typeof EngenhariaObrasIndexRoute
   '/engenharia/relatorios/': typeof EngenhariaRelatoriosIndexRoute
   '/qr-operador/estoque/': typeof QrOperadorEstoqueIndexRoute
+  '/rh/folha/': typeof RhFolhaIndexRoute
+  '/rh/funcionarios/': typeof RhFuncionariosIndexRoute
   '/engenharia/obras/$obraSlug/assistente': typeof EngenhariaObrasObraSlugAssistenteRoute
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
@@ -522,6 +550,7 @@ export interface FileRoutesByTo {
   '/engenharia': typeof EngenhariaIndexRoute
   '/estoque': typeof EstoqueIndexRoute
   '/portal': typeof PortalIndexRoute
+  '/rh': typeof RhIndexRoute
   '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
@@ -536,6 +565,8 @@ export interface FileRoutesByTo {
   '/engenharia/obras': typeof EngenhariaObrasIndexRoute
   '/engenharia/relatorios': typeof EngenhariaRelatoriosIndexRoute
   '/qr-operador/estoque': typeof QrOperadorEstoqueIndexRoute
+  '/rh/folha': typeof RhFolhaIndexRoute
+  '/rh/funcionarios': typeof RhFuncionariosIndexRoute
   '/engenharia/obras/$obraSlug/assistente': typeof EngenhariaObrasObraSlugAssistenteRoute
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
@@ -563,6 +594,7 @@ export interface FileRoutesById {
   '/compras': typeof ComprasRouteRouteWithChildren
   '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/estoque': typeof EstoqueRouteRouteWithChildren
+  '/rh': typeof RhRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/meus-registros': typeof MeusRegistrosRoute
@@ -588,6 +620,7 @@ export interface FileRoutesById {
   '/engenharia/': typeof EngenhariaIndexRoute
   '/estoque/': typeof EstoqueIndexRoute
   '/portal/': typeof PortalIndexRoute
+  '/rh/': typeof RhIndexRoute
   '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/obras/$obraSlug': typeof EngenhariaObrasObraSlugRouteWithChildren
@@ -604,6 +637,8 @@ export interface FileRoutesById {
   '/engenharia/obras/': typeof EngenhariaObrasIndexRoute
   '/engenharia/relatorios/': typeof EngenhariaRelatoriosIndexRoute
   '/qr-operador_/estoque/': typeof QrOperadorEstoqueIndexRoute
+  '/rh/folha/': typeof RhFolhaIndexRoute
+  '/rh/funcionarios/': typeof RhFuncionariosIndexRoute
   '/engenharia/obras/$obraSlug/assistente': typeof EngenhariaObrasObraSlugAssistenteRoute
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
@@ -632,6 +667,7 @@ export interface FileRouteTypes {
     | '/compras'
     | '/engenharia'
     | '/estoque'
+    | '/rh'
     | '/login'
     | '/mcp'
     | '/meus-registros'
@@ -657,6 +693,7 @@ export interface FileRouteTypes {
     | '/engenharia/'
     | '/estoque/'
     | '/portal/'
+    | '/rh/'
     | '/.well-known/oauth-protected-resource/mcp'
     | '/engenharia/equipamento/$id'
     | '/engenharia/obras/$obraSlug'
@@ -673,6 +710,8 @@ export interface FileRouteTypes {
     | '/engenharia/obras/'
     | '/engenharia/relatorios/'
     | '/qr-operador/estoque/'
+    | '/rh/folha/'
+    | '/rh/funcionarios/'
     | '/engenharia/obras/$obraSlug/assistente'
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
@@ -717,6 +756,7 @@ export interface FileRouteTypes {
     | '/engenharia'
     | '/estoque'
     | '/portal'
+    | '/rh'
     | '/.well-known/oauth-protected-resource/mcp'
     | '/engenharia/equipamento/$id'
     | '/engenharia/qr/$token'
@@ -731,6 +771,8 @@ export interface FileRouteTypes {
     | '/engenharia/obras'
     | '/engenharia/relatorios'
     | '/qr-operador/estoque'
+    | '/rh/folha'
+    | '/rh/funcionarios'
     | '/engenharia/obras/$obraSlug/assistente'
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
@@ -757,6 +799,7 @@ export interface FileRouteTypes {
     | '/compras'
     | '/engenharia'
     | '/estoque'
+    | '/rh'
     | '/login'
     | '/mcp'
     | '/meus-registros'
@@ -782,6 +825,7 @@ export interface FileRouteTypes {
     | '/engenharia/'
     | '/estoque/'
     | '/portal/'
+    | '/rh/'
     | '/.well-known/oauth-protected-resource/mcp'
     | '/engenharia/equipamento/$id'
     | '/engenharia/obras/$obraSlug'
@@ -798,6 +842,8 @@ export interface FileRouteTypes {
     | '/engenharia/obras/'
     | '/engenharia/relatorios/'
     | '/qr-operador_/estoque/'
+    | '/rh/folha/'
+    | '/rh/funcionarios/'
     | '/engenharia/obras/$obraSlug/assistente'
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
@@ -825,6 +871,7 @@ export interface RootRouteChildren {
   ComprasRouteRoute: typeof ComprasRouteRouteWithChildren
   EngenhariaRouteRoute: typeof EngenhariaRouteRouteWithChildren
   EstoqueRouteRoute: typeof EstoqueRouteRouteWithChildren
+  RhRouteRoute: typeof RhRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
   MeusRegistrosRoute: typeof MeusRegistrosRoute
@@ -891,6 +938,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/rh': {
+      id: '/rh'
+      path: '/rh'
+      fullPath: '/rh'
+      preLoaderRoute: typeof RhRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/estoque': {
       id: '/estoque'
       path: '/estoque'
@@ -925,6 +979,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/rh/': {
+      id: '/rh/'
+      path: '/'
+      fullPath: '/rh/'
+      preLoaderRoute: typeof RhIndexRouteImport
+      parentRoute: typeof RhRouteRoute
     }
     '/portal/': {
       id: '/portal/'
@@ -1051,6 +1112,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/engenharia/obras'
       preLoaderRoute: typeof EngenhariaObrasRouteRouteImport
       parentRoute: typeof EngenhariaRouteRoute
+    }
+    '/rh/funcionarios/': {
+      id: '/rh/funcionarios/'
+      path: '/funcionarios'
+      fullPath: '/rh/funcionarios/'
+      preLoaderRoute: typeof RhFuncionariosIndexRouteImport
+      parentRoute: typeof RhRouteRoute
+    }
+    '/rh/folha/': {
+      id: '/rh/folha/'
+      path: '/folha'
+      fullPath: '/rh/folha/'
+      preLoaderRoute: typeof RhFolhaIndexRouteImport
+      parentRoute: typeof RhRouteRoute
     }
     '/qr-operador_/estoque/': {
       id: '/qr-operador_/estoque/'
@@ -1486,6 +1561,21 @@ const EstoqueRouteRouteWithChildren = EstoqueRouteRoute._addFileChildren(
   EstoqueRouteRouteChildren,
 )
 
+interface RhRouteRouteChildren {
+  RhIndexRoute: typeof RhIndexRoute
+  RhFolhaIndexRoute: typeof RhFolhaIndexRoute
+  RhFuncionariosIndexRoute: typeof RhFuncionariosIndexRoute
+}
+
+const RhRouteRouteChildren: RhRouteRouteChildren = {
+  RhIndexRoute: RhIndexRoute,
+  RhFolhaIndexRoute: RhFolhaIndexRoute,
+  RhFuncionariosIndexRoute: RhFuncionariosIndexRoute,
+}
+
+const RhRouteRouteWithChildren =
+  RhRouteRoute._addFileChildren(RhRouteRouteChildren)
+
 interface QrOperadorEstoqueRouteChildren {
   QrOperadorEstoqueObraSlugRoute: typeof QrOperadorEstoqueObraSlugRoute
   QrOperadorEstoqueIndexRoute: typeof QrOperadorEstoqueIndexRoute
@@ -1505,6 +1595,7 @@ const rootRouteChildren: RootRouteChildren = {
   ComprasRouteRoute: ComprasRouteRouteWithChildren,
   EngenhariaRouteRoute: EngenhariaRouteRouteWithChildren,
   EstoqueRouteRoute: EstoqueRouteRouteWithChildren,
+  RhRouteRoute: RhRouteRouteWithChildren,
   LoginRoute: LoginRoute,
   McpRoute: McpRoute,
   MeusRegistrosRoute: MeusRegistrosRoute,
