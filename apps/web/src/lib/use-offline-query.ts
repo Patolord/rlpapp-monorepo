@@ -7,6 +7,7 @@ import type {
 } from "convex/server";
 
 import { readCachedValue, writeCachedValue } from "@/lib/field-cache";
+import { useFieldCacheOwner } from "@/lib/use-field-cache-owner";
 
 export interface OfflineQueryResult<T> {
   /** Resultado ao vivo ou, sem rede, o último resultado salvo. */
@@ -22,7 +23,8 @@ export interface OfflineQueryResult<T> {
 /**
  * `useQuery` com fallback em IndexedDB para o fluxo de campo: enquanto o
  * servidor não responde (offline, rede lenta), devolve o último resultado
- * conhecido para a mesma chave. Assim que a resposta chega, ela é persistida.
+ * conhecido para a mesma chave **da conta atual**. Assim que a resposta
+ * chega, ela é persistida.
  */
 export function useOfflineQuery<Query extends FunctionReference<"query">>(
   cacheKey: string,
@@ -31,42 +33,48 @@ export function useOfflineQuery<Query extends FunctionReference<"query">>(
 ): OfflineQueryResult<FunctionReturnType<Query>> {
   type Data = FunctionReturnType<Query>;
   const live = useQuery(query, ...args);
+  const { ownerId, ready } = useFieldCacheOwner();
+  const scope = ready && ownerId ? `${ownerId}::${cacheKey}` : null;
+
   const [cached, setCached] = useState<{
-    key: string;
+    scope: string;
     value: Data;
     cachedAt: number;
   } | null>(null);
-  const [checkedKey, setCheckedKey] = useState<string | null>(null);
+  const [checkedScope, setCheckedScope] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!scope || !ownerId) return;
     let alive = true;
-    void readCachedValue<Data>(cacheKey).then((entry) => {
+    void readCachedValue<Data>(ownerId, cacheKey).then((entry) => {
       if (!alive) return;
       setCached(
-        entry
-          ? { key: cacheKey, value: entry.value, cachedAt: entry.cachedAt }
-          : null
+        entry ? { scope, value: entry.value, cachedAt: entry.cachedAt } : null
       );
-      setCheckedKey(cacheKey);
+      setCheckedScope(scope);
     });
     return () => {
       alive = false;
     };
-  }, [cacheKey]);
+  }, [scope, ownerId, cacheKey]);
 
   useEffect(() => {
-    if (live === undefined) return;
-    void writeCachedValue(cacheKey, live);
-  }, [cacheKey, live]);
+    if (live === undefined || !scope || !ownerId) return;
+    void writeCachedValue(ownerId, cacheKey, live);
+  }, [live, scope, ownerId, cacheKey]);
 
   if (live !== undefined) {
     return { data: live, fromCache: false, cachedAt: null, cacheChecked: true };
   }
-  const usable = cached && cached.key === cacheKey ? cached : null;
+  // Sem conta conhecida não há cache a consultar.
+  if (ready && !ownerId) {
+    return { data: undefined, fromCache: false, cachedAt: null, cacheChecked: true };
+  }
+  const usable = cached && cached.scope === scope ? cached : null;
   return {
     data: usable?.value,
     fromCache: usable !== null,
     cachedAt: usable?.cachedAt ?? null,
-    cacheChecked: checkedKey === cacheKey,
+    cacheChecked: scope !== null && checkedScope === scope,
   };
 }

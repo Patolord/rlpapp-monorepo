@@ -4,14 +4,13 @@ import { Building2, ChevronRight, FileText, Loader2, QrCode } from "lucide-react
 
 import { Badge } from "@/components/ui/badge";
 import { obraLinkSlug } from "@/lib/engenharia/obra-paths";
+import { fieldCacheKeys } from "@/lib/field-cache";
 import { useOfflineQuery } from "@/lib/use-offline-query";
 import { OBRA_STATUS_LABELS } from "@/components/campo/obra-context";
 
-export const MY_OBRAS_CACHE_KEY = "field:my-projects";
-
 export function MyObrasList() {
   const { data: projects, fromCache, cacheChecked } = useOfflineQuery(
-    MY_OBRAS_CACHE_KEY,
+    fieldCacheKeys.myProjects,
     api.technicianPortal.listMyProjects
   );
 

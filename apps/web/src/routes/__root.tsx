@@ -43,6 +43,38 @@ const fetchClerkAuth = createServerFn({ method: "GET" }).handler(async () => {
   }
 });
 
+type ClerkAuthSnapshot = { userId: string | null; token: string | null };
+
+const LAST_USER_ID_KEY = "rlp-last-user-id";
+let lastKnownAuth: ClerkAuthSnapshot | null = null;
+
+/**
+ * Guarda a última sessão conhecida para a navegação continuar funcionando
+ * sem rede (PWA de campo): só o id do usuário é persistido — nunca o token.
+ * Sair da conta (online) limpa o registro.
+ */
+function rememberAuth(auth: ClerkAuthSnapshot) {
+  lastKnownAuth = auth;
+  if (typeof localStorage === "undefined") return;
+  try {
+    if (auth.userId) localStorage.setItem(LAST_USER_ID_KEY, auth.userId);
+    else localStorage.removeItem(LAST_USER_ID_KEY);
+  } catch {
+    // Sem localStorage, o fallback fica só em memória.
+  }
+}
+
+function recallAuth(): ClerkAuthSnapshot {
+  if (lastKnownAuth) return lastKnownAuth;
+  let userId: string | null = null;
+  try {
+    userId = localStorage.getItem(LAST_USER_ID_KEY);
+  } catch {
+    userId = null;
+  }
+  return { userId, token: null };
+}
+
 export interface RouterAppContext {
   queryClient: QueryClient;
   convexQueryClient: ConvexQueryClient;
@@ -119,11 +151,22 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 
   shellComponent: RootDocument,
   beforeLoad: async (ctx) => {
-    const { userId, token } = await fetchClerkAuth();
-    if (token) {
-      ctx.context.convexQueryClient.serverHttpClient?.setAuth(token);
+    let auth: ClerkAuthSnapshot;
+    try {
+      auth = await fetchClerkAuth();
+      rememberAuth(auth);
+    } catch (error) {
+      // No cliente, a server function falha sem rede. Em vez de derrubar a
+      // navegação (e o fluxo offline do técnico), segue com a última sessão
+      // conhecida; o acesso aos dados continua protegido pelo Convex/Clerk e
+      // a cache local é separada por conta.
+      if (typeof window === "undefined") throw error;
+      auth = recallAuth();
     }
-    return { userId, token };
+    if (auth.token) {
+      ctx.context.convexQueryClient.serverHttpClient?.setAuth(auth.token);
+    }
+    return { userId: auth.userId, token: auth.token };
   },
 });
 

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/errors";
 import {
   FIELD_CACHE_CHANGED_EVENT,
+  fieldCacheKeys,
   getOfflineDocument,
   listOfflineDocuments,
   pruneOfflineDocuments,
@@ -25,11 +26,10 @@ import {
   saveDocumentOffline,
   type CachedDocumentMeta,
 } from "@/lib/field-cache";
-import {
-  downloadBlob,
-  fetchPdfBlob,
-  formatFileSize,
-} from "@/lib/project-documents";
+import { downloadBlob, openPdfInNewTab } from "@/lib/project-documents";
+import { formatFileSize } from "@/lib/project-documents";
+import { useDocumentBlobFetcher } from "@/lib/use-document-blob";
+import { useFieldCacheOwner } from "@/lib/use-field-cache-owner";
 import { useOfflineQuery } from "@/lib/use-offline-query";
 import { useOnline } from "@/lib/use-online";
 
@@ -37,17 +37,17 @@ type FieldDocument = FunctionReturnType<
   typeof api.projectDocuments.listForTechnician
 >[number];
 
-export function documentsCacheKey(projectId: Id<"projects">): string {
-  return `field:documents:${projectId}`;
-}
-
-function useOfflineDocuments(projectId: Id<"projects">) {
+function useOfflineDocuments(ownerId: string | null, projectId: Id<"projects">) {
   const [docs, setDocs] = useState<Map<string, CachedDocumentMeta>>(new Map());
 
   useEffect(() => {
+    if (!ownerId) {
+      setDocs(new Map());
+      return;
+    }
     let alive = true;
     const refresh = () => {
-      void listOfflineDocuments(projectId).then((items) => {
+      void listOfflineDocuments(ownerId, projectId).then((items) => {
         if (!alive) return;
         setDocs(new Map(items.map((item) => [item.documentId, item])));
       });
@@ -58,29 +58,31 @@ function useOfflineDocuments(projectId: Id<"projects">) {
       alive = false;
       window.removeEventListener(FIELD_CACHE_CHANGED_EVENT, refresh);
     };
-  }, [projectId]);
+  }, [ownerId, projectId]);
 
   return docs;
 }
 
 export function ObraDocumentsList({ projectId }: { projectId: Id<"projects"> }) {
   const online = useOnline();
+  const { ownerId } = useFieldCacheOwner();
   const { data: documents, fromCache, cacheChecked } = useOfflineQuery(
-    documentsCacheKey(projectId),
+    fieldCacheKeys.documents(projectId),
     api.projectDocuments.listForTechnician,
     { projectId }
   );
-  const offlineDocs = useOfflineDocuments(projectId);
+  const offlineDocs = useOfflineDocuments(ownerId, projectId);
 
   // Com a lista ao vivo em mãos, descarta PDFs salvos que sumiram ou perderam
   // o acesso — o técnico não deve continuar com um arquivo que não pode mais ver.
   useEffect(() => {
-    if (!documents || fromCache) return;
+    if (!documents || fromCache || !ownerId) return;
     void pruneOfflineDocuments(
+      ownerId,
       projectId,
       documents.map((document) => document._id)
     );
-  }, [documents, fromCache, projectId]);
+  }, [documents, fromCache, ownerId, projectId]);
 
   const savedCount = useMemo(
     () => (documents ?? []).filter((d) => offlineDocs.has(d._id)).length,
@@ -126,6 +128,7 @@ export function ObraDocumentsList({ projectId }: { projectId: Id<"projects"> }) 
             key={document._id}
             document={document}
             projectId={projectId}
+            ownerId={ownerId}
             offline={offlineDocs.get(document._id) ?? null}
             online={online}
           />
@@ -140,17 +143,21 @@ type Busy = "open" | "download" | "save" | "remove" | null;
 function DocumentCard({
   document,
   projectId,
+  ownerId,
   offline,
   online,
 }: {
   document: FieldDocument;
   projectId: Id<"projects">;
+  ownerId: string | null;
   offline: CachedDocumentMeta | null;
   online: boolean;
 }) {
+  const fetchBlob = useDocumentBlobFetcher();
   const [busy, setBusy] = useState<Busy>(null);
   const isSaved = offline !== null;
-  const canReach = isSaved || (online && document.url !== null);
+  const canReach = isSaved || online;
+  const canSave = online && ownerId !== null;
 
   const run = async (kind: Exclude<Busy, null>, action: () => Promise<void>) => {
     setBusy(kind);
@@ -163,39 +170,19 @@ function DocumentCard({
     }
   };
 
+  // Prefere o PDF salvo neste aparelho; senão busca pelo endpoint
+  // autenticado (que reavalia o acesso a cada pedido).
   const loadBlob = async (): Promise<Blob> => {
-    const cached = await getOfflineDocument(document._id);
-    if (cached) return cached.blob;
-    if (!document.url) throw new Error("Arquivo indisponível no momento.");
-    return await fetchPdfBlob(document.url);
+    if (ownerId) {
+      const cached = await getOfflineDocument(ownerId, document._id);
+      if (cached) return cached.blob;
+    }
+    if (!online) throw new Error("Sem conexão para baixar este arquivo.");
+    return await fetchBlob(document._id);
   };
 
-  const handleOpen = () => {
-    if (!isSaved && document.url) {
-      // Online: o navegador abre o PDF direto da URL do storage.
-      window.open(document.url, "_blank", "noopener");
-      return;
-    }
-    // Offline: a aba precisa ser aberta de forma síncrona (bloqueio de pop-up)
-    // e só depois recebe o Blob salvo.
-    const tab = window.open("", "_blank");
-    void run("open", async () => {
-      let blob: Blob;
-      try {
-        blob = await loadBlob();
-      } catch (error) {
-        tab?.close();
-        throw error;
-      }
-      const objectUrl = URL.createObjectURL(blob);
-      if (tab) {
-        tab.location.href = objectUrl;
-      } else {
-        downloadBlob(blob, document.fileName);
-      }
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-    });
-  };
+  const handleOpen = () =>
+    run("open", () => openPdfInNewTab(loadBlob, document.fileName));
 
   const handleDownload = () =>
     run("download", async () => {
@@ -204,9 +191,9 @@ function DocumentCard({
 
   const handleSave = () =>
     run("save", async () => {
-      if (!document.url) throw new Error("Arquivo indisponível no momento.");
-      const blob = await fetchPdfBlob(document.url);
-      await saveDocumentOffline({
+      if (!ownerId) throw new Error("Sessão não identificada.");
+      const blob = await fetchBlob(document._id);
+      await saveDocumentOffline(ownerId, {
         documentId: document._id,
         projectId,
         name: document.name,
@@ -219,7 +206,8 @@ function DocumentCard({
 
   const handleRemove = () =>
     run("remove", async () => {
-      await removeOfflineDocument(document._id);
+      if (!ownerId) return;
+      await removeOfflineDocument(ownerId, document._id);
       toast.success("PDF removido deste aparelho.");
     });
 
@@ -295,7 +283,7 @@ function DocumentCard({
           <Button
             variant="outline"
             className="h-11"
-            disabled={!online || document.url === null || busy !== null}
+            disabled={!canSave || busy !== null}
             onClick={handleSave}
           >
             {busy === "save" ? (
