@@ -1,16 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { CampoObraStockList } from "@/components/campo/obra-stock-list";
-import { FieldPageShell } from "@/components/campo/field-page-shell";
-
+// Rota antiga: o estoque agora fica dentro de cada obra no hub do técnico.
 export const Route = createFileRoute("/qr-operador_/estoque/")({
-  component: CampoEstoqueListPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/qr-operador", replace: true });
+  },
 });
-
-function CampoEstoqueListPage() {
-  return (
-    <FieldPageShell title="Estoque da obra">
-      <CampoObraStockList />
-    </FieldPageShell>
-  );
-}

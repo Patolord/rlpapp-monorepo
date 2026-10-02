@@ -313,7 +313,7 @@ function ProjectServicesList({
   );
 }
 
-function ProjectQrList({
+export function ProjectQrList({
   projectId,
   qrCount,
   registeredCount,
