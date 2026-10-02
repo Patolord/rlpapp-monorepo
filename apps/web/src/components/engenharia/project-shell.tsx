@@ -396,6 +396,12 @@ const OBRA_MODULES = [
     to: "/engenharia/obras/$obraSlug/estoque" as const,
     match: "prefix" as const,
   },
+  {
+    key: "documentos",
+    label: "Documentos",
+    to: "/engenharia/obras/$obraSlug/documentos" as const,
+    match: "prefix" as const,
+  },
 ];
 
 function ObraModuleNav({ obraSlug }: { obraSlug: string }) {
