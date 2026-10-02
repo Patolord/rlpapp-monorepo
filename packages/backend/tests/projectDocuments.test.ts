@@ -37,28 +37,48 @@ async function seedProject(
   );
 }
 
-async function storePdf(t: TestConvex, bytes = 1024): Promise<Id<"_storage">> {
-  return t.run(async (ctx) =>
-    ctx.storage.store(
-      new Blob([new Uint8Array(bytes)], { type: "application/pdf" })
-    )
+// convex-test não grava contentType ao armazenar; simula o metadado que o
+// backend real registra a partir do header Content-Type do upload.
+async function storeWithType(
+  t: TestConvex,
+  blob: Blob,
+  contentType: string | undefined
+): Promise<Id<"_storage">> {
+  return t.run(async (ctx) => {
+    const storageId = await ctx.storage.store(blob);
+    if (contentType !== undefined) {
+      await ctx.db.patch(
+        "_storage" as never,
+        storageId as never,
+        { contentType } as never
+      );
+    }
+    return storageId;
+  });
+}
+
+const PDF_BYTES = new TextEncoder().encode("%PDF-1.4\n%fake pdf for tests\n");
+
+async function storePdf(t: TestConvex, bytes?: number): Promise<Id<"_storage">> {
+  const content = bytes === undefined ? PDF_BYTES : new Uint8Array(bytes);
+  return storeWithType(
+    t,
+    new Blob([content], { type: "application/pdf" }),
+    "application/pdf"
   );
 }
 
-// convex-test não grava contentType ao armazenar; simula o metadado que o
-// backend real registra a partir do header Content-Type do upload.
 async function storeImage(t: TestConvex): Promise<Id<"_storage">> {
-  return t.run(async (ctx) => {
-    const storageId = await ctx.storage.store(
-      new Blob([new Uint8Array(16)], { type: "image/png" })
-    );
-    await ctx.db.patch(
-      "_storage" as never,
-      storageId as never,
-      { contentType: "image/png" } as never
-    );
-    return storageId;
-  });
+  return storeWithType(
+    t,
+    new Blob([new Uint8Array(16)], { type: "image/png" }),
+    "image/png"
+  );
+}
+
+/** Upload sem header Content-Type (metadado ausente no storage). */
+async function storeUntyped(t: TestConvex): Promise<Id<"_storage">> {
+  return storeWithType(t, new Blob([PDF_BYTES]), undefined);
 }
 
 async function setupEngineerAndTechs(t: TestConvex) {
@@ -116,7 +136,8 @@ describe("projectDocuments", () => {
     const plantaOffice = office.find((d) => d._id === allDoc);
     expect(plantaOffice?.name).toBe("Planta baixa.pdf");
     expect(plantaOffice?.fileName).toBe("Planta baixa.pdf");
-    expect(plantaOffice?.url).toBeTruthy();
+    // Nunca expõe URL direta do storage: download só pelo endpoint autenticado.
+    expect(plantaOffice).not.toHaveProperty("url");
     expect(plantaOffice?.uploadedBy?.name).toBe("Usuário Teste");
     const memorialOffice = office.find((d) => d._id === selectedDoc);
     expect(memorialOffice?.technicianAccess).toBe("selected");
@@ -176,6 +197,16 @@ describe("projectDocuments", () => {
       })
     ).rejects.toThrow("Apenas arquivos PDF são aceitos");
 
+    // Upload sem Content-Type também é recusado (não assume PDF).
+    await expect(
+      asEng.mutation(api.projectDocuments.create, {
+        projectId,
+        storageId: await storeUntyped(t),
+        name: "Sem tipo",
+        technicianAccess: "all",
+      })
+    ).rejects.toThrow("Apenas arquivos PDF são aceitos");
+
     await expect(
       asEng.mutation(api.projectDocuments.create, {
         projectId,
@@ -193,6 +224,87 @@ describe("projectDocuments", () => {
         technicianAccess: "all",
       })
     ).rejects.toThrow("Informe um nome");
+  });
+
+  test("discardUpload apaga só arquivos ainda não vinculados a um documento", async () => {
+    const t = setup();
+    const { asEng, asTechA } = await setupEngineerAndTechs(t);
+    const projectId = await seedProject(t, "Obra Órfãos");
+
+    // Cenário real: upload concluído, cadastro falhou → cliente descarta.
+    const orphan = await storePdf(t);
+    await asEng.mutation(api.projectDocuments.discardUpload, {
+      storageId: orphan,
+    });
+    expect(await t.run((ctx) => ctx.storage.getUrl(orphan))).toBeNull();
+
+    const linked = await storePdf(t);
+    await asEng.mutation(api.projectDocuments.create, {
+      projectId,
+      storageId: linked,
+      name: "Vinculado",
+      technicianAccess: "all",
+    });
+    await expect(
+      asEng.mutation(api.projectDocuments.discardUpload, { storageId: linked })
+    ).rejects.toThrow("pertence a um documento");
+    expect(await t.run((ctx) => ctx.storage.getUrl(linked))).not.toBeNull();
+
+    await expect(
+      asTechA.mutation(api.projectDocuments.discardUpload, { storageId: linked })
+    ).rejects.toThrow("Insufficient permissions");
+  });
+
+  test("download HTTP reavalia o acesso a cada pedido", async () => {
+    const t = setup();
+    const { asEng, asTechA, asTechB, asOutsider, techA, techB } =
+      await setupEngineerAndTechs(t);
+    const projectId = await seedProject(t, "Obra Download", [techA, techB]);
+    const documentId = await asEng.mutation(api.projectDocuments.create, {
+      projectId,
+      storageId: await storePdf(t),
+      name: "Planta / térreo",
+      technicianAccess: "selected",
+      allowedTechnicianIds: [techA],
+    });
+    const path = `/project-documents/${documentId}`;
+
+    const ok = await asTechA.fetch(path);
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get("Content-Type")).toBe("application/pdf");
+    expect(ok.headers.get("Content-Disposition")).toContain(
+      'inline; filename="Planta - t_rreo.pdf"'
+    );
+    expect(ok.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(await ok.text()).toContain("%PDF-1.4");
+
+    const attachment = await asTechA.fetch(`${path}?download=1`);
+    expect(attachment.headers.get("Content-Disposition")).toContain("attachment;");
+
+    expect((await asTechB.fetch(path)).status).toBe(403);
+    expect((await asOutsider.fetch(path)).status).toBe(403);
+    expect((await t.fetch(path)).status).toBe(401);
+    expect((await asEng.fetch(path)).status).toBe(200);
+
+    // Revogar o acesso revoga o download — mesmo com o mesmo link.
+    await asEng.mutation(api.projectDocuments.update, {
+      documentId,
+      technicianAccess: "none",
+    });
+    expect((await asTechA.fetch(path)).status).toBe(403);
+
+    await asEng.mutation(api.projectDocuments.remove, { documentId });
+    expect((await asEng.fetch(path)).status).toBe(404);
+    expect((await asEng.fetch("/project-documents/nao-existe")).status).toBe(404);
+
+    const preflight = await t.fetch(path, {
+      method: "OPTIONS",
+      headers: { Origin: "https://app.rlpeng.com.br" },
+    });
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get("Access-Control-Allow-Headers")).toBe(
+      "Authorization"
+    );
   });
 
   test("acesso 'selected' exige técnico atribuído à obra", async () => {
@@ -299,8 +411,38 @@ describe("projectDocuments", () => {
     const { asEng, asTechA, techA } = await setupEngineerAndTechs(t);
     const projectId = await seedProject(t, "Obra Arquivada", [techA], {
       slug: "obra-arquivada",
-      archivedAt: Date.now(),
     });
+    const documentId = await asEng.mutation(api.projectDocuments.create, {
+      projectId,
+      storageId: await storePdf(t),
+      name: "Doc antigo",
+      technicianAccess: "all",
+    });
+    expect(
+      await asTechA.query(api.projectDocuments.listForTechnician, { projectId })
+    ).toHaveLength(1);
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch("projects", projectId, { archivedAt: Date.now() });
+    });
+
+    // Documentos de obra arquivada deixam de existir para o técnico (lista,
+    // detalhe e download), mas o escritório segue vendo.
+    expect(
+      await asTechA.query(api.projectDocuments.listForTechnician, { projectId })
+    ).toHaveLength(0);
+    await expect(
+      asTechA.query(api.projectDocuments.getForTechnician, { documentId })
+    ).rejects.toThrow("Acesso negado a este documento");
+    expect(
+      (await asTechA.fetch(`/project-documents/${documentId}`)).status
+    ).toBe(403);
+    expect(
+      await asEng.query(api.projectDocuments.listByProject, { projectId })
+    ).toHaveLength(1);
+    expect(
+      (await asEng.fetch(`/project-documents/${documentId}`)).status
+    ).toBe(200);
 
     await expect(
       asEng.mutation(api.projectDocuments.create, {

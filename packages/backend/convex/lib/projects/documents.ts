@@ -1,6 +1,7 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { STAFF_ROLES } from "../rbac";
+import { isProjectArchived } from "./helpers";
 
 /** Limite por arquivo (PDF). Convex aceita arquivos maiores, mas em campo
  * o download acontece em rede móvel — manter razoável. */
@@ -12,7 +13,8 @@ export type TechnicianAccess = Doc<"projectDocuments">["technicianAccess"];
 
 /**
  * Regra de visibilidade em campo. Staff sempre enxerga; técnico precisa
- * estar atribuído à obra e o documento precisa liberar o acesso.
+ * estar atribuído à obra (não arquivada) e o documento precisa liberar o
+ * acesso.
  */
 export function canUserViewDocument(
   user: Doc<"users">,
@@ -23,6 +25,8 @@ export function canUserViewDocument(
   >
 ): boolean {
   if (STAFF_ROLES.includes(user.role)) return true;
+  // Obra arquivada some do campo (mesma regra de listMyProjects/getMyProject).
+  if (isProjectArchived(project)) return false;
   if (!(project.technicianIds ?? []).includes(user._id)) return false;
   switch (document.technicianAccess) {
     case "all":
@@ -64,12 +68,10 @@ export async function assertValidPdfUpload(
   if (!metadata) {
     throw new Error("Arquivo não encontrado. Envie o PDF novamente.");
   }
-  // O backend grava contentType a partir do header do upload; quando o
-  // cliente não envia (ou em testes), assume-se PDF e o tipo final é fixado.
-  if (
-    metadata.contentType !== undefined &&
-    metadata.contentType !== PROJECT_DOCUMENT_CONTENT_TYPE
-  ) {
+  // O storage grava contentType a partir do header Content-Type do upload.
+  // Uploads sem tipo (ou com outro tipo) são recusados; o cliente ainda
+  // confere a assinatura %PDF- antes de enviar.
+  if (metadata.contentType !== PROJECT_DOCUMENT_CONTENT_TYPE) {
     throw new Error("Apenas arquivos PDF são aceitos");
   }
   if (metadata.size > MAX_PROJECT_DOCUMENT_BYTES) {

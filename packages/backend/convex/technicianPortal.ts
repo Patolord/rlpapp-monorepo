@@ -40,10 +40,9 @@ async function buildMyProjectRow(
   project: Doc<"projects">,
   customerLabelCache: Map<string, string | null>
 ) {
-  const qrCodes = await ctx.db
-    .query("qrCodes")
-    .withIndex("by_project", (q) => q.eq("projectId", project._id))
-    .collect();
+  // Mesma base de listBrowsableQrsByProject (só etiquetas ativas), para os
+  // contadores do hub baterem com a lista de etiquetas.
+  const qrCodes = await collectActiveQrsForProject(ctx, project._id);
   const registeredCount = qrCodes.filter((q) => q.equipmentId).length;
   const documents = await listVisibleDocuments(ctx, user, project);
   return {

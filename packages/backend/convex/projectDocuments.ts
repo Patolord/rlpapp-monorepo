@@ -4,7 +4,9 @@ import {
   authedQuery,
   engineeringMutation,
   engineeringQuery,
+  requireUser,
 } from "./lib/rbac";
+import { internalQuery } from "./_generated/server";
 import { logAudit } from "./lib/audit";
 import {
   assertTechnicianProjectAccess,
@@ -24,6 +26,10 @@ import type { QueryCtx } from "./_generated/server";
 // Documentos (PDF) da obra. A engenharia envia e decide quais técnicos de
 // campo podem ver/baixar cada arquivo. Técnicos consomem via
 // listForTechnician/getForTechnician (acesso filtrado por documento).
+//
+// O arquivo em si nunca é exposto por URL direta do storage: o download passa
+// pelo endpoint HTTP autenticado (`GET /project-documents/:id`, em http.ts),
+// que reavalia o acesso a cada pedido — revogar o acesso revoga o download.
 
 // ---------------------------------------------------------------------------
 // Validators compartilhados
@@ -37,8 +43,6 @@ const fieldDocumentValidator = v.object({
   fileName: v.string(),
   contentType: v.string(),
   sizeBytes: v.number(),
-  // URL pública (Convex Storage); null se o arquivo foi removido do storage.
-  url: v.union(v.string(), v.null()),
   createdAt: v.number(),
   updatedAt: v.union(v.number(), v.null()),
 });
@@ -51,7 +55,6 @@ const officeDocumentValidator = v.object({
   fileName: v.string(),
   contentType: v.string(),
   sizeBytes: v.number(),
-  url: v.union(v.string(), v.null()),
   technicianAccess: projectDocumentTechnicianAccess,
   allowedTechnicians: v.array(
     v.object({ _id: v.id("users"), name: v.string() })
@@ -64,7 +67,7 @@ const officeDocumentValidator = v.object({
   updatedAt: v.union(v.number(), v.null()),
 });
 
-async function toFieldDocument(ctx: QueryCtx, document: Doc<"projectDocuments">) {
+function toFieldDocument(document: Doc<"projectDocuments">) {
   return {
     _id: document._id,
     projectId: document.projectId,
@@ -73,18 +76,16 @@ async function toFieldDocument(ctx: QueryCtx, document: Doc<"projectDocuments">)
     fileName: toDownloadFileName(document.name),
     contentType: document.contentType,
     sizeBytes: document.sizeBytes,
-    url: await ctx.storage.getUrl(document.storageId),
     createdAt: document.createdAt,
     updatedAt: document.updatedAt ?? null,
   };
 }
 
-async function toOfficeDocument(
-  ctx: QueryCtx,
+function toOfficeDocument(
   document: Doc<"projectDocuments">,
   userNames: Map<Id<"users">, string>
 ) {
-  const base = await toFieldDocument(ctx, document);
+  const base = toFieldDocument(document);
   const allowedTechnicians = (document.allowedTechnicianIds ?? [])
     .map((id) => ({ _id: id, name: userNames.get(id) ?? "Usuário removido" }))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -141,6 +142,29 @@ export const generateUploadUrl = engineeringMutation({
   returns: v.string(),
   handler: async (ctx) => {
     return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Apaga um arquivo recém-enviado cujo cadastro falhou (nome inválido, obra
+ * arquivada…). Só remove arquivos ainda não vinculados a um documento, para
+ * nunca apagar o PDF de um documento existente.
+ */
+export const discardUpload = engineeringMutation({
+  args: { storageId: v.id("_storage") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const referenced = await ctx.db
+      .query("projectDocuments")
+      .withIndex("by_storage", (q) => q.eq("storageId", args.storageId))
+      .first();
+    if (referenced) throw new Error("Este arquivo pertence a um documento");
+    try {
+      await ctx.storage.delete(args.storageId);
+    } catch {
+      // Já removido (ou nunca existiu): nada a fazer.
+    }
+    return null;
   },
 });
 
@@ -297,9 +321,7 @@ export const listByProject = engineeringQuery({
         ...(document.allowedTechnicianIds ?? []),
       ])
     );
-    return await Promise.all(
-      documents.map((document) => toOfficeDocument(ctx, document, userNames))
-    );
+    return documents.map((document) => toOfficeDocument(document, userNames));
   },
 });
 
@@ -318,23 +340,61 @@ export const listForTechnician = authedQuery({
     );
     const documents = await listVisibleDocuments(ctx, ctx.user, project);
     documents.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-    return await Promise.all(
-      documents.map((document) => toFieldDocument(ctx, document))
-    );
+    return documents.map(toFieldDocument);
   },
 });
+
+async function loadDocumentForUser(
+  ctx: QueryCtx,
+  user: Doc<"users">,
+  documentId: Id<"projectDocuments">
+): Promise<Doc<"projectDocuments"> | null> {
+  const document = await ctx.db.get("projectDocuments", documentId);
+  if (!document) return null;
+  const project = await ctx.db.get("projects", document.projectId);
+  if (!project) return null;
+  if (!canUserViewDocument(user, project, document)) {
+    throw new Error("Acesso negado a este documento");
+  }
+  return document;
+}
 
 export const getForTechnician = authedQuery({
   args: { documentId: v.id("projectDocuments") },
   returns: v.union(fieldDocumentValidator, v.null()),
   handler: async (ctx, args) => {
-    const document = await ctx.db.get("projectDocuments", args.documentId);
+    const document = await loadDocumentForUser(ctx, ctx.user, args.documentId);
+    return document ? toFieldDocument(document) : null;
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Download autenticado (usado pelo endpoint HTTP em http.ts)
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve o arquivo a servir para o usuário autenticado na requisição HTTP.
+ * Reaplica a regra de acesso a cada download. Lança "Not authenticated" sem
+ * sessão e "Acesso negado…" quando o usuário perdeu o acesso.
+ */
+export const resolveDownload = internalQuery({
+  args: { documentId: v.id("projectDocuments") },
+  returns: v.union(
+    v.object({
+      storageId: v.id("_storage"),
+      fileName: v.string(),
+      contentType: v.string(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const document = await loadDocumentForUser(ctx, user, args.documentId);
     if (!document) return null;
-    const project = await ctx.db.get("projects", document.projectId);
-    if (!project) return null;
-    if (!canUserViewDocument(ctx.user, project, document)) {
-      throw new Error("Acesso negado a este documento");
-    }
-    return await toFieldDocument(ctx, document);
+    return {
+      storageId: document.storageId,
+      fileName: toDownloadFileName(document.name),
+      contentType: document.contentType,
+    };
   },
 });
