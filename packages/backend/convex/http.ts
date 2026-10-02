@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server";
 import { Webhook } from "svix";
 import { internal } from "./_generated/api";
 import { env, httpAction } from "./_generated/server";
+import { MAX_LOOKUP_QUERY_LENGTH } from "./lib/compras/materialLookup";
 
 type ClerkEmailAddress = {
   id: string;
@@ -99,12 +100,56 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
   return new Response(null, { status: 200 });
 });
 
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+  });
+}
+
+const handleMaterialLookup = httpAction(async (ctx, request) => {
+  const token = env.MATERIAL_LOOKUP_TOKEN;
+  if (!token) return json({ error: "Material lookup is not configured" }, 503);
+  if (request.headers.get("Authorization") !== `Bearer ${token}`) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
+  const query = new URL(request.url).searchParams.get("q")?.trim() ?? "";
+  if (!query || query.length > MAX_LOOKUP_QUERY_LENGTH) {
+    return json(
+      { error: `Parameter "q" is required (max ${MAX_LOOKUP_QUERY_LENGTH} chars)` },
+      400
+    );
+  }
+
+  const startedAt = Date.now();
+  const result = await ctx.runQuery(internal.materialLookup.findMaterial, {
+    query,
+  });
+  console.log(
+    JSON.stringify({
+      event: "material_lookup",
+      query,
+      status: result.status,
+      matchedBy: result.status === "found" ? result.matchedBy : null,
+      ms: Date.now() - startedAt,
+    })
+  );
+  return json(result);
+});
+
 const http = httpRouter();
 
 http.route({
   path: "/clerk-users-webhook",
   method: "POST",
   handler: handleClerkWebhook,
+});
+
+http.route({
+  path: "/materials/lookup",
+  method: "GET",
+  handler: handleMaterialLookup,
 });
 
 export default http;
