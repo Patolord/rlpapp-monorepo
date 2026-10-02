@@ -180,7 +180,13 @@ function DocumentCard({
     // e só depois recebe o Blob salvo.
     const tab = window.open("", "_blank");
     void run("open", async () => {
-      const blob = await loadBlob();
+      let blob: Blob;
+      try {
+        blob = await loadBlob();
+      } catch (error) {
+        tab?.close();
+        throw error;
+      }
       const objectUrl = URL.createObjectURL(blob);
       if (tab) {
         tab.location.href = objectUrl;
