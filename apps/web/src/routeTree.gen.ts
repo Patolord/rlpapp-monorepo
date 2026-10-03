@@ -14,6 +14,7 @@ import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as QrOperadorRouteImport } from './routes/qr-operador'
 import { Route as PoliticaPrivacidadeRouteImport } from './routes/politica-privacidade'
 import { Route as MeusRegistrosRouteImport } from './routes/meus-registros'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RhRouteRouteImport } from './routes/rh/route'
 import { Route as EstoqueRouteRouteImport } from './routes/estoque/route'
@@ -36,6 +37,7 @@ import { Route as EngenhariaQrCodesRouteImport } from './routes/engenharia/qr-co
 import { Route as EngenhariaPoliticaPrivacidadeRouteImport } from './routes/engenharia/politica-privacidade'
 import { Route as EngenhariaMedicoesRouteImport } from './routes/engenharia/medicoes'
 import { Route as EngenhariaContratosRouteImport } from './routes/engenharia/contratos'
+import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './routes/[.]well-known/oauth-authorization-server'
 import { Route as EngenhariaRelatoriosRouteRouteImport } from './routes/engenharia/relatorios/route'
 import { Route as EngenhariaObrasRouteRouteImport } from './routes/engenharia/obras/route'
 import { Route as RhFuncionariosIndexRouteImport } from './routes/rh/funcionarios/index'
@@ -56,6 +58,7 @@ import { Route as EngenhariaRelatoriosProjectIdRouteImport } from './routes/enge
 import { Route as EngenhariaQrTokenRouteImport } from './routes/engenharia/qr/$token'
 import { Route as EngenhariaObrasObraSlugRouteImport } from './routes/engenharia/obras/$obraSlug'
 import { Route as EngenhariaEquipamentoIdRouteImport } from './routes/engenharia/equipamento/$id'
+import { Route as DotwellKnownOauthProtectedResourceMcpRouteImport } from './routes/[.]well-known/oauth-protected-resource/mcp'
 import { Route as QrOperadorObrasObraSlugIndexRouteImport } from './routes/qr-operador_.obras.$obraSlug.index'
 import { Route as EngenhariaRelatoriosProjectIdIndexRouteImport } from './routes/engenharia/relatorios/$projectId.index'
 import { Route as EngenhariaObrasObraSlugIndexRouteImport } from './routes/engenharia/obras/$obraSlug.index'
@@ -104,6 +107,11 @@ const PoliticaPrivacidadeRoute = PoliticaPrivacidadeRouteImport.update({
 const MeusRegistrosRoute = MeusRegistrosRouteImport.update({
   id: '/meus-registros',
   path: '/meus-registros',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -218,6 +226,12 @@ const EngenhariaContratosRoute = EngenhariaContratosRouteImport.update({
   path: '/contratos',
   getParentRoute: () => EngenhariaRouteRoute,
 } as any)
+const DotwellKnownOauthAuthorizationServerRoute =
+  DotwellKnownOauthAuthorizationServerRouteImport.update({
+    id: '/.well-known/oauth-authorization-server',
+    path: '/.well-known/oauth-authorization-server',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const EngenhariaRelatoriosRouteRoute =
   EngenhariaRelatoriosRouteRouteImport.update({
     id: '/relatorios',
@@ -325,6 +339,12 @@ const EngenhariaEquipamentoIdRoute = EngenhariaEquipamentoIdRouteImport.update({
   path: '/equipamento/$id',
   getParentRoute: () => EngenhariaRouteRoute,
 } as any)
+const DotwellKnownOauthProtectedResourceMcpRoute =
+  DotwellKnownOauthProtectedResourceMcpRouteImport.update({
+    id: '/.well-known/oauth-protected-resource/mcp',
+    path: '/.well-known/oauth-protected-resource/mcp',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const QrOperadorObrasObraSlugIndexRoute =
   QrOperadorObrasObraSlugIndexRouteImport.update({
     id: '/',
@@ -478,6 +498,7 @@ export interface FileRoutesByFullPath {
   '/estoque': typeof EstoqueRouteRouteWithChildren
   '/rh': typeof RhRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/mcp': typeof McpRoute
   '/meus-registros': typeof MeusRegistrosRoute
   '/politica-privacidade': typeof PoliticaPrivacidadeRoute
   '/qr-operador': typeof QrOperadorRoute
@@ -485,6 +506,7 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof SignUpRoute
   '/engenharia/obras': typeof EngenhariaObrasRouteRouteWithChildren
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/engenharia/contratos': typeof EngenhariaContratosRoute
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
   '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
@@ -500,6 +522,7 @@ export interface FileRoutesByFullPath {
   '/estoque/': typeof EstoqueIndexRoute
   '/portal/': typeof PortalIndexRoute
   '/rh/': typeof RhIndexRoute
+  '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/obras/$obraSlug': typeof EngenhariaObrasObraSlugRouteWithChildren
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
@@ -546,11 +569,13 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/mcp': typeof McpRoute
   '/meus-registros': typeof MeusRegistrosRoute
   '/politica-privacidade': typeof PoliticaPrivacidadeRoute
   '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/engenharia/contratos': typeof EngenhariaContratosRoute
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
   '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
@@ -566,6 +591,7 @@ export interface FileRoutesByTo {
   '/estoque': typeof EstoqueIndexRoute
   '/portal': typeof PortalIndexRoute
   '/rh': typeof RhIndexRoute
+  '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
   '/qr-operador/estoque/$obraSlug': typeof QrOperadorEstoqueObraSlugRoute
@@ -615,6 +641,7 @@ export interface FileRoutesById {
   '/estoque': typeof EstoqueRouteRouteWithChildren
   '/rh': typeof RhRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/mcp': typeof McpRoute
   '/meus-registros': typeof MeusRegistrosRoute
   '/politica-privacidade': typeof PoliticaPrivacidadeRoute
   '/qr-operador': typeof QrOperadorRoute
@@ -622,6 +649,7 @@ export interface FileRoutesById {
   '/sign-up': typeof SignUpRoute
   '/engenharia/obras': typeof EngenhariaObrasRouteRouteWithChildren
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/engenharia/contratos': typeof EngenhariaContratosRoute
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
   '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
@@ -637,6 +665,7 @@ export interface FileRoutesById {
   '/estoque/': typeof EstoqueIndexRoute
   '/portal/': typeof PortalIndexRoute
   '/rh/': typeof RhIndexRoute
+  '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/obras/$obraSlug': typeof EngenhariaObrasObraSlugRouteWithChildren
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
@@ -690,6 +719,7 @@ export interface FileRouteTypes {
     | '/estoque'
     | '/rh'
     | '/login'
+    | '/mcp'
     | '/meus-registros'
     | '/politica-privacidade'
     | '/qr-operador'
@@ -697,6 +727,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/engenharia/obras'
     | '/engenharia/relatorios'
+    | '/.well-known/oauth-authorization-server'
     | '/engenharia/contratos'
     | '/engenharia/medicoes'
     | '/engenharia/politica-privacidade'
@@ -712,6 +743,7 @@ export interface FileRouteTypes {
     | '/estoque/'
     | '/portal/'
     | '/rh/'
+    | '/.well-known/oauth-protected-resource/mcp'
     | '/engenharia/equipamento/$id'
     | '/engenharia/obras/$obraSlug'
     | '/engenharia/qr/$token'
@@ -758,11 +790,13 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/mcp'
     | '/meus-registros'
     | '/politica-privacidade'
     | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
+    | '/.well-known/oauth-authorization-server'
     | '/engenharia/contratos'
     | '/engenharia/medicoes'
     | '/engenharia/politica-privacidade'
@@ -778,6 +812,7 @@ export interface FileRouteTypes {
     | '/estoque'
     | '/portal'
     | '/rh'
+    | '/.well-known/oauth-protected-resource/mcp'
     | '/engenharia/equipamento/$id'
     | '/engenharia/qr/$token'
     | '/qr-operador/estoque/$obraSlug'
@@ -826,6 +861,7 @@ export interface FileRouteTypes {
     | '/estoque'
     | '/rh'
     | '/login'
+    | '/mcp'
     | '/meus-registros'
     | '/politica-privacidade'
     | '/qr-operador'
@@ -833,6 +869,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/engenharia/obras'
     | '/engenharia/relatorios'
+    | '/.well-known/oauth-authorization-server'
     | '/engenharia/contratos'
     | '/engenharia/medicoes'
     | '/engenharia/politica-privacidade'
@@ -848,6 +885,7 @@ export interface FileRouteTypes {
     | '/estoque/'
     | '/portal/'
     | '/rh/'
+    | '/.well-known/oauth-protected-resource/mcp'
     | '/engenharia/equipamento/$id'
     | '/engenharia/obras/$obraSlug'
     | '/engenharia/qr/$token'
@@ -900,14 +938,17 @@ export interface RootRouteChildren {
   EstoqueRouteRoute: typeof EstoqueRouteRouteWithChildren
   RhRouteRoute: typeof RhRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
+  McpRoute: typeof McpRoute
   MeusRegistrosRoute: typeof MeusRegistrosRoute
   PoliticaPrivacidadeRoute: typeof PoliticaPrivacidadeRoute
   QrOperadorRoute: typeof QrOperadorRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
+  DotwellKnownOauthAuthorizationServerRoute: typeof DotwellKnownOauthAuthorizationServerRoute
   PortalProjectIdRoute: typeof PortalProjectIdRoute
   QTokenRoute: typeof QTokenRoute
   PortalIndexRoute: typeof PortalIndexRoute
+  DotwellKnownOauthProtectedResourceMcpRoute: typeof DotwellKnownOauthProtectedResourceMcpRoute
   QrOperadorEstoqueObraSlugRoute: typeof QrOperadorEstoqueObraSlugRoute
   QrOperadorObrasObraSlugRoute: typeof QrOperadorObrasObraSlugRouteWithChildren
   QrOperadorEstoqueIndexRoute: typeof QrOperadorEstoqueIndexRoute
@@ -948,6 +989,13 @@ declare module '@tanstack/react-router' {
       path: '/meus-registros'
       fullPath: '/meus-registros'
       preLoaderRoute: typeof MeusRegistrosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -1104,6 +1152,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaContratosRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
+    '/.well-known/oauth-authorization-server': {
+      id: '/.well-known/oauth-authorization-server'
+      path: '/.well-known/oauth-authorization-server'
+      fullPath: '/.well-known/oauth-authorization-server'
+      preLoaderRoute: typeof DotwellKnownOauthAuthorizationServerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/engenharia/relatorios': {
       id: '/engenharia/relatorios'
       path: '/relatorios'
@@ -1243,6 +1298,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/engenharia/equipamento/$id'
       preLoaderRoute: typeof EngenhariaEquipamentoIdRouteImport
       parentRoute: typeof EngenhariaRouteRoute
+    }
+    '/.well-known/oauth-protected-resource/mcp': {
+      id: '/.well-known/oauth-protected-resource/mcp'
+      path: '/.well-known/oauth-protected-resource/mcp'
+      fullPath: '/.well-known/oauth-protected-resource/mcp'
+      preLoaderRoute: typeof DotwellKnownOauthProtectedResourceMcpRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/qr-operador_/obras/$obraSlug/': {
       id: '/qr-operador_/obras/$obraSlug/'
@@ -1649,14 +1711,19 @@ const rootRouteChildren: RootRouteChildren = {
   EstoqueRouteRoute: EstoqueRouteRouteWithChildren,
   RhRouteRoute: RhRouteRouteWithChildren,
   LoginRoute: LoginRoute,
+  McpRoute: McpRoute,
   MeusRegistrosRoute: MeusRegistrosRoute,
   PoliticaPrivacidadeRoute: PoliticaPrivacidadeRoute,
   QrOperadorRoute: QrOperadorRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
+  DotwellKnownOauthAuthorizationServerRoute:
+    DotwellKnownOauthAuthorizationServerRoute,
   PortalProjectIdRoute: PortalProjectIdRoute,
   QTokenRoute: QTokenRoute,
   PortalIndexRoute: PortalIndexRoute,
+  DotwellKnownOauthProtectedResourceMcpRoute:
+    DotwellKnownOauthProtectedResourceMcpRoute,
   QrOperadorEstoqueObraSlugRoute: QrOperadorEstoqueObraSlugRoute,
   QrOperadorObrasObraSlugRoute: QrOperadorObrasObraSlugRouteWithChildren,
   QrOperadorEstoqueIndexRoute: QrOperadorEstoqueIndexRoute,
@@ -1664,13 +1731,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

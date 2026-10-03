@@ -5,10 +5,10 @@ import { equipmentStatusValidator } from "./equipment";
 import { projectStatus } from "./schema";
 import { logAudit, diffFields } from "./lib/audit";
 import {
-  assertParentContract,
+  assertValidParentContract,
   resolveContractDirection,
   resolveContractKind,
-} from "./lib/contracts/helpers";
+} from "./model/contracts/rules";
 import { buildProjectHierarchy } from "./lib/engenharia/hierarchy";
 import {
   assertUniqueLegacyNumber,
@@ -480,7 +480,7 @@ async function attachUnassignedContract(
 
   const direction = resolveContractDirection(contract);
   const kind = resolveContractKind(contract);
-  await assertParentContract(ctx, {
+  await assertValidParentContract(ctx, {
     kind,
     parentContractId: contract.parentContractId,
     projectId: args.projectId,
