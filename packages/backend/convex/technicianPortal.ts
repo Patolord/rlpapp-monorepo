@@ -3,8 +3,11 @@ import { v } from "convex/values";
 import { STAFF_ROLES, authedQuery } from "./lib/rbac";
 import {
   assertTechnicianProjectAccess,
+  isProjectArchived,
   resolveCustomerLabel,
+  resolveProjectByIdentifier,
 } from "./lib/projects/helpers";
+import { listVisibleDocuments } from "./lib/projects/documents";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 
@@ -17,52 +20,79 @@ function isStaff(user: Doc<"users">): boolean {
   return STAFF_ROLES.includes(user.role);
 }
 
+const myProjectValidator = v.object({
+  _id: v.id("projects"),
+  name: v.string(),
+  slug: v.union(v.string(), v.null()),
+  legacyNumber: v.union(v.number(), v.null()),
+  client: v.union(v.string(), v.null()),
+  address: v.union(v.string(), v.null()),
+  status: v.union(v.string(), v.null()),
+  qrCount: v.number(),
+  registeredCount: v.number(),
+  // Documentos (PDF) que este usuário pode ver nesta obra.
+  documentCount: v.number(),
+});
+
+async function buildMyProjectRow(
+  ctx: QueryCtx,
+  user: Doc<"users">,
+  project: Doc<"projects">,
+  customerLabelCache: Map<string, string | null>
+) {
+  // Mesma base de listBrowsableQrsByProject (só etiquetas ativas), para os
+  // contadores do hub baterem com a lista de etiquetas.
+  const qrCodes = await collectActiveQrsForProject(ctx, project._id);
+  const registeredCount = qrCodes.filter((q) => q.equipmentId).length;
+  const documents = await listVisibleDocuments(ctx, user, project);
+  return {
+    _id: project._id,
+    name: project.name,
+    slug: project.slug ?? null,
+    legacyNumber: project.legacyNumber ?? null,
+    client: await resolveCustomerLabel(ctx, project, customerLabelCache),
+    address: project.address ?? null,
+    status: project.status ?? null,
+    qrCount: qrCodes.length,
+    registeredCount,
+    documentCount: documents.length,
+  };
+}
+
 export const listMyProjects = authedQuery({
   args: {},
-  returns: v.array(
-    v.object({
-      _id: v.id("projects"),
-      name: v.string(),
-      slug: v.union(v.string(), v.null()),
-      legacyNumber: v.union(v.number(), v.null()),
-      client: v.union(v.string(), v.null()),
-      address: v.union(v.string(), v.null()),
-      status: v.union(v.string(), v.null()),
-      qrCount: v.number(),
-      registeredCount: v.number(),
-    })
-  ),
+  returns: v.array(myProjectValidator),
   handler: async (ctx) => {
     const staff = isStaff(ctx.user);
     const customerLabelCache = new Map<string, string | null>();
     const allProjects = await ctx.db.query("projects").collect();
-    const visible = staff
-      ? allProjects
-      : allProjects.filter((p) =>
-          (p.technicianIds ?? []).includes(ctx.user._id)
-        );
+    const visible = allProjects.filter((p) => {
+      // Obras arquivadas somem do campo; o escritório ainda as vê na engenharia.
+      if (isProjectArchived(p)) return false;
+      return staff || (p.technicianIds ?? []).includes(ctx.user._id);
+    });
 
     const out = [];
     for (const project of visible) {
-      const qrCodes = await ctx.db
-        .query("qrCodes")
-        .withIndex("by_project", (q) => q.eq("projectId", project._id))
-        .collect();
-      const registeredCount = qrCodes.filter((q) => q.equipmentId).length;
-      out.push({
-        _id: project._id,
-        name: project.name,
-        slug: project.slug ?? null,
-        legacyNumber: project.legacyNumber ?? null,
-        client: await resolveCustomerLabel(ctx, project, customerLabelCache),
-        address: project.address ?? null,
-        status: project.status ?? null,
-        qrCount: qrCodes.length,
-        registeredCount,
-      });
+      out.push(
+        await buildMyProjectRow(ctx, ctx.user, project, customerLabelCache)
+      );
     }
     out.sort((a, b) => a.name.localeCompare(b.name));
     return out;
+  },
+});
+
+// Resumo de uma obra para o hub do técnico. Aceita slug ou id na URL.
+// Retorna null quando a obra não existe; lança erro quando não há acesso.
+export const getMyProject = authedQuery({
+  args: { identifier: v.string() },
+  returns: v.union(myProjectValidator, v.null()),
+  handler: async (ctx, args) => {
+    const project = await resolveProjectByIdentifier(ctx, args.identifier);
+    if (!project || isProjectArchived(project)) return null;
+    await assertTechnicianProjectAccess(ctx, ctx.user, project._id);
+    return await buildMyProjectRow(ctx, ctx.user, project, new Map());
   },
 });
 

@@ -43,6 +43,7 @@ import type * as lib_inventory_operations from "../lib/inventory/operations.js";
 import type * as lib_inventory_queries from "../lib/inventory/queries.js";
 import type * as lib_inventory_requests from "../lib/inventory/requests.js";
 import type * as lib_inventory_stockPolicy from "../lib/inventory/stockPolicy.js";
+import type * as lib_projects_documents from "../lib/projects/documents.js";
 import type * as lib_projects_helpers from "../lib/projects/helpers.js";
 import type * as lib_rbac from "../lib/rbac.js";
 import type * as lib_rh_payroll from "../lib/rh/payroll.js";
@@ -59,6 +60,7 @@ import type * as model_contracts_validators from "../model/contracts/validators.
 import type * as payroll from "../payroll.js";
 import type * as portal from "../portal.js";
 import type * as priceEvents from "../priceEvents.js";
+import type * as projectDocuments from "../projectDocuments.js";
 import type * as projectEquipment from "../projectEquipment.js";
 import type * as projectUnits from "../projectUnits.js";
 import type * as projects from "../projects.js";
@@ -115,6 +117,7 @@ declare const fullApi: ApiFromModules<{
   "lib/inventory/queries": typeof lib_inventory_queries;
   "lib/inventory/requests": typeof lib_inventory_requests;
   "lib/inventory/stockPolicy": typeof lib_inventory_stockPolicy;
+  "lib/projects/documents": typeof lib_projects_documents;
   "lib/projects/helpers": typeof lib_projects_helpers;
   "lib/rbac": typeof lib_rbac;
   "lib/rh/payroll": typeof lib_rh_payroll;
@@ -131,6 +134,7 @@ declare const fullApi: ApiFromModules<{
   payroll: typeof payroll;
   portal: typeof portal;
   priceEvents: typeof priceEvents;
+  projectDocuments: typeof projectDocuments;
   projectEquipment: typeof projectEquipment;
   projectUnits: typeof projectUnits;
   projects: typeof projects;

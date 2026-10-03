@@ -1,10 +1,14 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../audit";
-import { looksLikeConvexId } from "../engenharia/slug";
-import { assertTechnicianProjectAccess } from "../projects/helpers";
+import {
+  assertTechnicianProjectAccess,
+  resolveProjectByIdentifier,
+} from "../projects/helpers";
 import { hasPermission } from "../rbac";
 import { createAndPostConsumption, findInventoryLocation } from "./operations";
+
+export { resolveProjectByIdentifier };
 
 export const MAX_INVENTORY_REQUEST_LINES = 20;
 
@@ -23,25 +27,6 @@ export function canFulfillMaterialRequests(user: Doc<"users">): boolean {
     user.role === "admin" ||
     hasPermission(user, "estoque.write")
   );
-}
-
-export async function resolveProjectByIdentifier(
-  ctx: QueryCtx | MutationCtx,
-  identifier: string
-): Promise<Doc<"projects"> | null> {
-  const trimmed = identifier.trim();
-  if (!trimmed) return null;
-
-  const bySlug = await ctx.db
-    .query("projects")
-    .withIndex("by_slug", (q) => q.eq("slug", trimmed))
-    .first();
-  if (bySlug) return bySlug;
-
-  if (looksLikeConvexId(trimmed)) {
-    return await ctx.db.get("projects", trimmed as Id<"projects">);
-  }
-  return null;
 }
 
 export async function requireAssignedProject(

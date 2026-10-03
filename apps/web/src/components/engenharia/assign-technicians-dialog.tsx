@@ -81,8 +81,8 @@ export function AssignTechniciansDialog({
         <DialogHeader>
           <DialogTitle>Técnicos da obra</DialogTitle>
           <DialogDescription>
-            Técnicos atribuídos podem listar os códigos QR e equipamentos desta
-            obra em campo, mesmo que não tenham cadastrado o equipamento.
+            Técnicos atribuídos veem esta obra no app de campo: etiquetas QR,
+            estoque e os documentos (PDF) liberados para eles.
           </DialogDescription>
         </DialogHeader>
 

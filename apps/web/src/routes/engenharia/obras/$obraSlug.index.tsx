@@ -4,6 +4,7 @@ import {
   Calculator,
   ClipboardCheck,
   FileText,
+  Files,
   Package,
   Warehouse,
   Wind,
@@ -44,7 +45,8 @@ type ModuleTile = {
     | "/engenharia/obras/$obraSlug/contratos"
     | "/engenharia/obras/$obraSlug/medicoes"
     | "/engenharia/obras/$obraSlug/compras"
-    | "/engenharia/obras/$obraSlug/estoque";
+    | "/engenharia/obras/$obraSlug/estoque"
+    | "/engenharia/obras/$obraSlug/documentos";
   label: string;
   description: string;
   icon: LucideIcon;
@@ -104,6 +106,12 @@ function ObraHubContent({ project }: { project: ProjectOverview }) {
       label: "Estoque",
       description: "Saldos e movimentações desta obra",
       icon: Warehouse,
+    },
+    {
+      to: "/engenharia/obras/$obraSlug/documentos",
+      label: "Documentos",
+      description: "PDFs da obra liberados para os técnicos em campo",
+      icon: Files,
     },
   ];
 

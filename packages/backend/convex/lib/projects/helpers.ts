@@ -1,6 +1,27 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { looksLikeConvexId } from "../engenharia/slug";
 import { STAFF_ROLES } from "../rbac";
+
+/** Resolve uma obra por slug (preferido) ou por id (fallback legado). */
+export async function resolveProjectByIdentifier(
+  ctx: QueryCtx | MutationCtx,
+  identifier: string
+): Promise<Doc<"projects"> | null> {
+  const trimmed = identifier.trim();
+  if (!trimmed) return null;
+
+  const bySlug = await ctx.db
+    .query("projects")
+    .withIndex("by_slug", (q) => q.eq("slug", trimmed))
+    .first();
+  if (bySlug) return bySlug;
+
+  if (looksLikeConvexId(trimmed)) {
+    return await ctx.db.get("projects", trimmed as Id<"projects">);
+  }
+  return null;
+}
 
 export async function assertTechnicianProjectAccess(
   ctx: QueryCtx | MutationCtx,
