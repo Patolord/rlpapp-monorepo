@@ -37,7 +37,7 @@ type FieldDocument = FunctionReturnType<
   typeof api.projectDocuments.listForTechnician
 >[number];
 
-function useOfflineDocuments(ownerId: string | null, projectId: Id<"projects">) {
+function useOfflineDocuments(ownerId: string | null, obraSlug: string) {
   const [docs, setDocs] = useState<Map<string, CachedDocumentMeta>>(new Map());
 
   useEffect(() => {
@@ -47,7 +47,7 @@ function useOfflineDocuments(ownerId: string | null, projectId: Id<"projects">) 
     }
     let alive = true;
     const refresh = () => {
-      void listOfflineDocuments(ownerId, projectId).then((items) => {
+      void listOfflineDocuments(ownerId, obraSlug).then((items) => {
         if (!alive) return;
         setDocs(new Map(items.map((item) => [item.documentId, item])));
       });
@@ -58,20 +58,27 @@ function useOfflineDocuments(ownerId: string | null, projectId: Id<"projects">) 
       alive = false;
       window.removeEventListener(FIELD_CACHE_CHANGED_EVENT, refresh);
     };
-  }, [ownerId, projectId]);
+  }, [ownerId, obraSlug]);
 
   return docs;
 }
 
-export function ObraDocumentsList({ projectId }: { projectId: Id<"projects"> }) {
+export function ObraDocumentsList({
+  projectId,
+  obraSlug,
+}: {
+  projectId: Id<"projects">;
+  /** Identificador da obra na URL — chave da cache offline desta obra. */
+  obraSlug: string;
+}) {
   const online = useOnline();
   const { ownerId } = useFieldCacheOwner();
   const { data: documents, fromCache, cacheChecked } = useOfflineQuery(
-    fieldCacheKeys.documents(projectId),
+    fieldCacheKeys.documents(obraSlug),
     api.projectDocuments.listForTechnician,
     { projectId }
   );
-  const offlineDocs = useOfflineDocuments(ownerId, projectId);
+  const offlineDocs = useOfflineDocuments(ownerId, obraSlug);
 
   // Com a lista ao vivo em mãos, descarta PDFs salvos que sumiram ou perderam
   // o acesso — o técnico não deve continuar com um arquivo que não pode mais ver.
@@ -79,10 +86,10 @@ export function ObraDocumentsList({ projectId }: { projectId: Id<"projects"> }) 
     if (!documents || fromCache || !ownerId) return;
     void pruneOfflineDocuments(
       ownerId,
-      projectId,
+      obraSlug,
       documents.map((document) => document._id)
     );
-  }, [documents, fromCache, ownerId, projectId]);
+  }, [documents, fromCache, ownerId, obraSlug]);
 
   const savedCount = useMemo(
     () => (documents ?? []).filter((d) => offlineDocs.has(d._id)).length,
@@ -128,6 +135,7 @@ export function ObraDocumentsList({ projectId }: { projectId: Id<"projects"> }) 
             key={document._id}
             document={document}
             projectId={projectId}
+            obraSlug={obraSlug}
             ownerId={ownerId}
             offline={offlineDocs.get(document._id) ?? null}
             online={online}
@@ -143,12 +151,14 @@ type Busy = "open" | "download" | "save" | "remove" | null;
 function DocumentCard({
   document,
   projectId,
+  obraSlug,
   ownerId,
   offline,
   online,
 }: {
   document: FieldDocument;
   projectId: Id<"projects">;
+  obraSlug: string;
   ownerId: string | null;
   offline: CachedDocumentMeta | null;
   online: boolean;
@@ -196,6 +206,7 @@ function DocumentCard({
       await saveDocumentOffline(ownerId, {
         documentId: document._id,
         projectId,
+        obraSlug,
         name: document.name,
         fileName: document.fileName,
         sizeBytes: blob.size,

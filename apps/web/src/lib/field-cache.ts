@@ -20,16 +20,20 @@ const DB_NAME = "rlp-field-cache";
 const DB_VERSION = 2;
 const KV_STORE = "kv";
 const DOCUMENTS_STORE = "documents";
-const OWNER_PROJECT_INDEX = "by_owner_project";
+const OWNER_OBRA_INDEX = "by_owner_obra";
 
 export const FIELD_CACHE_CHANGED_EVENT = "rlp-field-cache-changed";
 const OWNER_STORAGE_KEY = "rlp-field-cache-owner";
 
-/** Chaves das consultas cacheadas em campo (sem o prefixo do dono). */
+/**
+ * Chaves das consultas cacheadas em campo (sem o prefixo do dono). Tudo que
+ * pertence a uma obra é indexado pelo identificador da URL (`obraSlug`), para
+ * `forgetProject` conseguir apagar sem depender de nada que ainda esteja em cache.
+ */
 export const fieldCacheKeys = {
   myProjects: "field:my-projects",
   project: (obraSlug: string) => `field:project:${obraSlug}`,
-  documents: (projectId: string) => `field:documents:${projectId}`,
+  documents: (obraSlug: string) => `field:documents:${obraSlug}`,
 } as const;
 
 export interface CachedValue<T> {
@@ -44,6 +48,8 @@ interface KvRecord<T> extends CachedValue<T> {
 export interface CachedDocument {
   documentId: string;
   projectId: string;
+  /** Identificador da obra na URL (slug ou id) — chave de agrupamento. */
+  obraSlug: string;
   name: string;
   fileName: string;
   sizeBytes: number;
@@ -81,7 +87,7 @@ function openDb(): Promise<IDBDatabase> {
       const documents = db.createObjectStore(DOCUMENTS_STORE, {
         keyPath: "key",
       });
-      documents.createIndex(OWNER_PROJECT_INDEX, ["ownerId", "projectId"], {
+      documents.createIndex(OWNER_OBRA_INDEX, ["ownerId", "obraSlug"], {
         unique: false,
       });
     };
@@ -148,17 +154,22 @@ export function getStoredCacheOwner(): string | null {
   }
 }
 
-export function setStoredCacheOwner(ownerId: string): void {
+export function setStoredCacheOwner(ownerId: string | null): void {
   if (typeof localStorage === "undefined") return;
   try {
-    localStorage.setItem(OWNER_STORAGE_KEY, ownerId);
+    if (ownerId) localStorage.setItem(OWNER_STORAGE_KEY, ownerId);
+    else localStorage.removeItem(OWNER_STORAGE_KEY);
   } catch {
     // Sem localStorage a cache simplesmente não é reaproveitada offline.
   }
 }
 
-/** Apaga tudo (todas as contas). Usado ao trocar de conta no aparelho. */
+/**
+ * Apaga tudo (todas as contas) e esquece o dono. Usado ao sair da conta e ao
+ * entrar com outra conta no mesmo aparelho.
+ */
 export async function clearFieldCache(): Promise<void> {
+  setStoredCacheOwner(null);
   await withDb(async (db) => {
     const tx = db.transaction([KV_STORE, DOCUMENTS_STORE], "readwrite");
     tx.objectStore(KV_STORE).clear();
@@ -268,24 +279,24 @@ export async function getOfflineDocument(
 async function listOfflineRecords(
   db: IDBDatabase,
   ownerId: string,
-  projectId: string
+  obraSlug: string
 ): Promise<DocumentRecord[]> {
   const tx = db.transaction(DOCUMENTS_STORE, "readonly");
   return requestToPromise(
     tx
       .objectStore(DOCUMENTS_STORE)
-      .index(OWNER_PROJECT_INDEX)
-      .getAll([ownerId, projectId]) as IDBRequest<DocumentRecord[]>
+      .index(OWNER_OBRA_INDEX)
+      .getAll([ownerId, obraSlug]) as IDBRequest<DocumentRecord[]>
   );
 }
 
 /** Metadados (sem o Blob) dos PDFs salvos de uma obra. */
 export async function listOfflineDocuments(
   ownerId: string,
-  projectId: string
+  obraSlug: string
 ): Promise<CachedDocumentMeta[]> {
   return withDb(async (db) => {
-    const entries = await listOfflineRecords(db, ownerId, projectId);
+    const entries = await listOfflineRecords(db, ownerId, obraSlug);
     return entries.map(
       ({ blob: _blob, key: _key, ownerId: _owner, ...meta }) => meta
     );
@@ -302,12 +313,12 @@ async function deleteOfflineKeys(db: IDBDatabase, keys: string[]) {
 /** Remove da cache PDFs que não existem mais (ou perderam acesso) na obra. */
 export async function pruneOfflineDocuments(
   ownerId: string,
-  projectId: string,
+  obraSlug: string,
   keepDocumentIds: Iterable<string>
 ): Promise<void> {
   const keep = new Set(keepDocumentIds);
   const removed = await withDb(async (db) => {
-    const entries = await listOfflineRecords(db, ownerId, projectId);
+    const entries = await listOfflineRecords(db, ownerId, obraSlug);
     const stale = entries.filter((doc) => !keep.has(doc.documentId));
     await deleteOfflineKeys(
       db,
@@ -319,12 +330,12 @@ export async function pruneOfflineDocuments(
 }
 
 /** Apaga todos os PDFs salvos de uma obra. */
-export async function removeOfflineDocumentsForProject(
+export async function removeOfflineDocumentsForObra(
   ownerId: string,
-  projectId: string
+  obraSlug: string
 ): Promise<void> {
   await withDb(async (db) => {
-    const entries = await listOfflineRecords(db, ownerId, projectId);
+    const entries = await listOfflineRecords(db, ownerId, obraSlug);
     await deleteOfflineKeys(
       db,
       entries.map((doc) => doc.key)
@@ -334,22 +345,16 @@ export async function removeOfflineDocumentsForProject(
 }
 
 /**
- * Esquece uma obra cujo acesso foi revogado: resumo, lista de documentos e
- * PDFs salvos. A lista de obras também é descartada para não reaparecer.
+ * Esquece uma obra que deixou de estar disponível no campo (acesso revogado
+ * ou obra arquivada): resumo, lista de documentos e PDFs salvos. A lista de
+ * obras também é descartada para ela não reaparecer offline.
  */
 export async function forgetProject(
   ownerId: string,
   obraSlug: string
 ): Promise<void> {
-  const cached = await readCachedValue<{ _id: string } | null>(
-    ownerId,
-    fieldCacheKeys.project(obraSlug)
-  );
-  const projectId = cached?.value?._id;
-  if (projectId) {
-    await removeOfflineDocumentsForProject(ownerId, projectId);
-    await removeCachedValue(ownerId, fieldCacheKeys.documents(projectId));
-  }
+  await removeOfflineDocumentsForObra(ownerId, obraSlug);
+  await removeCachedValue(ownerId, fieldCacheKeys.documents(obraSlug));
   await removeCachedValue(ownerId, fieldCacheKeys.project(obraSlug));
   await removeCachedValue(ownerId, fieldCacheKeys.myProjects);
   notifyChanged();

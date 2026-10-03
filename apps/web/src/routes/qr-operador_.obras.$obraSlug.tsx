@@ -33,11 +33,19 @@ const ACCESS_DENIED_MESSAGE = "Acesso negado a esta obra";
 function CampoObraLayout() {
   const { obraSlug } = Route.useParams();
   const online = useOnline();
+  const { ownerId } = useFieldCacheOwner();
   const { data: obra, fromCache, cacheChecked } = useOfflineQuery(
     fieldCacheKeys.project(obraSlug),
     api.technicianPortal.getMyProject,
     { identifier: obraSlug }
   );
+
+  // Resposta ao vivo "não existe / arquivada": a obra saiu do campo, então
+  // nada dela (lista de documentos, PDFs salvos) pode continuar offline.
+  useEffect(() => {
+    if (obra !== null || fromCache || !ownerId) return;
+    void forgetProject(ownerId, obraSlug);
+  }, [obra, fromCache, ownerId, obraSlug]);
 
   if (obra === undefined) {
     if (!cacheChecked) return null;
@@ -80,7 +88,8 @@ function CampoObraError({ error }: ErrorComponentProps) {
   const accessDenied = message.includes(ACCESS_DENIED_MESSAGE);
 
   // Acesso revogado: nada desta obra pode continuar disponível offline
-  // (resumo, lista de documentos e PDFs salvos).
+  // (resumo, lista de documentos e PDFs salvos). Independe da cache, então
+  // funciona mesmo que o resumo da obra nunca tenha sido salvo.
   useEffect(() => {
     if (!accessDenied || !ownerId) return;
     void forgetProject(ownerId, obraSlug);

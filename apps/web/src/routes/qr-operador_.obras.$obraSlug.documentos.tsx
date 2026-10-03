@@ -18,7 +18,7 @@ function CampoObraDocumentosPage() {
       back={<Link to="/qr-operador/obras/$obraSlug" params={{ obraSlug }} />}
     >
       <div className="mx-auto w-full max-w-lg py-2">
-        <ObraDocumentsList projectId={obra._id} />
+        <ObraDocumentsList projectId={obra._id} obraSlug={obraSlug} />
       </div>
     </FieldPageShell>
   );
