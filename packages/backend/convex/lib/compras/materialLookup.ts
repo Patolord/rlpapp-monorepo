@@ -64,11 +64,14 @@ function significantTokens(query: string): string[] {
 
 function tokenMatches(token: string, haystack: string[]): boolean {
   const singular = token.length > 3 && token.endsWith("s") ? token.slice(0, -1) : token;
+  const isNumber = /^\d+$/.test(token);
   return haystack.some(
     (word) =>
       word === token ||
       word === singular ||
-      (token.length >= 4 && word.startsWith(token))
+      (token.length >= 4 && word.startsWith(token)) ||
+      // "3x2,5" normalizes to "3x2 5"; let the bare "5" match "5mm2" (not "50mm").
+      (isNumber && word.startsWith(token) && /^[a-z]/.test(word.slice(token.length)))
   );
 }
 
