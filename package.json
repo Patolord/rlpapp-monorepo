@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@rlpapp/env": "workspace:*",
-    "@tanstack/react-start": "^1.167.65",
+    "@tanstack/react-start": "^1.168.60",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "zod": "catalog:"
