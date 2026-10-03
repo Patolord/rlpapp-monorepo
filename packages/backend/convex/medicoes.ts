@@ -3,7 +3,10 @@ import { engineeringMutation, engineeringQuery } from "./lib/rbac";
 import { medicaoBasis, medicaoStatus, projectStatus } from "./schema";
 import { logAudit } from "./lib/audit";
 import { resolveCustomerLabel } from "./lib/projects/helpers";
-import { assertEligibleForMedicao } from "./lib/contracts/helpers";
+import {
+  assertContractEligibleForMeasurement,
+  isContractEligibleForMeasurement,
+} from "./model/contracts/rules";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 
@@ -87,14 +90,7 @@ export const listContracts = engineeringQuery({
       .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
       .collect();
 
-    const eligible = contracts.filter((contract) => {
-      try {
-        assertEligibleForMedicao(contract);
-        return true;
-      } catch {
-        return false;
-      }
-    });
+    const eligible = contracts.filter(isContractEligibleForMeasurement);
 
     return await Promise.all(
       eligible.map(async (contract) => {
@@ -207,7 +203,7 @@ export const createMedicao = engineeringMutation({
   handler: async (ctx, args) => {
     const contract = await ctx.db.get("contracts", args.contractId);
     if (!contract) throw new Error("Contrato não encontrado");
-    assertEligibleForMedicao(contract);
+    assertContractEligibleForMeasurement(contract);
     const projectId = contract.projectId!;
 
     let amountCents: number;
@@ -413,14 +409,7 @@ export const getOverview = engineeringQuery({
           .query("contracts")
           .withIndex("by_project", (q) => q.eq("projectId", project._id))
           .collect();
-        const eligible = contracts.filter((contract) => {
-          try {
-            assertEligibleForMedicao(contract);
-            return true;
-          } catch {
-            return false;
-          }
-        });
+        const eligible = contracts.filter(isContractEligibleForMeasurement);
         const medicoes = await ctx.db
           .query("medicoes")
           .withIndex("by_project", (q) => q.eq("projectId", project._id))

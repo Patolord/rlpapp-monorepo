@@ -93,6 +93,12 @@ describe("lookup helpers", () => {
     expect(tokenCoverage("tubo sem costura", "tubo sem costura")).toBe(1);
   });
 
+  test("tokenCoverage matches bare numbers against sizes with units", () => {
+    const query = normalizeLookupQuery("me da o cabo pp 3x2,5");
+    expect(tokenCoverage(query, "Cabo PP 3x2,5mm²")).toBe(1);
+    expect(tokenCoverage(query, "Cabo PP 3x2,50mm²")).toBeLessThan(1);
+  });
+
   test("describeMaterial joins name, variant and spec", () => {
     expect(describeMaterial({ name: "Cabo", variantLabel: "2,5 mm" })).toBe(
       "Cabo — 2,5 mm"
