@@ -35,6 +35,9 @@ export CONVEX_AGENT_MODE=anonymous
 CLERK_SECRET_KEY_VAL="sk_test_placeholder_dev_only"
 CLERK_WEBHOOK_SECRET_VAL="whsec_placeholder_dev_only"
 OPENAI_API_KEY_VAL=""
+RHID_EMAIL_VAL=""
+RHID_PASSWORD_VAL=""
+RHID_COMPANY_ID_VAL=""
 SECRETS_SOURCE="placeholder"
 
 if [ -n "${DOPPLER_TOKEN:-}" ] && command -v doppler >/dev/null 2>&1; then
@@ -46,6 +49,10 @@ if [ -n "${DOPPLER_TOKEN:-}" ] && command -v doppler >/dev/null 2>&1; then
     v="$(dop_get CLERK_SECRET_KEY)"; [ -n "$v" ] && CLERK_SECRET_KEY_VAL="$v"
     v="$(dop_get CLERK_WEBHOOK_SECRET)"; [ -n "$v" ] && CLERK_WEBHOOK_SECRET_VAL="$v"
     v="$(dop_get OPENAI_API_KEY)"; [ -n "$v" ] && OPENAI_API_KEY_VAL="$v"
+    # Integração RHID (ponto): opcional; sem ela o módulo fica somente leitura.
+    v="$(dop_get RHID_EMAIL)"; [ -n "$v" ] && RHID_EMAIL_VAL="$v"
+    v="$(dop_get RHID_PASSWORD)"; [ -n "$v" ] && RHID_PASSWORD_VAL="$v"
+    v="$(dop_get RHID_COMPANY_ID)"; [ -n "$v" ] && RHID_COMPANY_ID_VAL="$v"
     SECRETS_SOURCE="doppler"
   else
     echo "dev-bootstrap: WARNING: DOPPLER_SERVICE_TOKEN set but 'doppler secrets download' failed (check token scope: project rlpeng / config dev). Using placeholders." >&2
@@ -72,6 +79,13 @@ set_convex_env() {
   convex env set CLERK_WEBHOOK_SECRET "$CLERK_WEBHOOK_SECRET_VAL" || true
   if [ -n "$OPENAI_API_KEY_VAL" ]; then
     convex env set OPENAI_API_KEY "$OPENAI_API_KEY_VAL" || true
+  fi
+  if [ -n "$RHID_EMAIL_VAL" ] && [ -n "$RHID_PASSWORD_VAL" ]; then
+    convex env set RHID_EMAIL "$RHID_EMAIL_VAL" || true
+    convex env set RHID_PASSWORD "$RHID_PASSWORD_VAL" || true
+    if [ -n "$RHID_COMPANY_ID_VAL" ]; then
+      convex env set RHID_COMPANY_ID "$RHID_COMPANY_ID_VAL" || true
+    fi
   fi
 }
 
