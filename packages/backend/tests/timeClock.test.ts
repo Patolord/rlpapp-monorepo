@@ -151,6 +151,90 @@ describe("timeClock: espelho diário", () => {
     expect(days[0]).toMatchObject({ rhidPersonId: 1, punchCount: 3, lastKind: "almoco_retorno" });
   });
 
+  test("getLiveStatus responde onde está cada pessoa e quem está em cada obra", async () => {
+    const { t, hr } = await seed();
+    await seedMirror(t);
+    const projectId = await t.run(async (ctx) =>
+      ctx.db.insert("projects", { name: "Edifício Centro", floors: [], createdAt: Date.now() })
+    );
+    await hr.mutation(api.timeClock.linkWorksite, { rhidGeofenceId: 10, projectId });
+
+    // Dia 14: Ana fechou o dia (4 marcações), Bruno só entrada fora de cerca, Carlos ausente.
+    const live14 = await hr.query(api.timeClock.getLiveStatus, { date: "2026-01-14" });
+    expect(live14.summary).toEqual({
+      total: 3,
+      onSite: 1,
+      lunch: 0,
+      left: 1,
+      absent: 1,
+      outsideFence: 1,
+    });
+    const byId = new Map(live14.people.map((p) => [p.rhidPersonId, p]));
+    expect(byId.get(1)).toMatchObject({
+      status: "left",
+      lastKind: "saida",
+      lastTimeLabel: "17:00",
+      worksiteId: 10,
+      worksiteName: "Obra Centro",
+      locationExact: true,
+      since: brtWallToInstant(2026, 1, 14, 17),
+    });
+    expect(byId.get(1)?.punches.map((p) => p.kind)).toEqual([
+      "entrada",
+      "almoco_saida",
+      "almoco_retorno",
+      "saida",
+    ]);
+    expect(byId.get(2)).toMatchObject({
+      status: "on_site",
+      worksiteId: null,
+      locationExact: false,
+      lastTimeLabel: "07:30",
+    });
+    expect(byId.get(3)).toMatchObject({ status: "absent", since: null, worksiteId: null });
+
+    expect(live14.worksites[0]).toMatchObject({
+      rhidGeofenceId: 10,
+      projectName: "Edifício Centro",
+      onSite: 0,
+      lunch: 0,
+      left: 1,
+    });
+    expect(live14.worksites[0]?.people).toEqual([
+      { rhidPersonId: 1, name: "Ana Souza", status: "left", since: brtWallToInstant(2026, 1, 14, 17), locationExact: true },
+    ]);
+
+    // Dia 15: Ana só bateu a entrada → está na obra agora.
+    const live15 = await hr.query(api.timeClock.getLiveStatus, { date: "2026-01-15" });
+    expect(live15.summary).toMatchObject({ onSite: 1, absent: 2 });
+    expect(live15.worksites[0]).toMatchObject({ onSite: 1, people: [{ rhidPersonId: 1, status: "on_site" }] });
+
+    // Ana sai para almoço fora da cerca: continua referenciada à última obra conhecida.
+    const data = checkInsFixture();
+    const lunch = {
+      ...data.punches.find((p) => p.rhidRecordId === 105)!,
+      rhidRecordId: 106,
+      punchedAt: brtWallToInstant(2026, 1, 15, 12),
+      timeLabel: "12:00",
+      sequence: 1,
+      kind: "almoco_saida" as const,
+      rhidGeofenceId: undefined,
+      geofenceName: undefined,
+    };
+    await t.mutation(internal.timeClock.replaceDay, {
+      date: "2026-01-15",
+      punches: [...data.punches.filter((p) => p.date === "2026-01-15"), lunch],
+      syncedAt: SYNCED_AT,
+    });
+    const live15b = await hr.query(api.timeClock.getLiveStatus, { date: "2026-01-15" });
+    expect(live15b.people.find((p) => p.rhidPersonId === 1)).toMatchObject({
+      status: "lunch",
+      worksiteId: 10,
+      locationExact: false,
+    });
+    expect(live15b.worksites[0]).toMatchObject({ onSite: 0, lunch: 1 });
+  });
+
   test("departamentos acompanhados limitam quem conta como ausente", async () => {
     const { t, hr } = await seed();
     await seedMirror(t);

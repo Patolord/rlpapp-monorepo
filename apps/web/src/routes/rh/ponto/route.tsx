@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { CalendarDays, CalendarRange, Link2 } from "lucide-react";
+import { CalendarDays, CalendarRange, Link2, Radio } from "lucide-react";
 
 import { AuthShell } from "@/components/auth-shell";
 import { cn } from "@/lib/utils";
@@ -9,7 +9,8 @@ export const Route = createFileRoute("/rh/ponto")({
 });
 
 const TABS = [
-  { to: "/rh/ponto", label: "Dia", icon: CalendarDays, exact: true },
+  { to: "/rh/ponto", label: "Agora", icon: Radio, exact: true },
+  { to: "/rh/ponto/dia", label: "Dia", icon: CalendarDays, exact: false },
   { to: "/rh/ponto/mensal", label: "Mensal", icon: CalendarRange, exact: false },
   { to: "/rh/ponto/vinculos", label: "Vínculos", icon: Link2, exact: false },
 ] as const;
@@ -22,7 +23,7 @@ function PontoLayout() {
           <div>
             <h1 className="text-2xl font-bold">Ponto (RHID)</h1>
             <p className="text-sm text-muted-foreground">
-              Presença, marcações e homem-dia coletados do controle de acesso RHID.
+              Onde está cada pessoa agora, quem está em cada obra, marcações e homem-dia — coletados do controle de acesso RHID.
             </p>
           </div>
           <nav

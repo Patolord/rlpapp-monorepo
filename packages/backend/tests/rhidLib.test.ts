@@ -2,9 +2,11 @@ import { describe, expect, test } from "vitest";
 import {
   aggregateManDays,
   brtWallToInstant,
+  derivePosition,
   enumerateDateKeys,
   formatDateForRhid,
   isExpiredTokenError,
+  liveStatusForKind,
   monthRange,
   normalizeCheckIns,
   normalizeCpf,
@@ -183,6 +185,38 @@ describe("RHID lib: normalização", () => {
     });
     expect(summary?.firstPunchAt).toBe(brtWallToInstant(2026, 1, 14, 7));
     expect(summary?.lastPunchAt).toBe(brtWallToInstant(2026, 1, 14, 17));
+  });
+});
+
+describe("RHID lib: posição atual", () => {
+  test("derivePosition usa a última marcação e a última cerca conhecida", () => {
+    const { punches } = normalizeCheckIns([
+      {
+        person: { id: 1, name: "Ana" },
+        listAfdMobilePerson: [
+          {
+            id: 1,
+            dateTime: "2026-01-14T07:00:00",
+            geofence: { id: 5, name: "Obra B", latitude: -1, longitude: -2, radius: 10 },
+          },
+          { id: 2, dateTime: "2026-01-14T12:00:00" },
+        ],
+      },
+    ]);
+    const position = derivePosition(punches);
+    expect(position.status).toBe("lunch");
+    expect(position.last?.rhidRecordId).toBe(2);
+    expect(position.worksiteId).toBe(5);
+    expect(position.worksiteName).toBe("Obra B");
+    expect(position.locationExact).toBe(false);
+
+    expect(derivePosition([]).status).toBe("absent");
+    expect(derivePosition([punches[0]!])).toMatchObject({ status: "on_site", locationExact: true });
+    expect(
+      ["entrada", "almoco_saida", "almoco_retorno", "saida", null].map((k) =>
+        liveStatusForKind(k as never)
+      )
+    ).toEqual(["on_site", "lunch", "on_site", "left", "absent"]);
   });
 });
 

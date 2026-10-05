@@ -103,14 +103,16 @@ export function TimeClockDayView({
         .filter((p) => p.latitude !== null && p.longitude !== null)
         .map((p) => ({
           id: p._id,
-          rhidPersonId: p.rhidPersonId,
-          personName: p.personName,
-          timeLabel: p.timeLabel,
-          kind: p.kind,
+          groupId: p.rhidPersonId,
           latitude: p.latitude as number,
           longitude: p.longitude as number,
+          color: PUNCH_KIND_COLOR[p.kind],
+          title: p.personName,
+          lines: [
+            `${PUNCH_KIND_LABEL[p.kind]} às ${p.timeLabel}`,
+            ...(p.geofenceName ? [`Local: ${p.geofenceName}`] : []),
+          ],
           photoUrl: p.photoUrl,
-          geofenceName: p.geofenceName,
         })),
     [day]
   );
@@ -288,17 +290,17 @@ export function TimeClockDayView({
                   }
                 >
                   <TimeClockMap
-                    punches={mapPunches}
+                    markers={mapPunches}
                     worksites={(day?.worksites ?? []).map((w) => ({
                       rhidGeofenceId: w.rhidGeofenceId,
                       name: w.name,
                       latitude: w.latitude,
                       longitude: w.longitude,
                       radius: w.radius,
-                      peopleCount: w.peopleCount,
+                      caption: `${w.peopleCount} ${w.peopleCount === 1 ? "pessoa" : "pessoas"} no dia`,
                       projectName: w.projectName,
                     }))}
-                    highlightPersonId={selectedPerson}
+                    highlightGroupId={selectedPerson}
                   />
                 </Suspense>
               ) : (

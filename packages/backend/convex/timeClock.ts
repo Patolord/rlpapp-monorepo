@@ -12,6 +12,7 @@ import { hrMutation, hrQuery, requirePermission, requireUser } from "./lib/rbac"
 import {
   aggregateManDays,
   assertDateKey,
+  derivePosition,
   monthRange,
   type PunchKind,
 } from "./lib/rh/rhid";
@@ -146,6 +147,60 @@ const dayPunchValidator = v.object({
   photoUrl: v.union(v.string(), v.null()),
   rhidGeofenceId: v.union(v.number(), v.null()),
   geofenceName: v.union(v.string(), v.null()),
+});
+
+const liveStatusValidator = v.union(
+  v.literal("on_site"),
+  v.literal("lunch"),
+  v.literal("left"),
+  v.literal("absent")
+);
+
+const livePersonValidator = v.object({
+  rhidPersonId: v.number(),
+  name: v.string(),
+  department: v.union(v.string(), v.null()),
+  employee: v.union(employeeRefValidator, v.null()),
+  status: liveStatusValidator,
+  /** Instante da última marcação (desde quando está nessa situação). */
+  since: v.union(v.number(), v.null()),
+  lastKind: v.union(timeClockPunchKind, v.null()),
+  lastTimeLabel: v.union(v.string(), v.null()),
+  worksiteId: v.union(v.number(), v.null()),
+  worksiteName: v.union(v.string(), v.null()),
+  locationExact: v.boolean(),
+  latitude: v.union(v.number(), v.null()),
+  longitude: v.union(v.number(), v.null()),
+  photoUrl: v.union(v.string(), v.null()),
+  punches: v.array(
+    v.object({
+      timeLabel: v.string(),
+      kind: timeClockPunchKind,
+      geofenceName: v.union(v.string(), v.null()),
+    })
+  ),
+});
+
+const liveWorksiteValidator = v.object({
+  rhidGeofenceId: v.number(),
+  name: v.string(),
+  latitude: v.number(),
+  longitude: v.number(),
+  radius: v.number(),
+  projectId: v.union(v.id("projects"), v.null()),
+  projectName: v.union(v.string(), v.null()),
+  onSite: v.number(),
+  lunch: v.number(),
+  left: v.number(),
+  people: v.array(
+    v.object({
+      rhidPersonId: v.number(),
+      name: v.string(),
+      status: liveStatusValidator,
+      since: v.union(v.number(), v.null()),
+      locationExact: v.boolean(),
+    })
+  ),
 });
 
 const dayWorksiteValidator = v.object({
@@ -531,6 +586,160 @@ export const getDay = hrQuery({
         byKind,
       },
     };
+  },
+});
+
+/**
+ * "Agora": onde está cada pessoa e quem está em cada obra, a partir da última
+ * marcação do dia. O cliente informa a data civil (Brasília) de hoje.
+ */
+export const getLiveStatus = hrQuery({
+  args: { date: v.string() },
+  returns: v.object({
+    date: v.string(),
+    people: v.array(livePersonValidator),
+    worksites: v.array(liveWorksiteValidator),
+    summary: v.object({
+      total: v.number(),
+      onSite: v.number(),
+      lunch: v.number(),
+      left: v.number(),
+      absent: v.number(),
+      outsideFence: v.number(),
+    }),
+  }),
+  handler: async (ctx, args) => {
+    assertDateKey(args.date);
+    const [settings, people, punches, worksites] = await Promise.all([
+      getSettings(ctx),
+      listPeople(ctx),
+      listPunchesForDate(ctx, args.date),
+      listWorksites(ctx),
+    ]);
+    const employees = await employeesByIdForPeople(ctx, people);
+    const projectNames = await projectNamesForWorksites(ctx, worksites);
+    const worksiteById = new Map(worksites.map((w) => [w.rhidGeofenceId, w]));
+
+    const punchesByPerson = new Map<number, Doc<"timeClockPunches">[]>();
+    for (const punch of punches) {
+      const list = punchesByPerson.get(punch.rhidPersonId) ?? [];
+      list.push(punch);
+      punchesByPerson.set(punch.rhidPersonId, list);
+    }
+
+    const roster = new Map<number, Doc<"rhidPeople">>();
+    for (const person of people) {
+      const tracked =
+        person.active && isTrackedDepartment(settings.trackedDepartments, person.department);
+      if (tracked || punchesByPerson.has(person.rhidPersonId)) {
+        roster.set(person.rhidPersonId, person);
+      }
+    }
+    // Pessoas com marcação mas fora do cadastro (ex.: ainda não sincronizado).
+    for (const [rhidPersonId, list] of punchesByPerson) {
+      if (!roster.has(rhidPersonId)) {
+        const first = list[0]!;
+        roster.set(rhidPersonId, {
+          rhidPersonId,
+          name: first.personName,
+        } as Doc<"rhidPeople">);
+      }
+    }
+
+    const summary = { total: 0, onSite: 0, lunch: 0, left: 0, absent: 0, outsideFence: 0 };
+    const worksitePeople = new Map<
+      number,
+      Array<{
+        rhidPersonId: number;
+        name: string;
+        status: "on_site" | "lunch" | "left" | "absent";
+        since: number | null;
+        locationExact: boolean;
+      }>
+    >();
+
+    const livePeople = Array.from(roster.values()).map((person) => {
+      const own = [...(punchesByPerson.get(person.rhidPersonId) ?? [])].sort(
+        (a, b) => a.punchedAt - b.punchedAt
+      );
+      const position = derivePosition(own);
+      const last = position.last;
+      const worksite =
+        position.worksiteId !== undefined ? worksiteById.get(position.worksiteId) : undefined;
+      const photo = [...own].reverse().find((p) => p.photoUrl)?.photoUrl;
+
+      summary.total += 1;
+      if (position.status === "on_site") summary.onSite += 1;
+      else if (position.status === "lunch") summary.lunch += 1;
+      else if (position.status === "left") summary.left += 1;
+      else summary.absent += 1;
+      if (position.status !== "absent" && !position.locationExact) summary.outsideFence += 1;
+
+      if (position.worksiteId !== undefined && position.status !== "absent") {
+        const list = worksitePeople.get(position.worksiteId) ?? [];
+        list.push({
+          rhidPersonId: person.rhidPersonId,
+          name: person.name,
+          status: position.status,
+          since: last?.punchedAt ?? null,
+          locationExact: position.locationExact,
+        });
+        worksitePeople.set(position.worksiteId, list);
+      }
+
+      return {
+        rhidPersonId: person.rhidPersonId,
+        name: person.name,
+        department: person.department ?? null,
+        employee: employeeRef(person.employeeId ? employees.get(person.employeeId) : null),
+        status: position.status,
+        since: last?.punchedAt ?? null,
+        lastKind: last?.kind ?? null,
+        lastTimeLabel: last?.timeLabel ?? null,
+        worksiteId: position.worksiteId ?? null,
+        worksiteName: worksite?.name ?? position.worksiteName ?? null,
+        locationExact: position.locationExact,
+        latitude: last?.latitude ?? null,
+        longitude: last?.longitude ?? null,
+        photoUrl: photo ?? null,
+        punches: own.map((p) => ({
+          timeLabel: p.timeLabel,
+          kind: p.kind,
+          geofenceName: p.geofenceName ?? null,
+        })),
+      };
+    });
+    livePeople.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+    const statusRank = { on_site: 0, lunch: 1, left: 2, absent: 3 } as const;
+    const liveWorksites = worksites
+      .map((worksite) => {
+        const list = (worksitePeople.get(worksite.rhidGeofenceId) ?? []).sort(
+          (a, b) =>
+            statusRank[a.status] - statusRank[b.status] || a.name.localeCompare(b.name, "pt-BR")
+        );
+        return {
+          rhidGeofenceId: worksite.rhidGeofenceId,
+          name: worksite.name,
+          latitude: worksite.latitude,
+          longitude: worksite.longitude,
+          radius: worksite.radius,
+          projectId: worksite.projectId ?? null,
+          projectName: worksite.projectId
+            ? (projectNames.get(worksite.projectId) ?? null)
+            : null,
+          onSite: list.filter((p) => p.status === "on_site").length,
+          lunch: list.filter((p) => p.status === "lunch").length,
+          left: list.filter((p) => p.status === "left").length,
+          people: list,
+        };
+      })
+      .sort(
+        (a, b) =>
+          b.onSite - a.onSite || b.lunch - a.lunch || a.name.localeCompare(b.name, "pt-BR")
+      );
+
+    return { date: args.date, people: livePeople, worksites: liveWorksites, summary };
   },
 });
 

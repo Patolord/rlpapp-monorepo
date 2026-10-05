@@ -553,6 +553,81 @@ export function summarizeDays(punches: NormalizedPunch[]): DaySummary[] {
 }
 
 // ---------------------------------------------------------------------------
+// Situação "agora" (onde está cada pessoa / quem está em cada obra)
+// ---------------------------------------------------------------------------
+
+export type LiveStatus = "on_site" | "lunch" | "left" | "absent";
+
+export const LIVE_STATUS_LABEL: Record<LiveStatus, string> = {
+  on_site: "Na obra",
+  lunch: "Em almoço",
+  left: "Encerrou",
+  absent: "Sem marcação",
+};
+
+/** Situação derivada da última marcação do dia. */
+export function liveStatusForKind(kind: PunchKind | null | undefined): LiveStatus {
+  switch (kind) {
+    case "entrada":
+    case "almoco_retorno":
+      return "on_site";
+    case "almoco_saida":
+      return "lunch";
+    case "saida":
+      return "left";
+    default:
+      return "absent";
+  }
+}
+
+export type LivePunchLike = {
+  punchedAt: number;
+  kind: PunchKind;
+  rhidGeofenceId?: number;
+  geofenceName?: string;
+  latitude?: number;
+  longitude?: number;
+  photoUrl?: string;
+};
+
+export type LivePosition<P extends LivePunchLike> = {
+  status: LiveStatus;
+  last: P | null;
+  /** Cerca da última marcação ou, na falta dela, da marcação mais recente com cerca. */
+  worksiteId: number | undefined;
+  worksiteName: string | undefined;
+  /** `true` quando a própria última marcação caiu dentro da cerca informada. */
+  locationExact: boolean;
+};
+
+/**
+ * Posição atual de uma pessoa a partir das marcações do dia (ordenadas ou não).
+ * Quem bateu fora de cerca mantém como referência a última obra conhecida,
+ * sinalizando `locationExact: false`.
+ */
+export function derivePosition<P extends LivePunchLike>(punches: P[]): LivePosition<P> {
+  if (punches.length === 0) {
+    return {
+      status: "absent",
+      last: null,
+      worksiteId: undefined,
+      worksiteName: undefined,
+      locationExact: false,
+    };
+  }
+  const sorted = [...punches].sort((a, b) => a.punchedAt - b.punchedAt);
+  const last = sorted[sorted.length - 1]!;
+  const withFence = [...sorted].reverse().find((p) => p.rhidGeofenceId !== undefined);
+  return {
+    status: liveStatusForKind(last.kind),
+    last,
+    worksiteId: withFence?.rhidGeofenceId,
+    worksiteName: withFence?.geofenceName,
+    locationExact: last.rhidGeofenceId !== undefined,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Agregações (homem-dia)
 // ---------------------------------------------------------------------------
 

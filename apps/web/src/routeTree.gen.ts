@@ -61,6 +61,7 @@ import { Route as QrOperadorObrasObraSlugRouteImport } from './routes/qr-operado
 import { Route as RhFolhaIndexRouteImport } from './routes/rh/folha/index'
 import { Route as RhFuncionariosIndexRouteImport } from './routes/rh/funcionarios/index'
 import { Route as RhPontoIndexRouteImport } from './routes/rh/ponto/index'
+import { Route as RhPontoDiaRouteImport } from './routes/rh/ponto/dia'
 import { Route as RhPontoMensalRouteImport } from './routes/rh/ponto/mensal'
 import { Route as RhPontoVinculosRouteImport } from './routes/rh/ponto/vinculos'
 import { Route as EngenhariaObrasObraSlugIndexRouteImport } from './routes/engenharia/obras/$obraSlug.index'
@@ -359,6 +360,11 @@ const RhPontoIndexRoute = RhPontoIndexRouteImport.update({
   path: '/',
   getParentRoute: () => RhPontoRouteRoute,
 } as any)
+const RhPontoDiaRoute = RhPontoDiaRouteImport.update({
+  id: '/dia',
+  path: '/dia',
+  getParentRoute: () => RhPontoRouteRoute,
+} as any)
 const RhPontoMensalRoute = RhPontoMensalRouteImport.update({
   id: '/mensal',
   path: '/mensal',
@@ -554,6 +560,7 @@ export interface FileRoutesByFullPath {
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdRouteWithChildren
   '/qr-operador/estoque/$obraSlug': typeof QrOperadorEstoqueObraSlugRoute
   '/qr-operador/obras/$obraSlug': typeof QrOperadorObrasObraSlugRouteWithChildren
+  '/rh/ponto/dia': typeof RhPontoDiaRoute
   '/rh/ponto/mensal': typeof RhPontoMensalRoute
   '/rh/ponto/vinculos': typeof RhPontoVinculosRoute
   '/compras/eventos-preco/': typeof ComprasEventosPrecoIndexRoute
@@ -623,6 +630,7 @@ export interface FileRoutesByTo {
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
   '/qr-operador/estoque/$obraSlug': typeof QrOperadorEstoqueObraSlugRoute
+  '/rh/ponto/dia': typeof RhPontoDiaRoute
   '/rh/ponto/mensal': typeof RhPontoMensalRoute
   '/rh/ponto/vinculos': typeof RhPontoVinculosRoute
   '/compras/eventos-preco': typeof ComprasEventosPrecoIndexRoute
@@ -704,6 +712,7 @@ export interface FileRoutesById {
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdRouteWithChildren
   '/qr-operador_/estoque/$obraSlug': typeof QrOperadorEstoqueObraSlugRoute
   '/qr-operador_/obras/$obraSlug': typeof QrOperadorObrasObraSlugRouteWithChildren
+  '/rh/ponto/dia': typeof RhPontoDiaRoute
   '/rh/ponto/mensal': typeof RhPontoMensalRoute
   '/rh/ponto/vinculos': typeof RhPontoVinculosRoute
   '/compras/eventos-preco/': typeof ComprasEventosPrecoIndexRoute
@@ -786,6 +795,7 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId'
     | '/qr-operador/estoque/$obraSlug'
     | '/qr-operador/obras/$obraSlug'
+    | '/rh/ponto/dia'
     | '/rh/ponto/mensal'
     | '/rh/ponto/vinculos'
     | '/compras/eventos-preco/'
@@ -855,6 +865,7 @@ export interface FileRouteTypes {
     | '/engenharia/equipamento/$id'
     | '/engenharia/qr/$token'
     | '/qr-operador/estoque/$obraSlug'
+    | '/rh/ponto/dia'
     | '/rh/ponto/mensal'
     | '/rh/ponto/vinculos'
     | '/compras/eventos-preco'
@@ -935,6 +946,7 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId'
     | '/qr-operador_/estoque/$obraSlug'
     | '/qr-operador_/obras/$obraSlug'
+    | '/rh/ponto/dia'
     | '/rh/ponto/mensal'
     | '/rh/ponto/vinculos'
     | '/compras/eventos-preco/'
@@ -1366,6 +1378,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RhPontoIndexRouteImport
       parentRoute: typeof RhPontoRouteRoute
     }
+    '/rh/ponto/dia': {
+      id: '/rh/ponto/dia'
+      path: '/dia'
+      fullPath: '/rh/ponto/dia'
+      preLoaderRoute: typeof RhPontoDiaRouteImport
+      parentRoute: typeof RhPontoRouteRoute
+    }
     '/rh/ponto/mensal': {
       id: '/rh/ponto/mensal'
       path: '/mensal'
@@ -1741,12 +1760,14 @@ const EstoqueRouteRouteWithChildren = EstoqueRouteRoute._addFileChildren(
 )
 
 interface RhPontoRouteRouteChildren {
+  RhPontoDiaRoute: typeof RhPontoDiaRoute
   RhPontoMensalRoute: typeof RhPontoMensalRoute
   RhPontoVinculosRoute: typeof RhPontoVinculosRoute
   RhPontoIndexRoute: typeof RhPontoIndexRoute
 }
 
 const RhPontoRouteRouteChildren: RhPontoRouteRouteChildren = {
+  RhPontoDiaRoute: RhPontoDiaRoute,
   RhPontoMensalRoute: RhPontoMensalRoute,
   RhPontoVinculosRoute: RhPontoVinculosRoute,
   RhPontoIndexRoute: RhPontoIndexRoute,

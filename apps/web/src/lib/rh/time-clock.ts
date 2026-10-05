@@ -26,6 +26,38 @@ export const PUNCH_KIND_COLOR: Record<PunchKind, string> = {
   saida: "#dc2626",
 };
 
+export type LiveStatus = "on_site" | "lunch" | "left" | "absent";
+
+export const LIVE_STATUS_LABEL: Record<LiveStatus, string> = {
+  on_site: "Na obra",
+  lunch: "Em almoço",
+  left: "Encerrou o dia",
+  absent: "Sem marcação",
+};
+
+export const LIVE_STATUS_COLOR: Record<LiveStatus, string> = {
+  on_site: "#16a34a",
+  lunch: "#f59e0b",
+  left: "#64748b",
+  absent: "#cbd5e1",
+};
+
+export const LIVE_STATUS_BADGE_CLASS: Record<LiveStatus, string> = {
+  on_site: "border-transparent bg-emerald-100 text-emerald-800",
+  lunch: "border-transparent bg-amber-100 text-amber-800",
+  left: "border-transparent bg-slate-200 text-slate-700",
+  absent: "text-muted-foreground",
+};
+
+/** Duração curta ("5 min", "3 h 20"). */
+export function formatDuration(ms: number): string {
+  const minutes = Math.max(0, Math.round(ms / 60_000));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0 ? `${hours} h` : `${hours} h ${String(rest).padStart(2, "0")}`;
+}
+
 const dateKeyFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: BRT_TIME_ZONE,
   year: "numeric",
