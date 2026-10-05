@@ -27,8 +27,13 @@ import type { DataModel } from "./dataModel.js";
 type Env = {
   readonly CLERK_SECRET_KEY: string;
   readonly CLERK_WEBHOOK_SECRET: string | undefined;
-  readonly OPENAI_API_KEY: string | undefined;
   readonly MATERIAL_LOOKUP_TOKEN: string | undefined;
+  readonly MCP_JWT_ISSUER: string | undefined;
+  readonly MCP_JWT_JWKS: string | undefined;
+  readonly OPENAI_API_KEY: string | undefined;
+  readonly RHID_COMPANY_ID: string | undefined;
+  readonly RHID_EMAIL: string | undefined;
+  readonly RHID_PASSWORD: string | undefined;
 };
 
 /**
