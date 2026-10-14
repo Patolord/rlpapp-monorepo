@@ -81,20 +81,20 @@ describe("technicianPortal", () => {
     });
 
     const mine = await asTech.query(api.technicianPortal.getFieldProject, {
-      projectId: assignedId,
+      identifier: assignedId,
     });
     expect(mine?.assigned).toBe(true);
     expect(mine?.name).toBe("Obra Minha");
 
     // Válvula de escape: obra sem atribuição abre, mas marcada como tal.
     const other = await asTech.query(api.technicianPortal.getFieldProject, {
-      projectId: otherId,
+      identifier: otherId,
     });
     expect(other?.assigned).toBe(false);
     expect(other?.qrCount).toBe(1);
 
     const archived = await asTech.query(api.technicianPortal.getFieldProject, {
-      projectId: archivedId,
+      identifier: archivedId,
     });
     expect(archived).toBeNull();
   });

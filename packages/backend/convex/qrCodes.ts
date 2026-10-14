@@ -113,7 +113,14 @@ export const getByToken = query({
       // Obra de destino herdada do lote (qrBatches), se definida.
       batchProject: batchProjectValidator,
       // Obra à qual a etiqueta já pertence (qrCodes.projectId), se houver.
-      project: batchProjectValidator,
+      project: v.union(
+        v.object({
+          projectId: v.id("projects"),
+          projectName: v.string(),
+          projectSlug: v.union(v.string(), v.null()),
+        }),
+        v.null()
+      ),
     }),
     v.null()
   ),
@@ -132,11 +139,20 @@ export const getByToken = query({
 
     const batchProject = await getBatchDestination(ctx, qrCode.batchId);
 
-    let project: { projectId: Id<"projects">; projectName: string } | null =
-      null;
+    let project: {
+      projectId: Id<"projects">;
+      projectName: string;
+      projectSlug: string | null;
+    } | null = null;
     if (qrCode.projectId) {
       const doc = await ctx.db.get("projects", qrCode.projectId);
-      if (doc) project = { projectId: doc._id, projectName: doc.name };
+      if (doc) {
+        project = {
+          projectId: doc._id,
+          projectName: doc.name,
+          projectSlug: doc.slug ?? null,
+        };
+      }
     }
 
     return { qrCode, equipment, batchProject, project };

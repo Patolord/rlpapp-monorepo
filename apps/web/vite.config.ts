@@ -28,7 +28,7 @@ export default defineConfig({
       short_name: "RLP",
       description: "Registro de instalação e manutenção de equipamentos em campo",
       lang: "pt-BR",
-      start_url: "/engenharia/registro-de-campo",
+      start_url: "/qr-operador",
       display: "standalone",
       background_color: "#ffffff",
       theme_color: "#0f172a",

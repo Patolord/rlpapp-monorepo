@@ -28,15 +28,15 @@ export const Route = createFileRoute("/qr-operador_/obras/$obraSlug")({
   errorComponent: CampoObraError,
 });
 
-const ACCESS_DENIED_MESSAGE = "Acesso negado a esta obra";
-
 function CampoObraLayout() {
   const { obraSlug } = Route.useParams();
   const online = useOnline();
   const { ownerId } = useFieldCacheOwner();
+  // getFieldProject nunca lança "acesso negado": uma obra não atribuída
+  // abre com `assigned: false` (válvula de escape) e a UI só avisa.
   const { data: obra, fromCache, cacheChecked } = useOfflineQuery(
     fieldCacheKeys.project(obraSlug),
-    api.technicianPortal.getMyProject,
+    api.technicianPortal.getFieldProject,
     { identifier: obraSlug }
   );
 
@@ -82,18 +82,7 @@ function CampoObraLayout() {
 }
 
 function CampoObraError({ error }: ErrorComponentProps) {
-  const { obraSlug } = Route.useParams();
-  const { ownerId } = useFieldCacheOwner();
   const message = getErrorMessage(error, "");
-  const accessDenied = message.includes(ACCESS_DENIED_MESSAGE);
-
-  // Acesso revogado: nada desta obra pode continuar disponível offline
-  // (resumo, lista de documentos e PDFs salvos). Independe da cache, então
-  // funciona mesmo que o resumo da obra nunca tenha sido salvo.
-  useEffect(() => {
-    if (!accessDenied || !ownerId) return;
-    void forgetProject(ownerId, obraSlug);
-  }, [accessDenied, ownerId, obraSlug]);
 
   return (
     <FieldPageShell title="Obra">
@@ -101,10 +90,7 @@ function CampoObraError({ error }: ErrorComponentProps) {
         <ShieldAlert className="size-9 text-muted-foreground" />
         <p className="font-medium">Não foi possível abrir esta obra</p>
         <p className="max-w-sm text-sm text-muted-foreground">
-          {accessDenied
-            ? "Você não tem mais acesso a esta obra. Peça à engenharia para liberar."
-            : message ||
-              "Você não tem acesso a esta obra. Peça à engenharia para liberar."}
+          {message || "Tente novamente em instantes."}
         </p>
         <Button variant="outline" render={<Link to="/qr-operador" />}>
           Voltar para minhas obras

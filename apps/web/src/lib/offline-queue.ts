@@ -13,6 +13,10 @@ export interface PendingEquipment {
   description: string;
   status: EquipmentStatus;
   photos: Blob[];
+  // Obra aberta no app no momento do cadastro: a etiqueta é vinculada a ela
+  // quando o registro sobe. `projectName` é só para exibição na fila.
+  projectId?: string;
+  projectName?: string;
   createdAt: number;
   error?: string;
 }

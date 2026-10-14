@@ -22,6 +22,7 @@ function CampoObraEtiquetasPage() {
           projectId={obra._id}
           qrCount={obra.qrCount}
           registeredCount={obra.registeredCount}
+          obraSlug={obraSlug}
         />
       </div>
     </FieldPageShell>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useConvex, useConvexAuth, useMutation } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { toast } from "sonner";
 import {
   listPendingRecords,
@@ -48,7 +49,13 @@ export function OfflineSync() {
           status: record.status,
           qrToken: record.qrToken,
         });
-        await assignQr({ token: record.qrToken, equipmentId });
+        await assignQr({
+          token: record.qrToken,
+          equipmentId,
+          projectId: record.projectId
+            ? (record.projectId as Id<"projects">)
+            : undefined,
+        });
         return;
       }
 

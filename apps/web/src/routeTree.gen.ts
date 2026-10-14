@@ -39,6 +39,8 @@ import { Route as EstoqueMovimentacaoRouteImport } from './routes/estoque/movime
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
 import { Route as PortalProjectIdRouteImport } from './routes/portal/$projectId'
 import { Route as QTokenRouteImport } from './routes/q/$token'
+import { Route as QrOperadorOutrasObrasRouteImport } from './routes/qr-operador_.outras-obras'
+import { Route as QrOperadorPendentesRouteImport } from './routes/qr-operador_.pendentes'
 import { Route as RhIndexRouteImport } from './routes/rh/index'
 import { Route as DotwellKnownOauthProtectedResourceMcpRouteImport } from './routes/[.]well-known/oauth-protected-resource/mcp'
 import { Route as ComprasEventosPrecoIndexRouteImport } from './routes/compras/eventos-preco/index'
@@ -81,8 +83,11 @@ import { Route as EngenhariaRelatoriosProjectIdOrcamentoRouteImport } from './ro
 import { Route as EngenhariaRelatoriosProjectIdQrCodesRouteImport } from './routes/engenharia/relatorios/$projectId.qr-codes'
 import { Route as QrOperadorObrasObraSlugIndexRouteImport } from './routes/qr-operador_.obras.$obraSlug.index'
 import { Route as QrOperadorObrasObraSlugDocumentosRouteImport } from './routes/qr-operador_.obras.$obraSlug.documentos'
+import { Route as QrOperadorObrasObraSlugEscanearRouteImport } from './routes/qr-operador_.obras.$obraSlug.escanear'
 import { Route as QrOperadorObrasObraSlugEstoqueRouteImport } from './routes/qr-operador_.obras.$obraSlug.estoque'
 import { Route as QrOperadorObrasObraSlugEtiquetasRouteImport } from './routes/qr-operador_.obras.$obraSlug.etiquetas'
+import { Route as QrOperadorObrasObraSlugRegistrosRouteImport } from './routes/qr-operador_.obras.$obraSlug.registros'
+import { Route as QrOperadorObrasObraSlugEtiquetaTokenRouteImport } from './routes/qr-operador_.obras.$obraSlug.etiqueta.$token'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -236,6 +241,16 @@ const PortalProjectIdRoute = PortalProjectIdRouteImport.update({
 const QTokenRoute = QTokenRouteImport.update({
   id: '/q/$token',
   path: '/q/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QrOperadorOutrasObrasRoute = QrOperadorOutrasObrasRouteImport.update({
+  id: '/qr-operador_/outras-obras',
+  path: '/qr-operador/outras-obras',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QrOperadorPendentesRoute = QrOperadorPendentesRouteImport.update({
+  id: '/qr-operador_/pendentes',
+  path: '/qr-operador/pendentes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RhIndexRoute = RhIndexRouteImport.update({
@@ -477,6 +492,12 @@ const QrOperadorObrasObraSlugDocumentosRoute =
     path: '/documentos',
     getParentRoute: () => QrOperadorObrasObraSlugRoute,
   } as any)
+const QrOperadorObrasObraSlugEscanearRoute =
+  QrOperadorObrasObraSlugEscanearRouteImport.update({
+    id: '/escanear',
+    path: '/escanear',
+    getParentRoute: () => QrOperadorObrasObraSlugRoute,
+  } as any)
 const QrOperadorObrasObraSlugEstoqueRoute =
   QrOperadorObrasObraSlugEstoqueRouteImport.update({
     id: '/estoque',
@@ -487,6 +508,18 @@ const QrOperadorObrasObraSlugEtiquetasRoute =
   QrOperadorObrasObraSlugEtiquetasRouteImport.update({
     id: '/etiquetas',
     path: '/etiquetas',
+    getParentRoute: () => QrOperadorObrasObraSlugRoute,
+  } as any)
+const QrOperadorObrasObraSlugRegistrosRoute =
+  QrOperadorObrasObraSlugRegistrosRouteImport.update({
+    id: '/registros',
+    path: '/registros',
+    getParentRoute: () => QrOperadorObrasObraSlugRoute,
+  } as any)
+const QrOperadorObrasObraSlugEtiquetaTokenRoute =
+  QrOperadorObrasObraSlugEtiquetaTokenRouteImport.update({
+    id: '/etiqueta/$token',
+    path: '/etiqueta/$token',
     getParentRoute: () => QrOperadorObrasObraSlugRoute,
   } as any)
 
@@ -516,6 +549,8 @@ export interface FileRoutesByFullPath {
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
   '/q/$token': typeof QTokenRoute
+  '/qr-operador/outras-obras': typeof QrOperadorOutrasObrasRoute
+  '/qr-operador/pendentes': typeof QrOperadorPendentesRoute
   '/app/': typeof AppIndexRoute
   '/compras/': typeof ComprasIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
@@ -560,11 +595,14 @@ export interface FileRoutesByFullPath {
   '/engenharia/relatorios/$projectId/orcamento': typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
   '/engenharia/relatorios/$projectId/qr-codes': typeof EngenhariaRelatoriosProjectIdQrCodesRoute
   '/qr-operador/obras/$obraSlug/documentos': typeof QrOperadorObrasObraSlugDocumentosRoute
+  '/qr-operador/obras/$obraSlug/escanear': typeof QrOperadorObrasObraSlugEscanearRoute
   '/qr-operador/obras/$obraSlug/estoque': typeof QrOperadorObrasObraSlugEstoqueRoute
   '/qr-operador/obras/$obraSlug/etiquetas': typeof QrOperadorObrasObraSlugEtiquetasRoute
+  '/qr-operador/obras/$obraSlug/registros': typeof QrOperadorObrasObraSlugRegistrosRoute
   '/engenharia/obras/$obraSlug/': typeof EngenhariaObrasObraSlugIndexRoute
   '/engenharia/relatorios/$projectId/': typeof EngenhariaRelatoriosProjectIdIndexRoute
   '/qr-operador/obras/$obraSlug/': typeof QrOperadorObrasObraSlugIndexRoute
+  '/qr-operador/obras/$obraSlug/etiqueta/$token': typeof QrOperadorObrasObraSlugEtiquetaTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -585,6 +623,8 @@ export interface FileRoutesByTo {
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
   '/q/$token': typeof QTokenRoute
+  '/qr-operador/outras-obras': typeof QrOperadorOutrasObrasRoute
+  '/qr-operador/pendentes': typeof QrOperadorPendentesRoute
   '/app': typeof AppIndexRoute
   '/compras': typeof ComprasIndexRoute
   '/engenharia': typeof EngenhariaIndexRoute
@@ -626,11 +666,14 @@ export interface FileRoutesByTo {
   '/engenharia/relatorios/$projectId/orcamento': typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
   '/engenharia/relatorios/$projectId/qr-codes': typeof EngenhariaRelatoriosProjectIdQrCodesRoute
   '/qr-operador/obras/$obraSlug/documentos': typeof QrOperadorObrasObraSlugDocumentosRoute
+  '/qr-operador/obras/$obraSlug/escanear': typeof QrOperadorObrasObraSlugEscanearRoute
   '/qr-operador/obras/$obraSlug/estoque': typeof QrOperadorObrasObraSlugEstoqueRoute
   '/qr-operador/obras/$obraSlug/etiquetas': typeof QrOperadorObrasObraSlugEtiquetasRoute
+  '/qr-operador/obras/$obraSlug/registros': typeof QrOperadorObrasObraSlugRegistrosRoute
   '/engenharia/obras/$obraSlug': typeof EngenhariaObrasObraSlugIndexRoute
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdIndexRoute
   '/qr-operador/obras/$obraSlug': typeof QrOperadorObrasObraSlugIndexRoute
+  '/qr-operador/obras/$obraSlug/etiqueta/$token': typeof QrOperadorObrasObraSlugEtiquetaTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -659,6 +702,8 @@ export interface FileRoutesById {
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
   '/q/$token': typeof QTokenRoute
+  '/qr-operador_/outras-obras': typeof QrOperadorOutrasObrasRoute
+  '/qr-operador_/pendentes': typeof QrOperadorPendentesRoute
   '/app/': typeof AppIndexRoute
   '/compras/': typeof ComprasIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
@@ -703,11 +748,14 @@ export interface FileRoutesById {
   '/engenharia/relatorios/$projectId/orcamento': typeof EngenhariaRelatoriosProjectIdOrcamentoRoute
   '/engenharia/relatorios/$projectId/qr-codes': typeof EngenhariaRelatoriosProjectIdQrCodesRoute
   '/qr-operador_/obras/$obraSlug/documentos': typeof QrOperadorObrasObraSlugDocumentosRoute
+  '/qr-operador_/obras/$obraSlug/escanear': typeof QrOperadorObrasObraSlugEscanearRoute
   '/qr-operador_/obras/$obraSlug/estoque': typeof QrOperadorObrasObraSlugEstoqueRoute
   '/qr-operador_/obras/$obraSlug/etiquetas': typeof QrOperadorObrasObraSlugEtiquetasRoute
+  '/qr-operador_/obras/$obraSlug/registros': typeof QrOperadorObrasObraSlugRegistrosRoute
   '/engenharia/obras/$obraSlug/': typeof EngenhariaObrasObraSlugIndexRoute
   '/engenharia/relatorios/$projectId/': typeof EngenhariaRelatoriosProjectIdIndexRoute
   '/qr-operador_/obras/$obraSlug/': typeof QrOperadorObrasObraSlugIndexRoute
+  '/qr-operador_/obras/$obraSlug/etiqueta/$token': typeof QrOperadorObrasObraSlugEtiquetaTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -737,6 +785,8 @@ export interface FileRouteTypes {
     | '/estoque/movimentacao'
     | '/portal/$projectId'
     | '/q/$token'
+    | '/qr-operador/outras-obras'
+    | '/qr-operador/pendentes'
     | '/app/'
     | '/compras/'
     | '/engenharia/'
@@ -781,11 +831,14 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId/orcamento'
     | '/engenharia/relatorios/$projectId/qr-codes'
     | '/qr-operador/obras/$obraSlug/documentos'
+    | '/qr-operador/obras/$obraSlug/escanear'
     | '/qr-operador/obras/$obraSlug/estoque'
     | '/qr-operador/obras/$obraSlug/etiquetas'
+    | '/qr-operador/obras/$obraSlug/registros'
     | '/engenharia/obras/$obraSlug/'
     | '/engenharia/relatorios/$projectId/'
     | '/qr-operador/obras/$obraSlug/'
+    | '/qr-operador/obras/$obraSlug/etiqueta/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -806,6 +859,8 @@ export interface FileRouteTypes {
     | '/estoque/movimentacao'
     | '/portal/$projectId'
     | '/q/$token'
+    | '/qr-operador/outras-obras'
+    | '/qr-operador/pendentes'
     | '/app'
     | '/compras'
     | '/engenharia'
@@ -847,11 +902,14 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId/orcamento'
     | '/engenharia/relatorios/$projectId/qr-codes'
     | '/qr-operador/obras/$obraSlug/documentos'
+    | '/qr-operador/obras/$obraSlug/escanear'
     | '/qr-operador/obras/$obraSlug/estoque'
     | '/qr-operador/obras/$obraSlug/etiquetas'
+    | '/qr-operador/obras/$obraSlug/registros'
     | '/engenharia/obras/$obraSlug'
     | '/engenharia/relatorios/$projectId'
     | '/qr-operador/obras/$obraSlug'
+    | '/qr-operador/obras/$obraSlug/etiqueta/$token'
   id:
     | '__root__'
     | '/'
@@ -879,6 +937,8 @@ export interface FileRouteTypes {
     | '/estoque/movimentacao'
     | '/portal/$projectId'
     | '/q/$token'
+    | '/qr-operador_/outras-obras'
+    | '/qr-operador_/pendentes'
     | '/app/'
     | '/compras/'
     | '/engenharia/'
@@ -923,11 +983,14 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId/orcamento'
     | '/engenharia/relatorios/$projectId/qr-codes'
     | '/qr-operador_/obras/$obraSlug/documentos'
+    | '/qr-operador_/obras/$obraSlug/escanear'
     | '/qr-operador_/obras/$obraSlug/estoque'
     | '/qr-operador_/obras/$obraSlug/etiquetas'
+    | '/qr-operador_/obras/$obraSlug/registros'
     | '/engenharia/obras/$obraSlug/'
     | '/engenharia/relatorios/$projectId/'
     | '/qr-operador_/obras/$obraSlug/'
+    | '/qr-operador_/obras/$obraSlug/etiqueta/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -947,6 +1010,8 @@ export interface RootRouteChildren {
   DotwellKnownOauthAuthorizationServerRoute: typeof DotwellKnownOauthAuthorizationServerRoute
   PortalProjectIdRoute: typeof PortalProjectIdRoute
   QTokenRoute: typeof QTokenRoute
+  QrOperadorOutrasObrasRoute: typeof QrOperadorOutrasObrasRoute
+  QrOperadorPendentesRoute: typeof QrOperadorPendentesRoute
   PortalIndexRoute: typeof PortalIndexRoute
   DotwellKnownOauthProtectedResourceMcpRoute: typeof DotwellKnownOauthProtectedResourceMcpRoute
   QrOperadorEstoqueObraSlugRoute: typeof QrOperadorEstoqueObraSlugRoute
@@ -1164,6 +1229,20 @@ declare module '@tanstack/react-router' {
       path: '/q/$token'
       fullPath: '/q/$token'
       preLoaderRoute: typeof QTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/qr-operador_/outras-obras': {
+      id: '/qr-operador_/outras-obras'
+      path: '/qr-operador/outras-obras'
+      fullPath: '/qr-operador/outras-obras'
+      preLoaderRoute: typeof QrOperadorOutrasObrasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/qr-operador_/pendentes': {
+      id: '/qr-operador_/pendentes'
+      path: '/qr-operador/pendentes'
+      fullPath: '/qr-operador/pendentes'
+      preLoaderRoute: typeof QrOperadorPendentesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rh/': {
@@ -1460,6 +1539,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof QrOperadorObrasObraSlugDocumentosRouteImport
       parentRoute: typeof QrOperadorObrasObraSlugRoute
     }
+    '/qr-operador_/obras/$obraSlug/escanear': {
+      id: '/qr-operador_/obras/$obraSlug/escanear'
+      path: '/escanear'
+      fullPath: '/qr-operador/obras/$obraSlug/escanear'
+      preLoaderRoute: typeof QrOperadorObrasObraSlugEscanearRouteImport
+      parentRoute: typeof QrOperadorObrasObraSlugRoute
+    }
     '/qr-operador_/obras/$obraSlug/estoque': {
       id: '/qr-operador_/obras/$obraSlug/estoque'
       path: '/estoque'
@@ -1472,6 +1558,20 @@ declare module '@tanstack/react-router' {
       path: '/etiquetas'
       fullPath: '/qr-operador/obras/$obraSlug/etiquetas'
       preLoaderRoute: typeof QrOperadorObrasObraSlugEtiquetasRouteImport
+      parentRoute: typeof QrOperadorObrasObraSlugRoute
+    }
+    '/qr-operador_/obras/$obraSlug/registros': {
+      id: '/qr-operador_/obras/$obraSlug/registros'
+      path: '/registros'
+      fullPath: '/qr-operador/obras/$obraSlug/registros'
+      preLoaderRoute: typeof QrOperadorObrasObraSlugRegistrosRouteImport
+      parentRoute: typeof QrOperadorObrasObraSlugRoute
+    }
+    '/qr-operador_/obras/$obraSlug/etiqueta/$token': {
+      id: '/qr-operador_/obras/$obraSlug/etiqueta/$token'
+      path: '/etiqueta/$token'
+      fullPath: '/qr-operador/obras/$obraSlug/etiqueta/$token'
+      preLoaderRoute: typeof QrOperadorObrasObraSlugEtiquetaTokenRouteImport
       parentRoute: typeof QrOperadorObrasObraSlugRoute
     }
   }
@@ -1683,19 +1783,27 @@ const RhRouteRouteWithChildren =
 
 interface QrOperadorObrasObraSlugRouteChildren {
   QrOperadorObrasObraSlugDocumentosRoute: typeof QrOperadorObrasObraSlugDocumentosRoute
+  QrOperadorObrasObraSlugEscanearRoute: typeof QrOperadorObrasObraSlugEscanearRoute
   QrOperadorObrasObraSlugEstoqueRoute: typeof QrOperadorObrasObraSlugEstoqueRoute
   QrOperadorObrasObraSlugEtiquetasRoute: typeof QrOperadorObrasObraSlugEtiquetasRoute
+  QrOperadorObrasObraSlugRegistrosRoute: typeof QrOperadorObrasObraSlugRegistrosRoute
   QrOperadorObrasObraSlugIndexRoute: typeof QrOperadorObrasObraSlugIndexRoute
+  QrOperadorObrasObraSlugEtiquetaTokenRoute: typeof QrOperadorObrasObraSlugEtiquetaTokenRoute
 }
 
 const QrOperadorObrasObraSlugRouteChildren: QrOperadorObrasObraSlugRouteChildren =
   {
     QrOperadorObrasObraSlugDocumentosRoute:
       QrOperadorObrasObraSlugDocumentosRoute,
+    QrOperadorObrasObraSlugEscanearRoute: QrOperadorObrasObraSlugEscanearRoute,
     QrOperadorObrasObraSlugEstoqueRoute: QrOperadorObrasObraSlugEstoqueRoute,
     QrOperadorObrasObraSlugEtiquetasRoute:
       QrOperadorObrasObraSlugEtiquetasRoute,
+    QrOperadorObrasObraSlugRegistrosRoute:
+      QrOperadorObrasObraSlugRegistrosRoute,
     QrOperadorObrasObraSlugIndexRoute: QrOperadorObrasObraSlugIndexRoute,
+    QrOperadorObrasObraSlugEtiquetaTokenRoute:
+      QrOperadorObrasObraSlugEtiquetaTokenRoute,
   }
 
 const QrOperadorObrasObraSlugRouteWithChildren =
@@ -1721,6 +1829,8 @@ const rootRouteChildren: RootRouteChildren = {
     DotwellKnownOauthAuthorizationServerRoute,
   PortalProjectIdRoute: PortalProjectIdRoute,
   QTokenRoute: QTokenRoute,
+  QrOperadorOutrasObrasRoute: QrOperadorOutrasObrasRoute,
+  QrOperadorPendentesRoute: QrOperadorPendentesRoute,
   PortalIndexRoute: PortalIndexRoute,
   DotwellKnownOauthProtectedResourceMcpRoute:
     DotwellKnownOauthProtectedResourceMcpRoute,
@@ -1731,13 +1841,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

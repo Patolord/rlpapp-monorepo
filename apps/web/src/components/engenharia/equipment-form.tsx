@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,12 +21,18 @@ interface EquipmentFormProps {
   onSuccess: (equipmentId: string) => void;
   /** Obra de destino herdada do lote do QR (exibida como badge informativo). */
   destinationProjectName?: string | null;
+  /**
+   * Obra aberta no app de campo: a etiqueta passa a pertencer a ela no
+   * cadastro (vence o destino do lote). Sem isso, vale só o lote.
+   */
+  project?: { _id: Id<"projects">; name: string } | null;
 }
 
 export function EquipmentForm({
   qrToken,
   onSuccess,
   destinationProjectName,
+  project,
 }: EquipmentFormProps) {
   const createEquipment = useMutation(api.equipment.create);
   const assignQr = useMutation(api.qrCodes.assignEquipment);
@@ -49,6 +56,8 @@ export function EquipmentForm({
       description: description.trim(),
       status,
       photos,
+      projectId: project?._id,
+      projectName: project?.name,
       createdAt: Date.now(),
     });
     setQueued(true);
@@ -77,6 +86,7 @@ export function EquipmentForm({
       await assignQr({
         token: qrToken,
         equipmentId,
+        projectId: project?._id,
       });
 
       onSuccess(equipmentId as string);
@@ -119,7 +129,15 @@ export function EquipmentForm({
         )}
       </div>
 
-      {destinationProjectName && (
+      {project ? (
+        <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+          <Building2 className="h-4 w-4 shrink-0 text-primary" />
+          <span>
+            A etiqueta será vinculada à obra{" "}
+            <span className="font-semibold">{project.name}</span>.
+          </span>
+        </div>
+      ) : destinationProjectName ? (
         <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
           <Building2 className="h-4 w-4 shrink-0 text-primary" />
           <span>
@@ -127,7 +145,7 @@ export function EquipmentForm({
             <span className="font-semibold">{destinationProjectName}</span>
           </span>
         </div>
-      )}
+      ) : null}
 
       <div className="space-y-2">
         <Label className="text-base">Foto da etiqueta *</Label>

@@ -1,5 +1,4 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 
@@ -40,6 +39,6 @@ export function obraSubtitle(project: {
 export function useFieldObra(projectId: string | undefined) {
   return useQuery(
     api.technicianPortal.getFieldProject,
-    projectId ? { projectId: projectId as Id<"projects"> } : "skip"
+    projectId ? { identifier: projectId } : "skip"
   );
 }

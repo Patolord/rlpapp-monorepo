@@ -1,37 +1,29 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { EquipmentForm } from "@/components/engenharia/equipment-form";
-import { EquipmentDetail } from "@/components/engenharia/equipment-detail";
-import { SlotPickerStep } from "@/components/engenharia/slot-picker";
+import { EquipmentTokenPage } from "@/components/campo/equipment-token-page";
 import { StatusBadge } from "@/components/engenharia/status-badge";
-import { MaintenanceForm } from "@/components/engenharia/maintenance-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { useOnline } from "@/lib/use-online";
-import {
-  cacheEquipment,
-  getCachedEquipment,
-  type CachedEquipment,
-} from "@/lib/offline-queue";
 import {
   Tag,
   Clock,
   Loader2,
   QrCode,
-  AlertTriangle,
   Home,
   LogIn,
   MessageCircle,
   Globe,
-  CloudOff,
 } from "lucide-react";
 
 const WHATSAPP_URL =
   "https://wa.me/5511985782307?text=Olá,%20gostaria%20de%20solicitar%20um%20orçamento";
 
+// URL pública impressa na etiqueta. Depois do login, o técnico de campo é
+// levado para a etiqueta dentro da obra dela (tudo acontece em uma obra);
+// o escritório continua vendo a página direta.
 export const Route = createFileRoute("/q/$token")({
   component: QrResolutionPage,
 });
@@ -173,185 +165,45 @@ function UnauthenticatedView() {
 
 function AuthenticatedContent() {
   const { token } = Route.useParams();
-  const online = useOnline();
   const data = useQuery(api.qrCodes.getByToken, { token });
   const currentUser = useQuery(api.users.getCurrentUser);
 
-  // Equipamento recém-cadastrado nesta sessão: habilita o passo opcional de
-  // escolher a vaga planejada. Pular (ou atribuir) dispensa o passo.
-  const [justRegisteredId, setJustRegisteredId] = useState<string | null>(
-    null,
-  );
-  const [assignDone, setAssignDone] = useState(false);
-
-  // Cache de leitura: guarda o último estado conhecido para uso offline
-  useEffect(() => {
-    if (data === undefined) return;
-    void cacheEquipment({
-      token,
-      cachedAt: Date.now(),
-      equipment: data?.equipment
-        ? {
-            description: data.equipment.description,
-            status: data.equipment.status,
-            createdAt: data.equipment.createdAt,
-          }
-        : null,
-    });
-  }, [data, token]);
-
-  if (data === undefined) {
-    if (!online) {
-      return <OfflineContent token={token} />;
-    }
+  // Técnico de campo: a etiqueta abre dentro da obra à qual pertence. Sem
+  // obra conhecida (etiqueta livre de lote sem destino), fica na página direta.
+  if (currentUser === undefined || (currentUser?.role === "qr_operator" && data === undefined)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
-
-  if (data === null) {
-    return (
-      <div className="mx-auto max-w-lg px-4 py-8">
-        <div className="flex flex-col items-center gap-4 text-center">
-          <AlertTriangle className="h-12 w-12 text-yellow-500" />
-          <h1 className="text-2xl font-bold">Código QR não encontrado</h1>
-          <p className="text-muted-foreground">
-            Este código QR ({token}) não está registrado no sistema. Gere novos
-            códigos na página de administração.
-          </p>
-          <Button render={<Link to="/app" />}>
-            <Home className="mr-2 h-4 w-4" />
-            Voltar à tela inicial
-          </Button>
-        </div>
-      </div>
-    );
+  let obraSlug: string | null = null;
+  if (currentUser?.role === "qr_operator" && data) {
+    if (data.project) {
+      obraSlug = data.project.projectSlug ?? data.project.projectId;
+    } else if (data.batchProject) {
+      obraSlug = data.batchProject.projectId;
+    }
   }
-
-  const { equipment } = data;
-
-  if (!equipment) {
+  if (obraSlug) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-4">
-        <EquipmentForm
-          qrToken={token}
-          destinationProjectName={data.batchProject?.projectName ?? null}
-          onSuccess={(equipmentId) => setJustRegisteredId(equipmentId)}
-        />
-      </div>
-    );
-  }
-
-  // Passo opcional pós-cadastro: escolher a vaga planejada na obra do lote.
-  // Só aparece logo após o cadastro desta sessão; offline pula em silêncio.
-  if (
-    online &&
-    !assignDone &&
-    justRegisteredId === (equipment._id as string) &&
-    data.batchProject &&
-    !equipment.projectEquipmentId
-  ) {
-    return (
-      <div className="mx-auto max-w-lg px-4 py-6">
-        <SlotPickerStep
-          projectId={data.batchProject.projectId}
-          projectName={data.batchProject.projectName}
-          equipmentId={equipment._id}
-          onDone={() => setAssignDone(true)}
-        />
-      </div>
+      <Navigate
+        to="/qr-operador/obras/$obraSlug/etiqueta/$token"
+        params={{ obraSlug, token }}
+        replace
+      />
     );
   }
 
   return (
-    <EquipmentDetail
-      equipmentId={equipment._id}
-      equipment={equipment}
-      qrToken={token}
-      currentUserName={currentUser?.name}
+    <EquipmentTokenPage
+      token={token}
+      notFoundAction={
+        <Button render={<Link to="/app" />}>
+          <Home className="mr-2 h-4 w-4" />
+          Voltar à tela inicial
+        </Button>
+      }
     />
   );
 }
-
-/**
- * Sem internet: usa o cache local do equipamento (se já visitado) e
- * permite registrar tudo na fila offline.
- */
-function OfflineContent({ token }: { token: string }) {
-  const [cached, setCached] = useState<CachedEquipment | null | undefined>(
-    undefined,
-  );
-
-  useEffect(() => {
-    let alive = true;
-    void getCachedEquipment(token).then((entry) => {
-      if (alive) setCached(entry);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [token]);
-
-  if (cached === undefined) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="mx-auto max-w-lg px-4 py-6 space-y-4">
-      <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-amber-800">
-        <CloudOff className="h-5 w-5 shrink-0" />
-        <p className="text-sm">
-          Sem internet. Os registros serão salvos no aparelho e enviados
-          automaticamente quando a conexão voltar.
-        </p>
-      </div>
-
-      {cached?.equipment ? (
-        <>
-          <OfflineEquipmentCard equipment={cached.equipment} />
-          <MaintenanceForm qrToken={token} />
-        </>
-      ) : (
-        <>
-          <EquipmentForm qrToken={token} onSuccess={() => { }} />
-          <Separator />
-          <p className="text-sm text-muted-foreground text-center">
-            Equipamento já cadastrado? Registre a instalação ou manutenção:
-          </p>
-          <MaintenanceForm qrToken={token} />
-        </>
-      )}
-    </div>
-  );
-}
-
-function OfflineEquipmentCard({
-  equipment,
-}: {
-  equipment: NonNullable<CachedEquipment["equipment"]>;
-}) {
-  return (
-    <Card>
-      <CardContent className="pt-4">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Tag className="h-4 w-4 text-muted-foreground" />
-              <h1 className="text-xl font-bold">
-                {equipment.description ?? "Equipamento"}
-              </h1>
-            </div>
-          </div>
-          <StatusBadge status={equipment.status} />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
