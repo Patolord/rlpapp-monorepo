@@ -84,6 +84,97 @@ async function registerAsTechnician(
 }
 
 describe("fluxo QR-Obra sem redundância", () => {
+  test("cadastro dentro de uma obra no app de campo vincula a etiqueta a ela", async () => {
+    const t = setup();
+    const asAdmin = await withUser(t, { clerkId: "adm-campo", role: "admin" });
+    const asTech = await withUser(t, {
+      clerkId: "tech-campo",
+      role: "qr_operator",
+    });
+    const obraLote = await seedObra(t, "Obra do Lote");
+    const obraAberta = await seedObra(t, "Obra Aberta no App");
+
+    // Lote aponta para uma obra, mas o técnico está fisicamente em outra.
+    await asAdmin.mutation(api.qrCodes.batchCreate, {
+      tokens: ["CAMPO001", "CAMPO002"],
+      batchName: "Lote Campo",
+      projectId: obraLote.projectId,
+    });
+
+    const equipmentId = await t.run(async (ctx) =>
+      ctx.db.insert("equipment", {
+        description: "Evaporadora recepção",
+        status: "installing",
+        createdAt: Date.now(),
+      })
+    );
+    await asTech.mutation(api.qrCodes.assignEquipment, {
+      token: "CAMPO001",
+      equipmentId,
+      projectId: obraAberta.projectId,
+    });
+
+    const qr = await t.run(async (ctx) =>
+      ctx.db
+        .query("qrCodes")
+        .withIndex("by_token", (q) => q.eq("token", "CAMPO001"))
+        .unique()
+    );
+    expect(qr?.projectId).toBe(obraAberta.projectId);
+
+    // Sem obra aberta, o destino do lote continua valendo.
+    const equipmentId2 = await t.run(async (ctx) =>
+      ctx.db.insert("equipment", {
+        description: "Condensadora cobertura",
+        status: "installing",
+        createdAt: Date.now(),
+      })
+    );
+    await asTech.mutation(api.qrCodes.assignEquipment, {
+      token: "CAMPO002",
+      equipmentId: equipmentId2,
+    });
+    const qr2 = await t.run(async (ctx) =>
+      ctx.db
+        .query("qrCodes")
+        .withIndex("by_token", (q) => q.eq("token", "CAMPO002"))
+        .unique()
+    );
+    expect(qr2?.projectId).toBe(obraLote.projectId);
+  });
+
+  test("cadastro em obra arquivada é recusado", async () => {
+    const t = setup();
+    const asAdmin = await withUser(t, { clerkId: "adm-arq", role: "admin" });
+    const archivedId = await t.run(async (ctx) =>
+      ctx.db.insert("projects", {
+        name: "Obra Arquivada",
+        floors: [],
+        createdAt: Date.now(),
+        status: "archived",
+      })
+    );
+    const equipmentId = await t.run(async (ctx) => {
+      await ctx.db.insert("qrCodes", {
+        token: "ARQUIV01",
+        status: "active",
+        createdAt: Date.now(),
+      });
+      return await ctx.db.insert("equipment", {
+        description: "Qualquer",
+        status: "installing",
+        createdAt: Date.now(),
+      });
+    });
+    await expect(
+      asAdmin.mutation(api.qrCodes.assignEquipment, {
+        token: "ARQUIV01",
+        equipmentId,
+        projectId: archivedId,
+      })
+    ).rejects.toThrow("Obra não disponível");
+  });
+
   test("lote com obra de destino: cadastro do técnico herda a obra", async () => {
     const t = setup();
     const asAdmin = await withUser(t, { clerkId: "adm-1", role: "admin" });

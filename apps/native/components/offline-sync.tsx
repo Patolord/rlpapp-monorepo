@@ -1,5 +1,6 @@
 import NetInfo from "@react-native-community/netinfo";
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useConvex, useConvexAuth, useMutation } from "convex/react";
 import { useCallback, useEffect, useRef } from "react";
 
@@ -61,7 +62,13 @@ export function OfflineSync() {
           status: record.status,
           qrToken: record.qrToken,
         });
-        await assignQr({ token: record.qrToken, equipmentId });
+        await assignQr({
+          token: record.qrToken,
+          equipmentId,
+          projectId: record.projectId
+            ? (record.projectId as Id<"projects">)
+            : undefined,
+        });
         return;
       }
 

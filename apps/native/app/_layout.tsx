@@ -52,12 +52,12 @@ function StackLayout() {
     >
       <Stack.Screen name="(drawer)" />
       <Stack.Screen name="(auth)" />
+      {/* App de campo (técnico): tudo dentro de uma obra. */}
+      <Stack.Screen name="campo" />
       <Stack.Screen name="scanner" options={{ presentation: "fullScreenModal" }} />
       <Stack.Screen name="equipamento/[token]" options={{ headerShown: true }} />
       <Stack.Screen name="pendentes" options={{ headerShown: true }} />
       <Stack.Screen name="obra/[projectId]" options={{ headerShown: false }} />
-      <Stack.Screen name="qr-operador" options={{ headerShown: true, title: "QR Operador" }} />
-      <Stack.Screen name="meus-registros" options={{ headerShown: true, title: "Meus Registros" }} />
       <Stack.Screen name="portal-projeto/[projectId]" options={{ headerShown: true, title: "Projeto" }} />
     </Stack>
   );

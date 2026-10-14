@@ -227,6 +227,39 @@ const qrBrowseFilterValidator = v.union(
   v.literal("free")
 );
 
+// Obra aberta no app de campo. Diferente de getMyProject, nunca lança
+// "acesso negado": quem não está atribuído ainda consegue abrir a obra
+// (válvula de escape para um técnico deslocado de última hora), e a UI
+// sinaliza isso pelo campo `assigned`. Retorna null se não existe/arquivada.
+export const getFieldProject = authedQuery({
+  args: { projectId: v.id("projects") },
+  returns: v.union(
+    v.object({
+      ...browsableProjectValidator.fields,
+      assigned: v.boolean(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project || isProjectArchived(project)) return null;
+    const activeQrs = await collectActiveQrsForProject(ctx, project._id);
+    return {
+      _id: project._id,
+      name: project.name,
+      legacyNumber: project.legacyNumber ?? null,
+      client: await resolveCustomerLabel(ctx, project, new Map()),
+      address: project.address ?? null,
+      status: project.status ?? null,
+      qrCount: activeQrs.length,
+      registeredCount: activeQrs.filter((qr) => qr.equipmentId).length,
+      assigned:
+        isStaff(ctx.user) ||
+        (project.technicianIds ?? []).includes(ctx.user._id),
+    };
+  },
+});
+
 // Catálogo de campo: qualquer usuário autenticado pode localizar etiquetas de
 // equipamento por obra, mesmo sem estar atribuído como técnico. Isso não concede
 // permissões administrativas sobre a obra ou sobre os lotes.

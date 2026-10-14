@@ -112,6 +112,8 @@ export const getByToken = query({
       equipment: v.union(equipmentValidator, v.null()),
       // Obra de destino herdada do lote (qrBatches), se definida.
       batchProject: batchProjectValidator,
+      // Obra à qual a etiqueta já pertence (qrCodes.projectId), se houver.
+      project: batchProjectValidator,
     }),
     v.null()
   ),
@@ -130,7 +132,14 @@ export const getByToken = query({
 
     const batchProject = await getBatchDestination(ctx, qrCode.batchId);
 
-    return { qrCode, equipment, batchProject };
+    let project: { projectId: Id<"projects">; projectName: string } | null =
+      null;
+    if (qrCode.projectId) {
+      const doc = await ctx.db.get("projects", qrCode.projectId);
+      if (doc) project = { projectId: doc._id, projectName: doc.name };
+    }
+
+    return { qrCode, equipment, batchProject, project };
   },
 });
 
@@ -821,11 +830,15 @@ export const removeMany = staffMutation({
   },
 });
 
-// qr_operator também pode vincular equipamento ao QR que escaneou
+// qr_operator também pode vincular equipamento ao QR que escaneou.
+// `projectId` (opcional) é a obra aberta no app de campo no momento do
+// cadastro: a etiqueta passa a pertencer a ela, salvo se o equipamento já
+// está preso a um item planejado de outra obra.
 export const assignEquipment = authedMutation({
   args: {
     token: v.string(),
     equipmentId: v.id("equipment"),
+    projectId: v.optional(v.id("projects")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -857,8 +870,18 @@ export const assignEquipment = authedMutation({
       projectId = planned?.projectId;
     }
 
-    // Sem item planejado: herda a obra de destino do lote (qrBatches), se
-    // definida — o QR já nasce marcado como pertencente à obra.
+    // Sem item planejado: a obra aberta no app de campo vence o destino do
+    // lote — o técnico está fisicamente nela.
+    if (!projectId && args.projectId) {
+      const project = await ctx.db.get("projects", args.projectId);
+      if (!project || project.status === "archived" || project.archivedAt) {
+        throw new Error("Obra não disponível");
+      }
+      projectId = project._id;
+    }
+
+    // Por fim, herda a obra de destino do lote (qrBatches), se definida — o
+    // QR já nasce marcado como pertencente à obra.
     if (!projectId) {
       const destination = await getBatchDestination(ctx, qrCode.batchId);
       projectId = destination?.projectId;
