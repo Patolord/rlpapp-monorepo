@@ -13,6 +13,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { OfflineSync } from "@/components/offline-sync";
+import { ToastProvider } from "@/components/ui";
 import { COLORS } from "@/lib/colors";
 
 export const unstable_settings = {
@@ -54,7 +55,8 @@ function StackLayout() {
       <Stack.Screen name="equipamento/[token]" options={{ headerShown: true }} />
       <Stack.Screen name="pendentes" options={{ headerShown: true }} />
       <Stack.Screen name="obra/[projectId]" options={{ headerShown: false }} />
-      <Stack.Screen name="qr-operador" options={{ headerShown: true, title: "QR Operador" }} />
+      <Stack.Screen name="campo" options={{ headerShown: false }} />
+      <Stack.Screen name="qr-operador" options={{ headerShown: false }} />
       <Stack.Screen name="meus-registros" options={{ headerShown: true, title: "Meus Registros" }} />
       <Stack.Screen name="portal-projeto/[projectId]" options={{ headerShown: true, title: "Projeto" }} />
     </Stack>
@@ -68,7 +70,9 @@ export default function Layout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SafeAreaProvider>
             <KeyboardProvider>
-              <InnerLayout />
+              <ToastProvider>
+                <InnerLayout />
+              </ToastProvider>
             </KeyboardProvider>
           </SafeAreaProvider>
         </GestureHandlerRootView>
