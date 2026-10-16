@@ -95,9 +95,9 @@ describe("timeClock: espelho diário", () => {
       punchCount: 4,
       lastKind: "saida",
       worksiteName: "Obra Centro",
-      photoUrl: "https://x/a.jpg",
       department: "Produção",
     });
+    expect(ana?.photoPunchId).toEqual(day.punches.find((p) => p.rhidRecordId === 101)?._id);
     const carlos = day.people.find((p) => p.rhidPersonId === 3);
     expect(carlos).toMatchObject({ present: false, punchCount: 0, lastKind: null });
 
