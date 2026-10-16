@@ -226,27 +226,66 @@ export const syncRange = action({
   },
 });
 
+/** Janela da reconciliação noturna: pega uploads atrasados e correções. */
+export const RECONCILE_DAYS = 7;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const RECONCILE_RETRY_MS = 2 * 60 * 1000;
+
 /**
- * Cron: mantém ontem e hoje atualizados (ontem cobre marcações feitas depois
- * da última rodada do dia anterior). Sem credencial, não faz nada.
+ * Rodada de cron: sem credencial, só registra. Com outra sync em andamento,
+ * a rodada de hoje é descartada (a próxima vem em minutos) e a reconciliação
+ * é reagendada para não perder o dia.
+ */
+async function runCronSync(ctx: ActionCtx, daysBack: number): Promise<null> {
+  if (!isRhidConfigured()) {
+    console.log("rhidSync: RHID_EMAIL/RHID_PASSWORD não configurados; cron ignorado");
+    return null;
+  }
+  const now = Date.now();
+  const session = await ctx.runQuery(internal.timeClock.getSession, {});
+  if (
+    session.running &&
+    session.lastSyncStartedAt &&
+    now - session.lastSyncStartedAt < STALE_RUN_MS
+  ) {
+    if (daysBack > 0) {
+      await ctx.scheduler.runAfter(
+        RECONCILE_RETRY_MS,
+        internal.rhidSync.syncRecentFromCron,
+        {}
+      );
+      console.log("rhidSync: sincronização em andamento; reconciliação reagendada");
+    } else {
+      console.log("rhidSync: sincronização em andamento; cron ignorado");
+    }
+    return null;
+  }
+  const summary = await runSync(ctx, {
+    from: toBrtDateKey(now - daysBack * DAY_MS),
+    to: toBrtDateKey(now),
+    trigger: "cron",
+  });
+  console.log(
+    `rhidSync: ${summary.punches} marcações, ${summary.people} pessoas (${summary.from}..${summary.to})`
+  );
+  return null;
+}
+
+/** Cron frequente: só o dia corrente (Brasília). */
+export const syncTodayFromCron = internalAction({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => runCronSync(ctx, 0),
+});
+
+/**
+ * Cron noturno: refaz os últimos `RECONCILE_DAYS` dias, cobrindo marcações
+ * enviadas com atraso pelo app do RHID e ajustes feitos depois.
  */
 export const syncRecentFromCron = internalAction({
   args: {},
   returns: v.null(),
-  handler: async (ctx) => {
-    if (!isRhidConfigured()) {
-      console.log("rhidSync: RHID_EMAIL/RHID_PASSWORD não configurados; cron ignorado");
-      return null;
-    }
-    const now = Date.now();
-    const summary = await runSync(ctx, {
-      from: toBrtDateKey(now - 24 * 60 * 60 * 1000),
-      to: toBrtDateKey(now),
-      trigger: "cron",
-    });
-    console.log(
-      `rhidSync: ${summary.punches} marcações, ${summary.people} pessoas (${summary.from}..${summary.to})`
-    );
-    return null;
-  },
+  handler: async (ctx) => runCronSync(ctx, RECONCILE_DAYS - 1),
 });
