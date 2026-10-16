@@ -59,6 +59,23 @@ export const payrollRunStatus = v.union(
   v.literal("closed")
 );
 
+// Tipo da marcação de ponto, derivado da posição no dia (1ª=entrada, 2ª=saída
+// almoço, 3ª=retorno almoço, 4ª em diante=saída) — mesma regra do RHID mobile.
+export const timeClockPunchKind = v.union(
+  v.literal("entrada"),
+  v.literal("almoco_saida"),
+  v.literal("almoco_retorno"),
+  v.literal("saida")
+);
+
+export const rhidSyncStatus = v.union(
+  v.literal("running"),
+  v.literal("success"),
+  v.literal("error")
+);
+
+export const rhidLinkSource = v.union(v.literal("auto"), v.literal("manual"));
+
 // --- Compras / Materiais / Preços ---
 
 export const materialStatus = v.union(
@@ -1290,4 +1307,116 @@ export default defineSchema({
     createdByUserId: v.optional(v.id("users")),
     updatedByUserId: v.optional(v.id("users")),
   }).index("by_employee", ["employeeId"]),
+
+  // --- RH: Ponto (espelho do controle de acesso RHID) ---
+  //
+  // O RHID (rhid.com.br) é a fonte das marcações. Uma action autenticada com a
+  // credencial de integração (RHID_EMAIL / RHID_PASSWORD) puxa o cadastro e as
+  // marcações e grava aqui; o app só lê deste espelho (reativo e com histórico).
+
+  // Singleton (key = "default"): token de sessão RHID em cache + estado da
+  // última sincronização. Nunca retornado por funções públicas.
+  rhidSyncState: defineTable({
+    key: v.literal("default"),
+    accessToken: v.optional(v.string()),
+    tokenObtainedAt: v.optional(v.number()),
+    lastSyncStartedAt: v.optional(v.number()),
+    lastSyncFinishedAt: v.optional(v.number()),
+    lastSyncStatus: v.optional(rhidSyncStatus),
+    lastSyncError: v.optional(v.string()),
+    lastSyncFrom: v.optional(v.string()),
+    lastSyncTo: v.optional(v.string()),
+    lastSyncPunches: v.optional(v.number()),
+    lastSyncPeople: v.optional(v.number()),
+    lastSyncTrigger: v.optional(v.union(v.literal("manual"), v.literal("cron"))),
+  }).index("by_key", ["key"]),
+
+  // Singleton (key = "default"): preferências do módulo de ponto.
+  timeClockSettings: defineTable({
+    key: v.literal("default"),
+    // Custo estimado de um homem-dia (para o relatório mensal).
+    manDayCostCents: v.number(),
+    // Departamentos do RHID considerados na presença. Vazio = todos.
+    trackedDepartments: v.array(v.string()),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+  }).index("by_key", ["key"]),
+
+  // Cadastro de pessoas do RHID. Não duplica `employees`: cada pessoa pode ser
+  // vinculada (automaticamente por CPF/nome ou manualmente) a um funcionário.
+  rhidPeople: defineTable({
+    rhidPersonId: v.number(),
+    name: v.string(),
+    nameNormalized: v.string(),
+    // Somente dígitos (11), quando informado pelo RHID.
+    cpf: v.optional(v.string()),
+    department: v.optional(v.string()),
+    // Presente no último cadastro de ativos do RHID.
+    active: v.boolean(),
+    employeeId: v.optional(v.id("employees")),
+    linkSource: v.optional(rhidLinkSource),
+    firstSeenAt: v.number(),
+    lastSeenAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_rhid_person_id", ["rhidPersonId"])
+    .index("by_employee", ["employeeId"])
+    .index("by_active", ["active"]),
+
+  // Cercas geográficas (obras) do RHID, extraídas das marcações. Podem ser
+  // vinculadas a uma obra do sistema.
+  rhidWorksites: defineTable({
+    rhidGeofenceId: v.number(),
+    name: v.string(),
+    latitude: v.number(),
+    longitude: v.number(),
+    radius: v.number(),
+    projectId: v.optional(v.id("projects")),
+    lastSeenAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_rhid_geofence_id", ["rhidGeofenceId"])
+    .index("by_project", ["projectId"]),
+
+  // Uma linha por marcação (registro AFD mobile) do RHID.
+  timeClockPunches: defineTable({
+    rhidRecordId: v.number(),
+    rhidPersonId: v.number(),
+    personName: v.string(),
+    // Dia civil em Brasília ("YYYY-MM-DD").
+    date: v.string(),
+    punchedAt: v.number(),
+    // "HH:MM" em Brasília.
+    timeLabel: v.string(),
+    // Posição da marcação dentro do dia (0 = primeira).
+    sequence: v.number(),
+    kind: timeClockPunchKind,
+    latitude: v.optional(v.number()),
+    longitude: v.optional(v.number()),
+    photoUrl: v.optional(v.string()),
+    rhidGeofenceId: v.optional(v.number()),
+    geofenceName: v.optional(v.string()),
+    syncedAt: v.number(),
+  })
+    .index("by_rhid_record_id", ["rhidRecordId"])
+    .index("by_date", ["date"])
+    .index("by_person_and_date", ["rhidPersonId", "date"]),
+
+  // Resumo diário por pessoa (só dias com marcação). Derivado de
+  // `timeClockPunches` na mesma mutation de sincronização.
+  timeClockDays: defineTable({
+    date: v.string(),
+    rhidPersonId: v.number(),
+    personName: v.string(),
+    // Obra da primeira marcação do dia.
+    rhidGeofenceId: v.optional(v.number()),
+    worksiteName: v.optional(v.string()),
+    firstPunchAt: v.number(),
+    lastPunchAt: v.number(),
+    lastKind: timeClockPunchKind,
+    punchCount: v.number(),
+    syncedAt: v.number(),
+  })
+    .index("by_date", ["date"])
+    .index("by_person_and_date", ["rhidPersonId", "date"]),
 });
