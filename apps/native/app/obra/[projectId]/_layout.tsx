@@ -19,7 +19,6 @@ import { useRef } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useAppTheme } from "@/contexts/app-theme-context";
 import { COLORS } from "@/lib/colors";
 
 interface TabDef {
@@ -48,17 +47,16 @@ function resolveActiveSegment(segments: string[]): string {
 
 export default function ProjectTabsLayout() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
-  const { isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const segments = useSegments();
   const scrollRef = useRef<ScrollView>(null);
 
-  const bg = isDark ? COLORS.dark.background : COLORS.light.background;
-  const fg = isDark ? COLORS.dark.foreground : COLORS.light.foreground;
-  const chipBg = isDark ? "#1e293b" : "#e2e8f0";
-  const chipActiveBg = isDark ? "#f59e0b" : "#f59e0b";
-  const chipText = isDark ? "#94a3b8" : "#64748b";
+  const bg = COLORS.background;
+  const fg = COLORS.foreground;
+  const chipBg = "#e2e8f0";
+  const chipActiveBg = "#f59e0b";
+  const chipText = "#64748b";
   const chipActiveText = "#000";
   const iconColor = chipText;
   const iconActiveColor = chipActiveText;

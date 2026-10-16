@@ -12,7 +12,6 @@ import { EquipmentForm } from "@/components/engenharia/equipment-form";
 import { MaintenanceForm } from "@/components/engenharia/maintenance-form";
 import { MaintenanceLogCard } from "@/components/engenharia/maintenance-log";
 import { StatusBadge } from "@/components/engenharia/status-badge";
-import { useAppTheme } from "@/contexts/app-theme-context";
 import { COLORS } from "@/lib/colors";
 import type { EquipmentStatus } from "@/lib/equipment-status";
 import {
@@ -24,9 +23,8 @@ import { useOnline } from "@/lib/use-online";
 
 export default function EquipmentTokenScreen() {
   const { token } = useLocalSearchParams<{ token: string }>();
-  const { isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const bg = isDark ? COLORS.dark.background : COLORS.light.background;
+  const bg = COLORS.background;
   const tokenStr = Array.isArray(token) ? token[0] : token;
 
   return (

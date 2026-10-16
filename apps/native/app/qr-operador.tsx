@@ -19,8 +19,6 @@ import { Card } from "@/components/ui/card";
 import { Button, ButtonText } from "@/components/ui/button";
 import { SignOutButton } from "@/components/sign-out-button";
 import { listPendingRecords, subscribeQueue } from "@/lib/offline-queue";
-import { useAppTheme } from "@/contexts/app-theme-context";
-import { COLORS } from "@/lib/colors";
 
 function usePendingCount() {
   const [count, setCount] = useState(0);
@@ -81,9 +79,8 @@ function OperatorHub() {
   const router = useRouter();
   const pendingCount = usePendingCount();
   const projects = useQuery(api.portal.listMyProjects);
-  const { isDark } = useAppTheme();
 
-  const surface = isDark ? "#1b2433" : "#f8fafc";
+  const surface = "#f8fafc";
 
   return (
     <ScrollView
@@ -107,13 +104,13 @@ function OperatorHub() {
       {/* Pending offline banner */}
       {pendingCount > 0 ? (
         <Pressable onPress={() => router.push("/pendentes" as Href)}>
-          <Card className="flex-row items-center gap-3 border-yellow-500/30 bg-yellow-50 p-4 dark:bg-yellow-950/30">
+          <Card className="flex-row items-center gap-3 border-yellow-500/30 bg-yellow-50 p-4">
             <WifiOff size={20} color="#d97706" />
             <View className="min-w-0 flex-1">
-              <Text className="font-medium text-yellow-800 dark:text-yellow-300">
+              <Text className="font-medium text-yellow-800">
                 {pendingCount} {pendingCount === 1 ? "registro pendente" : "registros pendentes"}
               </Text>
-              <Text className="text-xs text-yellow-700 dark:text-yellow-400">
+              <Text className="text-xs text-yellow-700">
                 Aguardando conexão para sincronizar
               </Text>
             </View>
@@ -151,7 +148,7 @@ function OperatorHub() {
           }
         >
           <Card className="flex-row items-center gap-4 p-4" style={{ backgroundColor: surface }}>
-            <View className="h-11 w-11 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-950">
+            <View className="h-11 w-11 items-center justify-center rounded-xl bg-blue-100">
               <Keyboard size={22} color="#3b82f6" />
             </View>
             <View className="min-w-0 flex-1">
@@ -168,7 +165,7 @@ function OperatorHub() {
           }
         >
           <Card className="flex-row items-center gap-4 p-4" style={{ backgroundColor: surface }}>
-            <View className="h-11 w-11 items-center justify-center rounded-xl bg-green-100 dark:bg-green-950">
+            <View className="h-11 w-11 items-center justify-center rounded-xl bg-green-100">
               <ClipboardList size={22} color="#10b981" />
             </View>
             <View className="min-w-0 flex-1">

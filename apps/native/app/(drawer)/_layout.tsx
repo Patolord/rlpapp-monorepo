@@ -17,17 +17,14 @@ import {
 import React, { useCallback } from "react";
 import { Text, View } from "react-native";
 
-import { ThemeToggle } from "@/components/theme-toggle";
 import { SignOutButton } from "@/components/sign-out-button";
-import { useAppTheme } from "@/contexts/app-theme-context";
 import { COLORS } from "@/lib/colors";
 
 function DrawerLayout() {
-  const { isDark } = useAppTheme();
   const { isLoaded, isSignedIn } = useAuth();
 
-  const fg = isDark ? COLORS.dark.foreground : COLORS.light.foreground;
-  const bg = isDark ? COLORS.dark.background : COLORS.light.background;
+  const fg = COLORS.foreground;
+  const bg = COLORS.background;
 
   if (!isLoaded) {
     return <View style={{ flex: 1, backgroundColor: bg }} />;
@@ -68,9 +65,6 @@ function RoleAwareDrawer({
     (props: DrawerContentComponentProps) => (
       <DrawerContentScrollView {...props} style={{ backgroundColor: bg }}>
         <DrawerItemList {...props} />
-        <View className="flex-row items-center justify-end border-t border-border/30 px-4 py-3">
-          <ThemeToggle />
-        </View>
       </DrawerContentScrollView>
     ),
     [bg]

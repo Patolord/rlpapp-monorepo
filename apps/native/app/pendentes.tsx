@@ -13,7 +13,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/engenharia/status-badge";
-import { useAppTheme } from "@/contexts/app-theme-context";
 import { COLORS } from "@/lib/colors";
 import { getMaintenanceLogTypeLabel } from "@/lib/maintenance-log-type";
 import {
@@ -26,10 +25,9 @@ import {
 import { useOnline } from "@/lib/use-online";
 
 export default function PendingRecordsScreen() {
-  const { isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const online = useOnline();
-  const bg = isDark ? COLORS.dark.background : COLORS.light.background;
+  const bg = COLORS.background;
 
   const [records, setRecords] = useState<PendingRecord[] | undefined>(undefined);
 

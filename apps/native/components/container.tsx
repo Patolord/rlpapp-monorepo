@@ -4,7 +4,6 @@ import Animated, { type AnimatedProps } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cn } from "@/lib/utils";
 import { COLORS } from "@/lib/colors";
-import { useAppTheme } from "@/contexts/app-theme-context";
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
@@ -14,8 +13,7 @@ type Props = AnimatedProps<ViewProps> & {
 
 export function Container({ children, className, ...props }: PropsWithChildren<Props>) {
   const insets = useSafeAreaInsets();
-  const { isDark } = useAppTheme();
-  const bg = isDark ? COLORS.dark.background : COLORS.light.background;
+  const bg = COLORS.background;
 
   return (
     <AnimatedView

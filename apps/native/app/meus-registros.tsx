@@ -24,7 +24,6 @@ import { Badge, EmptyState, LoadingState } from "@rlpapp/ui/native";
 import { Card } from "@/components/ui/card";
 import { Button, ButtonText } from "@/components/ui/button";
 import { listPendingRecords, subscribeQueue, type PendingRecord } from "@/lib/offline-queue";
-import { useAppTheme } from "@/contexts/app-theme-context";
 import { COLORS } from "@/lib/colors";
 
 type TabKey = "scan" | "manual" | "projects" | "history";
@@ -65,19 +64,18 @@ function usePendingCount() {
 export default function MeusRegistrosScreen() {
   const { action } = useLocalSearchParams<{ action?: string }>();
   const [tab, setTab] = useState<TabKey>(() => resolveInitialTab(action));
-  const { isDark } = useAppTheme();
   const pendingRecords = usePendingCount();
 
-  const bg = isDark ? COLORS.dark.background : COLORS.light.background;
-  const activeBg = isDark ? "#2563eb" : "#3b82f6";
+  const bg = COLORS.background;
+  const activeBg = "#3b82f6";
 
   return (
     <View className="flex-1" style={{ backgroundColor: bg }}>
       {/* Pending banner */}
       {pendingRecords.length > 0 ? (
-        <View className="flex-row items-center gap-2 border-b border-yellow-500/20 bg-yellow-50 px-5 py-2.5 dark:bg-yellow-950/30">
+        <View className="flex-row items-center gap-2 border-b border-yellow-500/20 bg-yellow-50 px-5 py-2.5">
           <WifiOff size={14} color="#d97706" />
-          <Text className="text-xs font-medium text-yellow-800 dark:text-yellow-300">
+          <Text className="text-xs font-medium text-yellow-800">
             {pendingRecords.length} {pendingRecords.length === 1 ? "registro pendente" : "registros pendentes"} offline
           </Text>
         </View>
@@ -97,12 +95,12 @@ export default function MeusRegistrosScreen() {
               onPress={() => setTab(t.key)}
               className="rounded-full px-4 py-2"
               style={{
-                backgroundColor: active ? activeBg : isDark ? "#1e293b" : "#f1f5f9",
+                backgroundColor: active ? activeBg : "#f1f5f9",
               }}
             >
               <Text
                 className="text-sm font-semibold"
-                style={{ color: active ? "#ffffff" : isDark ? "#94a3b8" : "#64748b" }}
+                style={{ color: active ? "#ffffff" : "#64748b" }}
               >
                 {t.label}
               </Text>
@@ -146,7 +144,6 @@ function ScanTab() {
 function ManualTab() {
   const router = useRouter();
   const [code, setCode] = useState("");
-  const { isDark } = useAppTheme();
 
   function handleSubmit() {
     const trimmed = code.trim();
@@ -159,7 +156,7 @@ function ManualTab() {
   return (
     <View className="flex-1 px-5 pt-6 gap-5">
       <View className="items-center gap-3">
-        <View className="h-14 w-14 items-center justify-center rounded-2xl bg-blue-100 dark:bg-blue-950">
+        <View className="h-14 w-14 items-center justify-center rounded-2xl bg-blue-100">
           <Keyboard size={28} color="#3b82f6" />
         </View>
         <Text className="text-center text-base font-semibold text-foreground">
