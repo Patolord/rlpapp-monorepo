@@ -1,5 +1,6 @@
 import NetInfo from "@react-native-community/netinfo";
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useConvex, useConvexAuth, useMutation } from "convex/react";
 import { useCallback, useEffect, useRef } from "react";
 
@@ -28,8 +29,7 @@ async function isOnline(): Promise<boolean> {
 export function OfflineSync() {
   const convex = useConvex();
   const { isAuthenticated } = useConvexAuth();
-  const createEquipment = useMutation(api.equipment.create);
-  const assignQr = useMutation(api.qrCodes.assignEquipment);
+  const registerForQr = useMutation(api.qrCodes.registerForQr);
   const createLog = useMutation(api.maintenanceLogs.create);
   const generateUploadUrl = useMutation(api.maintenanceLogs.generateUploadUrl);
   const syncing = useRef(false);
@@ -51,17 +51,27 @@ export function OfflineSync() {
             `QR ${record.qrToken} já está vinculado a um equipamento`
           );
         }
+        if (record.projectId) {
+          const obra = await convex.query(api.technicianPortal.getFieldProject, {
+            identifier: record.projectId,
+          });
+          if (!obra) {
+            throw new Error("Obra não disponível");
+          }
+        }
         const labelPhotoIds = await uploadPhotos(
           generateUploadUrl,
           record.photos
         );
-        const equipmentId = await createEquipment({
+        await registerForQr({
+          token: record.qrToken,
           description: record.description,
           labelPhotoIds,
           status: record.status,
-          qrToken: record.qrToken,
+          projectId: record.projectId
+            ? (record.projectId as Id<"projects">)
+            : undefined,
         });
-        await assignQr({ token: record.qrToken, equipmentId });
         return;
       }
 
@@ -81,7 +91,7 @@ export function OfflineSync() {
         photoIds,
       });
     },
-    [convex, createEquipment, assignQr, createLog, generateUploadUrl]
+    [convex, registerForQr, createLog, generateUploadUrl]
   );
 
   const runSync = useCallback(async () => {

@@ -317,10 +317,13 @@ export function ProjectQrList({
   projectId,
   qrCount,
   registeredCount,
+  obraSlug,
 }: {
   projectId: Id<"projects">;
   qrCount: number | null;
   registeredCount: number | null;
+  /** Com a obra aberta no app de campo, a etiqueta abre dentro dela. */
+  obraSlug?: string;
 }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<QrFilter>("all");
@@ -399,8 +402,12 @@ export function ProjectQrList({
             return (
               <Link
                 key={qr._id}
-                to="/q/$token"
-                params={{ token: qr.token }}
+                {...(obraSlug
+                  ? {
+                      to: "/qr-operador/obras/$obraSlug/etiqueta/$token",
+                      params: { obraSlug, token: qr.token },
+                    }
+                  : { to: "/q/$token", params: { token: qr.token } })}
                 className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
               >
                 <div className="rounded-md bg-primary/10 p-2">

@@ -15,6 +15,7 @@ import {
   staffQuery,
 } from "./lib/rbac";
 import { logAudit, logEquipmentHistory } from "./lib/audit";
+import { isProjectArchived } from "./lib/projects/helpers";
 import type { Doc, Id } from "./_generated/dataModel";
 
 const qrCodeStatus = v.union(v.literal("active"), v.literal("inactive"));
@@ -76,6 +77,8 @@ const batchProjectValidator = v.union(
   v.object({
     projectId: v.id("projects"),
     projectName: v.string(),
+    projectSlug: v.union(v.string(), v.null()),
+    archived: v.boolean(),
   }),
   v.null()
 );
@@ -83,9 +86,14 @@ const batchProjectValidator = v.union(
 // Resolve a obra de destino de um lote (batchId → qrBatches → projects).
 // Lotes legados (sem registro em qrBatches) e lotes sem obra retornam null.
 export async function getBatchDestination(
-  ctx: QueryCtx,
+  ctx: QueryCtx | MutationCtx,
   batchId: string | undefined
-): Promise<{ projectId: Id<"projects">; projectName: string } | null> {
+): Promise<{
+  projectId: Id<"projects">;
+  projectName: string;
+  projectSlug: string | null;
+  archived: boolean;
+} | null> {
   if (!batchId) return null;
   const batch = await ctx.db
     .query("qrBatches")
@@ -94,7 +102,12 @@ export async function getBatchDestination(
   if (!batch?.projectId) return null;
   const project = await ctx.db.get("projects", batch.projectId);
   if (!project) return null;
-  return { projectId: project._id, projectName: project.name };
+  return {
+    projectId: project._id,
+    projectName: project.name,
+    projectSlug: project.slug ?? null,
+    archived: isProjectArchived(project),
+  };
 }
 const paginatedQrCodesWithEquipmentValidator = v.object({
   page: v.array(qrCodeWithEquipmentValidator),
@@ -112,6 +125,16 @@ export const getByToken = query({
       equipment: v.union(equipmentValidator, v.null()),
       // Obra de destino herdada do lote (qrBatches), se definida.
       batchProject: batchProjectValidator,
+      // Obra à qual a etiqueta já pertence (qrCodes.projectId), se houver.
+      project: v.union(
+        v.object({
+          projectId: v.id("projects"),
+          projectName: v.string(),
+          projectSlug: v.union(v.string(), v.null()),
+          archived: v.boolean(),
+        }),
+        v.null()
+      ),
     }),
     v.null()
   ),
@@ -130,7 +153,25 @@ export const getByToken = query({
 
     const batchProject = await getBatchDestination(ctx, qrCode.batchId);
 
-    return { qrCode, equipment, batchProject };
+    let project: {
+      projectId: Id<"projects">;
+      projectName: string;
+      projectSlug: string | null;
+      archived: boolean;
+    } | null = null;
+    if (qrCode.projectId) {
+      const doc = await ctx.db.get("projects", qrCode.projectId);
+      if (doc) {
+        project = {
+          projectId: doc._id,
+          projectName: doc.name,
+          projectSlug: doc.slug ?? null,
+          archived: isProjectArchived(doc),
+        };
+      }
+    }
+
+    return { qrCode, equipment, batchProject, project };
   },
 });
 
@@ -821,55 +862,125 @@ export const removeMany = staffMutation({
   },
 });
 
-// qr_operator também pode vincular equipamento ao QR que escaneou
+// Cliente do portal é somente leitura: não pode mover uma etiqueta de obra.
+function assertCanSetFieldProject(user: Doc<"users">) {
+  if (user.role === "client") {
+    throw new Error("Sem permissão para vincular a etiqueta a uma obra");
+  }
+}
+
+// Vincula um equipamento já criado à etiqueta. Roda dentro da mesma mutação
+// de quem chama, para criação + vínculo desfazerem juntos se a obra for inválida.
+async function linkEquipmentToQr(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  args: {
+    token: string;
+    equipmentId: Id<"equipment">;
+    projectId?: Id<"projects">;
+  }
+) {
+  const qrCode = await ctx.db
+    .query("qrCodes")
+    .withIndex("by_token", (q) => q.eq("token", args.token))
+    .unique();
+
+  if (!qrCode) {
+    throw new Error("QR code not found");
+  }
+
+  if (qrCode.equipmentId) {
+    throw new Error("QR code already linked to equipment");
+  }
+
+  const equipment = await ctx.db.get("equipment", args.equipmentId);
+  if (!equipment) {
+    throw new Error("Equipment not found");
+  }
+
+  // Se o equipamento já está vinculado a um item planejado, propaga a obra.
+  let projectId: Id<"projects"> | undefined;
+  if (equipment.projectEquipmentId) {
+    const planned = await ctx.db.get(
+      "projectEquipment",
+      equipment.projectEquipmentId
+    );
+    projectId = planned?.projectId;
+  }
+
+  // Sem item planejado: a obra aberta no app de campo vence o destino do
+  // lote — o técnico está fisicamente nela.
+  if (!projectId && args.projectId) {
+    assertCanSetFieldProject(user);
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project || isProjectArchived(project)) {
+      throw new Error("Obra não disponível");
+    }
+    projectId = project._id;
+  }
+
+  // Por fim, herda a obra de destino do lote (qrBatches), se definida — o
+  // QR já nasce marcado como pertencente à obra.
+  if (!projectId) {
+    const destination = await getBatchDestination(ctx, qrCode.batchId);
+    projectId = destination?.projectId;
+  }
+
+  await ctx.db.patch("qrCodes", qrCode._id, {
+    equipmentId: args.equipmentId,
+    projectId: projectId ?? qrCode.projectId,
+  });
+}
+
+// qr_operator também pode vincular equipamento ao QR que escaneou.
+// `projectId` (opcional) é a obra aberta no app de campo no momento do
+// cadastro: a etiqueta passa a pertencer a ela, salvo se o equipamento já
+// está preso a um item planejado de outra obra.
 export const assignEquipment = authedMutation({
   args: {
     token: v.string(),
     equipmentId: v.id("equipment"),
+    projectId: v.optional(v.id("projects")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const qrCode = await ctx.db
-      .query("qrCodes")
-      .withIndex("by_token", (q) => q.eq("token", args.token))
-      .unique();
-
-    if (!qrCode) {
-      throw new Error("QR code not found");
-    }
-
-    if (qrCode.equipmentId) {
-      throw new Error("QR code already linked to equipment");
-    }
-
-    const equipment = await ctx.db.get("equipment", args.equipmentId);
-    if (!equipment) {
-      throw new Error("Equipment not found");
-    }
-
-    // Se o equipamento já está vinculado a um item planejado, propaga a obra.
-    let projectId: Id<"projects"> | undefined;
-    if (equipment.projectEquipmentId) {
-      const planned = await ctx.db.get(
-        "projectEquipment",
-        equipment.projectEquipmentId
-      );
-      projectId = planned?.projectId;
-    }
-
-    // Sem item planejado: herda a obra de destino do lote (qrBatches), se
-    // definida — o QR já nasce marcado como pertencente à obra.
-    if (!projectId) {
-      const destination = await getBatchDestination(ctx, qrCode.batchId);
-      projectId = destination?.projectId;
-    }
-
-    await ctx.db.patch("qrCodes", qrCode._id, {
-      equipmentId: args.equipmentId,
-      projectId: projectId ?? qrCode.projectId,
-    });
-
+    await linkEquipmentToQr(ctx, ctx.user, args);
     return null;
+  },
+});
+
+// Cadastro + vínculo na mesma transação. Se a obra estiver arquivada ou o QR
+// já tiver equipamento, nada é gravado — uma nova tentativa não cria órfão.
+export const registerForQr = authedMutation({
+  args: {
+    token: v.string(),
+    description: v.string(),
+    labelPhotoIds: v.array(v.id("_storage")),
+    status: v.optional(equipmentStatus),
+    projectId: v.optional(v.id("projects")),
+  },
+  returns: v.id("equipment"),
+  handler: async (ctx, args) => {
+    if (!args.description.trim()) {
+      throw new Error("Descrição é obrigatória");
+    }
+    if (args.labelPhotoIds.length === 0) {
+      throw new Error("É obrigatório anexar pelo menos uma foto da etiqueta");
+    }
+
+    const equipmentId = await ctx.db.insert("equipment", {
+      description: args.description.trim(),
+      labelPhotoIds: args.labelPhotoIds,
+      status: args.status ?? "installing",
+      createdAt: Date.now(),
+      createdByUserId: ctx.user._id,
+    });
+    await linkEquipmentToQr(ctx, ctx.user, {
+      token: args.token,
+      equipmentId,
+      projectId: args.projectId,
+    });
+    return equipmentId;
   },
 });
 
