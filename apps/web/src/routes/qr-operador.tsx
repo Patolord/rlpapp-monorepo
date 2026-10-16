@@ -2,7 +2,7 @@ import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { UserButton } from "@clerk/tanstack-react-start";
 import { useQuery } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { ArrowLeft, ChevronRight, HardHat, Search } from "lucide-react";
+import { ArrowLeft, ChevronRight, HardHat, History, Search } from "lucide-react";
 
 import { OfflineBanner } from "@/components/campo/field-page-shell";
 import { MyObrasList } from "@/components/campo/my-obras-list";
@@ -82,6 +82,22 @@ function QrOperadorPage() {
               <p className="text-sm font-semibold">Estou em outra obra</p>
               <p className="text-xs text-muted-foreground">
                 Procurar uma obra que não está na sua lista.
+              </p>
+            </div>
+            <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+          </Link>
+
+          <Link
+            to="/meus-registros"
+            className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:border-primary/40 hover:bg-muted/40 active:bg-muted/60"
+          >
+            <div className="rounded-md bg-muted p-2">
+              <History className="size-5 text-muted-foreground" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">Meus registros</p>
+              <p className="text-xs text-muted-foreground">
+                Tudo o que você enviou, inclusive o que ficou sem obra.
               </p>
             </div>
             <ChevronRight className="size-5 shrink-0 text-muted-foreground" />

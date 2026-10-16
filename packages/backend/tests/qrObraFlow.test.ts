@@ -566,4 +566,79 @@ describe("fluxo QR-Obra sem redundância", () => {
     );
     expect(qr?.projectId).toBe(projectId);
   });
+
+  test("cliente não pode mover a etiqueta para outra obra", async () => {
+    const t = setup();
+    const asClient = await withUser(t, { clerkId: "cli-obra", role: "client" });
+    const origem = await seedObra(t, "Origem");
+    const destino = await seedObra(t, "Destino");
+    const equipmentId = await t.run(async (ctx) => {
+      await ctx.db.insert("qrCodes", {
+        token: "CLIENTE1",
+        status: "active",
+        projectId: origem.projectId,
+        createdAt: Date.now(),
+      });
+      return await ctx.db.insert("equipment", {
+        description: "Livre",
+        status: "installing",
+        createdAt: Date.now(),
+      });
+    });
+
+    await expect(
+      asClient.mutation(api.qrCodes.assignEquipment, {
+        token: "CLIENTE1",
+        equipmentId,
+        projectId: destino.projectId,
+      })
+    ).rejects.toThrow("Sem permissão para vincular a etiqueta a uma obra");
+
+    const qr = await t.run(async (ctx) =>
+      ctx.db
+        .query("qrCodes")
+        .withIndex("by_token", (q) => q.eq("token", "CLIENTE1"))
+        .unique()
+    );
+    expect(qr?.equipmentId).toBeUndefined();
+    expect(qr?.projectId).toBe(origem.projectId);
+  });
+
+  test("registerForQr em obra arquivada não deixa equipamento órfão", async () => {
+    const t = setup();
+    const asTech = await withUser(t, {
+      clerkId: "tech-atom",
+      role: "qr_operator",
+    });
+    const archivedId = await t.run(async (ctx) => {
+      await ctx.db.insert("qrCodes", {
+        token: "ATOM001",
+        status: "active",
+        createdAt: Date.now(),
+      });
+      return await ctx.db.insert("projects", {
+        name: "Arquivada",
+        floors: [],
+        createdAt: Date.now(),
+        status: "archived",
+      });
+    });
+    const storageId = await t.run(async (ctx) =>
+      ctx.storage.store(new Blob(["foto"]))
+    );
+
+    await expect(
+      asTech.mutation(api.qrCodes.registerForQr, {
+        token: "ATOM001",
+        description: "Não deve existir",
+        labelPhotoIds: [storageId],
+        projectId: archivedId,
+      })
+    ).rejects.toThrow("Obra não disponível");
+
+    const leftover = await t.run(async (ctx) => ctx.db.query("equipment").collect());
+    expect(leftover.some((item) => item.description === "Não deve existir")).toBe(
+      false
+    );
+  });
 });

@@ -1,37 +1,61 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
-import { Stack, useRouter, type Href } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { Building2, ChevronRight, Search, WifiOff } from "lucide-react-native";
+import { useEffect, useState } from "react";
 import { FlatList, Pressable, Text, View } from "react-native";
 
 import { EmptyState, LoadingState } from "@rlpapp/ui/native";
 import { ObraListItem } from "@/components/campo/obra-list-item";
 import { PendingBanner } from "@/components/campo/pending-banner";
 import { SignOutButton } from "@/components/sign-out-button";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Card } from "@/components/ui/card";
+import { cacheFieldObra, cacheMyObras, getCachedMyObras } from "@/lib/field-cache";
 import { useOnline } from "@/lib/use-online";
+
+type MyObra = FunctionReturnType<typeof api.technicianPortal.listMyProjects>[number];
 
 /** Primeira tela do app de campo: as obras atribuídas ao técnico. */
 export default function MinhasObrasScreen() {
   const router = useRouter();
   const online = useOnline();
-  const projects = useQuery(api.technicianPortal.listMyProjects);
+  const live = useQuery(api.technicianPortal.listMyProjects);
+  const [cached, setCached] = useState<MyObra[] | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (live !== undefined) {
+      void cacheMyObras(live);
+      for (const project of live) {
+        void cacheFieldObra(project._id, { ...project, assigned: true });
+      }
+      return;
+    }
+    let alive = true;
+    void getCachedMyObras<MyObra>().then((value) => {
+      if (alive) setCached(value);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [live]);
+
+  const projects =
+    live !== undefined ? live : online || cached == null ? undefined : cached;
 
   return (
     <View className="flex-1">
-      <Stack.Screen options={{ headerRight: () => <ThemeToggle /> }} />
-
       {projects === undefined ? (
         <View className="flex-1 px-5">
           <PendingBanner onPress={() => router.push("/campo/pendentes" as Href)} />
-          {online ? (
+          {online || cached === undefined ? (
             <LoadingState label="Carregando suas obras…" />
           ) : (
             <View className="flex-1 items-center justify-center gap-3 px-4">
               <WifiOff size={32} color="#9ca3af" />
               <Text className="text-center text-sm text-muted-foreground">
-                Sem conexão. Conecte-se à internet para carregar suas obras.
+                Sem conexão. Abra o app com internet uma vez para guardar suas obras
+                neste aparelho.
               </Text>
             </View>
           )}
@@ -48,6 +72,11 @@ export default function MinhasObrasScreen() {
               <Text className="text-sm text-muted-foreground">
                 Toque em uma obra para escanear etiquetas e registrar serviços.
               </Text>
+              {live === undefined ? (
+                <Text className="text-xs text-muted-foreground">
+                  Lista salva neste aparelho — pode estar desatualizada.
+                </Text>
+              ) : null}
             </View>
           }
           renderItem={({ item }) => (

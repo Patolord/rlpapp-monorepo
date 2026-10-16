@@ -42,6 +42,7 @@ import { Route as QTokenRouteImport } from './routes/q/$token'
 import { Route as QrOperadorOutrasObrasRouteImport } from './routes/qr-operador_.outras-obras'
 import { Route as QrOperadorPendentesRouteImport } from './routes/qr-operador_.pendentes'
 import { Route as RhIndexRouteImport } from './routes/rh/index'
+import { Route as RhPontoRouteRouteImport } from './routes/rh/ponto/route'
 import { Route as DotwellKnownOauthProtectedResourceMcpRouteImport } from './routes/[.]well-known/oauth-protected-resource/mcp'
 import { Route as ComprasEventosPrecoIndexRouteImport } from './routes/compras/eventos-preco/index'
 import { Route as ComprasFilaRevisaoIndexRouteImport } from './routes/compras/fila-revisao/index'
@@ -61,6 +62,10 @@ import { Route as QrOperadorEstoqueObraSlugRouteImport } from './routes/qr-opera
 import { Route as QrOperadorObrasObraSlugRouteImport } from './routes/qr-operador_.obras.$obraSlug'
 import { Route as RhFolhaIndexRouteImport } from './routes/rh/folha/index'
 import { Route as RhFuncionariosIndexRouteImport } from './routes/rh/funcionarios/index'
+import { Route as RhPontoIndexRouteImport } from './routes/rh/ponto/index'
+import { Route as RhPontoDiaRouteImport } from './routes/rh/ponto/dia'
+import { Route as RhPontoMensalRouteImport } from './routes/rh/ponto/mensal'
+import { Route as RhPontoVinculosRouteImport } from './routes/rh/ponto/vinculos'
 import { Route as EngenhariaObrasObraSlugIndexRouteImport } from './routes/engenharia/obras/$obraSlug.index'
 import { Route as EngenhariaObrasObraSlugAssistenteRouteImport } from './routes/engenharia/obras/$obraSlug.assistente'
 import { Route as EngenhariaObrasObraSlugComprasRouteImport } from './routes/engenharia/obras/$obraSlug.compras'
@@ -258,6 +263,11 @@ const RhIndexRoute = RhIndexRouteImport.update({
   path: '/',
   getParentRoute: () => RhRouteRoute,
 } as any)
+const RhPontoRouteRoute = RhPontoRouteRouteImport.update({
+  id: '/ponto',
+  path: '/ponto',
+  getParentRoute: () => RhRouteRoute,
+} as any)
 const DotwellKnownOauthProtectedResourceMcpRoute =
   DotwellKnownOauthProtectedResourceMcpRouteImport.update({
     id: '/.well-known/oauth-protected-resource/mcp',
@@ -359,6 +369,26 @@ const RhFuncionariosIndexRoute = RhFuncionariosIndexRouteImport.update({
   id: '/funcionarios/',
   path: '/funcionarios/',
   getParentRoute: () => RhRouteRoute,
+} as any)
+const RhPontoIndexRoute = RhPontoIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => RhPontoRouteRoute,
+} as any)
+const RhPontoDiaRoute = RhPontoDiaRouteImport.update({
+  id: '/dia',
+  path: '/dia',
+  getParentRoute: () => RhPontoRouteRoute,
+} as any)
+const RhPontoMensalRoute = RhPontoMensalRouteImport.update({
+  id: '/mensal',
+  path: '/mensal',
+  getParentRoute: () => RhPontoRouteRoute,
+} as any)
+const RhPontoVinculosRoute = RhPontoVinculosRouteImport.update({
+  id: '/vinculos',
+  path: '/vinculos',
+  getParentRoute: () => RhPontoRouteRoute,
 } as any)
 const EngenhariaObrasObraSlugIndexRoute =
   EngenhariaObrasObraSlugIndexRouteImport.update({
@@ -539,6 +569,7 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof SignUpRoute
   '/engenharia/obras': typeof EngenhariaObrasRouteRouteWithChildren
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
+  '/rh/ponto': typeof RhPontoRouteRouteWithChildren
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/engenharia/contratos': typeof EngenhariaContratosRoute
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
@@ -564,6 +595,9 @@ export interface FileRoutesByFullPath {
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdRouteWithChildren
   '/qr-operador/estoque/$obraSlug': typeof QrOperadorEstoqueObraSlugRoute
   '/qr-operador/obras/$obraSlug': typeof QrOperadorObrasObraSlugRouteWithChildren
+  '/rh/ponto/dia': typeof RhPontoDiaRoute
+  '/rh/ponto/mensal': typeof RhPontoMensalRoute
+  '/rh/ponto/vinculos': typeof RhPontoVinculosRoute
   '/compras/eventos-preco/': typeof ComprasEventosPrecoIndexRoute
   '/compras/fila-revisao/': typeof ComprasFilaRevisaoIndexRoute
   '/compras/fornecedores/': typeof ComprasFornecedoresIndexRoute
@@ -576,6 +610,7 @@ export interface FileRoutesByFullPath {
   '/qr-operador/estoque/': typeof QrOperadorEstoqueIndexRoute
   '/rh/folha/': typeof RhFolhaIndexRoute
   '/rh/funcionarios/': typeof RhFuncionariosIndexRoute
+  '/rh/ponto/': typeof RhPontoIndexRoute
   '/engenharia/obras/$obraSlug/assistente': typeof EngenhariaObrasObraSlugAssistenteRoute
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
@@ -635,6 +670,9 @@ export interface FileRoutesByTo {
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
   '/qr-operador/estoque/$obraSlug': typeof QrOperadorEstoqueObraSlugRoute
+  '/rh/ponto/dia': typeof RhPontoDiaRoute
+  '/rh/ponto/mensal': typeof RhPontoMensalRoute
+  '/rh/ponto/vinculos': typeof RhPontoVinculosRoute
   '/compras/eventos-preco': typeof ComprasEventosPrecoIndexRoute
   '/compras/fila-revisao': typeof ComprasFilaRevisaoIndexRoute
   '/compras/fornecedores': typeof ComprasFornecedoresIndexRoute
@@ -647,6 +685,7 @@ export interface FileRoutesByTo {
   '/qr-operador/estoque': typeof QrOperadorEstoqueIndexRoute
   '/rh/folha': typeof RhFolhaIndexRoute
   '/rh/funcionarios': typeof RhFuncionariosIndexRoute
+  '/rh/ponto': typeof RhPontoIndexRoute
   '/engenharia/obras/$obraSlug/assistente': typeof EngenhariaObrasObraSlugAssistenteRoute
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
@@ -692,6 +731,7 @@ export interface FileRoutesById {
   '/sign-up': typeof SignUpRoute
   '/engenharia/obras': typeof EngenhariaObrasRouteRouteWithChildren
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
+  '/rh/ponto': typeof RhPontoRouteRouteWithChildren
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/engenharia/contratos': typeof EngenhariaContratosRoute
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
@@ -717,6 +757,9 @@ export interface FileRoutesById {
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdRouteWithChildren
   '/qr-operador_/estoque/$obraSlug': typeof QrOperadorEstoqueObraSlugRoute
   '/qr-operador_/obras/$obraSlug': typeof QrOperadorObrasObraSlugRouteWithChildren
+  '/rh/ponto/dia': typeof RhPontoDiaRoute
+  '/rh/ponto/mensal': typeof RhPontoMensalRoute
+  '/rh/ponto/vinculos': typeof RhPontoVinculosRoute
   '/compras/eventos-preco/': typeof ComprasEventosPrecoIndexRoute
   '/compras/fila-revisao/': typeof ComprasFilaRevisaoIndexRoute
   '/compras/fornecedores/': typeof ComprasFornecedoresIndexRoute
@@ -729,6 +772,7 @@ export interface FileRoutesById {
   '/qr-operador_/estoque/': typeof QrOperadorEstoqueIndexRoute
   '/rh/folha/': typeof RhFolhaIndexRoute
   '/rh/funcionarios/': typeof RhFuncionariosIndexRoute
+  '/rh/ponto/': typeof RhPontoIndexRoute
   '/engenharia/obras/$obraSlug/assistente': typeof EngenhariaObrasObraSlugAssistenteRoute
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
@@ -775,6 +819,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/engenharia/obras'
     | '/engenharia/relatorios'
+    | '/rh/ponto'
     | '/.well-known/oauth-authorization-server'
     | '/engenharia/contratos'
     | '/engenharia/medicoes'
@@ -800,6 +845,9 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId'
     | '/qr-operador/estoque/$obraSlug'
     | '/qr-operador/obras/$obraSlug'
+    | '/rh/ponto/dia'
+    | '/rh/ponto/mensal'
+    | '/rh/ponto/vinculos'
     | '/compras/eventos-preco/'
     | '/compras/fila-revisao/'
     | '/compras/fornecedores/'
@@ -812,6 +860,7 @@ export interface FileRouteTypes {
     | '/qr-operador/estoque/'
     | '/rh/folha/'
     | '/rh/funcionarios/'
+    | '/rh/ponto/'
     | '/engenharia/obras/$obraSlug/assistente'
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
@@ -871,6 +920,9 @@ export interface FileRouteTypes {
     | '/engenharia/equipamento/$id'
     | '/engenharia/qr/$token'
     | '/qr-operador/estoque/$obraSlug'
+    | '/rh/ponto/dia'
+    | '/rh/ponto/mensal'
+    | '/rh/ponto/vinculos'
     | '/compras/eventos-preco'
     | '/compras/fila-revisao'
     | '/compras/fornecedores'
@@ -883,6 +935,7 @@ export interface FileRouteTypes {
     | '/qr-operador/estoque'
     | '/rh/folha'
     | '/rh/funcionarios'
+    | '/rh/ponto'
     | '/engenharia/obras/$obraSlug/assistente'
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
@@ -927,6 +980,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/engenharia/obras'
     | '/engenharia/relatorios'
+    | '/rh/ponto'
     | '/.well-known/oauth-authorization-server'
     | '/engenharia/contratos'
     | '/engenharia/medicoes'
@@ -952,6 +1006,9 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId'
     | '/qr-operador_/estoque/$obraSlug'
     | '/qr-operador_/obras/$obraSlug'
+    | '/rh/ponto/dia'
+    | '/rh/ponto/mensal'
+    | '/rh/ponto/vinculos'
     | '/compras/eventos-preco/'
     | '/compras/fila-revisao/'
     | '/compras/fornecedores/'
@@ -964,6 +1021,7 @@ export interface FileRouteTypes {
     | '/qr-operador_/estoque/'
     | '/rh/folha/'
     | '/rh/funcionarios/'
+    | '/rh/ponto/'
     | '/engenharia/obras/$obraSlug/assistente'
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
@@ -1252,6 +1310,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RhIndexRouteImport
       parentRoute: typeof RhRouteRoute
     }
+    '/rh/ponto': {
+      id: '/rh/ponto'
+      path: '/ponto'
+      fullPath: '/rh/ponto'
+      preLoaderRoute: typeof RhPontoRouteRouteImport
+      parentRoute: typeof RhRouteRoute
+    }
     '/.well-known/oauth-protected-resource/mcp': {
       id: '/.well-known/oauth-protected-resource/mcp'
       path: '/.well-known/oauth-protected-resource/mcp'
@@ -1384,6 +1449,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/rh/funcionarios/'
       preLoaderRoute: typeof RhFuncionariosIndexRouteImport
       parentRoute: typeof RhRouteRoute
+    }
+    '/rh/ponto/': {
+      id: '/rh/ponto/'
+      path: '/'
+      fullPath: '/rh/ponto/'
+      preLoaderRoute: typeof RhPontoIndexRouteImport
+      parentRoute: typeof RhPontoRouteRoute
+    }
+    '/rh/ponto/dia': {
+      id: '/rh/ponto/dia'
+      path: '/dia'
+      fullPath: '/rh/ponto/dia'
+      preLoaderRoute: typeof RhPontoDiaRouteImport
+      parentRoute: typeof RhPontoRouteRoute
+    }
+    '/rh/ponto/mensal': {
+      id: '/rh/ponto/mensal'
+      path: '/mensal'
+      fullPath: '/rh/ponto/mensal'
+      preLoaderRoute: typeof RhPontoMensalRouteImport
+      parentRoute: typeof RhPontoRouteRoute
+    }
+    '/rh/ponto/vinculos': {
+      id: '/rh/ponto/vinculos'
+      path: '/vinculos'
+      fullPath: '/rh/ponto/vinculos'
+      preLoaderRoute: typeof RhPontoVinculosRouteImport
+      parentRoute: typeof RhPontoRouteRoute
     }
     '/engenharia/obras/$obraSlug/': {
       id: '/engenharia/obras/$obraSlug/'
@@ -1766,13 +1859,33 @@ const EstoqueRouteRouteWithChildren = EstoqueRouteRoute._addFileChildren(
   EstoqueRouteRouteChildren,
 )
 
+interface RhPontoRouteRouteChildren {
+  RhPontoDiaRoute: typeof RhPontoDiaRoute
+  RhPontoMensalRoute: typeof RhPontoMensalRoute
+  RhPontoVinculosRoute: typeof RhPontoVinculosRoute
+  RhPontoIndexRoute: typeof RhPontoIndexRoute
+}
+
+const RhPontoRouteRouteChildren: RhPontoRouteRouteChildren = {
+  RhPontoDiaRoute: RhPontoDiaRoute,
+  RhPontoMensalRoute: RhPontoMensalRoute,
+  RhPontoVinculosRoute: RhPontoVinculosRoute,
+  RhPontoIndexRoute: RhPontoIndexRoute,
+}
+
+const RhPontoRouteRouteWithChildren = RhPontoRouteRoute._addFileChildren(
+  RhPontoRouteRouteChildren,
+)
+
 interface RhRouteRouteChildren {
+  RhPontoRouteRoute: typeof RhPontoRouteRouteWithChildren
   RhIndexRoute: typeof RhIndexRoute
   RhFolhaIndexRoute: typeof RhFolhaIndexRoute
   RhFuncionariosIndexRoute: typeof RhFuncionariosIndexRoute
 }
 
 const RhRouteRouteChildren: RhRouteRouteChildren = {
+  RhPontoRouteRoute: RhPontoRouteRouteWithChildren,
   RhIndexRoute: RhIndexRoute,
   RhFolhaIndexRoute: RhFolhaIndexRoute,
   RhFuncionariosIndexRoute: RhFuncionariosIndexRoute,
@@ -1841,3 +1954,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

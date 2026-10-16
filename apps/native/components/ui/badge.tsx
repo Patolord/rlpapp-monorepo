@@ -11,8 +11,8 @@ const badgeVariants = cva(
         secondary: "bg-secondary",
         destructive: "bg-destructive",
         outline: "border border-border bg-transparent",
-        success: "bg-green-100 dark:bg-green-900",
-        warning: "bg-yellow-100 dark:bg-yellow-900",
+        success: "bg-green-100",
+        warning: "bg-yellow-100",
       },
     },
     defaultVariants: {
@@ -28,8 +28,8 @@ const badgeTextVariants = cva("text-xs font-medium", {
       secondary: "text-secondary-foreground",
       destructive: "text-destructive-foreground",
       outline: "text-foreground",
-      success: "text-green-700 dark:text-green-300",
-      warning: "text-yellow-700 dark:text-yellow-300",
+      success: "text-green-700",
+      warning: "text-yellow-700",
     },
   },
   defaultVariants: {

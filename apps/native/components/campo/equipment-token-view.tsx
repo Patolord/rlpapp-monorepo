@@ -18,7 +18,6 @@ import { EquipmentForm } from "@/components/engenharia/equipment-form";
 import { MaintenanceForm } from "@/components/engenharia/maintenance-form";
 import { MaintenanceLogCard } from "@/components/engenharia/maintenance-log";
 import { StatusBadge } from "@/components/engenharia/status-badge";
-import { useAppTheme } from "@/contexts/app-theme-context";
 import { COLORS } from "@/lib/colors";
 import type { EquipmentStatus } from "@/lib/equipment-status";
 import {
@@ -36,8 +35,8 @@ export interface FieldProjectRef {
 interface EquipmentTokenViewProps {
   token: string;
   /**
-   * Obra aberta no app de campo. Um cadastro novo vincula a etiqueta a ela;
-   * uma etiqueta de outra obra só mostra um aviso (nunca bloqueia).
+   * Obra aberta no app de campo. Um cadastro novo vincula a etiqueta a ela
+   * (a obra aberta vence o destino do lote). Etiqueta de outra obra só avisa.
    */
   project?: FieldProjectRef | null;
 }
@@ -48,9 +47,8 @@ interface EquipmentTokenViewProps {
  * do cache local.
  */
 export function EquipmentTokenView({ token, project }: EquipmentTokenViewProps) {
-  const { isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const bg = isDark ? COLORS.dark.background : COLORS.light.background;
+  const bg = COLORS.background;
 
   return (
     <View style={{ flex: 1, backgroundColor: bg }}>
@@ -89,6 +87,12 @@ function Content({
             description: data.equipment.description,
             status: data.equipment.status,
             createdAt: data.equipment.createdAt,
+          }
+        : null,
+      project: data?.project
+        ? {
+            projectId: data.project.projectId,
+            projectName: data.project.projectName,
           }
         : null,
     });
@@ -140,7 +144,7 @@ function Content({
         </View>
         <EquipmentForm
           qrToken={token}
-          project={otherProject ? null : project}
+          project={project}
           onSuccess={() => {}}
         />
       </View>
@@ -164,12 +168,12 @@ function Content({
 
 function OtherObraNotice({ name }: { name: string }) {
   return (
-    <View className="flex-row items-center gap-2 rounded-md border border-blue-300 bg-blue-50 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/40">
+    <View className="flex-row items-center gap-2 rounded-md border border-blue-300 bg-blue-50 px-4 py-3">
       <Building2 size={18} color="#2563eb" />
-      <Text className="flex-1 text-sm text-blue-900 dark:text-blue-200">
+      <Text className="flex-1 text-sm text-blue-900">
         Esta etiqueta pertence à obra{" "}
-        <Text className="font-semibold">{name}</Text>. Você pode registrar
-        mesmo assim.
+        <Text className="font-semibold">{name}</Text>. O cadastro vai
+        vinculá-la à obra que você abriu.
       </Text>
     </View>
   );
@@ -233,6 +237,11 @@ function OfflineContent({
               Se este equipamento ainda não foi cadastrado, registre abaixo.
             </Text>
           </View>
+          {cached?.project &&
+          project &&
+          cached.project.projectId !== project._id ? (
+            <OtherObraNotice name={cached.project.projectName} />
+          ) : null}
           <EquipmentForm qrToken={token} project={project} onSuccess={() => {}} />
           <Text className="text-center text-sm text-muted-foreground">
             Equipamento já cadastrado? Registre a instalação ou manutenção:

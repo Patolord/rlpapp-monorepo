@@ -12,7 +12,6 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
-import { AppThemeProvider, useAppTheme } from "@/contexts/app-theme-context";
 import { OfflineSync } from "@/components/offline-sync";
 import { COLORS } from "@/lib/colors";
 
@@ -40,8 +39,7 @@ function EnsureUser() {
 }
 
 function StackLayout() {
-  const { isDark } = useAppTheme();
-  const bg = isDark ? COLORS.dark.background : COLORS.light.background;
+  const bg = COLORS.background;
 
   return (
     <Stack
@@ -70,9 +68,7 @@ export default function Layout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SafeAreaProvider>
             <KeyboardProvider>
-              <AppThemeProvider>
-                <InnerLayout />
-              </AppThemeProvider>
+              <InnerLayout />
             </KeyboardProvider>
           </SafeAreaProvider>
         </GestureHandlerRootView>
@@ -82,8 +78,7 @@ export default function Layout() {
 }
 
 function InnerLayout() {
-  const { isDark } = useAppTheme();
-  const bg = isDark ? COLORS.dark.background : COLORS.light.background;
+  const bg = COLORS.background;
 
   return (
     <View style={{ flex: 1, backgroundColor: bg }}>

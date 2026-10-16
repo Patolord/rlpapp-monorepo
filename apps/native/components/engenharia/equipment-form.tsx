@@ -27,8 +27,7 @@ interface EquipmentFormProps {
 }
 
 export function EquipmentForm({ qrToken, project, onSuccess }: EquipmentFormProps) {
-  const createEquipment = useMutation(api.equipment.create);
-  const assignQr = useMutation(api.qrCodes.assignEquipment);
+  const registerForQr = useMutation(api.qrCodes.registerForQr);
   const generateUploadUrl = useMutation(api.maintenanceLogs.generateUploadUrl);
   const online = useOnline();
 
@@ -67,16 +66,11 @@ export function EquipmentForm({ qrToken, project, onSuccess }: EquipmentFormProp
       }
 
       const labelPhotoIds = await uploadPhotos(generateUploadUrl, photos);
-      const equipmentId = await createEquipment({
+      const equipmentId = await registerForQr({
+        token: qrToken,
         description: description.trim(),
         labelPhotoIds,
         status,
-        qrToken,
-      });
-
-      await assignQr({
-        token: qrToken,
-        equipmentId,
         projectId: project?._id,
       });
       onSuccess(equipmentId as string);

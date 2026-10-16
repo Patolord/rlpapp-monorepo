@@ -2,6 +2,7 @@ import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
 import { useEffect } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import { useOnline } from "@/lib/use-online";
 import { EquipmentTokenPage } from "@/components/campo/equipment-token-page";
 import { StatusBadge } from "@/components/engenharia/status-badge";
 import { Button } from "@/components/ui/button";
@@ -163,14 +164,33 @@ function UnauthenticatedView() {
   );
 }
 
+function fieldObraSlug(
+  project:
+    | {
+        projectId: string;
+        projectSlug: string | null;
+        archived: boolean;
+      }
+    | null
+    | undefined
+): string | null {
+  if (!project || project.archived) return null;
+  return project.projectSlug ?? project.projectId;
+}
+
 function AuthenticatedContent() {
   const { token } = Route.useParams();
   const data = useQuery(api.qrCodes.getByToken, { token });
   const currentUser = useQuery(api.users.getCurrentUser);
+  const online = useOnline();
 
   // Técnico de campo: a etiqueta abre dentro da obra à qual pertence. Sem
-  // obra conhecida (etiqueta livre de lote sem destino), fica na página direta.
-  if (currentUser === undefined || (currentUser?.role === "qr_operator" && data === undefined)) {
+  // obra conhecida (ou obra arquivada), fica na página direta, que também
+  // cobre o cadastro offline.
+  if (
+    (currentUser === undefined && online) ||
+    (currentUser?.role === "qr_operator" && data === undefined && online)
+  ) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -179,11 +199,7 @@ function AuthenticatedContent() {
   }
   let obraSlug: string | null = null;
   if (currentUser?.role === "qr_operator" && data) {
-    if (data.project) {
-      obraSlug = data.project.projectSlug ?? data.project.projectId;
-    } else if (data.batchProject) {
-      obraSlug = data.batchProject.projectId;
-    }
+    obraSlug = fieldObraSlug(data.project) ?? fieldObraSlug(data.batchProject);
   }
   if (obraSlug) {
     return (

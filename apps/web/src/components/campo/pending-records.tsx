@@ -64,7 +64,7 @@ export function PendingBanner() {
           {count} {count === 1 ? "registro pendente" : "registros pendentes"}
         </p>
         <p className="text-xs opacity-80">
-          Aguardando conexão para enviar. Toque para ver.
+          Aguardando envio. Toque para ver.
         </p>
       </div>
       <ChevronRight className="size-4 shrink-0" />
@@ -218,7 +218,7 @@ export function PendingRecordsPage() {
           <CloudUpload className="size-4 shrink-0" />
           <span>
             {records.length} registro{records.length > 1 ? "s" : ""} aguardando
-            envio.{online ? " Tentando enviar..." : " Sem internet no momento."}
+            envio.{online ? " Toque em Enviar agora." : " Sem internet no momento."}
           </span>
         </div>
       )}

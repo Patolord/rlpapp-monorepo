@@ -11,8 +11,6 @@ import {
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ThemeToggle } from "@/components/theme-toggle";
-import { useAppTheme } from "@/contexts/app-theme-context";
 import { COLORS } from "@/lib/colors";
 
 const ACTIVE = "#f59e0b";
@@ -20,17 +18,16 @@ const ACTIVE = "#f59e0b";
 export default function EngenhariaTabsLayout() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<{ openDrawer: () => void }>();
-  const { isDark } = useAppTheme();
 
   const currentUser = useQuery(api.users.getCurrentUser);
   const isAdmin =
     currentUser?.role === "director" || currentUser?.role === "admin";
 
-  const bg = isDark ? COLORS.dark.background : COLORS.light.background;
-  const fg = isDark ? COLORS.dark.foreground : COLORS.light.foreground;
-  const inactive = isDark ? "#8a94a6" : "#5b6472";
-  const surface = isDark ? "#1b2433" : "#ffffff";
-  const border = isDark ? "#2a3446" : "#d8e3ef";
+  const bg = COLORS.background;
+  const fg = COLORS.foreground;
+  const inactive = "#5b6472";
+  const surface = "#ffffff";
+  const border = "#d8e3ef";
 
   return (
     <View style={{ flex: 1, backgroundColor: bg, paddingTop: insets.top }}>
@@ -51,7 +48,6 @@ export default function EngenhariaTabsLayout() {
             Engenharia
           </Text>
         </View>
-        <ThemeToggle />
       </View>
 
       <Tabs

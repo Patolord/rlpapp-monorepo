@@ -16,7 +16,9 @@ export function usePendingRecords(): PendingRecord[] | undefined {
   );
 
   const refresh = useCallback(() => {
-    void listPendingRecords().then(setRecords);
+    listPendingRecords()
+      .then(setRecords)
+      .catch(() => setRecords((prev) => prev ?? []));
   }, []);
 
   useEffect(() => {

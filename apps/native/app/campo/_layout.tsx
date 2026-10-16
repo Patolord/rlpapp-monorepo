@@ -2,7 +2,6 @@ import { useAuth } from "@clerk/expo";
 import { Redirect, Stack } from "expo-router";
 import { View } from "react-native";
 
-import { useAppTheme } from "@/contexts/app-theme-context";
 import { COLORS } from "@/lib/colors";
 import { useNativeHeaderOptions } from "@/lib/native-header";
 
@@ -12,9 +11,8 @@ import { useNativeHeaderOptions } from "@/lib/native-header";
  */
 export default function CampoLayout() {
   const { isLoaded, isSignedIn } = useAuth();
-  const { isDark } = useAppTheme();
   const header = useNativeHeaderOptions();
-  const bg = isDark ? COLORS.dark.background : COLORS.light.background;
+  const bg = COLORS.background;
 
   if (!isLoaded) {
     return <View style={{ flex: 1, backgroundColor: bg }} />;

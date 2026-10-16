@@ -10,8 +10,6 @@ import { EmptyState, LoadingState } from "@rlpapp/ui/native";
 import { StatusBadge } from "@/components/engenharia/status-badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useAppTheme } from "@/contexts/app-theme-context";
-
 type QrFilter = "all" | "registered" | "free";
 
 const FILTERS: { key: QrFilter; label: string }[] = [
@@ -33,7 +31,6 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 export default function ObraEtiquetasScreen() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
   const router = useRouter();
-  const { isDark } = useAppTheme();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<QrFilter>("all");
   const debouncedSearch = useDebouncedValue(search.trim(), 300);
@@ -48,8 +45,8 @@ export default function ObraEtiquetasScreen() {
     { initialNumItems: 30 }
   );
 
-  const chipBg = isDark ? "#1e293b" : "#e2e8f0";
-  const chipText = isDark ? "#94a3b8" : "#64748b";
+  const chipBg = "#e2e8f0";
+  const chipText = "#64748b";
 
   return (
     <View className="flex-1">

@@ -1,3 +1,4 @@
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { Stack, useLocalSearchParams } from "expo-router";
 
 import { EquipmentTokenView } from "@/components/campo/equipment-token-view";
@@ -9,15 +10,21 @@ export default function ObraEquipamentoScreen() {
     projectId: string;
     token: string;
   }>();
-  const obra = useFieldObra(projectId);
+  const projectIdStr = Array.isArray(projectId) ? projectId[0] : projectId;
+  const obra = useFieldObra(projectIdStr);
   const tokenStr = Array.isArray(token) ? token[0] : token;
+  const obraName = obra?.name?.trim() ? obra.name : "Obra";
 
   return (
     <>
       <Stack.Screen options={{ title: tokenStr ?? "Equipamento" }} />
       <EquipmentTokenView
         token={tokenStr ?? ""}
-        project={obra ? { _id: obra._id, name: obra.name } : null}
+        project={
+          projectIdStr
+            ? { _id: projectIdStr as Id<"projects">, name: obraName }
+            : null
+        }
       />
     </>
   );

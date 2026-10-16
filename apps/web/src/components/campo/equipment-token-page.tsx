@@ -27,8 +27,8 @@ interface EquipmentTokenPageProps {
   token: string;
   /**
    * Obra aberta no app de campo. Um cadastro novo vincula a etiqueta a ela
-   * (e oferece a vaga planejada nela); uma etiqueta de outra obra só mostra
-   * um aviso, nunca bloqueia.
+   * (a obra aberta vence o destino do lote) e oferece a vaga planejada nela.
+   * Etiqueta de outra obra só avisa.
    */
   project?: FieldProjectRef | null;
   /** Conteúdo exibido quando o código não existe (botão de voltar, etc.). */
@@ -67,6 +67,12 @@ export function EquipmentTokenPage({
             createdAt: data.equipment.createdAt,
           }
         : null,
+      project: data?.project
+        ? {
+            projectId: data.project.projectId,
+            projectName: data.project.projectName,
+          }
+        : null,
     });
   }, [data, token]);
 
@@ -103,9 +109,8 @@ export function EquipmentTokenPage({
     project && data.project && data.project.projectId !== project._id
       ? data.project
       : null;
-  // Obra que recebe a etiqueta num cadastro novo: a aberta no app, salvo se
-  // a etiqueta já pertence a outra.
-  const registrationProject = otherProject ? null : project;
+  // A obra aberta recebe a etiqueta. O aviso só informa a troca.
+  const registrationProject = project;
 
   if (!equipment) {
     return (
@@ -168,7 +173,7 @@ function OtherObraNotice({ name }: { name: string }) {
       <Building2 className="mt-0.5 size-4 shrink-0" />
       <span>
         Esta etiqueta pertence à obra <span className="font-semibold">{name}</span>.
-        Você pode registrar mesmo assim.
+        O cadastro vai vinculá-la à obra que você abriu.
       </span>
     </div>
   );
@@ -236,6 +241,11 @@ function OfflineContent({
         </>
       ) : (
         <>
+          {cached?.project &&
+          project &&
+          cached.project.projectId !== project._id && (
+            <OtherObraNotice name={cached.project.projectName} />
+          )}
           <EquipmentForm qrToken={token} project={project} onSuccess={() => {}} />
           <Separator />
           <p className="text-center text-sm text-muted-foreground">

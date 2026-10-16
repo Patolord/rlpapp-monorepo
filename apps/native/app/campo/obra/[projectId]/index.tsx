@@ -96,9 +96,9 @@ export default function ObraHubScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {!obra.assigned ? (
-          <View className="flex-row items-center gap-2 rounded-md border border-blue-300 bg-blue-50 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/40">
+          <View className="flex-row items-center gap-2 rounded-md border border-blue-300 bg-blue-50 px-4 py-3">
             <ShieldAlert size={18} color="#2563eb" />
-            <Text className="flex-1 text-sm text-blue-900 dark:text-blue-200">
+            <Text className="flex-1 text-sm text-blue-900">
               Você não está atribuído a esta obra. Pode registrar mesmo assim;
               avise a engenharia se for ficar nela.
             </Text>
@@ -174,7 +174,7 @@ export default function ObraHubScreen() {
         <View className="gap-2">
           <HubTile
             icon={<QrCode size={22} color="#d97706" />}
-            iconBg="bg-amber-100 dark:bg-amber-950"
+            iconBg="bg-amber-100"
             title="Etiquetas da obra"
             description="Equipamentos cadastrados e etiquetas livres."
             onPress={() =>
@@ -186,7 +186,7 @@ export default function ObraHubScreen() {
           />
           <HubTile
             icon={<History size={22} color="#10b981" />}
-            iconBg="bg-green-100 dark:bg-green-950"
+            iconBg="bg-green-100"
             title="Meus registros nesta obra"
             description="Serviços e cadastros que você enviou."
             onPress={() =>

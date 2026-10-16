@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import {
   createFileRoute,
@@ -34,10 +34,20 @@ function CampoObraLayout() {
   const { ownerId } = useFieldCacheOwner();
   // getFieldProject nunca lança "acesso negado": uma obra não atribuída
   // abre com `assigned: false` (válvula de escape) e a UI só avisa.
-  const { data: obra, fromCache, cacheChecked } = useOfflineQuery(
+  const { data: cachedObra, fromCache, cacheChecked } = useOfflineQuery(
     fieldCacheKeys.project(obraSlug),
     api.technicianPortal.getFieldProject,
     { identifier: obraSlug }
+  );
+  // Cache antigo de getMyProject não tinha `assigned`. Essa consulta só
+  // devolvia obra que o técnico podia abrir, então a ausência do campo
+  // significa atribuído — senão documentos e estoque somem offline.
+  const obra = useMemo(
+    () =>
+      cachedObra == null
+        ? cachedObra
+        : { ...cachedObra, assigned: cachedObra.assigned ?? true },
+    [cachedObra]
   );
 
   // Resposta ao vivo "não existe / arquivada": a obra saiu do campo, então

@@ -20,6 +20,7 @@ import {
   ArrowLeftRight,
   Shield,
   Banknote,
+  Clock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -86,6 +87,7 @@ function getNavGroups(): NavGroup[] {
       items: [
         { to: "/rh/folha", label: "Folha de pagamento", icon: Banknote },
         { to: "/rh/funcionarios", label: "Funcionários", icon: Users },
+        { to: "/rh/ponto", label: "Ponto (RHID)", icon: Clock },
       ],
     },
     {

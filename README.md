@@ -68,6 +68,22 @@ Guia oficial: [Convex + Clerk](https://docs.convex.dev/auth/clerk)
    - `CLERK_WEBHOOK_SECRET` — secret do webhook (Clerk Dashboard > Webhooks, endpoint `https://<deployment>.convex.site/clerk-users-webhook`, eventos `user.created`, `user.updated`, `user.deleted`)
    - `MATERIAL_LOOKUP_TOKEN` — opcional; habilita `GET https://<deployment>.convex.site/materials/lookup?q=<texto>` (header `Authorization: Bearer <token>`) para agentes externos consultarem a descrição canônica de um material. Sem ele o endpoint responde 503. Gere com `npx convex env set MATERIAL_LOOKUP_TOKEN "$(openssl rand -hex 24)"`
 
+### 4.1 Ponto (RHID) — opcional
+
+O módulo **RH > Ponto (RHID)** espelha o controle de acesso [RHID](https://rhid.com.br) no Convex
+(marcações, presença do dia, homem-dia por obra). A coleta roda no backend com uma credencial de
+integração, então nenhum usuário precisa logar no RHID pelo app.
+
+No **Convex Dashboard** (ou via `npx convex env set`), defina:
+
+- `RHID_EMAIL` / `RHID_PASSWORD` — credencial de um usuário do RHID com acesso às marcações
+- `RHID_COMPANY_ID` — opcional; id da empresa no RHID (padrão `1`)
+
+Sem essas variáveis a tela funciona em modo somente leitura e o cron (`convex/crons.ts`, a cada 30 min)
+não faz nada. Com elas, o RH pode sincronizar um dia ou um mês pela tela e o cron mantém ontem/hoje
+atualizados. Pessoas do RHID são vinculadas aos `employees` por CPF ou nome (ajuste manual em
+**Ponto > Vínculos**); cercas (geofences) podem ser vinculadas a obras.
+
 ### 5. Rodar em desenvolvimento
 
 ```bash

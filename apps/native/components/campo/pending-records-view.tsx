@@ -12,7 +12,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/engenharia/status-badge";
-import { useAppTheme } from "@/contexts/app-theme-context";
 import { COLORS } from "@/lib/colors";
 import { getMaintenanceLogTypeLabel } from "@/lib/maintenance-log-type";
 import {
@@ -25,10 +24,9 @@ import { usePendingRecords } from "@/lib/use-pending-records";
 
 /** Fila de registros feitos sem internet, com envio manual e descarte. */
 export function PendingRecordsView() {
-  const { isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const online = useOnline();
-  const bg = isDark ? COLORS.dark.background : COLORS.light.background;
+  const bg = COLORS.background;
   const records = usePendingRecords();
 
   function handleDelete(id: string) {
@@ -77,7 +75,7 @@ export function PendingRecordsView() {
               <Text className="flex-1 text-sm text-amber-800">
                 {records.length} registro{records.length > 1 ? "s" : ""} aguardando
                 envio.
-                {online ? " Tentando enviar..." : " Sem internet no momento."}
+                {online ? " Toque em Enviar agora." : " Sem internet no momento."}
               </Text>
             </View>
 

@@ -50,6 +50,11 @@ export interface CachedEquipment {
     status: EquipmentStatus;
     createdAt: number;
   } | null;
+  /** Obra já gravada na etiqueta, quando a consulta online chegou a responder. */
+  project?: {
+    projectId: string;
+    projectName: string;
+  } | null;
 }
 
 const DB_NAME = "rlp-offline";

@@ -28,7 +28,7 @@ export function ObraListItem({ project, onPress }: ObraListItemProps) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button">
       <Card className="flex-row items-center gap-3 p-4">
-        <View className="h-11 w-11 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-950">
+        <View className="h-11 w-11 items-center justify-center rounded-xl bg-amber-100">
           <Building2 size={22} color="#d97706" />
         </View>
         <View className="min-w-0 flex-1 gap-1">

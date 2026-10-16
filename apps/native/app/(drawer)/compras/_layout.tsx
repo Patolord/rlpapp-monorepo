@@ -12,8 +12,6 @@ import {
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ThemeToggle } from "@/components/theme-toggle";
-import { useAppTheme } from "@/contexts/app-theme-context";
 import { COLORS } from "@/lib/colors";
 
 const ACTIVE = "#3b82f6";
@@ -21,13 +19,12 @@ const ACTIVE = "#3b82f6";
 export default function ComprasTabsLayout() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<{ openDrawer: () => void }>();
-  const { isDark } = useAppTheme();
 
-  const bg = isDark ? COLORS.dark.background : COLORS.light.background;
-  const fg = isDark ? COLORS.dark.foreground : COLORS.light.foreground;
-  const inactive = isDark ? "#8a94a6" : "#5b6472";
-  const surface = isDark ? "#1b2433" : "#ffffff";
-  const border = isDark ? "#2a3446" : "#d8e3ef";
+  const bg = COLORS.background;
+  const fg = COLORS.foreground;
+  const inactive = "#5b6472";
+  const surface = "#ffffff";
+  const border = "#d8e3ef";
 
   return (
     <View style={{ flex: 1, backgroundColor: bg, paddingTop: insets.top }}>
@@ -48,7 +45,6 @@ export default function ComprasTabsLayout() {
             Compras
           </Text>
         </View>
-        <ThemeToggle />
       </View>
 
       <Tabs
