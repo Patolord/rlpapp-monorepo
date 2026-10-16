@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+// Keep these values in sync with `lib/theme.ts` (the source of truth) so
+// className-based legacy screens and the token-based components share one palette.
 module.exports = {
   content: [
     "./app/**/*.{js,jsx,ts,tsx}",
@@ -10,35 +12,40 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        border: "#e5e5e5",
-        input: "#e5e5e5",
-        ring: "#1a1a2e",
-        background: "#d3e3f0",
-        foreground: "#0a0a0f",
+        border: "#D6DEEC",
+        input: "#D6DEEC",
+        ring: "#3B82E0",
+        background: "#F6F9FD",
+        foreground: "#1B2A5E",
         primary: {
-          DEFAULT: "#1a1a2e",
-          foreground: "#fafafa",
+          DEFAULT: "#3B82E0",
+          foreground: "#FFFFFF",
         },
         secondary: {
-          DEFAULT: "#f4f4f5",
-          foreground: "#1a1a2e",
+          DEFAULT: "#EEF3FA",
+          foreground: "#1B2A5E",
         },
         destructive: {
-          DEFAULT: "#ef4444",
-          foreground: "#fafafa",
+          DEFAULT: "#C8402E",
+          foreground: "#FFFFFF",
         },
         muted: {
-          DEFAULT: "#f4f4f5",
-          foreground: "#737373",
+          DEFAULT: "#EEF3FA",
+          foreground: "#4A5A8A",
         },
         accent: {
-          DEFAULT: "#f4f4f5",
-          foreground: "#1a1a2e",
+          DEFAULT: "#E4EEFB",
+          foreground: "#1B2A5E",
         },
         card: {
-          DEFAULT: "#ffffff",
-          foreground: "#0a0a0f",
+          DEFAULT: "#FFFFFF",
+          foreground: "#1B2A5E",
         },
+      },
+      borderRadius: {
+        lg: "16px",
+        md: "12px",
+        sm: "10px",
       },
     },
   },

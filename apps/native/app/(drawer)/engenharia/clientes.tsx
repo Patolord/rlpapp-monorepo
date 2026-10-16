@@ -1,79 +1,82 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Users } from "lucide-react-native";
+import { Building2, User, Users } from "lucide-react-native";
 import { useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
+import { FlatList, View } from "react-native";
 
-import { CustomerCard } from "@/components/engenharia/customer-card";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import {
+  EmptyState,
+  ListRow,
+  LoadingState,
+  Pill,
+  ScreenHeader,
+  SearchField,
+  screenStyles,
+} from "@/components/ui";
+import { colors, space } from "@/lib/theme";
 
 export default function ClientesScreen() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const customers = useQuery(api.customers.list, {
-    search: search || undefined,
+    search: search.trim() || undefined,
   });
 
   return (
-    <View className="flex-1">
-      <View className="flex-row items-center gap-3 px-5 pb-4 pt-5">
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={10}
-          className="h-9 w-9 items-center justify-center rounded-full bg-card"
-        >
-          <ArrowLeft size={20} color="#9ca3af" />
-        </Pressable>
-        <View className="flex-1">
-          <Text className="text-2xl font-bold text-foreground">Clientes</Text>
-          <Text className="text-sm text-muted-foreground">
-            Gestão de clientes e contatos
-          </Text>
-        </View>
-      </View>
+    <View style={{ flex: 1 }}>
+      <ScreenHeader
+        title="Clientes"
+        subtitle={
+          customers === undefined
+            ? "Gestão de clientes e contatos"
+            : `${customers.length} ${customers.length === 1 ? "cliente" : "clientes"}`
+        }
+        onBack={() => router.back()}
+      />
 
-      <View className="px-5 pb-3">
-        <Input
-          placeholder="Buscar clientes..."
-          value={search}
-          onChangeText={setSearch}
-        />
-      </View>
+      <SearchField
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Buscar por nome, razão social ou CNPJ"
+        containerStyle={{ marginHorizontal: space.screen, marginBottom: space.lg }}
+      />
 
       {customers === undefined ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" />
-        </View>
+        <LoadingState />
       ) : (
         <FlatList
           data={customers}
           keyExtractor={(item) => item._id}
-          contentContainerStyle={{ padding: 20, paddingTop: 0, gap: 12 }}
+          contentContainerStyle={screenStyles.content}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <Card className="items-center gap-3 py-10">
-              <View className="h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                <Users size={28} color="#f59e0b" />
-              </View>
-              <Text className="text-center text-base font-medium text-foreground">
-                Nenhum cliente encontrado
-              </Text>
-              <Text className="px-6 text-center text-sm text-muted-foreground">
-                {search
+            <EmptyState
+              icon={<Users size={30} color={colors.primary} strokeWidth={1.8} />}
+              title={search ? "Nenhum cliente encontrado" : "Nenhum cliente ainda"}
+              description={
+                search
                   ? "Nenhum cliente corresponde à busca."
-                  : "Os clientes aparecerão aqui quando forem cadastrados."}
-              </Text>
-            </Card>
-          }
-          renderItem={({ item }) => (
-            <CustomerCard
-              name={item.name}
-              email={item.email}
-              phone={item.phone}
+                  : "Os clientes aparecerão aqui quando forem cadastrados."
+              }
             />
-          )}
+          }
+          renderItem={({ item }) => {
+            const isCompany = item.personType === "pj";
+            const Icon = isCompany ? Building2 : User;
+            const subtitle = [item.legalName && item.legalName !== item.name ? item.legalName : null, item.email, item.phone]
+              .filter(Boolean)
+              .join(" · ");
+            return (
+              <ListRow
+                icon={<Icon size={22} color={colors.primary} strokeWidth={1.8} />}
+                title={item.name}
+                subtitle={subtitle || null}
+                trailing={!item.active ? <Pill label="Inativo" tone="warning" /> : undefined}
+              />
+            );
+          }}
         />
       )}
     </View>

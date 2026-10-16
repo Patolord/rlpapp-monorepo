@@ -1,6 +1,8 @@
-// Keep these values in sync with `tailwind.config.js` so the imperative
-// background (used by Container/Stack) matches the `bg-background` utility.
+import { colors } from "@/lib/theme";
+
+// Legacy accessor kept for screens that have not been migrated to `@/lib/theme`
+// yet. Values mirror the theme so old and new screens share one canvas.
 export const COLORS = {
-  background: "#d3e3f0",
-  foreground: "#0a0a0f",
+  background: colors.bg,
+  foreground: colors.text,
 } as const;

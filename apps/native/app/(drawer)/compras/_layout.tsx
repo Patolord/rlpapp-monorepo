@@ -3,54 +3,34 @@ import { useQuery } from "convex/react";
 import { Tabs, useNavigation } from "expo-router";
 import {
   LayoutGrid,
-  Menu,
   Package,
   Receipt,
   ClipboardList,
   Truck,
 } from "lucide-react-native";
-import { Pressable, Text, View } from "react-native";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { COLORS } from "@/lib/colors";
-
-const ACTIVE = "#3b82f6";
+import { ScreenHeader } from "@/components/ui";
+import { colors } from "@/lib/theme";
 
 export default function ComprasTabsLayout() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<{ openDrawer: () => void }>();
 
-  const bg = COLORS.background;
-  const fg = COLORS.foreground;
-  const inactive = "#5b6472";
-  const surface = "#ffffff";
-  const border = "#d8e3ef";
+  const bg = colors.bg;
+  const inactive = colors.icon;
+  const surface = colors.surface;
+  const border = colors.border;
 
   return (
     <View style={{ flex: 1, backgroundColor: bg, paddingTop: insets.top }}>
-      <View
-        className="flex-row items-center justify-between px-4 py-3"
-        style={{ borderBottomWidth: 1, borderBottomColor: border }}
-      >
-        <View className="flex-row items-center gap-3">
-          <Pressable
-            onPress={() => navigation.openDrawer()}
-            hitSlop={10}
-            className="h-9 w-9 items-center justify-center rounded-full"
-            style={{ backgroundColor: surface }}
-          >
-            <Menu size={20} color={fg} />
-          </Pressable>
-          <Text className="text-xl font-bold" style={{ color: fg }}>
-            Compras
-          </Text>
-        </View>
-      </View>
+      <ScreenHeader title="Compras" onMenu={() => navigation.openDrawer()} large />
 
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: ACTIVE,
+          tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: inactive,
           tabBarStyle: {
             backgroundColor: surface,
