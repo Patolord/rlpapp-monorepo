@@ -1,5 +1,6 @@
 import "leaflet/dist/leaflet.css";
 
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import type { LatLngBoundsExpression } from "leaflet";
 import { useEffect, useMemo } from "react";
 import {
@@ -12,6 +13,8 @@ import {
   useMap,
 } from "react-leaflet";
 
+import { PunchPhotoButton } from "./punch-photo";
+
 /** Ponto no mapa (uma marcação ou a posição atual de uma pessoa). */
 export type MapMarker = {
   id: string;
@@ -22,7 +25,8 @@ export type MapMarker = {
   color: string;
   title: string;
   lines: string[];
-  photoUrl?: string | null;
+  /** Marcação com foto (aberta sob demanda pelo proxy autenticado). */
+  photoPunchId?: Id<"timeClockPunches"> | null;
 };
 
 export type MapWorksite = {
@@ -167,15 +171,8 @@ export default function TimeClockMap({
                 {marker.lines.map((line, index) => (
                   <div key={index}>{line}</div>
                 ))}
-                {marker.photoUrl ? (
-                  <a
-                    href={marker.photoUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-primary underline"
-                  >
-                    Ver foto
-                  </a>
+                {marker.photoPunchId ? (
+                  <PunchPhotoButton punchId={marker.photoPunchId} personName={marker.title} />
                 ) : null}
               </div>
             </Popup>

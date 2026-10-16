@@ -5,7 +5,6 @@ import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
 import {
   AlertTriangle,
-  Camera,
   Coffee,
   HardHat,
   LogOut,
@@ -36,6 +35,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import { KindBadge } from "./day-view";
+import { PunchPhotoButton } from "./punch-photo";
 import { SyncStatusBar } from "./sync-status-bar";
 
 const TimeClockMap = lazy(() => import("./time-clock-map"));
@@ -129,7 +129,7 @@ export function TimeClockLiveView() {
               ? `${p.locationExact ? "Em" : "Perto de"} ${p.worksiteName}`
               : "Fora de cerca",
           ],
-          photoUrl: p.photoUrl,
+          photoPunchId: p.photoPunchId,
         })),
     [live]
   );
@@ -715,15 +715,8 @@ function PersonDetail({
           <span>
             {person.lastKind ? `Última: ${PUNCH_KIND_LABEL[person.lastKind]}` : ""}
           </span>
-          {person.photoUrl ? (
-            <a
-              href={person.photoUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-primary hover:underline"
-            >
-              <Camera className="size-3.5" /> última foto
-            </a>
+          {person.photoPunchId ? (
+            <PunchPhotoButton punchId={person.photoPunchId} personName={person.name} />
           ) : null}
         </div>
       </CardContent>
@@ -752,11 +745,7 @@ function Avatar({ person, size = "md" }: { person: LivePerson; size?: "md" | "lg
             : "bg-muted text-muted-foreground"
       )}
     >
-      {person.photoUrl ? (
-        <img src={person.photoUrl} alt="" className="size-full object-cover" loading="lazy" />
-      ) : (
-        initials(person.name)
-      )}
+      {initials(person.name)}
       <span
         className="absolute right-0 bottom-0 size-3 rounded-full border-2 border-card"
         style={{ backgroundColor: LIVE_STATUS_COLOR[person.status] }}

@@ -48,6 +48,7 @@ import type * as lib_projects_documents from "../lib/projects/documents.js";
 import type * as lib_projects_helpers from "../lib/projects/helpers.js";
 import type * as lib_rbac from "../lib/rbac.js";
 import type * as lib_rh_payroll from "../lib/rh/payroll.js";
+import type * as lib_rh_photo from "../lib/rh/photo.js";
 import type * as lib_rh_rhid from "../lib/rh/rhid.js";
 import type * as lib_rh_timeClockDb from "../lib/rh/timeClockDb.js";
 import type * as maintenanceLogs from "../maintenanceLogs.js";
@@ -127,6 +128,7 @@ declare const fullApi: ApiFromModules<{
   "lib/projects/helpers": typeof lib_projects_helpers;
   "lib/rbac": typeof lib_rbac;
   "lib/rh/payroll": typeof lib_rh_payroll;
+  "lib/rh/photo": typeof lib_rh_photo;
   "lib/rh/rhid": typeof lib_rh_rhid;
   "lib/rh/timeClockDb": typeof lib_rh_timeClockDb;
   maintenanceLogs: typeof maintenanceLogs;

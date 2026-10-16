@@ -33,6 +33,7 @@ type Env = {
   readonly OPENAI_API_KEY: string | undefined;
   readonly RHID_COMPANY_ID: string | undefined;
   readonly RHID_EMAIL: string | undefined;
+  readonly RHID_MEDIA_ALLOWED_HOSTS: string | undefined;
   readonly RHID_PASSWORD: string | undefined;
 };
 

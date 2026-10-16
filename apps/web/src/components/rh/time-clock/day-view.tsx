@@ -3,7 +3,6 @@ import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
 import { MetricCard } from "@rlpapp/ui/web";
 import {
-  Camera,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -41,6 +40,7 @@ import {
 } from "@/lib/rh/time-clock";
 import { cn } from "@/lib/utils";
 
+import { PunchPhotoButton } from "./punch-photo";
 import { SyncStatusBar } from "./sync-status-bar";
 
 const TimeClockMap = lazy(() => import("./time-clock-map"));
@@ -112,7 +112,7 @@ export function TimeClockDayView({
             `${PUNCH_KIND_LABEL[p.kind]} às ${p.timeLabel}`,
             ...(p.geofenceName ? [`Local: ${p.geofenceName}`] : []),
           ],
-          photoUrl: p.photoUrl,
+          photoPunchId: p.hasPhoto ? p._id : null,
         })),
     [day]
   );
@@ -351,15 +351,8 @@ export function TimeClockDayView({
                             {punch.geofenceName ?? (punch.latitude === null ? "sem GPS" : "fora de cerca")}
                           </span>
                         </div>
-                        {punch.photoUrl ? (
-                          <a
-                            href={punch.photoUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                          >
-                            <Camera className="size-3.5" /> foto
-                          </a>
+                        {punch.hasPhoto ? (
+                          <PunchPhotoButton punchId={punch._id} personName={punch.personName} />
                         ) : null}
                       </li>
                     ))}
@@ -429,7 +422,7 @@ function PersonRow({
     >
       <TableCell>
         <div className="flex items-center gap-3">
-          <PersonAvatar name={person.name} photoUrl={person.photoUrl} present={person.present} />
+          <PersonAvatar name={person.name} present={person.present} />
           <div className="min-w-0">
             <div className="truncate font-medium">{person.name}</div>
             <div className="truncate text-xs text-muted-foreground">
@@ -466,15 +459,7 @@ function PersonRow({
   );
 }
 
-function PersonAvatar({
-  name,
-  photoUrl,
-  present,
-}: {
-  name: string;
-  photoUrl: string | null;
-  present: boolean;
-}) {
+function PersonAvatar({ name, present }: { name: string; present: boolean }) {
   return (
     <span
       className={cn(
@@ -482,11 +467,7 @@ function PersonAvatar({
         present ? "bg-emerald-100 text-emerald-800" : "bg-muted text-muted-foreground"
       )}
     >
-      {photoUrl ? (
-        <img src={photoUrl} alt="" className="size-full object-cover" loading="lazy" />
-      ) : (
-        initials(name)
-      )}
+      {initials(name)}
     </span>
   );
 }
