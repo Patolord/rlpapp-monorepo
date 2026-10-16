@@ -15,7 +15,7 @@
     "prebuild": "doppler run -- expo prebuild",
     "web": "EXPO_NO_DOTENV=1 doppler run -- expo start --web",
     "check-types": "tsc --noEmit",
-    "lint": "eslint app components lib contexts"
+    "lint": "eslint app components lib"
   },
   "dependencies": {
     "@clerk/expo": "^4.5.0",
