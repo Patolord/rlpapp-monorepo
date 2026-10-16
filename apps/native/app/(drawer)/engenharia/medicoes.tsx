@@ -1,94 +1,79 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { formatCurrency } from "@rlpapp/shared";
 import { useQuery } from "convex/react";
-import { useRouter } from "expo-router";
-import { ArrowLeft, BarChart3 } from "lucide-react-native";
-import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
+import { useRouter, type Href } from "expo-router";
+import { Ruler } from "lucide-react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 
-import { MedicaoCard } from "@/components/engenharia/medicao-card";
-import { Card } from "@/components/ui/card";
+import { EmptyState, LoadingState, Pill, ScreenHeader, StatTile, Surface, screenStyles } from "@/components/ui";
+import { colors, radius, space, type } from "@/lib/theme";
 
-export default function MedicoesScreen() {
+/** Visão global das medições por obra; toque abre as medições da obra. */
+export default function MedicoesOverviewScreen() {
   const router = useRouter();
   const overview = useQuery(api.medicoes.getOverview);
 
-  const totalMedicoes = overview?.length ?? 0;
-  const valorTotalCents =
-    overview?.reduce((sum, p) => sum + p.medidoCents, 0) ?? 0;
-  const pendentesAprovacao =
-    overview?.filter((p) => p.medidoCents > p.aprovadoCents).length ?? 0;
+  const totals = (overview ?? []).reduce(
+    (acc, p) => {
+      acc.contratos += p.contractTotalCents;
+      acc.medido += p.medidoCents;
+      acc.pago += p.pagoCents;
+      acc.pendentes += p.medidoCents > p.aprovadoCents ? 1 : 0;
+      return acc;
+    },
+    { contratos: 0, medido: 0, pago: 0, pendentes: 0 }
+  );
 
   return (
-    <View className="flex-1">
-      <View className="flex-row items-center gap-3 px-5 pb-4 pt-5">
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={10}
-          className="h-9 w-9 items-center justify-center rounded-full bg-card"
-        >
-          <ArrowLeft size={20} color="#9ca3af" />
-        </Pressable>
-        <View className="flex-1">
-          <Text className="text-2xl font-bold text-foreground">Medições</Text>
-          <Text className="text-sm text-muted-foreground">
-            Visão geral de todas as medições
-          </Text>
-        </View>
-      </View>
-
+    <View style={{ flex: 1 }}>
+      <ScreenHeader title="Medições" subtitle="Faturamento por obra" onBack={() => router.back()} />
       {overview === undefined ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" />
-        </View>
+        <LoadingState />
       ) : (
         <FlatList
           data={overview}
           keyExtractor={(item) => item.projectId}
-          contentContainerStyle={{ padding: 20, paddingTop: 0, gap: 12 }}
+          contentContainerStyle={screenStyles.content}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <View className="flex-row flex-wrap gap-3 mb-4">
-              <StatCard label="Total de medições" value={String(totalMedicoes)} />
-              <StatCard
-                label="Valor total medido"
-                value={formatCurrency(valorTotalCents)}
-              />
-              <StatCard
-                label="Pendentes aprovação"
-                value={String(pendentesAprovacao)}
-              />
+            <View style={styles.stats}>
+              <StatTile label="Medido" value={formatCurrency(totals.medido)} hint={`de ${formatCurrency(totals.contratos)} contratados`} />
+              <StatTile label="Pago" value={formatCurrency(totals.pago)} tone="success" hint={`${totals.pendentes} obra${totals.pendentes === 1 ? "" : "s"} com pendência`} />
             </View>
           }
           ListEmptyComponent={
-            <Card className="items-center gap-3 py-10">
-              <View className="h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-                <BarChart3 size={28} color="#f59e0b" />
-              </View>
-              <Text className="text-center text-base font-medium text-foreground">
-                Nenhuma medição encontrada
-              </Text>
-              <Text className="px-6 text-center text-sm text-muted-foreground">
-                As medições aparecerão aqui quando forem criadas.
-              </Text>
-            </Card>
+            <EmptyState
+              icon={<Ruler size={30} color={colors.primary} strokeWidth={1.8} />}
+              title="Nenhuma medição"
+              description="As medições aparecerão aqui quando forem criadas nas obras."
+            />
           }
           renderItem={({ item }) => {
-            const status =
-              item.pagoCents >= item.medidoCents && item.medidoCents > 0
-                ? "paid"
-                : item.aprovadoCents >= item.medidoCents && item.medidoCents > 0
-                  ? "approved"
-                  : item.medidoCents > 0
-                    ? "submitted"
-                    : "draft";
-
+            const pct = item.contractTotalCents > 0 ? Math.round((item.medidoCents / item.contractTotalCents) * 100) : 0;
+            const pending = item.medidoCents > item.aprovadoCents;
             return (
-              <MedicaoCard
-                projectName={item.projectName}
-                period={`${item.contractCount} contrato${item.contractCount === 1 ? "" : "s"}`}
-                valueCents={item.medidoCents}
-                status={status as "draft" | "submitted" | "approved" | "paid"}
-              />
+              <Surface onPress={() => router.push(`/obra/${item.projectId}/medicoes` as Href)} style={{ gap: space.sm }}>
+                <View style={styles.rowBetween}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={[type.bodyStrong, { color: colors.text }]} numberOfLines={2}>
+                      {item.legacyNumber ? `#${item.legacyNumber} · ` : ""}
+                      {item.projectName}
+                    </Text>
+                    {item.client ? (
+                      <Text style={[type.bodySm, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {item.client}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Pill label={pending ? "Pendente" : item.pagoCents >= item.medidoCents && item.medidoCents > 0 ? "Pago" : "Em dia"} tone={pending ? "warning" : item.medidoCents > 0 ? "success" : "neutral"} />
+                </View>
+                <View style={styles.track}>
+                  <View style={[styles.bar, { width: `${Math.min(100, pct)}%` }]} />
+                </View>
+                <Text style={[type.caption, { color: colors.textMuted }]}>
+                  Medido {formatCurrency(item.medidoCents)} ({pct}%) · pago {formatCurrency(item.pagoCents)} · {item.contractCount} contrato{item.contractCount === 1 ? "" : "s"}
+                </Text>
+              </Surface>
             );
           }}
         />
@@ -97,11 +82,9 @@ export default function MedicoesScreen() {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <Card className="min-w-[30%] flex-1 p-3">
-      <Text className="text-lg font-bold text-foreground">{value}</Text>
-      <Text className="mt-0.5 text-xs text-muted-foreground">{label}</Text>
-    </Card>
-  );
-}
+const styles = StyleSheet.create({
+  stats: { flexDirection: "row", gap: space.md, marginBottom: space.sm },
+  rowBetween: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: space.md },
+  track: { height: 8, borderRadius: radius.pill, backgroundColor: colors.track, overflow: "hidden" },
+  bar: { height: "100%", borderRadius: radius.pill, backgroundColor: colors.primary },
+});
