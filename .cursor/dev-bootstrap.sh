@@ -38,6 +38,7 @@ OPENAI_API_KEY_VAL=""
 RHID_EMAIL_VAL=""
 RHID_PASSWORD_VAL=""
 RHID_COMPANY_ID_VAL=""
+RHID_MEDIA_ALLOWED_HOSTS_VAL=""
 SECRETS_SOURCE="placeholder"
 
 if [ -n "${DOPPLER_TOKEN:-}" ] && command -v doppler >/dev/null 2>&1; then
@@ -53,6 +54,7 @@ if [ -n "${DOPPLER_TOKEN:-}" ] && command -v doppler >/dev/null 2>&1; then
     v="$(dop_get RHID_EMAIL)"; [ -n "$v" ] && RHID_EMAIL_VAL="$v"
     v="$(dop_get RHID_PASSWORD)"; [ -n "$v" ] && RHID_PASSWORD_VAL="$v"
     v="$(dop_get RHID_COMPANY_ID)"; [ -n "$v" ] && RHID_COMPANY_ID_VAL="$v"
+    v="$(dop_get RHID_MEDIA_ALLOWED_HOSTS)"; [ -n "$v" ] && RHID_MEDIA_ALLOWED_HOSTS_VAL="$v"
     SECRETS_SOURCE="doppler"
   else
     echo "dev-bootstrap: WARNING: DOPPLER_SERVICE_TOKEN set but 'doppler secrets download' failed (check token scope: project rlpeng / config dev). Using placeholders." >&2
@@ -85,6 +87,9 @@ set_convex_env() {
     convex env set RHID_PASSWORD "$RHID_PASSWORD_VAL" || true
     if [ -n "$RHID_COMPANY_ID_VAL" ]; then
       convex env set RHID_COMPANY_ID "$RHID_COMPANY_ID_VAL" || true
+    fi
+    if [ -n "$RHID_MEDIA_ALLOWED_HOSTS_VAL" ]; then
+      convex env set RHID_MEDIA_ALLOWED_HOSTS "$RHID_MEDIA_ALLOWED_HOSTS_VAL" || true
     fi
   fi
 }
