@@ -3,16 +3,14 @@ import { useQuery } from "convex/react";
 import { Tabs, useNavigation } from "expo-router";
 import {
   History,
-  Menu,
   ShieldAlert,
   Warehouse,
 } from "lucide-react-native";
-import { Pressable, Text, View } from "react-native";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { COLORS } from "@/lib/colors";
-
-const ACTIVE = "#10b981";
+import { ScreenHeader } from "@/components/ui";
+import { colors } from "@/lib/theme";
 
 export default function EstoqueTabsLayout() {
   const insets = useSafeAreaInsets();
@@ -24,37 +22,19 @@ export default function EstoqueTabsLayout() {
     currentUser?.role === "engenheiro" ||
     currentUser?.role === "admin";
 
-  const bg = COLORS.background;
-  const fg = COLORS.foreground;
-  const inactive = "#5b6472";
-  const surface = "#ffffff";
-  const border = "#d8e3ef";
+  const bg = colors.bg;
+  const inactive = colors.icon;
+  const surface = colors.surface;
+  const border = colors.border;
 
   return (
     <View style={{ flex: 1, backgroundColor: bg, paddingTop: insets.top }}>
-      <View
-        className="flex-row items-center justify-between px-4 py-3"
-        style={{ borderBottomWidth: 1, borderBottomColor: border }}
-      >
-        <View className="flex-row items-center gap-3">
-          <Pressable
-            onPress={() => navigation.openDrawer()}
-            hitSlop={10}
-            className="h-9 w-9 items-center justify-center rounded-full"
-            style={{ backgroundColor: surface }}
-          >
-            <Menu size={20} color={fg} />
-          </Pressable>
-          <Text className="text-xl font-bold" style={{ color: fg }}>
-            Estoque
-          </Text>
-        </View>
-      </View>
+      <ScreenHeader title="Estoque" onMenu={() => navigation.openDrawer()} large />
 
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: ACTIVE,
+          tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: inactive,
           tabBarStyle: {
             backgroundColor: surface,

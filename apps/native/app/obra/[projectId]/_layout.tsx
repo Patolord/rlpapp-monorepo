@@ -19,7 +19,8 @@ import { useRef } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { COLORS } from "@/lib/colors";
+import { IconButton } from "@/components/ui";
+import { colors, radius, space, type } from "@/lib/theme";
 
 interface TabDef {
   segment: string;
@@ -52,14 +53,13 @@ export default function ProjectTabsLayout() {
   const segments = useSegments();
   const scrollRef = useRef<ScrollView>(null);
 
-  const bg = COLORS.background;
-  const fg = COLORS.foreground;
-  const chipBg = "#e2e8f0";
-  const chipActiveBg = "#f59e0b";
-  const chipText = "#64748b";
-  const chipActiveText = "#000";
-  const iconColor = chipText;
-  const iconActiveColor = chipActiveText;
+  const bg = colors.bg;
+  const chipBg = colors.surface;
+  const chipActiveBg = colors.primary;
+  const chipText = colors.textSecondary;
+  const chipActiveText = colors.onPrimary;
+  const iconColor = colors.icon;
+  const iconActiveColor = colors.onPrimary;
 
   const activeSegment = resolveActiveSegment(segments);
 
@@ -85,30 +85,30 @@ export default function ProjectTabsLayout() {
 
   return (
     <View style={{ flex: 1, backgroundColor: bg, paddingTop: insets.top }}>
-      <View className="border-b border-border/40 bg-card/80 pb-2 pt-3">
-        <View className="flex-row items-center gap-3 px-4">
-          <Pressable
+      <View style={{ paddingBottom: space.md, borderBottomWidth: 1, borderBottomColor: colors.divider }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.screen, paddingTop: space.lg }}>
+          <IconButton
+            label="Voltar"
             onPress={goBack}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel="Voltar"
-            className="h-9 w-9 items-center justify-center rounded-full bg-card"
-          >
-            <ArrowLeft size={20} color={fg} />
-          </Pressable>
-          <Text
-            className="flex-1 text-lg font-bold text-foreground"
-            numberOfLines={1}
-          >
-            {project?.name ?? "Obra"}
-          </Text>
+            icon={<ArrowLeft size={20} color={colors.text} strokeWidth={2} />}
+          />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={[type.heading, { color: colors.text }]} numberOfLines={1}>
+              {project?.name ?? "Obra"}
+            </Text>
+            {project?.customerName ? (
+              <Text style={[type.bodySm, { color: colors.textSecondary }]} numberOfLines={1}>
+                {project.customerName}
+              </Text>
+            ) : null}
+          </View>
         </View>
 
         <ScrollView
           ref={scrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingTop: 10 }}
+          contentContainerStyle={{ paddingHorizontal: space.screen, gap: space.sm, paddingTop: space.lg }}
         >
           {TABS.map((tab) => {
             const active = activeSegment === tab.segment;
@@ -121,9 +121,11 @@ export default function ProjectTabsLayout() {
                   flexDirection: "row",
                   alignItems: "center",
                   gap: 6,
+                  height: 36,
                   paddingHorizontal: 14,
-                  paddingVertical: 7,
-                  borderRadius: 20,
+                  borderRadius: radius.pill,
+                  borderWidth: 1,
+                  borderColor: active ? chipActiveBg : colors.border,
                   backgroundColor: active ? chipActiveBg : chipBg,
                 }}
               >
@@ -133,8 +135,8 @@ export default function ProjectTabsLayout() {
                 />
                 <Text
                   style={{
-                    fontSize: 13,
-                    fontWeight: active ? "700" : "500",
+                    fontSize: 14,
+                    fontWeight: "600",
                     color: active ? chipActiveText : chipText,
                   }}
                 >
