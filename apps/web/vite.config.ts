@@ -22,7 +22,7 @@ export default defineConfig({
     registerType: "autoUpdate",
     // App SSR: o registro do SW é feito manualmente no cliente.
     injectRegister: false,
-    includeAssets: ["logo.jpg", "favicon.png"],
+    includeAssets: ["logo.jpg", "favicon.png", "favicon.ico"],
     manifest: {
       name: "RLP Engenharia",
       short_name: "RLP",
