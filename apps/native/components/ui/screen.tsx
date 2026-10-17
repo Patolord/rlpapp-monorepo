@@ -122,8 +122,9 @@ export function ScreenHeader({
   ) : onMenu ? (
     <IconButton
       label="Abrir menu"
+      tone="ghost"
       onPress={onMenu}
-      icon={<Menu size={20} color={colors.text} strokeWidth={2} />}
+      icon={<Menu size={24} color={colors.text} strokeWidth={2} />}
     />
   ) : null;
 
