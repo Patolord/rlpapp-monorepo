@@ -8,7 +8,14 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import { logAudit } from "./lib/audit";
-import { hrMutation, hrQuery, requirePermission, requireUser } from "./lib/rbac";
+import { getUserByIdentity } from "./lib/auth";
+import {
+  hasPermission,
+  hrMutation,
+  hrQuery,
+  requirePermission,
+  requireUser,
+} from "./lib/rbac";
 import {
   aggregateManDays,
   assertDateKey,
@@ -130,7 +137,7 @@ const dayPersonValidator = v.object({
   punchCount: v.number(),
   rhidGeofenceId: v.union(v.number(), v.null()),
   worksiteName: v.union(v.string(), v.null()),
-  photoUrl: v.union(v.string(), v.null()),
+  photoPunchId: v.union(v.id("timeClockPunches"), v.null()),
 });
 
 const dayPunchValidator = v.object({
@@ -144,7 +151,7 @@ const dayPunchValidator = v.object({
   kind: timeClockPunchKind,
   latitude: v.union(v.number(), v.null()),
   longitude: v.union(v.number(), v.null()),
-  photoUrl: v.union(v.string(), v.null()),
+  hasPhoto: v.boolean(),
   rhidGeofenceId: v.union(v.number(), v.null()),
   geofenceName: v.union(v.string(), v.null()),
 });
@@ -171,7 +178,7 @@ const livePersonValidator = v.object({
   locationExact: v.boolean(),
   latitude: v.union(v.number(), v.null()),
   longitude: v.union(v.number(), v.null()),
-  photoUrl: v.union(v.string(), v.null()),
+  photoPunchId: v.union(v.id("timeClockPunches"), v.null()),
   punches: v.array(
     v.object({
       timeLabel: v.string(),
@@ -271,6 +278,36 @@ export const assertHrWriteAccess = internalQuery({
     const user = await requireUser(ctx);
     requirePermission(user, "rh.write");
     return null;
+  },
+});
+
+/**
+ * Resolve a URL original da foto de uma marcação para o proxy HTTP
+ * (`/time-clock/photo/:punchId`). A URL do RHID nunca vai para o cliente.
+ */
+export const resolvePhoto = internalQuery({
+  args: { punchId: v.string() },
+  returns: v.union(
+    v.object({ status: v.literal("ok"), url: v.string() }),
+    v.object({
+      status: v.union(
+        v.literal("unauthenticated"),
+        v.literal("forbidden"),
+        v.literal("not_found")
+      ),
+    })
+  ),
+  handler: async (ctx, args) => {
+    if (!(await ctx.auth.getUserIdentity())) return { status: "unauthenticated" as const };
+    const user = await getUserByIdentity(ctx);
+    if (!user) return { status: "unauthenticated" as const };
+    if (!user.isActive || !hasPermission(user, "rh.read")) {
+      return { status: "forbidden" as const };
+    }
+    const punchId = ctx.db.normalizeId("timeClockPunches", args.punchId);
+    const punch = punchId ? await ctx.db.get("timeClockPunches", punchId) : null;
+    if (!punch?.photoUrl) return { status: "not_found" as const };
+    return { status: "ok" as const, url: punch.photoUrl };
   },
 });
 
@@ -457,7 +494,7 @@ export const getDay = hrQuery({
       last: Doc<"timeClockPunches">;
       count: number;
       worksite?: Doc<"timeClockPunches">;
-      photo?: string;
+      photo?: Id<"timeClockPunches">;
     };
     const presence = new Map<number, Presence>();
     const byKind = { entrada: 0, almoco_saida: 0, almoco_retorno: 0, saida: 0 };
@@ -472,13 +509,13 @@ export const getDay = hrQuery({
           last: punch,
           count: 1,
           worksite: punch.rhidGeofenceId !== undefined ? punch : undefined,
-          photo: punch.photoUrl,
+          photo: punch.photoUrl ? punch._id : undefined,
         });
       } else {
         entry.last = punch;
         entry.count += 1;
         if (!entry.worksite && punch.rhidGeofenceId !== undefined) entry.worksite = punch;
-        if (!entry.photo && punch.photoUrl) entry.photo = punch.photoUrl;
+        if (!entry.photo && punch.photoUrl) entry.photo = punch._id;
       }
       if (punch.rhidGeofenceId !== undefined) {
         const stats = worksiteStats.get(punch.rhidGeofenceId) ?? {
@@ -515,7 +552,7 @@ export const getDay = hrQuery({
         punchCount: entry.count,
         rhidGeofenceId: entry.worksite?.rhidGeofenceId ?? null,
         worksiteName: entry.worksite?.geofenceName ?? null,
-        photoUrl: entry.photo ?? null,
+        photoPunchId: entry.photo ?? null,
       });
     }
     for (const person of roster.values()) {
@@ -532,7 +569,7 @@ export const getDay = hrQuery({
         punchCount: 0,
         rhidGeofenceId: null,
         worksiteName: null,
-        photoUrl: null,
+        photoPunchId: null,
       });
     }
     dayPeople.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
@@ -573,7 +610,7 @@ export const getDay = hrQuery({
         kind: punch.kind,
         latitude: punch.latitude ?? null,
         longitude: punch.longitude ?? null,
-        photoUrl: punch.photoUrl ?? null,
+        hasPhoto: Boolean(punch.photoUrl),
         rhidGeofenceId: punch.rhidGeofenceId ?? null,
         geofenceName: punch.geofenceName ?? null,
       })),
@@ -666,7 +703,7 @@ export const getLiveStatus = hrQuery({
       const last = position.last;
       const worksite =
         position.worksiteId !== undefined ? worksiteById.get(position.worksiteId) : undefined;
-      const photo = [...own].reverse().find((p) => p.photoUrl)?.photoUrl;
+      const photo = [...own].reverse().find((p) => p.photoUrl)?._id;
 
       summary.total += 1;
       if (position.status === "on_site") summary.onSite += 1;
@@ -701,7 +738,7 @@ export const getLiveStatus = hrQuery({
         locationExact: position.locationExact,
         latitude: last?.latitude ?? null,
         longitude: last?.longitude ?? null,
-        photoUrl: photo ?? null,
+        photoPunchId: photo ?? null,
         punches: own.map((p) => ({
           timeLabel: p.timeLabel,
           kind: p.kind,

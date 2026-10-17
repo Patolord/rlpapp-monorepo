@@ -15,6 +15,9 @@ const app = defineApp({
     RHID_PASSWORD: v.optional(v.string()),
     // ID da empresa no RHID usado no filtro de marcações (padrão: 1).
     RHID_COMPANY_ID: v.optional(v.string()),
+    // Hosts extras (separados por vírgula) de onde o proxy pode buscar fotos
+    // de marcação, além de rhid.com.br e subdomínios.
+    RHID_MEDIA_ALLOWED_HOSTS: v.optional(v.string()),
   },
 });
 
