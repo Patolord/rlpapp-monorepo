@@ -2,7 +2,9 @@ import { Stack, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import {
   Building2,
   ChevronRight,
+  FileText,
   History,
+  Package,
   QrCode,
   ScanLine,
   Search,
@@ -22,6 +24,7 @@ import { PendingBanner } from "@/components/campo/pending-banner";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { plural } from "@/lib/format";
 import { useOnline } from "@/lib/use-online";
 import { normalizeTypedToken } from "@/lib/qr-token";
 
@@ -184,6 +187,36 @@ export default function ObraHubScreen() {
               })
             }
           />
+          {/* Documentos e estoque exigem atribuição à obra (as queries lançam
+              "acesso negado" para quem só está de passagem). */}
+          {obra.assigned ? (
+            <>
+              <HubTile
+                icon={<FileText size={22} color="#2563eb" />}
+                iconBg="bg-blue-100"
+                title="Documentos"
+                description={`${plural(obra.documentCount, "PDF")} liberados pela engenharia, com cópia offline.`}
+                onPress={() =>
+                  router.push({
+                    pathname: "/campo/obra/[projectId]/documentos",
+                    params: { projectId: projectId! },
+                  })
+                }
+              />
+              <HubTile
+                icon={<Package size={22} color="#7c3aed" />}
+                iconBg="bg-violet-100"
+                title="Estoque da obra"
+                description="Saldo de materiais, avisar que acabou e pedir mais."
+                onPress={() =>
+                  router.push({
+                    pathname: "/campo/obra/[projectId]/estoque",
+                    params: { projectId: projectId! },
+                  })
+                }
+              />
+            </>
+          ) : null}
           <HubTile
             icon={<History size={22} color="#10b981" />}
             iconBg="bg-green-100"

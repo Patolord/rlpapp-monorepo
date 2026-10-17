@@ -1,3 +1,4 @@
+import { useAuth } from "@clerk/expo";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
@@ -12,6 +13,7 @@ import { PendingBanner } from "@/components/campo/pending-banner";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Card } from "@/components/ui/card";
 import { cacheFieldObra, cacheMyObras, getCachedMyObras } from "@/lib/field-cache";
+import { pruneOfflineProjects } from "@/lib/field-documents";
 import { useOnline } from "@/lib/use-online";
 
 type MyObra = FunctionReturnType<typeof api.technicianPortal.listMyProjects>[number];
@@ -20,6 +22,7 @@ type MyObra = FunctionReturnType<typeof api.technicianPortal.listMyProjects>[num
 export default function MinhasObrasScreen() {
   const router = useRouter();
   const online = useOnline();
+  const { userId } = useAuth();
   const live = useQuery(api.technicianPortal.listMyProjects);
   const [cached, setCached] = useState<MyObra[] | null | undefined>(undefined);
 
@@ -29,6 +32,9 @@ export default function MinhasObrasScreen() {
       for (const project of live) {
         void cacheFieldObra(project._id, { ...project, assigned: true });
       }
+      // PDFs salvos de obras que saíram da lista (arquivadas ou acesso
+      // revogado) não podem continuar neste aparelho.
+      if (userId) void pruneOfflineProjects(userId, live.map((project) => project._id));
       return;
     }
     let alive = true;
@@ -38,7 +44,7 @@ export default function MinhasObrasScreen() {
     return () => {
       alive = false;
     };
-  }, [live]);
+  }, [live, userId]);
 
   const projects =
     live !== undefined ? live : online || cached == null ? undefined : cached;

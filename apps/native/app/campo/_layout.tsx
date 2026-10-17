@@ -33,6 +33,8 @@ export default function CampoLayout() {
         options={{ headerShown: false, presentation: "fullScreenModal" }}
       />
       <Stack.Screen name="obra/[projectId]/etiquetas" options={{ title: "Etiquetas QR" }} />
+      <Stack.Screen name="obra/[projectId]/documentos" options={{ title: "Documentos" }} />
+      <Stack.Screen name="obra/[projectId]/estoque" options={{ title: "Estoque da obra" }} />
       <Stack.Screen name="obra/[projectId]/registros" options={{ title: "Meus registros" }} />
       <Stack.Screen
         name="obra/[projectId]/equipamento/[token]"

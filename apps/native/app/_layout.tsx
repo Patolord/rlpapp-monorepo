@@ -13,6 +13,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { OfflineSync } from "@/components/offline-sync";
+import { ToastProvider } from "@/components/ui";
 import { COLORS } from "@/lib/colors";
 
 export const unstable_settings = {
@@ -68,7 +69,9 @@ export default function Layout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SafeAreaProvider>
             <KeyboardProvider>
-              <InnerLayout />
+              <ToastProvider>
+                <InnerLayout />
+              </ToastProvider>
             </KeyboardProvider>
           </SafeAreaProvider>
         </GestureHandlerRootView>
