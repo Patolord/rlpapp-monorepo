@@ -125,9 +125,15 @@ export function SearchField({
         autoCorrect={false}
         returnKeyType="search"
         clearButtonMode="never"
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        style={[styles.searchInput, { color: colors.text }]}
+        onFocus={(e) => {
+          setFocused(true);
+          props.onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          props.onBlur?.(e);
+        }}
+        style={[styles.searchInput, { color: colors.text }, props.style]}
       />
       {value.length > 0 ? (
         <Pressable onPress={() => onChangeText("")} hitSlop={10} accessibilityLabel="Limpar busca">

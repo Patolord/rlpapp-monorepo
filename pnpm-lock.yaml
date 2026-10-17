@@ -252,6 +252,9 @@ importers:
       expo-constants:
         specifier: ~55.0.17
         version: 55.0.17(expo@55.0.29)(react-native@0.83.10(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.85.3(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))(supports-color@8.1.1)
+      expo-file-system:
+        specifier: ~55.0.25
+        version: 55.0.25(expo@55.0.29)(react-native@0.83.10(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.85.3(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))
       expo-font:
         specifier: ~55.0.8
         version: 55.0.8(expo@55.0.29)(react-native@0.83.10(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.85.3(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))(react@19.2.0)
@@ -273,6 +276,9 @@ importers:
       expo-secure-store:
         specifier: ~55.0.17
         version: 55.0.17(expo@55.0.29)
+      expo-sharing:
+        specifier: ~55.0.23
+        version: 55.0.24(expo@55.0.29)(react-native@0.83.10(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.85.3(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))(react@19.2.0)(supports-color@8.1.1)
       expo-splash-screen:
         specifier: ~55.0.24
         version: 55.0.24(expo@55.0.29)(supports-color@8.1.1)(typescript@5.9.3)
@@ -442,6 +448,9 @@ importers:
       jose:
         specifier: ^6.2.10
         version: 6.2.10
+      leaflet:
+        specifier: ^1.9.4
+        version: 1.9.4
       lucide-react:
         specifier: ^1.14.0
         version: 1.14.0(react@19.2.6)
@@ -466,6 +475,9 @@ importers:
       react-dom:
         specifier: 19.2.6
         version: 19.2.6(react@19.2.6)
+      react-leaflet:
+        specifier: ^5.0.0
+        version: 5.0.0(leaflet@1.9.4)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       shadcn:
         specifier: ^4.7.0
         version: 4.7.0(@types/node@25.6.2)(babel-plugin-macros@3.1.0)(supports-color@8.1.1)(typescript@6.0.3)
@@ -527,6 +539,9 @@ importers:
       '@tanstack/react-router-devtools':
         specifier: ^1.167.2
         version: 1.167.2(@tanstack/react-router@1.170.41(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@tanstack/router-core@1.171.34)(csstype@3.2.3)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@types/leaflet':
+        specifier: ^1.9.22
+        version: 1.9.22
       '@types/node':
         specifier: ^25.6.2
         version: 25.6.2
@@ -4597,6 +4612,13 @@ packages:
   '@radix-ui/rect@1.1.1':
     resolution: {integrity: sha512-HPwpGIzkl28mWyZqG52jiqDJ12waP11Pa1lGoiyUkIEuMLBP0oeK/C89esbXrxsky5we7dfd8U58nm0SgAWpVw==}
 
+  '@react-leaflet/core@3.0.0':
+    resolution: {integrity: sha512-3EWmekh4Nz+pGcr+xjf0KNyYfC3U2JjnkWsh0zcqaexYqmmB5ZhH37kz41JXGmKzpaMZCnPofBBm64i+YrEvGQ==}
+    peerDependencies:
+      leaflet: ^1.9.0
+      react: ^19.0.0
+      react-dom: ^19.0.0
+
   '@react-native-async-storage/async-storage@1.24.0':
     resolution: {integrity: sha512-W4/vbwUOYOjco0x3toB8QCr7EjIP6nE9G7o8PMguvvjYT5Awg09lyV4enACRx4s++PPulBiBSjL0KTFx2u0Z/g==}
     peerDependencies:
@@ -6687,6 +6709,9 @@ packages:
   '@types/eventsource@1.1.15':
     resolution: {integrity: sha512-XQmGcbnxUNa06HR3VBVkc9+A2Vpi9ZyLJcdS5dwaQQ/4ZMWFO+5c90FnMUpbtMZwB/FChoYHwuVg8TvkECacTA==}
 
+  '@types/geojson@7946.0.16':
+    resolution: {integrity: sha512-6C8nqWur3j98U6+lXDfTUWIfgvZU+EumvpHKcYjujKH7woYyLj2sUmff0tRhrqM7BohUw7Pz3ZB1jj2gW9Fvmg==}
+
   '@types/google_interactive_media_ads_types@3.697.1':
     resolution: {integrity: sha512-gRjJoPKQRjjTuySHqZe8Pnu6a5B0bKbTUD2ioDLPSWlEuBaAc2p1mzUzy42SCeWkyYffo2Mnv+blUGuvVvx3dQ==}
 
@@ -6713,6 +6738,9 @@ packages:
 
   '@types/json5@0.0.29':
     resolution: {integrity: sha512-dRLjCWHYg4oaA77cxO64oO+7JwCwnIzkZPdrrC71jQmQtlhM556pwKo5bUzqvZndkVbeFLIIi+9TC40JNF5hNQ==}
+
+  '@types/leaflet@1.9.22':
+    resolution: {integrity: sha512-h3lhECYEKDasG7LFHu+GiHqAvsgLuQvlJvVZzJDGONo3sEL+wUOqSFLnwkZlK0qVxnxbuGFW8iBlJNYs5wgndA==}
 
   '@types/linkify-it@5.0.0':
     resolution: {integrity: sha512-sVDA58zAw4eWAffKOaQH5/5j3XeayukzDk+ewSsnv3p4yJEZHCCzMDiZM8e0OUrRvmpGZ85jf4yDHkHsgBNr9Q==}
@@ -9237,6 +9265,13 @@ packages:
       react: '*'
       react-native: '*'
 
+  expo-sharing@55.0.24:
+    resolution: {integrity: sha512-2WXaevJUpNdKvktmboTMtbDPWicU44Vo8z5kyDuYIH7xU6jv411U/Pgk9ljhR3kf0XB34NZfa1QPNs+b25BOkA==}
+    peerDependencies:
+      expo: '*'
+      react: '*'
+      react-native: '*'
+
   expo-structured-headers@55.0.2:
     resolution: {integrity: sha512-KITovrWigTOtsII5hRQ9/3ydaNcxCux5g6O+eTPLyjnye9dpkDKl5GmCLVPVKIL/d7253OtbGtWMD4m0gha5pw==}
 
@@ -10480,6 +10515,9 @@ packages:
   language-tags@1.0.9:
     resolution: {integrity: sha512-MbjN408fEndfiQXbFQ1vnd+1NoLDsnQW41410oQBXiyXDMYH5z505juWa4KUE1LqxRC7DgOgZDbKLxHIwm27hA==}
     engines: {node: '>=0.10'}
+
+  leaflet@1.9.4:
+    resolution: {integrity: sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA==}
 
   leven@3.1.0:
     resolution: {integrity: sha512-qsda+H8jTaUaN/x5vzW2rzc+8Rw4TAQ/4KjB46IwK5VH+IlVeeeje/EoZRpiXvIqjFgK84QffqPztGI3VBLG1A==}
@@ -12057,6 +12095,13 @@ packages:
 
   react-is@19.2.8:
     resolution: {integrity: sha512-s5un28nYxKJw5gvUHyW5PCC28CvBqLu9r3cWgzHT4Vo/5fqqkFcdRYsGcKf50WMPpjjFZS5d76fn3YCo2njKwQ==}
+
+  react-leaflet@5.0.0:
+    resolution: {integrity: sha512-CWbTpr5vcHw5bt9i4zSlPEVQdTVcML390TjeDG0cK59z1ylexpqC6M1PJFjV8jD7CF+ACBFsLIDs6DRMoLEofw==}
+    peerDependencies:
+      leaflet: ^1.9.0
+      react: ^19.0.0
+      react-dom: ^19.0.0
 
   react-native-css-interop@0.2.3:
     resolution: {integrity: sha512-wc+JI7iUfdFBqnE18HhMTtD0q9vkhuMczToA87UdHGWwMyxdT5sCcNy+i4KInPCE855IY0Ic8kLQqecAIBWz7w==}
@@ -18733,6 +18778,12 @@ snapshots:
 
   '@radix-ui/rect@1.1.1': {}
 
+  '@react-leaflet/core@3.0.0(leaflet@1.9.4)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
+    dependencies:
+      leaflet: 1.9.4
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
+
   '@react-native-async-storage/async-storage@1.24.0(react-native@0.83.10(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.85.3(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))':
     dependencies:
       merge-options: 3.0.4
@@ -21599,6 +21650,8 @@ snapshots:
 
   '@types/eventsource@1.1.15': {}
 
+  '@types/geojson@7946.0.16': {}
+
   '@types/google_interactive_media_ads_types@3.697.1': {}
 
   '@types/graceful-fs@4.1.9':
@@ -21624,6 +21677,10 @@ snapshots:
   '@types/json-schema@7.0.15': {}
 
   '@types/json5@0.0.29': {}
+
+  '@types/leaflet@1.9.22':
+    dependencies:
+      '@types/geojson': 7946.0.16
 
   '@types/linkify-it@5.0.0': {}
 
@@ -24675,6 +24732,17 @@ snapshots:
 
   expo-server@55.0.12: {}
 
+  expo-sharing@55.0.24(expo@55.0.29)(react-native@0.83.10(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.85.3(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))(react@19.2.0)(supports-color@8.1.1):
+    dependencies:
+      '@expo/config-plugins': 55.0.11(supports-color@8.1.1)
+      '@expo/config-types': 55.0.6
+      '@expo/plist': 0.5.4
+      expo: 55.0.29(@babel/core@7.29.7(supports-color@8.1.1))(@expo/dom-webview@55.0.6)(@expo/metro-runtime@55.0.12)(bufferutil@4.1.0)(expo-router@55.0.18)(react-dom@19.2.0(react@19.2.0))(react-native-worklets@0.7.4(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.83.10(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.85.3(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))(react@19.2.0)(supports-color@8.1.1))(react-native@0.83.10(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.85.3(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))(react@19.2.0)(supports-color@8.1.1)(typescript@5.9.3)(utf-8-validate@5.0.10)
+      react: 19.2.0
+      react-native: 0.83.10(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.85.3(@babel/core@7.29.7(supports-color@8.1.1))(bufferutil@4.1.0)(supports-color@8.1.1)(utf-8-validate@5.0.10))(@types/react@19.2.14)(bufferutil@4.1.0)(react@19.2.0)(supports-color@8.1.1)(utf-8-validate@5.0.10)
+    transitivePeerDependencies:
+      - supports-color
+
   expo-splash-screen@55.0.24(expo@55.0.29)(supports-color@8.1.1)(typescript@5.9.3):
     dependencies:
       '@expo/prebuild-config': 55.0.21(expo@55.0.29)(supports-color@8.1.1)(typescript@5.9.3)
@@ -26012,6 +26080,8 @@ snapshots:
   language-tags@1.0.9:
     dependencies:
       language-subtag-registry: 0.3.23
+
+  leaflet@1.9.4: {}
 
   leven@3.1.0: {}
 
@@ -28014,6 +28084,13 @@ snapshots:
   react-is@18.3.1: {}
 
   react-is@19.2.8: {}
+
+  react-leaflet@5.0.0(leaflet@1.9.4)(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
+    dependencies:
+      '@react-leaflet/core': 3.0.0(leaflet@1.9.4)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      leaflet: 1.9.4
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
 
   react-native-css-interop@0.2.3(20c945a2119406a90f93e23760bcc844):
     dependencies:

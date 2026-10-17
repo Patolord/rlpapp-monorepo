@@ -27,14 +27,12 @@ type Busy = "open" | "save" | "remove" | null;
 export function DocumentCard({
   document,
   projectId,
-  obraSlug,
   ownerId,
   offline,
   online,
 }: {
   document: FieldDocument;
   projectId: Id<"projects">;
-  obraSlug: string;
   ownerId: string | null;
   offline: CachedDocumentMeta | null;
   online: boolean;
@@ -75,11 +73,10 @@ export function DocumentCard({
   const handleSave = () =>
     run("save", async () => {
       if (!ownerId) throw new Error("Sessão não identificada.");
-      const file = await download(document._id, offlineFile(ownerId, obraSlug, document._id));
+      const file = await download(document._id, offlineFile(ownerId, projectId, document._id));
       await registerOfflineDocument(ownerId, {
         documentId: document._id,
         projectId,
-        obraSlug,
         name: document.name,
         fileName: document.fileName,
         sizeBytes: file.size ?? document.sizeBytes,

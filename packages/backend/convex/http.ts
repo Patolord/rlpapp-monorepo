@@ -4,6 +4,12 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { env, httpAction } from "./_generated/server";
 import { MAX_LOOKUP_QUERY_LENGTH } from "./lib/compras/materialLookup";
+import {
+  PHOTO_FETCH_TIMEOUT_MS,
+  isAllowedPhotoUrl,
+  photoMimeType,
+  readPhotoBody,
+} from "./lib/rh/photo";
 
 type ClerkEmailAddress = {
   id: string;
@@ -227,7 +233,76 @@ const handleProjectDocumentDownload = httpAction(async (ctx, request) => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Foto de marcação do ponto (RHID)
+// ---------------------------------------------------------------------------
+//
+// O app nunca recebe a URL do RHID: pede `/time-clock/photo/<punchId>` com o
+// JWT Clerk, a permissão `rh.read` é reavaliada a cada pedido e a imagem
+// volta com `no-store` (nada fica em cache do navegador/PWA).
+
+const TIME_CLOCK_PHOTO_PATH_PREFIX = "/time-clock/photo/";
+
+const handleTimeClockPhoto = httpAction(async (ctx, request) => {
+  const headers: Record<string, string> = {
+    ...corsHeaders(request),
+    "Cache-Control": "private, no-store, max-age=0",
+    "X-Content-Type-Options": "nosniff",
+  };
+  const { pathname } = new URL(request.url);
+  const punchId = pathname.slice(TIME_CLOCK_PHOTO_PATH_PREFIX.length);
+  if (!punchId || punchId.includes("/")) {
+    return new Response("Not found", { status: 404, headers });
+  }
+
+  const resolved = await ctx.runQuery(internal.timeClock.resolvePhoto, { punchId });
+  if (resolved.status === "unauthenticated") {
+    return new Response("Unauthorized", { status: 401, headers });
+  }
+  if (resolved.status === "forbidden") {
+    return new Response("Forbidden", { status: 403, headers });
+  }
+  if (
+    resolved.status !== "ok" ||
+    !isAllowedPhotoUrl(resolved.url, env.RHID_MEDIA_ALLOWED_HOSTS)
+  ) {
+    return new Response("Not found", { status: 404, headers });
+  }
+
+  try {
+    // Sem credenciais e sem seguir redirects: o host já foi validado acima.
+    const upstream = await fetch(resolved.url, {
+      redirect: "error",
+      signal: AbortSignal.timeout(PHOTO_FETCH_TIMEOUT_MS),
+    });
+    const mime = photoMimeType(upstream);
+    if (!upstream.ok || !mime) {
+      await upstream.body?.cancel().catch(() => undefined);
+      return new Response("Not found", { status: 404, headers });
+    }
+    const bytes = await readPhotoBody(upstream);
+    return new Response(bytes as BodyInit, {
+      status: 200,
+      headers: { ...headers, "Content-Type": mime },
+    });
+  } catch {
+    return new Response("Bad gateway", { status: 502, headers });
+  }
+});
+
 const http = httpRouter();
+
+http.route({
+  pathPrefix: TIME_CLOCK_PHOTO_PATH_PREFIX,
+  method: "GET",
+  handler: handleTimeClockPhoto,
+});
+
+http.route({
+  pathPrefix: TIME_CLOCK_PHOTO_PATH_PREFIX,
+  method: "OPTIONS",
+  handler: handleProjectDocumentPreflight,
+});
 
 http.route({
   pathPrefix: PROJECT_DOCUMENTS_PATH_PREFIX,

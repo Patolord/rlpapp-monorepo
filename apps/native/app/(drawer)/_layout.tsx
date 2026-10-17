@@ -109,8 +109,9 @@ function RoleAwareDrawer({
     [bg, insets.top, insets.bottom, userName, roleLabel]
   );
 
+  // Técnico de campo: o app dele começa (e fica) na lista de obras.
   if (currentUser?.role === "qr_operator") {
-    return <Redirect href={"/qr-operador" as Href} />;
+    return <Redirect href={"/campo" as Href} />;
   }
 
   return (

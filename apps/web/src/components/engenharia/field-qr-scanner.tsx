@@ -27,7 +27,14 @@ export function extractQrToken(decodedText: string): string | null {
 
 type ScannerState = "idle" | "starting" | "scanning" | "error";
 
-export function FieldQrScanner() {
+interface FieldQrScannerProps {
+  /** Destino da leitura. Por padrão abre a página pública da etiqueta. */
+  onToken?: (token: string) => void;
+  /** Abre a câmera assim que o componente monta (tela dedicada de leitura). */
+  autoStart?: boolean;
+}
+
+export function FieldQrScanner({ onToken, autoStart = false }: FieldQrScannerProps) {
   const navigate = useNavigate();
   const reactId = useId();
   const elementId = `field-qr-reader-${reactId.replace(/:/g, "")}`;
@@ -82,9 +89,10 @@ export function FieldQrScanner() {
             setError("O conteúdo lido não é um código QR válido.");
             return;
           }
-          void stopScanner().then(() =>
-            navigate({ to: "/q/$token", params: { token } })
-          );
+          void stopScanner().then(() => {
+            if (onToken) onToken(token);
+            else void navigate({ to: "/q/$token", params: { token } });
+          });
         },
         () => {
           // Leituras sem QR são esperadas enquanto a câmera está aberta.
@@ -100,7 +108,14 @@ export function FieldQrScanner() {
         setState("error");
       }
     }
-  }, [elementId, navigate, stopScanner]);
+  }, [elementId, navigate, onToken, stopScanner]);
+
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!autoStart || autoStarted.current) return;
+    autoStarted.current = true;
+    void startScanner();
+  }, [autoStart, startScanner]);
 
   if (state === "idle" || state === "error") {
     return (

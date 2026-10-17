@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Text, View } from "react-native";
 import { useMutation } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { CheckCircle2, CloudOff, Loader2 } from "lucide-react-native";
+import { Building2, CheckCircle2, CloudOff, Loader2 } from "lucide-react-native";
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,12 +21,13 @@ import { useOnline } from "@/lib/use-online";
 
 interface EquipmentFormProps {
   qrToken: string;
+  /** Obra aberta no app de campo: a etiqueta passa a pertencer a ela. */
+  project?: { _id: Id<"projects">; name: string } | null;
   onSuccess: (equipmentId: string) => void;
 }
 
-export function EquipmentForm({ qrToken, onSuccess }: EquipmentFormProps) {
-  const createEquipment = useMutation(api.equipment.create);
-  const assignQr = useMutation(api.qrCodes.assignEquipment);
+export function EquipmentForm({ qrToken, project, onSuccess }: EquipmentFormProps) {
+  const registerForQr = useMutation(api.qrCodes.registerForQr);
   const generateUploadUrl = useMutation(api.maintenanceLogs.generateUploadUrl);
   const online = useOnline();
 
@@ -46,6 +48,8 @@ export function EquipmentForm({ qrToken, onSuccess }: EquipmentFormProps) {
       description: description.trim(),
       status,
       photos,
+      projectId: project?._id,
+      projectName: project?.name,
       createdAt: Date.now(),
     });
     setQueued(true);
@@ -62,14 +66,13 @@ export function EquipmentForm({ qrToken, onSuccess }: EquipmentFormProps) {
       }
 
       const labelPhotoIds = await uploadPhotos(generateUploadUrl, photos);
-      const equipmentId = await createEquipment({
+      const equipmentId = await registerForQr({
+        token: qrToken,
         description: description.trim(),
         labelPhotoIds,
         status,
-        qrToken,
+        projectId: project?._id,
       });
-
-      await assignQr({ token: qrToken, equipmentId });
       onSuccess(equipmentId as string);
     } catch (err) {
       console.error("Failed to register equipment:", err);
@@ -115,6 +118,16 @@ export function EquipmentForm({ qrToken, onSuccess }: EquipmentFormProps) {
         </View>
       </CardHeader>
       <CardContent className="gap-5">
+        {project ? (
+          <View className="flex-row items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-4 py-3">
+            <Building2 size={16} color="#737373" />
+            <Text className="flex-1 text-sm text-foreground">
+              A etiqueta será vinculada à obra{" "}
+              <Text className="font-semibold">{project.name}</Text>.
+            </Text>
+          </View>
+        ) : null}
+
         <View className="gap-2">
           <Label className="text-base">Foto da etiqueta *</Label>
           <Text className="text-sm text-muted-foreground">

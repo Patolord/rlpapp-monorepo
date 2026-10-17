@@ -68,6 +68,29 @@ Guia oficial: [Convex + Clerk](https://docs.convex.dev/auth/clerk)
    - `CLERK_WEBHOOK_SECRET` — secret do webhook (Clerk Dashboard > Webhooks, endpoint `https://<deployment>.convex.site/clerk-users-webhook`, eventos `user.created`, `user.updated`, `user.deleted`)
    - `MATERIAL_LOOKUP_TOKEN` — opcional; habilita `GET https://<deployment>.convex.site/materials/lookup?q=<texto>` (header `Authorization: Bearer <token>`) para agentes externos consultarem a descrição canônica de um material. Sem ele o endpoint responde 503. Gere com `npx convex env set MATERIAL_LOOKUP_TOKEN "$(openssl rand -hex 24)"`
 
+### 4.1 Ponto (RHID) — opcional
+
+O módulo **RH > Ponto (RHID)** espelha o controle de acesso [RHID](https://rhid.com.br) no Convex
+(marcações, presença do dia, homem-dia por obra). A coleta roda no backend com uma credencial de
+integração, então nenhum usuário precisa logar no RHID pelo app.
+
+No **Convex Dashboard** (ou via `npx convex env set`), defina:
+
+- `RHID_EMAIL` / `RHID_PASSWORD` — credencial de um usuário do RHID com acesso às marcações
+- `RHID_COMPANY_ID` — opcional; id da empresa no RHID (padrão `1`)
+- `RHID_MEDIA_ALLOWED_HOSTS` — opcional; hosts extras (separados por vírgula) de onde as fotos das
+  marcações podem ser buscadas, além de `rhid.com.br` e subdomínios
+
+Sem essas variáveis a tela funciona em modo somente leitura e os crons (`convex/crons.ts`) não fazem
+nada. Com elas, o RH pode sincronizar um dia ou um mês pela tela, um cron atualiza o dia de hoje a cada
+5 min e outro, às 03:00 (Brasília), refaz os últimos 7 dias para pegar envios atrasados e correções.
+Pessoas do RHID são vinculadas aos `employees` por CPF ou nome (ajuste manual em **Ponto > Vínculos**);
+cercas (geofences) podem ser vinculadas a obras.
+
+Privacidade: as fotos das marcações nunca são expostas por URL. O app abre cada foto sob demanda pelo
+endpoint autenticado `/time-clock/photo/<punchId>` (exige `rh.read`, resposta `no-store`), e o service
+worker do PWA trata `/rh/ponto` e as fotos como somente rede (nada fica em cache offline).
+
 ### 5. Rodar em desenvolvimento
 
 ```bash

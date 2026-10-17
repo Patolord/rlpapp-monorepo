@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import {
   createFileRoute,
@@ -28,16 +28,26 @@ export const Route = createFileRoute("/qr-operador_/obras/$obraSlug")({
   errorComponent: CampoObraError,
 });
 
-const ACCESS_DENIED_MESSAGE = "Acesso negado a esta obra";
-
 function CampoObraLayout() {
   const { obraSlug } = Route.useParams();
   const online = useOnline();
   const { ownerId } = useFieldCacheOwner();
-  const { data: obra, fromCache, cacheChecked } = useOfflineQuery(
+  // getFieldProject nunca lança "acesso negado": uma obra não atribuída
+  // abre com `assigned: false` (válvula de escape) e a UI só avisa.
+  const { data: cachedObra, fromCache, cacheChecked } = useOfflineQuery(
     fieldCacheKeys.project(obraSlug),
-    api.technicianPortal.getMyProject,
+    api.technicianPortal.getFieldProject,
     { identifier: obraSlug }
+  );
+  // Cache antigo de getMyProject não tinha `assigned`. Essa consulta só
+  // devolvia obra que o técnico podia abrir, então a ausência do campo
+  // significa atribuído — senão documentos e estoque somem offline.
+  const obra = useMemo(
+    () =>
+      cachedObra == null
+        ? cachedObra
+        : { ...cachedObra, assigned: cachedObra.assigned ?? true },
+    [cachedObra]
   );
 
   // Resposta ao vivo "não existe / arquivada": a obra saiu do campo, então
@@ -82,18 +92,7 @@ function CampoObraLayout() {
 }
 
 function CampoObraError({ error }: ErrorComponentProps) {
-  const { obraSlug } = Route.useParams();
-  const { ownerId } = useFieldCacheOwner();
   const message = getErrorMessage(error, "");
-  const accessDenied = message.includes(ACCESS_DENIED_MESSAGE);
-
-  // Acesso revogado: nada desta obra pode continuar disponível offline
-  // (resumo, lista de documentos e PDFs salvos). Independe da cache, então
-  // funciona mesmo que o resumo da obra nunca tenha sido salvo.
-  useEffect(() => {
-    if (!accessDenied || !ownerId) return;
-    void forgetProject(ownerId, obraSlug);
-  }, [accessDenied, ownerId, obraSlug]);
 
   return (
     <FieldPageShell title="Obra">
@@ -101,10 +100,7 @@ function CampoObraError({ error }: ErrorComponentProps) {
         <ShieldAlert className="size-9 text-muted-foreground" />
         <p className="font-medium">Não foi possível abrir esta obra</p>
         <p className="max-w-sm text-sm text-muted-foreground">
-          {accessDenied
-            ? "Você não tem mais acesso a esta obra. Peça à engenharia para liberar."
-            : message ||
-              "Você não tem acesso a esta obra. Peça à engenharia para liberar."}
+          {message || "Tente novamente em instantes."}
         </p>
         <Button variant="outline" render={<Link to="/qr-operador" />}>
           Voltar para minhas obras

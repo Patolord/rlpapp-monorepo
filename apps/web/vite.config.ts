@@ -28,7 +28,7 @@ export default defineConfig({
       short_name: "RLP",
       description: "Registro de instalação e manutenção de equipamentos em campo",
       lang: "pt-BR",
-      start_url: "/engenharia/registro-de-campo",
+      start_url: "/qr-operador",
       display: "standalone",
       background_color: "#ffffff",
       theme_color: "#0f172a",
@@ -44,11 +44,21 @@ export default defineConfig({
       }]
     },
     workbox: {
+      importScripts: ["ponto-cache-cleanup.js"],
       globPatterns: ["**/*.{js,css,ico,png,svg,woff2}"],
       // SSR: não existe index.html para fallback de navegação.
       navigateFallback: undefined,
       maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       runtimeCaching: [{
+        // Ponto (dados de localização/fotos de pessoas) e qualquer pedido
+        // autenticado: só rede, nunca em cache. Precisa vir antes das regras
+        // genéricas de páginas e imagens.
+        urlPattern: ({
+          url,
+          request
+        }) => /^\/rh\/ponto(?:\/|$)/.test(url.pathname) || url.pathname.startsWith("/time-clock/photo/") || request.headers.has("authorization"),
+        handler: "NetworkOnly"
+      }, {
         // Páginas: rede primeiro, cache como fallback offline.
         urlPattern: ({
           request

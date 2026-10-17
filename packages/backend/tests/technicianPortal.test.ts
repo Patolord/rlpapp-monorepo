@@ -52,6 +52,53 @@ describe("technicianPortal", () => {
     expect(projects[0].name).toBe("Obra Atribuída");
   });
 
+  test("getFieldProject abre a obra para qualquer técnico e sinaliza atribuição", async () => {
+    const t = setup();
+    const asTech = await withUser(t, {
+      clerkId: "tech-field-1",
+      role: "qr_operator",
+    });
+    const techId = await userIdByClerk(t, "tech-field-1");
+
+    const assignedId = await seedProject(t, "Obra Minha", [techId]);
+    const otherId = await seedProject(t, "Obra Alheia");
+    const archivedId = await t.run(async (ctx) =>
+      ctx.db.insert("projects", {
+        name: "Obra Arquivada",
+        floors: [],
+        createdAt: Date.now(),
+        status: "archived",
+        technicianIds: [techId],
+      })
+    );
+    await t.run(async (ctx) => {
+      await ctx.db.insert("qrCodes", {
+        token: "ALHEIA01",
+        status: "active",
+        projectId: otherId,
+        createdAt: Date.now(),
+      });
+    });
+
+    const mine = await asTech.query(api.technicianPortal.getFieldProject, {
+      identifier: assignedId,
+    });
+    expect(mine?.assigned).toBe(true);
+    expect(mine?.name).toBe("Obra Minha");
+
+    // Válvula de escape: obra sem atribuição abre, mas marcada como tal.
+    const other = await asTech.query(api.technicianPortal.getFieldProject, {
+      identifier: otherId,
+    });
+    expect(other?.assigned).toBe(false);
+    expect(other?.qrCount).toBe(1);
+
+    const archived = await asTech.query(api.technicianPortal.getFieldProject, {
+      identifier: archivedId,
+    });
+    expect(archived).toBeNull();
+  });
+
   test("técnico não atribuído não lista QRs da obra", async () => {
     const t = setup();
     const asTech = await withUser(t, {
