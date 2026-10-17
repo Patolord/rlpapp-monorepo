@@ -1,75 +1,99 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
-import { CheckCircle, ClipboardList } from "lucide-react-native";
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
+import { useMutation, useQuery } from "convex/react";
+import { Check, ClipboardCheck, Copy, EyeOff, Truck } from "lucide-react-native";
 import { useState } from "react";
-import { ActivityIndicator, FlatList, Text, View } from "react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 
-import { PriceEventCard } from "@/components/compras/price-event-card";
-import { Card } from "@/components/ui/card";
+import { MaterialPickerField, type PickedMaterial } from "@/components/compras/material-picker";
+import { PriceEventRow, type PriceEvent } from "@/components/compras/price-event-row";
+import { AppButton, EmptyState, LoadingState, PickerField, ScreenHeader, Sheet, screenStyles, useToast } from "@/components/ui";
+import { getErrorMessage } from "@/lib/errors";
+import { colors, space, type } from "@/lib/theme";
 
+/** Fila de preços que precisam de revisão (material/fornecedor não identificados). */
 export default function FilaRevisaoScreen() {
+  const toast = useToast();
   const [now] = useState(() => Date.now());
   const queue = useQuery(api.priceEvents.reviewQueue, { now });
+  const updateReview = useMutation(api.priceEvents.updateReview);
+  const [reviewing, setReviewing] = useState<PriceEvent | null>(null);
+  const [material, setMaterial] = useState<PickedMaterial | null>(null);
+  const [supplierId, setSupplierId] = useState<string | null>(null);
+  const suppliers = useQuery(api.suppliers.list, reviewing ? { activeOnly: true } : "skip");
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function setStatus(event: PriceEvent, reviewStatus: "reviewed" | "ignored" | "duplicate", extra?: { materialId?: Id<"materials">; supplierId?: Id<"suppliers"> }) {
+    setBusyId(event._id);
+    try {
+      await updateReview({ eventId: event._id, reviewStatus, ...extra });
+      toast.success(reviewStatus === "reviewed" ? "Preço revisado" : reviewStatus === "ignored" ? "Preço ignorado" : "Marcado como duplicado");
+      setReviewing(null);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Não foi possível atualizar"));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function openReview(event: PriceEvent) {
+    setReviewing(event);
+    setMaterial(event.materialId && event.materialName ? { materialId: event.materialId, name: event.materialName, variantLabel: null, unit: event.unit } : null);
+    setSupplierId(event.supplierId ?? null);
+  }
 
   return (
-    <View className="flex-1">
-      <View className="px-5 pb-3 pt-5">
-        <Text className="text-lg font-semibold text-foreground">
-          Fila de Revisão
-        </Text>
-        <Text className="mt-1 text-sm text-muted-foreground">
-          Eventos de preço que precisam de revisão.
-        </Text>
-      </View>
-
+    <View style={{ flex: 1 }}>
+      <ScreenHeader title="Revisão" subtitle={queue === undefined ? "Preços a conferir" : `${queue.length} pendente${queue.length === 1 ? "" : "s"}`} />
       {queue === undefined ? (
-        <View className="flex-1 items-center justify-center py-16">
-          <ActivityIndicator size="large" />
-        </View>
-      ) : queue.length === 0 ? (
-        <View className="flex-1 px-5">
-          <Card className="items-center gap-3 py-10">
-            <View className="h-14 w-14 items-center justify-center rounded-full bg-green-500/10">
-              <CheckCircle size={28} color="#16a34a" />
-            </View>
-            <Text className="text-center text-base font-medium text-foreground">
-              Tudo revisado!
-            </Text>
-            <Text className="px-6 text-center text-sm text-muted-foreground">
-              Não há eventos de preço aguardando revisão.
-            </Text>
-          </Card>
-        </View>
+        <LoadingState />
       ) : (
         <FlatList
           data={queue}
           keyExtractor={(item) => item._id}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32, gap: 8 }}
+          contentContainerStyle={screenStyles.content}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={
-            <View className="flex-row items-center gap-2 pb-2">
-              <ClipboardList size={14} color="#d97706" />
-              <Text className="text-sm font-medium text-amber-600">
-                {queue.length} evento{queue.length !== 1 ? "s" : ""} pendente
-                {queue.length !== 1 ? "s" : ""}
-              </Text>
-            </View>
-          }
+          ListEmptyComponent={<EmptyState icon={<ClipboardCheck size={30} color={colors.success} strokeWidth={1.8} />} title="Fila vazia" description="Nenhum preço aguardando revisão." tone="success" />}
           renderItem={({ item }) => (
-            <PriceEventCard
-              materialName={item.materialName}
-              supplierName={item.supplierName}
-              unitPriceCents={item.unitPriceCents}
-              unit={item.unit}
-              occurredAt={item.occurredAt}
-              freshness={item.freshness}
-              needsReview={item.needsReview}
-              reviewStatus={item.reviewStatus}
-              warnings={item.warnings}
-            />
+            <PriceEventRow event={item}>
+              <View style={styles.actions}>
+                <AppButton label="Revisar" size="sm" trailing={null} icon={<Check size={18} color={colors.onPrimary} strokeWidth={2.2} />} onPress={() => openReview(item)} style={{ flex: 1 }} />
+                <AppButton label="Ignorar" variant="secondary" size="sm" icon={<EyeOff size={18} color={colors.text} strokeWidth={2} />} loading={busyId === item._id} onPress={() => void setStatus(item, "ignored")} />
+                <AppButton label="Duplicado" variant="secondary" size="sm" icon={<Copy size={18} color={colors.text} strokeWidth={2} />} onPress={() => void setStatus(item, "duplicate")} />
+              </View>
+            </PriceEventRow>
           )}
         />
       )}
+
+      <Sheet
+        open={reviewing !== null}
+        onClose={() => setReviewing(null)}
+        title="Revisar preço"
+        subtitle={reviewing?.rawDescription ?? reviewing?.materialName ?? undefined}
+        maxHeight={0.8}
+        footer={<AppButton label="Confirmar revisão" loading={busyId === reviewing?._id} onPress={() => reviewing && void setStatus(reviewing, "reviewed", { materialId: material?.materialId, supplierId: (supplierId as Id<"suppliers"> | null) ?? undefined })} />}
+      >
+        <Text style={[type.bodySm, { color: colors.textSecondary }]}>
+          Vincule o material e o fornecedor corretos antes de confirmar. Campos vazios mantêm o que já estava no evento.
+        </Text>
+        <MaterialPickerField value={material} onChange={setMaterial} />
+        <PickerField
+          label="Fornecedor"
+          icon={<Truck size={24} color={colors.icon} strokeWidth={1.6} />}
+          value={supplierId}
+          onChange={setSupplierId}
+          options={(suppliers ?? []).map((s) => ({ value: s._id as string, label: s.name }))}
+          loading={suppliers === undefined}
+          searchable
+          clearable
+          placeholder={reviewing?.supplierName ?? "Selecionar"}
+        />
+      </Sheet>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  actions: { flexDirection: "row", gap: space.sm, marginTop: 4 },
+});

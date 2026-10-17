@@ -1,11 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { Tabs, useNavigation } from "expo-router";
-import {
-  History,
-  ShieldAlert,
-  Warehouse,
-} from "lucide-react-native";
+import { History, Inbox, ShieldAlert, Warehouse } from "lucide-react-native";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -63,6 +59,15 @@ export default function EstoqueTabsLayout() {
             title: "Movimentações",
             tabBarIcon: ({ color, size }) => (
               <History size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="requisicoes"
+          options={{
+            title: "Pedidos",
+            tabBarIcon: ({ color, size }) => (
+              <Inbox size={size} color={color} />
             ),
           }}
         />

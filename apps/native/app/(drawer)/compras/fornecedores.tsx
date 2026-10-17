@@ -1,85 +1,57 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { Plus, Search, Truck } from "lucide-react-native";
+import { Plus, Truck } from "lucide-react-native";
 import { useState } from "react";
-import { ActivityIndicator, FlatList, Text, View } from "react-native";
+import { FlatList, View } from "react-native";
 
-import { SupplierCard } from "@/components/compras/supplier-card";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { SupplierDetailSheet, SupplierFormSheet } from "@/components/compras/supplier-sheets";
+import { Chips, EmptyState, IconButton, ListRow, LoadingState, Pill, ScreenHeader, SearchField, screenStyles } from "@/components/ui";
+import { colors, space } from "@/lib/theme";
+
+type Scope = "active" | "all";
 
 export default function FornecedoresScreen() {
   const [search, setSearch] = useState("");
-  const suppliers = useQuery(api.suppliers.list, {
-    search: search || undefined,
-    activeOnly: true,
-  });
+  const [scope, setScope] = useState<Scope>("active");
+  const [creating, setCreating] = useState(false);
+  const [selectedId, setSelectedId] = useState<Id<"suppliers"> | null>(null);
+  const suppliers = useQuery(api.suppliers.list, { search: search.trim() || undefined, activeOnly: scope === "active" });
 
   return (
-    <View className="flex-1">
-      <View className="gap-3 px-5 pb-3 pt-5">
-        <View className="flex-row items-center gap-2">
-          <View className="relative min-w-0 flex-1">
-            <View className="absolute left-3 top-0 z-10 h-10 justify-center">
-              <Search size={16} color="#9ca3af" />
-            </View>
-            <Input
-              className="pl-9"
-              placeholder="Buscar fornecedor..."
-              value={search}
-              onChangeText={setSearch}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-        </View>
-      </View>
-
+    <View style={{ flex: 1 }}>
+      <ScreenHeader
+        title="Fornecedores"
+        subtitle={suppliers === undefined ? "Parceiros de compra" : `${suppliers.length} fornecedor${suppliers.length === 1 ? "" : "es"}`}
+        right={<IconButton label="Novo fornecedor" tone="primary" icon={<Plus size={22} color={colors.onPrimary} strokeWidth={2.2} />} onPress={() => setCreating(true)} />}
+      />
+      <SearchField value={search} onChangeText={setSearch} placeholder="Nome ou categoria" containerStyle={{ marginHorizontal: space.screen, marginBottom: space.md }} />
+      <Chips<Scope> active={scope} onChange={setScope} items={[{ key: "active", label: "Ativos" }, { key: "all", label: "Todos" }]} />
       {suppliers === undefined ? (
-        <View className="flex-1 items-center justify-center py-16">
-          <ActivityIndicator size="large" />
-        </View>
-      ) : suppliers.length === 0 ? (
-        <View className="flex-1 px-5">
-          <Card className="items-center gap-3 py-10">
-            <View className="h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10">
-              <Truck size={28} color="#10b981" />
-            </View>
-            <Text className="text-center text-base font-medium text-foreground">
-              {search
-                ? "Nenhum fornecedor encontrado"
-                : "Nenhum fornecedor cadastrado"}
-            </Text>
-            <Text className="px-6 text-center text-sm text-muted-foreground">
-              {search
-                ? "Tente buscar com outro termo."
-                : "Cadastre o primeiro fornecedor para começar."}
-            </Text>
-          </Card>
-        </View>
+        <LoadingState />
       ) : (
         <FlatList
           data={suppliers}
           keyExtractor={(item) => item._id}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 80, gap: 8 }}
+          contentContainerStyle={[screenStyles.content, { paddingTop: space.lg }]}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <EmptyState icon={<Truck size={30} color={colors.primary} strokeWidth={1.8} />} title={search ? "Nada encontrado" : "Nenhum fornecedor"} description={search ? "Nenhum fornecedor corresponde à busca." : "Toque em + para cadastrar o primeiro."} actionLabel={!search ? "Novo fornecedor" : undefined} onAction={() => setCreating(true)} />
+          }
           renderItem={({ item }) => (
-            <SupplierCard
-              name={item.name}
-              categories={item.categories}
-              notes={item.notes}
-              active={item.active}
+            <ListRow
+              icon={<Truck size={22} color={colors.primary} strokeWidth={1.8} />}
+              title={item.name}
+              subtitle={item.categories?.join(" · ") || item.notes}
+              trailing={!item.active ? <Pill label="Inativo" tone="warning" /> : undefined}
+              onPress={() => setSelectedId(item._id)}
             />
           )}
         />
       )}
-
-      <View className="absolute bottom-6 right-6">
-        <Button className="h-14 w-14 rounded-full shadow-lg" size="icon">
-          <Plus size={24} color="#fafafa" />
-        </Button>
-      </View>
+      <SupplierFormSheet open={creating} onClose={() => setCreating(false)} onSaved={(id) => setSelectedId(id)} />
+      <SupplierDetailSheet supplierId={selectedId} onClose={() => setSelectedId(null)} />
     </View>
   );
 }
