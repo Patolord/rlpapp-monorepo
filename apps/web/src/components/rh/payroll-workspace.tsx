@@ -7,6 +7,7 @@ import type { FunctionReturnType } from "convex/server";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { PayrollGrid, type PayrollLinePatch } from "@/components/rh/payroll-grid";
 import { PayrollLoanDialog } from "@/components/rh/payroll-loan-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,11 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { getErrorMessage } from "@/lib/errors";
 import { formatPayrollRunLabel } from "@/lib/rh/labels";
-import {
-  formatCentsInput,
-  parseDays,
-  parsePayrollAmountToCents,
-} from "@/lib/rh/money";
+import { formatCentsInput, parseDays, parsePayrollAmountToCents } from "@/lib/rh/money";
 
 type Workspace = FunctionReturnType<typeof api.payroll.getWorkspace>;
 type Line = Workspace["lines"][number];
@@ -121,43 +118,6 @@ function exportCsv(lines: Line[], key: string) {
   setTimeout(() => URL.revokeObjectURL(anchor.href), 5000);
 }
 
-function GridInput({
-  value,
-  disabled,
-  className,
-  onCommit,
-  align = "right",
-}: {
-  value: string;
-  disabled?: boolean;
-  className?: string;
-  onCommit: (value: string) => void;
-  align?: "left" | "right";
-}) {
-  const [text, setText] = useState(value);
-  useEffect(() => {
-    setText(value);
-  }, [value]);
-  return (
-    <input
-      disabled={disabled}
-      value={text}
-      onChange={(event) => setText(event.target.value)}
-      onBlur={() => {
-        if (text !== value) onCommit(text);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.currentTarget.blur();
-        }
-      }}
-      className={`w-full rounded-md border border-transparent bg-transparent px-1.5 py-1 text-[12.5px] hover:border-border focus:border-ring disabled:opacity-70 ${
-        align === "right" ? "text-right tabular-nums" : ""
-      } ${className ?? ""}`}
-    />
-  );
-}
-
 export function PayrollWorkspace() {
   const initial = currentMonth();
   const [year, setYear] = useState(initial.year);
@@ -190,10 +150,7 @@ export function PayrollWorkspace() {
     );
   }, [lines, search]);
 
-  function commitLine(
-    lineId: Id<"payrollLines">,
-    patch: Omit<Parameters<typeof updateLine>[0], "lineId">
-  ) {
+  function commitLine(lineId: Id<"payrollLines">, patch: PayrollLinePatch) {
     void updateLine({ ...patch, lineId }).catch((error) =>
       toast.error(getErrorMessage(error, "Erro ao salvar linha"))
     );
@@ -201,8 +158,11 @@ export function PayrollWorkspace() {
 
   const options = runOptions(year);
 
+  // Altura fixa (viewport − header − padding do layout): a grade rola dentro
+  // do próprio card, com cabeçalho e totais sempre visíveis, em vez de rolar
+  // a página inteira.
   return (
-    <div className="flex min-h-[calc(100vh-6rem)] flex-col gap-3.5">
+    <div className="flex h-[calc(100vh-6rem)] flex-col gap-3.5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-0.5">
           <div className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
@@ -374,349 +334,37 @@ export function PayrollWorkspace() {
         </span>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-[var(--radius)] border border-border bg-card">
-        <table className="w-full min-w-[1900px] border-separate border-spacing-0 text-[12.5px]">
-          <thead>
-            <tr>
-              {[
-                ["Cód.", "left sticky left-0 z-40 w-11"],
-                ["Nome", "left sticky left-11 z-40 min-w-[230px] shadow-[inset_-1px_0_var(--border)]"],
-                ["Cargo", "left min-w-[150px]"],
-                ["Sal. Base", "right"],
-                ["Proventos", "right"],
-                ["Descontos", "right"],
-                ["Cesta ✓", "center"],
-                ["Dias", "right"],
-                ["Passagem/dia", "right"],
-                ["V. Alim. ⚙", "right"],
-                ["V. Transp. ⚙", "right"],
-                ["Complemento", "right"],
-                ["13º P1", "right"],
-                ["13º P2", "right"],
-                ["Emprést. ⚙", "right"],
-                ["Pagamento Total ⚙", "right"],
-                ["F. Pag.", "left"],
-                ["Afastado", "left"],
-                ["Pago", "center"],
-                ["Observações", "left min-w-[200px]"],
-                ["", "w-9"],
-              ].map(([label, extra]) => (
-                <th
-                  key={label || "actions"}
-                  className={`sticky top-0 z-30 bg-muted px-2 py-2 text-[10.5px] font-medium tracking-[0.05em] text-muted-foreground uppercase border-b border-border ${extra}`}
-                >
-                  {label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {workspace === undefined || creating ? (
-              <tr>
-                <td colSpan={21} className="px-4 py-8 text-muted-foreground">
-                  Carregando folha...
-                </td>
-              </tr>
-            ) : !run ? (
-              <tr>
-                <td colSpan={21} className="px-4 py-8 text-muted-foreground">
-                  Nenhuma competência aberta. Use Abrir competência para iniciar
-                  esta folha.
-                </td>
-              </tr>
-            ) : filtered.length === 0 ? (
-              <tr>
-                <td colSpan={21} className="px-4 py-8 text-muted-foreground">
-                  {lines.length === 0
-                    ? "Nenhum funcionário nesta competência. Use + Funcionário para incluir."
-                    : "Nenhum funcionário corresponde à busca."}
-                </td>
-              </tr>
-            ) : (
-              filtered.map((line) => {
-                const bg = !line.paid
-                  ? "color-mix(in oklab, var(--primary) 6%, var(--card))"
-                  : "var(--card)";
-                return (
-                  <tr key={line._id} style={{ background: bg }}>
-                    <td
-                      className="sticky left-0 z-20 border-b border-border px-1 py-0.5"
-                      style={{ background: bg }}
-                    >
-                      <GridInput
-                        disabled={closed}
-                        align="left"
-                        className="w-9 text-muted-foreground"
-                        value={line.code ?? ""}
-                        onCommit={(value) =>
-                          commitLine(line._id, { code: value || null })
-                        }
-                      />
-                    </td>
-                    <td
-                      className="sticky left-11 z-20 border-b border-border px-1 py-0.5 shadow-[inset_-1px_0_var(--border)]"
-                      style={{ background: bg }}
-                    >
-                      <GridInput
-                        disabled={closed}
-                        align="left"
-                        className="w-[215px] font-semibold"
-                        value={line.name}
-                        onCommit={(value) =>
-                          commitLine(line._id, { name: value })
-                        }
-                      />
-                    </td>
-                    <td className="border-b border-border px-1 py-0.5">
-                      <GridInput
-                        disabled={closed}
-                        align="left"
-                        className="w-[140px] text-muted-foreground"
-                        value={line.jobTitle ?? ""}
-                        onCommit={(value) =>
-                          commitLine(line._id, { jobTitle: value || null })
-                        }
-                      />
-                    </td>
-                    <MoneyCell
-                      disabled={closed}
-                      cents={line.baseSalaryCents}
-                      onCommit={(cents) =>
-                        commitLine(line._id, { baseSalaryCents: cents })
-                      }
-                    />
-                    <MoneyCell
-                      disabled={closed}
-                      cents={line.earningsCents}
-                      onCommit={(cents) =>
-                        commitLine(line._id, { earningsCents: cents })
-                      }
-                    />
-                    <MoneyCell
-                      disabled={closed}
-                      cents={line.deductionsCents}
-                      className="text-destructive"
-                      onCommit={(cents) =>
-                        commitLine(line._id, { deductionsCents: cents })
-                      }
-                    />
-                    <td className="border-b border-border px-1 py-0.5 text-center">
-                      <input
-                        type="checkbox"
-                        disabled={closed}
-                        checked={line.foodBasketEnabled}
-                        onChange={(event) =>
-                          commitLine(line._id, {
-                            foodBasketEnabled: event.target.checked,
-                          })
-                        }
-                        className="size-[15px] accent-primary"
-                      />
-                    </td>
-                    <td className="border-b border-border px-1 py-0.5">
-                      <GridInput
-                        disabled={closed}
-                        className="w-[38px]"
-                        value={String(line.transportFoodDays)}
-                        onCommit={(value) =>
-                          commitLine(line._id, {
-                            transportFoodDays: parseDays(value),
-                          })
-                        }
-                      />
-                    </td>
-                    <MoneyCell
-                      disabled={closed}
-                      cents={line.dailyTransitCents}
-                      width="w-14"
-                      onCommit={(cents) =>
-                        commitLine(line._id, { dailyTransitCents: cents })
-                      }
-                    />
-                    <td className="border-b border-border px-2.5 py-1 text-right tabular-nums text-muted-foreground">
-                      {formatCurrency(line.mealVoucherCents)}
-                    </td>
-                    <td className="border-b border-border px-2.5 py-1 text-right tabular-nums text-muted-foreground">
-                      {formatCurrency(line.transitVoucherCents)}
-                    </td>
-                    <MoneyCell
-                      disabled={closed}
-                      cents={line.supplementCents}
-                      onCommit={(cents) =>
-                        commitLine(line._id, { supplementCents: cents })
-                      }
-                    />
-                    <MoneyCell
-                      disabled={closed}
-                      cents={line.thirteenthFirstCents}
-                      width="w-[62px]"
-                      onCommit={(cents) =>
-                        commitLine(line._id, { thirteenthFirstCents: cents })
-                      }
-                    />
-                    <MoneyCell
-                      disabled={closed}
-                      cents={line.thirteenthSecondCents}
-                      width="w-[62px]"
-                      onCommit={(cents) =>
-                        commitLine(line._id, { thirteenthSecondCents: cents })
-                      }
-                    />
-                    <td className="border-b border-border px-1 py-0.5 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setLoanLine(line)}
-                        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-border px-2 py-1 text-xs tabular-nums hover:bg-muted ${
-                          line.totalLoanDeductionCents > 0
-                            ? "text-destructive"
-                            : "text-muted-foreground"
-                        }`}
-                      >
-                        {formatCurrency(line.totalLoanDeductionCents)}
-                        <span className="text-[10px] font-bold text-muted-foreground">
-                          {line.activeLoanCount
-                            ? `${line.activeLoanCount} ativo${line.activeLoanCount > 1 ? "s" : ""}`
-                            : "+"}
-                        </span>
-                      </button>
-                    </td>
-                    <td className="border-b border-border px-2.5 py-1 text-right font-bold whitespace-nowrap tabular-nums">
-                      {formatCurrency(line.totalPaymentCents)}
-                    </td>
-                    <td className="border-b border-border px-1 py-0.5">
-                      <select
-                        disabled={closed}
-                        value={line.paymentMethod}
-                        onChange={(event) =>
-                          commitLine(line._id, {
-                            paymentMethod: event.target.value as
-                              | "pix"
-                              | "tbi"
-                              | "other",
-                          })
-                        }
-                        className="rounded-md border border-border bg-transparent px-1.5 py-1 text-xs"
-                      >
-                        <option value="pix">PIX</option>
-                        <option value="tbi">TBI</option>
-                        <option value="other">OUTRO</option>
-                      </select>
-                    </td>
-                    <td className="border-b border-border px-1 py-0.5">
-                      <GridInput
-                        disabled={closed}
-                        align="left"
-                        className="w-12"
-                        value={line.awayNotes ?? ""}
-                        onCommit={(value) =>
-                          commitLine(line._id, { awayNotes: value || null })
-                        }
-                      />
-                    </td>
-                    <td className="border-b border-border px-1 py-0.5 text-center">
-                      <button
-                        type="button"
-                        disabled={closed}
-                        onClick={() =>
-                          void togglePaid({
-                            lineId: line._id,
-                            paid: !line.paid,
-                          })
-                        }
-                        className={`min-w-11 rounded-full border px-2 py-1 text-[11px] font-bold tracking-[0.03em] ${
-                          line.paid
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border bg-transparent text-muted-foreground"
-                        }`}
-                      >
-                        {line.paid ? "PAGO" : "—"}
-                      </button>
-                    </td>
-                    <td className="border-b border-border px-1 py-0.5">
-                      <GridInput
-                        disabled={closed}
-                        align="left"
-                        className="w-[220px] text-muted-foreground"
-                        value={line.notes ?? ""}
-                        onCommit={(value) =>
-                          commitLine(line._id, { notes: value || null })
-                        }
-                      />
-                    </td>
-                    <td className="border-b border-border px-1 py-0.5 text-center">
-                      {!closed && (
-                        <button
-                          type="button"
-                          title="Excluir linha"
-                          onClick={() => {
-                            if (
-                              !confirm(
-                                `Excluir ${line.name || "esta linha"} deste mês?`
-                              )
-                            ) {
-                              return;
-                            }
-                            void removeLine({ lineId: line._id });
-                          }}
-                          className="size-6 rounded-md text-muted-foreground hover:bg-destructive hover:text-white"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td className="sticky bottom-0 left-0 z-40 border-t border-border bg-muted px-2 py-2" />
-              <td className="sticky bottom-0 left-11 z-40 border-t border-border bg-muted px-2 py-2 text-[11px] font-bold tracking-[0.05em] text-muted-foreground uppercase shadow-[inset_-1px_0_var(--border)]">
-                Totais (
-                {filtered.length === lines.length
-                  ? lines.length
-                  : `${filtered.length} de ${lines.length}`}
-                )
-              </td>
-              <td className="sticky bottom-0 z-30 border-t border-border bg-muted" />
-              <FootCell value={workspace?.totals.baseSalaryCents} />
-              <FootCell value={workspace?.totals.earningsCents} />
-              <FootCell
-                value={workspace?.totals.deductionsCents}
-                className="text-destructive"
-              />
-              <FootCell value={workspace?.totals.foodBasketCents} />
-              <td className="sticky bottom-0 z-30 border-t border-border bg-muted" />
-              <td className="sticky bottom-0 z-30 border-t border-border bg-muted" />
-              <FootCell value={workspace?.totals.mealVoucherCents} />
-              <FootCell value={workspace?.totals.transitVoucherCents} />
-              <FootCell value={workspace?.totals.supplementCents} />
-              <FootCell value={workspace?.totals.thirteenthFirstCents} />
-              <FootCell value={workspace?.totals.thirteenthSecondCents} />
-              <FootCell
-                value={workspace?.totals.totalLoanDeductionCents}
-                className="text-destructive"
-              />
-              <FootCell
-                value={workspace?.totals.totalPaymentCents}
-                className="font-extrabold"
-              />
-              <td className="sticky bottom-0 z-30 border-t border-border bg-muted" />
-              <td className="sticky bottom-0 z-30 border-t border-border bg-muted" />
-              <td className="sticky bottom-0 z-30 border-t border-border bg-muted" />
-              <td className="sticky bottom-0 z-30 border-t border-border bg-muted" />
-              <td className="sticky bottom-0 z-30 border-t border-border bg-muted" />
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+      <PayrollGrid
+        lines={filtered}
+        totalCount={lines.length}
+        totals={workspace?.totals}
+        status={
+          workspace === undefined || creating
+            ? "loading"
+            : !run
+              ? "no-run"
+              : "ready"
+        }
+        closed={closed}
+        onCommit={commitLine}
+        onTogglePaid={(line) =>
+          void togglePaid({ lineId: line._id, paid: !line.paid })
+        }
+        onRemove={(line) => {
+          if (!confirm(`Excluir ${line.name || "esta linha"} deste mês?`)) {
+            return;
+          }
+          void removeLine({ lineId: line._id });
+        }}
+        onOpenLoans={setLoanLine}
+      />
       <div className="flex flex-wrap gap-3.5 text-[11.5px] text-muted-foreground">
         <span>
-          ⚙ colunas calculadas: V. Alim. = dias × VA/dia · V. Transp. = dias ×
-          passagem/dia · Cesta = parâmetro quando marcada · Emprést. = parcelas
-          ativas no mês (clique para gerenciar) · Total = proventos − descontos +
-          cesta + V.A. + V.T. + complemento + 13º − emprést.
+          Valores em R$ · ⚙ colunas calculadas: Vale alim. = dias × VA/dia ·
+          Vale transp. = dias × passagem/dia · Cesta = parâmetro quando marcada
+          · Emprést. = parcelas ativas no mês (clique para gerenciar) · Total =
+          proventos − descontos + cesta + V.A. + V.T. + complemento + 13º −
+          emprést.
         </span>
         {closed && <span>Folha fechada — reabra para editar.</span>}
       </div>
@@ -777,47 +425,6 @@ function ParamField({
         className="h-8 w-[110px] rounded-md border border-border bg-background px-2.5 text-right text-[13px] font-semibold tabular-nums text-foreground"
       />
     </label>
-  );
-}
-
-function MoneyCell({
-  cents,
-  disabled,
-  onCommit,
-  className,
-  width = "w-[78px]",
-}: {
-  cents: number;
-  disabled?: boolean;
-  onCommit: (cents: number) => void;
-  className?: string;
-  width?: string;
-}) {
-  return (
-    <td className="border-b border-border px-1 py-0.5">
-      <GridInput
-        disabled={disabled}
-        className={`${width} ${className ?? ""}`}
-        value={formatCentsInput(cents)}
-        onCommit={(value) => onCommit(parsePayrollAmountToCents(value || "0"))}
-      />
-    </td>
-  );
-}
-
-function FootCell({
-  value,
-  className,
-}: {
-  value?: number;
-  className?: string;
-}) {
-  return (
-    <td
-      className={`sticky bottom-0 z-30 border-t border-border bg-muted px-2.5 py-2 text-right text-sm font-semibold tabular-nums ${className ?? ""}`}
-    >
-      {formatCurrency(value ?? 0)}
-    </td>
   );
 }
 
