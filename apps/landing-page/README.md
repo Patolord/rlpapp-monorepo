@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Landing page — RLP Engenharia
 
-## Getting Started
+Site institucional ([rlpeng.com.br](https://rlpeng.com.br)) em Next.js (App Router), Tailwind e Sanity, publicado na Vercel.
 
-First, run the development server:
+## Rodar localmente
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install          # na raiz do monorepo
+pnpm --filter rlp dev # http://localhost:3000 (usa `doppler run`)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`pnpm --filter rlp lint` e `pnpm --filter rlp check-types` rodam o ESLint e o typecheck.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Blog
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+O blog (`/blog`) tem **duas fontes de artigos**, mescladas em `src/lib/blog/index.ts`:
 
-## Learn More
+1. **Artigos locais**, versionados em `src/lib/blog/posts/` — escritos em Markdown (subconjunto: `##`, `###`, listas, citações, negrito, itálico e links) e convertidos para Portable Text por `src/lib/blog/portable-text.ts`. São o que garante o blog no ar mesmo sem acesso ao Sanity.
+2. **Sanity** (projeto `eharrlqv`, dataset `production`, configurado em `src/sanity/client.ts`) — artigos criados no Studio. Quando o mesmo slug existe nos dois lugares, o documento do Sanity prevalece (mantendo a capa local se ele não tiver imagem). Se a API do Sanity estiver fora do ar, o site segue só com os posts locais.
 
-To learn more about Next.js, take a look at the following resources:
+Categorias (`src/lib/blog/types.ts`): `guia-pratico` (síndicos e gestores) e `para-construtoras` (conteúdo técnico). A listagem aceita `?categoria=<slug>`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Criar um artigo novo
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Copie um arquivo de `src/lib/blog/posts/`, ajuste `slug`, `title`, `publishedAt` (ISO com fuso), `excerpt`, `category`, `cover` (imagem em `public/`) e `body`, e registre-o em `src/lib/blog/posts/index.ts`. Posts com `publishedAt` no futuro só aparecem a partir da data.
 
-## Deploy on Vercel
+### Levar os artigos locais para o Sanity
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+cd apps/landing-page
+pnpm blog:seed -- --dry-run                  # lista o que seria enviado
+SANITY_WRITE_TOKEN=... pnpm blog:seed        # cria/atualiza categorias e posts
+pnpm blog:seed -- --ndjson blog.ndjson       # alternativa: arquivo p/ `sanity dataset import`
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+O token (permissão *Editor*) é gerado em <https://www.sanity.io/manage/project/eharrlqv> → API → Tokens. A importação é idempotente (IDs `post-<slug>` e `category-<slug>`). Depois de importados, os artigos podem ser editados no Studio e passam a prevalecer sobre a versão local.
+
+As consultas GROQ usadas pelo site estão documentadas em `GROQ_QUERIES.md`.
+
+## SEO
+
+- `src/app/sitemap.ts` gera `/sitemap.xml` com as páginas estáticas, os projetos e os posts do blog.
+- Cada post define `generateMetadata` (title, description, Open Graph/Twitter) e um JSON-LD `BlogPosting`.

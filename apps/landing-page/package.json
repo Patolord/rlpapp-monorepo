@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "blog:seed": "npx --yes tsx scripts/seed-sanity-blog.ts"
   },
   "engines": {
     "node": "24.x"
