@@ -56,7 +56,13 @@ export default function Projects() {
             {projects.map((project) => (
               <div key={project.id} className="bg-gray-50 rounded-xl overflow-hidden flex flex-col md:flex-row">
                 <div className="md:w-2/5 relative h-64 md:h-auto">
-                  <Image src={project.image || "/placeholder.svg"} alt={project.title} fill className="object-cover" />
+                  <Image
+                    src={project.image || "/placeholder.svg"}
+                    alt={`Projeto ${project.title}`}
+                    fill
+                    sizes="(min-width: 768px) 20vw, 100vw"
+                    className="object-cover"
+                  />
                 </div>
                 <div className="md:w-3/5 p-6">
                   <div className="flex justify-between items-start mb-2">

@@ -1,71 +1,95 @@
-import ProjectDetail from "../../../components/project-detail"
-import { projectsData } from "../../../data/project-data"
-import { notFound } from "next/navigation"
-import type { Metadata } from "next"
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import ProjectDetail from "@/components/project-detail";
+import JsonLd from "@/components/JsonLd";
+import { projectsData } from "@/data/project-data";
+import {
+  getProjectById,
+  getRelatedProjects,
+  projectClientLabel,
+  projectMetaDescription,
+} from "@/lib/projects";
+import { breadcrumbJsonLd, jsonLdGraph, pageOpenGraph } from "@/lib/seo";
+import { OG_IMAGE, absoluteUrl } from "@/lib/site";
 
 export function generateStaticParams() {
-  return projectsData.map((project) => ({
-    id: project.id,
-  }))
+  return projectsData.map((project) => ({ id: project.id }));
 }
 
 type Props = {
-  params: Promise<{
-    id: string
-  }>
-}
+  params: Promise<{ id: string }>;
+};
 
-// Gera metadados dinâmicos para cada projeto (SEO e compartilhamento)
+// Metadados por projeto (título, description, canonical e compartilhamento)
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const resolvedParams = await params
-  const project = projectsData.find((p) => p.id === resolvedParams.id)
+  const { id } = await params;
+  const project = getProjectById(id);
 
   if (!project) {
-    return {
-      title: "Projeto não encontrado - RLP Engenharia",
-    }
+    return { title: "Projeto não encontrado", robots: { index: false } };
   }
 
-  const clientName = Array.isArray(project.client) 
-    ? project.client.join(", ") 
-    : project.client
+  const description = projectMetaDescription(project);
+  const path = `/projetos/${project.id}`;
+  const image = project.imageUrl
+    ? [{ url: project.imageUrl, alt: `Projeto ${project.title}` }]
+    : undefined;
 
   return {
-    title: `${project.title} - RLP Engenharia`,
-    description: `${project.description} Cliente: ${clientName}. ${project.category} - ${project.year}`,
-    openGraph: {
-      title: `${project.title} - RLP Engenharia`,
-      description: project.description,
-      images: project.imageUrl ? [
-        {
-          url: project.imageUrl,
-          width: 1200,
-          height: 630,
-          alt: project.title,
-        }
-      ] : [],
-      type: "website",
-    },
+    title: project.title,
+    description,
+    alternates: { canonical: path },
+    openGraph: pageOpenGraph({
+      type: "article",
+      url: path,
+      title: `${project.title} | RLP Engenharia`,
+      description,
+      ...(image ? { images: image } : {}),
+    }),
     twitter: {
       card: "summary_large_image",
-      title: `${project.title} - RLP Engenharia`,
-      description: project.description,
-      images: project.imageUrl ? [project.imageUrl] : [],
+      title: `${project.title} | RLP Engenharia`,
+      description,
+      images: [image ? project.imageUrl : OG_IMAGE.url],
     },
-  }
+  };
 }
 
 export default async function ProjectPage({ params }: Props) {
-  const resolvedParams = await params
-  const project = projectsData.find((p) => p.id === resolvedParams.id)
+  const { id } = await params;
+  const project = getProjectById(id);
 
   if (!project) {
-    notFound()
+    notFound();
   }
+
+  const related = getRelatedProjects(project);
+  const client = projectClientLabel(project);
 
   return (
     <>
-      <ProjectDetail project={project} />
+      <JsonLd
+        data={jsonLdGraph(
+          breadcrumbJsonLd([
+            { name: "Início", path: "/" },
+            { name: "Projetos", path: "/projetos" },
+            { name: project.title, path: `/projetos/${project.id}` },
+          ]),
+          {
+            "@type": "CreativeWork",
+            name: project.title,
+            description: project.description,
+            ...(project.imageUrl ? { image: absoluteUrl(project.imageUrl) } : {}),
+            ...(client ? { sourceOrganization: { "@type": "Organization", name: client } } : {}),
+            ...(project.location ? { locationCreated: { "@type": "Place", name: project.location } } : {}),
+            dateCreated: String(project.year),
+            genre: project.category,
+            inLanguage: "pt-BR",
+            creator: { "@type": "Organization", name: "RLP Engenharia" },
+          }
+        )}
+      />
+      <ProjectDetail project={project} relatedProjects={related} />
     </>
-  )
+  );
 }

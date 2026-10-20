@@ -11,8 +11,9 @@ import {
   postImageAlt,
   postImageUrl,
 } from "@/lib/blog";
-
-const SITE_URL = "https://rlpeng.com.br";
+import JsonLd from "@/components/JsonLd";
+import { breadcrumbJsonLd, jsonLdGraph, ORGANIZATION_ID, pageOpenGraph } from "@/lib/seo";
+import { LOGO_PATH, SITE_URL, absoluteUrl, whatsappUrl } from "@/lib/site";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -28,17 +29,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const imageUrl = postImageUrl(post, 1200, 630);
 
   return {
-    title: `${post.title} | Blog RLP Engenharia`,
+    title: post.title,
     description: post.excerpt,
     alternates: { canonical: `/blog/${post.slug}` },
     openGraph: {
-      type: "article",
-      title: post.title,
-      description: post.excerpt,
-      url: `/blog/${post.slug}`,
+      ...pageOpenGraph({
+        type: "article",
+        title: post.title,
+        description: post.excerpt,
+        url: `/blog/${post.slug}`,
+        ...(imageUrl ? { images: [{ url: imageUrl, width: 1200, height: 630, alt: postImageAlt(post) }] } : {}),
+      }),
       publishedTime: post.publishedAt,
       authors: ["RLP Engenharia"],
-      ...(imageUrl ? { images: [{ url: imageUrl, width: 1200, height: 630, alt: postImageAlt(post) }] } : {}),
     },
     twitter: {
       card: "summary_large_image",
@@ -60,31 +63,40 @@ export default async function PostPage({ params }: PageProps) {
   const heroImageUrl = postImageUrl(post, 1600, 900);
   const related = await getRelatedPosts(post, 3);
 
-  const jsonLd = {
-    "@context": "https://schema.org",
+  const postUrl = `${SITE_URL}/blog/${post.slug}`;
+  const blogPosting = {
     "@type": "BlogPosting",
+    "@id": `${postUrl}#article`,
     headline: post.title,
     description: post.excerpt,
     datePublished: post.publishedAt,
+    dateModified: post.publishedAt,
     inLanguage: "pt-BR",
-    mainEntityOfPage: `${SITE_URL}/blog/${post.slug}`,
-    ...(heroImageUrl
-      ? { image: heroImageUrl.startsWith("http") ? heroImageUrl : `${SITE_URL}${heroImageUrl}` }
-      : {}),
-    author: { "@type": "Organization", name: "RLP Engenharia", url: SITE_URL },
+    url: postUrl,
+    mainEntityOfPage: { "@type": "WebPage", "@id": postUrl },
+    ...(heroImageUrl ? { image: absoluteUrl(heroImageUrl) } : {}),
+    author: { "@type": "Organization", "@id": ORGANIZATION_ID, name: "RLP Engenharia", url: SITE_URL },
     publisher: {
       "@type": "Organization",
+      "@id": ORGANIZATION_ID,
       name: "RLP Engenharia",
-      logo: { "@type": "ImageObject", url: `${SITE_URL}/logorlp.png` },
+      logo: { "@type": "ImageObject", url: absoluteUrl(LOGO_PATH) },
     },
     ...(post.category ? { articleSection: post.category.title } : {}),
+    ...(post.readingMinutes ? { timeRequired: `PT${post.readingMinutes}M` } : {}),
   };
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      <JsonLd
+        data={jsonLdGraph(
+          breadcrumbJsonLd([
+            { name: "Início", path: "/" },
+            { name: "Blog", path: "/blog" },
+            { name: post.title, path: `/blog/${post.slug}` },
+          ]),
+          blogPosting
+        )}
       />
 
       {/* Hero */}
@@ -179,7 +191,7 @@ export default async function PostPage({ params }: PageProps) {
               Ver todos os posts
             </Link>
             <Link
-              href="https://wa.me/5511985782307?text=Olá,%20li%20um%20artigo%20no%20blog%20e%20gostaria%20de%20solicitar%20um%20orçamento"
+              href={whatsappUrl("Olá, li um artigo no blog e gostaria de solicitar um orçamento")}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-6 py-3 border border-blue-600 text-blue-600 rounded-full font-medium hover:bg-blue-50 transition-colors"

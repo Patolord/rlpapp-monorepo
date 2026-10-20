@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { Calendar, ArrowRight, Clock } from "lucide-react";
+import JsonLd from "@/components/JsonLd";
+import { breadcrumbJsonLd, jsonLdGraph, pageOpenGraph } from "@/lib/seo";
 import {
   BLOG_CATEGORIES,
   formatPostDate,
@@ -12,17 +14,17 @@ import {
 } from "@/lib/blog";
 
 export const metadata: Metadata = {
-  title: "Blog | RLP Engenharia — HVAC, pressurização, AVCB e manutenção",
+  title: "Blog: HVAC, pressurização, AVCB e manutenção",
   description:
     "Guias práticos para síndicos e gestores e conteúdo técnico para construtoras sobre climatização, ventilação, pressurização de escadas, detecção de incêndio, PMOC e AVCB.",
   alternates: { canonical: "/blog" },
-  openGraph: {
-    title: "Blog | RLP Engenharia",
+  openGraph: pageOpenGraph({
+    title: "Blog RLP Engenharia: HVAC, pressurização, AVCB e manutenção",
     description:
       "Climatização, proteção contra incêndio e manutenção predial: guias para quem opera e conteúdo técnico para quem constrói.",
     url: "/blog",
     type: "website",
-  },
+  }),
 };
 
 const FILTERS = [
@@ -138,6 +140,14 @@ export default async function BlogPage({
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      <JsonLd
+        data={jsonLdGraph(
+          breadcrumbJsonLd([
+            { name: "Início", path: "/" },
+            { name: "Blog", path: "/blog" },
+          ])
+        )}
+      />
       {/* Hero Section */}
       <section className="relative py-20 px-6 md:px-12 bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 overflow-hidden">
         <div className="absolute inset-0 opacity-10">
@@ -150,7 +160,7 @@ export default async function BlogPage({
             Blog & Notícias
           </span>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 font-serif">
-            Insights & Novidades
+            Blog RLP Engenharia
           </h1>
           <p className="text-blue-100 text-lg md:text-xl max-w-2xl leading-relaxed">
             Guias práticos para quem cuida de um prédio e conteúdo técnico para

@@ -45,6 +45,7 @@ export default function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 hover:bg-blue-100 transition-colors"
+                  aria-label="LinkedIn da RLP Engenharia"
                 >
                   <FaLinkedinIn className="w-4 h-4 text-blue-800" />
                 </a>
@@ -53,6 +54,7 @@ export default function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 hover:bg-blue-100 transition-colors"
+                  aria-label="Instagram da RLP Engenharia"
                 >
                   <FaInstagram className="w-4 h-4 text-blue-800" />
                 </a>
@@ -193,6 +195,7 @@ export default function Footer() {
               target="_blank"
               rel="noopener noreferrer"
               className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 hover:bg-blue-100 transition-colors"
+              aria-label="LinkedIn da RLP Engenharia"
             >
               <FaLinkedinIn className="w-4 h-4 text-blue-800" />
             </a>
@@ -201,6 +204,7 @@ export default function Footer() {
               target="_blank"
               rel="noopener noreferrer"
               className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 hover:bg-blue-100 transition-colors"
+              aria-label="Instagram da RLP Engenharia"
             >
               <FaInstagram className="w-4 h-4 text-blue-800" />
             </a>

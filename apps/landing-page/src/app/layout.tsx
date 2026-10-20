@@ -8,6 +8,13 @@ import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Playfair_Display } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import {
+  DEFAULT_DESCRIPTION,
+  DEFAULT_TITLE,
+  OG_IMAGE,
+  SITE_NAME,
+  SITE_URL,
+} from "@/lib/site";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -16,41 +23,28 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://rlpeng.com.br"),
-  title: "RLP Engenharia | HVAC e Proteção contra Incêndio em São Paulo",
-  description:
-    "Equipes flexíveis de HVAC para construtoras em SP. Climatização, pressurização de escadas, AVCB e ventilação. +27 anos de experiência. Orçamento rápido.",
-  keywords:
-    "HVAC São Paulo, climatização obra, pressurização escadas, AVCB, ar condicionado industrial, construtoras SP, refrigeração industrial, ventilação mecânica",
-  authors: [{ name: "RLP Engenharia" }],
-  robots: "index, follow",
-  icons: {
-    icon: "/favicon.ico",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: DEFAULT_TITLE,
+    template: `%s | ${SITE_NAME}`,
   },
+  description: DEFAULT_DESCRIPTION,
+  applicationName: SITE_NAME,
+  authors: [{ name: SITE_NAME, url: SITE_URL }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  formatDetection: { telephone: true, email: false, address: false },
   openGraph: {
-    title: "RLP Engenharia | Especialistas em HVAC e Proteção contra Incêndio",
-    description:
-      "Equipes flexíveis de HVAC prontas para sua obra. Climatização, pressurização, AVCB. +27 anos de experiência em São Paulo.",
-    url: "https://rlpeng.com.br",
-    siteName: "RLP Engenharia",
-    locale: "pt_BR",
     type: "website",
-    images: [
-      {
-        url: "/hero.jpg",
-        width: 1200,
-        height: 630,
-        alt: "RLP Engenharia - Soluções em HVAC",
-      },
-    ],
+    siteName: SITE_NAME,
+    locale: "pt_BR",
+    url: "/",
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [OG_IMAGE],
   },
-  twitter: {
-    card: "summary_large_image",
-    title: "RLP Engenharia | HVAC e Proteção contra Incêndio",
-    description:
-      "Equipes flexíveis de HVAC para construtoras. +27 anos de experiência em São Paulo.",
-    images: ["/hero.jpg"],
-  },
+  // Título, descrição e imagem do card vêm das tags og:* de cada página.
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({
@@ -60,14 +54,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className={playfair.variable}>
-      <head>
-        <Script
-          defer
-          src="https://cloud.umami.is/script.js"
-          data-website-id="c3a38c2a-499e-4298-ab4c-c0c6525c8955"
-          strategy="afterInteractive"
-        />
-      </head>
       <body>
         <NuqsAdapter>
           <Header />
@@ -75,6 +61,11 @@ export default function RootLayout({
           <Footer />
           <FloatingBubbleMenu />
         </NuqsAdapter>
+        <Script
+          src="https://cloud.umami.is/script.js"
+          data-website-id="c3a38c2a-499e-4298-ab4c-c0c6525c8955"
+          strategy="afterInteractive"
+        />
         <Analytics />
         <SpeedInsights />
       </body>

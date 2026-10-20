@@ -52,7 +52,7 @@ export default function ContactSection() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <h3 className="text-sm text-gray-500 mb-2">Fale Conosco</h3>
+          <p className="text-sm text-gray-500 mb-2">Fale Conosco</p>
           <h2 className="text-4xl font-serif text-blue-950 mb-4">
             Teremos prazer em atendê-lo!
           </h2>
@@ -144,6 +144,7 @@ export default function ContactSection() {
           </h2>
           <div className="h-96 bg-gray-200 rounded-xl overflow-hidden shadow-lg">
             <iframe
+              title="Mapa com a localização da RLP Engenharia em São Paulo"
               src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3658.0972505373306!2d-46.676382623782004!3d-23.529004360405892!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94ce57f930af5007%3A0xd0e430e3647abbfb!2sR.%20Melo%20Palheta%2C%20172%20-%20%C3%81gua%20Branca%2C%20S%C3%A3o%20Paulo%20-%20SP%2C%2005002-030!5e0!3m2!1spt-BR!2sbr!4v1745012773693!5m2!1spt-BR!2sbr"
               width="100%"
               height="100%"

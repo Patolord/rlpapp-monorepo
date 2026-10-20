@@ -1,7 +1,5 @@
-"use client";
-
+import type { Metadata } from "next";
 import Image from "next/image";
-import { useMemo } from "react";
 import {
   CheckCircle,
   Shield,
@@ -16,18 +14,28 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
+import JsonLd from "@/components/JsonLd";
+import { breadcrumbJsonLd, faqJsonLd, jsonLdGraph, pageOpenGraph } from "@/lib/seo";
+import { PHONE_DISPLAY, PHONE_E164, whatsappUrl } from "@/lib/site";
 
-const PHONE_NUMBER = "5511985782307";
+export const metadata: Metadata = {
+  title: "Manutenção para Condomínios em São Paulo",
+  description:
+    "Manutenção preventiva e corretiva de ar-condicionado, pressurização de escadas e detecção de incêndio para condomínios em SP. Laudos para AVCB e atendimento rápido.",
+  alternates: { canonical: "/manutencao" },
+  openGraph: pageOpenGraph({
+    url: "/manutencao",
+    title: "Manutenção para Condomínios em São Paulo | RLP Engenharia",
+    description:
+      "Planos de manutenção de climatização, pressurização e sistemas contra incêndio, com laudos para AVCB e atendimento emergencial.",
+  }),
+};
+
+const whatsappLink = whatsappUrl(
+  "Olá, gostaria de saber mais sobre os planos de manutenção para condomínio"
+);
 
 export default function ManutencaoPage() {
-  const whatsappLink = useMemo(
-    () =>
-      `https://wa.me/${PHONE_NUMBER}?text=${encodeURIComponent(
-        "Olá, gostaria de saber mais sobre os planos de manutenção para condomínio"
-      )}`,
-    []
-  );
-
   const beneficios = [
     {
       icon: <TrendingDown className="w-8 h-8 text-blue-600" />,
@@ -164,6 +172,20 @@ export default function ManutencaoPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
+      <JsonLd
+        data={jsonLdGraph(
+          breadcrumbJsonLd([
+            { name: "Início", path: "/" },
+            { name: "Manutenção", path: "/manutencao" },
+          ]),
+          faqJsonLd(
+            faqCondominios.map((faq) => ({
+              question: faq.pergunta,
+              answer: faq.resposta,
+            }))
+          )
+        )}
+      />
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 py-20 px-6 md:px-12 overflow-hidden">
         {/* Background pattern */}
@@ -225,9 +247,11 @@ export default function ManutencaoPage() {
               <div className="relative rounded-2xl overflow-hidden shadow-2xl">
                 <Image
                   src="/technician2.jpeg"
-                  alt="Técnico realizando manutenção em sistema de ar condicionado"
+                  alt="Técnico da RLP Engenharia inspecionando a unidade externa de um ar-condicionado"
                   width={600}
                   height={500}
+                  sizes="(min-width: 768px) 50vw, 100vw"
+                  priority
                   className="object-cover w-full h-[400px] md:h-[500px]"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-blue-900/50 to-transparent"></div>
@@ -524,11 +548,11 @@ export default function ManutencaoPage() {
               Agendar Avaliação Gratuita
             </a>
             <a
-              href="tel:+5511985782307"
+              href={`tel:${PHONE_E164}`}
               className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white px-8 py-4 rounded-lg font-bold text-lg border border-white/30 transition-all"
             >
               <Phone className="w-5 h-5" />
-              (11) 98578-2307
+              {PHONE_DISPLAY}
             </a>
           </div>
         </div>

@@ -1,48 +1,73 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getCalApi } from "@calcom/embed-react";
+import { useCallback, useRef, useState } from "react";
 import { FaWhatsapp } from "react-icons/fa";
 import { Calendar, X, MessageCircle } from "lucide-react";
+import { whatsappUrl } from "@/lib/site";
+
+const CAL_NAMESPACE = "15min";
+const CAL_LINK = "rlpengenharia/15min";
+const CAL_BRAND = "#0071ff";
+
+const WHATSAPP_URL = whatsappUrl(
+  "Olá! Gostaria de mais informações sobre os serviços da RLP Engenharia."
+);
 
 export default function FloatingBubbleMenu() {
   const [isOpen, setIsOpen] = useState(false);
+  // O embed do Cal.com (script de terceiros) só é carregado quando o visitante
+  // abre o menu, em vez de em todas as páginas no carregamento inicial.
+  const calReady = useRef<Promise<void> | null>(null);
 
-  useEffect(() => {
-    (async function () {
-      const cal = await getCalApi({ namespace: "15min" });
-      cal("floatingButton", {
-        calLink: "rlpengenharia/15min",
-        config: { layout: "month_view" },
-        buttonText: "Agendar Reunião",
-        buttonColor: "#0071ff",
-        hideButtonIcon: true,
+  const ensureCal = useCallback(() => {
+    if (!calReady.current) {
+      calReady.current = (async () => {
+        const { getCalApi } = await import("@calcom/embed-react");
+        const cal = await getCalApi({ namespace: CAL_NAMESPACE });
+        cal("floatingButton", {
+          calLink: CAL_LINK,
+          config: { layout: "month_view" },
+          buttonText: "Agendar Reunião",
+          buttonColor: CAL_BRAND,
+          hideButtonIcon: true,
+        });
+        cal("ui", {
+          cssVarsPerTheme: {
+            light: { "cal-brand": CAL_BRAND },
+            dark: { "cal-brand": CAL_BRAND },
+          },
+          hideEventTypeDetails: false,
+          layout: "month_view",
+        });
+
+        // Esconde o botão flutuante padrão do Cal.com (usamos o nosso)
+        if (!document.getElementById("cal-floating-button-hide")) {
+          const style = document.createElement("style");
+          style.id = "cal-floating-button-hide";
+          style.textContent = `[data-cal-namespace="${CAL_NAMESPACE}"] { display: none !important; }`;
+          document.head.appendChild(style);
+        }
+      })().catch((error) => {
+        calReady.current = null;
+        console.warn("[cal.com] não foi possível carregar o agendamento", error);
       });
-      cal("ui", {
-        cssVarsPerTheme: {
-          light: { "cal-brand": "#0071ff" },
-          dark: { "cal-brand": "#0071ff" },
-        },
-        hideEventTypeDetails: false,
-        layout: "month_view",
-      });
-    })();
-
-    // Hide Cal.com's default floating button
-    const style = document.createElement("style");
-    style.textContent = `[data-cal-namespace="15min"] { display: none !important; }`;
-    document.head.appendChild(style);
-
-    return () => {
-      style.remove();
-    };
+    }
+    return calReady.current;
   }, []);
 
-  const whatsappNumber = "5511999999999"; // Replace with actual number
-  const whatsappMessage = encodeURIComponent(
-    "Olá! Gostaria de mais informações sobre os serviços da RLP Engenharia."
-  );
-  const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
+  const toggleMenu = () => {
+    const next = !isOpen;
+    setIsOpen(next);
+    if (next) void ensureCal();
+  };
+
+  const openScheduler = async () => {
+    await ensureCal();
+    const calButton = document.querySelector<HTMLElement>(
+      `[data-cal-namespace="${CAL_NAMESPACE}"]`
+    );
+    calButton?.click();
+  };
 
   return (
     <>
@@ -52,6 +77,7 @@ export default function FloatingBubbleMenu() {
           isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={() => setIsOpen(false)}
+        aria-hidden="true"
       />
 
       {/* Menu Container */}
@@ -63,14 +89,16 @@ export default function FloatingBubbleMenu() {
               ? "opacity-100 translate-y-0"
               : "opacity-0 translate-y-4 pointer-events-none"
           }`}
+          aria-hidden={!isOpen}
         >
           {/* WhatsApp Button */}
           <a
-            href={whatsappUrl}
+            href={WHATSAPP_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="group flex items-center gap-3"
-            style={{ animationDelay: "50ms" }}
+            aria-label="Falar com a RLP Engenharia pelo WhatsApp"
+            tabIndex={isOpen ? 0 : -1}
           >
             <span
               className={`bg-white px-4 py-2 rounded-full shadow-lg text-sm font-medium text-gray-700 
@@ -85,20 +113,17 @@ export default function FloatingBubbleMenu() {
               hover:shadow-xl hover:shadow-green-500/40 hover:scale-110 
               transition-all duration-200 cursor-pointer"
             >
-              <FaWhatsapp className="w-7 h-7 text-white" />
+              <FaWhatsapp className="w-7 h-7 text-white" aria-hidden="true" />
             </div>
           </a>
 
           {/* Cal.com Button */}
           <button
-            onClick={() => {
-              const calButton = document.querySelector(
-                '[data-cal-namespace="15min"]'
-              ) as HTMLElement;
-              if (calButton) calButton.click();
-            }}
+            type="button"
+            onClick={() => void openScheduler()}
             className="group flex items-center gap-3"
-            style={{ animationDelay: "100ms" }}
+            aria-label="Agendar reunião com a RLP Engenharia"
+            tabIndex={isOpen ? 0 : -1}
           >
             <span
               className={`bg-white px-4 py-2 rounded-full shadow-lg text-sm font-medium text-gray-700 
@@ -113,19 +138,22 @@ export default function FloatingBubbleMenu() {
               hover:shadow-xl hover:shadow-blue-500/40 hover:scale-110 
               transition-all duration-200 cursor-pointer"
             >
-              <Calendar className="w-6 h-6 text-white" />
+              <Calendar className="w-6 h-6 text-white" aria-hidden="true" />
             </div>
           </button>
         </div>
 
         {/* Main Toggle Button */}
         <button
-          onClick={() => setIsOpen(!isOpen)}
+          type="button"
+          onClick={toggleMenu}
+          aria-label={isOpen ? "Fechar opções de contato" : "Abrir opções de contato"}
+          aria-expanded={isOpen}
           className={`w-16 h-16 rounded-full flex items-center justify-center 
           shadow-xl transition-all duration-300 cursor-pointer
           ${
             isOpen
-              ? "bg-gray-800 hover:bg-gray-700 rotate-0"
+              ? "bg-gray-800 hover:bg-gray-700"
               : "bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 hover:scale-110"
           }`}
           style={{
@@ -134,17 +162,11 @@ export default function FloatingBubbleMenu() {
               : "0 10px 40px rgba(59,130,246,0.4)",
           }}
         >
-          <div
-            className={`transition-transform duration-300 ${
-              isOpen ? "rotate-0" : "rotate-0"
-            }`}
-          >
-            {isOpen ? (
-              <X className="w-7 h-7 text-white" />
-            ) : (
-              <MessageCircle className="w-7 h-7 text-white" />
-            )}
-          </div>
+          {isOpen ? (
+            <X className="w-7 h-7 text-white" aria-hidden="true" />
+          ) : (
+            <MessageCircle className="w-7 h-7 text-white" aria-hidden="true" />
+          )}
         </button>
       </div>
     </>

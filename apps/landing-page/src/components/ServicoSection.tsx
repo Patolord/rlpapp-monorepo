@@ -47,6 +47,7 @@ export default function ServicoSection({
               alt={alt}
               width={600}
               height={600}
+              sizes="(min-width: 768px) 50vw, 100vw"
               className="rounded-lg object-cover w-full h-auto aspect-square"
             />
           </div>

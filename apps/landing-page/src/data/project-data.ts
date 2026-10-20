@@ -293,9 +293,9 @@ Exaustão mecânica.</p>`,
     client: ["EBI ESCRITÓRIO BRASÍLIA DE IMÓVEIS", "C2J COMERCIAL E CONSTRUTORA"],
     location: " Rua Sílvio Rodini, 247 - Vila Dom Pedro II, São Paulo - SP",
     duration: "10 meses",
-    imageUrl: "/projetos/EBI/chacara-inglesa.jpg",
+    imageUrl: "/projetos/EBI/chacara-Inglesa.jpg",
     galleryImages: [
-      "/projetos/EBI/chacara-inglesa.jpg",
+      "/projetos/EBI/chacara-Inglesa.jpg",
     ],
     solutions: [
       "Fornecimento e instalação de infra-estrutura de sistema de ar condicionado",

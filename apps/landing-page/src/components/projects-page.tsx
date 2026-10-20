@@ -5,9 +5,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Search, ChevronLeft, ChevronRight, MoreHorizontal, X } from "lucide-react";
 import { useQueryState, parseAsString, parseAsInteger } from "nuqs";
-import { projectsData } from "../data/project-data";
+import type { ProjectType } from "../lib/types";
 
-export default function ProjectsPage() {
+export default function ProjectsPage({
+  projects: projectsData,
+}: {
+  projects: ProjectType[];
+}) {
   // Usando nuqs para sincronizar filtros com a URL
   const [currentPage, setCurrentPage] = useQueryState(
     "pagina",
@@ -95,7 +99,7 @@ export default function ProjectsPage() {
     }
 
     return results;
-  }, [searchTerm, selectedCategory, selectedClient, selectedYear]);
+  }, [projectsData, searchTerm, selectedCategory, selectedClient, selectedYear]);
 
   const projectsPerPage = 12;
   const totalPages = Math.ceil(filteredProjects.length / projectsPerPage);
@@ -456,8 +460,9 @@ export default function ProjectsPage() {
                           <div className="relative h-48 sm:h-56 md:h-64">
                             <Image
                               src={project.imageUrl}
-                              alt={project.title}
+                              alt={`Projeto ${project.title}`}
                               fill
+                              sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw"
                               className="object-cover"
                               onError={() => handleImageError(project.id)}
                             />

@@ -8,7 +8,13 @@ export default function benefitssection() {
 
             <div className="w-full md:w-1/2 mb-8 md:mb-0 relative">
               <div className="relative h-[500px] w-full bg-gray-100">
-                <Image src="/oficina.jpg" alt="RLP Engenharia" fill className="object-cover rounded-lg" />
+                <Image
+                  src="/oficina.jpg"
+                  alt="Equipe da RLP Engenharia na oficina de fabricação de dutos e componentes"
+                  fill
+                  sizes="(min-width: 768px) 50vw, 100vw"
+                  className="object-cover rounded-lg"
+                />
               </div>
               <div className="absolute -bottom-4 -left-4 w-[80%] h-[80%] border-l-4 border-b-4 border-blue-600 -z-10"></div>
             </div>

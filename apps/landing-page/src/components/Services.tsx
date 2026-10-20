@@ -9,7 +9,7 @@ import {
   Fan,
 } from "lucide-react";
 
-export default function ServicosPage() {
+export default function Services() {
   const mainServices = [
     {
       id: "climatizacao",
@@ -18,6 +18,7 @@ export default function ServicosPage() {
         "Projetos personalizados de climatização para ambientes comerciais, industriais e residenciais.",
       icon: <Wind className="w-8 h-8 text-blue-600" />,
       image: "/climatizacao.jpg",
+      alt: "Evaporadora de ar-condicionado split instalada na parede",
       link: "/servicos#climatizacao",
     },
     {
@@ -27,6 +28,7 @@ export default function ServicosPage() {
         "Soluções em refrigeração para preservar ambiente, produtos e equipamentos com eficiência energética e confiabilidade.",
       icon: <ThermometerSnowflake className="w-8 h-8 text-blue-600" />,
       image: "/refrigeracao.jpg",
+      alt: "Técnico junto a condensadoras de refrigeração instaladas na cobertura de um edifício",
       link: "/servicos#refrigeracao",
     },
     {
@@ -36,6 +38,7 @@ export default function ServicosPage() {
         "Sistemas que garantem rotas de fuga seguras em caso de incêndio, atendendo às normas técnicas.",
       icon: <Layers className="w-8 h-8 text-blue-600" />,
       image: "/pressurizacao.jpeg",
+      alt: "Ventilador e dutos do sistema de pressurização de escadas em casa de máquinas",
       link: "/servicos#pressurizacao",
     },
     {
@@ -45,6 +48,7 @@ export default function ServicosPage() {
         "Sistemas inteligentes que identificam precocemente situações de risco, protegendo vidas e patrimônio.",
       icon: <AlarmSmoke className="w-8 h-8 text-blue-600" />,
       image: "/deteccao.jpeg",
+      alt: "Detector de fumaça instalado no teto",
       link: "/servicos#deteccao",
     },
     {
@@ -54,6 +58,7 @@ export default function ServicosPage() {
         "Sistemas de exaustão e controle de fumaça para garantir a segurança e visibilidade em situações de emergência.",
       icon: <Fan className="w-8 h-8 text-blue-600" />,
       image: "/extracao.png",
+      alt: "Exaustor de extração de fumaça ao lado de uma sinalização de saída de emergência",
       link: "/servicos#extracao",
     },
   ];
@@ -62,9 +67,9 @@ export default function ServicosPage() {
     <div className="flex flex-col bg-gray-50 rounded-b-4xl">
       <section className="py-8 md:py-12 lg:py-20 px-4 sm:px-6 md:px-8 lg:px-24">
         <div className="w-full">
-          <h1 className="text-3xl md:text-4xl text-center mb-8 md:mb-12 lg:mb-20 text-blue-950 font-serif">
+          <h2 className="text-3xl md:text-4xl text-center mb-8 md:mb-12 lg:mb-20 text-blue-950 font-serif">
             Nossos Serviços
-          </h1>
+          </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 md:gap-8 max-w-[95%] sm:max-w-[90%] lg:max-w-full mx-auto">
             {mainServices.map((service) => (
               <Link
@@ -75,8 +80,9 @@ export default function ServicosPage() {
                 <div className="relative h-40 sm:h-44 md:h-48">
                   <Image
                     src={service.image || "/placeholder.svg"}
-                    alt={service.title}
+                    alt={service.alt}
                     fill
+                    sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                     className="object-cover"
                   />
                 </div>
@@ -85,9 +91,9 @@ export default function ServicosPage() {
                     <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-blue-50 rounded-full flex-shrink-0">
                       {service.icon}
                     </div>
-                    <h2 className="text-lg md:text-xl font-bold text-blue-950 leading-tight">
+                    <h3 className="text-lg md:text-xl font-bold text-blue-950 leading-tight">
                       {service.title}
-                    </h2>
+                    </h3>
                   </div>
                   <p className="text-sm md:text-base text-gray-600 mb-4 flex-grow">
                     {service.description}

@@ -153,7 +153,8 @@ export default function HeroSection() {
                       src={src}
                       width={32}
                       height={32}
-                      alt={`Cliente ${i + 1}`}
+                      alt=""
+                      aria-hidden="true"
                       className="object-cover"
                     />
                   </div>
@@ -176,7 +177,8 @@ export default function HeroSection() {
               <Image
                 src="/technician2.jpeg"
                 fill
-                alt="Técnico da RLP Engenharia realizando manutenção em sistema de ar condicionado"
+                sizes="(min-width: 768px) 50vw, 100vw"
+                alt="Técnico da RLP Engenharia inspecionando a unidade externa de um sistema de ar-condicionado"
                 className="object-cover rounded-lg"
                 priority
               />
@@ -200,7 +202,7 @@ export default function HeroSection() {
                   <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-gray-50">
                     <Image
                       src={company.logo || "/placeholder.svg"}
-                      alt={company.name}
+                      alt={`Logo ${company.name}`}
                       width={40}
                       height={40}
                     />
@@ -234,7 +236,7 @@ export default function HeroSection() {
                       ? "bg-blue-600 scale-125"
                       : "bg-gray-300 hover:bg-gray-400"
                   }`}
-                  aria-label={`Go to slide ${index + 1}`}
+                  aria-label={`Ir para a página ${index + 1} de clientes`}
                 />
               ))}
             </div>

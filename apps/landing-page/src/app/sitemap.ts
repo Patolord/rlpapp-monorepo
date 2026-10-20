@@ -1,8 +1,7 @@
 import type { MetadataRoute } from "next";
 import { projectsData } from "@/data/project-data";
 import { getAllPosts } from "@/lib/blog";
-
-const SITE_URL = "https://rlpeng.com.br";
+import { SITE_URL } from "@/lib/site";
 
 export const revalidate = 3600;
 
@@ -11,12 +10,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${SITE_URL}/`, changeFrequency: "monthly", priority: 1 },
-    { url: `${SITE_URL}/sobre`, changeFrequency: "yearly", priority: 0.6 },
     { url: `${SITE_URL}/servicos`, changeFrequency: "monthly", priority: 0.9 },
     { url: `${SITE_URL}/manutencao`, changeFrequency: "monthly", priority: 0.9 },
-    { url: `${SITE_URL}/projetos`, changeFrequency: "monthly", priority: 0.7 },
-    { url: `${SITE_URL}/carreiras`, changeFrequency: "monthly", priority: 0.4 },
     { url: `${SITE_URL}/blog`, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${SITE_URL}/projetos`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${SITE_URL}/sobre`, changeFrequency: "yearly", priority: 0.6 },
+    { url: `${SITE_URL}/carreiras`, changeFrequency: "monthly", priority: 0.4 },
+    {
+      url: `${SITE_URL}/politica-privacidade`,
+      changeFrequency: "yearly",
+      priority: 0.2,
+    },
   ];
 
   const projectRoutes: MetadataRoute.Sitemap = projectsData.map((project) => ({

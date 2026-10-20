@@ -112,6 +112,7 @@ export default function Header() {
                 <button
                   onClick={toggleMenu}
                   className="text-gray-600 hover:text-gray-900"
+                  aria-label="Fechar menu"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -186,6 +187,7 @@ export default function Header() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 hover:bg-blue-100 transition-colors"
+                  aria-label="LinkedIn da RLP Engenharia"
                 >
                   <FaLinkedinIn className="w-4 h-4 text-blue-800" />
                 </a>
@@ -194,6 +196,7 @@ export default function Header() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 hover:bg-blue-100 transition-colors"
+                  aria-label="Instagram da RLP Engenharia"
                 >
                   <FaInstagram className="w-4 h-4 text-blue-800" />
                 </a>
@@ -213,7 +216,12 @@ const MenuButton = ({
   isOpen: boolean;
   onClick: () => void;
 }) => (
-  <button className="md:hidden" aria-label="Toggle menu" onClick={onClick}>
+  <button
+    className="md:hidden"
+    aria-label={isOpen ? "Fechar menu" : "Abrir menu"}
+    aria-expanded={isOpen}
+    onClick={onClick}
+  >
     {isOpen ? (
       <svg
         xmlns="http://www.w3.org/2000/svg"

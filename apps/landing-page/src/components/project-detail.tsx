@@ -5,13 +5,23 @@ import Image from "next/image"
 import Link from "next/link"
 import { ArrowLeft, Calendar, Building, ChevronLeft, ChevronRight, ArrowRight } from "lucide-react"
 import type { ProjectType } from "../lib/types"
-import { projectsData } from "../data/project-data"
 
-export default function ProjectDetail({ project }: { project: ProjectType }) {
+export default function ProjectDetail({
+  project,
+  relatedProjects = [],
+}: {
+  project: ProjectType
+  relatedProjects?: ProjectType[]
+}) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
 
-  // Find related projects (same category)
-  const relatedProjects = projectsData.filter((p) => p.category === project.category && p.id !== project.id).slice(0, 3)
+  // Imagens já filtradas no servidor (só arquivos existentes em public/)
+  const images =
+    project.galleryImages && project.galleryImages.length > 0
+      ? project.galleryImages
+      : project.imageUrl
+        ? [project.imageUrl]
+        : []
 
   // Get category badge color
   const getCategoryColor = (category: string) => {
@@ -32,11 +42,11 @@ export default function ProjectDetail({ project }: { project: ProjectType }) {
 
   // Handle image gallery navigation
   const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev === (project.galleryImages?.length || 0) - 1 ? 0 : prev + 1))
+    setCurrentImageIndex((prev) => (prev >= images.length - 1 ? 0 : prev + 1))
   }
 
   const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev === 0 ? (project.galleryImages?.length || 0) - 1 : prev - 1))
+    setCurrentImageIndex((prev) => (prev <= 0 ? images.length - 1 : prev - 1))
   }
 
   return (
@@ -92,34 +102,50 @@ export default function ProjectDetail({ project }: { project: ProjectType }) {
       {/* Project Gallery */}
       <section className="py-2 sm:py-4 px-4 sm:px-6 md:px-12">
         <div className="max-w-7xl mx-auto">
-          <div className="relative aspect-video overflow-hidden rounded-lg shadow-md mb-4 sm:mb-6">
-            <Image
-              src={project.galleryImages?.[currentImageIndex] || project.imageUrl}
-              alt={`${project.title} - Imagem ${currentImageIndex + 1}`}
-              fill
-              className="object-cover"
-            />
+          <div className="relative aspect-video overflow-hidden rounded-lg shadow-md mb-4 sm:mb-6 bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700">
+            {images.length > 0 ? (
+              <Image
+                src={images[currentImageIndex] ?? images[0]}
+                alt={`Projeto ${project.title} - imagem ${currentImageIndex + 1} de ${images.length}`}
+                fill
+                sizes="(min-width: 1280px) 1280px, 100vw"
+                priority={currentImageIndex === 0}
+                className="object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-white px-6 text-center">
+                <span className="text-sm uppercase tracking-wider text-blue-200 mb-2">{project.category}</span>
+                <span className="text-2xl sm:text-3xl font-serif">{project.title}</span>
+              </div>
+            )}
 
-            {(project.galleryImages?.length || 0) > 1 && (
+            {images.length > 1 && (
               <>
                 <button
+                  type="button"
                   onClick={prevImage}
+                  aria-label="Imagem anterior"
                   className="absolute left-2 sm:left-4 top-1/2 transform -translate-y-1/2 bg-white/80 p-1.5 sm:p-2 rounded-full shadow-md hover:bg-white transition"
                 >
-                  <ChevronLeft className="h-4 w-4 sm:h-6 sm:w-6 text-gray-800" />
+                  <ChevronLeft className="h-4 w-4 sm:h-6 sm:w-6 text-gray-800" aria-hidden="true" />
                 </button>
                 <button
+                  type="button"
                   onClick={nextImage}
+                  aria-label="Próxima imagem"
                   className="absolute right-2 sm:right-4 top-1/2 transform -translate-y-1/2 bg-white/80 p-1.5 sm:p-2 rounded-full shadow-md hover:bg-white transition"
                 >
-                  <ChevronRight className="h-4 w-4 sm:h-6 sm:w-6 text-gray-800" />
+                  <ChevronRight className="h-4 w-4 sm:h-6 sm:w-6 text-gray-800" aria-hidden="true" />
                 </button>
 
                 <div className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-1.5 sm:space-x-2">
-                  {(project.galleryImages || [project.imageUrl]).map((_, index) => (
+                  {images.map((_, index) => (
                     <button
+                      type="button"
                       key={index}
                       onClick={() => setCurrentImageIndex(index)}
+                      aria-label={`Ver imagem ${index + 1}`}
+                      aria-current={currentImageIndex === index}
                       className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${currentImageIndex === index ? "bg-white" : "bg-white/50"}`}
                     />
                   ))}
@@ -129,20 +155,23 @@ export default function ProjectDetail({ project }: { project: ProjectType }) {
           </div>
 
           {/* Thumbnails */}
-          {(project.galleryImages?.length || 0) > 1 && (
+          {images.length > 1 && (
             <div className="grid grid-cols-4 sm:grid-cols-9 gap-1.5 sm:gap-2 mt-2">
-              {(project.galleryImages || []).map((image, index) => (
+              {images.map((image, index) => (
                 <button
+                  type="button"
                   key={index}
                   onClick={() => setCurrentImageIndex(index)}
+                  aria-label={`Ver imagem ${index + 1}`}
                   className={`relative aspect-video rounded overflow-hidden ${
                     currentImageIndex === index ? "ring-1 sm:ring-2 ring-blue-500" : ""
                   }`}
                 >
                   <Image
-                    src={image || "/placeholder.svg"}
-                    alt={`${project.title} - Thumbnail ${index + 1}`}
+                    src={image}
+                    alt=""
                     fill
+                    sizes="(min-width: 640px) 11vw, 25vw"
                     className="object-cover"
                   />
                 </button>
@@ -242,13 +271,20 @@ export default function ProjectDetail({ project }: { project: ProjectType }) {
                   key={relatedProject.id}
                   className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition duration-300"
                 >
-                  <div className="relative h-40 sm:h-48">
-                    <Image
-                      src={relatedProject.imageUrl || "/placeholder.svg"}
-                      alt={relatedProject.title}
-                      fill
-                      className="object-cover"
-                    />
+                  <div className="relative h-40 sm:h-48 bg-gradient-to-br from-blue-100 to-blue-50">
+                    {relatedProject.imageUrl ? (
+                      <Image
+                        src={relatedProject.imageUrl}
+                        alt={`Projeto ${relatedProject.title}`}
+                        fill
+                        sizes="(min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-blue-900/60 font-serif text-lg px-4 text-center">
+                        {relatedProject.category}
+                      </div>
+                    )}
                   </div>
                   <div className="p-4 sm:p-6">
                     <div className="flex flex-col sm:flex-row justify-between items-start gap-2 sm:gap-4 mb-3 sm:mb-4">

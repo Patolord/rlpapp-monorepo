@@ -24,8 +24,9 @@ export default function SegmentosSection() {
             <div className="absolute inset-0 bg-gradient-to-br from-blue-600/90 to-blue-800/90 z-10"></div>
             <Image
               src="/hero.jpg"
-              alt="Obra de construção"
+              alt="Equipe da RLP Engenharia instalando um reservatório de refrigeração industrial"
               fill
+              sizes="(min-width: 768px) 50vw, 100vw"
               className="object-cover group-hover:scale-105 transition-transform duration-500"
             />
             <div className="relative z-20 p-8 md:p-10 h-full flex flex-col justify-between min-h-[420px]">
@@ -74,8 +75,9 @@ export default function SegmentosSection() {
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/90 to-emerald-800/90 z-10"></div>
             <Image
               src="/oficina.jpg"
-              alt="Manutenção em condomínio"
+              alt="Equipe da RLP Engenharia trabalhando na oficina de fabricação"
               fill
+              sizes="(min-width: 768px) 50vw, 100vw"
               className="object-cover group-hover:scale-105 transition-transform duration-500"
             />
             <div className="relative z-20 p-8 md:p-10 h-full flex flex-col justify-between min-h-[420px]">

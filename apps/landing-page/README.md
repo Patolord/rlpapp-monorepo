@@ -39,5 +39,10 @@ As consultas GROQ usadas pelo site estão documentadas em `GROQ_QUERIES.md`.
 
 ## SEO
 
-- `src/app/sitemap.ts` gera `/sitemap.xml` com as páginas estáticas, os projetos e os posts do blog.
-- Cada post define `generateMetadata` (title, description, Open Graph/Twitter) e um JSON-LD `BlogPosting`.
+- **Domínio canônico**: `https://www.rlpeng.com.br` (o apex redireciona para o `www` na Vercel). Está centralizado em `src/lib/site.ts` (`SITE_URL`, sobrescrevível por `NEXT_PUBLIC_SITE_URL`), junto com telefone, endereço, redes sociais e a imagem padrão de compartilhamento (`public/og-image.jpg`, 1200×630).
+- **Metadata por página**: o `layout.tsx` define o título padrão e o template `%s | RLP Engenharia`; cada `page.tsx` exporta `metadata` (ou `generateMetadata`) com `title`, `description`, `alternates.canonical` e Open Graph via `pageOpenGraph()` (`src/lib/seo.ts`). Páginas com filtros na URL (`/projetos?…`, `/blog?categoria=…`) apontam o canonical para a URL limpa.
+- **robots.txt** (`src/app/robots.ts`) e **sitemap.xml** (`src/app/sitemap.ts`, com páginas estáticas, projetos e posts).
+- **Dados estruturados** (JSON-LD, `src/lib/seo.ts` + `<JsonLd />`): `HVACBusiness`/`WebSite` na home, `FAQPage` na home e em `/manutencao`, `ItemList` de `Service` em `/servicos`, `BreadcrumbList` nas páginas internas, `BlogPosting` nos posts e `CreativeWork` nos projetos.
+- **Projetos**: `src/lib/projects.ts` remove referências a fotos que não existem em `public/` (vários projetos de `project-data.ts` não têm imagem), evitando imagens quebradas e `og:image` 404. A lista `/projetos` é renderizada no servidor (`force-dynamic`) para o HTML já sair com os projetos.
+- **Boas práticas**: um único `<h1>` por página, `alt` descritivo e `sizes` nas imagens `fill`, embed do Cal.com carregado só quando o visitante abre o menu flutuante.
+- Depois de publicar: enviar o sitemap no Google Search Console (`https://www.rlpeng.com.br/sitemap.xml`) e validar os dados estruturados em <https://search.google.com/test/rich-results>.

@@ -1,19 +1,24 @@
-"use client";
+import type { Metadata } from "next";
+import { pageOpenGraph } from "@/lib/seo";
+import { WHATSAPP_NUMBER } from "@/lib/site";
 
-import { useMemo } from "react";
+export const metadata: Metadata = {
+  title: "Política de Privacidade",
+  description:
+    "Como a RLP Engenharia coleta, usa e protege os dados pessoais de clientes, parceiros e visitantes do site, em conformidade com a LGPD.",
+  alternates: { canonical: "/politica-privacidade" },
+  openGraph: pageOpenGraph({
+    url: "/politica-privacidade",
+    title: "Política de Privacidade | RLP Engenharia",
+  }),
+};
 
-// Ofuscação para evitar spam bots
 const EMAIL_USER = "rlpeng";
 const EMAIL_DOMAIN = "rlpeng.com.br";
-const PHONE_NUMBER = "5511985782307";
 
 export default function PoliticaPrivacidadePage() {
-  // Email e telefone só são montados em runtime (bots não conseguem ver)
-  const email = useMemo(() => `${EMAIL_USER}@${EMAIL_DOMAIN}`, []);
-  const whatsappLink = useMemo(
-    () => `https://wa.me/${PHONE_NUMBER}`,
-    []
-  );
+  const email = `${EMAIL_USER}@${EMAIL_DOMAIN}`;
+  const whatsappLink = `https://wa.me/${WHATSAPP_NUMBER}`;
 
   return (
     <div className="min-h-screen bg-gray-50 py-16 px-6 md:px-12">

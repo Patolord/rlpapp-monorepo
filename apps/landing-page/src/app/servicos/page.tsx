@@ -1,38 +1,56 @@
-"use client";
-
-import { useMemo } from "react";
+import type { Metadata } from "next";
 import ServicoSection from "@/components/ServicoSection";
+import JsonLd from "@/components/JsonLd";
+import { breadcrumbJsonLd, jsonLdGraph, pageOpenGraph, servicesJsonLd } from "@/lib/seo";
+import { whatsappUrl } from "@/lib/site";
 
-const PHONE_NUMBER = "5511985782307";
+export const metadata: Metadata = {
+  title: "Serviços de HVAC e Proteção contra Incêndio",
+  description:
+    "Climatização, refrigeração, pressurização de escadas, extração de fumaça e detecção de incêndio: projeto, instalação e documentação para AVCB em São Paulo.",
+  alternates: { canonical: "/servicos" },
+  openGraph: pageOpenGraph({
+    url: "/servicos",
+    title: "Serviços de HVAC e Proteção contra Incêndio | RLP Engenharia",
+    description:
+      "Climatização, refrigeração, pressurização de escadas, extração de fumaça e detecção de incêndio para obras e operações em São Paulo.",
+  }),
+};
+
+const whatsappLinks = {
+  climatizacao: whatsappUrl(
+    "Olá, gostaria de solicitar um orçamento para climatização"
+  ),
+  refrigeracao: whatsappUrl(
+    "Olá, gostaria de solicitar um orçamento para refrigeração"
+  ),
+  pressurizacao: whatsappUrl(
+    "Olá, gostaria de solicitar um orçamento para pressurização de escadas"
+  ),
+  extracao: whatsappUrl(
+    "Olá, gostaria de solicitar um orçamento para extração de fumaça"
+  ),
+  deteccao: whatsappUrl(
+    "Olá, gostaria de solicitar um orçamento para detecção e alarme de incêndio"
+  ),
+};
 
 export default function ServicosPage() {
-  const whatsappLinks = useMemo(
-    () => ({
-      climatizacao: `https://wa.me/${PHONE_NUMBER}?text=${encodeURIComponent(
-        "Olá, gostaria de solicitar um orçamento para climatização"
-      )}`,
-      refrigeracao: `https://wa.me/${PHONE_NUMBER}?text=${encodeURIComponent(
-        "Olá, gostaria de solicitar um orçamento para refrigeração"
-      )}`,
-      pressurizacao: `https://wa.me/${PHONE_NUMBER}?text=${encodeURIComponent(
-        "Olá, gostaria de solicitar um orçamento para pressurização de escadas"
-      )}`,
-      extracao: `https://wa.me/${PHONE_NUMBER}?text=${encodeURIComponent(
-        "Olá, gostaria de solicitar um orçamento para extração de fumaça"
-      )}`,
-      deteccao: `https://wa.me/${PHONE_NUMBER}?text=${encodeURIComponent(
-        "Olá, gostaria de solicitar um orçamento para detecção e alarme de incêndio"
-      )}`,
-    }),
-    []
-  );
-
   return (
     <div className="min-h-screen flex bg-gradient-to-b from-gray-50 to-white flex-col">
+      <JsonLd
+        data={jsonLdGraph(
+          breadcrumbJsonLd([
+            { name: "Início", path: "/" },
+            { name: "Serviços", path: "/servicos" },
+          ]),
+          servicesJsonLd()
+        )}
+      />
       <section className="py-10 md:py-16 px-6 md:px-12">
         <div className="max-w-7xl mx-auto text-center">
-          <h1 className="text-5xl md:text-5xl font-serif text-blue-950 mb-4">
-            Serviços
+          <h1 className="text-4xl md:text-5xl font-serif text-blue-950 mb-4">
+            Serviços de HVAC e proteção contra incêndio
           </h1>
           <div className="w-32 h-0.5 bg-blue-900 mx-auto mb-8"></div>
 
@@ -75,7 +93,7 @@ export default function ServicosPage() {
         id="climatizacao"
         titulo="Climatização"
         imagem="/climatizacao.jpg"
-        alt="Técnico realizando manutenção em sistema de ar condicionado"
+        alt="Evaporadora de ar-condicionado split instalada na parede"
         itens={[
           {
             titulo: "Conforto térmico inteligente",
@@ -101,7 +119,7 @@ export default function ServicosPage() {
         id="refrigeracao"
         titulo="Refrigeração"
         imagem="/refrigeracao.jpg"
-        alt="Sistema de refrigeração industrial"
+        alt="Técnico junto a condensadoras de refrigeração na cobertura de um edifício"
         itens={[
           {
             titulo: "Conservação ideal de produtos",
@@ -130,7 +148,7 @@ export default function ServicosPage() {
         id="pressurizacao"
         titulo="Pressurização de Escadas"
         imagem="/pressurizacao.jpeg"
-        alt="Sistema de pressurização de escadas em edifício"
+        alt="Ventilador e dutos de um sistema de pressurização de escadas"
         itens={[
           {
             titulo: "Segurança em situações de emergência",
@@ -156,7 +174,7 @@ export default function ServicosPage() {
         id="extracao"
         titulo="Extração de Fumaça"
         imagem="/extracao.png"
-        alt="Sistema de extração de fumaça industrial"
+        alt="Exaustor de extração de fumaça ao lado de uma sinalização de saída de emergência"
         itens={[
           {
             titulo: "Segurança em situações de emergência",

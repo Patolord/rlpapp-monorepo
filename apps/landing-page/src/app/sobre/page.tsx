@@ -1,71 +1,45 @@
-"use client";
-
+import type { Metadata } from "next";
 import Image from "next/image";
-import { Award, ChevronLeft, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import DiferenciaisCarousel from "@/components/DiferenciaisCarousel";
+import JsonLd from "@/components/JsonLd";
+import { breadcrumbJsonLd, jsonLdGraph, pageOpenGraph } from "@/lib/seo";
+
+export const metadata: Metadata = {
+  title: "Sobre a RLP: 27 anos de HVAC em São Paulo",
+  description:
+    "Desde 1998 em São Paulo: climatização, refrigeração, pressurização de escadas e proteção contra incêndio para construtoras, indústrias e condomínios.",
+  alternates: { canonical: "/sobre" },
+  openGraph: pageOpenGraph({
+    url: "/sobre",
+    title: "Sobre a RLP Engenharia: 27 anos de HVAC em São Paulo",
+    description:
+      "Fundada em 1998, a RLP Engenharia atende construtoras, indústrias e condomínios com climatização, refrigeração e proteção contra incêndio.",
+  }),
+};
 
 export default function SobrePage() {
-  const diferenciais = [
-    {
-      title: "Expertise Técnica",
-      description:
-        "Nossa equipe é formada por engenheiros e técnicos altamente qualificados, com certificações nas principais normas e tecnologias do setor.",
-    },
-    {
-      title: "Soluções Personalizadas",
-      description:
-        "Desenvolvemos projetos sob medida para cada cliente, considerando as especificidades técnicas, orçamentárias e estéticas de cada empreendimento.",
-    },
-    {
-      title: "Tecnologia de Ponta",
-      description:
-        "Utilizamos as mais avançadas tecnologias e equipamentos do mercado, garantindo eficiência energética e operacional para nossos clientes.",
-    },
-    {
-      title: "Sustentabilidade",
-      description:
-        "Nossos projetos são desenvolvidos com foco na redução do consumo energético e do impacto ambiental, contribuindo para a sustentabilidade dos empreendimentos.",
-    },
-    {
-      title: "Atendimento Completo",
-      description:
-        "Oferecemos suporte em todas as etapas do projeto, desde a concepção até a manutenção, garantindo tranquilidade e satisfação para nossos clientes.",
-    },
-    {
-      title: "Conformidade Normativa",
-      description:
-        "Todos os nossos projetos são desenvolvidos em conformidade com as normas técnicas nacionais e internacionais, garantindo segurança e qualidade.",
-    },
-  ];
-
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  const nextSlide = () => {
-    setCurrentIndex((prevIndex) =>
-      prevIndex + 3 >= diferenciais.length ? 0 : prevIndex + 3
-    );
-  };
-
-  const prevSlide = () => {
-    setCurrentIndex((prevIndex) =>
-      prevIndex - 3 < 0
-        ? Math.floor(diferenciais.length / 3) * 3
-        : prevIndex - 3
-    );
-  };
-
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header/Navigation */}
+      <JsonLd
+        data={jsonLdGraph(
+          breadcrumbJsonLd([
+            { name: "Início", path: "/" },
+            { name: "Sobre", path: "/sobre" },
+          ])
+        )}
+      />
 
       {/* História da Empresa */}
       <section className="py-20 px-6 md:px-12 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col items-start">
             <div className="w-full">
-              <h2 className="text-5xl text-blue-950 mb-6 font-serif">
+              <p className="text-sm font-medium uppercase tracking-wider text-blue-600 mb-3">
+                Sobre a RLP Engenharia
+              </p>
+              <h1 className="text-5xl text-blue-950 mb-6 font-serif">
                 Nossa História
-              </h2>
+              </h1>
               <p className="text-gray-600 mb-4 text-justify">
                 A RLP Engenharia foi fundada em 1998 pelo engenheiro Reinaldo
                 Luiz Pellegrini, que identificou uma oportunidade no mercado de
@@ -100,16 +74,17 @@ export default function SobrePage() {
                     >
                       <Image
                         src="/Diretoria.jpg"
-                        alt="Diretores RLP Engenharia"
+                        alt="Reinaldo Luiz Pellegrini e Waldemar Monteiro, diretores da RLP Engenharia"
                         fill
+                        sizes="(min-width: 768px) 50vw, 100vw"
                         className="object-cover"
                       />
                     </div>
                   </div>
                   <div className="w-full md:w-1/2">
-                    <h4 className="text-2xl text-blue-950 font-serif mb-10 text-center">
+                    <h3 className="text-2xl text-blue-950 font-serif mb-10 text-center">
                       Liderança
-                    </h4>
+                    </h3>
                     <p className="text-gray-600 mb-4 text-justify">
                       A RLP Engenharia é liderada por Reinaldo Luiz Pellegrini e
                       Waldemar Monteiro, que juntos somam mais de 50 anos de
@@ -261,39 +236,7 @@ export default function SobrePage() {
           <h2 className="text-4xl mb-8 text-blue-950 font-serif text-center">
             Nossos Diferenciais
           </h2>
-          <div className="relative">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-12">
-              {diferenciais
-                .slice(currentIndex, currentIndex + 3)
-                .map((diferencial, index) => (
-                  <div key={index} className="bg-gray-50 p-6 rounded-xl">
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                      <Award className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-blue-950 font-serif mb-2">
-                      {diferencial.title}
-                    </h3>
-                    <p className="text-gray-600">{diferencial.description}</p>
-                  </div>
-                ))}
-            </div>
-
-            <button
-              onClick={prevSlide}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-20 bg-white rounded-full p-2 shadow-md hover:bg-gray-50 transition-colors"
-              aria-label="Previous slide"
-            >
-              <ChevronLeft className="w-6 h-6 text-blue-600" />
-            </button>
-
-            <button
-              onClick={nextSlide}
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-20 bg-white rounded-full p-2 shadow-md hover:bg-gray-50 transition-colors"
-              aria-label="Next slide"
-            >
-              <ChevronRight className="w-6 h-6 text-blue-600" />
-            </button>
-          </div>
+          <DiferenciaisCarousel />
         </div>
       </section>
 
