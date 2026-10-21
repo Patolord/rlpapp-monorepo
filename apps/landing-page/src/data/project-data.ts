@@ -24,10 +24,10 @@ export const projectsData: ProjectType[] = [
     ],
 
     solutions: [
-      "Desenvolvimento de um projeto customizado com equipamentos de alta eficiência",
-      "Instalação de sistema VRF (Fluxo de Refrigerante Variável) com controle individualizado",
-      "Implementação de sistema de automação para controle centralizado",
-      "Utilização de dutos com isolamento acústico e anti-vibração",
+      "Ventiladores de pressurização das escadas de emergência, dimensionados para manter a pressão positiva com as portas fechadas e abertas",
+      "Sistema de extração de fumaça com ventiladores e dampers corta-fogo acionados pela central de detecção",
+      "Projeto executado conforme a Instrução Técnica do Corpo de Bombeiros do Estado de São Paulo",
+      "Comissionamento e testes de funcionamento dos sistemas de pressurização e extração",
     ],
   },
   {
@@ -35,8 +35,8 @@ export const projectsData: ProjectType[] = [
     title: "Frigorífico Bom Peixe",
     description:
       "Sistema de refrigeração com câmaras frigoríficas e sistema de amônia para armazenamento e processamento de pescados.",
-    fullDescription: `<p>O Bom Peixe é um dos maiores centros comerciais da região, com mais de 200 lojas, praça de alimentação e área de entretenimento. Nosso projeto incluiu o sistema completo de pressurização de escadas e detecção de incêndio para garantir a segurança dos frequentadores.</p>
-    <p>Implementamos um sistema integrado que atende às normas mais rigorosas de segurança, com detecção precoce de incêndios e pressurização eficiente das escadas de emergência, garantindo rotas de fuga seguras em caso de sinistro.</p>`,
+    fullDescription: `<p>O Frigorífico Bom Peixe é uma unidade de armazenamento e processamento de pescados que depende de refrigeração contínua e confiável para preservar a qualidade dos produtos. Nossa equipe foi responsável pelo projeto e pela instalação do sistema de refrigeração industrial das câmaras frigoríficas, utilizando amônia (NH3) como fluido refrigerante.</p>
+    <p>O escopo contemplou as câmaras de congelados e resfriados, a sala de máquinas com o sistema de amônia e a interligação entre os ambientes, com controle de temperatura e operação segura. O resultado é um conjunto de câmaras que mantém a cadeia do frio de forma estável, atendendo às exigências de higiene e conservação do setor de pescados.</p>`,
     category: "Refrigeração",
     year: 2010,
     client: "FRIGORÍFICO BOM PEIXE",
