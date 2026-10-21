@@ -18,7 +18,10 @@ const playfair = Playfair_Display({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://rlpeng.com.br"),
-  title: "RLP Engenharia | HVAC e Proteção contra Incêndio em São Paulo",
+  title: {
+    default: "RLP Engenharia | HVAC e Proteção contra Incêndio em São Paulo",
+    template: "%s | RLP Engenharia",
+  },
   description:
     "Equipes flexíveis de HVAC para construtoras em SP. Climatização, pressurização de escadas, AVCB e ventilação. +27 anos de experiência. Orçamento rápido.",
   keywords:
