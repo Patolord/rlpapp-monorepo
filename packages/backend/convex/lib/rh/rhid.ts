@@ -575,6 +575,9 @@ export function liveStatusForKind(kind: PunchKind | null | undefined): LiveStatu
       return "lunch";
     case "saida":
       return "left";
+    case null:
+    case undefined:
+      return "absent";
     default:
       return "absent";
   }
