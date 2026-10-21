@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "Consolas", ui-monospace, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #171717;
+  color: #e5e5e5;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+select {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+canvas {
+  display: block;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #404040;
+  border-radius: 5px;
+  border: 2px solid #171717;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.num-input {
+  @apply w-20 rounded bg-neutral-800 px-1.5 py-0.5 text-right font-mono text-xs text-neutral-100 outline-none ring-1 ring-neutral-700 focus:ring-orange-400;
+}
