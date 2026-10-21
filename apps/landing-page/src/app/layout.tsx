@@ -3,6 +3,7 @@ import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingBubbleMenu from "@/components/FloatingBubbleMenu";
+import JsonLd from "@/components/JsonLd";
 import Script from "next/script";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Playfair_Display } from "next/font/google";
@@ -69,6 +70,7 @@ export default function RootLayout({
         />
       </head>
       <body>
+        <JsonLd />
         <NuqsAdapter>
           <Header />
           {children}
