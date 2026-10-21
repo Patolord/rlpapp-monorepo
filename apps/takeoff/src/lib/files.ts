@@ -2,11 +2,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../store";
 import { buildQuote } from "./quantities";
-import { basename, openPdfPath } from "./session";
+import { basename, openPdfPath, useDoc } from "./session";
 import { migrateProject } from "./types";
 
-const PROJECT_FILTER = [{ name: "Takeoff project", extensions: ["takeoff.json", "json"] }];
-const PDF_FILTER = [{ name: "PDF drawings", extensions: ["pdf"] }];
+const PROJECT_FILTER = [{ name: "Projeto Takeoff", extensions: ["takeoff.json", "json"] }];
+const PDF_FILTER = [{ name: "Desenhos PDF", extensions: ["pdf"] }];
 
 export async function pickAndOpenPdf(): Promise<void> {
   const path = await open({ multiple: false, filters: PDF_FILTER });
@@ -15,7 +15,7 @@ export async function pickAndOpenPdf(): Promise<void> {
 
 export async function openPdfFile(path: string): Promise<void> {
   const store = useStore.getState();
-  store.setStatus(`Opening ${basename(path)}…`);
+  store.setStatus(`Abrindo ${basename(path)}…`);
   try {
     await openPdfPath(path);
     const { project } = useStore.getState();
@@ -34,10 +34,11 @@ export async function openPdfFile(path: string): Promise<void> {
         store.commit((p) => ({ ...p, pdfPath: path, pdfName: basename(path) }));
       }
     }
+    useStore.getState().ensurePages(useDoc.getState().numPages);
     useStore.getState().setPage(0);
     useStore.getState().setStatus(null);
   } catch (e) {
-    store.setStatus(`Could not open PDF: ${e instanceof Error ? e.message : String(e)}`);
+    store.setStatus(`Não foi possível abrir o PDF: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 
@@ -53,7 +54,7 @@ export async function saveProject(as = false): Promise<boolean> {
   await invoke("write_text", { path, contents: JSON.stringify(store.project, null, 2) });
   store.setFilePath(path);
   store.markSaved();
-  store.setStatus(`Saved ${basename(path)}`);
+  store.setStatus(`Salvo: ${basename(path)}`);
   return true;
 }
 
@@ -68,11 +69,11 @@ export async function openProjectFile(path: string): Promise<void> {
       await openPdfPath(project.pdfPath);
       useStore.getState().setPage(0);
     } else {
-      store.setStatus(`PDF not found: ${project.pdfPath}. Open it to relink.`);
+      store.setStatus(`PDF não encontrado: ${project.pdfPath}. Localize-o para religar.`);
       const picked = await open({
         multiple: false,
         filters: PDF_FILTER,
-        title: "Locate the drawing PDF",
+        title: "Localizar o PDF do desenho",
       });
       if (typeof picked === "string") {
         await openPdfPath(picked);
@@ -146,14 +147,14 @@ export async function exportXlsx(): Promise<void> {
   const { project } = store;
   const path = await save({
     defaultPath: `Planilha Orçamentária - ${project.site || project.name || "Obra"}.xlsx`,
-    filters: [{ name: "Excel workbook", extensions: ["xlsx"] }],
+    filters: [{ name: "Planilha Excel", extensions: ["xlsx"] }],
   });
   if (!path) return;
   try {
     await invoke("export_xlsx", { path, sheet: sheetExport() });
-    store.setStatus(`Exported ${basename(path)}`);
+    store.setStatus(`Exportado: ${basename(path)}`);
   } catch (e) {
-    store.setStatus(`Export failed: ${e instanceof Error ? e.message : String(e)}`);
+    store.setStatus(`Falha na exportação: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 
@@ -174,7 +175,7 @@ export async function restoreAutosave(): Promise<boolean> {
   const project = migrateProject(JSON.parse(text));
   if (!project.pdfPath) return false;
   useStore.getState().resetProject(project, null);
-  useStore.getState().setStatus("Restored autosaved session (unsaved)");
+  useStore.getState().setStatus("Sessão restaurada do salvamento automático (não salva)");
   await openPdfPath(project.pdfPath);
   useStore.setState({ dirty: true });
   return true;

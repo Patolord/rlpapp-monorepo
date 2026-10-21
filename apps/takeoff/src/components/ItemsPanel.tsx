@@ -40,8 +40,8 @@ export function ItemsPanel() {
       <div className="flex-1 overflow-y-auto">
         {project.items.length === 0 && (
           <p className="px-3 py-6 text-center text-xs text-neutral-500">
-            No items yet. Add one below, or just pick a tool and start measuring — an item is
-            created for you.
+            Nenhum item ainda. Adicione um abaixo ou escolha uma ferramenta e comece a medir — o
+            item é criado automaticamente.
           </p>
         )}
         {project.items.map((item, idx) => {
@@ -76,17 +76,17 @@ export function ItemsPanel() {
           onChange={(e) => setNewKind(e.target.value as Kind)}
           className="h-8 rounded bg-neutral-800 px-1 text-xs ring-1 ring-neutral-700"
         >
-          <option value="count">Count</option>
+          <option value="count">Contagem</option>
           <option value="linear">Linear</option>
-          <option value="area">Area</option>
+          <option value="area">Área</option>
         </select>
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          placeholder="New item name"
+          placeholder="Nome do novo item"
           className="h-8 min-w-0 flex-1 rounded bg-neutral-800 px-2 text-xs ring-1 ring-neutral-700 focus:ring-orange-400 outline-none"
         />
-        <Button type="submit" variant="primary" aria-label="Add item">
+        <Button type="submit" variant="primary" aria-label="Adicionar item">
           <Plus size={14} />
         </Button>
       </form>
@@ -135,7 +135,7 @@ function ItemRow({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          title="Change colour"
+          title="Trocar a cor"
           onClick={(e) => {
             e.stopPropagation();
             cycleColor();
@@ -166,7 +166,7 @@ function ItemRow({
               active ? "text-white" : "text-neutral-200",
             )}
             onDoubleClick={() => setEditing("name")}
-            title="Double-click to rename"
+            title="Duplo clique para renomear"
           >
             {item.name}
           </span>
@@ -174,7 +174,7 @@ function ItemRow({
         {index < 9 && <Kbd>{index + 1}</Kbd>}
         <button
           type="button"
-          title="Delete item and its measurements"
+          title="Excluir o item e suas medições"
           onClick={(e) => {
             e.stopPropagation();
             onRemove();
@@ -187,8 +187,8 @@ function ItemRow({
       <div className="flex items-center gap-2 pl-6 text-[11px] text-neutral-400">
         <span className="font-mono text-neutral-200">{qtyLabel}</span>
         {unscaled > 0 && (
-          <span className="text-amber-400" title="Some measurements are on pages without a scale">
-            +{unscaled} unscaled
+          <span className="text-amber-400" title="Há medições em páginas sem escala definida">
+            +{unscaled} sem escala
           </span>
         )}
         {editing === "group" ? (
@@ -210,7 +210,7 @@ function ItemRow({
         ) : (
           <button
             type="button"
-            title="Budget section (click to change)"
+            title="Grupo da planilha (clique para alterar)"
             onClick={(e) => {
               e.stopPropagation();
               setEditing("group");
@@ -229,7 +229,7 @@ function ItemRow({
             onClick={stop}
             onChange={(e) => onChange({ materialPrice: Number(e.target.value) || 0 })}
             className="num-input w-16"
-            title="Unit price: material"
+            title="Preço unitário: material"
             placeholder="mat."
           />
           <input
@@ -240,7 +240,7 @@ function ItemRow({
             onClick={stop}
             onChange={(e) => onChange({ laborPrice: Number(e.target.value) || 0 })}
             className="num-input w-16"
-            title="Unit price: labour (mão de obra)"
+            title="Preço unitário: mão de obra"
             placeholder="m.o."
           />
           <span className="w-[4.5rem] text-right font-mono text-neutral-300">{total}</span>

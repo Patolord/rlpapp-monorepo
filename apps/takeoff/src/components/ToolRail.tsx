@@ -18,14 +18,19 @@ import { viewerApi } from "../viewerApi";
 import { IconButton } from "./ui";
 
 const TOOLS: { tool: Tool; label: string; key: string; icon: typeof Hand }[] = [
-  { tool: "select", label: "Select", key: "V", icon: MousePointer2 },
-  { tool: "pan", label: "Pan", key: "H / Space", icon: Hand },
-  { tool: "count", label: "Count", key: "C", icon: CircleDot },
+  { tool: "select", label: "Selecionar", key: "V", icon: MousePointer2 },
+  { tool: "pan", label: "Mover a vista", key: "H / Espaço", icon: Hand },
+  { tool: "count", label: "Contagem", key: "C", icon: CircleDot },
   { tool: "linear", label: "Linear", key: "L", icon: Spline },
-  { tool: "area", label: "Area polygon", key: "A", icon: Pentagon },
-  { tool: "rect", label: "Area rectangle", key: "R", icon: Square },
-  { tool: "magic", label: "Magic area (click inside a room)", key: "M", icon: WandSparkles },
-  { tool: "calibrate", label: "Calibrate scale", key: "K", icon: Ruler },
+  { tool: "area", label: "Área por polígono", key: "A", icon: Pentagon },
+  { tool: "rect", label: "Área por retângulo", key: "R", icon: Square },
+  {
+    tool: "magic",
+    label: "Área automática (clique dentro do ambiente)",
+    key: "M",
+    icon: WandSparkles,
+  },
+  { tool: "calibrate", label: "Calibrar escala", key: "K", icon: Ruler },
 ];
 
 export function ToolRail() {
@@ -44,25 +49,25 @@ export function ToolRail() {
         </IconButton>
       ))}
       <div className="my-1 h-px w-7 bg-neutral-700" />
-      <IconButton label="Snap to drawing" hint="S" active={snap} onClick={toggleSnap}>
+      <IconButton label="Snap no desenho" hint="S" active={snap} onClick={toggleSnap}>
         <Magnet size={18} />
       </IconButton>
       <IconButton
-        label="Ortho / 45° lock"
-        hint="O or hold Shift"
+        label="Travar em 45° (orto)"
+        hint="O ou segure Shift"
         active={ortho}
         onClick={toggleOrtho}
       >
         <Grid3x3 size={18} />
       </IconButton>
-      <IconButton label="Fit page" hint="F" onClick={() => viewerApi.current?.fit()}>
+      <IconButton label="Ajustar página" hint="F" onClick={() => viewerApi.current?.fit()}>
         <Maximize size={18} />
       </IconButton>
       <div className="my-1 h-px w-7 bg-neutral-700" />
-      <IconButton label="Undo" hint="Ctrl+Z" disabled={!canUndo} onClick={undo}>
+      <IconButton label="Desfazer" hint="Ctrl+Z" disabled={!canUndo} onClick={undo}>
         <Undo2 size={18} />
       </IconButton>
-      <IconButton label="Redo" hint="Ctrl+Y" disabled={!canRedo} onClick={redo}>
+      <IconButton label="Refazer" hint="Ctrl+Y" disabled={!canRedo} onClick={redo}>
         <Redo2 size={18} />
       </IconButton>
     </div>

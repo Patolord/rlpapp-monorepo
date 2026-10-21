@@ -83,7 +83,7 @@ export const newId = (): string =>
 export function emptyProject(): Project {
   return {
     version: 2,
-    name: "Untitled takeoff",
+    name: "Orçamento sem nome",
     pdfPath: null,
     pdfName: "",
     unit: "m",

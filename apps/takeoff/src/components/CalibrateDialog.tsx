@@ -19,7 +19,7 @@ export function CalibrateDialog() {
     if (!(n > 0) || pts <= 0) return;
     const real = toBaseUnit(n, inUnit, unit);
     setPageScale(
-      { pointsPerUnit: pts / real, unit, label: `calibrated (${n} ${inUnit})` },
+      { pointsPerUnit: pts / real, unit, label: `calibrada (${n} ${inUnit})` },
       all ? "all" : "current",
     );
     setCalibration(null);
@@ -35,11 +35,11 @@ export function CalibrateDialog() {
         }}
         className="w-80 rounded-lg border border-neutral-700 bg-neutral-900 p-4 shadow-2xl"
       >
-        <h2 className="mb-1 text-sm font-semibold text-white">Calibrate scale</h2>
+        <h2 className="mb-1 text-sm font-semibold text-white">Calibrar escala</h2>
         <p className="mb-3 text-xs text-neutral-400">
-          The line you drew is{" "}
-          <span className="font-mono text-neutral-200">{pts.toFixed(1)} pt</span> on paper. What is
-          its real length?
+          A linha desenhada mede{" "}
+          <span className="font-mono text-neutral-200">{pts.toFixed(1)} pt</span> no papel. Qual é o
+          comprimento real?
         </p>
         <div className="flex items-center gap-2">
           <input
@@ -47,7 +47,7 @@ export function CalibrateDialog() {
             value={value}
             onChange={(e) => setValue(e.target.value)}
             inputMode="decimal"
-            placeholder="e.g. 3.50"
+            placeholder="ex.: 3,50"
             className="h-9 flex-1 rounded bg-neutral-800 px-2 font-mono text-sm ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
           />
           <select
@@ -62,12 +62,12 @@ export function CalibrateDialog() {
         </div>
         <label className="mt-3 flex items-center gap-2 text-xs text-neutral-400">
           <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />
-          Apply to all pages
+          Aplicar a todas as páginas
         </label>
         <div className="mt-4 flex justify-end gap-2">
-          <Button onClick={() => setCalibration(null)}>Cancel</Button>
+          <Button onClick={() => setCalibration(null)}>Cancelar</Button>
           <Button type="submit" variant="primary">
-            Set scale
+            Definir escala
           </Button>
         </div>
       </form>

@@ -18,7 +18,7 @@ function Thumb({ index }: { index: number }) {
     };
   }, [index, docId]);
   return src ? (
-    <img src={src} alt={`Page ${index + 1}`} className="w-full" draggable={false} />
+    <img src={src} alt={`Página ${index + 1}`} className="w-full" draggable={false} />
   ) : (
     <div className="aspect-[1.4] w-full animate-pulse bg-neutral-700" />
   );
@@ -45,7 +45,7 @@ export function PageStrip() {
         >
           <Thumb index={i} />
           <div className="bg-neutral-800 px-1.5 py-0.5 text-[10px] text-neutral-300">
-            Page {i + 1}
+            Página {i + 1}
           </div>
         </button>
       ))}

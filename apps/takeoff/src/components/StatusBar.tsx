@@ -10,25 +10,26 @@ import { Kbd } from "./ui";
 const HINTS: Record<string, React.ReactNode> = {
   select: (
     <>
-      Click to select · drag to move · drag empty space to box-select · <Kbd>Del</Kbd> removes
+      Clique para selecionar · arraste para mover · arraste no vazio para seleção em caixa ·{" "}
+      <Kbd>Del</Kbd> apaga
     </>
   ),
-  pan: "Drag to pan · wheel to zoom",
-  count: "Click to place a count mark",
+  pan: "Arraste para mover a vista · roda do mouse para zoom",
+  count: "Clique para marcar uma contagem",
   linear: (
     <>
-      Click points · <Kbd>Enter</Kbd> / double-click / right-click to finish · <Kbd>Backspace</Kbd>{" "}
-      undoes a point
+      Clique nos pontos · <Kbd>Enter</Kbd>, duplo clique ou botão direito para concluir ·{" "}
+      <Kbd>Backspace</Kbd> desfaz um ponto
     </>
   ),
   area: (
     <>
-      Click points · click the first point or press <Kbd>Enter</Kbd> to close
+      Clique nos pontos · clique no primeiro ponto ou <Kbd>Enter</Kbd> para fechar
     </>
   ),
-  rect: "Drag a rectangle",
-  magic: "Click inside an enclosed room to detect its outline",
-  calibrate: "Click two points of a known distance",
+  rect: "Arraste um retângulo",
+  magic: "Clique dentro de um ambiente fechado para detectar o contorno",
+  calibrate: "Clique em dois pontos de distância conhecida",
 };
 
 export function StatusBar() {
@@ -53,7 +54,7 @@ export function StatusBar() {
           className="rounded p-0.5 hover:bg-neutral-700 disabled:opacity-30"
           disabled={page <= 0}
           onClick={() => setPage(page - 1)}
-          aria-label="Previous page"
+          aria-label="Página anterior"
         >
           <ChevronLeft size={14} />
         </button>
@@ -65,7 +66,7 @@ export function StatusBar() {
           className="rounded p-0.5 hover:bg-neutral-700 disabled:opacity-30"
           disabled={page >= numPages - 1}
           onClick={() => setPage(page + 1)}
-          aria-label="Next page"
+          aria-label="Próxima página"
         >
           <ChevronRight size={14} />
         </button>
@@ -79,14 +80,18 @@ export function StatusBar() {
             ? "ring-neutral-700 text-neutral-200 hover:bg-neutral-700"
             : "bg-amber-500/15 text-amber-300 ring-amber-500/50"
         }`}
-        title="Page scale"
+        title="Escala da página"
       >
         <Ruler size={12} />
-        {scale ? scale.label : "Set scale"}
+        {scale ? scale.label : "Definir escala"}
       </button>
-      <span className={snap ? "text-orange-300" : ""}>snap {snap ? "on" : "off"}</span>
-      <span className={ortho ? "text-orange-300" : ""}>ortho {ortho ? "on" : "off"}</span>
-      {selCount > 0 && <span className="text-neutral-200">{selCount} selected</span>}
+      <span className={snap ? "text-orange-300" : ""}>snap {snap ? "ligado" : "desligado"}</span>
+      <span className={ortho ? "text-orange-300" : ""}>orto {ortho ? "ligado" : "desligado"}</span>
+      {selCount > 0 && (
+        <span className="text-neutral-200">
+          {selCount} {selCount === 1 ? "selecionado" : "selecionados"}
+        </span>
+      )}
       <span className="ml-auto truncate text-neutral-500">{status ?? HINTS[tool]}</span>
       {open && <ScalePicker onClose={() => setScalePickerOpen(false)} />}
     </div>

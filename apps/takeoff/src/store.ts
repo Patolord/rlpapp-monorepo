@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { Pt } from "./lib/geom";
+import { useDoc } from "./lib/session";
 import {
   DEFAULT_GROUP,
   emptyProject,
@@ -97,7 +98,7 @@ export interface State {
 }
 
 const nextName = (items: Item[], kind: Kind) => {
-  const base = kind === "count" ? "Count" : kind === "linear" ? "Linear" : "Area";
+  const base = kind === "count" ? "Contagem" : kind === "linear" ? "Linear" : "Área";
   let n = 1;
   while (items.some((i) => i.name === `${base} ${n}`)) n++;
   return `${base} ${n}`;
@@ -267,10 +268,17 @@ export const useStore = create<State>((set, get) => ({
 
   setPageScale: (scale, which) => {
     const { page } = get();
-    get().commit((p) => ({
-      ...p,
-      pages: p.pages.map((pm, i) => (which === "all" || i === page ? { ...pm, scale } : pm)),
-    }));
+    const n = Math.max(useDoc.getState().numPages, page + 1);
+    get().commit((p) => {
+      const pages = Array.from(
+        { length: Math.max(n, p.pages.length) },
+        (_, i) => p.pages[i] ?? { scale: null },
+      );
+      return {
+        ...p,
+        pages: pages.map((pm, i) => (which === "all" || i === page ? { ...pm, scale } : pm)),
+      };
+    });
   },
 
   setProjectMeta: (patch) => get().commit((p) => ({ ...p, ...patch })),

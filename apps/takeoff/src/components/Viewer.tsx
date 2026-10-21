@@ -309,22 +309,22 @@ export function Viewer() {
       if (s.magicBusy || !renderer || !size) return;
       const store = useStore.getState();
       s.magicBusy = true;
-      store.setStatus("Detecting enclosed area…");
+      store.setStatus("Detectando ambiente fechado…");
       const t0 = performance.now();
       try {
         const res = await magicArea(renderer, store.page, raw, size);
         if (!res) {
-          store.setStatus("No enclosed area found at that point");
+          store.setStatus("Nenhum ambiente fechado encontrado nesse ponto");
         } else {
           store.addMeasurement(store.resolveItem("area"), store.page, res.polygon);
           store.setStatus(
             res.unbounded
-              ? `Area detected in ${(performance.now() - t0).toFixed(0)} ms, but it reached the search limit — check the outline`
-              : `Area detected in ${(performance.now() - t0).toFixed(0)} ms`,
+              ? `Área detectada em ${(performance.now() - t0).toFixed(0)} ms, mas atingiu o limite de busca — confira o contorno`
+              : `Área detectada em ${(performance.now() - t0).toFixed(0)} ms`,
           );
         }
       } catch (e) {
-        store.setStatus(`Area detection failed: ${e instanceof Error ? e.message : String(e)}`);
+        store.setStatus(`Falha na detecção de área: ${e instanceof Error ? e.message : String(e)}`);
       } finally {
         s.magicBusy = false;
         this.requestDraw();
@@ -811,13 +811,13 @@ function drawMeasurement(
     const len = polylineLength(pts);
     text = scale
       ? formatLength(len / scale.pointsPerUnit, scale.unit)
-      : `${len.toFixed(0)} pt · no scale`;
+      : `${len.toFixed(0)} pt · sem escala`;
     at = toScreen(pointAlong(pts, 0.5), v);
   } else {
     const area = polygonArea(pts);
     text = scale
       ? formatArea(area / (scale.pointsPerUnit * scale.pointsPerUnit), scale.unit)
-      : `${area.toFixed(0)} pt² · no scale`;
+      : `${area.toFixed(0)} pt² · sem escala`;
     at = toScreen(polygonCentroid(pts), v);
   }
   drawLabel(ctx, text, at.x, at.y, color);

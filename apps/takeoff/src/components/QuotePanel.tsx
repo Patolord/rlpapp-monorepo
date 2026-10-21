@@ -14,7 +14,7 @@ export function QuotePanel() {
 
   const copyCsv = async () => {
     await navigator.clipboard.writeText(quoteCsv(project, quote));
-    setStatus("Budget sheet copied as CSV (semicolon separated)");
+    setStatus("Planilha copiada como CSV (separado por ponto e vírgula)");
   };
 
   const field = (key: keyof ProjectMeta, label: string, placeholder = "") => (
@@ -32,7 +32,7 @@ export function QuotePanel() {
   return (
     <div className="flex h-full flex-col text-xs">
       <div className="grid grid-cols-1 gap-1 border-b border-neutral-800 px-2 py-2">
-        {field("system", "System", "SISTEMA DE PRESSURIZAÇÃO DE ESCADAS")}
+        {field("system", "Sistema", "SISTEMA DE PRESSURIZAÇÃO DE ESCADAS")}
         {field("client", "Cliente")}
         {field("site", "Obra")}
         <div className="grid grid-cols-2 gap-1">
@@ -41,7 +41,7 @@ export function QuotePanel() {
         </div>
         <div className="flex items-center gap-3 pt-1 text-neutral-400">
           <label className="flex items-center gap-1">
-            Currency
+            Moeda
             <select
               value={project.currency}
               onChange={(e) => setProjectMeta({ currency: e.target.value })}
@@ -53,13 +53,13 @@ export function QuotePanel() {
             </select>
           </label>
           <label className="flex items-center gap-1">
-            Units
+            Unidades
             <select
               value={project.unit}
               onChange={(e) => setProjectMeta({ unit: e.target.value as Unit })}
               className="rounded bg-neutral-800 px-1 py-0.5 ring-1 ring-neutral-700"
             >
-              <option value="m">metric (m)</option>
+              <option value="m">métrico (m)</option>
               <option value="ft">imperial (ft)</option>
             </select>
           </label>
@@ -114,7 +114,7 @@ export function QuotePanel() {
                           updateItem(l.item.id, { materialPrice: Number(e.target.value) || 0 })
                         }
                         className="num-input w-[3.6rem]"
-                        title="Unit material price"
+                        title="Preço unitário de material"
                       />
                     </td>
                     <td className="px-1 py-1 text-right">
@@ -127,7 +127,7 @@ export function QuotePanel() {
                           updateItem(l.item.id, { laborPrice: Number(e.target.value) || 0 })
                         }
                         className="num-input w-[3.6rem]"
-                        title="Unit labour price"
+                        title="Preço unitário de mão de obra"
                       />
                     </td>
                     <td className="px-2 py-1 text-right font-mono whitespace-nowrap">
@@ -140,7 +140,7 @@ export function QuotePanel() {
             {quote.groups.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-2 py-6 text-center text-neutral-500">
-                  Nothing measured yet.
+                  Nada medido ainda.
                 </td>
               </tr>
             )}
@@ -190,7 +190,7 @@ export function QuotePanel() {
             <FileSpreadsheet size={14} /> Planilha .xlsx
           </Button>
           <Button onClick={() => void copyCsv()}>
-            <Copy size={14} /> Copy CSV
+            <Copy size={14} /> Copiar CSV
           </Button>
         </div>
       </div>

@@ -57,7 +57,7 @@ export function toBaseUnit(value: number, from: InputUnit, base: Unit): number {
 }
 
 export const qtyUnit = (kind: Kind, unit: Unit): string => {
-  if (kind === "count") return "un";
+  if (kind === "count") return "pç";
   if (kind === "linear") return unit;
   return `${unit}²`;
 };
@@ -73,7 +73,7 @@ export function formatLength(v: number, unit: Unit): string {
 export const formatArea = (v: number, unit: Unit): string => `${v.toFixed(2)} ${unit}²`;
 
 export function formatQty(kind: Kind, v: number, unit: Unit): string {
-  if (kind === "count") return `${Math.round(v)} un`;
+  if (kind === "count") return `${Math.round(v)} pç`;
   if (kind === "linear") return formatLength(v, unit);
   return formatArea(v, unit);
 }

@@ -22,12 +22,14 @@ import {
 import { useDoc } from "./lib/session";
 import { useStore } from "./store";
 
+const TABS = { items: "Itens", quote: "Orçamento" } as const;
+
 export default function App() {
   useHotkeys();
   const numPages = useDoc((s) => s.numPages);
   const loading = useDoc((s) => s.loading);
   const error = useDoc((s) => s.error);
-  const [tab, setTab] = useState<"items" | "quote">("items");
+  const [tab, setTab] = useState<keyof typeof TABS>("items");
   const [canRestore, setCanRestore] = useState(false);
 
   // keep the page metadata array in sync with the opened document
@@ -81,22 +83,24 @@ export default function App() {
           {!numPages && (
             <div className="absolute inset-0 flex items-center justify-center bg-neutral-800">
               <div className="max-w-md rounded-xl border border-dashed border-neutral-600 p-8 text-center">
-                <h1 className="text-lg font-semibold text-neutral-100">Drop a PDF drawing here</h1>
+                <h1 className="text-lg font-semibold text-neutral-100">
+                  Arraste um desenho em PDF para cá
+                </h1>
                 <p className="mt-1 text-xs text-neutral-400">
-                  or press <Kbd>Ctrl</Kbd>+<Kbd>O</Kbd>. Snapping, counting, lengths, areas and a
-                  priced quote, all from the keyboard.
+                  ou pressione <Kbd>Ctrl</Kbd>+<Kbd>O</Kbd>. Snap, contagens, comprimentos, áreas e
+                  o orçamento pronto, tudo pelo teclado.
                 </p>
-                {loading && <p className="mt-3 text-xs text-orange-300">Opening…</p>}
+                {loading && <p className="mt-3 text-xs text-orange-300">Abrindo…</p>}
                 {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
                 <div className="mt-4 flex justify-center gap-2">
                   <Button variant="primary" onClick={() => void pickAndOpenPdf()}>
-                    Open PDF
+                    Abrir PDF
                   </Button>
                   {canRestore && (
                     <Button
                       onClick={() => void restoreAutosave().catch(() => setCanRestore(false))}
                     >
-                      Restore last session
+                      Restaurar última sessão
                     </Button>
                   )}
                 </div>
@@ -107,19 +111,19 @@ export default function App() {
         </div>
         <div className="flex w-[27rem] shrink-0 flex-col border-l border-neutral-800 bg-neutral-900">
           <div className="flex border-b border-neutral-800 text-xs">
-            {(["items", "quote"] as const).map((t) => (
+            {(Object.keys(TABS) as (keyof typeof TABS)[]).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTab(t)}
                 className={clsx(
-                  "flex-1 py-2 font-medium capitalize",
+                  "flex-1 py-2 font-medium",
                   tab === t
                     ? "border-b-2 border-orange-400 text-white"
                     : "text-neutral-400 hover:text-neutral-200",
                 )}
               >
-                {t}
+                {TABS[t]}
               </button>
             ))}
           </div>
