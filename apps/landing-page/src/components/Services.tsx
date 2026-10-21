@@ -62,9 +62,9 @@ export default function ServicosPage() {
     <div className="flex flex-col bg-gray-50 rounded-b-4xl">
       <section className="py-8 md:py-12 lg:py-20 px-4 sm:px-6 md:px-8 lg:px-24">
         <div className="w-full">
-          <h1 className="text-3xl md:text-4xl text-center mb-8 md:mb-12 lg:mb-20 text-blue-950 font-serif">
+          <h2 className="text-3xl md:text-4xl text-center mb-8 md:mb-12 lg:mb-20 text-blue-950 font-serif">
             Nossos Serviços
-          </h1>
+          </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 md:gap-8 max-w-[95%] sm:max-w-[90%] lg:max-w-full mx-auto">
             {mainServices.map((service) => (
               <Link

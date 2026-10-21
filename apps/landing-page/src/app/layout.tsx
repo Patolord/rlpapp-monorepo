@@ -3,6 +3,7 @@ import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingBubbleMenu from "@/components/FloatingBubbleMenu";
+import JsonLd from "@/components/JsonLd";
 import Script from "next/script";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Playfair_Display } from "next/font/google";
@@ -17,7 +18,10 @@ const playfair = Playfair_Display({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://rlpeng.com.br"),
-  title: "RLP Engenharia | HVAC e Proteção contra Incêndio em São Paulo",
+  title: {
+    default: "RLP Engenharia | HVAC e Proteção contra Incêndio em São Paulo",
+    template: "%s | RLP Engenharia",
+  },
   description:
     "Equipes flexíveis de HVAC para construtoras em SP. Climatização, pressurização de escadas, AVCB e ventilação. +27 anos de experiência. Orçamento rápido.",
   keywords:
@@ -69,6 +73,7 @@ export default function RootLayout({
         />
       </head>
       <body>
+        <JsonLd />
         <NuqsAdapter>
           <Header />
           {children}

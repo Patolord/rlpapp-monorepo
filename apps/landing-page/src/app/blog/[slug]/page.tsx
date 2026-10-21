@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { PortableText } from "@portabletext/react";
 import { type SanityDocument } from "next-sanity";
 import { createImageUrlBuilder } from "@sanity/image-url";
@@ -31,11 +32,38 @@ const urlFor = (source: SanityImageSource) =>
 
 const options = { next: { revalidate: 30 } };
 
-export default async function PostPage({
-  params,
-}: {
+const POST_METADATA_QUERY = `*[_type == "post" && slug.current == $slug][0]{
+  title,
+  excerpt
+}`;
+
+type Props = {
   params: Promise<{ slug: string }>;
-}) {
+};
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await client.fetch<{
+    title?: string;
+    excerpt?: string;
+  } | null>(POST_METADATA_QUERY, { slug }, options);
+
+  if (!post?.title) {
+    return { title: "Post não encontrado" };
+  }
+
+  const description =
+    post.excerpt ??
+    `${post.title} — artigo do blog da RLP Engenharia sobre HVAC, pressurização e proteção contra incêndio.`;
+
+  return {
+    title: post.title,
+    description,
+    openGraph: { title: post.title, description, type: "article" },
+  };
+}
+
+export default async function PostPage({ params }: Props) {
   const { slug } = await params;
   const post = await client.fetch<SanityDocument | null>(
     POST_QUERY,
