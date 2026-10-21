@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { Star, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import { useRef, useEffect, useState, useMemo } from "react";
 
 const PHONE_NUMBER = "5511985782307";
@@ -14,7 +14,7 @@ export default function HeroSection() {
   const whatsappLink = useMemo(
     () =>
       `https://wa.me/${PHONE_NUMBER}?text=${encodeURIComponent(
-        "Olá, preciso de uma equipe de HVAC para minha obra"
+        "Olá, gostaria de falar com um engenheiro sobre climatização, pressurização, extração de fumaça e AVCB para minha obra"
       )}`,
     []
   );
@@ -45,6 +45,16 @@ export default function HeroSection() {
     { name: "Pentagonal Construções", logo: "/clientes/pentagona.png" },
     { name: "Bom Peixe", logo: "/clientes/bompeixelogo.png" },
     { name: "Sadia", logo: "/clientes/sadialogo.png" },
+  ];
+
+  const featuredClients = [
+    {
+      name: "Tegra Incorporadora",
+      logo: "/clientes/Tegra_Incorporadora_Logo_Fundo_Branco1.jpg",
+    },
+    { name: "Construtora PATRIANI", logo: "/clientes/patrini.png" },
+    { name: "Construtora Fresno", logo: "/clientes/fresno.jpeg" },
+    { name: "Construtora Lopes Kalil", logo: "/clientes/lopeskalil.png" },
   ];
 
   useEffect(() => {
@@ -104,15 +114,17 @@ export default function HeroSection() {
         <div className="grid md:grid-cols-2 gap-8 items-center">
           <div className="flex flex-col justify-center">
             <div className="inline-block bg-blue-100 text-blue-600 px-4 max-w-[400px] py-1 text-center rounded-full text-sm font-medium mb-6">
-              Climatização • AVCB • Pressurização • Ventilação
+              Climatização • Pressurização • Extração de fumaça • Detecção •
+              AVCB
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif text-blue-950 mb-6">
-              Contrate agora uma equipe de HVAC, do tamanho que você precisar
+              Do projeto ao AVCB, um só responsável técnico
             </h1>
             <p className="text-xl font-sans text-gray-600 mb-8">
-              Equipes flexíveis, prontas para entrar na sua obra ou operação.
-              Climatização, pressurização, ventilação e AVCB, contratação
-              rápida, sem burocracia, para construtoras e indústrias.
+              Climatização, pressurização de escadas, extração de fumaça e
+              detecção de incêndio em um único contrato. Equipes flexíveis, do
+              tamanho que a sua obra precisar. Desde 1998, mais de 300 obras
+              entregues para construtoras e condomínios em São Paulo.
             </p>
             <div className="flex flex-wrap gap-4 mb-4">
               <a
@@ -121,7 +133,7 @@ export default function HeroSection() {
                 rel="noopener noreferrer"
                 className="bg-blue-600 text-white px-8 py-4 rounded-md hover:bg-blue-700 transition w-full md:w-auto inline-block text-center font-bold text-lg shadow-lg hover:shadow-xl"
               >
-                Chamar Equipe Agora
+                Falar com um engenheiro
               </a>
               <a
                 href="/servicos"
@@ -139,32 +151,23 @@ export default function HeroSection() {
 
             <div className="flex items-center">
               <div className="flex -space-x-2 mr-3">
-                {[
-                  "/clientes/cliente1.png",
-                  "/clientes/cliente2.png",
-                  "/clientes/cliente3.png",
-                  "/clientes/cliente4.png",
-                ].map((src, i) => (
+                {featuredClients.map((client) => (
                   <div
-                    key={i}
-                    className="w-8 h-8 rounded-full border-2 border-white overflow-hidden"
+                    key={client.name}
+                    className="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-white"
                   >
                     <Image
-                      src={src}
+                      src={client.logo}
                       width={32}
                       height={32}
-                      alt={`Cliente ${i + 1}`}
-                      className="object-cover"
+                      alt={client.name}
+                      className="w-full h-full object-cover"
                     />
                   </div>
                 ))}
               </div>
               <div>
-                <div className="flex text-yellow-400">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Star key={i} className="w-4 h-4 fill-current" />
-                  ))}
-                </div>
+                <p className="text-sm font-bold text-blue-950">Desde 1998</p>
                 <p className="text-sm text-gray-600">
                   +300 obras entregues no prazo
                 </p>
