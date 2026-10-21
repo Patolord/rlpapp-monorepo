@@ -1,4 +1,5 @@
-import FAQList from "./FAQList" 
+import FAQList from "./FAQList";
+import FaqJsonLd from "./FaqJsonLd";
 
 export default function FAQPage() {
   return (
@@ -9,6 +10,7 @@ export default function FAQPage() {
             Perguntas Frequentes
           </h2>
           <FAQList />
+          <FaqJsonLd />
         </div>
       </div>
     </section>
