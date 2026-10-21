@@ -14,7 +14,7 @@ export default function HeroSection() {
   const whatsappLink = useMemo(
     () =>
       `https://wa.me/${PHONE_NUMBER}?text=${encodeURIComponent(
-        "Olá, gostaria de falar com um engenheiro sobre climatização, pressurização, extração de fumaça e AVCB para minha obra"
+        "Olá, preciso de uma equipe de HVAC para minha obra"
       )}`,
     []
   );
@@ -114,17 +114,15 @@ export default function HeroSection() {
         <div className="grid md:grid-cols-2 gap-8 items-center">
           <div className="flex flex-col justify-center">
             <div className="inline-block bg-blue-100 text-blue-600 px-4 max-w-[400px] py-1 text-center rounded-full text-sm font-medium mb-6">
-              Climatização • Pressurização • Extração de fumaça • Detecção •
-              AVCB
+              Climatização • AVCB • Pressurização • Ventilação
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif text-blue-950 mb-6">
-              Do projeto ao AVCB, um só responsável técnico
+              Contrate agora uma equipe de HVAC, do tamanho que você precisar
             </h1>
             <p className="text-xl font-sans text-gray-600 mb-8">
-              Climatização, pressurização de escadas, extração de fumaça e
-              detecção de incêndio em um único contrato. Equipes flexíveis, do
-              tamanho que a sua obra precisar. Desde 1998, mais de 300 obras
-              entregues para construtoras e condomínios em São Paulo.
+              Equipes flexíveis, prontas para entrar na sua obra ou operação.
+              Climatização, pressurização, ventilação e AVCB, contratação
+              rápida, sem burocracia, para construtoras e indústrias.
             </p>
             <div className="flex flex-wrap gap-4 mb-4">
               <a
@@ -133,7 +131,7 @@ export default function HeroSection() {
                 rel="noopener noreferrer"
                 className="bg-blue-600 text-white px-8 py-4 rounded-md hover:bg-blue-700 transition w-full md:w-auto inline-block text-center font-bold text-lg shadow-lg hover:shadow-xl"
               >
-                Falar com um engenheiro
+                Chamar Equipe Agora
               </a>
               <a
                 href="/servicos"
