@@ -11,7 +11,7 @@ const projects = [
       description:
         "Sistema de pressurização de escadas e extração de fumaça para garantir a segurança e evacuação em situações de emergência.",
       image: "/projetos/brasilia1.png",
-      year: "2020",
+      year: "2022",
     },
     {
       id: "bom-peixe",
@@ -20,7 +20,7 @@ const projects = [
       description:
         "Sistema de refrigeração com câmaras frigoríficas e sistema de amônia para armazenamento e processamento de pescados.",
       image: "/projetos/bompeixe1.png",
-      year: "2010",
+      year: "2011",
     },
     {
       id: "condominio-bem-moema",
@@ -36,7 +36,7 @@ const projects = [
       category: "Climatização e Pressurização",
       description: "Sistema de climatização central e pressurização de escadas para garantir conforto térmico e segurança em situações de emergência.",
       image: "/projetos/sirius1.png",
-      year: "2023",
+      year: "2025",
     },
   ]
 
