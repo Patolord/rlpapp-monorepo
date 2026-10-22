@@ -74,6 +74,7 @@ const DRAW_TOOLS: ReadonlySet<Tool> = new Set([
   "zone",
   "similar",
   "kit",
+  "duct",
 ]);
 
 const rectContains = (outer: Rect, inner: Rect) =>
@@ -359,6 +360,8 @@ export function Viewer() {
       if (store.tool === "kit" && pts.length >= 2) {
         if (store.activeKitId) store.addKitRun(store.activeKitId, store.page, pts);
         else store.setKitPickerOpen(true);
+      } else if (store.tool === "duct" && pts.length >= 2) {
+        store.setPendingDuct({ page: store.page, points: pts });
       } else if (store.tool === "linear" && pts.length >= 2) {
         store.addMeasurement(store.resolveItem("linear"), store.page, pts);
       } else if (store.tool === "area" && pts.length >= 3) {
@@ -535,6 +538,7 @@ export function Viewer() {
           fillAlpha: fillK,
           vertical: m.vertical,
           repeat: m.repeat,
+          tag: m.duct ? `${m.duct.a}×${m.duct.b}` : undefined,
         });
         ctx.globalAlpha = 1;
       }
@@ -843,6 +847,7 @@ export function Viewer() {
         break;
       case "linear":
       case "kit":
+      case "duct":
         s.draft.push(eff);
         break;
       case "area": {
@@ -1044,6 +1049,8 @@ interface DrawOpts {
   vertical?: number;
   /** Times the measurement counts; shown as "×N" when above 1. */
   repeat?: number;
+  /** Short prefix for the label (duct section). */
+  tag?: string;
 }
 
 const MARK_PX = 18;
@@ -1128,6 +1135,7 @@ function drawMeasurement(
       : `${area.toFixed(0)} pt² · sem escala`;
     at = toScreen(polygonCentroid(pts), v);
   }
+  if (o.tag) text = `${o.tag} · ${text}`;
   if (o.repeat && o.repeat > 1) text += ` ×${o.repeat}`;
   drawLabel(ctx, text, at.x, at.y, color);
   ctx.restore();

@@ -3502,5 +3502,245 @@
     "materialPrice": 0,
     "laborPrice": 800,
     "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Chapa galvanizada # 26",
+    "group": "Rede de Dutos",
+    "unit": "kg",
+    "materialPrice": 17,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Chapa galvanizada # 24",
+    "group": "Rede de Dutos",
+    "unit": "kg",
+    "materialPrice": 17,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Chapa galvanizada # 22",
+    "group": "Rede de Dutos",
+    "unit": "kg",
+    "materialPrice": 17,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Chapa galvanizada # 20",
+    "group": "Rede de Dutos",
+    "unit": "kg",
+    "materialPrice": 17,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Chapa galvanizada # 18",
+    "group": "Rede de Dutos",
+    "unit": "kg",
+    "materialPrice": 17,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Chapa galvanizada # 26 (rechapeamento)",
+    "group": "Rede de Dutos",
+    "unit": "kg",
+    "materialPrice": 17,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Chapa galvanizada # 26 (cantoneira)",
+    "group": "Rede de Dutos",
+    "unit": "kg",
+    "materialPrice": 17,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Isopor F1",
+    "group": "Isolamento",
+    "unit": "m²",
+    "materialPrice": 6.6,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Manta lã de vidro",
+    "group": "Isolamento",
+    "unit": "m²",
+    "materialPrice": 15,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Placa lã de vidro",
+    "group": "Isolamento",
+    "unit": "m²",
+    "materialPrice": 130,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Bidim OP-60",
+    "group": "Isolamento",
+    "unit": "m²",
+    "materialPrice": 6,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Flexiliner",
+    "group": "Isolamento",
+    "unit": "m²",
+    "materialPrice": 17.53,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Cola HI-17 ou Over-cola",
+    "group": "Isolamento",
+    "unit": "gl",
+    "materialPrice": 15.5,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Frio Asfalto",
+    "group": "Isolamento",
+    "unit": "bd",
+    "materialPrice": 62.66,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Fita de Nylon ½\"",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 0.03,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Fecho p/ fita de nylon ½\"",
+    "group": "Isolamento",
+    "unit": "pç",
+    "materialPrice": 0.1,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Fita aluminizada",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 0.1,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Tinta de fundo - Zarcão",
+    "group": "Pintura",
+    "unit": "gl",
+    "materialPrice": 95,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Tinta Acabamento",
+    "group": "Pintura",
+    "unit": "gl",
+    "materialPrice": 150,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Trincha / rolinho",
+    "group": "Pintura",
+    "unit": "pç",
+    "materialPrice": 6,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Tinner",
+    "group": "Pintura",
+    "unit": "l",
+    "materialPrice": 12,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Suportes de dutos",
+    "group": "Suportes",
+    "unit": "kg",
+    "materialPrice": 2,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Powermatic (PW2 leve)",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 5,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Powermatic (PW2)",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 6,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Cantos Powermatic",
+    "group": "Rede de Dutos",
+    "unit": "pç",
+    "materialPrice": 0.84,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Grampo Powermatic",
+    "group": "Rede de Dutos",
+    "unit": "pç",
+    "materialPrice": 1,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Rebite",
+    "group": "Rede de Dutos",
+    "unit": "pç",
+    "materialPrice": 0.1,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Fita Adesiva Powermatic",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 2,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Flange em Fº Cantoneira",
+    "group": "Rede de Dutos",
+    "unit": "kg",
+    "materialPrice": 2.5,
+    "laborPrice": 0,
+    "system": "Rede de Dutos"
+  },
+  {
+    "name": "Mão de obra - rede de dutos",
+    "group": "Rede de Dutos",
+    "unit": "kg",
+    "materialPrice": 0,
+    "laborPrice": 18,
+    "system": "Rede de Dutos"
   }
 ]

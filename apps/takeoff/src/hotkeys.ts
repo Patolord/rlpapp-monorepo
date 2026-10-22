@@ -16,6 +16,7 @@ const TOOL_KEYS: Record<string, Tool> = {
   z: "zone",
   x: "similar",
   t: "kit",
+  d: "duct",
 };
 
 export function useHotkeys() {
@@ -106,7 +107,10 @@ export function useHotkeys() {
           if (api?.hasDraft()) api.cancelDraft();
           else if (s.similarPreview) s.setSimilarPreview(null);
           else if (s.calibration) s.setCalibration(null);
-          else if (s.pendingZone) s.setPendingZone(null);
+          else if (s.pendingDuct || s.ductEditIds) {
+            s.setPendingDuct(null);
+            s.setDuctEditIds(null);
+          } else if (s.pendingZone) s.setPendingZone(null);
           else if (s.paletteOpen) s.setPaletteOpen(false);
           else if (s.legendCandidates) s.setLegendCandidates(null);
           else if (s.scalePickerOpen) s.setScalePickerOpen(false);

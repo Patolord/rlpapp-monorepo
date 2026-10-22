@@ -13,7 +13,9 @@ describe("catalog", () => {
     expect(SEED.length).toBeGreaterThan(100);
     expect(SEED.some((e) => e.group === "Bocas de Ar")).toBe(true);
     expect(SEED.some((e) => e.unit === "m")).toBe(true);
-    expect(SEED.every((e) => ["pç", "cj", "vb", "m", "m²"].includes(e.unit))).toBe(true);
+    expect(
+      SEED.every((e) => ["pç", "cj", "vb", "m", "m²", "kg", "gl", "bd", "l"].includes(e.unit)),
+    ).toBe(true);
   });
 
   it("maps units to measurement kinds", () => {

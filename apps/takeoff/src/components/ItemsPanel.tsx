@@ -14,6 +14,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MOD, mod } from "../lib/platform";
 import {
+  formatItemQty,
   type ItemTotal,
   itemTotals,
   NO_ZONE,
@@ -252,7 +253,7 @@ export function ItemsPanel() {
               key={item.id}
               item={item}
               active={item.id === activeItemId}
-              qtyLabel={formatQty(item.kind, measured, project.unit)}
+              qtyLabel={formatItemQty(item, measured, project.unit)}
               unscaled={unscaledOf(item.id)}
               breakdown={breakdownFor(item.id, item.kind)}
               systemLabel={item.system || project.system || ""}
@@ -457,6 +458,14 @@ function ItemRow({
             {item.name}
           </span>
         )}
+        {item.derived === "duct" && (
+          <span
+            className="shrink-0 rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-500"
+            title="Calculado a partir dos dutos medidos: a quantidade acompanha as medições"
+          >
+            dutos
+          </span>
+        )}
         <span className="shrink-0 font-mono text-[12px] text-neutral-200">{qtyLabel}</span>
         {unscaled > 0 && (
           <span
@@ -502,17 +511,19 @@ function ItemRow({
               >
                 <Star size={15} fill={saved ? "currentColor" : "none"} />
               </button>
-              <button
-                type="button"
-                title="Excluir o item e suas medições"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemove();
-                }}
-                className="rounded p-0.5 text-neutral-500 hover:text-red-400"
-              >
-                <Trash2 size={15} />
-              </button>
+              {item.derived !== "duct" && (
+                <button
+                  type="button"
+                  title="Excluir o item e suas medições"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove();
+                  }}
+                  className="rounded p-0.5 text-neutral-500 hover:text-red-400"
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
             </span>
           </div>
           <div className="flex items-center gap-x-2 whitespace-nowrap text-[11px] text-neutral-400">

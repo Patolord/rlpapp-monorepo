@@ -3,9 +3,9 @@ import { Eye, EyeOff, Filter, SquareDashed, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { switchDrawing } from "../lib/files";
 import { polygonArea } from "../lib/geom";
-import { NO_ZONE, pageScale, totalsByZone } from "../lib/quantities";
+import { formatItemQty, NO_ZONE, pageScale, totalsByZone } from "../lib/quantities";
 import type { Zone } from "../lib/types";
-import { formatArea, formatQty } from "../lib/units";
+import { formatArea } from "../lib/units";
 import { useStore } from "../store";
 import { Button, Kbd } from "./ui";
 
@@ -42,7 +42,7 @@ export function ZonesPanel() {
               <span className="h-2 w-2 rounded-full" style={{ background: item.color }} />
               <span className="truncate">{item.name}</span>
               <span className="ml-auto font-mono text-neutral-200">
-                {formatQty(item.kind, t.qty, project.unit)}
+                {formatItemQty(item, t.qty, project.unit)}
               </span>
               {t.unscaled > 0 && <span className="text-amber-400">+{t.unscaled} s/ escala</span>}
             </li>

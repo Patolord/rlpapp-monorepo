@@ -1,4 +1,5 @@
 import {
+  AirVent,
   CircleDot,
   Grid3x3,
   Hand,
@@ -45,6 +46,12 @@ const TOOLS: { tool: Tool; label: string; key: string; icon: typeof Hand }[] = [
     label: "Kit (um trecho mede vários itens de uma vez: cobre, isolamento, cabo…)",
     key: "T",
     icon: Layers,
+  },
+  {
+    tool: "duct",
+    label: "Duto (mede o trecho e pede a seção: chapa, isolamento e flanges são calculados)",
+    key: "D",
+    icon: AirVent,
   },
 ];
 

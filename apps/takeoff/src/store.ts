@@ -12,6 +12,15 @@ import {
   saveCatalogStore,
   unitForKind,
 } from "./lib/catalog";
+import { DUCT_GROUP, syncDuctItems } from "./lib/ductItems";
+import {
+  DEFAULT_DUCT_SETTINGS,
+  DEFAULT_DUCT_SPEC,
+  type DuctSettings,
+  type DuctSpec,
+  ductLabel,
+  gaugeName,
+} from "./lib/ducts";
 import type { Pt } from "./lib/geom";
 import type { Kit } from "./lib/kits";
 import { useDoc } from "./lib/session";
@@ -42,7 +51,8 @@ export type Tool =
   | "calibrate"
   | "zone"
   | "similar"
-  | "kit";
+  | "kit"
+  | "duct";
 
 export interface PendingZone {
   page: number;
@@ -55,6 +65,7 @@ export const KIND_OF_TOOL: Partial<Record<Tool, Kind>> = {
   area: "area",
   rect: "area",
   magic: "area",
+  duct: "linear",
 };
 
 export const TOOL_OF_KIND: Record<Kind, Tool> = { count: "count", linear: "linear", area: "area" };
@@ -128,6 +139,12 @@ export interface State {
   ortho: boolean;
   calibration: Calibration | null;
   pendingZone: PendingZone | null;
+  /** A duct run was drawn and waits for its section in the dialog. */
+  pendingDuct: PendingZone | null;
+  /** Measurements whose duct spec is being edited in the dialog. */
+  ductEditIds: string[] | null;
+  /** Last section/finishes used, the dialog's starting point. */
+  lastDuctSpec: DuctSpec;
   scalePickerOpen: boolean;
   status: string | null;
   paletteOpen: boolean;
@@ -183,6 +200,13 @@ export interface State {
   addZone(name: string, page: number, points: Pt[]): string;
   updateZone(id: string, patch: Partial<Zone>): void;
   setPendingZone(z: PendingZone | null): void;
+  setPendingDuct(p: PendingZone | null): void;
+  setDuctEditIds(ids: string[] | null): void;
+  /** Create the duct run: one measurement on the "Duto A×B cm" item; derived items follow. */
+  addDuctRun(spec: DuctSpec, page: number, points: Pt[]): void;
+  /** Change the section/finishes of duct runs (moves them to the right "Duto A×B cm" item). */
+  updateDuctSpec(ids: string[], spec: DuctSpec): void;
+  setDuctSettings(settings: DuctSettings): void;
 
   setPageScale(scale: PageScale | null, which: "current" | "all"): void;
   setProjectMeta(patch: ProjectMeta): void;
@@ -298,6 +322,9 @@ export const useStore = create<State>((set, get) => ({
   ortho: false,
   calibration: null,
   pendingZone: null,
+  pendingDuct: null,
+  ductEditIds: null,
+  lastDuctSpec: readPref("lastDuctSpec", DEFAULT_DUCT_SPEC),
   scalePickerOpen: false,
   status: null,
   paletteOpen: false,
@@ -396,8 +423,9 @@ export const useStore = create<State>((set, get) => ({
 
   commit: (mutate) => {
     const { project, past } = get();
-    const next = mutate(project);
-    if (next === project) return;
+    const mutated = mutate(project);
+    if (mutated === project) return;
+    const next = syncDuctItems(mutated, () => mergeCatalog(get().catalog));
     set({
       project: next,
       past: [...past.slice(-(HISTORY_LIMIT - 1)), project],
@@ -588,6 +616,96 @@ export const useStore = create<State>((set, get) => ({
     })),
 
   setPendingZone: (pendingZone) => set({ pendingZone }),
+  setPendingDuct: (pendingDuct) => set({ pendingDuct }),
+  setDuctEditIds: (ductEditIds) => set({ ductEditIds }),
+  addDuctRun: (spec, page, points) => {
+    const { project } = get();
+    const name = ductLabel(spec);
+    const existing = project.items.find((i) => i.kind === "linear" && i.name === name);
+    const itemId = existing?.id ?? newId();
+    const drawingId = project.activeDrawingId ?? "";
+    writePref("lastDuctSpec", spec);
+    get().commit((p) => {
+      let items = p.items;
+      if (!existing) {
+        items = [
+          ...items,
+          {
+            id: itemId,
+            name,
+            kind: "linear",
+            color: ITEM_COLORS[items.length % ITEM_COLORS.length],
+            group: DUCT_GROUP,
+            materialPrice: 0,
+            laborPrice: 0,
+            wastePct: 0,
+            system: p.system || undefined,
+          },
+        ];
+      }
+      return {
+        ...p,
+        items,
+        measurements: [
+          ...p.measurements,
+          { id: newId(), itemId, drawingId, page, points, duct: spec },
+        ],
+      };
+    });
+    const norma = (get().project.duct ?? DEFAULT_DUCT_SETTINGS).norma;
+    set({
+      lastDuctSpec: spec,
+      activeItemId: itemId,
+      status: `${name}: chapa ${gaugeName(spec.a, norma)} · materiais da rede de dutos recalculados`,
+    });
+  },
+  updateDuctSpec: (ids, spec) => {
+    const set_ = new Set(ids);
+    const name = ductLabel(spec);
+    writePref("lastDuctSpec", spec);
+    get().commit((p) => {
+      let items = p.items;
+      let itemId = items.find((i) => i.kind === "linear" && i.name === name)?.id;
+      if (!itemId) {
+        itemId = newId();
+        items = [
+          ...items,
+          {
+            id: itemId,
+            name,
+            kind: "linear",
+            color: ITEM_COLORS[items.length % ITEM_COLORS.length],
+            group: DUCT_GROUP,
+            materialPrice: 0,
+            laborPrice: 0,
+            wastePct: 0,
+            system: p.system || undefined,
+          },
+        ];
+      }
+      const id = itemId;
+      const measurements = p.measurements.map((m) =>
+        set_.has(m.id) && m.duct ? { ...m, duct: spec, itemId: id } : m,
+      );
+      // a "Duto A×B cm" item left without runs is just clutter
+      const used = new Set(measurements.map((m) => m.itemId));
+      items = items.filter(
+        (i) =>
+          !(
+            i.kind === "linear" &&
+            i.group === DUCT_GROUP &&
+            /^Duto /.test(i.name) &&
+            !used.has(i.id)
+          ),
+      );
+      return { ...p, items, measurements };
+    });
+    set({
+      lastDuctSpec: spec,
+      status: `${ids.length} ${ids.length === 1 ? "duto alterado" : "dutos alterados"} para ${name}`,
+    });
+  },
+  setDuctSettings: (duct) => get().commit((p) => ({ ...p, duct })),
 
   setPageScale: (scale, which) => {
     const { page } = get();
@@ -897,6 +1015,8 @@ export const useStore = create<State>((set, get) => ({
       system: normalizeDiscipline(entry.system),
       materialPrice: entry.materialPrice,
       laborPrice: entry.laborPrice,
+      // units the kinds cannot express (kg, gl, bd, l) stay on the item
+      unit: kind === "count" && !/^(pç|pc|un|cj|vb)$/i.test(entry.unit) ? entry.unit : undefined,
     });
     get().setActiveItem(id);
     return id;

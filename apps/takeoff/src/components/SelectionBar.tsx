@@ -1,5 +1,6 @@
-import { ArrowUpFromLine, Link2Off, Plus, Repeat, X } from "lucide-react";
+import { ArrowUpFromLine, Link2Off, Pencil, Plus, Repeat, X } from "lucide-react";
 import { useMemo } from "react";
+import { FLANGE_LABELS, INSULATION_LABELS } from "../lib/ducts";
 import { useStore } from "../store";
 import { Button } from "./ui";
 
@@ -10,8 +11,14 @@ import { Button } from "./ui";
 export function SelectionBar() {
   const selection = useStore((s) => s.selection);
   const project = useStore((s) => s.project);
-  const { removeMeasurements, unlinkMeasurements, addToGroup, setVertical, setRepeat } =
-    useStore.getState();
+  const {
+    removeMeasurements,
+    unlinkMeasurements,
+    addToGroup,
+    setVertical,
+    setRepeat,
+    setDuctEditIds,
+  } = useStore.getState();
   const info = useMemo(() => {
     const sel = new Set(selection);
     const items = new Map(project.items.map((i) => [i.id, i]));
@@ -90,6 +97,26 @@ export function SelectionBar() {
           <span>{project.unit}</span>
         </label>
       )}
+      {(() => {
+        const ducts = selected.filter((m) => m.duct);
+        if (ducts.length === 0) return null;
+        const d = ducts[0].duct;
+        return (
+          <>
+            <span className="rounded bg-neutral-800 px-1.5 py-0.5 text-neutral-200 ring-1 ring-neutral-700">
+              {ducts.length === 1 && d
+                ? `Duto ${d.a}×${d.b} cm · ${INSULATION_LABELS[d.insulation]} · ${FLANGE_LABELS[d.flange]}`
+                : `${ducts.length} dutos`}
+            </span>
+            <Button
+              onClick={() => setDuctEditIds(ducts.map((m) => m.id))}
+              title="Alterar seção, isolamento ou flange destes dutos"
+            >
+              <Pencil size={14} /> Editar duto
+            </Button>
+          </>
+        );
+      })()}
       {group?.members.map((m) => {
         const item = items.get(m.itemId);
         return (

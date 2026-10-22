@@ -14,8 +14,17 @@ import {
   type Project,
   type Zone,
 } from "./types";
-import type { Kind, PageScale } from "./units";
-import { qtyUnit } from "./units";
+import type { Kind, PageScale, Unit } from "./units";
+import { formatQty, qtyUnit } from "./units";
+
+/** Unit shown for an item: its own label (kg, gl…) or the one its kind implies. */
+export const itemUnit = (item: Item, unit: Unit): string => item.unit ?? qtyUnit(item.kind, unit);
+
+export function formatItemQty(item: Item, v: number, unit: Unit): string {
+  if (!item.unit) return formatQty(item.kind, v, unit);
+  const n = item.unit === "pç" ? Math.round(v) : Number.isInteger(v) ? v : v.toFixed(2);
+  return `${n} ${item.unit}`;
+}
 
 export const pageScale = (
   project: Project,
@@ -89,6 +98,13 @@ export function itemTotals(
         (item.factor ?? 1) *
         repeatOf(project, m, item.kind);
   }
+  // quantities entered directly (derived duct items) count when nothing filters by marking
+  if (!include) {
+    for (const item of project.items) {
+      const t = totals.get(item.id);
+      if (t && item.manualQty) t.qty += item.manualQty;
+    }
+  }
   return totals;
 }
 
@@ -158,7 +174,7 @@ export function systemSheets(project: Project): SystemSheet[] {
   const byLocation = project.sectionsBy === "local" && project.zones.length > 0;
   const byZone = byLocation ? totalsByZone(project) : null;
   const totals = itemTotals(project);
-  const unit = (item: Item) => qtyUnit(item.kind, project.unit);
+  const unit = (item: Item) => itemUnit(item, project.unit);
   const sheets: SystemSheet[] = [];
   for (const [system, items] of bySystem) {
     const sections: SheetSection[] = [];
@@ -210,7 +226,7 @@ export function zoneMatrix(project: Project): ZoneMatrix {
     const qty = columns.map((c) => pricedQty(item, by.get(c.key)?.get(item.id)?.qty ?? 0));
     return {
       item,
-      unit: qtyUnit(item.kind, project.unit),
+      unit: itemUnit(item, project.unit),
       qty,
       total: qty.reduce((s, q) => s + q, 0),
     };
@@ -274,7 +290,7 @@ export function buildQuote(project: Project): Quote {
       item,
       measured: t.qty,
       qty,
-      unit: qtyUnit(item.kind, project.unit),
+      unit: itemUnit(item, project.unit),
       unscaled: t.unscaled,
       material,
       labor,

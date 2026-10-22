@@ -1,3 +1,4 @@
+import type { DuctSettings, DuctSpec } from "./ducts";
 import type { Pt } from "./geom";
 import type { Kind, PageScale, Unit } from "./units";
 
@@ -20,6 +21,12 @@ export interface Item {
   symbol?: string;
   /** Multiplier on the measured quantity (2 for a cable that runs both ways); undefined = 1. */
   factor?: number;
+  /** Quantity entered directly (not measured), added to the item's total. */
+  manualQty?: number;
+  /** Unit label overriding the kind's (kg, gl, bd, l). */
+  unit?: string;
+  /** Item computed by the app (duct take-off): quantity is overwritten on every change. */
+  derived?: "duct";
 }
 
 export interface PageMeta {
@@ -47,6 +54,8 @@ export interface Measurement {
   vertical?: number;
   /** Times this measurement counts (10 identical floors measured once); undefined = 1. */
   repeat?: number;
+  /** Rectangular duct run: section and finishes, feeding the duct take-off. */
+  duct?: DuctSpec;
 }
 
 /** A named location (ambiente, pavimento, zona) drawn on a page; measurements inside it are grouped by it. */
@@ -87,6 +96,8 @@ export interface Project {
   items: Item[];
   measurements: Measurement[];
   zones: Zone[];
+  /** Duct take-off parameters (norma, allowances, labour); undefined = defaults. */
+  duct?: DuctSettings;
 }
 
 export const ZONE_COLORS = ["#38bdf8", "#fb923c", "#a78bfa", "#4ade80", "#f472b6", "#fde047"];

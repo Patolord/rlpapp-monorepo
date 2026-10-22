@@ -6,6 +6,7 @@ import { AboutDialog } from "./components/AboutDialog";
 import { CalibrateDialog } from "./components/CalibrateDialog";
 import { CatalogPalette } from "./components/CatalogPalette";
 import { DrawingTabs } from "./components/DrawingTabs";
+import { DuctDialog } from "./components/DuctDialog";
 import { ItemsPanel } from "./components/ItemsPanel";
 import { KitPicker } from "./components/KitPicker";
 import { KitsDialog } from "./components/KitsDialog";
@@ -158,6 +159,7 @@ export default function App() {
       <AboutDialog />
       <NewProjectDialog />
       <KitsDialog />
+      <DuctDialog />
     </div>
   );
 }

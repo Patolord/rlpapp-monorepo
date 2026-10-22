@@ -31,6 +31,11 @@ const HINTS: Record<string, React.ReactNode> = {
   rect: "Arraste um retângulo",
   magic: "Clique dentro de um ambiente fechado para detectar o contorno",
   calibrate: "Clique em dois pontos de distância conhecida",
+  duct: (
+    <>
+      Clique nos pontos do duto · <Kbd>Enter</Kbd> conclui e pede lado maior × lado menor
+    </>
+  ),
   kit: (
     <>
       Clique nos pontos como no Medir · <Kbd>Enter</Kbd> conclui · cada componente do preset vira um
