@@ -24,6 +24,15 @@ export interface Measurement {
   points: Pt[];
 }
 
+/** A named location (ambiente, pavimento, zona) drawn on a page; measurements inside it are grouped by it. */
+export interface Zone {
+  id: string;
+  name: string;
+  page: number;
+  points: Pt[];
+  color: string;
+}
+
 export interface PageMeta {
   scale: PageScale | null;
 }
@@ -49,7 +58,10 @@ export interface Project {
   pages: PageMeta[];
   items: Item[];
   measurements: Measurement[];
+  zones: Zone[];
 }
+
+export const ZONE_COLORS = ["#38bdf8", "#fb923c", "#a78bfa", "#4ade80", "#f472b6", "#fde047"];
 
 export const DEFAULT_GROUP = "Geral";
 export const GROUP_SUGGESTIONS = [
@@ -98,6 +110,7 @@ export function emptyProject(): Project {
     pages: [],
     items: [],
     measurements: [],
+    zones: [],
   };
 }
 

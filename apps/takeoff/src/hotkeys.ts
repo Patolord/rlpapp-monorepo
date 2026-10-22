@@ -13,6 +13,7 @@ const TOOL_KEYS: Record<string, Tool> = {
   r: "rect",
   m: "magic",
   k: "calibrate",
+  z: "zone",
 };
 
 export function useHotkeys() {
@@ -70,11 +71,14 @@ export function useHotkeys() {
         case "Escape":
           if (api?.hasDraft()) api.cancelDraft();
           else if (s.calibration) s.setCalibration(null);
+          else if (s.pendingZone) s.setPendingZone(null);
           else if (s.scalePickerOpen) s.setScalePickerOpen(false);
           else if (s.selection.length) s.setSelection([]);
           else s.setTool("select");
           return;
         case "Enter":
+          // stop the keypress that would otherwise submit a dialog mounted by finishDraft
+          e.preventDefault();
           api?.finishDraft();
           return;
         case "Backspace":

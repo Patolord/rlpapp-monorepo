@@ -9,10 +9,26 @@ import {
   type Measurement,
   newId,
   type Project,
+  ZONE_COLORS,
+  type Zone,
 } from "./lib/types";
 import type { Kind, PageScale } from "./lib/units";
 
-export type Tool = "select" | "pan" | "count" | "linear" | "area" | "rect" | "magic" | "calibrate";
+export type Tool =
+  | "select"
+  | "pan"
+  | "count"
+  | "linear"
+  | "area"
+  | "rect"
+  | "magic"
+  | "calibrate"
+  | "zone";
+
+export interface PendingZone {
+  page: number;
+  points: Pt[];
+}
 
 export const KIND_OF_TOOL: Partial<Record<Tool, Kind>> = {
   count: "count",
@@ -61,6 +77,7 @@ export interface State {
   snap: boolean;
   ortho: boolean;
   calibration: Calibration | null;
+  pendingZone: PendingZone | null;
   scalePickerOpen: boolean;
   status: string | null;
 
@@ -81,7 +98,12 @@ export interface State {
   addMeasurement(itemId: string, page: number, points: Pt[]): string;
   updateMeasurement(id: string, patch: Partial<Measurement>): void;
   moveMeasurements(ids: string[], dx: number, dy: number): void;
+  /** Removes measurements and zones with the given ids. */
   removeMeasurements(ids: string[]): void;
+
+  addZone(name: string, page: number, points: Pt[]): string;
+  updateZone(id: string, patch: Partial<Zone>): void;
+  setPendingZone(z: PendingZone | null): void;
 
   setPageScale(scale: PageScale | null, which: "current" | "all"): void;
   setProjectMeta(patch: ProjectMeta): void;
@@ -117,6 +139,7 @@ export const useStore = create<State>((set, get) => ({
   snap: true,
   ortho: false,
   calibration: null,
+  pendingZone: null,
   scalePickerOpen: false,
   status: null,
 
@@ -130,6 +153,7 @@ export const useStore = create<State>((set, get) => ({
       page: 0,
       selection: [],
       calibration: null,
+      pendingZone: null,
       activeItemId: project.items[0]?.id ?? null,
       tool: "select",
     }),
@@ -253,6 +277,9 @@ export const useStore = create<State>((set, get) => ({
       measurements: p.measurements.map((m) =>
         set_.has(m.id) ? { ...m, points: m.points.map((q) => ({ x: q.x + dx, y: q.y + dy })) } : m,
       ),
+      zones: p.zones.map((z) =>
+        set_.has(z.id) ? { ...z, points: z.points.map((q) => ({ x: q.x + dx, y: q.y + dy })) } : z,
+      ),
     }));
   },
 
@@ -262,9 +289,31 @@ export const useStore = create<State>((set, get) => ({
     get().commit((p) => ({
       ...p,
       measurements: p.measurements.filter((m) => !set_.has(m.id)),
+      zones: p.zones.filter((z) => !set_.has(z.id)),
     }));
     set({ selection: [] });
   },
+
+  addZone: (name, page, points) => {
+    const id = newId();
+    get().commit((p) => ({
+      ...p,
+      zones: [
+        ...p.zones,
+        { id, name, page, points, color: ZONE_COLORS[p.zones.length % ZONE_COLORS.length] },
+      ],
+    }));
+    set({ pendingZone: null, selection: [id] });
+    return id;
+  },
+
+  updateZone: (id, patch) =>
+    get().commit((p) => ({
+      ...p,
+      zones: p.zones.map((z) => (z.id === id ? { ...z, ...patch } : z)),
+    })),
+
+  setPendingZone: (pendingZone) => set({ pendingZone }),
 
   setPageScale: (scale, which) => {
     const { page } = get();
@@ -295,7 +344,7 @@ export const useStore = create<State>((set, get) => ({
         activeId = [...project.items].reverse().find((i) => i.kind === kind)?.id ?? null;
       }
     }
-    set({ tool, activeItemId: activeId, calibration: null });
+    set({ tool, activeItemId: activeId, calibration: null, pendingZone: null });
   },
 
   setActiveItem: (id) => {

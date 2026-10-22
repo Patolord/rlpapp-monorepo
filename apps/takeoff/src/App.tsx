@@ -10,6 +10,8 @@ import { ToolRail } from "./components/ToolRail";
 import { TopBar } from "./components/TopBar";
 import { Button, Kbd } from "./components/ui";
 import { Viewer } from "./components/Viewer";
+import { ZoneDialog } from "./components/ZoneDialog";
+import { ZonesPanel } from "./components/ZonesPanel";
 import { useHotkeys } from "./hotkeys";
 import {
   autosave,
@@ -22,7 +24,7 @@ import {
 import { useDoc } from "./lib/session";
 import { useStore } from "./store";
 
-const TABS = { items: "Itens", quote: "Orçamento" } as const;
+const TABS = { items: "Itens", zones: "Locais", quote: "Orçamento" } as const;
 
 export default function App() {
   useHotkeys();
@@ -108,6 +110,7 @@ export default function App() {
             </div>
           )}
           <CalibrateDialog />
+          <ZoneDialog />
         </div>
         <div className="flex w-[27rem] shrink-0 flex-col border-l border-neutral-800 bg-neutral-900">
           <div className="flex border-b border-neutral-800 text-xs">
@@ -127,7 +130,9 @@ export default function App() {
               </button>
             ))}
           </div>
-          <div className="min-h-0 flex-1">{tab === "items" ? <ItemsPanel /> : <QuotePanel />}</div>
+          <div className="min-h-0 flex-1">
+            {tab === "items" ? <ItemsPanel /> : tab === "zones" ? <ZonesPanel /> : <QuotePanel />}
+          </div>
         </div>
       </div>
       <StatusBar />

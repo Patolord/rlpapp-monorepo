@@ -30,6 +30,12 @@ const HINTS: Record<string, React.ReactNode> = {
   rect: "Arraste um retângulo",
   magic: "Clique dentro de um ambiente fechado para detectar o contorno",
   calibrate: "Clique em dois pontos de distância conhecida",
+  zone: (
+    <>
+      Delimite o local clicando nos pontos · clique no primeiro ponto ou <Kbd>Enter</Kbd> para
+      fechar e dar nome
+    </>
+  ),
 };
 
 export function StatusBar() {

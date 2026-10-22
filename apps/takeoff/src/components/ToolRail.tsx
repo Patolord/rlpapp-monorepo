@@ -9,6 +9,7 @@ import {
   Redo2,
   Ruler,
   Square,
+  SquareDashed,
   Undo2,
   WandSparkles,
 } from "lucide-react";
@@ -29,6 +30,7 @@ const TOOLS: { tool: Tool; label: string; key: string; icon: typeof Hand }[] = [
     key: "M",
     icon: WandSparkles,
   },
+  { tool: "zone", label: "Local (delimitar e nomear uma região)", key: "Z", icon: SquareDashed },
 ];
 
 export function ToolRail() {

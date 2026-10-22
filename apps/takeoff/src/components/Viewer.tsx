@@ -20,7 +20,7 @@ import type { Rect, Rendered } from "../lib/pdf/render";
 import { type SnapHit, snapPoint } from "../lib/pdf/vectors";
 import { pageScale } from "../lib/quantities";
 import { session, useDoc } from "../lib/session";
-import type { Measurement } from "../lib/types";
+import type { Measurement, Zone } from "../lib/types";
 import { formatArea, formatLength, type Kind, type PageScale } from "../lib/units";
 import { type Tool, useStore } from "../store";
 import { viewerApi } from "../viewerApi";
@@ -63,6 +63,7 @@ const DRAW_TOOLS: ReadonlySet<Tool> = new Set([
   "rect",
   "magic",
   "calibrate",
+  "zone",
 ]);
 
 const rectContains = (outer: Rect, inner: Rect) =>
@@ -255,7 +256,7 @@ export function Viewer() {
       if (
         (ortho || s.shiftDown) &&
         anchor &&
-        (t === "linear" || t === "area" || t === "calibrate")
+        (t === "linear" || t === "area" || t === "calibrate" || t === "zone")
       ) {
         return { pt: orthoSnap(anchor, raw), hit: null };
       }
@@ -279,6 +280,10 @@ export function Viewer() {
           return m.id;
         }
       }
+      for (let i = project.zones.length - 1; i >= 0; i--) {
+        const z = project.zones[i];
+        if (z.page === p && distToPolyline(raw, z.points, true) <= tol * 1.5) return z.id;
+      }
       return null;
     },
     finishDraft() {
@@ -291,6 +296,8 @@ export function Viewer() {
         store.addMeasurement(store.resolveItem("linear"), store.page, pts);
       } else if (store.tool === "area" && pts.length >= 3) {
         store.addMeasurement(store.resolveItem("area"), store.page, pts);
+      } else if (store.tool === "zone" && pts.length >= 3) {
+        store.setPendingZone({ page: store.page, points: pts });
       }
       this.requestDraw();
     },
@@ -355,6 +362,25 @@ export function Viewer() {
       viewBox.maxX += pad;
       viewBox.maxY += pad;
 
+      for (const z of project.zones) {
+        if (z.page !== p || !boxesIntersect(bbox(z.points), viewBox)) continue;
+        const isSel = sel.has(z.id);
+        const pts =
+          isSel && s.moveDelta ? translate(z.points, s.moveDelta.x, s.moveDelta.y) : z.points;
+        drawZone(ctx, v, pts, z, scale, {
+          selected: isSel,
+          hover: s.hoverId === z.id,
+          dashed: false,
+        });
+      }
+      if (store.pendingZone && store.pendingZone.page === p) {
+        drawZone(ctx, v, store.pendingZone.points, null, scale, {
+          selected: true,
+          hover: false,
+          dashed: true,
+        });
+      }
+
       for (const m of project.measurements) {
         if (m.page !== p) continue;
         const item = items.get(m.itemId);
@@ -381,6 +407,8 @@ export function Viewer() {
             hover: false,
             dashed: true,
           });
+        } else if (t === "zone") {
+          drawZone(ctx, v, pts, null, scale, { selected: false, hover: false, dashed: true });
         } else {
           drawMeasurement(ctx, v, pts, kind, color, scale, {
             selected: false,
@@ -603,6 +631,12 @@ export function Viewer() {
         } else s.draft.push(eff);
         break;
       }
+      case "zone": {
+        if (s.draft.length >= 3 && dist(eff, s.draft[0]) <= (SNAP_PX * 1.2) / v.zoom) {
+          h.finishDraft();
+        } else s.draft.push(eff);
+        break;
+      }
       case "rect":
         s.drag = { kind: "rect", start: eff };
         break;
@@ -677,7 +711,7 @@ export function Viewer() {
           maxX: Math.max(a.x, b.x),
           maxY: Math.max(a.y, b.y),
         };
-        const ids = store.project.measurements
+        const ids = [...store.project.measurements, ...store.project.zones]
           .filter((mm) => mm.page === store.page && boxContains(box, bbox(mm.points)))
           .map((mm) => mm.id);
         store.setSelection(e.shiftKey ? Array.from(new Set([...store.selection, ...ids])) : ids);
@@ -821,6 +855,53 @@ function drawMeasurement(
     at = toScreen(polygonCentroid(pts), v);
   }
   drawLabel(ctx, text, at.x, at.y, color);
+  ctx.restore();
+}
+
+/** Zones: dashed outline, faint fill, name + area label near the top of the polygon. */
+function drawZone(
+  ctx: CanvasRenderingContext2D,
+  v: { zoom: number; x: number; y: number },
+  pts: readonly Pt[],
+  zone: Zone | null,
+  scale: PageScale | null,
+  o: DrawOpts,
+) {
+  if (pts.length < 2) return;
+  const color = zone?.color ?? "#e5e5e5";
+  const sp = pts.map((p) => toScreen(p, v));
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(sp[0].x, sp[0].y);
+  for (let i = 1; i < sp.length; i++) ctx.lineTo(sp[i].x, sp[i].y);
+  ctx.closePath();
+  ctx.fillStyle = hexAlpha(color, o.selected || o.hover ? 0.14 : 0.07);
+  ctx.fill();
+  ctx.setLineDash(o.dashed ? [4, 4] : [10, 6]);
+  ctx.lineWidth = o.selected || o.hover ? 3 : 2;
+  ctx.strokeStyle = o.selected ? "#ffffff" : color;
+  ctx.stroke();
+  ctx.setLineDash([]);
+  if (o.selected) {
+    for (const p of sp) {
+      ctx.beginPath();
+      ctx.rect(p.x - 4, p.y - 4, 8, 8);
+      ctx.fillStyle = "#fff";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.8)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+  if (pts.length >= 3) {
+    const area = polygonArea(pts);
+    const areaText = scale
+      ? formatArea(area / (scale.pointsPerUnit * scale.pointsPerUnit), scale.unit)
+      : `${area.toFixed(0)} pt²`;
+    const b = bbox(pts);
+    const top = toScreen({ x: (b.minX + b.maxX) / 2, y: b.minY }, v);
+    drawLabel(ctx, zone ? `${zone.name} · ${areaText}` : areaText, top.x, top.y + 12, color);
+  }
   ctx.restore();
 }
 

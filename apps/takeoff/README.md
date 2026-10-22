@@ -41,6 +41,7 @@ bun scripts/bench-vectors.ts <pdf>   # extraction + indexing timings
 | `L` | Linear: click points, `Enter`, double-click or right-click to finish |
 | `A` `R` | Area polygon (click first point to close) / area rectangle (drag) |
 | `M` | Magic area: click inside an enclosed room to detect its outline |
+| `Z` | Location: outline a region (floor, apartment, room) and name it; everything measured inside is grouped by it |
 | `K` | Calibrate: click two points of a known distance |
 | `S` `O` / `Shift` | Toggle snapping to drawing geometry / ortho (45°) lock |
 | `1`–`9` | Activate item n (the tool follows the item's kind) |

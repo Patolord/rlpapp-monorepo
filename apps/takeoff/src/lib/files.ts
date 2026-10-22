@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../store";
-import { buildQuote } from "./quantities";
+import { buildQuote, zoneMatrix } from "./quantities";
 import { basename, openPdfPath, useDoc } from "./session";
 import { migrateProject } from "./types";
 
@@ -102,6 +102,9 @@ export interface SheetExport {
   groups: { name: string; rows: SheetRow[] }[];
   extrasPct: number;
   bdi: number;
+  /** "Por Local" sheet: zone names and one quantity per zone for each item (empty when no zones). */
+  zones: string[];
+  byZone: { name: string; unit: string; qty: number[] }[];
 }
 
 export interface SheetRow {
@@ -115,6 +118,7 @@ export interface SheetRow {
 export function sheetExport(): SheetExport {
   const { project } = useStore.getState();
   const quote = buildQuote(project);
+  const matrix = project.zones.length ? zoneMatrix(project) : { columns: [], rows: [] };
   return {
     title: "Planilha Orçamentária - RLP ENGENHARIA e INSTALAÇÕES LTDA.",
     system: project.system || project.name,
@@ -136,6 +140,8 @@ export function sheetExport(): SheetExport {
     })),
     extrasPct: project.extrasPct,
     bdi: project.bdi,
+    zones: matrix.columns.map((c) => c.name),
+    byZone: matrix.rows.map((r) => ({ name: r.item.name, unit: unitLabel(r.unit), qty: r.qty })),
   };
 }
 

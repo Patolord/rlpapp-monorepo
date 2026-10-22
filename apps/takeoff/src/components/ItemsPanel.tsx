@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { CircleDot, Pentagon, Plus, Spline, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { itemTotals, pricedQty, round2 } from "../lib/quantities";
+import { itemTotals, NO_ZONE, pricedQty, round2, totalsByZone } from "../lib/quantities";
 import { GROUP_SUGGESTIONS, ITEM_COLORS, type Item } from "../lib/types";
 import { formatMoney, formatQty, type Kind } from "../lib/units";
 import { useStore } from "../store";
@@ -18,6 +18,18 @@ export function ItemsPanel() {
   const activeItemId = useStore((s) => s.activeItemId);
   const { setActiveItem, updateItem, removeItem, addItem } = useStore.getState();
   const totals = useMemo(() => itemTotals(project), [project]);
+  const byZone = useMemo(() => totalsByZone(project), [project]);
+  const breakdownFor = (itemId: string, kind: Kind) => {
+    if (project.zones.length === 0) return "";
+    const parts: string[] = [];
+    for (const z of project.zones) {
+      const q = byZone.get(z.id)?.get(itemId)?.qty;
+      if (q) parts.push(`${z.name}: ${formatQty(kind, q, project.unit)}`);
+    }
+    const rest = byZone.get(NO_ZONE)?.get(itemId)?.qty;
+    if (rest) parts.push(`sem local: ${formatQty(kind, rest, project.unit)}`);
+    return parts.join(" · ");
+  };
   const groups = useMemo(
     () => Array.from(new Set([...project.items.map((i) => i.group), ...GROUP_SUGGESTIONS])),
     [project.items],
@@ -56,6 +68,7 @@ export function ItemsPanel() {
               active={item.id === activeItemId}
               qtyLabel={formatQty(item.kind, t?.qty ?? 0, project.unit)}
               unscaled={t?.unscaled ?? 0}
+              breakdown={breakdownFor(item.id, item.kind)}
               total={formatMoney(total, project.currency)}
               onActivate={() => setActiveItem(item.id)}
               onChange={(patch) => updateItem(item.id, patch)}
@@ -100,6 +113,7 @@ interface RowProps {
   active: boolean;
   qtyLabel: string;
   unscaled: number;
+  breakdown: string;
   total: string;
   onActivate: () => void;
   onChange: (patch: Partial<Item>) => void;
@@ -112,6 +126,7 @@ function ItemRow({
   active,
   qtyLabel,
   unscaled,
+  breakdown,
   total,
   onActivate,
   onChange,
@@ -246,6 +261,11 @@ function ItemRow({
           <span className="w-[4.5rem] text-right font-mono text-neutral-300">{total}</span>
         </span>
       </div>
+      {breakdown && (
+        <div className="truncate pl-6 text-[10px] text-neutral-500" title={breakdown}>
+          {breakdown}
+        </div>
+      )}
     </div>
   );
 }

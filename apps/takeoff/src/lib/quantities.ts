@@ -1,5 +1,12 @@
-import { polygonArea, polylineLength } from "./geom";
-import { DEFAULT_GROUP, type Item, type Measurement, type Project } from "./types";
+import {
+  type Pt,
+  pointAlong,
+  pointInPolygon,
+  polygonArea,
+  polygonCentroid,
+  polylineLength,
+} from "./geom";
+import { DEFAULT_GROUP, type Item, type Measurement, type Project, type Zone } from "./types";
 import type { Kind, PageScale } from "./units";
 import { qtyUnit } from "./units";
 
@@ -14,6 +21,30 @@ export function measurementQty(m: Measurement, kind: Kind, scale: PageScale | nu
   return polygonArea(m.points) / (scale.pointsPerUnit * scale.pointsPerUnit);
 }
 
+/** The point that decides which zone a measurement belongs to. */
+export function anchorOf(kind: Kind, points: readonly Pt[]): Pt {
+  if (kind === "count" || points.length === 1) return points[0];
+  if (kind === "linear") return pointAlong(points, 0.5);
+  return polygonCentroid(points);
+}
+
+/** Smallest zone on the measurement page that contains its anchor, or null. */
+export function zoneOf(project: Project, m: Measurement, kind: Kind): Zone | null {
+  if (project.zones.length === 0) return null;
+  const a = anchorOf(kind, m.points);
+  let best: Zone | null = null;
+  let bestArea = Number.POSITIVE_INFINITY;
+  for (const z of project.zones) {
+    if (z.page !== m.page || !pointInPolygon(a, z.points)) continue;
+    const area = polygonArea(z.points);
+    if (area < bestArea) {
+      best = z;
+      bestArea = area;
+    }
+  }
+  return best;
+}
+
 export interface ItemTotal {
   qty: number;
   count: number;
@@ -21,7 +52,10 @@ export interface ItemTotal {
   unscaled: number;
 }
 
-export function itemTotals(project: Project): Map<string, ItemTotal> {
+export function itemTotals(
+  project: Project,
+  include?: (m: Measurement, kind: Kind) => boolean,
+): Map<string, ItemTotal> {
   const items = new Map(project.items.map((i) => [i.id, i]));
   const totals = new Map<string, ItemTotal>();
   for (const item of project.items) totals.set(item.id, { qty: 0, count: 0, unscaled: 0 });
@@ -29,12 +63,65 @@ export function itemTotals(project: Project): Map<string, ItemTotal> {
     const item = items.get(m.itemId);
     const t = totals.get(m.itemId);
     if (!item || !t) continue;
+    if (include && !include(m, item.kind)) continue;
     const q = measurementQty(m, item.kind, pageScale(project, m.page));
     t.count++;
     if (q === null) t.unscaled++;
     else t.qty += q;
   }
   return totals;
+}
+
+/** Key used for measurements outside every zone. */
+export const NO_ZONE = "";
+
+/** Item totals per zone id (NO_ZONE for unassigned). Only keys with measurements are present. */
+export function totalsByZone(project: Project): Map<string, Map<string, ItemTotal>> {
+  const items = new Map(project.items.map((i) => [i.id, i]));
+  const out = new Map<string, Map<string, ItemTotal>>();
+  for (const m of project.measurements) {
+    const item = items.get(m.itemId);
+    if (!item) continue;
+    const key = zoneOf(project, m, item.kind)?.id ?? NO_ZONE;
+    let totals = out.get(key);
+    if (!totals) {
+      totals = new Map();
+      out.set(key, totals);
+    }
+    let t = totals.get(m.itemId);
+    if (!t) {
+      t = { qty: 0, count: 0, unscaled: 0 };
+      totals.set(m.itemId, t);
+    }
+    const q = measurementQty(m, item.kind, pageScale(project, m.page));
+    t.count++;
+    if (q === null) t.unscaled++;
+    else t.qty += q;
+  }
+  return out;
+}
+
+export interface ZoneMatrix {
+  /** Column headers: zone names, plus "Sem local" last when something is unassigned. */
+  columns: { key: string; name: string }[];
+  rows: { item: Item; unit: string; qty: number[]; total: number }[];
+}
+
+/** Item × zone quantity table (priced quantities, with waste) for the "Por Local" sheet. */
+export function zoneMatrix(project: Project): ZoneMatrix {
+  const by = totalsByZone(project);
+  const columns = project.zones.map((z) => ({ key: z.id, name: z.name }));
+  if (by.has(NO_ZONE)) columns.push({ key: NO_ZONE, name: "Sem local" });
+  const rows = project.items.map((item) => {
+    const qty = columns.map((c) => pricedQty(item, by.get(c.key)?.get(item.id)?.qty ?? 0));
+    return {
+      item,
+      unit: qtyUnit(item.kind, project.unit),
+      qty,
+      total: qty.reduce((s, q) => s + q, 0),
+    };
+  });
+  return { columns, rows };
 }
 
 export const round2 = (v: number): number => Math.round(v * 100) / 100;

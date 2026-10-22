@@ -72,6 +72,98 @@ struct SheetExport {
     groups: Vec<SheetGroup>,
     extras_pct: f64,
     bdi: f64,
+    /// "Por Local" sheet: zone names and, per item, one quantity per zone.
+    #[serde(default)]
+    zones: Vec<String>,
+    #[serde(default)]
+    by_zone: Vec<ZoneRow>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ZoneRow {
+    name: String,
+    unit: String,
+    qty: Vec<f64>,
+}
+
+/// Item × location quantity table on a second worksheet (only when zones exist).
+fn write_zone_sheet(wb: &mut rust_xlsxwriter::Workbook, sheet: &SheetExport) -> Result<(), String> {
+    use rust_xlsxwriter::{Color, Format, FormatAlign, FormatBorder, Formula};
+    if sheet.zones.is_empty() {
+        return Ok(());
+    }
+    let err = |e: rust_xlsxwriter::XlsxError| e.to_string();
+    let ws = wb.add_worksheet();
+    ws.set_name("Por Local").map_err(err)?;
+    let title = Format::new().set_bold().set_font_size(12.0);
+    let header = Format::new()
+        .set_bold()
+        .set_align(FormatAlign::Center)
+        .set_text_wrap()
+        .set_border(FormatBorder::Thin)
+        .set_background_color(Color::RGB(0xD9E1F2));
+    let text = Format::new().set_border(FormatBorder::Thin);
+    let center = Format::new()
+        .set_border(FormatBorder::Thin)
+        .set_align(FormatAlign::Center);
+    let qty = Format::new()
+        .set_border(FormatBorder::Thin)
+        .set_num_format("#,##0.00");
+    let qty_bold = qty
+        .clone()
+        .set_bold()
+        .set_background_color(Color::RGB(0xF2F2F2));
+
+    let last_col = (2 + sheet.zones.len()) as u16;
+    ws.merge_range(
+        0,
+        0,
+        0,
+        last_col,
+        &format!("Quantidades por local - {}", sheet.site),
+        &title,
+    )
+    .map_err(err)?;
+    ws.write_string(1, 0, format!("Cliente: {}", sheet.client))
+        .map_err(err)?;
+    let h = 3;
+    ws.write_string_with_format(h, 0, "ITEM", &header)
+        .map_err(err)?;
+    ws.write_string_with_format(h, 1, "UNID.", &header)
+        .map_err(err)?;
+    for (i, z) in sheet.zones.iter().enumerate() {
+        ws.write_string_with_format(h, 2 + i as u16, z, &header)
+            .map_err(err)?;
+    }
+    ws.write_string_with_format(h, last_col, "TOTAL", &header)
+        .map_err(err)?;
+    let mut r = h + 1;
+    for row in &sheet.by_zone {
+        ws.write_string_with_format(r, 0, &row.name, &text)
+            .map_err(err)?;
+        ws.write_string_with_format(r, 1, &row.unit, &center)
+            .map_err(err)?;
+        for (i, q) in row.qty.iter().enumerate() {
+            ws.write_number_with_format(r, 2 + i as u16, *q, &qty)
+                .map_err(err)?;
+        }
+        ws.write_formula_with_format(
+            r,
+            last_col,
+            Formula::new(format!("=SUM({}:{})", cell(2, r), cell(last_col - 1, r))),
+            &qty_bold,
+        )
+        .map_err(err)?;
+        r += 1;
+    }
+    ws.set_column_width(0, 48).map_err(err)?;
+    ws.set_column_width(1, 8).map_err(err)?;
+    for c in 2..=last_col {
+        ws.set_column_width(c, 14).map_err(err)?;
+    }
+    ws.set_freeze_panes(h + 1, 2).map_err(err)?;
+    Ok(())
 }
 
 // Column indices (0-based) of the sheet.
@@ -400,6 +492,7 @@ fn export_xlsx(path: String, sheet: SheetExport) -> Result<(), String> {
     ws.set_print_fit_to_pages(1, 0);
     ws.set_repeat_rows(h0, h1).map_err(err)?;
 
+    write_zone_sheet(&mut wb, &sheet)?;
     wb.save(&path).map_err(err)
 }
 
@@ -459,6 +552,12 @@ mod tests {
             ],
             extras_pct: 5.0,
             bdi: 1.42,
+            zones: vec!["Térreo".into(), "1º Pavimento".into()],
+            by_zone: vec![ZoneRow {
+                name: "Dutos e Conexões Flangeados".into(),
+                unit: "m".into(),
+                qty: vec![8.2, 5.44],
+            }],
         };
         let path = std::env::temp_dir().join("takeoff-test-export.xlsx");
         export_xlsx(path.to_string_lossy().into_owned(), sheet).expect("export");

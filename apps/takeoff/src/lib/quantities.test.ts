@@ -167,3 +167,38 @@ describe("migration", () => {
     expect(() => migrateProject({ version: 9 })).toThrow();
   });
 });
+
+describe("zones", () => {
+  it("assigns measurements to the smallest containing zone and builds the matrix", async () => {
+    const { totalsByZone, zoneMatrix, NO_ZONE } = await import("./quantities");
+    const p = project();
+    const big = [
+      { x: 0, y: 0 },
+      { x: 1000, y: 0 },
+      { x: 1000, y: 1000 },
+      { x: 0, y: 1000 },
+    ];
+    const small = [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 10 },
+      { x: 0, y: 10 },
+    ];
+    p.zones = [
+      { id: "zb", name: "Térreo", page: 0, points: big, color: "#fff" },
+      { id: "zs", name: "Hall", page: 0, points: small, color: "#fff" },
+    ];
+    const by = totalsByZone(p);
+    // count c1 at (1,1) on page 0 -> inside both, smallest wins (Hall)
+    expect(by.get("zs")?.get("diff")?.qty).toBe(1);
+    // duct m1 midpoint (~113,0) on page 0 -> Térreo; m2 is on page 1 -> no zone
+    expect(by.get("zb")?.get("duct")?.qty).toBeCloseTo(4);
+    expect(by.get(NO_ZONE)?.get("duct")?.unscaled).toBe(1);
+    expect(by.get(NO_ZONE)?.get("diff")?.qty).toBe(1);
+    const m = zoneMatrix(p);
+    expect(m.columns.map((c) => c.name)).toEqual(["Térreo", "Hall", "Sem local"]);
+    const duct = m.rows.find((r) => r.item.id === "duct")!;
+    expect(duct.qty[0]).toBeCloseTo(4.4);
+    expect(duct.total).toBeCloseTo(4.4);
+  });
+});
