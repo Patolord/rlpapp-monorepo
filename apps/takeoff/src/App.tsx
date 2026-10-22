@@ -1,6 +1,7 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
+import { AboutDialog } from "./components/AboutDialog";
 import { CalibrateDialog } from "./components/CalibrateDialog";
 import { CatalogPalette } from "./components/CatalogPalette";
 import { ItemsPanel } from "./components/ItemsPanel";
@@ -156,6 +157,7 @@ export default function App() {
       </div>
       <StatusBar />
       <CatalogPalette />
+      <AboutDialog />
     </div>
   );
 }

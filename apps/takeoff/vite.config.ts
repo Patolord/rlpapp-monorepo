@@ -1,11 +1,14 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { readFileSync } from "node:fs";
 import { defineConfig } from "vitest/config";
 
-// @ts-expect-error process is provided by node at config time
 const host = process.env.TAURI_DEV_HOST as string | undefined;
 
+const appVersion = JSON.parse(readFileSync("./package.json", "utf8")).version as string;
+
 export default defineConfig({
+  define: { "import.meta.env.VITE_APP_VERSION": JSON.stringify(appVersion) },
   plugins: [react(), tailwindcss()],
   clearScreen: false,
   server: {

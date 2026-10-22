@@ -123,6 +123,7 @@ export interface State {
   scalePickerOpen: boolean;
   status: string | null;
   paletteOpen: boolean;
+  aboutOpen: boolean;
   legendCandidates: string[] | null;
   catalog: CatalogStore;
 
@@ -176,6 +177,7 @@ export interface State {
   setStatus(msg: string | null): void;
 
   setPaletteOpen(open: boolean): void;
+  setAboutOpen(open: boolean): void;
   setLegendCandidates(lines: string[] | null): void;
   /** Create items for several names at once (legend capture). */
   addItemsBulk(entries: { name: string; kind: Kind; group: string; system?: string }[]): void;
@@ -218,6 +220,7 @@ export const useStore = create<State>((set, get) => ({
   scalePickerOpen: false,
   status: null,
   paletteOpen: false,
+  aboutOpen: false,
   legendCandidates: null,
   catalog: emptyCatalogStore(),
 
@@ -541,6 +544,7 @@ export const useStore = create<State>((set, get) => ({
   setStatus: (status) => set({ status }),
 
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
+  setAboutOpen: (aboutOpen) => set({ aboutOpen }),
   setLegendCandidates: (legendCandidates) => set({ legendCandidates }),
 
   addItemsBulk: (entries) => {

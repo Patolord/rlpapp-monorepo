@@ -73,7 +73,15 @@ export function useHotkeys() {
       }
 
       switch (key) {
+        case "F1":
+          e.preventDefault();
+          s.setAboutOpen(!s.aboutOpen);
+          return;
         case "Escape":
+          if (s.aboutOpen) {
+            s.setAboutOpen(false);
+            return;
+          }
           if (api?.hasDraft()) api.cancelDraft();
           else if (s.calibration) s.setCalibration(null);
           else if (s.pendingZone) s.setPendingZone(null);
