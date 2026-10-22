@@ -26,7 +26,7 @@ export function ZonesPanel() {
     const totals = byZone.get(key);
     if (!totals) return null;
     return (
-      <ul className="mt-1 space-y-0.5 pl-5 text-[11px]">
+      <ul className="mt-1 space-y-0.5 pl-5 text-[12px]">
         {project.items.map((item) => {
           const t = totals.get(item.id);
           if (!t) return null;
@@ -48,7 +48,7 @@ export function ZonesPanel() {
   return (
     <div className="flex h-full flex-col">
       {zones.length > 0 && (
-        <div className="flex items-center gap-2 border-b border-neutral-800 px-2 py-1.5 text-[11px] text-neutral-400">
+        <div className="flex items-center gap-2 border-b border-neutral-800 px-2 py-1.5 text-[12px] text-neutral-400">
           <button
             type="button"
             onClick={() => setZonesVisible(!zonesVisible)}
@@ -60,7 +60,7 @@ export function ZonesPanel() {
                 : "bg-orange-500/15 text-orange-300 ring-orange-400",
             )}
           >
-            {zonesVisible ? <Eye size={13} /> : <EyeOff size={13} />}
+            {zonesVisible ? <Eye size={15} /> : <EyeOff size={15} />}
             {zonesVisible ? "Visíveis" : "Ocultos"}
           </button>
           <label
@@ -88,7 +88,7 @@ export function ZonesPanel() {
         {zones.length === 0 && (
           <div className="px-3 py-6 text-center text-xs text-neutral-500">
             <p>
-              Nenhum local ainda. Use a ferramenta <SquareDashed size={12} className="inline" />{" "}
+              Nenhum local ainda. Use a ferramenta <SquareDashed size={14} className="inline" />{" "}
               <Kbd>Z</Kbd> para delimitar uma região (pavimento, apartamento, sala) e dar um nome.
               Tudo o que for medido dentro dela aparece agrupado aqui e na planilha "Por Local".
             </p>
@@ -143,7 +143,7 @@ export function ZonesPanel() {
                     : "text-neutral-500 hover:text-neutral-100",
                 )}
               >
-                <Filter size={12} />
+                <Filter size={14} />
               </button>
             </div>
             {rows(NO_ZONE)}
@@ -153,9 +153,9 @@ export function ZonesPanel() {
       {zones.length > 0 && (
         <div className="border-t border-neutral-800 p-2">
           <Button onClick={() => setTool("zone")}>
-            <SquareDashed size={14} /> Novo local <Kbd>Z</Kbd>
+            <SquareDashed size={16} /> Novo local <Kbd>Z</Kbd>
           </Button>
-          <span className="ml-2 text-[11px] text-neutral-500">{items.size} itens</span>
+          <span className="ml-2 text-[12px] text-neutral-500">{items.size} itens</span>
         </div>
       )}
     </div>
@@ -236,10 +236,10 @@ function ZoneRow({
             {zone.name}
           </span>
         )}
-        <span className="truncate text-[10px] text-neutral-500" title={drawingName}>
+        <span className="truncate text-[11px] text-neutral-500" title={drawingName}>
           {drawingName ? `${drawingName} · ` : ""}pág. {zone.page + 1}
         </span>
-        <span className="font-mono text-[11px] text-neutral-300">{areaText}</span>
+        <span className="font-mono text-[12px] text-neutral-300">{areaText}</span>
         <button
           type="button"
           title={zone.hidden ? "Mostrar este local no desenho" : "Ocultar este local no desenho"}
@@ -252,7 +252,7 @@ function ZoneRow({
             zone.hidden ? "text-orange-300" : "text-neutral-500 opacity-0 group-hover:opacity-100",
           )}
         >
-          {zone.hidden ? <EyeOff size={13} /> : <Eye size={13} />}
+          {zone.hidden ? <EyeOff size={15} /> : <Eye size={15} />}
         </button>
         <button
           type="button"
@@ -266,7 +266,7 @@ function ZoneRow({
             filtered ? "text-orange-300" : "text-neutral-500 opacity-0 group-hover:opacity-100",
           )}
         >
-          <Filter size={13} />
+          <Filter size={15} />
         </button>
         <button
           type="button"
@@ -277,7 +277,7 @@ function ZoneRow({
           }}
           className="text-neutral-500 opacity-0 hover:text-red-400 group-hover:opacity-100"
         >
-          <Trash2 size={13} />
+          <Trash2 size={15} />
         </button>
       </div>
       {children}

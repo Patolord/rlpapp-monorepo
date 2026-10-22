@@ -21,7 +21,7 @@ export function UpdateButton() {
       title={error ?? available.notes ?? "Nova versão disponível"}
       className="inline-flex h-7 items-center gap-1 rounded-md bg-orange-500 px-2 text-xs font-medium text-neutral-950 hover:bg-orange-600 disabled:opacity-60"
     >
-      <Download size={13} />
+      <Download size={15} />
       {label}
     </button>
   );

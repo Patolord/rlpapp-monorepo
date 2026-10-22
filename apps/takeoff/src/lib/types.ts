@@ -120,7 +120,7 @@ export const newId = (): string =>
     ? crypto.randomUUID().slice(0, 8)
     : Math.random().toString(36).slice(2, 10);
 
-export const UNTITLED = "Orçamento sem nome";
+export const UNTITLED = "Takeoff sem nome";
 
 export function emptyProject(): Project {
   return {
@@ -165,7 +165,7 @@ export function migrateProject(raw: unknown): Project {
   const drawing: Drawing = {
     id: drawingId,
     path: pdfPath,
-    name: String(r.pdfName ?? (pdfPath ? pdfPath.split(/[\\/]/).pop() : "Desenho")),
+    name: String(r.pdfName ?? (pdfPath ? pdfPath.split(/[\\/]/).pop() : "Planta")),
     pages: (r.pages as PageMeta[]) ?? [],
   };
   const items = ((r.items as Record<string, unknown>[]) ?? []).map((i) => ({

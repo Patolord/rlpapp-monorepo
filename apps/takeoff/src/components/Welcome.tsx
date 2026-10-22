@@ -42,8 +42,8 @@ export function Welcome() {
             </h1>
             <p className="text-xs text-neutral-400">
               {hasProject
-                ? "Projeto aberto sem desenho em exibição. Adicione um PDF para começar a marcar."
-                : "Um projeto reúne os PDFs de uma obra, as marcações, os locais e os itens de todas as disciplinas."}
+                ? "Takeoff aberto sem planta em exibição. Adicione uma planta (PDF) para começar a marcar."
+                : "Um takeoff reúne as plantas (PDF) de uma obra, as marcações, os locais e os itens de todas as disciplinas."}
             </p>
           </div>
         </div>
@@ -51,8 +51,8 @@ export function Welcome() {
         <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
           {hasProject ? (
             <Action
-              icon={<FileText size={18} />}
-              title="Adicionar PDF"
+              icon={<FileText size={20} />}
+              title="Adicionar planta"
               hint={
                 <>
                   <Kbd>{MOD}</Kbd>+<Kbd>O</Kbd> ou arraste o arquivo para cá
@@ -63,8 +63,8 @@ export function Welcome() {
             />
           ) : (
             <Action
-              icon={<FilePlus2 size={18} />}
-              title="Novo projeto"
+              icon={<FilePlus2 size={20} />}
+              title="Novo takeoff"
               hint={
                 <>
                   <Kbd>{MOD}</Kbd>+<Kbd>N</Kbd> · obra, cliente, disciplinas
@@ -75,23 +75,23 @@ export function Welcome() {
             />
           )}
           <Action
-            icon={<FolderOpen size={18} />}
-            title="Abrir projeto"
+            icon={<FolderOpen size={20} />}
+            title="Abrir takeoff"
             hint="arquivo .takeoff.json"
             onClick={() => void pickAndOpenProject()}
           />
           {hasProject ? (
             <Action
-              icon={<FilePlus2 size={18} />}
-              title="Novo projeto"
+              icon={<FilePlus2 size={20} />}
+              title="Novo takeoff"
               hint="começa outra obra"
               onClick={() => setNewProjectOpen(true)}
             />
           ) : (
             <Action
-              icon={<FileText size={18} />}
-              title="Abrir um PDF direto"
-              hint="cria um projeto com o nome do arquivo"
+              icon={<FileText size={20} />}
+              title="Abrir uma planta direto"
+              hint="cria um takeoff com o nome do arquivo"
               onClick={() => void pickAndOpenPdf()}
             />
           )}
@@ -99,8 +99,8 @@ export function Welcome() {
 
         {recent.length > 0 && (
           <div className="mt-6">
-            <div className="mb-1 flex items-center gap-1 text-[11px] uppercase tracking-wide text-neutral-500">
-              <Clock size={12} /> Recentes
+            <div className="mb-1 flex items-center gap-1 text-[12px] uppercase tracking-wide text-neutral-500">
+              <Clock size={14} /> Recentes
             </div>
             <ul className="divide-y divide-neutral-800 rounded-md border border-neutral-800">
               {recent.map((r) => (
@@ -114,10 +114,10 @@ export function Welcome() {
                     <span className="min-w-0 flex-1 truncate text-sm text-neutral-100">
                       {r.name}
                     </span>
-                    <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-neutral-500">
+                    <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-neutral-500">
                       {basename(r.path)}
                     </span>
-                    <span className="shrink-0 text-[11px] text-neutral-500">
+                    <span className="shrink-0 text-[12px] text-neutral-500">
                       {new Date(r.openedAt).toLocaleDateString("pt-BR")}
                     </span>
                   </button>
@@ -136,7 +136,7 @@ export function Welcome() {
             onClick={() => void restoreAutosave().catch(() => setCanRestore(false))}
             className="mt-4 flex items-center gap-1 text-xs text-orange-300 hover:underline"
           >
-            <RotateCcw size={12} /> Restaurar a última sessão não salva
+            <RotateCcw size={14} /> Restaurar a última sessão não salva
           </button>
         )}
       </div>
@@ -166,7 +166,7 @@ function Action({
       <span className="flex items-center gap-2 text-sm">
         {icon} {title}
       </span>
-      <span className={primary ? "text-[11px] opacity-80" : "text-[11px] text-neutral-500"}>
+      <span className={primary ? "text-[12px] opacity-80" : "text-[12px] text-neutral-500"}>
         {hint}
       </span>
     </Button>

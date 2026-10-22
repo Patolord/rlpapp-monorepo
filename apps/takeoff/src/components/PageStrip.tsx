@@ -44,7 +44,7 @@ export function PageStrip() {
           )}
         >
           <Thumb index={i} />
-          <div className="bg-neutral-800 px-1.5 py-0.5 text-[10px] text-neutral-300">
+          <div className="bg-neutral-800 px-1.5 py-0.5 text-[11px] text-neutral-300">
             Página {i + 1}
           </div>
         </button>

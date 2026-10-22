@@ -26,7 +26,7 @@ export async function newProject(meta: {
   closePdf();
   store.resetProject(project, null);
   useStore.setState({ dirty: true });
-  store.setStatus(`Projeto "${project.name}" criado. Adicione os PDFs com ${mod("O")}.`);
+  store.setStatus(`Takeoff "${project.name}" criado. Adicione as plantas (PDF) com ${mod("O")}.`);
   return true;
 }
 
@@ -38,8 +38,8 @@ export function closeProject(): boolean {
   return true;
 }
 
-const PROJECT_FILTER = [{ name: "Projeto Takeoff", extensions: ["takeoff.json", "json"] }];
-const PDF_FILTER = [{ name: "Desenhos PDF", extensions: ["pdf"] }];
+const PROJECT_FILTER = [{ name: "Arquivo Takeoff", extensions: ["takeoff.json", "json"] }];
+const PDF_FILTER = [{ name: "Plantas PDF", extensions: ["pdf"] }];
 
 export async function pickAndOpenPdf(): Promise<void> {
   const path = await open({ multiple: false, filters: PDF_FILTER });
@@ -119,7 +119,7 @@ export async function openProjectFile(path: string): Promise<void> {
     text = await invoke<string>("read_text", { path });
   } catch (e) {
     store.setStatus(
-      `Não foi possível abrir o projeto: ${e instanceof Error ? e.message : String(e)}`,
+      `Não foi possível abrir o takeoff: ${e instanceof Error ? e.message : String(e)}`,
     );
     useStore.setState({ recentProjects: store.recentProjects.filter((r) => r.path !== path) });
     return;

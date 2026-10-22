@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { newProject } from "../lib/files";
 import { MOD } from "../lib/platform";
-import { DISCIPLINE_SUGGESTIONS } from "../lib/types";
+import { DISCIPLINE_SUGGESTIONS, UNTITLED } from "../lib/types";
 import { useStore } from "../store";
 import { Button, Kbd } from "./ui";
 
@@ -25,7 +25,7 @@ export function NewProjectDialog() {
 
   const submit = async () => {
     const ok = await newProject({
-      name: name.trim() || site.trim() || "Orçamento sem nome",
+      name: name.trim() || site.trim() || UNTITLED,
       client: client.trim(),
       site: site.trim(),
       system: system.trim(),
@@ -64,10 +64,10 @@ export function NewProjectDialog() {
         onClick={(e) => e.stopPropagation()}
         className="w-[26rem] rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
       >
-        <h2 className="text-base font-semibold text-neutral-100">Novo projeto</h2>
+        <h2 className="text-base font-semibold text-neutral-100">Novo takeoff</h2>
         <p className="mt-1 text-xs text-neutral-400">
-          Um projeto é uma obra: reúne os PDFs, as marcações, os locais e os itens de todas as
-          disciplinas, e gera uma planilha com uma aba por disciplina.
+          Um takeoff é uma obra: reúne as plantas (PDF), as marcações, os locais e os itens de todas
+          as disciplinas, e gera uma planilha com uma aba por disciplina.
         </p>
         <div className="mt-4 space-y-2 text-xs text-neutral-400">
           {/* biome-ignore lint/a11y/noLabelWithoutControl: the input is rendered by the helper above */}
@@ -82,7 +82,7 @@ export function NewProjectDialog() {
           </label>
           {/* biome-ignore lint/a11y/noLabelWithoutControl: the input is rendered by the helper above */}
           <label className="block">
-            <span className="mb-1 block">Nome do projeto (opcional, usa a obra)</span>
+            <span className="mb-1 block">Nome do takeoff (opcional, usa a obra)</span>
             {input(name, setName, "ex.: Gávea - Pressurização e Exaustão")}
           </label>
           {/* biome-ignore lint/a11y/noLabelWithoutControl: the input is rendered by the helper above */}
@@ -97,12 +97,12 @@ export function NewProjectDialog() {
           </label>
         </div>
         <div className="mt-4 flex items-center justify-end gap-2">
-          <span className="mr-auto text-[11px] text-neutral-500">
-            Depois, <Kbd>{MOD}</Kbd>+<Kbd>O</Kbd> adiciona os PDFs.
+          <span className="mr-auto text-[12px] text-neutral-500">
+            Depois, <Kbd>{MOD}</Kbd>+<Kbd>O</Kbd> adiciona as plantas.
           </span>
           <Button onClick={() => setOpen(false)}>Cancelar</Button>
           <Button type="submit" variant="primary">
-            Criar projeto
+            Criar takeoff
           </Button>
         </div>
       </form>

@@ -58,7 +58,7 @@ export function CatalogPalette() {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 border-b border-neutral-800 px-3 py-2">
-          <Search size={16} className="text-neutral-500" />
+          <Search size={18} className="text-neutral-500" />
           <input
             autoFocus
             value={query}
@@ -98,17 +98,17 @@ export function CatalogPalette() {
                 )}
               >
                 <span className="min-w-0 flex-1 truncate">{e.name}</span>
-                <span className="shrink-0 rounded bg-neutral-800 px-1.5 py-px text-[10px] text-neutral-400">
+                <span className="shrink-0 rounded bg-neutral-800 px-1.5 py-px text-[11px] text-neutral-400">
                   {e.group}
                 </span>
-                <span className="w-8 shrink-0 text-center font-mono text-[10px] text-neutral-500">
+                <span className="w-8 shrink-0 text-center font-mono text-[11px] text-neutral-500">
                   {e.unit}
                 </span>
-                <span className="w-24 shrink-0 text-right font-mono text-[11px] text-neutral-300">
+                <span className="w-24 shrink-0 text-right font-mono text-[12px] text-neutral-300">
                   {formatMoney(e.materialPrice, currency)}
                 </span>
                 {e.laborPrice > 0 && (
-                  <span className="w-20 shrink-0 text-right font-mono text-[10px] text-neutral-500">
+                  <span className="w-20 shrink-0 text-right font-mono text-[11px] text-neutral-500">
                     + {formatMoney(e.laborPrice, currency)}
                   </span>
                 )}
@@ -121,16 +121,16 @@ export function CatalogPalette() {
             </li>
           )}
         </ul>
-        <div className="flex items-center gap-2 border-t border-neutral-800 px-3 py-2 text-[11px] text-neutral-400">
+        <div className="flex items-center gap-2 border-t border-neutral-800 px-3 py-2 text-[12px] text-neutral-400">
           <span className="shrink-0">Catálogo da empresa</span>
           <input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://app.rlpeng.com.br/api/materiais.json"
-            className="h-7 min-w-0 flex-1 rounded bg-neutral-800 px-2 font-mono text-[11px] text-neutral-200 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
+            className="h-7 min-w-0 flex-1 rounded bg-neutral-800 px-2 font-mono text-[12px] text-neutral-200 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
           />
           <Button onClick={() => void refresh()} disabled={!url.trim()}>
-            <RefreshCw size={12} /> Atualizar
+            <RefreshCw size={14} /> Atualizar
           </Button>
           <span className="w-40 shrink-0 truncate text-right text-neutral-500">
             {busy ??

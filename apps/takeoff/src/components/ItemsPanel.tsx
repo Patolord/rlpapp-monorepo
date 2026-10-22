@@ -122,7 +122,7 @@ export function ItemsPanel() {
 
       <div className="flex items-center gap-1.5 border-b border-neutral-800 px-2 py-1.5">
         <div className="flex h-7 min-w-0 flex-1 items-center gap-1 rounded bg-neutral-800 px-1.5 ring-1 ring-neutral-700 focus-within:ring-orange-400">
-          <Search size={12} className="shrink-0 text-neutral-500" />
+          <Search size={14} className="shrink-0 text-neutral-500" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -131,7 +131,7 @@ export function ItemsPanel() {
           />
           {query && (
             <button type="button" onClick={() => setQuery("")} aria-label="Limpar filtro">
-              <X size={12} className="text-neutral-500 hover:text-neutral-100" />
+              <X size={14} className="text-neutral-500 hover:text-neutral-100" />
             </button>
           )}
         </div>
@@ -217,7 +217,7 @@ export function ItemsPanel() {
         })}
       </div>
 
-      <div className="flex items-center justify-between border-t border-neutral-800 px-2 py-1 text-[11px] text-neutral-500">
+      <div className="flex items-center justify-between border-t border-neutral-800 px-2 py-1 text-[12px] text-neutral-500">
         <span>
           {visible.length} {visible.length === 1 ? "item" : "itens"}
           {zoneName ? ` em ${zoneName}` : ""}
@@ -257,10 +257,10 @@ export function ItemsPanel() {
           className="h-8 min-w-0 flex-1 rounded bg-neutral-800 px-2 text-xs ring-1 ring-neutral-700 focus:ring-orange-400 outline-none"
         />
         <Button type="submit" variant="primary" aria-label="Adicionar item">
-          <Plus size={14} />
+          <Plus size={16} />
         </Button>
         <Button onClick={() => setPaletteOpen(true)} title={`Catálogo de materiais (${mod("K")})`}>
-          <Library size={14} />
+          <Library size={16} />
         </Button>
       </form>
     </div>
@@ -325,7 +325,7 @@ function ItemRow({
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         if (e.key === "Escape") setEditing(null);
       }}
-      className="h-5 w-32 rounded bg-neutral-800 px-1 text-[11px] ring-1 ring-orange-400 outline-none"
+      className="h-5 w-32 rounded bg-neutral-800 px-1 text-[12px] ring-1 ring-orange-400 outline-none"
     />
   );
   const tag = (field: "group" | "system", label: string, title: string) => (
@@ -336,7 +336,7 @@ function ItemRow({
         e.stopPropagation();
         setEditing(field);
       }}
-      className="truncate rounded bg-neutral-800 px-1.5 py-px text-[10px] text-neutral-400 hover:text-neutral-100"
+      className="truncate rounded bg-neutral-800 px-1.5 py-px text-[11px] text-neutral-400 hover:text-neutral-100"
     >
       {label}
     </button>
@@ -362,9 +362,9 @@ function ItemRow({
           style={{ background: item.color }}
         />
         {item.kind === "count" ? (
-          <SymbolIcon id={item.symbol} color={item.color} size={14} className="shrink-0" />
+          <SymbolIcon id={item.symbol} color={item.color} size={16} className="shrink-0" />
         ) : (
-          <Icon size={12} className="shrink-0 text-neutral-400" />
+          <Icon size={14} className="shrink-0 text-neutral-400" />
         )}
         {editing === "name" ? (
           <input
@@ -393,23 +393,23 @@ function ItemRow({
             {item.name}
           </span>
         )}
-        <span className="shrink-0 font-mono text-[11px] text-neutral-200">{qtyLabel}</span>
+        <span className="shrink-0 font-mono text-[12px] text-neutral-200">{qtyLabel}</span>
         {unscaled > 0 && (
           <span
-            className="shrink-0 text-[10px] text-amber-400"
+            className="shrink-0 text-[11px] text-amber-400"
             title="Há medições em páginas sem escala definida"
           >
             +{unscaled}
           </span>
         )}
-        <span className="w-[4.6rem] shrink-0 text-right font-mono text-[11px] text-neutral-400">
+        <span className="w-[4.6rem] shrink-0 text-right font-mono text-[12px] text-neutral-400">
           {total}
         </span>
         {index < 9 ? <Kbd>{index + 1}</Kbd> : <span className="w-[1.1rem]" />}
       </div>
       {active && (
         <div className="mt-1 space-y-1 pl-5">
-          <div className="flex items-center gap-1.5 text-[10px] text-neutral-400">
+          <div className="flex items-center gap-1.5 text-[11px] text-neutral-400">
             {editing === "group"
               ? tagInput("group", item.group, "item-groups", "Grupo")
               : tag("group", item.group, "Grupo da planilha (clique para alterar)")}
@@ -430,7 +430,7 @@ function ItemRow({
                 }}
                 className="rounded p-0.5 text-neutral-500 hover:text-amber-400"
               >
-                <Star size={13} />
+                <Star size={15} />
               </button>
               <button
                 type="button"
@@ -441,11 +441,11 @@ function ItemRow({
                 }}
                 className="rounded p-0.5 text-neutral-500 hover:text-red-400"
               >
-                <Trash2 size={13} />
+                <Trash2 size={15} />
               </button>
             </span>
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] text-neutral-400">
+          <div className="flex items-center gap-1.5 text-[11px] text-neutral-400">
             <span>Material</span>
             <input
               type="number"
@@ -502,13 +502,13 @@ function ItemRow({
                       : "hover:bg-neutral-800",
                   )}
                 >
-                  <SymbolIcon id={sym.id} color={item.color} size={16} />
+                  <SymbolIcon id={sym.id} color={item.color} size={18} />
                 </button>
               ))}
             </div>
           )}
           {breakdown && (
-            <div className="truncate text-[10px] text-neutral-500" title={breakdown}>
+            <div className="truncate text-[11px] text-neutral-500" title={breakdown}>
               {breakdown}
             </div>
           )}

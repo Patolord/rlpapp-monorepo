@@ -79,9 +79,9 @@ export function AboutDialog() {
               {checking ? "Verificando…" : "Verificar atualizações"}
             </Button>
           )}
-          <span className="min-w-0 flex-1 truncate text-[11px] text-neutral-500">{status}</span>
+          <span className="min-w-0 flex-1 truncate text-[12px] text-neutral-500">{status}</span>
         </div>
-        <div className="mt-4 flex items-center justify-between text-[11px] text-neutral-500">
+        <div className="mt-4 flex items-center justify-between text-[12px] text-neutral-500">
           <a
             href={RELEASES_URL}
             target="_blank"

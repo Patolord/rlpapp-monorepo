@@ -72,7 +72,7 @@ export function StatusBar() {
   useEffect(() => useViewport.subscribe((v) => setZoom(v.zoom)), []);
 
   return (
-    <div className="relative flex h-7 items-center gap-3 overflow-hidden whitespace-nowrap border-t border-neutral-800 bg-neutral-900 px-2 text-[11px] text-neutral-400">
+    <div className="relative flex h-7 items-center gap-3 overflow-hidden whitespace-nowrap border-t border-neutral-800 bg-neutral-900 px-2 text-[12px] text-neutral-400">
       <div className="flex items-center gap-0.5">
         <button
           type="button"
@@ -81,7 +81,7 @@ export function StatusBar() {
           onClick={() => setPage(page - 1)}
           aria-label="Página anterior"
         >
-          <ChevronLeft size={14} />
+          <ChevronLeft size={16} />
         </button>
         <span className="font-mono text-neutral-200">
           {numPages ? page + 1 : 0} / {numPages}
@@ -93,7 +93,7 @@ export function StatusBar() {
           onClick={() => setPage(page + 1)}
           aria-label="Próxima página"
         >
-          <ChevronRight size={14} />
+          <ChevronRight size={16} />
         </button>
       </div>
       <span className="font-mono">{(zoom * 100).toFixed(0)}%</span>
@@ -107,7 +107,7 @@ export function StatusBar() {
         }`}
         title="Escala da página"
       >
-        <Proportions size={12} />
+        <Proportions size={14} />
         {scale ? scale.label : "Definir escala"}
       </button>
       <button
@@ -120,7 +120,7 @@ export function StatusBar() {
             : "bg-orange-500/15 text-orange-300 ring-orange-400"
         }`}
       >
-        <PaintBucket size={12} />
+        <PaintBucket size={14} />
         {fillsVisible ? `${Math.round(fillOpacity * 100)}%` : "contorno"}
       </button>
       {fillOpen && (
@@ -148,7 +148,7 @@ export function StatusBar() {
             />
             <span className="w-9 text-right font-mono">{Math.round(fillOpacity * 100)}%</span>
           </label>
-          <p className="mt-2 text-[10px] text-neutral-500">
+          <p className="mt-2 text-[11px] text-neutral-500">
             Só muda a exibição; as quantidades não são afetadas. <Kbd>Shift</Kbd>+<Kbd>Z</Kbd>{" "}
             alterna rapidamente.
           </p>

@@ -83,7 +83,7 @@ export function QuotePanel() {
       </div>
       <div className="flex-1 overflow-auto">
         <table className="w-full border-collapse">
-          <thead className="sticky top-0 bg-neutral-900 text-[10px] uppercase tracking-wide text-neutral-500">
+          <thead className="sticky top-0 bg-neutral-900 text-[11px] uppercase tracking-wide text-neutral-500">
             <tr>
               <th className="px-2 py-1 text-left">Item</th>
               <th className="px-1 py-1 text-right">Quant.</th>
@@ -103,7 +103,7 @@ export function QuotePanel() {
                   <tr className="bg-orange-500/10 text-neutral-100">
                     <td className="px-2 py-1.5 text-xs font-semibold uppercase" colSpan={4}>
                       {sheet.system}
-                      <span className="ml-2 text-[10px] font-normal normal-case text-neutral-500">
+                      <span className="ml-2 text-[11px] font-normal normal-case text-neutral-500">
                         aba da planilha
                       </span>
                     </td>
@@ -228,10 +228,10 @@ export function QuotePanel() {
         />
         <div className="flex gap-2 pt-2">
           <Button variant="primary" onClick={() => void exportXlsx()} title={mod("E")}>
-            <FileSpreadsheet size={14} /> Planilha .xlsx
+            <FileSpreadsheet size={16} /> Planilha .xlsx
           </Button>
           <Button onClick={() => void copyCsv()}>
-            <Copy size={14} /> Copiar CSV
+            <Copy size={16} /> Copiar CSV
           </Button>
         </div>
       </div>

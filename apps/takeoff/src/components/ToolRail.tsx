@@ -53,12 +53,12 @@ export function ToolRail() {
     <div className="flex w-12 flex-col items-center gap-1 border-r border-neutral-800 bg-neutral-900 py-2">
       {TOOLS.map(({ tool: t, label, key, icon: Icon }) => (
         <IconButton key={t} label={label} hint={key} active={tool === t} onClick={() => setTool(t)}>
-          <Icon size={18} />
+          <Icon size={20} />
         </IconButton>
       ))}
       <div className="my-1 h-px w-7 bg-neutral-700" />
       <IconButton label="Snap no desenho" hint="S" active={snap} onClick={toggleSnap}>
-        <Magnet size={18} />
+        <Magnet size={20} />
       </IconButton>
       <IconButton
         label="Travar em 45° (orto)"
@@ -66,17 +66,17 @@ export function ToolRail() {
         active={ortho}
         onClick={toggleOrtho}
       >
-        <Grid3x3 size={18} />
+        <Grid3x3 size={20} />
       </IconButton>
       <IconButton label="Ajustar página" hint="F" onClick={() => viewerApi.current?.fit()}>
-        <Maximize size={18} />
+        <Maximize size={20} />
       </IconButton>
       <div className="my-1 h-px w-7 bg-neutral-700" />
       <IconButton label="Desfazer" hint={mod("Z")} disabled={!canUndo} onClick={undo}>
-        <Undo2 size={18} />
+        <Undo2 size={20} />
       </IconButton>
       <IconButton label="Refazer" hint={mod("Y")} disabled={!canRedo} onClick={redo}>
-        <Redo2 size={18} />
+        <Redo2 size={20} />
       </IconButton>
     </div>
   );

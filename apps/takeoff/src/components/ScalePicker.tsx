@@ -31,7 +31,7 @@ export function ScalePicker({ onClose }: { onClose: () => void }) {
               setPageScale(p, which);
               onClose();
             }}
-            className={`rounded px-1 py-1 font-mono text-[11px] ring-1 ${
+            className={`rounded px-1 py-1 font-mono text-[12px] ring-1 ${
               current?.label === p.label
                 ? "bg-orange-500/20 text-orange-200 ring-orange-400"
                 : "bg-neutral-800 text-neutral-200 ring-neutral-700 hover:bg-neutral-700"
@@ -75,7 +75,7 @@ export function ScalePicker({ onClose }: { onClose: () => void }) {
         {current && (
           <button
             type="button"
-            className="text-[11px] text-neutral-500 hover:text-red-300"
+            className="text-[12px] text-neutral-500 hover:text-red-300"
             onClick={() => {
               setPageScale(null, which);
               onClose();

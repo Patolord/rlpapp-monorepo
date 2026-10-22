@@ -47,7 +47,7 @@ body,
   background: #eef3f9;
   color: #101a30;
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 15px;
   -webkit-user-select: none;
   user-select: none;
 }

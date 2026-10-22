@@ -50,7 +50,7 @@ export function Button({ variant = "ghost", className, ...rest }: ButtonProps) {
 
 export function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="rounded border border-neutral-600 bg-neutral-800 px-1 font-mono text-[10px] text-neutral-300">
+    <kbd className="rounded border border-neutral-600 bg-neutral-800 px-1 font-mono text-[11px] text-neutral-300">
       {children}
     </kbd>
   );

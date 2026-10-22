@@ -124,7 +124,7 @@ export function LegendDialog() {
           ))}
         </ul>
         <div className="mt-4 flex items-center justify-end gap-2">
-          <span className="mr-auto text-[11px] text-neutral-500">
+          <span className="mr-auto text-[12px] text-neutral-500">
             {rows.filter((r) => r.on).length} de {rows.length} selecionados
           </span>
           <Button onClick={() => setLegendCandidates(null)}>Cancelar</Button>
