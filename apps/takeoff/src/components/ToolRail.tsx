@@ -8,6 +8,7 @@ import {
   Pentagon,
   Redo2,
   Ruler,
+  ScanSearch,
   Square,
   SquareDashed,
   Undo2,
@@ -31,6 +32,12 @@ const TOOLS: { tool: Tool; label: string; key: string; icon: typeof Hand }[] = [
     icon: WandSparkles,
   },
   { tool: "zone", label: "Local (delimitar e nomear uma região)", key: "Z", icon: SquareDashed },
+  {
+    tool: "similar",
+    label: "Localizar semelhantes (arraste uma caixa ao redor de um símbolo)",
+    key: "X",
+    icon: ScanSearch,
+  },
 ];
 
 export function ToolRail() {

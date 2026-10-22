@@ -17,9 +17,11 @@ import {
 } from "../lib/geom";
 import { magicArea } from "../lib/pdf/magic";
 import type { Rect, Rendered } from "../lib/pdf/render";
+import { findSimilar } from "../lib/pdf/similar";
+import { type TextBox, textLinesIn, textNear } from "../lib/pdf/text";
 import { type SnapHit, snapPoint } from "../lib/pdf/vectors";
 import { pageScale } from "../lib/quantities";
-import { session, useDoc } from "../lib/session";
+import { ensureText, session, useDoc } from "../lib/session";
 import type { Measurement, Zone } from "../lib/types";
 import { formatArea, formatLength, type Kind, type PageScale } from "../lib/units";
 import { type Tool, useStore } from "../store";
@@ -30,6 +32,8 @@ type Drag =
   | { kind: "pan"; sx: number; sy: number; ox: number; oy: number; button: number; moved: boolean }
   | { kind: "move"; ids: string[]; start: Pt }
   | { kind: "rect"; start: Pt }
+  | { kind: "similar"; start: Pt }
+  | { kind: "legend"; start: Pt; startScreen: Pt; text: TextBox | null; moved: boolean }
   | { kind: "marquee"; start: Pt };
 
 interface Interaction {
@@ -50,6 +54,7 @@ interface Interaction {
   marquee: { a: Pt; b: Pt } | null;
   size: { w: number; h: number };
   needsFit: boolean;
+  hoverText: TextBox | null;
 }
 
 const RENDER_DEBOUNCE_MS = 70;
@@ -64,6 +69,7 @@ const DRAW_TOOLS: ReadonlySet<Tool> = new Set([
   "magic",
   "calibrate",
   "zone",
+  "similar",
 ]);
 
 const rectContains = (outer: Rect, inner: Rect) =>
@@ -101,6 +107,7 @@ export function Viewer() {
     marquee: null,
     size: { w: 0, h: 0 },
     needsFit: false,
+    hoverText: null,
   });
 
   // ---------- helpers bound to refs ----------
@@ -212,6 +219,7 @@ export function Viewer() {
       if (!renderer) return;
       renderer.cancelView();
       this.scheduleRender();
+      void ensureText(curPage);
       try {
         const base = await renderer.renderBase(curPage);
         if (useStore.getState().page !== curPage || session.renderer !== renderer) return;
@@ -307,7 +315,37 @@ export function Viewer() {
       s.drag = null;
       s.marquee = null;
       s.moveDelta = null;
+      s.hoverText = null;
       this.requestDraw();
+    },
+    runSimilar(box: Box) {
+      const store = useStore.getState();
+      const idx = session.vectors.get(store.page);
+      if (!idx) {
+        store.setStatus("Índice do desenho ainda em preparação, tente de novo em instantes");
+        return;
+      }
+      const t0 = performance.now();
+      const res = findSimilar(idx, box);
+      if (res.templateSegments === 0) {
+        store.setStatus("Nenhuma linha do desenho dentro da caixa");
+        return;
+      }
+      const itemId = store.resolveItem("count");
+      const existing = store.project.measurements.filter(
+        (m) => m.itemId === itemId && m.page === store.page,
+      );
+      const fresh = res.centers.filter(
+        (c) => !existing.some((m) => Math.hypot(m.points[0].x - c.x, m.points[0].y - c.y) <= 3),
+      );
+      store.addMeasurements(
+        itemId,
+        store.page,
+        fresh.map((c) => [c]),
+      );
+      store.setStatus(
+        `${res.centers.length} símbolos iguais encontrados em ${(performance.now() - t0).toFixed(0)} ms · ${fresh.length} marcados (${res.templateSegments} linhas no modelo)`,
+      );
     },
     async runMagic(raw: Pt) {
       const s = st.current;
@@ -426,6 +464,21 @@ export function Viewer() {
           hover: false,
           dashed: true,
         });
+      }
+      if (s.hoverText) {
+        const a = toScreen({ x: s.hoverText.minX, y: s.hoverText.minY }, v);
+        const b = toScreen({ x: s.hoverText.maxX, y: s.hoverText.maxY }, v);
+        ctx.save();
+        ctx.strokeStyle = "#facc15";
+        ctx.fillStyle = "rgba(250,204,21,0.15)";
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(a.x - 2, a.y - 2, b.x - a.x + 4, b.y - a.y + 4);
+        ctx.strokeRect(a.x - 2, a.y - 2, b.x - a.x + 4, b.y - a.y + 4);
+        ctx.restore();
+        if (s.cursor) {
+          const c = toScreen(s.cursor, v);
+          drawLabel(ctx, `Alt+clique: "${s.hoverText.text}"`, c.x, c.y - 22, "#facc15");
+        }
       }
       if (s.marquee) {
         const { a, b } = s.marquee;
@@ -587,6 +640,18 @@ export function Viewer() {
     const store = useStore.getState();
     s.shiftDown = e.shiftKey;
 
+    if (e.altKey && e.button === 0) {
+      // Alt+click: name the item from the text under the cursor; Alt+drag: capture a legend
+      const texts = session.texts.get(store.page) ?? [];
+      s.drag = {
+        kind: "legend",
+        start: raw,
+        startScreen: sp,
+        text: textNear(texts, raw),
+        moved: false,
+      };
+      return;
+    }
     if (e.button === 1 || e.button === 2 || s.spaceDown || store.tool === "pan") {
       s.drag = {
         kind: "pan",
@@ -640,6 +705,9 @@ export function Viewer() {
       case "rect":
         s.drag = { kind: "rect", start: eff };
         break;
+      case "similar":
+        s.drag = { kind: "similar", start: raw };
+        break;
       case "magic":
         void h.runMagic(raw);
         break;
@@ -677,7 +745,14 @@ export function Viewer() {
     s.snapHit = hit;
     if (d?.kind === "move") s.moveDelta = { x: raw.x - d.start.x, y: raw.y - d.start.y };
     else if (d?.kind === "marquee") s.marquee = { a: d.start, b: sp };
-    else if (!d && useStore.getState().tool === "select") s.hoverId = h.hitTest(raw);
+    else if (d?.kind === "similar") s.marquee = { a: toScreen(d.start, v), b: sp };
+    else if (d?.kind === "legend") {
+      d.moved = d.moved || Math.hypot(sp.x - d.startScreen.x, sp.y - d.startScreen.y) > 3;
+      s.marquee = d.moved ? { a: d.startScreen, b: sp } : null;
+    } else if (!d && useStore.getState().tool === "select") s.hoverId = h.hitTest(raw);
+    if (!d && e.altKey) {
+      s.hoverText = textNear(session.texts.get(useStore.getState().page) ?? [], raw);
+    } else if (s.hoverText) s.hoverText = null;
     h.requestDraw();
   };
 
@@ -715,6 +790,35 @@ export function Viewer() {
           .filter((mm) => mm.page === store.page && boxContains(box, bbox(mm.points)))
           .map((mm) => mm.id);
         store.setSelection(e.shiftKey ? Array.from(new Set([...store.selection, ...ids])) : ids);
+      }
+    } else if (d.kind === "similar") {
+      s.marquee = null;
+      const b = s.cursor ?? d.start;
+      const box: Box = {
+        minX: Math.min(d.start.x, b.x),
+        minY: Math.min(d.start.y, b.y),
+        maxX: Math.max(d.start.x, b.x),
+        maxY: Math.max(d.start.y, b.y),
+      };
+      if ((box.maxX - box.minX) * v.zoom > 4 && (box.maxY - box.minY) * v.zoom > 4) {
+        h.runSimilar(box);
+      }
+    } else if (d.kind === "legend") {
+      s.marquee = null;
+      if (!d.moved) {
+        if (d.text) store.nameActiveItem(d.text.text);
+        else store.setStatus("Nenhum texto do desenho nesse ponto");
+      } else {
+        const b = s.cursor ?? d.start;
+        const box: Box = {
+          minX: Math.min(d.start.x, b.x),
+          minY: Math.min(d.start.y, b.y),
+          maxX: Math.max(d.start.x, b.x),
+          maxY: Math.max(d.start.y, b.y),
+        };
+        const lines = textLinesIn(session.texts.get(store.page) ?? [], box);
+        if (lines.length) store.setLegendCandidates(lines);
+        else store.setStatus("Nenhum texto do desenho dentro da caixa");
       }
     } else if (d.kind === "rect") {
       const b = s.eff ?? d.start;

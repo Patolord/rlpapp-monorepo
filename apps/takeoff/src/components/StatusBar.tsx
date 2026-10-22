@@ -10,8 +10,8 @@ import { Kbd } from "./ui";
 const HINTS: Record<string, React.ReactNode> = {
   select: (
     <>
-      Clique para selecionar · arraste para mover · arraste no vazio para seleção em caixa ·{" "}
-      <Kbd>Del</Kbd> apaga
+      Clique para selecionar · arraste para mover · <Kbd>Alt</Kbd>+clique num texto nomeia o item ·{" "}
+      <Kbd>Alt</Kbd>+arraste sobre a legenda cria itens
     </>
   ),
   pan: "Arraste para mover a vista · roda do mouse para zoom",
@@ -30,6 +30,12 @@ const HINTS: Record<string, React.ReactNode> = {
   rect: "Arraste um retângulo",
   magic: "Clique dentro de um ambiente fechado para detectar o contorno",
   calibrate: "Clique em dois pontos de distância conhecida",
+  similar: (
+    <>
+      Arraste uma caixa ao redor de um símbolo: todos os iguais na página recebem uma marca de
+      contagem · <Kbd>Ctrl</Kbd>+<Kbd>K</Kbd> abre o catálogo
+    </>
+  ),
   zone: (
     <>
       Delimite o local clicando nos pontos · clique no primeiro ponto ou <Kbd>Enter</Kbd> para

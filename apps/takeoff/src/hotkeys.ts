@@ -14,6 +14,7 @@ const TOOL_KEYS: Record<string, Tool> = {
   m: "magic",
   k: "calibrate",
   z: "zone",
+  x: "similar",
 };
 
 export function useHotkeys() {
@@ -62,6 +63,10 @@ export function useHotkeys() {
             e.preventDefault();
             api?.selectAllOnPage();
             return;
+          case "k":
+            e.preventDefault();
+            s.setPaletteOpen(!s.paletteOpen);
+            return;
           default:
             return;
         }
@@ -72,6 +77,8 @@ export function useHotkeys() {
           if (api?.hasDraft()) api.cancelDraft();
           else if (s.calibration) s.setCalibration(null);
           else if (s.pendingZone) s.setPendingZone(null);
+          else if (s.paletteOpen) s.setPaletteOpen(false);
+          else if (s.legendCandidates) s.setLegendCandidates(null);
           else if (s.scalePickerOpen) s.setScalePickerOpen(false);
           else if (s.selection.length) s.setSelection([]);
           else s.setTool("select");

@@ -191,6 +191,39 @@ export function buildIndex(segs: Float32Array, cell = CELL): VectorIndex {
   return { segs, count, cell, keys, starts, ids, stamp: new Uint32Array(count), stampGen: 0 };
 }
 
+/** Visit every indexed segment that passes within roughly `r` of (x, y). */
+export function forEachSegmentNear(
+  idx: VectorIndex,
+  x: number,
+  y: number,
+  r: number,
+  fn: (x1: number, y1: number, x2: number, y2: number, i: number) => void,
+): void {
+  const { segs, cell, keys, starts, ids } = idx;
+  if (++idx.stampGen === 0xffffffff) {
+    idx.stamp.fill(0);
+    idx.stampGen = 1;
+  }
+  const gen = idx.stampGen;
+  const c0x = Math.floor((x - r) / cell);
+  const c1x = Math.floor((x + r) / cell);
+  const c0y = Math.floor((y - r) / cell);
+  const c1y = Math.floor((y + r) / cell);
+  for (let cx = c0x; cx <= c1x; cx++) {
+    for (let cy = c0y; cy <= c1y; cy++) {
+      const k = findCell(keys, cellKey(cx, cy));
+      if (k < 0) continue;
+      for (let q = starts[k]; q < starts[k + 1]; q++) {
+        const i = ids[q];
+        if (idx.stamp[i] === gen) continue;
+        idx.stamp[i] = gen;
+        const o = i * 4;
+        fn(segs[o], segs[o + 1], segs[o + 2], segs[o + 3], i);
+      }
+    }
+  }
+}
+
 function findCell(keys: Float64Array, key: number): number {
   let lo = 0;
   let hi = keys.length - 1;

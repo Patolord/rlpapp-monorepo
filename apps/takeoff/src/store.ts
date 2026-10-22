@@ -1,4 +1,14 @@
 import { create } from "zustand";
+import {
+  type CatalogEntry,
+  type CatalogStore,
+  emptyCatalogStore,
+  fetchRemoteCatalog,
+  kindForUnit,
+  loadCatalogStore,
+  saveCatalogStore,
+  unitForKind,
+} from "./lib/catalog";
 import type { Pt } from "./lib/geom";
 import { useDoc } from "./lib/session";
 import {
@@ -23,7 +33,8 @@ export type Tool =
   | "rect"
   | "magic"
   | "calibrate"
-  | "zone";
+  | "zone"
+  | "similar";
 
 export interface PendingZone {
   page: number;
@@ -80,6 +91,9 @@ export interface State {
   pendingZone: PendingZone | null;
   scalePickerOpen: boolean;
   status: string | null;
+  paletteOpen: boolean;
+  legendCandidates: string[] | null;
+  catalog: CatalogStore;
 
   resetProject(project?: Project, filePath?: string | null): void;
   ensurePages(n: number): void;
@@ -96,6 +110,8 @@ export interface State {
   resolveItem(kind: Kind): string;
 
   addMeasurement(itemId: string, page: number, points: Pt[]): string;
+  /** Several measurements of one item in a single undo step. */
+  addMeasurements(itemId: string, page: number, pointsList: Pt[][]): number;
   updateMeasurement(id: string, patch: Partial<Measurement>): void;
   moveMeasurements(ids: string[], dx: number, dy: number): void;
   /** Removes measurements and zones with the given ids. */
@@ -117,6 +133,19 @@ export interface State {
   setCalibration(c: Calibration | null): void;
   setScalePickerOpen(open: boolean): void;
   setStatus(msg: string | null): void;
+
+  setPaletteOpen(open: boolean): void;
+  setLegendCandidates(lines: string[] | null): void;
+  /** Create items for several names at once (legend capture). */
+  addItemsBulk(entries: { name: string; kind: Kind; group: string }[]): void;
+  /** Rename the active item, or create one when there is none. */
+  nameActiveItem(name: string): void;
+  addItemFromCatalog(entry: CatalogEntry): string;
+  saveItemToCatalog(itemId: string): Promise<void>;
+  loadCatalog(): Promise<void>;
+  setCatalogUrl(url: string): void;
+  /** Fetch the company catalog from the configured URL; returns how many entries arrived. */
+  refreshCatalog(): Promise<number>;
 }
 
 const nextName = (items: Item[], kind: Kind) => {
@@ -142,6 +171,9 @@ export const useStore = create<State>((set, get) => ({
   pendingZone: null,
   scalePickerOpen: false,
   status: null,
+  paletteOpen: false,
+  legendCandidates: null,
+  catalog: emptyCatalogStore(),
 
   resetProject: (project = emptyProject(), filePath = null) =>
     set({
@@ -263,6 +295,18 @@ export const useStore = create<State>((set, get) => ({
     return id;
   },
 
+  addMeasurements: (itemId, page, pointsList) => {
+    if (pointsList.length === 0) return 0;
+    get().commit((p) => ({
+      ...p,
+      measurements: [
+        ...p.measurements,
+        ...pointsList.map((points) => ({ id: newId(), itemId, page, points })),
+      ],
+    }));
+    return pointsList.length;
+  },
+
   updateMeasurement: (id, patch) =>
     get().commit((p) => ({
       ...p,
@@ -364,6 +408,100 @@ export const useStore = create<State>((set, get) => ({
   setCalibration: (calibration) => set({ calibration }),
   setScalePickerOpen: (scalePickerOpen) => set({ scalePickerOpen }),
   setStatus: (status) => set({ status }),
+
+  setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
+  setLegendCandidates: (legendCandidates) => set({ legendCandidates }),
+
+  addItemsBulk: (entries) => {
+    if (entries.length === 0) return;
+    let lastId: string | null = null;
+    get().commit((p) => {
+      const items = [...p.items];
+      for (const e of entries) {
+        if (items.some((i) => i.name.toLowerCase() === e.name.toLowerCase())) continue;
+        lastId = newId();
+        items.push({
+          id: lastId,
+          name: e.name,
+          kind: e.kind,
+          color: ITEM_COLORS[items.length % ITEM_COLORS.length],
+          group: e.group || DEFAULT_GROUP,
+          materialPrice: 0,
+          laborPrice: 0,
+          wastePct: 0,
+        });
+      }
+      return { ...p, items };
+    });
+    if (lastId) get().setActiveItem(lastId);
+  },
+
+  nameActiveItem: (name) => {
+    const { activeItemId, project, tool } = get();
+    const active = project.items.find((i) => i.id === activeItemId);
+    if (active) {
+      get().updateItem(active.id, { name });
+      set({ status: `Item renomeado: ${name}` });
+    } else {
+      const kind = KIND_OF_TOOL[tool] ?? "count";
+      get().addItem({ kind, name });
+      set({ status: `Item criado: ${name}` });
+    }
+  },
+
+  addItemFromCatalog: (entry) => {
+    const kind = kindForUnit(entry.unit);
+    const id = get().addItem({
+      kind,
+      name: entry.name,
+      group: entry.group,
+      materialPrice: entry.materialPrice,
+      laborPrice: entry.laborPrice,
+    });
+    get().setActiveItem(id);
+    return id;
+  },
+
+  saveItemToCatalog: async (itemId) => {
+    const { project, catalog } = get();
+    const item = project.items.find((i) => i.id === itemId);
+    if (!item) return;
+    const entry: CatalogEntry = {
+      name: item.name,
+      group: item.group,
+      unit: unitForKind(item.kind),
+      materialPrice: item.materialPrice,
+      laborPrice: item.laborPrice,
+      source: "saved",
+    };
+    const saved = [
+      entry,
+      ...catalog.saved.filter((e) => e.name.toLowerCase() !== item.name.toLowerCase()),
+    ];
+    const next = { ...catalog, saved };
+    set({ catalog: next, status: `Salvo no catálogo: ${item.name}` });
+    await saveCatalogStore(next);
+  },
+
+  loadCatalog: async () => {
+    set({ catalog: await loadCatalogStore() });
+  },
+
+  setCatalogUrl: (remoteUrl) => {
+    const next = { ...get().catalog, remoteUrl };
+    set({ catalog: next });
+    void saveCatalogStore(next);
+  },
+
+  refreshCatalog: async () => {
+    const { catalog } = get();
+    if (!catalog.remoteUrl) return 0;
+    const remote = await fetchRemoteCatalog(catalog.remoteUrl);
+    const next = { ...catalog, remote, fetchedAt: new Date().toISOString() };
+    set({ catalog: next });
+    await saveCatalogStore(next);
+    return remote.length;
+  },
 }));
 
 /** Measurements on the given page. */

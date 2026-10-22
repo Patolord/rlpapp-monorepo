@@ -39,6 +39,32 @@ fn autosave_path(app: tauri::AppHandle) -> Result<String, String> {
         .into_owned())
 }
 
+/// Location of the user material catalog inside the app data directory.
+#[tauri::command]
+fn catalog_path(app: tauri::AppHandle) -> Result<String, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("catalog.json").to_string_lossy().into_owned())
+}
+
+/// Download text (the company material catalog) without browser CORS restrictions.
+#[tauri::command]
+async fn fetch_text(url: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(20))
+            .build()
+            .map_err(|e| e.to_string())?;
+        let res = client.get(&url).send().map_err(|e| e.to_string())?;
+        if !res.status().is_success() {
+            return Err(format!("HTTP {}", res.status()));
+        }
+        res.text().map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SheetRow {
@@ -507,6 +533,8 @@ pub fn run() {
             write_text,
             file_exists,
             autosave_path,
+            catalog_path,
+            fetch_text,
             export_xlsx
         ])
         .run(tauri::generate_context!())

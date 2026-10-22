@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { CircleDot, Pentagon, Plus, Spline, Trash2 } from "lucide-react";
+import { CircleDot, Library, Pentagon, Plus, Spline, Star, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { itemTotals, NO_ZONE, pricedQty, round2, totalsByZone } from "../lib/quantities";
 import { GROUP_SUGGESTIONS, ITEM_COLORS, type Item } from "../lib/types";
@@ -16,7 +16,8 @@ const KIND_ICON: Record<Kind, typeof CircleDot> = {
 export function ItemsPanel() {
   const project = useStore((s) => s.project);
   const activeItemId = useStore((s) => s.activeItemId);
-  const { setActiveItem, updateItem, removeItem, addItem } = useStore.getState();
+  const { setActiveItem, updateItem, removeItem, addItem, setPaletteOpen, saveItemToCatalog } =
+    useStore.getState();
   const totals = useMemo(() => itemTotals(project), [project]);
   const byZone = useMemo(() => totalsByZone(project), [project]);
   const breakdownFor = (itemId: string, kind: Kind) => {
@@ -73,6 +74,7 @@ export function ItemsPanel() {
               onActivate={() => setActiveItem(item.id)}
               onChange={(patch) => updateItem(item.id, patch)}
               onRemove={() => removeItem(item.id)}
+              onSave={() => void saveItemToCatalog(item.id)}
             />
           );
         })}
@@ -102,6 +104,9 @@ export function ItemsPanel() {
         <Button type="submit" variant="primary" aria-label="Adicionar item">
           <Plus size={14} />
         </Button>
+        <Button onClick={() => setPaletteOpen(true)} title="Catálogo de materiais (Ctrl+K)">
+          <Library size={14} /> Catálogo
+        </Button>
       </form>
     </div>
   );
@@ -118,6 +123,7 @@ interface RowProps {
   onActivate: () => void;
   onChange: (patch: Partial<Item>) => void;
   onRemove: () => void;
+  onSave: () => void;
 }
 
 function ItemRow({
@@ -131,6 +137,7 @@ function ItemRow({
   onActivate,
   onChange,
   onRemove,
+  onSave,
 }: RowProps) {
   const [editing, setEditing] = useState<"name" | "group" | null>(null);
   const Icon = KIND_ICON[item.kind];
@@ -187,6 +194,17 @@ function ItemRow({
           </span>
         )}
         {index < 9 && <Kbd>{index + 1}</Kbd>}
+        <button
+          type="button"
+          title="Salvar no catálogo (nome, grupo e preços)"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSave();
+          }}
+          className="text-neutral-500 opacity-0 hover:text-amber-300 group-hover:opacity-100"
+        >
+          <Star size={13} />
+        </button>
         <button
           type="button"
           title="Excluir o item e suas medições"

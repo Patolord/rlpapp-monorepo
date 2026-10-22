@@ -24,6 +24,7 @@ tauri-plugin-dialog = "2"
 rust_xlsxwriter = "0.101"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+reqwest = { version = "0.13.5", default-features = false, features = ["blocking", "rustls"] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

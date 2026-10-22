@@ -1,0 +1,3506 @@
+[
+  {
+    "name": "Damper Corta Fogo dim. 1100x300 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 1025,
+    "laborPrice": 0,
+    "system": "Exaustão Subsolo"
+  },
+  {
+    "name": "Damper Corta Fogo dim. 600x600 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 990,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Damper de Regulagem Manual dim 1060x900mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 1700.15,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Damper de Regulagem Manual dim 1320x1120mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 2692.93,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Damper de Regulagem Manual Reforçado (Descarga do Ventilador) dim. 1060x900mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 1700.15,
+    "laborPrice": 0,
+    "system": "Pressurização  - Torre Res."
+  },
+  {
+    "name": "Damper de Regulagem Manual Reforçado (Descarga do Ventilador) dim. 1215x997mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 2266,
+    "laborPrice": 0,
+    "system": "Exaustão Subsolo"
+  },
+  {
+    "name": "Damper de Regulagem Manual Reforçado (Descarga do Ventilador) dim. 1500x1250mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 3290,
+    "laborPrice": 0,
+    "system": "Pressurização  - Torre Res."
+  },
+  {
+    "name": "Damper de Regulagem Manual Reforçado (Descarga do Ventilador) dim. 1800x1000mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 3130,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Damper de Regulagem Manual Reforçado (Descarga do Ventilador) dim. 600x300mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 510,
+    "laborPrice": 0,
+    "system": "Exaustão Garagens"
+  },
+  {
+    "name": "Damper de Regulagem Manual Reforçado (Descarga do Ventilador) dim. 700x300mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 570,
+    "laborPrice": 0,
+    "system": "Exaustão Garagens"
+  },
+  {
+    "name": "Damper de Regulagem Manual Reforçado (Descarga do Ventilador) dim. 750x300mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 600,
+    "laborPrice": 0,
+    "system": "Exaustão Garagens"
+  },
+  {
+    "name": "Damper de Regulagem Manual Reforçado (Descarga do Ventilador) dim. 750x630mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 1010,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Damper de Regulagem Manual Reforçado (Descarga do Ventilador) dim. 800x300mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 630,
+    "laborPrice": 0,
+    "system": "Exaustão Garagens"
+  },
+  {
+    "name": "Damper de Regulagem Manual Reforçado (Descarga do Ventilador) dim. 950x900mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 1562,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre Studios"
+  },
+  {
+    "name": "Damper de Sob Pressão Reforçado (Descarga do Ventilador) dim. 1060x900mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 1107,
+    "laborPrice": 0,
+    "system": "Pressurização  - Torre Res."
+  },
+  {
+    "name": "Damper de Sob Pressão Reforçado (Descarga do Ventilador) dim. 1500x1250mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 2120,
+    "laborPrice": 0,
+    "system": "Pressurização  - Torre Res."
+  },
+  {
+    "name": "Damper de Sob Pressão Reforçado (Descarga do Ventilador) dim. 1800x1000mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 1800,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Damper de Sob Pressão Reforçado (Descarga do Ventilador) dim. 750x630mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Damper de Sobre Pressão c/ Contra Peso e Reg. 50 Pa dim. 1000x1000mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 760,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre 02"
+  },
+  {
+    "name": "Damper de Sobre Pressão c/ Contra Peso e Reg. 50 Pa dim. 1700x1700mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 2190,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Damper de Sobre Pressão c/ Contra Peso e Reg. 50 Pa dim. 597x415mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 191,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Damper de Sobre Pressão c/ Contra Peso e Reg. 50 Pa dim. 700x1005mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 560,
+    "laborPrice": 0,
+    "system": "Exaustão Subsolo"
+  },
+  {
+    "name": "Damper de Sobre Pressão c/ Contra Peso e Reg. 50 Pa dim. 900x900mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 810,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Damper de Sobrepressão dim 1060x900mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 1106.38,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Damper de Sobrepressão dim 1320x1120mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 1745.4,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Difusor 03 Slots comp. 750 mm Falso",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 225.4,
+    "laborPrice": 0,
+    "system": "Infra AC - Residencial"
+  },
+  {
+    "name": "Difusor 03 Slotscomp. 1050 mm c/ Plenum H= 250 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 495,
+    "laborPrice": 0,
+    "system": "Infra AC - Residencial"
+  },
+  {
+    "name": "Difusor 03 Slotscomp. 750 mm c/ Plenum H= 250 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 368,
+    "laborPrice": 0,
+    "system": "Infra AC - Residencial"
+  },
+  {
+    "name": "Difusor Linear 03 Slots comp. 1500 mm c/ plenum H= 250 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 685,
+    "laborPrice": 60,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Difusor Linear 03 Slots comp. 1500 mm Falso",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 434.96,
+    "laborPrice": 30,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Difusor Linear 03 Slots comp. 1500 mm, c/ Plenum H= 250 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 685,
+    "laborPrice": 30,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Grelha de Exaustão c/ Registro dim. 150x100 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 70,
+    "laborPrice": 45,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Grelha de Exaustão c/ Registro dim. 200x150 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 70,
+    "laborPrice": 45,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Grelha de Exaustão c/ Registro dim. 250x150 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 75,
+    "laborPrice": 45,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Grelha de Exaustão com Registro dim. 500x400 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 270,
+    "laborPrice": 0,
+    "system": "Exaustão Garagens"
+  },
+  {
+    "name": "Grelha de Exaustão com Registro dim. 600x400 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 400,
+    "laborPrice": 0,
+    "system": "Exaustão Garagens"
+  },
+  {
+    "name": "Grelha de Insuflamento com Registro e Pintura Branca dim. 150x150mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 47,
+    "laborPrice": 25,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Grelha de Insuflamento com Registro e Pintura Branca dim. 200x100mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 46,
+    "laborPrice": 25,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Grelha de Insuflamento com Registro e Pintura Branca dim. 200x150mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 65,
+    "laborPrice": 25,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Grelha de Insuflamento com Registro e Pintura Branca dim. 200x200mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 75,
+    "laborPrice": 0,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Grelha de Insuflamento com Registro e Pintura Branca dim. 225x125mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 55,
+    "laborPrice": 25,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Grelha de Insuflamento com Registro e Pintura Branca dim. 250x250mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 87,
+    "laborPrice": 25,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Grelha de Insuflamento com Registro e Pintura Branca dim. 300x200mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 125,
+    "laborPrice": 25,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Grelha de Insuflamento com Registro e Pintura Branca dim. 325x125mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 71,
+    "laborPrice": 25,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Grelha de Insuflamento com Registro e Pintura Branca dim. 500x200mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 250,
+    "laborPrice": 25,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Grelha de Porta dim. 300X200 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 105,
+    "laborPrice": 60,
+    "system": "Exaustão Mec. Áreas Comuns"
+  },
+  {
+    "name": "Grelha de Porta dim. 400x400 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 270,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Grelha Exaustão dim. 225x125 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 30,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Grelha Exaustão dim. 325x165 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 45,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Grelha Exaustão dim. 350x150 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 44,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Grelha p/ Escape de Ar c/ Dispositivo de Ajuste e Balanceamento dim 400x400mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 185.81,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Grelha p/ Escape de Ar c/ Dispositivo de Ajuste e Balanceamento dim 500x500mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 278.84,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Grelha p/ Escape de Ar c/ Dispositivo de Ajuste e Balanceamento dim 600x300mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 218.15,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Grelha p/ Escape de Ar c/ Dispositivo de Ajuste e Balanceamento dim 610x610mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 396.76,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Grelha p/ Insuflação de ar c/ Registro dim 200x100mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 45.9,
+    "laborPrice": 0,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Grelha p/ Insuflação de ar c/ Registro dim 250x150mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 63.77,
+    "laborPrice": 0,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Grelha p/ Insuflação de ar c/ Registro dim 300x150mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 76.09,
+    "laborPrice": 0,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Grelha p/ Insuflação de ar c/ Registro dim 500x200mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 139.42,
+    "laborPrice": 0,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Grelha para Insuflamento de Simples Deflexão c/ Dispositivo de Ajuste e Balanc. dim. 350x350mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 200,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Grelha para Insuflamento de Simples Deflexão c/ Dispositivo de Ajuste e Balanc. dim. 400x400mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 213,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre 01"
+  },
+  {
+    "name": "Grelha para Insuflamento de Simples Deflexão c/ Dispositivo de Ajuste e Balanc. dim. 400x600mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 262,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre Studios"
+  },
+  {
+    "name": "Grelha para Insuflamento de Simples Deflexão c/ Dispositivo de Ajuste e Balanc. dim. 425x525mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 265,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Grelha para Insuflamento de Simples Deflexão c/ Dispositivo de Ajuste e Balanc. dim. 425x625mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 311,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Grelha para Insuflamento de Simples Deflexão c/ Dispositivo de Ajuste e Balanc. dim. 500x300mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 215,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre 02"
+  },
+  {
+    "name": "Grelha para Insuflamento de Simples Deflexão c/ Dispositivo de Ajuste e Balanc. dim. 500x500mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 279,
+    "laborPrice": 0,
+    "system": "Pressurização  - Torre Res."
+  },
+  {
+    "name": "Grelha para Insuflamento de Simples Deflexão c/ Dispositivo de Ajuste e Balanc. dim. 500x750mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 490,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre 01"
+  },
+  {
+    "name": "Grelha para Insuflamento de Simples Deflexão c/ Dispositivo de Ajuste e Balanc. dim. 600x600mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 387,
+    "laborPrice": 0,
+    "system": "Pressurização  - Torre Res."
+  },
+  {
+    "name": "Grelha para Ventilação c/ Registro dim. 200x200mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 100,
+    "laborPrice": 0,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Grelha S150",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 18,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Grelha S200",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 36,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Veneziana c/ Registro de Sobrepressão c/ Contrapeso Regulado para 35Pa dim 400x400mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 135.48,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Veneziana p/ Descarga c/ Tela dim 1000x1000mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 491.54,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Veneziana p/ Descarga c/ Tela dim 150x150mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 31.59,
+    "laborPrice": 0,
+    "system": "Exaustão Mecânica"
+  },
+  {
+    "name": "Veneziana p/ Descarga c/ Tela dim 200x150mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 37.8,
+    "laborPrice": 0,
+    "system": "Exaustão Mecânica"
+  },
+  {
+    "name": "Veneziana p/ Descarga c/ Tela dim 200x200mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 45.06,
+    "laborPrice": 0,
+    "system": "Exaustão Mecânica"
+  },
+  {
+    "name": "Veneziana p/ Descarga c/ Tela dim 300x150mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 49.83,
+    "laborPrice": 0,
+    "system": "Exaustão Mecânica"
+  },
+  {
+    "name": "Veneziana p/ Descarga c/ Tela dim 350x150mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 56.04,
+    "laborPrice": 0,
+    "system": "Exaustão Mecânica"
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar c/ Tela e Pintura Branca dim. 1000x1000mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 600,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre 02"
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar c/ Tela e Pintura Branca dim. 1700x1700mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 1600,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar c/ Tela e Pintura Branca dim. 597x415mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 160,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar c/ Tela e Pintura Branca dim. 900x900mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 680,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 1200x200 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 193,
+    "laborPrice": 60,
+    "system": "Exaustão Mec. Áreas Comuns"
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 150x150 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 32,
+    "laborPrice": 0,
+    "system": "Exaustão Mec. Aptos - Torre 02"
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 150x150 mm (Forro)",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 36,
+    "laborPrice": 45,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 200x200 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 51,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 230x180 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 47,
+    "laborPrice": 60,
+    "system": "Exaustão Coifa - Aptos"
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 250x250 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 60,
+    "laborPrice": 45,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 300x150 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 45,
+    "laborPrice": 0,
+    "system": "Exaustão Mec. Aptos - Torre 02"
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 300x150 mm (Forro)",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 50,
+    "laborPrice": 45,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 300x200 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 63,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 300x200 mm (Forro)",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 60,
+    "laborPrice": 45,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 300x300 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 70,
+    "laborPrice": 45,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 350x200 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 67,
+    "laborPrice": 60,
+    "system": "Exaustão Mec. Áreas Comuns"
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 350x300 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 75,
+    "laborPrice": 45,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 397x197 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 79,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 400x300 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 80,
+    "laborPrice": 45,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 400x400 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 115,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 500x150 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 74,
+    "laborPrice": 60,
+    "system": "Exaustão Mec. Áreas Comuns"
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 500x200 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 103,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 600X150 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 87,
+    "laborPrice": 60,
+    "system": "Exaustão Mec. Áreas Comuns"
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. 600x600 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 285,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Veneziana p/ Descarga de Ar Com Tela dim. mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Veneziana p/ Exaustão mod AWG dim. 1385x990 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 720,
+    "laborPrice": 0,
+    "system": "Exaustão Subsolo"
+  },
+  {
+    "name": "Veneziana p/ Tomada de ar c/ Tela",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 100,
+    "laborPrice": 0,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Veneziana p/ Tomada de Ar c/ Tela dim 130x130mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 23.76,
+    "laborPrice": 0,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Veneziana p/ Tomada de Ar c/ Tela dim 200x100mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 28.37,
+    "laborPrice": 0,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Veneziana p/ Tomada de Ar c/ Tela dim 200x150mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 35.02,
+    "laborPrice": 0,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Veneziana p/ Tomada de Ar c/ Tela dim 200x200mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 41.88,
+    "laborPrice": 0,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Veneziana p/ Tomada de Ar c/ Tela dim 250x150mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 40.15,
+    "laborPrice": 0,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Veneziana p/ Tomada de Ar c/ Tela dim 600x600mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 85,
+    "laborPrice": 0,
+    "system": "Lavanderia"
+  },
+  {
+    "name": "Veneziana p/ Tomada de ar c/ Tela dim. 150x150mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 29,
+    "laborPrice": 60,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Veneziana p/ Tomada de ar c/ Tela dim. 200x150mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 35,
+    "laborPrice": 45,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Veneziana p/ Tomada de ar c/ Tela dim. 200x200mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 51,
+    "laborPrice": 0,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Veneziana p/ Tomada de ar c/ Tela dim. 250x150mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 40,
+    "laborPrice": 60,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Veneziana p/ Tomada de ar c/ Tela dim. 300x150mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 50,
+    "laborPrice": 45,
+    "system": "Exaustão de Coifa"
+  },
+  {
+    "name": "Veneziana p/ Tomada de ar c/ Tela dim. 300x200mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 54,
+    "laborPrice": 60,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Veneziana p/ Tomada de ar c/ Tela dim. 300x250mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 70,
+    "laborPrice": 45,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Veneziana p/ Tomada de ar c/ Tela dim. 350x300mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 75,
+    "laborPrice": 45,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Veneziana p/ Tomada de ar c/ Tela dim. 600x200mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 150,
+    "laborPrice": 45,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Veneziana p/ Tomada de Ar Externo c/ tela dim 6200x1500mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 4102.36,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Veneziana p/ Tomada de Ar Externo c/ tela dim 6450x1000mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 2957.25,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Veneziana para Descarga de Ar c/ Tela e Pintura Branca dim. 1850x2650mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 2600,
+    "laborPrice": 0,
+    "system": "Exaustão Garagens"
+  },
+  {
+    "name": "Veneziana para Descarga de ar dim. 200x200 mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 55,
+    "laborPrice": 60,
+    "system": "Exaustão Coifa"
+  },
+  {
+    "name": "Veneziana para Tomada de Ar c/ Tela e Pintura Branca dim. 1000x1600mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 1050,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Veneziana para Tomada de Ar c/ Tela e Pintura Branca dim. 1500x3000mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 2360,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Veneziana para Tomada de Ar c/ Tela e Pintura Branca dim. 1800x2500mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 2035,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre Studios"
+  },
+  {
+    "name": "Veneziana para Tomada de Ar c/ Tela e Pintura Branca dim. 2000x1000mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 1018,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Veneziana para Tomada de Ar c/ Tela e Pintura Branca dim. 2000x900mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Veneziana para Tomada de Ar c/ Tela e Pintura Branca dim. 2900x2550mm",
+    "group": "Bocas de Ar",
+    "unit": "pç",
+    "materialPrice": 3770,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre 01"
+  },
+  {
+    "name": "Acionador Manual Endereçável",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 85,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Central de alarme Endereçável (125)",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 920,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Central de alarme Endereçável (125P) - não expansível",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 1800,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Central de alarme Endereçável (126 a 250)",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 1344,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Central de alarme Endereçável (250P) - não expansível",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 2000,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Central de alarme Endereçável (251 a 375)",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 1900,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Central de alarme Endereçável (500)",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 2352,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Central de alarme Endereçável (500) - expansível",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 3600,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Detector de Fumaça Enderaçável",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 90,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Detectores Fumaça Tipo Óptico Endereçável",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 95,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Detectores Fumaça Tipo Termovelocimétrico Endereçável",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 95,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Mão de obra detectores",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 0,
+    "laborPrice": 90,
+    "system": "Detecção"
+  },
+  {
+    "name": "Módulo Chaves de Fluxo (Apenas para Comerciais)",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 85,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Módulo Endereçável de Controle Rele com 01 Rele",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 110,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Módulo Endereçável de Controle Rele com 03 Reles",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 140,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Módulo Endereçável p/ Ventilador Pressurização",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 85,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Módulo Monitor de Zona Detectores Termov. (detec. term. ÷ 20)",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Módulo Monitor de Zona Sirenes (sirenes ÷ 20)",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 85,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Módulo Relê",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 73,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Sirene Audio Visual Endereçável",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 80,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Sirene Áudio Visual Endereçável",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 85,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Sirene Áudio Visual Endereçável Quadrada modelo: VRE-SVN2",
+    "group": "Detecção",
+    "unit": "pç",
+    "materialPrice": 110,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Acessorios / Fiscalização",
+    "group": "Diversos",
+    "unit": "vb",
+    "materialPrice": 0,
+    "laborPrice": 2000,
+    "system": "Detecção"
+  },
+  {
+    "name": "Amortecedor de Vibração",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 200,
+    "laborPrice": 0,
+    "system": "Pressurização  - Torre Res."
+  },
+  {
+    "name": "Anel de Arremate externo Ø100mm - Branco",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 7.8,
+    "laborPrice": 60,
+    "system": "Chapéu Chinês"
+  },
+  {
+    "name": "Anel de Arremate externo Ø100mm - com RAL",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 7.8,
+    "laborPrice": 60,
+    "system": "Chapéu Chinês"
+  },
+  {
+    "name": "Bateria",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 190,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Bateria 12V 5AH",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 150,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Bateria de 07",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 140,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Botoeira Quebra-Vidro Endereçável",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 84,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Braçadeira sem fim Ø100mm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 5,
+    "laborPrice": 0,
+    "system": "Chapéu Chinês"
+  },
+  {
+    "name": "Chaminé Tipo \"T\" Ø100mm x 30cm - Branco",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 50,
+    "laborPrice": 60,
+    "system": "Chapéu Chinês"
+  },
+  {
+    "name": "Chaminé Tipo \"T\" Ø100mm x 30cm - com RAL",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 50,
+    "laborPrice": 60,
+    "system": "Chapéu Chinês"
+  },
+  {
+    "name": "Colarinho Borboleta diam. 200 mm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 18.28,
+    "laborPrice": 0,
+    "system": "Infra AC - Residencial"
+  },
+  {
+    "name": "Colarinho diam. 200 mm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 55,
+    "laborPrice": 0,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Colarinho Ø100mm S/ Reg.",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 5,
+    "laborPrice": 0,
+    "system": "Exaustão Mec. Aptos - Torre 02"
+  },
+  {
+    "name": "Colarinho Ø125mm S/ Reg.",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 6.2,
+    "laborPrice": 0,
+    "system": "Exaustão Mec. Aptos"
+  },
+  {
+    "name": "Colarinho Ø150mm S/ Reg.",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 7.5,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Colarinho Ø200mm S/ Reg.",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 10,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Espelho de Fixação",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 6.5,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Espelho p/ Fixação",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 6.5,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "FH 250",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 3360.87,
+    "laborPrice": 150,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "FILBOX QUAD 100 G4+M5",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 330,
+    "laborPrice": 0,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "FILBOX QUAD 125 G4+M5",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 330,
+    "laborPrice": 0,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "FILBOX QUAD 150 G4+M5",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 540,
+    "laborPrice": 0,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "FILBOX QUAD 200 G4+M5",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 540,
+    "laborPrice": 0,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "FILBOX RED 100 G4+M5",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 316.93,
+    "laborPrice": 0,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "FILBOX RED 125 G4+M5",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 316.93,
+    "laborPrice": 0,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "FILBOX RED 150 G4+M5",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 505.05,
+    "laborPrice": 0,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "FILBOX RED 200 G4+M5",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 560,
+    "laborPrice": 0,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Gás Refrigerante / R410A",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 84,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Joelho 45° PVC Ø100mm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 6,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Joelho 45° PVC Ø150mm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 35,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Joelho 45° PVC Ø200mm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 150,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Joelho 90° PVC Ø100mm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 8.19,
+    "laborPrice": 0,
+    "system": "Exaustão Mec. Aptos - Torre 02"
+  },
+  {
+    "name": "Joelho 90° PVC Ø125mm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 45,
+    "laborPrice": 0,
+    "system": "Exaustão Mec. Áreas Comuns"
+  },
+  {
+    "name": "Joelho 90° PVC Ø150mm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 58.7,
+    "laborPrice": 0,
+    "system": "Exaustão Mec. Áreas Comuns"
+  },
+  {
+    "name": "Joelho 90° PVC Ø200mm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 240,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Junção 100x100",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 30,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Junção 150x100",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 80,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Junção 150x100 mm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 65,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Luva de Chumbamento de chapa galvanizada Ø100mm x 30cm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 30,
+    "laborPrice": 0,
+    "system": "Chapéu Chinês"
+  },
+  {
+    "name": "Luva PVC Ø100mm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 6.86,
+    "laborPrice": 0,
+    "system": "Exaustão Mec. Aptos - Torre 02"
+  },
+  {
+    "name": "Luva PVC Ø125mm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 25,
+    "laborPrice": 0,
+    "system": "Exaustão Mec. Áreas Comuns"
+  },
+  {
+    "name": "Luva PVC Ø150mm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 35.11,
+    "laborPrice": 0,
+    "system": "Exaustão Mec. Áreas Comuns"
+  },
+  {
+    "name": "Luva PVC Ø200mm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 64,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Mao de Obra",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 0,
+    "laborPrice": 90,
+    "system": "Detecção"
+  },
+  {
+    "name": "Mão de Obra de instalação",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 0,
+    "laborPrice": 550,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "MAXX MINI 100",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 240,
+    "laborPrice": 150,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "MAXX MINI 125",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 300,
+    "laborPrice": 150,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Q.E. c/ 02 Motores c/ Variador de Frequência 220V/3F / 25,0cv",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 34150,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Q.E. c/ 02 Motores P.E.T. 220V/3F / 20,0cv",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 8500,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "R140",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 90,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Regulador de Vazão diam 100 mm",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 35,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "RVA 150",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 68,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Sistema VRV - 04HP - RMXYQ4AVL",
+    "group": "Diversos",
+    "unit": "cj",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Sistema VRV - 05HP - RMXYQ5AVL",
+    "group": "Diversos",
+    "unit": "cj",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Sistema VRV - 06HP - RXYMQ6BVM",
+    "group": "Diversos",
+    "unit": "cj",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Sistema VRV - 08HP - RXYMQ8TTLT",
+    "group": "Diversos",
+    "unit": "cj",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Sistema VRV - 10HP - RXYMQ10TTLT",
+    "group": "Diversos",
+    "unit": "cj",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Sistema VRV - 4HP - RMXYQ4AVL",
+    "group": "Diversos",
+    "unit": "cj",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Sistema VRV - 5HP - RXYMQ6BVM",
+    "group": "Diversos",
+    "unit": "cj",
+    "materialPrice": 18933.81,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Sistema VRV - 6HP - RXYMQ6BVM",
+    "group": "Diversos",
+    "unit": "cj",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Sistema VRV 4HP - RMXYQ4",
+    "group": "Diversos",
+    "unit": "cj",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Sub Central (250)",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 2020,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Sub Central (500)",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 2650,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Sub Painel Auxiliar (125)",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 840,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "TIMER",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 65,
+    "laborPrice": 0,
+    "system": "Exaustão Mec. Aptos - Torre 02"
+  },
+  {
+    "name": "Valvula anti retorno",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 35,
+    "laborPrice": 0,
+    "system": "Lavanderia"
+  },
+  {
+    "name": "Valvula Antiretorno 100",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 30,
+    "laborPrice": 15,
+    "system": "Exaustão Mec. Áreas Comuns"
+  },
+  {
+    "name": "Valvula GBC",
+    "group": "Diversos",
+    "unit": "pç",
+    "materialPrice": 120,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Cabo 2 x 1,5mm²  [(Componentes x 12 m) + 10%]",
+    "group": "Elétrica",
+    "unit": "m",
+    "materialPrice": 7,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Cabo de Comando Remoto - rolo de 100m",
+    "group": "Elétrica",
+    "unit": "pç",
+    "materialPrice": 150,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Cabo PP / 5x1,5mm²",
+    "group": "Elétrica",
+    "unit": "m",
+    "materialPrice": 6.3,
+    "laborPrice": 0,
+    "system": "Infra AC Tipo (2)"
+  },
+  {
+    "name": "Cabo PP 3 x 1,5 mm² (02 Pernas)",
+    "group": "Elétrica",
+    "unit": "m",
+    "materialPrice": 7.7,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Cabo PP 3 x 2,5mm²",
+    "group": "Elétrica",
+    "unit": "m",
+    "materialPrice": 7,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Cabo PP 5 x 1,5 mm²",
+    "group": "Elétrica",
+    "unit": "m",
+    "materialPrice": 7.5,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Cabo Shield / 2x1mm²",
+    "group": "Elétrica",
+    "unit": "m",
+    "materialPrice": 7,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Cabo Shield 2 x 1,0mm²",
+    "group": "Elétrica",
+    "unit": "m",
+    "materialPrice": 6.8,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Cabo Shield 2 x 1,5mm²",
+    "group": "Elétrica",
+    "unit": "m",
+    "materialPrice": 6,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Cabo Shildado 4 x 1,5mm² [(Componentes x 12 m) + 10%]",
+    "group": "Elétrica",
+    "unit": "m",
+    "materialPrice": 7.7,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Cabo Sinalização Incendio 2x1,5 + 2x0,75",
+    "group": "Elétrica",
+    "unit": "m",
+    "materialPrice": 5.32,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Q.E. Comando Remoto 2 Motores",
+    "group": "Elétrica",
+    "unit": "pç",
+    "materialPrice": 550,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Quadro de Comando Remoto",
+    "group": "Elétrica",
+    "unit": "vb",
+    "materialPrice": 1000,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre Studios"
+  },
+  {
+    "name": "Caixa de espera da Condensadora",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 25,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Caixa de espera da Evaporadora",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 25,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Caixa de Espera de Condensadora",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 20,
+    "laborPrice": 0,
+    "system": "Infra AC Tipo"
+  },
+  {
+    "name": "Caixa de Espera de Condensadora + tampa",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 55,
+    "laborPrice": 0,
+    "system": "Infra AC Tipo (2)"
+  },
+  {
+    "name": "Caixa Polar de Evaporadora",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 12,
+    "laborPrice": 0,
+    "system": "Infra AC Tipo"
+  },
+  {
+    "name": "Caixa Polar de Evaporadora + tampa",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 27,
+    "laborPrice": 0,
+    "system": "Infra AC Tipo (2)"
+  },
+  {
+    "name": "Comando Remoto - 05 Rolos de 100 metros (01 Ventilador)",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre Studios"
+  },
+  {
+    "name": "Comando Remoto - 06 Rolos de 100 metros (02 Ventiladores)",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre Studios"
+  },
+  {
+    "name": "Condensadora Multi 18.000BTU/h",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 4380,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Equipamentos VRF - SAMSUNG",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 225000,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Equipamentos VRF - TRANE",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 235000,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Evap. \"Hi-Wall\" 12.000 BTU/h",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 3880,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Evap. \"Hi-Wall\" 24.000 BTU/h",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 6080,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Evap. \"Hi-Wall\" 9.000 BTU/h",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 3240,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Evap. Multi \"Hi-Wall\" 9.000 BTU/h",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 1660,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Exaustor Axial/Centrifugo Sictell modelo: MAXX 150",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 500,
+    "laborPrice": 150,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Exaustor Axial/Centrifugo Sictell modelo: MAXX 150 (220V)",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 705,
+    "laborPrice": 120,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Exaustor CSD 224 V= 5.500 m³/h - 1,5 cv -  25 mmca",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 5390.1,
+    "laborPrice": 0,
+    "system": "Exaustão Garagens"
+  },
+  {
+    "name": "Exaustor CSD 224 V= 6.000 m³/h - 1,5 cv -  25 mmca",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 5390.1,
+    "laborPrice": 0,
+    "system": "Exaustão Garagens"
+  },
+  {
+    "name": "Exaustor Linha MAXX - 220Volts / MAXX 100",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 309.79,
+    "laborPrice": 250,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Exaustor Linha MAXX-S - 220v / MAXX 100 S",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 357.62,
+    "laborPrice": 70,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Exaustor Linha MAXX-S - 220v / MAXX 125 S",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 615.4,
+    "laborPrice": 70,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Exaustor Linha MAXX-S - 220v / MAXX 150 S",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 782.29,
+    "laborPrice": 70,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Exaustor Linha MAXX-S - 220v / MAXX 200 S",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 949.18,
+    "laborPrice": 70,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Exaustor Linha MEGA / MEGA 25",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 122.93,
+    "laborPrice": 70,
+    "system": "Exaustão Mecânica"
+  },
+  {
+    "name": "Exaustor Linha SONORA / SONORA 10",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 114.22,
+    "laborPrice": 70,
+    "system": "Exaustão Mecânica"
+  },
+  {
+    "name": "Exaustor Linha SONORA / SONORA 11",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 130.38,
+    "laborPrice": 70,
+    "system": "Exaustão Mecânica"
+  },
+  {
+    "name": "Exaustor Linha SONORA / SONORA 18",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 149.01,
+    "laborPrice": 70,
+    "system": "Exaustão Mecânica"
+  },
+  {
+    "name": "Exaustor SICFLUX modelo GFR 230",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 2850.98,
+    "laborPrice": 70,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Exaustor SICFLUX modelo INLINE 100A",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 135,
+    "laborPrice": 70,
+    "system": "Exaustão Mec. Aptos"
+  },
+  {
+    "name": "Exaustor SICFLUX modelo INLINE 170",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 160,
+    "laborPrice": 70,
+    "system": "Exaustão Mec. Áreas Comuns"
+  },
+  {
+    "name": "Exaustor SICFLUX modelo MEGA 10",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 80,
+    "laborPrice": 120,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Exaustor SICFLUX modelo MEGA 11",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 94,
+    "laborPrice": 120,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Exaustor SICFLUX modelo MEGA 16",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 110,
+    "laborPrice": 120,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Exaustor SICFLUX modelo MEGA 18",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 125,
+    "laborPrice": 120,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Exaustor SICFLUX modelo MEGA 25",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 140,
+    "laborPrice": 120,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Exaustor SICFLUX modelo MEGA 34",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 150,
+    "laborPrice": 120,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Exaustor SICFLUX modelo SONORA 10",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 115.78,
+    "laborPrice": 70,
+    "system": "Exaustão Mec. Aptos - Torre 02"
+  },
+  {
+    "name": "Exaustor SICFLUX modelo SONORA 11",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 132.17,
+    "laborPrice": 70,
+    "system": "Exaustão Mec. Aptos - Torre 02"
+  },
+  {
+    "name": "Exaustor SICFLUX modelo SONORA 14",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 150,
+    "laborPrice": 120,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Exaustor SICFLUX modelo SONORA 18",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 151.05,
+    "laborPrice": 70,
+    "system": "Exaustão Mec. Aptos"
+  },
+  {
+    "name": "Exaustor Splitvent Ø100 c/ Filtro G4/M5",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 211.11,
+    "laborPrice": 70,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Mão de Obra - Instalação VRF (Infra+Inter)",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 0,
+    "laborPrice": 1000,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Multi Split Hi Wall 12.000 Btu/h (x2) - Condensadora 38.000 Btu/h",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 19400,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Multi Split Hi Wall 12.000 Btu/h (x2) + Condensadora 24.000 Btu/h",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 12090,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Multi Split Hi Wall 7.500 Btu/h - Cond. 18.000 Btu/h",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 7850,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Quadro Elétrico (01 Ventilador Efetivo / 01 Reserva)",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 8000,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Quadro Elétrico (01 Ventilador Efetivo / 01 Reserva) c/ Variador de Frequencia 20,0 cv",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 32000,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre 01"
+  },
+  {
+    "name": "Quadro Elétrico (01 Ventilador Efetivo / 01 Reserva) c/ Variador p/ 20,0 cv",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 26400,
+    "laborPrice": 0,
+    "system": "Pressurização  - Torre Res."
+  },
+  {
+    "name": "Quadro Elétrico (01 Ventilador Efetivo / 01 Reserva) c/ Variador p/ 30,0 cv",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 42000,
+    "laborPrice": 0,
+    "system": "Pressurização  - Torre Res."
+  },
+  {
+    "name": "Quadro Elétrico (01 Ventilador Efetivo)",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 3000,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Quadro Elétrico (01 Ventilador Efetivo) c/ Variador p/ 20,0 cv",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 13200,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre Studios"
+  },
+  {
+    "name": "Rede Elétrica (01 por Ventilador)",
+    "group": "Equipamentos",
+    "unit": "vb",
+    "materialPrice": 850,
+    "laborPrice": 850,
+    "system": "Pressurização - Torre Studios"
+  },
+  {
+    "name": "Refinet / Multikit / \"Y\"",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 350,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Split",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Split Cassete 04 Vias 36.000 Btu/h",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 11120,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Split Cassete 36.000 Btu/h",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 15000,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Split Hi Wall 12.000 Btu/h",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 3627,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Split hi Wall 18.000 Btu/h",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 4120,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Split Hi Wall 24.000 Btu/h",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 5250,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Split Hi Wall 24.000 Btu/h  - COPA",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 5700,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Split Hi Wall 24.000 Btu/h  - Rouparia",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 5700,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Split Hi Wall 9.000 Btu/h",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 2540,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "SPLITVENT",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 320,
+    "laborPrice": 150,
+    "system": "Tomada de Ar Ext. NR"
+  },
+  {
+    "name": "Suporte da Condensadora - 12.000 BTU/h",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 28,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Suporte da Condensadora - 18.000 BTU/h",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 40,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Suporte da Condensadora - 30.000 BTU/h",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 50,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Suporte da Condensadora - 36.000 BTU/h",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 90,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Suporte da Condensadora - Acima de 36.000 BTU/h",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 150,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Suporte da Evaporadora",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 85,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Suporte de Condensadora",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 196,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Suporte de Evaporadora",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 196,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Suporte para Infraestrutura de Ar Condicionado - Split",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 4,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Suporte para Infraestrutura de Ar Condicionado - VRF",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 6,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Todos VRFs",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 240000,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Ventilador Axial/Centrifugo Sictell modelo: MAXX 100 (220V)",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 400,
+    "laborPrice": 150,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Ventilador Axial/Centrifugo Sictell modelo: MAXX 125 (220V)",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 650,
+    "laborPrice": 150,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Ventilador Axial/Centrifugo Sictell modelo: MAXX 150 (220V)",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 705,
+    "laborPrice": 150,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Ventilador Axial/Centrifugo Sictell modelo: MAXX 200 (220V)",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 890,
+    "laborPrice": 150,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Ventilador Axial/Centrifugo Sictell modelo: MAXX 250 (220V)",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 1910,
+    "laborPrice": 150,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Ventilador Axial/Centrifugo Sictell modelo: MAXX 315 (220V)",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 2080,
+    "laborPrice": 150,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Ventilador Axial/Centrifugo Sictell modelo: MAXX S 100",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 750,
+    "laborPrice": 150,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Ventilador Axial/Centrifugo Sictell modelo: MAXX S 125",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 750,
+    "laborPrice": 150,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Ventilador Axial/Centrifugo Sictell modelo: MAXX S 150",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 980,
+    "laborPrice": 150,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Ventilador CLD-500, vazão 10.314 m³/h - 5,0 cv - 70 mmca - PROJELMEC",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 6587.9,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Ventilador CLD-500, vazão 17.460 m³/h - 90 mmca - 10,0 cv",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 10941.32,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Ventilador CLD-500, vazão 9.180 m³/h - 3,0 cv - 50 mmca - PROJELMEC",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 5887.24,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Ventilador CLD-630, vazão 23.904 m³/h - 90 mmca - 20,0 cv",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 14656.62,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre Studios"
+  },
+  {
+    "name": "Ventilador CLD-710, vazão 28.080 m³/h - 90 mmca - 20 cv",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 16511.62,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre 02"
+  },
+  {
+    "name": "Ventilador CLD-710, vazão 29.574 m³/h - 90 mmca - 20,0 cv",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 16511.62,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre 01"
+  },
+  {
+    "name": "Ventilador CLD-710, vazão 30.546 m³/h - 90 mmca - 20,0 cv",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 16511.62,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre 01"
+  },
+  {
+    "name": "Ventilador CLD-800, vazão 46.710 m³/h - 25,0 cv - 90 mmca",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 30780.28,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Ventilador de Insuflamento mod. CLD-900, vazão 43.848 m³/h, 25 cv, 90mmca - SICTELL",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 19701,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Ventilador de Insuflamento mod. CLD-900, vazão 43.870 m³/h, 25 cv, 90mmca - SICTELL",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 19701,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Ventilador VRG-2200 de Indução",
+    "group": "Equipamentos",
+    "unit": "pç",
+    "materialPrice": 1836.38,
+    "laborPrice": 0,
+    "system": "Exaustão Subsolo"
+  },
+  {
+    "name": "VRF 1x1",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "VRF 2x1",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "VRF 3x1",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "VRF 4x1",
+    "group": "Equipamentos",
+    "unit": "cj",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Estrutura c/ Filtros Metálicos dim 6200x1500mm",
+    "group": "Filtros",
+    "unit": "pç",
+    "materialPrice": 12565.89,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Estrutura Metálica c/ Filtros Metálicos Laváveis de Partículas G1 - Saque Frontal dim. 1000x1600mm",
+    "group": "Filtros",
+    "unit": "pç",
+    "materialPrice": 2400,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Estrutura Metálica c/ Filtros Metálicos Laváveis de Partículas G1 - Saque Frontal dim. 1500x3000mm",
+    "group": "Filtros",
+    "unit": "pç",
+    "materialPrice": 5460,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Estrutura Metálica c/ Filtros Metálicos Laváveis de Partículas G1 - Saque Frontal dim. 1800x1800mm",
+    "group": "Filtros",
+    "unit": "pç",
+    "materialPrice": 3770,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Estrutura Metálica c/ Filtros Metálicos Laváveis de Partículas G1 - Saque Frontal dim. 1800x2500mm",
+    "group": "Filtros",
+    "unit": "pç",
+    "materialPrice": 3828.04,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre Studios"
+  },
+  {
+    "name": "Estrutura Metálica c/ Filtros Metálicos Laváveis de Partículas G1 - Saque Frontal dim. 2000x900mm",
+    "group": "Filtros",
+    "unit": "pç",
+    "materialPrice": 0,
+    "laborPrice": 0,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Estrutura Metálica c/ Filtros Metálicos Laváveis de Partículas G1 - Saque Frontal dim. 2900x2550mm",
+    "group": "Filtros",
+    "unit": "pç",
+    "materialPrice": 8896,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre 01"
+  },
+  {
+    "name": "Estrutura Metálica c/ Filtros Metálicos Laváveis de Partículas G1 - Saque Frontal dim. 3100x2200mm",
+    "group": "Filtros",
+    "unit": "pç",
+    "materialPrice": 5713.82,
+    "laborPrice": 0,
+    "system": "Pressurização  - Torre Res."
+  },
+  {
+    "name": "Filtro FILLBOX QUAD - G4 + M5 / 100",
+    "group": "Filtros",
+    "unit": "pç",
+    "materialPrice": 300,
+    "laborPrice": 0,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Filtro FILLBOX QUAD - G4 + M5 / 125",
+    "group": "Filtros",
+    "unit": "pç",
+    "materialPrice": 300,
+    "laborPrice": 0,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Filtro FILLBOX QUAD - G4 + M5 / 150",
+    "group": "Filtros",
+    "unit": "pç",
+    "materialPrice": 450,
+    "laborPrice": 0,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Filtro FILLBOX QUAD - G4 + M5 / 200",
+    "group": "Filtros",
+    "unit": "pç",
+    "materialPrice": 500,
+    "laborPrice": 0,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Filtro FILLBOX RED - G4 + M5 / 200",
+    "group": "Filtros",
+    "unit": "pç",
+    "materialPrice": 498.22,
+    "laborPrice": 0,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Isolamento de 1.1/2\" - Espessura 13 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 17.5,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Isolamento de 1.1/4\" - Espessura 13 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 15.9,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Isolamento de 1.1/8\" - Espessura 13 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 15.6,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Isolamento de 1.3/8\" - Espessura 13 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 16.3,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Isolamento de 1.5/8\" - Espessura 13 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 19.15,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Isolamento de 1\" - Espessura 09 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 8,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Isolamento de 1\" - Espessura 13 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 13.15,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Isolamento de 1/2\" - Espessura 09 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 3.2,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Isolamento de 1/2\" - Espessura 13 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 8.3,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Isolamento de 1/4\" - Espessura 09 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 2.9,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Isolamento de 1/4\" - Espessura 13 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 8,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Isolamento de 3/4\" - Espessura 09 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 5.2,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Isolamento de 3/4\" - Espessura 13 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 11,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Isolamento de 3/8\" - Espessura 09 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 3.1,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Isolamento de 3/8\" - Espessura 13 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 8.1,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Isolamento de 5/8\" - Espessura 09 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 3.7,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Isolamento de 5/8\" - Espessura 13 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 9.6,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Isolamento de 7/8\" - Espessura 09 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 7,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Isolamento de 7/8\" - Espessura 13 mm",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 11.8,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Isolamento de Borracha Elastomérica - Espessura 13mm / 1/2\"",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 5.7,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Isolamento de Borracha Elastomérica - Espessura 13mm / 1/4\"",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 5.1,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Isolamento de Borracha Elastomérica - Espessura 13mm / 3/4\"",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 7.4,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Isolamento de Borracha Elastomérica - Espessura 13mm / 3/8\"",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 5.3,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Isolamento de Borracha Elastomérica - Espessura 13mm / 5/8\"",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 6.1,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Isolamento de Borracha Elastomérica - Espessura 13mm / 7/8\"",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 7.3,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Isolamento Polipex - Espessura 09mm / 1/4\"",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 2.1,
+    "laborPrice": 0,
+    "system": "Infra AC Tipo (2)"
+  },
+  {
+    "name": "Isolamento Polipex - Espessura 09mm / 3/8\"",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 2.5,
+    "laborPrice": 0,
+    "system": "Infra AC Tipo (2)"
+  },
+  {
+    "name": "Isolamento Polipex - Espessura 09mm / 5/8\"",
+    "group": "Isolamento",
+    "unit": "m",
+    "materialPrice": 2.22,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Cabo Flexível # 1,5 mm²  [(Convencionais x 2 x 12 m) + 10%]",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 1,
+    "laborPrice": 0,
+    "system": "Detecção"
+  },
+  {
+    "name": "Duto Semi-Rígido de aluminio Ø100mm - ESTIPULADO",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 15,
+    "laborPrice": 0,
+    "system": "Chapéu Chinês"
+  },
+  {
+    "name": "Duto Semi-Rígido de aluminio Ø150mm - ESTIPULADO",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 30,
+    "laborPrice": 0,
+    "system": "Exaustão Coifa"
+  },
+  {
+    "name": "Dutos e Conexões Flangeados",
+    "group": "Rede de Dutos",
+    "unit": "cj",
+    "materialPrice": 13117,
+    "laborPrice": 8697,
+    "system": "Pressurização - Torre Studios"
+  },
+  {
+    "name": "Dutos e Conexões Flangeados - DUTO DE CAPTAÇÃO DE AR",
+    "group": "Rede de Dutos",
+    "unit": "cj",
+    "materialPrice": 10240,
+    "laborPrice": 7000,
+    "system": "Duto captação"
+  },
+  {
+    "name": "Dutos e Conexões Flangeados - DUTO DO SUB SOLO",
+    "group": "Rede de Dutos",
+    "unit": "cj",
+    "materialPrice": 1316,
+    "laborPrice": 1476,
+    "system": "Dutos SubSolos"
+  },
+  {
+    "name": "Dutos e Conexões Flangeados - Pressurização",
+    "group": "Rede de Dutos",
+    "unit": "cj",
+    "materialPrice": 47605,
+    "laborPrice": 37536,
+    "system": "Pressurização"
+  },
+  {
+    "name": "Dutos Flexíveis / Ø100mm",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 4.49,
+    "laborPrice": 0,
+    "system": "Exaustão Mecânica"
+  },
+  {
+    "name": "Dutos Flexíveis / Ø125mm",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 4.95,
+    "laborPrice": 0,
+    "system": "Exaustão Mecânica"
+  },
+  {
+    "name": "Dutos Flexíveis / Ø150mm",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 5.1,
+    "laborPrice": 0,
+    "system": "Exaustão Mecânica"
+  },
+  {
+    "name": "Dutos Flexíveis Ø100mm",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 4.7,
+    "laborPrice": 0,
+    "system": "Exaustão Mec. Aptos - Torre 02"
+  },
+  {
+    "name": "Dutos Flexíveis Ø125mm",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 5.3,
+    "laborPrice": 0,
+    "system": "Exaustão Mec. Aptos"
+  },
+  {
+    "name": "Dutos Flexíveis Ø150mm",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 6.8,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Dutos Flexíveis Ø200mm",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 6.5,
+    "laborPrice": 0,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Dutos Metálicos",
+    "group": "Rede de Dutos",
+    "unit": "cj",
+    "materialPrice": 4961,
+    "laborPrice": 5902,
+    "system": "Tomada de Ar Ext."
+  },
+  {
+    "name": "Dutos Metálicos - Tomada de Ar Externo",
+    "group": "Rede de Dutos",
+    "unit": "cj",
+    "materialPrice": 3689,
+    "laborPrice": 5550,
+    "system": "Tomada de Ar"
+  },
+  {
+    "name": "Dutos PVC Ø100mm",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 17.22,
+    "laborPrice": 0,
+    "system": "Exaustão Mec. Aptos - Torre 02"
+  },
+  {
+    "name": "Dutos PVC Ø125mm",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 35.3,
+    "laborPrice": 0,
+    "system": "Exaustão Mec. Áreas Comuns"
+  },
+  {
+    "name": "Dutos PVC Ø150mm",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 26,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Dutos PVC Ø200mm",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 92,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Flexivel Isolado diam. 200 mm",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 18,
+    "laborPrice": 0,
+    "system": "Infra AC - Residencial"
+  },
+  {
+    "name": "Flexível semi rígido de aluminio",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 15,
+    "laborPrice": 0,
+    "system": "Lavanderia"
+  },
+  {
+    "name": "Rede de Dutos",
+    "group": "Rede de Dutos",
+    "unit": "pç",
+    "materialPrice": 1026,
+    "laborPrice": 1620,
+    "system": "Lavanderia"
+  },
+  {
+    "name": "Rede de Dutos - Lavanderia",
+    "group": "Rede de Dutos",
+    "unit": "cj",
+    "materialPrice": 1067,
+    "laborPrice": 1196,
+    "system": "Exaustão Mec. Áreas Comuns"
+  },
+  {
+    "name": "Rede de Dutos Flexiveis 150 mm",
+    "group": "Rede de Dutos",
+    "unit": "m",
+    "materialPrice": 5.6,
+    "laborPrice": 70,
+    "system": "Exaustão Coifa - Aptos"
+  },
+  {
+    "name": "Rede de Dutos Metálicos",
+    "group": "Rede de Dutos",
+    "unit": "cj",
+    "materialPrice": 4323,
+    "laborPrice": 5512,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Transdutor de Pressão",
+    "group": "Rede de Dutos",
+    "unit": "pç",
+    "materialPrice": 1500,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre Studios"
+  },
+  {
+    "name": "Transdutor de Pressão (12º Pavimento)",
+    "group": "Rede de Dutos",
+    "unit": "pç",
+    "materialPrice": 1800,
+    "laborPrice": 0,
+    "system": "Pressurização - Torre 01"
+  },
+  {
+    "name": "Suporte",
+    "group": "Suportes",
+    "unit": "pç",
+    "materialPrice": 3,
+    "laborPrice": 0,
+    "system": "Exaustão Mec. Aptos - Torre 02"
+  },
+  {
+    "name": "Suporte para Exaustão",
+    "group": "Suportes",
+    "unit": "pç",
+    "materialPrice": 4,
+    "laborPrice": 0,
+    "system": "Exaustão Mec."
+  },
+  {
+    "name": "Cobre de 1.1/2\"",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 178.2,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Cobre de 1.1/4\"",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 147.4,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Cobre de 1.1/8\"",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 132,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Cobre de 1.3/4\"",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 210.1,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Cobre de 1.3/8\"",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 162.8,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Cobre de 1.5/8\"",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 193.6,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Cobre de 1.7/8\"",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 225.5,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Cobre de 1\"",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 65.28,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Cobre de 1/2\"",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 26.3,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Cobre de 1/2\" (1/32\")",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 21.04,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Cobre de 1/4\"",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 12.3,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Cobre de 1/4\" (1/32\")",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 9.84,
+    "laborPrice": 0,
+    "system": "Infra AC Tipo (2)"
+  },
+  {
+    "name": "Cobre de 3/4\"",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 77.6,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Cobre de 3/4\" (1/16\")",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 62.08,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Cobre de 3/8\"",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 19.3,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Cobre de 3/8\" (1/32\")",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 15.44,
+    "laborPrice": 0,
+    "system": "Infra AC Tipo (2)"
+  },
+  {
+    "name": "Cobre de 5/8\"",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 33.3,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Cobre de 5/8\" (1/32\")",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 26.64,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Cobre de 7/8\"",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 91.8,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Cobre de 7/8\" (1/16\")",
+    "group": "Tubulações",
+    "unit": "m",
+    "materialPrice": 73.44,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Curva de Cobre 90º Fina / 3/4\"",
+    "group": "Tubulações",
+    "unit": "pç",
+    "materialPrice": 7.4,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Curva de Cobre 90º Fina / 7/8\"",
+    "group": "Tubulações",
+    "unit": "pç",
+    "materialPrice": 11.2,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Derivação de Cobre - Refinete / 22T",
+    "group": "Tubulações",
+    "unit": "pç",
+    "materialPrice": 250,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Derivação de Cobre - Refinete / 33T",
+    "group": "Tubulações",
+    "unit": "pç",
+    "materialPrice": 300,
+    "laborPrice": 0,
+    "system": "AC Areas Comuns"
+  },
+  {
+    "name": "Joelho de Cobre de 1.1/2\"",
+    "group": "Tubulações",
+    "unit": "pç",
+    "materialPrice": 55,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Joelho de Cobre de 1.1/4\"",
+    "group": "Tubulações",
+    "unit": "pç",
+    "materialPrice": 44.3,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Joelho de Cobre de 1.1/8\"",
+    "group": "Tubulações",
+    "unit": "pç",
+    "materialPrice": 33.3,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Joelho de Cobre de 1.3/8\"",
+    "group": "Tubulações",
+    "unit": "pç",
+    "materialPrice": 50,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Joelho de Cobre de 1.5/8\"",
+    "group": "Tubulações",
+    "unit": "pç",
+    "materialPrice": 60,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Joelho de Cobre de 1\"",
+    "group": "Tubulações",
+    "unit": "pç",
+    "materialPrice": 32,
+    "laborPrice": 0,
+    "system": "Infra AC"
+  },
+  {
+    "name": "Joelho de Cobre de 3/4\"",
+    "group": "Tubulações",
+    "unit": "pç",
+    "materialPrice": 15.1,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Joelho de Cobre de 5/8\"",
+    "group": "Tubulações",
+    "unit": "pç",
+    "materialPrice": 10,
+    "laborPrice": 0,
+    "system": "Infra AC - Studios"
+  },
+  {
+    "name": "Joelho de Cobre de 7/8\"",
+    "group": "Tubulações",
+    "unit": "pç",
+    "materialPrice": 23.2,
+    "laborPrice": 0,
+    "system": "AC com Equip"
+  },
+  {
+    "name": "Mão de Obra - Infraestrutura AC",
+    "group": "Tubulações",
+    "unit": "pç",
+    "materialPrice": 0,
+    "laborPrice": 300,
+    "system": "Infra AC Tipo (2)"
+  },
+  {
+    "name": "Mão de Obra - Instalação AC (Infra+Inter)",
+    "group": "Tubulações",
+    "unit": "pç",
+    "materialPrice": 0,
+    "laborPrice": 800,
+    "system": "AC Areas Comuns"
+  }
+]

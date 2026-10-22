@@ -2,7 +2,9 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 import { CalibrateDialog } from "./components/CalibrateDialog";
+import { CatalogPalette } from "./components/CatalogPalette";
 import { ItemsPanel } from "./components/ItemsPanel";
+import { LegendDialog } from "./components/LegendDialog";
 import { PageStrip } from "./components/PageStrip";
 import { QuotePanel } from "./components/QuotePanel";
 import { StatusBar } from "./components/StatusBar";
@@ -59,6 +61,15 @@ export default function App() {
     return () => unlisten?.();
   }, []);
 
+  // material catalog: local cache, then the company app when a URL is configured
+  useEffect(() => {
+    void useStore
+      .getState()
+      .loadCatalog()
+      .then(() => useStore.getState().refreshCatalog())
+      .catch((e) => console.warn("catalog refresh failed", e));
+  }, []);
+
   // crash-safe autosave
   useEffect(() => {
     void hasAutosave().then(setCanRestore);
@@ -75,7 +86,7 @@ export default function App() {
   }, [status]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       <TopBar />
       <div className="flex min-h-0 flex-1">
         <ToolRail />
@@ -111,6 +122,7 @@ export default function App() {
           )}
           <CalibrateDialog />
           <ZoneDialog />
+          <LegendDialog />
         </div>
         <div className="flex w-[27rem] shrink-0 flex-col border-l border-neutral-800 bg-neutral-900">
           <div className="flex border-b border-neutral-800 text-xs">
@@ -136,6 +148,7 @@ export default function App() {
         </div>
       </div>
       <StatusBar />
+      <CatalogPalette />
     </div>
   );
 }

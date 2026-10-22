@@ -42,6 +42,9 @@ bun scripts/bench-vectors.ts <pdf>   # extraction + indexing timings
 | `A` `R` | Area polygon (click first point to close) / area rectangle (drag) |
 | `M` | Magic area: click inside an enclosed room to detect its outline |
 | `Z` | Location: outline a region (floor, apartment, room) and name it; everything measured inside is grouped by it |
+| `X` | Find similar: drag a box around one symbol; every identical symbol on the page gets a count mark (vector match, exact for CAD blocks) |
+| `Ctrl+K` | Material catalog: search and create a named, grouped, priced item |
+| `Alt`+click / `Alt`+drag | Name the active item from text in the drawing / turn a legend box into items |
 | `K` | Calibrate: click two points of a known distance |
 | `S` `O` / `Shift` | Toggle snapping to drawing geometry / ortho (45°) lock |
 | `1`–`9` | Activate item n (the tool follows the item's kind) |
@@ -51,6 +54,11 @@ bun scripts/bench-vectors.ts <pdf>   # extraction + indexing timings
 | `F` `+` `-` wheel | Fit page / zoom |
 | `PgUp` `PgDn` | Previous / next page |
 | `Ctrl+S` `Ctrl+E` | Save project / export Planilha .xlsx |
+
+Items can be saved to the catalog (star). The catalog is seeded from past budget sheets
+(`src/data/catalog.seed.json`) and can follow the company app: set the JSON URL in the Ctrl+K
+footer and it is fetched on start and on demand (through Rust, so no CORS), cached locally,
+and preferred over the seed.
 
 The status bar shows the page scale; click it for the 1:N presets or calibrate by measuring.
 Items carry a budget section (Equipamentos, Rede de Dutos, Bocas de Ar, ...), a material and
