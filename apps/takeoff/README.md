@@ -42,12 +42,14 @@ git push && git push origin v0.2.0
 ```
 
 The tag triggers `.github/workflows/release.yml`, which builds on Windows, signs the updater
-artifact and publishes a GitHub Release with the installer, the `.sig` and `latest.json`.
-Secrets needed once in the repository settings: `TAURI_SIGNING_PRIVATE_KEY` and
-`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (the two files above). Then make `latest.json` and the
-artifact it references available at the updater endpoint (copy them to the server, or point the
-endpoint at the release download URL if the repository is public). To build and sign locally
-instead, set the same two variables and run `bun run tauri:build`.
+artifact and publishes a GitHub Release in the public repository
+[Patolord/takeoff-releases](https://github.com/Patolord/takeoff-releases) with the installer,
+the `.sig` and `latest.json`. Installed copies read that repository's
+`releases/latest/download/latest.json` (checked at start and every 30 minutes) and offer the
+update. Secrets in this private repository: `TAURI_SIGNING_PRIVATE_KEY`,
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` and `RELEASE_TOKEN` (a GitHub token that may create
+releases in takeoff-releases). To build and sign locally instead, set the two signing variables
+and run `bun run tauri:build`.
 
 ## Quality gates
 

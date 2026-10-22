@@ -1,14 +1,13 @@
-# Builds the Windows installer, signs the updater artifacts and publishes a GitHub Release
-# whenever a version tag (v1.2.3) is pushed. `bun run release 1.2.3` creates that tag.
+# Builds the Windows installer, signs the updater artifacts and publishes a GitHub Release in
+# the PUBLIC repository Patolord/takeoff-releases whenever a version tag (v1.2.3) is pushed here.
+# `bun run release 1.2.3` creates that tag. Installed apps read
+# https://github.com/Patolord/takeoff-releases/releases/latest/download/latest.json and offer
+# the update themselves.
 #
-# Required repository secrets:
+# Required secrets in this (private) repository:
 #   TAURI_SIGNING_PRIVATE_KEY           contents of ~/.tauri/takeoff.key
 #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  contents of ~/.tauri/takeoff.key.password
-#
-# The release carries Takeoff_x.y.z_x64-setup.exe (NSIS), Takeoff_x.y.z_x64_en-US.msi, the
-# .sig files and latest.json. Copy latest.json plus the .exe/.sig it references to the updater
-# endpoint configured in src-tauri/tauri.conf.json (plugins.updater.endpoints), or point that
-# endpoint at the GitHub Release download URL if the repository is public.
+#   RELEASE_TOKEN                       a GitHub token allowed to create releases in takeoff-releases
 name: release
 
 on:
@@ -40,10 +39,12 @@ jobs:
 
       - uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
+          owner: Patolord
+          repo: takeoff-releases
           tagName: ${{ github.ref_name }}
           releaseName: "Takeoff ${{ github.ref_name }}"
           releaseBody: "Instalador Windows (.exe) e atualização assinada (latest.json)."
