@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import type { Doc } from "../../_generated/dataModel";
+import type { Doc, Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
 import { normalizeUnit } from "../../lib/compras/catalog";
 import { describeMaterial } from "../../lib/compras/materialLookup";
@@ -20,6 +20,11 @@ export const takeoffCatalogItemValidator = v.object({
   group: v.string(),
   unit: v.string(),
   materialPrice: v.number(),
+  // Provenance of materialPrice, so a budget can freeze "R$ X quoted on D"
+  // and later show what changed. All null when the material has no price.
+  priceDate: v.union(v.number(), v.null()),
+  priceValidUntil: v.union(v.number(), v.null()),
+  priceEventId: v.union(v.id("priceEvents"), v.null()),
   laborPrice: v.number(),
   system: v.union(v.string(), v.null()),
 });
@@ -32,9 +37,18 @@ export type TakeoffCatalogItem = {
   group: string;
   unit: string;
   materialPrice: number;
+  priceDate: number | null;
+  priceValidUntil: number | null;
+  priceEventId: Id<"priceEvents"> | null;
   laborPrice: number;
   system: string | null;
 };
+
+/** The slice of a price event the catalog exposes. */
+export type CurrentPrice = Pick<
+  Doc<"priceEvents">,
+  "_id" | "unitPriceCents" | "occurredAt" | "validUntil"
+>;
 
 export function takeoffUnit(unit: string | undefined): string {
   const normalized = normalizeUnit(unit) ?? "un";
@@ -43,7 +57,7 @@ export function takeoffUnit(unit: string | undefined): string {
 
 export function toTakeoffCatalogItem(
   material: Doc<"materials">,
-  materialPriceCents: number | null
+  price: CurrentPrice | null
 ): TakeoffCatalogItem {
   return {
     id: material._id,
@@ -52,7 +66,10 @@ export function toTakeoffCatalogItem(
     description: describeMaterial(material),
     group: material.category?.trim() || DEFAULT_TAKEOFF_GROUP,
     unit: takeoffUnit(material.unit),
-    materialPrice: materialPriceCents === null ? 0 : centsToReais(materialPriceCents),
+    materialPrice: price ? centsToReais(price.unitPriceCents) : 0,
+    priceDate: price?.occurredAt ?? null,
+    priceValidUntil: price?.validUntil ?? null,
+    priceEventId: price?._id ?? null,
     // Placeholders: materials carry no labour price or discipline (HVAC,
     // pressurisation, ...) yet. Both become real fields in a later schema change.
     laborPrice: 0,
@@ -60,17 +77,17 @@ export function toTakeoffCatalogItem(
   };
 }
 
-async function currentMaterialPriceCents(
+async function currentMaterialPrice(
   ctx: QueryCtx,
-  materialId: Doc<"materials">["_id"],
+  materialId: Id<"materials">,
   now: number
-): Promise<number | null> {
+): Promise<CurrentPrice | null> {
   const events = await ctx.db
     .query("priceEvents")
     .withIndex("by_material", (q) => q.eq("materialId", materialId))
     .order("desc")
     .take(PRICE_EVENT_WINDOW);
-  return pickCurrentPriceEvent(events, now)?.unitPriceCents ?? null;
+  return pickCurrentPriceEvent(events, now);
 }
 
 /** Every active material with the price it should be budgeted at today. */
@@ -86,8 +103,8 @@ export async function listTakeoffCatalog(
 
   const items: TakeoffCatalogItem[] = [];
   for (const material of materials) {
-    const priceCents = await currentMaterialPriceCents(ctx, material._id, now);
-    items.push(toTakeoffCatalogItem(material, priceCents));
+    const price = await currentMaterialPrice(ctx, material._id, now);
+    items.push(toTakeoffCatalogItem(material, price));
   }
   return items.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }

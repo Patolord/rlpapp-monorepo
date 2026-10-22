@@ -59,7 +59,12 @@ async function seedCatalog() {
         // Older reviewed quote: loses to the newer reviewed one below.
         { unitPriceCents: 9900, occurredAt: NOW - 20 * DAY, reviewStatus: "reviewed" },
         // Latest reviewed quote: this is the catalog price.
-        { unitPriceCents: 12345, occurredAt: NOW - 5 * DAY, reviewStatus: "reviewed" },
+        {
+          unitPriceCents: 12345,
+          occurredAt: NOW - 5 * DAY,
+          validUntil: NOW + 25 * DAY,
+          reviewStatus: "reviewed",
+        },
         // Newest of all, but dismissed in review: never exported.
         { unitPriceCents: 1, occurredAt: NOW - DAY, reviewStatus: "ignored" },
       ],
@@ -155,9 +160,18 @@ describe("takeoffCatalog.list", () => {
       group: "Diversos",
       unit: "pç",
       materialPrice: 123.45,
+      priceDate: NOW - 5 * DAY,
+      priceValidUntil: NOW + 25 * DAY,
       laborPrice: 0,
       system: null,
     });
+    // The provenance points at the event that produced the price.
+    const winning = await t.run(async (ctx) =>
+      grelha!.priceEventId ? await ctx.db.get("priceEvents", grelha!.priceEventId) : null
+    );
+    expect(winning?.unitPriceCents).toBe(12345);
+    expect(winning?.reviewStatus).toBe("reviewed");
+
     expect(cobre).toMatchObject({
       sku: "MAT-000102",
       name: "Tubo de Cobre",
@@ -165,6 +179,9 @@ describe("takeoffCatalog.list", () => {
       group: "Ar Condicionado",
       unit: "m",
       materialPrice: 0,
+      priceDate: null,
+      priceValidUntil: null,
+      priceEventId: null,
       laborPrice: 0,
       system: null,
     });
@@ -222,21 +239,25 @@ describe("GET /takeoff/catalog", () => {
     expect(body.items[0]).toMatchObject({
       unit: "pç",
       materialPrice: 123.45,
+      priceDate: NOW - 5 * DAY,
+      priceValidUntil: NOW + 25 * DAY,
+      priceEventId: expect.any(String),
       laborPrice: 0,
       system: null,
     });
-    expect(Object.keys(body.items[0]!).sort()).toEqual(
-      [
-        "description",
-        "group",
-        "id",
-        "laborPrice",
-        "materialPrice",
-        "name",
-        "sku",
-        "system",
-        "unit",
-      ]
-    );
+    expect(Object.keys(body.items[0]!).sort()).toEqual([
+      "description",
+      "group",
+      "id",
+      "laborPrice",
+      "materialPrice",
+      "name",
+      "priceDate",
+      "priceEventId",
+      "priceValidUntil",
+      "sku",
+      "system",
+      "unit",
+    ]);
   });
 });
