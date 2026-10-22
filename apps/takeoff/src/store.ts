@@ -109,6 +109,10 @@ export interface State {
   selection: string[];
   /** Zone id (or "" for "Sem local") the item list and viewer focus on; null = everything. */
   zoneFilter: string | null;
+  /** Discipline the item list and the viewer show; null = all. */
+  systemFilter: string | null;
+  /** Item list and locations limited to the planta in view. */
+  drawingOnly: boolean;
   /** Draw locations on the plan at all. */
   zonesVisible: boolean;
   /** 0..1 opacity of location fills and outlines. */
@@ -169,6 +173,8 @@ export interface State {
   setActiveItem(id: string | null): void;
   setSelection(ids: string[]): void;
   setZoneFilter(zoneId: string | null): void;
+  setSystemFilter(system: string | null): void;
+  setDrawingOnly(on: boolean): void;
   setZonesVisible(visible: boolean): void;
   setZoneOpacity(opacity: number): void;
   setFillOpacity(opacity: number): void;
@@ -192,6 +198,8 @@ export interface State {
   saveItemToCatalog(itemId: string): Promise<void>;
   loadCatalog(): Promise<void>;
   setCatalogUrl(url: string): void;
+  /** Give every item of the same discipline (or group) the same colour. */
+  colorItemsBy(by: "system" | "group"): void;
   /** Fetch the company catalog from the configured URL; returns how many entries arrived. */
   refreshCatalog(): Promise<number>;
 }
@@ -214,6 +222,8 @@ export const useStore = create<State>((set, get) => ({
   activeItemId: null,
   selection: [],
   zoneFilter: null,
+  systemFilter: null,
+  drawingOnly: false,
   zonesVisible: readPref("zonesVisible", true),
   zoneOpacity: readPref("zoneOpacity", 1),
   fillOpacity: readPref("fillOpacity", 1),
@@ -241,6 +251,7 @@ export const useStore = create<State>((set, get) => ({
       page: 0,
       selection: [],
       zoneFilter: null,
+      systemFilter: null,
       calibration: null,
       pendingZone: null,
       activeItemId: project.items[0]?.id ?? null,
@@ -299,6 +310,7 @@ export const useStore = create<State>((set, get) => ({
       page: 0,
       selection: [],
       zoneFilter: null,
+      systemFilter: null,
       calibration: null,
       pendingZone: null,
     });
@@ -526,6 +538,8 @@ export const useStore = create<State>((set, get) => ({
 
   setSelection: (selection) => set({ selection }),
   setZoneFilter: (zoneFilter) => set({ zoneFilter }),
+  setSystemFilter: (systemFilter) => set({ systemFilter }),
+  setDrawingOnly: (drawingOnly) => set({ drawingOnly }),
   setZonesVisible: (zonesVisible) => {
     writePref("zonesVisible", zonesVisible);
     set({ zonesVisible });
@@ -621,6 +635,25 @@ export const useStore = create<State>((set, get) => ({
     return id;
   },
 
+  colorItemsBy: (by) => {
+    get().commit((p) => {
+      const colors = new Map<string, string>();
+      const items = p.items.map((it) => {
+        const key = (by === "system" ? it.system || p.system : it.group) ?? "";
+        let color = colors.get(key);
+        if (!color) {
+          color = ITEM_COLORS[colors.size % ITEM_COLORS.length];
+          colors.set(key, color);
+        }
+        return it.color === color ? it : { ...it, color };
+      });
+      return { ...p, items };
+    });
+    set({
+      status: by === "system" ? "Cores aplicadas por disciplina" : "Cores aplicadas por grupo",
+    });
+  },
+
   saveItemToCatalog: async (itemId) => {
     const { project, catalog } = get();
     const item = project.items.find((i) => i.id === itemId);
@@ -631,6 +664,7 @@ export const useStore = create<State>((set, get) => ({
       unit: unitForKind(item.kind),
       materialPrice: item.materialPrice,
       laborPrice: item.laborPrice,
+      system: item.system,
       source: "saved",
     };
     const saved = [
@@ -639,7 +673,13 @@ export const useStore = create<State>((set, get) => ({
     ];
     const next = { ...catalog, saved };
     set({ catalog: next, status: `Salvo no catálogo: ${item.name}` });
-    await saveCatalogStore(next);
+    try {
+      await saveCatalogStore(next);
+    } catch (e) {
+      set({
+        status: `Não foi possível gravar o catálogo: ${e instanceof Error ? e.message : String(e)}`,
+      });
+    }
   },
 
   loadCatalog: async () => {

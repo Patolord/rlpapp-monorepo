@@ -3,7 +3,6 @@ import { exportXlsx, pickAndOpenPdf } from "../lib/files";
 import { mod } from "../lib/platform";
 import { basename } from "../lib/session";
 import { useStore } from "../store";
-import { DrawingSwitcher } from "./DrawingSwitcher";
 import { ProjectMenu } from "./ProjectMenu";
 import { UpdateButton } from "./UpdateButton";
 import { Button } from "./ui";
@@ -34,7 +33,6 @@ export function TopBar() {
       </span>
       {dirty && <span className="shrink-0 text-xs text-amber-400">● não salvo</span>}
       <UpdateButton />
-      <DrawingSwitcher />
       <div className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap">
         <ProjectMenu />
         <Button

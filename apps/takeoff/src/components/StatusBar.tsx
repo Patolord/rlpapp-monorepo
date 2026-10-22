@@ -72,7 +72,7 @@ export function StatusBar() {
   useEffect(() => useViewport.subscribe((v) => setZoom(v.zoom)), []);
 
   return (
-    <div className="relative flex h-7 items-center gap-3 overflow-hidden whitespace-nowrap border-t border-neutral-800 bg-neutral-900 px-2 text-[12px] text-neutral-400">
+    <div className="relative flex h-7 items-center gap-3 whitespace-nowrap border-t border-neutral-800 bg-neutral-900 px-2 text-[12px] text-neutral-400">
       <div className="flex items-center gap-0.5">
         <button
           type="button"
@@ -171,7 +171,7 @@ export function StatusBar() {
           {selCount} {selCount === 1 ? "selecionado" : "selecionados"}
         </span>
       )}
-      <span className="ml-auto truncate text-neutral-500">{status ?? HINTS[tool]}</span>
+      <span className="ml-auto min-w-0 truncate text-neutral-500">{status ?? HINTS[tool]}</span>
       {open && <ScalePicker onClose={() => setScalePickerOpen(false)} />}
     </div>
   );

@@ -100,7 +100,7 @@ export function formatMoney(v: number, currency: string): string {
       style: "currency",
       currency,
       maximumFractionDigits: 2,
-    }).format(v);
+    }).format(v === 0 ? 0 : v);
   } catch {
     return `${currency} ${v.toFixed(2)}`;
   }

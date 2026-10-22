@@ -208,7 +208,7 @@ export const round2 = (v: number): number => Math.round(v * 100) / 100;
 /** Quantity to price: measured quantity plus waste, counts rounded up to whole units. */
 export function pricedQty(item: Item, measured: number): number {
   const q = measured * (1 + item.wastePct / 100);
-  return item.kind === "count" ? Math.ceil(q - 1e-9) : round2(q);
+  return item.kind === "count" ? Math.ceil(q - 1e-9) || 0 : round2(q);
 }
 
 export interface QuoteLine {

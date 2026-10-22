@@ -272,7 +272,7 @@ export function Viewer() {
       return { pt: raw, hit: null };
     },
     hitTest(raw: Pt): string | null {
-      const { project, page: p } = useStore.getState();
+      const { project, page: p, systemFilter } = useStore.getState();
       const v = useViewport.getState();
       const tol = HIT_PX / v.zoom;
       const items = new Map(project.items.map((i) => [i.id, i]));
@@ -282,6 +282,8 @@ export function Viewer() {
         if (m.drawingId !== did || m.page !== p) continue;
         const item = items.get(m.itemId);
         if (!item) continue;
+        if (systemFilter !== null && (item.system || project.system || "") !== systemFilter)
+          continue;
         if (item.kind === "count") {
           if (dist(raw, m.points[0]) <= tol * 1.6) return m.id;
         } else if (item.kind === "linear") {
@@ -404,6 +406,7 @@ export function Viewer() {
         tool: t,
         calibration,
         zoneFilter,
+        systemFilter,
         zonesVisible,
         zoneOpacity,
         fillOpacity,
@@ -454,6 +457,8 @@ export function Viewer() {
         if (m.drawingId !== did || m.page !== p) continue;
         const item = items.get(m.itemId);
         if (!item) continue;
+        if (systemFilter !== null && (item.system || project.system || "") !== systemFilter)
+          continue;
         if (!boxesIntersect(bbox(m.points), viewBox)) continue;
         const isSel = sel.has(m.id);
         const pts =

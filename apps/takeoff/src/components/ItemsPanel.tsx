@@ -1,12 +1,30 @@
 import clsx from "clsx";
-import { CircleDot, Library, Pentagon, Plus, Search, Spline, Star, Trash2, X } from "lucide-react";
+import {
+  CircleDot,
+  FileText,
+  Library,
+  Pentagon,
+  Plus,
+  Search,
+  Spline,
+  Star,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { MOD, mod } from "../lib/platform";
-import { itemTotals, NO_ZONE, pricedQty, round2, totalsByZone } from "../lib/quantities";
-import { SYMBOLS } from "../lib/symbols";
-import { DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS, ITEM_COLORS, type Item } from "../lib/types";
+import {
+  type ItemTotal,
+  itemTotals,
+  NO_ZONE,
+  pricedQty,
+  round2,
+  totalsByZone,
+} from "../lib/quantities";
+import { DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS, type Item } from "../lib/types";
 import { formatMoney, formatQty, type Kind } from "../lib/units";
 import { useStore } from "../store";
+import { ItemStylePopover } from "./ItemStylePopover";
 import { SymbolIcon } from "./SymbolIcon";
 import { Button, Kbd } from "./ui";
 
@@ -22,6 +40,10 @@ export function ItemsPanel() {
   const project = useStore((s) => s.project);
   const activeItemId = useStore((s) => s.activeItemId);
   const zoneFilter = useStore((s) => s.zoneFilter);
+  const systemFilter = useStore((s) => s.systemFilter);
+  const drawingOnly = useStore((s) => s.drawingOnly);
+  const savedEntries = useStore((s) => s.catalog.saved);
+  const savedNames = useMemo(() => new Set(savedEntries.map((e) => fold(e.name))), [savedEntries]);
   const {
     setActiveItem,
     updateItem,
@@ -30,8 +52,16 @@ export function ItemsPanel() {
     setPaletteOpen,
     saveItemToCatalog,
     setZoneFilter,
+    setSystemFilter,
+    setDrawingOnly,
   } = useStore.getState();
-  const totals = useMemo(() => itemTotals(project), [project]);
+  const totals = useMemo(
+    () =>
+      drawingOnly
+        ? itemTotals(project, (m) => m.drawingId === project.activeDrawingId)
+        : itemTotals(project),
+    [project, drawingOnly],
+  );
   const byZone = useMemo(() => totalsByZone(project), [project]);
   const groups = useMemo(
     () => Array.from(new Set([...project.items.map((i) => i.group), ...GROUP_SUGGESTIONS])),
@@ -54,7 +84,6 @@ export function ItemsPanel() {
   const [newKind, setNewKind] = useState<Kind>("count");
   const [newSystem, setNewSystem] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [systemFilter, setSystemFilter] = useState<string | null>(null);
   const activeSystem =
     project.items.find((i) => i.id === activeItemId)?.system ?? project.system ?? "";
 
@@ -64,7 +93,9 @@ export function ItemsPanel() {
       : zoneFilter === NO_ZONE
         ? "Sem local"
         : (project.zones.find((z) => z.id === zoneFilter)?.name ?? null);
-  const scoped = zoneFilter === null ? null : byZone.get(zoneFilter);
+  // a location with nothing measured yet still filters everything out
+  const scoped =
+    zoneFilter === null ? null : (byZone.get(zoneFilter) ?? new Map<string, ItemTotal>());
 
   /** Measured quantity of an item, within the location filter when one is set. */
   const qtyOf = (id: string) => (scoped ? (scoped.get(id)?.qty ?? 0) : (totals.get(id)?.qty ?? 0));
@@ -78,6 +109,7 @@ export function ItemsPanel() {
       return false;
     // inside a location only items that have something there (the active one stays visible)
     if (scoped && !scoped.has(item.id) && item.id !== activeItemId) return false;
+    if (drawingOnly && !totals.get(item.id)?.count && item.id !== activeItemId) return false;
     return true;
   });
   const sumValue = visible.reduce(
@@ -120,8 +152,8 @@ export function ItemsPanel() {
         ))}
       </datalist>
 
-      <div className="flex items-center gap-1.5 border-b border-neutral-800 px-2 py-1.5">
-        <div className="flex h-7 min-w-0 flex-1 items-center gap-1 rounded bg-neutral-800 px-1.5 ring-1 ring-neutral-700 focus-within:ring-orange-400">
+      <div className="space-y-1.5 border-b border-neutral-800 px-2 py-1.5">
+        <div className="flex h-7 min-w-0 items-center gap-1 rounded bg-neutral-800 px-1.5 ring-1 ring-neutral-700 focus-within:ring-orange-400">
           <Search size={14} className="shrink-0 text-neutral-500" />
           <input
             value={query}
@@ -135,47 +167,62 @@ export function ItemsPanel() {
             </button>
           )}
         </div>
-        {systems.length > 1 && (
-          <select
-            value={systemFilter ?? "*"}
-            onChange={(e) => setSystemFilter(e.target.value === "*" ? null : e.target.value)}
-            title="Mostrar só os itens de uma disciplina (aba da planilha)"
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setDrawingOnly(!drawingOnly)}
+            title="Só o que tem marcações na planta em exibição (itens e locais)"
             className={clsx(
-              "h-7 max-w-[9rem] rounded px-1 text-xs ring-1",
-              systemFilter === null
-                ? "bg-neutral-800 ring-neutral-700"
-                : "bg-orange-500/15 text-orange-300 ring-orange-400",
+              "flex h-7 shrink-0 items-center gap-1 rounded px-1.5 text-xs ring-1",
+              drawingOnly
+                ? "bg-orange-500/15 text-orange-300 ring-orange-400"
+                : "bg-neutral-800 text-neutral-400 ring-neutral-700 hover:text-neutral-100",
             )}
           >
-            <option value="*">Todas as disciplinas</option>
-            {systems.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        )}
-        {project.zones.length > 0 && (
-          <select
-            value={zoneFilter ?? "*"}
-            onChange={(e) => setZoneFilter(e.target.value === "*" ? null : e.target.value)}
-            title="Mostrar quantidades de um local apenas"
-            className={clsx(
-              "h-7 max-w-[9rem] rounded px-1 text-xs ring-1",
-              zoneFilter === null
-                ? "bg-neutral-800 ring-neutral-700"
-                : "bg-orange-500/15 text-orange-300 ring-orange-400",
-            )}
-          >
-            <option value="*">Todos os locais</option>
-            {project.zones.map((z) => (
-              <option key={z.id} value={z.id}>
-                {z.name}
-              </option>
-            ))}
-            <option value={NO_ZONE}>Sem local</option>
-          </select>
-        )}
+            <FileText size={14} /> esta planta
+          </button>
+          {systems.length > 1 && (
+            <select
+              value={systemFilter ?? "*"}
+              onChange={(e) => setSystemFilter(e.target.value === "*" ? null : e.target.value)}
+              title="Mostrar só os itens de uma disciplina (aba da planilha)"
+              className={clsx(
+                "h-7 max-w-[9rem] rounded px-1 text-xs ring-1",
+                systemFilter === null
+                  ? "bg-neutral-800 ring-neutral-700"
+                  : "bg-orange-500/15 text-orange-300 ring-orange-400",
+              )}
+            >
+              <option value="*">Todas as disciplinas</option>
+              {systems.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          )}
+          {project.zones.length > 0 && (
+            <select
+              value={zoneFilter ?? "*"}
+              onChange={(e) => setZoneFilter(e.target.value === "*" ? null : e.target.value)}
+              title="Mostrar quantidades de um local apenas"
+              className={clsx(
+                "h-7 max-w-[9rem] rounded px-1 text-xs ring-1",
+                zoneFilter === null
+                  ? "bg-neutral-800 ring-neutral-700"
+                  : "bg-orange-500/15 text-orange-300 ring-orange-400",
+              )}
+            >
+              <option value="*">Todos os locais</option>
+              {project.zones.map((z) => (
+                <option key={z.id} value={z.id}>
+                  {z.name}
+                </option>
+              ))}
+              <option value={NO_ZONE}>Sem local</option>
+            </select>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -211,6 +258,7 @@ export function ItemsPanel() {
               onActivate={() => setActiveItem(item.id)}
               onChange={(patch) => updateItem(item.id, patch)}
               onRemove={() => removeItem(item.id)}
+              saved={savedNames.has(fold(item.name))}
               onSave={() => void saveItemToCatalog(item.id)}
             />
           );
@@ -276,6 +324,8 @@ interface RowProps {
   breakdown: string;
   systemLabel: string;
   total: string;
+  /** The item's name is already in the user's catalog. */
+  saved: boolean;
   onActivate: () => void;
   onChange: (patch: Partial<Item>) => void;
   onRemove: () => void;
@@ -292,17 +342,15 @@ function ItemRow({
   breakdown,
   systemLabel,
   total,
+  saved,
   onActivate,
   onChange,
   onRemove,
   onSave,
 }: RowProps) {
   const [editing, setEditing] = useState<"name" | "group" | "system" | null>(null);
+  const [styleOpen, setStyleOpen] = useState(false);
   const Icon = KIND_ICON[item.kind];
-  const cycleColor = () => {
-    const i = ITEM_COLORS.indexOf(item.color);
-    onChange({ color: ITEM_COLORS[(i + 1) % ITEM_COLORS.length] });
-  };
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   const tagInput = (
     field: "group" | "system",
@@ -351,21 +399,29 @@ function ItemRow({
       )}
     >
       <div className="flex h-6 items-center gap-1.5">
-        <button
-          type="button"
-          title="Trocar a cor"
-          onClick={(e) => {
-            e.stopPropagation();
-            cycleColor();
-          }}
-          className="h-3 w-3 shrink-0 rounded-full ring-1 ring-black/40"
-          style={{ background: item.color }}
-        />
-        {item.kind === "count" ? (
-          <SymbolIcon id={item.symbol} color={item.color} size={16} className="shrink-0" />
-        ) : (
-          <Icon size={14} className="shrink-0 text-neutral-400" />
-        )}
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            title="Cor e símbolo do item"
+            onClick={(e) => {
+              e.stopPropagation();
+              setStyleOpen(!styleOpen);
+            }}
+            className={clsx(
+              "flex h-5 w-5 items-center justify-center rounded hover:bg-neutral-700",
+              styleOpen && "bg-neutral-700",
+            )}
+          >
+            {item.kind === "count" ? (
+              <SymbolIcon id={item.symbol} color={item.color} size={17} />
+            ) : (
+              <Icon size={16} color={item.color} strokeWidth={2.5} />
+            )}
+          </button>
+          {styleOpen && (
+            <ItemStylePopover item={item} onChange={onChange} onClose={() => setStyleOpen(false)} />
+          )}
+        </div>
         {editing === "name" ? (
           <input
             autoFocus
@@ -423,14 +479,21 @@ function ItemRow({
             <span className="ml-auto flex items-center gap-1">
               <button
                 type="button"
-                title="Salvar no catálogo (nome, grupo e preços)"
+                title={
+                  saved
+                    ? "Já está no catálogo: clique para atualizar nome, grupo, disciplina e preços"
+                    : "Salvar no catálogo (nome, grupo, disciplina e preços)"
+                }
                 onClick={(e) => {
                   e.stopPropagation();
                   onSave();
                 }}
-                className="rounded p-0.5 text-neutral-500 hover:text-amber-400"
+                className={clsx(
+                  "rounded p-0.5",
+                  saved ? "text-amber-400" : "text-neutral-500 hover:text-amber-400",
+                )}
               >
-                <Star size={15} />
+                <Star size={15} fill={saved ? "currentColor" : "none"} />
               </button>
               <button
                 type="button"
@@ -481,32 +544,6 @@ function ItemRow({
             />
             <span>%</span>
           </div>
-          {item.kind === "count" && (
-            <div
-              className="flex flex-wrap items-center gap-0.5"
-              title="Símbolo da marca de contagem"
-            >
-              {SYMBOLS.map((sym) => (
-                <button
-                  key={sym.id}
-                  type="button"
-                  title={sym.label}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onChange({ symbol: sym.id });
-                  }}
-                  className={clsx(
-                    "rounded p-0.5",
-                    (item.symbol ?? "dot") === sym.id
-                      ? "bg-orange-500/20 ring-1 ring-orange-400"
-                      : "hover:bg-neutral-800",
-                  )}
-                >
-                  <SymbolIcon id={sym.id} color={item.color} size={18} />
-                </button>
-              ))}
-            </div>
-          )}
           {breakdown && (
             <div className="truncate text-[11px] text-neutral-500" title={breakdown}>
               {breakdown}

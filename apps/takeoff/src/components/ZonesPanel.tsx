@@ -15,12 +15,19 @@ export function ZonesPanel() {
   const zoneFilter = useStore((s) => s.zoneFilter);
   const zonesVisible = useStore((s) => s.zonesVisible);
   const zoneOpacity = useStore((s) => s.zoneOpacity);
+  const drawingOnly = useStore((s) => s.drawingOnly);
   const { setZonesVisible, setZoneOpacity } = useStore.getState();
   const { setSelection, setPage, setTool, updateZone, removeMeasurements, setZoneFilter } =
     useStore.getState();
   const byZone = useMemo(() => totalsByZone(project), [project]);
   const items = useMemo(() => new Map(project.items.map((i) => [i.id, i])), [project.items]);
-  const zones = useMemo(() => [...project.zones].sort((a, b) => a.page - b.page), [project.zones]);
+  const zones = useMemo(
+    () =>
+      project.zones
+        .filter((z) => !drawingOnly || z.drawingId === project.activeDrawingId)
+        .sort((a, b) => a.page - b.page),
+    [project.zones, project.activeDrawingId, drawingOnly],
+  );
 
   const rows = (key: string) => {
     const totals = byZone.get(key);

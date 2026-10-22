@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { AboutDialog } from "./components/AboutDialog";
 import { CalibrateDialog } from "./components/CalibrateDialog";
 import { CatalogPalette } from "./components/CatalogPalette";
+import { DrawingTabs } from "./components/DrawingTabs";
 import { ItemsPanel } from "./components/ItemsPanel";
 import { LegendDialog } from "./components/LegendDialog";
 import { NewProjectDialog } from "./components/NewProjectDialog";
@@ -102,6 +103,7 @@ export default function App() {
   return (
     <div className="relative flex h-full flex-col">
       <TopBar />
+      <DrawingTabs />
       <div className="flex min-h-0 flex-1">
         <ToolRail />
         <PageStrip />
