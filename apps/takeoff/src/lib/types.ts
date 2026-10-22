@@ -25,8 +25,11 @@ export interface Item {
   manualQty?: number;
   /** Unit label overriding the kind's (kg, gl, bd, l). */
   unit?: string;
-  /** Item computed by the app (duct take-off): quantity is overwritten on every change. */
-  derived?: "duct";
+  /**
+   * Item kept by the app: "duct" is the priced "Rede de dutos" of a discipline (recomputed on
+   * every change); "ductRun" is a measured duct section, never priced in the budget.
+   */
+  derived?: "duct" | "ductRun";
 }
 
 export interface PageMeta {
@@ -98,6 +101,8 @@ export interface Project {
   zones: Zone[];
   /** Duct take-off parameters (norma, allowances, labour); undefined = defaults. */
   duct?: DuctSettings;
+  /** Unit prices of duct materials edited in this takeoff, by bill row name. */
+  ductPrices?: Record<string, number>;
 }
 
 export const ZONE_COLORS = ["#38bdf8", "#fb923c", "#a78bfa", "#4ade80", "#f472b6", "#fde047"];

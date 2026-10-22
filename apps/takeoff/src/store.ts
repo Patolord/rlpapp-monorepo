@@ -207,6 +207,8 @@ export interface State {
   /** Change the section/finishes of duct runs (moves them to the right "Duto A×B cm" item). */
   updateDuctSpec(ids: string[], spec: DuctSpec): void;
   setDuctSettings(settings: DuctSettings): void;
+  /** Unit price of a duct material in this takeoff (bill row name). */
+  setDuctPrice(name: string, price: number): void;
 
   setPageScale(scale: PageScale | null, which: "current" | "all"): void;
   setProjectMeta(patch: ProjectMeta): void;
@@ -640,6 +642,7 @@ export const useStore = create<State>((set, get) => ({
             laborPrice: 0,
             wastePct: 0,
             system: p.system || undefined,
+            derived: "ductRun",
           },
         ];
       }
@@ -680,6 +683,7 @@ export const useStore = create<State>((set, get) => ({
             laborPrice: 0,
             wastePct: 0,
             system: p.system || undefined,
+            derived: "ductRun",
           },
         ];
       }
@@ -706,6 +710,8 @@ export const useStore = create<State>((set, get) => ({
     });
   },
   setDuctSettings: (duct) => get().commit((p) => ({ ...p, duct })),
+  setDuctPrice: (name, price) =>
+    get().commit((p) => ({ ...p, ductPrices: { ...p.ductPrices, [name]: price } })),
 
   setPageScale: (scale, which) => {
     const { page } = get();

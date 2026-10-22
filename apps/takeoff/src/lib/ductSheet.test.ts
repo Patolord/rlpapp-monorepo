@@ -1,0 +1,76 @@
+import { readFileSync } from "node:fs";
+import ExcelJS from "exceljs";
+import { describe, expect, it } from "vitest";
+import { fillDuctWorkbook } from "./ductSheet";
+import { DEFAULT_DUCT_SETTINGS } from "./ducts";
+
+const template = readFileSync("public/templates/levantamento-dutos.xlsx");
+
+describe("reference duct workbook export", () => {
+  it("fills header, parameters, runs and prices while keeping the formulas", async () => {
+    const bytes = await fillDuctWorkbook(template, {
+      client: "CONSTRUTORA X",
+      site: "TORRE A",
+      system: "PRESSURIZAÇÃO",
+      proposalNumber: "26.001",
+      settings: { ...DEFAULT_DUCT_SETTINGS, norma: 1, laborPerKg: 20 },
+      runs: [
+        {
+          tag: "1SUB · Hall",
+          spec: {
+            a: 40,
+            b: 25,
+            insulation: "S",
+            inner: "S",
+            flange: "P",
+            rechapeado: false,
+            paintRechap: false,
+          },
+          length: 3,
+        },
+        {
+          tag: "1PAV",
+          spec: {
+            a: 60,
+            b: 40,
+            insulation: "I",
+            inner: "B",
+            flange: "C",
+            rechapeado: true,
+            paintRechap: true,
+          },
+          length: 12.345,
+        },
+      ],
+      prices: { "Chapa galvanizada # 24": 19.5, "Isopor F1": 7 },
+    });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(bytes as unknown as ArrayBuffer);
+    const principal = wb.getWorksheet("Principal");
+    const lev = wb.getWorksheet("Levantamento dutos");
+    const precos = wb.getWorksheet("Tab_Precos");
+    const calc = wb.getWorksheet("Calculos");
+    if (!principal || !lev || !precos || !calc) throw new Error("sheets missing");
+    expect(principal.getCell("D6").value).toBe("CONSTRUTORA X");
+    expect(principal.getCell("D9").value).toBe("26.001");
+    expect(principal.getCell("G12").value).toBe(1);
+    expect(principal.getCell("G14").value).toBe(20);
+    expect(lev.getCell("B13").value).toBe(40);
+    expect(lev.getCell("C13").value).toBe(25);
+    expect(lev.getCell("D13").value).toBe(3);
+    expect(lev.getCell("E13").value).toBe("S = sem isolamento");
+    expect(lev.getCell("G13").value).toBe("P = Powermatic");
+    expect(lev.getCell("A14").value).toBe("1PAV");
+    expect(lev.getCell("D14").value).toBe(12.35);
+    expect(lev.getCell("E14").value).toBe("I = Isopor");
+    expect(lev.getCell("F14").value).toBe("B = Bidim");
+    expect(lev.getCell("G14").value).toBe("C = Cantoneira");
+    expect(lev.getCell("H14").value).toBe("S = sim");
+    expect(lev.getCell("I14").value).toBe("S = sim");
+    expect(precos.getCell("E5").value).toBe(19.5);
+    expect(precos.getCell("E14").value).toBe(7);
+    // formulas survive the round trip
+    const b13 = calc.getCell("B13").value as { formula?: string };
+    expect(typeof b13 === "object" && b13 && "formula" in b13).toBe(true);
+  });
+});

@@ -7,6 +7,7 @@ import { CalibrateDialog } from "./components/CalibrateDialog";
 import { CatalogPalette } from "./components/CatalogPalette";
 import { DrawingTabs } from "./components/DrawingTabs";
 import { DuctDialog } from "./components/DuctDialog";
+import { DuctsPanel } from "./components/DuctsPanel";
 import { ItemsPanel } from "./components/ItemsPanel";
 import { KitPicker } from "./components/KitPicker";
 import { KitsDialog } from "./components/KitsDialog";
@@ -30,7 +31,7 @@ import { useDoc } from "./lib/session";
 import { checkForUpdate } from "./lib/updater";
 import { useStore } from "./store";
 
-const TABS = { items: "Itens", zones: "Locais", quote: "Orçamento" } as const;
+const TABS = { items: "Itens", zones: "Locais", ducts: "Dutos", quote: "Orçamento" } as const;
 
 export default function App() {
   useHotkeys();
@@ -149,7 +150,15 @@ export default function App() {
               ))}
             </div>
             <div className="min-h-0 flex-1">
-              {tab === "items" ? <ItemsPanel /> : tab === "zones" ? <ZonesPanel /> : <QuotePanel />}
+              {tab === "items" ? (
+                <ItemsPanel />
+              ) : tab === "zones" ? (
+                <ZonesPanel />
+              ) : tab === "ducts" ? (
+                <DuctsPanel />
+              ) : (
+                <QuotePanel />
+              )}
             </div>
           </div>
         )}

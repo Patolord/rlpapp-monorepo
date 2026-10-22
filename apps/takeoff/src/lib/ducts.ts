@@ -116,6 +116,10 @@ export const ductLabel = (s: DuctSpec): string => `Duto ${s.a}×${s.b} cm`;
 
 export interface DuctRun {
   spec: DuctSpec;
+  /** Where the run is (planta · local), for the TAG column of the exported workbook. */
+  tag?: string;
+  /** Discipline of the run's item (pressurização, tomada de ar…); networks are per discipline. */
+  system?: string;
   /** Length in metres (already including vertical, factor and multipliers). */
   length: number;
 }
@@ -132,6 +136,40 @@ export interface DuctBillRow {
 }
 
 const round0 = (v: number) => Math.round(v);
+
+/** Name of the labour row of the bill (kg of sheet metal × R$/kg). */
+export const LABOR_ROW = "Mão de obra - rede de dutos";
+
+export interface DuctTotals {
+  /** Σ qty × unit price of every material row. */
+  material: number;
+  /** Labour: kg × R$/kg (doubled below 500 kg). */
+  labor: number;
+  kg: number;
+  laborRate: number;
+}
+
+export function billTotals(rows: DuctBillRow[], price: (row: DuctBillRow) => number): DuctTotals {
+  let material = 0;
+  let labor = 0;
+  let kg = 0;
+  let laborRate = 0;
+  for (const r of rows) {
+    if (r.name === LABOR_ROW) {
+      kg = r.qty;
+      laborRate = r.labor;
+      labor += r.qty * r.labor;
+    } else {
+      material += r.qty * price(r);
+    }
+  }
+  return {
+    material: Math.round(material * 100) / 100,
+    labor: Math.round(labor * 100) / 100,
+    kg,
+    laborRate,
+  };
+}
 
 /** Bill of materials for a set of duct runs (Resumo sheet), rows with zero quantity omitted. */
 export function ductBill(
@@ -284,7 +322,7 @@ export function ductBill(
 
   if (sheetKg > 0) {
     const perKg = sheetKg < 500 ? s.laborPerKg * 2 : s.laborPerKg;
-    add("Mão de obra - rede de dutos", sheetGroup, "kg", sheetKg, 0, perKg);
+    add(LABOR_ROW, sheetGroup, "kg", sheetKg, 0, perKg);
   }
   return rows;
 }

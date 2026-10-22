@@ -1,7 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../store";
+import { mergeCatalog } from "./catalog";
 import { confirmDialog } from "./dialogs";
+import { DUCT_TEMPLATE_URL, ductSheetInput, fillDuctWorkbook } from "./ductSheet";
 import { mod } from "./platform";
 import { systemSheets, zoneMatrix } from "./quantities";
 import { basename, closePdf, isDocOpen, openPdfPath, preloadPdfPath, useDoc } from "./session";
@@ -232,6 +234,42 @@ export function sheetExport(): SheetExport {
 
 /** Sheet unit abbreviations used on RLP budget sheets. */
 const unitLabel = (u: string): string => (u === "un" ? "pç" : u);
+
+/** Fill RLP's "Levantamento Dutos" workbook for one discipline and save it. */
+export async function exportDuctSheet(system: string): Promise<void> {
+  const store = useStore.getState();
+  const { project } = store;
+  try {
+    const res = await fetch(DUCT_TEMPLATE_URL);
+    if (!res.ok) throw new Error(`modelo não encontrado (${res.status})`);
+    const input = ductSheetInput(project, mergeCatalog(store.catalog), system);
+    const bytes = await fillDuctWorkbook(await res.arrayBuffer(), input);
+    const name = `Levantamento Dutos - ${system || project.site || project.name || "Obra"}.xlsx`;
+    if ("__TAURI_INTERNALS__" in window) {
+      const path = await save({
+        defaultPath: name,
+        filters: [{ name: "Planilha Excel", extensions: ["xlsx"] }],
+      });
+      if (!path) return;
+      await invoke("write_file", { path, data: Array.from(bytes) });
+      store.setStatus(`Exportado: ${basename(path)}`);
+    } else {
+      const url = URL.createObjectURL(
+        new Blob([bytes as unknown as ArrayBuffer], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }),
+      );
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+      store.setStatus(`Exportado: ${name}`);
+    }
+  } catch (e) {
+    store.setStatus(`Falha na planilha de dutos: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
 
 export async function exportXlsx(): Promise<void> {
   const store = useStore.getState();

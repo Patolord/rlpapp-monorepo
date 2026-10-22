@@ -168,6 +168,7 @@ export function systemSheets(project: Project): SystemSheet[] {
   const bySystem = new Map<string, Item[]>();
   const fallback = project.system || "Orçamento";
   for (const item of project.items) {
+    if (item.derived === "ductRun") continue; // priced through the "Rede de dutos" item
     const key = (item.system || fallback).trim() || fallback;
     bySystem.set(key, [...(bySystem.get(key) ?? []), item]);
   }
@@ -282,6 +283,7 @@ export function buildQuote(project: Project): Quote {
   const totals = itemTotals(project);
   const groups = new Map<string, QuoteGroup>();
   for (const item of project.items) {
+    if (item.derived === "ductRun") continue;
     const t = totals.get(item.id) ?? { qty: 0, count: 0, unscaled: 0 };
     const qty = pricedQty(item, t.qty);
     const material = round2(item.materialPrice * qty);

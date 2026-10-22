@@ -461,9 +461,17 @@ function ItemRow({
         {item.derived === "duct" && (
           <span
             className="shrink-0 rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-500"
-            title="Calculado a partir dos dutos medidos: a quantidade acompanha as medições"
+            title="Rede de dutos da disciplina: material e mão de obra calculados na aba Dutos"
           >
-            dutos
+            calculado
+          </span>
+        )}
+        {item.derived === "ductRun" && (
+          <span
+            className="shrink-0 rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-500"
+            title="Trecho de duto medido: entra no orçamento pelo item Rede de dutos"
+          >
+            duto
           </span>
         )}
         <span className="shrink-0 font-mono text-[12px] text-neutral-200">{qtyLabel}</span>

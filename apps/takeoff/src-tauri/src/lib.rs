@@ -24,6 +24,15 @@ fn write_text(path: String, contents: String) -> Result<(), String> {
     std::fs::write(&path, contents).map_err(|e| format!("{path}: {e}"))
 }
 
+/// Write binary content (the filled duct workbook) to a path, creating parent folders.
+#[tauri::command]
+fn write_file(path: String, data: Vec<u8>) -> Result<(), String> {
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&path, data).map_err(|e| format!("{path}: {e}"))
+}
+
 #[tauri::command]
 fn file_exists(path: String) -> bool {
     std::path::Path::new(&path).is_file()
@@ -846,6 +855,7 @@ pub fn run() {
             read_file,
             read_text,
             write_text,
+            write_file,
             file_exists,
             autosave_path,
             catalog_path,
