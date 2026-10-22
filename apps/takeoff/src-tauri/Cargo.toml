@@ -1,6 +1,6 @@
 [package]
 name = "tauri-takeoff"
-version = "0.1.1"
+version = "0.1.2"
 description = "Fast, precise PDF takeoff and quoting"
 authors = ["RLP Engenharia"]
 edition = "2024"
