@@ -8,7 +8,6 @@ import {
   Pentagon,
   Redo2,
   Ruler,
-  Spline,
   Square,
   Undo2,
   WandSparkles,
@@ -21,7 +20,7 @@ const TOOLS: { tool: Tool; label: string; key: string; icon: typeof Hand }[] = [
   { tool: "select", label: "Selecionar", key: "V", icon: MousePointer2 },
   { tool: "pan", label: "Mover a vista", key: "H / Espaço", icon: Hand },
   { tool: "count", label: "Contagem", key: "C", icon: CircleDot },
-  { tool: "linear", label: "Linear", key: "L", icon: Spline },
+  { tool: "linear", label: "Medir (linear)", key: "L", icon: Ruler },
   { tool: "area", label: "Área por polígono", key: "A", icon: Pentagon },
   { tool: "rect", label: "Área por retângulo", key: "R", icon: Square },
   {
@@ -30,7 +29,6 @@ const TOOLS: { tool: Tool; label: string; key: string; icon: typeof Hand }[] = [
     key: "M",
     icon: WandSparkles,
   },
-  { tool: "calibrate", label: "Calibrar escala", key: "K", icon: Ruler },
 ];
 
 export function ToolRail() {

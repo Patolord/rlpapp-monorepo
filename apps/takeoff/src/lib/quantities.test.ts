@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildQuote, itemTotals, measurementQty, pricedQty } from "./quantities";
 import { emptyProject, migrateProject, type Project } from "./types";
-import { imperialScale, metricScale, toBaseUnit } from "./units";
+import { imperialScale, metricScale, ratioLabel, toBaseUnit } from "./units";
 
 const PT_PER_M_AT_1_50 = (1000 / 50) * (72 / 25.4); // 20 mm per metre on paper
 
@@ -82,6 +82,14 @@ function project(): Project {
 }
 
 describe("scales", () => {
+  it("labels calibrated scales as ratios", () => {
+    expect(ratioLabel(metricScale(75).pointsPerUnit, "m")).toBe("1:75");
+    expect(ratioLabel(imperialScale("x", 1 / 4).pointsPerUnit, "ft")).toBe("1:48");
+    // 3.5 m measured as 132.3 pt on paper -> 1:75
+    expect(ratioLabel(132.3 / 3.5, "m")).toBe("1:75");
+    expect(ratioLabel(metricScale(62.5).pointsPerUnit, "m")).toBe("1:62.5");
+  });
+
   it("builds metric and imperial scales", () => {
     expect(metricScale(100).pointsPerUnit).toBeCloseTo(28.3465, 3);
     expect(imperialScale("1/4\" = 1'", 1 / 4).pointsPerUnit).toBe(18);

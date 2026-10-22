@@ -43,6 +43,20 @@ export const IMPERIAL_PRESETS: PageScale[] = [
   imperialScale("1\" = 50'", 1 / 50),
 ];
 
+/** Paper-to-real ratio N of a scale (1:N); metric compares mm on paper to mm real, imperial inches to inches. */
+export function scaleRatio(pointsPerUnit: number, unit: Unit): number {
+  const paperPerUnit = unit === "m" ? pointsPerUnit / PT_PER_MM : pointsPerUnit / PT_PER_IN;
+  const realPerUnit = unit === "m" ? 1000 : 12;
+  return realPerUnit / paperPerUnit;
+}
+
+/** "1:75" style label; one decimal when the ratio is not close to a whole number. */
+export function ratioLabel(pointsPerUnit: number, unit: Unit): string {
+  const r = scaleRatio(pointsPerUnit, unit);
+  const rounded = Math.round(r);
+  return Math.abs(r - rounded) < 0.05 ? `1:${rounded}` : `1:${r.toFixed(1)}`;
+}
+
 export const presetsFor = (unit: Unit): PageScale[] =>
   unit === "m" ? METRIC_PRESETS : IMPERIAL_PRESETS;
 

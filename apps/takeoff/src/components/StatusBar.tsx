@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Ruler } from "lucide-react";
+import { ChevronLeft, ChevronRight, Proportions } from "lucide-react";
 import { useEffect, useState } from "react";
 import { pageScale } from "../lib/quantities";
 import { useDoc } from "../lib/session";
@@ -82,7 +82,7 @@ export function StatusBar() {
         }`}
         title="Escala da página"
       >
-        <Ruler size={12} />
+        <Proportions size={12} />
         {scale ? scale.label : "Definir escala"}
       </button>
       <span className={snap ? "text-orange-300" : ""}>snap {snap ? "ligado" : "desligado"}</span>

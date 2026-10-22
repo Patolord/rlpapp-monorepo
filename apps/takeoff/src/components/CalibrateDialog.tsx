@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { dist } from "../lib/geom";
-import { INPUT_UNITS, type InputUnit, toBaseUnit } from "../lib/units";
+import { INPUT_UNITS, type InputUnit, ratioLabel, toBaseUnit } from "../lib/units";
 import { useStore } from "../store";
 import { Button } from "./ui";
 
@@ -18,8 +18,9 @@ export function CalibrateDialog() {
     const n = Number(value.replace(",", "."));
     if (!(n > 0) || pts <= 0) return;
     const real = toBaseUnit(n, inUnit, unit);
+    const pointsPerUnit = pts / real;
     setPageScale(
-      { pointsPerUnit: pts / real, unit, label: `calibrada (${n} ${inUnit})` },
+      { pointsPerUnit, unit, label: `${ratioLabel(pointsPerUnit, unit)} (calibrada)` },
       all ? "all" : "current",
     );
     setCalibration(null);
