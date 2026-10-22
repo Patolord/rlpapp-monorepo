@@ -37,6 +37,23 @@ jobs:
 
       - run: bun run check-types && bun run test
 
+      # The public repository has no copy of this commit, so the release (and its tag) is
+      # created there first, pointing at its own main; tauri-action then uploads into it.
+      - name: Create the release in the public repository
+        id: rel
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          REPO=Patolord/takeoff-releases
+          if ! gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$REPO" --target main \
+              --title "RLP Takeoff $TAG" \
+              --notes "Instalador Windows (.exe) e atualização assinada (latest.json). O app instalado oferece esta versão sozinho."
+          fi
+          echo "id=$(gh api "repos/$REPO/releases/tags/$TAG" --jq .id)" >> "$GITHUB_OUTPUT"
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
@@ -45,9 +62,5 @@ jobs:
         with:
           owner: Patolord
           repo: takeoff-releases
-          tagName: ${{ github.ref_name }}
-          releaseName: "Takeoff ${{ github.ref_name }}"
-          releaseBody: "Instalador Windows (.exe) e atualização assinada (latest.json)."
-          releaseDraft: false
-          prerelease: false
+          releaseId: ${{ steps.rel.outputs.id }}
           includeUpdaterJson: true
