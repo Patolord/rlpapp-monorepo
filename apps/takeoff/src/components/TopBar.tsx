@@ -1,14 +1,13 @@
 import { FileSpreadsheet, FileText, FolderOpen, Save } from "lucide-react";
 import { exportXlsx, pickAndOpenPdf, pickAndOpenProject, saveProject } from "../lib/files";
-import { useDoc } from "../lib/session";
 import { useStore } from "../store";
+import { DrawingSwitcher } from "./DrawingSwitcher";
 import { UpdateButton } from "./UpdateButton";
 import { Button } from "./ui";
 
 export function TopBar() {
   const name = useStore((s) => s.project.name);
   const dirty = useStore((s) => s.dirty);
-  const pdfName = useDoc((s) => s.name);
   const setProjectMeta = useStore((s) => s.setProjectMeta);
   return (
     <div className="flex h-11 items-center gap-2 border-b border-neutral-800 bg-neutral-900 px-3">
@@ -22,7 +21,7 @@ export function TopBar() {
       />
       {dirty && <span className="text-xs text-amber-400">● não salvo</span>}
       <UpdateButton />
-      {pdfName && <span className="truncate text-xs text-neutral-500">{pdfName}</span>}
+      <DrawingSwitcher />
       <div className="ml-auto flex items-center gap-1.5">
         <Button onClick={() => void pickAndOpenPdf()} title="Ctrl+O">
           <FileText size={14} /> Abrir PDF

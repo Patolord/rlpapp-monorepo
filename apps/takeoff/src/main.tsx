@@ -16,6 +16,7 @@ if (import.meta.env.DEV) {
         viewport: v.useViewport,
         doc: d.useDoc,
         session: d.session,
+        devAddDrawing: d.devAddDrawing,
       };
     },
   );

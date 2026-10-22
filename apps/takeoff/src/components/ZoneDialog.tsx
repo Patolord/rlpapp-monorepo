@@ -24,7 +24,7 @@ export function ZoneDialog() {
   const [name, setName] = useState("");
   if (!pending) return null;
 
-  const scale = pageScale(project, pending.page);
+  const scale = pageScale(project, project.activeDrawingId, pending.page);
   const area = polygonArea(pending.points);
   const areaText = scale
     ? formatArea(area / (scale.pointsPerUnit * scale.pointsPerUnit), scale.unit)

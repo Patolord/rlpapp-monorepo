@@ -20,9 +20,22 @@ export interface Item {
   symbol?: string;
 }
 
+export interface PageMeta {
+  scale: PageScale | null;
+}
+
+/** One PDF of the project. Markings and locations belong to a drawing; items are shared. */
+export interface Drawing {
+  id: string;
+  path: string | null;
+  name: string;
+  pages: PageMeta[];
+}
+
 export interface Measurement {
   id: string;
   itemId: string;
+  drawingId: string;
   page: number;
   /** Page-space points (PDF points, origin top-left of the displayed page). */
   points: Pt[];
@@ -32,6 +45,7 @@ export interface Measurement {
 export interface Zone {
   id: string;
   name: string;
+  drawingId: string;
   page: number;
   points: Pt[];
   color: string;
@@ -39,15 +53,9 @@ export interface Zone {
   hidden?: boolean;
 }
 
-export interface PageMeta {
-  scale: PageScale | null;
-}
-
 export interface Project {
-  version: 2;
+  version: 3;
   name: string;
-  pdfPath: string | null;
-  pdfName: string;
   unit: Unit;
   currency: string;
   /** Budget sheet header fields. */
@@ -63,7 +71,9 @@ export interface Project {
   extrasPct: number;
   /** How the exported sheet is sectioned: by location (ambiente) or by item group. */
   sectionsBy: "local" | "grupo";
-  pages: PageMeta[];
+  drawings: Drawing[];
+  /** Drawing shown in the viewer; persisted so a project reopens where it was. */
+  activeDrawingId: string | null;
   items: Item[];
   measurements: Measurement[];
   zones: Zone[];
@@ -100,12 +110,12 @@ export const newId = (): string =>
     ? crypto.randomUUID().slice(0, 8)
     : Math.random().toString(36).slice(2, 10);
 
+export const UNTITLED = "Orçamento sem nome";
+
 export function emptyProject(): Project {
   return {
-    version: 2,
-    name: "Orçamento sem nome",
-    pdfPath: null,
-    pdfName: "",
+    version: 3,
+    name: UNTITLED,
     unit: "m",
     currency: "BRL",
     client: "",
@@ -116,43 +126,73 @@ export function emptyProject(): Project {
     bdi: 1.42,
     extrasPct: 5,
     sectionsBy: "local",
-    pages: [],
+    drawings: [],
+    activeDrawingId: null,
     items: [],
     measurements: [],
     zones: [],
   };
 }
 
+export const drawingOf = (project: Project, id: string | null | undefined): Drawing | undefined =>
+  id ? project.drawings.find((d) => d.id === id) : undefined;
+
+export const activeDrawing = (project: Project): Drawing | undefined =>
+  drawingOf(project, project.activeDrawingId);
+
 /** Load a project file of any supported version into the current shape. */
 export function migrateProject(raw: unknown): Project {
   if (!raw || typeof raw !== "object") throw new Error("Not a takeoff project");
   const r = raw as Record<string, unknown>;
   const base = emptyProject();
-  if (r.version === 2) return { ...base, ...(r as Partial<Project>), version: 2 };
-  if (r.version === 1) {
-    const items = ((r.items as Record<string, unknown>[]) ?? []).map((i) => ({
-      id: String(i.id),
-      name: String(i.name ?? ""),
-      kind: i.kind as Kind,
-      color: String(i.color ?? ITEM_COLORS[0]),
-      group: DEFAULT_GROUP,
-      materialPrice: Number(i.unitPrice ?? 0),
-      laborPrice: 0,
-      wastePct: Number(i.wastePct ?? 0),
-    }));
-    const markup = Number(r.markupPct ?? 0);
-    return {
-      ...base,
-      name: String(r.name ?? base.name),
-      pdfPath: (r.pdfPath as string | null) ?? null,
-      pdfName: String(r.pdfName ?? ""),
-      unit: (r.unit as Unit) ?? "m",
-      currency: String(r.currency ?? "BRL"),
-      bdi: markup ? 1 + markup / 100 : base.bdi,
-      pages: (r.pages as PageMeta[]) ?? [],
-      items,
-      measurements: (r.measurements as Measurement[]) ?? [],
-    };
+  if (r.version === 3) return { ...base, ...(r as Partial<Project>), version: 3 };
+  if (r.version !== 1 && r.version !== 2) {
+    throw new Error(`Unsupported project version ${String(r.version)}`);
   }
-  throw new Error(`Unsupported project version ${String(r.version)}`);
+  // v1/v2: a single PDF (pdfPath / pdfName / pages) with page-keyed measurements and zones
+  const drawingId = newId();
+  const pdfPath = (r.pdfPath as string | null) ?? null;
+  const drawing: Drawing = {
+    id: drawingId,
+    path: pdfPath,
+    name: String(r.pdfName ?? (pdfPath ? pdfPath.split(/[\\/]/).pop() : "Desenho")),
+    pages: (r.pages as PageMeta[]) ?? [],
+  };
+  const items = ((r.items as Record<string, unknown>[]) ?? []).map((i) => ({
+    id: String(i.id),
+    name: String(i.name ?? ""),
+    kind: i.kind as Kind,
+    color: String(i.color ?? ITEM_COLORS[0]),
+    group: String(i.group ?? DEFAULT_GROUP),
+    materialPrice: Number(i.materialPrice ?? i.unitPrice ?? 0),
+    laborPrice: Number(i.laborPrice ?? 0),
+    wastePct: Number(i.wastePct ?? 0),
+    system: typeof i.system === "string" ? i.system : undefined,
+    symbol: typeof i.symbol === "string" ? i.symbol : undefined,
+  }));
+  const measurements = ((r.measurements as Omit<Measurement, "drawingId">[]) ?? []).map((m) => ({
+    ...m,
+    drawingId,
+  }));
+  const zones = ((r.zones as Omit<Zone, "drawingId">[]) ?? []).map((z) => ({ ...z, drawingId }));
+  const markup = Number(r.markupPct ?? 0);
+  return {
+    ...base,
+    name: String(r.name ?? base.name),
+    unit: (r.unit as Unit) ?? "m",
+    currency: String(r.currency ?? "BRL"),
+    client: String(r.client ?? ""),
+    site: String(r.site ?? ""),
+    proposalNumber: String(r.proposalNumber ?? ""),
+    estimator: String(r.estimator ?? ""),
+    system: String(r.system ?? ""),
+    bdi: typeof r.bdi === "number" ? r.bdi : markup ? 1 + markup / 100 : base.bdi,
+    extrasPct: typeof r.extrasPct === "number" ? r.extrasPct : base.extrasPct,
+    sectionsBy: r.sectionsBy === "grupo" ? "grupo" : "local",
+    drawings: pdfPath || measurements.length || zones.length ? [drawing] : [],
+    activeDrawingId: pdfPath || measurements.length || zones.length ? drawingId : null,
+    items,
+    measurements,
+    zones,
+  };
 }

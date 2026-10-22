@@ -6,12 +6,22 @@ import {
   polygonCentroid,
   polylineLength,
 } from "./geom";
-import { DEFAULT_GROUP, type Item, type Measurement, type Project, type Zone } from "./types";
+import {
+  DEFAULT_GROUP,
+  drawingOf,
+  type Item,
+  type Measurement,
+  type Project,
+  type Zone,
+} from "./types";
 import type { Kind, PageScale } from "./units";
 import { qtyUnit } from "./units";
 
-export const pageScale = (project: Project, page: number): PageScale | null =>
-  project.pages[page]?.scale ?? null;
+export const pageScale = (
+  project: Project,
+  drawingId: string | null | undefined,
+  page: number,
+): PageScale | null => drawingOf(project, drawingId)?.pages[page]?.scale ?? null;
 
 /** Quantity of one measurement in project units, or null when the page is not calibrated. */
 export function measurementQty(m: Measurement, kind: Kind, scale: PageScale | null): number | null {
@@ -35,7 +45,7 @@ export function zoneOf(project: Project, m: Measurement, kind: Kind): Zone | nul
   let best: Zone | null = null;
   let bestArea = Number.POSITIVE_INFINITY;
   for (const z of project.zones) {
-    if (z.page !== m.page || !pointInPolygon(a, z.points)) continue;
+    if (z.drawingId !== m.drawingId || z.page !== m.page || !pointInPolygon(a, z.points)) continue;
     const area = polygonArea(z.points);
     if (area < bestArea) {
       best = z;
@@ -64,7 +74,7 @@ export function itemTotals(
     const t = totals.get(m.itemId);
     if (!item || !t) continue;
     if (include && !include(m, item.kind)) continue;
-    const q = measurementQty(m, item.kind, pageScale(project, m.page));
+    const q = measurementQty(m, item.kind, pageScale(project, m.drawingId, m.page));
     t.count++;
     if (q === null) t.unscaled++;
     else t.qty += q;
@@ -93,7 +103,7 @@ export function totalsByZone(project: Project): Map<string, Map<string, ItemTota
       t = { qty: 0, count: 0, unscaled: 0 };
       totals.set(m.itemId, t);
     }
-    const q = measurementQty(m, item.kind, pageScale(project, m.page));
+    const q = measurementQty(m, item.kind, pageScale(project, m.drawingId, m.page));
     t.count++;
     if (q === null) t.unscaled++;
     else t.qty += q;

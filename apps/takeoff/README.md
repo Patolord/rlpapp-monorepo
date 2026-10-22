@@ -128,5 +128,9 @@ src-tauri/      Rust: file IO, autosave path, Excel export (rust_xlsxwriter)
 samples/        client drawings and budget sheets (confidential, git-ignored)
 ```
 
-Project files are JSON (`*.takeoff.json`) referencing the PDF by path; an autosave is written
+A project holds several drawings (PDFs): markings, locations and scales belong to the drawing
+they were made on, items and quantities are shared by the whole project. The top-bar switcher
+changes the drawing in view or adds another PDF.
+
+Project files are JSON (`*.takeoff.json`) referencing each PDF by path; an autosave is written
 to the app data folder every 15 s while there are unsaved changes.

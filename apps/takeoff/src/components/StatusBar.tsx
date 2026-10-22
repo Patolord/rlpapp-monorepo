@@ -50,7 +50,7 @@ export function StatusBar() {
   const snap = useStore((s) => s.snap);
   const ortho = useStore((s) => s.ortho);
   const status = useStore((s) => s.status);
-  const scale = useStore((s) => pageScale(s.project, s.page));
+  const scale = useStore((s) => pageScale(s.project, s.project.activeDrawingId, s.page));
   const selCount = useStore((s) => s.selection.length);
   const zoneFilterName = useStore((s) =>
     s.zoneFilter === null
@@ -71,7 +71,7 @@ export function StatusBar() {
   useEffect(() => useViewport.subscribe((v) => setZoom(v.zoom)), []);
 
   return (
-    <div className="relative flex h-7 items-center gap-3 border-t border-neutral-800 bg-neutral-900 px-2 text-[11px] text-neutral-400">
+    <div className="relative flex h-7 items-center gap-3 overflow-hidden whitespace-nowrap border-t border-neutral-800 bg-neutral-900 px-2 text-[11px] text-neutral-400">
       <div className="flex items-center gap-0.5">
         <button
           type="button"

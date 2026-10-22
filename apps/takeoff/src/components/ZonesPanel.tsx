@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import { Eye, EyeOff, Filter, SquareDashed, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { switchDrawing } from "../lib/files";
 import { polygonArea } from "../lib/geom";
 import { NO_ZONE, pageScale, totalsByZone } from "../lib/quantities";
 import type { Zone } from "../lib/types";
@@ -106,9 +107,21 @@ export function ZonesPanel() {
             onToggleHidden={() => updateZone(z.id, { hidden: !z.hidden })}
             areaText={areaText(project, z)}
             onSelect={() => {
+              if (z.drawingId !== project.activeDrawingId) {
+                void switchDrawing(z.drawingId).then(() => {
+                  useStore.getState().setPage(z.page);
+                  useStore.getState().setSelection([z.id]);
+                });
+                return;
+              }
               setPage(z.page);
               setSelection([z.id]);
             }}
+            drawingName={
+              project.drawings.length > 1
+                ? (project.drawings.find((d) => d.id === z.drawingId)?.name ?? "")
+                : ""
+            }
             onRename={(name) => updateZone(z.id, { name })}
             onRemove={() => removeMeasurements([z.id])}
           >
@@ -150,7 +163,7 @@ export function ZonesPanel() {
 }
 
 function areaText(project: ReturnType<typeof useStore.getState>["project"], z: Zone): string {
-  const scale = pageScale(project, z.page);
+  const scale = pageScale(project, z.drawingId, z.page);
   const a = polygonArea(z.points);
   return scale
     ? formatArea(a / (scale.pointsPerUnit * scale.pointsPerUnit), scale.unit)
@@ -163,6 +176,7 @@ function ZoneRow({
   filtered,
   onFilter,
   onToggleHidden,
+  drawingName,
   areaText,
   onSelect,
   onRename,
@@ -174,6 +188,7 @@ function ZoneRow({
   filtered: boolean;
   onFilter: () => void;
   onToggleHidden: () => void;
+  drawingName: string;
   areaText: string;
   onSelect: () => void;
   onRename: (name: string) => void;
@@ -221,7 +236,9 @@ function ZoneRow({
             {zone.name}
           </span>
         )}
-        <span className="text-[10px] text-neutral-500">pág. {zone.page + 1}</span>
+        <span className="truncate text-[10px] text-neutral-500" title={drawingName}>
+          {drawingName ? `${drawingName} · ` : ""}pág. {zone.page + 1}
+        </span>
         <span className="font-mono text-[11px] text-neutral-300">{areaText}</span>
         <button
           type="button"

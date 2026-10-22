@@ -13,7 +13,9 @@ import type { Pt } from "./lib/geom";
 import { useDoc } from "./lib/session";
 import { guessSymbol } from "./lib/symbols";
 import {
+  activeDrawing,
   DEFAULT_GROUP,
+  type Drawing,
   emptyProject,
   ITEM_COLORS,
   type Item,
@@ -124,7 +126,12 @@ export interface State {
   catalog: CatalogStore;
 
   resetProject(project?: Project, filePath?: string | null): void;
+  /** Size the active drawing's page list to the opened document. */
   ensurePages(n: number): void;
+  addDrawing(path: string | null, name: string): string;
+  updateDrawing(id: string, patch: Partial<Drawing>): void;
+  removeDrawing(id: string): void;
+  setActiveDrawing(id: string | null): void;
   setFilePath(path: string | null): void;
   markSaved(): void;
 
@@ -231,9 +238,59 @@ export const useStore = create<State>((set, get) => ({
 
   ensurePages: (n) => {
     const { project } = get();
-    if (project.pages.length === n) return;
-    const pages = Array.from({ length: n }, (_, i) => project.pages[i] ?? { scale: null });
-    set({ project: { ...project, pages } });
+    const d = activeDrawing(project);
+    if (!d || d.pages.length === n) return;
+    const pages = Array.from({ length: n }, (_, i) => d.pages[i] ?? { scale: null });
+    set({
+      project: {
+        ...project,
+        drawings: project.drawings.map((x) => (x.id === d.id ? { ...x, pages } : x)),
+      },
+    });
+  },
+
+  addDrawing: (path, name) => {
+    const id = newId();
+    get().commit((p) => ({
+      ...p,
+      drawings: [...p.drawings, { id, path, name, pages: [] }],
+    }));
+    return id;
+  },
+
+  updateDrawing: (id, patch) =>
+    get().commit((p) => ({
+      ...p,
+      drawings: p.drawings.map((d) => (d.id === id ? { ...d, ...patch } : d)),
+    })),
+
+  removeDrawing: (id) => {
+    get().commit((p) => {
+      const drawings = p.drawings.filter((d) => d.id !== id);
+      return {
+        ...p,
+        drawings,
+        activeDrawingId: p.activeDrawingId === id ? (drawings[0]?.id ?? null) : p.activeDrawingId,
+        measurements: p.measurements.filter((m) => m.drawingId !== id),
+        zones: p.zones.filter((z) => z.drawingId !== id),
+      };
+    });
+    set({ selection: [], zoneFilter: null, page: 0 });
+  },
+
+  setActiveDrawing: (id) => {
+    const { project } = get();
+    if (project.activeDrawingId === id) return;
+    // view state, not an edit: no undo entry
+    set({
+      project: { ...project, activeDrawingId: id },
+      dirty: true,
+      page: 0,
+      selection: [],
+      zoneFilter: null,
+      calibration: null,
+      pendingZone: null,
+    });
   },
 
   setFilePath: (filePath) => set({ filePath }),
@@ -329,20 +386,22 @@ export const useStore = create<State>((set, get) => ({
 
   addMeasurement: (itemId, page, points) => {
     const id = newId();
+    const drawingId = get().project.activeDrawingId ?? "";
     get().commit((p) => ({
       ...p,
-      measurements: [...p.measurements, { id, itemId, page, points }],
+      measurements: [...p.measurements, { id, itemId, drawingId, page, points }],
     }));
     return id;
   },
 
   addMeasurements: (itemId, page, pointsList) => {
     if (pointsList.length === 0) return 0;
+    const drawingId = get().project.activeDrawingId ?? "";
     get().commit((p) => ({
       ...p,
       measurements: [
         ...p.measurements,
-        ...pointsList.map((points) => ({ id: newId(), itemId, page, points })),
+        ...pointsList.map((points) => ({ id: newId(), itemId, drawingId, page, points })),
       ],
     }));
     return pointsList.length;
@@ -382,11 +441,19 @@ export const useStore = create<State>((set, get) => ({
 
   addZone: (name, page, points) => {
     const id = newId();
+    const drawingId = get().project.activeDrawingId ?? "";
     get().commit((p) => ({
       ...p,
       zones: [
         ...p.zones,
-        { id, name, page, points, color: ZONE_COLORS[p.zones.length % ZONE_COLORS.length] },
+        {
+          id,
+          name,
+          drawingId,
+          page,
+          points,
+          color: ZONE_COLORS[p.zones.length % ZONE_COLORS.length],
+        },
       ],
     }));
     set({ pendingZone: null, selection: [id] });
@@ -405,14 +472,13 @@ export const useStore = create<State>((set, get) => ({
     const { page } = get();
     const n = Math.max(useDoc.getState().numPages, page + 1);
     get().commit((p) => {
+      const d = activeDrawing(p);
+      if (!d) return p;
       const pages = Array.from(
-        { length: Math.max(n, p.pages.length) },
-        (_, i) => p.pages[i] ?? { scale: null },
-      );
-      return {
-        ...p,
-        pages: pages.map((pm, i) => (which === "all" || i === page ? { ...pm, scale } : pm)),
-      };
+        { length: Math.max(n, d.pages.length) },
+        (_, i) => d.pages[i] ?? { scale: null },
+      ).map((pm, i) => (which === "all" || i === page ? { ...pm, scale } : pm));
+      return { ...p, drawings: p.drawings.map((x) => (x.id === d.id ? { ...x, pages } : x)) };
     });
   },
 
@@ -570,6 +636,6 @@ export const useStore = create<State>((set, get) => ({
   },
 }));
 
-/** Measurements on the given page. */
+/** Measurements on the given page of the active drawing. */
 export const measurementsOnPage = (project: Project, page: number): Measurement[] =>
-  project.measurements.filter((m) => m.page === page);
+  project.measurements.filter((m) => m.drawingId === project.activeDrawingId && m.page === page);

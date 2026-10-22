@@ -276,9 +276,10 @@ export function Viewer() {
       const v = useViewport.getState();
       const tol = HIT_PX / v.zoom;
       const items = new Map(project.items.map((i) => [i.id, i]));
+      const did = project.activeDrawingId;
       for (let i = project.measurements.length - 1; i >= 0; i--) {
         const m = project.measurements[i];
-        if (m.page !== p) continue;
+        if (m.drawingId !== did || m.page !== p) continue;
         const item = items.get(m.itemId);
         if (!item) continue;
         if (item.kind === "count") {
@@ -291,7 +292,13 @@ export function Viewer() {
       }
       for (let i = project.zones.length - 1; i >= 0; i--) {
         const z = project.zones[i];
-        if (z.page === p && distToPolyline(raw, z.points, true) <= tol * 1.5) return z.id;
+        if (
+          z.drawingId === did &&
+          z.page === p &&
+          distToPolyline(raw, z.points, true) <= tol * 1.5
+        ) {
+          return z.id;
+        }
       }
       return null;
     },
@@ -334,7 +341,10 @@ export function Viewer() {
       }
       const itemId = store.resolveItem("count");
       const existing = store.project.measurements.filter(
-        (m) => m.itemId === itemId && m.page === store.page,
+        (m) =>
+          m.itemId === itemId &&
+          m.drawingId === store.project.activeDrawingId &&
+          m.page === store.page,
       );
       const fresh = res.centers.filter(
         (c) => !existing.some((m) => Math.hypot(m.points[0].x - c.x, m.points[0].y - c.y) <= 3),
@@ -401,7 +411,8 @@ export function Viewer() {
       } = store;
       const fillK = fillsVisible ? fillOpacity : 0;
       const v = useViewport.getState();
-      const scale = pageScale(project, p);
+      const did = project.activeDrawingId;
+      const scale = pageScale(project, did, p);
       const items = new Map(project.items.map((i) => [i.id, i]));
       const sel = new Set(selection);
       const tl = toPage({ x: 0, y: 0 }, v);
@@ -414,7 +425,9 @@ export function Viewer() {
       viewBox.maxY += pad;
 
       for (const z of project.zones) {
-        if (z.page !== p || !boxesIntersect(bbox(z.points), viewBox)) continue;
+        if (z.drawingId !== did || z.page !== p || !boxesIntersect(bbox(z.points), viewBox)) {
+          continue;
+        }
         const isSel = sel.has(z.id) || zoneFilter === z.id;
         // hidden locations (globally or individually) still show while selected or filtered
         if ((!zonesVisible || z.hidden) && !isSel) continue;
@@ -438,7 +451,7 @@ export function Viewer() {
       }
 
       for (const m of project.measurements) {
-        if (m.page !== p) continue;
+        if (m.drawingId !== did || m.page !== p) continue;
         const item = items.get(m.itemId);
         if (!item) continue;
         if (!boxesIntersect(bbox(m.points), viewBox)) continue;
@@ -616,7 +629,9 @@ export function Viewer() {
       selectAllOnPage: () => {
         const store = useStore.getState();
         store.setSelection(
-          store.project.measurements.filter((m) => m.page === store.page).map((m) => m.id),
+          store.project.measurements
+            .filter((m) => m.drawingId === store.project.activeDrawingId && m.page === store.page)
+            .map((m) => m.id),
         );
       },
     };
@@ -811,7 +826,12 @@ export function Viewer() {
           maxY: Math.max(a.y, b.y),
         };
         const ids = [...store.project.measurements, ...store.project.zones]
-          .filter((mm) => mm.page === store.page && boxContains(box, bbox(mm.points)))
+          .filter(
+            (mm) =>
+              mm.drawingId === store.project.activeDrawingId &&
+              mm.page === store.page &&
+              boxContains(box, bbox(mm.points)),
+          )
           .map((mm) => mm.id);
         store.setSelection(e.shiftKey ? Array.from(new Set([...store.selection, ...ids])) : ids);
       }

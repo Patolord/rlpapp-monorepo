@@ -3,7 +3,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../store";
 import { systemSheets, zoneMatrix } from "./quantities";
 import { basename, openPdfPath, useDoc } from "./session";
-import { migrateProject } from "./types";
+import { drawingOf, migrateProject, UNTITLED } from "./types";
 
 const PROJECT_FILTER = [{ name: "Projeto Takeoff", extensions: ["takeoff.json", "json"] }];
 const PDF_FILTER = [{ name: "Desenhos PDF", extensions: ["pdf"] }];
@@ -13,29 +13,48 @@ export async function pickAndOpenPdf(): Promise<void> {
   if (typeof path === "string") await openPdfFile(path);
 }
 
+/**
+ * Add a PDF to the project (or switch to it when it is already there) and show it.
+ * Markings and locations are kept per drawing; items are shared by the whole project.
+ */
 export async function openPdfFile(path: string): Promise<void> {
   const store = useStore.getState();
+  const existing = store.project.drawings.find((d) => d.path === path);
+  if (existing) {
+    await switchDrawing(existing.id);
+    return;
+  }
+  const { project } = store;
+  const name = basename(path);
+  const id = store.addDrawing(path, name);
+  if (project.name === UNTITLED && project.drawings.length === 0) {
+    store.setProjectMeta({ name: name.replace(/\.pdf$/i, "") });
+  }
+  await switchDrawing(id);
+}
+
+/** Make a drawing the active one and load its PDF (asking to relocate it when missing). */
+export async function switchDrawing(id: string): Promise<void> {
+  const store = useStore.getState();
+  const drawing = drawingOf(store.project, id);
+  if (!drawing) return;
+  let path = drawing.path;
+  if (!path || !(await invoke<boolean>("file_exists", { path }))) {
+    store.setStatus(`PDF não encontrado: ${path ?? drawing.name}. Localize-o para religar.`);
+    const picked = await open({
+      multiple: false,
+      filters: PDF_FILTER,
+      title: `Localizar ${drawing.name}`,
+    });
+    if (typeof picked !== "string") return;
+    path = picked;
+    store.updateDrawing(id, { path, name: basename(path) });
+  }
   store.setStatus(`Abrindo ${basename(path)}…`);
   try {
     await openPdfPath(path);
-    const { project } = useStore.getState();
-    if (project.pdfPath !== path) {
-      // a different drawing: start a fresh project around it unless the current one is empty
-      const fresh = project.measurements.length === 0 && project.items.length === 0;
-      if (fresh) {
-        store.resetProject({
-          ...project,
-          pdfPath: path,
-          pdfName: basename(path),
-          name: basename(path).replace(/\.pdf$/i, ""),
-          pages: [],
-        });
-      } else {
-        store.commit((p) => ({ ...p, pdfPath: path, pdfName: basename(path) }));
-      }
-    }
+    useStore.getState().setActiveDrawing(id);
     useStore.getState().ensurePages(useDoc.getState().numPages);
-    useStore.getState().setPage(0);
     useStore.getState().setStatus(null);
   } catch (e) {
     store.setStatus(`Não foi possível abrir o PDF: ${e instanceof Error ? e.message : String(e)}`);
@@ -63,25 +82,8 @@ export async function openProjectFile(path: string): Promise<void> {
   const text = await invoke<string>("read_text", { path });
   const project = migrateProject(JSON.parse(text));
   store.resetProject(project, path);
-  if (project.pdfPath) {
-    const exists = await invoke<boolean>("file_exists", { path: project.pdfPath });
-    if (exists) {
-      await openPdfPath(project.pdfPath);
-      useStore.getState().setPage(0);
-    } else {
-      store.setStatus(`PDF não encontrado: ${project.pdfPath}. Localize-o para religar.`);
-      const picked = await open({
-        multiple: false,
-        filters: PDF_FILTER,
-        title: "Localizar o PDF do desenho",
-      });
-      if (typeof picked === "string") {
-        await openPdfPath(picked);
-        useStore.getState().commit((p) => ({ ...p, pdfPath: picked, pdfName: basename(picked) }));
-        useStore.getState().setPage(0);
-      }
-    }
-  }
+  const first = project.activeDrawingId ?? project.drawings[0]?.id;
+  if (first) await switchDrawing(first);
 }
 
 export async function pickAndOpenProject(): Promise<void> {
@@ -182,10 +184,11 @@ export async function restoreAutosave(): Promise<boolean> {
   if (!exists) return false;
   const text = await invoke<string>("read_text", { path: autosavePath });
   const project = migrateProject(JSON.parse(text));
-  if (!project.pdfPath) return false;
+  const first = project.activeDrawingId ?? project.drawings[0]?.id;
+  if (!first) return false;
   useStore.getState().resetProject(project, null);
   useStore.getState().setStatus("Sessão restaurada do salvamento automático (não salva)");
-  await openPdfPath(project.pdfPath);
+  await switchDrawing(first);
   useStore.setState({ dirty: true });
   return true;
 }

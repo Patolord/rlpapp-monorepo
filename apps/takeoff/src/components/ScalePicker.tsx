@@ -8,7 +8,7 @@ export function ScalePicker({ onClose }: { onClose: () => void }) {
   const project = useStore((s) => s.project);
   const page = useStore((s) => s.page);
   const { setPageScale, setTool } = useStore.getState();
-  const current = pageScale(project, page);
+  const current = pageScale(project, project.activeDrawingId, page);
   const [all, setAll] = useState(true);
   const [custom, setCustom] = useState("");
   const which = all ? "all" : "current";
@@ -19,7 +19,7 @@ export function ScalePicker({ onClose }: { onClose: () => void }) {
         <span className="font-semibold text-neutral-100">Escala do desenho</span>
         <label className="flex items-center gap-1 text-neutral-400">
           <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> todas
-          as páginas
+          as páginas deste desenho
         </label>
       </div>
       <div className="grid grid-cols-4 gap-1">

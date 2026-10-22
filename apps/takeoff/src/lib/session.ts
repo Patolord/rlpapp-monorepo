@@ -157,4 +157,23 @@ export async function devAutoOpen(): Promise<void> {
   const res = await fetch(`/@fs/${p.replace(/\\/g, "/")}`);
   if (!res.ok) throw new Error(`${res.status} loading ${p}`);
   await openPdfBytes(new Uint8Array(await res.arrayBuffer()), basename(p), null);
+  // register it as a drawing of the project, as openPdfFile does inside Tauri
+  const { useStore } = await import("../store");
+  const store = useStore.getState();
+  const id = store.addDrawing(p, basename(p));
+  store.setActiveDrawing(id);
+  useStore.getState().ensurePages(useDoc.getState().numPages);
+}
+
+/** Dev only: add another drawing from an absolute path (browser mode). */
+export async function devAddDrawing(p: string): Promise<void> {
+  const res = await fetch(`/@fs/${p.replace(/\\/g, "/")}`);
+  if (!res.ok) throw new Error(`${res.status} loading ${p}`);
+  const { useStore } = await import("../store");
+  const store = useStore.getState();
+  const existing = store.project.drawings.find((d) => d.path === p);
+  const id = existing?.id ?? store.addDrawing(p, basename(p));
+  await openPdfBytes(new Uint8Array(await res.arrayBuffer()), basename(p), null);
+  useStore.getState().setActiveDrawing(id);
+  useStore.getState().ensurePages(useDoc.getState().numPages);
 }
