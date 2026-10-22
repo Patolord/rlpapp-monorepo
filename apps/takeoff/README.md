@@ -45,7 +45,7 @@ The tag triggers `.github/workflows/release.yml`, which builds on Windows, signs
 artifact and publishes a GitHub Release in the public repository
 [Patolord/takeoff-releases](https://github.com/Patolord/takeoff-releases) with the installer,
 the `.sig` and `latest.json`. Installed copies read that repository's
-`releases/latest/download/latest.json` (checked at start and every 30 minutes) and offer the
+`releases/latest/download/latest.json` (checked once at launch) and offer the
 update. Secrets in this private repository: `TAURI_SIGNING_PRIVATE_KEY`,
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` and `RELEASE_TOKEN` (a GitHub token that may create
 releases in takeoff-releases). To build and sign locally instead, set the two signing variables

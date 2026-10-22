@@ -71,14 +71,10 @@ export default function App() {
       .catch((e) => console.warn("catalog refresh failed", e));
   }, []);
 
-  // look for a new version shortly after start and every 30 minutes (no-op outside Tauri)
+  // look for a new version once, shortly after launch (no-op outside Tauri)
   useEffect(() => {
-    const first = window.setTimeout(() => void checkForUpdate(), 4000);
-    const every = window.setInterval(() => void checkForUpdate(), 30 * 60_000);
-    return () => {
-      window.clearTimeout(first);
-      window.clearInterval(every);
-    };
+    const id = window.setTimeout(() => void checkForUpdate(), 4000);
+    return () => window.clearTimeout(id);
   }, []);
 
   // crash-safe autosave
