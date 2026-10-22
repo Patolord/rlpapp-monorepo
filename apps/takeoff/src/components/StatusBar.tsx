@@ -31,6 +31,12 @@ const HINTS: Record<string, React.ReactNode> = {
   rect: "Arraste um retângulo",
   magic: "Clique dentro de um ambiente fechado para detectar o contorno",
   calibrate: "Clique em dois pontos de distância conhecida",
+  kit: (
+    <>
+      Clique nos pontos como no Medir · <Kbd>Enter</Kbd> conclui · cada componente do preset vira um
+      item, agrupados
+    </>
+  ),
   similar: (
     <>
       Arraste uma caixa justa ao redor de um símbolo: os parecidos aparecem como prévia, clique
@@ -53,6 +59,10 @@ export function StatusBar() {
   const status = useStore((s) => s.status);
   const scale = useStore((s) => pageScale(s.project, s.project.activeDrawingId, s.page));
   const selCount = useStore((s) => s.selection.length);
+  const activeKitId = useStore((s) => s.activeKitId);
+  const activeKitName = useStore(
+    (s) => s.catalog.kits.find((k) => k.id === s.activeKitId)?.name ?? null,
+  );
   const zoneFilterName = useStore((s) =>
     s.zoneFilter === null
       ? null
@@ -164,6 +174,16 @@ export function StatusBar() {
           className="rounded bg-orange-500/15 px-1.5 py-0.5 text-orange-300 ring-1 ring-orange-400/60"
         >
           local: {zoneFilterName} ×
+        </button>
+      )}
+      {tool === "kit" && (
+        <button
+          type="button"
+          onClick={() => useStore.getState().setKitPickerOpen(true)}
+          title="Trocar o preset do kit"
+          className="rounded bg-orange-500/15 px-1.5 py-0.5 text-orange-300 ring-1 ring-orange-400/60"
+        >
+          kit: {activeKitId && activeKitName ? activeKitName : "escolha o preset"} ▾
         </button>
       )}
       {selCount > 0 && (

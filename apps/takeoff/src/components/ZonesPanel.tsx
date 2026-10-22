@@ -91,7 +91,7 @@ export function ZonesPanel() {
           </label>
         </div>
       )}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {zones.length === 0 && (
           <div className="px-3 py-6 text-center text-xs text-neutral-500">
             <p>
@@ -112,6 +112,7 @@ export function ZonesPanel() {
             filtered={zoneFilter === z.id}
             onFilter={() => setZoneFilter(zoneFilter === z.id ? null : z.id)}
             onToggleHidden={() => updateZone(z.id, { hidden: !z.hidden })}
+            onRepeat={(n) => updateZone(z.id, { repeat: n })}
             areaText={areaText(project, z)}
             onSelect={() => {
               if (z.drawingId !== project.activeDrawingId) {
@@ -183,6 +184,7 @@ function ZoneRow({
   filtered,
   onFilter,
   onToggleHidden,
+  onRepeat,
   drawingName,
   areaText,
   onSelect,
@@ -195,6 +197,7 @@ function ZoneRow({
   filtered: boolean;
   onFilter: () => void;
   onToggleHidden: () => void;
+  onRepeat: (n: number | undefined) => void;
   drawingName: string;
   areaText: string;
   onSelect: () => void;
@@ -247,6 +250,27 @@ function ZoneRow({
           {drawingName ? `${drawingName} · ` : ""}pág. {zone.page + 1}
         </span>
         <span className="font-mono text-[12px] text-neutral-300">{areaText}</span>
+        <span
+          className={clsx(
+            "flex items-center gap-0.5 text-[11px]",
+            (zone.repeat ?? 1) > 1 ? "text-orange-300" : "text-neutral-500",
+          )}
+          title="Multiplicador do local: quantas vezes ele se repete (ex.: 20 apartamentos iguais)"
+        >
+          ×
+          <input
+            type="number"
+            min={1}
+            step={1}
+            value={zone.repeat ?? 1}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              const v = Math.max(1, Math.round(Number(e.target.value) || 1));
+              onRepeat(v === 1 ? undefined : v);
+            }}
+            className="h-5 w-10 rounded bg-neutral-800 px-1 text-right font-mono text-[11px] text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
+          />
+        </span>
         <button
           type="button"
           title={zone.hidden ? "Mostrar este local no desenho" : "Ocultar este local no desenho"}

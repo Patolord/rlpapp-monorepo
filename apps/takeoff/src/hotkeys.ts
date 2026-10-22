@@ -15,6 +15,7 @@ const TOOL_KEYS: Record<string, Tool> = {
   k: "calibrate",
   z: "zone",
   x: "similar",
+  t: "kit",
 };
 
 export function useHotkeys() {
@@ -67,6 +68,10 @@ export function useHotkeys() {
             e.preventDefault();
             s.setPaletteOpen(!s.paletteOpen);
             return;
+          case "b":
+            e.preventDefault();
+            s.setSidebarOpen(!s.sidebarOpen);
+            return;
           case "n":
             e.preventDefault();
             s.setNewProjectOpen(true);
@@ -88,6 +93,14 @@ export function useHotkeys() {
           }
           if (s.newProjectOpen) {
             s.setNewProjectOpen(false);
+            return;
+          }
+          if (s.kitsEditorOpen) {
+            s.setKitsEditorOpen(false);
+            return;
+          }
+          if (s.kitPickerOpen) {
+            s.setKitPickerOpen(false);
             return;
           }
           if (api?.hasDraft()) api.cancelDraft();
@@ -129,6 +142,14 @@ export function useHotkeys() {
         case "-":
           api?.zoomBy(0.8);
           return;
+        case "ArrowDown":
+          e.preventDefault();
+          s.stepActiveItem(1);
+          return;
+        case "ArrowUp":
+          e.preventDefault();
+          s.stepActiveItem(-1);
+          return;
         case "PageDown":
         case "]":
           s.setPage(Math.min(useDoc.getState().numPages - 1, s.page + 1));
@@ -152,10 +173,6 @@ export function useHotkeys() {
       if (TOOL_KEYS[key]) {
         s.setTool(TOOL_KEYS[key]);
         return;
-      }
-      if (/^[1-9]$/.test(key)) {
-        const item = s.project.items[Number(key) - 1];
-        if (item) s.setActiveItem(item.id);
       }
     };
     window.addEventListener("keydown", onKey);

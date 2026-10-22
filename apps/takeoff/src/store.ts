@@ -4,13 +4,16 @@ import {
   type CatalogStore,
   emptyCatalogStore,
   fetchRemoteCatalog,
+  foldName,
   kindForUnit,
   loadCatalogStore,
+  mergeCatalog,
   normalizeDiscipline,
   saveCatalogStore,
   unitForKind,
 } from "./lib/catalog";
 import type { Pt } from "./lib/geom";
+import type { Kit } from "./lib/kits";
 import { useDoc } from "./lib/session";
 import { guessSymbol } from "./lib/symbols";
 import {
@@ -38,7 +41,8 @@ export type Tool =
   | "magic"
   | "calibrate"
   | "zone"
-  | "similar";
+  | "similar"
+  | "kit";
 
 export interface PendingZone {
   page: number;
@@ -136,6 +140,13 @@ export interface State {
   similarPreview: SimilarPreview | null;
   /** Smallest similarity score shown in the preview (0.5..0.95, remembered). */
   similarThreshold: number;
+  /** Preset the Kit tool draws with. */
+  activeKitId: string | null;
+  kitPickerOpen: boolean;
+  kitsEditorOpen: boolean;
+  /** Side panel (items, locais, orçamento): shown, and its width in CSS px (remembered). */
+  sidebarOpen: boolean;
+  sidebarWidth: number;
   catalog: CatalogStore;
 
   resetProject(project?: Project, filePath?: string | null): void;
@@ -164,6 +175,10 @@ export interface State {
   moveMeasurements(ids: string[], dx: number, dy: number): void;
   /** Removes measurements and zones with the given ids. */
   removeMeasurements(ids: string[]): void;
+  /** Set the vertical length of linear measurements (0 clears it). */
+  setVertical(ids: string[], vertical: number): void;
+  /** Set how many times the measurements count (1 clears it). */
+  setRepeat(ids: string[], repeat: number): void;
 
   addZone(name: string, page: number, points: Pt[]): string;
   updateZone(id: string, patch: Partial<Zone>): void;
@@ -175,6 +190,11 @@ export interface State {
   setPage(page: number): void;
   setTool(tool: Tool): void;
   setActiveItem(id: string | null): void;
+  /** Items as currently listed in the panel (filters applied); arrows step through these. */
+  visibleItemIds: string[];
+  setVisibleItemIds(ids: string[]): void;
+  /** Make the previous (-1) or next (+1) listed item the active one. */
+  stepActiveItem(delta: 1 | -1): void;
   setSelection(ids: string[]): void;
   setZoneFilter(zoneId: string | null): void;
   setSystemFilter(system: string | null): void;
@@ -200,6 +220,18 @@ export interface State {
   toggleSimilarMatch(index: number): void;
   /** Turn the visible, non-excluded preview matches into count marks. */
   acceptSimilar(): void;
+  setActiveKit(id: string | null): void;
+  setKitPickerOpen(open: boolean): void;
+  setKitsEditorOpen(open: boolean): void;
+  setSidebarOpen(open: boolean): void;
+  setSidebarWidth(px: number): void;
+  saveKits(kits: Kit[]): Promise<void>;
+  /** One drawn run: a measurement per kit component, items created from the catalog as needed. */
+  addKitRun(kitId: string, page: number, points: Pt[]): number;
+  /** Make linked measurements independent again. */
+  unlinkMeasurements(ids: string[]): void;
+  /** Add an item to a kit group with the group's geometry. */
+  addToGroup(linkId: string, itemId: string): void;
   /** Create items for several names at once (legend capture). */
   addItemsBulk(entries: { name: string; kind: Kind; group: string; system?: string }[]): void;
   /** Rename the active item, or create one when there is none. */
@@ -242,6 +274,9 @@ export interface SimilarPreview {
   h: number;
 }
 
+/** Narrowest the side panel goes (the item price row must fit on one line). */
+export const SIDEBAR_MIN = 540;
+
 export const useStore = create<State>((set, get) => ({
   project: emptyProject(),
   filePath: null,
@@ -272,6 +307,11 @@ export const useStore = create<State>((set, get) => ({
   legendCandidates: null,
   similarPreview: null,
   similarThreshold: readPref("similarThreshold", 0.75),
+  activeKitId: readPref("activeKitId", null),
+  kitPickerOpen: false,
+  kitsEditorOpen: false,
+  sidebarOpen: readPref("sidebarOpen", true),
+  sidebarWidth: readPref("sidebarWidth", 580),
   catalog: emptyCatalogStore(),
 
   resetProject: (project = emptyProject(), filePath = null) =>
@@ -488,6 +528,26 @@ export const useStore = create<State>((set, get) => ({
     }));
   },
 
+  setVertical: (ids, vertical) => {
+    const set_ = new Set(ids);
+    const v = vertical > 0 ? vertical : undefined;
+    get().commit((p) => ({
+      ...p,
+      measurements: p.measurements.map((m) =>
+        set_.has(m.id) && (m.vertical ?? undefined) !== v ? { ...m, vertical: v } : m,
+      ),
+    }));
+  },
+  setRepeat: (ids, repeat) => {
+    const set_ = new Set(ids);
+    const r = repeat > 1 ? Math.round(repeat) : undefined;
+    get().commit((p) => ({
+      ...p,
+      measurements: p.measurements.map((m) =>
+        set_.has(m.id) && (m.repeat ?? undefined) !== r ? { ...m, repeat: r } : m,
+      ),
+    }));
+  },
   removeMeasurements: (ids) => {
     if (ids.length === 0) return;
     const set_ = new Set(ids);
@@ -548,6 +608,8 @@ export const useStore = create<State>((set, get) => ({
   setPage: (page) => set({ page, selection: [] }),
 
   setTool: (tool) => {
+    // picking the Kit tool starts by asking which preset to draw with
+    if (tool === "kit" && get().tool !== "kit") set({ kitPickerOpen: true });
     const kind = KIND_OF_TOOL[tool];
     const { project, activeItemId } = get();
     let activeId = activeItemId;
@@ -571,7 +633,31 @@ export const useStore = create<State>((set, get) => ({
     set({ activeItemId: id, tool: compatible ? tool : TOOL_OF_KIND[item.kind] });
   },
 
-  setSelection: (selection) => set({ selection }),
+  visibleItemIds: [],
+  setVisibleItemIds: (ids) => {
+    const cur = get().visibleItemIds;
+    if (cur.length === ids.length && cur.every((v, i) => v === ids[i])) return;
+    set({ visibleItemIds: ids });
+  },
+  stepActiveItem: (delta) => {
+    const { visibleItemIds, project, activeItemId } = get();
+    const ids = visibleItemIds.length > 0 ? visibleItemIds : project.items.map((i) => i.id);
+    if (ids.length === 0) return;
+    const at = activeItemId ? ids.indexOf(activeItemId) : -1;
+    const next = at < 0 ? (delta > 0 ? 0 : ids.length - 1) : (at + delta + ids.length) % ids.length;
+    get().setActiveItem(ids[next]);
+  },
+  setSelection: (selection) => {
+    // a kit group is selected as a whole: its members overlap exactly on the page
+    const { measurements } = get().project;
+    const sel = new Set(selection);
+    const links = new Set<string>();
+    for (const m of measurements) if (m.linkId && sel.has(m.id)) links.add(m.linkId);
+    if (links.size > 0) {
+      for (const m of measurements) if (m.linkId && links.has(m.linkId)) sel.add(m.id);
+    }
+    set({ selection: sel.size === selection.length ? selection : [...sel] });
+  },
   setZoneFilter: (zoneFilter) => set({ zoneFilter }),
   setSystemFilter: (systemFilter) => set({ systemFilter }),
   setDrawingOnly: (drawingOnly) => set({ drawingOnly }),
@@ -612,6 +698,109 @@ export const useStore = create<State>((set, get) => ({
     set({ recentProjects });
   },
   setLegendCandidates: (legendCandidates) => set({ legendCandidates }),
+  setActiveKit: (activeKitId) => {
+    writePref("activeKitId", activeKitId);
+    set({ activeKitId });
+  },
+  setKitPickerOpen: (kitPickerOpen) => set({ kitPickerOpen }),
+  setKitsEditorOpen: (kitsEditorOpen) => set({ kitsEditorOpen }),
+  setSidebarOpen: (sidebarOpen) => {
+    writePref("sidebarOpen", sidebarOpen);
+    set({ sidebarOpen });
+  },
+  setSidebarWidth: (px) => {
+    // wide enough for the item price row on one line, never more than 60% of the window
+    const max = Math.max(SIDEBAR_MIN, Math.floor(window.innerWidth * 0.6));
+    const sidebarWidth = Math.round(Math.min(max, Math.max(SIDEBAR_MIN, px)));
+    writePref("sidebarWidth", sidebarWidth);
+    set({ sidebarWidth });
+  },
+  saveKits: async (kits) => {
+    const catalog = { ...get().catalog, kits };
+    set({ catalog, status: `${kits.length} presets de kit salvos` });
+    try {
+      await saveCatalogStore(catalog);
+    } catch (e) {
+      set({
+        status: `Não foi possível gravar os presets: ${e instanceof Error ? e.message : String(e)}`,
+      });
+    }
+  },
+  addKitRun: (kitId, page, points) => {
+    const { project, catalog } = get();
+    const kit = catalog.kits.find((k) => k.id === kitId);
+    if (!kit || kit.components.length === 0 || points.length === 0) return 0;
+    const drawingId = project.activeDrawingId ?? "";
+    const linkId = newId();
+    const entries = mergeCatalog(catalog);
+    get().commit((p) => {
+      let items = p.items;
+      const measurements = [...p.measurements];
+      for (const c of kit.components) {
+        let item = items.find((i) => i.kind === c.kind && foldName(i.name) === foldName(c.name));
+        if (!item) {
+          const cat = entries.find((e) => foldName(e.name) === foldName(c.name));
+          item = {
+            id: newId(),
+            name: c.name,
+            kind: c.kind,
+            color: ITEM_COLORS[items.length % ITEM_COLORS.length],
+            group: c.group || cat?.group || "Geral",
+            materialPrice: cat?.materialPrice ?? 0,
+            laborPrice: cat?.laborPrice ?? 0,
+            wastePct: 0,
+            system: normalizeDiscipline(c.system || cat?.system) ?? p.system,
+            symbol: c.kind === "count" ? guessSymbol(c.name) : undefined,
+            factor: c.factor !== 1 ? c.factor : undefined,
+          };
+          items = [...items, item];
+        }
+        measurements.push({
+          id: newId(),
+          itemId: item.id,
+          drawingId,
+          page,
+          points: c.kind === "count" ? [points[0]] : points,
+          linkId,
+        });
+      }
+      return { ...p, items, measurements };
+    });
+    set({ status: `Kit ${kit.name}: ${kit.components.length} itens medidos de uma vez` });
+    return kit.components.length;
+  },
+  unlinkMeasurements: (ids) => {
+    const set_ = new Set(ids);
+    get().commit((p) => ({
+      ...p,
+      measurements: p.measurements.map((m) =>
+        set_.has(m.id) && m.linkId ? { ...m, linkId: undefined } : m,
+      ),
+    }));
+    set({ status: "Medições desagrupadas: agora são independentes" });
+  },
+  addToGroup: (linkId, itemId) => {
+    const { project } = get();
+    const sample = project.measurements.find((m) => m.linkId === linkId);
+    const item = project.items.find((i) => i.id === itemId);
+    if (!sample || !item) return;
+    const id = newId();
+    get().commit((p) => ({
+      ...p,
+      measurements: [
+        ...p.measurements,
+        {
+          id,
+          itemId,
+          drawingId: sample.drawingId,
+          page: sample.page,
+          points: item.kind === "count" ? [sample.points[0]] : sample.points,
+          linkId,
+        },
+      ],
+    }));
+    set({ selection: [...get().selection, id], status: `${item.name} adicionado ao grupo` });
+  },
   setSimilarPreview: (similarPreview) => set({ similarPreview }),
   setSimilarThreshold: (similarThreshold) => {
     writePref("similarThreshold", similarThreshold);

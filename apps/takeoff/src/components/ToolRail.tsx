@@ -2,6 +2,7 @@ import {
   CircleDot,
   Grid3x3,
   Hand,
+  Layers,
   Magnet,
   Maximize,
   MousePointer2,
@@ -38,6 +39,12 @@ const TOOLS: { tool: Tool; label: string; key: string; icon: typeof Hand }[] = [
     label: "Localizar semelhantes (arraste uma caixa ao redor de um símbolo)",
     key: "X",
     icon: ScanSearch,
+  },
+  {
+    tool: "kit",
+    label: "Kit (um trecho mede vários itens de uma vez: cobre, isolamento, cabo…)",
+    key: "T",
+    icon: Layers,
   },
 ];
 

@@ -76,6 +76,9 @@ canvas {
   background: transparent;
 }
 
-.num-input {
-  @apply w-20 rounded bg-neutral-800 px-1.5 py-0.5 text-right font-mono text-xs text-neutral-100 outline-none ring-1 ring-neutral-700 focus:ring-orange-400;
+/* in the components layer so width utilities (w-12, w-[4rem]) can override the default w-20 */
+@layer components {
+  .num-input {
+    @apply w-20 rounded bg-neutral-800 px-1.5 py-0.5 text-right font-mono text-xs text-neutral-100 outline-none ring-1 ring-neutral-700 focus:ring-orange-400;
+  }
 }

@@ -81,15 +81,15 @@ export function QuotePanel() {
           </label>
         </div>
       </div>
-      <div className="flex-1 overflow-auto">
-        <table className="w-full border-collapse">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        <table className="w-full table-fixed border-collapse">
           <thead className="sticky top-0 bg-neutral-900 text-[11px] uppercase tracking-wide text-neutral-500">
             <tr>
               <th className="px-2 py-1 text-left">Item</th>
-              <th className="px-1 py-1 text-right">Quant.</th>
-              <th className="px-1 py-1 text-right">Material</th>
-              <th className="px-1 py-1 text-right">M. obra</th>
-              <th className="px-2 py-1 text-right">Total</th>
+              <th className="w-[4.8rem] px-1 py-1 text-right">Quant.</th>
+              <th className="w-[5rem] px-1.5 py-1 text-right">Material</th>
+              <th className="w-[5rem] px-1.5 py-1 text-right">M. obra</th>
+              <th className="w-[6.6rem] px-2 py-1 text-right">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -107,7 +107,7 @@ export function QuotePanel() {
                         aba da planilha
                       </span>
                     </td>
-                    <td className="px-2 py-1.5 text-right font-mono font-semibold">
+                    <td className="truncate px-2 py-1.5 text-right font-mono font-semibold">
                       {money(sheetTotal)}
                     </td>
                   </tr>
@@ -123,10 +123,7 @@ export function QuotePanel() {
                       </tr>
                       {sec.rows.map((r, ri) => (
                         <tr key={r.item.id} className="border-b border-neutral-800/70">
-                          <td
-                            className="max-w-[11rem] truncate whitespace-nowrap px-2 py-1"
-                            title={r.item.name}
-                          >
+                          <td className="truncate whitespace-nowrap px-2 py-1" title={r.item.name}>
                             <span className="mr-1 font-mono text-neutral-500">
                               {si + 1}.{ri + 1}
                             </span>
@@ -140,7 +137,7 @@ export function QuotePanel() {
                             {formatNumber(r.qty, project.currency, r.item.kind === "count" ? 0 : 2)}{" "}
                             {r.unit}
                           </td>
-                          <td className="px-1 py-1 text-right">
+                          <td className="px-1.5 py-1 text-right">
                             <input
                               type="number"
                               min={0}
@@ -151,11 +148,11 @@ export function QuotePanel() {
                                   materialPrice: Number(e.target.value) || 0,
                                 })
                               }
-                              className="num-input w-[3.6rem]"
+                              className="num-input w-[4rem]"
                               title="Preço unitário de material"
                             />
                           </td>
-                          <td className="px-1 py-1 text-right">
+                          <td className="px-1.5 py-1 text-right">
                             <input
                               type="number"
                               min={0}
@@ -164,11 +161,11 @@ export function QuotePanel() {
                               onChange={(e) =>
                                 updateItem(r.item.id, { laborPrice: Number(e.target.value) || 0 })
                               }
-                              className="num-input w-[3.6rem]"
+                              className="num-input w-[4rem]"
                               title="Preço unitário de mão de obra"
                             />
                           </td>
-                          <td className="px-2 py-1 text-right font-mono whitespace-nowrap">
+                          <td className="truncate px-2 py-1 text-right font-mono whitespace-nowrap">
                             {money(lineTotal(r))}
                           </td>
                         </tr>

@@ -7,10 +7,14 @@ import { CalibrateDialog } from "./components/CalibrateDialog";
 import { CatalogPalette } from "./components/CatalogPalette";
 import { DrawingTabs } from "./components/DrawingTabs";
 import { ItemsPanel } from "./components/ItemsPanel";
+import { KitPicker } from "./components/KitPicker";
+import { KitsDialog } from "./components/KitsDialog";
 import { LegendDialog } from "./components/LegendDialog";
 import { NewProjectDialog } from "./components/NewProjectDialog";
 import { PageStrip } from "./components/PageStrip";
+import { PanelDivider } from "./components/PanelDivider";
 import { QuotePanel } from "./components/QuotePanel";
+import { SelectionBar } from "./components/SelectionBar";
 import { SimilarPreviewBar } from "./components/SimilarPreviewBar";
 import { StatusBar } from "./components/StatusBar";
 import { ToolRail } from "./components/ToolRail";
@@ -95,6 +99,8 @@ export default function App() {
 
   // clear transient status messages
   const status = useStore((s) => s.status);
+  const sidebarOpen = useStore((s) => s.sidebarOpen);
+  const sidebarWidth = useStore((s) => s.sidebarWidth);
   useEffect(() => {
     if (!status) return;
     const id = window.setTimeout(() => useStore.getState().setStatus(null), 6000);
@@ -112,37 +118,46 @@ export default function App() {
           <Viewer />
           {!numPages && <Welcome />}
           <SimilarPreviewBar />
+          <KitPicker />
+          <SelectionBar />
           <CalibrateDialog />
           <ZoneDialog />
           <LegendDialog />
         </div>
-        <div className="flex w-[27rem] shrink-0 flex-col border-l border-neutral-800 bg-neutral-900">
-          <div className="flex border-b border-neutral-800 text-xs">
-            {(Object.keys(TABS) as (keyof typeof TABS)[]).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTab(t)}
-                className={clsx(
-                  "flex-1 py-2 font-medium",
-                  tab === t
-                    ? "border-b-2 border-orange-400 text-neutral-100"
-                    : "text-neutral-400 hover:text-neutral-200",
-                )}
-              >
-                {TABS[t]}
-              </button>
-            ))}
+        <PanelDivider />
+        {sidebarOpen && (
+          <div
+            className="flex shrink-0 flex-col border-l border-neutral-800 bg-neutral-900"
+            style={{ width: sidebarWidth }}
+          >
+            <div className="flex border-b border-neutral-800 text-xs">
+              {(Object.keys(TABS) as (keyof typeof TABS)[]).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTab(t)}
+                  className={clsx(
+                    "flex-1 py-2 font-medium",
+                    tab === t
+                      ? "border-b-2 border-orange-400 text-neutral-100"
+                      : "text-neutral-400 hover:text-neutral-200",
+                  )}
+                >
+                  {TABS[t]}
+                </button>
+              ))}
+            </div>
+            <div className="min-h-0 flex-1">
+              {tab === "items" ? <ItemsPanel /> : tab === "zones" ? <ZonesPanel /> : <QuotePanel />}
+            </div>
           </div>
-          <div className="min-h-0 flex-1">
-            {tab === "items" ? <ItemsPanel /> : tab === "zones" ? <ZonesPanel /> : <QuotePanel />}
-          </div>
-        </div>
+        )}
       </div>
       <StatusBar />
       <CatalogPalette />
       <AboutDialog />
       <NewProjectDialog />
+      <KitsDialog />
     </div>
   );
 }

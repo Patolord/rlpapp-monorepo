@@ -18,6 +18,8 @@ export interface Item {
   system?: string;
   /** Count-mark symbol id (see lib/symbols); undefined = plain dot. */
   symbol?: string;
+  /** Multiplier on the measured quantity (2 for a cable that runs both ways); undefined = 1. */
+  factor?: number;
 }
 
 export interface PageMeta {
@@ -39,6 +41,12 @@ export interface Measurement {
   page: number;
   /** Page-space points (PDF points, origin top-left of the displayed page). */
   points: Pt[];
+  /** Measurements created together by a kit share a link and are selected, moved and deleted as one. */
+  linkId?: string;
+  /** Linear runs: extra length in project units for the vertical part the plan does not show. */
+  vertical?: number;
+  /** Times this measurement counts (10 identical floors measured once); undefined = 1. */
+  repeat?: number;
 }
 
 /** A named location (ambiente, pavimento, zona) drawn on a page; measurements inside it are grouped by it. */
@@ -51,6 +59,8 @@ export interface Zone {
   color: string;
   /** Hidden on the drawing (still groups measurements). */
   hidden?: boolean;
+  /** Times this local repeats (20 identical apartments): multiplies the quantities inside it. */
+  repeat?: number;
 }
 
 export interface Project {

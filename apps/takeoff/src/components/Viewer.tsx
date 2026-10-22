@@ -73,6 +73,7 @@ const DRAW_TOOLS: ReadonlySet<Tool> = new Set([
   "calibrate",
   "zone",
   "similar",
+  "kit",
 ]);
 
 const rectContains = (outer: Rect, inner: Rect) =>
@@ -355,7 +356,10 @@ export function Viewer() {
       const pts = dedupe(s.draft);
       s.draft = [];
       s.snapHit = null;
-      if (store.tool === "linear" && pts.length >= 2) {
+      if (store.tool === "kit" && pts.length >= 2) {
+        if (store.activeKitId) store.addKitRun(store.activeKitId, store.page, pts);
+        else store.setKitPickerOpen(true);
+      } else if (store.tool === "linear" && pts.length >= 2) {
         store.addMeasurement(store.resolveItem("linear"), store.page, pts);
       } else if (store.tool === "area" && pts.length >= 3) {
         store.addMeasurement(store.resolveItem("area"), store.page, pts);
@@ -529,6 +533,8 @@ export function Viewer() {
           dashed: false,
           symbol: item.symbol,
           fillAlpha: fillK,
+          vertical: m.vertical,
+          repeat: m.repeat,
         });
         ctx.globalAlpha = 1;
       }
@@ -836,6 +842,7 @@ export function Viewer() {
         store.addMeasurement(store.resolveItem("count"), store.page, [eff]);
         break;
       case "linear":
+      case "kit":
         s.draft.push(eff);
         break;
       case "area": {
@@ -1033,6 +1040,10 @@ interface DrawOpts {
   symbol?: string;
   /** Multiplier for the hatch fill of areas and locations (0 = outline only, default 1). */
   fillAlpha?: number;
+  /** Linear runs: vertical length (project units) appended to the label. */
+  vertical?: number;
+  /** Times the measurement counts; shown as "×N" when above 1. */
+  repeat?: number;
 }
 
 const MARK_PX = 18;
@@ -1059,6 +1070,7 @@ function drawMeasurement(
       ctx.strokeStyle = "#101a30";
       ctx.stroke();
     }
+    if (o.repeat && o.repeat > 1) drawLabel(ctx, `×${o.repeat}`, c.x + 14, c.y - 12, color);
     ctx.restore();
     return;
   }
@@ -1107,6 +1119,7 @@ function drawMeasurement(
     text = scale
       ? formatLength(len / scale.pointsPerUnit, scale.unit)
       : `${len.toFixed(0)} pt · sem escala`;
+    if (o.vertical) text += ` + ${formatLength(o.vertical, scale?.unit ?? "m")} vert.`;
     at = toScreen(pointAlong(pts, 0.5), v);
   } else {
     const area = polygonArea(pts);
@@ -1115,6 +1128,7 @@ function drawMeasurement(
       : `${area.toFixed(0)} pt² · sem escala`;
     at = toScreen(polygonCentroid(pts), v);
   }
+  if (o.repeat && o.repeat > 1) text += ` ×${o.repeat}`;
   drawLabel(ctx, text, at.x, at.y, color);
   ctx.restore();
 }

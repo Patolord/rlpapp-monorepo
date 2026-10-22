@@ -11,7 +11,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MOD, mod } from "../lib/platform";
 import {
   type ItemTotal,
@@ -54,6 +54,7 @@ export function ItemsPanel() {
     setZoneFilter,
     setSystemFilter,
     setDrawingOnly,
+    setVisibleItemIds,
   } = useStore.getState();
   const allTotals = useMemo(() => itemTotals(project), [project]);
   const totals = useMemo(
@@ -113,6 +114,11 @@ export function ItemsPanel() {
     if (drawingOnly && !totals.get(item.id)?.count && !freshActive(item.id)) return false;
     return true;
   });
+  // arrow keys step through the items in this order (see hotkeys)
+  const visibleKey = visible.map((i) => i.id).join("\u0000");
+  useEffect(() => {
+    setVisibleItemIds(visibleKey ? visibleKey.split("\u0000") : []);
+  }, [visibleKey]);
   const sumValue = visible.reduce(
     (s, item) =>
       s + round2(pricedQty(item, qtyOf(item.id)) * (item.materialPrice + item.laborPrice)),
@@ -226,7 +232,7 @@ export function ItemsPanel() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {project.items.length === 0 && (
           <p className="px-3 py-6 text-center text-xs text-neutral-500">
             Nenhum item ainda. Use <Kbd>{MOD}</Kbd>+<Kbd>K</Kbd> para buscar no catálogo, adicione
@@ -239,14 +245,12 @@ export function ItemsPanel() {
           </p>
         )}
         {visible.map((item) => {
-          const index = project.items.indexOf(item);
           const measured = qtyOf(item.id);
           const priced = pricedQty(item, measured);
           return (
             <ItemRow
               key={item.id}
               item={item}
-              index={index}
               active={item.id === activeItemId}
               qtyLabel={formatQty(item.kind, measured, project.unit)}
               unscaled={unscaledOf(item.id)}
@@ -318,7 +322,6 @@ export function ItemsPanel() {
 
 interface RowProps {
   item: Item;
-  index: number;
   active: boolean;
   qtyLabel: string;
   unscaled: number;
@@ -336,7 +339,6 @@ interface RowProps {
 /** One line per item; the active item expands to show prices, tags and the per-location split. */
 function ItemRow({
   item,
-  index,
   active,
   qtyLabel,
   unscaled,
@@ -351,6 +353,10 @@ function ItemRow({
 }: RowProps) {
   const [editing, setEditing] = useState<"name" | "group" | "system" | null>(null);
   const [styleOpen, setStyleOpen] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (active) rowRef.current?.scrollIntoView({ block: "nearest" });
+  }, [active]);
   const Icon = KIND_ICON[item.kind];
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   const tagInput = (
@@ -393,6 +399,7 @@ function ItemRow({
 
   return (
     <div
+      ref={rowRef}
       onClick={onActivate}
       className={clsx(
         "group cursor-pointer border-b border-neutral-800/70 px-2",
@@ -462,7 +469,6 @@ function ItemRow({
         <span className="w-[4.6rem] shrink-0 text-right font-mono text-[12px] text-neutral-400">
           {total}
         </span>
-        {index < 9 ? <Kbd>{index + 1}</Kbd> : <span className="w-[1.1rem]" />}
       </div>
       {active && (
         <div className="mt-1 space-y-1 pl-5">
@@ -509,41 +515,66 @@ function ItemRow({
               </button>
             </span>
           </div>
-          <div className="flex items-center gap-1.5 text-[11px] text-neutral-400">
-            <span>Material</span>
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              value={item.materialPrice}
-              onClick={stop}
-              onChange={(e) => onChange({ materialPrice: Number(e.target.value) || 0 })}
-              className="num-input w-[4.2rem]"
-              title="Preço unitário: material"
-            />
-            <span>M. obra</span>
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              value={item.laborPrice}
-              onClick={stop}
-              onChange={(e) => onChange({ laborPrice: Number(e.target.value) || 0 })}
-              className="num-input w-[4.2rem]"
-              title="Preço unitário: mão de obra"
-            />
-            <span>Perda</span>
-            <input
-              type="number"
-              min={0}
-              step="1"
-              value={item.wastePct}
-              onClick={stop}
-              onChange={(e) => onChange({ wastePct: Number(e.target.value) || 0 })}
-              className="num-input w-12"
-              title="Percentual de perda acrescido à quantidade"
-            />
-            <span>%</span>
+          <div className="flex items-center gap-x-2 whitespace-nowrap text-[11px] text-neutral-400">
+            <label className="flex items-center gap-1 whitespace-nowrap">
+              Material
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={item.materialPrice}
+                onClick={stop}
+                onChange={(e) => onChange({ materialPrice: Number(e.target.value) || 0 })}
+                className="num-input w-[3.9rem]"
+                title="Preço unitário: material"
+              />
+            </label>
+            <label className="flex items-center gap-1 whitespace-nowrap">
+              M. obra
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={item.laborPrice}
+                onClick={stop}
+                onChange={(e) => onChange({ laborPrice: Number(e.target.value) || 0 })}
+                className="num-input w-[3.9rem]"
+                title="Preço unitário: mão de obra"
+              />
+            </label>
+            <label className="flex items-center gap-1 whitespace-nowrap">
+              Perda
+              <input
+                type="number"
+                min={0}
+                step="1"
+                value={item.wastePct}
+                onClick={stop}
+                onChange={(e) => onChange({ wastePct: Number(e.target.value) || 0 })}
+                className="num-input w-11"
+                title="Percentual de perda acrescido à quantidade"
+              />
+              %
+            </label>
+            <label
+              className="flex items-center gap-1 whitespace-nowrap"
+              title="Multiplicador da quantidade medida (ex.: 2 para cabo que vai e volta)"
+            >
+              Fator
+              <input
+                type="number"
+                min={0}
+                step="0.1"
+                value={item.factor ?? 1}
+                onClick={stop}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  onChange({ factor: v > 0 && v !== 1 ? v : undefined });
+                }}
+                className="num-input w-11"
+                title="Multiplicador da quantidade medida"
+              />
+            </label>
           </div>
           {breakdown && (
             <div className="truncate text-[11px] text-neutral-500" title={breakdown}>

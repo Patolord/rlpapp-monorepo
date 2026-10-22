@@ -55,6 +55,12 @@ export function zoneOf(project: Project, m: Measurement, kind: Kind): Zone | nul
   return best;
 }
 
+/** Times a measurement counts: its own repeat (identical floors) × its local's (identical apartments). */
+export function repeatOf(project: Project, m: Measurement, kind: Kind, zone?: Zone | null): number {
+  const z = zone === undefined ? zoneOf(project, m, kind) : zone;
+  return (m.repeat ?? 1) * (z?.repeat ?? 1);
+}
+
 export interface ItemTotal {
   qty: number;
   count: number;
@@ -77,7 +83,11 @@ export function itemTotals(
     const q = measurementQty(m, item.kind, pageScale(project, m.drawingId, m.page));
     t.count++;
     if (q === null) t.unscaled++;
-    else t.qty += q;
+    else
+      t.qty +=
+        (q + (item.kind === "linear" ? (m.vertical ?? 0) : 0)) *
+        (item.factor ?? 1) *
+        repeatOf(project, m, item.kind);
   }
   return totals;
 }
@@ -92,7 +102,8 @@ export function totalsByZone(project: Project): Map<string, Map<string, ItemTota
   for (const m of project.measurements) {
     const item = items.get(m.itemId);
     if (!item) continue;
-    const key = zoneOf(project, m, item.kind)?.id ?? NO_ZONE;
+    const zone = zoneOf(project, m, item.kind);
+    const key = zone?.id ?? NO_ZONE;
     let totals = out.get(key);
     if (!totals) {
       totals = new Map();
@@ -106,7 +117,11 @@ export function totalsByZone(project: Project): Map<string, Map<string, ItemTota
     const q = measurementQty(m, item.kind, pageScale(project, m.drawingId, m.page));
     t.count++;
     if (q === null) t.unscaled++;
-    else t.qty += q;
+    else
+      t.qty +=
+        (q + (item.kind === "linear" ? (m.vertical ?? 0) : 0)) *
+        (item.factor ?? 1) *
+        repeatOf(project, m, item.kind, zone);
   }
   return out;
 }

@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import seed from "../data/catalog.seed.json";
+import { type Kit, SEED_KITS } from "./kits";
 import type { Kind } from "./units";
 
 /** A reusable material: what an item is created from. */
@@ -22,6 +23,8 @@ export interface CatalogStore {
   remote: CatalogEntry[];
   remoteUrl: string;
   fetchedAt: string | null;
+  /** Kit presets (one drawn run creates several items). */
+  kits: Kit[];
 }
 
 export const SEED: CatalogEntry[] = (seed as CatalogEntry[]).map((e) => ({ ...e, source: "seed" }));
@@ -31,6 +34,7 @@ export const emptyCatalogStore = (): CatalogStore => ({
   remote: [],
   remoteUrl: "",
   fetchedAt: null,
+  kits: SEED_KITS.map((k) => ({ ...k, components: k.components.map((c) => ({ ...c })) })),
 });
 
 export function kindForUnit(unit: string): Kind {
@@ -62,7 +66,7 @@ export function normalizeDiscipline(system: string | undefined): string | undefi
   return system.trim();
 }
 
-const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+export const foldName = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /** Saved entries first, then the remote catalog, then the seed; later sources never duplicate earlier names. */
 export function mergeCatalog(store: CatalogStore): CatalogEntry[] {
@@ -70,7 +74,7 @@ export function mergeCatalog(store: CatalogStore): CatalogEntry[] {
   const seen = new Set<string>();
   const add = (list: CatalogEntry[], source: CatalogEntry["source"]) => {
     for (const e of list) {
-      const k = fold(e.name);
+      const k = foldName(e.name);
       if (seen.has(k)) continue;
       seen.add(k);
       out.push({ ...e, source });
@@ -85,11 +89,11 @@ export function mergeCatalog(store: CatalogStore): CatalogEntry[] {
 
 /** Every query token must appear in the name or group; earlier/shorter matches rank first. */
 export function searchCatalog(entries: readonly CatalogEntry[], query: string, limit = 40) {
-  const tokens = fold(query).split(/\s+/).filter(Boolean);
+  const tokens = foldName(query).split(/\s+/).filter(Boolean);
   if (tokens.length === 0) return entries.slice(0, limit);
   const scored: { e: CatalogEntry; score: number }[] = [];
   for (const e of entries) {
-    const hay = `${fold(e.name)} ${fold(e.group)}`;
+    const hay = `${foldName(e.name)} ${foldName(e.group)}`;
     let score = 0;
     let ok = true;
     for (const t of tokens) {
