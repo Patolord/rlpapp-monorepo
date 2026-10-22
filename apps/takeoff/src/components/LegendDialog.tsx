@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { DEFAULT_GROUP, GROUP_SUGGESTIONS } from "../lib/types";
+import { DEFAULT_GROUP, DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS } from "../lib/types";
 import type { Kind } from "../lib/units";
 import { useStore } from "../store";
 import { Button } from "./ui";
@@ -22,6 +22,20 @@ export function LegendDialog() {
   const { setLegendCandidates, addItemsBulk } = useStore.getState();
   const [rows, setRows] = useState<Row[]>([]);
   const [group, setGroup] = useState(DEFAULT_GROUP);
+  const project = useStore((s) => s.project);
+  const activeItemId = useStore((s) => s.activeItemId);
+  const [system, setSystem] = useState<string | null>(null);
+  const defaultSystem =
+    project.items.find((i) => i.id === activeItemId)?.system ?? project.system ?? "";
+  const systems = Array.from(
+    new Set(
+      [
+        project.system,
+        ...project.items.map((i) => i.system ?? ""),
+        ...DISCIPLINE_SUGGESTIONS,
+      ].filter(Boolean),
+    ),
+  );
   useEffect(() => {
     if (lines) setRows(lines.map((text) => ({ text, kind: guessKind(text), on: true })));
   }, [lines]);
@@ -29,7 +43,14 @@ export function LegendDialog() {
 
   const create = () => {
     const chosen = rows.filter((r) => r.on && r.text.trim());
-    addItemsBulk(chosen.map((r) => ({ name: r.text.trim(), kind: r.kind, group })));
+    addItemsBulk(
+      chosen.map((r) => ({
+        name: r.text.trim(),
+        kind: r.kind,
+        group,
+        system: system ?? defaultSystem,
+      })),
+    );
     setLegendCandidates(null);
   };
 
@@ -42,6 +63,20 @@ export function LegendDialog() {
           material.
         </p>
         <label className="mt-3 flex items-center gap-2 text-xs text-neutral-400">
+          Disciplina (aba)
+          <input
+            list="legend-systems"
+            value={system ?? defaultSystem}
+            onChange={(e) => setSystem(e.target.value)}
+            className="h-7 flex-1 rounded bg-neutral-800 px-2 text-xs text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
+          />
+          <datalist id="legend-systems">
+            {systems.map((g) => (
+              <option key={g} value={g} />
+            ))}
+          </datalist>
+        </label>
+        <label className="mt-2 flex items-center gap-2 text-xs text-neutral-400">
           Grupo da planilha
           <input
             list="legend-groups"

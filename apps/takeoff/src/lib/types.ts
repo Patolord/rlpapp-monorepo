@@ -81,6 +81,16 @@ export interface Project {
 
 export const ZONE_COLORS = ["#38bdf8", "#fb923c", "#a78bfa", "#4ade80", "#f472b6", "#fde047"];
 
+/** Disciplines RLP budgets usually have; each becomes a worksheet. Custom names are allowed. */
+export const DISCIPLINE_SUGGESTIONS = [
+  "Exaustão",
+  "TAE (Tomada de Ar Externo)",
+  "Pressurização de Escadas",
+  "Detecção de Incêndio",
+  "Infra AC",
+  "AC Áreas Comuns",
+];
+
 export const DEFAULT_GROUP = "Geral";
 export const GROUP_SUGGESTIONS = [
   "Equipamentos",

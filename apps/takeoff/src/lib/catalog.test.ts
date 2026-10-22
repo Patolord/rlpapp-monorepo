@@ -70,3 +70,18 @@ describe("catalog", () => {
     expect(() => parseRemoteCatalog({ nope: 1 })).toThrow();
   });
 });
+
+describe("disciplines from past budgets", () => {
+  it("maps worksheet names onto the canonical disciplines", async () => {
+    const { normalizeDiscipline } = await import("./catalog");
+    expect(normalizeDiscipline("Pressurização - Torre 01")).toBe("Pressurização de Escadas");
+    expect(normalizeDiscipline("Tomada de Ar Ext.")).toBe("TAE (Tomada de Ar Externo)");
+    expect(normalizeDiscipline("Detecção")).toBe("Detecção de Incêndio");
+    expect(normalizeDiscipline("Infra AC - Studios")).toBe("Infra AC");
+    expect(normalizeDiscipline("AC com Equip")).toBe("AC Áreas Comuns");
+    expect(normalizeDiscipline("Exaustão Mec. Aptos")).toBe("Exaustão");
+    expect(normalizeDiscipline("Chapéu Chinês")).toBe("Exaustão");
+    expect(normalizeDiscipline("Lavanderia")).toBe("Lavanderia");
+    expect(normalizeDiscipline(undefined)).toBeUndefined();
+  });
+});

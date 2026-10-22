@@ -1,16 +1,20 @@
 import { Copy, FileSpreadsheet } from "lucide-react";
 import { Fragment, useMemo } from "react";
 import { exportXlsx } from "../lib/files";
-import { buildQuote, quoteCsv } from "../lib/quantities";
+import { buildQuote, quoteCsv, round2, systemSheets } from "../lib/quantities";
 import { formatMoney, formatNumber, type Unit } from "../lib/units";
 import { type ProjectMeta, useStore } from "../store";
 import { Button } from "./ui";
 
+/** Mirrors the workbook: one block per discipline (tab), locations or groups as inline headers. */
 export function QuotePanel() {
   const project = useStore((s) => s.project);
   const { updateItem, setProjectMeta, setStatus } = useStore.getState();
   const quote = useMemo(() => buildQuote(project), [project]);
+  const sheets = useMemo(() => systemSheets(project), [project]);
   const money = (v: number) => formatMoney(v, project.currency);
+  const lineTotal = (r: { item: { materialPrice: number; laborPrice: number }; qty: number }) =>
+    round2(r.qty * (r.item.materialPrice + r.item.laborPrice));
 
   const copyCsv = async () => {
     await navigator.clipboard.writeText(quoteCsv(project, quote));
@@ -32,7 +36,7 @@ export function QuotePanel() {
   return (
     <div className="flex h-full flex-col text-xs">
       <div className="grid grid-cols-1 gap-1 border-b border-neutral-800 px-2 py-2">
-        {field("system", "Sistema", "SISTEMA DE PRESSURIZAÇÃO DE ESCADAS")}
+        {field("system", "Disciplina", "SISTEMA DE PRESSURIZAÇÃO DE ESCADAS")}
         {field("client", "Cliente")}
         {field("site", "Obra")}
         <div className="grid grid-cols-2 gap-1">
@@ -40,7 +44,7 @@ export function QuotePanel() {
           {field("estimator", "Orçam.")}
         </div>
         <div className="flex items-center gap-3 pt-1 text-neutral-400">
-          <label className="flex items-center gap-1" title="Como a planilha exportada é dividida">
+          <label className="flex items-center gap-1" title="Como cada aba da planilha é dividida">
             Seções
             <select
               value={project.sectionsBy}
@@ -88,67 +92,92 @@ export function QuotePanel() {
             </tr>
           </thead>
           <tbody>
-            {quote.groups.map((g, gi) => (
-              <Fragment key={g.name}>
-                <tr className="bg-neutral-800/60 text-neutral-200">
-                  <td className="px-2 py-1 font-semibold" colSpan={4}>
-                    {gi + 1}. {g.name}
-                  </td>
-                  <td className="px-2 py-1 text-right font-mono">{money(g.total)}</td>
-                </tr>
-                {g.lines.map((l, li) => (
-                  <tr key={l.item.id} className="border-b border-neutral-800/70">
-                    <td
-                      className="max-w-[11rem] truncate whitespace-nowrap px-2 py-1"
-                      title={l.item.name}
-                    >
-                      <span className="mr-1 font-mono text-neutral-500">
-                        {gi + 1}.{li + 1}
+            {sheets.map((sheet) => {
+              const sheetTotal = sheet.sections.reduce(
+                (s, sec) => s + sec.rows.reduce((t, r) => t + lineTotal(r), 0),
+                0,
+              );
+              return (
+                <Fragment key={sheet.system}>
+                  <tr className="bg-orange-500/10 text-neutral-100">
+                    <td className="px-2 py-1.5 text-xs font-semibold uppercase" colSpan={4}>
+                      {sheet.system}
+                      <span className="ml-2 text-[10px] font-normal normal-case text-neutral-500">
+                        aba da planilha
                       </span>
-                      <span
-                        className="mr-1.5 inline-block h-2 w-2 rounded-full"
-                        style={{ background: l.item.color }}
-                      />
-                      {l.item.name}
                     </td>
-                    <td className="px-1 py-1 text-right font-mono whitespace-nowrap">
-                      {formatNumber(l.qty, project.currency, l.item.kind === "count" ? 0 : 2)}{" "}
-                      {l.unit}
-                    </td>
-                    <td className="px-1 py-1 text-right">
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={l.item.materialPrice}
-                        onChange={(e) =>
-                          updateItem(l.item.id, { materialPrice: Number(e.target.value) || 0 })
-                        }
-                        className="num-input w-[3.6rem]"
-                        title="Preço unitário de material"
-                      />
-                    </td>
-                    <td className="px-1 py-1 text-right">
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={l.item.laborPrice}
-                        onChange={(e) =>
-                          updateItem(l.item.id, { laborPrice: Number(e.target.value) || 0 })
-                        }
-                        className="num-input w-[3.6rem]"
-                        title="Preço unitário de mão de obra"
-                      />
-                    </td>
-                    <td className="px-2 py-1 text-right font-mono whitespace-nowrap">
-                      {money(l.total)}
+                    <td className="px-2 py-1.5 text-right font-mono font-semibold">
+                      {money(sheetTotal)}
                     </td>
                   </tr>
-                ))}
-              </Fragment>
-            ))}
-            {quote.groups.length === 0 && (
+                  {sheet.sections.map((sec, si) => (
+                    <Fragment key={`${sheet.system}-${sec.name}`}>
+                      <tr className="bg-neutral-800/60 text-neutral-200">
+                        <td className="px-2 py-1 font-semibold" colSpan={4}>
+                          {si + 1}. {sec.name}
+                        </td>
+                        <td className="px-2 py-1 text-right font-mono">
+                          {money(sec.rows.reduce((t, r) => t + lineTotal(r), 0))}
+                        </td>
+                      </tr>
+                      {sec.rows.map((r, ri) => (
+                        <tr key={r.item.id} className="border-b border-neutral-800/70">
+                          <td
+                            className="max-w-[11rem] truncate whitespace-nowrap px-2 py-1"
+                            title={r.item.name}
+                          >
+                            <span className="mr-1 font-mono text-neutral-500">
+                              {si + 1}.{ri + 1}
+                            </span>
+                            <span
+                              className="mr-1.5 inline-block h-2 w-2 rounded-full"
+                              style={{ background: r.item.color }}
+                            />
+                            {r.item.name}
+                          </td>
+                          <td className="px-1 py-1 text-right font-mono whitespace-nowrap">
+                            {formatNumber(r.qty, project.currency, r.item.kind === "count" ? 0 : 2)}{" "}
+                            {r.unit}
+                          </td>
+                          <td className="px-1 py-1 text-right">
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={r.item.materialPrice}
+                              onChange={(e) =>
+                                updateItem(r.item.id, {
+                                  materialPrice: Number(e.target.value) || 0,
+                                })
+                              }
+                              className="num-input w-[3.6rem]"
+                              title="Preço unitário de material"
+                            />
+                          </td>
+                          <td className="px-1 py-1 text-right">
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={r.item.laborPrice}
+                              onChange={(e) =>
+                                updateItem(r.item.id, { laborPrice: Number(e.target.value) || 0 })
+                              }
+                              className="num-input w-[3.6rem]"
+                              title="Preço unitário de mão de obra"
+                            />
+                          </td>
+                          <td className="px-2 py-1 text-right font-mono whitespace-nowrap">
+                            {money(lineTotal(r))}
+                          </td>
+                        </tr>
+                      ))}
+                    </Fragment>
+                  ))}
+                </Fragment>
+              );
+            })}
+            {sheets.every((s) => s.sections.length === 0) && (
               <tr>
                 <td colSpan={5} className="px-2 py-6 text-center text-neutral-500">
                   Nada medido ainda.

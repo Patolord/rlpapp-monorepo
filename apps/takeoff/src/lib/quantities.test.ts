@@ -280,3 +280,34 @@ describe("migration", () => {
     expect(() => migrateProject({ version: 9 })).toThrow();
   });
 });
+
+describe("disciplines", () => {
+  it("keeps a room's items on separate discipline tabs", () => {
+    const p = project();
+    p.system = "AC Áreas Comuns";
+    p.items = [
+      { ...p.items[1], id: "ac1", name: "Difusor AC", system: "AC Áreas Comuns" },
+      { ...p.items[1], id: "ex1", name: "Grelha de exaustão", system: "Exaustão" },
+    ];
+    p.measurements = [
+      { id: "a", itemId: "ac1", drawingId: D1, page: 0, points: [{ x: 5, y: 5 }] },
+      { id: "b", itemId: "ex1", drawingId: D1, page: 0, points: [{ x: 6, y: 6 }] },
+      { id: "c", itemId: "ex1", drawingId: D1, page: 0, points: [{ x: 7, y: 7 }] },
+    ];
+    p.zones = [
+      { id: "room", name: "Sala 101", drawingId: D1, page: 0, points: square(100), color: "#fff" },
+    ];
+    const sheets = systemSheets(p);
+    expect(sheets.map((s) => s.system)).toEqual(["AC Áreas Comuns", "Exaustão"]);
+    expect(sheets[0].sections.map((s) => s.name)).toEqual(["Sala 101"]);
+    expect(sheets[0].sections[0].rows.map((r) => [r.item.name, r.qty])).toEqual([
+      ["Difusor AC", 1],
+    ]);
+    expect(sheets[1].sections.map((s) => s.name)).toEqual(["Sala 101"]);
+    expect(sheets[1].sections[0].rows.map((r) => [r.item.name, r.qty])).toEqual([
+      ["Grelha de exaustão", 2],
+    ]);
+    // the room itself still shows both in the per-location totals
+    expect(totalsByZone(p).get("room")?.size).toBe(2);
+  });
+});

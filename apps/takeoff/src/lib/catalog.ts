@@ -46,6 +46,22 @@ export function unitForKind(kind: Kind, unit = "pç"): string {
   return unit === "cj" || unit === "vb" ? unit : "pç";
 }
 
+/** Map the worksheet names found in past budgets onto the canonical discipline names. */
+export function normalizeDiscipline(system: string | undefined): string | undefined {
+  if (!system) return undefined;
+  const s = system
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  if (/pressuriza/.test(s)) return "Pressurização de Escadas";
+  if (/tomada de ar|\btae\b/.test(s)) return "TAE (Tomada de Ar Externo)";
+  if (/detec/.test(s)) return "Detecção de Incêndio";
+  if (/infra/.test(s)) return "Infra AC";
+  if (/\bac\b|ar condicionado|split|vrf|climatiza/.test(s)) return "AC Áreas Comuns";
+  if (/exaust|coifa|chapeu|duto/.test(s)) return "Exaustão";
+  return system.trim();
+}
+
 const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /** Saved entries first, then the remote catalog, then the seed; later sources never duplicate earlier names. */

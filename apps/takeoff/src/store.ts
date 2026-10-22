@@ -6,6 +6,7 @@ import {
   fetchRemoteCatalog,
   kindForUnit,
   loadCatalogStore,
+  normalizeDiscipline,
   saveCatalogStore,
   unitForKind,
 } from "./lib/catalog";
@@ -177,7 +178,7 @@ export interface State {
   setPaletteOpen(open: boolean): void;
   setLegendCandidates(lines: string[] | null): void;
   /** Create items for several names at once (legend capture). */
-  addItemsBulk(entries: { name: string; kind: Kind; group: string }[]): void;
+  addItemsBulk(entries: { name: string; kind: Kind; group: string; system?: string }[]): void;
   /** Rename the active item, or create one when there is none. */
   nameActiveItem(name: string): void;
   addItemFromCatalog(entry: CatalogEntry): string;
@@ -339,6 +340,7 @@ export const useStore = create<State>((set, get) => ({
     get().commit((p) => {
       const last = p.items[p.items.length - 1];
       const name = partial.name ?? nextName(p.items, partial.kind);
+      const active = p.items.find((i) => i.id === get().activeItemId);
       const item: Item = {
         id,
         name,
@@ -346,6 +348,8 @@ export const useStore = create<State>((set, get) => ({
         kind: partial.kind,
         color: partial.color ?? ITEM_COLORS[p.items.length % ITEM_COLORS.length],
         group: partial.group ?? last?.group ?? DEFAULT_GROUP,
+        // discipline (worksheet): explicit, else the active item's, else the project default
+        system: partial.system ?? active?.system ?? p.system ?? "",
         materialPrice: partial.materialPrice ?? 0,
         laborPrice: partial.laborPrice ?? 0,
         wastePct: partial.wastePct ?? 0,
@@ -551,6 +555,7 @@ export const useStore = create<State>((set, get) => ({
           id: lastId,
           name: e.name,
           symbol: e.kind === "count" ? guessSymbol(e.name) : undefined,
+          system: e.system ?? p.system ?? "",
           kind: e.kind,
           color: ITEM_COLORS[items.length % ITEM_COLORS.length],
           group: e.group || DEFAULT_GROUP,
@@ -587,6 +592,7 @@ export const useStore = create<State>((set, get) => ({
       kind,
       name: entry.name,
       group: entry.group,
+      system: normalizeDiscipline(entry.system),
       materialPrice: entry.materialPrice,
       laborPrice: entry.laborPrice,
     });

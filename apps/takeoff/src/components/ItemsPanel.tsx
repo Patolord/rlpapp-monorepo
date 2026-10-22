@@ -3,7 +3,7 @@ import { CircleDot, Library, Pentagon, Plus, Search, Spline, Star, Trash2, X } f
 import { useMemo, useState } from "react";
 import { itemTotals, NO_ZONE, pricedQty, round2, totalsByZone } from "../lib/quantities";
 import { SYMBOLS } from "../lib/symbols";
-import { GROUP_SUGGESTIONS, ITEM_COLORS, type Item } from "../lib/types";
+import { DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS, ITEM_COLORS, type Item } from "../lib/types";
 import { formatMoney, formatQty, type Kind } from "../lib/units";
 import { useStore } from "../store";
 import { SymbolIcon } from "./SymbolIcon";
@@ -36,6 +36,7 @@ export function ItemsPanel() {
     () => Array.from(new Set([...project.items.map((i) => i.group), ...GROUP_SUGGESTIONS])),
     [project.items],
   );
+  /** Disciplines in use (for filtering). */
   const systems = useMemo(
     () =>
       Array.from(
@@ -43,9 +44,18 @@ export function ItemsPanel() {
       ),
     [project.items, project.system],
   );
+  /** Disciplines offered when typing: the ones in use plus the usual RLP set. */
+  const systemOptions = useMemo(
+    () => Array.from(new Set([...systems, ...DISCIPLINE_SUGGESTIONS])),
+    [systems],
+  );
   const [newName, setNewName] = useState("");
   const [newKind, setNewKind] = useState<Kind>("count");
+  const [newSystem, setNewSystem] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [systemFilter, setSystemFilter] = useState<string | null>(null);
+  const activeSystem =
+    project.items.find((i) => i.id === activeItemId)?.system ?? project.system ?? "";
 
   const zoneName =
     zoneFilter === null
@@ -63,6 +73,8 @@ export function ItemsPanel() {
   const q = fold(query.trim());
   const visible = project.items.filter((item) => {
     if (q && !fold(`${item.name} ${item.group} ${item.system ?? ""}`).includes(q)) return false;
+    if (systemFilter !== null && (item.system || project.system || "") !== systemFilter)
+      return false;
     // inside a location only items that have something there (the active one stays visible)
     if (scoped && !scoped.has(item.id) && item.id !== activeItemId) return false;
     return true;
@@ -86,7 +98,11 @@ export function ItemsPanel() {
   };
 
   const submitNew = () => {
-    addItem({ kind: newKind, name: newName.trim() || undefined });
+    addItem({
+      kind: newKind,
+      name: newName.trim() || undefined,
+      system: newSystem ?? activeSystem,
+    });
     setNewName("");
   };
 
@@ -98,7 +114,7 @@ export function ItemsPanel() {
         ))}
       </datalist>
       <datalist id="item-systems">
-        {systems.map((g) => (
+        {systemOptions.map((g) => (
           <option key={g} value={g} />
         ))}
       </datalist>
@@ -118,6 +134,26 @@ export function ItemsPanel() {
             </button>
           )}
         </div>
+        {systems.length > 1 && (
+          <select
+            value={systemFilter ?? "*"}
+            onChange={(e) => setSystemFilter(e.target.value === "*" ? null : e.target.value)}
+            title="Mostrar só os itens de uma disciplina (aba da planilha)"
+            className={clsx(
+              "h-7 max-w-[9rem] rounded px-1 text-xs ring-1",
+              systemFilter === null
+                ? "bg-neutral-800 ring-neutral-700"
+                : "bg-orange-500/15 text-orange-300 ring-orange-400",
+            )}
+          >
+            <option value="*">Todas as disciplinas</option>
+            {systems.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        )}
         {project.zones.length > 0 && (
           <select
             value={zoneFilter ?? "*"}
@@ -205,6 +241,14 @@ export function ItemsPanel() {
           <option value="linear">Linear</option>
           <option value="area">Área</option>
         </select>
+        <input
+          list="item-systems"
+          value={newSystem ?? activeSystem}
+          onChange={(e) => setNewSystem(e.target.value)}
+          placeholder="Disciplina"
+          title="Disciplina do novo item: vira uma aba da planilha"
+          className="h-8 w-24 rounded bg-neutral-800 px-1.5 text-xs ring-1 ring-neutral-700 focus:ring-orange-400 outline-none"
+        />
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
@@ -369,11 +413,11 @@ function ItemRow({
               ? tagInput("group", item.group, "item-groups", "Grupo")
               : tag("group", item.group, "Grupo da planilha (clique para alterar)")}
             {editing === "system"
-              ? tagInput("system", item.system ?? "", "item-systems", "Sistema (aba)")
+              ? tagInput("system", item.system ?? "", "item-systems", "Disciplina (aba)")
               : tag(
                   "system",
-                  systemLabel || "sistema",
-                  "Sistema: aba da planilha (clique para alterar)",
+                  systemLabel || "disciplina",
+                  "Disciplina: aba da planilha (clique para alterar)",
                 )}
             <span className="ml-auto flex items-center gap-1">
               <button
