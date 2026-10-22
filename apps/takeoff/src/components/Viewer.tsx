@@ -16,7 +16,7 @@ import {
   translate,
 } from "../lib/geom";
 import { magicArea } from "../lib/pdf/magic";
-import type { Rect, Rendered } from "../lib/pdf/render";
+import { isCancelled, type Rect, type Rendered } from "../lib/pdf/render";
 import { type TextBox, textLinesIn, textNear } from "../lib/pdf/text";
 import { type SnapHit, snapPoint } from "../lib/pdf/vectors";
 import { crop } from "../lib/pdf/visual";
@@ -181,13 +181,35 @@ export function Viewer() {
       const y1 = Math.min(size.h, vis.y + vis.h);
       if (x1 <= x0 || y1 <= y0) return;
       const visible = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+      const dpr = window.devicePixelRatio || 1;
+      // device pixels per page point the screen needs right now
+      const need = v.zoom * dpr;
+      const crisp = (r: Rendered) => r.scale * r.dpr >= need - 1e-6;
+      // no base yet: loadPage schedules a render as soon as it lands
+      if (!s.base || s.base.page !== curPage) return;
+      // the cached base already has enough pixels: nothing to render (overview zooms)
+      if (crisp(s.base)) {
+        if (s.view) {
+          s.view = null;
+          this.setLayer(viewLayerRef.current, null);
+        }
+        return;
+      }
       const cur = s.view;
-      if (
-        cur &&
-        cur.page === curPage &&
-        Math.abs(cur.scale - v.zoom) < 1e-6 &&
-        rectContains(cur.rect, visible)
-      ) {
+      if (cur && cur.page === curPage && crisp(cur) && rectContains(cur.rect, visible)) return;
+      // medium zooms: one full-page render at mid resolution, then panning is free
+      if (need <= renderer.hiScale(size.w, size.h)) {
+        const ready = renderer.hiIfReady(curPage);
+        renderer.cancelView();
+        const hi = await (ready ?? renderer.renderHi(curPage));
+        const now = useViewport.getState();
+        if (useStore.getState().page !== curPage || session.renderer !== renderer) return;
+        if (now.zoom * dpr > hi.scale * hi.dpr + 1e-6) return; // zoomed in meanwhile
+        if (s.view !== hi) {
+          s.view = hi;
+          this.setLayer(viewLayerRef.current, hi);
+          this.applyTransforms();
+        }
         return;
       }
       const mx = vis.w * RENDER_MARGIN;
@@ -200,7 +222,7 @@ export function Viewer() {
       const t0 = performance.now();
       let r: Rendered | null = null;
       try {
-        r = await renderer.renderView(curPage, v.zoom, rect, window.devicePixelRatio || 1);
+        r = await renderer.renderView(curPage, v.zoom, rect, dpr);
       } catch (e) {
         console.error("render failed", e);
         return;
@@ -234,8 +256,9 @@ export function Viewer() {
         s.base = base;
         this.setLayer(baseLayerRef.current, base);
         this.applyTransforms();
+        this.scheduleRender();
       } catch (e) {
-        console.error("base render failed", e);
+        if (!isCancelled(e)) console.error("base render failed", e);
       }
     },
     fit() {

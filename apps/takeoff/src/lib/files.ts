@@ -4,7 +4,7 @@ import { useStore } from "../store";
 import { confirmDialog } from "./dialogs";
 import { mod } from "./platform";
 import { systemSheets, zoneMatrix } from "./quantities";
-import { basename, closePdf, openPdfPath, useDoc } from "./session";
+import { basename, closePdf, isDocOpen, openPdfPath, preloadPdfPath, useDoc } from "./session";
 import { drawingOf, emptyProject, migrateProject, UNTITLED } from "./types";
 
 /** Ask before throwing away unsaved work. Returns true when it is fine to continue. */
@@ -67,12 +67,44 @@ export async function openPdfFile(path: string): Promise<void> {
   await switchDrawing(id);
 }
 
+let warmTimer = 0;
+/**
+ * Parse and pre-render the other plantas of the takeoff while the user works, one at a time,
+ * so switching tabs never waits. Starts a moment after the active one is ready.
+ */
+export function scheduleWarm(): void {
+  if (!("__TAURI_INTERNALS__" in window)) return;
+  window.clearTimeout(warmTimer);
+  warmTimer = window.setTimeout(() => void warmDrawings(), 1500);
+}
+
+async function warmDrawings(): Promise<void> {
+  const { project } = useStore.getState();
+  for (const d of project.drawings) {
+    if (!d.path || d.id === project.activeDrawingId || isDocOpen(d.path)) continue;
+    try {
+      if (!(await invoke<boolean>("file_exists", { path: d.path }))) continue;
+      await preloadPdfPath(d.path);
+    } catch (e) {
+      console.warn("preload failed", d.name, e);
+    }
+    // the takeoff may have changed meanwhile
+    if (useStore.getState().project !== project) return warmDrawings();
+  }
+}
+
 /** Make a drawing the active one and load its PDF (asking to relocate it when missing). */
 export async function switchDrawing(id: string): Promise<void> {
   const store = useStore.getState();
   const drawing = drawingOf(store.project, id);
   if (!drawing) return;
   let path = drawing.path;
+  if (path && isDocOpen(path)) {
+    await openPdfPath(path);
+    useStore.getState().setActiveDrawing(id);
+    useStore.getState().ensurePages(useDoc.getState().numPages);
+    return;
+  }
   if (!path || !(await invoke<boolean>("file_exists", { path }))) {
     store.setStatus(`PDF não encontrado: ${path ?? drawing.name}. Localize-o para religar.`);
     const picked = await open({
@@ -90,6 +122,7 @@ export async function switchDrawing(id: string): Promise<void> {
     useStore.getState().setActiveDrawing(id);
     useStore.getState().ensurePages(useDoc.getState().numPages);
     useStore.getState().setStatus(null);
+    scheduleWarm();
   } catch (e) {
     store.setStatus(`Não foi possível abrir o PDF: ${e instanceof Error ? e.message : String(e)}`);
   }

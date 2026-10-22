@@ -3,6 +3,7 @@ import { FileText, Plus, X } from "lucide-react";
 import { confirmDialog } from "../lib/dialogs";
 import { pickAndOpenPdf, switchDrawing } from "../lib/files";
 import { mod } from "../lib/platform";
+import { dropDoc } from "../lib/session";
 import { useStore } from "../store";
 
 /** One tab per planta (PDF) of the takeoff; markings and locations belong to the chosen one. */
@@ -56,7 +57,10 @@ export function DrawingTabs() {
                 void confirmDialog(
                   `Remover a planta "${d.name}" do takeoff?${n ? ` ${n} marcações serão apagadas.` : ""}`,
                 ).then((ok) => {
-                  if (ok) removeDrawing(d.id);
+                  if (ok) {
+                    removeDrawing(d.id);
+                    if (d.path) dropDoc(d.path);
+                  }
                 });
               }}
               className={clsx(

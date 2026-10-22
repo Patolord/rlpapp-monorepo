@@ -35,9 +35,9 @@ export function ensureRaster(page: number): Promise<PageRaster | null> {
   if (!doc) return Promise.resolve(null);
   const docId = useDoc.getState().docId;
   const cached = session.raster;
-  if (cached && cached.docId === docId && cached.page === page) return Promise.resolve(cached);
+  if (cached && cached.page === page) return Promise.resolve(cached);
   const pending = session.rasterPending;
-  if (pending && pending.docId === docId && pending.page === page) return pending.promise;
+  if (pending && pending.page === page) return pending.promise;
   const promise = (async () => {
     const proxy = await doc.getPage(page + 1);
     const vp = proxy.getViewport({ scale: 1 });

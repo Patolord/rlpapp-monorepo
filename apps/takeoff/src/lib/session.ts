@@ -35,125 +35,276 @@ export const useDoc = create<DocState>(() => ({
   error: null,
 }));
 
-/** Non-serialisable PDF objects live here, outside React state. */
+export interface PageRaster {
+  docId: number;
+  page: number;
+  scale: number;
+  gray: Gray;
+}
+
+/**
+ * Everything pdf.js and the indexes hold for one opened PDF. Parsed documents stay open (LRU,
+ * see MAX_OPEN) so switching plantas is a pointer swap instead of a parse + render + index.
+ */
+export interface OpenDoc {
+  key: string;
+  name: string;
+  path: string | null;
+  doc: PDFDocumentProxy;
+  task: PDFDocumentLoadingTask;
+  renderer: PageRenderer;
+  sizes: PageSize[];
+  vectors: Map<number, VectorIndex>;
+  vectorTime: Map<number, number>;
+  texts: Map<number, TextBox[]>;
+  textPending: Map<number, Promise<TextBox[]>>;
+  raster: PageRaster | null;
+  rasterPending: { docId: number; page: number; promise: Promise<PageRaster | null> } | null;
+  used: number;
+}
+
+/** Open documents kept in memory; the most recently used MAX_OPEN survive. */
+const MAX_OPEN = 8;
+const openDocs = new Map<string, OpenDoc>();
+let active: OpenDoc | null = null;
+let useCounter = 0;
+const EMPTY_VECTORS = new Map<number, VectorIndex>();
+const EMPTY_TEXTS = new Map<number, TextBox[]>();
+
+/** Non-serialisable PDF objects of the planta in view, outside React state. */
 export const session = {
-  doc: null as PDFDocumentProxy | null,
-  task: null as PDFDocumentLoadingTask | null,
-  renderer: null as PageRenderer | null,
-  vectors: new Map<number, VectorIndex>(),
-  vectorTime: new Map<number, number>(),
-  texts: new Map<number, TextBox[]>(),
-  textPending: new Map<number, Promise<TextBox[]>>(),
-  /** Last page rendered for the image-based symbol search. */
-  raster: null as { docId: number; page: number; scale: number; gray: Gray } | null,
-  rasterPending: null as {
-    docId: number;
-    page: number;
-    promise: Promise<{ docId: number; page: number; scale: number; gray: Gray } | null>;
-  } | null,
+  get doc(): PDFDocumentProxy | null {
+    return active?.doc ?? null;
+  },
+  get renderer(): PageRenderer | null {
+    return active?.renderer ?? null;
+  },
+  get vectors(): Map<number, VectorIndex> {
+    return active?.vectors ?? EMPTY_VECTORS;
+  },
+  get vectorTime(): Map<number, number> {
+    return active?.vectorTime ?? new Map();
+  },
+  get texts(): Map<number, TextBox[]> {
+    return active?.texts ?? EMPTY_TEXTS;
+  },
+  get raster(): PageRaster | null {
+    return active?.raster ?? null;
+  },
+  set raster(r: PageRaster | null) {
+    if (active) active.raster = r;
+  },
+  get rasterPending(): OpenDoc["rasterPending"] {
+    return active?.rasterPending ?? null;
+  },
+  set rasterPending(p: OpenDoc["rasterPending"]) {
+    if (active) active.rasterPending = p;
+  },
+  /** The open document for a PDF path (or dev key), whether or not it is the one in view. */
+  openDoc(key: string): OpenDoc | undefined {
+    return openDocs.get(key);
+  },
+  get openCount(): number {
+    return openDocs.size;
+  },
 };
 
 /** Positioned text of a page, extracted once and cached. */
 export function ensureText(page: number): Promise<TextBox[]> {
-  const cached = session.texts.get(page);
+  const entry = active;
+  if (!entry) return Promise.resolve([]);
+  const cached = entry.texts.get(page);
   if (cached) return Promise.resolve(cached);
-  let p = session.textPending.get(page);
+  let p = entry.textPending.get(page);
   if (!p) {
-    const doc = session.doc;
-    if (!doc) return Promise.resolve([]);
-    p = doc
+    p = entry.doc
       .getPage(page + 1)
       .then(extractText)
       .then((boxes) => {
-        if (session.doc === doc) session.texts.set(page, boxes);
+        entry.texts.set(page, boxes);
         return boxes;
       })
       .catch((e) => {
         console.warn("text extraction failed for page", page + 1, e);
         return [];
       });
-    session.textPending.set(page, p);
+    entry.textPending.set(page, p);
   }
   return p;
 }
 
 export const basename = (path: string): string => path.split(/[\\/]/).pop() ?? path;
 
-export async function openPdfBytes(data: Uint8Array, name: string, path: string | null) {
+function destroyEntry(entry: OpenDoc) {
+  entry.renderer.destroy();
+  void entry.task.destroy();
+  entry.vectors.clear();
+  entry.texts.clear();
+  entry.textPending.clear();
+  entry.raster = null;
+}
+
+/** Drop the least recently used documents beyond MAX_OPEN (never the one in view). */
+function evict() {
+  if (openDocs.size <= MAX_OPEN) return;
+  const victims = [...openDocs.values()]
+    .filter((e) => e !== active)
+    .sort((a, b) => a.used - b.used)
+    .slice(0, openDocs.size - MAX_OPEN);
+  for (const v of victims) {
+    openDocs.delete(v.key);
+    destroyEntry(v);
+  }
+}
+
+async function parseDoc(
+  data: Uint8Array,
+  name: string,
+  path: string | null,
+  key: string,
+): Promise<OpenDoc> {
+  const t0 = performance.now();
+  const task = pdfjs.getDocument({ data });
+  const doc = await task.promise;
+  const sizes: PageSize[] = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const vp = page.getViewport({ scale: 1 });
+    sizes.push({ w: vp.width, h: vp.height });
+  }
+  const vectors = new Map<number, VectorIndex>();
+  const vectorTime = new Map<number, number>();
+  const renderer = new PageRenderer(doc, async (index, proxy) => {
+    // Copy the path data before the first render (pdf.js mutates it), but let the page
+    // render while the worker flattens and indexes the geometry for snapping.
+    const t = performance.now();
+    try {
+      const { collected, index: indexed } = await collectThenIndex(proxy);
+      await collected;
+      void indexed
+        .then((idx) => {
+          vectors.set(index, idx);
+          vectorTime.set(index, performance.now() - t);
+          console.info(
+            `${name} page ${index + 1}: ${idx.count} segments indexed in ${(performance.now() - t).toFixed(0)}ms`,
+          );
+        })
+        .catch((e) => console.warn("vector indexing failed for page", index + 1, e));
+    } catch (e) {
+      console.warn("vector extraction failed for page", index + 1, e);
+    }
+  });
+  console.info(
+    `opened ${name}: ${doc.numPages} page(s) in ${(performance.now() - t0).toFixed(0)}ms`,
+  );
+  return {
+    key,
+    name,
+    path,
+    doc,
+    task,
+    renderer,
+    sizes,
+    vectors,
+    vectorTime,
+    texts: new Map(),
+    textPending: new Map(),
+    raster: null,
+    rasterPending: null,
+    used: ++useCounter,
+  };
+}
+
+/** Make an open document the one in view (instant when it is already parsed). */
+function activate(entry: OpenDoc) {
+  entry.used = ++useCounter;
+  active = entry;
+  useDoc.setState((s) => ({
+    docId: s.docId + 1,
+    name: entry.name,
+    path: entry.path,
+    numPages: entry.doc.numPages,
+    sizes: entry.sizes,
+    loading: false,
+    error: null,
+  }));
+}
+
+/** Is this PDF already parsed (switching to it costs nothing)? */
+export const isDocOpen = (key: string): boolean => openDocs.has(key);
+
+/** Parse a PDF without showing it, so the first switch to it is instant; renders its first page. */
+export async function preloadPdfBytes(
+  data: Uint8Array,
+  name: string,
+  path: string | null,
+  key = path ?? name,
+): Promise<OpenDoc> {
+  const cached = openDocs.get(key);
+  if (cached) return cached;
+  const entry = await parseDoc(data, name, path, key);
+  // a concurrent open may have won the race
+  const again = openDocs.get(key);
+  if (again) {
+    destroyEntry(entry);
+    return again;
+  }
+  openDocs.set(key, entry);
+  evict();
+  return entry;
+}
+
+export async function openPdfBytes(
+  data: Uint8Array,
+  name: string,
+  path: string | null,
+  key = path ?? name,
+): Promise<void> {
+  const cached = openDocs.get(key);
+  if (cached) {
+    activate(cached);
+    return;
+  }
   useDoc.setState({ loading: true, error: null });
   try {
-    const t0 = performance.now();
-    const task = pdfjs.getDocument({ data });
-    const doc = await task.promise;
-    const sizes: PageSize[] = [];
-    for (let i = 1; i <= doc.numPages; i++) {
-      const page = await doc.getPage(i);
-      const vp = page.getViewport({ scale: 1 });
-      sizes.push({ w: vp.width, h: vp.height });
-    }
-    const oldTask = session.task;
-    session.renderer?.destroy();
-    session.doc = doc;
-    session.task = task;
-    session.vectors.clear();
-    session.vectorTime.clear();
-    session.texts.clear();
-    session.textPending.clear();
-    session.renderer = new PageRenderer(doc, async (index, proxy) => {
-      // Copy the path data before the first render (pdf.js mutates it), but let the page
-      // render while the worker flattens and indexes the geometry for snapping.
-      const t = performance.now();
-      try {
-        const { collected, index: indexed } = await collectThenIndex(proxy);
-        await collected;
-        void indexed
-          .then((idx) => {
-            if (session.doc === doc) {
-              session.vectors.set(index, idx);
-              session.vectorTime.set(index, performance.now() - t);
-              console.info(
-                `page ${index + 1}: ${idx.count} segments indexed in ${(performance.now() - t).toFixed(0)}ms`,
-              );
-            }
-          })
-          .catch((e) => console.warn("vector indexing failed for page", index + 1, e));
-      } catch (e) {
-        console.warn("vector extraction failed for page", index + 1, e);
-      }
-    });
-    void oldTask?.destroy();
-    useDoc.setState((s) => ({
-      docId: s.docId + 1,
-      name,
-      path,
-      numPages: doc.numPages,
-      sizes,
-      loading: false,
-      error: null,
-    }));
-    console.info(
-      `opened ${name}: ${doc.numPages} page(s) in ${(performance.now() - t0).toFixed(0)}ms`,
-    );
+    activate(await preloadPdfBytes(data, name, path, key));
   } catch (e) {
     useDoc.setState({ loading: false, error: e instanceof Error ? e.message : String(e) });
     throw e;
   }
 }
 
-export async function openPdfPath(path: string) {
+export async function openPdfPath(path: string): Promise<void> {
+  const cached = openDocs.get(path);
+  if (cached) {
+    activate(cached);
+    return;
+  }
   const buf = await invoke<ArrayBuffer>("read_file", { path });
   await openPdfBytes(new Uint8Array(buf), basename(path), path);
 }
 
-export function closePdf() {
-  session.renderer?.destroy();
-  void session.task?.destroy();
-  session.doc = null;
-  session.task = null;
-  session.renderer = null;
-  session.vectors.clear();
-  session.texts.clear();
-  session.textPending.clear();
+/** Parse (and pre-render the first page of) a PDF in the background. */
+export async function preloadPdfPath(path: string): Promise<void> {
+  if (openDocs.has(path)) return;
+  const buf = await invoke<ArrayBuffer>("read_file", { path });
+  const entry = await preloadPdfBytes(new Uint8Array(buf), basename(path), path);
+  await entry.renderer.renderBase(0).catch(() => {});
+}
+
+/** Forget one PDF (its planta was removed from the takeoff). */
+export function dropDoc(key: string): void {
+  const entry = openDocs.get(key);
+  if (!entry || entry === active) return;
+  openDocs.delete(key);
+  destroyEntry(entry);
+}
+
+/** Close every open PDF (the takeoff was closed). */
+export function closePdf(): void {
+  for (const entry of openDocs.values()) destroyEntry(entry);
+  openDocs.clear();
+  active = null;
   useDoc.setState({ name: "", path: null, numPages: 0, sizes: [], error: null });
 }
 
@@ -164,7 +315,7 @@ export async function devAutoOpen(): Promise<void> {
   if (!p) return;
   const res = await fetch(`/@fs/${p.replace(/\\/g, "/")}`);
   if (!res.ok) throw new Error(`${res.status} loading ${p}`);
-  await openPdfBytes(new Uint8Array(await res.arrayBuffer()), basename(p), null);
+  await openPdfBytes(new Uint8Array(await res.arrayBuffer()), basename(p), p);
   // register it as a drawing of the project, as openPdfFile does inside Tauri
   const { useStore } = await import("../store");
   const store = useStore.getState();
@@ -175,13 +326,17 @@ export async function devAutoOpen(): Promise<void> {
 
 /** Dev only: add another drawing from an absolute path (browser mode). */
 export async function devAddDrawing(p: string): Promise<void> {
-  const res = await fetch(`/@fs/${p.replace(/\\/g, "/")}`);
-  if (!res.ok) throw new Error(`${res.status} loading ${p}`);
   const { useStore } = await import("../store");
   const store = useStore.getState();
   const existing = store.project.drawings.find((d) => d.path === p);
   const id = existing?.id ?? store.addDrawing(p, basename(p));
-  await openPdfBytes(new Uint8Array(await res.arrayBuffer()), basename(p), null);
+  if (!openDocs.has(p)) {
+    const res = await fetch(`/@fs/${p.replace(/\\/g, "/")}`);
+    if (!res.ok) throw new Error(`${res.status} loading ${p}`);
+    await openPdfBytes(new Uint8Array(await res.arrayBuffer()), basename(p), p);
+  } else {
+    await openPdfPath(p);
+  }
   useStore.getState().setActiveDrawing(id);
   useStore.getState().ensurePages(useDoc.getState().numPages);
 }
