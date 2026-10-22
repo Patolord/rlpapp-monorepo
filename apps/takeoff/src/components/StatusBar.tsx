@@ -33,8 +33,8 @@ const HINTS: Record<string, React.ReactNode> = {
   calibrate: "Clique em dois pontos de distância conhecida",
   similar: (
     <>
-      Arraste uma caixa ao redor de um símbolo: todos os iguais na página recebem uma marca de
-      contagem · <Kbd>{MOD}</Kbd>+<Kbd>K</Kbd> abre o catálogo
+      Arraste uma caixa justa ao redor de um símbolo: os parecidos aparecem como prévia, clique
+      exclui, <Kbd>Enter</Kbd> marca · <Kbd>{MOD}</Kbd>+<Kbd>K</Kbd> abre o catálogo
     </>
   ),
   zone: (

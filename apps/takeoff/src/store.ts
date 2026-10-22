@@ -132,6 +132,10 @@ export interface State {
   /** Recently opened project files, newest first (per machine). */
   recentProjects: { path: string; name: string; openedAt: string }[];
   legendCandidates: string[] | null;
+  /** Image-search results waiting for the user to confirm (see Viewer.runSimilar). */
+  similarPreview: SimilarPreview | null;
+  /** Smallest similarity score shown in the preview (0.5..0.95, remembered). */
+  similarThreshold: number;
   catalog: CatalogStore;
 
   resetProject(project?: Project, filePath?: string | null): void;
@@ -190,6 +194,12 @@ export interface State {
   setNewProjectOpen(open: boolean): void;
   pushRecent(path: string, name: string): void;
   setLegendCandidates(lines: string[] | null): void;
+  setSimilarPreview(preview: SimilarPreview | null): void;
+  setSimilarThreshold(threshold: number): void;
+  /** Exclude (or re-include) one preview match by its index. */
+  toggleSimilarMatch(index: number): void;
+  /** Turn the visible, non-excluded preview matches into count marks. */
+  acceptSimilar(): void;
   /** Create items for several names at once (legend capture). */
   addItemsBulk(entries: { name: string; kind: Kind; group: string; system?: string }[]): void;
   /** Rename the active item, or create one when there is none. */
@@ -210,6 +220,27 @@ const nextName = (items: Item[], kind: Kind) => {
   while (items.some((i) => i.name === `${base} ${n}`)) n++;
   return `${base} ${n}`;
 };
+
+export interface SimilarMatch {
+  /** Centre in page points. */
+  x: number;
+  y: number;
+  /** 0..1 similarity to the boxed symbol. */
+  score: number;
+}
+
+export interface SimilarPreview {
+  drawingId: string | null;
+  page: number;
+  /** Count item that receives the marks. */
+  itemId: string;
+  matches: SimilarMatch[];
+  /** Indexes into `matches` the user clicked away. */
+  excluded: number[];
+  /** Size of the boxed symbol in page points (drawn as a ghost frame). */
+  w: number;
+  h: number;
+}
 
 export const useStore = create<State>((set, get) => ({
   project: emptyProject(),
@@ -239,6 +270,8 @@ export const useStore = create<State>((set, get) => ({
   newProjectOpen: false,
   recentProjects: readPref("recentProjects", []),
   legendCandidates: null,
+  similarPreview: null,
+  similarThreshold: readPref("similarThreshold", 0.75),
   catalog: emptyCatalogStore(),
 
   resetProject: (project = emptyProject(), filePath = null) =>
@@ -252,6 +285,7 @@ export const useStore = create<State>((set, get) => ({
       selection: [],
       zoneFilter: null,
       systemFilter: null,
+      similarPreview: null,
       calibration: null,
       pendingZone: null,
       activeItemId: project.items[0]?.id ?? null,
@@ -311,6 +345,7 @@ export const useStore = create<State>((set, get) => ({
       selection: [],
       zoneFilter: null,
       systemFilter: null,
+      similarPreview: null,
       calibration: null,
       pendingZone: null,
     });
@@ -577,6 +612,49 @@ export const useStore = create<State>((set, get) => ({
     set({ recentProjects });
   },
   setLegendCandidates: (legendCandidates) => set({ legendCandidates }),
+  setSimilarPreview: (similarPreview) => set({ similarPreview }),
+  setSimilarThreshold: (similarThreshold) => {
+    writePref("similarThreshold", similarThreshold);
+    set({ similarThreshold });
+  },
+  toggleSimilarMatch: (index) => {
+    const pv = get().similarPreview;
+    if (!pv) return;
+    const excluded = pv.excluded.includes(index)
+      ? pv.excluded.filter((i) => i !== index)
+      : [...pv.excluded, index];
+    set({ similarPreview: { ...pv, excluded } });
+  },
+  acceptSimilar: () => {
+    const { similarPreview: pv, similarThreshold, project } = get();
+    if (!pv) return;
+    if (pv.drawingId !== project.activeDrawingId) {
+      set({ similarPreview: null, status: "A prévia era de outra planta e foi descartada" });
+      return;
+    }
+    const chosen = pv.matches.filter(
+      (m, i) => m.score >= similarThreshold && !pv.excluded.includes(i),
+    );
+    const near = Math.max(3, Math.min(pv.w, pv.h) / 2);
+    const existing = project.measurements.filter(
+      (m) => m.itemId === pv.itemId && m.drawingId === pv.drawingId && m.page === pv.page,
+    );
+    const fresh = chosen.filter(
+      (c) => !existing.some((m) => Math.hypot(m.points[0].x - c.x, m.points[0].y - c.y) <= near),
+    );
+    if (fresh.length > 0) {
+      get().addMeasurements(
+        pv.itemId,
+        pv.page,
+        fresh.map((c) => [{ x: c.x, y: c.y }]),
+      );
+    }
+    const dup = chosen.length - fresh.length;
+    set({
+      similarPreview: null,
+      status: `${fresh.length} marcações de contagem adicionadas${dup ? ` (${dup} já existiam)` : ""}`,
+    });
+  },
 
   addItemsBulk: (entries) => {
     if (entries.length === 0) return;

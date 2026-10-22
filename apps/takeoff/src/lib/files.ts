@@ -1,16 +1,17 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../store";
+import { confirmDialog } from "./dialogs";
 import { mod } from "./platform";
 import { systemSheets, zoneMatrix } from "./quantities";
 import { basename, closePdf, openPdfPath, useDoc } from "./session";
 import { drawingOf, emptyProject, migrateProject, UNTITLED } from "./types";
 
 /** Ask before throwing away unsaved work. Returns true when it is fine to continue. */
-export function confirmDiscard(): boolean {
+export async function confirmDiscard(): Promise<boolean> {
   const { dirty, project } = useStore.getState();
   if (!dirty) return true;
-  return window.confirm(`"${project.name}" tem alterações não salvas. Continuar sem salvar?`);
+  return confirmDialog(`"${project.name}" tem alterações não salvas. Continuar sem salvar?`);
 }
 
 /** Start a fresh project (obra). Clears the viewer; PDFs are added afterwards. */
@@ -20,7 +21,7 @@ export async function newProject(meta: {
   site: string;
   system: string;
 }): Promise<boolean> {
-  if (!confirmDiscard()) return false;
+  if (!(await confirmDiscard())) return false;
   const store = useStore.getState();
   const project = { ...emptyProject(), ...meta };
   closePdf();
@@ -31,8 +32,8 @@ export async function newProject(meta: {
 }
 
 /** Close the current project and return to the welcome screen. */
-export function closeProject(): boolean {
-  if (!confirmDiscard()) return false;
+export async function closeProject(): Promise<boolean> {
+  if (!(await confirmDiscard())) return false;
   closePdf();
   useStore.getState().resetProject(emptyProject(), null);
   return true;
@@ -112,7 +113,7 @@ export async function saveProject(as = false): Promise<boolean> {
 }
 
 export async function openProjectFile(path: string): Promise<void> {
-  if (!confirmDiscard()) return;
+  if (!(await confirmDiscard())) return;
   const store = useStore.getState();
   let text: string;
   try {

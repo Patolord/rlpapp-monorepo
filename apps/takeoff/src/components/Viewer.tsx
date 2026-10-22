@@ -17,9 +17,10 @@ import {
 } from "../lib/geom";
 import { magicArea } from "../lib/pdf/magic";
 import type { Rect, Rendered } from "../lib/pdf/render";
-import { findSimilar } from "../lib/pdf/similar";
 import { type TextBox, textLinesIn, textNear } from "../lib/pdf/text";
 import { type SnapHit, snapPoint } from "../lib/pdf/vectors";
+import { crop } from "../lib/pdf/visual";
+import { ensureRaster, findVisual } from "../lib/pdf/visualClient";
 import { pageScale, zoneOf } from "../lib/quantities";
 import { ensureText, session, useDoc } from "../lib/session";
 import { drawSymbol } from "../lib/symbols";
@@ -51,6 +52,7 @@ interface Interaction {
   spaceDown: boolean;
   shiftDown: boolean;
   magicBusy: boolean;
+  similarBusy: boolean;
   moveDelta: Pt | null;
   marquee: { a: Pt; b: Pt } | null;
   size: { w: number; h: number };
@@ -89,6 +91,10 @@ export function Viewer() {
   const numPages = useDoc((s) => s.numPages);
   const page = useStore((s) => s.page);
   const tool = useStore((s) => s.tool);
+  // the symbol search needs the page as an image: render it while the user draws the box
+  useEffect(() => {
+    if (tool === "similar" && numPages > 0) void ensureRaster(page);
+  }, [tool, page, numPages]);
 
   const st = useRef<Interaction>({
     draft: [],
@@ -104,6 +110,7 @@ export function Viewer() {
     spaceDown: false,
     shiftDown: false,
     magicBusy: false,
+    similarBusy: false,
     moveDelta: null,
     marquee: null,
     size: { w: 0, h: 0 },
@@ -271,6 +278,21 @@ export function Viewer() {
       }
       return { pt: raw, hit: null };
     },
+    hitPreview(raw: Pt): number {
+      const { similarPreview: pv, similarThreshold, project, page: p } = useStore.getState();
+      if (!pv || pv.drawingId !== project.activeDrawingId || pv.page !== p) return -1;
+      let best = -1;
+      let bd = Math.max(pv.w, pv.h) / 2;
+      pv.matches.forEach((m, i) => {
+        if (m.score < similarThreshold) return;
+        const d = Math.hypot(m.x - raw.x, m.y - raw.y);
+        if (d <= bd) {
+          bd = d;
+          best = i;
+        }
+      });
+      return best;
+    },
     hitTest(raw: Pt): string | null {
       const { project, page: p, systemFilter } = useStore.getState();
       const v = useViewport.getState();
@@ -328,37 +350,47 @@ export function Viewer() {
       s.hoverText = null;
       this.requestDraw();
     },
-    runSimilar(box: Box) {
+    async runSimilar(box: Box) {
       const store = useStore.getState();
-      const idx = session.vectors.get(store.page);
-      if (!idx) {
-        store.setStatus("Índice do desenho ainda em preparação, tente de novo em instantes");
-        return;
-      }
+      const doc = session.doc;
+      const s = st.current;
+      if (!doc || s.similarBusy) return;
+      s.similarBusy = true;
+      store.setStatus("Procurando símbolos parecidos na página…");
       const t0 = performance.now();
-      const res = findSimilar(idx, box);
-      if (res.templateSegments === 0) {
-        store.setStatus("Nenhuma linha do desenho dentro da caixa");
-        return;
+      try {
+        const w = box.maxX - box.minX;
+        const hgt = box.maxY - box.minY;
+        const raster = await ensureRaster(store.page);
+        if (!raster) return;
+        const { scale } = raster;
+        const tpl = crop(raster.gray, box.minX * scale, box.minY * scale, w * scale, hgt * scale);
+        const matches = await findVisual(raster.gray, tpl, { minScore: 0.5 });
+        const now = useStore.getState();
+        const itemId = now.resolveItem("count");
+        now.setSimilarPreview({
+          drawingId: now.project.activeDrawingId,
+          page: store.page,
+          itemId,
+          matches: matches.map((m) => ({ x: m.cx / scale, y: m.cy / scale, score: m.score })),
+          excluded: [],
+          w,
+          h: hgt,
+        });
+        const ms = (performance.now() - t0).toFixed(0);
+        const n = matches.filter((m) => m.score >= now.similarThreshold).length;
+        now.setStatus(
+          n > 0
+            ? `${n} símbolos parecidos em ${ms} ms · ajuste a sensibilidade, clique para excluir, Enter marca`
+            : `Nenhum símbolo parecido (${ms} ms) · baixe a sensibilidade ou desenhe a caixa mais justa`,
+        );
+      } catch (e) {
+        useStore
+          .getState()
+          .setStatus(`Busca falhou: ${e instanceof Error ? e.message : String(e)}`);
+      } finally {
+        s.similarBusy = false;
       }
-      const itemId = store.resolveItem("count");
-      const existing = store.project.measurements.filter(
-        (m) =>
-          m.itemId === itemId &&
-          m.drawingId === store.project.activeDrawingId &&
-          m.page === store.page,
-      );
-      const fresh = res.centers.filter(
-        (c) => !existing.some((m) => Math.hypot(m.points[0].x - c.x, m.points[0].y - c.y) <= 3),
-      );
-      store.addMeasurements(
-        itemId,
-        store.page,
-        fresh.map((c) => [c]),
-      );
-      store.setStatus(
-        `${res.centers.length} símbolos iguais encontrados em ${(performance.now() - t0).toFixed(0)} ms · ${fresh.length} marcados (${res.templateSegments} linhas no modelo)`,
-      );
     },
     async runMagic(raw: Pt) {
       const s = st.current;
@@ -407,6 +439,8 @@ export function Viewer() {
         calibration,
         zoneFilter,
         systemFilter,
+        similarPreview,
+        similarThreshold,
         zonesVisible,
         zoneOpacity,
         fillOpacity,
@@ -474,6 +508,45 @@ export function Viewer() {
           fillAlpha: fillK,
         });
         ctx.globalAlpha = 1;
+      }
+
+      if (similarPreview && similarPreview.drawingId === did && similarPreview.page === p) {
+        const pvItem = items.get(similarPreview.itemId);
+        const pvColor = pvItem?.color ?? "#f97316";
+        const hw = (similarPreview.w / 2) * v.zoom;
+        const hh = (similarPreview.h / 2) * v.zoom;
+        similarPreview.matches.forEach((m, i) => {
+          if (m.score < similarThreshold) return;
+          const excluded = similarPreview.excluded.includes(i);
+          const c = toScreen({ x: m.x, y: m.y }, v);
+          ctx.save();
+          ctx.globalAlpha = excluded ? 0.35 : 0.9;
+          ctx.setLineDash([3, 3]);
+          ctx.strokeStyle = excluded ? "#dc2626" : pvColor;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(c.x - hw, c.y - hh, hw * 2, hh * 2);
+          if (excluded) {
+            ctx.setLineDash([]);
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(c.x - 6, c.y - 6);
+            ctx.lineTo(c.x + 6, c.y + 6);
+            ctx.moveTo(c.x + 6, c.y - 6);
+            ctx.lineTo(c.x - 6, c.y + 6);
+            ctx.stroke();
+          }
+          ctx.restore();
+          if (!excluded) {
+            ctx.globalAlpha = 0.7;
+            drawMeasurement(ctx, v, [{ x: m.x, y: m.y }], "count", pvColor, scale, {
+              selected: false,
+              hover: false,
+              dashed: true,
+              symbol: pvItem?.symbol,
+            });
+            ctx.globalAlpha = 1;
+          }
+        });
       }
 
       const active = items.get(store.activeItemId ?? "");
@@ -711,6 +784,14 @@ export function Viewer() {
     }
     if (e.button !== 0) return;
     const { pt: eff } = h.effective(raw);
+
+    if (store.similarPreview && (store.tool === "similar" || store.tool === "select")) {
+      const i = h.hitPreview(raw);
+      if (i >= 0) {
+        store.toggleSimilarMatch(i);
+        return;
+      }
+    }
 
     switch (store.tool) {
       case "select": {

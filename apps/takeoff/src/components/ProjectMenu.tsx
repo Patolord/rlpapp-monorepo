@@ -105,7 +105,7 @@ export function ProjectMenu() {
             </>,
           )}
           <div className="my-1 border-t border-neutral-800" />
-          {item(<FolderX size={16} />, "Fechar takeoff", () => closeProject())}
+          {item(<FolderX size={16} />, "Fechar takeoff", () => void closeProject())}
         </div>
       )}
     </div>

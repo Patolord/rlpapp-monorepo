@@ -11,6 +11,7 @@ import { LegendDialog } from "./components/LegendDialog";
 import { NewProjectDialog } from "./components/NewProjectDialog";
 import { PageStrip } from "./components/PageStrip";
 import { QuotePanel } from "./components/QuotePanel";
+import { SimilarPreviewBar } from "./components/SimilarPreviewBar";
 import { StatusBar } from "./components/StatusBar";
 import { ToolRail } from "./components/ToolRail";
 import { TopBar } from "./components/TopBar";
@@ -76,8 +77,8 @@ export default function App() {
     if (!("__TAURI_INTERNALS__" in window)) return;
     let unlisten: (() => void) | undefined;
     getCurrentWindow()
-      .onCloseRequested((event) => {
-        if (!confirmDiscard()) event.preventDefault();
+      .onCloseRequested(async (event) => {
+        if (!(await confirmDiscard())) event.preventDefault();
       })
       .then((u) => {
         unlisten = u;
@@ -110,6 +111,7 @@ export default function App() {
         <div className="relative min-w-0 flex-1">
           <Viewer />
           {!numPages && <Welcome />}
+          <SimilarPreviewBar />
           <CalibrateDialog />
           <ZoneDialog />
           <LegendDialog />

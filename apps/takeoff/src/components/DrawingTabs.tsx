@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { FileText, Plus, X } from "lucide-react";
+import { confirmDialog } from "../lib/dialogs";
 import { pickAndOpenPdf, switchDrawing } from "../lib/files";
 import { mod } from "../lib/platform";
 import { useStore } from "../store";
@@ -52,13 +53,11 @@ export function DrawingTabs() {
               title="Remover esta planta do takeoff (apaga suas marcações e locais)"
               onClick={(e) => {
                 e.stopPropagation();
-                if (
-                  window.confirm(
-                    `Remover a planta "${d.name}" do takeoff?${n ? ` ${n} marcações serão apagadas.` : ""}`,
-                  )
-                ) {
-                  removeDrawing(d.id);
-                }
+                void confirmDialog(
+                  `Remover a planta "${d.name}" do takeoff?${n ? ` ${n} marcações serão apagadas.` : ""}`,
+                ).then((ok) => {
+                  if (ok) removeDrawing(d.id);
+                });
               }}
               className={clsx(
                 "rounded p-0.5 text-neutral-500 hover:text-red-400 focus:opacity-100 group-hover:opacity-100",

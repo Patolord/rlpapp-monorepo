@@ -91,6 +91,7 @@ export function useHotkeys() {
             return;
           }
           if (api?.hasDraft()) api.cancelDraft();
+          else if (s.similarPreview) s.setSimilarPreview(null);
           else if (s.calibration) s.setCalibration(null);
           else if (s.pendingZone) s.setPendingZone(null);
           else if (s.paletteOpen) s.setPaletteOpen(false);
@@ -102,7 +103,8 @@ export function useHotkeys() {
         case "Enter":
           // stop the keypress that would otherwise submit a dialog mounted by finishDraft
           e.preventDefault();
-          api?.finishDraft();
+          if (s.similarPreview) s.acceptSimilar();
+          else api?.finishDraft();
           return;
         case "Backspace":
           if (api?.hasDraft()) api.popDraft();

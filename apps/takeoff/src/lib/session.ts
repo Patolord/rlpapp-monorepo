@@ -6,6 +6,7 @@ import { create } from "zustand";
 import { PageRenderer } from "./pdf/render";
 import { extractText, type TextBox } from "./pdf/text";
 import { collectThenIndex, type VectorIndex } from "./pdf/vectors";
+import type { Gray } from "./pdf/visual";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -43,6 +44,13 @@ export const session = {
   vectorTime: new Map<number, number>(),
   texts: new Map<number, TextBox[]>(),
   textPending: new Map<number, Promise<TextBox[]>>(),
+  /** Last page rendered for the image-based symbol search. */
+  raster: null as { docId: number; page: number; scale: number; gray: Gray } | null,
+  rasterPending: null as {
+    docId: number;
+    page: number;
+    promise: Promise<{ docId: number; page: number; scale: number; gray: Gray } | null>;
+  } | null,
 };
 
 /** Positioned text of a page, extracted once and cached. */
