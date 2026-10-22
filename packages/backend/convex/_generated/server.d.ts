@@ -35,6 +35,7 @@ type Env = {
   readonly RHID_EMAIL: string | undefined;
   readonly RHID_MEDIA_ALLOWED_HOSTS: string | undefined;
   readonly RHID_PASSWORD: string | undefined;
+  readonly TAKEOFF_CATALOG_TOKEN: string | undefined;
 };
 
 /**
