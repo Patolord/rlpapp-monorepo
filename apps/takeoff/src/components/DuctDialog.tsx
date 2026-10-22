@@ -1,5 +1,6 @@
 import { Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { ductNetworks } from "../lib/ductItems";
 import {
   DEFAULT_DUCT_SETTINGS,
   type DuctFlange,
@@ -28,10 +29,21 @@ export function DuctDialog() {
   const editIds = useStore((s) => s.ductEditIds);
   const lastSpec = useStore((s) => s.lastDuctSpec);
   const project = useStore((s) => s.project);
-  const { setPendingDuct, setDuctEditIds, addDuctRun, updateDuctSpec, setDuctSettings } =
-    useStore.getState();
+  const {
+    setPendingDuct,
+    setDuctEditIds,
+    addDuctRun,
+    updateDuctSpec,
+    setDuctSettings,
+    addDuctNetwork,
+    setDuctNetwork,
+  } = useStore.getState();
+  const activeItemId = useStore((s) => s.activeItemId);
+  const networks = ductNetworks(project);
+  const [networkId, setNetworkId] = useState<string>("");
   const open = pending !== null || editIds !== null;
   const [spec, setSpec] = useState<DuctSpec>(lastSpec);
+  const [vertical, setVertical] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const settings: DuctSettings = project.duct ?? DEFAULT_DUCT_SETTINGS;
 
@@ -40,9 +52,17 @@ export function DuctDialog() {
     if (editIds) {
       const first = project.measurements.find((m) => editIds.includes(m.id) && m.duct);
       setSpec(first?.duct ?? lastSpec);
+      setVertical(first?.vertical ?? 0);
     } else {
       setSpec(lastSpec);
+      setVertical(0);
     }
+    const current =
+      (editIds && project.measurements.find((m) => editIds.includes(m.id) && m.duct)?.itemId) ||
+      (networks.some((n) => n.id === activeItemId) ? activeItemId : null) ||
+      networks[networks.length - 1]?.id ||
+      "";
+    setNetworkId(current ?? "");
     setShowSettings(false);
   }, [open, editIds, lastSpec, project.measurements]);
 
@@ -61,8 +81,11 @@ export function DuctDialog() {
       b: Math.min(spec.a, spec.b),
       paintRechap: spec.rechapeado && spec.paintRechap,
     };
-    if (editIds) updateDuctSpec(editIds, norm);
-    else if (pending) addDuctRun(norm, pending.page, pending.points);
+    const target = networkId === "__new__" ? addDuctNetwork() : networkId || undefined;
+    if (editIds) {
+      updateDuctSpec(editIds, norm, vertical);
+      if (target) setDuctNetwork(editIds, target);
+    } else if (pending) addDuctRun(norm, pending.page, pending.points, vertical, target);
     close();
   };
   const num = (v: string) => Math.max(0, Number(v) || 0);
@@ -91,7 +114,24 @@ export function DuctDialog() {
           dutos do takeoff, conforme a NBR 16401 ({NORMA_LABELS[settings.norma]}).
         </p>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-neutral-400">
+        <label className="mt-4 block text-xs text-neutral-400">
+          <span className="mb-1 block">Rede de dutos (item do orçamento)</span>
+          <select
+            value={networkId}
+            onChange={(e) => setNetworkId(e.target.value)}
+            className={`${input} w-full`}
+          >
+            {networks.length === 0 && <option value="">Rede de dutos (nova)</option>}
+            {networks.map((n) => (
+              <option key={n.id} value={n.id}>
+                {n.name}
+                {n.system ? ` · ${n.system}` : ""}
+              </option>
+            ))}
+            <option value="__new__">+ Nova rede de dutos</option>
+          </select>
+        </label>
+        <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-neutral-400">
           <label className="block">
             <span className="mb-1 block">Lado maior (cm)</span>
             <input
@@ -159,6 +199,20 @@ export function DuctDialog() {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block">Vertical (m) · somado ao trecho</span>
+            <input
+              type="number"
+              min={0}
+              step="0.1"
+              value={vertical || ""}
+              placeholder="0"
+              onChange={(e) => setVertical(num(e.target.value))}
+              onFocus={(e) => e.target.select()}
+              className={`${input} w-full text-right font-mono`}
+              title="Prumadas e descidas que a planta não mostra, em metros"
+            />
           </label>
           <div className="flex flex-col justify-end gap-1.5">
             <label className="flex items-center gap-1.5">

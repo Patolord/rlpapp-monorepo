@@ -12,7 +12,7 @@ import {
   saveCatalogStore,
   unitForKind,
 } from "./lib/catalog";
-import { DUCT_GROUP, syncDuctItems } from "./lib/ductItems";
+import { ductNetworks, newDuctNetwork, syncDuctItems } from "./lib/ductItems";
 import {
   DEFAULT_DUCT_SETTINGS,
   DEFAULT_DUCT_SPEC,
@@ -203,9 +203,20 @@ export interface State {
   setPendingDuct(p: PendingZone | null): void;
   setDuctEditIds(ids: string[] | null): void;
   /** Create the duct run: one measurement on the "Duto A×B cm" item; derived items follow. */
-  addDuctRun(spec: DuctSpec, page: number, points: Pt[]): void;
+  /** Another "Rede de dutos" item (another network in the budget); returns its id. */
+  addDuctNetwork(name?: string, system?: string): string;
+  /** Draw a run on a network (the given one, the active one, or the last; created if none). */
+  addDuctRun(
+    spec: DuctSpec,
+    page: number,
+    points: Pt[],
+    vertical?: number,
+    networkId?: string,
+  ): void;
+  /** Move duct runs to another network. */
+  setDuctNetwork(ids: string[], networkId: string): void;
   /** Change the section/finishes of duct runs (moves them to the right "Duto A×B cm" item). */
-  updateDuctSpec(ids: string[], spec: DuctSpec): void;
+  updateDuctSpec(ids: string[], spec: DuctSpec, vertical?: number): void;
   setDuctSettings(settings: DuctSettings): void;
   /** Unit price of a duct material in this takeoff (bill row name). */
   setDuctPrice(name: string, price: number): void;
@@ -506,8 +517,8 @@ export const useStore = create<State>((set, get) => ({
   resolveItem: (kind) => {
     const { project, activeItemId } = get();
     const active = project.items.find((i) => i.id === activeItemId);
-    if (active && active.kind === kind) return active.id;
-    const newest = [...project.items].reverse().find((i) => i.kind === kind);
+    if (active && active.kind === kind && !active.derived) return active.id;
+    const newest = [...project.items].reverse().find((i) => i.kind === kind && !i.derived);
     if (newest) {
       set({ activeItemId: newest.id });
       return newest.id;
@@ -620,93 +631,79 @@ export const useStore = create<State>((set, get) => ({
   setPendingZone: (pendingZone) => set({ pendingZone }),
   setPendingDuct: (pendingDuct) => set({ pendingDuct }),
   setDuctEditIds: (ductEditIds) => set({ ductEditIds }),
-  addDuctRun: (spec, page, points) => {
-    const { project } = get();
-    const name = ductLabel(spec);
-    const existing = project.items.find((i) => i.kind === "linear" && i.name === name);
-    const itemId = existing?.id ?? newId();
+  addDuctNetwork: (name, system) => {
+    const item = newDuctNetwork(get().project, name, system);
+    get().commit((p) => ({ ...p, items: [...p.items, item] }));
+    set({ activeItemId: item.id, status: `${item.name} criada: os próximos dutos entram nela` });
+    return item.id;
+  },
+  addDuctRun: (spec, page, points, vertical, networkId) => {
+    const { project, activeItemId } = get();
+    const networks = ductNetworks(project);
+    let target =
+      networks.find((n) => n.id === networkId) ??
+      networks.find((n) => n.id === activeItemId) ??
+      networks[networks.length - 1];
+    const created = target ? null : newDuctNetwork(project);
+    target = target ?? (created as Item);
+    const itemId = target.id;
     const drawingId = project.activeDrawingId ?? "";
     writePref("lastDuctSpec", spec);
-    get().commit((p) => {
-      let items = p.items;
-      if (!existing) {
-        items = [
-          ...items,
-          {
-            id: itemId,
-            name,
-            kind: "linear",
-            color: ITEM_COLORS[items.length % ITEM_COLORS.length],
-            group: DUCT_GROUP,
-            materialPrice: 0,
-            laborPrice: 0,
-            wastePct: 0,
-            system: p.system || undefined,
-            derived: "ductRun",
-          },
-        ];
-      }
-      return {
-        ...p,
-        items,
-        measurements: [
-          ...p.measurements,
-          { id: newId(), itemId, drawingId, page, points, duct: spec },
-        ],
-      };
-    });
+    get().commit((p) => ({
+      ...p,
+      items: created ? [...p.items, created] : p.items,
+      measurements: [
+        ...p.measurements,
+        {
+          id: newId(),
+          itemId,
+          drawingId,
+          page,
+          points,
+          duct: spec,
+          vertical: vertical && vertical > 0 ? vertical : undefined,
+        },
+      ],
+    }));
     const norma = (get().project.duct ?? DEFAULT_DUCT_SETTINGS).norma;
     set({
       lastDuctSpec: spec,
       activeItemId: itemId,
-      status: `${name}: chapa ${gaugeName(spec.a, norma)} · materiais da rede de dutos recalculados`,
+      status: `${ductLabel(spec)} em ${target.name}: chapa ${gaugeName(spec.a, norma)} · rede recalculada`,
     });
   },
-  updateDuctSpec: (ids, spec) => {
+  updateDuctSpec: (ids, spec, vertical) => {
     const set_ = new Set(ids);
-    const name = ductLabel(spec);
     writePref("lastDuctSpec", spec);
-    get().commit((p) => {
-      let items = p.items;
-      let itemId = items.find((i) => i.kind === "linear" && i.name === name)?.id;
-      if (!itemId) {
-        itemId = newId();
-        items = [
-          ...items,
-          {
-            id: itemId,
-            name,
-            kind: "linear",
-            color: ITEM_COLORS[items.length % ITEM_COLORS.length],
-            group: DUCT_GROUP,
-            materialPrice: 0,
-            laborPrice: 0,
-            wastePct: 0,
-            system: p.system || undefined,
-            derived: "ductRun",
-          },
-        ];
-      }
-      const id = itemId;
-      const measurements = p.measurements.map((m) =>
-        set_.has(m.id) && m.duct ? { ...m, duct: spec, itemId: id } : m,
-      );
-      // a "Duto A×B cm" item left without runs is just clutter
-      const used = new Set(measurements.map((m) => m.itemId));
-      items = items.filter(
-        (i) =>
-          !(
-            i.kind === "linear" &&
-            i.group === DUCT_GROUP &&
-            /^Duto /.test(i.name) &&
-            !used.has(i.id)
-          ),
-      );
-      return { ...p, items, measurements };
-    });
+    get().commit((p) => ({
+      ...p,
+      measurements: p.measurements.map((m) =>
+        set_.has(m.id) && m.duct
+          ? {
+              ...m,
+              duct: spec,
+              vertical: vertical === undefined ? m.vertical : vertical > 0 ? vertical : undefined,
+            }
+          : m,
+      ),
+    }));
     set({
       lastDuctSpec: spec,
-      status: `${ids.length} ${ids.length === 1 ? "duto alterado" : "dutos alterados"} para ${name}`,
+      status: `${ids.length} ${ids.length === 1 ? "duto alterado" : "dutos alterados"} para ${ductLabel(spec)}`,
+    });
+  },
+  setDuctNetwork: (ids, networkId) => {
+    const set_ = new Set(ids);
+    const target = get().project.items.find((i) => i.id === networkId && i.derived === "duct");
+    if (!target) return;
+    get().commit((p) => ({
+      ...p,
+      measurements: p.measurements.map((m) =>
+        set_.has(m.id) && m.duct ? { ...m, itemId: networkId } : m,
+      ),
+    }));
+    set({
+      status: `${ids.length} ${ids.length === 1 ? "trecho movido" : "trechos movidos"} para ${target.name}`,
     });
   },
   setDuctSettings: (duct) => get().commit((p) => ({ ...p, duct })),

@@ -12,8 +12,31 @@ import { measurementQty, pageScale, repeatOf, zoneOf } from "./quantities";
 import { drawingOf, ITEM_COLORS, type Item, newId, type Project } from "./types";
 
 export const DUCT_GROUP = "Rede de Dutos";
-/** The one budget item each discipline's duct network collapses into. */
+/** Default name of a duct network item; the user can rename it like any item. */
 export const DUCT_ITEM = "Rede de dutos";
+
+/** The duct networks of the takeoff: the items duct runs belong to. */
+export const ductNetworks = (project: Project): Item[] =>
+  project.items.filter((i) => i.derived === "duct");
+
+/** A fresh network item (1 cj; material and labour are filled by the sync). */
+export function newDuctNetwork(project: Project, name?: string, system?: string): Item {
+  const n = ductNetworks(project).length;
+  return {
+    id: newId(),
+    name: name ?? (n === 0 ? DUCT_ITEM : `${DUCT_ITEM} ${n + 1}`),
+    kind: "linear",
+    color: ITEM_COLORS[project.items.length % ITEM_COLORS.length],
+    group: DUCT_GROUP,
+    materialPrice: 0,
+    laborPrice: 0,
+    wastePct: 0,
+    system: (system ?? project.system) || undefined,
+    unit: "cj",
+    manualQty: 1,
+    derived: "duct",
+  };
+}
 
 /** Every measured duct run with its real length (vertical, factor and multipliers applied). */
 export function ductRuns(project: Project): DuctRun[] {
@@ -28,8 +51,11 @@ export function ductRuns(project: Project): DuctRun[] {
     const zone = zoneOf(project, m, "linear");
     const planta = drawingOf(project, m.drawingId)?.name.replace(/\.pdf$/i, "") ?? "";
     runs.push({
+      id: m.id,
+      network: item.id,
       spec: m.duct,
       length: (q + (m.vertical ?? 0)) * (item.factor ?? 1) * repeatOf(project, m, "linear"),
+      vertical: m.vertical,
       tag: zone ? `${planta} · ${zone.name}` : planta,
       system: (item.system || project.system || "").trim(),
     });
@@ -37,11 +63,11 @@ export function ductRuns(project: Project): DuctRun[] {
   return runs;
 }
 
-/** Duct runs per discipline (pressurização, tomada de ar, ar condicionado…), plantas merged. */
-export function ductRunsBySystem(project: Project): Map<string, DuctRun[]> {
+/** Duct runs per network item id. */
+export function ductRunsByNetwork(project: Project): Map<string, DuctRun[]> {
   const out = new Map<string, DuctRun[]>();
   for (const r of ductRuns(project)) {
-    const key = r.system ?? "";
+    const key = r.network ?? "";
     out.set(key, [...(out.get(key) ?? []), r]);
   }
   return out;
@@ -59,83 +85,43 @@ export function ductPrice(
   return cat?.materialPrice ?? row.material;
 }
 
-export interface DuctBillForSystem {
-  system: string;
+export interface DuctBillForNetwork {
+  network: Item;
   runs: DuctRun[];
   rows: DuctBillRow[];
   price: (row: DuctBillRow) => number;
   totals: DuctTotals;
 }
 
-/** Bill of materials and totals of one discipline's duct network. */
+/** Bill of materials and totals of one duct network. */
 export function ductBillFor(
   project: Project,
   catalog: readonly CatalogEntry[],
-  system: string,
-  runs = ductRunsBySystem(project).get(system) ?? [],
-): DuctBillForSystem {
+  network: Item,
+  runs = ductRunsByNetwork(project).get(network.id) ?? [],
+): DuctBillForNetwork {
   const rows = ductBill(runs, project.duct ?? DEFAULT_DUCT_SETTINGS);
   const price = (row: DuctBillRow) => ductPrice(project, catalog, row);
-  return { system, runs, rows, price, totals: billTotals(rows, price) };
+  return { network, runs, rows, price, totals: billTotals(rows, price) };
 }
 
 /**
- * Keep one derived "Rede de dutos" item per discipline (1 cj, material and labour totals of
- * its duct network) in step with the duct runs. Returns the same project object when nothing
- * changes. Measured section items ("Duto A×B cm") are not priced; they feed this one.
+ * Keep every "Rede de dutos" item's material and labour in step with its runs (1 cj each).
+ * Returns the same project object when nothing changes.
  */
 export function syncDuctItems(project: Project, catalog: () => readonly CatalogEntry[]): Project {
-  const hasDerived = project.items.some((i) => i.derived === "duct");
-  const bySystem = ductRunsBySystem(project);
-  if (bySystem.size === 0 && !hasDerived) return project;
+  if (!project.items.some((i) => i.derived === "duct")) return project;
   const entries = catalog();
-  const wanted = new Map<string, DuctTotals>();
-  for (const [system, runs] of bySystem) {
-    wanted.set(system, ductBillFor(project, entries, system, runs).totals);
-  }
+  const byNetwork = ductRunsByNetwork(project);
   let changed = false;
-  const items: Item[] = [];
-  for (const it of project.items) {
-    if (it.derived !== "duct") {
-      items.push(it);
-      continue;
+  const items = project.items.map((it) => {
+    if (it.derived !== "duct") return it;
+    const t = ductBillFor(project, entries, it, byNetwork.get(it.id) ?? []).totals;
+    if (it.materialPrice === t.material && it.laborPrice === t.labor && it.manualQty === 1) {
+      return it;
     }
-    const key = (it.system || project.system || "").trim();
-    const t = it.name === DUCT_ITEM ? wanted.get(key) : undefined;
-    if (!t) {
-      changed = true; // discipline without ducts any more, or an obsolete per-material item
-      continue;
-    }
-    wanted.delete(key);
-    if (it.materialPrice !== t.material || it.laborPrice !== t.labor || it.manualQty !== 1) {
-      items.push({
-        ...it,
-        materialPrice: t.material,
-        laborPrice: t.labor,
-        manualQty: 1,
-        unit: "cj",
-      });
-      changed = true;
-    } else {
-      items.push(it);
-    }
-  }
-  for (const [system, t] of wanted) {
-    items.push({
-      id: newId(),
-      name: DUCT_ITEM,
-      kind: "count",
-      color: ITEM_COLORS[items.length % ITEM_COLORS.length],
-      group: DUCT_GROUP,
-      materialPrice: t.material,
-      laborPrice: t.labor,
-      wastePct: 0,
-      system: system || undefined,
-      unit: "cj",
-      manualQty: 1,
-      derived: "duct",
-    });
     changed = true;
-  }
+    return { ...it, materialPrice: t.material, laborPrice: t.labor, manualQty: 1, unit: "cj" };
+  });
   return changed ? { ...project, items } : project;
 }

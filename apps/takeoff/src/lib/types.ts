@@ -23,13 +23,15 @@ export interface Item {
   factor?: number;
   /** Quantity entered directly (not measured), added to the item's total. */
   manualQty?: number;
+  /** Linear items: extra length (project units) added to the total for vertical runs. */
+  vertical?: number;
   /** Unit label overriding the kind's (kg, gl, bd, l). */
   unit?: string;
   /**
-   * Item kept by the app: "duct" is the priced "Rede de dutos" of a discipline (recomputed on
-   * every change); "ductRun" is a measured duct section, never priced in the budget.
+   * Item kept by the app: "duct" is a duct network ("Rede de dutos"), 1 cj whose material and
+   * labour are recomputed from the duct runs drawn on it.
    */
-  derived?: "duct" | "ductRun";
+  derived?: "duct";
 }
 
 export interface PageMeta {

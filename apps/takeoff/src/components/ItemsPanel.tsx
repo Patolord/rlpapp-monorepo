@@ -461,17 +461,9 @@ function ItemRow({
         {item.derived === "duct" && (
           <span
             className="shrink-0 rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-500"
-            title="Rede de dutos da disciplina: material e mão de obra calculados na aba Dutos"
+            title="Rede de dutos: material e mão de obra calculados na aba Dutos a partir dos trechos medidos"
           >
-            calculado
-          </span>
-        )}
-        {item.derived === "ductRun" && (
-          <span
-            className="shrink-0 rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-500"
-            title="Trecho de duto medido: entra no orçamento pelo item Rede de dutos"
-          >
-            duto
+            rede de dutos
           </span>
         )}
         <span className="shrink-0 font-mono text-[12px] text-neutral-200">{qtyLabel}</span>
@@ -519,7 +511,7 @@ function ItemRow({
               >
                 <Star size={15} fill={saved ? "currentColor" : "none"} />
               </button>
-              {item.derived !== "duct" && (
+              {
                 <button
                   type="button"
                   title="Excluir o item e suas medições"
@@ -531,7 +523,7 @@ function ItemRow({
                 >
                   <Trash2 size={15} />
                 </button>
-              )}
+              }
             </span>
           </div>
           <div className="flex items-center gap-x-2 whitespace-nowrap text-[11px] text-neutral-400">
@@ -575,25 +567,28 @@ function ItemRow({
               />
               %
             </label>
-            <label
-              className="flex items-center gap-1 whitespace-nowrap"
-              title="Multiplicador da quantidade medida (ex.: 2 para cabo que vai e volta)"
-            >
-              Fator
-              <input
-                type="number"
-                min={0}
-                step="0.1"
-                value={item.factor ?? 1}
-                onClick={stop}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  onChange({ factor: v > 0 && v !== 1 ? v : undefined });
-                }}
-                className="num-input w-11"
-                title="Multiplicador da quantidade medida"
-              />
-            </label>
+            {item.kind === "linear" && !item.derived && (
+              <label
+                className="flex items-center gap-1 whitespace-nowrap"
+                title="Comprimento vertical somado ao total do item (prumadas, descidas)"
+              >
+                Vertical
+                <input
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  value={item.vertical ?? 0}
+                  onClick={stop}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    onChange({ vertical: v > 0 ? v : undefined });
+                  }}
+                  className="num-input w-14"
+                  title="Comprimento vertical somado ao total do item"
+                />
+                m
+              </label>
+            )}
           </div>
           {breakdown && (
             <div className="truncate text-[11px] text-neutral-500" title={breakdown}>

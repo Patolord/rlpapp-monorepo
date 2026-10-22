@@ -115,6 +115,12 @@ export const gaugeName = (aCm: number, norma: DuctSettings["norma"]): string =>
 export const ductLabel = (s: DuctSpec): string => `Duto ${s.a}×${s.b} cm`;
 
 export interface DuctRun {
+  /** Measurement id, when the run comes from the drawing. */
+  id?: string;
+  /** Id of the "Rede de dutos" item the run belongs to (absent in pure calculations). */
+  network?: string;
+  /** Vertical part of the length, metres (already included in `length`). */
+  vertical?: number;
   spec: DuctSpec;
   /** Where the run is (planta · local), for the TAG column of the exported workbook. */
   tag?: string;

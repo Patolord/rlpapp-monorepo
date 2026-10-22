@@ -236,15 +236,16 @@ export function sheetExport(): SheetExport {
 const unitLabel = (u: string): string => (u === "un" ? "pç" : u);
 
 /** Fill RLP's "Levantamento Dutos" workbook for one discipline and save it. */
-export async function exportDuctSheet(system: string): Promise<void> {
+export async function exportDuctSheet(networkId: string): Promise<void> {
   const store = useStore.getState();
   const { project } = store;
+  const network = project.items.find((i) => i.id === networkId);
   try {
     const res = await fetch(DUCT_TEMPLATE_URL);
     if (!res.ok) throw new Error(`modelo não encontrado (${res.status})`);
-    const input = ductSheetInput(project, mergeCatalog(store.catalog), system);
+    const input = ductSheetInput(project, mergeCatalog(store.catalog), networkId);
     const bytes = await fillDuctWorkbook(await res.arrayBuffer(), input);
-    const name = `Levantamento Dutos - ${system || project.site || project.name || "Obra"}.xlsx`;
+    const name = `Levantamento Dutos - ${network?.name ?? "Rede"}${project.site ? ` - ${project.site}` : ""}.xlsx`;
     if ("__TAURI_INTERNALS__" in window) {
       const path = await save({
         defaultPath: name,

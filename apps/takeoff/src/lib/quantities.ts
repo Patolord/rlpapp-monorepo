@@ -88,6 +88,7 @@ export function itemTotals(
     const item = items.get(m.itemId);
     const t = totals.get(m.itemId);
     if (!item || !t) continue;
+    if (item.derived === "duct") continue; // a network is 1 cj; its runs only feed the duct bill
     if (include && !include(m, item.kind)) continue;
     const q = measurementQty(m, item.kind, pageScale(project, m.drawingId, m.page));
     t.count++;
@@ -102,7 +103,9 @@ export function itemTotals(
   if (!include) {
     for (const item of project.items) {
       const t = totals.get(item.id);
-      if (t && item.manualQty) t.qty += item.manualQty;
+      if (!t) continue;
+      if (item.manualQty) t.qty += item.manualQty;
+      if (item.kind === "linear" && item.vertical) t.qty += item.vertical * (item.factor ?? 1);
     }
   }
   return totals;
@@ -117,7 +120,7 @@ export function totalsByZone(project: Project): Map<string, Map<string, ItemTota
   const out = new Map<string, Map<string, ItemTotal>>();
   for (const m of project.measurements) {
     const item = items.get(m.itemId);
-    if (!item) continue;
+    if (!item || item.derived === "duct") continue;
     const zone = zoneOf(project, m, item.kind);
     const key = zone?.id ?? NO_ZONE;
     let totals = out.get(key);
@@ -138,6 +141,18 @@ export function totalsByZone(project: Project): Map<string, Map<string, ItemTota
         (q + (item.kind === "linear" ? (m.vertical ?? 0) : 0)) *
         (item.factor ?? 1) *
         repeatOf(project, m, item.kind, zone);
+  }
+  // item-level vertical length belongs to no location
+  for (const item of project.items) {
+    if (item.kind !== "linear" || !item.vertical) continue;
+    let totals = out.get(NO_ZONE);
+    if (!totals) {
+      totals = new Map();
+      out.set(NO_ZONE, totals);
+    }
+    const t = totals.get(item.id) ?? { qty: 0, count: 0, unscaled: 0 };
+    t.qty += item.vertical * (item.factor ?? 1);
+    totals.set(item.id, t);
   }
   return out;
 }
@@ -168,7 +183,6 @@ export function systemSheets(project: Project): SystemSheet[] {
   const bySystem = new Map<string, Item[]>();
   const fallback = project.system || "Orçamento";
   for (const item of project.items) {
-    if (item.derived === "ductRun") continue; // priced through the "Rede de dutos" item
     const key = (item.system || fallback).trim() || fallback;
     bySystem.set(key, [...(bySystem.get(key) ?? []), item]);
   }
@@ -283,7 +297,6 @@ export function buildQuote(project: Project): Quote {
   const totals = itemTotals(project);
   const groups = new Map<string, QuoteGroup>();
   for (const item of project.items) {
-    if (item.derived === "ductRun") continue;
     const t = totals.get(item.id) ?? { qty: 0, count: 0, unscaled: 0 };
     const qty = pricedQty(item, t.qty);
     const material = round2(item.materialPrice * qty);

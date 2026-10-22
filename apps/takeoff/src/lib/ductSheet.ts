@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 import type { CatalogEntry } from "./catalog";
 import { foldName } from "./catalog";
-import { ductBillFor } from "./ductItems";
+import { ductBillFor, ductNetworks } from "./ductItems";
 import {
   DEFAULT_DUCT_SETTINGS,
   type DuctFlange,
@@ -82,13 +82,15 @@ export const PRICE_CELLS: [string, string][] = [
   ["E54", "Flange em Fº Cantoneira"],
 ];
 
-/** Everything the workbook needs for one discipline's duct network. */
+/** Everything the workbook needs for one duct network (by its item id). */
 export function ductSheetInput(
   project: Project,
   catalog: readonly CatalogEntry[],
-  system: string,
+  networkId: string,
 ): DuctSheetInput {
-  const bill = ductBillFor(project, catalog, system);
+  const network = ductNetworks(project).find((n) => n.id === networkId);
+  if (!network) throw new Error("rede de dutos não encontrada");
+  const bill = ductBillFor(project, catalog, network);
   const prices: Record<string, number> = {};
   for (const [, name] of PRICE_CELLS) {
     const row = bill.rows.find((r) => r.name === name);
@@ -103,7 +105,7 @@ export function ductSheetInput(
   return {
     client: project.client,
     site: project.site,
-    system: system || project.system,
+    system: network.system || project.system,
     proposalNumber: project.proposalNumber,
     settings: project.duct ?? DEFAULT_DUCT_SETTINGS,
     runs: bill.runs,
