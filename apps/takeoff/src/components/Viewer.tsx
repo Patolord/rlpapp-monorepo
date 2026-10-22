@@ -15,6 +15,7 @@ import {
   polylineLength,
   translate,
 } from "../lib/geom";
+import { kitMode } from "../lib/kits";
 import { magicArea } from "../lib/pdf/magic";
 import { isCancelled, type Rect, type Rendered } from "../lib/pdf/render";
 import { type TextBox, textLinesIn, textNear } from "../lib/pdf/text";
@@ -845,8 +846,17 @@ export function Viewer() {
       case "count":
         store.addMeasurement(store.resolveItem("count"), store.page, [eff]);
         break;
+      case "kit": {
+        const kit = store.catalog.kits.find((k) => k.id === store.activeKitId);
+        if (!kit) {
+          store.setKitPickerOpen(true);
+          break;
+        }
+        if (kitMode(kit) === "count") store.addKitRun(kit.id, store.page, [eff]);
+        else s.draft.push(eff);
+        break;
+      }
       case "linear":
-      case "kit":
       case "duct":
         s.draft.push(eff);
         break;

@@ -16,8 +16,12 @@ export interface KitComponent {
 export interface Kit {
   id: string;
   name: string;
+  /** "linear" is drawn as a run; "count" is placed with one click (default linear). */
+  mode?: "linear" | "count";
   components: KitComponent[];
 }
+
+export const kitMode = (kit: Kit): "linear" | "count" => kit.mode ?? "linear";
 
 const linear = (name: string, group: string, factor = 1, system = "Infra AC"): KitComponent => ({
   name,
@@ -26,6 +30,52 @@ const linear = (name: string, group: string, factor = 1, system = "Infra AC"): K
   kind: "linear",
   factor,
 });
+
+/** One click places `qty` of a material (equipment, bracket, box, detector…). */
+const count = (name: string, group: string, qty = 1, system = "AC com Equip"): KitComponent => ({
+  name,
+  group,
+  system,
+  kind: "count",
+  factor: qty,
+});
+
+/** Count presets: everything a single click should place. */
+const COUNT_KITS: Kit[] = [
+  {
+    id: "kit-split-12000-equip",
+    name: "Split Hi Wall 12.000 · equipamento + suportes",
+    mode: "count",
+    components: [
+      count("Split Hi Wall 12.000 Btu/h", "Equipamentos"),
+      count("Suporte da Condensadora - 12.000 BTU/h", "Equipamentos"),
+      count("Suporte da Evaporadora", "Equipamentos"),
+      count("Caixa de espera da Condensadora", "Equipamentos", 1, "Infra AC"),
+      count("Caixa de espera da Evaporadora", "Equipamentos", 1, "Infra AC"),
+    ],
+  },
+  {
+    id: "kit-split-18000-equip",
+    name: "Split Hi Wall 18.000 · equipamento + suportes",
+    mode: "count",
+    components: [
+      count("Split hi Wall 18.000 Btu/h", "Equipamentos"),
+      count("Suporte da Condensadora - 18.000 BTU/h", "Equipamentos"),
+      count("Suporte da Evaporadora", "Equipamentos"),
+      count("Caixa de espera da Condensadora", "Equipamentos", 1, "Infra AC"),
+      count("Caixa de espera da Evaporadora", "Equipamentos", 1, "Infra AC"),
+    ],
+  },
+  {
+    id: "kit-detector-fumaca",
+    name: "Detector de fumaça · com instalação",
+    mode: "count",
+    components: [
+      count("Detector de Fumaça Enderaçável", "Detecção", 1, "Detecção de Incêndio"),
+      count("Mão de obra detectores", "Detecção", 1, "Detecção de Incêndio"),
+    ],
+  },
+];
 
 /** Copper line set of a split: liquid and gas tubes, their insulation and the interconnect cable (both ways). */
 function lineSet(liquid: string, gas: string): KitComponent[] {
@@ -71,13 +121,21 @@ const slug = (s: string) =>
     .replace(/^-|-$/g, "");
 
 /** Starting presets, one per capacity and type; the user edits them in the kits dialog. */
-export const SEED_KITS: Kit[] = TABLE.flatMap((row) => {
-  const types = row.type === "Inverter / Conv." ? ["Inverter", "Convencional"] : [row.type];
-  return types.map((t) => {
-    const name = `${row.btu} ${t}`;
-    return { id: `kit-${slug(name)}`, name, components: lineSet(row.liquid, row.gas) };
-  });
-});
+export const SEED_KITS: Kit[] = [
+  ...TABLE.flatMap((row) => {
+    const types = row.type === "Inverter / Conv." ? ["Inverter", "Convencional"] : [row.type];
+    return types.map((t) => {
+      const name = `${row.btu} ${t}`;
+      return {
+        id: `kit-${slug(name)}`,
+        name,
+        mode: "linear" as const,
+        components: lineSet(row.liquid, row.gas),
+      };
+    });
+  }),
+  ...COUNT_KITS,
+];
 
 /** Short description of a kit for lists: "Cobre de 1/4" · Cobre de 3/8" · Cabo PP 5 x 1,5 mm² ×2". */
 export function kitSummary(kit: Kit): string {

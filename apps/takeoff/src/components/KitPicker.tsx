@@ -1,6 +1,6 @@
 import { Layers, Settings2, X } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { kitSummary } from "../lib/kits";
+import { kitMode, kitSummary } from "../lib/kits";
 import { useStore } from "../store";
 import { Button, Kbd } from "./ui";
 
@@ -33,29 +33,36 @@ export function KitPicker() {
         <p className="text-neutral-400">Nenhum preset ainda. Crie um em "Gerenciar presets".</p>
       ) : (
         <ul className="max-h-72 space-y-1 overflow-y-auto">
-          {kits.map((k, i) => (
-            <li key={k.id}>
-              <button
-                ref={i === 0 ? first : undefined}
-                type="button"
-                onClick={() => {
-                  setActiveKit(k.id);
-                  setTool("kit");
-                  setKitPickerOpen(false);
-                }}
-                className={
-                  k.id === activeKitId
-                    ? "w-full rounded border border-orange-400 bg-orange-500/10 px-2 py-1.5 text-left"
-                    : "w-full rounded border border-neutral-800 px-2 py-1.5 text-left hover:bg-neutral-800"
-                }
-              >
-                <div className="font-medium text-neutral-100">{k.name}</div>
-                <div className="truncate text-[11px] text-neutral-500" title={kitSummary(k)}>
-                  {kitSummary(k)}
-                </div>
-              </button>
-            </li>
-          ))}
+          {[...kits]
+            .sort((a, b) => (kitMode(a) === kitMode(b) ? 0 : kitMode(a) === "linear" ? -1 : 1))
+            .map((k, i) => (
+              <li key={k.id}>
+                <button
+                  ref={i === 0 ? first : undefined}
+                  type="button"
+                  onClick={() => {
+                    setActiveKit(k.id);
+                    setTool("kit");
+                    setKitPickerOpen(false);
+                  }}
+                  className={
+                    k.id === activeKitId
+                      ? "w-full rounded border border-orange-400 bg-orange-500/10 px-2 py-1.5 text-left"
+                      : "w-full rounded border border-neutral-800 px-2 py-1.5 text-left hover:bg-neutral-800"
+                  }
+                >
+                  <div className="flex items-center gap-1.5 font-medium text-neutral-100">
+                    <span className="truncate">{k.name}</span>
+                    <span className="shrink-0 rounded bg-neutral-800 px-1 text-[10px] font-normal uppercase text-neutral-500">
+                      {kitMode(k) === "count" ? "clique" : "trecho"}
+                    </span>
+                  </div>
+                  <div className="truncate text-[11px] text-neutral-500" title={kitSummary(k)}>
+                    {kitSummary(k)}
+                  </div>
+                </button>
+              </li>
+            ))}
         </ul>
       )}
       <div className="mt-2 flex items-center gap-2">

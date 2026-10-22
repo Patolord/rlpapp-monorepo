@@ -1,7 +1,7 @@
 import { Copy, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { foldName, kindForUnit, mergeCatalog, normalizeDiscipline } from "../lib/catalog";
-import type { Kit, KitComponent } from "../lib/kits";
+import { type Kit, type KitComponent, kitMode } from "../lib/kits";
 import { DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS, newId } from "../lib/types";
 import { useStore } from "../store";
 import { Button } from "./ui";
@@ -80,6 +80,7 @@ export function KitsDialog() {
             name: c.name.trim(),
             group: c.group.trim() || "Geral",
             system: c.system?.trim() || undefined,
+            kind: kitMode(k) === "count" ? "count" : c.kind,
             factor: Number.isFinite(c.factor) && c.factor > 0 ? c.factor : 1,
           })),
       }))
@@ -170,8 +171,30 @@ export function KitsDialog() {
                   className={`${input} w-72 text-sm`}
                   placeholder="ex.: 12.000 Inverter"
                 />
+                <label className="flex items-center gap-1 text-xs text-neutral-400">
+                  Tipo
+                  <select
+                    value={kitMode(kit)}
+                    onChange={(e) => {
+                      const mode = e.target.value as Kit["mode"];
+                      update({
+                        mode,
+                        components: kit.components.map((c) =>
+                          mode === "count" ? { ...c, kind: "count" } : c,
+                        ),
+                      });
+                    }}
+                    className={input}
+                    title="Linear: desenha-se um trecho · Contagem: um clique coloca o conjunto"
+                  >
+                    <option value="linear">Linear (trecho)</option>
+                    <option value="count">Contagem (clique)</option>
+                  </select>
+                </label>
                 <span className="ml-auto text-[11px] text-neutral-500">
-                  Um trecho desenhado cria todos os componentes abaixo, agrupados
+                  {kitMode(kit) === "count"
+                    ? "Um clique coloca todos os componentes abaixo, agrupados"
+                    : "Um trecho desenhado cria todos os componentes abaixo, agrupados"}
                 </span>
               </div>
               <div className="min-w-0 flex-1 overflow-auto px-3 py-2">
@@ -181,9 +204,18 @@ export function KitsDialog() {
                       <th className="pb-1 text-left font-medium">Material (nome do catálogo)</th>
                       <th className="pb-1 text-left font-medium">Grupo</th>
                       <th className="pb-1 text-left font-medium">Disciplina</th>
-                      <th className="pb-1 text-left font-medium">Tipo</th>
-                      <th className="pb-1 text-left font-medium" title="Multiplicador da medida">
-                        Fator
+                      {kitMode(kit) === "linear" && (
+                        <th className="pb-1 text-left font-medium">Tipo</th>
+                      )}
+                      <th
+                        className="pb-1 text-left font-medium"
+                        title={
+                          kitMode(kit) === "count"
+                            ? "Quantidade colocada por clique"
+                            : "Multiplicador da medida"
+                        }
+                      >
+                        {kitMode(kit) === "count" ? "Qtd" : "Fator"}
                       </th>
                       <th />
                     </tr>
@@ -218,19 +250,21 @@ export function KitsDialog() {
                             className={`${input} w-36`}
                           />
                         </td>
-                        <td className="py-0.5 pr-1">
-                          <select
-                            value={c.kind}
-                            onChange={(e) =>
-                              updateComp(i, { kind: e.target.value as KitComponent["kind"] })
-                            }
-                            className={input}
-                            title="Linear acompanha o trecho; contagem entra uma vez por trecho"
-                          >
-                            <option value="linear">linear (m)</option>
-                            <option value="count">por trecho (pç)</option>
-                          </select>
-                        </td>
+                        {kitMode(kit) === "linear" && (
+                          <td className="py-0.5 pr-1">
+                            <select
+                              value={c.kind}
+                              onChange={(e) =>
+                                updateComp(i, { kind: e.target.value as KitComponent["kind"] })
+                              }
+                              className={input}
+                              title="Linear acompanha o trecho; contagem entra uma vez por trecho"
+                            >
+                              <option value="linear">linear (m)</option>
+                              <option value="count">por trecho (pç)</option>
+                            </select>
+                          </td>
+                        )}
                         <td className="py-0.5 pr-1">
                           <input
                             type="number"
@@ -261,7 +295,12 @@ export function KitsDialog() {
                 <Button
                   className="mt-2"
                   onClick={() =>
-                    update({ components: [...kit.components, { ...EMPTY_COMPONENT }] })
+                    update({
+                      components: [
+                        ...kit.components,
+                        { ...EMPTY_COMPONENT, kind: kitMode(kit) === "count" ? "count" : "linear" },
+                      ],
+                    })
                   }
                 >
                   <Plus size={14} /> Componente

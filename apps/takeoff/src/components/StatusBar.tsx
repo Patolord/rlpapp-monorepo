@@ -38,8 +38,8 @@ const HINTS: Record<string, React.ReactNode> = {
   ),
   kit: (
     <>
-      Clique nos pontos como no Medir · <Kbd>Enter</Kbd> conclui · cada componente do preset vira um
-      item, agrupados
+      Preset linear: clique nos pontos e <Kbd>Enter</Kbd> conclui · preset de contagem: um clique
+      coloca todos os componentes, agrupados
     </>
   ),
   similar: (

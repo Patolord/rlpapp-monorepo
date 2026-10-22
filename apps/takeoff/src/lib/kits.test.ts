@@ -13,9 +13,9 @@ describe("kit presets", () => {
   });
 
   it("covers every capacity of the reference table, inverter and conventional", () => {
-    const names = SEED_KITS.map((k) => k.name);
+    const names = SEED_KITS.filter((k) => k.mode !== "count").map((k) => k.name);
     expect(names).toHaveLength(16);
-    expect(new Set(SEED_KITS.map((k) => k.id)).size).toBe(16);
+    expect(new Set(SEED_KITS.map((k) => k.id)).size).toBe(SEED_KITS.length);
     expect(names).toContain("9.000 Inverter");
     expect(names).toContain("9.000 Convencional");
     expect(names).toContain("60.000 Convencional");
@@ -27,6 +27,12 @@ describe("kit presets", () => {
       'Isolamento de 5/8" - Espessura 09 mm',
       "Cabo PP 5 x 1,5 mm²",
     ]);
+  });
+
+  it("ships count presets placed with one click", () => {
+    const counts = SEED_KITS.filter((k) => k.mode === "count");
+    expect(counts.length).toBeGreaterThanOrEqual(3);
+    for (const k of counts) for (const c of k.components) expect(c.kind).toBe("count");
   });
 
   it("summarises factors", () => {
