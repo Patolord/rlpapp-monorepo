@@ -2,9 +2,11 @@ import clsx from "clsx";
 import { CircleDot, Library, Pentagon, Plus, Search, Spline, Star, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { itemTotals, NO_ZONE, pricedQty, round2, totalsByZone } from "../lib/quantities";
+import { SYMBOLS } from "../lib/symbols";
 import { GROUP_SUGGESTIONS, ITEM_COLORS, type Item } from "../lib/types";
 import { formatMoney, formatQty, type Kind } from "../lib/units";
 import { useStore } from "../store";
+import { SymbolIcon } from "./SymbolIcon";
 import { Button, Kbd } from "./ui";
 
 const KIND_ICON: Record<Kind, typeof CircleDot> = {
@@ -314,7 +316,11 @@ function ItemRow({
           className="h-3 w-3 shrink-0 rounded-full ring-1 ring-black/40"
           style={{ background: item.color }}
         />
-        <Icon size={12} className="shrink-0 text-neutral-400" />
+        {item.kind === "count" ? (
+          <SymbolIcon id={item.symbol} color={item.color} size={14} className="shrink-0" />
+        ) : (
+          <Icon size={12} className="shrink-0 text-neutral-400" />
+        )}
         {editing === "name" ? (
           <input
             autoFocus
@@ -430,6 +436,32 @@ function ItemRow({
             />
             <span>%</span>
           </div>
+          {item.kind === "count" && (
+            <div
+              className="flex flex-wrap items-center gap-0.5"
+              title="Símbolo da marca de contagem"
+            >
+              {SYMBOLS.map((sym) => (
+                <button
+                  key={sym.id}
+                  type="button"
+                  title={sym.label}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange({ symbol: sym.id });
+                  }}
+                  className={clsx(
+                    "rounded p-0.5",
+                    (item.symbol ?? "dot") === sym.id
+                      ? "bg-orange-500/20 ring-1 ring-orange-400"
+                      : "hover:bg-neutral-800",
+                  )}
+                >
+                  <SymbolIcon id={sym.id} color={item.color} size={16} />
+                </button>
+              ))}
+            </div>
+          )}
           {breakdown && (
             <div className="truncate text-[10px] text-neutral-500" title={breakdown}>
               {breakdown}

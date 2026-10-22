@@ -11,6 +11,7 @@ import {
 } from "./lib/catalog";
 import type { Pt } from "./lib/geom";
 import { useDoc } from "./lib/session";
+import { guessSymbol } from "./lib/symbols";
 import {
   DEFAULT_GROUP,
   emptyProject,
@@ -59,6 +60,23 @@ export interface Calibration {
 
 const HISTORY_LIMIT = 200;
 
+/** Small view preferences kept per machine (not part of the project file). */
+function readPref<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(`takeoff.pref.${key}`);
+    return raw === null ? fallback : (JSON.parse(raw) as T);
+  } catch {
+    return fallback;
+  }
+}
+function writePref(key: string, value: unknown): void {
+  try {
+    localStorage.setItem(`takeoff.pref.${key}`, JSON.stringify(value));
+  } catch {
+    // storage unavailable: keep the in-memory value only
+  }
+}
+
 export type ProjectMeta = Partial<
   Pick<
     Project,
@@ -88,6 +106,13 @@ export interface State {
   selection: string[];
   /** Zone id (or "" for "Sem local") the item list and viewer focus on; null = everything. */
   zoneFilter: string | null;
+  /** Draw locations on the plan at all. */
+  zonesVisible: boolean;
+  /** 0..1 opacity of location fills and outlines. */
+  zoneOpacity: number;
+  /** Hatch fill of areas and locations: 0..1 multiplier, and whether it is drawn at all. */
+  fillOpacity: number;
+  fillsVisible: boolean;
   snap: boolean;
   ortho: boolean;
   calibration: Calibration | null;
@@ -132,6 +157,10 @@ export interface State {
   setActiveItem(id: string | null): void;
   setSelection(ids: string[]): void;
   setZoneFilter(zoneId: string | null): void;
+  setZonesVisible(visible: boolean): void;
+  setZoneOpacity(opacity: number): void;
+  setFillOpacity(opacity: number): void;
+  setFillsVisible(visible: boolean): void;
   toggleSnap(): void;
   toggleOrtho(): void;
   setCalibration(c: Calibration | null): void;
@@ -170,6 +199,10 @@ export const useStore = create<State>((set, get) => ({
   activeItemId: null,
   selection: [],
   zoneFilter: null,
+  zonesVisible: readPref("zonesVisible", true),
+  zoneOpacity: readPref("zoneOpacity", 1),
+  fillOpacity: readPref("fillOpacity", 1),
+  fillsVisible: readPref("fillsVisible", true),
   snap: true,
   ortho: false,
   calibration: null,
@@ -248,9 +281,11 @@ export const useStore = create<State>((set, get) => ({
     const id = newId();
     get().commit((p) => {
       const last = p.items[p.items.length - 1];
+      const name = partial.name ?? nextName(p.items, partial.kind);
       const item: Item = {
         id,
-        name: partial.name ?? nextName(p.items, partial.kind),
+        name,
+        symbol: partial.symbol ?? (partial.kind === "count" ? guessSymbol(name) : undefined),
         kind: partial.kind,
         color: partial.color ?? ITEM_COLORS[p.items.length % ITEM_COLORS.length],
         group: partial.group ?? last?.group ?? DEFAULT_GROUP,
@@ -411,6 +446,24 @@ export const useStore = create<State>((set, get) => ({
 
   setSelection: (selection) => set({ selection }),
   setZoneFilter: (zoneFilter) => set({ zoneFilter }),
+  setZonesVisible: (zonesVisible) => {
+    writePref("zonesVisible", zonesVisible);
+    set({ zonesVisible });
+  },
+  setFillOpacity: (v) => {
+    const fillOpacity = Math.min(1, Math.max(0, v));
+    writePref("fillOpacity", fillOpacity);
+    set({ fillOpacity });
+  },
+  setFillsVisible: (fillsVisible) => {
+    writePref("fillsVisible", fillsVisible);
+    set({ fillsVisible });
+  },
+  setZoneOpacity: (v) => {
+    const zoneOpacity = Math.min(1, Math.max(0, v));
+    writePref("zoneOpacity", zoneOpacity);
+    set({ zoneOpacity });
+  },
   toggleSnap: () => set((s) => ({ snap: !s.snap })),
   toggleOrtho: () => set((s) => ({ ortho: !s.ortho })),
   setCalibration: (calibration) => set({ calibration }),
@@ -431,6 +484,7 @@ export const useStore = create<State>((set, get) => ({
         items.push({
           id: lastId,
           name: e.name,
+          symbol: e.kind === "count" ? guessSymbol(e.name) : undefined,
           kind: e.kind,
           color: ITEM_COLORS[items.length % ITEM_COLORS.length],
           group: e.group || DEFAULT_GROUP,
@@ -448,7 +502,11 @@ export const useStore = create<State>((set, get) => ({
     const { activeItemId, project, tool } = get();
     const active = project.items.find((i) => i.id === activeItemId);
     if (active) {
-      get().updateItem(active.id, { name });
+      const symbol =
+        active.kind === "count" && (!active.symbol || active.symbol === "dot")
+          ? guessSymbol(name)
+          : active.symbol;
+      get().updateItem(active.id, { name, symbol });
       set({ status: `Item renomeado: ${name}` });
     } else {
       const kind = KIND_OF_TOOL[tool] ?? "count";

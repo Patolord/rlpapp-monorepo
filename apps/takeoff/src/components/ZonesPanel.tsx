@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { Filter, SquareDashed, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Filter, SquareDashed, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { polygonArea } from "../lib/geom";
 import { NO_ZONE, pageScale, totalsByZone } from "../lib/quantities";
@@ -12,6 +12,9 @@ export function ZonesPanel() {
   const project = useStore((s) => s.project);
   const selection = useStore((s) => s.selection);
   const zoneFilter = useStore((s) => s.zoneFilter);
+  const zonesVisible = useStore((s) => s.zonesVisible);
+  const zoneOpacity = useStore((s) => s.zoneOpacity);
+  const { setZonesVisible, setZoneOpacity } = useStore.getState();
   const { setSelection, setPage, setTool, updateZone, removeMeasurements, setZoneFilter } =
     useStore.getState();
   const byZone = useMemo(() => totalsByZone(project), [project]);
@@ -43,6 +46,43 @@ export function ZonesPanel() {
 
   return (
     <div className="flex h-full flex-col">
+      {zones.length > 0 && (
+        <div className="flex items-center gap-2 border-b border-neutral-800 px-2 py-1.5 text-[11px] text-neutral-400">
+          <button
+            type="button"
+            onClick={() => setZonesVisible(!zonesVisible)}
+            title="Mostrar ou ocultar os locais no desenho"
+            className={clsx(
+              "flex items-center gap-1 rounded px-1.5 py-0.5 ring-1",
+              zonesVisible
+                ? "bg-neutral-800 ring-neutral-700 hover:text-neutral-100"
+                : "bg-orange-500/15 text-orange-300 ring-orange-400",
+            )}
+          >
+            {zonesVisible ? <Eye size={13} /> : <EyeOff size={13} />}
+            {zonesVisible ? "Visíveis" : "Ocultos"}
+          </button>
+          <label
+            className="flex min-w-0 flex-1 items-center gap-2"
+            title="Opacidade dos locais no desenho"
+          >
+            <span className="shrink-0">Opacidade</span>
+            <input
+              type="range"
+              min={10}
+              max={100}
+              step={5}
+              value={Math.round(zoneOpacity * 100)}
+              onChange={(e) => setZoneOpacity(Number(e.target.value) / 100)}
+              disabled={!zonesVisible}
+              className="min-w-0 flex-1 accent-[#2b3990]"
+            />
+            <span className="w-8 shrink-0 text-right font-mono">
+              {Math.round(zoneOpacity * 100)}%
+            </span>
+          </label>
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto">
         {zones.length === 0 && (
           <div className="px-3 py-6 text-center text-xs text-neutral-500">
@@ -63,6 +103,7 @@ export function ZonesPanel() {
             selected={selection.includes(z.id)}
             filtered={zoneFilter === z.id}
             onFilter={() => setZoneFilter(zoneFilter === z.id ? null : z.id)}
+            onToggleHidden={() => updateZone(z.id, { hidden: !z.hidden })}
             areaText={areaText(project, z)}
             onSelect={() => {
               setPage(z.page);
@@ -121,6 +162,7 @@ function ZoneRow({
   selected,
   filtered,
   onFilter,
+  onToggleHidden,
   areaText,
   onSelect,
   onRename,
@@ -131,6 +173,7 @@ function ZoneRow({
   selected: boolean;
   filtered: boolean;
   onFilter: () => void;
+  onToggleHidden: () => void;
   areaText: string;
   onSelect: () => void;
   onRename: (name: string) => void;
@@ -148,7 +191,10 @@ function ZoneRow({
     >
       <div className="flex items-center gap-2">
         <span
-          className="h-3 w-3 shrink-0 rounded-sm border border-dashed"
+          className={clsx(
+            "h-3 w-3 shrink-0 rounded-sm border border-dashed",
+            zone.hidden && "opacity-40",
+          )}
           style={{ borderColor: zone.color, background: `${zone.color}22` }}
         />
         {editing ? (
@@ -177,6 +223,20 @@ function ZoneRow({
         )}
         <span className="text-[10px] text-neutral-500">pág. {zone.page + 1}</span>
         <span className="font-mono text-[11px] text-neutral-300">{areaText}</span>
+        <button
+          type="button"
+          title={zone.hidden ? "Mostrar este local no desenho" : "Ocultar este local no desenho"}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleHidden();
+          }}
+          className={clsx(
+            "rounded p-0.5",
+            zone.hidden ? "text-orange-300" : "text-neutral-500 opacity-0 group-hover:opacity-100",
+          )}
+        >
+          {zone.hidden ? <EyeOff size={13} /> : <Eye size={13} />}
+        </button>
         <button
           type="button"
           title="Mostrar só este local (itens e desenho)"

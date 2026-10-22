@@ -127,6 +127,10 @@ export function useHotkeys() {
         default:
           break;
       }
+      if (key === "z" && e.shiftKey) {
+        s.setFillsVisible(!s.fillsVisible);
+        return;
+      }
       if (TOOL_KEYS[key]) {
         s.setTool(TOOL_KEYS[key]);
         return;

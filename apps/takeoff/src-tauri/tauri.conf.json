@@ -27,13 +27,39 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "nsis",
+      "msi"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true,
+    "publisher": "RLP Engenharia e Instalações Ltda.",
+    "copyright": "© RLP Engenharia",
+    "shortDescription": "Takeoff e orçamento a partir de PDF",
+    "windows": {
+      "nsis": {
+        "languages": [
+          "PortugueseBR"
+        ],
+        "installMode": "currentUser"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI4OUMzRTA4MzE2NDc5NkUKUldSdWVXUXhDRDZjdUZIVzUxaGJyRThsNExsMUtMaVhPNzhMbVRKa0lPbGxqazdDMVFuSythN1YK",
+      "endpoints": [
+        "https://app.rlpeng.com.br/takeoff/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

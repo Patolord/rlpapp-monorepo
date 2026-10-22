@@ -24,6 +24,7 @@ import {
   restoreAutosave,
 } from "./lib/files";
 import { useDoc } from "./lib/session";
+import { checkForUpdate } from "./lib/updater";
 import { useStore } from "./store";
 
 const TABS = { items: "Itens", zones: "Locais", quote: "Orçamento" } as const;
@@ -68,6 +69,12 @@ export default function App() {
       .loadCatalog()
       .then(() => useStore.getState().refreshCatalog())
       .catch((e) => console.warn("catalog refresh failed", e));
+  }, []);
+
+  // look for a new version a few seconds after start (no-op outside Tauri)
+  useEffect(() => {
+    const id = window.setTimeout(() => void checkForUpdate(), 4000);
+    return () => window.clearTimeout(id);
   }, []);
 
   // crash-safe autosave

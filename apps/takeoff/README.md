@@ -21,6 +21,34 @@ Frontend-only mode accepts `?pdf=<absolute path>` to load a drawing through Vite
 
 Build an installer with `bun run tauri:build`.
 
+## Distribution and updates
+
+**Installer.** `bun run tauri:build` produces `src-tauri/target/release/bundle/nsis/Takeoff_<v>_x64-setup.exe`
+(per-user install, Portuguese) and an `.msi`. Without a code-signing certificate Windows
+SmartScreen shows "unknown publisher" on first run; an Authenticode certificate (or Azure Trusted
+Signing) removes that and plugs into the same build.
+
+**Auto-update.** The app checks `plugins.updater.endpoints` from `src-tauri/tauri.conf.json`
+a few seconds after start and shows an "Atualizar para x.y.z" button; one click downloads the
+signed installer, installs it and restarts. Updates are signed with a minisign key kept outside
+the repository (`~/.tauri/takeoff.key` + `.password`); its public key is in the config. Losing
+that key means existing installs cannot accept new updates, so back it up.
+
+**Releasing a version.**
+
+```bash
+bun run release 0.2.0        # bumps package.json, tauri.conf.json, Cargo.toml; commits; tags v0.2.0
+git push && git push origin v0.2.0
+```
+
+The tag triggers `.github/workflows/release.yml`, which builds on Windows, signs the updater
+artifact and publishes a GitHub Release with the installer, the `.sig` and `latest.json`.
+Secrets needed once in the repository settings: `TAURI_SIGNING_PRIVATE_KEY` and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (the two files above). Then make `latest.json` and the
+artifact it references available at the updater endpoint (copy them to the server, or point the
+endpoint at the release download URL if the repository is public). To build and sign locally
+instead, set the same two variables and run `bun run tauri:build`.
+
 ## Quality gates
 
 ```bash

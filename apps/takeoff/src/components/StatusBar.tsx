@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Proportions } from "lucide-react";
+import { ChevronLeft, ChevronRight, PaintBucket, Proportions } from "lucide-react";
 import { useEffect, useState } from "react";
 import { pageScale } from "../lib/quantities";
 import { useDoc } from "../lib/session";
@@ -60,6 +60,10 @@ export function StatusBar() {
         : (s.project.zones.find((z) => z.id === s.zoneFilter)?.name ?? null),
   );
   const setZoneFilter = useStore((s) => s.setZoneFilter);
+  const fillOpacity = useStore((s) => s.fillOpacity);
+  const fillsVisible = useStore((s) => s.fillsVisible);
+  const { setFillOpacity, setFillsVisible } = useStore.getState();
+  const [fillOpen, setFillOpen] = useState(false);
   const open = useStore((s) => s.scalePickerOpen);
   const numPages = useDoc((s) => s.numPages);
   const { setPage, setScalePickerOpen } = useStore.getState();
@@ -105,6 +109,50 @@ export function StatusBar() {
         <Proportions size={12} />
         {scale ? scale.label : "Definir escala"}
       </button>
+      <button
+        type="button"
+        onClick={() => setFillOpen(!fillOpen)}
+        title="Preenchimento das áreas e locais (Shift+Z alterna contorno/preenchido)"
+        className={`flex items-center gap-1 rounded px-1.5 py-0.5 ring-1 ${
+          fillsVisible
+            ? "ring-neutral-700 text-neutral-200 hover:bg-neutral-700"
+            : "bg-orange-500/15 text-orange-300 ring-orange-400"
+        }`}
+      >
+        <PaintBucket size={12} />
+        {fillsVisible ? `${Math.round(fillOpacity * 100)}%` : "contorno"}
+      </button>
+      {fillOpen && (
+        <div className="absolute bottom-8 left-40 z-20 w-64 rounded-lg border border-neutral-700 bg-neutral-900 p-3 text-xs shadow-xl">
+          <div className="mb-2 font-semibold text-neutral-100">Preenchimento (hachura)</div>
+          <label className="flex items-center gap-2 text-neutral-400">
+            <input
+              type="checkbox"
+              checked={fillsVisible}
+              onChange={(e) => setFillsVisible(e.target.checked)}
+            />
+            Preencher áreas e locais
+          </label>
+          <label className="mt-2 flex items-center gap-2 text-neutral-400">
+            Opacidade
+            <input
+              type="range"
+              min={5}
+              max={100}
+              step={5}
+              value={Math.round(fillOpacity * 100)}
+              onChange={(e) => setFillOpacity(Number(e.target.value) / 100)}
+              disabled={!fillsVisible}
+              className="min-w-0 flex-1 accent-[#2b3990]"
+            />
+            <span className="w-9 text-right font-mono">{Math.round(fillOpacity * 100)}%</span>
+          </label>
+          <p className="mt-2 text-[10px] text-neutral-500">
+            Só muda a exibição; as quantidades não são afetadas. <Kbd>Shift</Kbd>+<Kbd>Z</Kbd>{" "}
+            alterna rapidamente.
+          </p>
+        </div>
+      )}
       <span className={snap ? "text-orange-300" : ""}>snap {snap ? "ligado" : "desligado"}</span>
       <span className={ortho ? "text-orange-300" : ""}>orto {ortho ? "ligado" : "desligado"}</span>
       {zoneFilterName && (

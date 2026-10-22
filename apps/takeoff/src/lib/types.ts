@@ -16,6 +16,8 @@ export interface Item {
   wastePct: number;
   /** Budget system (worksheet) the item belongs to; empty = the project system. */
   system?: string;
+  /** Count-mark symbol id (see lib/symbols); undefined = plain dot. */
+  symbol?: string;
 }
 
 export interface Measurement {
@@ -33,6 +35,8 @@ export interface Zone {
   page: number;
   points: Pt[];
   color: string;
+  /** Hidden on the drawing (still groups measurements). */
+  hidden?: boolean;
 }
 
 export interface PageMeta {

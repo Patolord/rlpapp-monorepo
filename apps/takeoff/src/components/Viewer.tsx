@@ -22,6 +22,7 @@ import { type TextBox, textLinesIn, textNear } from "../lib/pdf/text";
 import { type SnapHit, snapPoint } from "../lib/pdf/vectors";
 import { pageScale, zoneOf } from "../lib/quantities";
 import { ensureText, session, useDoc } from "../lib/session";
+import { drawSymbol } from "../lib/symbols";
 import type { Measurement, Zone } from "../lib/types";
 import { formatArea, formatLength, type Kind, type PageScale } from "../lib/units";
 import { type Tool, useStore } from "../store";
@@ -386,7 +387,19 @@ export function Viewer() {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, cw, ch);
       const store = useStore.getState();
-      const { project, page: p, selection, tool: t, calibration, zoneFilter } = store;
+      const {
+        project,
+        page: p,
+        selection,
+        tool: t,
+        calibration,
+        zoneFilter,
+        zonesVisible,
+        zoneOpacity,
+        fillOpacity,
+        fillsVisible,
+      } = store;
+      const fillK = fillsVisible ? fillOpacity : 0;
       const v = useViewport.getState();
       const scale = pageScale(project, p);
       const items = new Map(project.items.map((i) => [i.id, i]));
@@ -403,13 +416,18 @@ export function Viewer() {
       for (const z of project.zones) {
         if (z.page !== p || !boxesIntersect(bbox(z.points), viewBox)) continue;
         const isSel = sel.has(z.id) || zoneFilter === z.id;
+        // hidden locations (globally or individually) still show while selected or filtered
+        if ((!zonesVisible || z.hidden) && !isSel) continue;
         const pts =
           isSel && s.moveDelta ? translate(z.points, s.moveDelta.x, s.moveDelta.y) : z.points;
+        ctx.globalAlpha = isSel ? 1 : zoneOpacity;
         drawZone(ctx, v, pts, z, scale, {
           selected: isSel,
           hover: s.hoverId === z.id,
           dashed: false,
+          fillAlpha: fillK,
         });
+        ctx.globalAlpha = 1;
       }
       if (store.pendingZone && store.pendingZone.page === p) {
         drawZone(ctx, v, store.pendingZone.points, null, scale, {
@@ -434,6 +452,8 @@ export function Viewer() {
           selected: isSel,
           hover: s.hoverId === m.id,
           dashed: false,
+          symbol: item.symbol,
+          fillAlpha: fillK,
         });
         ctx.globalAlpha = 1;
       }
@@ -880,7 +900,13 @@ interface DrawOpts {
   selected: boolean;
   hover: boolean;
   dashed: boolean;
+  /** Count marks: symbol id from lib/symbols (undefined = dot). */
+  symbol?: string;
+  /** Multiplier for the hatch fill of areas and locations (0 = outline only, default 1). */
+  fillAlpha?: number;
 }
+
+const MARK_PX = 18;
 
 function drawMeasurement(
   ctx: CanvasRenderingContext2D,
@@ -895,13 +921,8 @@ function drawMeasurement(
   ctx.save();
   if (kind === "count") {
     const c = sp[0];
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, o.selected || o.hover ? 8 : 6.5, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = o.selected ? "#101a30" : "rgba(0,0,0,0.7)";
-    ctx.stroke();
+    const emphasis = o.selected || o.hover;
+    drawSymbol(ctx, o.symbol, c.x, c.y, emphasis ? MARK_PX + 4 : MARK_PX, color, emphasis);
     if (o.selected) {
       ctx.beginPath();
       ctx.arc(c.x, c.y, 12, 0, Math.PI * 2);
@@ -917,8 +938,11 @@ function drawMeasurement(
   for (let i = 1; i < sp.length; i++) ctx.lineTo(sp[i].x, sp[i].y);
   if (kind === "area") {
     ctx.closePath();
-    ctx.fillStyle = hexAlpha(color, o.selected || o.hover ? 0.38 : 0.24);
-    ctx.fill();
+    const k = o.fillAlpha ?? 1;
+    if (k > 0) {
+      ctx.fillStyle = hexAlpha(color, (o.selected || o.hover ? 0.38 : 0.24) * k);
+      ctx.fill();
+    }
   }
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
@@ -983,8 +1007,11 @@ function drawZone(
   ctx.moveTo(sp[0].x, sp[0].y);
   for (let i = 1; i < sp.length; i++) ctx.lineTo(sp[i].x, sp[i].y);
   ctx.closePath();
-  ctx.fillStyle = hexAlpha(color, o.selected || o.hover ? 0.14 : 0.07);
-  ctx.fill();
+  const k = o.fillAlpha ?? 1;
+  if (k > 0) {
+    ctx.fillStyle = hexAlpha(color, (o.selected || o.hover ? 0.14 : 0.07) * k);
+    ctx.fill();
+  }
   ctx.setLineDash(o.dashed ? [4, 4] : [10, 6]);
   ctx.lineWidth = o.selected || o.hover ? 3 : 2;
   ctx.strokeStyle = o.selected ? "#101a30" : color;

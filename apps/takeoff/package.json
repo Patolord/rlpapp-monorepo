@@ -15,12 +15,15 @@
     "check-types": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "inspect": "bun scripts/inspect-pdf.ts"
+    "inspect": "bun scripts/inspect-pdf.ts",
+    "release": "bun scripts/release.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.8.3",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.14.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.61.0",
     "pdfjs-dist": "^6.4.299",

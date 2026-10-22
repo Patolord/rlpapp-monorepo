@@ -2,6 +2,7 @@ import { FileSpreadsheet, FileText, FolderOpen, Save } from "lucide-react";
 import { exportXlsx, pickAndOpenPdf, pickAndOpenProject, saveProject } from "../lib/files";
 import { useDoc } from "../lib/session";
 import { useStore } from "../store";
+import { UpdateButton } from "./UpdateButton";
 import { Button } from "./ui";
 
 export function TopBar() {
@@ -20,6 +21,7 @@ export function TopBar() {
         title="Nome do projeto"
       />
       {dirty && <span className="text-xs text-amber-400">● não salvo</span>}
+      <UpdateButton />
       {pdfName && <span className="truncate text-xs text-neutral-500">{pdfName}</span>}
       <div className="ml-auto flex items-center gap-1.5">
         <Button onClick={() => void pickAndOpenPdf()} title="Ctrl+O">
