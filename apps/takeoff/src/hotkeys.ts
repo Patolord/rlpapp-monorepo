@@ -67,6 +67,10 @@ export function useHotkeys() {
             e.preventDefault();
             s.setPaletteOpen(!s.paletteOpen);
             return;
+          case "n":
+            e.preventDefault();
+            s.setNewProjectOpen(true);
+            return;
           default:
             return;
         }
@@ -80,6 +84,10 @@ export function useHotkeys() {
         case "Escape":
           if (s.aboutOpen) {
             s.setAboutOpen(false);
+            return;
+          }
+          if (s.newProjectOpen) {
+            s.setNewProjectOpen(false);
             return;
           }
           if (api?.hasDraft()) api.cancelDraft();

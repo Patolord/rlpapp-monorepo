@@ -1,7 +1,10 @@
-import { FileSpreadsheet, FileText, FolderOpen, Info, Save } from "lucide-react";
-import { exportXlsx, pickAndOpenPdf, pickAndOpenProject, saveProject } from "../lib/files";
+import { FileSpreadsheet, FileText, Info } from "lucide-react";
+import { exportXlsx, pickAndOpenPdf } from "../lib/files";
+import { mod } from "../lib/platform";
+import { basename } from "../lib/session";
 import { useStore } from "../store";
 import { DrawingSwitcher } from "./DrawingSwitcher";
+import { ProjectMenu } from "./ProjectMenu";
 import { UpdateButton } from "./UpdateButton";
 import { Button } from "./ui";
 
@@ -10,6 +13,7 @@ export function TopBar() {
   const dirty = useStore((s) => s.dirty);
   const setProjectMeta = useStore((s) => s.setProjectMeta);
   const setAboutOpen = useStore((s) => s.setAboutOpen);
+  const filePath = useStore((s) => s.filePath);
   return (
     <div className="flex h-11 items-center gap-2 border-b border-neutral-800 bg-neutral-900 px-3">
       <img src="/logo-rlp.png" alt="RLP Engenharia" className="h-7 w-auto" draggable={false} />
@@ -22,20 +26,24 @@ export function TopBar() {
         className="h-8 w-64 rounded bg-transparent px-2 text-sm text-neutral-100 ring-1 ring-transparent hover:ring-neutral-700 focus:ring-orange-400 outline-none"
         title="Nome do projeto"
       />
-      {dirty && <span className="text-xs text-amber-400">● não salvo</span>}
+      <span
+        className="hidden max-w-[11rem] shrink-0 truncate text-[11px] text-neutral-500 xl:inline"
+        title={filePath ?? "Projeto ainda não salvo em arquivo"}
+      >
+        {filePath ? basename(filePath) : "sem arquivo"}
+      </span>
+      {dirty && <span className="shrink-0 text-xs text-amber-400">● não salvo</span>}
       <UpdateButton />
       <DrawingSwitcher />
       <div className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-        <Button onClick={() => void pickAndOpenPdf()} title="Ctrl+O">
-          <FileText size={14} /> Abrir PDF
+        <ProjectMenu />
+        <Button
+          onClick={() => void pickAndOpenPdf()}
+          title={`${mod("O")}: adiciona um PDF ao projeto`}
+        >
+          <FileText size={14} /> Adicionar PDF
         </Button>
-        <Button onClick={() => void pickAndOpenProject()}>
-          <FolderOpen size={14} /> Abrir projeto
-        </Button>
-        <Button onClick={() => void saveProject(false)} title="Ctrl+S (Ctrl+Shift+S: salvar como)">
-          <Save size={14} /> Salvar
-        </Button>
-        <Button variant="primary" onClick={() => void exportXlsx()} title="Ctrl+E">
+        <Button variant="primary" onClick={() => void exportXlsx()} title={mod("E")}>
           <FileSpreadsheet size={14} /> Planilha .xlsx
         </Button>
         <button

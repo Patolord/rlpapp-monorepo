@@ -1,4 +1,5 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 import { AboutDialog } from "./components/AboutDialog";
@@ -6,24 +7,18 @@ import { CalibrateDialog } from "./components/CalibrateDialog";
 import { CatalogPalette } from "./components/CatalogPalette";
 import { ItemsPanel } from "./components/ItemsPanel";
 import { LegendDialog } from "./components/LegendDialog";
+import { NewProjectDialog } from "./components/NewProjectDialog";
 import { PageStrip } from "./components/PageStrip";
 import { QuotePanel } from "./components/QuotePanel";
 import { StatusBar } from "./components/StatusBar";
 import { ToolRail } from "./components/ToolRail";
 import { TopBar } from "./components/TopBar";
-import { Button, Kbd } from "./components/ui";
 import { Viewer } from "./components/Viewer";
+import { Welcome } from "./components/Welcome";
 import { ZoneDialog } from "./components/ZoneDialog";
 import { ZonesPanel } from "./components/ZonesPanel";
 import { useHotkeys } from "./hotkeys";
-import {
-  autosave,
-  hasAutosave,
-  openPdfFile,
-  openProjectFile,
-  pickAndOpenPdf,
-  restoreAutosave,
-} from "./lib/files";
+import { autosave, confirmDiscard, openPdfFile, openProjectFile } from "./lib/files";
 import { useDoc } from "./lib/session";
 import { checkForUpdate } from "./lib/updater";
 import { useStore } from "./store";
@@ -33,10 +28,7 @@ const TABS = { items: "Itens", zones: "Locais", quote: "Orçamento" } as const;
 export default function App() {
   useHotkeys();
   const numPages = useDoc((s) => s.numPages);
-  const loading = useDoc((s) => s.loading);
-  const error = useDoc((s) => s.error);
   const [tab, setTab] = useState<keyof typeof TABS>("items");
-  const [canRestore, setCanRestore] = useState(false);
 
   // keep the page metadata array in sync with the opened document
   useEffect(() => {
@@ -78,9 +70,23 @@ export default function App() {
     return () => window.clearTimeout(id);
   }, []);
 
+  // ask before closing the window with unsaved changes
+  useEffect(() => {
+    if (!("__TAURI_INTERNALS__" in window)) return;
+    let unlisten: (() => void) | undefined;
+    getCurrentWindow()
+      .onCloseRequested((event) => {
+        if (!confirmDiscard()) event.preventDefault();
+      })
+      .then((u) => {
+        unlisten = u;
+      })
+      .catch(() => {});
+    return () => unlisten?.();
+  }, []);
+
   // crash-safe autosave
   useEffect(() => {
-    void hasAutosave().then(setCanRestore);
     const id = window.setInterval(() => void autosave().catch(() => {}), 15_000);
     return () => window.clearInterval(id);
   }, []);
@@ -101,33 +107,7 @@ export default function App() {
         <PageStrip />
         <div className="relative min-w-0 flex-1">
           <Viewer />
-          {!numPages && (
-            <div className="absolute inset-0 flex items-center justify-center bg-neutral-800">
-              <div className="max-w-md rounded-xl border border-dashed border-neutral-600 p-8 text-center">
-                <h1 className="text-lg font-semibold text-neutral-100">
-                  Arraste um desenho em PDF para cá
-                </h1>
-                <p className="mt-1 text-xs text-neutral-400">
-                  ou pressione <Kbd>Ctrl</Kbd>+<Kbd>O</Kbd>. Snap, contagens, comprimentos, áreas e
-                  o orçamento pronto, tudo pelo teclado.
-                </p>
-                {loading && <p className="mt-3 text-xs text-orange-300">Abrindo…</p>}
-                {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
-                <div className="mt-4 flex justify-center gap-2">
-                  <Button variant="primary" onClick={() => void pickAndOpenPdf()}>
-                    Abrir PDF
-                  </Button>
-                  {canRestore && (
-                    <Button
-                      onClick={() => void restoreAutosave().catch(() => setCanRestore(false))}
-                    >
-                      Restaurar última sessão
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+          {!numPages && <Welcome />}
           <CalibrateDialog />
           <ZoneDialog />
           <LegendDialog />
@@ -158,6 +138,7 @@ export default function App() {
       <StatusBar />
       <CatalogPalette />
       <AboutDialog />
+      <NewProjectDialog />
     </div>
   );
 }

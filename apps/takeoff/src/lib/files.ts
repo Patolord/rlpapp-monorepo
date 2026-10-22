@@ -1,9 +1,42 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../store";
+import { mod } from "./platform";
 import { systemSheets, zoneMatrix } from "./quantities";
-import { basename, openPdfPath, useDoc } from "./session";
-import { drawingOf, migrateProject, UNTITLED } from "./types";
+import { basename, closePdf, openPdfPath, useDoc } from "./session";
+import { drawingOf, emptyProject, migrateProject, UNTITLED } from "./types";
+
+/** Ask before throwing away unsaved work. Returns true when it is fine to continue. */
+export function confirmDiscard(): boolean {
+  const { dirty, project } = useStore.getState();
+  if (!dirty) return true;
+  return window.confirm(`"${project.name}" tem alterações não salvas. Continuar sem salvar?`);
+}
+
+/** Start a fresh project (obra). Clears the viewer; PDFs are added afterwards. */
+export async function newProject(meta: {
+  name: string;
+  client: string;
+  site: string;
+  system: string;
+}): Promise<boolean> {
+  if (!confirmDiscard()) return false;
+  const store = useStore.getState();
+  const project = { ...emptyProject(), ...meta };
+  closePdf();
+  store.resetProject(project, null);
+  useStore.setState({ dirty: true });
+  store.setStatus(`Projeto "${project.name}" criado. Adicione os PDFs com ${mod("O")}.`);
+  return true;
+}
+
+/** Close the current project and return to the welcome screen. */
+export function closeProject(): boolean {
+  if (!confirmDiscard()) return false;
+  closePdf();
+  useStore.getState().resetProject(emptyProject(), null);
+  return true;
+}
 
 const PROJECT_FILTER = [{ name: "Projeto Takeoff", extensions: ["takeoff.json", "json"] }];
 const PDF_FILTER = [{ name: "Desenhos PDF", extensions: ["pdf"] }];
@@ -73,15 +106,28 @@ export async function saveProject(as = false): Promise<boolean> {
   await invoke("write_text", { path, contents: JSON.stringify(store.project, null, 2) });
   store.setFilePath(path);
   store.markSaved();
+  store.pushRecent(path, store.project.name);
   store.setStatus(`Salvo: ${basename(path)}`);
   return true;
 }
 
 export async function openProjectFile(path: string): Promise<void> {
+  if (!confirmDiscard()) return;
   const store = useStore.getState();
-  const text = await invoke<string>("read_text", { path });
+  let text: string;
+  try {
+    text = await invoke<string>("read_text", { path });
+  } catch (e) {
+    store.setStatus(
+      `Não foi possível abrir o projeto: ${e instanceof Error ? e.message : String(e)}`,
+    );
+    useStore.setState({ recentProjects: store.recentProjects.filter((r) => r.path !== path) });
+    return;
+  }
   const project = migrateProject(JSON.parse(text));
+  closePdf();
   store.resetProject(project, path);
+  store.pushRecent(path, project.name);
   const first = project.activeDrawingId ?? project.drawings[0]?.id;
   if (first) await switchDrawing(first);
 }

@@ -124,6 +124,9 @@ export interface State {
   status: string | null;
   paletteOpen: boolean;
   aboutOpen: boolean;
+  newProjectOpen: boolean;
+  /** Recently opened project files, newest first (per machine). */
+  recentProjects: { path: string; name: string; openedAt: string }[];
   legendCandidates: string[] | null;
   catalog: CatalogStore;
 
@@ -178,6 +181,8 @@ export interface State {
 
   setPaletteOpen(open: boolean): void;
   setAboutOpen(open: boolean): void;
+  setNewProjectOpen(open: boolean): void;
+  pushRecent(path: string, name: string): void;
   setLegendCandidates(lines: string[] | null): void;
   /** Create items for several names at once (legend capture). */
   addItemsBulk(entries: { name: string; kind: Kind; group: string; system?: string }[]): void;
@@ -221,6 +226,8 @@ export const useStore = create<State>((set, get) => ({
   status: null,
   paletteOpen: false,
   aboutOpen: false,
+  newProjectOpen: false,
+  recentProjects: readPref("recentProjects", []),
   legendCandidates: null,
   catalog: emptyCatalogStore(),
 
@@ -545,6 +552,16 @@ export const useStore = create<State>((set, get) => ({
 
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
   setAboutOpen: (aboutOpen) => set({ aboutOpen }),
+  setNewProjectOpen: (newProjectOpen) => set({ newProjectOpen }),
+  pushRecent: (path, name) => {
+    const rest = get().recentProjects.filter((r) => r.path !== path);
+    const recentProjects = [{ path, name, openedAt: new Date().toISOString() }, ...rest].slice(
+      0,
+      8,
+    );
+    writePref("recentProjects", recentProjects);
+    set({ recentProjects });
+  },
   setLegendCandidates: (legendCandidates) => set({ legendCandidates }),
 
   addItemsBulk: (entries) => {
