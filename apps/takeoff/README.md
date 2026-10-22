@@ -5,7 +5,7 @@ exhaust projects. Open a drawing, calibrate the scale, count / measure / detect 
 keyboard, price the items and export the budget as an Excel sheet in the RLP
 "Planilha Orçamentária" layout.
 
-Windows desktop app built with Tauri 2 (Rust) + React 19 + TypeScript + Tailwind 4, pdf.js for
+Windows and macOS desktop app built with Tauri 2 (Rust) + React 19 + TypeScript + Tailwind 4, pdf.js for
 rendering, Bun for tooling.
 
 ## Run
@@ -23,10 +23,13 @@ Build an installer with `bun run tauri:build`.
 
 ## Distribution and updates
 
-**Installer.** `bun run tauri:build` produces `src-tauri/target/release/bundle/nsis/Takeoff_<v>_x64-setup.exe`
-(per-user install, Portuguese) and an `.msi`. Without a code-signing certificate Windows
-SmartScreen shows "unknown publisher" on first run; an Authenticode certificate (or Azure Trusted
-Signing) removes that and plugs into the same build.
+**Installers.** `bun run tauri:build` produces, on Windows,
+`src-tauri/target/release/bundle/nsis/RLP Takeoff_<v>_x64-setup.exe` (per-user install,
+Portuguese); on a Mac, `bun run tauri build --target universal-apple-darwin` produces a universal
+`.dmg` (Apple Silicon + Intel). Nothing is code-signed with a vendor certificate: Windows
+SmartScreen shows "unknown publisher" on first run, and macOS (ad-hoc signature) needs
+right-click > Open the first time a downloaded copy is launched. Both are fine for internal use;
+an Authenticode certificate / Apple Developer ID plug into the same builds later.
 
 **Auto-update.** The app checks `plugins.updater.endpoints` from `src-tauri/tauri.conf.json`
 a few seconds after start and shows an "Atualizar para x.y.z" button; one click downloads the
@@ -41,10 +44,10 @@ bun run release 0.2.0        # bumps package.json, tauri.conf.json, Cargo.toml; 
 git push && git push origin v0.2.0
 ```
 
-The tag triggers `.github/workflows/release.yml`, which builds on Windows, signs the updater
-artifact and publishes a GitHub Release in the public repository
-[Patolord/takeoff-releases](https://github.com/Patolord/takeoff-releases) with the installer,
-the `.sig` and `latest.json`. Installed copies read that repository's
+The tag triggers `.github/workflows/release.yml`, which builds on Windows and macOS, signs the
+updater artifacts and publishes one GitHub Release in the public repository
+[Patolord/takeoff-releases](https://github.com/Patolord/takeoff-releases) with the `.exe`, the
+`.dmg`, their `.sig` files and a shared `latest.json` (one entry per platform). Installed copies read that repository's
 `releases/latest/download/latest.json` (checked once at launch) and offer the
 update. Secrets in this private repository: `TAURI_SIGNING_PRIVATE_KEY`,
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` and `RELEASE_TOKEN` (a GitHub token that may create

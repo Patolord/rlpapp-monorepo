@@ -1,6 +1,7 @@
 import { Copy, FileSpreadsheet } from "lucide-react";
 import { Fragment, useMemo } from "react";
 import { exportXlsx } from "../lib/files";
+import { mod } from "../lib/platform";
 import { buildQuote, quoteCsv, round2, systemSheets } from "../lib/quantities";
 import { formatMoney, formatNumber, type Unit } from "../lib/units";
 import { type ProjectMeta, useStore } from "../store";
@@ -226,7 +227,7 @@ export function QuotePanel() {
           strong
         />
         <div className="flex gap-2 pt-2">
-          <Button variant="primary" onClick={() => void exportXlsx()} title="Ctrl+E">
+          <Button variant="primary" onClick={() => void exportXlsx()} title={mod("E")}>
             <FileSpreadsheet size={14} /> Planilha .xlsx
           </Button>
           <Button onClick={() => void copyCsv()}>

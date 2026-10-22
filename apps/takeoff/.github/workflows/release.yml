@@ -1,8 +1,11 @@
-# Builds the Windows installer, signs the updater artifacts and publishes a GitHub Release in
-# the PUBLIC repository Patolord/takeoff-releases whenever a version tag (v1.2.3) is pushed here.
-# `bun run release 1.2.3` creates that tag. Installed apps read
+# Builds the Windows installer and the macOS disk image, signs the updater artifacts and publishes
+# them to a GitHub Release in the PUBLIC repository Patolord/takeoff-releases whenever a version
+# tag (v1.2.3) is pushed here. `bun run release 1.2.3` creates that tag. Installed apps read
 # https://github.com/Patolord/takeoff-releases/releases/latest/download/latest.json and offer
-# the update themselves.
+# the update themselves (tauri-action merges each platform into the same latest.json).
+#
+# macOS builds are ad-hoc signed (no Apple Developer account): fine for internal distribution;
+# the first launch of a downloaded .dmg needs right-click > Open once.
 #
 # Required secrets in this (private) repository:
 #   TAURI_SIGNING_PRIVATE_KEY           contents of ~/.tauri/takeoff.key
@@ -18,27 +21,13 @@ permissions:
   contents: write
 
 jobs:
-  windows:
-    runs-on: windows-latest
+  # The public repository has no copy of this commit, so the release (and its tag) is created
+  # there first, pointing at its own main; the build jobs then upload into it by id.
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.rel.outputs.id }}
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: "1.3.13"
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-
-      - run: bun install --frozen-lockfile
-
-      - run: bun run check-types && bun run test
-
-      # The public repository has no copy of this commit, so the release (and its tag) is
-      # created there first, pointing at its own main; tauri-action then uploads into it.
       - name: Create the release in the public repository
         id: rel
         shell: bash
@@ -50,17 +39,53 @@ jobs:
           if ! gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
             gh release create "$TAG" --repo "$REPO" --target main \
               --title "RLP Takeoff $TAG" \
-              --notes "Instalador Windows (.exe) e atualização assinada (latest.json). O app instalado oferece esta versão sozinho."
+              --notes "Windows: RLP.Takeoff_<versão>_x64-setup.exe · macOS: RLP.Takeoff_<versão>_universal.dmg (primeira abertura: botão direito > Abrir). O app instalado oferece as versões seguintes sozinho."
           fi
           echo "id=$(gh api "repos/$REPO/releases/tags/$TAG" --jq .id)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: --bundles nsis
+            targets: ""
+          - os: macos-latest
+            args: --target universal-apple-darwin --bundles app dmg
+            targets: aarch64-apple-darwin,x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.13"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.targets }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: bun install --frozen-lockfile
+
+      - if: matrix.os == 'windows-latest'
+        run: bun run check-types && bun run test
 
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # no Apple Developer account: ad-hoc signature, enough for internal distribution
+          APPLE_SIGNING_IDENTITY: ${{ matrix.os == 'macos-latest' && '-' || '' }}
         with:
           owner: Patolord
           repo: takeoff-releases
-          releaseId: ${{ steps.rel.outputs.id }}
+          releaseId: ${{ needs.create-release.outputs.id }}
           includeUpdaterJson: true
+          args: ${{ matrix.args }}

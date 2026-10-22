@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import { CircleDot, Library, Pentagon, Plus, Search, Spline, Star, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { MOD, mod } from "../lib/platform";
 import { itemTotals, NO_ZONE, pricedQty, round2, totalsByZone } from "../lib/quantities";
 import { SYMBOLS } from "../lib/symbols";
 import { DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS, ITEM_COLORS, type Item } from "../lib/types";
@@ -180,8 +181,8 @@ export function ItemsPanel() {
       <div className="flex-1 overflow-y-auto">
         {project.items.length === 0 && (
           <p className="px-3 py-6 text-center text-xs text-neutral-500">
-            Nenhum item ainda. Use <Kbd>Ctrl</Kbd>+<Kbd>K</Kbd> para buscar no catálogo, adicione um
-            abaixo ou escolha uma ferramenta e comece a medir — o item é criado automaticamente.
+            Nenhum item ainda. Use <Kbd>{MOD}</Kbd>+<Kbd>K</Kbd> para buscar no catálogo, adicione
+            um abaixo ou escolha uma ferramenta e comece a medir — o item é criado automaticamente.
           </p>
         )}
         {project.items.length > 0 && visible.length === 0 && (
@@ -258,7 +259,7 @@ export function ItemsPanel() {
         <Button type="submit" variant="primary" aria-label="Adicionar item">
           <Plus size={14} />
         </Button>
-        <Button onClick={() => setPaletteOpen(true)} title="Catálogo de materiais (Ctrl+K)">
+        <Button onClick={() => setPaletteOpen(true)} title={`Catálogo de materiais (${mod("K")})`}>
           <Library size={14} />
         </Button>
       </form>

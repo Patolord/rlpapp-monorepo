@@ -14,6 +14,7 @@ import {
   Undo2,
   WandSparkles,
 } from "lucide-react";
+import { mod } from "../lib/platform";
 import { type Tool, useStore } from "../store";
 import { viewerApi } from "../viewerApi";
 import { IconButton } from "./ui";
@@ -71,10 +72,10 @@ export function ToolRail() {
         <Maximize size={18} />
       </IconButton>
       <div className="my-1 h-px w-7 bg-neutral-700" />
-      <IconButton label="Desfazer" hint="Ctrl+Z" disabled={!canUndo} onClick={undo}>
+      <IconButton label="Desfazer" hint={mod("Z")} disabled={!canUndo} onClick={undo}>
         <Undo2 size={18} />
       </IconButton>
-      <IconButton label="Refazer" hint="Ctrl+Y" disabled={!canRedo} onClick={redo}>
+      <IconButton label="Refazer" hint={mod("Y")} disabled={!canRedo} onClick={redo}>
         <Redo2 size={18} />
       </IconButton>
     </div>

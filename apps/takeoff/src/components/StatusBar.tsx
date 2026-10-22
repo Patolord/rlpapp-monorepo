@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, PaintBucket, Proportions } from "lucide-react";
 import { useEffect, useState } from "react";
+import { ALT, MOD } from "../lib/platform";
 import { pageScale } from "../lib/quantities";
 import { useDoc } from "../lib/session";
 import { useStore } from "../store";
@@ -10,8 +11,8 @@ import { Kbd } from "./ui";
 const HINTS: Record<string, React.ReactNode> = {
   select: (
     <>
-      Clique para selecionar · arraste para mover · <Kbd>Alt</Kbd>+clique num texto nomeia o item ·{" "}
-      <Kbd>Alt</Kbd>+arraste sobre a legenda cria itens
+      Clique para selecionar · arraste para mover · <Kbd>{ALT}</Kbd>+clique num texto nomeia o item
+      · <Kbd>{ALT}</Kbd>+arraste sobre a legenda cria itens
     </>
   ),
   pan: "Arraste para mover a vista · roda do mouse para zoom",
@@ -33,7 +34,7 @@ const HINTS: Record<string, React.ReactNode> = {
   similar: (
     <>
       Arraste uma caixa ao redor de um símbolo: todos os iguais na página recebem uma marca de
-      contagem · <Kbd>Ctrl</Kbd>+<Kbd>K</Kbd> abre o catálogo
+      contagem · <Kbd>{MOD}</Kbd>+<Kbd>K</Kbd> abre o catálogo
     </>
   ),
   zone: (
