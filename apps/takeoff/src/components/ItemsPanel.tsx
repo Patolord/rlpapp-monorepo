@@ -55,13 +55,14 @@ export function ItemsPanel() {
     setSystemFilter,
     setDrawingOnly,
   } = useStore.getState();
+  const allTotals = useMemo(() => itemTotals(project), [project]);
   const totals = useMemo(
     () =>
-      drawingOnly
-        ? itemTotals(project, (m) => m.drawingId === project.activeDrawingId)
-        : itemTotals(project),
-    [project, drawingOnly],
+      drawingOnly ? itemTotals(project, (m) => m.drawingId === project.activeDrawingId) : allTotals,
+    [project, drawingOnly, allTotals],
   );
+  /** A just-created item (no marking anywhere) stays visible while active, whatever the filters. */
+  const freshActive = (id: string) => id === activeItemId && !allTotals.get(id)?.count;
   const byZone = useMemo(() => totalsByZone(project), [project]);
   const groups = useMemo(
     () => Array.from(new Set([...project.items.map((i) => i.group), ...GROUP_SUGGESTIONS])),
@@ -108,8 +109,8 @@ export function ItemsPanel() {
     if (systemFilter !== null && (item.system || project.system || "") !== systemFilter)
       return false;
     // inside a location only items that have something there (the active one stays visible)
-    if (scoped && !scoped.has(item.id) && item.id !== activeItemId) return false;
-    if (drawingOnly && !totals.get(item.id)?.count && item.id !== activeItemId) return false;
+    if (scoped && !scoped.has(item.id) && !freshActive(item.id)) return false;
+    if (drawingOnly && !totals.get(item.id)?.count && !freshActive(item.id)) return false;
     return true;
   });
   const sumValue = visible.reduce(
