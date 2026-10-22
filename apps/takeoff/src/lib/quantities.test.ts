@@ -202,3 +202,41 @@ describe("zones", () => {
     expect(duct.total).toBeCloseTo(4.4);
   });
 });
+
+describe("system sheets", () => {
+  it("splits items into one sheet per system and sections per location or group", async () => {
+    const { systemSheets } = await import("./quantities");
+    const p = project();
+    p.system = "Pressurização";
+    p.items[1] = { ...p.items[1], system: "Exaustão" };
+    p.zones = [
+      {
+        id: "z",
+        name: "Térreo",
+        page: 0,
+        points: [
+          { x: 0, y: 0 },
+          { x: 1000, y: 0 },
+          { x: 1000, y: 1000 },
+          { x: 0, y: 1000 },
+        ],
+        color: "#fff",
+      },
+    ];
+    p.sectionsBy = "local";
+    const sheets = systemSheets(p);
+    expect(sheets.map((s) => s.system)).toEqual(["Pressurização", "Exaustão"]);
+    const press = sheets[0];
+    expect(press.sections.map((s) => s.name)).toEqual(["Térreo"]);
+    expect(press.sections[0].rows.map((r) => [r.item.id, r.qty])).toEqual([
+      ["duct", 4.4],
+      ["floor", 6],
+    ]);
+    const ex = sheets[1];
+    expect(ex.sections.map((s) => s.name)).toEqual(["Térreo", "Sem local"]);
+    p.sectionsBy = "grupo";
+    const byGroup = systemSheets(p)[0];
+    expect(byGroup.sections.map((s) => s.name)).toEqual(["Rede de Dutos"]);
+    expect(byGroup.sections[0].rows).toHaveLength(2);
+  });
+});

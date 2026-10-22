@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { SquareDashed, Trash2 } from "lucide-react";
+import { Filter, SquareDashed, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { polygonArea } from "../lib/geom";
 import { NO_ZONE, pageScale, totalsByZone } from "../lib/quantities";
@@ -11,7 +11,9 @@ import { Button, Kbd } from "./ui";
 export function ZonesPanel() {
   const project = useStore((s) => s.project);
   const selection = useStore((s) => s.selection);
-  const { setSelection, setPage, setTool, updateZone, removeMeasurements } = useStore.getState();
+  const zoneFilter = useStore((s) => s.zoneFilter);
+  const { setSelection, setPage, setTool, updateZone, removeMeasurements, setZoneFilter } =
+    useStore.getState();
   const byZone = useMemo(() => totalsByZone(project), [project]);
   const items = useMemo(() => new Map(project.items.map((i) => [i.id, i])), [project.items]);
   const zones = useMemo(() => [...project.zones].sort((a, b) => a.page - b.page), [project.zones]);
@@ -59,6 +61,8 @@ export function ZonesPanel() {
             key={z.id}
             zone={z}
             selected={selection.includes(z.id)}
+            filtered={zoneFilter === z.id}
+            onFilter={() => setZoneFilter(zoneFilter === z.id ? null : z.id)}
             areaText={areaText(project, z)}
             onSelect={() => {
               setPage(z.page);
@@ -72,7 +76,22 @@ export function ZonesPanel() {
         ))}
         {zones.length > 0 && byZone.has(NO_ZONE) && (
           <div className="border-b border-neutral-800/70 px-2 py-1.5">
-            <div className="text-xs text-neutral-400">Sem local</div>
+            <div className="flex items-center text-xs text-neutral-400">
+              Sem local
+              <button
+                type="button"
+                title="Mostrar só o que está fora dos locais"
+                onClick={() => setZoneFilter(zoneFilter === NO_ZONE ? null : NO_ZONE)}
+                className={clsx(
+                  "ml-auto rounded p-0.5",
+                  zoneFilter === NO_ZONE
+                    ? "text-orange-300"
+                    : "text-neutral-500 hover:text-neutral-100",
+                )}
+              >
+                <Filter size={12} />
+              </button>
+            </div>
             {rows(NO_ZONE)}
           </div>
         )}
@@ -100,6 +119,8 @@ function areaText(project: ReturnType<typeof useStore.getState>["project"], z: Z
 function ZoneRow({
   zone,
   selected,
+  filtered,
+  onFilter,
   areaText,
   onSelect,
   onRename,
@@ -108,6 +129,8 @@ function ZoneRow({
 }: {
   zone: Zone;
   selected: boolean;
+  filtered: boolean;
+  onFilter: () => void;
   areaText: string;
   onSelect: () => void;
   onRename: (name: string) => void;
@@ -154,6 +177,20 @@ function ZoneRow({
         )}
         <span className="text-[10px] text-neutral-500">pág. {zone.page + 1}</span>
         <span className="font-mono text-[11px] text-neutral-300">{areaText}</span>
+        <button
+          type="button"
+          title="Mostrar só este local (itens e desenho)"
+          onClick={(e) => {
+            e.stopPropagation();
+            onFilter();
+          }}
+          className={clsx(
+            "rounded p-0.5",
+            filtered ? "text-orange-300" : "text-neutral-500 opacity-0 group-hover:opacity-100",
+          )}
+        >
+          <Filter size={13} />
+        </button>
         <button
           type="button"
           title="Excluir o local (as medições permanecem)"

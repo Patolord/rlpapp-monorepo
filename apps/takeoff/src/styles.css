@@ -1,8 +1,41 @@
 @import "tailwindcss";
 
+/*
+ * RLP brand theme: white surfaces, navy (#2B3990, from the logo) as the accent, light sky-blue
+ * (#DCEEFA, the logo stripes) for tints. The components were written against Tailwind's dark
+ * neutral scale, so the scale is remapped here: "neutral-900" surfaces become white, "neutral-100"
+ * text becomes near-black, and the orange accent becomes brand navy.
+ */
 @theme {
   --font-sans: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Cascadia Mono", "Consolas", ui-monospace, monospace;
+
+  --color-neutral-950: #ffffff;
+  --color-neutral-900: #ffffff;
+  --color-neutral-800: #eef3f9;
+  --color-neutral-700: #cfdae8;
+  --color-neutral-600: #a9b8cc;
+  --color-neutral-500: #64748f;
+  --color-neutral-400: #46556f;
+  --color-neutral-300: #2f3b52;
+  --color-neutral-200: #1f2a44;
+  --color-neutral-100: #101a30;
+
+  --color-orange-200: #1f2a6e;
+  --color-orange-300: #2b3990;
+  --color-orange-400: #2b3990;
+  --color-orange-500: #2b3990;
+  --color-orange-600: #1f2a6e;
+
+  --color-amber-300: #b45309;
+  --color-amber-400: #b45309;
+  --color-amber-500: #d97706;
+  --color-red-300: #b91c1c;
+  --color-red-400: #dc2626;
+
+  --color-brand: #2b3990;
+  --color-brand-dark: #1f2a6e;
+  --color-brand-tint: #dceefa;
 }
 
 html,
@@ -11,8 +44,8 @@ body,
   height: 100%;
   margin: 0;
   overflow: hidden;
-  background: #171717;
-  color: #e5e5e5;
+  background: #eef3f9;
+  color: #101a30;
   font-family: var(--font-sans);
   font-size: 13px;
   -webkit-user-select: none;
@@ -35,9 +68,9 @@ canvas {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #404040;
+  background: #cfdae8;
   border-radius: 5px;
-  border: 2px solid #171717;
+  border: 2px solid #ffffff;
 }
 ::-webkit-scrollbar-track {
   background: transparent;

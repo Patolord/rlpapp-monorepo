@@ -17,7 +17,7 @@ export function IconButton({ active, label, hint, className, children, ...rest }
       aria-pressed={active}
       className={clsx(
         "flex h-9 w-9 items-center justify-center rounded-md text-neutral-300 transition-colors",
-        "hover:bg-neutral-700 hover:text-white disabled:opacity-40 disabled:hover:bg-transparent",
+        "hover:bg-neutral-700 hover:text-neutral-100 disabled:opacity-40 disabled:hover:bg-transparent",
         active && "bg-orange-500/20 text-orange-300 ring-1 ring-orange-400/60",
         className,
       )}

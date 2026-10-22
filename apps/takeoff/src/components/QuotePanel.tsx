@@ -40,6 +40,17 @@ export function QuotePanel() {
           {field("estimator", "Orçam.")}
         </div>
         <div className="flex items-center gap-3 pt-1 text-neutral-400">
+          <label className="flex items-center gap-1" title="Como a planilha exportada é dividida">
+            Seções
+            <select
+              value={project.sectionsBy}
+              onChange={(e) => setProjectMeta({ sectionsBy: e.target.value as "local" | "grupo" })}
+              className="rounded bg-neutral-800 px-1 py-0.5 ring-1 ring-neutral-700"
+            >
+              <option value="local">por local</option>
+              <option value="grupo">por grupo</option>
+            </select>
+          </label>
           <label className="flex items-center gap-1">
             Moeda
             <select
@@ -171,7 +182,7 @@ export function QuotePanel() {
         <Row
           label={
             <span className="flex items-center gap-1">
-              <span className="font-semibold text-white">Proposta</span> BDI ×
+              <span className="font-semibold text-neutral-100">Proposta</span> BDI ×
               <input
                 type="number"
                 step="0.01"
@@ -210,7 +221,7 @@ function Row({
   return (
     <div className="flex items-center justify-between text-neutral-300">
       <span>{label}</span>
-      <span className={strong ? "font-mono text-base font-semibold text-white" : "font-mono"}>
+      <span className={strong ? "font-mono text-base font-semibold text-neutral-100" : "font-mono"}>
         {value}
       </span>
     </div>

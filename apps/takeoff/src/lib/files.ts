@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../store";
-import { buildQuote, zoneMatrix } from "./quantities";
+import { systemSheets, zoneMatrix } from "./quantities";
 import { basename, openPdfPath, useDoc } from "./session";
 import { migrateProject } from "./types";
 
@@ -99,7 +99,8 @@ export interface SheetExport {
   estimator: string;
   currency: string;
   date: string;
-  groups: { name: string; rows: SheetRow[] }[];
+  /** One worksheet per system, each with its sections (locations or groups). */
+  sheets: { system: string; sections: { name: string; rows: SheetRow[] }[] }[];
   extrasPct: number;
   bdi: number;
   /** "Por Local" sheet: zone names and one quantity per zone for each item (empty when no zones). */
@@ -117,7 +118,6 @@ export interface SheetRow {
 
 export function sheetExport(): SheetExport {
   const { project } = useStore.getState();
-  const quote = buildQuote(project);
   const matrix = project.zones.length ? zoneMatrix(project) : { columns: [], rows: [] };
   return {
     title: "Planilha Orçamentária - RLP ENGENHARIA e INSTALAÇÕES LTDA.",
@@ -128,14 +128,17 @@ export function sheetExport(): SheetExport {
     estimator: project.estimator,
     currency: project.currency,
     date: new Date().toLocaleDateString("pt-BR"),
-    groups: quote.groups.map((g) => ({
-      name: g.name,
-      rows: g.lines.map((l) => ({
-        name: l.item.name,
-        unit: unitLabel(l.unit),
-        qty: l.qty,
-        materialPrice: l.item.materialPrice,
-        laborPrice: l.item.laborPrice,
+    sheets: systemSheets(project).map((s) => ({
+      system: s.system,
+      sections: s.sections.map((sec) => ({
+        name: sec.name,
+        rows: sec.rows.map((r) => ({
+          name: r.item.name,
+          unit: unitLabel(r.unit),
+          qty: r.qty,
+          materialPrice: r.item.materialPrice,
+          laborPrice: r.item.laborPrice,
+        })),
       })),
     })),
     extrasPct: project.extrasPct,

@@ -36,7 +36,7 @@ export function CalibrateDialog() {
         }}
         className="w-80 rounded-lg border border-neutral-700 bg-neutral-900 p-4 shadow-2xl"
       >
-        <h2 className="mb-1 text-sm font-semibold text-white">Calibrar escala</h2>
+        <h2 className="mb-1 text-sm font-semibold text-neutral-100">Calibrar escala</h2>
         <p className="mb-3 text-xs text-neutral-400">
           A linha desenhada mede{" "}
           <span className="font-mono text-neutral-200">{pts.toFixed(1)} pt</span> no papel. Qual é o

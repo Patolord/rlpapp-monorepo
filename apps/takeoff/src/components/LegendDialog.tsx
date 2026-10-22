@@ -36,7 +36,7 @@ export function LegendDialog() {
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50">
       <div className="flex max-h-[80vh] w-[34rem] flex-col rounded-lg border border-neutral-700 bg-neutral-900 p-4 shadow-2xl">
-        <h2 className="text-sm font-semibold text-white">Criar itens a partir do texto</h2>
+        <h2 className="text-sm font-semibold text-neutral-100">Criar itens a partir do texto</h2>
         <p className="mt-1 text-xs text-neutral-400">
           Cada linha capturada vira um item. Ajuste o texto e o tipo, desmarque o que não é
           material.

@@ -72,6 +72,7 @@ export type ProjectMeta = Partial<
     | "system"
     | "bdi"
     | "extrasPct"
+    | "sectionsBy"
   >
 >;
 
@@ -85,6 +86,8 @@ export interface State {
   tool: Tool;
   activeItemId: string | null;
   selection: string[];
+  /** Zone id (or "" for "Sem local") the item list and viewer focus on; null = everything. */
+  zoneFilter: string | null;
   snap: boolean;
   ortho: boolean;
   calibration: Calibration | null;
@@ -128,6 +131,7 @@ export interface State {
   setTool(tool: Tool): void;
   setActiveItem(id: string | null): void;
   setSelection(ids: string[]): void;
+  setZoneFilter(zoneId: string | null): void;
   toggleSnap(): void;
   toggleOrtho(): void;
   setCalibration(c: Calibration | null): void;
@@ -165,6 +169,7 @@ export const useStore = create<State>((set, get) => ({
   tool: "select",
   activeItemId: null,
   selection: [],
+  zoneFilter: null,
   snap: true,
   ortho: false,
   calibration: null,
@@ -184,6 +189,7 @@ export const useStore = create<State>((set, get) => ({
       future: [],
       page: 0,
       selection: [],
+      zoneFilter: null,
       calibration: null,
       pendingZone: null,
       activeItemId: project.items[0]?.id ?? null,
@@ -335,7 +341,8 @@ export const useStore = create<State>((set, get) => ({
       measurements: p.measurements.filter((m) => !set_.has(m.id)),
       zones: p.zones.filter((z) => !set_.has(z.id)),
     }));
-    set({ selection: [] });
+    const { zoneFilter } = get();
+    set({ selection: [], zoneFilter: zoneFilter && set_.has(zoneFilter) ? null : zoneFilter });
   },
 
   addZone: (name, page, points) => {
@@ -403,6 +410,7 @@ export const useStore = create<State>((set, get) => ({
   },
 
   setSelection: (selection) => set({ selection }),
+  setZoneFilter: (zoneFilter) => set({ zoneFilter }),
   toggleSnap: () => set((s) => ({ snap: !s.snap })),
   toggleOrtho: () => set((s) => ({ ortho: !s.ortho })),
   setCalibration: (calibration) => set({ calibration }),

@@ -101,6 +101,75 @@ export function totalsByZone(project: Project): Map<string, Map<string, ItemTota
   return out;
 }
 
+export interface SheetSectionRow {
+  item: Item;
+  unit: string;
+  qty: number;
+}
+
+export interface SheetSection {
+  name: string;
+  rows: SheetSectionRow[];
+}
+
+export interface SystemSheet {
+  system: string;
+  sections: SheetSection[];
+}
+
+/**
+ * Items grouped the way the RLP budget workbook is laid out: one sheet per system, and inside
+ * it one section per location (ambiente) when locations exist and `sectionsBy` is "local",
+ * otherwise one section per item group. Items with zero quantity are kept in group mode
+ * (the estimator may fill them by hand) but skipped per location.
+ */
+export function systemSheets(project: Project): SystemSheet[] {
+  const bySystem = new Map<string, Item[]>();
+  const fallback = project.system || "Orçamento";
+  for (const item of project.items) {
+    const key = (item.system || fallback).trim() || fallback;
+    bySystem.set(key, [...(bySystem.get(key) ?? []), item]);
+  }
+  const byLocation = project.sectionsBy === "local" && project.zones.length > 0;
+  const byZone = byLocation ? totalsByZone(project) : null;
+  const totals = itemTotals(project);
+  const unit = (item: Item) => qtyUnit(item.kind, project.unit);
+  const sheets: SystemSheet[] = [];
+  for (const [system, items] of bySystem) {
+    const sections: SheetSection[] = [];
+    if (byZone) {
+      const columns = [
+        ...project.zones.map((z) => ({ key: z.id, name: z.name })),
+        { key: NO_ZONE, name: "Sem local" },
+      ];
+      for (const c of columns) {
+        const t = byZone.get(c.key);
+        if (!t) continue;
+        const rows = items
+          .map((item) => ({
+            item,
+            unit: unit(item),
+            qty: pricedQty(item, t.get(item.id)?.qty ?? 0),
+          }))
+          .filter((r) => r.qty > 0);
+        if (rows.length) sections.push({ name: c.name, rows });
+      }
+    } else {
+      const groups = new Map<string, SheetSectionRow[]>();
+      for (const item of items) {
+        const g = item.group || DEFAULT_GROUP;
+        groups.set(g, [
+          ...(groups.get(g) ?? []),
+          { item, unit: unit(item), qty: pricedQty(item, totals.get(item.id)?.qty ?? 0) },
+        ]);
+      }
+      for (const [name, rows] of groups) sections.push({ name, rows });
+    }
+    sheets.push({ system, sections });
+  }
+  return sheets;
+}
+
 export interface ZoneMatrix {
   /** Column headers: zone names, plus "Sem local" last when something is unassigned. */
   columns: { key: string; name: string }[];

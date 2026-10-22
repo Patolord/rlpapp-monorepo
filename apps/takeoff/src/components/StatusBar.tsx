@@ -52,6 +52,14 @@ export function StatusBar() {
   const status = useStore((s) => s.status);
   const scale = useStore((s) => pageScale(s.project, s.page));
   const selCount = useStore((s) => s.selection.length);
+  const zoneFilterName = useStore((s) =>
+    s.zoneFilter === null
+      ? null
+      : s.zoneFilter === ""
+        ? "Sem local"
+        : (s.project.zones.find((z) => z.id === s.zoneFilter)?.name ?? null),
+  );
+  const setZoneFilter = useStore((s) => s.setZoneFilter);
   const open = useStore((s) => s.scalePickerOpen);
   const numPages = useDoc((s) => s.numPages);
   const { setPage, setScalePickerOpen } = useStore.getState();
@@ -99,6 +107,16 @@ export function StatusBar() {
       </button>
       <span className={snap ? "text-orange-300" : ""}>snap {snap ? "ligado" : "desligado"}</span>
       <span className={ortho ? "text-orange-300" : ""}>orto {ortho ? "ligado" : "desligado"}</span>
+      {zoneFilterName && (
+        <button
+          type="button"
+          onClick={() => setZoneFilter(null)}
+          title="Limpar o filtro de local"
+          className="rounded bg-orange-500/15 px-1.5 py-0.5 text-orange-300 ring-1 ring-orange-400/60"
+        >
+          local: {zoneFilterName} ×
+        </button>
+      )}
       {selCount > 0 && (
         <span className="text-neutral-200">
           {selCount} {selCount === 1 ? "selecionado" : "selecionados"}

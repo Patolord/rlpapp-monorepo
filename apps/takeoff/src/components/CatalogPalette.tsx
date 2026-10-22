@@ -94,7 +94,7 @@ export function CatalogPalette() {
                 onClick={() => choose(e)}
                 className={clsx(
                   "flex w-full items-center gap-3 px-3 py-1.5 text-left text-xs",
-                  i === cursor ? "bg-orange-500/15 text-white" : "text-neutral-200",
+                  i === cursor ? "bg-orange-500/15 text-neutral-100" : "text-neutral-200",
                 )}
               >
                 <span className="min-w-0 flex-1 truncate">{e.name}</span>

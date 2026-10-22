@@ -11,6 +11,7 @@ export function TopBar() {
   const setProjectMeta = useStore((s) => s.setProjectMeta);
   return (
     <div className="flex h-11 items-center gap-2 border-b border-neutral-800 bg-neutral-900 px-3">
+      <img src="/logo-rlp.png" alt="RLP Engenharia" className="h-7 w-auto" draggable={false} />
       <span className="mr-2 text-sm font-semibold tracking-tight text-orange-400">Takeoff</span>
       <input
         value={name}

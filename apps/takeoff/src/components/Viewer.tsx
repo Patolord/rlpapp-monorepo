@@ -20,7 +20,7 @@ import type { Rect, Rendered } from "../lib/pdf/render";
 import { findSimilar } from "../lib/pdf/similar";
 import { type TextBox, textLinesIn, textNear } from "../lib/pdf/text";
 import { type SnapHit, snapPoint } from "../lib/pdf/vectors";
-import { pageScale } from "../lib/quantities";
+import { pageScale, zoneOf } from "../lib/quantities";
 import { ensureText, session, useDoc } from "../lib/session";
 import type { Measurement, Zone } from "../lib/types";
 import { formatArea, formatLength, type Kind, type PageScale } from "../lib/units";
@@ -386,7 +386,7 @@ export function Viewer() {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, cw, ch);
       const store = useStore.getState();
-      const { project, page: p, selection, tool: t, calibration } = store;
+      const { project, page: p, selection, tool: t, calibration, zoneFilter } = store;
       const v = useViewport.getState();
       const scale = pageScale(project, p);
       const items = new Map(project.items.map((i) => [i.id, i]));
@@ -402,7 +402,7 @@ export function Viewer() {
 
       for (const z of project.zones) {
         if (z.page !== p || !boxesIntersect(bbox(z.points), viewBox)) continue;
-        const isSel = sel.has(z.id);
+        const isSel = sel.has(z.id) || zoneFilter === z.id;
         const pts =
           isSel && s.moveDelta ? translate(z.points, s.moveDelta.x, s.moveDelta.y) : z.points;
         drawZone(ctx, v, pts, z, scale, {
@@ -427,11 +427,15 @@ export function Viewer() {
         const isSel = sel.has(m.id);
         const pts =
           isSel && s.moveDelta ? translate(m.points, s.moveDelta.x, s.moveDelta.y) : m.points;
+        const outside =
+          zoneFilter !== null && (zoneOf(project, m, item.kind)?.id ?? "") !== zoneFilter;
+        if (outside) ctx.globalAlpha = 0.18;
         drawMeasurement(ctx, v, pts, item.kind, item.color, scale, {
           selected: isSel,
           hover: s.hoverId === m.id,
           dashed: false,
         });
+        ctx.globalAlpha = 1;
       }
 
       const active = items.get(store.activeItemId ?? "");
@@ -484,8 +488,8 @@ export function Viewer() {
         const { a, b } = s.marquee;
         ctx.save();
         ctx.setLineDash([4, 3]);
-        ctx.strokeStyle = "rgba(255,255,255,0.8)";
-        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        ctx.strokeStyle = "rgba(43,57,144,0.9)";
+        ctx.fillStyle = "rgba(43,57,144,0.08)";
         ctx.lineWidth = 1;
         ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
         ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
@@ -501,7 +505,7 @@ export function Viewer() {
       if (DRAW_TOOLS.has(t) && s.cursor && !s.drag) {
         const c = toScreen(s.eff ?? s.cursor, v);
         ctx.save();
-        ctx.strokeStyle = "rgba(255,255,255,0.35)";
+        ctx.strokeStyle = "rgba(16,26,48,0.35)";
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(0, Math.round(c.y) + 0.5);
@@ -861,7 +865,7 @@ export function Viewer() {
     >
       <div
         ref={paperRef}
-        className="absolute left-0 top-0 origin-top-left bg-white shadow-[0_0_40px_rgba(0,0,0,0.6)]"
+        className="absolute left-0 top-0 origin-top-left bg-white shadow-[0_0_40px_rgba(16,26,48,0.25)]"
       />
       <div ref={baseLayerRef} className="absolute left-0 top-0 origin-top-left" />
       <div ref={viewLayerRef} className="absolute left-0 top-0 origin-top-left" />
@@ -896,13 +900,13 @@ function drawMeasurement(
     ctx.fillStyle = color;
     ctx.fill();
     ctx.lineWidth = 1.5;
-    ctx.strokeStyle = o.selected ? "#fff" : "rgba(0,0,0,0.7)";
+    ctx.strokeStyle = o.selected ? "#101a30" : "rgba(0,0,0,0.7)";
     ctx.stroke();
     if (o.selected) {
       ctx.beginPath();
       ctx.arc(c.x, c.y, 12, 0, Math.PI * 2);
       ctx.setLineDash([3, 3]);
-      ctx.strokeStyle = "#fff";
+      ctx.strokeStyle = "#101a30";
       ctx.stroke();
     }
     ctx.restore();
@@ -920,7 +924,7 @@ function drawMeasurement(
   ctx.lineCap = "round";
   if (o.dashed) ctx.setLineDash([6, 4]);
   ctx.lineWidth = o.selected || o.hover ? 4 : 3;
-  ctx.strokeStyle = o.selected ? "#ffffff" : color;
+  ctx.strokeStyle = o.selected ? "#101a30" : color;
   ctx.stroke();
   if (o.selected) {
     ctx.setLineDash([]);
@@ -972,7 +976,7 @@ function drawZone(
   o: DrawOpts,
 ) {
   if (pts.length < 2) return;
-  const color = zone?.color ?? "#e5e5e5";
+  const color = zone?.color ?? "#2b3990";
   const sp = pts.map((p) => toScreen(p, v));
   ctx.save();
   ctx.beginPath();
@@ -983,7 +987,7 @@ function drawZone(
   ctx.fill();
   ctx.setLineDash(o.dashed ? [4, 4] : [10, 6]);
   ctx.lineWidth = o.selected || o.hover ? 3 : 2;
-  ctx.strokeStyle = o.selected ? "#ffffff" : color;
+  ctx.strokeStyle = o.selected ? "#101a30" : color;
   ctx.stroke();
   ctx.setLineDash([]);
   if (o.selected) {

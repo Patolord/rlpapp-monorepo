@@ -65,6 +65,11 @@ Items carry a budget section (Equipamentos, Rede de Dutos, Bocas de Ar, ...), a 
 a labour unit price and an optional waste percentage. The Quote tab shows the grouped sheet with
 Diversos / Transportes / Supervisão extras, TOTAL GERAL and the BDI multiplier.
 
+The Excel export mirrors the RLP workbook: a `Resumo` sheet, one sheet per system (an item's
+"sistema" tag, defaulting to the project system), sections per location (ambiente) or per group
+(toggle in the Quote tab), a `Por Local` matrix, and the original styling (Arial, navy item rows,
+hair/medium borders, accounting formats, A4 landscape at 75 %).
+
 ## How it stays fast
 
 - **Rendering**: one low-resolution base render per page (shown instantly, CSS-scaled while

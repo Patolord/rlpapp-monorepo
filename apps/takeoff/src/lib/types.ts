@@ -14,6 +14,8 @@ export interface Item {
   laborPrice: number;
   /** Extra quantity percentage added to the measured quantity. */
   wastePct: number;
+  /** Budget system (worksheet) the item belongs to; empty = the project system. */
+  system?: string;
 }
 
 export interface Measurement {
@@ -55,6 +57,8 @@ export interface Project {
   bdi: number;
   /** Percentage of the items total split evenly into Diversos / Transportes / Supervisão. */
   extrasPct: number;
+  /** How the exported sheet is sectioned: by location (ambiente) or by item group. */
+  sectionsBy: "local" | "grupo";
   pages: PageMeta[];
   items: Item[];
   measurements: Measurement[];
@@ -107,6 +111,7 @@ export function emptyProject(): Project {
     system: "",
     bdi: 1.42,
     extrasPct: 5,
+    sectionsBy: "local",
     pages: [],
     items: [],
     measurements: [],

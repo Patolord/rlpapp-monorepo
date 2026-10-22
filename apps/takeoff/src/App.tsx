@@ -134,7 +134,7 @@ export default function App() {
                 className={clsx(
                   "flex-1 py-2 font-medium",
                   tab === t
-                    ? "border-b-2 border-orange-400 text-white"
+                    ? "border-b-2 border-orange-400 text-neutral-100"
                     : "text-neutral-400 hover:text-neutral-200",
                 )}
               >
