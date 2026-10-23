@@ -3,7 +3,7 @@ import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
 import { Link2, Link2Off, Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -60,19 +60,42 @@ function PunchRulesCard() {
   const update = useMutation(api.timeClock.updateTimeClockSettings);
   const [draft, setDraft] = useState<PunchRules | null>(null);
   const [saving, setSaving] = useState(false);
+  // Último valor do servidor refletido no rascunho: só ressincroniza o que o
+  // operador não editou, para outra gravação na página não apagar edições.
+  const synced = useRef<PunchRules | null>(null);
 
   useEffect(() => {
-    if (settings) {
-      setDraft({
-        photoRequired: settings.photoRequired,
-        locationRequired: settings.locationRequired,
-        duplicateWindowMinutes: String(settings.duplicateWindowMinutes),
-      });
-    }
+    if (!settings) return;
+    const fromServer: PunchRules = {
+      photoRequired: settings.photoRequired,
+      locationRequired: settings.locationRequired,
+      duplicateWindowMinutes: String(settings.duplicateWindowMinutes),
+    };
+    const previous = synced.current;
+    synced.current = fromServer;
+    setDraft((current) => {
+      if (!current || !previous) return fromServer;
+      return {
+        photoRequired:
+          current.photoRequired === previous.photoRequired
+            ? fromServer.photoRequired
+            : current.photoRequired,
+        locationRequired:
+          current.locationRequired === previous.locationRequired
+            ? fromServer.locationRequired
+            : current.locationRequired,
+        duplicateWindowMinutes:
+          current.duplicateWindowMinutes === previous.duplicateWindowMinutes
+            ? fromServer.duplicateWindowMinutes
+            : current.duplicateWindowMinutes,
+      };
+    });
   }, [settings]);
 
-  const minutes = draft ? Number.parseInt(draft.duplicateWindowMinutes, 10) : NaN;
-  const minutesValid = Number.isInteger(minutes) && minutes >= 0 && minutes <= 60;
+  const minutesText = draft?.duplicateWindowMinutes.trim() ?? "";
+  const minutes = minutesText === "" ? NaN : Number(minutesText);
+  const minutesValid =
+    /^\d+$/.test(minutesText) && Number.isInteger(minutes) && minutes >= 0 && minutes <= 60;
   const dirty =
     draft !== null &&
     settings !== undefined &&

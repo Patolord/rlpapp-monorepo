@@ -1,3 +1,4 @@
+import { useAuth } from "@clerk/expo";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
@@ -44,6 +45,7 @@ import {
   addPendingPunch,
   listPendingPunches,
   newClientPunchId,
+  persistPunchPhoto,
   removePendingPunch,
   requestPunchSync,
   subscribePunchQueue,
@@ -59,6 +61,8 @@ type Receipt = FunctionReturnType<typeof api.timeClockPunch.register>;
 /** A foto vale 5 minutos (mesma regra do RHID). */
 const PHOTO_MAX_AGE_MS = 5 * 60 * 1000;
 const LOCATION_TIMEOUT_MS = 15_000;
+/** Posição mais velha que isto é lida de novo na hora de registrar. */
+const LOCATION_MAX_AGE_MS = 60_000;
 
 const KIND_LABEL: Record<Receipt["kind"], string> = {
   entrada: "Entrada",
@@ -82,7 +86,7 @@ type Position = {
 type LocationState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "ok"; position: Position }
+  | { status: "ok"; position: Position; obtainedAt: number }
   | { status: "error"; message: string };
 
 function locationErrorMessage(error: unknown): string {
@@ -127,6 +131,7 @@ function deviceInfo() {
 export function PunchScreen() {
   const toast = useToast();
   const online = useOnline();
+  const { userId } = useAuth();
   const [now, setNow] = useState(() => Date.now());
   const today = toBrtDateKey(now);
   const context = useQuery(api.timeClockPunch.getContext, { date: today });
@@ -147,11 +152,11 @@ export function PunchScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  // Fila offline deste aparelho.
+  // Fila offline deste aparelho (só as marcações deste usuário).
   useEffect(() => {
     let alive = true;
     const refresh = () => {
-      void listPendingPunches().then((items) => {
+      void listPendingPunches(userId ?? "__none__").then((items) => {
         if (alive) setPending(items);
       });
     };
@@ -161,15 +166,17 @@ export function PunchScreen() {
       alive = false;
       unsubscribe();
     };
-  }, []);
+  }, [userId]);
 
-  const obtainLocation = useCallback(async () => {
+  const obtainLocation = useCallback(async (): Promise<Position> => {
     setLocation({ status: "loading" });
     try {
       const position = await readPosition();
-      setLocation({ status: "ok", position });
+      setLocation({ status: "ok", position, obtainedAt: Date.now() });
+      return position;
     } catch (error) {
       setLocation({ status: "error", message: locationErrorMessage(error) });
+      throw error;
     }
   }, []);
 
@@ -177,7 +184,7 @@ export function PunchScreen() {
   useEffect(() => {
     if (!rules || locationRequested.current) return;
     locationRequested.current = true;
-    void obtainLocation();
+    obtainLocation().catch(() => undefined);
   }, [rules, obtainLocation]);
 
   const photoAgeMs = photo ? now - photo.capturedAt : 0;
@@ -198,7 +205,7 @@ export function PunchScreen() {
     (!rules?.locationRequired || locationReady);
 
   async function handleRegister() {
-    if (!context?.employee || !rules || sending) return;
+    if (!context?.employee || !rules || sending || !userId) return;
     if (rules.photoRequired && !photoReady) {
       toast.error(photoExpired ? "Foto expirada, tire uma nova foto." : "Tire uma foto para registrar o ponto.");
       return;
@@ -210,9 +217,27 @@ export function PunchScreen() {
       return;
     }
     setSending(true);
+
+    // A posição enviada é a de agora: uma leitura antiga (tela aberta há
+    // tempo) é refeita antes de registrar.
+    let position = location.status === "ok" ? location.position : undefined;
+    const stale =
+      location.status !== "ok" || Date.now() - location.obtainedAt > LOCATION_MAX_AGE_MS;
+    if ((rules.locationRequired || position) && stale) {
+      try {
+        position = await obtainLocation();
+      } catch (error) {
+        setSending(false);
+        if (rules.locationRequired) {
+          toast.error(locationErrorMessage(error));
+          return;
+        }
+        position = undefined;
+      }
+    }
+
     const clientPunchId = newClientPunchId();
     const capturedAt = Date.now();
-    const position = location.status === "ok" ? location.position : undefined;
     const base = {
       clientPunchId,
       capturedAt,
@@ -224,7 +249,11 @@ export function PunchScreen() {
     };
 
     const queue = async (reason?: string) => {
-      await addPendingPunch({ ...base, photoUri: photo?.uri });
+      await addPendingPunch({
+        ...base,
+        userId,
+        photoUri: photo ? persistPunchPhoto(photo.uri, clientPunchId) : undefined,
+      });
       setPhoto(null);
       toast.show(
         reason ??
@@ -361,7 +390,7 @@ export function PunchScreen() {
                   size="sm"
                   trailing={null}
                   icon={<RefreshCw size={16} color={colors.text} />}
-                  onPress={() => void obtainLocation()}
+                  onPress={() => obtainLocation().catch(() => undefined)}
                 />
               </View>
             ) : (
@@ -392,7 +421,7 @@ export function PunchScreen() {
                 <Text style={[type.caption, { color: colors.textMuted }]}>
                   {location.position.latitude.toFixed(6)}, {location.position.longitude.toFixed(6)}
                 </Text>
-                <Pressable onPress={() => void obtainLocation()} hitSlop={8}>
+                <Pressable onPress={() => obtainLocation().catch(() => undefined)} hitSlop={8}>
                   <Text style={[type.label, { color: colors.primary }]}>Atualizar localização</Text>
                 </Pressable>
               </View>

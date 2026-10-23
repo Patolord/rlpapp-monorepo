@@ -1,3 +1,4 @@
+import { useAuth } from "@clerk/expo";
 import NetInfo from "@react-native-community/netinfo";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
@@ -15,6 +16,7 @@ import {
   listPendingPunches,
   removePendingPunch,
   setPendingPunchError,
+  setPendingPunchPhotoStorageId,
   subscribePunchQueue,
   type PendingPunch,
 } from "@/lib/punch-queue";
@@ -36,6 +38,7 @@ async function isOnline(): Promise<boolean> {
 export function OfflineSync() {
   const convex = useConvex();
   const { isAuthenticated } = useConvexAuth();
+  const { userId } = useAuth();
   const registerForQr = useMutation(api.qrCodes.registerForQr);
   const createLog = useMutation(api.maintenanceLogs.create);
   const generateUploadUrl = useMutation(api.maintenanceLogs.generateUploadUrl);
@@ -43,12 +46,17 @@ export function OfflineSync() {
   const generatePunchUploadUrl = useMutation(api.timeClockPunch.generatePhotoUploadUrl);
   const syncing = useRef(false);
 
-  /** Marcação de ponto feita sem internet: sobe a foto e registra como offline. */
+  /**
+   * Marcação de ponto feita sem internet: sobe a foto (uma vez só) e registra
+   * como offline. O servidor é idempotente pelo `clientPunchId`.
+   */
   const processPunch = useCallback(
     async (punch: PendingPunch) => {
-      const photoStorageId = punch.photoUri
-        ? (await uploadPhotos(generatePunchUploadUrl, [punch.photoUri]))[0]
-        : undefined;
+      let photoStorageId = punch.photoStorageId as Id<"_storage"> | undefined;
+      if (!photoStorageId && punch.photoUri) {
+        [photoStorageId] = await uploadPhotos(generatePunchUploadUrl, [punch.photoUri]);
+        await setPendingPunchPhotoStorageId(punch.clientPunchId, photoStorageId);
+      }
       await registerPunch({
         clientPunchId: punch.clientPunchId,
         capturedAt: punch.capturedAt,
@@ -130,7 +138,10 @@ export function OfflineSync() {
     if (!(await isOnline())) return;
     syncing.current = true;
     try {
-      for (const punch of await listPendingPunches()) {
+      // Só as marcações do usuário logado: a fila é do aparelho, e cada item
+      // pertence a quem o criou.
+      const currentUserId = userId;
+      for (const punch of currentUserId ? await listPendingPunches(currentUserId) : []) {
         try {
           await processPunch(punch);
           await removePendingPunch(punch.clientPunchId);
@@ -160,10 +171,10 @@ export function OfflineSync() {
     } finally {
       syncing.current = false;
     }
-  }, [processRecord, processPunch]);
+  }, [processRecord, processPunch, userId]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !userId) return;
 
     void runSync();
 
@@ -180,7 +191,7 @@ export function OfflineSync() {
       unsubscribeQueue();
       unsubscribePunches();
     };
-  }, [isAuthenticated, runSync]);
+  }, [isAuthenticated, userId, runSync]);
 
   return null;
 }

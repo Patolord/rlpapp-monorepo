@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Camera, X } from "lucide-react-native";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -29,6 +29,7 @@ export function PunchCamera({
   const [permission, requestPermission] = useCameraPermissions();
   const [ready, setReady] = useState(false);
   const [capturing, setCapturing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
 
   async function capture() {
@@ -41,11 +42,25 @@ export function PunchCamera({
       });
       if (picture?.uri) {
         onCapture({ uri: picture.uri, capturedAt: Date.now() });
+      } else {
+        setError("Não foi possível capturar a foto. Tente novamente.");
       }
+    } catch (err) {
+      console.warn("takePictureAsync failed", err);
+      setError("Não foi possível capturar a foto. Tente novamente.");
     } finally {
       setCapturing(false);
     }
   }
+
+  // O Modal desmonta a câmera ao fechar: o obturador volta a esperar onCameraReady.
+  useEffect(() => {
+    if (!visible) {
+      setReady(false);
+      setCapturing(false);
+      setError(null);
+    }
+  }, [visible]);
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -72,7 +87,7 @@ export function PunchCamera({
           <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
             <View style={styles.frameWrap} pointerEvents="none">
               <View style={styles.frame} />
-              <Text style={styles.hint}>Enquadre seu rosto e toque no botão</Text>
+              <Text style={styles.hint}>{error ?? "Enquadre seu rosto e toque no botão"}</Text>
             </View>
             <View style={[styles.shutterRow, { paddingBottom: insets.bottom + space.xl }]}>
               <Pressable

@@ -128,11 +128,15 @@ async function findEmployeeForUser(
 
   const email = user.email?.trim();
   if (!email) return null;
+  // Só funcionários ainda sem vínculo: um vínculo feito pelo RH para outro
+  // usuário nunca é tomado pelo e-mail.
   const candidates = await ctx.db
     .query("employees")
     .withIndex("by_email", (q) => q.eq("email", email))
     .take(10);
-  const byEmail = candidates.filter(isActiveEmployee);
+  const byEmail = candidates.filter(
+    (row) => isActiveEmployee(row) && row.userId === undefined
+  );
   return byEmail.length === 1 ? byEmail[0]! : null;
 }
 
@@ -401,11 +405,10 @@ export const register = authedMutation({
     if (args.photoStorageId) {
       const file = await ctx.db.system.get("_storage", args.photoStorageId);
       if (!file) throw new ConvexError("Foto não encontrada. Tire uma nova foto.");
-      if (
-        !offline &&
-        args.photoCapturedAt !== undefined &&
-        now - args.photoCapturedAt > PHOTO_MAX_AGE_MS
-      ) {
+      // A idade da foto conta do instante mais antigo conhecido: o upload
+      // (autoritativo, do servidor) ou a captura informada pelo aparelho.
+      const photoTakenAt = Math.min(file._creationTime, args.photoCapturedAt ?? Infinity);
+      if (!offline && now - photoTakenAt > PHOTO_MAX_AGE_MS) {
         throw new ConvexError("Foto expirada, tire uma nova foto para registrar o ponto.");
       }
     }

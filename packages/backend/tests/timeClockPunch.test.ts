@@ -347,6 +347,30 @@ describe("timeClockPunch: registro pelo app", () => {
     expect(summary?.punchCount).toBe(1);
   });
 
+  test("vínculo por e-mail não toma um funcionário já vinculado a outro usuário", async () => {
+    const { t, worker, hr, employeeId } = await seed();
+    const otherUserId = await t.run(async (ctx) =>
+      ctx.db.insert("users", {
+        name: "Outro Usuário",
+        clerkId: "other-1",
+        role: "qr_operator",
+        isActive: true,
+        createdAt: Date.now(),
+      })
+    );
+    await hr.mutation(api.employees.linkUser, { employeeId, userId: otherUserId });
+    // worker tem o mesmo e-mail do funcionário, mas o RH vinculou outro usuário.
+    await expect(
+      worker.mutation(api.timeClockPunch.register, {
+        clientPunchId: "takeover",
+        capturedAt: Date.now(),
+        ...POS,
+      })
+    ).rejects.toThrow(/não está vinculado/);
+    const employee = await t.run((ctx) => ctx.db.get("employees", employeeId));
+    expect(employee?.userId).toBe(otherUserId);
+  });
+
   test("RH vincula e desvincula usuário ao funcionário", async () => {
     const { t, hr, employeeId, userId } = await seed();
     await hr.mutation(api.employees.linkUser, { employeeId, userId });
