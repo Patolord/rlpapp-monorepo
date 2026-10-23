@@ -19,10 +19,10 @@ import {
   formatItemQty,
   type ItemTotal,
   itemTotals,
-  NO_ZONE,
+  NO_LOCATION,
   pricedQty,
   round2,
-  totalsByZone,
+  totalsByLocation,
 } from "../lib/quantities";
 import { DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS, type Item } from "../lib/types";
 import { formatMoney, formatQty, type Kind } from "../lib/units";
@@ -82,7 +82,7 @@ export function ItemsPanel() {
   );
   /** A just-created item (no marking anywhere) stays visible while active, whatever the filters. */
   const freshActive = (id: string) => id === activeItemId && !allTotals.get(id)?.count;
-  const byZone = useMemo(() => totalsByZone(project), [project]);
+  const byZone = useMemo(() => totalsByLocation(project), [project]);
   const groups = useMemo(
     () => Array.from(new Set([...project.items.map((i) => i.group), ...GROUP_SUGGESTIONS])),
     [project.items],
@@ -110,9 +110,9 @@ export function ItemsPanel() {
   const zoneName =
     zoneFilter === null
       ? null
-      : zoneFilter === NO_ZONE
+      : zoneFilter === NO_LOCATION
         ? "Sem local"
-        : (project.zones.find((z) => z.id === zoneFilter)?.name ?? null);
+        : (project.locations.find((z) => z.id === zoneFilter)?.name ?? null);
   // a location with nothing measured yet still filters everything out
   const scoped =
     zoneFilter === null ? null : (byZone.get(zoneFilter) ?? new Map<string, ItemTotal>());
@@ -144,13 +144,13 @@ export function ItemsPanel() {
   );
 
   const breakdownFor = (itemId: string, kind: Kind) => {
-    if (project.zones.length === 0) return "";
+    if (project.locations.length === 0) return "";
     const parts: string[] = [];
-    for (const z of project.zones) {
+    for (const z of project.locations) {
       const v = byZone.get(z.id)?.get(itemId)?.qty;
       if (v) parts.push(`${z.name}: ${formatQty(kind, v, project.unit)}`);
     }
-    const rest = byZone.get(NO_ZONE)?.get(itemId)?.qty;
+    const rest = byZone.get(NO_LOCATION)?.get(itemId)?.qty;
     if (rest) parts.push(`sem local: ${formatQty(kind, rest, project.unit)}`);
     return parts.join(" · ");
   };
@@ -226,7 +226,7 @@ export function ItemsPanel() {
               ))}
             </select>
           )}
-          {project.zones.length > 0 && (
+          {project.locations.length > 0 && (
             <select
               value={zoneFilter ?? "*"}
               onChange={(e) => setZoneFilter(e.target.value === "*" ? null : e.target.value)}
@@ -239,12 +239,12 @@ export function ItemsPanel() {
               )}
             >
               <option value="*">Todos os locais</option>
-              {project.zones.map((z) => (
+              {project.locations.map((z) => (
                 <option key={z.id} value={z.id}>
                   {z.name}
                 </option>
               ))}
-              <option value={NO_ZONE}>Sem local</option>
+              <option value={NO_LOCATION}>Sem local</option>
             </select>
           )}
         </div>

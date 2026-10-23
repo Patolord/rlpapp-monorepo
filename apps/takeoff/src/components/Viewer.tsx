@@ -25,7 +25,7 @@ import { ensureRaster, findVisual } from "../lib/pdf/visualClient";
 import { pageScale, zoneOf } from "../lib/quantities";
 import { ensureText, session, useDoc } from "../lib/session";
 import { drawSymbol } from "../lib/symbols";
-import type { Measurement, Zone } from "../lib/types";
+import { type Location, locationOf, type Measurement } from "../lib/types";
 import { formatArea, formatLength, type Kind, type PageScale } from "../lib/units";
 import { vrfTag } from "../lib/vrf";
 import { type Tool, useStore } from "../store";
@@ -59,6 +59,8 @@ interface Interaction {
   marquee: { a: Pt; b: Pt } | null;
   size: { w: number; h: number };
   needsFit: boolean;
+  /** Box to centre once the page can be measured, or to restore if a fit lands right after it. */
+  pendingFocus: { box: Box; at: number } | null;
   hoverText: TextBox | null;
 }
 
@@ -120,6 +122,7 @@ export function Viewer() {
     marquee: null,
     size: { w: 0, h: 0 },
     needsFit: false,
+    pendingFocus: null,
     hoverText: null,
   });
 
@@ -281,6 +284,26 @@ export function Viewer() {
       }
       s.needsFit = false;
       useViewport.getState().fit(size.w, size.h, s.size.w, s.size.h);
+      // a focus asked for just before this fit (switching drawing, first measure) wins over it
+      const pending = s.pendingFocus;
+      if (pending && performance.now() - pending.at < 1000) {
+        s.pendingFocus = null;
+        this.focusBox(pending.box, false);
+      }
+    },
+    focusBox(box: Box, animate = true) {
+      const size = this.pageSize();
+      const s = st.current;
+      if (s.size.w === 0) {
+        const r = rootRef.current?.getBoundingClientRect();
+        if (r && r.width > 0) s.size = { w: r.width, h: r.height };
+      }
+      s.pendingFocus = { box, at: performance.now() };
+      if (!size || s.size.w === 0) return; // fit() applies it once the page is measurable
+      const v = useViewport.getState();
+      const target = v.fitBox(box, s.size.w, s.size.h);
+      if (animate) v.animateTo(target);
+      else v.set(target);
     },
     screenPt(e: { clientX: number; clientY: number }): Pt {
       const r = rootRef.current?.getBoundingClientRect();
@@ -500,13 +523,13 @@ export function Viewer() {
         if (z.drawingId !== did || z.page !== p || !boxesIntersect(bbox(z.points), viewBox)) {
           continue;
         }
-        const isSel = sel.has(z.id) || zoneFilter === z.id;
+        const isSel = sel.has(z.id) || zoneFilter === z.locationId;
         // hidden locations (globally or individually) still show while selected or filtered
         if ((!zonesVisible || z.hidden) && !isSel) continue;
         const pts =
           isSel && s.moveDelta ? translate(z.points, s.moveDelta.x, s.moveDelta.y) : z.points;
         ctx.globalAlpha = isSel ? 1 : zoneOpacity;
-        drawZone(ctx, v, pts, z, scale, {
+        drawZone(ctx, v, pts, locationOf(project, z.locationId) ?? null, scale, {
           selected: isSel,
           hover: s.hoverId === z.id,
           dashed: false,
@@ -533,7 +556,7 @@ export function Viewer() {
         const pts =
           isSel && s.moveDelta ? translate(m.points, s.moveDelta.x, s.moveDelta.y) : m.points;
         const outside =
-          zoneFilter !== null && (zoneOf(project, m, item.kind)?.id ?? "") !== zoneFilter;
+          zoneFilter !== null && (zoneOf(project, m, item.kind)?.locationId ?? "") !== zoneFilter;
         if (outside) ctx.globalAlpha = 0.18;
         drawMeasurement(ctx, v, pts, item.kind, item.color, scale, {
           selected: isSel,
@@ -738,6 +761,7 @@ export function Viewer() {
         h.requestDraw();
       },
       fit: () => h.fit(),
+      focusBox: (box) => h.focusBox(box),
       zoomBy: (f) => {
         const s = st.current.size;
         useViewport.getState().zoomAt(s.w / 2, s.h / 2, f);
@@ -1165,12 +1189,12 @@ function drawZone(
   ctx: CanvasRenderingContext2D,
   v: { zoom: number; x: number; y: number },
   pts: readonly Pt[],
-  zone: Zone | null,
+  loc: Location | null,
   scale: PageScale | null,
   o: DrawOpts,
 ) {
   if (pts.length < 2) return;
-  const color = zone?.color ?? "#2b3990";
+  const color = loc?.color ?? "#2b3990";
   const sp = pts.map((p) => toScreen(p, v));
   ctx.save();
   ctx.beginPath();
@@ -1205,7 +1229,7 @@ function drawZone(
       : `${area.toFixed(0)} pt²`;
     const b = bbox(pts);
     const top = toScreen({ x: (b.minX + b.maxX) / 2, y: b.minY }, v);
-    drawLabel(ctx, zone ? `${zone.name} · ${areaText}` : areaText, top.x, top.y + 12, color);
+    drawLabel(ctx, loc ? `${loc.name} · ${areaText}` : areaText, top.x, top.y + 12, color);
   }
   ctx.restore();
 }

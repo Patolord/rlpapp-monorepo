@@ -5,7 +5,7 @@ import { mergeCatalog } from "./catalog";
 import { confirmDialog } from "./dialogs";
 import { DUCT_TEMPLATE_URL, ductSheetInput, fillDuctWorkbook } from "./ductSheet";
 import { mod } from "./platform";
-import { systemSheets, zoneMatrix } from "./quantities";
+import { locationMatrix, systemSheets } from "./quantities";
 import { basename, closePdf, isDocOpen, openPdfPath, preloadPdfPath, useDoc } from "./session";
 import { drawingOf, emptyProject, migrateProject, UNTITLED } from "./types";
 import { buildVrfWorkbook } from "./vrfSheet";
@@ -188,7 +188,7 @@ export interface SheetExport {
   sheets: { system: string; sections: { name: string; rows: SheetRow[] }[] }[];
   extrasPct: number;
   bdi: number;
-  /** "Por Local" sheet: zone names and one quantity per zone for each item (empty when no zones). */
+  /** "Por Local" sheet: location names and one quantity per location for each item (empty when none). */
   zones: string[];
   byZone: { name: string; unit: string; qty: number[] }[];
 }
@@ -203,7 +203,7 @@ export interface SheetRow {
 
 export function sheetExport(): SheetExport {
   const { project } = useStore.getState();
-  const matrix = project.zones.length ? zoneMatrix(project) : { columns: [], rows: [] };
+  const matrix = project.locations.length ? locationMatrix(project) : { columns: [], rows: [] };
   return {
     title: "Planilha Orçamentária - RLP ENGENHARIA e INSTALAÇÕES LTDA.",
     system: project.system || project.name,

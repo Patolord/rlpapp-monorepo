@@ -1,7 +1,7 @@
 import type { CatalogEntry } from "./catalog";
 import { foldName } from "./catalog";
 import { measurementQty, pageScale, repeatOf, zoneOf } from "./quantities";
-import { drawingOf, ITEM_COLORS, type Item, newId, type Project } from "./types";
+import { drawingOf, ITEM_COLORS, type Item, locationOf, newId, type Project } from "./types";
 import {
   brandOf,
   DEFAULT_VRF_SETTINGS,
@@ -66,7 +66,7 @@ export function vrfRuns(project: Project): VrfRun[] {
       spec: m.vrf,
       length: (q + (m.vertical ?? 0)) * repeatOf(project, m, "linear"),
       vertical: m.vertical,
-      tag: zone ? `${planta} · ${zone.name}` : planta,
+      tag: zone ? `${planta} · ${locationOf(project, zone.locationId)?.name ?? ""}` : planta,
     });
   }
   return runs;

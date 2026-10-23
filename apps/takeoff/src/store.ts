@@ -22,15 +22,6 @@ import {
 } from "./lib/catalogRemote";
 import { ductNetworks, newDuctNetwork, syncDuctItems } from "./lib/ductItems";
 import {
-  brandOf,
-  DEFAULT_VRF_SPEC,
-  type VrfBrand,
-  type VrfSettings,
-  type VrfSpec,
-  vrfTag,
-} from "./lib/vrf";
-import { newVrfSystem, syncVrfItems, type VrfPricing, vrfSystems } from "./lib/vrfItems";
-import {
   DEFAULT_DUCT_SETTINGS,
   DEFAULT_DUCT_SPEC,
   type DuctSettings,
@@ -49,13 +40,25 @@ import {
   emptyProject,
   ITEM_COLORS,
   type Item,
+  type Location,
+  locationOf,
   type Measurement,
   newId,
   type Project,
+  pruneLocations,
   ZONE_COLORS,
   type Zone,
 } from "./lib/types";
 import type { Kind, PageScale } from "./lib/units";
+import {
+  brandOf,
+  DEFAULT_VRF_SPEC,
+  type VrfBrand,
+  type VrfSettings,
+  type VrfSpec,
+  vrfTag,
+} from "./lib/vrf";
+import { newVrfSystem, syncVrfItems, type VrfPricing, vrfSystems } from "./lib/vrfItems";
 import { syncWeightItems, type WeightRow } from "./lib/weights";
 
 export type Tool =
@@ -202,6 +205,8 @@ export interface State {
   ensurePages(n: number): void;
   addDrawing(path: string | null, name: string): string;
   updateDrawing(id: string, patch: Partial<Drawing>): void;
+  /** Reorders the plantas: puts `id` right before `beforeId`, or last when it is null. */
+  moveDrawing(id: string, beforeId: string | null): void;
   removeDrawing(id: string): void;
   setActiveDrawing(id: string | null): void;
   setFilePath(path: string | null): void;
@@ -228,8 +233,16 @@ export interface State {
   /** Set how many times the measurements count (1 clears it). */
   setRepeat(ids: string[], repeat: number): void;
 
-  addZone(name: string, page: number, points: Pt[]): string;
+  /**
+   * Draws a region on the active drawing. It joins the given location, or a new one of that
+   * name (the dialog resolves a typed name to an existing location before calling this).
+   * Returns the region (zone) id.
+   */
+  addZone(target: { locationId: string } | { name: string }, page: number, points: Pt[]): string;
+  /** Region fields: hidden, repeat, points. */
   updateZone(id: string, patch: Partial<Zone>): void;
+  /** Location fields: name and colour, shared by every region on every drawing. */
+  updateLocation(id: string, patch: Partial<Location>): void;
   setPendingZone(z: PendingZone | null): void;
   setPendingDuct(p: PendingZone | null): void;
   setDuctEditIds(ids: string[] | null): void;
@@ -258,13 +271,7 @@ export interface State {
   /** Another VRF system (another item in the budget); returns its id. */
   addVrfSystem(opts?: { name?: string; system?: string; brand?: string; hp?: number }): string;
   /** Draw a run on a system (the given one, the active one, or the last; created if none). */
-  addVrfRun(
-    spec: VrfSpec,
-    page: number,
-    points: Pt[],
-    vertical?: number,
-    systemId?: string,
-  ): void;
+  addVrfRun(spec: VrfSpec, page: number, points: Pt[], vertical?: number, systemId?: string): void;
   /** Move VRF runs to another system. */
   setVrfSystem(ids: string[], systemId: string): void;
   /** Change the role/capacity/curves of VRF runs. */
@@ -494,6 +501,20 @@ export const useStore = create<State>((set, get) => ({
     return id;
   },
 
+  moveDrawing: (id, beforeId) => {
+    if (id === beforeId) return;
+    get().commit((p) => {
+      const moving = p.drawings.find((d) => d.id === id);
+      if (!moving) return p;
+      const rest = p.drawings.filter((d) => d.id !== id);
+      const at = beforeId ? rest.findIndex((d) => d.id === beforeId) : -1;
+      if (beforeId && at < 0) return p;
+      const drawings =
+        at < 0 ? [...rest, moving] : [...rest.slice(0, at), moving, ...rest.slice(at)];
+      return drawings.every((d, i) => d === p.drawings[i]) ? p : { ...p, drawings };
+    });
+  },
+
   updateDrawing: (id, patch) =>
     get().commit((p) => ({
       ...p,
@@ -503,13 +524,13 @@ export const useStore = create<State>((set, get) => ({
   removeDrawing: (id) => {
     get().commit((p) => {
       const drawings = p.drawings.filter((d) => d.id !== id);
-      return {
+      return pruneLocations({
         ...p,
         drawings,
         activeDrawingId: p.activeDrawingId === id ? (drawings[0]?.id ?? null) : p.activeDrawingId,
         measurements: p.measurements.filter((m) => m.drawingId !== id),
         zones: p.zones.filter((z) => z.drawingId !== id),
-      };
+      });
     });
     set({ selection: [], zoneFilter: null, page: 0 });
   },
@@ -712,32 +733,37 @@ export const useStore = create<State>((set, get) => ({
   removeMeasurements: (ids) => {
     if (ids.length === 0) return;
     const set_ = new Set(ids);
-    get().commit((p) => ({
-      ...p,
-      measurements: p.measurements.filter((m) => !set_.has(m.id)),
-      zones: p.zones.filter((z) => !set_.has(z.id)),
-    }));
-    const { zoneFilter } = get();
-    set({ selection: [], zoneFilter: zoneFilter && set_.has(zoneFilter) ? null : zoneFilter });
+    get().commit((p) =>
+      pruneLocations({
+        ...p,
+        measurements: p.measurements.filter((m) => !set_.has(m.id)),
+        zones: p.zones.filter((z) => !set_.has(z.id)),
+      }),
+    );
+    // the filter follows a location; it goes when the location's last region goes
+    const { zoneFilter, project } = get();
+    set({
+      selection: [],
+      zoneFilter: zoneFilter && !locationOf(project, zoneFilter) ? null : zoneFilter,
+    });
   },
 
-  addZone: (name, page, points) => {
+  addZone: (target, page, points) => {
     const id = newId();
     const drawingId = get().project.activeDrawingId ?? "";
-    get().commit((p) => ({
-      ...p,
-      zones: [
-        ...p.zones,
-        {
-          id,
-          name,
-          drawingId,
-          page,
-          points,
-          color: ZONE_COLORS[p.zones.length % ZONE_COLORS.length],
-        },
-      ],
-    }));
+    get().commit((p) => {
+      const existing = "locationId" in target ? locationOf(p, target.locationId) : undefined;
+      const location: Location = existing ?? {
+        id: newId(),
+        name: "name" in target ? target.name : "Local",
+        color: ZONE_COLORS[p.locations.length % ZONE_COLORS.length],
+      };
+      return {
+        ...p,
+        locations: existing ? p.locations : [...p.locations, location],
+        zones: [...p.zones, { id, locationId: location.id, drawingId, page, points }],
+      };
+    });
     set({ pendingZone: null, selection: [id] });
     return id;
   },
@@ -746,6 +772,12 @@ export const useStore = create<State>((set, get) => ({
     get().commit((p) => ({
       ...p,
       zones: p.zones.map((z) => (z.id === id ? { ...z, ...patch } : z)),
+    })),
+
+  updateLocation: (id, patch) =>
+    get().commit((p) => ({
+      ...p,
+      locations: p.locations.map((l) => (l.id === id ? { ...l, ...patch } : l)),
     })),
 
   setPendingZone: (pendingZone) => set({ pendingZone }),
@@ -926,8 +958,7 @@ export const useStore = create<State>((set, get) => ({
         return {
           ...i,
           vrf: { brand: patch.brand ?? cur.brand, hp: patch.hp ?? cur.hp },
-          manualQty:
-            patch.count !== undefined ? Math.max(1, Math.round(patch.count)) : i.manualQty,
+          manualQty: patch.count !== undefined ? Math.max(1, Math.round(patch.count)) : i.manualQty,
         };
       }),
     })),
@@ -939,7 +970,11 @@ export const useStore = create<State>((set, get) => ({
     set({ catalog, status: `${vrfBrands.length} marcas de VRF salvas` });
     // the open takeoff's systems follow the new rules at once (a setting, not an edit: no undo)
     const { project } = get();
-    const synced = syncVrfItems(project, () => get().vrfPricing(), () => vrfBrands);
+    const synced = syncVrfItems(
+      project,
+      () => get().vrfPricing(),
+      () => vrfBrands,
+    );
     if (synced !== project) set({ project: synced, dirty: true });
     try {
       await saveCatalogStore(catalog);

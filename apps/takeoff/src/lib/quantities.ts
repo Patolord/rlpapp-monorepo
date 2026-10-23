@@ -11,6 +11,8 @@ import {
   DEFAULT_GROUP,
   drawingOf,
   type Item,
+  type Location,
+  locationOf,
   type Measurement,
   type Project,
   type Zone,
@@ -112,18 +114,41 @@ export function itemTotals(
   return totals;
 }
 
-/** Key used for measurements outside every zone. */
-export const NO_ZONE = "";
+/** Location a measurement belongs to: that of the region containing it, or null. */
+export function locationOfMeasurement(
+  project: Project,
+  m: Measurement,
+  kind: Kind,
+): Location | null {
+  const zone = zoneOf(project, m, kind);
+  return zone ? (locationOf(project, zone.locationId) ?? null) : null;
+}
 
-/** Item totals per zone id (NO_ZONE for unassigned). Only keys with measurements are present. */
-export function totalsByZone(project: Project): Map<string, Map<string, ItemTotal>> {
+/** Key used for measurements outside every location. */
+export const NO_LOCATION = "";
+
+/**
+ * Item totals per location id (NO_LOCATION for unassigned), every region of a location summed
+ * together whatever drawing it is on. Only keys with measurements are present.
+ */
+export const totalsByLocation = (project: Project): Map<string, Map<string, ItemTotal>> =>
+  totalsBy(project, (z) => z.locationId);
+
+/** Item totals per region (zone) id: what one polygon on one sheet holds. */
+export const totalsByRegion = (project: Project): Map<string, Map<string, ItemTotal>> =>
+  totalsBy(project, (z) => z.id);
+
+function totalsBy(
+  project: Project,
+  keyOf: (zone: Zone) => string,
+): Map<string, Map<string, ItemTotal>> {
   const items = new Map(project.items.map((i) => [i.id, i]));
   const out = new Map<string, Map<string, ItemTotal>>();
   for (const m of project.measurements) {
     const item = items.get(m.itemId);
     if (!item || item.derived) continue;
     const zone = zoneOf(project, m, item.kind);
-    const key = zone?.id ?? NO_ZONE;
+    const key = zone ? keyOf(zone) : NO_LOCATION;
     let totals = out.get(key);
     if (!totals) {
       totals = new Map();
@@ -146,10 +171,10 @@ export function totalsByZone(project: Project): Map<string, Map<string, ItemTota
   // item-level vertical length belongs to no location
   for (const item of project.items) {
     if (item.kind !== "linear" || !item.vertical) continue;
-    let totals = out.get(NO_ZONE);
+    let totals = out.get(NO_LOCATION);
     if (!totals) {
       totals = new Map();
-      out.set(NO_ZONE, totals);
+      out.set(NO_LOCATION, totals);
     }
     const t = totals.get(item.id) ?? { qty: 0, count: 0, unscaled: 0 };
     t.qty += item.vertical * (item.factor ?? 1);
@@ -187,21 +212,21 @@ export function systemSheets(project: Project): SystemSheet[] {
     const key = (item.system || fallback).trim() || fallback;
     bySystem.set(key, [...(bySystem.get(key) ?? []), item]);
   }
-  const byLocation = project.sectionsBy === "local" && project.zones.length > 0;
-  const byZone = byLocation ? totalsByZone(project) : null;
+  const byLocation = project.sectionsBy === "local" && project.locations.length > 0;
+  const byLoc = byLocation ? totalsByLocation(project) : null;
   const totals = itemTotals(project);
   const unit = (item: Item) => itemUnit(item, project.unit);
   const sheets: SystemSheet[] = [];
   for (const system of [...bySystem.keys()].sort(compareSystems)) {
     const items = bySystem.get(system) ?? [];
     const sections: SheetSection[] = [];
-    if (byZone) {
+    if (byLoc) {
       const columns = [
-        ...project.zones.map((z) => ({ key: z.id, name: z.name })),
-        { key: NO_ZONE, name: "Sem local" },
+        ...project.locations.map((l) => ({ key: l.id, name: l.name })),
+        { key: NO_LOCATION, name: "Sem local" },
       ];
       for (const c of columns) {
-        const t = byZone.get(c.key);
+        const t = byLoc.get(c.key);
         if (!t) continue;
         const rows = items
           .map((item) => ({
@@ -228,17 +253,17 @@ export function systemSheets(project: Project): SystemSheet[] {
   return sheets;
 }
 
-export interface ZoneMatrix {
-  /** Column headers: zone names, plus "Sem local" last when something is unassigned. */
+export interface LocationMatrix {
+  /** Column headers: location names, plus "Sem local" last when something is unassigned. */
   columns: { key: string; name: string }[];
   rows: { item: Item; unit: string; qty: number[]; total: number }[];
 }
 
-/** Item × zone quantity table (priced quantities, with waste) for the "Por Local" sheet. */
-export function zoneMatrix(project: Project): ZoneMatrix {
-  const by = totalsByZone(project);
-  const columns = project.zones.map((z) => ({ key: z.id, name: z.name }));
-  if (by.has(NO_ZONE)) columns.push({ key: NO_ZONE, name: "Sem local" });
+/** Item × location quantity table (priced quantities, with waste) for the "Por Local" sheet. */
+export function locationMatrix(project: Project): LocationMatrix {
+  const by = totalsByLocation(project);
+  const columns = project.locations.map((l) => ({ key: l.id, name: l.name }));
+  if (by.has(NO_LOCATION)) columns.push({ key: NO_LOCATION, name: "Sem local" });
   const rows = project.items.map((item) => {
     const qty = columns.map((c) => pricedQty(item, by.get(c.key)?.get(item.id)?.qty ?? 0));
     return {

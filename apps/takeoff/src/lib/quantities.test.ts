@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   buildQuote,
   itemTotals,
+  locationMatrix,
   measurementQty,
-  NO_ZONE,
+  NO_LOCATION,
   pricedQty,
   systemSheets,
-  totalsByZone,
-  zoneMatrix,
+  totalsByLocation,
+  totalsByRegion,
 } from "./quantities";
 import { emptyProject, migrateProject, type Project } from "./types";
 import { imperialScale, metricScale, ratioLabel, toBaseUnit } from "./units";
@@ -188,23 +189,58 @@ describe("quantities", () => {
   });
 });
 
-describe("zones", () => {
-  it("assigns measurements to the smallest containing zone of the same drawing", () => {
+describe("locations", () => {
+  it("assigns measurements to the smallest containing region of the same drawing", () => {
     const p = project();
-    p.zones = [
-      { id: "zb", name: "Térreo", drawingId: D1, page: 0, points: square(1000), color: "#fff" },
-      { id: "zs", name: "Hall", drawingId: D1, page: 0, points: square(10), color: "#fff" },
-      // same geometry on another drawing must not capture d1 measurements
-      { id: "zx", name: "Outro", drawingId: "d2", page: 0, points: square(5), color: "#fff" },
+    p.locations = [
+      { id: "lb", name: "Térreo", color: "#fff" },
+      { id: "ls", name: "Hall", color: "#fff" },
+      { id: "lx", name: "Outro", color: "#fff" },
     ];
-    const by = totalsByZone(p);
-    expect(by.get("zs")?.get("diff")?.qty).toBe(1);
-    expect(by.get("zb")?.get("duct")?.qty).toBeCloseTo(4);
-    expect(by.get("zx")).toBeUndefined();
-    expect(by.get(NO_ZONE)?.get("duct")?.unscaled).toBe(1);
-    const m = zoneMatrix(p);
+    p.zones = [
+      { id: "zb", locationId: "lb", drawingId: D1, page: 0, points: square(1000) },
+      { id: "zs", locationId: "ls", drawingId: D1, page: 0, points: square(10) },
+      // same geometry on another drawing must not capture d1 measurements
+      { id: "zx", locationId: "lx", drawingId: "d2", page: 0, points: square(5) },
+    ];
+    const by = totalsByLocation(p);
+    expect(by.get("ls")?.get("diff")?.qty).toBe(1);
+    expect(by.get("lb")?.get("duct")?.qty).toBeCloseTo(4);
+    expect(by.get("lx")).toBeUndefined();
+    expect(by.get(NO_LOCATION)?.get("duct")?.unscaled).toBe(1);
+    const m = locationMatrix(p);
     expect(m.columns.map((c) => c.name)).toEqual(["Térreo", "Hall", "Outro", "Sem local"]);
     expect(m.rows.find((r) => r.item.id === "duct")?.total).toBeCloseTo(4.4);
+  });
+
+  it("sums a location drawn on two drawings (condenser on the roof, evaporator in the room)", () => {
+    const p = project();
+    p.drawings.push({ id: "d2", path: null, name: "cobertura.pdf", pages: [{ scale: null }] });
+    p.measurements.push({
+      id: "c3",
+      itemId: "diff",
+      drawingId: "d2",
+      page: 0,
+      points: [{ x: 2, y: 2 }],
+    });
+    p.locations = [{ id: "cm", name: "Casa de Máquinas", color: "#fff" }];
+    p.zones = [
+      { id: "r1", locationId: "cm", drawingId: D1, page: 0, points: square(10) },
+      { id: "r2", locationId: "cm", drawingId: "d2", page: 0, points: square(10), repeat: 2 },
+    ];
+    const by = totalsByLocation(p);
+    expect(by.get("cm")?.get("diff")?.qty).toBe(3); // 1 on d1 + 1 × 2 on d2
+    const regions = totalsByRegion(p);
+    expect(regions.get("r1")?.get("diff")?.qty).toBe(1);
+    expect(regions.get("r2")?.get("diff")?.qty).toBe(2);
+    const m = locationMatrix(p);
+    expect(m.columns.map((c) => c.name)).toEqual(["Casa de Máquinas", "Sem local"]);
+    p.sectionsBy = "local";
+    expect(systemSheets(p)[0].sections.map((s) => s.name)).toEqual([
+      "Casa de Máquinas",
+      "Sem local",
+    ]);
+    expect(systemSheets(p)[0].sections[0].rows.find((r) => r.item.id === "diff")?.qty).toBe(3);
   });
 });
 
@@ -213,9 +249,8 @@ describe("system sheets", () => {
     const p = project();
     p.system = "Pressurização";
     p.items[1] = { ...p.items[1], system: "Exaustão" };
-    p.zones = [
-      { id: "z", name: "Térreo", drawingId: D1, page: 0, points: square(1000), color: "#fff" },
-    ];
+    p.locations = [{ id: "l", name: "Térreo", color: "#fff" }];
+    p.zones = [{ id: "z", locationId: "l", drawingId: D1, page: 0, points: square(1000) }];
     p.sectionsBy = "local";
     const sheets = systemSheets(p);
     // sheets follow the usual discipline order (Exaustão before Pressurização), not insertion
@@ -258,12 +293,14 @@ describe("migration", () => {
       zones: [{ id: "z", name: "T", page: 0, points: square(10), color: "#fff" }],
     };
     const p = migrateProject(v2);
-    expect(p.version).toBe(3);
+    expect(p.version).toBe(4);
     expect(p.drawings).toHaveLength(1);
     expect(p.drawings[0].path).toBe("C:\\obra\\planta.pdf");
     expect(p.activeDrawingId).toBe(p.drawings[0].id);
     expect(p.measurements[0].drawingId).toBe(p.drawings[0].id);
     expect(p.zones[0].drawingId).toBe(p.drawings[0].id);
+    expect(p.locations).toEqual([{ id: expect.any(String), name: "T", color: "#fff" }]);
+    expect(p.zones[0].locationId).toBe(p.locations[0].id);
     expect(p.bdi).toBeCloseTo(1.3);
     const v1 = {
       version: 1,
@@ -280,6 +317,59 @@ describe("migration", () => {
     expect(q.bdi).toBeCloseTo(1.3);
     expect(() => migrateProject({ version: 9 })).toThrow();
   });
+
+  it("merges version 3 polygons of the same name into one location", () => {
+    const v3 = {
+      ...emptyProject(),
+      version: 3,
+      drawings: [
+        { id: "a", path: null, name: "a.pdf", pages: [] },
+        { id: "b", path: null, name: "b.pdf", pages: [] },
+      ],
+      zones: [
+        {
+          id: "z1",
+          name: "Casa de Máquinas",
+          drawingId: "a",
+          page: 0,
+          points: square(1),
+          color: "#111",
+        },
+        {
+          id: "z2",
+          name: "casa de máquinas ",
+          drawingId: "b",
+          page: 0,
+          points: square(1),
+          color: "#222",
+          repeat: 3,
+        },
+        {
+          id: "z3",
+          name: "Hall",
+          drawingId: "a",
+          page: 0,
+          points: square(1),
+          color: "#333",
+          hidden: true,
+        },
+      ],
+    };
+    const p = migrateProject(v3);
+    expect(p.version).toBe(4);
+    expect(p.locations.map((l) => [l.name, l.color])).toEqual([
+      ["Casa de Máquinas", "#111"],
+      ["Hall", "#333"],
+    ]);
+    expect(p.zones.map((z) => z.locationId)).toEqual([
+      p.locations[0].id,
+      p.locations[0].id,
+      p.locations[1].id,
+    ]);
+    expect(p.zones[1]).toMatchObject({ id: "z2", drawingId: "b", repeat: 3 });
+    expect(p.zones[2].hidden).toBe(true);
+    expect("name" in p.zones[0]).toBe(false);
+  });
 });
 
 describe("disciplines", () => {
@@ -295,9 +385,8 @@ describe("disciplines", () => {
       { id: "b", itemId: "ex1", drawingId: D1, page: 0, points: [{ x: 6, y: 6 }] },
       { id: "c", itemId: "ex1", drawingId: D1, page: 0, points: [{ x: 7, y: 7 }] },
     ];
-    p.zones = [
-      { id: "room", name: "Sala 101", drawingId: D1, page: 0, points: square(100), color: "#fff" },
-    ];
+    p.locations = [{ id: "room", name: "Sala 101", color: "#fff" }];
+    p.zones = [{ id: "z", locationId: "room", drawingId: D1, page: 0, points: square(100) }];
     const sheets = systemSheets(p);
     expect(sheets.map((s) => s.system)).toEqual(["Exaustão", "AC Áreas Comuns"]);
     expect(sheets[1].sections.map((s) => s.name)).toEqual(["Sala 101"]);
@@ -309,6 +398,6 @@ describe("disciplines", () => {
       ["Grelha de exaustão", 2],
     ]);
     // the room itself still shows both in the per-location totals
-    expect(totalsByZone(p).get("room")?.size).toBe(2);
+    expect(totalsByLocation(p).get("room")?.size).toBe(2);
   });
 });
