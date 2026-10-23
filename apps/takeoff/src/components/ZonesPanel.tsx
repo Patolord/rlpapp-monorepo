@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { Eye, EyeOff, Filter, SquareDashed, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { switchDrawing } from "../lib/files";
-import { polygonArea } from "../lib/geom";
+import { bbox, polygonArea } from "../lib/geom";
 import {
   formatItemQty,
   type ItemTotal,
@@ -14,12 +14,15 @@ import {
 import type { Location, Project, Zone } from "../lib/types";
 import { formatArea } from "../lib/units";
 import { useStore } from "../store";
+import { viewerApi } from "../viewerApi";
 import { Button, Kbd } from "./ui";
 
 interface Group {
   location: Location;
   /** Regions listed (all of them, or only the active drawing's with "só esta planta"). */
   regions: Zone[];
+  /** Every region of the location, listed ones first (the header click cycles through these). */
+  all: Zone[];
   /** Regions of the location on other drawings that the list leaves out. */
   elsewhere: number;
 }
@@ -33,15 +36,8 @@ export function ZonesPanel() {
   const zoneOpacity = useStore((s) => s.zoneOpacity);
   const drawingOnly = useStore((s) => s.drawingOnly);
   const { setZonesVisible, setZoneOpacity } = useStore.getState();
-  const {
-    setSelection,
-    setPage,
-    setTool,
-    updateZone,
-    updateLocation,
-    removeMeasurements,
-    setZoneFilter,
-  } = useStore.getState();
+  const { setTool, updateZone, updateLocation, removeMeasurements, setZoneFilter } =
+    useStore.getState();
   const byLocation = useMemo(() => totalsByLocation(project), [project]);
   const byRegion = useMemo(() => totalsByRegion(project), [project]);
   const groups = useMemo<Group[]>(() => {
@@ -55,7 +51,13 @@ export function ZonesPanel() {
         (a, b) => (order.get(a.drawingId) ?? 0) - (order.get(b.drawingId) ?? 0) || a.page - b.page,
       );
       if (regions.length === 0) continue;
-      out.push({ location, regions, elsewhere: all.length - regions.length });
+      const listed = new Set(regions.map((z) => z.id));
+      out.push({
+        location,
+        regions,
+        all: [...regions, ...all.filter((z) => !listed.has(z.id))],
+        elsewhere: all.length - regions.length,
+      });
     }
     return out;
   }, [project.locations, project.zones, project.drawings, project.activeDrawingId, drawingOnly]);
@@ -82,16 +84,22 @@ export function ZonesPanel() {
     );
   };
 
-  const select = (z: Zone) => {
-    if (z.drawingId !== project.activeDrawingId) {
-      void switchDrawing(z.drawingId).then(() => {
-        useStore.getState().setPage(z.page);
-        useStore.getState().setSelection([z.id]);
-      });
-      return;
-    }
-    setPage(z.page);
-    setSelection([z.id]);
+  /** Shows a region: its drawing and page, selected (highlighted) and centred in the view. */
+  const focus = (z: Zone) => {
+    const go = () => {
+      const s = useStore.getState();
+      s.setPage(z.page);
+      s.setSelection([z.id]);
+      viewerApi.current?.focusBox(bbox(z.points));
+    };
+    if (z.drawingId !== project.activeDrawingId) void switchDrawing(z.drawingId).then(go);
+    else go();
+  };
+  /** Header click: the location's region on this sheet, then the next one on each click. */
+  const focusLocation = (g: Group) => {
+    const current = g.all.findIndex((z) => selection.includes(z.id));
+    const next = current >= 0 ? g.all[(current + 1) % g.all.length] : g.all[0];
+    if (next) focus(next);
   };
 
   return (
@@ -158,6 +166,7 @@ export function ZonesPanel() {
             regionCount={g.regions.length + g.elsewhere}
             elsewhere={g.elsewhere}
             filtered={zoneFilter === g.location.id}
+            onSelect={() => focusLocation(g)}
             onFilter={() => setZoneFilter(zoneFilter === g.location.id ? null : g.location.id)}
             onRename={(name) => updateLocation(g.location.id, { name })}
           >
@@ -174,7 +183,7 @@ export function ZonesPanel() {
                     : ""
                 }
                 areaText={areaText(project, z)}
-                onSelect={() => select(z)}
+                onSelect={() => focus(z)}
                 onToggleHidden={() => updateZone(z.id, { hidden: !z.hidden })}
                 onRepeat={(n) => updateZone(z.id, { repeat: n })}
                 onRemove={() => removeMeasurements([z.id])}
@@ -234,6 +243,7 @@ function LocationRow({
   regionCount,
   elsewhere,
   filtered,
+  onSelect,
   onFilter,
   onRename,
   children,
@@ -242,6 +252,7 @@ function LocationRow({
   regionCount: number;
   elsewhere: number;
   filtered: boolean;
+  onSelect: () => void;
   onFilter: () => void;
   onRename: (name: string) => void;
   children: React.ReactNode;
@@ -249,7 +260,15 @@ function LocationRow({
   const [editing, setEditing] = useState(false);
   return (
     <div className="group/loc border-b border-neutral-800/70 px-2 py-1.5">
-      <div className="flex items-center gap-2">
+      <div
+        className="flex cursor-pointer items-center gap-2 rounded hover:bg-neutral-800/60"
+        onClick={onSelect}
+        title={
+          regionCount > 1
+            ? "Clique para localizar no desenho; cada clique vai à próxima região"
+            : "Clique para localizar no desenho"
+        }
+      >
         <span
           className="h-3 w-3 shrink-0 rounded-sm"
           style={{ background: location.color }}
@@ -259,6 +278,7 @@ function LocationRow({
           <input
             autoFocus
             defaultValue={location.name}
+            onClick={(e) => e.stopPropagation()}
             onBlur={(e) => {
               onRename(e.target.value.trim() || location.name);
               setEditing(false);
@@ -293,7 +313,10 @@ function LocationRow({
         <button
           type="button"
           title="Mostrar só este local (itens e desenho, em todas as plantas)"
-          onClick={onFilter}
+          onClick={(e) => {
+            e.stopPropagation();
+            onFilter();
+          }}
           className={clsx(
             "rounded p-0.5",
             filtered ? "text-orange-300" : "text-neutral-500 opacity-0 group-hover/loc:opacity-100",

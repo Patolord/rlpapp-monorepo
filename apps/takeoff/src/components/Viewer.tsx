@@ -59,6 +59,8 @@ interface Interaction {
   marquee: { a: Pt; b: Pt } | null;
   size: { w: number; h: number };
   needsFit: boolean;
+  /** Box to centre once the page can be measured, or to restore if a fit lands right after it. */
+  pendingFocus: { box: Box; at: number } | null;
   hoverText: TextBox | null;
 }
 
@@ -120,6 +122,7 @@ export function Viewer() {
     marquee: null,
     size: { w: 0, h: 0 },
     needsFit: false,
+    pendingFocus: null,
     hoverText: null,
   });
 
@@ -281,6 +284,26 @@ export function Viewer() {
       }
       s.needsFit = false;
       useViewport.getState().fit(size.w, size.h, s.size.w, s.size.h);
+      // a focus asked for just before this fit (switching drawing, first measure) wins over it
+      const pending = s.pendingFocus;
+      if (pending && performance.now() - pending.at < 1000) {
+        s.pendingFocus = null;
+        this.focusBox(pending.box, false);
+      }
+    },
+    focusBox(box: Box, animate = true) {
+      const size = this.pageSize();
+      const s = st.current;
+      if (s.size.w === 0) {
+        const r = rootRef.current?.getBoundingClientRect();
+        if (r && r.width > 0) s.size = { w: r.width, h: r.height };
+      }
+      s.pendingFocus = { box, at: performance.now() };
+      if (!size || s.size.w === 0) return; // fit() applies it once the page is measurable
+      const v = useViewport.getState();
+      const target = v.fitBox(box, s.size.w, s.size.h);
+      if (animate) v.animateTo(target);
+      else v.set(target);
     },
     screenPt(e: { clientX: number; clientY: number }): Pt {
       const r = rootRef.current?.getBoundingClientRect();
@@ -738,6 +761,7 @@ export function Viewer() {
         h.requestDraw();
       },
       fit: () => h.fit(),
+      focusBox: (box) => h.focusBox(box),
       zoomBy: (f) => {
         const s = st.current.size;
         useViewport.getState().zoomAt(s.w / 2, s.h / 2, f);
