@@ -1,4 +1,4 @@
-import { Copy, FileSpreadsheet } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, FileSpreadsheet } from "lucide-react";
 import { Fragment, useMemo } from "react";
 import { exportXlsx } from "../lib/files";
 import { mod } from "../lib/platform";
@@ -11,7 +11,7 @@ import { Button } from "./ui";
 /** Mirrors the workbook: one block per discipline (tab), locations or groups as inline headers. */
 export function QuotePanel() {
   const project = useStore((s) => s.project);
-  const { updateItem, setProjectMeta, setStatus } = useStore.getState();
+  const { updateItem, setProjectMeta, setStatus, moveItemInBudget } = useStore.getState();
   const quote = useMemo(() => buildQuote(project), [project]);
   const sheets = useMemo(() => systemSheets(project), [project]);
   const money = (v: number) => formatMoney(v, project.currency);
@@ -133,6 +133,26 @@ export function QuotePanel() {
                               style={{ background: r.item.color }}
                             />
                             {r.item.name}
+                            <span className="ml-1 inline-flex align-middle">
+                              <button
+                                type="button"
+                                title="Subir uma posição no grupo"
+                                disabled={ri === 0}
+                                onClick={() => moveItemInBudget(r.item.id, -1)}
+                                className="rounded p-px text-neutral-600 hover:text-neutral-200 disabled:invisible"
+                              >
+                                <ChevronUp size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                title="Descer uma posição no grupo"
+                                disabled={ri === sec.rows.length - 1}
+                                onClick={() => moveItemInBudget(r.item.id, 1)}
+                                className="rounded p-px text-neutral-600 hover:text-neutral-200 disabled:invisible"
+                              >
+                                <ChevronDown size={12} />
+                              </button>
+                            </span>
                           </td>
                           <td className="px-1 py-1 text-right font-mono whitespace-nowrap">
                             {formatNumber(r.qty, project.currency, r.item.kind === "count" ? 0 : 2)}{" "}

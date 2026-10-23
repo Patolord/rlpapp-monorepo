@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { moveItemInBudget } from "./lib/budgetOrder";
 import {
   type CatalogEntry,
   type CatalogStore,
@@ -231,6 +232,8 @@ export interface State {
   setDuctSettings(settings: DuctSettings): void;
   /** Unit price of a duct material in this takeoff (bill row name). */
   setDuctPrice(name: string, price: number): void;
+  /** Nudge an item up (-1) or down (+1) inside its group in the budget. */
+  moveItemInBudget(id: string, dir: -1 | 1): void;
 
   setPageScale(scale: PageScale | null, which: "current" | "all"): void;
   setProjectMeta(patch: ProjectMeta): void;
@@ -772,6 +775,12 @@ export const useStore = create<State>((set, get) => ({
   setDuctSettings: (duct) => get().commit((p) => ({ ...p, duct })),
   setDuctPrice: (name, price) =>
     get().commit((p) => ({ ...p, ductPrices: { ...p.ductPrices, [name]: price } })),
+
+  moveItemInBudget: (id, dir) =>
+    get().commit((p) => {
+      const items = moveItemInBudget(p.items, id, dir);
+      return items.some((i, k) => i !== p.items[k]) ? { ...p, items } : p;
+    }),
 
   setPageScale: (scale, which) => {
     const { page } = get();
