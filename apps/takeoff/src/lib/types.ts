@@ -27,6 +27,15 @@ export interface Item {
   vertical?: number;
   /** Unit label overriding the kind's (kg, gl, bd, l). */
   unit?: string;
+  /** Id of the material in the company catalog this line was created from (or linked to). */
+  catalogId?: string;
+  /**
+   * When the material price is from: the catalog quote's date, or the moment the user typed it.
+   * The budget keeps this with the price so a proposal can be re-priced later and compared.
+   */
+  priceDate?: number;
+  /** Where the material price came from; undefined for lines older than this field. */
+  priceSource?: "catalog" | "manual";
   /**
    * Item kept by the app: "duct" is a duct network ("Rede de dutos"), 1 cj whose material and
    * labour are recomputed from the duct runs drawn on it.

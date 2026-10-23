@@ -6,6 +6,7 @@ import {
   Pentagon,
   Plus,
   Search,
+  Send,
   Spline,
   Star,
   Trash2,
@@ -45,6 +46,18 @@ export function ItemsPanel() {
   const drawingOnly = useStore((s) => s.drawingOnly);
   const savedEntries = useStore((s) => s.catalog.saved);
   const savedNames = useMemo(() => new Set(savedEntries.map((e) => fold(e.name))), [savedEntries]);
+  const remoteEntries = useStore((s) => s.catalog.remote);
+  const outbox = useStore((s) => s.catalog.outbox);
+  const draftIds = useMemo(
+    () => new Set(remoteEntries.filter((e) => e.status === "draft").map((e) => e.catalogId)),
+    [remoteEntries],
+  );
+  const pendingItemIds = useMemo(() => new Set(outbox.map((q) => q.itemId)), [outbox]);
+  const linkOf = (item: Item): CompanyLink => {
+    if (pendingItemIds.has(item.id)) return "pending";
+    if (!item.catalogId) return "none";
+    return draftIds.has(item.catalogId) ? "draft" : "linked";
+  };
   const {
     setActiveItem,
     updateItem,
@@ -52,6 +65,7 @@ export function ItemsPanel() {
     addItem,
     setPaletteOpen,
     saveItemToCatalog,
+    proposeItemToCompany,
     setZoneFilter,
     setSystemFilter,
     setDrawingOnly,
@@ -266,6 +280,8 @@ export function ItemsPanel() {
               onRemove={() => removeItem(item.id)}
               saved={savedNames.has(fold(item.name))}
               onSave={() => void saveItemToCatalog(item.id)}
+              link={linkOf(item)}
+              onPropose={() => void proposeItemToCompany(item.id)}
             />
           );
         })}
@@ -331,11 +347,27 @@ interface RowProps {
   total: string;
   /** The item's name is already in the user's catalog. */
   saved: boolean;
+  /** Relation with the company catalog (see CompanyLink). */
+  link: CompanyLink;
   onActivate: () => void;
   onChange: (patch: Partial<Item>) => void;
   onRemove: () => void;
   onSave: () => void;
+  onPropose: () => void;
 }
+
+/**
+ * none: a local line, nothing sent. pending: proposal queued, not delivered yet. draft: linked to
+ * a material purchasing has not validated. linked: created from (or matched to) a company material.
+ */
+type CompanyLink = "none" | "pending" | "draft" | "linked";
+
+const LINK_TITLE: Record<CompanyLink, string> = {
+  none: "Propor ao catálogo da empresa: compras recebe um rascunho com este nome, unidade e preço",
+  pending: "Envio pendente (sem conexão ou sem token); clique para tentar de novo",
+  draft: "Rascunho aguardando compras; clique para enviar o preço atual como estimativa",
+  linked: "Material do catálogo da empresa; clique para enviar o preço atual como estimativa",
+};
 
 /** One line per item; the active item expands to show prices, tags and the per-location split. */
 function ItemRow({
@@ -347,10 +379,12 @@ function ItemRow({
   systemLabel,
   total,
   saved,
+  link,
   onActivate,
   onChange,
   onRemove,
   onSave,
+  onPropose,
 }: RowProps) {
   const [editing, setEditing] = useState<"name" | "group" | "system" | null>(null);
   const [styleOpen, setStyleOpen] = useState(false);
@@ -511,6 +545,23 @@ function ItemRow({
               >
                 <Star size={15} fill={saved ? "currentColor" : "none"} />
               </button>
+              <button
+                type="button"
+                title={LINK_TITLE[link]}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPropose();
+                }}
+                className={clsx(
+                  "rounded p-0.5",
+                  link === "pending" && "text-amber-400",
+                  link === "draft" && "text-amber-400/70",
+                  link === "linked" && "text-sky-400",
+                  link === "none" && "text-neutral-500 hover:text-sky-400",
+                )}
+              >
+                <Send size={15} />
+              </button>
               {
                 <button
                   type="button"
@@ -537,7 +588,13 @@ function ItemRow({
                 onClick={stop}
                 onChange={(e) => onChange({ materialPrice: Number(e.target.value) || 0 })}
                 className="num-input w-[3.9rem]"
-                title="Preço unitário: material"
+                title={
+                  item.priceDate
+                    ? `Preço unitário: material · ${
+                        item.priceSource === "catalog" ? "cotação" : "digitado"
+                      } em ${new Date(item.priceDate).toLocaleDateString("pt-BR")}`
+                    : "Preço unitário: material"
+                }
               />
             </label>
             <label className="flex items-center gap-1 whitespace-nowrap">

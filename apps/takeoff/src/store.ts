@@ -12,6 +12,13 @@ import {
   saveCatalogStore,
   unitForKind,
 } from "./lib/catalog";
+import {
+  applyRedirects,
+  buildProposal,
+  newClientId,
+  type QueuedProposal,
+  sendProposal,
+} from "./lib/catalogRemote";
 import { ductNetworks, newDuctNetwork, syncDuctItems } from "./lib/ductItems";
 import {
   DEFAULT_DUCT_SETTINGS,
@@ -275,13 +282,33 @@ export interface State {
   nameActiveItem(name: string): void;
   addItemFromCatalog(entry: CatalogEntry): string;
   saveItemToCatalog(itemId: string): Promise<void>;
+  /**
+   * Send an item to the company catalog as a proposal: purchasing gets a draft material (or a
+   * price estimate when the line is already linked). Queued locally and retried if offline.
+   */
+  proposeItemToCompany(itemId: string): Promise<void>;
+  /** Try to deliver every queued proposal; returns how many were accepted. */
+  flushProposals(): Promise<number>;
   loadCatalog(): Promise<void>;
   setCatalogUrl(url: string): void;
+  setCatalogToken(token: string): void;
   /** Give every item of the same discipline (or group) the same colour. */
   colorItemsBy(by: "system" | "group"): void;
   /** Fetch the company catalog from the configured URL; returns how many entries arrived. */
   refreshCatalog(): Promise<number>;
 }
+
+/** Link and dated price a line takes from the catalog entry it is created from. */
+const priceSnapshot = (
+  entry: CatalogEntry | undefined,
+): Pick<Item, "catalogId" | "priceDate" | "priceSource"> => {
+  if (entry?.source !== "remote") return {};
+  return {
+    catalogId: entry.catalogId,
+    priceSource: "catalog",
+    priceDate: entry.materialPrice > 0 ? (entry.priceDate ?? Date.now()) : undefined,
+  };
+};
 
 const nextName = (items: Item[], kind: Kind) => {
   const base = kind === "count" ? "Contagem" : kind === "linear" ? "Linear" : "Área";
@@ -501,7 +528,17 @@ export const useStore = create<State>((set, get) => ({
   updateItem: (id, patch) =>
     get().commit((p) => ({
       ...p,
-      items: p.items.map((i) => (i.id === id ? { ...i, ...patch } : i)),
+      items: p.items.map((i) => {
+        if (i.id !== id) return i;
+        // a typed material price is the user's own: date it so the budget knows what it froze
+        const repriced =
+          patch.materialPrice !== undefined &&
+          patch.materialPrice !== i.materialPrice &&
+          patch.priceSource === undefined;
+        return repriced
+          ? { ...i, ...patch, priceSource: "manual", priceDate: Date.now() }
+          : { ...i, ...patch };
+      }),
     })),
 
   removeItem: (id) => {
@@ -870,6 +907,7 @@ export const useStore = create<State>((set, get) => ({
             materialPrice: cat?.materialPrice ?? 0,
             laborPrice: cat?.laborPrice ?? 0,
             wastePct: 0,
+            ...priceSnapshot(cat),
             system: normalizeDiscipline(c.system || cat?.system) ?? p.system,
             symbol: c.kind === "count" ? guessSymbol(c.name) : undefined,
             factor: c.factor !== 1 ? c.factor : undefined,
@@ -1020,6 +1058,7 @@ export const useStore = create<State>((set, get) => ({
       laborPrice: entry.laborPrice,
       // units the kinds cannot express (kg, gl, bd, l) stay on the item
       unit: kind === "count" && !/^(pç|pc|un|cj|vb)$/i.test(entry.unit) ? entry.unit : undefined,
+      ...priceSnapshot(entry),
     });
     get().setActiveItem(id);
     return id;
@@ -1072,6 +1111,67 @@ export const useStore = create<State>((set, get) => ({
     }
   },
 
+  proposeItemToCompany: async (itemId) => {
+    const { project, catalog } = get();
+    const item = project.items.find((i) => i.id === itemId);
+    if (!item) return;
+    if (catalog.outbox.some((q) => q.itemId === itemId)) {
+      set({ status: `${item.name}: envio já pendente, tentando de novo…` });
+      await get().flushProposals();
+      return;
+    }
+    const clientId = newClientId();
+    const queued: QueuedProposal = {
+      clientId,
+      itemId,
+      itemName: item.name,
+      body: buildProposal(item, project, clientId),
+      createdAt: Date.now(),
+    };
+    const next = { ...catalog, outbox: [...catalog.outbox, queued] };
+    set({ catalog: next, status: `Enviando ${item.name} para compras…` });
+    await saveCatalogStore(next).catch(() => undefined);
+    await get().flushProposals();
+  },
+
+  flushProposals: async () => {
+    const { catalog } = get();
+    if (catalog.outbox.length === 0) return 0;
+    if (!catalog.remoteToken) {
+      set({ status: "Proposta guardada: configure o token do catálogo (Ctrl+K) para enviar" });
+      return 0;
+    }
+    let accepted = 0;
+    const remaining: QueuedProposal[] = [];
+    let lastStatus: string | null = null;
+    for (const q of catalog.outbox) {
+      const outcome = await sendProposal(catalog.remoteUrl, catalog.remoteToken, q.body);
+      if (outcome.kind === "sent") {
+        accepted++;
+        const { result } = outcome;
+        const stillThere = get().project.items.some((i) => i.id === q.itemId);
+        if (stillThere) {
+          get().updateItem(q.itemId, { catalogId: result.mergedInto ?? result.materialId });
+        }
+        lastStatus =
+          result.outcome === "matched"
+            ? `${q.itemName}: já existia no catálogo da empresa (${result.sku ?? "sem SKU"}), linha vinculada`
+            : result.outcome === "created"
+              ? `${q.itemName}: rascunho ${result.sku ?? ""} criado para compras avaliar`
+              : `${q.itemName}: proposta já havia sido recebida`;
+      } else if (outcome.kind === "rejected") {
+        lastStatus = `${q.itemName}: recusado pelo servidor (${outcome.message})`;
+      } else {
+        remaining.push({ ...q, lastError: outcome.message });
+        lastStatus = `${q.itemName}: não enviado (${outcome.message}); tentaremos de novo`;
+      }
+    }
+    const next = { ...get().catalog, outbox: remaining };
+    set({ catalog: next, ...(lastStatus ? { status: lastStatus } : {}) });
+    await saveCatalogStore(next).catch(() => undefined);
+    return accepted;
+  },
+
   loadCatalog: async () => {
     set({ catalog: await loadCatalogStore() });
   },
@@ -1082,14 +1182,31 @@ export const useStore = create<State>((set, get) => ({
     void saveCatalogStore(next);
   },
 
+  setCatalogToken: (remoteToken) => {
+    const next = { ...get().catalog, remoteToken: remoteToken.trim() };
+    set({ catalog: next });
+    void saveCatalogStore(next);
+  },
+
   refreshCatalog: async () => {
     const { catalog } = get();
-    if (!catalog.remoteUrl) return 0;
-    const remote = await fetchRemoteCatalog(catalog.remoteUrl);
-    const next = { ...catalog, remote, fetchedAt: new Date().toISOString() };
+    const remote = await fetchRemoteCatalog(catalog.remoteUrl, catalog.remoteToken);
+    const next = {
+      ...catalog,
+      remote: remote.entries,
+      redirects: remote.redirects,
+      remoteGeneratedAt: remote.generatedAt,
+      fetchedAt: new Date().toISOString(),
+    };
     set({ catalog: next });
     await saveCatalogStore(next);
-    return remote.length;
+    // lines linked to a material purchasing merged into another follow it, prices untouched
+    get().commit((p) => {
+      const items = applyRedirects(p.items, remote.redirects);
+      return items === p.items ? p : { ...p, items };
+    });
+    await get().flushProposals();
+    return remote.entries.length;
   },
 }));
 

@@ -1,7 +1,13 @@
 import clsx from "clsx";
 import { RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type CatalogEntry, mergeCatalog, searchCatalog } from "../lib/catalog";
+import {
+  type CatalogEntry,
+  commonWordPrefix,
+  DEFAULT_CATALOG_URL,
+  mergeCatalog,
+  searchCatalog,
+} from "../lib/catalog";
 import { formatMoney } from "../lib/units";
 import { useStore } from "../store";
 import { Button, Kbd } from "./ui";
@@ -11,22 +17,28 @@ export function CatalogPalette() {
   const open = useStore((s) => s.paletteOpen);
   const catalog = useStore((s) => s.catalog);
   const currency = useStore((s) => s.project.currency);
-  const { setPaletteOpen, addItemFromCatalog, setCatalogUrl, refreshCatalog } = useStore.getState();
+  const { setPaletteOpen, addItemFromCatalog, setCatalogUrl, setCatalogToken, refreshCatalog } =
+    useStore.getState();
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
   const [url, setUrl] = useState(catalog.remoteUrl);
+  const [token, setToken] = useState(catalog.remoteToken);
   const [busy, setBusy] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const entries = useMemo(() => mergeCatalog(catalog), [catalog]);
   const results = useMemo(() => searchCatalog(entries, query), [entries, query]);
+  // what every result starts with is noise; the tail ("dim. 750x630mm") is what tells them apart
+  const shared = useMemo(() => commonWordPrefix(results.map((r) => r.name)), [results]);
 
   useEffect(() => {
     if (open) {
       setQuery("");
       setCursor(0);
       setUrl(catalog.remoteUrl);
+      setToken(catalog.remoteToken);
+      setBusy(null);
     }
-  }, [open, catalog.remoteUrl]);
+  }, [open, catalog.remoteUrl, catalog.remoteToken]);
   useEffect(() => {
     listRef.current?.children[cursor]?.scrollIntoView({ block: "nearest" });
   }, [cursor]);
@@ -40,12 +52,20 @@ export function CatalogPalette() {
     setBusy("Buscando…");
     try {
       setCatalogUrl(url.trim());
+      setCatalogToken(token);
       const n = await refreshCatalog();
       setBusy(`${n} materiais carregados`);
     } catch (e) {
       setBusy(`Falha: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
+  const drafts = catalog.remote.filter((e) => e.status === "draft").length;
+  const pending = catalog.outbox.length;
+  const fetchedLabel = catalog.fetchedAt
+    ? `${catalog.remote.length} materiais da empresa · catálogo de ${new Date(
+        catalog.remoteGeneratedAt ?? catalog.fetchedAt,
+      ).toLocaleString("pt-BR")}${drafts ? ` · ${drafts} em rascunho` : ""}`
+    : `${entries.length} materiais (planilhas anteriores)`;
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click closes the palette
@@ -87,24 +107,51 @@ export function CatalogPalette() {
         </div>
         <ul ref={listRef} className="min-h-0 flex-1 overflow-y-auto py-1">
           {results.map((e, i) => (
-            <li key={`${e.source}-${e.name}`}>
+            <li key={`${e.source}-${e.catalogId ?? e.name}`}>
               <button
                 type="button"
                 onMouseEnter={() => setCursor(i)}
                 onClick={() => choose(e)}
+                title={e.description && e.description !== e.name ? e.description : undefined}
                 className={clsx(
                   "flex w-full items-center gap-3 px-3 py-1.5 text-left text-xs",
                   i === cursor ? "bg-orange-500/15 text-neutral-100" : "text-neutral-200",
                 )}
               >
-                <span className="min-w-0 flex-1 truncate">{e.name}</span>
+                <span className="line-clamp-2 min-w-0 flex-1 leading-snug">
+                  {shared && e.name.startsWith(shared) ? (
+                    <>
+                      <span className="text-neutral-500">{shared}</span>
+                      {e.name.slice(shared.length)}
+                    </>
+                  ) : (
+                    e.name
+                  )}
+                </span>
+                {e.status === "draft" && (
+                  <span
+                    className="shrink-0 rounded bg-amber-500/15 px-1.5 py-px text-[11px] text-amber-400"
+                    title="Proposto de um takeoff; compras ainda não validou"
+                  >
+                    rascunho
+                  </span>
+                )}
                 <span className="shrink-0 rounded bg-neutral-800 px-1.5 py-px text-[11px] text-neutral-400">
                   {e.group}
                 </span>
                 <span className="w-8 shrink-0 text-center font-mono text-[11px] text-neutral-500">
                   {e.unit}
                 </span>
-                <span className="w-24 shrink-0 text-right font-mono text-[12px] text-neutral-300">
+                <span
+                  className="w-24 shrink-0 text-right font-mono text-[12px] text-neutral-300"
+                  title={
+                    e.priceDate
+                      ? `Cotação de ${new Date(e.priceDate).toLocaleDateString("pt-BR")}`
+                      : e.source === "remote" && e.materialPrice === 0
+                        ? "Sem preço no catálogo da empresa"
+                        : undefined
+                  }
+                >
                   {formatMoney(e.materialPrice, currency)}
                 </span>
                 {e.laborPrice > 0 && (
@@ -121,23 +168,40 @@ export function CatalogPalette() {
             </li>
           )}
         </ul>
-        <div className="flex items-center gap-2 border-t border-neutral-800 px-3 py-2 text-[12px] text-neutral-400">
-          <span className="shrink-0">Catálogo da empresa</span>
-          <input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://app.rlpeng.com.br/api/materiais.json"
-            className="h-7 min-w-0 flex-1 rounded bg-neutral-800 px-2 font-mono text-[12px] text-neutral-200 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
-          />
-          <Button onClick={() => void refresh()} disabled={!url.trim()}>
-            <RefreshCw size={14} /> Atualizar
-          </Button>
-          <span className="w-40 shrink-0 truncate text-right text-neutral-500">
-            {busy ??
-              (catalog.fetchedAt
-                ? `${catalog.remote.length} materiais · ${new Date(catalog.fetchedAt).toLocaleString("pt-BR")}`
-                : `${entries.length} materiais (planilhas anteriores)`)}
-          </span>
+        <div className="space-y-1.5 border-t border-neutral-800 px-3 py-2 text-[12px] text-neutral-400">
+          <div className="flex items-center gap-2">
+            <span className="shrink-0">Catálogo da empresa</span>
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder={DEFAULT_CATALOG_URL}
+              title="URL do catálogo; vazio usa o catálogo de produção da empresa"
+              className="h-7 min-w-0 flex-1 rounded bg-neutral-800 px-2 font-mono text-[12px] text-neutral-200 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
+            />
+            <input
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="token"
+              autoComplete="off"
+              title="Token de acesso (TAKEOFF_CATALOG_TOKEN), fornecido pela RLP; fica só neste computador"
+              className="h-7 w-28 shrink-0 rounded bg-neutral-800 px-2 font-mono text-[12px] text-neutral-200 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
+            />
+            <Button onClick={() => void refresh()}>
+              <RefreshCw size={14} /> Atualizar
+            </Button>
+          </div>
+          <div className="flex items-center gap-2 text-neutral-500">
+            <span className="min-w-0 flex-1 truncate">{busy ?? fetchedLabel}</span>
+            {pending > 0 && (
+              <span
+                className="shrink-0 text-amber-400"
+                title="Propostas de material ainda não entregues; reenviadas a cada atualização"
+              >
+                {pending} {pending === 1 ? "envio pendente" : "envios pendentes"}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

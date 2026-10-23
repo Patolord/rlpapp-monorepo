@@ -1,5 +1,5 @@
 use rust_xlsxwriter::{Color, Format, FormatAlign, FormatBorder, Formula, Workbook, Worksheet};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tauri::Manager;
 use tauri::ipc::Response;
 
@@ -70,6 +70,43 @@ async fn fetch_text(url: String) -> Result<String, String> {
             return Err(format!("HTTP {}", res.status()));
         }
         res.text().map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[derive(Serialize)]
+struct HttpResponse {
+    status: u16,
+    body: String,
+}
+
+/// HTTP call to the company app (catalog download, material proposals) without browser CORS
+/// restrictions. Non-2xx answers are returned, not errors, so the UI can explain 401/503.
+#[tauri::command]
+async fn http_request(
+    method: String,
+    url: String,
+    headers: Option<std::collections::HashMap<String, String>>,
+    body: Option<String>,
+) -> Result<HttpResponse, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(20))
+            .build()
+            .map_err(|e| e.to_string())?;
+        let method = reqwest::Method::from_bytes(method.as_bytes()).map_err(|e| e.to_string())?;
+        let mut req = client.request(method, &url);
+        for (name, value) in headers.unwrap_or_default() {
+            req = req.header(name, value);
+        }
+        if let Some(body) = body {
+            req = req.body(body);
+        }
+        let res = req.send().map_err(|e| e.to_string())?;
+        let status = res.status().as_u16();
+        let body = res.text().map_err(|e| e.to_string())?;
+        Ok(HttpResponse { status, body })
     })
     .await
     .map_err(|e| e.to_string())?
@@ -860,6 +897,7 @@ pub fn run() {
             autosave_path,
             catalog_path,
             fetch_text,
+            http_request,
             export_xlsx
         ])
         .run(tauri::generate_context!())

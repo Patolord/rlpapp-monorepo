@@ -68,7 +68,11 @@ export default function App() {
     void useStore
       .getState()
       .loadCatalog()
-      .then(() => useStore.getState().refreshCatalog())
+      .then(() => {
+        // without a token the company app answers 401: wait for the user to configure it (Ctrl+K)
+        const { catalog, refreshCatalog } = useStore.getState();
+        return catalog.remoteToken ? refreshCatalog() : 0;
+      })
       .catch((e) => console.warn("catalog refresh failed", e));
   }, []);
 
