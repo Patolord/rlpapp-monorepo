@@ -205,6 +205,8 @@ export interface State {
   ensurePages(n: number): void;
   addDrawing(path: string | null, name: string): string;
   updateDrawing(id: string, patch: Partial<Drawing>): void;
+  /** Reorders the plantas: puts `id` right before `beforeId`, or last when it is null. */
+  moveDrawing(id: string, beforeId: string | null): void;
   removeDrawing(id: string): void;
   setActiveDrawing(id: string | null): void;
   setFilePath(path: string | null): void;
@@ -497,6 +499,20 @@ export const useStore = create<State>((set, get) => ({
       drawings: [...p.drawings, { id, path, name, pages: [] }],
     }));
     return id;
+  },
+
+  moveDrawing: (id, beforeId) => {
+    if (id === beforeId) return;
+    get().commit((p) => {
+      const moving = p.drawings.find((d) => d.id === id);
+      if (!moving) return p;
+      const rest = p.drawings.filter((d) => d.id !== id);
+      const at = beforeId ? rest.findIndex((d) => d.id === beforeId) : -1;
+      if (beforeId && at < 0) return p;
+      const drawings =
+        at < 0 ? [...rest, moving] : [...rest.slice(0, at), moving, ...rest.slice(at)];
+      return drawings.every((d, i) => d === p.drawings[i]) ? p : { ...p, drawings };
+    });
   },
 
   updateDrawing: (id, patch) =>
