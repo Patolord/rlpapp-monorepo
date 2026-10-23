@@ -4176,7 +4176,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-takeoff"
-version = "0.1.7"
+version = "0.2.0"
 dependencies = [
  "reqwest",
  "rust_xlsxwriter",
