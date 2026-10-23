@@ -86,13 +86,13 @@ export const NORMA_LABELS: Record<DuctSettings["norma"], string> = {
   3: "ABNT (c/ reforço TR)",
 };
 
-/** Gauges in order, with sheet weight, kg/m². */
+/** Gauges in order, with sheet weight, kg/m² (supplier table, Salviaco). */
 export const GAUGES = [
-  { name: "# 26", kgm2: 4.5 },
-  { name: "# 24", kgm2: 5.7 },
-  { name: "# 22", kgm2: 6.8 },
-  { name: "# 20", kgm2: 8.1 },
-  { name: "# 18", kgm2: 10.5 },
+  { name: "# 26", kgm2: 4.38 },
+  { name: "# 24", kgm2: 4.82 },
+  { name: "# 22", kgm2: 6.82 },
+  { name: "# 20", kgm2: 8.03 },
+  { name: "# 18", kgm2: 10.6 },
 ] as const;
 
 /** Largest lado maior (cm) each gauge covers, per norma; beyond the last is # 18. */
@@ -252,7 +252,8 @@ export function ductBill(
     }
   }
 
-  const rechapKg = rechap * 4.5;
+  // rechapeamento and cantoneira are # 26 sheet: same weight as the first gauge of the table
+  const rechapKg = rechap * GAUGES[0].kgm2;
   const rawKg = areaByGauge.reduce((t, a, i) => t + a * GAUGES[i].kgm2, 0) + rechapKg;
   const sheetSlack = (s.sheetSlackPct ?? (rawKg > 10000 ? 15 : 20)) / 100 + 1;
   const insulSlack = s.insulSlackPct / 100 + 1;
@@ -270,7 +271,7 @@ export function ductBill(
     add(`Chapa galvanizada ${g.name}`, sheetGroup, "kg", kg, 17);
   });
   const rechapRounded = round0(rechapKg);
-  const cantoneiraKg = round0(cantoneiraArea * 4.5);
+  const cantoneiraKg = round0(cantoneiraArea * GAUGES[0].kgm2);
   sheetKg += rechapRounded + cantoneiraKg;
   add("Chapa galvanizada # 26 (rechapeamento)", sheetGroup, "kg", rechapRounded, 17);
   add("Chapa galvanizada # 26 (cantoneira)", sheetGroup, "kg", cantoneiraKg, 17);
