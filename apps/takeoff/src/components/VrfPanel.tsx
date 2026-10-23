@@ -1,6 +1,5 @@
 import { FileSpreadsheet, GitFork, Plus, Settings2, SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
-import { mergeCatalog } from "../lib/catalog";
 import { exportVrfSheet } from "../lib/files";
 import { formatMoney } from "../lib/units";
 import {
@@ -14,7 +13,7 @@ import {
   type VrfRole,
   type VrfSettings,
 } from "../lib/vrf";
-import { vrfBillFor, vrfRunsBySystem, vrfSystems } from "../lib/vrfItems";
+import { vrfBillFor, vrfPricingOf, vrfRunsBySystem, vrfSystems } from "../lib/vrfItems";
 import { useStore } from "../store";
 import { Button } from "./ui";
 
@@ -53,14 +52,7 @@ export function VrfPanel() {
     systems.find((n) => n.id === activeItemId) ??
     systems[0] ??
     null;
-  const pricing = useMemo(
-    () => ({
-      catalog: mergeCatalog(catalog),
-      weights: catalog.weights ?? [],
-      basePrices: catalog.basePrices,
-    }),
-    [catalog],
-  );
+  const pricing = useMemo(() => vrfPricingOf(catalog), [catalog]);
   const bill = useMemo(
     () =>
       system

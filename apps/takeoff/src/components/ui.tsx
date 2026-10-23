@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
 
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   active?: boolean;
@@ -53,5 +53,28 @@ export function Kbd({ children }: { children: ReactNode }) {
     <kbd className="rounded border border-neutral-600 bg-neutral-800 px-1 font-mono text-[11px] text-neutral-300">
       {children}
     </kbd>
+  );
+}
+
+interface BackdropProps extends HTMLAttributes<HTMLDivElement> {
+  /** Clicking the dimmed area outside the dialog. The dialog itself must stop propagation. */
+  onClose: () => void;
+  /** Where the dialog sits: centred (default) or near the top (palette style). */
+  align?: "center" | "top";
+  children: ReactNode;
+}
+
+/** The dimmed layer behind a dialog; fills the viewer area and closes on a click outside. */
+export function Backdrop({ onClose, align = "center", className, ...rest }: BackdropProps) {
+  return (
+    <div
+      className={clsx(
+        "absolute inset-0 z-40 flex justify-center",
+        align === "top" ? "items-start bg-black/50 pt-16" : "items-center bg-black/40",
+        className,
+      )}
+      onClick={onClose}
+      {...rest}
+    />
   );
 }

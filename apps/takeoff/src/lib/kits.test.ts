@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { foldName, SEED } from "./catalog";
+import { SEED } from "./catalog";
 import { kitSummary, SEED_KITS } from "./kits";
+import { foldName } from "./text";
 
 describe("kit presets", () => {
   it("every seed component is a catalog material, so prices come along", () => {

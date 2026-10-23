@@ -1,8 +1,9 @@
 import { getTauriVersion, getVersion } from "@tauri-apps/api/app";
 import { useEffect, useState } from "react";
+import { isTauri } from "../lib/platform";
 import { checkForUpdate, installUpdate, useUpdate } from "../lib/updater";
 import { useStore } from "../store";
-import { Button } from "./ui";
+import { Backdrop, Button } from "./ui";
 
 const RELEASES_URL = "https://github.com/Patolord/takeoff-releases/releases/latest";
 
@@ -15,7 +16,7 @@ export function AboutDialog() {
   const [tauri, setTauri] = useState<string>("");
   const [checking, setChecking] = useState(false);
   useEffect(() => {
-    if (!open || !("__TAURI_INTERNALS__" in window)) return;
+    if (!open || !isTauri()) return;
     getVersion()
       .then(setVersion)
       .catch(() => {});
@@ -43,11 +44,7 @@ export function AboutDialog() {
           : "";
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click closes the dialog
-    <div
-      className="absolute inset-0 z-40 flex items-center justify-center bg-black/40"
-      onClick={() => setAboutOpen(false)}
-    >
+    <Backdrop onClose={() => setAboutOpen(false)}>
       <div
         className="w-[26rem] rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -93,6 +90,6 @@ export function AboutDialog() {
           <Button onClick={() => setAboutOpen(false)}>Fechar</Button>
         </div>
       </div>
-    </div>
+    </Backdrop>
   );
 }

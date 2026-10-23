@@ -32,6 +32,7 @@ import { ZoneDialog } from "./components/ZoneDialog";
 import { ZonesPanel } from "./components/ZonesPanel";
 import { useHotkeys } from "./hotkeys";
 import { autosave, confirmDiscard, openPdfFile, openProjectFile } from "./lib/files";
+import { isTauri } from "./lib/platform";
 import { useDoc } from "./lib/session";
 import { checkForUpdate } from "./lib/updater";
 import { useStore } from "./store";
@@ -57,7 +58,7 @@ export default function App() {
   // native file drop (Tauri delivers real paths)
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    if (!("__TAURI_INTERNALS__" in window)) return;
+    if (!isTauri()) return;
     getCurrentWebview()
       .onDragDropEvent((event) => {
         if (event.payload.type !== "drop") return;
@@ -95,7 +96,7 @@ export default function App() {
 
   // ask before closing the window with unsaved changes
   useEffect(() => {
-    if (!("__TAURI_INTERNALS__" in window)) return;
+    if (!isTauri()) return;
     let unlisten: (() => void) | undefined;
     getCurrentWindow()
       .onCloseRequested(async (event) => {

@@ -10,7 +10,7 @@ import {
 } from "../lib/vrf";
 import { vrfSystems } from "../lib/vrfItems";
 import { useStore } from "../store";
-import { Button, Kbd } from "./ui";
+import { Backdrop, Button, Kbd } from "./ui";
 
 const input =
   "h-7 rounded bg-neutral-800 px-1.5 text-xs text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400";
@@ -106,11 +106,7 @@ export function VrfDialog() {
   };
 
   return (
-    <div
-      className="absolute inset-0 z-40 flex items-center justify-center bg-black/40"
-      onClick={close}
-      onKeyDown={(e) => e.stopPropagation()}
-    >
+    <Backdrop onClose={close} onKeyDown={(e) => e.stopPropagation()}>
       <datalist id="vrf-hp">
         {HP_SUGGESTIONS.map((hp) => (
           <option key={hp} value={hp} />
@@ -265,6 +261,6 @@ export function VrfDialog() {
           </Button>
         </div>
       </form>
-    </div>
+    </Backdrop>
   );
 }

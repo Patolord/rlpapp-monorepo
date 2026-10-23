@@ -1,6 +1,6 @@
-import type { CatalogEntry } from "./catalog";
-import { foldName } from "./catalog";
+import { type CatalogEntry, type CatalogStore, mergeCatalog } from "./catalog";
 import { measurementQty, pageScale, repeatOf, zoneOf } from "./quantities";
+import { foldName } from "./text";
 import { drawingOf, ITEM_COLORS, type Item, locationOf, newId, type Project } from "./types";
 import {
   brandOf,
@@ -168,3 +168,10 @@ export function syncVrfItems(
   });
   return changed ? { ...project, items } : project;
 }
+
+/** The pricing inputs a catalog store provides (merged entries, weight table, prices per kg). */
+export const vrfPricingOf = (store: CatalogStore): VrfPricing => ({
+  catalog: mergeCatalog(store),
+  weights: store.weights ?? [],
+  basePrices: store.basePrices,
+});

@@ -1,6 +1,5 @@
 import ExcelJS from "exceljs";
 import type { CatalogEntry } from "./catalog";
-import { foldName } from "./catalog";
 import { ductBillFor, ductNetworks } from "./ductItems";
 import {
   DEFAULT_DUCT_SETTINGS,
@@ -10,6 +9,7 @@ import {
   type DuctRun,
   type DuctSettings,
 } from "./ducts";
+import { foldName } from "./text";
 import type { Project } from "./types";
 
 /** Where the bundled copy of RLP's "Levantamento Dutos Conforme Norma NBR 16401" workbook lives. */

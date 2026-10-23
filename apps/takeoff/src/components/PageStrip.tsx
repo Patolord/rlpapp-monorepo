@@ -6,6 +6,7 @@ import { useStore } from "../store";
 function Thumb({ index }: { index: number }) {
   const docId = useDoc((s) => s.docId);
   const [src, setSrc] = useState<string | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new document needs a new thumbnail
   useEffect(() => {
     let alive = true;
     setSrc(null);

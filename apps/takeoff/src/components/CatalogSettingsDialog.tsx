@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { DEFAULT_CATALOG_URL } from "../lib/catalog";
 import { BASE_MATERIALS } from "../lib/weights";
 import { useStore } from "../store";
-import { Button } from "./ui";
+import { Backdrop, Button } from "./ui";
 
 const input =
   "h-8 w-full rounded bg-neutral-800 px-2 text-xs text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400";
@@ -72,11 +72,7 @@ export function CatalogSettingsDialog() {
   );
 
   return (
-    <div
-      className="absolute inset-0 z-40 flex items-center justify-center bg-black/40"
-      onClick={() => setCatalogSettingsOpen(false)}
-      onKeyDown={(e) => e.stopPropagation()}
-    >
+    <Backdrop onClose={() => setCatalogSettingsOpen(false)} onKeyDown={(e) => e.stopPropagation()}>
       <div
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
@@ -185,6 +181,6 @@ export function CatalogSettingsDialog() {
           </Button>
         </div>
       </div>
-    </div>
+    </Backdrop>
   );
 }

@@ -1,6 +1,7 @@
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { create } from "zustand";
+import { isTauri } from "./platform";
 
 export interface UpdateState {
   /** A newer version is available and ready to be installed. */
@@ -21,7 +22,6 @@ export const useUpdate = create<UpdateState>(() => ({
 }));
 
 let pending: Update | null = null;
-const isTauri = () => "__TAURI_INTERNALS__" in window;
 
 /** Ask the update endpoint for a newer version; silent when offline or outside Tauri. */
 export async function checkForUpdate(): Promise<boolean> {

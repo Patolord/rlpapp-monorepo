@@ -1,10 +1,11 @@
 import { Copy, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { foldName, kindForUnit, mergeCatalog, normalizeDiscipline } from "../lib/catalog";
+import { kindForUnit, mergeCatalog, normalizeDiscipline } from "../lib/catalog";
 import { type Kit, type KitComponent, kitMode } from "../lib/kits";
+import { foldName } from "../lib/text";
 import { DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS, newId } from "../lib/types";
 import { useStore } from "../store";
-import { Button } from "./ui";
+import { Backdrop, Button } from "./ui";
 
 const EMPTY_COMPONENT: KitComponent = { name: "", group: "", kind: "linear", factor: 1 };
 
@@ -96,12 +97,7 @@ export function KitsDialog() {
     "h-7 rounded bg-neutral-800 px-1.5 text-xs ring-1 ring-neutral-700 focus:ring-orange-400 outline-none";
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click closes the dialog
-    <div
-      className="absolute inset-0 z-40 flex items-center justify-center bg-black/40"
-      onClick={() => setKitsEditorOpen(false)}
-      onKeyDown={(e) => e.stopPropagation()}
-    >
+    <Backdrop onClose={() => setKitsEditorOpen(false)} onKeyDown={(e) => e.stopPropagation()}>
       <datalist id="kit-catalog-names">
         {names.map((n) => (
           <option key={n} value={n} />
@@ -117,7 +113,6 @@ export function KitsDialog() {
           <option key={d} value={d} />
         ))}
       </datalist>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: stops the backdrop handler */}
       <div
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
@@ -222,7 +217,6 @@ export function KitsDialog() {
                   </thead>
                   <tbody>
                     {kit.components.map((c, i) => (
-                      // biome-ignore lint/suspicious/noArrayIndexKey: rows are positional
                       <tr key={i}>
                         <td className="py-0.5 pr-1">
                           <input
@@ -323,6 +317,6 @@ export function KitsDialog() {
           </div>
         </div>
       </div>
-    </div>
+    </Backdrop>
   );
 }

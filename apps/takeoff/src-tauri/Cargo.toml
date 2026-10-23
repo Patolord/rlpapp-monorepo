@@ -19,10 +19,10 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 rust_xlsxwriter = "0.101"
 serde = { version = "1", features = ["derive"] }
+# not used directly: tauri::generate_context! expands to code that needs it
 serde_json = "1"
 reqwest = { version = "0.13.5", default-features = false, features = ["blocking", "rustls"] }
 tauri-plugin-updater = "2.14.0"

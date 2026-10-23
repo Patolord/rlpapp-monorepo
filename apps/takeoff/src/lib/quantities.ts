@@ -11,8 +11,6 @@ import {
   DEFAULT_GROUP,
   drawingOf,
   type Item,
-  type Location,
-  locationOf,
   type Measurement,
   type Project,
   type Zone,
@@ -112,16 +110,6 @@ export function itemTotals(
     }
   }
   return totals;
-}
-
-/** Location a measurement belongs to: that of the region containing it, or null. */
-export function locationOfMeasurement(
-  project: Project,
-  m: Measurement,
-  kind: Kind,
-): Location | null {
-  const zone = zoneOf(project, m, kind);
-  return zone ? (locationOf(project, zone.locationId) ?? null) : null;
 }
 
 /** Key used for measurements outside every location. */

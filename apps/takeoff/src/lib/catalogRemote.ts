@@ -1,9 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
+import { isTauri } from "./platform";
+import { itemUnit } from "./quantities";
 import type { Item, Project } from "./types";
-
-/** The unit a line is budgeted in (mirrors unitForKind without importing the catalog module). */
-const lineUnit = (item: Item): string =>
-  item.unit ?? (item.kind === "linear" ? "m" : item.kind === "area" ? "m²" : "pç");
 
 /**
  * The company app (app.rlpeng.com.br, Convex backend) publishes the material catalog for this
@@ -29,8 +27,6 @@ export interface HttpResponse {
   status: number;
   body: string;
 }
-
-const isTauri = () => "__TAURI_INTERNALS__" in window;
 
 /** HTTP through Rust inside Tauri (no CORS); plain fetch in the browser dev build. */
 export async function httpRequest(req: {
@@ -122,7 +118,7 @@ export function buildProposal(item: Item, project: Project, clientId: string): P
   if (item.catalogId) body.materialId = item.catalogId;
   else {
     body.name = item.name;
-    body.unit = lineUnit(item);
+    body.unit = itemUnit(item, project.unit);
     body.category = item.group || undefined;
   }
   if (item.materialPrice > 0) {

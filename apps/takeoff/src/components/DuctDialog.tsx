@@ -15,7 +15,7 @@ import {
   NORMA_LABELS,
 } from "../lib/ducts";
 import { useStore } from "../store";
-import { Button, Kbd } from "./ui";
+import { Backdrop, Button, Kbd } from "./ui";
 
 const input =
   "h-7 rounded bg-neutral-800 px-1.5 text-xs text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400";
@@ -47,6 +47,7 @@ export function DuctDialog() {
   const [showSettings, setShowSettings] = useState(false);
   const settings: DuctSettings = project.duct ?? DEFAULT_DUCT_SETTINGS;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: seeds the form when the dialog opens
   useEffect(() => {
     if (!open) return;
     if (editIds) {
@@ -92,12 +93,7 @@ export function DuctDialog() {
   const patchSettings = (p: Partial<DuctSettings>) => setDuctSettings({ ...settings, ...p });
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click cancels
-    <div
-      className="absolute inset-0 z-40 flex items-center justify-center bg-black/40"
-      onClick={close}
-      onKeyDown={(e) => e.stopPropagation()}
-    >
+    <Backdrop onClose={close} onKeyDown={(e) => e.stopPropagation()}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -135,7 +131,6 @@ export function DuctDialog() {
           <label className="block">
             <span className="mb-1 block">Lado maior (cm)</span>
             <input
-              // biome-ignore lint/a11y/noAutofocus: the dimensions are what the user types first
               autoFocus
               type="number"
               min={1}
@@ -322,6 +317,6 @@ export function DuctDialog() {
           </Button>
         </div>
       </form>
-    </div>
+    </Backdrop>
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { type CatalogEntry, commonWordPrefix, mergeCatalog, searchCatalog } from "../lib/catalog";
 import { formatMoney } from "../lib/units";
 import { useStore } from "../store";
-import { Kbd } from "./ui";
+import { Backdrop, Kbd } from "./ui";
 
 /**
  * Ctrl+K: a quick catalog. Search the materials and create an item from an entry; where the
@@ -50,11 +50,7 @@ export function CatalogPalette() {
     : `${entries.length} materiais (planilhas anteriores)`;
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click closes the palette
-    <div
-      className="absolute inset-0 z-40 flex items-start justify-center bg-black/50 pt-16"
-      onClick={() => setPaletteOpen(false)}
-    >
+    <Backdrop onClose={() => setPaletteOpen(false)} align="top">
       <div
         className="flex max-h-[70vh] w-[36rem] flex-col rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -174,6 +170,6 @@ export function CatalogPalette() {
           </button>
         </div>
       </div>
-    </div>
+    </Backdrop>
   );
 }

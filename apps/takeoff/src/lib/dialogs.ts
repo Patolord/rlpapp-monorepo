@@ -1,6 +1,5 @@
 import { ask } from "@tauri-apps/plugin-dialog";
-
-const isTauri = () => "__TAURI_INTERNALS__" in window;
+import { isTauri } from "./platform";
 
 /**
  * Yes/no question. Inside the app it is a native dialog (window.confirm is unreliable in the

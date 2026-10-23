@@ -24,7 +24,6 @@ export function PanelDivider() {
   };
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: a drag handle; the button beside it is the keyboard path
     <div
       onPointerDown={startResize}
       className={

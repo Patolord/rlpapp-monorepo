@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import seed from "../data/catalog.seed.json";
 import { catalogUrl, describeHttpFailure, httpRequest, type QueuedProposal } from "./catalogRemote";
 import { type Kit, SEED_KITS } from "./kits";
+import { isTauri } from "./platform";
+import { foldName } from "./text";
 import type { Kind } from "./units";
 import { cloneBrands, SEED_BRANDS, type VrfBrand } from "./vrf";
 import {
@@ -99,10 +101,7 @@ export function unitForKind(kind: Kind, unit = "pç"): string {
 /** Map the worksheet names found in past budgets onto the canonical discipline names. */
 export function normalizeDiscipline(system: string | undefined): string | undefined {
   if (!system) return undefined;
-  const s = system
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+  const s = foldName(system);
   if (/pressuriza/.test(s)) return "Pressurização de Escadas";
   if (/tomada de ar|\btae\b/.test(s)) return "TAE (Tomada de Ar Externo)";
   if (/detec/.test(s)) return "Detecção de Incêndio";
@@ -111,8 +110,6 @@ export function normalizeDiscipline(system: string | undefined): string | undefi
   if (/exaust|coifa|chapeu|duto/.test(s)) return "Exaustão";
   return system.trim();
 }
-
-export const foldName = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /**
  * Saved entries first, then the remote catalog, then the weight table and the sheet-metal rows
@@ -234,12 +231,7 @@ export function parseRemoteCatalogResponse(json: unknown): RemoteCatalog {
   return { entries, redirects, generatedAt: generatedAt ?? null };
 }
 
-/** Entries only (see parseRemoteCatalogResponse). */
-export const parseRemoteCatalog = (json: unknown): CatalogEntry[] =>
-  parseRemoteCatalogResponse(json).entries;
-
 const LS_KEY = "takeoff.catalog";
-const isTauri = () => "__TAURI_INTERNALS__" in window;
 
 export async function loadCatalogStore(): Promise<CatalogStore> {
   try {

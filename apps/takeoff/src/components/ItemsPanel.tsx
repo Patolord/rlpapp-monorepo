@@ -24,6 +24,7 @@ import {
   round2,
   totalsByLocation,
 } from "../lib/quantities";
+import { foldName } from "../lib/text";
 import { DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS, type Item } from "../lib/types";
 import { formatMoney, formatQty, type Kind } from "../lib/units";
 import { describeWeightPrice } from "../lib/weights";
@@ -38,8 +39,6 @@ const KIND_ICON: Record<Kind, typeof CircleDot> = {
   area: Pentagon,
 };
 
-const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-
 export function ItemsPanel() {
   const project = useStore((s) => s.project);
   const activeItemId = useStore((s) => s.activeItemId);
@@ -47,7 +46,10 @@ export function ItemsPanel() {
   const systemFilter = useStore((s) => s.systemFilter);
   const drawingOnly = useStore((s) => s.drawingOnly);
   const savedEntries = useStore((s) => s.catalog.saved);
-  const savedNames = useMemo(() => new Set(savedEntries.map((e) => fold(e.name))), [savedEntries]);
+  const savedNames = useMemo(
+    () => new Set(savedEntries.map((e) => foldName(e.name))),
+    [savedEntries],
+  );
   const remoteEntries = useStore((s) => s.catalog.remote);
   const outbox = useStore((s) => s.catalog.outbox);
   const basePrices = useStore((s) => s.catalog.basePrices);
@@ -122,9 +124,9 @@ export function ItemsPanel() {
   const unscaledOf = (id: string) =>
     scoped ? (scoped.get(id)?.unscaled ?? 0) : (totals.get(id)?.unscaled ?? 0);
 
-  const q = fold(query.trim());
+  const q = foldName(query.trim());
   const visible = project.items.filter((item) => {
-    if (q && !fold(`${item.name} ${item.group} ${item.system ?? ""}`).includes(q)) return false;
+    if (q && !foldName(`${item.name} ${item.group} ${item.system ?? ""}`).includes(q)) return false;
     if (systemFilter !== null && (item.system || project.system || "") !== systemFilter)
       return false;
     // inside a location only items that have something there (the active one stays visible)
@@ -136,7 +138,7 @@ export function ItemsPanel() {
   const visibleKey = visible.map((i) => i.id).join("\u0000");
   useEffect(() => {
     setVisibleItemIds(visibleKey ? visibleKey.split("\u0000") : []);
-  }, [visibleKey]);
+  }, [visibleKey, setVisibleItemIds]);
   const sumValue = visible.reduce(
     (s, item) =>
       s + round2(pricedQty(item, qtyOf(item.id)) * (item.materialPrice + item.laborPrice)),
@@ -281,7 +283,7 @@ export function ItemsPanel() {
               onActivate={() => setActiveItem(item.id)}
               onChange={(patch) => updateItem(item.id, patch)}
               onRemove={() => removeItem(item.id)}
-              saved={savedNames.has(fold(item.name))}
+              saved={savedNames.has(foldName(item.name))}
               onSave={() => void saveItemToCatalog(item.id)}
               link={linkOf(item)}
               weightInfo={describeWeightPrice(item, basePrices, (v) =>

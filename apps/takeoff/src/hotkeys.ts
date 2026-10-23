@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { exportXlsx, pickAndOpenPdf, saveProject } from "./lib/files";
+import { isEditableTarget } from "./lib/platform";
 import { useDoc } from "./lib/session";
 import { type Tool, useStore } from "./store";
 import { viewerApi } from "./viewerApi";
@@ -23,15 +24,8 @@ const TOOL_KEYS: Record<string, Tool> = {
 export function useHotkeys() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement | null;
-      if (
-        t &&
-        (t.tagName === "INPUT" ||
-          t.tagName === "TEXTAREA" ||
-          t.tagName === "SELECT" ||
-          t.isContentEditable)
-      ) {
-        if (e.key === "Escape") t.blur();
+      if (isEditableTarget(e)) {
+        if (e.key === "Escape") (e.target as HTMLElement).blur();
         return;
       }
       const s = useStore.getState();

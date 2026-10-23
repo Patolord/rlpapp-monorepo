@@ -1,5 +1,4 @@
 import type { CatalogEntry } from "./catalog";
-import { foldName } from "./catalog";
 import {
   billTotals,
   DEFAULT_DUCT_SETTINGS,
@@ -9,6 +8,7 @@ import {
   ductBill,
 } from "./ducts";
 import { measurementQty, pageScale, repeatOf, zoneOf } from "./quantities";
+import { foldName } from "./text";
 import { drawingOf, ITEM_COLORS, type Item, locationOf, newId, type Project } from "./types";
 
 export const DUCT_GROUP = "Rede de Dutos";

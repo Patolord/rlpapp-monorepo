@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  commonWordPrefix,
   emptyCatalogStore,
   kindForUnit,
   mergeCatalog,
-  parseRemoteCatalog,
+  normalizeDiscipline,
   parseRemoteCatalogResponse,
   SEED,
   searchCatalog,
 } from "./catalog";
+
+const parseRemoteCatalog = (json: unknown) => parseRemoteCatalogResponse(json).entries;
 
 describe("catalog", () => {
   it("ships a seed with categorised entries", () => {
@@ -156,8 +159,7 @@ describe("catalog", () => {
 });
 
 describe("disciplines from past budgets", () => {
-  it("maps worksheet names onto the canonical disciplines", async () => {
-    const { normalizeDiscipline } = await import("./catalog");
+  it("maps worksheet names onto the canonical disciplines", () => {
     expect(normalizeDiscipline("Pressurização - Torre 01")).toBe("Pressurização de Escadas");
     expect(normalizeDiscipline("Tomada de Ar Ext.")).toBe("TAE (Tomada de Ar Externo)");
     expect(normalizeDiscipline("Detecção")).toBe("Detecção de Incêndio");
@@ -171,8 +173,7 @@ describe("disciplines from past budgets", () => {
 });
 
 describe("commonWordPrefix", () => {
-  it("dims what every result shares and keeps the distinguishing tail", async () => {
-    const { commonWordPrefix } = await import("./catalog");
+  it("dims what every result shares and keeps the distinguishing tail", () => {
     const names = [
       "Damper de Regulagem Manual Reforçado (Descarga do Ventilador) dim. 1060x900mm",
       "Damper de Regulagem Manual Reforçado (Descarga do Ventilador) dim. 750x630mm",

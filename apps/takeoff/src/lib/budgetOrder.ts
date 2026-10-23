@@ -1,3 +1,4 @@
+import { foldName } from "./text";
 import { DEFAULT_GROUP, DISCIPLINE_SUGGESTIONS, type Item } from "./types";
 
 /**
@@ -8,14 +9,12 @@ import { DEFAULT_GROUP, DISCIPLINE_SUGGESTIONS, type Item } from "./types";
  */
 export type GroupTier = 0 | 1 | 2;
 
-const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-
 const EQUIPMENT = /equip|ventilad|exaustor|split|vrf|condensad|evaporad|fan ?coil|bomba|chiller/;
 const NETWORKS =
   /duto|tubul|tubo|eletric|cabo|isolament|suporte|acessor|\brede\b|linha|infra|drenag|eletrocalha|conduit|frigor|fixa/;
 
 export function groupTier(group: string): GroupTier {
-  const g = fold(group || DEFAULT_GROUP);
+  const g = foldName(group || DEFAULT_GROUP);
   if (EQUIPMENT.test(g)) return 0;
   if (NETWORKS.test(g)) return 1;
   return 2;

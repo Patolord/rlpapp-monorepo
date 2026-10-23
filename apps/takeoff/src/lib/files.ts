@@ -4,7 +4,7 @@ import { useStore } from "../store";
 import { mergeCatalog } from "./catalog";
 import { confirmDialog } from "./dialogs";
 import { DUCT_TEMPLATE_URL, ductSheetInput, fillDuctWorkbook } from "./ductSheet";
-import { mod } from "./platform";
+import { isTauri, mod } from "./platform";
 import { locationMatrix, systemSheets } from "./quantities";
 import { basename, closePdf, isDocOpen, openPdfPath, preloadPdfPath, useDoc } from "./session";
 import { drawingOf, emptyProject, migrateProject, UNTITLED } from "./types";
@@ -76,7 +76,7 @@ let warmTimer = 0;
  * so switching tabs never waits. Starts a moment after the active one is ready.
  */
 export function scheduleWarm(): void {
-  if (!("__TAURI_INTERNALS__" in window)) return;
+  if (!isTauri()) return;
   window.clearTimeout(warmTimer);
   warmTimer = window.setTimeout(() => void warmDrawings(), 1500);
 }
@@ -247,27 +247,7 @@ export async function exportDuctSheet(networkId: string): Promise<void> {
     const input = ductSheetInput(project, mergeCatalog(store.catalog), networkId);
     const bytes = await fillDuctWorkbook(await res.arrayBuffer(), input);
     const name = `Levantamento Dutos - ${network?.name ?? "Rede"}${project.site ? ` - ${project.site}` : ""}.xlsx`;
-    if ("__TAURI_INTERNALS__" in window) {
-      const path = await save({
-        defaultPath: name,
-        filters: [{ name: "Planilha Excel", extensions: ["xlsx"] }],
-      });
-      if (!path) return;
-      await invoke("write_file", { path, data: Array.from(bytes) });
-      store.setStatus(`Exportado: ${basename(path)}`);
-    } else {
-      const url = URL.createObjectURL(
-        new Blob([bytes as unknown as ArrayBuffer], {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        }),
-      );
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = name;
-      a.click();
-      URL.revokeObjectURL(url);
-      store.setStatus(`Exportado: ${name}`);
-    }
+    await saveXlsxBytes(name, bytes);
   } catch (e) {
     store.setStatus(`Falha na planilha de dutos: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -276,7 +256,7 @@ export async function exportDuctSheet(networkId: string): Promise<void> {
 /** Save an .xlsx built in memory: native dialog inside Tauri, a download in the browser. */
 async function saveXlsxBytes(name: string, bytes: Uint8Array): Promise<void> {
   const store = useStore.getState();
-  if ("__TAURI_INTERNALS__" in window) {
+  if (isTauri()) {
     const path = await save({
       defaultPath: name,
       filters: [{ name: "Planilha Excel", extensions: ["xlsx"] }],

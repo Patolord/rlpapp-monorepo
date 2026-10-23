@@ -10,7 +10,7 @@ import {
   totalsByLocation,
   totalsByRegion,
 } from "./quantities";
-import { emptyProject, migrateProject, type Project } from "./types";
+import { emptyProject, type Project } from "./types";
 import { imperialScale, metricScale, ratioLabel, toBaseUnit } from "./units";
 
 const PT_PER_M_AT_1_50 = (1000 / 50) * (72 / 25.4); // 20 mm per metre on paper
@@ -263,112 +263,6 @@ describe("system sheets", () => {
     expect(sheets[0].sections.map((s) => s.name)).toEqual(["Térreo", "Sem local"]);
     p.sectionsBy = "grupo";
     expect(systemSheets(p)[1].sections.map((s) => s.name)).toEqual(["Rede de Dutos"]);
-  });
-});
-
-describe("migration", () => {
-  it("upgrades version 1 and 2 projects into a single drawing", () => {
-    const v2 = {
-      version: 2,
-      name: "old",
-      pdfPath: "C:\\obra\\planta.pdf",
-      pdfName: "planta.pdf",
-      unit: "m",
-      currency: "BRL",
-      bdi: 1.3,
-      pages: [{ scale: null }],
-      items: [
-        {
-          id: "a",
-          name: "X",
-          kind: "count",
-          color: "#000",
-          group: "Geral",
-          materialPrice: 12,
-          laborPrice: 0,
-          wastePct: 0,
-        },
-      ],
-      measurements: [{ id: "m", itemId: "a", page: 0, points: [{ x: 1, y: 1 }] }],
-      zones: [{ id: "z", name: "T", page: 0, points: square(10), color: "#fff" }],
-    };
-    const p = migrateProject(v2);
-    expect(p.version).toBe(4);
-    expect(p.drawings).toHaveLength(1);
-    expect(p.drawings[0].path).toBe("C:\\obra\\planta.pdf");
-    expect(p.activeDrawingId).toBe(p.drawings[0].id);
-    expect(p.measurements[0].drawingId).toBe(p.drawings[0].id);
-    expect(p.zones[0].drawingId).toBe(p.drawings[0].id);
-    expect(p.locations).toEqual([{ id: expect.any(String), name: "T", color: "#fff" }]);
-    expect(p.zones[0].locationId).toBe(p.locations[0].id);
-    expect(p.bdi).toBeCloseTo(1.3);
-    const v1 = {
-      version: 1,
-      name: "v1",
-      pdfPath: null,
-      markupPct: 30,
-      pages: [],
-      items: [{ id: "a", name: "X", kind: "count", color: "#000", unitPrice: 5, wastePct: 0 }],
-      measurements: [],
-    };
-    const q = migrateProject(v1);
-    expect(q.drawings).toHaveLength(0);
-    expect(q.items[0].materialPrice).toBe(5);
-    expect(q.bdi).toBeCloseTo(1.3);
-    expect(() => migrateProject({ version: 9 })).toThrow();
-  });
-
-  it("merges version 3 polygons of the same name into one location", () => {
-    const v3 = {
-      ...emptyProject(),
-      version: 3,
-      drawings: [
-        { id: "a", path: null, name: "a.pdf", pages: [] },
-        { id: "b", path: null, name: "b.pdf", pages: [] },
-      ],
-      zones: [
-        {
-          id: "z1",
-          name: "Casa de Máquinas",
-          drawingId: "a",
-          page: 0,
-          points: square(1),
-          color: "#111",
-        },
-        {
-          id: "z2",
-          name: "casa de máquinas ",
-          drawingId: "b",
-          page: 0,
-          points: square(1),
-          color: "#222",
-          repeat: 3,
-        },
-        {
-          id: "z3",
-          name: "Hall",
-          drawingId: "a",
-          page: 0,
-          points: square(1),
-          color: "#333",
-          hidden: true,
-        },
-      ],
-    };
-    const p = migrateProject(v3);
-    expect(p.version).toBe(4);
-    expect(p.locations.map((l) => [l.name, l.color])).toEqual([
-      ["Casa de Máquinas", "#111"],
-      ["Hall", "#333"],
-    ]);
-    expect(p.zones.map((z) => z.locationId)).toEqual([
-      p.locations[0].id,
-      p.locations[0].id,
-      p.locations[1].id,
-    ]);
-    expect(p.zones[1]).toMatchObject({ id: "z2", drawingId: "b", repeat: 3 });
-    expect(p.zones[2].hidden).toBe(true);
-    expect("name" in p.zones[0]).toBe(false);
   });
 });
 

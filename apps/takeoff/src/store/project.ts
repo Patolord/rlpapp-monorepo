@@ -1,0 +1,241 @@
+import { moveItemInBudget } from "../lib/budgetOrder";
+import { mergeCatalog } from "../lib/catalog";
+import { syncDuctItems } from "../lib/ductItems";
+import { useDoc } from "../lib/session";
+import {
+  activeDrawing,
+  type Drawing,
+  emptyProject,
+  newId,
+  type Project,
+  pruneLocations,
+} from "../lib/types";
+import type { PageScale } from "../lib/units";
+import { syncVrfItems } from "../lib/vrfItems";
+import { syncWeightItems } from "../lib/weights";
+import type { Slice } from "./shared";
+
+const HISTORY_LIMIT = 200;
+
+export type ProjectMeta = Partial<
+  Pick<
+    Project,
+    | "name"
+    | "unit"
+    | "currency"
+    | "client"
+    | "site"
+    | "proposalNumber"
+    | "estimator"
+    | "system"
+    | "bdi"
+    | "extrasPct"
+    | "sectionsBy"
+  >
+>;
+
+/** The takeoff file itself: the project model, its drawings, the undo history and dirty flag. */
+export interface ProjectSlice {
+  project: Project;
+  filePath: string | null;
+  dirty: boolean;
+  past: Project[];
+  future: Project[];
+
+  resetProject(project?: Project, filePath?: string | null): void;
+  /** Size the active drawing's page list to the opened document. */
+  ensurePages(n: number): void;
+  addDrawing(path: string | null, name: string): string;
+  updateDrawing(id: string, patch: Partial<Drawing>): void;
+  /** Reorders the plantas: puts `id` right before `beforeId`, or last when it is null. */
+  moveDrawing(id: string, beforeId: string | null): void;
+  removeDrawing(id: string): void;
+  setActiveDrawing(id: string | null): void;
+  setFilePath(path: string | null): void;
+  markSaved(): void;
+
+  /**
+   * Apply an edit to the project as one undo step. Derived items (duct networks, VRF systems,
+   * weight-priced lines) are brought up to date afterwards; returning the same object is a no-op.
+   */
+  commit(mutate: (p: Project) => Project): void;
+  undo(): void;
+  redo(): void;
+
+  setPageScale(scale: PageScale | null, which: "current" | "all"): void;
+  setProjectMeta(patch: ProjectMeta): void;
+  /** Nudge an item up (-1) or down (+1) inside its group in the budget. */
+  moveItemInBudget(id: string, dir: -1 | 1): void;
+}
+
+export const createProjectSlice: Slice<ProjectSlice> = (set, get) => ({
+  project: emptyProject(),
+  filePath: null,
+  dirty: false,
+  past: [],
+  future: [],
+
+  resetProject: (project = emptyProject(), filePath = null) =>
+    set({
+      // an opened takeoff takes the current prices per kg on its weight-priced lines
+      project: syncWeightItems(project, get().catalog.basePrices),
+      filePath,
+      dirty: false,
+      past: [],
+      future: [],
+      page: 0,
+      selection: [],
+      zoneFilter: null,
+      systemFilter: null,
+      similarPreview: null,
+      calibration: null,
+      pendingZone: null,
+      activeItemId: project.items[0]?.id ?? null,
+      tool: "select",
+    }),
+
+  ensurePages: (n) => {
+    const { project } = get();
+    const d = activeDrawing(project);
+    if (!d || d.pages.length === n) return;
+    const pages = Array.from({ length: n }, (_, i) => d.pages[i] ?? { scale: null });
+    set({
+      project: {
+        ...project,
+        drawings: project.drawings.map((x) => (x.id === d.id ? { ...x, pages } : x)),
+      },
+    });
+  },
+
+  addDrawing: (path, name) => {
+    const id = newId();
+    get().commit((p) => ({
+      ...p,
+      drawings: [...p.drawings, { id, path, name, pages: [] }],
+    }));
+    return id;
+  },
+
+  updateDrawing: (id, patch) =>
+    get().commit((p) => ({
+      ...p,
+      drawings: p.drawings.map((d) => (d.id === id ? { ...d, ...patch } : d)),
+    })),
+
+  moveDrawing: (id, beforeId) => {
+    if (id === beforeId) return;
+    get().commit((p) => {
+      const moving = p.drawings.find((d) => d.id === id);
+      if (!moving) return p;
+      const rest = p.drawings.filter((d) => d.id !== id);
+      const at = beforeId ? rest.findIndex((d) => d.id === beforeId) : -1;
+      if (beforeId && at < 0) return p;
+      const drawings =
+        at < 0 ? [...rest, moving] : [...rest.slice(0, at), moving, ...rest.slice(at)];
+      return drawings.every((d, i) => d === p.drawings[i]) ? p : { ...p, drawings };
+    });
+  },
+
+  removeDrawing: (id) => {
+    get().commit((p) => {
+      const drawings = p.drawings.filter((d) => d.id !== id);
+      return pruneLocations({
+        ...p,
+        drawings,
+        activeDrawingId: p.activeDrawingId === id ? (drawings[0]?.id ?? null) : p.activeDrawingId,
+        measurements: p.measurements.filter((m) => m.drawingId !== id),
+        zones: p.zones.filter((z) => z.drawingId !== id),
+      });
+    });
+    set({ selection: [], zoneFilter: null, page: 0 });
+  },
+
+  setActiveDrawing: (id) => {
+    const { project } = get();
+    if (project.activeDrawingId === id) return;
+    // view state, not an edit: no undo entry
+    set({
+      project: { ...project, activeDrawingId: id },
+      dirty: true,
+      page: 0,
+      selection: [],
+      zoneFilter: null,
+      systemFilter: null,
+      similarPreview: null,
+      calibration: null,
+      pendingZone: null,
+    });
+  },
+
+  setFilePath: (filePath) => set({ filePath }),
+  markSaved: () => set({ dirty: false }),
+
+  commit: (mutate) => {
+    const { project, past } = get();
+    const mutated = mutate(project);
+    if (mutated === project) return;
+    // derived prices follow their sources: duct items from the runs, weight lines from R$/kg
+    const next = syncWeightItems(
+      syncVrfItems(
+        syncDuctItems(mutated, () => mergeCatalog(get().catalog)),
+        () => get().vrfPricing(),
+        () => get().catalog.vrfBrands,
+      ),
+      get().catalog.basePrices,
+    );
+    set({
+      project: next,
+      past: [...past.slice(-(HISTORY_LIMIT - 1)), project],
+      future: [],
+      dirty: true,
+    });
+  },
+
+  undo: () => {
+    const { past, future, project } = get();
+    if (past.length === 0) return;
+    const prev = past[past.length - 1];
+    set({
+      project: prev,
+      past: past.slice(0, -1),
+      future: [project, ...future],
+      dirty: true,
+      selection: [],
+    });
+  },
+
+  redo: () => {
+    const { past, future, project } = get();
+    if (future.length === 0) return;
+    const next = future[0];
+    set({
+      project: next,
+      past: [...past, project],
+      future: future.slice(1),
+      dirty: true,
+      selection: [],
+    });
+  },
+
+  setPageScale: (scale, which) => {
+    const { page } = get();
+    const n = Math.max(useDoc.getState().numPages, page + 1);
+    get().commit((p) => {
+      const d = activeDrawing(p);
+      if (!d) return p;
+      const pages = Array.from(
+        { length: Math.max(n, d.pages.length) },
+        (_, i) => d.pages[i] ?? { scale: null },
+      ).map((pm, i) => (which === "all" || i === page ? { ...pm, scale } : pm));
+      return { ...p, drawings: p.drawings.map((x) => (x.id === d.id ? { ...x, pages } : x)) };
+    });
+  },
+
+  setProjectMeta: (patch) => get().commit((p) => ({ ...p, ...patch })),
+
+  moveItemInBudget: (id, dir) =>
+    get().commit((p) => {
+      const items = moveItemInBudget(p.items, id, dir);
+      return items.some((i, k) => i !== p.items[k]) ? { ...p, items } : p;
+    }),
+});

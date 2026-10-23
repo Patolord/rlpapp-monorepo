@@ -3,7 +3,7 @@ import { newProject } from "../lib/files";
 import { MOD } from "../lib/platform";
 import { DISCIPLINE_SUGGESTIONS, UNTITLED } from "../lib/types";
 import { useStore } from "../store";
-import { Button, Kbd } from "./ui";
+import { Backdrop, Button, Kbd } from "./ui";
 
 /** Starts a fresh project (an obra): name, client, site and the default discipline. */
 export function NewProjectDialog() {
@@ -51,11 +51,7 @@ export function NewProjectDialog() {
   );
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click closes the dialog
-    <div
-      className="absolute inset-0 z-40 flex items-center justify-center bg-black/40"
-      onClick={() => setOpen(false)}
-    >
+    <Backdrop onClose={() => setOpen(false)}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -106,6 +102,6 @@ export function NewProjectDialog() {
           </Button>
         </div>
       </form>
-    </div>
+    </Backdrop>
   );
 }

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { GROUP_SUGGESTIONS } from "../lib/types";
 import { BASE_MATERIALS, cloneWeights, SEED_WEIGHTS, type WeightRow } from "../lib/weights";
 import { useStore } from "../store";
-import { Button } from "./ui";
+import { Backdrop, Button } from "./ui";
 
 const EMPTY_ROW: WeightRow = {
   name: "",
@@ -37,11 +37,7 @@ export function WeightsDialog() {
     "h-7 rounded bg-neutral-800 px-1.5 text-xs ring-1 ring-neutral-700 focus:ring-orange-400 outline-none";
 
   return (
-    <div
-      className="absolute inset-0 z-40 flex items-center justify-center bg-black/40"
-      onClick={() => setWeightsEditorOpen(false)}
-      onKeyDown={(e) => e.stopPropagation()}
-    >
+    <Backdrop onClose={() => setWeightsEditorOpen(false)} onKeyDown={(e) => e.stopPropagation()}>
       <datalist id="weight-groups">
         {GROUP_SUGGESTIONS.map((g) => (
           <option key={g} value={g} />
@@ -155,6 +151,6 @@ export function WeightsDialog() {
           </Button>
         </div>
       </div>
-    </div>
+    </Backdrop>
   );
 }

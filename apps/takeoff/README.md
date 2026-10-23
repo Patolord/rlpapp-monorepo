@@ -59,7 +59,7 @@ and run `bun run tauri:build`.
 ```bash
 bun run check-types    # tsc
 bun run lint           # biome
-bun run test           # vitest (geometry, quantities, vector snapping)
+bun run test           # vitest: geometry, quantities, migrations, catalog, ducts, VRF, weights, pdf
 bun run inspect <pdf>  # page sizes, op counts, vector density of a PDF
 bun scripts/bench-vectors.ts <pdf>   # extraction + indexing timings
 ```
@@ -132,12 +132,21 @@ hair/medium borders, accounting formats, A4 landscape at 75 %).
 
 ```
 src/
-  components/   Viewer (canvas layers + tools), panels, dialogs
-  lib/pdf/      render.ts (page renderer), vectors*.ts (snap index + worker), magic.ts
-  lib/          geom, units, quantities (quote math), types (project model), files, session
-  store.ts      project state + undo history (zustand)
+  components/   Viewer (canvas layers + tools), side panels, dialogs, ui.tsx (Button, Backdrop…)
+  store/        zustand store in slices: project (model, drawings, undo), items (items,
+                measurements, locations), ducts, vrf, catalog, similar, view (tool, filters, dialogs)
+  lib/types.ts  project model and file-version migrations
+  lib/          geom, units, quantities (quote math), budgetOrder, overlay (canvas painting),
+                files (open/save/export), session (open PDFs), platform, text
+  lib/catalog*  material catalog: local store, company API, proposals
+  lib/ducts*    duct take-off: NBR 16401 bill, network items, reference workbook export
+  lib/vrf*      VRF take-off: brand tables, system items, workbook export
+  lib/kits.ts   kit presets · lib/weights.ts  weight-based prices · lib/symbols.ts  count marks
+  lib/pdf/      render.ts (page renderer), vectors*.ts (snap index + worker), magic.ts,
+                text.ts (positioned text), visual*.ts (image symbol search), similar.ts
   viewport.ts   zoom/pan state
-src-tauri/      Rust: file IO, autosave path, Excel export (rust_xlsxwriter)
+src-tauri/      Rust: file IO, autosave path, HTTP to the company app, Excel export (rust_xlsxwriter)
+scripts/        inspect-pdf, bench-vectors, release
 samples/        client drawings and budget sheets (confidential, git-ignored)
 ```
 

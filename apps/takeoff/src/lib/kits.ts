@@ -1,3 +1,4 @@
+import { foldName } from "./text";
 import type { Kind } from "./units";
 
 /** One material of a kit: measured once, quantified `factor` times the run. */
@@ -113,10 +114,7 @@ const TABLE: {
 ];
 
 const slug = (s: string) =>
-  s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+  foldName(s)
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 

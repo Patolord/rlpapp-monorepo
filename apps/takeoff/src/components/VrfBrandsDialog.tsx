@@ -12,7 +12,7 @@ import {
   type VrfRole,
 } from "../lib/vrf";
 import { useStore } from "../store";
-import { Button } from "./ui";
+import { Backdrop, Button } from "./ui";
 
 const input =
   "h-6 rounded bg-neutral-800 px-1 text-xs text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400";
@@ -87,11 +87,7 @@ export function VrfBrandsDialog() {
   const num = (v: string) => Math.max(0, Number(v.replace(",", ".")) || 0);
 
   return (
-    <div
-      className="absolute inset-0 z-40 flex items-center justify-center bg-black/40"
-      onClick={() => setVrfBrandsEditorOpen(false)}
-      onKeyDown={(e) => e.stopPropagation()}
-    >
+    <Backdrop onClose={() => setVrfBrandsEditorOpen(false)} onKeyDown={(e) => e.stopPropagation()}>
       <div
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
@@ -327,7 +323,7 @@ export function VrfBrandsDialog() {
           </div>
         </div>
       </div>
-    </div>
+    </Backdrop>
   );
 }
 

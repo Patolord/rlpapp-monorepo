@@ -7,6 +7,7 @@ import { PageRenderer } from "./pdf/render";
 import { extractText, type TextBox } from "./pdf/text";
 import { collectThenIndex, type VectorIndex } from "./pdf/vectors";
 import type { Gray } from "./pdf/visual";
+import { isTauri } from "./platform";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -310,7 +311,7 @@ export function closePdf(): void {
 
 /** Dev only: outside Tauri, `?pdf=<absolute path>` loads a drawing through Vite's /@fs/ endpoint. */
 export async function devAutoOpen(): Promise<void> {
-  if ("__TAURI_INTERNALS__" in window || !import.meta.env.DEV) return;
+  if (isTauri() || !import.meta.env.DEV) return;
   const p = new URLSearchParams(window.location.search).get("pdf");
   if (!p) return;
   const res = await fetch(`/@fs/${p.replace(/\\/g, "/")}`);
