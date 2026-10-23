@@ -46,6 +46,7 @@ import {
   type Zone,
 } from "./lib/types";
 import type { Kind, PageScale } from "./lib/units";
+import { syncWeightItems, type WeightRow } from "./lib/weights";
 
 export type Tool =
   | "select"
@@ -168,6 +169,7 @@ export interface State {
   activeKitId: string | null;
   kitPickerOpen: boolean;
   kitsEditorOpen: boolean;
+  weightsEditorOpen: boolean;
   /** Side panel (items, locais, orçamento): shown, and its width in CSS px (remembered). */
   sidebarOpen: boolean;
   sidebarWidth: number;
@@ -267,6 +269,11 @@ export interface State {
   setActiveKit(id: string | null): void;
   setKitPickerOpen(open: boolean): void;
   setKitsEditorOpen(open: boolean): void;
+  setWeightsEditorOpen(open: boolean): void;
+  /** Price per kg of a base material in this takeoff (undefined = back to the bundled default). */
+  setBasePrice(key: string, price: number | undefined): void;
+  /** Replace the weight table (materials priced by weight), saved with the catalog. */
+  saveWeights(rows: WeightRow[]): Promise<void>;
   setSidebarOpen(open: boolean): void;
   setSidebarWidth(px: number): void;
   saveKits(kits: Kit[]): Promise<void>;
@@ -301,9 +308,16 @@ export interface State {
 /** Link and dated price a line takes from the catalog entry it is created from. */
 const priceSnapshot = (
   entry: CatalogEntry | undefined,
-): Pick<Item, "catalogId" | "priceDate" | "priceSource"> => {
-  if (entry?.source !== "remote") return {};
+): Pick<Item, "catalogId" | "priceDate" | "priceSource" | "baseMaterial" | "kgPerUnit"> => {
+  if (!entry) return {};
+  // weight-priced entries: the price is derived on commit from the project's R$/kg
+  const byWeight =
+    entry.baseMaterial && entry.kgPerUnit
+      ? { baseMaterial: entry.baseMaterial, kgPerUnit: entry.kgPerUnit }
+      : {};
+  if (entry.source !== "remote") return byWeight;
   return {
+    ...byWeight,
     catalogId: entry.catalogId,
     priceSource: "catalog",
     priceDate: entry.materialPrice > 0 ? (entry.priceDate ?? Date.now()) : undefined,
@@ -377,6 +391,7 @@ export const useStore = create<State>((set, get) => ({
   activeKitId: readPref("activeKitId", null),
   kitPickerOpen: false,
   kitsEditorOpen: false,
+  weightsEditorOpen: false,
   sidebarOpen: readPref("sidebarOpen", true),
   sidebarWidth: readPref("sidebarWidth", 580),
   catalog: emptyCatalogStore(),
@@ -465,7 +480,8 @@ export const useStore = create<State>((set, get) => ({
     const { project, past } = get();
     const mutated = mutate(project);
     if (mutated === project) return;
-    const next = syncDuctItems(mutated, () => mergeCatalog(get().catalog));
+    // derived prices follow their sources: duct items from the runs, weight lines from R$/kg
+    const next = syncWeightItems(syncDuctItems(mutated, () => mergeCatalog(get().catalog)));
     set({
       project: next,
       past: [...past.slice(-(HISTORY_LIMIT - 1)), project],
@@ -507,6 +523,8 @@ export const useStore = create<State>((set, get) => ({
       const name = partial.name ?? nextName(p.items, partial.kind);
       const active = p.items.find((i) => i.id === get().activeItemId);
       const item: Item = {
+        // optional fields the caller knows (unit, catalog link, dated price, weight) come along
+        ...partial,
         id,
         name,
         symbol: partial.symbol ?? (partial.kind === "count" ? guessSymbol(name) : undefined),
@@ -862,6 +880,25 @@ export const useStore = create<State>((set, get) => ({
   },
   setKitPickerOpen: (kitPickerOpen) => set({ kitPickerOpen }),
   setKitsEditorOpen: (kitsEditorOpen) => set({ kitsEditorOpen }),
+  setWeightsEditorOpen: (weightsEditorOpen) => set({ weightsEditorOpen }),
+  setBasePrice: (key, price) =>
+    get().commit((p) => {
+      const basePrices = { ...p.basePrices };
+      if (price === undefined || Number.isNaN(price)) delete basePrices[key];
+      else basePrices[key] = price;
+      return { ...p, basePrices };
+    }),
+  saveWeights: async (rows) => {
+    const catalog = { ...get().catalog, weights: rows };
+    set({ catalog, status: `${rows.length} materiais por peso salvos` });
+    try {
+      await saveCatalogStore(catalog);
+    } catch (e) {
+      set({
+        status: `Não foi possível gravar a tabela de pesos: ${e instanceof Error ? e.message : String(e)}`,
+      });
+    }
+  },
   setSidebarOpen: (sidebarOpen) => {
     writePref("sidebarOpen", sidebarOpen);
     set({ sidebarOpen });

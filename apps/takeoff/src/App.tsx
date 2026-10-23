@@ -22,6 +22,7 @@ import { StatusBar } from "./components/StatusBar";
 import { ToolRail } from "./components/ToolRail";
 import { TopBar } from "./components/TopBar";
 import { Viewer } from "./components/Viewer";
+import { WeightsDialog } from "./components/WeightsDialog";
 import { Welcome } from "./components/Welcome";
 import { ZoneDialog } from "./components/ZoneDialog";
 import { ZonesPanel } from "./components/ZonesPanel";
@@ -172,6 +173,7 @@ export default function App() {
       <AboutDialog />
       <NewProjectDialog />
       <KitsDialog />
+      <WeightsDialog />
       <DuctDialog />
     </div>
   );

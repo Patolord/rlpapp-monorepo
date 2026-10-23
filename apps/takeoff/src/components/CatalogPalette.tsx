@@ -16,7 +16,8 @@ import { Button, Kbd } from "./ui";
 export function CatalogPalette() {
   const open = useStore((s) => s.paletteOpen);
   const catalog = useStore((s) => s.catalog);
-  const currency = useStore((s) => s.project.currency);
+  const project = useStore((s) => s.project);
+  const currency = project.currency;
   const { setPaletteOpen, addItemFromCatalog, setCatalogUrl, setCatalogToken, refreshCatalog } =
     useStore.getState();
   const [query, setQuery] = useState("");
@@ -25,7 +26,8 @@ export function CatalogPalette() {
   const [token, setToken] = useState(catalog.remoteToken);
   const [busy, setBusy] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
-  const entries = useMemo(() => mergeCatalog(catalog), [catalog]);
+  // weight-priced entries (copper tubes) show the price this project's R$/kg gives them
+  const entries = useMemo(() => mergeCatalog(catalog, project), [catalog, project]);
   const results = useMemo(() => searchCatalog(entries, query), [entries, query]);
   // what every result starts with is noise; the tail ("dim. 750x630mm") is what tells them apart
   const shared = useMemo(() => commonWordPrefix(results.map((r) => r.name)), [results]);

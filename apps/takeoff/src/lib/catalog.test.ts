@@ -68,8 +68,14 @@ describe("catalog", () => {
     expect(remote[0].materialPrice).toBe(1250.5);
     expect(remote[1].laborPrice).toBe(20);
     const entries = mergeCatalog({ ...emptyCatalogStore(), remote });
-    expect(entries).toHaveLength(2);
-    expect(entries.every((e) => e.source === "remote")).toBe(true);
+    const fromCompany = entries.filter((e) => e.source === "remote");
+    expect(fromCompany).toHaveLength(2);
+    // the bundled seed steps aside; the weight table (copper tubes) stays available after it
+    expect(entries.slice(0, 2)).toEqual(fromCompany);
+    expect(entries.slice(2).every((e) => e.source === "seed" && e.kgPerUnit)).toBe(true);
+    expect(mergeCatalog(emptyCatalogStore()).some((e) => e.source === "seed" && !e.kgPerUnit)).toBe(
+      true,
+    );
     expect(() => parseRemoteCatalog({ nope: 1 })).toThrow();
   });
 

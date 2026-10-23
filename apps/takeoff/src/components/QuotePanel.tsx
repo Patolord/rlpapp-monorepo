@@ -4,13 +4,15 @@ import { exportXlsx } from "../lib/files";
 import { mod } from "../lib/platform";
 import { buildQuote, quoteCsv, round2, systemSheets } from "../lib/quantities";
 import { formatMoney, formatNumber, type Unit } from "../lib/units";
+import { BASE_MATERIALS, isWeightPriced } from "../lib/weights";
 import { type ProjectMeta, useStore } from "../store";
 import { Button } from "./ui";
 
 /** Mirrors the workbook: one block per discipline (tab), locations or groups as inline headers. */
 export function QuotePanel() {
   const project = useStore((s) => s.project);
-  const { updateItem, setProjectMeta, setStatus } = useStore.getState();
+  const { updateItem, setProjectMeta, setStatus, setBasePrice, setWeightsEditorOpen } =
+    useStore.getState();
   const quote = useMemo(() => buildQuote(project), [project]);
   const sheets = useMemo(() => systemSheets(project), [project]);
   const money = (v: number) => formatMoney(v, project.currency);
@@ -81,6 +83,41 @@ export function QuotePanel() {
           </label>
         </div>
       </div>
+      <div
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-neutral-800 px-2 py-1.5 text-neutral-400"
+        title="Preço por kg dos insumos. Linhas por peso (tubos de cobre, chapa dos dutos) recalculam na hora e ficam datadas de hoje."
+      >
+        <span className="font-medium text-neutral-300">Insumos R$/kg</span>
+        {BASE_MATERIALS.map((m) => (
+          <label key={m.key} className="flex items-center gap-1 whitespace-nowrap">
+            {m.label}
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={project.basePrices?.[m.key] ?? ""}
+              placeholder={m.defaultPrice !== undefined ? String(m.defaultPrice) : "por linha"}
+              onChange={(e) =>
+                setBasePrice(m.key, e.target.value === "" ? undefined : Number(e.target.value))
+              }
+              className="num-input w-16"
+              title={
+                m.defaultPrice !== undefined
+                  ? `Vazio = padrão do fornecedor (${m.defaultPrice})`
+                  : "Vazio = cada linha de chapa dos dutos mantém o próprio preço"
+              }
+            />
+          </label>
+        ))}
+        <button
+          type="button"
+          onClick={() => setWeightsEditorOpen(true)}
+          className="ml-auto text-neutral-400 underline-offset-2 hover:text-neutral-200 hover:underline"
+          title="Materiais cujo preço vem do peso (tubos de cobre…): nomes, kg por unidade e insumo"
+        >
+          tabela de pesos…
+        </button>
+      </div>
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         <table className="w-full table-fixed border-collapse">
           <thead className="sticky top-0 bg-neutral-900 text-[11px] uppercase tracking-wide text-neutral-500">
@@ -148,8 +185,13 @@ export function QuotePanel() {
                                   materialPrice: Number(e.target.value) || 0,
                                 })
                               }
-                              className="num-input w-[4rem]"
-                              title="Preço unitário de material"
+                              disabled={isWeightPriced(r.item)}
+                              className="num-input w-[4rem] disabled:opacity-70"
+                              title={
+                                isWeightPriced(r.item)
+                                  ? "Preço derivado do peso: ajuste em Insumos R$/kg"
+                                  : "Preço unitário de material"
+                              }
                             />
                           </td>
                           <td className="px-1.5 py-1 text-right">

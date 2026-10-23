@@ -35,7 +35,13 @@ export interface Item {
    */
   priceDate?: number;
   /** Where the material price came from; undefined for lines older than this field. */
-  priceSource?: "catalog" | "manual";
+  priceSource?: "catalog" | "manual" | "weight";
+  /**
+   * Priced by weight: key of the base material (see lib/weights) and kg per budget unit.
+   * The material price is then derived from the project's price per kg and kept in sync.
+   */
+  baseMaterial?: string;
+  kgPerUnit?: number;
   /**
    * Item kept by the app: "duct" is a duct network ("Rede de dutos"), 1 cj whose material and
    * labour are recomputed from the duct runs drawn on it.
@@ -114,6 +120,8 @@ export interface Project {
   duct?: DuctSettings;
   /** Unit prices of duct materials edited in this takeoff, by bill row name. */
   ductPrices?: Record<string, number>;
+  /** Price per kg of the base materials (cobre, chapa…) lines priced by weight derive from. */
+  basePrices?: Record<string, number>;
 }
 
 export const ZONE_COLORS = ["#38bdf8", "#fb923c", "#a78bfa", "#4ade80", "#f472b6", "#fde047"];
