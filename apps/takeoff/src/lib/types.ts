@@ -120,8 +120,6 @@ export interface Project {
   duct?: DuctSettings;
   /** Unit prices of duct materials edited in this takeoff, by bill row name. */
   ductPrices?: Record<string, number>;
-  /** Price per kg of the base materials (cobre, chapa…) lines priced by weight derive from. */
-  basePrices?: Record<string, number>;
 }
 
 export const ZONE_COLORS = ["#38bdf8", "#fb923c", "#a78bfa", "#4ade80", "#f472b6", "#fde047"];

@@ -9,6 +9,7 @@ import {
   searchCatalog,
 } from "../lib/catalog";
 import { formatMoney } from "../lib/units";
+import { BASE_MATERIALS } from "../lib/weights";
 import { useStore } from "../store";
 import { Button, Kbd } from "./ui";
 
@@ -16,18 +17,23 @@ import { Button, Kbd } from "./ui";
 export function CatalogPalette() {
   const open = useStore((s) => s.paletteOpen);
   const catalog = useStore((s) => s.catalog);
-  const project = useStore((s) => s.project);
-  const currency = project.currency;
-  const { setPaletteOpen, addItemFromCatalog, setCatalogUrl, setCatalogToken, refreshCatalog } =
-    useStore.getState();
+  const currency = useStore((s) => s.project.currency);
+  const {
+    setPaletteOpen,
+    addItemFromCatalog,
+    setCatalogUrl,
+    setCatalogToken,
+    refreshCatalog,
+    setBasePrice,
+    setWeightsEditorOpen,
+  } = useStore.getState();
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
   const [url, setUrl] = useState(catalog.remoteUrl);
   const [token, setToken] = useState(catalog.remoteToken);
   const [busy, setBusy] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
-  // weight-priced entries (copper tubes) show the price this project's R$/kg gives them
-  const entries = useMemo(() => mergeCatalog(catalog, project), [catalog, project]);
+  const entries = useMemo(() => mergeCatalog(catalog), [catalog]);
   const results = useMemo(() => searchCatalog(entries, query), [entries, query]);
   // what every result starts with is noise; the tail ("dim. 750x630mm") is what tells them apart
   const shared = useMemo(() => commonWordPrefix(results.map((r) => r.name)), [results]);
@@ -192,6 +198,44 @@ export function CatalogPalette() {
             <Button onClick={() => void refresh()}>
               <RefreshCw size={14} /> Atualizar
             </Button>
+          </div>
+          <div
+            className="flex flex-wrap items-center gap-x-3 gap-y-1"
+            title="Preço por kg dos insumos, para o app todo. Tubos de cobre e a chapa dos dutos derivam o preço daqui e seguem qualquer mudança."
+          >
+            <span className="shrink-0">Insumos R$/kg</span>
+            {BASE_MATERIALS.map((m) => (
+              <label key={m.key} className="flex items-center gap-1 whitespace-nowrap">
+                {m.label}
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={catalog.basePrices[m.key] ?? ""}
+                  placeholder={m.defaultPrice !== undefined ? String(m.defaultPrice) : "—"}
+                  onChange={(e) =>
+                    setBasePrice(m.key, e.target.value === "" ? undefined : Number(e.target.value))
+                  }
+                  className="h-7 w-16 rounded bg-neutral-800 px-1.5 text-right font-mono text-[12px] text-neutral-200 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
+                  title={
+                    m.defaultPrice !== undefined
+                      ? `Vazio = padrão do fornecedor (${m.defaultPrice})`
+                      : "Vazio = cada linha de chapa dos dutos mantém o próprio preço"
+                  }
+                />
+              </label>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setPaletteOpen(false);
+                setWeightsEditorOpen(true);
+              }}
+              className="ml-auto underline-offset-2 hover:text-neutral-200 hover:underline"
+              title="Materiais cujo preço vem do peso (tubos de cobre…): nomes, kg por unidade e insumo"
+            >
+              tabela de pesos…
+            </button>
           </div>
           <div className="flex items-center gap-2 text-neutral-500">
             <span className="min-w-0 flex-1 truncate">{busy ?? fetchedLabel}</span>

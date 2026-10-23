@@ -2,9 +2,15 @@ import { invoke } from "@tauri-apps/api/core";
 import seed from "../data/catalog.seed.json";
 import { catalogUrl, describeHttpFailure, httpRequest, type QueuedProposal } from "./catalogRemote";
 import { type Kit, SEED_KITS } from "./kits";
-import type { Project } from "./types";
 import type { Kind } from "./units";
-import { cloneWeights, SEED_WEIGHTS, type WeightRow, weightCatalogEntries } from "./weights";
+import {
+  type BasePrices,
+  cloneWeights,
+  SEED_WEIGHTS,
+  sheetCatalogEntries,
+  type WeightRow,
+  weightCatalogEntries,
+} from "./weights";
 
 export { catalogUrl, DEFAULT_CATALOG_URL } from "./catalogRemote";
 
@@ -53,6 +59,8 @@ export interface CatalogStore {
   kits: Kit[];
   /** Materials priced by weight (copper tubes…): editable table, seeded with the supplier's. */
   weights: WeightRow[];
+  /** Price per kg of the base materials (cobre, chapa…); empty = the bundled defaults. */
+  basePrices: BasePrices;
 }
 
 export const SEED: CatalogEntry[] = (seed as CatalogEntry[]).map((e) => ({ ...e, source: "seed" }));
@@ -68,6 +76,7 @@ export const emptyCatalogStore = (): CatalogStore => ({
   outbox: [],
   kits: SEED_KITS.map((k) => ({ ...k, components: k.components.map((c) => ({ ...c })) })),
   weights: cloneWeights(SEED_WEIGHTS),
+  basePrices: {},
 });
 
 export function kindForUnit(unit: string): Kind {
@@ -102,10 +111,11 @@ export function normalizeDiscipline(system: string | undefined): string | undefi
 export const foldName = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /**
- * Saved entries first, then the remote catalog, then the weight table (priced for the project
- * when given), then the seed; later sources never duplicate earlier names.
+ * Saved entries first, then the remote catalog, then the weight table and the sheet-metal rows
+ * (priced from the catalog's prices per kg), then the seed; later sources never duplicate
+ * earlier names.
  */
-export function mergeCatalog(store: CatalogStore, project?: Project): CatalogEntry[] {
+export function mergeCatalog(store: CatalogStore): CatalogEntry[] {
   const out: CatalogEntry[] = [];
   const seen = new Set<string>();
   const add = (list: CatalogEntry[], source: CatalogEntry["source"]) => {
@@ -118,7 +128,8 @@ export function mergeCatalog(store: CatalogStore, project?: Project): CatalogEnt
   };
   add(store.saved, "saved");
   add(store.remote, "remote");
-  add(weightCatalogEntries(store.weights ?? [], project), "seed");
+  add(weightCatalogEntries(store.weights ?? [], store.basePrices), "seed");
+  add(sheetCatalogEntries(store.basePrices), "seed");
   // once the company catalog is in use, the bundled seed is only a fallback
   if (store.remote.length === 0) add(SEED, "seed");
   return out;

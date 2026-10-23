@@ -73,10 +73,7 @@ export function ductRunsByNetwork(project: Project): Map<string, DuctRun[]> {
   return out;
 }
 
-/**
- * Unit price of a bill material: set in the takeoff for that row, else the project's price per
- * kg of sheet metal (every "Chapa galvanizada" row), else the catalog, else the workbook default.
- */
+/** Unit price of a bill material: set in the takeoff, else the catalog, else the workbook default. */
 export function ductPrice(
   project: Project,
   catalog: readonly CatalogEntry[],
@@ -84,10 +81,6 @@ export function ductPrice(
 ): number {
   const own = project.ductPrices?.[row.name];
   if (own !== undefined) return own;
-  const sheet = project.basePrices?.chapa;
-  if (sheet !== undefined && row.unit === "kg" && /^chapa galvanizada/i.test(row.name)) {
-    return sheet;
-  }
   const cat = catalog.find((e) => foldName(e.name) === foldName(row.name));
   return cat?.materialPrice ?? row.material;
 }

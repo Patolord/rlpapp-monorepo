@@ -25,7 +25,7 @@ import {
 } from "../lib/quantities";
 import { DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS, type Item } from "../lib/types";
 import { formatMoney, formatQty, type Kind } from "../lib/units";
-import { BASE_MATERIALS, describeWeightPrice, isWeightPriced } from "../lib/weights";
+import { describeWeightPrice, isWeightPriced } from "../lib/weights";
 import { useStore } from "../store";
 import { ItemStylePopover } from "./ItemStylePopover";
 import { SymbolIcon } from "./SymbolIcon";
@@ -49,6 +49,7 @@ export function ItemsPanel() {
   const savedNames = useMemo(() => new Set(savedEntries.map((e) => fold(e.name))), [savedEntries]);
   const remoteEntries = useStore((s) => s.catalog.remote);
   const outbox = useStore((s) => s.catalog.outbox);
+  const basePrices = useStore((s) => s.catalog.basePrices);
   const draftIds = useMemo(
     () => new Set(remoteEntries.filter((e) => e.status === "draft").map((e) => e.catalogId)),
     [remoteEntries],
@@ -282,7 +283,7 @@ export function ItemsPanel() {
               saved={savedNames.has(fold(item.name))}
               onSave={() => void saveItemToCatalog(item.id)}
               link={linkOf(item)}
-              weightInfo={describeWeightPrice(item, project, (v) =>
+              weightInfo={describeWeightPrice(item, basePrices, (v) =>
                 formatMoney(v, project.currency),
               )}
               onPropose={() => void proposeItemToCompany(item.id)}
@@ -634,47 +635,6 @@ function ItemRow({
               />
               %
             </label>
-            {!item.derived && (
-              <label
-                className="flex items-center gap-1 whitespace-nowrap"
-                title="Preço por peso: kg por unidade × preço do insumo (Orçamento › Insumos)"
-              >
-                Peso
-                <select
-                  value={item.baseMaterial ?? ""}
-                  onClick={stop}
-                  onChange={(e) =>
-                    onChange({
-                      baseMaterial: e.target.value || undefined,
-                      kgPerUnit: e.target.value ? item.kgPerUnit : undefined,
-                    })
-                  }
-                  className="num-input w-[5.4rem]"
-                >
-                  <option value="">—</option>
-                  {BASE_MATERIALS.map((m) => (
-                    <option key={m.key} value={m.key}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-                {item.baseMaterial && (
-                  <>
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.001"
-                      value={item.kgPerUnit ?? 0}
-                      onClick={stop}
-                      onChange={(e) => onChange({ kgPerUnit: Number(e.target.value) || 0 })}
-                      className="num-input w-[3.6rem]"
-                      title="kg por unidade de orçamento (kg/m, kg/pç)"
-                    />
-                    kg
-                  </>
-                )}
-              </label>
-            )}
             {item.kind === "linear" && !item.derived && (
               <label
                 className="flex items-center gap-1 whitespace-nowrap"

@@ -270,7 +270,7 @@ export interface State {
   setKitPickerOpen(open: boolean): void;
   setKitsEditorOpen(open: boolean): void;
   setWeightsEditorOpen(open: boolean): void;
-  /** Price per kg of a base material in this takeoff (undefined = back to the bundled default). */
+  /** Price per kg of a base material, app-wide (undefined = back to the bundled default). */
   setBasePrice(key: string, price: number | undefined): void;
   /** Replace the weight table (materials priced by weight), saved with the catalog. */
   saveWeights(rows: WeightRow[]): Promise<void>;
@@ -398,7 +398,8 @@ export const useStore = create<State>((set, get) => ({
 
   resetProject: (project = emptyProject(), filePath = null) =>
     set({
-      project,
+      // an opened takeoff takes the current prices per kg on its weight-priced lines
+      project: syncWeightItems(project, get().catalog.basePrices),
       filePath,
       dirty: false,
       past: [],
@@ -481,7 +482,10 @@ export const useStore = create<State>((set, get) => ({
     const mutated = mutate(project);
     if (mutated === project) return;
     // derived prices follow their sources: duct items from the runs, weight lines from R$/kg
-    const next = syncWeightItems(syncDuctItems(mutated, () => mergeCatalog(get().catalog)));
+    const next = syncWeightItems(
+      syncDuctItems(mutated, () => mergeCatalog(get().catalog)),
+      get().catalog.basePrices,
+    );
     set({
       project: next,
       past: [...past.slice(-(HISTORY_LIMIT - 1)), project],
@@ -881,13 +885,18 @@ export const useStore = create<State>((set, get) => ({
   setKitPickerOpen: (kitPickerOpen) => set({ kitPickerOpen }),
   setKitsEditorOpen: (kitsEditorOpen) => set({ kitsEditorOpen }),
   setWeightsEditorOpen: (weightsEditorOpen) => set({ weightsEditorOpen }),
-  setBasePrice: (key, price) =>
-    get().commit((p) => {
-      const basePrices = { ...p.basePrices };
-      if (price === undefined || Number.isNaN(price)) delete basePrices[key];
-      else basePrices[key] = price;
-      return { ...p, basePrices };
-    }),
+  setBasePrice: (key, price) => {
+    const { catalog, project } = get();
+    const basePrices = { ...catalog.basePrices };
+    if (price === undefined || Number.isNaN(price)) delete basePrices[key];
+    else basePrices[key] = price;
+    const next = { ...catalog, basePrices };
+    // every weight-priced line of the open takeoff follows the new price per kg (no undo step:
+    // the setting itself is not part of the project)
+    const synced = syncWeightItems(project, basePrices);
+    set({ catalog: next, ...(synced !== project ? { project: synced, dirty: true } : {}) });
+    void saveCatalogStore(next);
+  },
   saveWeights: async (rows) => {
     const catalog = { ...get().catalog, weights: rows };
     set({ catalog, status: `${rows.length} materiais por peso salvos` });
@@ -1210,7 +1219,10 @@ export const useStore = create<State>((set, get) => ({
   },
 
   loadCatalog: async () => {
-    set({ catalog: await loadCatalogStore() });
+    const catalog = await loadCatalogStore();
+    const { project } = get();
+    const synced = syncWeightItems(project, catalog.basePrices);
+    set({ catalog, ...(synced !== project ? { project: synced, dirty: true } : {}) });
   },
 
   setCatalogUrl: (remoteUrl) => {
