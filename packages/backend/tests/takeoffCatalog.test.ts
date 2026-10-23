@@ -16,6 +16,7 @@ type SeededPrice = {
   occurredAt: number;
   reviewStatus?: "unreviewed" | "reviewed" | "ignored" | "duplicate";
   validUntil?: number;
+  needsReview?: boolean;
 };
 
 async function seedCatalog() {
@@ -128,6 +129,24 @@ describe("price selection", () => {
     expect(pickCurrentPriceEvent([ignored, duplicate], NOW)).toBeNull();
   });
 
+  test("an estimate awaiting review never displaces a reviewed quote", () => {
+    const reviewedExpired = event(NOW - 60 * DAY, {
+      unitPriceCents: 300,
+      validUntil: NOW - 30 * DAY,
+      reviewStatus: "reviewed",
+    });
+    const estimateValid = event(NOW - DAY, {
+      unitPriceCents: 999,
+      reviewStatus: "unreviewed",
+      needsReview: true,
+    });
+    expect(pickCurrentPriceEvent([estimateValid, reviewedExpired], NOW)).toBe(
+      reviewedExpired
+    );
+    // Alone, the estimate is the best information there is.
+    expect(pickCurrentPriceEvent([estimateValid], NOW)).toBe(estimateValid);
+  });
+
   test("centsToReais keeps two decimals", () => {
     expect(centsToReais(12345)).toBe(123.45);
     expect(centsToReais(0)).toBe(0);
@@ -164,6 +183,8 @@ describe("takeoffCatalog.list", () => {
       priceValidUntil: NOW + 25 * DAY,
       laborPrice: 0,
       system: null,
+      status: "active",
+      mergedInto: null,
     });
     // The provenance points at the event that produced the price.
     const winning = await t.run(async (ctx) =>
@@ -184,6 +205,8 @@ describe("takeoffCatalog.list", () => {
       priceEventId: null,
       laborPrice: 0,
       system: null,
+      status: "active",
+      mergedInto: null,
     });
   });
 });
@@ -251,11 +274,13 @@ describe("GET /takeoff/catalog", () => {
       "id",
       "laborPrice",
       "materialPrice",
+      "mergedInto",
       "name",
       "priceDate",
       "priceEventId",
       "priceValidUntil",
       "sku",
+      "status",
       "system",
       "unit",
     ]);

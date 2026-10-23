@@ -761,6 +761,9 @@ export default defineSchema({
     imageId: v.optional(v.id("_storage")),
     active: v.boolean(),
     status: v.optional(materialStatus),
+    // Set when this material was merged into another (status "archived");
+    // lets external consumers (RLP Takeoff) follow the redirect.
+    mergedIntoId: v.optional(v.id("materials")),
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
   })
@@ -915,6 +918,22 @@ export default defineSchema({
     .index("by_occurred_at", ["occurredAt"])
     .index("by_needs_review", ["needsReview"])
     .index("by_review_status", ["reviewStatus"]),
+
+  // Proposals sent by the RLP Takeoff desktop app (POST /takeoff/materials).
+  // One row per clientId so the app can retry the call safely.
+  takeoffMaterialProposals: defineTable({
+    clientId: v.string(),
+    materialId: v.id("materials"),
+    priceEventId: v.optional(v.id("priceEvents")),
+    outcome: v.union(v.literal("created"), v.literal("matched")),
+    requestedName: v.optional(v.string()),
+    requestedUnit: v.optional(v.string()),
+    requestedBy: v.optional(v.string()),
+    takeoffName: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_client_id", ["clientId"])
+    .index("by_material", ["materialId"]),
 
   materialAliases: defineTable({
     alias: v.string(),

@@ -487,6 +487,7 @@ export async function executeMaterialMerge(
   await ctx.db.patch("materials", sourceId, {
     active: false,
     status: "archived",
+    mergedIntoId: targetId,
     identityKey: `merged:${sourceId}`,
     sku: undefined,
     barcode: undefined,

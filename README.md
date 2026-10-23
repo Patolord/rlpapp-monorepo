@@ -67,7 +67,7 @@ Guia oficial: [Convex + Clerk](https://docs.convex.dev/auth/clerk)
    - `CLERK_JWT_ISSUER_DOMAIN` — domínio do issuer do Clerk
    - `CLERK_WEBHOOK_SECRET` — secret do webhook (Clerk Dashboard > Webhooks, endpoint `https://<deployment>.convex.site/clerk-users-webhook`, eventos `user.created`, `user.updated`, `user.deleted`)
    - `MATERIAL_LOOKUP_TOKEN` — opcional; habilita `GET https://<deployment>.convex.site/materials/lookup?q=<texto>` (header `Authorization: Bearer <token>`) para agentes externos consultarem a descrição canônica de um material. Sem ele o endpoint responde 503. Gere com `npx convex env set MATERIAL_LOOKUP_TOKEN "$(openssl rand -hex 24)"`
-   - `TAKEOFF_CATALOG_TOKEN` — opcional; habilita `GET https://<deployment>.convex.site/takeoff/catalog` (header `Authorization: Bearer <token>`), o catálogo completo de materiais ativos com preço vigente que o app desktop **RLP Takeoff** consome. Sem ele o endpoint responde 503. Gere com `npx convex env set TAKEOFF_CATALOG_TOKEN "$(openssl rand -hex 24)"`
+   - `TAKEOFF_CATALOG_TOKEN` — opcional; habilita `GET https://<deployment>.convex.site/takeoff/catalog` (header `Authorization: Bearer <token>`), o catálogo completo de materiais ativos com preço vigente que o app desktop **RLP Takeoff** consome. Sem ele o endpoint responde 503. Gere com `npx convex env set TAKEOFF_CATALOG_TOKEN "$(openssl rand -hex 24)"`. O mesmo token protege `POST /takeoff/materials`, por onde o app propõe um material novo (nasce como rascunho para compras ativar) ou uma estimativa de preço (entra na fila de revisão de preços).
 
 ### 4.1 Ponto (RHID) — opcional
 
