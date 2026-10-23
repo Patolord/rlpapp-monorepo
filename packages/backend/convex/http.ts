@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { env, httpAction } from "./_generated/server";
 import { MAX_LOOKUP_QUERY_LENGTH } from "./lib/compras/materialLookup";
+import type { TakeoffCatalogItem } from "./model/procurement/takeoffCatalog";
 import {
   PHOTO_FETCH_TIMEOUT_MS,
   isAllowedPhotoUrl,
@@ -143,6 +144,36 @@ const handleMaterialLookup = httpAction(async (ctx, request) => {
     })
   );
   return json(result);
+});
+
+// ---------------------------------------------------------------------------
+// Catálogo para o RLP Takeoff (app desktop)
+// ---------------------------------------------------------------------------
+//
+// Exporta todo o catálogo ativo com o preço vigente de cada material. O app
+// desktop lê isto ao abrir e cai no seed embutido quando o endpoint falha, por
+// isso a resposta é um JSON único e não paginado.
+
+const handleTakeoffCatalog = httpAction(async (ctx, request) => {
+  const token = env.TAKEOFF_CATALOG_TOKEN;
+  if (!token) return json({ error: "Takeoff catalog is not configured" }, 503);
+  if (request.headers.get("Authorization") !== `Bearer ${token}`) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
+  const startedAt = Date.now();
+  const items: TakeoffCatalogItem[] = await ctx.runQuery(
+    internal.takeoffCatalog.list,
+    { now: startedAt }
+  );
+  console.log(
+    JSON.stringify({
+      event: "takeoff_catalog",
+      items: items.length,
+      ms: Date.now() - startedAt,
+    })
+  );
+  return json({ generatedAt: startedAt, items });
 });
 
 // ---------------------------------------------------------------------------
@@ -326,6 +357,12 @@ http.route({
   path: "/materials/lookup",
   method: "GET",
   handler: handleMaterialLookup,
+});
+
+http.route({
+  path: "/takeoff/catalog",
+  method: "GET",
+  handler: handleTakeoffCatalog,
 });
 
 export default http;

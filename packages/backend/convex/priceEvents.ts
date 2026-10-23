@@ -6,6 +6,7 @@ import {
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
 import { priceEventReviewStatus, priceEventSource } from "./schema";
+import { isUsablePriceEvent } from "./model/procurement/priceSelection";
 import {
   computeNeedsReview,
   normalizeText,
@@ -194,9 +195,7 @@ export const latestForMaterial = engineeringOrPurchasingQuery({
       );
     }
 
-    events = events.filter(
-      (e) => e.reviewStatus !== "ignored" && e.reviewStatus !== "duplicate"
-    );
+    events = events.filter(isUsablePriceEvent);
 
     const bySupplier = new Map<string, (typeof events)[number]>();
     for (const event of events) {
