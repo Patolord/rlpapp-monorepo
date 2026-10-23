@@ -35,7 +35,13 @@ export interface Item {
    */
   priceDate?: number;
   /** Where the material price came from; undefined for lines older than this field. */
-  priceSource?: "catalog" | "manual";
+  priceSource?: "catalog" | "manual" | "weight";
+  /**
+   * Priced by weight: key of the base material (see lib/weights) and kg per budget unit.
+   * The material price is then derived from the project's price per kg and kept in sync.
+   */
+  baseMaterial?: string;
+  kgPerUnit?: number;
   /**
    * Item kept by the app: "duct" is a duct network ("Rede de dutos"), 1 cj whose material and
    * labour are recomputed from the duct runs drawn on it.

@@ -5,6 +5,7 @@ import {
   Library,
   Pentagon,
   Plus,
+  RotateCcw,
   Search,
   Send,
   Spline,
@@ -25,6 +26,7 @@ import {
 } from "../lib/quantities";
 import { DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS, type Item } from "../lib/types";
 import { formatMoney, formatQty, type Kind } from "../lib/units";
+import { describeWeightPrice } from "../lib/weights";
 import { useStore } from "../store";
 import { ItemStylePopover } from "./ItemStylePopover";
 import { SymbolIcon } from "./SymbolIcon";
@@ -48,6 +50,7 @@ export function ItemsPanel() {
   const savedNames = useMemo(() => new Set(savedEntries.map((e) => fold(e.name))), [savedEntries]);
   const remoteEntries = useStore((s) => s.catalog.remote);
   const outbox = useStore((s) => s.catalog.outbox);
+  const basePrices = useStore((s) => s.catalog.basePrices);
   const draftIds = useMemo(
     () => new Set(remoteEntries.filter((e) => e.status === "draft").map((e) => e.catalogId)),
     [remoteEntries],
@@ -281,6 +284,9 @@ export function ItemsPanel() {
               saved={savedNames.has(fold(item.name))}
               onSave={() => void saveItemToCatalog(item.id)}
               link={linkOf(item)}
+              weightInfo={describeWeightPrice(item, basePrices, (v) =>
+                formatMoney(v, project.currency),
+              )}
               onPropose={() => void proposeItemToCompany(item.id)}
             />
           );
@@ -349,6 +355,8 @@ interface RowProps {
   saved: boolean;
   /** Relation with the company catalog (see CompanyLink). */
   link: CompanyLink;
+  /** How a weight-derived price was reached, or null for a plain line. */
+  weightInfo: string | null;
   onActivate: () => void;
   onChange: (patch: Partial<Item>) => void;
   onRemove: () => void;
@@ -380,6 +388,7 @@ function ItemRow({
   total,
   saved,
   link,
+  weightInfo,
   onActivate,
   onChange,
   onRemove,
@@ -587,15 +596,35 @@ function ItemRow({
                 value={item.materialPrice}
                 onClick={stop}
                 onChange={(e) => onChange({ materialPrice: Number(e.target.value) || 0 })}
-                className="num-input w-[3.9rem]"
+                className={clsx(
+                  "num-input w-[3.9rem]",
+                  weightInfo && item.priceSource === "manual" && "ring-1 ring-amber-400/70",
+                )}
                 title={
-                  item.priceDate
-                    ? `Preço unitário: material · ${
-                        item.priceSource === "catalog" ? "cotação" : "digitado"
-                      } em ${new Date(item.priceDate).toLocaleDateString("pt-BR")}`
-                    : "Preço unitário: material"
+                  weightInfo && item.priceSource === "manual"
+                    ? `Preço digitado nesta linha; por peso seria ${weightInfo}. Clique em ↺ para voltar ao preço por peso.`
+                    : weightInfo
+                      ? `Preço por peso: ${weightInfo}. Digite outro valor para sobrescrever só nesta linha.`
+                      : item.priceDate
+                        ? `Preço unitário: material · ${
+                            item.priceSource === "catalog" ? "cotação" : "digitado"
+                          } em ${new Date(item.priceDate).toLocaleDateString("pt-BR")}`
+                        : "Preço unitário: material"
                 }
               />
+              {weightInfo && item.priceSource === "manual" && (
+                <button
+                  type="button"
+                  title="Voltar ao preço por peso (segue o R$/kg do insumo)"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange({ priceSource: "weight" });
+                  }}
+                  className="rounded p-0.5 text-amber-400 hover:text-amber-300"
+                >
+                  <RotateCcw size={13} />
+                </button>
+              )}
             </label>
             <label className="flex items-center gap-1 whitespace-nowrap">
               M. obra

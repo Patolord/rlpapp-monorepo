@@ -32,8 +32,8 @@ describe("duct take-off (NBR 16401 workbook)", () => {
       ],
       { ...DEFAULT_DUCT_SETTINGS, norma: 1 },
     );
-    // area 1.3 m perimeter × 3 m = 3.9 m² of # 24 → 22.23 kg × 1.20 allowance = 27 kg
-    expect(row(rows, "Chapa galvanizada # 24")?.qty).toBe(27);
+    // area 1.3 m perimeter × 3 m = 3.9 m² of # 24 → 18.8 kg (4.82 kg/m²) × 1.20 allowance = 23 kg
+    expect(row(rows, "Chapa galvanizada # 24")?.qty).toBe(23);
     expect(row(rows, "Chapa galvanizada # 26")).toBeUndefined();
     // Powermatic PW2 leve: 3 sections × 1.3 m × 2 = 7.8 m × 1.15 = 9 m
     expect(row(rows, "Powermatic (PW2 leve)")?.qty).toBe(9);
@@ -41,14 +41,15 @@ describe("duct take-off (NBR 16401 workbook)", () => {
     expect(row(rows, "Grampo Powermatic")?.qty).toBe(12);
     expect(row(rows, "Rebite")?.qty).toBe(23);
     expect(row(rows, "Fita Adesiva Powermatic")?.qty).toBe(5);
-    expect(row(rows, "Suportes de dutos")?.qty).toBe(8);
+    expect(row(rows, "Suportes de dutos")?.qty).toBe(7); // 30 % of 23 kg
     // below 500 kg the labour rate doubles
     const mo = row(rows, "Mão de obra - rede de dutos");
-    expect(mo?.qty).toBe(27);
+    expect(mo?.qty).toBe(23);
     expect(mo?.labor).toBe(36);
-    // material total as the workbook's Resumo: 459 + 45 + 20.16 + 12 + 2.3 + 10 + 16
+    // material total like the workbook's Resumo, with the supplier's sheet weight:
+    // 23 kg × 17 = 391 + 45 + 20.16 + 12 + 2.3 + 10 + 14 (supports)
     const material = rows.reduce((t, r) => t + r.qty * r.material, 0);
-    expect(Math.round(material)).toBe(564);
+    expect(Math.round(material)).toBe(494);
   });
 
   it("adds insulation, tapes and corner sheet for isopor, and rechapeamento", () => {
@@ -69,17 +70,17 @@ describe("duct take-off (NBR 16401 workbook)", () => {
       ],
       { ...DEFAULT_DUCT_SETTINGS, norma: 2 },
     );
-    // perimeter 2.0 m × 10 m = 20 m² of # 26 (60 ≤ 70) → 90 kg × 1.2 = 108
-    expect(row(rows, "Chapa galvanizada # 26")?.qty).toBe(108);
+    // perimeter 2.0 m × 10 m = 20 m² of # 26 (60 ≤ 70) → 87.6 kg (4.38 kg/m²) × 1.2 = 105
+    expect(row(rows, "Chapa galvanizada # 26")?.qty).toBe(105);
     expect(row(rows, "Isopor F1")?.qty).toBe(23); // 20 × 1.15
     expect(row(rows, "Bidim OP-60")?.qty).toBe(23);
     expect(row(rows, "Frio Asfalto")?.qty).toBe(0 + Math.round(23 / 80) || undefined);
     expect(row(rows, 'Fita de Nylon ½"')?.qty).toBe(Math.round((10 / 0.5) * 2.2 * 1.2));
     expect(row(rows, 'Fecho p/ fita de nylon ½"')?.qty).toBe(30);
-    // cantoneira # 26 for isopor: (0.025 + 0.02) × 10 × 4 × 1.3 = 2.34 m² × 4.5 = 11 kg
-    expect(row(rows, "Chapa galvanizada # 26 (cantoneira)")?.qty).toBe(11);
-    // rechapeado: ((0.6 + 0.025) + (0.4 + 0.025)) × 2 × 10 = 21 m² × 4.5 = 94.5 → 95 kg
-    expect(row(rows, "Chapa galvanizada # 26 (rechapeamento)")?.qty).toBe(95);
+    // cantoneira # 26 for isopor: (0.025 + 0.02) × 10 × 4 × 1.3 = 2.34 m² × 4.38 = 10 kg
+    expect(row(rows, "Chapa galvanizada # 26 (cantoneira)")?.qty).toBe(10);
+    // rechapeado: ((0.6 + 0.025) + (0.4 + 0.025)) × 2 × 10 = 21 m² × 4.38 = 91.98 → 92 kg
+    expect(row(rows, "Chapa galvanizada # 26 (rechapeamento)")?.qty).toBe(92);
     // flange cantoneira: 10 sections × 2.0 × 2 = 40 m × 2.66 × 1.3 = 138 kg
     expect(row(rows, "Flange em Fº Cantoneira")?.qty).toBe(138);
     // paint on the rechapeado: 21 × 1.15 = 24 m² → 1 gl fundo, 2 gl acabamento

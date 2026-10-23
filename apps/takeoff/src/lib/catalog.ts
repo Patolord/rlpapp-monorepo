@@ -3,6 +3,14 @@ import seed from "../data/catalog.seed.json";
 import { catalogUrl, describeHttpFailure, httpRequest, type QueuedProposal } from "./catalogRemote";
 import { type Kit, SEED_KITS } from "./kits";
 import type { Kind } from "./units";
+import {
+  type BasePrices,
+  cloneWeights,
+  SEED_WEIGHTS,
+  sheetCatalogEntries,
+  type WeightRow,
+  weightCatalogEntries,
+} from "./weights";
 
 export { catalogUrl, DEFAULT_CATALOG_URL } from "./catalogRemote";
 
@@ -27,6 +35,9 @@ export interface CatalogEntry {
   priceValidUntil?: number;
   /** Company catalog only: "draft" was proposed from a takeoff and awaits purchasing. */
   status?: "draft" | "active";
+  /** Priced by weight (see lib/weights): base material key and kg per unit; the price derives. */
+  baseMaterial?: string;
+  kgPerUnit?: number;
 }
 
 /** What is persisted locally: the user's own entries plus the last remote fetch. */
@@ -46,6 +57,10 @@ export interface CatalogStore {
   outbox: QueuedProposal[];
   /** Kit presets (one drawn run creates several items). */
   kits: Kit[];
+  /** Materials priced by weight (copper tubes…): editable table, seeded with the supplier's. */
+  weights: WeightRow[];
+  /** Price per kg of the base materials (cobre, chapa…); empty = the bundled defaults. */
+  basePrices: BasePrices;
 }
 
 export const SEED: CatalogEntry[] = (seed as CatalogEntry[]).map((e) => ({ ...e, source: "seed" }));
@@ -60,6 +75,8 @@ export const emptyCatalogStore = (): CatalogStore => ({
   redirects: {},
   outbox: [],
   kits: SEED_KITS.map((k) => ({ ...k, components: k.components.map((c) => ({ ...c })) })),
+  weights: cloneWeights(SEED_WEIGHTS),
+  basePrices: {},
 });
 
 export function kindForUnit(unit: string): Kind {
@@ -93,7 +110,11 @@ export function normalizeDiscipline(system: string | undefined): string | undefi
 
 export const foldName = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-/** Saved entries first, then the remote catalog, then the seed; later sources never duplicate earlier names. */
+/**
+ * Saved entries first, then the remote catalog, then the weight table and the sheet-metal rows
+ * (priced from the catalog's prices per kg), then the seed; later sources never duplicate
+ * earlier names.
+ */
 export function mergeCatalog(store: CatalogStore): CatalogEntry[] {
   const out: CatalogEntry[] = [];
   const seen = new Set<string>();
@@ -107,6 +128,8 @@ export function mergeCatalog(store: CatalogStore): CatalogEntry[] {
   };
   add(store.saved, "saved");
   add(store.remote, "remote");
+  add(weightCatalogEntries(store.weights ?? [], store.basePrices), "seed");
+  add(sheetCatalogEntries(store.basePrices), "seed");
   // once the company catalog is in use, the bundled seed is only a fallback
   if (store.remote.length === 0) add(SEED, "seed");
   return out;
@@ -129,8 +152,11 @@ export function searchCatalog(entries: readonly CatalogEntry[], query: string, l
       }
       score += i + (hay.startsWith(t) ? -5 : 0);
     }
-    if (ok)
-      scored.push({ e, score: score + e.name.length / 100 + (e.source === "saved" ? -10 : 0) });
+    // the user's own entries first, then the ones whose price follows the R$/kg of the takeoff
+    if (ok) {
+      const boost = e.source === "saved" ? -10 : e.kgPerUnit ? -6 : 0;
+      scored.push({ e, score: score + e.name.length / 100 + boost });
+    }
   }
   scored.sort((a, b) => a.score - b.score);
   return scored.slice(0, limit).map((s) => s.e);

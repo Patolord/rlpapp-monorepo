@@ -1,4 +1,12 @@
-import { ChevronDown, FilePlus2, FolderOpen, FolderX, Save, SaveAll } from "lucide-react";
+import {
+  ChevronDown,
+  FilePlus2,
+  FolderOpen,
+  FolderX,
+  Save,
+  SaveAll,
+  Settings2,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { closeProject, openProjectFile, pickAndOpenProject, saveProject } from "../lib/files";
 import { MOD } from "../lib/platform";
@@ -13,6 +21,7 @@ export function ProjectMenu() {
   const recent = useStore((s) => s.recentProjects);
   const filePath = useStore((s) => s.filePath);
   const setNewProjectOpen = useStore((s) => s.setNewProjectOpen);
+  const setCatalogSettingsOpen = useStore((s) => s.setCatalogSettingsOpen);
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
@@ -104,6 +113,8 @@ export function ProjectMenu() {
               <Kbd>{MOD}</Kbd>+<Kbd>Shift</Kbd>+<Kbd>S</Kbd>
             </>,
           )}
+          <div className="my-1 border-t border-neutral-800" />
+          {item(<Settings2 size={16} />, "Catálogo e preços…", () => setCatalogSettingsOpen(true))}
           <div className="my-1 border-t border-neutral-800" />
           {item(<FolderX size={16} />, "Fechar takeoff", () => void closeProject())}
         </div>

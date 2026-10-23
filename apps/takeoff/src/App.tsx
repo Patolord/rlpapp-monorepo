@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { AboutDialog } from "./components/AboutDialog";
 import { CalibrateDialog } from "./components/CalibrateDialog";
 import { CatalogPalette } from "./components/CatalogPalette";
+import { CatalogSettingsDialog } from "./components/CatalogSettingsDialog";
 import { DrawingTabs } from "./components/DrawingTabs";
 import { DuctDialog } from "./components/DuctDialog";
 import { DuctsPanel } from "./components/DuctsPanel";
@@ -22,6 +23,7 @@ import { StatusBar } from "./components/StatusBar";
 import { ToolRail } from "./components/ToolRail";
 import { TopBar } from "./components/TopBar";
 import { Viewer } from "./components/Viewer";
+import { WeightsDialog } from "./components/WeightsDialog";
 import { Welcome } from "./components/Welcome";
 import { ZoneDialog } from "./components/ZoneDialog";
 import { ZonesPanel } from "./components/ZonesPanel";
@@ -172,6 +174,8 @@ export default function App() {
       <AboutDialog />
       <NewProjectDialog />
       <KitsDialog />
+      <WeightsDialog />
+      <CatalogSettingsDialog />
       <DuctDialog />
     </div>
   );

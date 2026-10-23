@@ -4,6 +4,7 @@ import { exportXlsx } from "../lib/files";
 import { mod } from "../lib/platform";
 import { buildQuote, quoteCsv, round2, systemSheets } from "../lib/quantities";
 import { formatMoney, formatNumber, type Unit } from "../lib/units";
+import { isWeightPriced } from "../lib/weights";
 import { type ProjectMeta, useStore } from "../store";
 import { Button } from "./ui";
 
@@ -148,8 +149,18 @@ export function QuotePanel() {
                                   materialPrice: Number(e.target.value) || 0,
                                 })
                               }
-                              className="num-input w-[4rem]"
-                              title="Preço unitário de material"
+                              className={
+                                isWeightPriced(r.item) && r.item.priceSource === "manual"
+                                  ? "num-input w-[4rem] ring-1 ring-amber-400/70"
+                                  : "num-input w-[4rem]"
+                              }
+                              title={
+                                isWeightPriced(r.item) && r.item.priceSource === "manual"
+                                  ? "Preço digitado nesta linha (sobrescreve o preço por peso; ↺ na aba Itens volta)"
+                                  : isWeightPriced(r.item)
+                                    ? "Preço por peso (R$/kg do insumo no rodapé do Ctrl+K); digite outro para sobrescrever só esta linha"
+                                    : "Preço unitário de material"
+                              }
                             />
                           </td>
                           <td className="px-1.5 py-1 text-right">
