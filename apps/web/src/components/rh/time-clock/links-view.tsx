@@ -9,7 +9,9 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -35,10 +37,125 @@ type RhidPerson = FunctionReturnType<typeof api.timeClock.listRhidPeople>[number
 export function TimeClockLinksView() {
   return (
     <div className="space-y-6">
+      <PunchRulesCard />
       <TrackedDepartmentsCard />
       <PeopleLinksCard />
       <WorksiteLinksCard />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Regras da marcação pelo app
+// ---------------------------------------------------------------------------
+
+type PunchRules = {
+  photoRequired: boolean;
+  locationRequired: boolean;
+  duplicateWindowMinutes: string;
+};
+
+function PunchRulesCard() {
+  const settings = useQuery(api.timeClock.getTimeClockSettings, {});
+  const update = useMutation(api.timeClock.updateTimeClockSettings);
+  const [draft, setDraft] = useState<PunchRules | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (settings) {
+      setDraft({
+        photoRequired: settings.photoRequired,
+        locationRequired: settings.locationRequired,
+        duplicateWindowMinutes: String(settings.duplicateWindowMinutes),
+      });
+    }
+  }, [settings]);
+
+  const minutes = draft ? Number.parseInt(draft.duplicateWindowMinutes, 10) : NaN;
+  const minutesValid = Number.isInteger(minutes) && minutes >= 0 && minutes <= 60;
+  const dirty =
+    draft !== null &&
+    settings !== undefined &&
+    (draft.photoRequired !== settings.photoRequired ||
+      draft.locationRequired !== settings.locationRequired ||
+      minutes !== settings.duplicateWindowMinutes);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Marcação pelo app</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Regras aplicadas quando o funcionário registra o ponto pelo app RLP. O
+          funcionário precisa estar vinculado a um usuário (tela de Funcionários).
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {draft === null ? (
+          <p className="text-muted-foreground">Carregando...</p>
+        ) : (
+          <>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={draft.locationRequired}
+                onCheckedChange={(checked) =>
+                  setDraft({ ...draft, locationRequired: checked === true })
+                }
+              />
+              Exigir localização (GPS) na marcação
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={draft.photoRequired}
+                onCheckedChange={(checked) =>
+                  setDraft({ ...draft, photoRequired: checked === true })
+                }
+              />
+              Exigir foto na marcação
+            </label>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <Label htmlFor="punch-duplicate-window">Ignorar marcação repetida por</Label>
+              <Input
+                id="punch-duplicate-window"
+                type="number"
+                min={0}
+                max={60}
+                step={1}
+                className="w-20 text-right"
+                value={draft.duplicateWindowMinutes}
+                onChange={(event) =>
+                  setDraft({ ...draft, duplicateWindowMinutes: event.target.value })
+                }
+              />
+              <span className="text-muted-foreground">minuto(s). 0 desliga a regra.</span>
+            </div>
+            {!minutesValid ? (
+              <p className="text-xs text-destructive">Informe um valor entre 0 e 60.</p>
+            ) : null}
+            <Button
+              size="sm"
+              disabled={!dirty || !minutesValid || saving}
+              onClick={async () => {
+                setSaving(true);
+                try {
+                  await update({
+                    photoRequired: draft.photoRequired,
+                    locationRequired: draft.locationRequired,
+                    duplicateWindowMinutes: minutes,
+                  });
+                  toast.success("Regras da marcação atualizadas");
+                } catch (error) {
+                  toast.error(getErrorMessage(error, "Erro ao salvar"));
+                } finally {
+                  setSaving(false);
+                }
+              }}
+            >
+              Salvar
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

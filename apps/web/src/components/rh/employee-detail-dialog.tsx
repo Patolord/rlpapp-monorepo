@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import { useMutation } from "convex/react";
-import { Archive, Pencil, RotateCcw } from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
+import { Archive, Link2, Link2Off, Pencil, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,8 @@ export type EmployeeSummary = {
   receivesFoodBasket: boolean;
   dailyTransitCents: number;
   defaultTransportFoodDays: number;
+  /** Usuário do app que bate ponto como este funcionário. */
+  userId: Id<"users"> | null;
 };
 
 type EmployeeForm = {
@@ -363,6 +365,95 @@ function EmployeeFields({
   );
 }
 
+const NO_USER = "__none__";
+
+/**
+ * Vínculo com o usuário do app (quem bate ponto como este funcionário).
+ * É um vínculo próprio, salvo na hora, independente do formulário de edição.
+ */
+function AppUserSection({ employee }: { employee: EmployeeSummary }) {
+  const users = useQuery(api.users.list, { onlyActive: true });
+  const linkUser = useMutation(api.employees.linkUser);
+  const [selected, setSelected] = useState<string>(employee.userId ?? NO_USER);
+  const [saving, setSaving] = useState(false);
+
+  const current = users?.find((user) => user._id === employee.userId) ?? null;
+  const sorted = [...(users ?? [])].sort((a, b) =>
+    a.name.localeCompare(b.name, "pt-BR")
+  );
+  const dirty = selected !== (employee.userId ?? NO_USER);
+
+  async function save(userId: Id<"users"> | null) {
+    setSaving(true);
+    try {
+      await linkUser({ employeeId: employee._id, userId });
+      setSelected(userId ?? NO_USER);
+      toast.success(userId ? "Usuário vinculado" : "Usuário desvinculado");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao vincular usuário"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-2 rounded-md border p-3">
+      <p className="text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+        Usuário do app (ponto)
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {current
+          ? `Vinculado a ${current.name}${current.username ? ` (@${current.username})` : ""}. `
+          : employee.userId
+            ? "Vinculado a um usuário inativo. "
+            : "Sem usuário vinculado: este funcionário ainda não consegue bater ponto pelo app. "}
+        O vínculo também é feito sozinho quando o e-mail do funcionário é igual ao do usuário.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Select
+          value={selected}
+          onValueChange={(value) => setSelected(value ?? NO_USER)}
+          disabled={saving || users === undefined}
+        >
+          <SelectTrigger className="min-w-56 flex-1" aria-label="Usuário do app">
+            <SelectValue placeholder="Escolher usuário" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_USER}>Nenhum</SelectItem>
+            {sorted.map((user) => (
+              <SelectItem key={user._id} value={user._id}>
+                {user.name}
+                {user.username ? ` (@${user.username})` : user.email ? ` (${user.email})` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          size="sm"
+          disabled={!dirty || saving}
+          onClick={() =>
+            void save(selected === NO_USER ? null : (selected as Id<"users">))
+          }
+        >
+          <Link2 className="mr-1 size-3.5" />
+          Vincular
+        </Button>
+        {employee.userId ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={saving}
+            onClick={() => void save(null)}
+          >
+            <Link2Off className="mr-1 size-3.5" />
+            Desvincular
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function EmployeeCreateDialog({
   open,
   onOpenChange,
@@ -500,6 +591,7 @@ export function EmployeeDetailDialog({
               <span className="text-muted-foreground">Salário base:</span>{" "}
               {formatCentsInput(employee.baseSalaryCents)}
             </p>
+            {!employee.archivedAt ? <AppUserSection employee={employee} /> : null}
           </div>
         )}
         <DialogFooter className="gap-2 sm:justify-between">

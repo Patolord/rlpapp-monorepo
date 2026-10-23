@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.upcraft.rlpapp",
       "infoPlist": {
-        "NSCameraUsageDescription": "O app usa a câmera para ler QR codes de equipamentos e registrar fotos de instalações e manutenções.",
+        "NSCameraUsageDescription": "O app usa a câmera para ler QR codes de equipamentos, registrar fotos de instalações e manutenções e a foto da marcação de ponto.",
+        "NSLocationWhenInUseUsageDescription": "O app usa sua localização para registrar em qual obra a marcação de ponto foi feita.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -26,7 +27,11 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png",
         "backgroundColor": "#F6F9FD"
       },
-      "permissions": ["android.permission.CAMERA"],
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
       "blockedPermissions": ["android.permission.RECORD_AUDIO"]
     },
     "web": {
@@ -44,9 +49,16 @@
       "expo-font",
       "expo-secure-store",
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "O app usa sua localização para registrar em qual obra a marcação de ponto foi feita.",
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      [
         "expo-camera",
         {
-          "cameraPermission": "O app usa a câmera para ler QR codes de equipamentos e registrar fotos de instalações e manutenções.",
+          "cameraPermission": "O app usa a câmera para ler QR codes de equipamentos, registrar fotos de instalações e manutenções e a foto da marcação de ponto.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }

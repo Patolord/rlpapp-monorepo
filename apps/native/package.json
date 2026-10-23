@@ -48,6 +48,7 @@
     "expo-image": "~55.0.11",
     "expo-image-picker": "~55.0.23",
     "expo-linking": "~55.0.17",
+    "expo-location": "~55.1.15",
     "expo-router": "~55.0.18",
     "expo-secure-store": "~55.0.17",
     "expo-sharing": "~55.0.23",

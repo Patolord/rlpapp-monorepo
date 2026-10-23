@@ -31,7 +31,7 @@ import {
   isTrackedDepartment,
   listDaysInRange,
   listPeople,
-  listPunchesForDate,
+  listRhidPunchesForDate,
   listWorksites,
   patchSyncState,
   peopleById,
@@ -110,6 +110,9 @@ const worksiteValidator = v.object({
 const settingsValidator = v.object({
   manDayCostCents: v.number(),
   trackedDepartments: v.array(v.string()),
+  photoRequired: v.boolean(),
+  locationRequired: v.boolean(),
+  duplicateWindowMinutes: v.number(),
 });
 
 const syncStateValidator = v.object({
@@ -142,8 +145,9 @@ const dayPersonValidator = v.object({
 
 const dayPunchValidator = v.object({
   _id: v.id("timeClockPunches"),
-  rhidRecordId: v.number(),
+  rhidRecordId: v.union(v.number(), v.null()),
   rhidPersonId: v.number(),
+  source: v.union(v.literal("rhid"), v.literal("app")),
   personName: v.string(),
   punchedAt: v.number(),
   timeLabel: v.string(),
@@ -479,7 +483,7 @@ export const getDay = hrQuery({
     const [settings, people, punches, worksites] = await Promise.all([
       getSettings(ctx),
       listPeople(ctx),
-      listPunchesForDate(ctx, args.date),
+      listRhidPunchesForDate(ctx, args.date),
       listWorksites(ctx),
     ]);
     const employees = await employeesByIdForPeople(ctx, people);
@@ -601,8 +605,9 @@ export const getDay = hrQuery({
       people: dayPeople,
       punches: sortedPunches.map((punch) => ({
         _id: punch._id,
-        rhidRecordId: punch.rhidRecordId,
+        rhidRecordId: punch.rhidRecordId ?? null,
         rhidPersonId: punch.rhidPersonId,
+        source: punch.source ?? "rhid",
         personName: punch.personName,
         punchedAt: punch.punchedAt,
         timeLabel: punch.timeLabel,
@@ -650,7 +655,7 @@ export const getLiveStatus = hrQuery({
     const [settings, people, punches, worksites] = await Promise.all([
       getSettings(ctx),
       listPeople(ctx),
-      listPunchesForDate(ctx, args.date),
+      listRhidPunchesForDate(ctx, args.date),
       listWorksites(ctx),
     ]);
     const employees = await employeesByIdForPeople(ctx, people);
@@ -1045,6 +1050,9 @@ export const updateTimeClockSettings = hrMutation({
   args: {
     manDayCostCents: v.optional(v.number()),
     trackedDepartments: v.optional(v.array(v.string())),
+    photoRequired: v.optional(v.boolean()),
+    locationRequired: v.optional(v.boolean()),
+    duplicateWindowMinutes: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1060,6 +1068,20 @@ export const updateTimeClockSettings = hrMutation({
       next.trackedDepartments = Array.from(
         new Set(args.trackedDepartments.map((item) => item.trim()).filter(Boolean))
       );
+    }
+    if (args.photoRequired !== undefined) next.photoRequired = args.photoRequired;
+    if (args.locationRequired !== undefined) {
+      next.locationRequired = args.locationRequired;
+    }
+    if (args.duplicateWindowMinutes !== undefined) {
+      if (
+        !Number.isFinite(args.duplicateWindowMinutes) ||
+        args.duplicateWindowMinutes < 0 ||
+        args.duplicateWindowMinutes > 60
+      ) {
+        throw new Error("Janela de marcação repetida inválida (0 a 60 min)");
+      }
+      next.duplicateWindowMinutes = args.duplicateWindowMinutes;
     }
     await saveSettings(ctx, next, ctx.user._id);
     await logAudit(ctx, ctx.user, {

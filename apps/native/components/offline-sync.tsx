@@ -11,6 +11,13 @@ import {
   subscribeQueue,
   type PendingRecord,
 } from "@/lib/offline-queue";
+import {
+  listPendingPunches,
+  removePendingPunch,
+  setPendingPunchError,
+  subscribePunchQueue,
+  type PendingPunch,
+} from "@/lib/punch-queue";
 import { uploadPhotos } from "@/lib/upload-photos";
 
 async function isOnline(): Promise<boolean> {
@@ -32,7 +39,31 @@ export function OfflineSync() {
   const registerForQr = useMutation(api.qrCodes.registerForQr);
   const createLog = useMutation(api.maintenanceLogs.create);
   const generateUploadUrl = useMutation(api.maintenanceLogs.generateUploadUrl);
+  const registerPunch = useMutation(api.timeClockPunch.register);
+  const generatePunchUploadUrl = useMutation(api.timeClockPunch.generatePhotoUploadUrl);
   const syncing = useRef(false);
+
+  /** Marcação de ponto feita sem internet: sobe a foto e registra como offline. */
+  const processPunch = useCallback(
+    async (punch: PendingPunch) => {
+      const photoStorageId = punch.photoUri
+        ? (await uploadPhotos(generatePunchUploadUrl, [punch.photoUri]))[0]
+        : undefined;
+      await registerPunch({
+        clientPunchId: punch.clientPunchId,
+        capturedAt: punch.capturedAt,
+        latitude: punch.latitude,
+        longitude: punch.longitude,
+        accuracyMeters: punch.accuracyMeters,
+        photoStorageId,
+        photoCapturedAt: punch.photoCapturedAt,
+        offline: true,
+        deviceModel: punch.deviceModel,
+        appVersion: punch.appVersion,
+      });
+    },
+    [generatePunchUploadUrl, registerPunch]
+  );
 
   const processRecord = useCallback(
     async (record: PendingRecord) => {
@@ -99,6 +130,18 @@ export function OfflineSync() {
     if (!(await isOnline())) return;
     syncing.current = true;
     try {
+      for (const punch of await listPendingPunches()) {
+        try {
+          await processPunch(punch);
+          await removePendingPunch(punch.clientPunchId);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Erro desconhecido";
+          console.error("Offline punch sync failed:", punch.clientPunchId, err);
+          await setPendingPunchError(punch.clientPunchId, message);
+          if (!(await isOnline())) return;
+        }
+      }
+
       const records = await listPendingRecords();
       if (records.length === 0) return;
 
@@ -117,7 +160,7 @@ export function OfflineSync() {
     } finally {
       syncing.current = false;
     }
-  }, [processRecord]);
+  }, [processRecord, processPunch]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -130,10 +173,12 @@ export function OfflineSync() {
       if (online) void runSync();
     });
     const unsubscribeQueue = subscribeQueue(() => void runSync());
+    const unsubscribePunches = subscribePunchQueue(() => void runSync());
 
     return () => {
       unsubscribeNet();
       unsubscribeQueue();
+      unsubscribePunches();
     };
   }, [isAuthenticated, runSync]);
 

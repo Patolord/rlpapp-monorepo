@@ -3,7 +3,7 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
 import { useRouter, type Href } from "expo-router";
-import { Building2, ChevronRight, Search, WifiOff } from "lucide-react-native";
+import { Building2, ChevronRight, Clock, Search, WifiOff } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { FlatList, Pressable, Text, View } from "react-native";
 
@@ -75,6 +75,23 @@ export default function MinhasObrasScreen() {
           ListHeaderComponent={
             <View className="gap-3 pb-2">
               <PendingBanner onPress={() => router.push("/campo/pendentes" as Href)} />
+              <Pressable
+                onPress={() => router.push("/campo/ponto" as Href)}
+                accessibilityRole="button"
+              >
+                <Card className="flex-row items-center gap-3 p-4">
+                  <View className="h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10">
+                    <Clock size={18} color="#2563eb" />
+                  </View>
+                  <View className="min-w-0 flex-1">
+                    <Text className="font-medium text-foreground">Registrar ponto</Text>
+                    <Text className="text-xs text-muted-foreground">
+                      Marque entrada, almoço e saída com foto e localização.
+                    </Text>
+                  </View>
+                  <ChevronRight size={16} color="#9ca3af" />
+                </Card>
+              </Pressable>
               <Text className="text-sm text-muted-foreground">
                 Toque em uma obra para escanear etiquetas e registrar serviços.
               </Text>
