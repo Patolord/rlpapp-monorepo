@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { AboutDialog } from "./components/AboutDialog";
 import { CalibrateDialog } from "./components/CalibrateDialog";
 import { CatalogPalette } from "./components/CatalogPalette";
+import { CatalogSettingsDialog } from "./components/CatalogSettingsDialog";
 import { DrawingTabs } from "./components/DrawingTabs";
 import { DuctDialog } from "./components/DuctDialog";
 import { DuctsPanel } from "./components/DuctsPanel";
@@ -174,6 +175,7 @@ export default function App() {
       <NewProjectDialog />
       <KitsDialog />
       <WeightsDialog />
+      <CatalogSettingsDialog />
       <DuctDialog />
     </div>
   );

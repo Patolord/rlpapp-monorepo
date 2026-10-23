@@ -170,6 +170,8 @@ export interface State {
   kitPickerOpen: boolean;
   kitsEditorOpen: boolean;
   weightsEditorOpen: boolean;
+  /** "Catálogo e preços" dialog (catalog source, token, R$/kg of base materials). */
+  catalogSettingsOpen: boolean;
   /** Side panel (items, locais, orçamento): shown, and its width in CSS px (remembered). */
   sidebarOpen: boolean;
   sidebarWidth: number;
@@ -270,6 +272,7 @@ export interface State {
   setKitPickerOpen(open: boolean): void;
   setKitsEditorOpen(open: boolean): void;
   setWeightsEditorOpen(open: boolean): void;
+  setCatalogSettingsOpen(open: boolean): void;
   /** Price per kg of a base material, app-wide (undefined = back to the bundled default). */
   setBasePrice(key: string, price: number | undefined): void;
   /** Replace the weight table (materials priced by weight), saved with the catalog. */
@@ -392,6 +395,7 @@ export const useStore = create<State>((set, get) => ({
   kitPickerOpen: false,
   kitsEditorOpen: false,
   weightsEditorOpen: false,
+  catalogSettingsOpen: false,
   sidebarOpen: readPref("sidebarOpen", true),
   sidebarWidth: readPref("sidebarWidth", 580),
   catalog: emptyCatalogStore(),
@@ -885,6 +889,7 @@ export const useStore = create<State>((set, get) => ({
   setKitPickerOpen: (kitPickerOpen) => set({ kitPickerOpen }),
   setKitsEditorOpen: (kitsEditorOpen) => set({ kitsEditorOpen }),
   setWeightsEditorOpen: (weightsEditorOpen) => set({ weightsEditorOpen }),
+  setCatalogSettingsOpen: (catalogSettingsOpen) => set({ catalogSettingsOpen }),
   setBasePrice: (key, price) => {
     const { catalog, project } = get();
     const basePrices = { ...catalog.basePrices };

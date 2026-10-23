@@ -1,37 +1,22 @@
 import clsx from "clsx";
-import { RefreshCw, Search } from "lucide-react";
+import { Search, Settings2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  type CatalogEntry,
-  commonWordPrefix,
-  DEFAULT_CATALOG_URL,
-  mergeCatalog,
-  searchCatalog,
-} from "../lib/catalog";
+import { type CatalogEntry, commonWordPrefix, mergeCatalog, searchCatalog } from "../lib/catalog";
 import { formatMoney } from "../lib/units";
-import { BASE_MATERIALS } from "../lib/weights";
 import { useStore } from "../store";
-import { Button, Kbd } from "./ui";
+import { Kbd } from "./ui";
 
-/** Ctrl+K: search the material catalog and create an item from an entry. */
+/**
+ * Ctrl+K: a quick catalog. Search the materials and create an item from an entry; where the
+ * catalog comes from and how prices derive is configured in "Catálogo e preços" (gear).
+ */
 export function CatalogPalette() {
   const open = useStore((s) => s.paletteOpen);
   const catalog = useStore((s) => s.catalog);
   const currency = useStore((s) => s.project.currency);
-  const {
-    setPaletteOpen,
-    addItemFromCatalog,
-    setCatalogUrl,
-    setCatalogToken,
-    refreshCatalog,
-    setBasePrice,
-    setWeightsEditorOpen,
-  } = useStore.getState();
+  const { setPaletteOpen, addItemFromCatalog, setCatalogSettingsOpen } = useStore.getState();
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
-  const [url, setUrl] = useState(catalog.remoteUrl);
-  const [token, setToken] = useState(catalog.remoteToken);
-  const [busy, setBusy] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const entries = useMemo(() => mergeCatalog(catalog), [catalog]);
   const results = useMemo(() => searchCatalog(entries, query), [entries, query]);
@@ -42,11 +27,8 @@ export function CatalogPalette() {
     if (open) {
       setQuery("");
       setCursor(0);
-      setUrl(catalog.remoteUrl);
-      setToken(catalog.remoteToken);
-      setBusy(null);
     }
-  }, [open, catalog.remoteUrl, catalog.remoteToken]);
+  }, [open]);
   useEffect(() => {
     listRef.current?.children[cursor]?.scrollIntoView({ block: "nearest" });
   }, [cursor]);
@@ -56,23 +38,15 @@ export function CatalogPalette() {
     addItemFromCatalog(e);
     setPaletteOpen(false);
   };
-  const refresh = async () => {
-    setBusy("Buscando…");
-    try {
-      setCatalogUrl(url.trim());
-      setCatalogToken(token);
-      const n = await refreshCatalog();
-      setBusy(`${n} materiais carregados`);
-    } catch (e) {
-      setBusy(`Falha: ${e instanceof Error ? e.message : String(e)}`);
-    }
+  const openSettings = () => {
+    setPaletteOpen(false);
+    setCatalogSettingsOpen(true);
   };
-  const drafts = catalog.remote.filter((e) => e.status === "draft").length;
   const pending = catalog.outbox.length;
-  const fetchedLabel = catalog.fetchedAt
+  const sourceLabel = catalog.fetchedAt
     ? `${catalog.remote.length} materiais da empresa · catálogo de ${new Date(
         catalog.remoteGeneratedAt ?? catalog.fetchedAt,
-      ).toLocaleString("pt-BR")}${drafts ? ` · ${drafts} em rascunho` : ""}`
+      ).toLocaleDateString("pt-BR")}`
     : `${entries.length} materiais (planilhas anteriores)`;
 
   return (
@@ -153,11 +127,13 @@ export function CatalogPalette() {
                 <span
                   className="w-24 shrink-0 text-right font-mono text-[12px] text-neutral-300"
                   title={
-                    e.priceDate
-                      ? `Cotação de ${new Date(e.priceDate).toLocaleDateString("pt-BR")}`
-                      : e.source === "remote" && e.materialPrice === 0
-                        ? "Sem preço no catálogo da empresa"
-                        : undefined
+                    e.kgPerUnit
+                      ? `Por peso: ${e.kgPerUnit} kg/${e.unit} × R$/kg do insumo`
+                      : e.priceDate
+                        ? `Cotação de ${new Date(e.priceDate).toLocaleDateString("pt-BR")}`
+                        : e.source === "remote" && e.materialPrice === 0
+                          ? "Sem preço no catálogo da empresa"
+                          : undefined
                   }
                 >
                   {formatMoney(e.materialPrice, currency)}
@@ -176,78 +152,26 @@ export function CatalogPalette() {
             </li>
           )}
         </ul>
-        <div className="space-y-1.5 border-t border-neutral-800 px-3 py-2 text-[12px] text-neutral-400">
-          <div className="flex items-center gap-2">
-            <span className="shrink-0">Catálogo da empresa</span>
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder={DEFAULT_CATALOG_URL}
-              title="URL do catálogo; vazio usa o catálogo de produção da empresa"
-              className="h-7 min-w-0 flex-1 rounded bg-neutral-800 px-2 font-mono text-[12px] text-neutral-200 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
-            />
-            <input
-              type="password"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="token"
-              autoComplete="off"
-              title="Token de acesso (TAKEOFF_CATALOG_TOKEN), fornecido pela RLP; fica só neste computador"
-              className="h-7 w-28 shrink-0 rounded bg-neutral-800 px-2 font-mono text-[12px] text-neutral-200 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
-            />
-            <Button onClick={() => void refresh()}>
-              <RefreshCw size={14} /> Atualizar
-            </Button>
-          </div>
-          <div
-            className="flex flex-wrap items-center gap-x-3 gap-y-1"
-            title="Preço por kg dos insumos, para o app todo. Tubos de cobre e a chapa dos dutos derivam o preço daqui e seguem qualquer mudança."
-          >
-            <span className="shrink-0">Insumos R$/kg</span>
-            {BASE_MATERIALS.map((m) => (
-              <label key={m.key} className="flex items-center gap-1 whitespace-nowrap">
-                {m.label}
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={catalog.basePrices[m.key] ?? ""}
-                  placeholder={m.defaultPrice !== undefined ? String(m.defaultPrice) : "—"}
-                  onChange={(e) =>
-                    setBasePrice(m.key, e.target.value === "" ? undefined : Number(e.target.value))
-                  }
-                  className="h-7 w-16 rounded bg-neutral-800 px-1.5 text-right font-mono text-[12px] text-neutral-200 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
-                  title={
-                    m.defaultPrice !== undefined
-                      ? `Vazio = padrão do fornecedor (${m.defaultPrice})`
-                      : "Vazio = cada linha de chapa dos dutos mantém o próprio preço"
-                  }
-                />
-              </label>
-            ))}
+        <div className="flex items-center gap-2 border-t border-neutral-800 px-3 py-1.5 text-[12px] text-neutral-500">
+          <span className="min-w-0 flex-1 truncate">{sourceLabel}</span>
+          {pending > 0 && (
             <button
               type="button"
-              onClick={() => {
-                setPaletteOpen(false);
-                setWeightsEditorOpen(true);
-              }}
-              className="ml-auto underline-offset-2 hover:text-neutral-200 hover:underline"
-              title="Materiais cujo preço vem do peso (tubos de cobre…): nomes, kg por unidade e insumo"
+              onClick={openSettings}
+              className="shrink-0 text-amber-400 hover:underline"
+              title="Propostas de material ainda não entregues a compras; veja em Catálogo e preços"
             >
-              tabela de pesos…
+              {pending} {pending === 1 ? "envio pendente" : "envios pendentes"}
             </button>
-          </div>
-          <div className="flex items-center gap-2 text-neutral-500">
-            <span className="min-w-0 flex-1 truncate">{busy ?? fetchedLabel}</span>
-            {pending > 0 && (
-              <span
-                className="shrink-0 text-amber-400"
-                title="Propostas de material ainda não entregues; reenviadas a cada atualização"
-              >
-                {pending} {pending === 1 ? "envio pendente" : "envios pendentes"}
-              </span>
-            )}
-          </div>
+          )}
+          <button
+            type="button"
+            onClick={openSettings}
+            className="inline-flex h-7 shrink-0 items-center gap-1 rounded px-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+            title="Catálogo e preços: fonte do catálogo, token, R$/kg dos insumos, tabela de pesos"
+          >
+            <Settings2 size={14} /> Catálogo e preços
+          </button>
         </div>
       </div>
     </div>
