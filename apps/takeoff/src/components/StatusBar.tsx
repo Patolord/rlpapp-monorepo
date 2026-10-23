@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { ChevronLeft, ChevronRight, PaintBucket, Proportions } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ALT, MOD } from "../lib/platform";
@@ -7,6 +8,9 @@ import { useStore } from "../store";
 import { useViewport } from "../viewport";
 import { ScalePicker } from "./ScalePicker";
 import { Kbd } from "./ui";
+
+/** True under `vite` / `tauri dev`; false in the packaged app. */
+const DEV = import.meta.env.DEV;
 
 const HINTS: Record<string, React.ReactNode> = {
   select: (
@@ -93,7 +97,23 @@ export function StatusBar() {
   useEffect(() => useViewport.subscribe((v) => setZoom(v.zoom)), []);
 
   return (
-    <div className="relative flex h-7 items-center gap-3 whitespace-nowrap border-t border-neutral-800 bg-neutral-900 px-2 text-[12px] text-neutral-400">
+    <div
+      className={clsx(
+        "relative flex h-7 items-center gap-3 whitespace-nowrap border-t px-2 text-[12px]",
+        // development build (vite / tauri dev): amber bar so it is never mistaken for the installed app
+        DEV
+          ? "border-amber-500/60 bg-amber-900/60 text-amber-100"
+          : "border-neutral-800 bg-neutral-900 text-neutral-400",
+      )}
+    >
+      {DEV && (
+        <span
+          title="Build de desenvolvimento (vite / tauri dev), não o app instalado"
+          className="rounded bg-amber-400 px-1.5 py-px font-mono text-[10px] font-bold leading-4 text-amber-950"
+        >
+          DEV
+        </span>
+      )}
       <div className="flex items-center gap-0.5">
         <button
           type="button"
@@ -202,7 +222,11 @@ export function StatusBar() {
           {selCount} {selCount === 1 ? "selecionado" : "selecionados"}
         </span>
       )}
-      <span className="ml-auto min-w-0 truncate text-neutral-500">{status ?? HINTS[tool]}</span>
+      <span
+        className={clsx("ml-auto min-w-0 truncate", DEV ? "text-amber-200/80" : "text-neutral-500")}
+      >
+        {status ?? HINTS[tool]}
+      </span>
       {open && <ScalePicker onClose={() => setScalePickerOpen(false)} />}
     </div>
   );
