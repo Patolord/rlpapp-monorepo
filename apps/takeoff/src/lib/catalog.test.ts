@@ -4,6 +4,7 @@ import {
   kindForUnit,
   mergeCatalog,
   parseRemoteCatalog,
+  parseRemoteCatalogResponse,
   SEED,
   searchCatalog,
 } from "./catalog";
@@ -70,6 +71,81 @@ describe("catalog", () => {
     expect(entries).toHaveLength(2);
     expect(entries.every((e) => e.source === "remote")).toBe(true);
     expect(() => parseRemoteCatalog({ nope: 1 })).toThrow();
+  });
+
+  it("reads the company response: provenance, drafts and merge redirects", () => {
+    const parsed = parseRemoteCatalogResponse({
+      generatedAt: 1_761_200_000_000,
+      items: [
+        {
+          id: "m1",
+          sku: "MAT-000101",
+          name: "Grelha de Insuflamento",
+          description: "Grelha de Insuflamento — Anodizada 200x200mm",
+          group: "Bocas de Ar",
+          unit: "pç",
+          materialPrice: 123.45,
+          priceDate: 1_760_000_000_000,
+          priceValidUntil: null,
+          priceEventId: "pe1",
+          laborPrice: 0,
+          system: null,
+          status: "active",
+          mergedInto: null,
+        },
+        {
+          id: "m2",
+          sku: "MAT-000102",
+          name: "Damper corta-fogo",
+          description: "Damper corta-fogo",
+          group: "Diversos",
+          unit: "pç",
+          materialPrice: 0,
+          priceDate: null,
+          priceValidUntil: null,
+          priceEventId: null,
+          laborPrice: 0,
+          system: null,
+          status: "draft",
+          mergedInto: null,
+        },
+        {
+          id: "m0",
+          sku: null,
+          name: "Grelha Insuflamento Anodizada",
+          description: "Grelha Insuflamento Anodizada",
+          group: "Diversos",
+          unit: "pç",
+          materialPrice: 0,
+          priceDate: null,
+          priceValidUntil: null,
+          priceEventId: null,
+          laborPrice: 0,
+          system: null,
+          status: "archived",
+          mergedInto: "m1",
+        },
+      ],
+    });
+    expect(parsed.generatedAt).toBe(1_761_200_000_000);
+    expect(parsed.redirects).toEqual({ m0: "m1" });
+    expect(parsed.entries.map((e) => e.name)).toEqual([
+      "Grelha de Insuflamento",
+      "Damper corta-fogo",
+    ]);
+    expect(parsed.entries[0]).toMatchObject({
+      catalogId: "m1",
+      sku: "MAT-000101",
+      description: "Grelha de Insuflamento — Anodizada 200x200mm",
+      materialPrice: 123.45,
+      priceDate: 1_760_000_000_000,
+      priceValidUntil: undefined,
+      status: "active",
+      system: undefined,
+    });
+    expect(parsed.entries[1]).toMatchObject({ status: "draft", priceDate: undefined });
+    // a bare array (hand-made file) still works and has no generatedAt
+    expect(parseRemoteCatalogResponse([{ name: "X", unit: "m" }]).generatedAt).toBeNull();
   });
 });
 
