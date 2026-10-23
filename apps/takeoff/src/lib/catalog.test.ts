@@ -163,3 +163,26 @@ describe("disciplines from past budgets", () => {
     expect(normalizeDiscipline(undefined)).toBeUndefined();
   });
 });
+
+describe("commonWordPrefix", () => {
+  it("dims what every result shares and keeps the distinguishing tail", async () => {
+    const { commonWordPrefix } = await import("./catalog");
+    const names = [
+      "Damper de Regulagem Manual Reforçado (Descarga do Ventilador) dim. 1060x900mm",
+      "Damper de Regulagem Manual Reforçado (Descarga do Ventilador) dim. 750x630mm",
+      "Damper de Regulagem Manual Reforçado (Descarga do Ventilador) dim. 750x300mm",
+    ];
+    expect(commonWordPrefix(names)).toBe(
+      "Damper de Regulagem Manual Reforçado (Descarga do Ventilador) dim. ",
+    );
+    // a word is never cut in half, and a short overlap is not worth dimming
+    expect(
+      commonWordPrefix(["Grelha de Insuflamento 400x400", "Grelha de Insuflamento 300x300"]),
+    ).toBe("Grelha de Insuflamento ");
+    expect(commonWordPrefix(["Grelha 400", "Grelha 300"])).toBe("");
+    expect(commonWordPrefix(["Difusor", "Damper"])).toBe("");
+    expect(commonWordPrefix(["Só um"])).toBe("");
+    // a name that is exactly the shared part would vanish: then nothing is dimmed
+    expect(commonWordPrefix(["Tubo de cobre", 'Tubo de cobre 1/2"'])).toBe("");
+  });
+});

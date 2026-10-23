@@ -248,3 +248,26 @@ export async function fetchRemoteCatalog(remoteUrl: string, token: string): Prom
   }
   return parseRemoteCatalogResponse(JSON.parse(res.body));
 }
+
+/**
+ * The words every name in a result list starts with ("Damper de Regulagem Manual Reforçado
+ * (Descarga do Ventilador) dim."): shown dimmed so the part that differs stands out.
+ * Empty when there is nothing meaningful in common.
+ */
+export function commonWordPrefix(names: readonly string[], minLength = 12): string {
+  if (names.length < 2) return "";
+  let prefix = names[0];
+  for (const name of names.slice(1)) {
+    let i = 0;
+    while (i < prefix.length && i < name.length && prefix[i] === name[i]) i++;
+    prefix = prefix.slice(0, i);
+    if (prefix.length < minLength) return "";
+  }
+  // never cut a word in half: back up to the last space, keeping it
+  const cut = prefix.lastIndexOf(" ");
+  if (cut < 0) return "";
+  const result = prefix.slice(0, cut + 1);
+  return result.trim().length >= minLength && names.every((n) => n.length > result.length)
+    ? result
+    : "";
+}

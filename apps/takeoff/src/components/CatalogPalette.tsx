@@ -3,6 +3,7 @@ import { RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type CatalogEntry,
+  commonWordPrefix,
   DEFAULT_CATALOG_URL,
   mergeCatalog,
   searchCatalog,
@@ -26,6 +27,8 @@ export function CatalogPalette() {
   const listRef = useRef<HTMLUListElement>(null);
   const entries = useMemo(() => mergeCatalog(catalog), [catalog]);
   const results = useMemo(() => searchCatalog(entries, query), [entries, query]);
+  // what every result starts with is noise; the tail ("dim. 750x630mm") is what tells them apart
+  const shared = useMemo(() => commonWordPrefix(results.map((r) => r.name)), [results]);
 
   useEffect(() => {
     if (open) {
@@ -115,7 +118,16 @@ export function CatalogPalette() {
                   i === cursor ? "bg-orange-500/15 text-neutral-100" : "text-neutral-200",
                 )}
               >
-                <span className="min-w-0 flex-1 truncate">{e.name}</span>
+                <span className="line-clamp-2 min-w-0 flex-1 leading-snug">
+                  {shared && e.name.startsWith(shared) ? (
+                    <>
+                      <span className="text-neutral-500">{shared}</span>
+                      {e.name.slice(shared.length)}
+                    </>
+                  ) : (
+                    e.name
+                  )}
+                </span>
                 {e.status === "draft" && (
                   <span
                     className="shrink-0 rounded bg-amber-500/15 px-1.5 py-px text-[11px] text-amber-400"
