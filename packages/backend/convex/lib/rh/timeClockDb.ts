@@ -14,10 +14,22 @@ import {
   type NormalizedPunch,
   type NormalizedWorksite,
 } from "./rhid";
+import { DEFAULT_DUPLICATE_WINDOW_MINUTES } from "./timeClockPunch";
 
 type Ctx = QueryCtx | MutationCtx;
 
 export const DEFAULT_MAN_DAY_COST_CENTS = 15_000;
+
+/** Marcação com pessoa do RHID conhecida (espelho ou app de funcionário vinculado). */
+export type RhidKeyedPunch = Doc<"timeClockPunches"> & { rhidPersonId: number };
+
+export function hasRhidPerson(punch: Doc<"timeClockPunches">): punch is RhidKeyedPunch {
+  return punch.rhidPersonId !== undefined;
+}
+
+export function isAppPunch(punch: Doc<"timeClockPunches">): boolean {
+  return punch.source === "app";
+}
 
 // ---------------------------------------------------------------------------
 // Singletons
@@ -45,6 +57,12 @@ export async function patchSyncState(
 export type TimeClockSettings = {
   manDayCostCents: number;
   trackedDepartments: string[];
+  /** Marcação pelo app exige foto. */
+  photoRequired: boolean;
+  /** Marcação pelo app exige localização (parâmetro 125 do RHID). */
+  locationRequired: boolean;
+  /** Janela (min) em que uma marcação repetida do mesmo funcionário é recusada. */
+  duplicateWindowMinutes: number;
 };
 
 export async function getSettings(ctx: Ctx): Promise<TimeClockSettings> {
@@ -55,6 +73,10 @@ export async function getSettings(ctx: Ctx): Promise<TimeClockSettings> {
   return {
     manDayCostCents: doc?.manDayCostCents ?? DEFAULT_MAN_DAY_COST_CENTS,
     trackedDepartments: doc?.trackedDepartments ?? [],
+    photoRequired: doc?.photoRequired ?? false,
+    locationRequired: doc?.locationRequired ?? true,
+    duplicateWindowMinutes:
+      doc?.duplicateWindowMinutes ?? DEFAULT_DUPLICATE_WINDOW_MINUTES,
   };
 }
 
@@ -70,6 +92,9 @@ export async function saveSettings(
   const payload = {
     manDayCostCents: settings.manDayCostCents,
     trackedDepartments: settings.trackedDepartments,
+    photoRequired: settings.photoRequired,
+    locationRequired: settings.locationRequired,
+    duplicateWindowMinutes: settings.duplicateWindowMinutes,
     updatedAt: Date.now(),
     updatedByUserId: userId,
   };
@@ -282,6 +307,117 @@ export async function listPunchesForDate(
     .take(5000);
 }
 
+/**
+ * Marcações do dia que têm pessoa do RHID (as telas de presença ainda agrupam
+ * por `rhidPersonId`). Marcações excluídas ficam de fora.
+ */
+export async function listRhidPunchesForDate(
+  ctx: Ctx,
+  date: string
+): Promise<RhidKeyedPunch[]> {
+  const punches = await listPunchesForDate(ctx, date);
+  return punches.filter(
+    (punch): punch is RhidKeyedPunch => hasRhidPerson(punch) && !punch.excluded
+  );
+}
+
+/** Marcações do app de um funcionário em um dia (inclui excluídas). */
+export async function listAppPunchesForEmployeeDate(
+  ctx: Ctx,
+  employeeId: Id<"employees">,
+  date: string
+): Promise<Doc<"timeClockPunches">[]> {
+  return await ctx.db
+    .query("timeClockPunches")
+    .withIndex("by_employee_and_date", (q) =>
+      q.eq("employeeId", employeeId).eq("date", date)
+    )
+    .take(500);
+}
+
+export async function listRhidPunchesForPersonDate(
+  ctx: Ctx,
+  rhidPersonId: number,
+  date: string
+): Promise<Doc<"timeClockPunches">[]> {
+  return await ctx.db
+    .query("timeClockPunches")
+    .withIndex("by_person_and_date", (q) =>
+      q.eq("rhidPersonId", rhidPersonId).eq("date", date)
+    )
+    .take(500);
+}
+
+export async function getPunchByClientId(
+  ctx: Ctx,
+  clientPunchId: string
+): Promise<Doc<"timeClockPunches"> | null> {
+  return await ctx.db
+    .query("timeClockPunches")
+    .withIndex("by_client_punch_id", (q) => q.eq("clientPunchId", clientPunchId))
+    .first();
+}
+
+/** Pessoa do RHID vinculada a um funcionário (quando existe). */
+export async function getPersonByEmployee(
+  ctx: Ctx,
+  employeeId: Id<"employees">
+): Promise<Doc<"rhidPeople"> | null> {
+  return await ctx.db
+    .query("rhidPeople")
+    .withIndex("by_employee", (q) => q.eq("employeeId", employeeId))
+    .first();
+}
+
+/** Próximo NSR (número sequencial de registro) das marcações do app. */
+export async function nextNsr(ctx: MutationCtx): Promise<number> {
+  const counter = await ctx.db
+    .query("timeClockCounters")
+    .withIndex("by_key", (q) => q.eq("key", "nsr"))
+    .unique();
+  const value = (counter?.value ?? 0) + 1;
+  if (counter) {
+    await ctx.db.patch("timeClockCounters", counter._id, { value });
+  } else {
+    await ctx.db.insert("timeClockCounters", { key: "nsr", value });
+  }
+  return value;
+}
+
+/**
+ * Recalcula o resumo diário de uma pessoa do RHID a partir de todas as suas
+ * marcações do dia (espelho + app). Sem marcações, remove o resumo.
+ */
+export async function recomputeDaySummary(
+  ctx: MutationCtx,
+  date: string,
+  rhidPersonId: number,
+  syncedAt: number
+): Promise<void> {
+  const punches = (await listRhidPunchesForPersonDate(ctx, rhidPersonId, date)).filter(
+    (punch) => !punch.excluded
+  );
+  const existing = await ctx.db
+    .query("timeClockDays")
+    .withIndex("by_person_and_date", (q) =>
+      q.eq("rhidPersonId", rhidPersonId).eq("date", date)
+    )
+    .first();
+  const summary = summarizeDays(
+    punches.map((punch) => ({ ...punch, rhidPersonId }))
+  )[0];
+  if (!summary) {
+    if (existing) await ctx.db.delete("timeClockDays", existing._id);
+    return;
+  }
+  const payload = { ...summary, syncedAt };
+  if (existing) {
+    await ctx.db.replace("timeClockDays", existing._id, payload);
+  } else {
+    await ctx.db.insert("timeClockDays", payload);
+  }
+}
+
 export async function listDaysInRange(
   ctx: Ctx,
   from: string,
@@ -315,11 +451,19 @@ export async function replaceDayPunches(
   const incoming = punches.filter((punch) => punch.date === date);
   const incomingIds = new Set(incoming.map((punch) => punch.rhidRecordId));
 
-  const current = await listPunchesForDate(ctx, date);
-  const currentById = new Map(current.map((punch) => [punch.rhidRecordId, punch]));
+  // Marcações feitas pelo app não pertencem ao espelho: nunca são apagadas
+  // nem substituídas pela sincronização, mas entram no resumo do dia.
+  const allForDate = await listPunchesForDate(ctx, date);
+  const current = allForDate.filter(
+    (punch) => !isAppPunch(punch) && punch.rhidRecordId !== undefined
+  );
+  const appPunches = allForDate.filter(
+    (punch) => isAppPunch(punch) && hasRhidPerson(punch) && !punch.excluded
+  );
+  const currentById = new Map(current.map((punch) => [punch.rhidRecordId!, punch]));
 
   for (const punch of current) {
-    if (!incomingIds.has(punch.rhidRecordId)) {
+    if (!incomingIds.has(punch.rhidRecordId!)) {
       await ctx.db.delete("timeClockPunches", punch._id);
       result.deleted += 1;
     }
@@ -330,6 +474,7 @@ export async function replaceDayPunches(
     const payload = {
       rhidRecordId: punch.rhidRecordId,
       rhidPersonId: punch.rhidPersonId,
+      source: "rhid" as const,
       personName: punch.personName,
       date: punch.date,
       punchedAt: punch.punchedAt,
@@ -353,7 +498,10 @@ export async function replaceDayPunches(
   }
 
   // Resumo diário: substitui o conjunto do dia pelo recalculado.
-  const summaries = summarizeDays(incoming);
+  const summaries = summarizeDays([
+    ...incoming,
+    ...appPunches.filter((punch) => punch.rhidPersonId !== undefined),
+  ] as Parameters<typeof summarizeDays>[0]);
   const summaryByPerson = new Map(summaries.map((item) => [item.rhidPersonId, item]));
   const existingDays = await ctx.db
     .query("timeClockDays")

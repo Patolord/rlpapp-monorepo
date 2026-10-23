@@ -76,6 +76,16 @@ export const rhidSyncStatus = v.union(
 
 export const rhidLinkSource = v.union(v.literal("auto"), v.literal("manual"));
 
+// Origem de uma marcação: espelho do RHID ou registrada pelo app RLP.
+export const timeClockPunchSource = v.union(v.literal("rhid"), v.literal("app"));
+
+// Resultado da checagem de cerca (mesma semântica do RHID: 0/1/2).
+export const timeClockGeofenceStatus = v.union(
+  v.literal("not_controlled"),
+  v.literal("inside"),
+  v.literal("outside")
+);
+
 // --- Compras / Materiais / Preços ---
 
 export const materialStatus = v.union(
@@ -1248,6 +1258,8 @@ export default defineSchema({
     receivesFoodBasket: v.boolean(),
     dailyTransitCents: v.number(),
     defaultTransportFoodDays: v.number(),
+    // Usuário do app que bate ponto como este funcionário.
+    userId: v.optional(v.id("users")),
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
     createdByUserId: v.optional(v.id("users")),
@@ -1256,7 +1268,9 @@ export default defineSchema({
     .index("by_name_normalized", ["nameNormalized"])
     .index("by_code", ["code"])
     .index("by_cpf_normalized", ["cpfNormalized"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_user", ["userId"])
+    .index("by_email", ["email"]),
 
   payrollRuns: defineTable({
     year: v.number(),
@@ -1357,8 +1371,19 @@ export default defineSchema({
     manDayCostCents: v.number(),
     // Departamentos do RHID considerados na presença. Vazio = todos.
     trackedDepartments: v.array(v.string()),
+    // Regras da marcação pelo app RLP (mesmos controles do RHID).
+    photoRequired: v.optional(v.boolean()),
+    locationRequired: v.optional(v.boolean()),
+    // Janela (min) em que uma nova marcação do mesmo funcionário é ignorada.
+    duplicateWindowMinutes: v.optional(v.number()),
     updatedAt: v.number(),
     updatedByUserId: v.optional(v.id("users")),
+  }).index("by_key", ["key"]),
+
+  // Contadores monotônicos do ponto (ex.: NSR das marcações do app).
+  timeClockCounters: defineTable({
+    key: v.string(),
+    value: v.number(),
   }).index("by_key", ["key"]),
 
   // Cadastro de pessoas do RHID. Não duplica `employees`: cada pessoa pode ser
@@ -1397,10 +1422,17 @@ export default defineSchema({
     .index("by_rhid_geofence_id", ["rhidGeofenceId"])
     .index("by_project", ["projectId"]),
 
-  // Uma linha por marcação (registro AFD mobile) do RHID.
+  // Uma linha por marcação: registro AFD mobile do RHID (source = "rhid") ou
+  // marcação feita pelo app RLP (source = "app"). Marcações do app carregam
+  // `employeeId`; `rhidPersonId` é preenchido quando o funcionário tem vínculo
+  // com uma pessoa do RHID, para aparecer nas telas que ainda usam esse id.
   timeClockPunches: defineTable({
-    rhidRecordId: v.number(),
-    rhidPersonId: v.number(),
+    rhidRecordId: v.optional(v.number()),
+    rhidPersonId: v.optional(v.number()),
+    source: v.optional(timeClockPunchSource),
+    employeeId: v.optional(v.id("employees")),
+    // Chave de idempotência gerada no aparelho (reenvio da fila offline).
+    clientPunchId: v.optional(v.string()),
     personName: v.string(),
     // Dia civil em Brasília ("YYYY-MM-DD").
     date: v.string(),
@@ -1413,13 +1445,30 @@ export default defineSchema({
     latitude: v.optional(v.number()),
     longitude: v.optional(v.number()),
     photoUrl: v.optional(v.string()),
+    photoStorageId: v.optional(v.id("_storage")),
     rhidGeofenceId: v.optional(v.number()),
     geofenceName: v.optional(v.string()),
+    worksiteId: v.optional(v.id("rhidWorksites")),
+    geofenceStatus: v.optional(timeClockGeofenceStatus),
+    // Relógio do aparelho no momento da marcação (o oficial é `punchedAt`,
+    // atribuído pelo servidor).
+    capturedAt: v.optional(v.number()),
+    accuracyMeters: v.optional(v.number()),
+    offline: v.optional(v.boolean()),
+    deviceModel: v.optional(v.string()),
+    appVersion: v.optional(v.string()),
+    // Comprovante: número sequencial e hash SHA-256 da marcação.
+    nsr: v.optional(v.number()),
+    hash: v.optional(v.string()),
+    excluded: v.optional(v.boolean()),
+    excludedReason: v.optional(v.string()),
     syncedAt: v.number(),
   })
     .index("by_rhid_record_id", ["rhidRecordId"])
     .index("by_date", ["date"])
-    .index("by_person_and_date", ["rhidPersonId", "date"]),
+    .index("by_person_and_date", ["rhidPersonId", "date"])
+    .index("by_employee_and_date", ["employeeId", "date"])
+    .index("by_client_punch_id", ["clientPunchId"]),
 
   // Resumo diário por pessoa (só dias com marcação). Derivado de
   // `timeClockPunches` na mesma mutation de sincronização.

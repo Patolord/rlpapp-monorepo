@@ -244,7 +244,7 @@ describe("timeClock: espelho diário", () => {
       manDayCostCents: 20_050.4,
     });
     const settings = await hr.query(api.timeClock.getTimeClockSettings, {});
-    expect(settings).toEqual({
+    expect(settings).toMatchObject({
       manDayCostCents: 20_050,
       trackedDepartments: ["producao", "Produção"],
     });

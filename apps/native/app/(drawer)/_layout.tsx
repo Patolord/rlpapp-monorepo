@@ -7,6 +7,7 @@ import { Redirect, type Href } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import {
   Building2,
+  Clock,
   HardHat,
   Home,
   Package,
@@ -134,6 +135,18 @@ function RoleAwareDrawer({
           headerTitle: isDirector ? "Painel do Diretor" : "Home",
           drawerLabel: isDirector ? "Início" : "Home",
           drawerIcon: ({ size, color }) => <Home size={size} color={color} />,
+        }}
+      />
+      <Drawer.Screen
+        name="ponto"
+        options={{
+          headerShown: true,
+          headerTitle: "Marcação de ponto",
+          headerShadowVisible: false,
+          headerStyle: { backgroundColor: bg },
+          headerTintColor: fg,
+          drawerLabel: "Ponto",
+          drawerIcon: ({ size, color }) => <Clock size={size} color={color} />,
         }}
       />
       <Drawer.Screen
