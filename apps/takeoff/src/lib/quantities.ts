@@ -1,3 +1,4 @@
+import { compareSystems, sortItemsForBudget } from "./budgetOrder";
 import {
   type Pt,
   pointAlong,
@@ -182,7 +183,7 @@ export interface SystemSheet {
 export function systemSheets(project: Project): SystemSheet[] {
   const bySystem = new Map<string, Item[]>();
   const fallback = project.system || "Orçamento";
-  for (const item of project.items) {
+  for (const item of sortItemsForBudget(project.items)) {
     const key = (item.system || fallback).trim() || fallback;
     bySystem.set(key, [...(bySystem.get(key) ?? []), item]);
   }
@@ -191,7 +192,8 @@ export function systemSheets(project: Project): SystemSheet[] {
   const totals = itemTotals(project);
   const unit = (item: Item) => itemUnit(item, project.unit);
   const sheets: SystemSheet[] = [];
-  for (const [system, items] of bySystem) {
+  for (const system of [...bySystem.keys()].sort(compareSystems)) {
+    const items = bySystem.get(system) ?? [];
     const sections: SheetSection[] = [];
     if (byZone) {
       const columns = [
@@ -296,7 +298,8 @@ export interface Quote {
 export function buildQuote(project: Project): Quote {
   const totals = itemTotals(project);
   const groups = new Map<string, QuoteGroup>();
-  for (const item of project.items) {
+  // tier → group → name: the groups come out in budget order as they are first seen
+  for (const item of sortItemsForBudget(project.items)) {
     const t = totals.get(item.id) ?? { qty: 0, count: 0, unscaled: 0 };
     const qty = pricedQty(item, t.qty);
     const material = round2(item.materialPrice * qty);

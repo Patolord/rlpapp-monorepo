@@ -42,6 +42,8 @@ export interface Item {
    */
   baseMaterial?: string;
   kgPerUnit?: number;
+  /** Manual position inside its group in the budget (see lib/budgetOrder); undefined = by name. */
+  order?: number;
   /**
    * Item kept by the app: "duct" is a duct network ("Rede de dutos"), 1 cj whose material and
    * labour are recomputed from the duct runs drawn on it.

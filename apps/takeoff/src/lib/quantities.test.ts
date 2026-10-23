@@ -218,15 +218,16 @@ describe("system sheets", () => {
     ];
     p.sectionsBy = "local";
     const sheets = systemSheets(p);
-    expect(sheets.map((s) => s.system)).toEqual(["Pressurização", "Exaustão"]);
-    expect(sheets[0].sections.map((s) => s.name)).toEqual(["Térreo"]);
-    expect(sheets[0].sections[0].rows.map((r) => [r.item.id, r.qty])).toEqual([
+    // sheets follow the usual discipline order (Exaustão before Pressurização), not insertion
+    expect(sheets.map((s) => s.system)).toEqual(["Exaustão", "Pressurização"]);
+    expect(sheets[1].sections.map((s) => s.name)).toEqual(["Térreo"]);
+    expect(sheets[1].sections[0].rows.map((r) => [r.item.id, r.qty])).toEqual([
       ["duct", 4.4],
       ["floor", 6],
     ]);
-    expect(sheets[1].sections.map((s) => s.name)).toEqual(["Térreo", "Sem local"]);
+    expect(sheets[0].sections.map((s) => s.name)).toEqual(["Térreo", "Sem local"]);
     p.sectionsBy = "grupo";
-    expect(systemSheets(p)[0].sections.map((s) => s.name)).toEqual(["Rede de Dutos"]);
+    expect(systemSheets(p)[1].sections.map((s) => s.name)).toEqual(["Rede de Dutos"]);
   });
 });
 
@@ -298,13 +299,13 @@ describe("disciplines", () => {
       { id: "room", name: "Sala 101", drawingId: D1, page: 0, points: square(100), color: "#fff" },
     ];
     const sheets = systemSheets(p);
-    expect(sheets.map((s) => s.system)).toEqual(["AC Áreas Comuns", "Exaustão"]);
-    expect(sheets[0].sections.map((s) => s.name)).toEqual(["Sala 101"]);
-    expect(sheets[0].sections[0].rows.map((r) => [r.item.name, r.qty])).toEqual([
-      ["Difusor AC", 1],
-    ]);
+    expect(sheets.map((s) => s.system)).toEqual(["Exaustão", "AC Áreas Comuns"]);
     expect(sheets[1].sections.map((s) => s.name)).toEqual(["Sala 101"]);
     expect(sheets[1].sections[0].rows.map((r) => [r.item.name, r.qty])).toEqual([
+      ["Difusor AC", 1],
+    ]);
+    expect(sheets[0].sections.map((s) => s.name)).toEqual(["Sala 101"]);
+    expect(sheets[0].sections[0].rows.map((r) => [r.item.name, r.qty])).toEqual([
       ["Grelha de exaustão", 2],
     ]);
     // the room itself still shows both in the per-location totals
