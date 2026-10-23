@@ -9,7 +9,7 @@ import {
   ductBill,
 } from "./ducts";
 import { measurementQty, pageScale, repeatOf, zoneOf } from "./quantities";
-import { drawingOf, ITEM_COLORS, type Item, newId, type Project } from "./types";
+import { drawingOf, ITEM_COLORS, type Item, locationOf, newId, type Project } from "./types";
 
 export const DUCT_GROUP = "Rede de Dutos";
 /** Default name of a duct network item; the user can rename it like any item. */
@@ -56,7 +56,7 @@ export function ductRuns(project: Project): DuctRun[] {
       spec: m.duct,
       length: (q + (m.vertical ?? 0)) * (item.factor ?? 1) * repeatOf(project, m, "linear"),
       vertical: m.vertical,
-      tag: zone ? `${planta} · ${zone.name}` : planta,
+      tag: zone ? `${planta} · ${locationOf(project, zone.locationId)?.name ?? ""}` : planta,
       system: (item.system || project.system || "").trim(),
     });
   }

@@ -86,22 +86,32 @@ export interface Measurement {
   vrf?: VrfSpec;
 }
 
-/** A named location (ambiente, pavimento, zona) drawn on a page; measurements inside it are grouped by it. */
-export interface Zone {
+/**
+ * A named location (ambiente, pavimento, zona). Measurements are grouped by it in the budget.
+ * It is drawn as one or more regions (Zone), possibly on different drawings: a condenser on the
+ * roof sheet and its evaporator on the floor sheet are one location.
+ */
+export interface Location {
   id: string;
   name: string;
+  color: string;
+}
+
+/** One region of a location drawn on a page; measurements inside it belong to the location. */
+export interface Zone {
+  id: string;
+  locationId: string;
   drawingId: string;
   page: number;
   points: Pt[];
-  color: string;
   /** Hidden on the drawing (still groups measurements). */
   hidden?: boolean;
-  /** Times this local repeats (20 identical apartments): multiplies the quantities inside it. */
+  /** Times this region repeats (20 identical apartments): multiplies the quantities inside it. */
   repeat?: number;
 }
 
 export interface Project {
-  version: 3;
+  version: 4;
   name: string;
   unit: Unit;
   currency: string;
@@ -123,6 +133,8 @@ export interface Project {
   activeDrawingId: string | null;
   items: Item[];
   measurements: Measurement[];
+  locations: Location[];
+  /** Regions of the locations, each on one page of one drawing. */
   zones: Zone[];
   /** Duct take-off parameters (norma, allowances, labour); undefined = defaults. */
   duct?: DuctSettings;
@@ -180,7 +192,7 @@ export const UNTITLED = "Takeoff sem nome";
 
 export function emptyProject(): Project {
   return {
-    version: 3,
+    version: 4,
     name: UNTITLED,
     unit: "m",
     currency: "BRL",
@@ -196,6 +208,7 @@ export function emptyProject(): Project {
     activeDrawingId: null,
     items: [],
     measurements: [],
+    locations: [],
     zones: [],
   };
 }
@@ -206,12 +219,80 @@ export const drawingOf = (project: Project, id: string | null | undefined): Draw
 export const activeDrawing = (project: Project): Drawing | undefined =>
   drawingOf(project, project.activeDrawingId);
 
+export const locationOf = (
+  project: Project,
+  id: string | null | undefined,
+): Location | undefined => (id ? project.locations.find((l) => l.id === id) : undefined);
+
+/** Key two location names share when they mean the same place ("Térreo " = "térreo"). */
+export const locationKey = (name: string): string => name.trim().toLocaleLowerCase("pt-BR");
+
+/** The location whose name matches, ignoring case and surrounding spaces. */
+export const locationByName = (project: Project, name: string): Location | undefined => {
+  const key = locationKey(name);
+  return key ? project.locations.find((l) => locationKey(l.name) === key) : undefined;
+};
+
+/** Regions of a location, in drawing order. */
+export const regionsOf = (project: Project, locationId: string): Zone[] =>
+  project.zones.filter((z) => z.locationId === locationId);
+
+/** Drops locations left without any region (a location only exists through what is drawn). */
+export function pruneLocations<P extends Pick<Project, "locations" | "zones">>(p: P): P {
+  const used = new Set(p.zones.map((z) => z.locationId));
+  const locations = p.locations.filter((l) => used.has(l.id));
+  return locations.length === p.locations.length ? p : { ...p, locations };
+}
+
+/** Zone of project files up to version 3: name and colour lived on each polygon. */
+interface ZoneV3 {
+  id: string;
+  name: string;
+  drawingId: string;
+  page: number;
+  points: Pt[];
+  color: string;
+  hidden?: boolean;
+  repeat?: number;
+}
+
+/**
+ * v3 → v4: polygons become regions of named locations. Polygons that share a name (the same
+ * room drawn on two sheets) merge into one location, keeping the first one's colour.
+ */
+function locationsFromZonesV3(zones: ZoneV3[]): { locations: Location[]; zones: Zone[] } {
+  const locations: Location[] = [];
+  const byKey = new Map<string, Location>();
+  const out: Zone[] = [];
+  for (const z of zones) {
+    const key = locationKey(z.name) || z.id;
+    let loc = byKey.get(key);
+    if (!loc) {
+      loc = { id: newId(), name: z.name, color: z.color };
+      byKey.set(key, loc);
+      locations.push(loc);
+    }
+    const { name: _n, color: _c, ...rest } = z;
+    out.push({ ...rest, locationId: loc.id });
+  }
+  return { locations, zones: out };
+}
+
 /** Load a project file of any supported version into the current shape. */
 export function migrateProject(raw: unknown): Project {
   if (!raw || typeof raw !== "object") throw new Error("Not a takeoff project");
   const r = raw as Record<string, unknown>;
   const base = emptyProject();
-  if (r.version === 3) return { ...base, ...(r as Partial<Project>), version: 3 };
+  if (r.version === 4) return { ...base, ...(r as Partial<Project>), version: 4 };
+  if (r.version === 3) {
+    const { zones: _z, ...rest } = r as Partial<Project> & { zones?: ZoneV3[] };
+    return {
+      ...base,
+      ...rest,
+      ...locationsFromZonesV3((r.zones as ZoneV3[]) ?? []),
+      version: 4,
+    };
+  }
   if (r.version !== 1 && r.version !== 2) {
     throw new Error(`Unsupported project version ${String(r.version)}`);
   }
@@ -240,7 +321,9 @@ export function migrateProject(raw: unknown): Project {
     ...m,
     drawingId,
   }));
-  const zones = ((r.zones as Omit<Zone, "drawingId">[]) ?? []).map((z) => ({ ...z, drawingId }));
+  const { locations, zones } = locationsFromZonesV3(
+    ((r.zones as Omit<ZoneV3, "drawingId">[]) ?? []).map((z) => ({ ...z, drawingId })),
+  );
   const markup = Number(r.markupPct ?? 0);
   return {
     ...base,
@@ -259,6 +342,7 @@ export function migrateProject(raw: unknown): Project {
     activeDrawingId: pdfPath || measurements.length || zones.length ? drawingId : null,
     items,
     measurements,
+    locations,
     zones,
   };
 }

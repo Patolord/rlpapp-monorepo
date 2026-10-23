@@ -25,7 +25,7 @@ import { ensureRaster, findVisual } from "../lib/pdf/visualClient";
 import { pageScale, zoneOf } from "../lib/quantities";
 import { ensureText, session, useDoc } from "../lib/session";
 import { drawSymbol } from "../lib/symbols";
-import type { Measurement, Zone } from "../lib/types";
+import { type Location, locationOf, type Measurement } from "../lib/types";
 import { formatArea, formatLength, type Kind, type PageScale } from "../lib/units";
 import { vrfTag } from "../lib/vrf";
 import { type Tool, useStore } from "../store";
@@ -500,13 +500,13 @@ export function Viewer() {
         if (z.drawingId !== did || z.page !== p || !boxesIntersect(bbox(z.points), viewBox)) {
           continue;
         }
-        const isSel = sel.has(z.id) || zoneFilter === z.id;
+        const isSel = sel.has(z.id) || zoneFilter === z.locationId;
         // hidden locations (globally or individually) still show while selected or filtered
         if ((!zonesVisible || z.hidden) && !isSel) continue;
         const pts =
           isSel && s.moveDelta ? translate(z.points, s.moveDelta.x, s.moveDelta.y) : z.points;
         ctx.globalAlpha = isSel ? 1 : zoneOpacity;
-        drawZone(ctx, v, pts, z, scale, {
+        drawZone(ctx, v, pts, locationOf(project, z.locationId) ?? null, scale, {
           selected: isSel,
           hover: s.hoverId === z.id,
           dashed: false,
@@ -533,7 +533,7 @@ export function Viewer() {
         const pts =
           isSel && s.moveDelta ? translate(m.points, s.moveDelta.x, s.moveDelta.y) : m.points;
         const outside =
-          zoneFilter !== null && (zoneOf(project, m, item.kind)?.id ?? "") !== zoneFilter;
+          zoneFilter !== null && (zoneOf(project, m, item.kind)?.locationId ?? "") !== zoneFilter;
         if (outside) ctx.globalAlpha = 0.18;
         drawMeasurement(ctx, v, pts, item.kind, item.color, scale, {
           selected: isSel,
@@ -1165,12 +1165,12 @@ function drawZone(
   ctx: CanvasRenderingContext2D,
   v: { zoom: number; x: number; y: number },
   pts: readonly Pt[],
-  zone: Zone | null,
+  loc: Location | null,
   scale: PageScale | null,
   o: DrawOpts,
 ) {
   if (pts.length < 2) return;
-  const color = zone?.color ?? "#2b3990";
+  const color = loc?.color ?? "#2b3990";
   const sp = pts.map((p) => toScreen(p, v));
   ctx.save();
   ctx.beginPath();
@@ -1205,7 +1205,7 @@ function drawZone(
       : `${area.toFixed(0)} pt²`;
     const b = bbox(pts);
     const top = toScreen({ x: (b.minX + b.maxX) / 2, y: b.minY }, v);
-    drawLabel(ctx, zone ? `${zone.name} · ${areaText}` : areaText, top.x, top.y + 12, color);
+    drawLabel(ctx, loc ? `${loc.name} · ${areaText}` : areaText, top.x, top.y + 12, color);
   }
   ctx.restore();
 }

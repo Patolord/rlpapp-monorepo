@@ -79,7 +79,7 @@ export function StatusBar() {
       ? null
       : s.zoneFilter === ""
         ? "Sem local"
-        : (s.project.zones.find((z) => z.id === s.zoneFilter)?.name ?? null),
+        : (s.project.locations.find((l) => l.id === s.zoneFilter)?.name ?? null),
   );
   const setZoneFilter = useStore((s) => s.setZoneFilter);
   const fillOpacity = useStore((s) => s.fillOpacity);
