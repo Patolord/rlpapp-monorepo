@@ -17,6 +17,7 @@ const TOOL_KEYS: Record<string, Tool> = {
   x: "similar",
   t: "kit",
   d: "duct",
+  y: "vrf",
 };
 
 export function useHotkeys() {
@@ -100,6 +101,10 @@ export function useHotkeys() {
             s.setKitsEditorOpen(false);
             return;
           }
+          if (s.vrfBrandsEditorOpen) {
+            s.setVrfBrandsEditorOpen(false);
+            return;
+          }
           if (s.kitPickerOpen) {
             s.setKitPickerOpen(false);
             return;
@@ -110,6 +115,9 @@ export function useHotkeys() {
           else if (s.pendingDuct || s.ductEditIds) {
             s.setPendingDuct(null);
             s.setDuctEditIds(null);
+          } else if (s.pendingVrf || s.vrfEditIds) {
+            s.setPendingVrf(null);
+            s.setVrfEditIds(null);
           } else if (s.pendingZone) s.setPendingZone(null);
           else if (s.paletteOpen) s.setPaletteOpen(false);
           else if (s.legendCandidates) s.setLegendCandidates(null);

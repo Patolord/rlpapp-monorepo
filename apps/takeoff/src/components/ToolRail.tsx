@@ -1,6 +1,7 @@
 import {
   AirVent,
   CircleDot,
+  GitFork,
   Grid3x3,
   Hand,
   Layers,
@@ -52,6 +53,13 @@ const TOOLS: { tool: Tool; label: string; key: string; icon: typeof Hand }[] = [
     label: "Duto (mede o trecho e pede a seção: chapa, isolamento e flanges são calculados)",
     key: "D",
     icon: AirVent,
+  },
+  {
+    tool: "vrf",
+    label:
+      "VRF (mede o trecho de linha frigorígena e pede tipo e capacidade: bitolas, Y-kits e materiais são calculados)",
+    key: "Y",
+    icon: GitFork,
   },
 ];
 

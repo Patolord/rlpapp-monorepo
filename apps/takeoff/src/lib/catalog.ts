@@ -3,6 +3,7 @@ import seed from "../data/catalog.seed.json";
 import { catalogUrl, describeHttpFailure, httpRequest, type QueuedProposal } from "./catalogRemote";
 import { type Kit, SEED_KITS } from "./kits";
 import type { Kind } from "./units";
+import { cloneBrands, SEED_BRANDS, type VrfBrand } from "./vrf";
 import {
   type BasePrices,
   cloneWeights,
@@ -61,6 +62,8 @@ export interface CatalogStore {
   weights: WeightRow[];
   /** Price per kg of the base materials (cobre, chapa…); empty = the bundled defaults. */
   basePrices: BasePrices;
+  /** VRF makers' rules (tube sizing by HP, Y-kit models), editable; seeded from the workbook. */
+  vrfBrands: VrfBrand[];
 }
 
 export const SEED: CatalogEntry[] = (seed as CatalogEntry[]).map((e) => ({ ...e, source: "seed" }));
@@ -77,6 +80,7 @@ export const emptyCatalogStore = (): CatalogStore => ({
   kits: SEED_KITS.map((k) => ({ ...k, components: k.components.map((c) => ({ ...c })) })),
   weights: cloneWeights(SEED_WEIGHTS),
   basePrices: {},
+  vrfBrands: cloneBrands(SEED_BRANDS),
 });
 
 export function kindForUnit(unit: string): Kind {

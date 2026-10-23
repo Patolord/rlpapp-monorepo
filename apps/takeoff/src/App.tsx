@@ -23,6 +23,9 @@ import { StatusBar } from "./components/StatusBar";
 import { ToolRail } from "./components/ToolRail";
 import { TopBar } from "./components/TopBar";
 import { Viewer } from "./components/Viewer";
+import { VrfBrandsDialog } from "./components/VrfBrandsDialog";
+import { VrfDialog } from "./components/VrfDialog";
+import { VrfPanel } from "./components/VrfPanel";
 import { WeightsDialog } from "./components/WeightsDialog";
 import { Welcome } from "./components/Welcome";
 import { ZoneDialog } from "./components/ZoneDialog";
@@ -33,7 +36,13 @@ import { useDoc } from "./lib/session";
 import { checkForUpdate } from "./lib/updater";
 import { useStore } from "./store";
 
-const TABS = { items: "Itens", zones: "Locais", ducts: "Dutos", quote: "Orçamento" } as const;
+const TABS = {
+  items: "Itens",
+  zones: "Locais",
+  ducts: "Dutos",
+  vrf: "VRF",
+  quote: "Orçamento",
+} as const;
 
 export default function App() {
   useHotkeys();
@@ -162,6 +171,8 @@ export default function App() {
                 <ZonesPanel />
               ) : tab === "ducts" ? (
                 <DuctsPanel />
+              ) : tab === "vrf" ? (
+                <VrfPanel />
               ) : (
                 <QuotePanel />
               )}
@@ -177,6 +188,8 @@ export default function App() {
       <WeightsDialog />
       <CatalogSettingsDialog />
       <DuctDialog />
+      <VrfDialog />
+      <VrfBrandsDialog />
     </div>
   );
 }

@@ -36,6 +36,12 @@ const HINTS: Record<string, React.ReactNode> = {
       Clique nos pontos do duto · <Kbd>Enter</Kbd> conclui e pede lado maior × lado menor
     </>
   ),
+  vrf: (
+    <>
+      Clique nos pontos da linha frigorígena · <Kbd>Enter</Kbd> conclui e pede o tipo do trecho
+      (condensadora, intermediário, evaporadora) e a capacidade
+    </>
+  ),
   kit: (
     <>
       Preset linear: clique nos pontos e <Kbd>Enter</Kbd> conclui · preset de contagem: um clique

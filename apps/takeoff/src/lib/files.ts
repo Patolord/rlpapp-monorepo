@@ -8,6 +8,7 @@ import { mod } from "./platform";
 import { systemSheets, zoneMatrix } from "./quantities";
 import { basename, closePdf, isDocOpen, openPdfPath, preloadPdfPath, useDoc } from "./session";
 import { drawingOf, emptyProject, migrateProject, UNTITLED } from "./types";
+import { buildVrfWorkbook } from "./vrfSheet";
 
 /** Ask before throwing away unsaved work. Returns true when it is fine to continue. */
 export async function confirmDiscard(): Promise<boolean> {
@@ -269,6 +270,51 @@ export async function exportDuctSheet(networkId: string): Promise<void> {
     }
   } catch (e) {
     store.setStatus(`Falha na planilha de dutos: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+/** Save an .xlsx built in memory: native dialog inside Tauri, a download in the browser. */
+async function saveXlsxBytes(name: string, bytes: Uint8Array): Promise<void> {
+  const store = useStore.getState();
+  if ("__TAURI_INTERNALS__" in window) {
+    const path = await save({
+      defaultPath: name,
+      filters: [{ name: "Planilha Excel", extensions: ["xlsx"] }],
+    });
+    if (!path) return;
+    await invoke("write_file", { path, data: Array.from(bytes) });
+    store.setStatus(`Exportado: ${basename(path)}`);
+  } else {
+    const url = URL.createObjectURL(
+      new Blob([bytes as unknown as ArrayBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }),
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+    store.setStatus(`Exportado: ${name}`);
+  }
+}
+
+/** Build the "Levantamento VRF" workbook for some (or every) VRF system and save it. */
+export async function exportVrfSheet(systemIds?: string[]): Promise<void> {
+  const store = useStore.getState();
+  const { project } = store;
+  try {
+    const bytes = await buildVrfWorkbook(
+      project,
+      store.vrfPricing(),
+      store.catalog.vrfBrands,
+      systemIds,
+    );
+    const one = systemIds?.length === 1 ? project.items.find((i) => i.id === systemIds[0]) : null;
+    const name = `Levantamento VRF - ${one?.name ?? "Sistemas"}${project.site ? ` - ${project.site}` : ""}.xlsx`;
+    await saveXlsxBytes(name, bytes);
+  } catch (e) {
+    store.setStatus(`Falha na planilha VRF: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 

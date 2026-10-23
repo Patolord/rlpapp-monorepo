@@ -1,6 +1,7 @@
 import type { DuctSettings, DuctSpec } from "./ducts";
 import type { Pt } from "./geom";
 import type { Kind, PageScale, Unit } from "./units";
+import type { VrfSettings, VrfSpec } from "./vrf";
 
 export interface Item {
   id: string;
@@ -46,9 +47,12 @@ export interface Item {
   order?: number;
   /**
    * Item kept by the app: "duct" is a duct network ("Rede de dutos"), 1 cj whose material and
-   * labour are recomputed from the duct runs drawn on it.
+   * labour are recomputed from the duct runs drawn on it; "vrf" is a VRF system (condenser +
+   * evaporators), N cj priced from the refrigerant runs drawn on it.
    */
-  derived?: "duct";
+  derived?: "duct" | "vrf";
+  /** VRF systems: the maker whose rules size the tubes and the condenser capacity, HP. */
+  vrf?: { brand: string; hp: number };
 }
 
 export interface PageMeta {
@@ -78,6 +82,8 @@ export interface Measurement {
   repeat?: number;
   /** Rectangular duct run: section and finishes, feeding the duct take-off. */
   duct?: DuctSpec;
+  /** VRF refrigerant run: role, capacity and elbows, feeding the VRF take-off. */
+  vrf?: VrfSpec;
 }
 
 /** A named location (ambiente, pavimento, zona) drawn on a page; measurements inside it are grouped by it. */
@@ -122,6 +128,10 @@ export interface Project {
   duct?: DuctSettings;
   /** Unit prices of duct materials edited in this takeoff, by bill row name. */
   ductPrices?: Record<string, number>;
+  /** VRF take-off parameters (allowance, elbows, labour per evaporator); undefined = defaults. */
+  vrfSettings?: VrfSettings;
+  /** Unit prices of VRF materials edited in this takeoff, by bill row name. */
+  vrfPrices?: Record<string, number>;
 }
 
 export const ZONE_COLORS = ["#38bdf8", "#fb923c", "#a78bfa", "#4ade80", "#f472b6", "#fde047"];
@@ -140,6 +150,7 @@ export const DEFAULT_GROUP = "Geral";
 export const GROUP_SUGGESTIONS = [
   "Equipamentos",
   "Rede de Dutos",
+  "Sistema VRF",
   "Bocas de Ar",
   "Elétrica",
   "Tubulações",

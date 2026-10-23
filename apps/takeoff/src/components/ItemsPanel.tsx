@@ -509,6 +509,14 @@ function ItemRow({
             rede de dutos
           </span>
         )}
+        {item.derived === "vrf" && (
+          <span
+            className="shrink-0 rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-500"
+            title="Sistema VRF: material e mão de obra calculados na aba VRF a partir dos trechos medidos; a quantidade é o nº de sistemas iguais"
+          >
+            sistema vrf
+          </span>
+        )}
         <span className="shrink-0 font-mono text-[12px] text-neutral-200">{qtyLabel}</span>
         {unscaled > 0 && (
           <span

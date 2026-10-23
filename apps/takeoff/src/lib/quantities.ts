@@ -89,7 +89,7 @@ export function itemTotals(
     const item = items.get(m.itemId);
     const t = totals.get(m.itemId);
     if (!item || !t) continue;
-    if (item.derived === "duct") continue; // a network is 1 cj; its runs only feed the duct bill
+    if (item.derived) continue; // a duct network / VRF system is N cj; its runs only feed its bill
     if (include && !include(m, item.kind)) continue;
     const q = measurementQty(m, item.kind, pageScale(project, m.drawingId, m.page));
     t.count++;
@@ -121,7 +121,7 @@ export function totalsByZone(project: Project): Map<string, Map<string, ItemTota
   const out = new Map<string, Map<string, ItemTotal>>();
   for (const m of project.measurements) {
     const item = items.get(m.itemId);
-    if (!item || item.derived === "duct") continue;
+    if (!item || item.derived) continue;
     const zone = zoneOf(project, m, item.kind);
     const key = zone?.id ?? NO_ZONE;
     let totals = out.get(key);

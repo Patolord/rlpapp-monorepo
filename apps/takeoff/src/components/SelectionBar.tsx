@@ -1,6 +1,7 @@
 import { ArrowUpFromLine, Link2Off, Pencil, Plus, Repeat, X } from "lucide-react";
 import { useMemo } from "react";
 import { FLANGE_LABELS, INSULATION_LABELS } from "../lib/ducts";
+import { vrfTag } from "../lib/vrf";
 import { useStore } from "../store";
 import { Button } from "./ui";
 
@@ -18,6 +19,7 @@ export function SelectionBar() {
     setVertical,
     setRepeat,
     setDuctEditIds,
+    setVrfEditIds,
   } = useStore.getState();
   const info = useMemo(() => {
     const sel = new Set(selection);
@@ -113,6 +115,27 @@ export function SelectionBar() {
               title="Alterar seção, isolamento ou flange destes dutos"
             >
               <Pencil size={14} /> Editar duto
+            </Button>
+          </>
+        );
+      })()}
+      {(() => {
+        const vrfs = selected.filter((m) => m.vrf);
+        if (vrfs.length === 0) return null;
+        const first = vrfs[0];
+        const hp = items.get(first.itemId)?.vrf?.hp ?? 0;
+        return (
+          <>
+            <span className="rounded bg-neutral-800 px-1.5 py-0.5 text-neutral-200 ring-1 ring-neutral-700">
+              {vrfs.length === 1 && first.vrf
+                ? `VRF · ${vrfTag(first.vrf, hp)}`
+                : `${vrfs.length} trechos VRF`}
+            </span>
+            <Button
+              onClick={() => setVrfEditIds(vrfs.map((m) => m.id))}
+              title="Alterar tipo, capacidade, curvas ou sistema destes trechos"
+            >
+              <Pencil size={14} /> Editar VRF
             </Button>
           </>
         );

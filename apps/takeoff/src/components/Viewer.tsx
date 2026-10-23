@@ -27,6 +27,7 @@ import { ensureText, session, useDoc } from "../lib/session";
 import { drawSymbol } from "../lib/symbols";
 import type { Measurement, Zone } from "../lib/types";
 import { formatArea, formatLength, type Kind, type PageScale } from "../lib/units";
+import { vrfTag } from "../lib/vrf";
 import { type Tool, useStore } from "../store";
 import { viewerApi } from "../viewerApi";
 import { toPage, toScreen, useViewport } from "../viewport";
@@ -76,6 +77,7 @@ const DRAW_TOOLS: ReadonlySet<Tool> = new Set([
   "similar",
   "kit",
   "duct",
+  "vrf",
 ]);
 
 const rectContains = (outer: Rect, inner: Rect) =>
@@ -363,6 +365,8 @@ export function Viewer() {
         else store.setKitPickerOpen(true);
       } else if (store.tool === "duct" && pts.length >= 2) {
         store.setPendingDuct({ page: store.page, points: pts });
+      } else if (store.tool === "vrf" && pts.length >= 2) {
+        store.setPendingVrf({ page: store.page, points: pts });
       } else if (store.tool === "linear" && pts.length >= 2) {
         store.addMeasurement(store.resolveItem("linear"), store.page, pts);
       } else if (store.tool === "area" && pts.length >= 3) {
@@ -539,7 +543,11 @@ export function Viewer() {
           fillAlpha: fillK,
           vertical: m.vertical,
           repeat: m.repeat,
-          tag: m.duct ? `${m.duct.a}×${m.duct.b}` : undefined,
+          tag: m.duct
+            ? `${m.duct.a}×${m.duct.b}`
+            : m.vrf
+              ? vrfTag(m.vrf, item.vrf?.hp ?? 0)
+              : undefined,
         });
         ctx.globalAlpha = 1;
       }
@@ -858,6 +866,7 @@ export function Viewer() {
       }
       case "linear":
       case "duct":
+      case "vrf":
         s.draft.push(eff);
         break;
       case "area": {

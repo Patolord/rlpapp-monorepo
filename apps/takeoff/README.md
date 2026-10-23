@@ -98,6 +98,16 @@ Items carry a budget section (Equipamentos, Rede de Dutos, Bocas de Ar, ...), a 
 a labour unit price and an optional waste percentage. The Quote tab shows the grouped sheet with
 Diversos / Transportes / Supervisão extras, TOTAL GERAL and the BDI multiplier.
 
+Two tools quantify whole networks instead of single materials. **Duto (D)** asks the section of
+each run and the Dutos tab computes sheet metal, insulation, flanges, supports and labour per
+"Rede de dutos" item (NBR 16401 workbook). **VRF (Y)** asks what each refrigerant run is (saída
+da condensadora, trecho intermediário, ramal da evaporadora) and the capacity that sizes it;
+the VRF tab derives the gas/liquid diameters from the brand's tables (`lib/vrf.ts`, editable in
+"Regras das marcas", saved with the catalog), counts evaporators and Y-kits, and bills copper
+(priced by weight), elbows, 13 mm insulation, cables, boxes, supports and labour per evaporator,
+following the "Levantamento VRF Completo" workbook. Each system is one "Sistema VRF" item in
+the budget (quantity = identical systems); the detail goes to the exported VRF workbook.
+
 The Excel export mirrors the RLP workbook: a `Resumo` sheet, one sheet per system (an item's
 "sistema" tag, defaulting to the project system), sections per location (ambiente) or per group
 (toggle in the Quote tab), a `Por Local` matrix, and the original styling (Arial, navy item rows,
