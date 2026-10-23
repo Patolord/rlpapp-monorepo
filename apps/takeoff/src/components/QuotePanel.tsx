@@ -149,12 +149,17 @@ export function QuotePanel() {
                                   materialPrice: Number(e.target.value) || 0,
                                 })
                               }
-                              disabled={isWeightPriced(r.item)}
-                              className="num-input w-[4rem] disabled:opacity-70"
+                              className={
+                                isWeightPriced(r.item) && r.item.priceSource === "manual"
+                                  ? "num-input w-[4rem] ring-1 ring-amber-400/70"
+                                  : "num-input w-[4rem]"
+                              }
                               title={
-                                isWeightPriced(r.item)
-                                  ? "Preço derivado do peso: ajuste o R$/kg do insumo no rodapé do Ctrl+K"
-                                  : "Preço unitário de material"
+                                isWeightPriced(r.item) && r.item.priceSource === "manual"
+                                  ? "Preço digitado nesta linha (sobrescreve o preço por peso; ↺ na aba Itens volta)"
+                                  : isWeightPriced(r.item)
+                                    ? "Preço por peso (R$/kg do insumo no rodapé do Ctrl+K); digite outro para sobrescrever só esta linha"
+                                    : "Preço unitário de material"
                               }
                             />
                           </td>

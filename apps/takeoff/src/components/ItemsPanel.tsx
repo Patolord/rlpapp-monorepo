@@ -5,6 +5,7 @@ import {
   Library,
   Pentagon,
   Plus,
+  RotateCcw,
   Search,
   Send,
   Spline,
@@ -25,7 +26,7 @@ import {
 } from "../lib/quantities";
 import { DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS, type Item } from "../lib/types";
 import { formatMoney, formatQty, type Kind } from "../lib/units";
-import { describeWeightPrice, isWeightPriced } from "../lib/weights";
+import { describeWeightPrice } from "../lib/weights";
 import { useStore } from "../store";
 import { ItemStylePopover } from "./ItemStylePopover";
 import { SymbolIcon } from "./SymbolIcon";
@@ -595,18 +596,35 @@ function ItemRow({
                 value={item.materialPrice}
                 onClick={stop}
                 onChange={(e) => onChange({ materialPrice: Number(e.target.value) || 0 })}
-                disabled={isWeightPriced(item)}
-                className={clsx("num-input w-[3.9rem]", isWeightPriced(item) && "opacity-70")}
+                className={clsx(
+                  "num-input w-[3.9rem]",
+                  weightInfo && item.priceSource === "manual" && "ring-1 ring-amber-400/70",
+                )}
                 title={
-                  weightInfo
-                    ? `Preço por peso: ${weightInfo}`
-                    : item.priceDate
-                      ? `Preço unitário: material · ${
-                          item.priceSource === "catalog" ? "cotação" : "digitado"
-                        } em ${new Date(item.priceDate).toLocaleDateString("pt-BR")}`
-                      : "Preço unitário: material"
+                  weightInfo && item.priceSource === "manual"
+                    ? `Preço digitado nesta linha; por peso seria ${weightInfo}. Clique em ↺ para voltar ao preço por peso.`
+                    : weightInfo
+                      ? `Preço por peso: ${weightInfo}. Digite outro valor para sobrescrever só nesta linha.`
+                      : item.priceDate
+                        ? `Preço unitário: material · ${
+                            item.priceSource === "catalog" ? "cotação" : "digitado"
+                          } em ${new Date(item.priceDate).toLocaleDateString("pt-BR")}`
+                        : "Preço unitário: material"
                 }
               />
+              {weightInfo && item.priceSource === "manual" && (
+                <button
+                  type="button"
+                  title="Voltar ao preço por peso (segue o R$/kg do insumo)"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange({ priceSource: "weight" });
+                  }}
+                  className="rounded p-0.5 text-amber-400 hover:text-amber-300"
+                >
+                  <RotateCcw size={13} />
+                </button>
+              )}
             </label>
             <label className="flex items-center gap-1 whitespace-nowrap">
               M. obra

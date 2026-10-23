@@ -74,6 +74,27 @@ describe("weight-based prices", () => {
     expect(repriced.items[0]).toMatchObject({ materialPrice: 34.19, priceDate: 3_000 });
   });
 
+  it("leaves a typed price alone until the line is set back to the weight price", () => {
+    const typed = line({
+      id: "a",
+      baseMaterial: "cobre",
+      kgPerUnit: 0.263,
+      materialPrice: 40,
+      priceSource: "manual",
+      priceDate: 500,
+    });
+    const project = { ...emptyProject(), items: [typed] };
+    // the global price is a reference: the override survives any R$/kg change
+    expect(syncWeightItems(project, { cobre: 200 }, 1_000)).toBe(project);
+    // back to "weight" re-derives from the current R$/kg
+    const reset = { ...project, items: [{ ...typed, priceSource: "weight" as const }] };
+    expect(syncWeightItems(reset, { cobre: 200 }, 1_000).items[0]).toMatchObject({
+      materialPrice: 52.6,
+      priceSource: "weight",
+      priceDate: 1_000,
+    });
+  });
+
   it("turns the weight table into priced catalog entries", () => {
     const entries = weightCatalogEntries(SEED_WEIGHTS, {});
     expect(entries[2]).toMatchObject({

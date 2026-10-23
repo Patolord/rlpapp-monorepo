@@ -99,7 +99,8 @@ export const isWeightPriced = (item: Pick<Item, "baseMaterial" | "kgPerUnit">): 
  * Re-price every weight-based line from the current prices per kg. Runs on every commit (like
  * the duct items), when a price per kg changes and when a project is opened; returns the same
  * project when nothing changes. A line whose price moved is dated now: that is when the budget
- * took the new price per kg.
+ * took the new price per kg. A price the user typed on the line ("manual") is an override: the
+ * global price is only a reference, so that line is left alone until it is set back to "weight".
  */
 export function syncWeightItems(
   project: Project,
@@ -108,6 +109,7 @@ export function syncWeightItems(
 ): Project {
   let changed = false;
   const items = project.items.map((item) => {
+    if (item.priceSource === "manual") return item;
     const price = derivedMaterialPrice(item, prices);
     if (price === undefined) return item;
     if (item.materialPrice === price && item.priceSource === "weight") return item;
