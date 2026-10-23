@@ -3,6 +3,7 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
 import { normalizeUnit } from "../../lib/compras/catalog";
 import { describeMaterial } from "../../lib/compras/materialLookup";
+import { materialStatus } from "../../schema";
 import { centsToReais, pickCurrentPriceEvent } from "./priceSelection";
 
 /** Group used by the desktop app when a material has no category. */
@@ -27,6 +28,10 @@ export const takeoffCatalogItemValidator = v.object({
   priceEventId: v.union(v.id("priceEvents"), v.null()),
   laborPrice: v.number(),
   system: v.union(v.string(), v.null()),
+  // "draft": proposed from the takeoff, awaiting purchasing. "archived" items
+  // appear only when merged into another material, with the redirect.
+  status: materialStatus,
+  mergedInto: v.union(v.id("materials"), v.null()),
 });
 
 export type TakeoffCatalogItem = {
@@ -42,7 +47,17 @@ export type TakeoffCatalogItem = {
   priceEventId: Id<"priceEvents"> | null;
   laborPrice: number;
   system: string | null;
+  status: "draft" | "active" | "archived";
+  mergedInto: Id<"materials"> | null;
 };
+
+/** Legacy rows have no status; `active` decides. */
+export function catalogStatus(
+  material: Pick<Doc<"materials">, "active" | "status">
+): "draft" | "active" | "archived" {
+  if (!material.active) return "archived";
+  return material.status === "draft" ? "draft" : "active";
+}
 
 /** The slice of a price event the catalog exposes. */
 export type CurrentPrice = Pick<
@@ -74,6 +89,8 @@ export function toTakeoffCatalogItem(
     // pressurisation, ...) yet. Both become real fields in a later schema change.
     laborPrice: 0,
     system: null,
+    status: catalogStatus(material),
+    mergedInto: material.mergedIntoId ?? null,
   };
 }
 
@@ -90,7 +107,15 @@ async function currentMaterialPrice(
   return pickCurrentPriceEvent(events, now);
 }
 
-/** Every active material with the price it should be budgeted at today. */
+function byName(a: TakeoffCatalogItem, b: TakeoffCatalogItem): number {
+  return a.name.localeCompare(b.name, "pt-BR");
+}
+
+/**
+ * Every active material (including drafts) with the price it should be
+ * budgeted at today, followed by the archived materials that were merged into
+ * another one, so budget lines can follow the redirect.
+ */
 export async function listTakeoffCatalog(
   ctx: QueryCtx,
   now: number
@@ -106,5 +131,15 @@ export async function listTakeoffCatalog(
     const price = await currentMaterialPrice(ctx, material._id, now);
     items.push(toTakeoffCatalogItem(material, price));
   }
-  return items.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+  // eslint-disable-next-line @convex-dev/no-collect-in-query -- merged materials are a small subset of the bounded catalog
+  const archived = await ctx.db
+    .query("materials")
+    .withIndex("by_status", (q) => q.eq("status", "archived"))
+    .collect();
+  const redirects = archived
+    .filter((material) => material.mergedIntoId !== undefined)
+    .map((material) => toTakeoffCatalogItem(material, null));
+
+  return [...items.sort(byName), ...redirects.sort(byName)];
 }

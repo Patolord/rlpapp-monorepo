@@ -13,6 +13,7 @@ convex/
   materials.ts
   materialLookup.ts     Internal natural-language material lookup
   takeoffCatalog.ts     Internal catalog export for the RLP Takeoff desktop app
+  takeoffMaterials.ts   Internal material proposals from the RLP Takeoff desktop app
   projects.ts
   model/
     contracts/          Contract rules, operations, and read models

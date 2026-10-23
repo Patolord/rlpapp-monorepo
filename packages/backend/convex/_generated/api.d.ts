@@ -63,6 +63,7 @@ import type * as model_contracts_serviceItems from "../model/contracts/serviceIt
 import type * as model_contracts_validators from "../model/contracts/validators.js";
 import type * as model_procurement_priceSelection from "../model/procurement/priceSelection.js";
 import type * as model_procurement_takeoffCatalog from "../model/procurement/takeoffCatalog.js";
+import type * as model_procurement_takeoffProposals from "../model/procurement/takeoffProposals.js";
 import type * as payroll from "../payroll.js";
 import type * as portal from "../portal.js";
 import type * as priceEvents from "../priceEvents.js";
@@ -76,6 +77,7 @@ import type * as rhidSync from "../rhidSync.js";
 import type * as suppliers from "../suppliers.js";
 import type * as systems from "../systems.js";
 import type * as takeoffCatalog from "../takeoffCatalog.js";
+import type * as takeoffMaterials from "../takeoffMaterials.js";
 import type * as takeoffs from "../takeoffs.js";
 import type * as technicianActivity from "../technicianActivity.js";
 import type * as technicianPortal from "../technicianPortal.js";
@@ -146,6 +148,7 @@ declare const fullApi: ApiFromModules<{
   "model/contracts/validators": typeof model_contracts_validators;
   "model/procurement/priceSelection": typeof model_procurement_priceSelection;
   "model/procurement/takeoffCatalog": typeof model_procurement_takeoffCatalog;
+  "model/procurement/takeoffProposals": typeof model_procurement_takeoffProposals;
   payroll: typeof payroll;
   portal: typeof portal;
   priceEvents: typeof priceEvents;
@@ -159,6 +162,7 @@ declare const fullApi: ApiFromModules<{
   suppliers: typeof suppliers;
   systems: typeof systems;
   takeoffCatalog: typeof takeoffCatalog;
+  takeoffMaterials: typeof takeoffMaterials;
   takeoffs: typeof takeoffs;
   technicianActivity: typeof technicianActivity;
   technicianPortal: typeof technicianPortal;

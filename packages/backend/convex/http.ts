@@ -6,6 +6,11 @@ import { env, httpAction } from "./_generated/server";
 import { MAX_LOOKUP_QUERY_LENGTH } from "./lib/compras/materialLookup";
 import type { TakeoffCatalogItem } from "./model/procurement/takeoffCatalog";
 import {
+  MATERIAL_NOT_FOUND,
+  parseTakeoffMaterialProposal,
+  type TakeoffMaterialProposalResult,
+} from "./model/procurement/takeoffProposals";
+import {
   PHOTO_FETCH_TIMEOUT_MS,
   isAllowedPhotoUrl,
   photoMimeType,
@@ -174,6 +179,50 @@ const handleTakeoffCatalog = httpAction(async (ctx, request) => {
     })
   );
   return json({ generatedAt: startedAt, items });
+});
+
+// Proposta de material vinda do takeoff. Cadastrar material é tarefa de
+// compras: aqui só nasce um rascunho (ou o vínculo com o material idêntico
+// já existente) e, se veio preço, uma estimativa na fila de revisão.
+// Idempotente por clientId para o app poder reenviar sem medo.
+const handleTakeoffMaterialProposal = httpAction(async (ctx, request) => {
+  const token = env.TAKEOFF_CATALOG_TOKEN;
+  if (!token) return json({ error: "Takeoff catalog is not configured" }, 503);
+  if (request.headers.get("Authorization") !== `Bearer ${token}`) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "Body must be JSON" }, 400);
+  }
+  const parsed = parseTakeoffMaterialProposal(body);
+  if (!parsed.ok) return json({ error: parsed.error }, 400);
+
+  let result: TakeoffMaterialProposalResult;
+  try {
+    result = await ctx.runMutation(
+      internal.takeoffMaterials.propose,
+      parsed.value
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes(MATERIAL_NOT_FOUND)) {
+      return json({ error: "Material not found" }, 404);
+    }
+    throw error;
+  }
+  console.log(
+    JSON.stringify({
+      event: "takeoff_material_proposal",
+      outcome: result.outcome,
+      materialId: result.materialId,
+      priceEventId: result.priceEventId,
+    })
+  );
+  return json(result);
 });
 
 // ---------------------------------------------------------------------------
@@ -363,6 +412,12 @@ http.route({
   path: "/takeoff/catalog",
   method: "GET",
   handler: handleTakeoffCatalog,
+});
+
+http.route({
+  path: "/takeoff/materials",
+  method: "POST",
+  handler: handleTakeoffMaterialProposal,
 });
 
 export default http;
