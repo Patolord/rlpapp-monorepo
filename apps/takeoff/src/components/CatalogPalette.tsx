@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { RefreshCw, Search, Settings2 } from "lucide-react";
+import { RefreshCw, Search, Settings2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type CatalogEntry,
@@ -77,9 +77,9 @@ export function CatalogPalette() {
   };
 
   return (
-    <Backdrop onDismiss={() => setPaletteOpen(false)} align="top">
+    <Backdrop align="top">
       <div
-        className="flex max-h-[70vh] w-[36rem] flex-col rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl"
+        className="pointer-events-auto flex max-h-[70vh] w-[36rem] flex-col rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl ring-1 ring-black/40"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 border-b border-neutral-800 px-3 py-2">
@@ -109,6 +109,15 @@ export function CatalogPalette() {
             className="h-8 flex-1 bg-transparent text-sm text-neutral-100 outline-none placeholder:text-neutral-600"
           />
           <Kbd>Esc</Kbd>
+          <button
+            type="button"
+            aria-label="Fechar"
+            title="Fechar (Esc)"
+            onClick={() => setPaletteOpen(false)}
+            className="flex h-7 w-7 items-center justify-center rounded text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+          >
+            <X size={16} />
+          </button>
         </div>
         <ul ref={listRef} className="min-h-0 flex-1 overflow-y-auto py-1">
           {results.map((e, i) => (

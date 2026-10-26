@@ -57,26 +57,24 @@ export function Kbd({ children }: { children: ReactNode }) {
 }
 
 interface BackdropProps extends HTMLAttributes<HTMLDivElement> {
-  /**
-   * Clicking the dimmed area. Only a transient surface with nothing to lose (the palette) passes
-   * this; a dialog with user input ignores clicks outside (see Dialog).
-   */
-  onDismiss?: () => void;
   /** Where the panel sits: centred (default) or near the top (palette style). */
   align?: "center" | "top";
   children: ReactNode;
 }
 
-/** The dimmed layer behind a dialog or the palette; fills the viewer area. */
-export function Backdrop({ onDismiss, align = "center", className, ...rest }: BackdropProps) {
+/**
+ * The layer that positions a dialog or the palette over the whole app. It is transparent and
+ * lets pointer events through, so the drawing and the panels stay usable while a dialog is open;
+ * the panel inside it must opt back in with `pointer-events-auto`.
+ */
+export function Backdrop({ align = "center", className, ...rest }: BackdropProps) {
   return (
     <div
       className={clsx(
-        "absolute inset-0 z-40 flex justify-center",
-        align === "top" ? "items-start bg-black/50 pt-16" : "items-center bg-black/40",
+        "pointer-events-none absolute inset-0 z-40 flex justify-center",
+        align === "top" ? "items-start pt-16" : "items-center",
         className,
       )}
-      onClick={onDismiss}
       {...rest}
     />
   );

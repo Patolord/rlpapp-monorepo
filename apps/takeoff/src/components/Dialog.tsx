@@ -39,8 +39,9 @@ interface Drag {
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi));
 
 /**
- * A modal panel over the viewer: dragged by its title bar, closed only by its own controls or Esc.
- * A click on the dimmed area does nothing, so a half-filled form is never lost by accident.
+ * A floating panel over the viewer: dragged by its title bar, closed only by its own controls or
+ * Esc. Nothing is dimmed or blocked behind it, so the drawing can still be panned, zoomed and read
+ * while the dialog is open, and a half-filled form is never lost by a click outside.
  */
 export function Dialog({
   title,
@@ -114,7 +115,7 @@ export function Dialog({
             : undefined
         }
         className={clsx(
-          "flex max-h-[calc(100%-2rem)] max-w-[calc(100%-2rem)] flex-col overflow-hidden rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl",
+          "pointer-events-auto flex max-h-[calc(100%-2rem)] max-w-[calc(100%-2rem)] flex-col overflow-hidden rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl ring-1 ring-black/40",
           className,
         )}
       >
