@@ -49,6 +49,7 @@ import type * as lib_projects_helpers from "../lib/projects/helpers.js";
 import type * as lib_rbac from "../lib/rbac.js";
 import type * as lib_rh_payroll from "../lib/rh/payroll.js";
 import type * as lib_rh_photo from "../lib/rh/photo.js";
+import type * as lib_takeoffHttp from "../lib/takeoffHttp.js";
 import type * as lib_rh_rhid from "../lib/rh/rhid.js";
 import type * as lib_rh_timeClockDb from "../lib/rh/timeClockDb.js";
 import type * as lib_rh_timeClockPunch from "../lib/rh/timeClockPunch.js";
@@ -64,6 +65,7 @@ import type * as model_contracts_serviceItems from "../model/contracts/serviceIt
 import type * as model_contracts_validators from "../model/contracts/validators.js";
 import type * as model_procurement_priceSelection from "../model/procurement/priceSelection.js";
 import type * as model_procurement_takeoffCatalog from "../model/procurement/takeoffCatalog.js";
+import type * as model_procurement_takeoffPlans from "../model/procurement/takeoffPlans.js";
 import type * as model_procurement_takeoffProposals from "../model/procurement/takeoffProposals.js";
 import type * as payroll from "../payroll.js";
 import type * as portal from "../portal.js";
@@ -79,6 +81,7 @@ import type * as suppliers from "../suppliers.js";
 import type * as systems from "../systems.js";
 import type * as takeoffCatalog from "../takeoffCatalog.js";
 import type * as takeoffMaterials from "../takeoffMaterials.js";
+import type * as takeoffPlans from "../takeoffPlans.js";
 import type * as takeoffs from "../takeoffs.js";
 import type * as technicianActivity from "../technicianActivity.js";
 import type * as technicianPortal from "../technicianPortal.js";
@@ -136,6 +139,7 @@ declare const fullApi: ApiFromModules<{
   "lib/rbac": typeof lib_rbac;
   "lib/rh/payroll": typeof lib_rh_payroll;
   "lib/rh/photo": typeof lib_rh_photo;
+  "lib/takeoffHttp": typeof lib_takeoffHttp;
   "lib/rh/rhid": typeof lib_rh_rhid;
   "lib/rh/timeClockDb": typeof lib_rh_timeClockDb;
   "lib/rh/timeClockPunch": typeof lib_rh_timeClockPunch;
@@ -151,6 +155,7 @@ declare const fullApi: ApiFromModules<{
   "model/contracts/validators": typeof model_contracts_validators;
   "model/procurement/priceSelection": typeof model_procurement_priceSelection;
   "model/procurement/takeoffCatalog": typeof model_procurement_takeoffCatalog;
+  "model/procurement/takeoffPlans": typeof model_procurement_takeoffPlans;
   "model/procurement/takeoffProposals": typeof model_procurement_takeoffProposals;
   payroll: typeof payroll;
   portal: typeof portal;
@@ -166,6 +171,7 @@ declare const fullApi: ApiFromModules<{
   systems: typeof systems;
   takeoffCatalog: typeof takeoffCatalog;
   takeoffMaterials: typeof takeoffMaterials;
+  takeoffPlans: typeof takeoffPlans;
   takeoffs: typeof takeoffs;
   technicianActivity: typeof technicianActivity;
   technicianPortal: typeof technicianPortal;
@@ -202,4 +208,94 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  r2: {
+    lib: {
+      deleteMetadata: FunctionReference<"mutation", "internal", {
+        bucket: string;
+        key: string;
+      }, null, "r2">;
+      deleteObject: FunctionReference<"mutation", "internal", {
+        accessKeyId: string;
+        bucket: string;
+        endpoint: string;
+        key: string;
+        secretAccessKey: string;
+      }, null, "r2">;
+      deleteR2Object: FunctionReference<"action", "internal", {
+        accessKeyId: string;
+        bucket: string;
+        endpoint: string;
+        key: string;
+        secretAccessKey: string;
+      }, null, "r2">;
+      getMetadata: FunctionReference<"query", "internal", {
+        accessKeyId: string;
+        bucket: string;
+        endpoint: string;
+        key: string;
+        secretAccessKey: string;
+      }, {
+        bucket: string;
+        bucketLink: string;
+        contentType?: string;
+        key: string;
+        lastModified: string;
+        link: string;
+        sha256?: string;
+        size?: number;
+        url: string;
+      } | null, "r2">;
+      listMetadata: FunctionReference<"query", "internal", {
+        accessKeyId: string;
+        bucket: string;
+        cursor?: string;
+        endpoint: string;
+        limit?: number;
+        secretAccessKey: string;
+      }, {
+        continueCursor: string;
+        isDone: boolean;
+        page: Array<{
+          bucket: string;
+          bucketLink: string;
+          contentType?: string;
+          key: string;
+          lastModified: string;
+          link: string;
+          sha256?: string;
+          size?: number;
+          url: string;
+        }>;
+        pageStatus?: null | "SplitRecommended" | "SplitRequired";
+        splitCursor?: null | string;
+      }, "r2">;
+      store: FunctionReference<"action", "internal", {
+        accessKeyId: string;
+        bucket: string;
+        endpoint: string;
+        secretAccessKey: string;
+        url: string;
+      }, any, "r2">;
+      syncMetadata: FunctionReference<"action", "internal", {
+        accessKeyId: string;
+        bucket: string;
+        endpoint: string;
+        key: string;
+        onComplete?: string;
+        secretAccessKey: string;
+      }, null, "r2">;
+      upsertMetadata: FunctionReference<"mutation", "internal", {
+        bucket: string;
+        contentType?: string;
+        key: string;
+        lastModified: string;
+        link: string;
+        sha256?: string;
+        size?: number;
+      }, {
+        isNew: boolean;
+      }, "r2">;
+    };
+  };
+};
