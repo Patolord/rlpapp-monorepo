@@ -596,6 +596,12 @@ importers:
 
   packages/backend:
     dependencies:
+      '@aws-sdk/client-s3':
+        specifier: 3.1156.0
+        version: 3.1156.0
+      '@aws-sdk/s3-request-presigner':
+        specifier: 3.1156.0
+        version: 3.1156.0
       '@convex-dev/r2':
         specifier: 0.10.4
         version: 0.10.4(@standard-schema/spec@1.1.0)(convex@1.42.1(@clerk/clerk-react@5.61.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@clerk/react@6.14.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@5.0.10))(hono@4.12.18)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(supports-color@8.1.1)(typescript@6.0.3)(zod@4.4.3)

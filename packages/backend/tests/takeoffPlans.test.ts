@@ -1,7 +1,9 @@
+import r2Test from "@convex-dev/r2/test";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
   MAX_PLAN_BYTES,
   PLAN_KEY_PREFIX,
+  PLAN_UPLOAD_HEADERS,
   parsePlanHash,
   parsePlanUploadRequest,
   parsePlanUploadedRequest,
@@ -192,3 +194,121 @@ describe("/takeoff/plans routes", () => {
     );
   });
 });
+
+// With the component registered, the handlers run for real against its metadata
+// table; only the calls that would reach the bucket (HEAD on confirm) are kept
+// out of these tests. A plan "on record" is seeded straight into that table.
+describe("/takeoff/plans with a plan on record", () => {
+  const R2_VARS = [
+    "R2_BUCKET",
+    "R2_ENDPOINT",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY",
+  ] as const;
+  const saved: Record<string, string | undefined> = {};
+  beforeEach(() => {
+    for (const name of ["TAKEOFF_CATALOG_TOKEN", ...R2_VARS]) {
+      saved[name] = process.env[name];
+    }
+    process.env.TAKEOFF_CATALOG_TOKEN = "secret";
+    process.env.R2_BUCKET = "takeoff-test";
+    process.env.R2_ENDPOINT = "https://acc.r2.cloudflarestorage.com";
+    process.env.R2_ACCESS_KEY_ID = "key";
+    process.env.R2_SECRET_ACCESS_KEY = "secret";
+  });
+  afterEach(() => {
+    for (const name of ["TAKEOFF_CATALOG_TOKEN", ...R2_VARS]) {
+      if (saved[name] === undefined) delete process.env[name];
+      else process.env[name] = saved[name];
+    }
+  });
+  const auth = { Authorization: "Bearer secret" };
+
+  async function withRecordedPlan() {
+    const t = setup();
+    const r2 = r2Test.register(t);
+    await t.mutation(r2.lib.upsertMetadata, {
+      bucket: "takeoff-test",
+      key: planKey(HASH),
+      size: 1234,
+      contentType: "application/pdf",
+      lastModified: "2026-10-26T00:00:00.000Z",
+      link: "",
+    });
+    const metadata = () =>
+      t.query(r2.lib.getMetadata, {
+        bucket: "takeoff-test",
+        endpoint: "https://acc.r2.cloudflarestorage.com",
+        accessKeyId: "key",
+        secretAccessKey: "secret",
+        key: planKey(HASH),
+      });
+    return { t, metadata };
+  }
+
+  test("upload-url answers exists for it and a create-only signed PUT for a new one", async () => {
+    const { t } = await withRecordedPlan();
+    const known = await t.fetch("/takeoff/plans/upload-url", {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ hash: HASH, size: 1234, name: "planta.pdf" }),
+    });
+    expect(known.status).toBe(200);
+    expect(await known.json()).toEqual({ exists: true, size: 1234 });
+
+    const other = "c".repeat(64);
+    const fresh = await t.fetch("/takeoff/plans/upload-url", {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ hash: other, size: 10, name: "nova.pdf" }),
+    });
+    expect(fresh.status).toBe(200);
+    const ticket = (await fresh.json()) as {
+      exists: boolean;
+      url: string;
+      headers: Record<string, string>;
+    };
+    expect(ticket.exists).toBe(false);
+    expect(ticket.headers).toEqual(PLAN_UPLOAD_HEADERS);
+    // virtual-hosted style: the bucket is the first label of the host
+    const url = new URL(ticket.url);
+    expect(url.host).toBe("takeoff-test.acc.r2.cloudflarestorage.com");
+    expect(url.pathname).toBe(`/${planKey(other)}`);
+    // the signature covers If-None-Match, so the PUT can only create the object
+    expect(url.searchParams.get("X-Amz-SignedHeaders")).toContain("if-none-match");
+  });
+
+  test("uploaded confirms a plan on record and never deletes it over a claimed size", async () => {
+    const { t, metadata } = await withRecordedPlan();
+    const ok = await t.fetch("/takeoff/plans/uploaded", {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ hash: HASH, size: 1234 }),
+    });
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({ ok: true, size: 1234 });
+
+    const wrong = await t.fetch("/takeoff/plans/uploaded", {
+      method: "POST",
+      headers: { ...auth, "Content-Type": "application/json" },
+      body: JSON.stringify({ hash: HASH, size: 99 }),
+    });
+    expect(wrong.status).toBe(409);
+    expect(await metadata()).toMatchObject({ key: planKey(HASH), size: 1234 });
+  });
+
+  test("download answers a signed GET URL for a plan on record and 404 otherwise", async () => {
+    const { t } = await withRecordedPlan();
+    const res = await t.fetch(`/takeoff/plans/${HASH}/url`, { headers: auth });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { url: string; expiresAt: number; size: number };
+    expect(new URL(body.url).host).toBe("takeoff-test.acc.r2.cloudflarestorage.com");
+    expect(new URL(body.url).pathname).toBe(`/${planKey(HASH)}`);
+    expect(body.size).toBe(1234);
+    expect(body.expiresAt).toBeGreaterThan(Date.now());
+
+    const missing = await t.fetch(`/takeoff/plans/${"d".repeat(64)}/url`, { headers: auth });
+    expect(missing.status).toBe(404);
+  });
+});
+

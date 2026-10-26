@@ -23,6 +23,23 @@ export const MAX_PLAN_NAME_LENGTH = 200;
 /** Validade da URL de download assinada (1 h: o app baixa logo que recebe). */
 export const PLAN_URL_TTL_SECONDS = 60 * 60;
 
+/** Validade da URL de upload assinada (só precisa valer quando o PUT começa). */
+export const PLAN_UPLOAD_URL_TTL_SECONDS = 15 * 60;
+
+export const PLAN_CONTENT_TYPE = "application/pdf";
+
+/**
+ * Cabeçalhos que o app precisa mandar no PUT, tal como a assinatura os cobre.
+ * `If-None-Match: *` torna o PUT "só cria": o R2 avalia a condição de forma
+ * atômica e responde 412 quando já existe objeto nessa chave, então uma URL
+ * emitida antes nunca substitui uma planta já guardada, mesmo numa corrida
+ * entre dois uploads do mesmo hash.
+ */
+export const PLAN_UPLOAD_HEADERS: Readonly<Record<string, string>> = {
+  "Content-Type": PLAN_CONTENT_TYPE,
+  "If-None-Match": "*",
+};
+
 const HASH_RE = /^[0-9a-f]{64}$/;
 
 /** Chave do objeto no R2 para uma planta com este SHA-256. */

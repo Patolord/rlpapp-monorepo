@@ -1,8 +1,13 @@
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { R2 } from "@convex-dev/r2";
 import { components } from "./_generated/api";
 import { env, httpAction } from "./_generated/server";
 import { json, takeoffTokenError } from "./lib/takeoffHttp";
 import {
+  PLAN_CONTENT_TYPE,
+  PLAN_UPLOAD_HEADERS,
+  PLAN_UPLOAD_URL_TTL_SECONDS,
   PLAN_URL_TTL_SECONDS,
   parsePlanUploadRequest,
   parsePlanUploadedRequest,
@@ -16,10 +21,19 @@ import {
 //
 // Fluxo do app desktop ao salvar um takeoff, para cada planta ainda não enviada:
 //   1. POST /takeoff/plans/upload-url {hash, size, name}
-//        → {exists: true}           a planta já está no bucket, nada a fazer
-//        → {exists: false, url}     PUT dos bytes direto nessa URL assinada
+//        → {exists: true}                   a planta já está no bucket, nada a fazer
+//        → {exists: false, url, headers}    PUT dos bytes direto nessa URL assinada,
+//                                           com exatamente esses cabeçalhos (412 =
+//                                           outra máquina chegou antes; tudo bem)
 //   2. POST /takeoff/plans/uploaded {hash, size}
 //        → confere o objeto no bucket e registra os metadados
+//
+// A chave é o SHA-256 do conteúdo e o PUT é "só cria" (ver PLAN_UPLOAD_HEADERS),
+// então uma planta registrada nunca é substituída nem apagada por um pedido
+// posterior: quem tem o token compartilhado pode acrescentar plantas, não trocar
+// as dos outros. O servidor não lê os bytes (seria pagar o tráfego duas vezes);
+// quem confere o conteúdo é o app ao baixar, comparando o SHA-256 do arquivo
+// com a chave antes de abrir a planta.
 // E ao abrir um takeoff cuja planta não está na máquina:
 //   3. GET /takeoff/plans/<hash>/url → {url, expiresAt, size}
 //
@@ -71,11 +85,22 @@ export const handleUploadUrl = httpAction(async (ctx, request) => {
     );
     return json({ exists: true, size: existing.size ?? null });
   }
-  const { url } = await r2.generateUploadUrl(key);
+  // Signed here rather than by the component so the signature covers
+  // `If-None-Match: *` (create-only) — see PLAN_UPLOAD_HEADERS.
+  const url = await getSignedUrl(
+    r2.client,
+    new PutObjectCommand({
+      Bucket: r2.config.bucket,
+      Key: key,
+      ContentType: PLAN_CONTENT_TYPE,
+      IfNoneMatch: "*",
+    }),
+    { expiresIn: PLAN_UPLOAD_URL_TTL_SECONDS }
+  );
   console.log(
     JSON.stringify({ event: "takeoff_plan_upload", outcome: "url", hash, size, name })
   );
-  return json({ exists: false, url });
+  return json({ exists: false, url, headers: PLAN_UPLOAD_HEADERS });
 });
 
 export const handleUploaded = httpAction(async (ctx, request) => {
@@ -91,6 +116,19 @@ export const handleUploaded = httpAction(async (ctx, request) => {
   const { hash, size } = parsed.value;
   const key = planKey(hash);
 
+  // A plan already on record is established: this request may confirm it, never
+  // change or remove it, whatever size the caller claims.
+  const established = await r2.getMetadata(ctx, key);
+  if (established) {
+    if (size !== undefined && established.size !== undefined && established.size !== size) {
+      return json(
+        { error: `Size mismatch: expected ${size} bytes, bucket has ${established.size}` },
+        409
+      );
+    }
+    return json({ ok: true, size: established.size ?? null });
+  }
+
   try {
     await r2.syncMetadata(ctx, key);
   } catch (error) {
@@ -102,7 +140,8 @@ export const handleUploaded = httpAction(async (ctx, request) => {
   const metadata = await r2.getMetadata(ctx, key);
   if (!metadata) return json({ error: "Object not found in the bucket" }, 404);
   if (size !== undefined && metadata.size !== undefined && metadata.size !== size) {
-    // A truncated upload must never be served as the plan: drop it so the app
+    // Nobody has this plan on record yet, so the object is this caller's own
+    // upload: a short one must never be served as the plan. Drop it so the app
     // sends it again on the next save.
     await r2.deleteObject(ctx, key);
     console.log(
