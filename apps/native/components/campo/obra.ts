@@ -18,7 +18,7 @@ export const OBRA_STATUS_LABELS: Record<string, string> = {
 };
 
 /** Nomes legados seguem "Obra 1801 - Rocontec - Lorena" (número, cliente, projeto). */
-const LEGACY_NAME = /^obra\s*(\d+)\s*[-–]\s*(.+?)\s*[-–]\s*(.+)$/i;
+const LEGACY_NAME = /^obra\s*(\d+)\s*[-–]\s*(.+?)\s+[-–]\s+(.+)$/i;
 
 /** Número, cliente e nome curto da obra, tirados do nome legado quando houver. */
 export function obraParts(project: {

@@ -4,6 +4,7 @@ import { Clock } from "lucide-react-native";
 
 import { toBrtDateKey } from "@/lib/brt-date";
 import { colors } from "@/lib/theme";
+import { useOnline } from "@/lib/use-online";
 import { BigAction } from "./field-ui";
 
 /** Próxima marcação do dia, pela quantidade de marcações já feitas. */
@@ -18,9 +19,11 @@ const KIND_LABEL = {
 
 /** Atalho do ponto na tela inicial. Some para quem não é funcionário. */
 export function PontoButton({ onPress }: { onPress: () => void }) {
+  const online = useOnline();
   const context = useQuery(api.timeClockPunch.getContext, { date: toBrtDateKey(Date.now()) });
-  // Sem conexão ou carregando: o atalho continua útil, só sem o estado do dia.
-  if (context && !context.employee) return null;
+  // Com rede, só aparece depois de confirmar o funcionário. Sem rede a query
+  // não responde; o atalho fica (a marcação entra na fila offline).
+  if (context ? !context.employee : online) return null;
 
   const punches = context?.punches ?? [];
   const last = punches[punches.length - 1];
