@@ -2,6 +2,7 @@ import { useState } from "react";
 import { dist } from "../lib/geom";
 import { INPUT_UNITS, type InputUnit, ratioLabel, toBaseUnit } from "../lib/units";
 import { useStore } from "../store";
+import { Dialog } from "./Dialog";
 import { Button } from "./ui";
 
 export function CalibrateDialog() {
@@ -28,50 +29,47 @@ export function CalibrateDialog() {
   };
 
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          apply();
-        }}
-        className="w-80 rounded-lg border border-neutral-700 bg-neutral-900 p-4 shadow-2xl"
-      >
-        <h2 className="mb-1 text-sm font-semibold text-neutral-100">Calibrar escala</h2>
-        <p className="mb-3 text-xs text-neutral-400">
-          A linha desenhada mede{" "}
-          <span className="font-mono text-neutral-200">{pts.toFixed(1)} pt</span> no papel. Qual é o
-          comprimento real?
-        </p>
-        <div className="flex items-center gap-2">
-          <input
-            autoFocus
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            inputMode="decimal"
-            placeholder="ex.: 3,50"
-            className="h-9 flex-1 rounded bg-neutral-800 px-2 font-mono text-sm ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
-          />
-          <select
-            value={inUnit}
-            onChange={(e) => setInUnit(e.target.value as InputUnit)}
-            className="h-9 rounded bg-neutral-800 px-2 text-sm ring-1 ring-neutral-700"
-          >
-            {INPUT_UNITS.map((u) => (
-              <option key={u}>{u}</option>
-            ))}
-          </select>
-        </div>
-        <label className="mt-3 flex items-center gap-2 text-xs text-neutral-400">
-          <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />
-          Aplicar a todas as páginas
-        </label>
-        <div className="mt-4 flex justify-end gap-2">
-          <Button onClick={() => setCalibration(null)}>Cancelar</Button>
-          <Button type="submit" variant="primary">
-            Definir escala
-          </Button>
-        </div>
-      </form>
-    </div>
+    <Dialog
+      title="Calibrar escala"
+      onClose={() => setCalibration(null)}
+      onSubmit={apply}
+      className="w-80"
+      bodyClassName="overflow-y-auto p-4"
+    >
+      <p className="mb-3 text-xs text-neutral-400">
+        A linha desenhada mede{" "}
+        <span className="font-mono text-neutral-200">{pts.toFixed(1)} pt</span> no papel. Qual é o
+        comprimento real?
+      </p>
+      <div className="flex items-center gap-2">
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          inputMode="decimal"
+          placeholder="ex.: 3,50"
+          className="h-9 flex-1 rounded bg-neutral-800 px-2 font-mono text-sm ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
+        />
+        <select
+          value={inUnit}
+          onChange={(e) => setInUnit(e.target.value as InputUnit)}
+          className="h-9 rounded bg-neutral-800 px-2 text-sm ring-1 ring-neutral-700"
+        >
+          {INPUT_UNITS.map((u) => (
+            <option key={u}>{u}</option>
+          ))}
+        </select>
+      </div>
+      <label className="mt-3 flex items-center gap-2 text-xs text-neutral-400">
+        <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />
+        Aplicar a todas as páginas
+      </label>
+      <div className="mt-4 flex justify-end gap-2">
+        <Button onClick={() => setCalibration(null)}>Cancelar</Button>
+        <Button type="submit" variant="primary">
+          Definir escala
+        </Button>
+      </div>
+    </Dialog>
   );
 }

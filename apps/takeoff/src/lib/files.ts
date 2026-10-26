@@ -17,19 +17,24 @@ export async function confirmDiscard(): Promise<boolean> {
   return confirmDialog(`"${project.name}" tem alterações não salvas. Continuar sem salvar?`);
 }
 
-/** Start a fresh project (obra). Clears the viewer; PDFs are added afterwards. */
-export async function newProject(meta: {
-  name: string;
-  client: string;
-  site: string;
-  system: string;
-}): Promise<boolean> {
+/**
+ * Start a fresh project (obra). Clears the viewer; the plantas chosen in the dialog are added
+ * right away (the first one is shown), more can be added afterwards.
+ */
+export async function newProject(
+  meta: { name: string; client: string; site: string; system: string },
+  pdfs: string[] = [],
+): Promise<boolean> {
   if (!(await confirmDiscard())) return false;
   const store = useStore.getState();
   const project = { ...emptyProject(), ...meta };
   closePdf();
   store.resetProject(project, null);
   useStore.setState({ dirty: true });
+  if (pdfs.length > 0) {
+    await openPdfFiles(pdfs);
+    return true;
+  }
   store.setStatus(`Takeoff "${project.name}" criado. Adicione as plantas (PDF) com ${mod("O")}.`);
   return true;
 }
@@ -45,29 +50,41 @@ export async function closeProject(): Promise<boolean> {
 const PROJECT_FILTER = [{ name: "Arquivo Takeoff", extensions: ["takeoff.json", "json"] }];
 const PDF_FILTER = [{ name: "Plantas PDF", extensions: ["pdf"] }];
 
+/** Let the user choose one or more plantas (PDF); empty when the dialog is cancelled. */
+export async function pickPdfs(title?: string): Promise<string[]> {
+  const picked = await open({ multiple: true, filters: PDF_FILTER, title });
+  return Array.isArray(picked) ? picked : typeof picked === "string" ? [picked] : [];
+}
+
 export async function pickAndOpenPdf(): Promise<void> {
-  const path = await open({ multiple: false, filters: PDF_FILTER });
-  if (typeof path === "string") await openPdfFile(path);
+  const paths = await pickPdfs();
+  if (paths.length > 0) await openPdfFiles(paths);
 }
 
 /**
  * Add a PDF to the project (or switch to it when it is already there) and show it.
  * Markings and locations are kept per drawing; items are shared by the whole project.
  */
-export async function openPdfFile(path: string): Promise<void> {
+export const openPdfFile = (path: string): Promise<void> => openPdfFiles([path]);
+
+/**
+ * Add several PDFs to the project at once (one undo step; those already there are kept) and
+ * show the first of them. The others are parsed in the background so their tabs open instantly.
+ */
+export async function openPdfFiles(paths: string[]): Promise<void> {
   const store = useStore.getState();
-  const existing = store.project.drawings.find((d) => d.path === path);
-  if (existing) {
-    await switchDrawing(existing.id);
-    return;
-  }
   const { project } = store;
-  const name = basename(path);
-  const id = store.addDrawing(path, name);
-  if (project.name === UNTITLED && project.drawings.length === 0) {
-    store.setProjectMeta({ name: name.replace(/\.pdf$/i, "") });
+  const unique = [...new Set(paths)];
+  if (unique.length === 0) return;
+  const fresh = unique.filter((p) => !project.drawings.some((d) => d.path === p));
+  const ids = store.addDrawings(fresh.map((path) => ({ path, name: basename(path) })));
+  if (project.name === UNTITLED && project.drawings.length === 0 && fresh.length > 0) {
+    store.setProjectMeta({ name: basename(fresh[0]).replace(/\.pdf$/i, "") });
   }
-  await switchDrawing(id);
+  const firstId =
+    ids[0] ?? useStore.getState().project.drawings.find((d) => d.path === unique[0])?.id;
+  if (firstId) await switchDrawing(firstId);
+  if (ids.length > 1) useStore.getState().setStatus(`${ids.length} plantas adicionadas.`);
 }
 
 let warmTimer = 0;

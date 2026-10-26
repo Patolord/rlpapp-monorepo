@@ -52,10 +52,10 @@ export function Welcome() {
           {hasProject ? (
             <Action
               icon={<FileText size={20} />}
-              title="Adicionar planta"
+              title="Adicionar plantas"
               hint={
                 <>
-                  <Kbd>{MOD}</Kbd>+<Kbd>O</Kbd> ou arraste o arquivo para cá
+                  <Kbd>{MOD}</Kbd>+<Kbd>O</Kbd> ou arraste os arquivos para cá
                 </>
               }
               onClick={() => void pickAndOpenPdf()}
@@ -90,8 +90,8 @@ export function Welcome() {
           ) : (
             <Action
               icon={<FileText size={20} />}
-              title="Abrir uma planta direto"
-              hint="cria um takeoff com o nome do arquivo"
+              title="Abrir plantas direto"
+              hint="cria um takeoff com o nome do primeiro arquivo"
               onClick={() => void pickAndOpenPdf()}
             />
           )}

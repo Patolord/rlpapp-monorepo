@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { DEFAULT_GROUP, DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS } from "../lib/types";
 import type { Kind } from "../lib/units";
 import { useStore } from "../store";
+import { Dialog } from "./Dialog";
 import { Button } from "./ui";
 
 interface Row {
@@ -55,84 +56,85 @@ export function LegendDialog() {
   };
 
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50">
-      <div className="flex max-h-[80vh] w-[34rem] flex-col rounded-lg border border-neutral-700 bg-neutral-900 p-4 shadow-2xl">
-        <h2 className="text-sm font-semibold text-neutral-100">Criar itens a partir do texto</h2>
-        <p className="mt-1 text-xs text-neutral-400">
-          Cada linha capturada vira um item. Ajuste o texto e o tipo, desmarque o que não é
-          material.
-        </p>
-        <label className="mt-3 flex items-center gap-2 text-xs text-neutral-400">
-          Disciplina (aba)
-          <input
-            list="legend-systems"
-            value={system ?? defaultSystem}
-            onChange={(e) => setSystem(e.target.value)}
-            className="h-7 flex-1 rounded bg-neutral-800 px-2 text-xs text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
-          />
-          <datalist id="legend-systems">
-            {systems.map((g) => (
-              <option key={g} value={g} />
-            ))}
-          </datalist>
-        </label>
-        <label className="mt-2 flex items-center gap-2 text-xs text-neutral-400">
-          Grupo da planilha
-          <input
-            list="legend-groups"
-            value={group}
-            onChange={(e) => setGroup(e.target.value)}
-            className="h-7 flex-1 rounded bg-neutral-800 px-2 text-xs text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
-          />
-          <datalist id="legend-groups">
-            {GROUP_SUGGESTIONS.map((g) => (
-              <option key={g} value={g} />
-            ))}
-          </datalist>
-        </label>
-        <ul className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
-          {rows.map((r, i) => (
-            <li key={`${i}-${lines[i]}`} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={r.on}
-                onChange={(e) =>
-                  setRows((rs) => rs.map((x, j) => (j === i ? { ...x, on: e.target.checked } : x)))
-                }
-              />
-              <input
-                value={r.text}
-                onChange={(e) =>
-                  setRows((rs) => rs.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))
-                }
-                className="h-7 min-w-0 flex-1 rounded bg-neutral-800 px-2 text-xs text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
-              />
-              <select
-                value={r.kind}
-                onChange={(e) =>
-                  setRows((rs) =>
-                    rs.map((x, j) => (j === i ? { ...x, kind: e.target.value as Kind } : x)),
-                  )
-                }
-                className="h-7 rounded bg-neutral-800 px-1 text-xs ring-1 ring-neutral-700"
-              >
-                <option value="count">Contagem</option>
-                <option value="linear">Linear</option>
-                <option value="area">Área</option>
-              </select>
-            </li>
+    <Dialog
+      title="Criar itens a partir do texto"
+      onClose={() => setLegendCandidates(null)}
+      className="max-h-[80vh] w-[34rem]"
+      bodyClassName="flex flex-col p-4"
+    >
+      <p className="mt-1 text-xs text-neutral-400">
+        Cada linha capturada vira um item. Ajuste o texto e o tipo, desmarque o que não é material.
+      </p>
+      <label className="mt-3 flex items-center gap-2 text-xs text-neutral-400">
+        Disciplina (aba)
+        <input
+          list="legend-systems"
+          value={system ?? defaultSystem}
+          onChange={(e) => setSystem(e.target.value)}
+          className="h-7 flex-1 rounded bg-neutral-800 px-2 text-xs text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
+        />
+        <datalist id="legend-systems">
+          {systems.map((g) => (
+            <option key={g} value={g} />
           ))}
-        </ul>
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <span className="mr-auto text-[12px] text-neutral-500">
-            {rows.filter((r) => r.on).length} de {rows.length} selecionados
-          </span>
-          <Button onClick={() => setLegendCandidates(null)}>Cancelar</Button>
-          <Button variant="primary" onClick={create} disabled={!rows.some((r) => r.on)}>
-            Criar itens
-          </Button>
-        </div>
+        </datalist>
+      </label>
+      <label className="mt-2 flex items-center gap-2 text-xs text-neutral-400">
+        Grupo da planilha
+        <input
+          list="legend-groups"
+          value={group}
+          onChange={(e) => setGroup(e.target.value)}
+          className="h-7 flex-1 rounded bg-neutral-800 px-2 text-xs text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
+        />
+        <datalist id="legend-groups">
+          {GROUP_SUGGESTIONS.map((g) => (
+            <option key={g} value={g} />
+          ))}
+        </datalist>
+      </label>
+      <ul className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+        {rows.map((r, i) => (
+          <li key={`${i}-${lines[i]}`} className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={r.on}
+              onChange={(e) =>
+                setRows((rs) => rs.map((x, j) => (j === i ? { ...x, on: e.target.checked } : x)))
+              }
+            />
+            <input
+              value={r.text}
+              onChange={(e) =>
+                setRows((rs) => rs.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))
+              }
+              className="h-7 min-w-0 flex-1 rounded bg-neutral-800 px-2 text-xs text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400"
+            />
+            <select
+              value={r.kind}
+              onChange={(e) =>
+                setRows((rs) =>
+                  rs.map((x, j) => (j === i ? { ...x, kind: e.target.value as Kind } : x)),
+                )
+              }
+              className="h-7 rounded bg-neutral-800 px-1 text-xs ring-1 ring-neutral-700"
+            >
+              <option value="count">Contagem</option>
+              <option value="linear">Linear</option>
+              <option value="area">Área</option>
+            </select>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-4 flex items-center justify-end gap-2">
+        <span className="mr-auto text-[12px] text-neutral-500">
+          {rows.filter((r) => r.on).length} de {rows.length} selecionados
+        </span>
+        <Button onClick={() => setLegendCandidates(null)}>Cancelar</Button>
+        <Button variant="primary" onClick={create} disabled={!rows.some((r) => r.on)}>
+          Criar itens
+        </Button>
       </div>
-    </div>
+    </Dialog>
   );
 }

@@ -10,7 +10,8 @@ import {
 } from "../lib/vrf";
 import { vrfSystems } from "../lib/vrfItems";
 import { useStore } from "../store";
-import { Backdrop, Button, Kbd } from "./ui";
+import { Dialog } from "./Dialog";
+import { Button, Kbd } from "./ui";
 
 const input =
   "h-7 rounded bg-neutral-800 px-1.5 text-xs text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400";
@@ -106,161 +107,154 @@ export function VrfDialog() {
   };
 
   return (
-    <Backdrop onClose={close} onKeyDown={(e) => e.stopPropagation()}>
+    <Dialog
+      title={editing ? "Editar trecho VRF" : "Trecho VRF medido"}
+      onClose={close}
+      onSubmit={submit}
+      className="w-[32rem]"
+    >
       <datalist id="vrf-hp">
         {HP_SUGGESTIONS.map((hp) => (
           <option key={hp} value={hp} />
         ))}
       </datalist>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
-        }}
-        onClick={(e) => e.stopPropagation()}
-        className="w-[32rem] rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
-      >
-        <h2 className="text-base font-semibold text-neutral-100">
-          {editing ? "Editar trecho VRF" : "Trecho VRF medido"}
-        </h2>
-        <p className="mt-1 text-xs text-neutral-400">
-          As bitolas de gás e líquido saem das tabelas da marca pela capacidade; cobre, joelhos,
-          isolamento, Y-kits, cabos e mão de obra são calculados na aba VRF.
-        </p>
+      <p className="mt-1 text-xs text-neutral-400">
+        As bitolas de gás e líquido saem das tabelas da marca pela capacidade; cobre, joelhos,
+        isolamento, Y-kits, cabos e mão de obra são calculados na aba VRF.
+      </p>
 
-        <div className="mt-4 grid grid-cols-[1fr_7rem_6rem] gap-3 text-xs text-neutral-400">
-          <label className="block">
-            <span className="mb-1 block">Sistema VRF (item do orçamento)</span>
-            <select
-              value={systemId}
-              onChange={(e) => onSystemChange(e.target.value)}
-              className={`${input} w-full`}
-            >
-              {systems.length === 0 && <option value="">Sistema VRF (novo)</option>}
-              {systems.map((n) => (
-                <option key={n.id} value={n.id}>
-                  {n.name}
-                  {n.vrf ? ` · ${formatHp(n.vrf.hp)}` : ""}
-                </option>
-              ))}
-              <option value="__new__">+ Novo sistema VRF</option>
-            </select>
-          </label>
-          <label className="block">
-            <span className="mb-1 block">Marca</span>
-            <select
-              value={brand.id}
-              disabled={Boolean(system)}
-              onChange={(e) => setBrandId(e.target.value)}
-              className={`${input} w-full disabled:opacity-60`}
-              title={system ? "Troque a marca do sistema na aba VRF" : "Marca do novo sistema"}
-            >
-              {(brands.length ? brands : [brand]).map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="mb-1 block">Condensadora (HP)</span>
-            <input
-              type="number"
-              min={0}
-              step="any"
-              list="vrf-hp"
-              value={systemHp || ""}
-              onChange={(e) => setSystemHp(num(e.target.value))}
-              onFocus={(e) => e.target.select()}
-              className={`${input} w-full text-right font-mono`}
-              title="Capacidade total do sistema: dimensiona a saída da condensadora e o primeiro Y-kit"
-            />
-          </label>
-        </div>
+      <div className="mt-4 grid grid-cols-[1fr_7rem_6rem] gap-3 text-xs text-neutral-400">
+        <label className="block">
+          <span className="mb-1 block">Sistema VRF (item do orçamento)</span>
+          <select
+            value={systemId}
+            onChange={(e) => onSystemChange(e.target.value)}
+            className={`${input} w-full`}
+          >
+            {systems.length === 0 && <option value="">Sistema VRF (novo)</option>}
+            {systems.map((n) => (
+              <option key={n.id} value={n.id}>
+                {n.name}
+                {n.vrf ? ` · ${formatHp(n.vrf.hp)}` : ""}
+              </option>
+            ))}
+            <option value="__new__">+ Novo sistema VRF</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-1 block">Marca</span>
+          <select
+            value={brand.id}
+            disabled={Boolean(system)}
+            onChange={(e) => setBrandId(e.target.value)}
+            className={`${input} w-full disabled:opacity-60`}
+            title={system ? "Troque a marca do sistema na aba VRF" : "Marca do novo sistema"}
+          >
+            {(brands.length ? brands : [brand]).map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-1 block">Condensadora (HP)</span>
+          <input
+            type="number"
+            min={0}
+            step="any"
+            list="vrf-hp"
+            value={systemHp || ""}
+            onChange={(e) => setSystemHp(num(e.target.value))}
+            onFocus={(e) => e.target.select()}
+            className={`${input} w-full text-right font-mono`}
+            title="Capacidade total do sistema: dimensiona a saída da condensadora e o primeiro Y-kit"
+          />
+        </label>
+      </div>
 
-        <div className="mt-3 grid grid-cols-[1fr_6rem_6rem_6rem] gap-3 text-xs text-neutral-400">
-          <label className="block">
-            <span className="mb-1 block">Trecho</span>
-            <select
-              autoFocus
-              value={spec.role}
-              onChange={(e) => setSpec({ ...spec, role: e.target.value as VrfRole })}
-              className={`${input} w-full`}
-            >
-              {(Object.keys(ROLE_LABELS) as VrfRole[]).map((k) => (
-                <option key={k} value={k}>
-                  {ROLE_LABELS[k]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="mb-1 block">
-              {spec.role === "branch" ? "Evaporadora (HP)" : "A jusante (HP)"}
-            </span>
-            <input
-              type="number"
-              min={0}
-              step="any"
-              list="vrf-hp"
-              disabled={spec.role === "main"}
-              value={spec.role === "main" ? systemHp || "" : spec.hp || ""}
-              placeholder={spec.role === "trunk" ? "menor" : "0"}
-              onChange={(e) => setSpec({ ...spec, hp: num(e.target.value) })}
-              onFocus={(e) => e.target.select()}
-              className={`${input} w-full text-right font-mono disabled:opacity-60`}
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block">Curvas (pç)</span>
-            <input
-              type="number"
-              min={0}
-              step={1}
-              value={spec.curves || ""}
-              placeholder="0"
-              onChange={(e) => setSpec({ ...spec, curves: num(e.target.value) })}
-              onFocus={(e) => e.target.select()}
-              className={`${input} w-full text-right font-mono`}
-              title="Joelhos do trecho: um em cada tubo (gás e líquido)"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block">Vertical (m)</span>
-            <input
-              type="number"
-              min={0}
-              step="0.1"
-              value={vertical || ""}
-              placeholder="0"
-              onChange={(e) => setVertical(num(e.target.value))}
-              onFocus={(e) => e.target.select()}
-              className={`${input} w-full text-right font-mono`}
-              title="Prumadas e descidas que a planta não mostra, somadas ao trecho"
-            />
-          </label>
-        </div>
-        <p className="mt-1.5 text-[11px] text-neutral-500">{ROLE_HELP[spec.role]}</p>
-
-        <div className="mt-3 flex items-center gap-2 text-xs">
-          <span className="rounded bg-neutral-800 px-2 py-1 font-mono text-neutral-200">
-            gás {pair.gas}" · líquido {pair.liquid}"
+      <div className="mt-3 grid grid-cols-[1fr_6rem_6rem_6rem] gap-3 text-xs text-neutral-400">
+        <label className="block">
+          <span className="mb-1 block">Trecho</span>
+          <select
+            autoFocus
+            value={spec.role}
+            onChange={(e) => setSpec({ ...spec, role: e.target.value as VrfRole })}
+            className={`${input} w-full`}
+          >
+            {(Object.keys(ROLE_LABELS) as VrfRole[]).map((k) => (
+              <option key={k} value={k}>
+                {ROLE_LABELS[k]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="mb-1 block">
+            {spec.role === "branch" ? "Evaporadora (HP)" : "A jusante (HP)"}
           </span>
-          <span className="text-neutral-500">
-            {brand.name} · {formatHp(hpForSize)}
-          </span>
-        </div>
+          <input
+            type="number"
+            min={0}
+            step="any"
+            list="vrf-hp"
+            disabled={spec.role === "main"}
+            value={spec.role === "main" ? systemHp || "" : spec.hp || ""}
+            placeholder={spec.role === "trunk" ? "menor" : "0"}
+            onChange={(e) => setSpec({ ...spec, hp: num(e.target.value) })}
+            onFocus={(e) => e.target.select()}
+            className={`${input} w-full text-right font-mono disabled:opacity-60`}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block">Curvas (pç)</span>
+          <input
+            type="number"
+            min={0}
+            step={1}
+            value={spec.curves || ""}
+            placeholder="0"
+            onChange={(e) => setSpec({ ...spec, curves: num(e.target.value) })}
+            onFocus={(e) => e.target.select()}
+            className={`${input} w-full text-right font-mono`}
+            title="Joelhos do trecho: um em cada tubo (gás e líquido)"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block">Vertical (m)</span>
+          <input
+            type="number"
+            min={0}
+            step="0.1"
+            value={vertical || ""}
+            placeholder="0"
+            onChange={(e) => setVertical(num(e.target.value))}
+            onFocus={(e) => e.target.select()}
+            className={`${input} w-full text-right font-mono`}
+            title="Prumadas e descidas que a planta não mostra, somadas ao trecho"
+          />
+        </label>
+      </div>
+      <p className="mt-1.5 text-[11px] text-neutral-500">{ROLE_HELP[spec.role]}</p>
 
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <span className="mr-auto text-[11px] text-neutral-500">
-            <Kbd>Enter</Kbd> confirma · <Kbd>Esc</Kbd> cancela
-          </span>
-          <Button onClick={close}>Cancelar</Button>
-          <Button type="submit" variant="primary">
-            {editing ? "Aplicar" : "Criar trecho"}
-          </Button>
-        </div>
-      </form>
-    </Backdrop>
+      <div className="mt-3 flex items-center gap-2 text-xs">
+        <span className="rounded bg-neutral-800 px-2 py-1 font-mono text-neutral-200">
+          gás {pair.gas}" · líquido {pair.liquid}"
+        </span>
+        <span className="text-neutral-500">
+          {brand.name} · {formatHp(hpForSize)}
+        </span>
+      </div>
+
+      <div className="mt-4 flex items-center justify-end gap-2">
+        <span className="mr-auto text-[11px] text-neutral-500">
+          <Kbd>Enter</Kbd> confirma · <Kbd>Esc</Kbd> cancela
+        </span>
+        <Button onClick={close}>Cancelar</Button>
+        <Button type="submit" variant="primary">
+          {editing ? "Aplicar" : "Criar trecho"}
+        </Button>
+      </div>
+    </Dialog>
   );
 }

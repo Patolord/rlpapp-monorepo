@@ -39,7 +39,7 @@ export function TopBar() {
           onClick={() => void pickAndOpenPdf()}
           title={`${mod("O")}: adiciona uma planta (PDF) ao takeoff`}
         >
-          <FileText size={16} /> Adicionar planta
+          <FileText size={16} /> Adicionar plantas
         </Button>
         <Button variant="primary" onClick={() => void exportXlsx()} title={mod("E")}>
           <FileSpreadsheet size={16} /> Planilha .xlsx

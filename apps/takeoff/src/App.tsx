@@ -31,7 +31,7 @@ import { Welcome } from "./components/Welcome";
 import { ZoneDialog } from "./components/ZoneDialog";
 import { ZonesPanel } from "./components/ZonesPanel";
 import { useHotkeys } from "./hotkeys";
-import { autosave, confirmDiscard, openPdfFile, openProjectFile } from "./lib/files";
+import { autosave, confirmDiscard, openPdfFiles, openProjectFile } from "./lib/files";
 import { isTauri } from "./lib/platform";
 import { useDoc } from "./lib/session";
 import { checkForUpdate } from "./lib/updater";
@@ -63,10 +63,10 @@ export default function App() {
       .onDragDropEvent((event) => {
         if (event.payload.type !== "drop") return;
         const paths = event.payload.paths;
-        const pdf = paths.find((p) => /\.pdf$/i.test(p));
+        const pdfs = paths.filter((p) => /\.pdf$/i.test(p));
         const proj = paths.find((p) => /\.takeoff\.json$/i.test(p));
         if (proj) void openProjectFile(proj);
-        else if (pdf) void openPdfFile(pdf);
+        else if (pdfs.length > 0) void openPdfFiles(pdfs);
       })
       .then((u) => {
         unlisten = u;

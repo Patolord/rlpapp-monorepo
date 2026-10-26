@@ -57,15 +57,18 @@ export function Kbd({ children }: { children: ReactNode }) {
 }
 
 interface BackdropProps extends HTMLAttributes<HTMLDivElement> {
-  /** Clicking the dimmed area outside the dialog. The dialog itself must stop propagation. */
-  onClose: () => void;
-  /** Where the dialog sits: centred (default) or near the top (palette style). */
+  /**
+   * Clicking the dimmed area. Only a transient surface with nothing to lose (the palette) passes
+   * this; a dialog with user input ignores clicks outside (see Dialog).
+   */
+  onDismiss?: () => void;
+  /** Where the panel sits: centred (default) or near the top (palette style). */
   align?: "center" | "top";
   children: ReactNode;
 }
 
-/** The dimmed layer behind a dialog; fills the viewer area and closes on a click outside. */
-export function Backdrop({ onClose, align = "center", className, ...rest }: BackdropProps) {
+/** The dimmed layer behind a dialog or the palette; fills the viewer area. */
+export function Backdrop({ onDismiss, align = "center", className, ...rest }: BackdropProps) {
   return (
     <div
       className={clsx(
@@ -73,7 +76,7 @@ export function Backdrop({ onClose, align = "center", className, ...rest }: Back
         align === "top" ? "items-start bg-black/50 pt-16" : "items-center bg-black/40",
         className,
       )}
-      onClick={onClose}
+      onClick={onDismiss}
       {...rest}
     />
   );

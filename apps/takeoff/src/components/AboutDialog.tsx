@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { isTauri } from "../lib/platform";
 import { checkForUpdate, installUpdate, useUpdate } from "../lib/updater";
 import { useStore } from "../store";
-import { Backdrop, Button } from "./ui";
+import { Dialog } from "./Dialog";
+import { Button } from "./ui";
 
 const RELEASES_URL = "https://github.com/Patolord/takeoff-releases/releases/latest";
 
@@ -44,52 +45,47 @@ export function AboutDialog() {
           : "";
 
   return (
-    <Backdrop onClose={() => setAboutOpen(false)}>
-      <div
-        className="w-[26rem] rounded-lg border border-neutral-700 bg-neutral-900 p-5 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-3">
-          <img src="/logo-rlp.png" alt="RLP Engenharia" className="h-10 w-auto" draggable={false} />
-          <div>
-            <div className="text-base font-semibold text-neutral-100">RLP Takeoff</div>
-            <div className="font-mono text-xs text-neutral-400">
-              versão {version || "—"}
-              {tauri ? ` · Tauri ${tauri}` : ""}
-            </div>
+    <Dialog title="Sobre o RLP Takeoff" onClose={() => setAboutOpen(false)} className="w-[26rem]">
+      <div className="flex items-center gap-3">
+        <img src="/logo-rlp.png" alt="RLP Engenharia" className="h-10 w-auto" draggable={false} />
+        <div>
+          <div className="text-base font-semibold text-neutral-100">RLP Takeoff</div>
+          <div className="font-mono text-xs text-neutral-400">
+            versão {version || "—"}
+            {tauri ? ` · Tauri ${tauri}` : ""}
           </div>
         </div>
-        <p className="mt-3 text-xs text-neutral-400">
-          Takeoff e orçamento a partir de PDF. RLP Engenharia e Instalações Ltda.
-        </p>
-        <div className="mt-4 flex items-center gap-2">
-          {update.available ? (
-            <Button
-              variant="primary"
-              onClick={() => void installUpdate()}
-              disabled={update.installing}
-            >
-              Atualizar para {update.available.version}
-            </Button>
-          ) : (
-            <Button onClick={() => void check()} disabled={checking}>
-              {checking ? "Verificando…" : "Verificar atualizações"}
-            </Button>
-          )}
-          <span className="min-w-0 flex-1 truncate text-[12px] text-neutral-500">{status}</span>
-        </div>
-        <div className="mt-4 flex items-center justify-between text-[12px] text-neutral-500">
-          <a
-            href={RELEASES_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="text-orange-300 hover:underline"
-          >
-            Versões publicadas
-          </a>
-          <Button onClick={() => setAboutOpen(false)}>Fechar</Button>
-        </div>
       </div>
-    </Backdrop>
+      <p className="mt-3 text-xs text-neutral-400">
+        Takeoff e orçamento a partir de PDF. RLP Engenharia e Instalações Ltda.
+      </p>
+      <div className="mt-4 flex items-center gap-2">
+        {update.available ? (
+          <Button
+            variant="primary"
+            onClick={() => void installUpdate()}
+            disabled={update.installing}
+          >
+            Atualizar para {update.available.version}
+          </Button>
+        ) : (
+          <Button onClick={() => void check()} disabled={checking}>
+            {checking ? "Verificando…" : "Verificar atualizações"}
+          </Button>
+        )}
+        <span className="min-w-0 flex-1 truncate text-[12px] text-neutral-500">{status}</span>
+      </div>
+      <div className="mt-4 flex items-center justify-between text-[12px] text-neutral-500">
+        <a
+          href={RELEASES_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="text-orange-300 hover:underline"
+        >
+          Versões publicadas
+        </a>
+        <Button onClick={() => setAboutOpen(false)}>Fechar</Button>
+      </div>
+    </Dialog>
   );
 }

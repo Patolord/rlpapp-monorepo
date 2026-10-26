@@ -77,7 +77,7 @@ export function CatalogPalette() {
   };
 
   return (
-    <Backdrop onClose={() => setPaletteOpen(false)} align="top">
+    <Backdrop onDismiss={() => setPaletteOpen(false)} align="top">
       <div
         className="flex max-h-[70vh] w-[36rem] flex-col rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl"
         onClick={(e) => e.stopPropagation()}

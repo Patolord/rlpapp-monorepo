@@ -175,7 +175,7 @@ export function DrawingTabs() {
       <button
         type="button"
         onClick={() => void pickAndOpenPdf()}
-        title={`Adicionar planta (${mod("O")})`}
+        title={`Adicionar plantas (${mod("O")})`}
         className="mb-1 ml-1 flex h-6 shrink-0 items-center gap-1 rounded px-1.5 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-100"
       >
         <Plus size={14} /> planta

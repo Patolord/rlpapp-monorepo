@@ -46,6 +46,8 @@ export interface ProjectSlice {
   /** Size the active drawing's page list to the opened document. */
   ensurePages(n: number): void;
   addDrawing(path: string | null, name: string): string;
+  /** Add several plantas as one undo step; returns their ids in order. */
+  addDrawings(entries: { path: string | null; name: string }[]): string[];
   updateDrawing(id: string, patch: Partial<Drawing>): void;
   /** Reorders the plantas: puts `id` right before `beforeId`, or last when it is null. */
   moveDrawing(id: string, beforeId: string | null): void;
@@ -107,13 +109,13 @@ export const createProjectSlice: Slice<ProjectSlice> = (set, get) => ({
     });
   },
 
-  addDrawing: (path, name) => {
-    const id = newId();
-    get().commit((p) => ({
-      ...p,
-      drawings: [...p.drawings, { id, path, name, pages: [] }],
-    }));
-    return id;
+  addDrawing: (path, name) => get().addDrawings([{ path, name }])[0],
+
+  addDrawings: (entries) => {
+    const added = entries.map(({ path, name }) => ({ id: newId(), path, name, pages: [] }));
+    if (added.length === 0) return [];
+    get().commit((p) => ({ ...p, drawings: [...p.drawings, ...added] }));
+    return added.map((d) => d.id);
   },
 
   updateDrawing: (id, patch) =>
