@@ -2,6 +2,7 @@ import { type CatalogEntry, kindForUnit, mergeCatalog, normalizeDiscipline } fro
 import type { Pt } from "../lib/geom";
 import { guessSymbol } from "../lib/symbols";
 import { groupKey } from "../lib/budgetOrder";
+import { priceSourceOfEntry } from "../lib/priceSource";
 import { foldName } from "../lib/text";
 import {
   DEFAULT_GROUP,
@@ -23,17 +24,16 @@ const priceSnapshot = (
   entry: CatalogEntry | undefined,
 ): Pick<Item, "catalogId" | "priceDate" | "priceSource" | "baseMaterial" | "kgPerUnit"> => {
   if (!entry) return {};
-  // weight-priced entries: the price is derived on commit from the project's R$/kg
-  const byWeight =
-    entry.baseMaterial && entry.kgPerUnit
-      ? { baseMaterial: entry.baseMaterial, kgPerUnit: entry.kgPerUnit }
-      : {};
-  if (entry.source !== "remote") return byWeight;
+  // weight-priced entries: the price (and its source) is derived on commit from the R$/kg
+  if (entry.baseMaterial && entry.kgPerUnit) {
+    return { baseMaterial: entry.baseMaterial, kgPerUnit: entry.kgPerUnit };
+  }
+  const priceSource = priceSourceOfEntry(entry);
+  const dated = entry.materialPrice > 0 && priceSource !== "seed";
   return {
-    ...byWeight,
-    catalogId: entry.catalogId,
-    priceSource: "catalog",
-    priceDate: entry.materialPrice > 0 ? (entry.priceDate ?? Date.now()) : undefined,
+    catalogId: entry.source === "remote" ? entry.catalogId : undefined,
+    priceSource,
+    priceDate: dated ? (entry.priceDate ?? Date.now()) : undefined,
   };
 };
 

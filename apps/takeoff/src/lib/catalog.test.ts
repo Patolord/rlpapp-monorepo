@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   commonWordPrefix,
   emptyCatalogStore,
+  isCatalogStale,
   kindForUnit,
   mergeCatalog,
   normalizeDiscipline,
@@ -191,5 +192,16 @@ describe("commonWordPrefix", () => {
     expect(commonWordPrefix(["Só um"])).toBe("");
     // a name that is exactly the shared part would vanish: then nothing is dimmed
     expect(commonWordPrefix(["Tubo de cobre", 'Tubo de cobre 1/2"'])).toBe("");
+  });
+});
+
+describe("catalog freshness", () => {
+  it("asks for an update after a week, or when never fetched", () => {
+    const now = new Date(2026, 9, 26, 12).getTime();
+    const daysAgo = (d: number) => new Date(now - d * 86_400_000).toISOString();
+    expect(isCatalogStale(null, now)).toBe(true);
+    expect(isCatalogStale(daysAgo(0), now)).toBe(false);
+    expect(isCatalogStale(daysAgo(6), now)).toBe(false);
+    expect(isCatalogStale(daysAgo(8), now)).toBe(true);
   });
 });

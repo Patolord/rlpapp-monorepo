@@ -25,12 +25,14 @@ import {
   round2,
   totalsByLocation,
 } from "../lib/quantities";
+import { describePriceSource } from "../lib/priceSource";
 import { foldName } from "../lib/text";
 import { DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS, type Item } from "../lib/types";
 import { formatMoney, formatQty, type Kind } from "../lib/units";
 import { describeWeightPrice } from "../lib/weights";
 import { useStore } from "../store";
 import { ItemStylePopover } from "./ItemStylePopover";
+import { PriceSourceBadge } from "./PriceSourceBadge";
 import { SymbolIcon } from "./SymbolIcon";
 import { Button, Kbd } from "./ui";
 
@@ -621,13 +623,12 @@ function ItemRow({
                     ? `Preço digitado nesta linha; por peso seria ${weightInfo}. Clique em ↺ para voltar ao preço por peso.`
                     : weightInfo
                       ? `Preço por peso: ${weightInfo}. Digite outro valor para sobrescrever só nesta linha.`
-                      : item.priceDate
-                        ? `Preço unitário: material · ${
-                            item.priceSource === "catalog" ? "cotação" : "digitado"
-                          } em ${new Date(item.priceDate).toLocaleDateString("pt-BR")}`
+                      : item.priceSource
+                        ? `Preço unitário: material · ${describePriceSource(item.priceSource, item.priceDate)}`
                         : "Preço unitário: material"
                 }
               />
+              <PriceSourceBadge source={item.priceSource} priceDate={item.priceDate} />
               {weightInfo && item.priceSource === "manual" && (
                 <button
                   type="button"

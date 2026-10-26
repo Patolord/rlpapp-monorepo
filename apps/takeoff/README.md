@@ -89,9 +89,12 @@ bun scripts/bench-vectors.ts <pdf>   # extraction + indexing timings
 | `Ctrl+S` `Ctrl+E` | Save project / export Planilha .xlsx |
 
 Items can be saved to the catalog (star). The catalog is seeded from past budget sheets
-(`src/data/catalog.seed.json`) and can follow the company app: set the JSON URL in the Ctrl+K
-footer and it is fetched on start and on demand (through Rust, so no CORS), cached locally,
-and preferred over the seed.
+(`src/data/catalog.seed.json`) and follows the company app at a fixed address
+(`CATALOG_URL` in `src/lib/catalogRemote.ts`; `VITE_CATALOG_URL` at build time points a dev
+build elsewhere): with the access token set in "Catálogo e preços" it is fetched on start and
+by "Atualizar preços" in the Ctrl+K footer (through Rust, so no CORS), cached locally, and
+preferred over the seed. Each line's material price shows where it came from (cloud, saved
+catalog, bundled sheets, typed, by weight) next to the price box.
 
 The status bar shows the page scale; click it for the 1:N presets or calibrate by measuring.
 Items carry a budget section (Equipamentos, Rede de Dutos, Bocas de Ar, ...), a material and

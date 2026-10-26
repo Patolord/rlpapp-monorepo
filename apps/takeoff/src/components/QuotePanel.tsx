@@ -4,8 +4,10 @@ import { exportXlsx } from "../lib/files";
 import { mod } from "../lib/platform";
 import { buildQuote, quoteCsv, round2, systemSheets } from "../lib/quantities";
 import { formatMoney, formatNumber, type Unit } from "../lib/units";
+import { describePriceSource } from "../lib/priceSource";
 import { isWeightPriced } from "../lib/weights";
 import { type ProjectMeta, useStore } from "../store";
+import { PriceSourceBadge } from "./PriceSourceBadge";
 import { Button } from "./ui";
 
 /** Mirrors the workbook: one block per discipline (tab), locations or groups as inline headers. */
@@ -104,7 +106,7 @@ export function QuotePanel() {
             <tr>
               <th className="px-2 py-1 text-left">Item</th>
               <th className="w-[4.8rem] px-1 py-1 text-right">Quant.</th>
-              <th className="w-[5rem] px-1.5 py-1 text-right">Material</th>
+              <th className="w-[6rem] px-1.5 py-1 text-right">Material</th>
               <th className="w-[5rem] px-1.5 py-1 text-right">M. obra</th>
               <th className="w-[6.6rem] px-2 py-1 text-right">Total</th>
             </tr>
@@ -165,7 +167,12 @@ export function QuotePanel() {
                             {formatNumber(r.qty, project.currency, r.item.kind === "count" ? 0 : 2)}{" "}
                             {r.unit}
                           </td>
-                          <td className="px-1.5 py-1 text-right">
+                          <td className="px-1.5 py-1">
+                            <span className="flex items-center justify-end gap-1">
+                            <PriceSourceBadge
+                              source={r.item.priceSource}
+                              priceDate={r.item.priceDate}
+                            />
                             <input
                               type="number"
                               min={0}
@@ -186,9 +193,12 @@ export function QuotePanel() {
                                   ? "Preço digitado nesta linha (sobrescreve o preço por peso; ↺ na aba Itens volta)"
                                   : isWeightPriced(r.item)
                                     ? "Preço por peso (R$/kg do insumo no rodapé do Ctrl+K); digite outro para sobrescrever só esta linha"
-                                    : "Preço unitário de material"
+                                    : r.item.priceSource
+                                      ? `Material · ${describePriceSource(r.item.priceSource, r.item.priceDate)}`
+                                      : "Preço unitário de material"
                               }
                             />
+                            </span>
                           </td>
                           <td className="px-1.5 py-1 text-right">
                             <input

@@ -1,6 +1,6 @@
 import { RefreshCw, Send } from "lucide-react";
 import { useEffect, useState } from "react";
-import { DEFAULT_CATALOG_URL } from "../lib/catalog";
+import { CATALOG_URL } from "../lib/catalog";
 import { BASE_MATERIALS } from "../lib/weights";
 import { useStore } from "../store";
 import { Backdrop, Button } from "./ui";
@@ -18,29 +18,25 @@ export function CatalogSettingsDialog() {
   const catalog = useStore((s) => s.catalog);
   const {
     setCatalogSettingsOpen,
-    setCatalogUrl,
     setCatalogToken,
     refreshCatalog,
     flushProposals,
     setBasePrice,
     setWeightsEditorOpen,
   } = useStore.getState();
-  const [url, setUrl] = useState(catalog.remoteUrl);
   const [token, setToken] = useState(catalog.remoteToken);
   const [busy, setBusy] = useState<string | null>(null);
   useEffect(() => {
     if (open) {
-      setUrl(catalog.remoteUrl);
       setToken(catalog.remoteToken);
       setBusy(null);
     }
-  }, [open, catalog.remoteUrl, catalog.remoteToken]);
+  }, [open, catalog.remoteToken]);
   if (!open) return null;
 
   const refresh = async () => {
     setBusy("Buscando…");
     try {
-      setCatalogUrl(url.trim());
       setCatalogToken(token);
       const n = await refreshCatalog();
       setBusy(`${n} materiais carregados`);
@@ -86,16 +82,9 @@ export function CatalogSettingsDialog() {
             "Catálogo da empresa",
             "De onde vêm os materiais e os preços de referência do Ctrl+K. Nada é enviado de volta sem você pedir.",
             <div className="space-y-1.5">
-              <label className="block text-neutral-400">
-                URL
-                <input
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder={DEFAULT_CATALOG_URL}
-                  title="Vazio usa o catálogo de produção da empresa"
-                  className={`${input} mt-0.5 font-mono`}
-                />
-              </label>
+              <p className="truncate font-mono text-[11px] text-neutral-500" title={CATALOG_URL}>
+                {CATALOG_URL}
+              </p>
               <label className="block text-neutral-400">
                 Token de acesso
                 <input

@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   applyRedirects,
   buildProposal,
-  catalogUrl,
-  DEFAULT_CATALOG_URL,
+  CATALOG_URL,
   describeHttpFailure,
+  PROPOSALS_URL,
   proposalsUrl,
 } from "./catalogRemote";
 import { emptyProject, type Item } from "./types";
@@ -22,16 +22,12 @@ const item = (over: Partial<Item> = {}): Item => ({
 });
 
 describe("company catalog URLs", () => {
-  it("falls back to the production catalog when no URL is configured", () => {
-    expect(catalogUrl("")).toBe(DEFAULT_CATALOG_URL);
-    expect(catalogUrl("  ")).toBe(DEFAULT_CATALOG_URL);
-    expect(catalogUrl("https://dusty-ferret-162.convex.site/takeoff/catalog")).toBe(
-      "https://dusty-ferret-162.convex.site/takeoff/catalog",
-    );
+  it("is fixed to the company deployment, HTTP routes on the .convex.site host", () => {
+    expect(CATALOG_URL).toBe("https://rosy-crow-250.convex.site/takeoff/catalog");
+    expect(PROPOSALS_URL).toBe("https://rosy-crow-250.convex.site/takeoff/materials");
   });
 
   it("derives the proposals route from the catalog route", () => {
-    expect(proposalsUrl("")).toBe("https://rosy-crow-250.convex.site/takeoff/materials");
     expect(proposalsUrl("https://x.convex.site/takeoff/catalog")).toBe(
       "https://x.convex.site/takeoff/materials",
     );

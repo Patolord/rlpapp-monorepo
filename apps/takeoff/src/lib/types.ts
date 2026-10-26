@@ -35,8 +35,12 @@ export interface Item {
    * The budget keeps this with the price so a proposal can be re-priced later and compared.
    */
   priceDate?: number;
-  /** Where the material price came from; undefined for lines older than this field. */
-  priceSource?: "catalog" | "manual" | "weight";
+  /**
+   * Where the material price came from: the company catalog (cloud), the user's saved catalog,
+   * the bundled sheets (seed), typed by hand, or derived by weight. Undefined on lines older
+   * than this field.
+   */
+  priceSource?: "catalog" | "saved" | "seed" | "manual" | "weight";
   /**
    * Priced by weight: key of the base material (see lib/weights) and kg per budget unit.
    * The material price is then derived from the project's price per kg and kept in sync.

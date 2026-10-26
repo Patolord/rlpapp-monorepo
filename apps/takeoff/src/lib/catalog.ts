@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import seed from "../data/catalog.seed.json";
-import { catalogUrl, describeHttpFailure, httpRequest, type QueuedProposal } from "./catalogRemote";
+import { CATALOG_URL, describeHttpFailure, httpRequest, type QueuedProposal } from "./catalogRemote";
 import { type Kit, SEED_KITS } from "./kits";
 import { isTauri } from "./platform";
 import { foldName } from "./text";
@@ -15,7 +15,7 @@ import {
   weightCatalogEntries,
 } from "./weights";
 
-export { catalogUrl, DEFAULT_CATALOG_URL } from "./catalogRemote";
+export { CATALOG_URL } from "./catalogRemote";
 
 /** A reusable material: what an item is created from. */
 export interface CatalogEntry {
@@ -47,8 +47,6 @@ export interface CatalogEntry {
 export interface CatalogStore {
   saved: CatalogEntry[];
   remote: CatalogEntry[];
-  /** Company catalog URL; empty = the production default (see DEFAULT_CATALOG_URL). */
-  remoteUrl: string;
   /** Bearer token for the company catalog (kept in app data, never in a project file). */
   remoteToken: string;
   fetchedAt: string | null;
@@ -73,7 +71,6 @@ export const SEED: CatalogEntry[] = (seed as CatalogEntry[]).map((e) => ({ ...e,
 export const emptyCatalogStore = (): CatalogStore => ({
   saved: [],
   remote: [],
-  remoteUrl: "",
   remoteToken: "",
   fetchedAt: null,
   remoteGeneratedAt: null,
@@ -244,9 +241,13 @@ export async function loadCatalogStore(): Promise<CatalogStore> {
       text = localStorage.getItem(LS_KEY);
     }
     if (!text) return emptyCatalogStore();
-    const parsed = JSON.parse(text) as Partial<CatalogStore> | CatalogEntry[];
+    const parsed = JSON.parse(text) as
+      | (Partial<CatalogStore> & { remoteUrl?: string })
+      | CatalogEntry[];
     if (Array.isArray(parsed)) return { ...emptyCatalogStore(), saved: parsed };
-    return { ...emptyCatalogStore(), ...parsed };
+    // remoteUrl: a setting of earlier versions; the address is fixed now
+    const { remoteUrl: _legacy, ...rest } = parsed;
+    return { ...emptyCatalogStore(), ...rest };
   } catch {
     return emptyCatalogStore();
   }
@@ -262,9 +263,16 @@ export async function saveCatalogStore(store: CatalogStore): Promise<void> {
   }
 }
 
+/** After this long without a fetch the Ctrl+K footer asks for an update. */
+export const CATALOG_STALE_DAYS = 7;
+
+/** Never fetched, or fetched more than CATALOG_STALE_DAYS ago. */
+export const isCatalogStale = (fetchedAt: string | null, now = Date.now()): boolean =>
+  !fetchedAt || now - new Date(fetchedAt).getTime() > CATALOG_STALE_DAYS * 86_400_000;
+
 /** Fetch the company catalog (through Rust inside Tauri, so CORS does not apply). */
-export async function fetchRemoteCatalog(remoteUrl: string, token: string): Promise<RemoteCatalog> {
-  const res = await httpRequest({ method: "GET", url: catalogUrl(remoteUrl), token });
+export async function fetchRemoteCatalog(token: string): Promise<RemoteCatalog> {
+  const res = await httpRequest({ method: "GET", url: CATALOG_URL, token });
   if (res.status < 200 || res.status >= 300) {
     throw new Error(describeHttpFailure(res.status, res.body));
   }

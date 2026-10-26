@@ -26,9 +26,8 @@ export interface CatalogSlice {
   catalog: CatalogStore;
 
   loadCatalog(): Promise<void>;
-  setCatalogUrl(url: string): void;
   setCatalogToken(token: string): void;
-  /** Fetch the company catalog from the configured URL; returns how many entries arrived. */
+  /** Fetch the company catalog; returns how many entries arrived. */
   refreshCatalog(): Promise<number>;
   saveItemToCatalog(itemId: string): Promise<void>;
   /**
@@ -66,12 +65,6 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
       set({ catalog, ...(synced !== project ? { project: synced, dirty: true } : {}) });
     },
 
-    setCatalogUrl: (remoteUrl) => {
-      const next = { ...get().catalog, remoteUrl };
-      set({ catalog: next });
-      void saveCatalogStore(next);
-    },
-
     setCatalogToken: (remoteToken) => {
       const next = { ...get().catalog, remoteToken: remoteToken.trim() };
       set({ catalog: next });
@@ -80,7 +73,7 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
 
     refreshCatalog: async () => {
       const { catalog } = get();
-      const remote = await fetchRemoteCatalog(catalog.remoteUrl, catalog.remoteToken);
+      const remote = await fetchRemoteCatalog(catalog.remoteToken);
       const next = {
         ...catalog,
         remote: remote.entries,
@@ -111,6 +104,7 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
         laborPrice: item.laborPrice,
         system: item.system,
         source: "saved",
+        priceDate: item.priceDate ?? Date.now(),
       };
       const saved = [
         entry,
@@ -155,7 +149,7 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
       const remaining: QueuedProposal[] = [];
       let lastStatus: string | null = null;
       for (const q of catalog.outbox) {
-        const outcome = await sendProposal(catalog.remoteUrl, catalog.remoteToken, q.body);
+        const outcome = await sendProposal(catalog.remoteToken, q.body);
         if (outcome.kind === "sent") {
           accepted++;
           const { result } = outcome;

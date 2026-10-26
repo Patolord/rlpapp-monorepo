@@ -6,22 +6,24 @@ import type { Item, Project } from "./types";
 /**
  * The company app (app.rlpeng.com.br, Convex backend) publishes the material catalog for this
  * app at `GET /takeoff/catalog` and receives material proposals at `POST /takeoff/materials`,
- * both behind the same bearer token (`TAKEOFF_CATALOG_TOKEN` on the deployment).
+ * both behind the same bearer token (`TAKEOFF_CATALOG_TOKEN` on the deployment). The address
+ * is fixed: users only hold the token. A build with `VITE_CATALOG_URL` set points at another
+ * deployment (the dev mirror, https://dusty-ferret-162.convex.site/takeoff/catalog).
  */
-export const DEFAULT_CATALOG_URL = "https://rosy-crow-250.convex.site/takeoff/catalog";
+export const CATALOG_URL: string =
+  (import.meta.env.VITE_CATALOG_URL as string | undefined)?.trim() ||
+  "https://rosy-crow-250.convex.site/takeoff/catalog";
 
 const CATALOG_PATH = "/takeoff/catalog";
 const PROPOSALS_PATH = "/takeoff/materials";
 
-/** The URL to fetch: the configured one, else the company's production catalog. */
-export const catalogUrl = (remoteUrl: string): string => remoteUrl.trim() || DEFAULT_CATALOG_URL;
-
 /** The proposals route lives next to the catalog route on the same deployment. */
-export function proposalsUrl(remoteUrl: string): string {
-  const url = catalogUrl(remoteUrl);
-  if (url.endsWith(CATALOG_PATH)) return url.slice(0, -CATALOG_PATH.length) + PROPOSALS_PATH;
-  return new URL(PROPOSALS_PATH, url).toString();
-}
+export const proposalsUrl = (catalogUrl: string): string =>
+  catalogUrl.endsWith(CATALOG_PATH)
+    ? catalogUrl.slice(0, -CATALOG_PATH.length) + PROPOSALS_PATH
+    : new URL(PROPOSALS_PATH, catalogUrl).toString();
+
+export const PROPOSALS_URL: string = proposalsUrl(CATALOG_URL);
 
 export interface HttpResponse {
   status: number;
@@ -134,16 +136,12 @@ export type SendOutcome =
   | { kind: "retry"; message: string };
 
 /** 4xx other than auth is a bad request that retrying will not fix; everything else is retried. */
-export async function sendProposal(
-  remoteUrl: string,
-  token: string,
-  body: ProposalBody,
-): Promise<SendOutcome> {
+export async function sendProposal(token: string, body: ProposalBody): Promise<SendOutcome> {
   let res: HttpResponse;
   try {
     res = await httpRequest({
       method: "POST",
-      url: proposalsUrl(remoteUrl),
+      url: PROPOSALS_URL,
       token,
       body: JSON.stringify(body),
     });

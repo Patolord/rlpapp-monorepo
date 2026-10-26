@@ -1,9 +1,17 @@
 import clsx from "clsx";
-import { Search, Settings2 } from "lucide-react";
+import { RefreshCw, Search, Settings2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type CatalogEntry, commonWordPrefix, mergeCatalog, searchCatalog } from "../lib/catalog";
+import {
+  type CatalogEntry,
+  commonWordPrefix,
+  isCatalogStale,
+  mergeCatalog,
+  searchCatalog,
+} from "../lib/catalog";
+import { priceSourceOfEntry } from "../lib/priceSource";
 import { formatMoney } from "../lib/units";
 import { useStore } from "../store";
+import { PriceSourceBadge } from "./PriceSourceBadge";
 import { Backdrop, Kbd } from "./ui";
 
 /**
@@ -14,8 +22,10 @@ export function CatalogPalette() {
   const open = useStore((s) => s.paletteOpen);
   const catalog = useStore((s) => s.catalog);
   const currency = useStore((s) => s.project.currency);
-  const { setPaletteOpen, addItemFromCatalog, setCatalogSettingsOpen } = useStore.getState();
+  const { setPaletteOpen, addItemFromCatalog, setCatalogSettingsOpen, refreshCatalog, setStatus } =
+    useStore.getState();
   const [query, setQuery] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const [cursor, setCursor] = useState(0);
   const listRef = useRef<HTMLUListElement>(null);
   const entries = useMemo(() => mergeCatalog(catalog), [catalog]);
@@ -43,11 +53,28 @@ export function CatalogPalette() {
     setCatalogSettingsOpen(true);
   };
   const pending = catalog.outbox.length;
+  const stale = isCatalogStale(catalog.fetchedAt);
   const sourceLabel = catalog.fetchedAt
-    ? `${catalog.remote.length} materiais da empresa · catálogo de ${new Date(
+    ? `${catalog.remote.length} materiais da empresa · preços de ${new Date(
         catalog.remoteGeneratedAt ?? catalog.fetchedAt,
       ).toLocaleDateString("pt-BR")}`
     : `${entries.length} materiais (planilhas anteriores)`;
+  /** Fetch the company prices now; without a token the settings open to ask for it. */
+  const refresh = async () => {
+    if (!catalog.remoteToken) {
+      openSettings();
+      return;
+    }
+    setRefreshing(true);
+    try {
+      const n = await refreshCatalog();
+      setStatus(`Catálogo atualizado: ${n} materiais da empresa`);
+    } catch (e) {
+      setStatus(`Falha ao atualizar o catálogo: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   return (
     <Backdrop onClose={() => setPaletteOpen(false)} align="top">
@@ -120,6 +147,7 @@ export function CatalogPalette() {
                 <span className="w-8 shrink-0 text-center font-mono text-[11px] text-neutral-500">
                   {e.unit}
                 </span>
+                <PriceSourceBadge source={priceSourceOfEntry(e)} priceDate={e.priceDate} />
                 <span
                   className="w-24 shrink-0 text-right font-mono text-[12px] text-neutral-300"
                   title={
@@ -149,7 +177,26 @@ export function CatalogPalette() {
           )}
         </ul>
         <div className="flex items-center gap-2 border-t border-neutral-800 px-3 py-1.5 text-[12px] text-neutral-500">
-          <span className="min-w-0 flex-1 truncate">{sourceLabel}</span>
+          <span className={clsx("min-w-0 flex-1 truncate", stale && "text-amber-400")}>
+            {sourceLabel}
+          </span>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={refreshing}
+            className={clsx(
+              "inline-flex h-7 shrink-0 items-center gap-1 rounded px-1.5 hover:bg-neutral-800 hover:text-neutral-200",
+              stale ? "text-amber-400" : "text-neutral-400",
+            )}
+            title={
+              stale
+                ? "Os preços têm mais de uma semana (ou nunca foram baixados): buscar os atuais no catálogo da empresa"
+                : "Buscar os preços atuais no catálogo da empresa"
+            }
+          >
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : undefined} /> Atualizar
+            preços
+          </button>
           {pending > 0 && (
             <button
               type="button"
@@ -164,7 +211,7 @@ export function CatalogPalette() {
             type="button"
             onClick={openSettings}
             className="inline-flex h-7 shrink-0 items-center gap-1 rounded px-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
-            title="Catálogo e preços: fonte do catálogo, token, R$/kg dos insumos, tabela de pesos"
+            title="Catálogo e preços: token de acesso, R$/kg dos insumos, tabela de pesos"
           >
             <Settings2 size={14} /> Catálogo e preços
           </button>
