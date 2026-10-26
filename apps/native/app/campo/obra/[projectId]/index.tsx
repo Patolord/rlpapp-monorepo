@@ -1,40 +1,56 @@
+import { api } from "@rlpapp/backend/convex/_generated/api";
+import { useQuery } from "convex/react";
 import { Stack, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import {
   Building2,
-  ChevronRight,
   FileText,
   History,
+  Keyboard,
   Package,
   QrCode,
   ScanLine,
-  Search,
   ShieldAlert,
 } from "lucide-react-native";
-import { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { Badge, EmptyState, LoadingState } from "@rlpapp/ui/native";
-import {
-  OBRA_STATUS_LABELS,
-  obraSubtitle,
-  obraTitle,
-  useFieldObra,
-} from "@/components/campo/obra";
+import { EmptyState, LoadingState } from "@rlpapp/ui/native";
+import { BigAction, BigTile } from "@/components/campo/field-ui";
+import { obraSubtitle, obraTitle, useFieldObra } from "@/components/campo/obra";
 import { PendingBanner } from "@/components/campo/pending-banner";
-import { Button, ButtonText } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { plural } from "@/lib/format";
-import { useOnline } from "@/lib/use-online";
+import { AppButton } from "@/components/ui";
+import { setLastFieldObra } from "@/lib/field-cache";
 import { normalizeTypedToken } from "@/lib/qr-token";
+import { colors, radius, space, type } from "@/lib/theme";
+import { useOnline } from "@/lib/use-online";
 
-/** Hub da obra: escanear ou digitar a etiqueta, ver etiquetas e registros. */
+const TILE_ICON = { size: 40, color: colors.primary, strokeWidth: 1.9 } as const;
+
+/** Hub da obra: Escanear em destaque e quatro blocos grandes. */
 export default function ObraHubScreen() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
   const router = useRouter();
   const online = useOnline();
   const obra = useFieldObra(projectId);
+  const [typing, setTyping] = useState(false);
   const [code, setCode] = useState("");
+
+  // Estoque exige atribuição à obra (a query lança "acesso negado" para quem
+  // só está de passagem), então só roda com `assigned`.
+  const assignedId = obra != null && obra.assigned ? obra._id : null;
+  const balances = useQuery(
+    api.inventoryRequests.listObraBalances,
+    assignedId ? { projectId: assignedId } : "skip"
+  );
+  const depleted = balances?.filter((b) => b.quantity <= 0).length ?? 0;
+
+  useEffect(() => {
+    if (obra) void setLastFieldObra(obra._id);
+  }, [obra]);
+
+  function go(pathname: `/campo/obra/[projectId]/${string}`) {
+    router.push({ pathname, params: { projectId: projectId! } } as Href);
+  }
 
   function openToken(token: string) {
     router.push({
@@ -47,6 +63,7 @@ export default function ObraHubScreen() {
     const token = normalizeTypedToken(code);
     if (!token) return;
     setCode("");
+    setTyping(false);
     openToken(token);
   }
 
@@ -57,10 +74,8 @@ export default function ObraHubScreen() {
         {online ? (
           <LoadingState label="Carregando obra…" />
         ) : (
-          <View className="flex-1 items-center justify-center px-8">
-            <Text className="text-center text-sm text-muted-foreground">
-              Sem conexão. Conecte-se à internet para abrir esta obra.
-            </Text>
+          <View style={styles.centered}>
+            <Text style={styles.centeredText}>Sem internet. Conecte para abrir esta obra.</Text>
           </View>
         )}
       </>
@@ -71,15 +86,17 @@ export default function ObraHubScreen() {
     return (
       <>
         <Stack.Screen options={{ title: "Obra" }} />
-        <View className="flex-1 justify-center px-5">
+        <View style={styles.centered}>
           <EmptyState
-            icon={<Building2 size={28} color="#d97706" />}
+            icon={<Building2 size={28} color={colors.primary} />}
             title="Obra não encontrada"
-            description="Esta obra não existe mais ou foi arquivada."
+            description="Ela foi arquivada ou não existe mais."
             action={
-              <Button variant="outline" onPress={() => router.replace("/campo" as Href)}>
-                <ButtonText variant="outline">Voltar para minhas obras</ButtonText>
-              </Button>
+              <AppButton
+                variant="secondary"
+                label="Voltar"
+                onPress={() => router.replace("/campo" as Href)}
+              />
             }
           />
         </View>
@@ -87,179 +104,154 @@ export default function ObraHubScreen() {
     );
   }
 
-  const subtitle = obraSubtitle(obra);
-  const statusLabel = obra.status ? (OBRA_STATUS_LABELS[obra.status] ?? obra.status) : null;
+  const client = obraSubtitle(obra);
 
   return (
     <>
-      <Stack.Screen options={{ title: obra.name }} />
+      <Stack.Screen
+        options={{
+          title: obraTitle(obra),
+          headerTitle: () => (
+            <View>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {obraTitle(obra)}
+              </Text>
+              {client ? (
+                <Text style={styles.headerClient} numberOfLines={1}>
+                  {client}
+                </Text>
+              ) : null}
+            </View>
+          ),
+        }}
+      />
       <ScrollView
-        contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 16 }}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         {!obra.assigned ? (
-          <View className="flex-row items-center gap-2 rounded-md border border-blue-300 bg-blue-50 px-4 py-3">
-            <ShieldAlert size={18} color="#2563eb" />
-            <Text className="flex-1 text-sm text-blue-900">
-              Você não está atribuído a esta obra. Pode registrar mesmo assim;
-              avise a engenharia se for ficar nela.
-            </Text>
+          <View style={styles.notAssigned}>
+            <ShieldAlert size={24} color={colors.info} />
+            <Text style={styles.notAssignedText}>Você não está nesta obra</Text>
           </View>
         ) : null}
 
         <PendingBanner onPress={() => router.push("/campo/pendentes" as Href)} />
 
-        {/* Resumo */}
-        <Card className="gap-2 p-5">
-          <Text className="text-xl font-bold text-foreground">{obraTitle(obra)}</Text>
-          {subtitle ? (
-            <Text className="text-sm text-muted-foreground">{subtitle}</Text>
-          ) : null}
-          <View className="mt-1 flex-row flex-wrap items-center gap-2">
-            {statusLabel ? <Badge variant="neutral">{statusLabel}</Badge> : null}
-            <Badge variant="info">
-              {`${obra.registeredCount}/${obra.qrCount} etiquetas cadastradas`}
-            </Badge>
-          </View>
-        </Card>
+        <BigAction
+          size="hero"
+          label="Escanear"
+          icon={<ScanLine size={64} color={colors.onPrimary} strokeWidth={1.8} />}
+          onPress={() => go("/campo/obra/[projectId]/scanner")}
+        />
 
-        {/* Ação principal */}
-        <Pressable
-          onPress={() =>
-            router.push({
-              pathname: "/campo/obra/[projectId]/scanner",
-              params: { projectId: projectId! },
-            })
-          }
-          accessibilityRole="button"
-        >
-          <View className="flex-row items-center gap-4 rounded-2xl bg-primary p-5">
-            <View className="h-14 w-14 items-center justify-center rounded-2xl bg-white/20">
-              <ScanLine size={30} color="#ffffff" />
-            </View>
-            <View className="min-w-0 flex-1">
-              <Text className="text-lg font-bold text-primary-foreground">
-                Escanear etiqueta
-              </Text>
-              <Text className="text-xs text-primary-foreground/80">
-                Abre a câmera para ler o QR do equipamento
-              </Text>
-            </View>
-            <ChevronRight size={22} color="#ffffff" />
-          </View>
-        </Pressable>
-
-        {/* Código manual */}
-        <Card className="gap-3 p-4">
-          <Text className="text-sm font-semibold text-foreground">
-            Etiqueta sem leitura? Digite o código
-          </Text>
-          <View className="flex-row gap-2">
-            <Input
-              className="h-12 flex-1 font-mono text-base"
-              placeholder="Ex: LORENAH4FC29"
+        {typing ? (
+          <View style={styles.codeRow}>
+            <TextInput
+              style={styles.codeInput}
+              placeholder="Código da etiqueta"
+              placeholderTextColor={colors.textMuted}
               value={code}
               onChangeText={(v) => setCode(v.toUpperCase())}
               autoCapitalize="characters"
               autoCorrect={false}
+              autoFocus
               returnKeyType="go"
               onSubmitEditing={handleTypedCode}
+              accessibilityLabel="Código da etiqueta"
             />
-            <Button className="h-12 px-4" disabled={!code.trim()} onPress={handleTypedCode}>
-              <Search size={18} color="#fafafa" />
-              <ButtonText className="ml-1">Abrir</ButtonText>
-            </Button>
+            <BigAction
+              size="md"
+              label="Abrir"
+              disabled={!code.trim()}
+              onPress={handleTypedCode}
+            />
           </View>
-        </Card>
+        ) : (
+          <BigAction
+            size="md"
+            variant="secondary"
+            label="Digitar código"
+            icon={<Keyboard size={24} color={colors.text} strokeWidth={2.2} />}
+            onPress={() => setTyping(true)}
+          />
+        )}
 
-        {/* Navegação da obra */}
-        <View className="gap-2">
-          <HubTile
-            icon={<QrCode size={22} color="#d97706" />}
-            iconBg="bg-amber-100"
-            title="Etiquetas da obra"
-            description="Equipamentos cadastrados e etiquetas livres."
-            onPress={() =>
-              router.push({
-                pathname: "/campo/obra/[projectId]/etiquetas",
-                params: { projectId: projectId! },
-              })
-            }
-          />
-          {/* Documentos e estoque exigem atribuição à obra (as queries lançam
-              "acesso negado" para quem só está de passagem). */}
+        <View style={styles.grid}>
+          <View style={styles.gridRow}>
+            <BigTile
+              label="Equipamentos"
+              icon={<QrCode {...TILE_ICON} />}
+              onPress={() => go("/campo/obra/[projectId]/etiquetas")}
+            />
+            {obra.assigned ? (
+              <BigTile
+                label="Estoque"
+                icon={<Package {...TILE_ICON} />}
+                badge={depleted}
+                onPress={() => go("/campo/obra/[projectId]/estoque")}
+              />
+            ) : (
+              <BigTile
+                label="Meus registros"
+                icon={<History {...TILE_ICON} />}
+                onPress={() => go("/campo/obra/[projectId]/registros")}
+              />
+            )}
+          </View>
+          {/* Documentos e estoque exigem atribuição à obra. */}
           {obra.assigned ? (
-            <>
-              <HubTile
-                icon={<FileText size={22} color="#2563eb" />}
-                iconBg="bg-blue-100"
-                title="Documentos"
-                description={`${plural(obra.documentCount, "PDF")} liberados pela engenharia, com cópia offline.`}
-                onPress={() =>
-                  router.push({
-                    pathname: "/campo/obra/[projectId]/documentos",
-                    params: { projectId: projectId! },
-                  })
-                }
+            <View style={styles.gridRow}>
+              <BigTile
+                label="Documentos"
+                icon={<FileText {...TILE_ICON} />}
+                onPress={() => go("/campo/obra/[projectId]/documentos")}
               />
-              <HubTile
-                icon={<Package size={22} color="#7c3aed" />}
-                iconBg="bg-violet-100"
-                title="Estoque da obra"
-                description="Saldo de materiais, avisar que acabou e pedir mais."
-                onPress={() =>
-                  router.push({
-                    pathname: "/campo/obra/[projectId]/estoque",
-                    params: { projectId: projectId! },
-                  })
-                }
+              <BigTile
+                label="Meus registros"
+                icon={<History {...TILE_ICON} />}
+                onPress={() => go("/campo/obra/[projectId]/registros")}
               />
-            </>
+            </View>
           ) : null}
-          <HubTile
-            icon={<History size={22} color="#10b981" />}
-            iconBg="bg-green-100"
-            title="Meus registros nesta obra"
-            description="Serviços e cadastros que você enviou."
-            onPress={() =>
-              router.push({
-                pathname: "/campo/obra/[projectId]/registros",
-                params: { projectId: projectId! },
-              })
-            }
-          />
         </View>
       </ScrollView>
     </>
   );
 }
 
-function HubTile({
-  icon,
-  iconBg,
-  title,
-  description,
-  onPress,
-}: {
-  icon: React.ReactNode;
-  iconBg: string;
-  title: string;
-  description: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button">
-      <Card className="flex-row items-center gap-4 p-4">
-        <View className={`h-11 w-11 items-center justify-center rounded-xl ${iconBg}`}>
-          {icon}
-        </View>
-        <View className="min-w-0 flex-1">
-          <Text className="font-medium text-foreground">{title}</Text>
-          <Text className="text-xs text-muted-foreground">{description}</Text>
-        </View>
-        <ChevronRight size={18} color="#9ca3af" />
-      </Card>
-    </Pressable>
-  );
-}
+const styles = StyleSheet.create({
+  content: { padding: space.lg, paddingBottom: 48, gap: space.lg },
+  centered: { flex: 1, justifyContent: "center", paddingHorizontal: space.xl },
+  centeredText: { ...type.body, textAlign: "center", color: colors.textSecondary },
+  headerTitle: { fontSize: 19, lineHeight: 24, fontWeight: "700", color: colors.text },
+  headerClient: { fontSize: 14, lineHeight: 18, fontWeight: "500", color: colors.textSecondary },
+  notAssigned: {
+    minHeight: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.infoSoft,
+  },
+  notAssignedText: { flex: 1, fontSize: 17, lineHeight: 22, fontWeight: "600", color: colors.text },
+  codeRow: { flexDirection: "row", gap: space.sm },
+  codeInput: {
+    flex: 1,
+    height: 64,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    fontSize: 20,
+    fontWeight: "600",
+    letterSpacing: 1,
+    fontFamily: Platform.select({ ios: "Menlo", default: "monospace" }),
+    color: colors.text,
+  },
+  grid: { gap: space.md, paddingTop: space.xs },
+  gridRow: { flexDirection: "row", gap: space.md },
+});

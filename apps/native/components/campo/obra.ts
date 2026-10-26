@@ -17,21 +17,41 @@ export const OBRA_STATUS_LABELS: Record<string, string> = {
   paused: "Pausada",
 };
 
+/** Nomes legados seguem "Obra 1801 - Rocontec - Lorena" (número, cliente, projeto). */
+const LEGACY_NAME = /^obra\s*(\d+)\s*[-–]\s*(.+?)\s*[-–]\s*(.+)$/i;
+
+/** Número, cliente e nome curto da obra, tirados do nome legado quando houver. */
+export function obraParts(project: {
+  name: string;
+  legacyNumber: number | null;
+  client: string | null;
+}): { number: string | null; client: string | null; name: string } {
+  const match = LEGACY_NAME.exec(project.name.trim());
+  if (match) return { number: match[1], client: match[2], name: match[3] };
+  return {
+    number: project.legacyNumber ? String(project.legacyNumber) : null,
+    client: project.client,
+    name: project.name,
+  };
+}
+
+/** "1801 · Lorena": o que o técnico reconhece de longe. */
 export function obraTitle(project: {
   name: string;
   legacyNumber: number | null;
+  client: string | null;
 }): string {
-  return project.legacyNumber
-    ? `#${project.legacyNumber} · ${project.name}`
-    : project.name;
+  const { number, name } = obraParts(project);
+  return number ? `${number} · ${name}` : name;
 }
 
+/** Linha de apoio curta: só o cliente. */
 export function obraSubtitle(project: {
+  name: string;
+  legacyNumber: number | null;
   client: string | null;
-  address: string | null;
 }): string | null {
-  const parts = [project.client, project.address].filter(Boolean);
-  return parts.length > 0 ? parts.join(" · ") : null;
+  return obraParts(project).client;
 }
 
 /**
