@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { canonicalGroup } from "../lib/budgetOrder";
 import { MOD, mod } from "../lib/platform";
 import {
   formatItemQty,
@@ -419,7 +420,12 @@ function ItemRow({
       onClick={stop}
       onBlur={(e) => {
         const v = e.target.value.trim();
-        onChange(field === "group" ? { group: v || item.group } : { system: v });
+        // a retyped group joins the section already spelt that way ("bocas de ar" → "Bocas de Ar")
+        onChange(
+          field === "group"
+            ? { group: canonicalGroup(useStore.getState().project.items, v) || item.group }
+            : { system: v },
+        );
         setEditing(null);
       }}
       onKeyDown={(e) => {

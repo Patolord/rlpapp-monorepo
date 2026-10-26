@@ -1,4 +1,4 @@
-import { moveItemInBudget } from "../lib/budgetOrder";
+import { moveGroupInBudget, moveItemInBudget } from "../lib/budgetOrder";
 import { mergeCatalog } from "../lib/catalog";
 import { syncDuctItems } from "../lib/ductItems";
 import { useDoc } from "../lib/session";
@@ -64,8 +64,10 @@ export interface ProjectSlice {
 
   setPageScale(scale: PageScale | null, which: "current" | "all"): void;
   setProjectMeta(patch: ProjectMeta): void;
-  /** Nudge an item up (-1) or down (+1) inside its group in the budget. */
+  /** Nudge an item up (-1) or down (+1) in the budget; at the edge of its group it changes group. */
   moveItemInBudget(id: string, dir: -1 | 1): void;
+  /** Nudge a group (budget section) up (-1) or down (+1); the order of all groups becomes manual. */
+  moveGroupInBudget(group: string, dir: -1 | 1): void;
 }
 
 export const createProjectSlice: Slice<ProjectSlice> = (set, get) => ({
@@ -235,7 +237,13 @@ export const createProjectSlice: Slice<ProjectSlice> = (set, get) => ({
 
   moveItemInBudget: (id, dir) =>
     get().commit((p) => {
-      const items = moveItemInBudget(p.items, id, dir);
+      const items = moveItemInBudget(p.items, id, dir, p.groupOrder);
       return items.some((i, k) => i !== p.items[k]) ? { ...p, items } : p;
+    }),
+
+  moveGroupInBudget: (group, dir) =>
+    get().commit((p) => {
+      const groupOrder = moveGroupInBudget(p.items, p.groupOrder, group, dir);
+      return groupOrder ? { ...p, groupOrder } : p;
     }),
 });

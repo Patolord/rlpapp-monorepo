@@ -128,6 +128,12 @@ export interface Project {
   extrasPct: number;
   /** How the exported sheet is sectioned: by location (ambiente) or by item group. */
   sectionsBy: "local" | "grupo";
+  /**
+   * Groups (budget sections) in the order the user put them, set the first time a group is
+   * moved; undefined = the default order (see lib/budgetOrder). Groups created afterwards go
+   * after the listed ones.
+   */
+  groupOrder?: string[];
   drawings: Drawing[];
   /** Drawing shown in the viewer; persisted so a project reopens where it was. */
   activeDrawingId: string | null;

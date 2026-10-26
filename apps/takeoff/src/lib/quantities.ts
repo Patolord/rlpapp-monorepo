@@ -1,4 +1,4 @@
-import { compareSystems, sortItemsForBudget } from "./budgetOrder";
+import { compareSystems, groupKey, groupLabels, groupOf, sortItemsForBudget } from "./budgetOrder";
 import {
   type Pt,
   pointAlong,
@@ -8,7 +8,6 @@ import {
   polylineLength,
 } from "./geom";
 import {
-  DEFAULT_GROUP,
   drawingOf,
   type Item,
   type Measurement,
@@ -195,8 +194,9 @@ export interface SystemSheet {
  */
 export function systemSheets(project: Project): SystemSheet[] {
   const bySystem = new Map<string, Item[]>();
+  const labels = groupLabels(project.items);
   const fallback = project.system || "Orçamento";
-  for (const item of sortItemsForBudget(project.items)) {
+  for (const item of sortItemsForBudget(project.items, project.groupOrder)) {
     const key = (item.system || fallback).trim() || fallback;
     bySystem.set(key, [...(bySystem.get(key) ?? []), item]);
   }
@@ -226,15 +226,16 @@ export function systemSheets(project: Project): SystemSheet[] {
         if (rows.length) sections.push({ name: c.name, rows });
       }
     } else {
-      const groups = new Map<string, SheetSectionRow[]>();
+      // one section per group however its name was spelt; shown under the usual spelling
+      const groups = new Map<string, SheetSection>();
       for (const item of items) {
-        const g = item.group || DEFAULT_GROUP;
-        groups.set(g, [
-          ...(groups.get(g) ?? []),
-          { item, unit: unit(item), qty: pricedQty(item, totals.get(item.id)?.qty ?? 0) },
-        ]);
+        const row = { item, unit: unit(item), qty: pricedQty(item, totals.get(item.id)?.qty ?? 0) };
+        const key = groupKey(item.group);
+        const g = groups.get(key);
+        if (g) g.rows.push(row);
+        else groups.set(key, { name: labels.get(key) ?? groupOf(item), rows: [row] });
       }
-      for (const [name, rows] of groups) sections.push({ name, rows });
+      sections.push(...groups.values());
     }
     sheets.push({ system, sections });
   }
@@ -311,8 +312,9 @@ export interface Quote {
 export function buildQuote(project: Project): Quote {
   const totals = itemTotals(project);
   const groups = new Map<string, QuoteGroup>();
-  // tier → group → name: the groups come out in budget order as they are first seen
-  for (const item of sortItemsForBudget(project.items)) {
+  const labels = groupLabels(project.items);
+  // group order → name: the groups come out in budget order as they are first seen
+  for (const item of sortItemsForBudget(project.items, project.groupOrder)) {
     const t = totals.get(item.id) ?? { qty: 0, count: 0, unscaled: 0 };
     const qty = pricedQty(item, t.qty);
     const material = round2(item.materialPrice * qty);
@@ -327,11 +329,11 @@ export function buildQuote(project: Project): Quote {
       labor,
       total: round2(material + labor),
     };
-    const name = item.group || DEFAULT_GROUP;
-    let g = groups.get(name);
+    const key = groupKey(item.group);
+    let g = groups.get(key);
     if (!g) {
-      g = { name, lines: [], material: 0, labor: 0, total: 0 };
-      groups.set(name, g);
+      g = { name: labels.get(key) ?? groupOf(item), lines: [], material: 0, labor: 0, total: 0 };
+      groups.set(key, g);
     }
     g.lines.push(line);
     g.material += material;

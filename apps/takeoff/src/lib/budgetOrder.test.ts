@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { compareNames, groupTier, moveItemInBudget, sortItemsForBudget } from "./budgetOrder";
+import {
+  budgetGroups,
+  canonicalGroup,
+  compareNames,
+  groupTier,
+  moveGroupInBudget,
+  moveItemInBudget,
+  sortItemsForBudget,
+} from "./budgetOrder";
 import { buildQuote, systemSheets } from "./quantities";
 import { emptyProject, type Item } from "./types";
 
@@ -68,9 +76,76 @@ describe("budget order", () => {
     // the nudge survives a rename that would otherwise re-sort it
     const renamed = moved.map((i) => (i.id === "c" ? { ...i, name: "Zzz" } : i));
     expect(sortItemsForBudget(renamed).map((i) => i.id)).toEqual(["d", "a", "c", "b"]);
-    // edges are no-ops
-    expect(moveItemInBudget(items, "a", -1).map((i) => i.id)).toEqual(["a", "b", "c", "d"]);
-    expect(moveItemInBudget(items, "d", 1).find((i) => i.id === "d")?.order).toBeUndefined();
+    // the top of the first group and the bottom of the last are no-ops
+    expect(moveItemInBudget(items, "d", -1).map((i) => i.id)).toEqual(["a", "b", "c", "d"]);
+    expect(moveItemInBudget(items, "c", 1).find((i) => i.id === "c")?.order).toBeUndefined();
+  });
+
+  it("carries an item into the neighbouring group at the edge of its own", () => {
+    const items = [
+      item("a", "Difusor", "Bocas de Ar"),
+      item("b", "Grelha", "Bocas de Ar"),
+      item("d", "Duto", "Rede de Dutos"),
+      item("e", "Split", "Equipamentos", { system: "Outra" }),
+    ];
+    // down from the last duct: first of the air terminals
+    const down = moveItemInBudget(items, "d", 1);
+    expect(down.find((i) => i.id === "d")?.group).toBe("Bocas de Ar");
+    expect(sortItemsForBudget(down).map((i) => i.id)).toEqual(["e", "d", "a", "b"]);
+    // up from the first air terminal: last of the ducts
+    const up = moveItemInBudget(items, "a", -1);
+    expect(up.find((i) => i.id === "a")?.group).toBe("Rede de Dutos");
+    expect(sortItemsForBudget(up).map((i) => i.id)).toEqual(["e", "d", "a", "b"]);
+    // never into a group of another discipline
+    expect(moveItemInBudget(items, "e", 1)).toEqual(items);
+  });
+
+  it("treats spellings of one group name as one section", () => {
+    const items = [
+      item("a", "Grelha", "Bocas de Ar"),
+      item("b", "Difusor", "bocas de ar"),
+      item("c", "Veneziana", "Bocas de Ar "),
+      item("d", "Duto", "Rede de Dutos"),
+    ];
+    expect(budgetGroups(items)).toEqual(["Rede de Dutos", "Bocas de Ar"]);
+    const project = { ...emptyProject(), items, sectionsBy: "grupo" as const };
+    expect(
+      systemSheets(project)[0].sections.map((s) => [s.name, s.rows.map((r) => r.item.id)]),
+    ).toEqual([
+      ["Rede de Dutos", ["d"]],
+      ["Bocas de Ar", ["b", "a", "c"]],
+    ]);
+    expect(canonicalGroup(items, " bocas DE ar ")).toBe("Bocas de Ar");
+    expect(canonicalGroup(items, "Tubulações")).toBe("Tubulações");
+    expect(canonicalGroup(items, "  ")).toBe("");
+  });
+
+  it("lets the user reorder the groups, new groups going after the ordered ones", () => {
+    const items = [
+      item("a", "Grelha", "Bocas de Ar"),
+      item("b", "Duto", "Rede de Dutos"),
+      item("c", "Split", "Equipamentos"),
+    ];
+    expect(moveGroupInBudget(items, undefined, "Equipamentos", -1)).toBeNull();
+    const order = moveGroupInBudget(items, undefined, "Bocas de Ar", -1);
+    expect(order).toEqual(["Equipamentos", "Bocas de Ar", "Rede de Dutos"]);
+    expect(budgetGroups(items, order ?? undefined)).toEqual([
+      "Equipamentos",
+      "Bocas de Ar",
+      "Rede de Dutos",
+    ]);
+    const again = moveGroupInBudget(items, order ?? undefined, "bocas de ar", -1);
+    expect(again).toEqual(["Bocas de Ar", "Equipamentos", "Rede de Dutos"]);
+    const more = [...items, item("d", "Cabo", "Elétrica")];
+    expect(budgetGroups(more, again ?? undefined)).toEqual([
+      "Bocas de Ar",
+      "Equipamentos",
+      "Rede de Dutos",
+      "Elétrica",
+    ]);
+    const project = { ...emptyProject(), items: more, sectionsBy: "grupo" as const, groupOrder: again ?? undefined };
+    expect(systemSheets(project)[0].sections.map((s) => s.name)).toEqual(budgetGroups(more, again ?? undefined));
+    expect(buildQuote(project).groups.map((g) => g.name)).toEqual(budgetGroups(more, again ?? undefined));
   });
 
   it("orders the budget and the exported sheets the same way", () => {
