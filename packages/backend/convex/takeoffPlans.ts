@@ -29,9 +29,9 @@ import {
 //        → confere o objeto no bucket e registra os metadados
 //
 // A chave é o SHA-256 do conteúdo e o PUT é "só cria" (ver PLAN_UPLOAD_HEADERS),
-// então uma planta registrada nunca é substituída nem apagada por um pedido
-// posterior: quem tem o token compartilhado pode acrescentar plantas, não trocar
-// as dos outros. O servidor não lê os bytes (seria pagar o tráfego duas vezes);
+// então uma planta no bucket nunca é substituída, e nenhuma rota apaga objetos:
+// quem tem o token compartilhado pode acrescentar plantas, não trocar nem
+// remover as dos outros. O servidor não lê os bytes (seria pagar o tráfego duas vezes);
 // quem confere o conteúdo é o app ao baixar, comparando o SHA-256 do arquivo
 // com a chave antes de abrir a planta.
 // E ao abrir um takeoff cuja planta não está na máquina:
@@ -140,10 +140,9 @@ export const handleUploaded = httpAction(async (ctx, request) => {
   const metadata = await r2.getMetadata(ctx, key);
   if (!metadata) return json({ error: "Object not found in the bucket" }, 404);
   if (size !== undefined && metadata.size !== undefined && metadata.size !== size) {
-    // Nobody has this plan on record yet, so the object is this caller's own
-    // upload: a short one must never be served as the plan. Drop it so the app
-    // sends it again on the next save.
-    await r2.deleteObject(ctx, key);
+    // The PUT is create-only and sent with its length, so the bucket cannot
+    // hold a short upload: a mismatch means the claim is wrong, not the object.
+    // Nothing is ever deleted through this route.
     console.log(
       JSON.stringify({
         event: "takeoff_plan_uploaded",
