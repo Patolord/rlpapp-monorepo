@@ -1,5 +1,5 @@
 import { foldName } from "./text";
-import type { Kind } from "./units";
+import type { Kind, Unit } from "./units";
 
 /** One material of a kit: measured once, quantified `factor` times the run. */
 export interface KitComponent {
@@ -7,9 +7,15 @@ export interface KitComponent {
   name: string;
   group: string;
   system?: string;
-  /** "linear" follows the drawn run; "count" is added once per run (e.g. a drain kit). */
+  /**
+   * Linear kits: "linear" follows the drawn run; "count" is added once per run (e.g. a drain kit).
+   * Count kits: "count" places `factor` units per click; "linear" adds `factor` of length per click.
+   */
   kind: Kind;
-  /** Multiplier on the measured quantity (2 for a cable that runs both ways). */
+  /**
+   * Multiplier on the measured quantity (2 for a cable that runs both ways); in a count kit, the
+   * units (count) or the length in project units (linear) each click adds.
+   */
   factor: number;
 }
 
@@ -136,8 +142,14 @@ export const SEED_KITS: Kit[] = [
 ];
 
 /** Short description of a kit for lists: "Cobre de 1/4" · Cobre de 3/8" · Cabo PP 5 x 1,5 mm² ×2". */
-export function kitSummary(kit: Kit): string {
+export function kitSummary(kit: Kit, unit: Unit = "m"): string {
   return kit.components
-    .map((c) => (c.factor !== 1 ? `${c.name} ×${c.factor}` : c.name))
+    .map((c) =>
+      kitMode(kit) === "count" && c.kind === "linear"
+        ? `${c.name} ${c.factor} ${unit}`
+        : c.factor !== 1
+          ? `${c.name} ×${c.factor}`
+          : c.name,
+    )
     .join(" · ");
 }

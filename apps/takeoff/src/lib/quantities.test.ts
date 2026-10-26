@@ -168,6 +168,18 @@ describe("quantities", () => {
     expect(t.get("floor")?.qty).toBeCloseTo(6);
   });
 
+  it("counts the fixed length of a one-click linear mark, even on an uncalibrated page", () => {
+    const p = project();
+    p.measurements = [
+      { id: "k1", itemId: "duct", drawingId: D1, page: 1, points: [{ x: 5, y: 5 }], vertical: 3 },
+      { id: "k2", itemId: "duct", drawingId: D1, page: 0, points: [{ x: 9, y: 9 }], vertical: 3 },
+    ];
+    expect(measurementQty(p.measurements[0], "linear", null)).toBe(0);
+    const t = itemTotals(p).get("duct");
+    expect(t?.qty).toBeCloseTo(6);
+    expect(t?.unscaled).toBe(0);
+  });
+
   it("applies waste and rounds counts up", () => {
     const p = project();
     expect(pricedQty(p.items[0], 4)).toBe(4.4);

@@ -9,6 +9,7 @@ export function KitPicker() {
   const open = useStore((s) => s.kitPickerOpen);
   const kits = useStore((s) => s.catalog.kits);
   const activeKitId = useStore((s) => s.activeKitId);
+  const unit = useStore((s) => s.project.unit);
   const { setKitPickerOpen, setActiveKit, setKitsEditorOpen, setTool } = useStore.getState();
   const first = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -57,8 +58,11 @@ export function KitPicker() {
                       {kitMode(k) === "count" ? "clique" : "trecho"}
                     </span>
                   </div>
-                  <div className="truncate text-[11px] text-neutral-500" title={kitSummary(k)}>
-                    {kitSummary(k)}
+                  <div
+                    className="truncate text-[11px] text-neutral-500"
+                    title={kitSummary(k, unit)}
+                  >
+                    {kitSummary(k, unit)}
                   </div>
                 </button>
               </li>
