@@ -43,7 +43,10 @@ export interface Item {
    */
   baseMaterial?: string;
   kgPerUnit?: number;
-  /** Manual position inside its group in the budget (see lib/budgetOrder); undefined = by name. */
+  /**
+   * Manual position inside its group in the budget (see lib/budgetOrder); undefined = by name.
+   * Cleared when the item changes group, so it takes its place by name in the new one.
+   */
   order?: number;
   /**
    * Item kept by the app: "duct" is a duct network ("Rede de dutos"), 1 cj whose material and
@@ -128,12 +131,6 @@ export interface Project {
   extrasPct: number;
   /** How the exported sheet is sectioned: by location (ambiente) or by item group. */
   sectionsBy: "local" | "grupo";
-  /**
-   * Groups (budget sections) in the order the user put them, set the first time a group is
-   * moved; undefined = the default order (see lib/budgetOrder). Groups created afterwards go
-   * after the listed ones.
-   */
-  groupOrder?: string[];
   drawings: Drawing[];
   /** Drawing shown in the viewer; persisted so a project reopens where it was. */
   activeDrawingId: string | null;

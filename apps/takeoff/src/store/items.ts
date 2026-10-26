@@ -1,6 +1,7 @@
 import { type CatalogEntry, kindForUnit, mergeCatalog, normalizeDiscipline } from "../lib/catalog";
 import type { Pt } from "../lib/geom";
 import { guessSymbol } from "../lib/symbols";
+import { groupKey } from "../lib/budgetOrder";
 import { foldName } from "../lib/text";
 import {
   DEFAULT_GROUP,
@@ -127,9 +128,14 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
           patch.materialPrice !== undefined &&
           patch.materialPrice !== i.materialPrice &&
           patch.priceSource === undefined;
-        return repriced
+        const next: Item = repriced
           ? { ...i, ...patch, priceSource: "manual", priceDate: Date.now() }
           : { ...i, ...patch };
+        // moved to another group: its nudged position meant nothing there, sort it by name
+        if (patch.group !== undefined && groupKey(patch.group) !== groupKey(i.group)) {
+          delete next.order;
+        }
+        return next;
       }),
     })),
 

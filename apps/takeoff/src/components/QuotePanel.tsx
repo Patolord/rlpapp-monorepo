@@ -11,15 +11,12 @@ import { Button } from "./ui";
 /** Mirrors the workbook: one block per discipline (tab), locations or groups as inline headers. */
 export function QuotePanel() {
   const project = useStore((s) => s.project);
-  const { updateItem, setProjectMeta, setStatus, moveItemInBudget, moveGroupInBudget } =
-    useStore.getState();
+  const { updateItem, setProjectMeta, setStatus, moveItemInBudget } = useStore.getState();
   const quote = useMemo(() => buildQuote(project), [project]);
   const sheets = useMemo(() => systemSheets(project), [project]);
   const money = (v: number) => formatMoney(v, project.currency);
   const lineTotal = (r: { item: { materialPrice: number; laborPrice: number }; qty: number }) =>
     round2(r.qty * (r.item.materialPrice + r.item.laborPrice));
-  /** Sections are the groups themselves (reorderable) only when the sheet is split by group. */
-  const byGroup = project.sectionsBy === "grupo" || project.locations.length === 0;
   const arrow = (
     Icon: typeof ChevronUp,
     title: string,
@@ -136,19 +133,6 @@ export function QuotePanel() {
                       <tr className="bg-neutral-800/60 text-neutral-200">
                         <td className="px-2 py-1 font-semibold" colSpan={4}>
                           {si + 1}. {sec.name}
-                          {byGroup && (
-                            <span className="ml-1 inline-flex align-middle">
-                              {arrow(ChevronUp, "Subir o grupo na planilha", si === 0, () =>
-                                moveGroupInBudget(sec.name, -1),
-                              )}
-                              {arrow(
-                                ChevronDown,
-                                "Descer o grupo na planilha",
-                                si === sheet.sections.length - 1,
-                                () => moveGroupInBudget(sec.name, 1),
-                              )}
-                            </span>
-                          )}
                         </td>
                         <td className="px-2 py-1 text-right font-mono">
                           {money(sec.rows.reduce((t, r) => t + lineTotal(r), 0))}
@@ -166,22 +150,13 @@ export function QuotePanel() {
                             />
                             {r.item.name}
                             <span className="ml-1 inline-flex align-middle">
-                              {arrow(
-                                ChevronUp,
-                                byGroup
-                                  ? "Subir uma posição (no topo do grupo, passa para o grupo anterior)"
-                                  : "Subir uma posição no grupo",
-                                byGroup ? si === 0 && ri === 0 : ri === 0,
-                                () => moveItemInBudget(r.item.id, -1),
+                              {arrow(ChevronUp, "Subir uma posição no grupo", ri === 0, () =>
+                                moveItemInBudget(r.item.id, -1),
                               )}
                               {arrow(
                                 ChevronDown,
-                                byGroup
-                                  ? "Descer uma posição (no fim do grupo, passa para o grupo seguinte)"
-                                  : "Descer uma posição no grupo",
-                                byGroup
-                                  ? si === sheet.sections.length - 1 && ri === sec.rows.length - 1
-                                  : ri === sec.rows.length - 1,
+                                "Descer uma posição no grupo",
+                                ri === sec.rows.length - 1,
                                 () => moveItemInBudget(r.item.id, 1),
                               )}
                             </span>

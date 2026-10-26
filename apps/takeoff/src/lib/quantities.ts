@@ -196,7 +196,7 @@ export function systemSheets(project: Project): SystemSheet[] {
   const bySystem = new Map<string, Item[]>();
   const labels = groupLabels(project.items);
   const fallback = project.system || "Orçamento";
-  for (const item of sortItemsForBudget(project.items, project.groupOrder)) {
+  for (const item of sortItemsForBudget(project.items)) {
     const key = (item.system || fallback).trim() || fallback;
     bySystem.set(key, [...(bySystem.get(key) ?? []), item]);
   }
@@ -313,8 +313,8 @@ export function buildQuote(project: Project): Quote {
   const totals = itemTotals(project);
   const groups = new Map<string, QuoteGroup>();
   const labels = groupLabels(project.items);
-  // group order → name: the groups come out in budget order as they are first seen
-  for (const item of sortItemsForBudget(project.items, project.groupOrder)) {
+  // tier → group → name: the groups come out in budget order as they are first seen
+  for (const item of sortItemsForBudget(project.items)) {
     const t = totals.get(item.id) ?? { qty: 0, count: 0, unscaled: 0 };
     const qty = pricedQty(item, t.qty);
     const material = round2(item.materialPrice * qty);
