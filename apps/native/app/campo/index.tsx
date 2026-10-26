@@ -2,18 +2,25 @@ import { useAuth } from "@clerk/expo";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
-import { useRouter, type Href } from "expo-router";
-import { Building2, ChevronRight, Clock, Search, WifiOff } from "lucide-react-native";
-import { useEffect, useState } from "react";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { useFocusEffect, useRouter, type Href } from "expo-router";
+import { Building2, Search, WifiOff } from "lucide-react-native";
+import { useCallback, useEffect, useState } from "react";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 
 import { EmptyState, LoadingState } from "@rlpapp/ui/native";
+import { BigAction } from "@/components/campo/field-ui";
 import { ObraListItem } from "@/components/campo/obra-list-item";
 import { PendingBanner } from "@/components/campo/pending-banner";
+import { PontoButton } from "@/components/campo/ponto-button";
 import { SignOutButton } from "@/components/sign-out-button";
-import { Card } from "@/components/ui/card";
-import { cacheFieldObra, cacheMyObras, getCachedMyObras } from "@/lib/field-cache";
+import {
+  cacheFieldObra,
+  cacheMyObras,
+  getCachedMyObras,
+  getLastFieldObra,
+} from "@/lib/field-cache";
 import { pruneOfflineProjects } from "@/lib/field-documents";
+import { colors, space, type } from "@/lib/theme";
 import { useOnline } from "@/lib/use-online";
 
 type MyObra = FunctionReturnType<typeof api.technicianPortal.listMyProjects>[number];
@@ -25,6 +32,7 @@ export default function MinhasObrasScreen() {
   const { userId } = useAuth();
   const live = useQuery(api.technicianPortal.listMyProjects);
   const [cached, setCached] = useState<MyObra[] | null | undefined>(undefined);
+  const [lastObraId, setLastObraId] = useState<string | null>(null);
 
   useEffect(() => {
     if (live !== undefined) {
@@ -46,23 +54,41 @@ export default function MinhasObrasScreen() {
     };
   }, [live, userId]);
 
-  const projects =
-    live !== undefined ? live : online || cached == null ? undefined : cached;
+  // Relido ao voltar para a tela: a obra pode ter sido aberta por outro caminho.
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      void getLastFieldObra().then((value) => {
+        if (alive) setLastObraId(value);
+      });
+      return () => {
+        alive = false;
+      };
+    }, [])
+  );
+
+  const list = live !== undefined ? live : online || cached == null ? undefined : cached;
+  // A última obra aberta vai para o topo, em destaque.
+  const projects = list && lastObraId
+    ? [...list].sort((a, b) => Number(b._id === lastObraId) - Number(a._id === lastObraId))
+    : list;
+
+  function openObra(projectId: string) {
+    setLastObraId(projectId);
+    router.push({ pathname: "/campo/obra/[projectId]", params: { projectId } });
+  }
 
   return (
-    <View className="flex-1">
+    <View style={styles.screen}>
       {projects === undefined ? (
-        <View className="flex-1 px-5">
+        <View style={styles.centered}>
           <PendingBanner onPress={() => router.push("/campo/pendentes" as Href)} />
           {online || cached === undefined ? (
             <LoadingState label="Carregando suas obras…" />
           ) : (
-            <View className="flex-1 items-center justify-center gap-3 px-4">
-              <WifiOff size={32} color="#9ca3af" />
-              <Text className="text-center text-sm text-muted-foreground">
-                Sem conexão. Abra o app com internet uma vez para guardar suas obras
-                neste aparelho.
-              </Text>
+            <View style={styles.offline}>
+              <WifiOff size={40} color={colors.icon} />
+              <Text style={styles.offlineText}>Sem internet. Abra o app com sinal uma vez.</Text>
             </View>
           )}
         </View>
@@ -70,78 +96,43 @@ export default function MinhasObrasScreen() {
         <FlatList
           data={projects}
           keyExtractor={(item) => item._id}
-          contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 10 }}
+          contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
-            <View className="gap-3 pb-2">
+            <View style={styles.header}>
               <PendingBanner onPress={() => router.push("/campo/pendentes" as Href)} />
-              <Pressable
-                onPress={() => router.push("/campo/ponto" as Href)}
-                accessibilityRole="button"
-              >
-                <Card className="flex-row items-center gap-3 p-4">
-                  <View className="h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10">
-                    <Clock size={18} color="#2563eb" />
-                  </View>
-                  <View className="min-w-0 flex-1">
-                    <Text className="font-medium text-foreground">Registrar ponto</Text>
-                    <Text className="text-xs text-muted-foreground">
-                      Marque entrada, almoço e saída com foto e localização.
-                    </Text>
-                  </View>
-                  <ChevronRight size={16} color="#9ca3af" />
-                </Card>
-              </Pressable>
-              <Text className="text-sm text-muted-foreground">
-                Toque em uma obra para escanear etiquetas e registrar serviços.
-              </Text>
-              {live === undefined ? (
-                <Text className="text-xs text-muted-foreground">
-                  Lista salva neste aparelho — pode estar desatualizada.
-                </Text>
-              ) : null}
+              <PontoButton onPress={() => router.push("/campo/ponto" as Href)} />
+              <Text style={styles.sectionTitle}>Minhas obras</Text>
             </View>
           }
           renderItem={({ item }) => (
             <ObraListItem
               project={item}
-              onPress={() =>
-                router.push({
-                  pathname: "/campo/obra/[projectId]",
-                  params: { projectId: item._id },
-                })
-              }
+              highlight={item._id === lastObraId}
+              onPress={() => openObra(item._id)}
             />
           )}
           ListEmptyComponent={
             <EmptyState
-              icon={<Building2 size={28} color="#d97706" />}
-              title="Nenhuma obra atribuída"
-              description="Peça à engenharia para liberar seu acesso. Enquanto isso, você pode procurar a obra abaixo."
+              icon={<Building2 size={28} color={colors.primary} />}
+              title="Nenhuma obra"
+              description="Peça acesso à engenharia."
             />
           }
           ListFooterComponent={
-            <View className="gap-4 pt-4">
-              <Pressable
+            <View style={styles.footer}>
+              <BigAction
+                variant="secondary"
+                size="md"
+                label="Outra obra"
+                icon={<Search size={22} color={colors.text} strokeWidth={2.2} />}
                 onPress={() => router.push("/campo/outras-obras" as Href)}
-                accessibilityRole="button"
-              >
-                <Card className="flex-row items-center gap-3 border border-dashed border-border bg-transparent p-4">
-                  <View className="h-10 w-10 items-center justify-center rounded-xl bg-muted">
-                    <Search size={18} color="#6b7280" />
-                  </View>
-                  <View className="min-w-0 flex-1">
-                    <Text className="font-medium text-foreground">
-                      Estou em outra obra
-                    </Text>
-                    <Text className="text-xs text-muted-foreground">
-                      Procurar uma obra que não está na sua lista.
-                    </Text>
-                  </View>
-                  <ChevronRight size={16} color="#9ca3af" />
-                </Card>
-              </Pressable>
-              <View className="items-center pt-2">
+                style={styles.otherObra}
+              />
+              {live === undefined ? (
+                <Text style={styles.cachedNote}>Sem internet: lista salva no aparelho.</Text>
+              ) : null}
+              <View style={styles.signOut}>
                 <SignOutButton />
               </View>
             </View>
@@ -151,3 +142,17 @@ export default function MinhasObrasScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.bg },
+  centered: { flex: 1, padding: space.lg, gap: space.lg },
+  offline: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.md, paddingHorizontal: space.xl },
+  offlineText: { ...type.body, textAlign: "center", color: colors.textSecondary },
+  list: { padding: space.lg, paddingBottom: 48, gap: space.md },
+  header: { gap: space.lg, paddingBottom: space.xs },
+  sectionTitle: { fontSize: 20, lineHeight: 26, fontWeight: "700", color: colors.text, paddingTop: space.sm, paddingHorizontal: space.xs },
+  footer: { gap: space.lg, paddingTop: space.sm },
+  otherObra: { borderStyle: "dashed", borderWidth: 2, borderColor: colors.borderStrong },
+  cachedNote: { ...type.label, textAlign: "center", color: colors.textSecondary },
+  signOut: { alignItems: "center", paddingTop: space.sm },
+});
