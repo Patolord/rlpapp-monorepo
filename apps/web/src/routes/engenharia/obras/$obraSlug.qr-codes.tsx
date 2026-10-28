@@ -3,11 +3,12 @@ import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { History, Loader2, QrCode, Search } from "lucide-react";
+import { ClipboardList, History, Loader2, QrCode, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { EquipmentStatusKey } from "@rlpapp/ui/tokens";
 
 import { AuthShell } from "@/components/auth-shell";
+import { PendingBanner } from "@/components/campo/pending-records";
 import { ProjectServicesList } from "@/components/engenharia/project-services-list";
 import { ProjectShell, type ProjectOverview } from "@/components/engenharia/project-shell";
 import { StatusBadge } from "@/components/engenharia/status-badge";
@@ -140,31 +141,46 @@ function QrCodesContent({
                 } previsto${project.totalItems === 1 ? "" : "s"}`}
           </p>
         </div>
-        {canViewServices && (
-          <div className="grid w-fit grid-cols-2 gap-1 rounded-lg bg-muted p-1">
-            {(
-              [
-                { id: "labels", label: "Etiquetas", icon: QrCode },
-                { id: "services", label: "Serviços", icon: History },
-              ] as const
-            ).map((option) => {
-              const Icon = option.icon;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  aria-pressed={tab === option.id}
-                  onClick={() => setTab(option.id)}
-                  className="flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium text-muted-foreground transition-colors aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm"
-                >
-                  <Icon className="size-4" />
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {canViewServices && (
+            <div className="grid w-fit grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+              {(
+                [
+                  { id: "labels", label: "Etiquetas", icon: QrCode },
+                  { id: "services", label: "Serviços", icon: History },
+                ] as const
+              ).map((option) => {
+                const Icon = option.icon;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    aria-pressed={tab === option.id}
+                    onClick={() => setTab(option.id)}
+                    className="flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium text-muted-foreground transition-colors aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm"
+                  >
+                    <Icon className="size-4" />
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {/* Histórico completo (todas as obras), antes acessível pela tela
+              "Registro de campo" removida. */}
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link to="/meus-registros" />}
+          >
+            <ClipboardList className="size-4" />
+            Meus registros
+          </Button>
+        </div>
       </div>
+
+      {/* Registros feitos sem internet ainda não enviados; some com a fila vazia. */}
+      <PendingBanner />
 
       {showServices ? (
         <ProjectServicesList
