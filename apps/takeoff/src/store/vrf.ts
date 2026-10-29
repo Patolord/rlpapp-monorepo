@@ -72,6 +72,8 @@ export const createVrfSlice: Slice<VrfSlice> = (set, get) => ({
   },
 
   addVrfRun: (spec, page, points, vertical, systemId) => {
+    // the dialog starts the next run from the last spec: the link to a parent is never carried over
+    const remembered: VrfSpec = { role: spec.role, hp: spec.hp, curves: spec.curves };
     const { project, activeItemId, catalog } = get();
     const systems = vrfSystems(project);
     let target =
@@ -82,7 +84,7 @@ export const createVrfSlice: Slice<VrfSlice> = (set, get) => ({
     target = target ?? (created as Item);
     const itemId = target.id;
     const drawingId = project.activeDrawingId ?? "";
-    writePref("lastVrfSpec", spec);
+    writePref("lastVrfSpec", remembered);
     get().commit((p) => ({
       ...p,
       items: created ? [...p.items, created] : p.items,
@@ -100,7 +102,7 @@ export const createVrfSlice: Slice<VrfSlice> = (set, get) => ({
       ],
     }));
     set({
-      lastVrfSpec: spec,
+      lastVrfSpec: remembered,
       activeItemId: itemId,
       status: `${vrfTag(spec, target.vrf?.hp ?? 0)} em ${target.name} · sistema recalculado`,
     });
@@ -123,7 +125,8 @@ export const createVrfSlice: Slice<VrfSlice> = (set, get) => ({
 
   updateVrfSpec: (ids, spec, vertical) => {
     const set_ = new Set(ids);
-    writePref("lastVrfSpec", spec);
+    const remembered: VrfSpec = { role: spec.role, hp: spec.hp, curves: spec.curves };
+    writePref("lastVrfSpec", remembered);
     get().commit((p) => ({
       ...p,
       measurements: p.measurements.map((m) =>
@@ -137,7 +140,7 @@ export const createVrfSlice: Slice<VrfSlice> = (set, get) => ({
       ),
     }));
     set({
-      lastVrfSpec: spec,
+      lastVrfSpec: remembered,
       status: `${ids.length} ${ids.length === 1 ? "trecho alterado" : "trechos alterados"}`,
     });
   },

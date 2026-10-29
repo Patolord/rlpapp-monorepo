@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Pt } from "./geom";
 import type { VrfRole, VrfRun } from "./vrf";
-import { buildVrfTree, inferredHp, layoutVrfTree } from "./vrfTree";
+import { buildVrfTree, inferredHp, layoutVrfTree, parentCandidates } from "./vrfTree";
 
 let n = 0;
 const run = (
@@ -107,5 +107,22 @@ describe("VRF tree from the drawing", () => {
       (rowOf("b") + rowOf("c")) / 2,
     );
     expect(layout.pos.get("condenser")?.col).toBe(0);
+  });
+});
+
+describe("parent candidates", () => {
+  it("offers reached main and intermediate runs, never the run itself or its descendants", () => {
+    const main = run("main", 0, [p(0, 0), p(100, 0)], { id: "main" });
+    const trunk = run("trunk", 0, [p(100, 0), p(200, 0)], { id: "trunk" });
+    const a = run("branch", 2, [p(100, 0), p(100, 50)], { id: "a" });
+    const b = run("branch", 3, [p(200, 0), p(200, 50)], { id: "b" });
+    const loose = run("branch", 4, [p(500, 500), p(600, 500)], { id: "loose" });
+    const all = [main, trunk, a, b, loose];
+    const tree = buildVrfTree(all);
+    expect(parentCandidates(tree, all, "loose").map((r) => r.id)).toEqual(["main", "trunk"]);
+    expect(parentCandidates(tree, all, "b").map((r) => r.id)).toEqual(["main", "trunk"]);
+    // the trunk cannot hang from itself nor from what it feeds
+    expect(parentCandidates(tree, all, "trunk").map((r) => r.id)).toEqual(["main"]);
+    expect(parentCandidates(tree, all, "main")).toEqual([]);
   });
 });

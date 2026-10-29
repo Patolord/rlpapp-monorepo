@@ -211,3 +211,23 @@ export function layoutVrfTree(tree: VrfTree): VrfLayout {
   if (tree.root) place(tree.root);
   return { pos, cols, rows };
 }
+
+/**
+ * Runs a given run may be attached to by name: the system's main and intermediate runs that
+ * the tree reaches, except the run itself and anything downstream of it (no loops).
+ */
+export function parentCandidates(tree: VrfTree, runs: VrfRun[], runId: string): VrfRun[] {
+  const below = new Set<string>([runId]);
+  const descend = (nodeId: string) => {
+    for (const c of tree.nodes.get(nodeId)?.children ?? []) {
+      below.add(c);
+      const to = tree.edges.get(c)?.to;
+      if (to) descend(to);
+    }
+  };
+  const end = tree.edges.get(runId)?.to;
+  if (end) descend(end);
+  return runs.filter(
+    (r) => r.id && !below.has(r.id) && tree.edges.has(r.id) && r.spec.role !== "branch",
+  );
+}

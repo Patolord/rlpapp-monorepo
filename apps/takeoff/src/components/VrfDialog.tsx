@@ -86,6 +86,8 @@ export function VrfDialog() {
       role: spec.role,
       hp: Math.max(0, spec.hp || 0),
       curves: Math.max(0, Math.round(spec.curves || 0)),
+      // an edited run keeps the run it was linked to; a new run links by the drawing
+      ...(editIds && spec.parent ? { parent: spec.parent } : {}),
     };
     let target = systemId === "__new__" || !systemId ? undefined : systemId;
     if (!target) target = addVrfSystem({ brand: brandId, hp: systemHp });
