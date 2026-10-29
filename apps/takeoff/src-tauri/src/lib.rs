@@ -153,14 +153,6 @@ struct SystemSheet {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ZoneRow {
-    name: String,
-    unit: String,
-    qty: Vec<f64>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct SheetExport {
     title: String,
     #[allow(dead_code)]
@@ -179,11 +171,6 @@ struct SheetExport {
     extras_pct: f64,
     #[allow(dead_code)]
     bdi: f64,
-    /// "Por Local" sheet: zone names and, per item, one quantity per zone.
-    #[serde(default)]
-    zones: Vec<String>,
-    #[serde(default)]
-    by_zone: Vec<ZoneRow>,
 }
 
 // Column indices (0-based) of the budget sheets.
@@ -1002,61 +989,6 @@ fn write_resumo(
     Ok(())
 }
 
-/// Item × location quantity table (only when zones exist).
-fn write_zone_sheet(ws: &mut Worksheet, st: &Styles, x: &SheetExport) -> R<()> {
-    let last_col = (2 + x.zones.len()) as u16;
-    ws.merge_range(
-        0,
-        0,
-        0,
-        last_col,
-        &format!("Quantidades por local - {}", x.site),
-        &st.title,
-    )
-    .map_err(xe)?;
-    ws.write_string_with_format(1, 0, format!("Cliente: {}", x.client), &st.band)
-        .map_err(xe)?;
-    let h = 3;
-    ws.write_string_with_format(h, 0, "ITEM", &st.header)
-        .map_err(xe)?;
-    ws.write_string_with_format(h, 1, "UNID.", &st.header)
-        .map_err(xe)?;
-    for (i, z) in x.zones.iter().enumerate() {
-        ws.write_string_with_format(h, 2 + i as u16, z, &st.header)
-            .map_err(xe)?;
-    }
-    ws.write_string_with_format(h, last_col, "TOTAL", &st.header)
-        .map_err(xe)?;
-    let mut r = h + 1;
-    for row in &x.by_zone {
-        ws.write_string_with_format(r, 0, &row.name, &st.text)
-            .map_err(xe)?;
-        ws.write_string_with_format(r, 1, &row.unit, &st.center)
-            .map_err(xe)?;
-        for (i, q) in row.qty.iter().enumerate() {
-            ws.write_number_with_format(r, 2 + i as u16, *q, &st.price)
-                .map_err(xe)?;
-        }
-        ws.write_formula_with_format(
-            r,
-            last_col,
-            Formula::new(format!("=SUM({}:{})", cell(2, r), cell(last_col - 1, r))),
-            &st.acc_bold,
-        )
-        .map_err(xe)?;
-        r += 1;
-    }
-    ws.set_column_width(0, 60).map_err(xe)?;
-    ws.set_column_width(1, 7).map_err(xe)?;
-    for c in 2..=last_col {
-        ws.set_column_width(c, 15).map_err(xe)?;
-    }
-    ws.set_freeze_panes(h + 1, 2).map_err(xe)?;
-    ws.set_landscape();
-    ws.set_paper_size(9);
-    Ok(())
-}
-
 #[tauri::command]
 fn export_xlsx(path: String, sheet: SheetExport) -> Result<(), String> {
     let st = Styles::new();
@@ -1072,11 +1004,6 @@ fn export_xlsx(path: String, sheet: SheetExport) -> Result<(), String> {
         ws.set_name(&name).map_err(xe)?;
         let t = write_system_sheet(ws, &st, &sheet, sys)?;
         totals.push(SystemTotals { sheet: name, ..t });
-    }
-    if !sheet.zones.is_empty() {
-        let ws = wb.add_worksheet();
-        ws.set_name("Por Local").map_err(xe)?;
-        write_zone_sheet(ws, &st, &sheet)?;
     }
     let resumo = wb.worksheet_from_index(0).map_err(xe)?;
     write_resumo(resumo, &st, &sheet, &totals)?;
@@ -1172,12 +1099,6 @@ mod tests {
             ],
             extras_pct: 5.0,
             bdi: 1.42,
-            zones: vec!["Térreo".into(), "1º Pavimento".into()],
-            by_zone: vec![ZoneRow {
-                name: "Dutos e Conexões Flangeados".into(),
-                unit: "m".into(),
-                qty: vec![8.2, 5.44],
-            }],
         };
         let path = std::env::temp_dir().join("takeoff-test-export.xlsx");
         export_xlsx(path.to_string_lossy().into_owned(), sheet).expect("export");

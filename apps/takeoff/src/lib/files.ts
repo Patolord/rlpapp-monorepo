@@ -6,7 +6,7 @@ import { confirmDialog } from "./dialogs";
 import { resolveDiscipline } from "./discipline";
 import { DUCT_TEMPLATE_URL, ductSheetInput, fillDuctWorkbook } from "./ductSheet";
 import { isTauri, mod } from "./platform";
-import { locationMatrix, systemSheets } from "./quantities";
+import { systemSheets } from "./quantities";
 import { basename, closePdf, isDocOpen, openPdfPath, preloadPdfPath, useDoc } from "./session";
 import { drawingOf, emptyProject, type FooterLine, migrateProject, UNTITLED } from "./types";
 import { buildVrfWorkbook } from "./vrfSheet";
@@ -213,9 +213,6 @@ export interface SheetExport {
   /** Project defaults (kept for older readers of the payload). */
   extrasPct: number;
   bdi: number;
-  /** "Por Local" sheet: location names and one quantity per location for each item (empty when none). */
-  zones: string[];
-  byZone: { name: string; unit: string; qty: number[] }[];
 }
 
 export interface SheetRow {
@@ -228,7 +225,6 @@ export interface SheetRow {
 
 export function sheetExport(): SheetExport {
   const { project } = useStore.getState();
-  const matrix = project.locations.length ? locationMatrix(project) : { columns: [], rows: [] };
   return {
     title: "Planilha Orçamentária - RLP ENGENHARIA e INSTALAÇÕES LTDA.",
     system: project.system || project.name,
@@ -254,8 +250,6 @@ export function sheetExport(): SheetExport {
     })),
     extrasPct: project.extrasPct,
     bdi: project.bdi,
-    zones: matrix.columns.map((c) => c.name),
-    byZone: matrix.rows.map((r) => ({ name: r.item.name, unit: unitLabel(r.unit), qty: r.qty })),
   };
 }
 
