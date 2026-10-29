@@ -63,8 +63,16 @@ export function DuctsPanel() {
   const entries = useMemo(() => mergeCatalog(catalog), [catalog]);
   const bill = useMemo(
     () =>
-      network ? ductBillFor(project, entries, network, byNetwork.get(network.id) ?? []) : null,
-    [project, entries, network, byNetwork],
+      network
+        ? ductBillFor(
+            project,
+            entries,
+            network,
+            byNetwork.get(network.id) ?? [],
+            catalog.gaugeWeights,
+          )
+        : null,
+    [project, entries, network, byNetwork, catalog.gaugeWeights],
   );
   const [showSettings, setShowSettings] = useState(false);
   const settings: DuctSettings = project.duct ?? DEFAULT_DUCT_SETTINGS;

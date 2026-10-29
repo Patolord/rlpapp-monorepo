@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import seed from "../data/catalog.seed.json";
 import { CATALOG_URL, describeHttpFailure, httpRequest, type QueuedProposal } from "./catalogRemote";
+import { defaultGaugeWeights, type GaugeWeights } from "./ducts";
 import { type Kit, SEED_KITS } from "./kits";
 import { isTauri } from "./platform";
 import { foldName } from "./text";
@@ -60,6 +61,8 @@ export interface CatalogStore {
   kits: Kit[];
   /** Materials priced by weight (copper tubes…): editable table, seeded with the supplier's. */
   weights: WeightRow[];
+  /** Sheet weight (kg/m²) of each duct gauge, editable; seeded with the supplier's (Salviaco). */
+  gaugeWeights: GaugeWeights;
   /** Price per kg of the base materials (cobre, chapa…); empty = the bundled defaults. */
   basePrices: BasePrices;
   /** VRF makers' rules (tube sizing by HP, Y-kit models), editable; seeded from the workbook. */
@@ -78,6 +81,7 @@ export const emptyCatalogStore = (): CatalogStore => ({
   outbox: [],
   kits: SEED_KITS.map((k) => ({ ...k, components: k.components.map((c) => ({ ...c })) })),
   weights: cloneWeights(SEED_WEIGHTS),
+  gaugeWeights: defaultGaugeWeights(),
   basePrices: {},
   vrfBrands: cloneBrands(SEED_BRANDS),
 });

@@ -30,6 +30,8 @@ export const pageScale = (
 /** Quantity of one measurement in project units, or null when the page is not calibrated. */
 export function measurementQty(m: Measurement, kind: Kind, scale: PageScale | null): number | null {
   if (kind === "count") return 1;
+  // a linear mark placed with one click (count kit) has no drawn length, only its vertical
+  if (kind === "linear" && m.points.length === 1) return 0;
   if (!scale) return null;
   if (kind === "linear") return polylineLength(m.points) / scale.pointsPerUnit;
   return polygonArea(m.points) / (scale.pointsPerUnit * scale.pointsPerUnit);

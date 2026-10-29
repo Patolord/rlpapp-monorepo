@@ -28,7 +28,7 @@ import {
 import { describePriceSource } from "../lib/priceSource";
 import { foldName } from "../lib/text";
 import { DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS, type Item } from "../lib/types";
-import { formatMoney, formatQty, type Kind } from "../lib/units";
+import { formatMoney, type Kind } from "../lib/units";
 import { describeWeightPrice } from "../lib/weights";
 import { useStore } from "../store";
 import { ItemStylePopover } from "./ItemStylePopover";
@@ -148,15 +148,16 @@ export function ItemsPanel() {
     0,
   );
 
-  const breakdownFor = (itemId: string, kind: Kind) => {
+  /** Quantity per location, with waste like the item total. */
+  const breakdownFor = (item: Item) => {
     if (project.locations.length === 0) return "";
     const parts: string[] = [];
     for (const z of project.locations) {
-      const v = byZone.get(z.id)?.get(itemId)?.qty;
-      if (v) parts.push(`${z.name}: ${formatQty(kind, v, project.unit)}`);
+      const v = byZone.get(z.id)?.get(item.id)?.qty;
+      if (v) parts.push(`${z.name}: ${formatItemQty(item, pricedQty(item, v), project.unit)}`);
     }
-    const rest = byZone.get(NO_LOCATION)?.get(itemId)?.qty;
-    if (rest) parts.push(`sem local: ${formatQty(kind, rest, project.unit)}`);
+    const rest = byZone.get(NO_LOCATION)?.get(item.id)?.qty;
+    if (rest) parts.push(`sem local: ${formatItemQty(item, pricedQty(item, rest), project.unit)}`);
     return parts.join(" · ");
   };
 
@@ -275,9 +276,14 @@ export function ItemsPanel() {
               key={item.id}
               item={item}
               active={item.id === activeItemId}
-              qtyLabel={formatItemQty(item, measured, project.unit)}
+              qtyLabel={formatItemQty(item, priced, project.unit)}
+              qtyTitle={
+                item.wastePct
+                  ? `Medido ${formatItemQty(item, measured, project.unit)} + ${item.wastePct}% de perda`
+                  : undefined
+              }
               unscaled={unscaledOf(item.id)}
-              breakdown={breakdownFor(item.id, item.kind)}
+              breakdown={breakdownFor(item)}
               systemLabel={item.system || project.system || ""}
               total={formatMoney(
                 round2(priced * (item.materialPrice + item.laborPrice)),
@@ -352,6 +358,8 @@ interface RowProps {
   item: Item;
   active: boolean;
   qtyLabel: string;
+  /** How the quantity was reached when it includes waste. */
+  qtyTitle?: string;
   unscaled: number;
   breakdown: string;
   systemLabel: string;
@@ -387,6 +395,7 @@ function ItemRow({
   item,
   active,
   qtyLabel,
+  qtyTitle,
   unscaled,
   breakdown,
   systemLabel,
@@ -527,7 +536,9 @@ function ItemRow({
             sistema vrf
           </span>
         )}
-        <span className="shrink-0 font-mono text-[12px] text-neutral-200">{qtyLabel}</span>
+        <span className="shrink-0 font-mono text-[12px] text-neutral-200" title={qtyTitle}>
+          {qtyLabel}
+        </span>
         {unscaled > 0 && (
           <span
             className="shrink-0 text-[11px] text-amber-400"

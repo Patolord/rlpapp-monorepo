@@ -2,6 +2,7 @@ import { type CatalogEntry, kindForUnit, mergeCatalog, normalizeDiscipline } fro
 import type { Pt } from "../lib/geom";
 import { guessSymbol } from "../lib/symbols";
 import { groupKey } from "../lib/budgetOrder";
+import { kitMode } from "../lib/kits";
 import { priceSourceOfEntry } from "../lib/priceSource";
 import { foldName } from "../lib/text";
 import {
@@ -330,6 +331,7 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
     const drawingId = project.activeDrawingId ?? "";
     const linkId = newId();
     const entries = mergeCatalog(catalog);
+    const byClick = kitMode(kit) === "count";
     get().commit((p) => {
       let items = p.items;
       const measurements = [...p.measurements];
@@ -349,7 +351,8 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
             ...priceSnapshot(cat),
             system: normalizeDiscipline(c.system || cat?.system) ?? p.system,
             symbol: c.kind === "count" ? guessSymbol(c.name) : undefined,
-            factor: c.factor !== 1 ? c.factor : undefined,
+            // a click kit's linear factor is the length per click, kept on the measurement
+            factor: c.factor !== 1 && !(byClick && c.kind === "linear") ? c.factor : undefined,
           };
           items = [...items, item];
         }
@@ -358,8 +361,9 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
           itemId: item.id,
           drawingId,
           page,
-          points: c.kind === "count" ? [points[0]] : points,
+          points: c.kind === "count" || byClick ? [points[0]] : points,
           linkId,
+          vertical: byClick && c.kind === "linear" && c.factor > 0 ? c.factor : undefined,
         });
       }
       return { ...p, items, measurements };

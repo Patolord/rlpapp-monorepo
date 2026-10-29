@@ -86,7 +86,7 @@ export const NORMA_LABELS: Record<DuctSettings["norma"], string> = {
   3: "ABNT (c/ reforço TR)",
 };
 
-/** Gauges in order, with sheet weight, kg/m² (supplier table, Salviaco). */
+/** Gauges in order, with the default sheet weight, kg/m² (supplier table, Salviaco). */
 export const GAUGES = [
   { name: "# 26", kgm2: 4.38 },
   { name: "# 24", kgm2: 4.82 },
@@ -94,6 +94,20 @@ export const GAUGES = [
   { name: "# 20", kgm2: 8.03 },
   { name: "# 18", kgm2: 10.6 },
 ] as const;
+
+/** Sheet weight (kg/m²) by gauge name, as edited with the catalog; a missing one = the default. */
+export type GaugeWeights = Record<string, number>;
+
+export const defaultGaugeWeights = (): GaugeWeights =>
+  Object.fromEntries(GAUGES.map((g) => [g.name, g.kgm2]));
+
+/** Sheet weight of each gauge, in GAUGES order: the setting when valid, else the default. */
+export function gaugeKgm2(weights?: GaugeWeights): number[] {
+  return GAUGES.map((g) => {
+    const w = weights?.[g.name];
+    return w !== undefined && w > 0 ? w : g.kgm2;
+  });
+}
 
 /** Largest lado maior (cm) each gauge covers, per norma; beyond the last is # 18. */
 const LIMITS: Record<DuctSettings["norma"], [number, number, number, number]> = {
@@ -181,8 +195,10 @@ export function billTotals(rows: DuctBillRow[], price: (row: DuctBillRow) => num
 export function ductBill(
   runs: DuctRun[],
   settings: DuctSettings = DEFAULT_DUCT_SETTINGS,
+  weights?: GaugeWeights,
 ): DuctBillRow[] {
   const s = settings;
+  const kgm2 = gaugeKgm2(weights);
   const areaByGauge = [0, 0, 0, 0, 0];
   let manta = 0;
   let isopor = 0;
@@ -253,8 +269,8 @@ export function ductBill(
   }
 
   // rechapeamento and cantoneira are # 26 sheet: same weight as the first gauge of the table
-  const rechapKg = rechap * GAUGES[0].kgm2;
-  const rawKg = areaByGauge.reduce((t, a, i) => t + a * GAUGES[i].kgm2, 0) + rechapKg;
+  const rechapKg = rechap * kgm2[0];
+  const rawKg = areaByGauge.reduce((t, a, i) => t + a * kgm2[i], 0) + rechapKg;
   const sheetSlack = (s.sheetSlackPct ?? (rawKg > 10000 ? 15 : 20)) / 100 + 1;
   const insulSlack = s.insulSlackPct / 100 + 1;
 
@@ -266,12 +282,12 @@ export function ductBill(
   const sheetGroup = "Rede de Dutos";
   let sheetKg = 0;
   GAUGES.forEach((g, i) => {
-    const kg = round0(areaByGauge[i] * g.kgm2 * sheetSlack);
+    const kg = round0(areaByGauge[i] * kgm2[i] * sheetSlack);
     sheetKg += kg;
     add(`Chapa galvanizada ${g.name}`, sheetGroup, "kg", kg, 17);
   });
   const rechapRounded = round0(rechapKg);
-  const cantoneiraKg = round0(cantoneiraArea * GAUGES[0].kgm2);
+  const cantoneiraKg = round0(cantoneiraArea * kgm2[0]);
   sheetKg += rechapRounded + cantoneiraKg;
   add("Chapa galvanizada # 26 (rechapeamento)", sheetGroup, "kg", rechapRounded, 17);
   add("Chapa galvanizada # 26 (cantoneira)", sheetGroup, "kg", cantoneiraKg, 17);

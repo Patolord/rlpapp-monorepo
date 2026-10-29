@@ -56,6 +56,22 @@ export function drawMeasurement(
     ctx.restore();
     return;
   }
+  if (kind === "linear" && sp.length === 1) {
+    // fixed length placed by a click kit: a ring around the point, its length on hover
+    const c = sp[0];
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, o.selected || o.hover ? 13 : 11, 0, Math.PI * 2);
+    ctx.lineWidth = o.selected || o.hover ? 3 : 2;
+    ctx.strokeStyle = o.selected ? "#101a30" : color;
+    ctx.stroke();
+    if (o.hover) {
+      let text = formatLength(o.vertical ?? 0, scale?.unit ?? "m");
+      if (o.repeat && o.repeat > 1) text += ` ×${o.repeat}`;
+      drawLabel(ctx, text, c.x, c.y + 24, color);
+    }
+    ctx.restore();
+    return;
+  }
   ctx.beginPath();
   ctx.moveTo(sp[0].x, sp[0].y);
   for (let i = 1; i < sp.length; i++) ctx.lineTo(sp[i].x, sp[i].y);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SEED } from "./catalog";
-import { kitSummary, SEED_KITS } from "./kits";
+import { type Kit, kitSummary, SEED_KITS } from "./kits";
 import { foldName } from "./text";
 
 describe("kit presets", () => {
@@ -38,5 +38,19 @@ describe("kit presets", () => {
 
   it("summarises factors", () => {
     expect(kitSummary(SEED_KITS[0])).toContain("×2");
+  });
+
+  it("summarises the length per click of linear components in a count kit", () => {
+    const kit: Kit = {
+      id: "k",
+      name: "Detector + cabo",
+      mode: "count",
+      components: [
+        { name: "Detector", group: "Detecção", kind: "count", factor: 1 },
+        { name: "Cabo", group: "Elétrica", kind: "linear", factor: 3 },
+      ],
+    };
+    expect(kitSummary(kit)).toBe("Detector · Cabo 3 m");
+    expect(kitSummary(kit, "ft")).toBe("Detector · Cabo 3 ft");
   });
 });

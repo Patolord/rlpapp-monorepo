@@ -43,6 +43,7 @@ describe("reference duct workbook export", () => {
         },
       ],
       prices: { "Chapa galvanizada # 24": 19.5, "Isopor F1": 7 },
+      gaugeKgm2: [4.38, 4.82, 6.82, 8.03, 10.6],
     });
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(bytes as unknown as ArrayBuffer);
@@ -69,6 +70,13 @@ describe("reference duct workbook export", () => {
     expect(lev.getCell("I14").value).toBe("S = sim");
     expect(precos.getCell("E5").value).toBe(19.5);
     expect(precos.getCell("E14").value).toBe(7);
+    // the app's sheet weights replace the template's hardcoded ones
+    expect(calc.getCell("C4").value).toBe(4.82);
+    expect(calc.getCell("C11").value).toBe("4,82 kg/m²");
+    expect((calc.getCell("C303").value as { formula?: string }).formula).toBe("C302*4.82");
+    expect((calc.getCell("F303").value as { formula?: string }).formula).toBe("F302*10.6");
+    expect(calc.getCell("Q303").value).toBe(4.38);
+    expect(calc.getCell("AE303").value).toBe(4.38);
     // formulas survive the round trip
     const b13 = calc.getCell("B13").value as { formula?: string };
     expect(typeof b13 === "object" && b13 && "formula" in b13).toBe(true);

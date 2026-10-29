@@ -15,6 +15,7 @@ export function KitsDialog() {
   const open = useStore((s) => s.kitsEditorOpen);
   const stored = useStore((s) => s.catalog.kits);
   const catalog = useStore((s) => s.catalog);
+  const unit = useStore((s) => s.project.unit);
   const { setKitsEditorOpen, saveKits, setActiveKit } = useStore.getState();
   const [kits, setKits] = useState<Kit[]>([]);
   const [sel, setSel] = useState<string | null>(null);
@@ -82,7 +83,6 @@ export function KitsDialog() {
             name: c.name.trim(),
             group: c.group.trim() || "Geral",
             system: c.system?.trim() || undefined,
-            kind: kitMode(k) === "count" ? "count" : c.kind,
             factor: Number.isFinite(c.factor) && c.factor > 0 ? c.factor : 1,
           })),
       }))
@@ -168,15 +168,7 @@ export function KitsDialog() {
                 Tipo
                 <select
                   value={kitMode(kit)}
-                  onChange={(e) => {
-                    const mode = e.target.value as Kit["mode"];
-                    update({
-                      mode,
-                      components: kit.components.map((c) =>
-                        mode === "count" ? { ...c, kind: "count" } : c,
-                      ),
-                    });
-                  }}
+                  onChange={(e) => update({ mode: e.target.value as Kit["mode"] })}
                   className={input}
                   title="Linear: desenha-se um trecho · Contagem: um clique coloca o conjunto"
                 >
@@ -186,7 +178,7 @@ export function KitsDialog() {
               </label>
               <span className="ml-auto text-[11px] text-neutral-500">
                 {kitMode(kit) === "count"
-                  ? "Um clique coloca todos os componentes abaixo, agrupados"
+                  ? "Um clique coloca todos os componentes, agrupados; os lineares somam o comprimento por clique"
                   : "Um trecho desenhado cria todos os componentes abaixo, agrupados"}
               </span>
             </div>
@@ -197,18 +189,16 @@ export function KitsDialog() {
                     <th className="pb-1 text-left font-medium">Material (nome do catálogo)</th>
                     <th className="pb-1 text-left font-medium">Grupo</th>
                     <th className="pb-1 text-left font-medium">Disciplina</th>
-                    {kitMode(kit) === "linear" && (
-                      <th className="pb-1 text-left font-medium">Tipo</th>
-                    )}
+                    <th className="pb-1 text-left font-medium">Tipo</th>
                     <th
                       className="pb-1 text-left font-medium"
                       title={
                         kitMode(kit) === "count"
-                          ? "Quantidade colocada por clique"
+                          ? `Quantidade (pç) ou comprimento (${unit}) colocado por clique`
                           : "Multiplicador da medida"
                       }
                     >
-                      {kitMode(kit) === "count" ? "Qtd" : "Fator"}
+                      {kitMode(kit) === "count" ? "Qtd / compr." : "Fator"}
                     </th>
                     <th />
                   </tr>
@@ -242,8 +232,20 @@ export function KitsDialog() {
                           className={`${input} w-36`}
                         />
                       </td>
-                      {kitMode(kit) === "linear" && (
-                        <td className="py-0.5 pr-1">
+                      <td className="py-0.5 pr-1">
+                        {kitMode(kit) === "count" ? (
+                          <select
+                            value={c.kind}
+                            onChange={(e) =>
+                              updateComp(i, { kind: e.target.value as KitComponent["kind"] })
+                            }
+                            className={input}
+                            title="Contagem coloca peças por clique; linear soma um comprimento fixo por clique"
+                          >
+                            <option value="count">contagem (pç)</option>
+                            <option value="linear">linear ({unit} por clique)</option>
+                          </select>
+                        ) : (
                           <select
                             value={c.kind}
                             onChange={(e) =>
@@ -252,11 +254,11 @@ export function KitsDialog() {
                             className={input}
                             title="Linear acompanha o trecho; contagem entra uma vez por trecho"
                           >
-                            <option value="linear">linear (m)</option>
+                            <option value="linear">linear ({unit})</option>
                             <option value="count">por trecho (pç)</option>
                           </select>
-                        </td>
-                      )}
+                        )}
+                      </td>
                       <td className="py-0.5 pr-1">
                         <input
                           type="number"
@@ -265,7 +267,13 @@ export function KitsDialog() {
                           value={c.factor}
                           onChange={(e) => updateComp(i, { factor: Number(e.target.value) })}
                           className={`${input} w-16 text-right font-mono`}
-                          title="Ex.: 2 para um cabo que vai e volta"
+                          title={
+                            kitMode(kit) === "linear"
+                              ? "Ex.: 2 para um cabo que vai e volta"
+                              : c.kind === "linear"
+                                ? `Comprimento (${unit}) somado a cada clique`
+                                : "Peças colocadas a cada clique"
+                          }
                         />
                       </td>
                       <td className="py-0.5">

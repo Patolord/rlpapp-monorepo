@@ -4,6 +4,7 @@ import {
   emptyCatalogStore,
   fetchRemoteCatalog,
   loadCatalogStore,
+  mergeCatalog,
   saveCatalogStore,
   unitForKind,
 } from "../lib/catalog";
@@ -14,9 +15,19 @@ import {
   type QueuedProposal,
   sendProposal,
 } from "../lib/catalogRemote";
+import { syncDuctItems } from "../lib/ductItems";
+import type { GaugeWeights } from "../lib/ducts";
 import type { Kit } from "../lib/kits";
+import type { Project } from "../lib/types";
 import { syncWeightItems, type WeightRow } from "../lib/weights";
 import { errorMessage, type Slice } from "./shared";
+
+/** Derived prices that follow the catalog settings: duct networks (kg/m², R$/kg), weight lines. */
+const syncDerived = (project: Project, catalog: CatalogStore): Project =>
+  syncWeightItems(
+    syncDuctItems(project, () => mergeCatalog(catalog), catalog.gaugeWeights),
+    catalog.basePrices,
+  );
 
 /**
  * The material catalog kept per machine: the user's saved entries, the company catalog and the
@@ -40,8 +51,11 @@ export interface CatalogSlice {
 
   /** Price per kg of a base material, app-wide (undefined = back to the bundled default). */
   setBasePrice(key: string, price: number | undefined): void;
-  /** Replace the weight table (materials priced by weight), saved with the catalog. */
-  saveWeights(rows: WeightRow[]): Promise<void>;
+  /**
+   * Replace the weight table (materials priced by weight) and the sheet weight of each duct
+   * gauge, saved with the catalog; the duct networks of the open takeoff follow.
+   */
+  saveWeights(rows: WeightRow[], gaugeWeights: GaugeWeights): Promise<void>;
   saveKits(kits: Kit[]): Promise<void>;
 }
 
@@ -61,7 +75,7 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
     loadCatalog: async () => {
       const catalog = await loadCatalogStore();
       const { project } = get();
-      const synced = syncWeightItems(project, catalog.basePrices);
+      const synced = syncDerived(project, catalog);
       set({ catalog, ...(synced !== project ? { project: synced, dirty: true } : {}) });
     },
 
@@ -182,16 +196,22 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
       if (price === undefined || Number.isNaN(price)) delete basePrices[key];
       else basePrices[key] = price;
       const next = { ...catalog, basePrices };
-      // every weight-priced line of the open takeoff follows the new price per kg (no undo step:
-      // the setting itself is not part of the project)
-      const synced = syncWeightItems(project, basePrices);
+      // every weight-priced line and duct network of the open takeoff follows the new price per kg
+      // (no undo step: the setting itself is not part of the project)
+      const synced = syncDerived(project, next);
       set({ catalog: next, ...(synced !== project ? { project: synced, dirty: true } : {}) });
       void saveCatalogStore(next);
     },
 
-    saveWeights: async (rows) => {
-      const catalog = { ...get().catalog, weights: rows };
-      set({ catalog, status: `${rows.length} materiais por peso salvos` });
+    saveWeights: async (rows, gaugeWeights) => {
+      const { project } = get();
+      const catalog = { ...get().catalog, weights: rows, gaugeWeights };
+      const synced = syncDerived(project, catalog);
+      set({
+        catalog,
+        status: `${rows.length} materiais por peso e pesos das chapas salvos`,
+        ...(synced !== project ? { project: synced, dirty: true } : {}),
+      });
       await persist(catalog, "Não foi possível gravar a tabela de pesos");
     },
 

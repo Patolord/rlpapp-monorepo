@@ -142,11 +142,11 @@ export function CatalogSettingsDialog() {
         )}
         {section(
           "Materiais por peso",
-          "Quais materiais seguem os insumos acima e quantos quilos pesa cada unidade.",
+          "Quais materiais seguem os insumos acima, quantos quilos pesa cada unidade e o kg/m² de cada bitola de chapa dos dutos.",
           <div className="flex items-center gap-3">
             <span className="text-neutral-300">
               {catalog.weights.length} {catalog.weights.length === 1 ? "material" : "materiais"}{" "}
-              (tubos de cobre do fornecedor)
+              (tubos de cobre do fornecedor) · chapas # 26 a # 18
             </span>
             <Button
               onClick={() => {
