@@ -1,6 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import seed from "../data/catalog.seed.json";
-import { CATALOG_URL, describeHttpFailure, httpRequest, type QueuedProposal } from "./catalogRemote";
+import {
+  CATALOG_URL,
+  describeHttpFailure,
+  httpRequest,
+  type QueuedProposal,
+} from "./catalogRemote";
 import { defaultGaugeWeights, type GaugeWeights } from "./ducts";
 import { type Kit, SEED_KITS } from "./kits";
 import { isTauri } from "./platform";

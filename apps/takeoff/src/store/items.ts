@@ -1,9 +1,9 @@
+import { groupKey } from "../lib/budgetOrder";
 import { type CatalogEntry, kindForUnit, mergeCatalog, normalizeDiscipline } from "../lib/catalog";
 import type { Pt } from "../lib/geom";
-import { guessSymbol } from "../lib/symbols";
-import { groupKey } from "../lib/budgetOrder";
 import { kitMode } from "../lib/kits";
 import { priceSourceOfEntry } from "../lib/priceSource";
+import { guessSymbol } from "../lib/symbols";
 import { foldName } from "../lib/text";
 import {
   DEFAULT_GROUP,

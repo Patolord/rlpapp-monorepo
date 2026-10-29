@@ -1,4 +1,4 @@
-import { AirVent, FileSpreadsheet, Plus, Settings2 } from "lucide-react";
+import { FileSpreadsheet, Plus, Settings2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { mergeCatalog } from "../lib/catalog";
 import { ductBillFor, ductNetworks, ductRunsByNetwork } from "../lib/ductItems";
@@ -16,6 +16,7 @@ import {
 import { exportDuctSheet } from "../lib/files";
 import { formatMoney } from "../lib/units";
 import { useStore } from "../store";
+import { DuctIcon } from "./icons";
 import { Button } from "./ui";
 
 const input =
@@ -82,7 +83,7 @@ export function DuctsPanel() {
   if (!network) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center text-xs text-neutral-500">
-        <AirVent size={22} className="text-neutral-600" />
+        <DuctIcon size={22} className="text-neutral-600" />
         <p>
           Nenhum duto medido. Use a ferramenta <span className="text-neutral-300">Duto (D)</span>:
           clique nos pontos do trecho e informe lado maior × lado menor.

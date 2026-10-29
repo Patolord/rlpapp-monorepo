@@ -1,13 +1,57 @@
 import clsx from "clsx";
-import { ChevronLeft, ChevronRight, PaintBucket, Proportions } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Grid3x3,
+  Magnet,
+  Maximize,
+  PaintBucket,
+  Proportions,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { ALT, MOD } from "../lib/platform";
 import { pageScale } from "../lib/quantities";
 import { useDoc } from "../lib/session";
 import { useStore } from "../store";
+import { viewerApi } from "../viewerApi";
 import { useViewport } from "../viewport";
 import { ScalePicker } from "./ScalePicker";
 import { Kbd } from "./ui";
+
+/** A bottom-bar toggle (snap, ortho): a small chip that lights up while on. */
+function Toggle({
+  on,
+  label,
+  hint,
+  icon: Icon,
+  onClick,
+}: {
+  on: boolean;
+  label: string;
+  hint: string;
+  icon: typeof Magnet;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={on}
+      title={`${label} (${hint})`}
+      className={clsx(
+        "flex items-center gap-1 rounded px-1.5 py-0.5 ring-1",
+        on
+          ? "bg-orange-500/15 text-orange-300 ring-orange-400/60"
+          : "text-neutral-400 ring-neutral-700 hover:bg-neutral-700 hover:text-neutral-200",
+      )}
+    >
+      <Icon size={13} />
+      {label}
+    </button>
+  );
+}
 
 /** True under `vite` / `tauri dev`; false in the packaged app. */
 const DEV = import.meta.env.DEV;
@@ -93,8 +137,27 @@ export function StatusBar() {
   const open = useStore((s) => s.scalePickerOpen);
   const numPages = useDoc((s) => s.numPages);
   const { setPage, setScalePickerOpen } = useStore.getState();
+  const { toggleSnap, toggleOrtho } = useStore.getState();
   const [zoom, setZoom] = useState(useViewport.getState().zoom);
   useEffect(() => useViewport.subscribe((v) => setZoom(v.zoom)), []);
+  const zoomButton = (
+    label: string,
+    hint: string,
+    Icon: typeof ZoomIn,
+    onClick: () => void,
+    disabled = false,
+  ) => (
+    <button
+      type="button"
+      className="rounded p-0.5 hover:bg-neutral-700 disabled:opacity-30"
+      disabled={disabled}
+      onClick={onClick}
+      title={`${label} (${hint})`}
+      aria-label={label}
+    >
+      <Icon size={14} />
+    </button>
+  );
 
   return (
     <div
@@ -137,7 +200,14 @@ export function StatusBar() {
           <ChevronRight size={16} />
         </button>
       </div>
-      <span className="font-mono">{(zoom * 100).toFixed(0)}%</span>
+      <div className="flex items-center gap-0.5" title="Zoom da vista (roda do mouse também)">
+        {zoomButton("Afastar", "−", ZoomOut, () => viewerApi.current?.zoomBy(0.8), !numPages)}
+        <span className="w-10 text-center font-mono text-neutral-200">
+          {(zoom * 100).toFixed(0)}%
+        </span>
+        {zoomButton("Aproximar", "+", ZoomIn, () => viewerApi.current?.zoomBy(1.25), !numPages)}
+        {zoomButton("Ajustar página", "F", Maximize, () => viewerApi.current?.fit(), !numPages)}
+      </div>
       <button
         type="button"
         onClick={() => setScalePickerOpen(!open)}
@@ -195,8 +265,20 @@ export function StatusBar() {
           </p>
         </div>
       )}
-      <span className={snap ? "text-orange-300" : ""}>snap {snap ? "ligado" : "desligado"}</span>
-      <span className={ortho ? "text-orange-300" : ""}>orto {ortho ? "ligado" : "desligado"}</span>
+      <Toggle
+        on={snap}
+        label="snap"
+        hint="S: encaixa nos traços do desenho"
+        icon={Magnet}
+        onClick={toggleSnap}
+      />
+      <Toggle
+        on={ortho}
+        label="orto"
+        hint="O ou segure Shift: trava em 45°"
+        icon={Grid3x3}
+        onClick={toggleOrtho}
+      />
       {zoneFilterName && (
         <button
           type="button"

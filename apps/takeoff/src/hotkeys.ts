@@ -15,7 +15,6 @@ const TOOL_KEYS: Record<string, Tool> = {
   m: "magic",
   k: "calibrate",
   z: "zone",
-  x: "similar",
   t: "kit",
   d: "duct",
   y: "vrf",

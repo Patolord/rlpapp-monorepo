@@ -39,4 +39,5 @@ export {
   type Tool,
 } from "./shared";
 export type { SimilarMatch, SimilarPreview } from "./similar";
+export type { PanelTab, SystemPanel } from "./view";
 export { SIDEBAR_MIN } from "./view";

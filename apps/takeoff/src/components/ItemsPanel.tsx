@@ -2,6 +2,7 @@ import clsx from "clsx";
 import {
   CircleDot,
   FileText,
+  GitFork,
   Library,
   Pentagon,
   Plus,
@@ -16,6 +17,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { canonicalGroup } from "../lib/budgetOrder";
 import { MOD, mod } from "../lib/platform";
+import { describePriceSource } from "../lib/priceSource";
 import {
   formatItemQty,
   type ItemTotal,
@@ -25,16 +27,20 @@ import {
   round2,
   totalsByLocation,
 } from "../lib/quantities";
-import { describePriceSource } from "../lib/priceSource";
 import { foldName } from "../lib/text";
 import { DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS, type Item } from "../lib/types";
 import { formatMoney, type Kind } from "../lib/units";
 import { describeWeightPrice } from "../lib/weights";
 import { useStore } from "../store";
 import { ItemStylePopover } from "./ItemStylePopover";
+import { DuctIcon } from "./icons";
 import { PriceSourceBadge } from "./PriceSourceBadge";
 import { SymbolIcon } from "./SymbolIcon";
 import { Button, Kbd } from "./ui";
+
+/** The badge on a duct network / VRF system item; it opens that system's calculator. */
+const derivedBadge =
+  "flex shrink-0 items-center gap-0.5 rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-500 ring-1 ring-transparent hover:text-orange-300 hover:ring-orange-400/60";
 
 const KIND_ICON: Record<Kind, typeof CircleDot> = {
   count: CircleDot,
@@ -417,6 +423,7 @@ function ItemRow({
   }, [active]);
   const Icon = KIND_ICON[item.kind];
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  const { openSystemPanel } = useStore.getState();
   const tagInput = (
     field: "group" | "system",
     value: string,
@@ -521,20 +528,30 @@ function ItemRow({
           </span>
         )}
         {item.derived === "duct" && (
-          <span
-            className="shrink-0 rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-500"
-            title="Rede de dutos: material e mão de obra calculados na aba Dutos a partir dos trechos medidos"
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              openSystemPanel("duct", item.id);
+            }}
+            className={derivedBadge}
+            title="Rede de dutos: material e mão de obra calculados a partir dos trechos medidos. Clique para abrir o cálculo"
           >
-            rede de dutos
-          </span>
+            <DuctIcon size={11} /> rede de dutos
+          </button>
         )}
         {item.derived === "vrf" && (
-          <span
-            className="shrink-0 rounded bg-neutral-800 px-1 text-[10px] uppercase text-neutral-500"
-            title="Sistema VRF: material e mão de obra calculados na aba VRF a partir dos trechos medidos; a quantidade é o nº de sistemas iguais"
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              openSystemPanel("vrf", item.id);
+            }}
+            className={derivedBadge}
+            title="Sistema VRF: material e mão de obra calculados a partir dos trechos medidos; a quantidade é o nº de sistemas iguais. Clique para abrir o cálculo"
           >
-            sistema vrf
-          </span>
+            <GitFork size={11} /> sistema vrf
+          </button>
         )}
         <span className="shrink-0 font-mono text-[12px] text-neutral-200" title={qtyTitle}>
           {qtyLabel}

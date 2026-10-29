@@ -75,7 +75,6 @@ bun scripts/bench-vectors.ts <pdf>   # extraction + indexing timings
 | `A` `R` | Area polygon (click first point to close) / area rectangle (drag) |
 | `M` | Magic area: click inside an enclosed room to detect its outline |
 | `Z` | Location: outline a region (floor, apartment, room) and name it; everything measured inside is grouped by it |
-| `X` | Find similar: drag a box around one symbol; every identical symbol on the page gets a count mark (vector match, exact for CAD blocks) |
 | `Ctrl+K` | Material catalog: search and create a named, grouped, priced item |
 | `Alt`+click / `Alt`+drag | Name the active item from text in the drawing / turn a legend box into items |
 | `K` | Calibrate: click two points of a known distance |

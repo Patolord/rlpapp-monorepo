@@ -12,6 +12,11 @@ import {
 /** Narrowest the side panel goes (the item price row must fit on one line). */
 export const SIDEBAR_MIN = 540;
 
+/** The take-off views of the side panel: what was measured, where, and what it costs. */
+export type PanelTab = "items" | "zones" | "quote";
+/** The per-system calculators the side panel drills into (duct networks, VRF systems). */
+export type SystemPanel = "duct" | "vrf";
+
 /** Everything about the session's view: page, tool, selection, filters, dialogs, preferences. */
 export interface ViewSlice {
   page: number;
@@ -59,6 +64,10 @@ export interface ViewSlice {
   /** Side panel (items, locais, orçamento): shown, and its width in CSS px (remembered). */
   sidebarOpen: boolean;
   sidebarWidth: number;
+  /** Take-off view shown in the side panel; stays put while a calculator is open over it. */
+  panelTab: PanelTab;
+  /** System calculator open over the take-off views, if any. */
+  systemPanel: SystemPanel | null;
 
   setPage(page: number): void;
   setTool(tool: Tool): void;
@@ -93,6 +102,12 @@ export interface ViewSlice {
   setCatalogSettingsOpen(open: boolean): void;
   setSidebarOpen(open: boolean): void;
   setSidebarWidth(px: number): void;
+  /** Show a take-off view, leaving any calculator. */
+  setPanelTab(tab: PanelTab): void;
+  /** Open a system calculator; with an item id, that network/system is the one worked on. */
+  openSystemPanel(system: SystemPanel, itemId?: string): void;
+  /** Leave the calculator and return to the take-off view underneath. */
+  closeSystemPanel(): void;
 }
 
 export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
@@ -127,6 +142,8 @@ export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
   catalogSettingsOpen: false,
   sidebarOpen: readPref("sidebarOpen", true),
   sidebarWidth: readPref("sidebarWidth", 580),
+  panelTab: "items",
+  systemPanel: null,
 
   setPage: (page) => set({ page, selection: [] }),
 
@@ -243,4 +260,13 @@ export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
     writePref("sidebarWidth", sidebarWidth);
     set({ sidebarWidth });
   },
+
+  setPanelTab: (panelTab) => set({ panelTab, systemPanel: null, sidebarOpen: true }),
+
+  openSystemPanel: (system, itemId) => {
+    if (itemId) get().setActiveItem(itemId);
+    set({ systemPanel: system, sidebarOpen: true });
+  },
+
+  closeSystemPanel: () => set({ systemPanel: null }),
 });

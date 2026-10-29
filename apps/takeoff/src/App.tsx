@@ -1,23 +1,20 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import clsx from "clsx";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { AboutDialog } from "./components/AboutDialog";
 import { CalibrateDialog } from "./components/CalibrateDialog";
 import { CatalogPalette } from "./components/CatalogPalette";
 import { CatalogSettingsDialog } from "./components/CatalogSettingsDialog";
 import { DrawingTabs } from "./components/DrawingTabs";
 import { DuctDialog } from "./components/DuctDialog";
-import { DuctsPanel } from "./components/DuctsPanel";
-import { ItemsPanel } from "./components/ItemsPanel";
 import { KitPicker } from "./components/KitPicker";
 import { KitsDialog } from "./components/KitsDialog";
 import { LegendDialog } from "./components/LegendDialog";
 import { NewProjectDialog } from "./components/NewProjectDialog";
 import { PageStrip } from "./components/PageStrip";
 import { PanelDivider } from "./components/PanelDivider";
-import { QuotePanel } from "./components/QuotePanel";
 import { SelectionBar } from "./components/SelectionBar";
+import { Sidebar } from "./components/Sidebar";
 import { SimilarPreviewBar } from "./components/SimilarPreviewBar";
 import { StatusBar } from "./components/StatusBar";
 import { ToolRail } from "./components/ToolRail";
@@ -25,11 +22,9 @@ import { TopBar } from "./components/TopBar";
 import { Viewer } from "./components/Viewer";
 import { VrfBrandsDialog } from "./components/VrfBrandsDialog";
 import { VrfDialog } from "./components/VrfDialog";
-import { VrfPanel } from "./components/VrfPanel";
 import { WeightsDialog } from "./components/WeightsDialog";
 import { Welcome } from "./components/Welcome";
 import { ZoneDialog } from "./components/ZoneDialog";
-import { ZonesPanel } from "./components/ZonesPanel";
 import { useHotkeys } from "./hotkeys";
 import { autosave, confirmDiscard, openPdfFiles, openProjectFile } from "./lib/files";
 import { isTauri } from "./lib/platform";
@@ -37,18 +32,9 @@ import { useDoc } from "./lib/session";
 import { checkForUpdate } from "./lib/updater";
 import { useStore } from "./store";
 
-const TABS = {
-  items: "Itens",
-  zones: "Locais",
-  ducts: "Dutos",
-  vrf: "VRF",
-  quote: "Orçamento",
-} as const;
-
 export default function App() {
   useHotkeys();
   const numPages = useDoc((s) => s.numPages);
-  const [tab, setTab] = useState<keyof typeof TABS>("items");
 
   // keep the page metadata array in sync with the opened document
   useEffect(() => {
@@ -118,7 +104,6 @@ export default function App() {
   // clear transient status messages
   const status = useStore((s) => s.status);
   const sidebarOpen = useStore((s) => s.sidebarOpen);
-  const sidebarWidth = useStore((s) => s.sidebarWidth);
   useEffect(() => {
     if (!status) return;
     const id = window.setTimeout(() => useStore.getState().setStatus(null), 6000);
@@ -143,43 +128,7 @@ export default function App() {
           <LegendDialog />
         </div>
         <PanelDivider />
-        {sidebarOpen && (
-          <div
-            className="flex shrink-0 flex-col border-l border-neutral-800 bg-neutral-900"
-            style={{ width: sidebarWidth }}
-          >
-            <div className="flex border-b border-neutral-800 text-xs">
-              {(Object.keys(TABS) as (keyof typeof TABS)[]).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTab(t)}
-                  className={clsx(
-                    "flex-1 py-2 font-medium",
-                    tab === t
-                      ? "border-b-2 border-orange-400 text-neutral-100"
-                      : "text-neutral-400 hover:text-neutral-200",
-                  )}
-                >
-                  {TABS[t]}
-                </button>
-              ))}
-            </div>
-            <div className="min-h-0 flex-1">
-              {tab === "items" ? (
-                <ItemsPanel />
-              ) : tab === "zones" ? (
-                <ZonesPanel />
-              ) : tab === "ducts" ? (
-                <DuctsPanel />
-              ) : tab === "vrf" ? (
-                <VrfPanel />
-              ) : (
-                <QuotePanel />
-              )}
-            </div>
-          </div>
-        )}
+        {sidebarOpen && <Sidebar />}
       </div>
       <StatusBar />
       <CatalogPalette />

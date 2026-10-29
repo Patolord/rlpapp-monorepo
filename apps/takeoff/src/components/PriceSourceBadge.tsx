@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { BookOpen, Bookmark, Cloud, type LucideIcon, PenLine, Weight } from "lucide-react";
+import { Bookmark, BookOpen, Cloud, type LucideIcon, PenLine, Weight } from "lucide-react";
 import { describePriceSource, type PriceSource } from "../lib/priceSource";
 
 const ICON: Record<PriceSource, { Icon: LucideIcon; className: string }> = {

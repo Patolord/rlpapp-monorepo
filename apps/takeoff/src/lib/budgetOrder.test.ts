@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { useStore } from "../store";
 import {
   budgetGroups,
   canonicalGroup,
@@ -8,7 +9,6 @@ import {
   sortItemsForBudget,
 } from "./budgetOrder";
 import { buildQuote, systemSheets } from "./quantities";
-import { useStore } from "../store";
 import { emptyProject, type Item } from "./types";
 
 const item = (id: string, name: string, group: string, over: Partial<Item> = {}): Item => ({
