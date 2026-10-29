@@ -1,13 +1,14 @@
 import clsx from "clsx";
 import {
+  AirVent,
+  Boxes,
   CircleDot,
-  GitFork,
+  Cuboid,
   Hand,
-  Layers,
   MousePointer2,
   Pentagon,
   Redo2,
-  Ruler,
+  RulerDimensionLine,
   Square,
   SquareDashed,
   Undo2,
@@ -16,7 +17,6 @@ import {
 import { type ComponentType, useEffect, useRef, useState } from "react";
 import { mod } from "../lib/platform";
 import { type Tool, useStore } from "../store";
-import { DuctIcon } from "./icons";
 import { IconButton } from "./ui";
 
 interface ToolDef {
@@ -35,25 +35,29 @@ const NAVIGATION: ToolDef[] = [
 /** The everyday take-off tools. */
 const TAKEOFF: ToolDef[] = [
   { tool: "count", label: "Contagem", key: "C", icon: CircleDot },
-  { tool: "linear", label: "Medir (linear)", key: "L", icon: Ruler },
+  { tool: "linear", label: "Medir (linear)", key: "L", icon: RulerDimensionLine },
   {
     tool: "kit",
     label: "Kit (um trecho mede vários itens de uma vez: cobre, isolamento, cabo…)",
     key: "T",
-    icon: Layers,
+    icon: Boxes,
   },
+];
+
+/** Specialties: each measures runs that feed a calculator (Dutos, VRF) rather than an item. */
+const SPECIALTIES: ToolDef[] = [
   {
     tool: "duct",
     label: "Duto (mede o trecho e pede a seção: chapa, isolamento e flanges são calculados)",
     key: "D",
-    icon: DuctIcon,
+    icon: Cuboid,
   },
   {
     tool: "vrf",
     label:
       "VRF (mede o trecho de linha frigorígena e pede tipo e capacidade: bitolas, Y-kits e materiais são calculados)",
     key: "Y",
-    icon: GitFork,
+    icon: AirVent,
   },
 ];
 
@@ -99,6 +103,8 @@ export function ToolRail() {
       <Divider />
       {TAKEOFF.map(button)}
       <AreaTools tool={tool} setTool={setTool} />
+      <Divider />
+      {SPECIALTIES.map(button)}
       <Divider />
       <IconButton label="Desfazer" hint={mod("Z")} disabled={!canUndo} onClick={undo}>
         <Undo2 size={20} />

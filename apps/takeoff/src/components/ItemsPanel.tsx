@@ -1,8 +1,9 @@
 import clsx from "clsx";
 import {
+  AirVent,
   CircleDot,
+  Cuboid,
   FileText,
-  GitFork,
   Library,
   Pentagon,
   Plus,
@@ -33,7 +34,6 @@ import { formatMoney, type Kind } from "../lib/units";
 import { describeWeightPrice } from "../lib/weights";
 import { useStore } from "../store";
 import { ItemStylePopover } from "./ItemStylePopover";
-import { DuctIcon } from "./icons";
 import { PriceSourceBadge } from "./PriceSourceBadge";
 import { SymbolIcon } from "./SymbolIcon";
 import { Button, Kbd } from "./ui";
@@ -537,7 +537,7 @@ function ItemRow({
             className={derivedBadge}
             title="Rede de dutos: material e mão de obra calculados a partir dos trechos medidos. Clique para abrir o cálculo"
           >
-            <DuctIcon size={11} /> rede de dutos
+            <Cuboid size={11} /> rede de dutos
           </button>
         )}
         {item.derived === "vrf" && (
@@ -550,7 +550,7 @@ function ItemRow({
             className={derivedBadge}
             title="Sistema VRF: material e mão de obra calculados a partir dos trechos medidos; a quantidade é o nº de sistemas iguais. Clique para abrir o cálculo"
           >
-            <GitFork size={11} /> sistema vrf
+            <AirVent size={11} /> sistema vrf
           </button>
         )}
         <span className="shrink-0 font-mono text-[12px] text-neutral-200" title={qtyTitle}>

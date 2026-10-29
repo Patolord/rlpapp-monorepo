@@ -1,4 +1,4 @@
-import { FileSpreadsheet, GitFork, Plus, Settings2, SlidersHorizontal } from "lucide-react";
+import { AirVent, FileSpreadsheet, Plus, Settings2, SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
 import { exportVrfSheet } from "../lib/files";
 import { formatMoney } from "../lib/units";
@@ -68,7 +68,7 @@ export function VrfPanel() {
   if (!system) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center text-xs text-neutral-500">
-        <GitFork size={22} className="text-neutral-600" />
+        <AirVent size={22} className="text-neutral-600" />
         <p>
           Nenhum trecho VRF medido. Use a ferramenta{" "}
           <span className="text-neutral-300">VRF (Y)</span>: clique nos pontos do trecho e informe

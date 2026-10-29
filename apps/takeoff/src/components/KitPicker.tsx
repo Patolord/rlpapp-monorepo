@@ -1,4 +1,4 @@
-import { Layers, Settings2, X } from "lucide-react";
+import { Boxes, Settings2, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { kitMode, kitSummary } from "../lib/kits";
 import { useStore } from "../store";
@@ -19,7 +19,7 @@ export function KitPicker() {
   return (
     <div className="absolute left-3 top-3 z-30 w-80 rounded-lg border border-neutral-700 bg-neutral-900 p-3 text-xs shadow-xl">
       <div className="mb-2 flex items-center gap-2">
-        <Layers size={16} className="text-orange-400" />
+        <Boxes size={16} className="text-orange-400" />
         <span className="font-semibold text-neutral-100">Kit: escolha o preset</span>
         <button
           type="button"

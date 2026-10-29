@@ -1,10 +1,9 @@
 import clsx from "clsx";
-import { ArrowLeft, GitFork } from "lucide-react";
+import { AirVent, ArrowLeft, Cuboid } from "lucide-react";
 import type { ComponentType } from "react";
 import { type PanelTab, type SystemPanel, useStore } from "../store";
 import { DuctsPanel } from "./DuctsPanel";
 import { ItemsPanel } from "./ItemsPanel";
-import { DuctIcon } from "./icons";
 import { QuotePanel } from "./QuotePanel";
 import { VrfPanel } from "./VrfPanel";
 import { ZonesPanel } from "./ZonesPanel";
@@ -28,14 +27,14 @@ const SYSTEMS: {
   {
     system: "duct",
     label: "Dutos",
-    icon: DuctIcon,
+    icon: Cuboid,
     title:
       "Cálculo de dutos: chapa, isolamento, flanges, suportes e mão de obra de cada rede medida com a ferramenta Duto (D)",
   },
   {
     system: "vrf",
     label: "VRF",
-    icon: GitFork,
+    icon: AirVent,
     title:
       "Cálculo VRF: bitolas, Y-kits e materiais de cada sistema medido com a ferramenta VRF (Y)",
   },
