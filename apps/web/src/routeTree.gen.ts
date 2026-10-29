@@ -14,6 +14,7 @@ import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as ComprasRouteRouteImport } from './routes/compras/route'
 import { Route as EngenhariaRouteRouteImport } from './routes/engenharia/route'
 import { Route as EstoqueRouteRouteImport } from './routes/estoque/route'
+import { Route as ExcluirContaRouteImport } from './routes/excluir-conta'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as MeusRegistrosRouteImport } from './routes/meus-registros'
@@ -22,6 +23,7 @@ import { Route as QrOperadorRouteImport } from './routes/qr-operador'
 import { Route as RhRouteRouteImport } from './routes/rh/route'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as SuporteRouteImport } from './routes/suporte'
 import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './routes/[.]well-known/oauth-authorization-server'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as ComprasIndexRouteImport } from './routes/compras/index'
@@ -119,6 +121,11 @@ const EstoqueRouteRoute = EstoqueRouteRouteImport.update({
   path: '/estoque',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExcluirContaRoute = ExcluirContaRouteImport.update({
+  id: '/excluir-conta',
+  path: '/excluir-conta',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -157,6 +164,11 @@ const SignInRoute = SignInRouteImport.update({
 const SignUpRoute = SignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SuporteRoute = SuporteRouteImport.update({
+  id: '/suporte',
+  path: '/suporte',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DotwellKnownOauthAuthorizationServerRoute =
@@ -560,6 +572,7 @@ export interface FileRoutesByFullPath {
   '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/estoque': typeof EstoqueRouteRouteWithChildren
   '/rh': typeof RhRouteRouteWithChildren
+  '/excluir-conta': typeof ExcluirContaRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/meus-registros': typeof MeusRegistrosRoute
@@ -567,6 +580,7 @@ export interface FileRoutesByFullPath {
   '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/suporte': typeof SuporteRoute
   '/engenharia/obras': typeof EngenhariaObrasRouteRouteWithChildren
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
   '/rh/ponto': typeof RhPontoRouteRouteWithChildren
@@ -641,6 +655,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/excluir-conta': typeof ExcluirContaRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/meus-registros': typeof MeusRegistrosRoute
@@ -648,6 +663,7 @@ export interface FileRoutesByTo {
   '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/suporte': typeof SuporteRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/engenharia/contratos': typeof EngenhariaContratosRoute
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
@@ -722,6 +738,7 @@ export interface FileRoutesById {
   '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/estoque': typeof EstoqueRouteRouteWithChildren
   '/rh': typeof RhRouteRouteWithChildren
+  '/excluir-conta': typeof ExcluirContaRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/meus-registros': typeof MeusRegistrosRoute
@@ -729,6 +746,7 @@ export interface FileRoutesById {
   '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/suporte': typeof SuporteRoute
   '/engenharia/obras': typeof EngenhariaObrasRouteRouteWithChildren
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
   '/rh/ponto': typeof RhPontoRouteRouteWithChildren
@@ -810,6 +828,7 @@ export interface FileRouteTypes {
     | '/engenharia'
     | '/estoque'
     | '/rh'
+    | '/excluir-conta'
     | '/login'
     | '/mcp'
     | '/meus-registros'
@@ -817,6 +836,7 @@ export interface FileRouteTypes {
     | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
+    | '/suporte'
     | '/engenharia/obras'
     | '/engenharia/relatorios'
     | '/rh/ponto'
@@ -891,6 +911,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/excluir-conta'
     | '/login'
     | '/mcp'
     | '/meus-registros'
@@ -898,6 +919,7 @@ export interface FileRouteTypes {
     | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
+    | '/suporte'
     | '/.well-known/oauth-authorization-server'
     | '/engenharia/contratos'
     | '/engenharia/medicoes'
@@ -971,6 +993,7 @@ export interface FileRouteTypes {
     | '/engenharia'
     | '/estoque'
     | '/rh'
+    | '/excluir-conta'
     | '/login'
     | '/mcp'
     | '/meus-registros'
@@ -978,6 +1001,7 @@ export interface FileRouteTypes {
     | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
+    | '/suporte'
     | '/engenharia/obras'
     | '/engenharia/relatorios'
     | '/rh/ponto'
@@ -1058,6 +1082,7 @@ export interface RootRouteChildren {
   EngenhariaRouteRoute: typeof EngenhariaRouteRouteWithChildren
   EstoqueRouteRoute: typeof EstoqueRouteRouteWithChildren
   RhRouteRoute: typeof RhRouteRouteWithChildren
+  ExcluirContaRoute: typeof ExcluirContaRoute
   LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
   MeusRegistrosRoute: typeof MeusRegistrosRoute
@@ -1065,6 +1090,7 @@ export interface RootRouteChildren {
   QrOperadorRoute: typeof QrOperadorRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
+  SuporteRoute: typeof SuporteRoute
   DotwellKnownOauthAuthorizationServerRoute: typeof DotwellKnownOauthAuthorizationServerRoute
   PortalProjectIdRoute: typeof PortalProjectIdRoute
   QTokenRoute: typeof QTokenRoute
@@ -1112,6 +1138,13 @@ declare module '@tanstack/react-router' {
       path: '/estoque'
       fullPath: '/estoque'
       preLoaderRoute: typeof EstoqueRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/excluir-conta': {
+      id: '/excluir-conta'
+      path: '/excluir-conta'
+      fullPath: '/excluir-conta'
+      preLoaderRoute: typeof ExcluirContaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -1168,6 +1201,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-up'
       fullPath: '/sign-up'
       preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/suporte': {
+      id: '/suporte'
+      path: '/suporte'
+      fullPath: '/suporte'
+      preLoaderRoute: typeof SuporteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.well-known/oauth-authorization-server': {
@@ -1931,6 +1971,7 @@ const rootRouteChildren: RootRouteChildren = {
   EngenhariaRouteRoute: EngenhariaRouteRouteWithChildren,
   EstoqueRouteRoute: EstoqueRouteRouteWithChildren,
   RhRouteRoute: RhRouteRouteWithChildren,
+  ExcluirContaRoute: ExcluirContaRoute,
   LoginRoute: LoginRoute,
   McpRoute: McpRoute,
   MeusRegistrosRoute: MeusRegistrosRoute,
@@ -1938,6 +1979,7 @@ const rootRouteChildren: RootRouteChildren = {
   QrOperadorRoute: QrOperadorRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
+  SuporteRoute: SuporteRoute,
   DotwellKnownOauthAuthorizationServerRoute:
     DotwellKnownOauthAuthorizationServerRoute,
   PortalProjectIdRoute: PortalProjectIdRoute,

@@ -251,6 +251,23 @@ function PoliticaPrivacidadePage() {
           </section>
         </div>
       </main>
+
+      <footer className="border-t border-border bg-card">
+        <div className="mx-auto flex max-w-3xl flex-wrap gap-x-6 gap-y-2 px-6 py-4 text-sm text-muted-foreground">
+          <Link
+            to="/suporte"
+            className="text-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Suporte
+          </Link>
+          <Link
+            to="/excluir-conta"
+            className="text-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Exclusão de conta
+          </Link>
+        </div>
+      </footer>
     </div>
   );
 }
