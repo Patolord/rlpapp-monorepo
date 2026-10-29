@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_DUCT_SETTINGS, ductBill, gaugeName } from "./ducts";
+import { DEFAULT_DUCT_SETTINGS, ductBill, gaugeKgm2, gaugeName } from "./ducts";
 
 const row = (rows: ReturnType<typeof ductBill>, name: string) => rows.find((r) => r.name === name);
 
@@ -87,5 +87,32 @@ describe("duct take-off (NBR 16401 workbook)", () => {
     expect(row(rows, "Tinta de fundo - Zarcão")?.qty).toBe(1);
     expect(row(rows, "Tinta Acabamento")?.qty).toBe(2);
     expect(row(rows, "Powermatic (PW2 leve)")).toBeUndefined();
+  });
+
+  it("uses the edited sheet weights per gauge, falling back to the supplier's", () => {
+    expect(gaugeKgm2()).toEqual([4.38, 4.82, 6.82, 8.03, 10.6]);
+    expect(gaugeKgm2({ "# 24": 5.7, "# 22": 0 })).toEqual([4.38, 5.7, 6.82, 8.03, 10.6]);
+    const spec = {
+      insulation: "S",
+      inner: "S",
+      flange: "S",
+      rechapeado: true,
+      paintRechap: false,
+    } as const;
+    const rows = ductBill(
+      [
+        { spec: { ...spec, a: 40, b: 25 }, length: 3 },
+        { spec: { ...spec, a: 30, b: 20, rechapeado: false }, length: 10 },
+      ],
+      { ...DEFAULT_DUCT_SETTINGS, norma: 1 },
+      { "# 26": 4.5, "# 24": 5.7 },
+    );
+    // 3.9 m² of # 24 × 5.7 kg/m² × 1.2 = 26.7 → 27 kg (was 23 with 4.82)
+    expect(row(rows, "Chapa galvanizada # 24")?.qty).toBe(27);
+    // 10 m² of # 26 × 4.5 × 1.2 = 54 kg
+    expect(row(rows, "Chapa galvanizada # 26")?.qty).toBe(54);
+    // rechapeamento is # 26 sheet: ((0.4 + 0.025) + (0.25 + 0.025)) × 2 × 3 = 4.2 m² × 4.5 = 19 kg
+    expect(row(rows, "Chapa galvanizada # 26 (rechapeamento)")?.qty).toBe(19);
+    expect(row(rows, "Mão de obra - rede de dutos")?.qty).toBe(27 + 54 + 19);
   });
 });

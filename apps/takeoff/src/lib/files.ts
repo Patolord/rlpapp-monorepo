@@ -261,7 +261,12 @@ export async function exportDuctSheet(networkId: string): Promise<void> {
   try {
     const res = await fetch(DUCT_TEMPLATE_URL);
     if (!res.ok) throw new Error(`modelo não encontrado (${res.status})`);
-    const input = ductSheetInput(project, mergeCatalog(store.catalog), networkId);
+    const input = ductSheetInput(
+      project,
+      mergeCatalog(store.catalog),
+      networkId,
+      store.catalog.gaugeWeights,
+    );
     const bytes = await fillDuctWorkbook(await res.arrayBuffer(), input);
     const name = `Levantamento Dutos - ${network?.name ?? "Rede"}${project.site ? ` - ${project.site}` : ""}.xlsx`;
     await saveXlsxBytes(name, bytes);

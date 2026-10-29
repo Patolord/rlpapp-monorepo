@@ -6,6 +6,7 @@ import {
   type DuctRun,
   type DuctTotals,
   ductBill,
+  type GaugeWeights,
 } from "./ducts";
 import { measurementQty, pageScale, repeatOf, zoneOf } from "./quantities";
 import { foldName } from "./text";
@@ -93,14 +94,15 @@ export interface DuctBillForNetwork {
   totals: DuctTotals;
 }
 
-/** Bill of materials and totals of one duct network. */
+/** Bill of materials and totals of one duct network (sheet weights from the catalog settings). */
 export function ductBillFor(
   project: Project,
   catalog: readonly CatalogEntry[],
   network: Item,
   runs = ductRunsByNetwork(project).get(network.id) ?? [],
+  gaugeWeights?: GaugeWeights,
 ): DuctBillForNetwork {
-  const rows = ductBill(runs, project.duct ?? DEFAULT_DUCT_SETTINGS);
+  const rows = ductBill(runs, project.duct ?? DEFAULT_DUCT_SETTINGS, gaugeWeights);
   const price = (row: DuctBillRow) => ductPrice(project, catalog, row);
   return { network, runs, rows, price, totals: billTotals(rows, price) };
 }
@@ -109,14 +111,18 @@ export function ductBillFor(
  * Keep every "Rede de dutos" item's material and labour in step with its runs (1 cj each).
  * Returns the same project object when nothing changes.
  */
-export function syncDuctItems(project: Project, catalog: () => readonly CatalogEntry[]): Project {
+export function syncDuctItems(
+  project: Project,
+  catalog: () => readonly CatalogEntry[],
+  gaugeWeights?: GaugeWeights,
+): Project {
   if (!project.items.some((i) => i.derived === "duct")) return project;
   const entries = catalog();
   const byNetwork = ductRunsByNetwork(project);
   let changed = false;
   const items = project.items.map((it) => {
     if (it.derived !== "duct") return it;
-    const t = ductBillFor(project, entries, it, byNetwork.get(it.id) ?? []).totals;
+    const t = ductBillFor(project, entries, it, byNetwork.get(it.id) ?? [], gaugeWeights).totals;
     if (it.materialPrice === t.material && it.laborPrice === t.labor && it.manualQty === 1) {
       return it;
     }

@@ -8,6 +8,9 @@ import {
   type DuctInsulation,
   type DuctRun,
   type DuctSettings,
+  GAUGES,
+  type GaugeWeights,
+  gaugeKgm2,
 } from "./ducts";
 import { foldName } from "./text";
 import type { Project } from "./types";
@@ -28,6 +31,8 @@ export interface DuctSheetInput {
   runs: DuctRun[];
   /** Unit prices by bill row name (the app's derived items / catalog); missing ones keep the template's. */
   prices: Record<string, number>;
+  /** Sheet weight (kg/m²) per gauge, in GAUGES order; absent = the template's own table. */
+  gaugeKgm2?: number[];
 }
 
 const INSULATION_TEXT: Record<DuctInsulation, string> = {
@@ -87,10 +92,11 @@ export function ductSheetInput(
   project: Project,
   catalog: readonly CatalogEntry[],
   networkId: string,
+  gaugeWeights?: GaugeWeights,
 ): DuctSheetInput {
   const network = ductNetworks(project).find((n) => n.id === networkId);
   if (!network) throw new Error("rede de dutos não encontrada");
-  const bill = ductBillFor(project, catalog, network);
+  const bill = ductBillFor(project, catalog, network, undefined, gaugeWeights);
   const prices: Record<string, number> = {};
   for (const [, name] of PRICE_CELLS) {
     const row = bill.rows.find((r) => r.name === name);
@@ -110,7 +116,28 @@ export function ductSheetInput(
     settings: project.duct ?? DEFAULT_DUCT_SETTINGS,
     runs: bill.runs,
     prices,
+    gaugeKgm2: gaugeKgm2(gaugeWeights),
   };
+}
+
+/** Calculos columns of the area per gauge (# 26 … # 18). */
+const GAUGE_COLUMNS = ["B", "C", "D", "E", "F"];
+
+/**
+ * The template hardcodes its own sheet weights (4,5 / 5,7 / 6,8 / 8,1 / 10,5 kg/m²): in the gauge
+ * table, in the kg formulas of row 303 and as the # 26 weight of rechapeamento and cantoneira.
+ * Put the app's weights in all of them so the workbook's kg match the app's bill.
+ */
+function writeGaugeWeights(calc: ExcelJS.Worksheet, kgm2: number[]) {
+  const label = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg/m²`;
+  GAUGES.forEach((_, i) => {
+    const kg = kgm2[i];
+    const col = GAUGE_COLUMNS[i];
+    calc.getCell(`C${3 + i}`).value = kg;
+    calc.getCell(`${col}11`).value = label(kg);
+    calc.getCell(`${col}303`).value = { formula: `${col}302*${kg}` };
+  });
+  for (const col of ["Q", "AD", "AE"]) calc.getCell(`${col}303`).value = kgm2[0];
 }
 
 /**
@@ -126,7 +153,8 @@ export async function fillDuctWorkbook(
   const principal = wb.getWorksheet("Principal");
   const lev = wb.getWorksheet("Levantamento dutos");
   const precos = wb.getWorksheet("Tab_Precos");
-  if (!principal || !lev || !precos) throw new Error("modelo de planilha inesperado");
+  const calc = wb.getWorksheet("Calculos");
+  if (!principal || !lev || !precos || !calc) throw new Error("modelo de planilha inesperado");
 
   const s = input.settings;
   principal.getCell("D6").value = input.client;
@@ -161,6 +189,7 @@ export async function fillDuctWorkbook(
     const p = input.prices[name];
     if (p !== undefined) precos.getCell(cell).value = p;
   }
+  if (input.gaugeKgm2) writeGaugeWeights(calc, input.gaugeKgm2);
   wb.calcProperties.fullCalcOnLoad = true;
   const out = await wb.xlsx.writeBuffer();
   return new Uint8Array(out as ArrayBuffer);
