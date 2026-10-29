@@ -67,6 +67,9 @@ export function vrfRuns(project: Project): VrfRun[] {
       length: (q + (m.vertical ?? 0)) * repeatOf(project, m, "linear"),
       vertical: m.vertical,
       tag: zone ? `${planta} · ${locationOf(project, zone.locationId)?.name ?? ""}` : planta,
+      drawingId: m.drawingId,
+      page: m.page,
+      points: m.points,
     });
   }
   return runs;

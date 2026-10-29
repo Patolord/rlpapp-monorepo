@@ -8,6 +8,8 @@
  * insulation, elbows, cables, boxes, supports and labour exactly as the Resultados sheet does.
  */
 
+import type { Pt } from "./geom";
+
 /** Saída da condensadora · trecho intermediário (between Y-kits) · ramal de uma evaporadora. */
 export type VrfRole = "main" | "trunk" | "branch";
 
@@ -31,6 +33,11 @@ export interface VrfSpec {
   hp: number;
   /** Elbows (curvas) on the run; each one is an elbow on the gas and on the liquid tube. */
   curves: number;
+  /**
+   * Id of the run this one continues, when the drawing cannot tell (a riser to another page, a
+   * run drawn apart). Unset: the run joins whatever shares its endpoint on the page.
+   */
+  parent?: string;
 }
 
 export const DEFAULT_VRF_SPEC: VrfSpec = { role: "branch", hp: 1.5, curves: 0 };
@@ -220,6 +227,10 @@ export interface VrfRun {
   vertical?: number;
   /** Where the run is (planta · local), for the exported sheet. */
   tag?: string;
+  /** Where it is drawn, for the system tree (runs sharing an endpoint on a page are joined). */
+  drawingId?: string;
+  page?: number;
+  points?: Pt[];
 }
 
 /** A run with the diameters its brand rules give it. */

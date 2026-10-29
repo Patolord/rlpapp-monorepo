@@ -16,6 +16,7 @@ import {
 import { vrfBillFor, vrfPricingOf, vrfRunsBySystem, vrfSystems } from "../lib/vrfItems";
 import { useStore } from "../store";
 import { Button } from "./ui";
+import { VrfSchematic } from "./VrfSchematic";
 
 const input =
   "h-6 rounded bg-neutral-800 px-1 text-right font-mono text-xs text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400";
@@ -65,6 +66,7 @@ export function VrfPanel() {
     [project, pricing, catalog.vrfBrands, system, bySystem],
   );
   const [showSettings, setShowSettings] = useState(false);
+  const [view, setView] = useState<"table" | "schematic">("table");
   const settings: VrfSettings = project.vrfSettings ?? DEFAULT_VRF_SETTINGS;
   const money = (v: number) => formatMoney(v, project.currency);
   const num = (v: string) => Math.max(0, Number(v.replace(",", ".")) || 0);
@@ -257,24 +259,59 @@ export function VrfPanel() {
         </div>
 
         <div className="border-b border-neutral-800 px-2 py-1.5">
-          <div className="mb-1 text-[11px] uppercase tracking-wide text-neutral-500">
-            Trechos medidos · {runs.length}
-            {bill && (
-              <span className="normal-case">
-                {" "}
-                · {bill.summary.evaporators}{" "}
-                {bill.summary.evaporators === 1 ? "evaporadora" : "evaporadoras"} ·{" "}
-                {bill.summary.lineLength.toFixed(1)} m de linha
+          <div className="mb-1 flex items-center text-[11px] uppercase tracking-wide text-neutral-500">
+            <span>
+              Trechos medidos · {runs.length}
+              {bill && (
+                <span className="normal-case">
+                  {" "}
+                  · {bill.summary.evaporators}{" "}
+                  {bill.summary.evaporators === 1 ? "evaporadora" : "evaporadoras"} ·{" "}
+                  {bill.summary.lineLength.toFixed(1)} m de linha
+                </span>
+              )}
+            </span>
+            {runs.length > 0 && (
+              <span className="ml-auto flex gap-px normal-case tracking-normal">
+                {(
+                  [
+                    ["table", "Tabela", "Um trecho por linha, editável"],
+                    ["schematic", "Esquema", "Condensadora, Y-kits e evaporadoras como no desenho"],
+                  ] as const
+                ).map(([v, label, title]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setView(v)}
+                    title={title}
+                    aria-pressed={view === v}
+                    className={
+                      view === v
+                        ? "rounded bg-orange-500/15 px-1.5 py-px text-orange-300 ring-1 ring-orange-400/60"
+                        : "rounded px-1.5 py-px text-neutral-400 hover:text-neutral-100"
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
               </span>
             )}
           </div>
+          {runs.length > 0 && view === "schematic" && (
+            <VrfSchematic
+              system={system}
+              runs={runs}
+              brand={brand}
+              systemHp={system.vrf?.hp ?? 0}
+            />
+          )}
           {runs.length === 0 && (
             <p className="py-2 text-neutral-500">
               Nenhum trecho neste sistema. Meça com a ferramenta VRF (Y) ou mova trechos de outro
               sistema.
             </p>
           )}
-          {runs.length > 0 && (
+          {runs.length > 0 && view === "table" && (
             <table className="w-full table-fixed">
               <thead className="text-[10px] uppercase tracking-wide text-neutral-500">
                 <tr>
