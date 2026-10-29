@@ -222,9 +222,7 @@ struct Styles {
     text_bold: Format,
     center: Format,
     center_wrap: Format,
-    italic_label: Format,
     price: Format,
-    price_bold_italic: Format,
     acc_bold: Format,
     total_label: Format,
     total_acc: Format,
@@ -269,11 +267,7 @@ impl Styles {
             center_wrap: row(arial(10.0))
                 .set_align(FormatAlign::Center)
                 .set_text_wrap(),
-            italic_label: row(arial(10.0).set_bold().set_italic()).set_align(FormatAlign::Left),
             price: row(arial(10.0))
-                .set_num_format(FMT_PRICE)
-                .set_align(FormatAlign::Right),
-            price_bold_italic: row(arial(10.0).set_bold().set_italic())
                 .set_num_format(FMT_PRICE)
                 .set_align(FormatAlign::Right),
             acc_bold: row(arial(10.0).set_bold())
@@ -434,6 +428,44 @@ fn write_line_formulas(ws: &mut Worksheet, st: &Styles, r: u32) -> R<()> {
     Ok(())
 }
 
+/// "Sub-Total item N" line closing a local: H/I/J sum the section's rows `first..=last`.
+fn write_subtotal_row(
+    ws: &mut Worksheet,
+    st: &Styles,
+    r: u32,
+    n: usize,
+    first: u32,
+    last: u32,
+) -> R<()> {
+    ws.write_blank(r, COL_ITEM, &boxed(&st.center, COL_ITEM))
+        .map_err(xe)?;
+    ws.write_string_with_format(r, COL_DESC, format!("Sub-Total item {n}"), &st.text_bold)
+        .map_err(xe)?;
+    for c in COL_UNIT..=COL_U_TOT {
+        ws.write_blank(r, c, &st.text).map_err(xe)?;
+    }
+    for c in [COL_T_MAT, COL_T_LAB, COL_T_TOT] {
+        ws.write_formula_with_format(
+            r,
+            c,
+            Formula::new(format!("=SUM({}:{})", cell(c, first), cell(c, last))),
+            &boxed(&st.acc_bold, c),
+        )
+        .map_err(xe)?;
+    }
+    ws.set_row_height(r, 12.75).map_err(xe)?;
+    Ok(())
+}
+
+/// `SUM(J24,J110,...)` over the given rows of one column; `0` when there are none.
+fn sum_of_rows(col: u16, rows: &[u32]) -> String {
+    if rows.is_empty() {
+        return "0".to_string();
+    }
+    let refs: Vec<String> = rows.iter().map(|&r| cell(col, r)).collect();
+    format!("SUM({})", refs.join(","))
+}
+
 fn set_budget_layout(ws: &mut Worksheet) -> R<()> {
     for (c, w) in [
         (COL_ITEM, 5.7),
@@ -475,8 +507,7 @@ fn write_system_sheet(
     let mut r: u32 = 9;
     write_blank_row(ws, st, r)?;
     r += 1;
-    let first_item_row = r;
-    let mut last_item_row = r;
+    let mut subtotal_rows: Vec<u32> = Vec::new();
 
     for (si, section) in sys.sections.iter().enumerate() {
         let n = si + 1;
@@ -485,12 +516,8 @@ fn write_system_sheet(
             .map_err(xe)?;
         ws.write_string_with_format(r, COL_DESC, &section.name, &st.text_bold)
             .map_err(xe)?;
-        ws.write_string_with_format(r, COL_UNIT, "TOTAL ITEM", &st.italic_label)
-            .map_err(xe)?;
-        ws.write_blank(r, COL_QTY, &st.italic_label).map_err(xe)?;
-        ws.write_blank(r, COL_U_LAB, &st.price).map_err(xe)?;
-        for c in COL_U_TOT..=COL_T_TOT {
-            ws.write_blank(r, c, &boxed(&st.acc_bold, c)).map_err(xe)?;
+        for c in COL_UNIT..=COL_T_TOT {
+            ws.write_blank(r, c, &boxed(&st.text, c)).map_err(xe)?;
         }
         ws.set_row_height(r, 12.75).map_err(xe)?;
         r += 1;
@@ -514,35 +541,23 @@ fn write_system_sheet(
             ws.write_number_with_format(r, COL_U_LAB, row.labor_price, &st.price)
                 .map_err(xe)?;
             write_line_formulas(ws, st, r)?;
-            last_item_row = r;
             r += 1;
         }
-        let last = if section.rows.is_empty() {
-            first
+        // an empty local sums its (blank) header row, so the sub-total reads "-"
+        let (first, last) = if section.rows.is_empty() {
+            (section_row, section_row)
         } else {
-            r - 1
+            (first, r - 1)
         };
-        ws.write_formula_with_format(
-            section_row,
-            COL_U_MAT,
-            Formula::new(format!(
-                "=SUM({}:{})",
-                cell(COL_T_TOT, first),
-                cell(COL_T_TOT, last)
-            )),
-            &st.price_bold_italic,
-        )
-        .map_err(xe)?;
+        write_subtotal_row(ws, st, r, n, first, last)?;
+        subtotal_rows.push(r);
+        r += 1;
         write_blank_row(ws, st, r)?;
         r += 1;
     }
 
     // extras: Diversos (material), Transportes and Supervisão (labour)
-    let items_sum = format!(
-        "SUM({}:{})",
-        cell(COL_T_TOT, first_item_row),
-        cell(COL_T_TOT, last_item_row.max(first_item_row))
-    );
+    let items_sum = sum_of_rows(COL_T_TOT, &subtotal_rows);
     let base_n = sys.sections.len();
     let diversos_row = r;
     for (k, (label, is_material)) in [
@@ -587,7 +602,15 @@ fn write_system_sheet(
     write_blank_row(ws, st, r)?;
     r += 1;
 
-    // TOTAL GERAL
+    // TOTAL GERAL: every local's sub-total plus the three extras
+    let total_formula = |c: u16| {
+        format!(
+            "={}+SUM({}:{})",
+            sum_of_rows(c, &subtotal_rows),
+            cell(c, diversos_row),
+            cell(c, last_priced_row)
+        )
+    };
     ws.merge_range(
         r,
         COL_ITEM,
@@ -598,26 +621,13 @@ fn write_system_sheet(
     )
     .map_err(xe)?;
     for c in [COL_T_MAT, COL_T_LAB] {
-        ws.write_formula_with_format(
-            r,
-            c,
-            Formula::new(format!(
-                "=SUM({}:{})",
-                cell(c, first_item_row),
-                cell(c, last_priced_row)
-            )),
-            &st.total_acc,
-        )
-        .map_err(xe)?;
+        ws.write_formula_with_format(r, c, Formula::new(total_formula(c)), &st.total_acc)
+            .map_err(xe)?;
     }
     ws.write_formula_with_format(
         r,
         COL_T_TOT,
-        Formula::new(format!(
-            "=SUM({}:{})",
-            cell(COL_T_TOT, first_item_row),
-            cell(COL_T_TOT, last_priced_row)
-        )),
+        Formula::new(total_formula(COL_T_TOT)),
         &st.total_big,
     )
     .map_err(xe)?;
