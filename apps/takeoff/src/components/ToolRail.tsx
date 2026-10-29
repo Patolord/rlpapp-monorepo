@@ -57,7 +57,15 @@ const TAKEOFF: ToolDef[] = [
   },
 ];
 
-/** Areas and regions: used now and then, so they share one slot that opens a menu. */
+/** Locais structure the take-off (floor, apartment, room) rather than measure it: own group. */
+const LOCATION: ToolDef = {
+  tool: "zone",
+  label: "Local (delimitar e nomear uma região: tudo medido dentro dela é agrupado por ela)",
+  key: "Z",
+  icon: SquareDashed,
+};
+
+/** Areas: used now and then, so they share one slot that opens a menu. */
 const AREAS: ToolDef[] = [
   { tool: "area", label: "Área por polígono", key: "A", icon: Pentagon },
   { tool: "rect", label: "Área por retângulo", key: "R", icon: Square },
@@ -67,7 +75,6 @@ const AREAS: ToolDef[] = [
     key: "M",
     icon: WandSparkles,
   },
-  { tool: "zone", label: "Local (delimitar e nomear uma região)", key: "Z", icon: SquareDashed },
 ];
 
 const Divider = () => <div className="my-1 h-px w-7 bg-neutral-700" />;
@@ -88,6 +95,8 @@ export function ToolRail() {
     <div className="flex w-12 flex-col items-center gap-1 border-r border-neutral-800 bg-neutral-900 py-2">
       {NAVIGATION.map(button)}
       <Divider />
+      {button(LOCATION)}
+      <Divider />
       {TAKEOFF.map(button)}
       <AreaTools tool={tool} setTool={setTool} />
       <Divider />
@@ -102,7 +111,7 @@ export function ToolRail() {
 }
 
 /**
- * One rail slot for the area and region tools: it shows the area tool in use (or the polygon
+ * One rail slot for the area tools: it shows the area tool in use (or the polygon
  * when none is) and opens a menu with all of them. Their hotkeys still pick them directly.
  */
 function AreaTools({ tool, setTool }: { tool: Tool; setTool: (t: Tool) => void }) {
@@ -130,8 +139,8 @@ function AreaTools({ tool, setTool }: { tool: Tool; setTool: (t: Tool) => void }
   return (
     <div ref={ref} className="relative">
       <IconButton
-        label={current ? current.label : "Áreas e locais"}
-        hint={current ? current.key : "A, R, M, Z"}
+        label={current ? current.label : "Áreas"}
+        hint={current ? current.key : "A, R, M"}
         active={!!current}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -148,7 +157,7 @@ function AreaTools({ tool, setTool }: { tool: Tool; setTool: (t: Tool) => void }
           className="absolute top-0 left-full z-30 ml-2 w-64 rounded-lg border border-neutral-700 bg-neutral-900 p-1 text-xs shadow-xl"
         >
           <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
-            Áreas e locais
+            Áreas
           </div>
           {AREAS.map(({ tool: t, label, key, icon: Icon }) => (
             <button
