@@ -103,3 +103,74 @@ describe("VRF take-off (Levantamento VRF Completo workbook)", () => {
     expect(summary.evaporators).toBe(0);
   });
 });
+
+describe("VRF bill from the system tree", () => {
+  const geo = (
+    id: string,
+    role: "main" | "trunk" | "branch",
+    hp: number,
+    points: { x: number; y: number }[],
+  ): VrfRun => ({
+    id,
+    spec: { role, hp, curves: 0 },
+    length: 10,
+    drawingId: "d",
+    page: 0,
+    points,
+  });
+
+  it("sizes intermediate runs and Y-kits by the capacity connected downstream", () => {
+    const runs = [
+      geo("main", "main", 0, [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+      ]),
+      geo("trunk", "trunk", 99, [
+        { x: 100, y: 0 },
+        { x: 200, y: 0 },
+      ]),
+      geo("a", "branch", 2, [
+        { x: 100, y: 0 },
+        { x: 100, y: 50 },
+      ]),
+      geo("b", "branch", 3, [
+        { x: 200, y: 0 },
+        { x: 200, y: 50 },
+      ]),
+      geo("c", "branch", 1.5, [
+        { x: 200, y: 0 },
+        { x: 250, y: 0 },
+      ]),
+    ];
+    const { sized, summary } = vrfBill(runs, daikin, 22);
+    const trunk = sized.find((r) => r.id === "trunk");
+    // the typed 99 HP gives way to b + c
+    expect(trunk?.hp).toBe(4.5);
+    expect(trunk?.derivedHp).toBe(true);
+    expect(trunk?.gas).toBe("5/8");
+    expect(summary.ykitsFromTree).toBe(true);
+    // one kit per fork: 6.5 HP connected at the first, 4.5 HP at the second
+    expect(summary.ykits).toEqual([{ model: "KHRP26A22T", hp: 4.5, qty: 2 }]);
+  });
+
+  it("falls back to the count rule while a ramal is not connected", () => {
+    const runs = [
+      geo("main", "main", 0, [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+      ]),
+      geo("a", "branch", 2, [
+        { x: 100, y: 0 },
+        { x: 100, y: 50 },
+      ]),
+      geo("apart", "branch", 3, [
+        { x: 500, y: 0 },
+        { x: 500, y: 50 },
+      ]),
+    ];
+    const { sized, summary } = vrfBill(runs, daikin, 22);
+    expect(summary.ykitsFromTree).toBe(false);
+    expect(summary.ykits).toEqual([{ model: "KHRP26A72T", hp: 22, qty: 1 }]);
+    expect(sized.every((r) => !r.derivedHp)).toBe(true);
+  });
+});

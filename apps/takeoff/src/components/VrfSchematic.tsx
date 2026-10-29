@@ -77,7 +77,6 @@ export function VrfSchematic({
   const width = PAD_X * 2 + (layout.cols - 1) * COL + COND_W + EVAP_W;
   const height = PAD_Y * 2 + Math.max(1, layout.rows) * ROW;
   const rootHp = tree.nodes.get(tree.root)?.hp ?? 0;
-  const hpOff = (a: number, b: number) => Math.abs(a - b) > 1e-6;
 
   /** Where a node's glyph starts and ends horizontally (edges attach outside the glyph). */
   const halfW = (n: VrfNode) =>
@@ -109,8 +108,6 @@ export function VrfSchematic({
           const xm = x0 + 28;
           const d = `M${x0} ${y0} H${xm} V${y1} H${x1}`;
           const selected = selection.includes(runId);
-          const typed = run.spec.hp;
-          const flag = run.spec.role === "trunk" && hpOff(typed, e.hp);
           const lx = (xm + x1) / 2;
           return (
             // biome-ignore lint/a11y/useSemanticElements: SVG has no button element; the group is keyboard-reachable
@@ -124,7 +121,7 @@ export function VrfSchematic({
               aria-label={`${ROLE_SHORT[run.spec.role]} · ${run.length.toFixed(1)} m · ${run.gas}" × ${run.liquid}"`}
             >
               <title>
-                {`${run.tag ?? "Trecho"} · ${ROLE_SHORT[run.spec.role]} · ${run.length.toFixed(2)} m · gás ${run.gas}" · líquido ${run.liquid}" · ${run.spec.curves} curvas${flag ? ` · HP informado ${typed}, a jusante ${e.hp}` : ""}. Clique para ver no desenho`}
+                {`${run.tag ?? "Trecho"} · ${ROLE_SHORT[run.spec.role]} · ${run.length.toFixed(2)} m · gás ${run.gas}" · líquido ${run.liquid}" · ${run.spec.curves} curvas · ${formatHp(e.hp)} a jusante. Clique para ver no desenho`}
               </title>
               <path d={d} fill="none" stroke="transparent" strokeWidth={14} />
               <path
@@ -142,13 +139,8 @@ export function VrfSchematic({
                 {run.length.toFixed(1)} m{run.spec.curves > 0 ? ` · ${run.spec.curves}c` : ""}
               </text>
               <text x={lx} y={y1 + 12} textAnchor="middle" className="fill-neutral-400 font-mono">
-                {run.gas}" × {run.liquid}"{run.spec.role === "trunk" ? ` · ${formatHp(typed)}` : ""}
+                {run.gas}" × {run.liquid}"{run.spec.role === "trunk" ? ` · ${formatHp(e.hp)}` : ""}
               </text>
-              {flag && (
-                <text x={lx} y={y1 + 23} textAnchor="middle" className="fill-amber-400 font-mono">
-                  a jusante {formatHp(e.hp)}
-                </text>
-              )}
             </g>
           );
         })}
@@ -160,7 +152,9 @@ export function VrfSchematic({
           const cx = x(p.col);
           const cy = y(p.row);
           if (n.kind === "condenser") {
-            const off = hpOff(rootHp, systemHp);
+            // combination ratio: connected indoor capacity over the condenser's
+            const ratio = systemHp > 0 ? rootHp / systemHp : 0;
+            const off = ratio < 0.5 || ratio > 1.3;
             return (
               <g key={n.id}>
                 <rect
@@ -182,16 +176,18 @@ export function VrfSchematic({
                 <text x={cx} y={cy + 9} textAnchor="middle" className="fill-neutral-400">
                   {brand?.name ?? "marca"} · {formatHp(systemHp)}
                 </text>
-                {off && (
-                  <text
-                    x={cx}
-                    y={cy + COND_H / 2 + 11}
-                    textAnchor="middle"
-                    className="fill-amber-400"
-                  >
-                    evaporadoras somam {formatHp(rootHp)}
-                  </text>
-                )}
+                <text
+                  x={cx}
+                  y={cy + COND_H / 2 + 11}
+                  textAnchor="middle"
+                  className={off ? "fill-amber-400" : "fill-neutral-500"}
+                >
+                  <title>
+                    Taxa de combinação: capacidade das evaporadoras ligadas sobre a da condensadora
+                  </title>
+                  evaporadoras {formatHp(rootHp)}
+                  {systemHp > 0 ? ` · combinação ${Math.round(ratio * 100)}%` : ""}
+                </text>
               </g>
             );
           }

@@ -51,7 +51,9 @@ describe("VRF systems in a takeoff", () => {
     const item = p.items[0];
     const bill = vrfBillFor(p, pricing, SEED_BRANDS, item);
     expect(bill.summary.evaporators).toBe(2);
-    expect(bill.summary.ykits).toEqual([{ model: "KHRP26A72T", hp: 22, qty: 1 }]);
+    // the three runs meet at the origin: one fork with 2 + 4 HP connected below it
+    expect(bill.summary.ykitsFromTree).toBe(true);
+    expect(bill.summary.ykits).toEqual([{ model: "KHRP26A22T", hp: 6, qty: 1 }]);
     expect(item.materialPrice).toBe(bill.totals.material);
     expect(item.laborPrice).toBe(2 * 700);
     expect(item.manualQty).toBe(1);

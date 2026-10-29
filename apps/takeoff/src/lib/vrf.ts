@@ -9,6 +9,7 @@
  */
 
 import type { Pt } from "./geom";
+import { buildVrfTree, type VrfTree } from "./vrfTree";
 
 /** Saída da condensadora · trecho intermediário (between Y-kits) · ramal de uma evaporadora. */
 export type VrfRole = "main" | "trunk" | "branch";
@@ -239,12 +240,31 @@ export interface SizedRun extends VrfRun {
   hp: number;
   gas: Diameter;
   liquid: Diameter;
+  /** The HP came from the system tree (evaporators downstream), not from the typed value. */
+  derivedHp?: boolean;
 }
 
-export function sizeRuns(runs: VrfRun[], brand: VrfBrand, systemHp: number): SizedRun[] {
+/**
+ * Gas/liquid pair of every run. Main runs take the system's HP; a ramal its evaporator's; an
+ * intermediate run the sum of the evaporators downstream when the tree reaches it, else the
+ * typed value.
+ */
+export function sizeRuns(
+  runs: VrfRun[],
+  brand: VrfBrand,
+  systemHp: number,
+  tree?: VrfTree,
+): SizedRun[] {
   return runs.map((r) => {
-    const hp = r.spec.role === "main" ? systemHp : r.spec.hp;
-    return { ...r, hp, ...sizeRun(brand, r.spec.role, hp) };
+    const edge = r.id && r.spec.role === "trunk" ? tree?.edges.get(r.id) : undefined;
+    const derived = edge !== undefined && edge.hp > 0;
+    const hp = r.spec.role === "main" ? systemHp : derived ? edge.hp : r.spec.hp;
+    return {
+      ...r,
+      hp,
+      ...sizeRun(brand, r.spec.role, hp),
+      ...(derived ? { derivedHp: true } : {}),
+    };
   });
 }
 
@@ -317,6 +337,8 @@ export interface VrfSummary {
   lineLength: number;
   /** Y-kits, by model. */
   ykits: { model: string; hp: number; qty: number }[];
+  /** Y-kits counted at the tree's forks (else evaporators − 1, sized by the typed capacities). */
+  ykitsFromTree: boolean;
 }
 
 const roundUp = (v: number) => Math.ceil(v - 1e-9);
@@ -350,10 +372,36 @@ export function ykitsOf(brand: VrfBrand, systemHp: number, sized: SizedRun[]): V
   return [...byModel.values()].sort((a, b) => b.hp - a.hp);
 }
 
+/**
+ * The Y-kits of a system from its tree: one per fork, sized by the capacity connected below it
+ * (the sum of its evaporators), which is what selects the kit and its reducer fittings. A fork
+ * with three or more outlets counts as kits in series, all at that capacity.
+ */
+export function ykitsFromTree(brand: VrfBrand, tree: VrfTree): VrfSummary["ykits"] {
+  const byModel = new Map<string, { model: string; hp: number; qty: number }>();
+  for (const node of tree.nodes.values()) {
+    if (node.kind !== "joint") continue;
+    const model = ykitModel(brand, node.hp);
+    const qty = node.children.length - 1;
+    const cur = byModel.get(model);
+    if (cur) {
+      cur.qty += qty;
+      cur.hp = Math.min(cur.hp, node.hp);
+    } else byModel.set(model, { model, hp: node.hp, qty });
+  }
+  return [...byModel.values()].sort((a, b) => b.hp - a.hp);
+}
+
+/** True when the tree reaches every ramal, so joints and capacities can be read from it. */
+export const treeComplete = (tree: VrfTree): boolean =>
+  tree.root !== null && !tree.loose.some((r) => r.spec.role === "branch");
+
 export interface VrfBillResult {
   rows: VrfBillRow[];
   summary: VrfSummary;
   sized: SizedRun[];
+  /** The system's topology from the drawing; `ykitsFromTree` says whether the bill used it. */
+  tree: VrfTree;
 }
 
 /**
@@ -366,7 +414,9 @@ export function vrfBill(
   systemHp: number,
   settings: VrfSettings = DEFAULT_VRF_SETTINGS,
 ): VrfBillResult {
-  const sized = sizeRuns(runs, brand, systemHp);
+  const tree = buildVrfTree(runs);
+  const fromTree = treeComplete(tree);
+  const sized = sizeRuns(runs, brand, systemHp, fromTree ? tree : undefined);
   const length = new Map<Diameter, number>();
   const curves = new Map<Diameter, number>();
   let lineLength = 0;
@@ -409,7 +459,7 @@ export function vrfBill(
     const m = roundUp((length.get(d) ?? 0) * slack);
     add(insulationName(d, settings.insulationMm), "Isolamento", "m", m, INSULATION_PRICE[d], 0, d);
   }
-  const ykits = ykitsOf(brand, systemHp, sized);
+  const ykits = fromTree ? ykitsFromTree(brand, tree) : ykitsOf(brand, systemHp, sized);
   for (const k of ykits) add(ykitName(k.model), COPPER_GROUP, "pç", k.qty);
   // the cables follow the whole line: half the copper (two tubes per run), as the workbook
   const cable = roundUp(copperTotal / 2);
@@ -420,7 +470,12 @@ export function vrfBill(
   const condensers = sized.length > 0 ? 1 : 0;
   add(SUPPORT_COND, "Equipamentos", "pç", condensers, 70);
   add(LABOR_ROW, "Equipamentos", "pç", evaporators, 0, settings.laborPerEvap);
-  return { rows, sized, summary: { evaporators, condensers, lineLength, ykits } };
+  return {
+    rows,
+    sized,
+    tree,
+    summary: { evaporators, condensers, lineLength, ykits, ykitsFromTree: fromTree },
+  };
 }
 
 export interface VrfTotals {

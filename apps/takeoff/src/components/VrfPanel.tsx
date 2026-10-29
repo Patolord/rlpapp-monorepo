@@ -386,23 +386,32 @@ export function VrfPanel() {
                       </select>
                     </td>
                     <td className="py-0.5 pl-1">
-                      <input
-                        type="number"
-                        min={0}
-                        step="any"
-                        disabled={r.spec.role === "main"}
-                        value={r.spec.role === "main" ? r.hp : r.spec.hp || ""}
-                        placeholder={r.spec.role === "trunk" ? "menor" : "0"}
-                        onChange={(e) => patchRun(r, { hp: num(e.target.value) })}
-                        className={`${input} w-full disabled:opacity-60`}
-                        title={
-                          r.spec.role === "main"
-                            ? "Saída da condensadora: usa a capacidade do sistema"
-                            : r.spec.role === "trunk"
-                              ? "Soma das evaporadoras a jusante"
-                              : "Capacidade da evaporadora"
-                        }
-                      />
+                      {r.derivedHp ? (
+                        <span
+                          className="block h-6 w-full rounded px-1 text-right font-mono leading-6 text-neutral-300 ring-1 ring-transparent"
+                          title="Soma das evaporadoras a jusante, lida do esquema (trechos ligados no desenho)"
+                        >
+                          {r.hp}
+                        </span>
+                      ) : (
+                        <input
+                          type="number"
+                          min={0}
+                          step="any"
+                          disabled={r.spec.role === "main"}
+                          value={r.spec.role === "main" ? r.hp : r.spec.hp || ""}
+                          placeholder={r.spec.role === "trunk" ? "menor" : "0"}
+                          onChange={(e) => patchRun(r, { hp: num(e.target.value) })}
+                          className={`${input} w-full disabled:opacity-60`}
+                          title={
+                            r.spec.role === "main"
+                              ? "Saída da condensadora: usa a capacidade do sistema"
+                              : r.spec.role === "trunk"
+                                ? "Soma das evaporadoras a jusante (digitada: o trecho não está ligado no esquema)"
+                                : "Capacidade da evaporadora"
+                          }
+                        />
+                      )}
                     </td>
                     <td
                       className="py-0.5 text-right font-mono whitespace-nowrap"
@@ -433,8 +442,12 @@ export function VrfPanel() {
         {bill && bill.summary.ykits.length > 0 && (
           <div className="border-b border-neutral-800 px-2 py-1.5">
             <div className="mb-1 text-[11px] uppercase tracking-wide text-neutral-500">
-              Y-kits · {bill.summary.evaporators - 1}{" "}
-              <span className="normal-case">(evaporadoras − 1, pela capacidade a jusante)</span>
+              Y-kits · {bill.summary.ykits.reduce((n, k) => n + k.qty, 0)}{" "}
+              <span className="normal-case">
+                {bill.summary.ykitsFromTree
+                  ? "(derivações do esquema, cada uma pela capacidade ligada a jusante)"
+                  : "(evaporadoras − 1, pelas capacidades digitadas: ligue os trechos no desenho para ler do esquema)"}
+              </span>
             </div>
             <div className="flex flex-wrap gap-1">
               {bill.summary.ykits.map((k) => (
