@@ -22,6 +22,7 @@ import { Route as QrOperadorRouteImport } from './routes/qr-operador'
 import { Route as RhRouteRouteImport } from './routes/rh/route'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as SuporteRouteImport } from './routes/suporte'
 import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './routes/[.]well-known/oauth-authorization-server'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as ComprasIndexRouteImport } from './routes/compras/index'
@@ -157,6 +158,11 @@ const SignInRoute = SignInRouteImport.update({
 const SignUpRoute = SignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SuporteRoute = SuporteRouteImport.update({
+  id: '/suporte',
+  path: '/suporte',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DotwellKnownOauthAuthorizationServerRoute =
@@ -567,6 +573,7 @@ export interface FileRoutesByFullPath {
   '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/suporte': typeof SuporteRoute
   '/engenharia/obras': typeof EngenhariaObrasRouteRouteWithChildren
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
   '/rh/ponto': typeof RhPontoRouteRouteWithChildren
@@ -648,6 +655,7 @@ export interface FileRoutesByTo {
   '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/suporte': typeof SuporteRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/engenharia/contratos': typeof EngenhariaContratosRoute
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
@@ -729,6 +737,7 @@ export interface FileRoutesById {
   '/qr-operador': typeof QrOperadorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/suporte': typeof SuporteRoute
   '/engenharia/obras': typeof EngenhariaObrasRouteRouteWithChildren
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
   '/rh/ponto': typeof RhPontoRouteRouteWithChildren
@@ -817,6 +826,7 @@ export interface FileRouteTypes {
     | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
+    | '/suporte'
     | '/engenharia/obras'
     | '/engenharia/relatorios'
     | '/rh/ponto'
@@ -898,6 +908,7 @@ export interface FileRouteTypes {
     | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
+    | '/suporte'
     | '/.well-known/oauth-authorization-server'
     | '/engenharia/contratos'
     | '/engenharia/medicoes'
@@ -978,6 +989,7 @@ export interface FileRouteTypes {
     | '/qr-operador'
     | '/sign-in'
     | '/sign-up'
+    | '/suporte'
     | '/engenharia/obras'
     | '/engenharia/relatorios'
     | '/rh/ponto'
@@ -1065,6 +1077,7 @@ export interface RootRouteChildren {
   QrOperadorRoute: typeof QrOperadorRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
+  SuporteRoute: typeof SuporteRoute
   DotwellKnownOauthAuthorizationServerRoute: typeof DotwellKnownOauthAuthorizationServerRoute
   PortalProjectIdRoute: typeof PortalProjectIdRoute
   QTokenRoute: typeof QTokenRoute
@@ -1168,6 +1181,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-up'
       fullPath: '/sign-up'
       preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/suporte': {
+      id: '/suporte'
+      path: '/suporte'
+      fullPath: '/suporte'
+      preLoaderRoute: typeof SuporteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.well-known/oauth-authorization-server': {
@@ -1938,6 +1958,7 @@ const rootRouteChildren: RootRouteChildren = {
   QrOperadorRoute: QrOperadorRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
+  SuporteRoute: SuporteRoute,
   DotwellKnownOauthAuthorizationServerRoute:
     DotwellKnownOauthAuthorizationServerRoute,
   PortalProjectIdRoute: PortalProjectIdRoute,
