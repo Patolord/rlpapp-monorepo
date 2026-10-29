@@ -14,6 +14,7 @@ import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as ComprasRouteRouteImport } from './routes/compras/route'
 import { Route as EngenhariaRouteRouteImport } from './routes/engenharia/route'
 import { Route as EstoqueRouteRouteImport } from './routes/estoque/route'
+import { Route as ExcluirContaRouteImport } from './routes/excluir-conta'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as MeusRegistrosRouteImport } from './routes/meus-registros'
@@ -118,6 +119,11 @@ const EngenhariaRouteRoute = EngenhariaRouteRouteImport.update({
 const EstoqueRouteRoute = EstoqueRouteRouteImport.update({
   id: '/estoque',
   path: '/estoque',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExcluirContaRoute = ExcluirContaRouteImport.update({
+  id: '/excluir-conta',
+  path: '/excluir-conta',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -566,6 +572,7 @@ export interface FileRoutesByFullPath {
   '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/estoque': typeof EstoqueRouteRouteWithChildren
   '/rh': typeof RhRouteRouteWithChildren
+  '/excluir-conta': typeof ExcluirContaRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/meus-registros': typeof MeusRegistrosRoute
@@ -648,6 +655,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/excluir-conta': typeof ExcluirContaRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/meus-registros': typeof MeusRegistrosRoute
@@ -730,6 +738,7 @@ export interface FileRoutesById {
   '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/estoque': typeof EstoqueRouteRouteWithChildren
   '/rh': typeof RhRouteRouteWithChildren
+  '/excluir-conta': typeof ExcluirContaRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/meus-registros': typeof MeusRegistrosRoute
@@ -819,6 +828,7 @@ export interface FileRouteTypes {
     | '/engenharia'
     | '/estoque'
     | '/rh'
+    | '/excluir-conta'
     | '/login'
     | '/mcp'
     | '/meus-registros'
@@ -901,6 +911,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/excluir-conta'
     | '/login'
     | '/mcp'
     | '/meus-registros'
@@ -982,6 +993,7 @@ export interface FileRouteTypes {
     | '/engenharia'
     | '/estoque'
     | '/rh'
+    | '/excluir-conta'
     | '/login'
     | '/mcp'
     | '/meus-registros'
@@ -1070,6 +1082,7 @@ export interface RootRouteChildren {
   EngenhariaRouteRoute: typeof EngenhariaRouteRouteWithChildren
   EstoqueRouteRoute: typeof EstoqueRouteRouteWithChildren
   RhRouteRoute: typeof RhRouteRouteWithChildren
+  ExcluirContaRoute: typeof ExcluirContaRoute
   LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
   MeusRegistrosRoute: typeof MeusRegistrosRoute
@@ -1125,6 +1138,13 @@ declare module '@tanstack/react-router' {
       path: '/estoque'
       fullPath: '/estoque'
       preLoaderRoute: typeof EstoqueRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/excluir-conta': {
+      id: '/excluir-conta'
+      path: '/excluir-conta'
+      fullPath: '/excluir-conta'
+      preLoaderRoute: typeof ExcluirContaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -1951,6 +1971,7 @@ const rootRouteChildren: RootRouteChildren = {
   EngenhariaRouteRoute: EngenhariaRouteRouteWithChildren,
   EstoqueRouteRoute: EstoqueRouteRouteWithChildren,
   RhRouteRoute: RhRouteRouteWithChildren,
+  ExcluirContaRoute: ExcluirContaRoute,
   LoginRoute: LoginRoute,
   McpRoute: McpRoute,
   MeusRegistrosRoute: MeusRegistrosRoute,
