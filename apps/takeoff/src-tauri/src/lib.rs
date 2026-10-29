@@ -276,9 +276,13 @@ struct Styles {
 impl Styles {
     fn new() -> Self {
         let arial = |size: f64| Format::new().set_font_name("Arial").set_font_size(size);
+        // table rows: thin lines between columns, hairlines between rows (see the samples)
         let row = |f: Format| {
             f.set_font_color(NAVY)
-                .set_border(FormatBorder::Hair)
+                .set_border_top(FormatBorder::Hair)
+                .set_border_bottom(FormatBorder::Hair)
+                .set_border_left(FormatBorder::Thin)
+                .set_border_right(FormatBorder::Thin)
                 .set_align(FormatAlign::VerticalCenter)
         };
         Styles {
@@ -368,10 +372,11 @@ impl Styles {
     }
 }
 
-/// Clone `base` with the medium outer border of the A..J box applied at the edge columns.
+/// Clone `base` with the medium bars of the A..J box: its outer edges and the bar between the
+/// UNITÁRIO and TOTAL blocks (left of H).
 fn boxed(base: &Format, col: u16) -> Format {
     let mut f = base.clone();
-    if col == COL_ITEM {
+    if col == COL_ITEM || col == COL_T_MAT {
         f = f.set_border_left(FormatBorder::Medium);
     }
     if col == COL_T_TOT {
@@ -425,16 +430,20 @@ fn write_header_block(ws: &mut Worksheet, st: &Styles, x: &SheetExport, system: 
 /// Two-row column header. `totals` are the three labels of the right-hand TOTAL block.
 fn write_column_header(ws: &mut Worksheet, st: &Styles, totals: [&str; 3]) -> R<()> {
     let (h0, h1) = (7, 8);
+    // medium line above the first header row and below the second
+    let top = st.header.clone().set_border_top(FormatBorder::Medium);
+    let bottom = st.header.clone().set_border_bottom(FormatBorder::Medium);
+    let both = top.clone().set_border_bottom(FormatBorder::Medium);
     for (c, label) in [
         (COL_ITEM, "ITEM"),
         (COL_DESC, "DESCRIÇÃO"),
         (COL_UNIT, "UNID."),
         (COL_QTY, "QUANT."),
     ] {
-        ws.merge_range(h0, c, h1, c, label, &boxed(&st.header, c))
+        ws.merge_range(h0, c, h1, c, label, &boxed(&both, c))
             .map_err(xe)?;
     }
-    ws.merge_range(h0, COL_U_MAT, h0, COL_U_TOT, "UNITÁRIO", &st.header)
+    ws.merge_range(h0, COL_U_MAT, h0, COL_U_TOT, "UNITÁRIO", &top)
         .map_err(xe)?;
     ws.merge_range(
         h0,
@@ -442,7 +451,7 @@ fn write_column_header(ws: &mut Worksheet, st: &Styles, totals: [&str; 3]) -> R<
         h0,
         COL_T_TOT,
         "TOTAL",
-        &boxed(&st.header, COL_T_TOT),
+        &boxed(&top, COL_T_MAT).set_border_right(FormatBorder::Medium),
     )
     .map_err(xe)?;
     for (c, label) in [
@@ -453,7 +462,7 @@ fn write_column_header(ws: &mut Worksheet, st: &Styles, totals: [&str; 3]) -> R<
         (COL_T_LAB, totals[1]),
         (COL_T_TOT, totals[2]),
     ] {
-        ws.write_string_with_format(h1, c, label, &boxed(&st.header, c))
+        ws.write_string_with_format(h1, c, label, &boxed(&bottom, c))
             .map_err(xe)?;
     }
     ws.set_row_height(h1, 13.5).map_err(xe)?;
@@ -928,7 +937,7 @@ fn write_resumo(
             r,
             COL_T_MAT,
             Formula::new(format!("={sheet_ref}!{}", cell(COL_T_MAT, t.bdi_row))),
-            &st.pct,
+            &boxed(&st.pct, COL_T_MAT),
         )
         .map_err(xe)?;
         ws.write_formula_with_format(
