@@ -16,6 +16,13 @@ import {
   photoMimeType,
   readPhotoBody,
 } from "./lib/rh/photo";
+import { json, takeoffTokenError } from "./lib/takeoffHttp";
+import {
+  handleDownloadUrl as handleTakeoffPlanDownloadUrl,
+  handleUploadUrl as handleTakeoffPlanUploadUrl,
+  handleUploaded as handleTakeoffPlanUploaded,
+} from "./takeoffPlans";
+import { PLANS_PATH_PREFIX } from "./model/procurement/takeoffPlans";
 
 type ClerkEmailAddress = {
   id: string;
@@ -113,13 +120,6 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
   return new Response(null, { status: 200 });
 });
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json; charset=utf-8" },
-  });
-}
-
 const handleMaterialLookup = httpAction(async (ctx, request) => {
   const token = env.MATERIAL_LOOKUP_TOKEN;
   if (!token) return json({ error: "Material lookup is not configured" }, 503);
@@ -160,11 +160,8 @@ const handleMaterialLookup = httpAction(async (ctx, request) => {
 // isso a resposta é um JSON único e não paginado.
 
 const handleTakeoffCatalog = httpAction(async (ctx, request) => {
-  const token = env.TAKEOFF_CATALOG_TOKEN;
-  if (!token) return json({ error: "Takeoff catalog is not configured" }, 503);
-  if (request.headers.get("Authorization") !== `Bearer ${token}`) {
-    return json({ error: "Unauthorized" }, 401);
-  }
+  const denied = takeoffTokenError(request);
+  if (denied) return denied;
 
   const startedAt = Date.now();
   const items: TakeoffCatalogItem[] = await ctx.runQuery(
@@ -186,11 +183,8 @@ const handleTakeoffCatalog = httpAction(async (ctx, request) => {
 // já existente) e, se veio preço, uma estimativa na fila de revisão.
 // Idempotente por clientId para o app poder reenviar sem medo.
 const handleTakeoffMaterialProposal = httpAction(async (ctx, request) => {
-  const token = env.TAKEOFF_CATALOG_TOKEN;
-  if (!token) return json({ error: "Takeoff catalog is not configured" }, 503);
-  if (request.headers.get("Authorization") !== `Bearer ${token}`) {
-    return json({ error: "Unauthorized" }, 401);
-  }
+  const denied = takeoffTokenError(request);
+  if (denied) return denied;
 
   let body: unknown;
   try {
@@ -418,6 +412,25 @@ http.route({
   path: "/takeoff/materials",
   method: "POST",
   handler: handleTakeoffMaterialProposal,
+});
+
+// Plantas (PDF) do takeoff no R2: ver `takeoffPlans.ts`.
+http.route({
+  path: "/takeoff/plans/upload-url",
+  method: "POST",
+  handler: handleTakeoffPlanUploadUrl,
+});
+
+http.route({
+  path: "/takeoff/plans/uploaded",
+  method: "POST",
+  handler: handleTakeoffPlanUploaded,
+});
+
+http.route({
+  pathPrefix: PLANS_PATH_PREFIX,
+  method: "GET",
+  handler: handleTakeoffPlanDownloadUrl,
 });
 
 export default http;
