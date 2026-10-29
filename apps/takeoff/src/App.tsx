@@ -16,6 +16,7 @@ import { PanelDivider } from "./components/PanelDivider";
 import { SelectionBar } from "./components/SelectionBar";
 import { Sidebar } from "./components/Sidebar";
 import { SimilarPreviewBar } from "./components/SimilarPreviewBar";
+import { SpecialtyDrawer } from "./components/SpecialtyDrawer";
 import { StatusBar } from "./components/StatusBar";
 import { ToolRail } from "./components/ToolRail";
 import { TopBar } from "./components/TopBar";
@@ -117,15 +118,18 @@ export default function App() {
       <div className="flex min-h-0 flex-1">
         <ToolRail />
         <PageStrip />
-        <div className="relative min-w-0 flex-1">
-          <Viewer />
-          {!numPages && <Welcome />}
-          <SimilarPreviewBar />
-          <KitPicker />
-          <SelectionBar />
-          <CalibrateDialog />
-          <ZoneDialog />
-          <LegendDialog />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="relative min-h-0 flex-1">
+            <Viewer />
+            {!numPages && <Welcome />}
+            <SimilarPreviewBar />
+            <KitPicker />
+            <SelectionBar />
+            <CalibrateDialog />
+            <ZoneDialog />
+            <LegendDialog />
+          </div>
+          <SpecialtyDrawer />
         </div>
         <PanelDivider />
         {sidebarOpen && <Sidebar />}

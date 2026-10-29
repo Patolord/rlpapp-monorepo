@@ -1,5 +1,5 @@
 import { Cuboid, FileSpreadsheet, Plus, Settings2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { mergeCatalog } from "../lib/catalog";
 import { ductBillFor, ductNetworks, ductRunsByNetwork } from "../lib/ductItems";
 import {
@@ -55,6 +55,10 @@ export function DuctsPanel() {
   const networks = useMemo(() => ductNetworks(project), [project]);
   const byNetwork = useMemo(() => ductRunsByNetwork(project), [project]);
   const [chosen, setChosen] = useState<string | null>(null);
+  // the item made active elsewhere (a badge in Itens, a new network) takes over the panel
+  useEffect(() => {
+    if (networks.some((n) => n.id === activeItemId)) setChosen(null);
+  }, [activeItemId, networks]);
   const network =
     networks.find((n) => n.id === chosen) ??
     networks.find((n) => n.id === activeItemId) ??

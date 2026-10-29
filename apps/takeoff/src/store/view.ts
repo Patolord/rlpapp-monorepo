@@ -14,8 +14,12 @@ export const SIDEBAR_MIN = 540;
 
 /** The take-off views of the side panel: what was measured, where, and what it costs. */
 export type PanelTab = "items" | "zones" | "quote";
-/** The per-system calculators the side panel drills into (duct networks, VRF systems). */
+/** The specialty calculators (duct networks, VRF systems), shown in a drawer under the drawing. */
 export type SystemPanel = "duct" | "vrf";
+/** Shortest the specialty drawer goes (header plus a few rows). */
+export const DRAWER_MIN = 160;
+
+const DRAWER_OF_TOOL: Partial<Record<Tool, SystemPanel>> = { duct: "duct", vrf: "vrf" };
 
 /** Everything about the session's view: page, tool, selection, filters, dialogs, preferences. */
 export interface ViewSlice {
@@ -64,10 +68,11 @@ export interface ViewSlice {
   /** Side panel (items, locais, orçamento): shown, and its width in CSS px (remembered). */
   sidebarOpen: boolean;
   sidebarWidth: number;
-  /** Take-off view shown in the side panel; stays put while a calculator is open over it. */
+  /** Take-off view shown in the side panel. */
   panelTab: PanelTab;
-  /** System calculator open over the take-off views, if any. */
+  /** Specialty calculator open in the drawer under the drawing, if any; its height in CSS px. */
   systemPanel: SystemPanel | null;
+  drawerHeight: number;
 
   setPage(page: number): void;
   setTool(tool: Tool): void;
@@ -102,12 +107,13 @@ export interface ViewSlice {
   setCatalogSettingsOpen(open: boolean): void;
   setSidebarOpen(open: boolean): void;
   setSidebarWidth(px: number): void;
-  /** Show a take-off view, leaving any calculator. */
+  /** Show a take-off view in the side panel. */
   setPanelTab(tab: PanelTab): void;
-  /** Open a system calculator; with an item id, that network/system is the one worked on. */
+  /** Open the drawer on a specialty; with an item id, that network/system is the one worked on. */
   openSystemPanel(system: SystemPanel, itemId?: string): void;
-  /** Leave the calculator and return to the take-off view underneath. */
+  /** Collapse the drawer. */
   closeSystemPanel(): void;
+  setDrawerHeight(px: number): void;
 }
 
 export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
@@ -144,6 +150,7 @@ export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
   sidebarWidth: readPref("sidebarWidth", 580),
   panelTab: "items",
   systemPanel: null,
+  drawerHeight: readPref("drawerHeight", 320),
 
   setPage: (page) => set({ page, selection: [] }),
 
@@ -159,7 +166,15 @@ export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
         activeId = [...project.items].reverse().find((i) => i.kind === kind)?.id ?? null;
       }
     }
-    set({ tool, activeItemId: activeId, calibration: null, pendingZone: null });
+    // a specialty tool brings up its calculator: the runs land there as they are measured
+    const drawer = DRAWER_OF_TOOL[tool];
+    set({
+      tool,
+      activeItemId: activeId,
+      calibration: null,
+      pendingZone: null,
+      ...(drawer ? { systemPanel: drawer } : {}),
+    });
   },
 
   setActiveItem: (id) => {
@@ -261,12 +276,20 @@ export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
     set({ sidebarWidth });
   },
 
-  setPanelTab: (panelTab) => set({ panelTab, systemPanel: null, sidebarOpen: true }),
+  setPanelTab: (panelTab) => set({ panelTab, sidebarOpen: true }),
 
   openSystemPanel: (system, itemId) => {
     if (itemId) get().setActiveItem(itemId);
-    set({ systemPanel: system, sidebarOpen: true });
+    set({ systemPanel: system });
   },
 
   closeSystemPanel: () => set({ systemPanel: null }),
+
+  setDrawerHeight: (px) => {
+    // never more than 70% of the window: the drawing stays usable above it
+    const max = Math.max(DRAWER_MIN, Math.floor(window.innerHeight * 0.7));
+    const drawerHeight = Math.round(Math.min(max, Math.max(DRAWER_MIN, px)));
+    writePref("drawerHeight", drawerHeight);
+    set({ drawerHeight });
+  },
 });

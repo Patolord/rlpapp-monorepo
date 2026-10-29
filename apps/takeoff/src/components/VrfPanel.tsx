@@ -1,5 +1,5 @@
 import { AirVent, FileSpreadsheet, Plus, Settings2, SlidersHorizontal } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { exportVrfSheet } from "../lib/files";
 import { formatMoney } from "../lib/units";
 import {
@@ -47,6 +47,10 @@ export function VrfPanel() {
   const systems = useMemo(() => vrfSystems(project), [project]);
   const bySystem = useMemo(() => vrfRunsBySystem(project), [project]);
   const [chosen, setChosen] = useState<string | null>(null);
+  // the item made active elsewhere (a badge in Itens, a new system) takes over the panel
+  useEffect(() => {
+    if (systems.some((n) => n.id === activeItemId)) setChosen(null);
+  }, [activeItemId, systems]);
   const system =
     systems.find((n) => n.id === chosen) ??
     systems.find((n) => n.id === activeItemId) ??

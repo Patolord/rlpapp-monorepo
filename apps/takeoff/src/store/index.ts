@@ -40,4 +40,4 @@ export {
 } from "./shared";
 export type { SimilarMatch, SimilarPreview } from "./similar";
 export type { PanelTab, SystemPanel } from "./view";
-export { SIDEBAR_MIN } from "./view";
+export { DRAWER_MIN, SIDEBAR_MIN } from "./view";
