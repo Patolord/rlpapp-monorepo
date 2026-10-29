@@ -7,7 +7,7 @@ import { buildQuote, disciplineTotals, quoteCsv, round2, systemSheets } from "..
 import { formatMoney, formatNumber, type Unit } from "../lib/units";
 import { isWeightPriced } from "../lib/weights";
 import { type ProjectMeta, useStore } from "../store";
-import { DisciplineFooter } from "./DisciplineFooter";
+import { DisciplineBar } from "./DisciplineBar";
 import { PriceSourceBadge } from "./PriceSourceBadge";
 import { Button } from "./ui";
 
@@ -219,7 +219,7 @@ export function QuotePanel() {
                   ))}
                   <tr className="border-b border-neutral-800">
                     <td colSpan={5} className="px-2 py-2">
-                      <DisciplineFooter
+                      <DisciplineBar
                         system={sheet.system}
                         totals={tabs.find((t) => t.system === sheet.system)}
                       />

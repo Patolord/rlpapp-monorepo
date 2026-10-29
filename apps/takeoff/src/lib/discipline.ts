@@ -1,7 +1,7 @@
 import { normalizeDiscipline } from "./catalog";
 import type { DisciplineSettings, FooterLine, Project } from "./types";
 
-/** The project's BDI, extras and footer for one discipline tab, with the defaults filled in. */
+/** BDI, extras and footer of one discipline tab, with the project's defaults filled in. */
 export interface ResolvedDiscipline {
   bdi: number;
   extrasPct: number;
@@ -42,9 +42,6 @@ export function resolveDiscipline(project: Project, discipline: string): Resolve
   return {
     bdi: own.bdi ?? project.bdi,
     extrasPct: own.extrasPct ?? project.extrasPct,
-    footer: own.footer ?? defaultFooter(discipline),
+    footer: defaultFooter(discipline),
   };
 }
-
-/** Whether the tab prints "valor por ponto" / VENDA: it needs a points line. */
-export const hasPoints = (footer: FooterLine[]): boolean => footer.some((l) => l.kind === "points");

@@ -120,7 +120,8 @@ export interface Zone {
 /**
  * A line of the stats block printed under TOTAL GERAL of a discipline tab: entered numbers
  * (points, average length), a value per point, or an amount times a factor. The sheet writes
- * them as live formulas over the tab's totals.
+ * them as live formulas over the tab's totals; each discipline gets its usual lines (see
+ * `defaultFooter`) and the estimator finishes them in Excel.
  */
 export type FooterLine =
   /** An entered number shown as is ("Metragem média"). */
@@ -138,8 +139,6 @@ export type FactorBase = "material" | "labor" | "total" | "manual";
 export interface DisciplineSettings {
   bdi?: number;
   extrasPct?: number;
-  /** undefined = the usual footer of that discipline (see `defaultFooter`). */
-  footer?: FooterLine[];
 }
 
 export interface Project {
@@ -323,30 +322,9 @@ function disciplinesOf(raw: unknown): Record<string, DisciplineSettings> {
     const s: DisciplineSettings = {};
     if (typeof d.bdi === "number") s.bdi = d.bdi;
     if (typeof d.extrasPct === "number") s.extrasPct = d.extrasPct;
-    if (Array.isArray(d.footer)) s.footer = d.footer.filter(isFooterLine);
     out[name] = s;
   }
   return out;
-}
-
-function isFooterLine(v: unknown): v is FooterLine {
-  if (!v || typeof v !== "object") return false;
-  const l = v as Record<string, unknown>;
-  if (typeof l.label !== "string") return false;
-  switch (l.kind) {
-    case "stat":
-    case "points":
-      return typeof l.value === "number";
-    case "perPoint":
-      return true;
-    case "factor":
-      return (
-        typeof l.factor === "number" &&
-        ["material", "labor", "total", "manual"].includes(String(l.base))
-      );
-    default:
-      return false;
-  }
 }
 
 /** Load a project file of any supported version into the current shape. */

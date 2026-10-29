@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultFooter, hasPoints, resolveDiscipline } from "./discipline";
+import { defaultFooter, resolveDiscipline } from "./discipline";
 import { buildQuote, disciplineTotals } from "./quantities";
 import { emptyProject, migrateProject, type Project } from "./types";
 
@@ -48,16 +48,15 @@ describe("discipline settings", () => {
     expect(r.bdi).toBe(1.4);
     expect(r.extrasPct).toBe(6);
     expect(r.footer).toEqual(defaultFooter("Exaustão"));
-    expect(hasPoints(r.footer)).toBe(true);
+    expect(r.footer.some((l) => l.kind === "points")).toBe(true);
   });
 
   it("use the tab's own values where set, field by field", () => {
     const p = project();
-    p.disciplines = { Exaustão: { bdi: 1.25, footer: [] } };
+    p.disciplines = { Exaustão: { bdi: 1.25 } };
     const r = resolveDiscipline(p, "Exaustão");
     expect(r.bdi).toBe(1.25);
     expect(r.extrasPct).toBe(6);
-    expect(r.footer).toEqual([]);
   });
 
   it("have equipment and installation factors on the AC tabs only", () => {
@@ -92,26 +91,16 @@ describe("per-tab totals", () => {
 });
 
 describe("migration", () => {
-  it("gives older files an empty disciplines map and drops junk lines", () => {
+  it("gives older files an empty disciplines map and keeps only numbers", () => {
     const { disciplines: _d, ...old } = emptyProject();
     expect(migrateProject(old).disciplines).toEqual({});
     const p = migrateProject({
       ...emptyProject(),
       disciplines: {
-        Exaustão: {
-          bdi: 1.3,
-          footer: [
-            { kind: "points", label: "Pontos", value: 4 },
-            { kind: "factor", label: "x", base: "nope", factor: 1 },
-            { kind: "stat", label: "sem valor" },
-            "junk",
-          ],
-        },
+        Exaustão: { bdi: 1.3, extrasPct: "5", footer: [{ kind: "points" }] },
         broken: null,
       },
     });
-    expect(p.disciplines).toEqual({
-      Exaustão: { bdi: 1.3, footer: [{ kind: "points", label: "Pontos", value: 4 }] },
-    });
+    expect(p.disciplines).toEqual({ Exaustão: { bdi: 1.3 } });
   });
 });
