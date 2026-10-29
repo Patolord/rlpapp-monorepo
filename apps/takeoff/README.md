@@ -54,6 +54,11 @@ update. Secrets in this private repository: `TAURI_SIGNING_PRIVATE_KEY`,
 releases in takeoff-releases). To build and sign locally instead, set the two signing variables
 and run `bun run tauri:build`.
 
+If the tag cannot be pushed from where you are (a cloud session may only push its own branch),
+run the `release` workflow by hand from the Actions tab on a commit that already carries the
+bumped version: it checks the version against `tauri.conf.json`, creates the `vX.Y.Z` tag itself
+and then builds and publishes as usual.
+
 ## Quality gates
 
 ```bash
