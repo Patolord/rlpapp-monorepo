@@ -16,6 +16,15 @@ name: release
 on:
   push:
     tags: ["v*"]
+  # Manual fallback for when the tag cannot be pushed from where the release is driven (e.g. a
+  # cloud session that may only push its own branch): the run checks the version against
+  # tauri.conf.json, tags the dispatched commit itself and goes on exactly as a tag push would.
+  # The tag is created with GITHUB_TOKEN, so it does not start a second run.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (1.2.3); must equal the version in src-tauri/tauri.conf.json"
+        required: true
 
 permissions:
   contents: write
@@ -28,12 +37,31 @@ jobs:
     outputs:
       id: ${{ steps.rel.outputs.id }}
     steps:
+      - if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+
+      - name: Tag the dispatched commit
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          CONFIGURED=$(jq -r .version src-tauri/tauri.conf.json)
+          if [ "$VERSION" != "$CONFIGURED" ]; then
+            echo "::error::Requested $VERSION but src-tauri/tauri.conf.json says $CONFIGURED; run 'bun run release $VERSION' first."
+            exit 1
+          fi
+          if ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSION" >/dev/null 2>&1; then
+            gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/v$VERSION" -f sha="$GITHUB_SHA"
+          fi
+
       - name: Create the release in the public repository
         id: rel
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
         run: |
           REPO=Patolord/takeoff-releases
           if ! gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
