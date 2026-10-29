@@ -117,6 +117,31 @@ export interface Zone {
   repeat?: number;
 }
 
+/**
+ * A line of the stats block printed under TOTAL GERAL of a discipline tab: entered numbers
+ * (points, average length), a value per point, or an amount times a factor. The sheet writes
+ * them as live formulas over the tab's totals.
+ */
+export type FooterLine =
+  /** An entered number shown as is ("Metragem média"). */
+  | { kind: "stat"; label: string; value: number }
+  /** The number of points; enables "valor por ponto" and the VENDA column of the BDI ladder. */
+  | { kind: "points"; label: string; value: number }
+  /** TOTAL GERAL divided by the points. */
+  | { kind: "perPoint"; label: string }
+  /** An amount times a factor: the tab's material, labour or total, or an entered value. */
+  | { kind: "factor"; label: string; base: FactorBase; value?: number; factor: number };
+
+export type FactorBase = "material" | "labor" | "total" | "manual";
+
+/** Per-discipline (sheet tab) overrides; a missing field falls back to the project's value. */
+export interface DisciplineSettings {
+  bdi?: number;
+  extrasPct?: number;
+  /** undefined = the usual footer of that discipline (see `defaultFooter`). */
+  footer?: FooterLine[];
+}
+
 export interface Project {
   version: 4;
   name: string;
@@ -129,10 +154,12 @@ export interface Project {
   estimator: string;
   /** System title printed on the sheet, e.g. "SISTEMA DE PRESSURIZAÇÃO DE ESCADAS". */
   system: string;
-  /** Multiplier applied to TOTAL GERAL to reach the proposal price (1.42 = 42 %). */
+  /** Default multiplier applied to a tab's TOTAL GERAL to reach its price (1.42 = 42 %). */
   bdi: number;
-  /** Percentage of the items total split evenly into Diversos / Transportes / Supervisão. */
+  /** Default percentage of the items total split evenly into Diversos / Transportes / Supervisão. */
   extrasPct: number;
+  /** Overrides per discipline tab, keyed by the tab's name as `systemSheets` produces it. */
+  disciplines: Record<string, DisciplineSettings>;
   /** How the exported sheet is sectioned: by location (ambiente) or by item group. */
   sectionsBy: "local" | "grupo";
   drawings: Drawing[];
@@ -210,6 +237,7 @@ export function emptyProject(): Project {
     system: "",
     bdi: 1.42,
     extrasPct: 5,
+    disciplines: {},
     sectionsBy: "local",
     drawings: [],
     activeDrawingId: null,
@@ -285,12 +313,55 @@ function locationsFromZonesV3(zones: ZoneV3[]): { locations: Location[]; zones: 
   return { locations, zones: out };
 }
 
+/** The `disciplines` map of a saved file; files before it (or junk) give an empty map. */
+function disciplinesOf(raw: unknown): Record<string, DisciplineSettings> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, DisciplineSettings> = {};
+  for (const [name, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!v || typeof v !== "object") continue;
+    const d = v as Record<string, unknown>;
+    const s: DisciplineSettings = {};
+    if (typeof d.bdi === "number") s.bdi = d.bdi;
+    if (typeof d.extrasPct === "number") s.extrasPct = d.extrasPct;
+    if (Array.isArray(d.footer)) s.footer = d.footer.filter(isFooterLine);
+    out[name] = s;
+  }
+  return out;
+}
+
+function isFooterLine(v: unknown): v is FooterLine {
+  if (!v || typeof v !== "object") return false;
+  const l = v as Record<string, unknown>;
+  if (typeof l.label !== "string") return false;
+  switch (l.kind) {
+    case "stat":
+    case "points":
+      return typeof l.value === "number";
+    case "perPoint":
+      return true;
+    case "factor":
+      return (
+        typeof l.factor === "number" &&
+        ["material", "labor", "total", "manual"].includes(String(l.base))
+      );
+    default:
+      return false;
+  }
+}
+
 /** Load a project file of any supported version into the current shape. */
 export function migrateProject(raw: unknown): Project {
   if (!raw || typeof raw !== "object") throw new Error("Not a takeoff project");
   const r = raw as Record<string, unknown>;
   const base = emptyProject();
-  if (r.version === 4) return { ...base, ...(r as Partial<Project>), version: 4 };
+  if (r.version === 4) {
+    return {
+      ...base,
+      ...(r as Partial<Project>),
+      disciplines: disciplinesOf(r.disciplines),
+      version: 4,
+    };
+  }
   if (r.version === 3) {
     const { zones: _z, ...rest } = r as Partial<Project> & { zones?: ZoneV3[] };
     return {

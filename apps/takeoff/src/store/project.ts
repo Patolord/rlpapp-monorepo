@@ -4,6 +4,7 @@ import { syncDuctItems } from "../lib/ductItems";
 import { useDoc } from "../lib/session";
 import {
   activeDrawing,
+  type DisciplineSettings,
   type Drawing,
   emptyProject,
   newId,
@@ -66,6 +67,8 @@ export interface ProjectSlice {
 
   setPageScale(scale: PageScale | null, which: "current" | "all"): void;
   setProjectMeta(patch: ProjectMeta): void;
+  /** BDI, extras or footer of one discipline tab; `footer: undefined` returns it to the default. */
+  setDiscipline(name: string, patch: Partial<DisciplineSettings>): void;
   /** Nudge an item up (-1) or down (+1) inside its group in the budget. */
   moveItemInBudget(id: string, dir: -1 | 1): void;
 }
@@ -234,6 +237,12 @@ export const createProjectSlice: Slice<ProjectSlice> = (set, get) => ({
   },
 
   setProjectMeta: (patch) => get().commit((p) => ({ ...p, ...patch })),
+
+  setDiscipline: (name, patch) =>
+    get().commit((p) => ({
+      ...p,
+      disciplines: { ...p.disciplines, [name]: { ...p.disciplines[name], ...patch } },
+    })),
 
   moveItemInBudget: (id, dir) =>
     get().commit((p) => {

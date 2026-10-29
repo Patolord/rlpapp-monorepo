@@ -1,4 +1,5 @@
 import { compareSystems, groupKey, groupLabels, groupOf, sortItemsForBudget } from "./budgetOrder";
+import { resolveDiscipline } from "./discipline";
 import {
   type Pt,
   pointAlong,
@@ -7,13 +8,7 @@ import {
   polygonCentroid,
   polylineLength,
 } from "./geom";
-import {
-  drawingOf,
-  type Item,
-  type Measurement,
-  type Project,
-  type Zone,
-} from "./types";
+import { drawingOf, type Item, type Measurement, type Project, type Zone } from "./types";
 import type { Kind, PageScale, Unit } from "./units";
 import { formatQty, qtyUnit } from "./units";
 
@@ -186,6 +181,56 @@ export interface SystemSheet {
   sections: SheetSection[];
 }
 
+/** Name of the workbook tab (discipline) an item is printed on. */
+export function sheetKey(project: Project, item: Item): string {
+  const fallback = project.system || "Orçamento";
+  return (item.system || fallback).trim() || fallback;
+}
+
+/** Money totals of one discipline tab, the way its sheet computes them. */
+export interface DisciplineTotals {
+  system: string;
+  material: number;
+  labor: number;
+  /** Diversos / Transportes / Supervisão: each this much. */
+  extraEach: number;
+  extrasPct: number;
+  totalGeral: number;
+  bdi: number;
+  /** TOTAL GERAL × the tab's BDI. */
+  proposal: number;
+}
+
+/** Totals per discipline tab, in tab order; each with its own extras and BDI. */
+export function disciplineTotals(project: Project): DisciplineTotals[] {
+  const totals = itemTotals(project);
+  const sums = new Map<string, { material: number; labor: number }>();
+  for (const item of project.items) {
+    const key = sheetKey(project, item);
+    const qty = pricedQty(item, totals.get(item.id)?.qty ?? 0);
+    const s = sums.get(key) ?? { material: 0, labor: 0 };
+    s.material += round2(item.materialPrice * qty);
+    s.labor += round2(item.laborPrice * qty);
+    sums.set(key, s);
+  }
+  return [...sums.keys()].sort(compareSystems).map((system) => {
+    const { material, labor } = sums.get(system) ?? { material: 0, labor: 0 };
+    const { bdi, extrasPct } = resolveDiscipline(project, system);
+    const extraEach = round2(((material + labor) * (extrasPct / 100)) / 3);
+    const totalGeral = material + labor + extraEach * 3;
+    return {
+      system,
+      material,
+      labor,
+      extraEach,
+      extrasPct,
+      totalGeral,
+      bdi,
+      proposal: round2(totalGeral * bdi),
+    };
+  });
+}
+
 /**
  * Items grouped the way the RLP budget workbook is laid out: one sheet per system, and inside
  * it one section per location (ambiente) when locations exist and `sectionsBy` is "local",
@@ -195,9 +240,8 @@ export interface SystemSheet {
 export function systemSheets(project: Project): SystemSheet[] {
   const bySystem = new Map<string, Item[]>();
   const labels = groupLabels(project.items);
-  const fallback = project.system || "Orçamento";
   for (const item of sortItemsForBudget(project.items)) {
-    const key = (item.system || fallback).trim() || fallback;
+    const key = sheetKey(project, item);
     bySystem.set(key, [...(bySystem.get(key) ?? []), item]);
   }
   const byLocation = project.sectionsBy === "local" && project.locations.length > 0;
@@ -300,12 +344,12 @@ export interface Quote {
   material: number;
   labor: number;
   subtotal: number;
-  /** Diversos (material), Transportes (labour), Supervisão (labour): each extrasPct / 3 of subtotal. */
+  /** Diversos (material), Transportes (labour), Supervisão (labour): each line, summed over the tabs. */
   extraEach: number;
   totalMaterial: number;
   totalLabor: number;
   totalGeral: number;
-  /** TOTAL GERAL × BDI. */
+  /** Sum over the tabs of TOTAL GERAL × that tab's BDI. */
   proposal: number;
 }
 
@@ -344,7 +388,9 @@ export function buildQuote(project: Project): Quote {
   const material = list.reduce((s, g) => s + g.material, 0);
   const labor = list.reduce((s, g) => s + g.labor, 0);
   const subtotal = material + labor;
-  const extraEach = round2((subtotal * (project.extrasPct / 100)) / 3);
+  // extras and BDI are per discipline tab: the quote sums what each tab computes
+  const tabs = disciplineTotals(project);
+  const extraEach = tabs.reduce((s, t) => s + t.extraEach, 0);
   const totalMaterial = material + extraEach;
   const totalLabor = labor + extraEach * 2;
   const totalGeral = totalMaterial + totalLabor;
@@ -357,7 +403,7 @@ export function buildQuote(project: Project): Quote {
     totalMaterial,
     totalLabor,
     totalGeral,
-    proposal: round2(totalGeral * project.bdi),
+    proposal: round2(tabs.reduce((s, t) => s + t.proposal, 0)),
   };
 }
 

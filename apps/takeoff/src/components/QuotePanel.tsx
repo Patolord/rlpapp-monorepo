@@ -2,11 +2,12 @@ import { ChevronDown, ChevronUp, Copy, FileSpreadsheet } from "lucide-react";
 import { Fragment, useMemo } from "react";
 import { exportXlsx } from "../lib/files";
 import { mod } from "../lib/platform";
-import { buildQuote, quoteCsv, round2, systemSheets } from "../lib/quantities";
-import { formatMoney, formatNumber, type Unit } from "../lib/units";
 import { describePriceSource } from "../lib/priceSource";
+import { buildQuote, disciplineTotals, quoteCsv, round2, systemSheets } from "../lib/quantities";
+import { formatMoney, formatNumber, type Unit } from "../lib/units";
 import { isWeightPriced } from "../lib/weights";
 import { type ProjectMeta, useStore } from "../store";
+import { DisciplineFooter } from "./DisciplineFooter";
 import { PriceSourceBadge } from "./PriceSourceBadge";
 import { Button } from "./ui";
 
@@ -16,15 +17,11 @@ export function QuotePanel() {
   const { updateItem, setProjectMeta, setStatus, moveItemInBudget } = useStore.getState();
   const quote = useMemo(() => buildQuote(project), [project]);
   const sheets = useMemo(() => systemSheets(project), [project]);
+  const tabs = useMemo(() => disciplineTotals(project), [project]);
   const money = (v: number) => formatMoney(v, project.currency);
   const lineTotal = (r: { item: { materialPrice: number; laborPrice: number }; qty: number }) =>
     round2(r.qty * (r.item.materialPrice + r.item.laborPrice));
-  const arrow = (
-    Icon: typeof ChevronUp,
-    title: string,
-    disabled: boolean,
-    onClick: () => void,
-  ) => (
+  const arrow = (Icon: typeof ChevronUp, title: string, disabled: boolean, onClick: () => void) => (
     <button
       type="button"
       title={title}
@@ -169,35 +166,35 @@ export function QuotePanel() {
                           </td>
                           <td className="px-1.5 py-1">
                             <span className="flex items-center justify-end gap-1">
-                            <PriceSourceBadge
-                              source={r.item.priceSource}
-                              priceDate={r.item.priceDate}
-                            />
-                            <input
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              value={r.item.materialPrice}
-                              onChange={(e) =>
-                                updateItem(r.item.id, {
-                                  materialPrice: Number(e.target.value) || 0,
-                                })
-                              }
-                              className={
-                                isWeightPriced(r.item) && r.item.priceSource === "manual"
-                                  ? "num-input w-[4rem] ring-1 ring-amber-400/70"
-                                  : "num-input w-[4rem]"
-                              }
-                              title={
-                                isWeightPriced(r.item) && r.item.priceSource === "manual"
-                                  ? "Preço digitado nesta linha (sobrescreve o preço por peso; ↺ na aba Itens volta)"
-                                  : isWeightPriced(r.item)
-                                    ? "Preço por peso (R$/kg do insumo no rodapé do Ctrl+K); digite outro para sobrescrever só esta linha"
-                                    : r.item.priceSource
-                                      ? `Material · ${describePriceSource(r.item.priceSource, r.item.priceDate)}`
-                                      : "Preço unitário de material"
-                              }
-                            />
+                              <PriceSourceBadge
+                                source={r.item.priceSource}
+                                priceDate={r.item.priceDate}
+                              />
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={r.item.materialPrice}
+                                onChange={(e) =>
+                                  updateItem(r.item.id, {
+                                    materialPrice: Number(e.target.value) || 0,
+                                  })
+                                }
+                                className={
+                                  isWeightPriced(r.item) && r.item.priceSource === "manual"
+                                    ? "num-input w-[4rem] ring-1 ring-amber-400/70"
+                                    : "num-input w-[4rem]"
+                                }
+                                title={
+                                  isWeightPriced(r.item) && r.item.priceSource === "manual"
+                                    ? "Preço digitado nesta linha (sobrescreve o preço por peso; ↺ na aba Itens volta)"
+                                    : isWeightPriced(r.item)
+                                      ? "Preço por peso (R$/kg do insumo no rodapé do Ctrl+K); digite outro para sobrescrever só esta linha"
+                                      : r.item.priceSource
+                                        ? `Material · ${describePriceSource(r.item.priceSource, r.item.priceDate)}`
+                                        : "Preço unitário de material"
+                                }
+                              />
                             </span>
                           </td>
                           <td className="px-1.5 py-1 text-right">
@@ -220,6 +217,14 @@ export function QuotePanel() {
                       ))}
                     </Fragment>
                   ))}
+                  <tr className="border-b border-neutral-800">
+                    <td colSpan={5} className="px-2 py-2">
+                      <DisciplineFooter
+                        system={sheet.system}
+                        totals={tabs.find((t) => t.system === sheet.system)}
+                      />
+                    </td>
+                  </tr>
                 </Fragment>
               );
             })}
@@ -240,6 +245,7 @@ export function QuotePanel() {
           label={
             <span className="flex items-center gap-1">
               Diversos + Transportes + Supervisão
+              <span className="text-neutral-500">padrão</span>
               <input
                 type="number"
                 step="0.5"
@@ -257,7 +263,7 @@ export function QuotePanel() {
         <Row
           label={
             <span className="flex items-center gap-1">
-              <span className="font-semibold text-neutral-100">Proposta</span> BDI ×
+              <span className="font-semibold text-neutral-100">Proposta</span> BDI padrão ×
               <input
                 type="number"
                 step="0.01"

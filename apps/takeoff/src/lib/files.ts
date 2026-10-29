@@ -3,11 +3,12 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../store";
 import { mergeCatalog } from "./catalog";
 import { confirmDialog } from "./dialogs";
+import { resolveDiscipline } from "./discipline";
 import { DUCT_TEMPLATE_URL, ductSheetInput, fillDuctWorkbook } from "./ductSheet";
 import { isTauri, mod } from "./platform";
 import { locationMatrix, systemSheets } from "./quantities";
 import { basename, closePdf, isDocOpen, openPdfPath, preloadPdfPath, useDoc } from "./session";
-import { drawingOf, emptyProject, migrateProject, UNTITLED } from "./types";
+import { drawingOf, emptyProject, type FooterLine, migrateProject, UNTITLED } from "./types";
 import { buildVrfWorkbook } from "./vrfSheet";
 
 /** Ask before throwing away unsaved work. Returns true when it is fine to continue. */
@@ -201,8 +202,15 @@ export interface SheetExport {
   estimator: string;
   currency: string;
   date: string;
-  /** One worksheet per system, each with its sections (locations or groups). */
-  sheets: { system: string; sections: { name: string; rows: SheetRow[] }[] }[];
+  /** One worksheet per system, each with its sections (locations or groups) and its own BDI, extras and footer. */
+  sheets: {
+    system: string;
+    sections: { name: string; rows: SheetRow[] }[];
+    bdi: number;
+    extrasPct: number;
+    footer: FooterLine[];
+  }[];
+  /** Project defaults (kept for older readers of the payload). */
   extrasPct: number;
   bdi: number;
   /** "Por Local" sheet: location names and one quantity per location for each item (empty when none). */
@@ -232,6 +240,7 @@ export function sheetExport(): SheetExport {
     date: new Date().toLocaleDateString("pt-BR"),
     sheets: systemSheets(project).map((s) => ({
       system: s.system,
+      ...resolveDiscipline(project, s.system),
       sections: s.sections.map((sec) => ({
         name: sec.name,
         rows: sec.rows.map((r) => ({

@@ -115,11 +115,40 @@ struct Section {
     rows: Vec<SheetRow>,
 }
 
+/// A line of the stats block under TOTAL GERAL (see `FooterLine` in `src/lib/types.ts`).
+#[derive(Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+enum FooterLine {
+    Stat {
+        label: String,
+        value: f64,
+    },
+    Points {
+        label: String,
+        value: f64,
+    },
+    PerPoint {
+        label: String,
+    },
+    Factor {
+        label: String,
+        /// "material" | "labor" | "total" (the tab's totals) or "manual" (`value`).
+        base: String,
+        #[serde(default)]
+        value: Option<f64>,
+        factor: f64,
+    },
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SystemSheet {
     system: String,
     sections: Vec<Section>,
+    bdi: f64,
+    extras_pct: f64,
+    #[serde(default)]
+    footer: Vec<FooterLine>,
 }
 
 #[derive(Deserialize)]
@@ -145,7 +174,10 @@ struct SheetExport {
     date: String,
     /// One worksheet per system, each with its sections (locations or groups).
     sheets: Vec<SystemSheet>,
+    /// Project defaults; each sheet carries its own values.
+    #[allow(dead_code)]
     extras_pct: f64,
+    #[allow(dead_code)]
     bdi: f64,
     /// "Por Local" sheet: zone names and, per item, one quantity per zone.
     #[serde(default)]
@@ -168,6 +200,7 @@ const COL_T_TOT: u16 = 9; // J
 
 const NAVY: Color = Color::RGB(0x000080);
 const HEADER_FILL: Color = Color::RGB(0xF2F2F2);
+const CHOSEN_FILL: Color = Color::RGB(0xFFFF00);
 const FMT_PRICE: &str = "#,##0.00;[Red]#,##0.00";
 const FMT_ACCOUNTING: &str = "_(* #,##0.00_);_(* (#,##0.00);_(* \"-\"??_);_(@_)";
 const FMT_MONEY_BRL: &str = "_-\"R$\" * #,##0.00_-;-\"R$\" * #,##0.00_-;_-\"R$\" * \"-\"??_-;_-@_-";
@@ -227,9 +260,17 @@ struct Styles {
     total_label: Format,
     total_acc: Format,
     total_big: Format,
+    pct: Format,
     bdi_pct: Format,
+    bdi_pct_chosen: Format,
     bdi_money: Format,
-    bdi_money_bold: Format,
+    bdi_money_chosen: Format,
+    foot_label: Format,
+    foot_unit: Format,
+    foot_num: Format,
+    foot_money: Format,
+    foot_factor: Format,
+    foot_head: Format,
 }
 
 impl Styles {
@@ -288,11 +329,41 @@ impl Styles {
                 .set_num_format(FMT_ACCOUNTING)
                 .set_align(FormatAlign::VerticalCenter)
                 .set_border(FormatBorder::Medium),
+            pct: row(arial(10.0))
+                .set_num_format("0%")
+                .set_align(FormatAlign::Center),
             bdi_pct: arial(10.0)
                 .set_num_format("0%")
                 .set_align(FormatAlign::Center),
+            bdi_pct_chosen: arial(10.0)
+                .set_bold()
+                .set_num_format("0%")
+                .set_align(FormatAlign::Center)
+                .set_background_color(CHOSEN_FILL),
             bdi_money: arial(10.0).set_num_format(FMT_MONEY_BRL),
-            bdi_money_bold: arial(10.0).set_bold().set_num_format(FMT_MONEY_BRL),
+            bdi_money_chosen: arial(10.0)
+                .set_bold()
+                .set_num_format(FMT_MONEY_BRL)
+                .set_background_color(CHOSEN_FILL),
+            foot_label: arial(10.0)
+                .set_bold()
+                .set_font_color(NAVY)
+                .set_align(FormatAlign::Right),
+            foot_unit: arial(10.0)
+                .set_font_color(NAVY)
+                .set_align(FormatAlign::Center),
+            foot_num: arial(10.0)
+                .set_font_color(NAVY)
+                .set_num_format(FMT_PRICE)
+                .set_align(FormatAlign::Right),
+            foot_money: arial(10.0)
+                .set_font_color(NAVY)
+                .set_num_format(FMT_MONEY_BRL),
+            foot_factor: arial(10.0)
+                .set_font_color(NAVY)
+                .set_num_format("0.00")
+                .set_align(FormatAlign::Right),
+            foot_head: arial(10.0).set_bold().set_align(FormatAlign::Center),
         }
     }
 }
@@ -490,10 +561,12 @@ fn set_budget_layout(ws: &mut Worksheet) -> R<()> {
     Ok(())
 }
 
-/// Row index (0-based) of the TOTAL GERAL line, needed by the Resumo references.
+/// Row indices (0-based) of the TOTAL GERAL line and of the tab's own BDI in its ladder,
+/// needed by the Resumo references.
 struct SystemTotals {
     sheet: String,
     total_row: u32,
+    bdi_row: u32,
 }
 
 fn write_system_sheet(
@@ -501,7 +574,7 @@ fn write_system_sheet(
     st: &Styles,
     x: &SheetExport,
     sys: &SystemSheet,
-) -> R<u32> {
+) -> R<SystemTotals> {
     write_header_block(ws, st, x, &sys.system)?;
     write_column_header(ws, st, ["MATERIAL", "M. DE OBRA", "TOTAL"])?;
     let mut r: u32 = 9;
@@ -582,7 +655,7 @@ fn write_system_sheet(
         ws.write_number_with_format(r, COL_QTY, 1.0, &st.center)
             .map_err(xe)?;
         let value = if k == 0 {
-            format!("=ROUND(({items_sum}*{})/3,2)", x.extras_pct / 100.0)
+            format!("=ROUND(({items_sum}*{})/3,2)", sys.extras_pct / 100.0)
         } else {
             format!("={}", cell(COL_U_MAT, diversos_row))
         };
@@ -635,36 +708,162 @@ fn write_system_sheet(
     let total_row = r;
     r += 1;
 
-    // BDI ladder: the project's factor first, then the usual options
-    let mut factors = vec![x.bdi];
+    let bdi_row = write_footer(ws, st, sys, total_row, r)?;
+    set_budget_layout(ws)?;
+    Ok(SystemTotals {
+        sheet: String::new(),
+        total_row,
+        bdi_row,
+    })
+}
+
+/// Label of a footer line: bold navy, right-aligned in DESCRIÇÃO, "vb" in UNID.
+fn write_footer_label(ws: &mut Worksheet, st: &Styles, r: u32, label: &str) -> R<()> {
+    ws.write_string_with_format(r, COL_DESC, label, &st.foot_label)
+        .map_err(xe)?;
+    ws.write_string_with_format(r, COL_UNIT, "vb", &st.foot_unit)
+        .map_err(xe)?;
+    ws.set_row_height(r, 12.75).map_err(xe)?;
+    Ok(())
+}
+
+/// The stats block under TOTAL GERAL (points, value per point, amount × factor lines), then the
+/// BDI ladder: the tab's own BDI first, highlighted, followed by the usual options, with a
+/// VENDA (per point) column when the tab has a points line. Returns the row of the tab's BDI.
+fn write_footer(
+    ws: &mut Worksheet,
+    st: &Styles,
+    sys: &SystemSheet,
+    total_row: u32,
+    start: u32,
+) -> R<u32> {
+    let mut r = start;
+    let total = |c: u16| cell(c, total_row);
+    let mut points_cell: Option<String> = None;
+    for line in &sys.footer {
+        match line {
+            FooterLine::Stat { label, value } | FooterLine::Points { label, value } => {
+                write_footer_label(ws, st, r, label)?;
+                ws.write_number_with_format(r, COL_U_MAT, *value, &st.foot_num)
+                    .map_err(xe)?;
+                if matches!(line, FooterLine::Points { .. }) {
+                    points_cell = Some(cell(COL_U_MAT, r));
+                }
+            }
+            FooterLine::PerPoint { label } => {
+                write_footer_label(ws, st, r, label)?;
+                let f = match &points_cell {
+                    Some(p) => format!("=IF({p}=0,0,ROUND({}/{p},2))", total(COL_T_TOT)),
+                    None => "=0".to_string(),
+                };
+                ws.write_formula_with_format(r, COL_U_MAT, Formula::new(f), &st.foot_money)
+                    .map_err(xe)?;
+            }
+            FooterLine::Factor {
+                label,
+                base,
+                value,
+                factor,
+            } => {
+                write_footer_label(ws, st, r, label)?;
+                let base_col = match base.as_str() {
+                    "material" => Some(COL_T_MAT),
+                    "labor" => Some(COL_T_LAB),
+                    "total" => Some(COL_T_TOT),
+                    _ => None,
+                };
+                match base_col {
+                    Some(c) => ws
+                        .write_formula_with_format(
+                            r,
+                            COL_U_MAT,
+                            Formula::new(format!("={}", total(c))),
+                            &st.foot_num,
+                        )
+                        .map_err(xe)?,
+                    None => ws
+                        .write_number_with_format(
+                            r,
+                            COL_U_MAT,
+                            value.unwrap_or(0.0),
+                            &st.foot_num,
+                        )
+                        .map_err(xe)?,
+                };
+                ws.write_number_with_format(r, COL_U_LAB, *factor, &st.foot_factor)
+                    .map_err(xe)?;
+                ws.write_formula_with_format(
+                    r,
+                    COL_U_TOT,
+                    Formula::new(format!(
+                        "=ROUND({}*{},2)",
+                        cell(COL_U_MAT, r),
+                        cell(COL_U_LAB, r)
+                    )),
+                    &st.foot_num,
+                )
+                .map_err(xe)?;
+            }
+        }
+        r += 1;
+    }
+    if !sys.footer.is_empty() {
+        r += 1;
+    }
+
+    // BDI ladder with its header
+    ws.write_string_with_format(r, COL_T_MAT, "BDI", &st.foot_head)
+        .map_err(xe)?;
+    if points_cell.is_some() {
+        ws.write_string_with_format(r, COL_T_LAB, "VENDA", &st.foot_head)
+            .map_err(xe)?;
+    }
+    ws.write_string_with_format(r, COL_T_TOT, "TOTAL", &st.foot_head)
+        .map_err(xe)?;
+    r += 1;
+    let bdi_row = r;
+    let mut factors = vec![sys.bdi];
     for f in [1.30, 1.35, 1.40, 1.45, 1.50] {
-        if (f - x.bdi).abs() > 1e-9 {
+        if (f - sys.bdi).abs() > 1e-9 {
             factors.push(f);
         }
     }
     for (k, f) in factors.iter().enumerate() {
-        ws.write_number_with_format(r, COL_T_LAB, *f, &st.bdi_pct)
+        let chosen = k == 0;
+        let (pct, money) = if chosen {
+            (&st.bdi_pct_chosen, &st.bdi_money_chosen)
+        } else {
+            (&st.bdi_pct, &st.bdi_money)
+        };
+        ws.write_number_with_format(r, COL_T_MAT, *f, pct)
             .map_err(xe)?;
         ws.write_formula_with_format(
             r,
             COL_T_TOT,
             Formula::new(format!(
                 "=ROUND({}*{},2)",
-                cell(COL_T_TOT, total_row),
-                cell(COL_T_LAB, r)
+                total(COL_T_TOT),
+                cell(COL_T_MAT, r)
             )),
-            if k == 0 {
-                &st.bdi_money_bold
-            } else {
-                &st.bdi_money
-            },
+            money,
         )
         .map_err(xe)?;
+        if let Some(p) = &points_cell {
+            ws.write_formula_with_format(
+                r,
+                COL_T_LAB,
+                Formula::new(format!(
+                    "=IF({p}=0,0,ROUND({}/{p},2))",
+                    cell(COL_T_TOT, r)
+                )),
+                money,
+            )
+            .map_err(xe)?;
+        }
         ws.set_row_height(r, 15.0).map_err(xe)?;
         r += 1;
     }
-    set_budget_layout(ws)?;
-    Ok(total_row)
+    Ok(bdi_row)
 }
 
 /// "Resumo" sheet: one line per system referencing that system's TOTAL GERAL.
@@ -725,8 +924,13 @@ fn write_resumo(
             &st.acc_bold,
         )
         .map_err(xe)?;
-        ws.write_number_with_format(r, COL_T_MAT, x.bdi, &st.center)
-            .map_err(xe)?;
+        ws.write_formula_with_format(
+            r,
+            COL_T_MAT,
+            Formula::new(format!("={sheet_ref}!{}", cell(COL_T_MAT, t.bdi_row))),
+            &st.pct,
+        )
+        .map_err(xe)?;
         ws.write_formula_with_format(
             r,
             COL_T_LAB,
@@ -857,11 +1061,8 @@ fn export_xlsx(path: String, sheet: SheetExport) -> Result<(), String> {
         names.push(name.clone());
         let ws = wb.add_worksheet();
         ws.set_name(&name).map_err(xe)?;
-        let total_row = write_system_sheet(ws, &st, &sheet, sys)?;
-        totals.push(SystemTotals {
-            sheet: name,
-            total_row,
-        });
+        let t = write_system_sheet(ws, &st, &sheet, sys)?;
+        totals.push(SystemTotals { sheet: name, ..t });
     }
     if !sheet.zones.is_empty() {
         let ws = wb.add_worksheet();
@@ -912,6 +1113,23 @@ mod tests {
             sheets: vec![
                 SystemSheet {
                     system: "Pressurização".into(),
+                    bdi: 1.25,
+                    extras_pct: 5.0,
+                    footer: vec![
+                        FooterLine::Points {
+                            label: "Número de pontos".into(),
+                            value: 4.0,
+                        },
+                        FooterLine::PerPoint {
+                            label: "Valor por ponto".into(),
+                        },
+                        FooterLine::Factor {
+                            label: "Instalação".into(),
+                            base: "labor".into(),
+                            value: None,
+                            factor: 2.0,
+                        },
+                    ],
                     sections: vec![
                         Section {
                             name: "Térreo".into(),
@@ -937,6 +1155,9 @@ mod tests {
                 },
                 SystemSheet {
                     system: "Exaustão Mec.".into(),
+                    bdi: 1.42,
+                    extras_pct: 5.0,
+                    footer: vec![],
                     sections: vec![],
                 },
             ],
