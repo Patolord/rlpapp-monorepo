@@ -2,16 +2,20 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
-import { AtSign, Briefcase, MessageCircle, Pencil, Plus, StickyNote, Tags, Trash2, Truck, User } from "lucide-react-native";
+import { AtSign, Briefcase, Building2, CalendarClock, FileText, Globe, MapPin, MessageCircle, Pencil, Phone, Plus, StickyNote, Tags, Trash2, Truck, User, Wallet } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Linking, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { AppButton, ConfirmDialog, EmptyState, Field, IconButton, KeyValueList, LoadingState, Pill, SectionTitle, Sheet, Surface, useToast } from "@/components/ui";
+import { AppButton, ConfirmDialog, EmptyState, Field, IconButton, KeyValueList, LoadingState, Pill, SectionTitle, SegmentedField, Sheet, Surface, useToast } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
+import { formatTaxId } from "@/lib/format";
 import { colors, space, type } from "@/lib/theme";
 
 type Supplier = FunctionReturnType<typeof api.suppliers.list>[number];
 type Contact = NonNullable<FunctionReturnType<typeof api.suppliers.get>>["contacts"][number];
+type PersonType = "pf" | "pj";
+/** Escolha do formulário: PJ, PF ou "não informado" (mantém registros antigos sem tipo). */
+type PersonChoice = PersonType | "none";
 
 /** Criar / editar fornecedor. */
 export function SupplierFormSheet({ open, onClose, supplier, onSaved }: { open: boolean; onClose: () => void; supplier?: Supplier | null; onSaved?: (id: Id<"suppliers">) => void }) {
@@ -19,17 +23,40 @@ export function SupplierFormSheet({ open, onClose, supplier, onSaved }: { open: 
   const create = useMutation(api.suppliers.create);
   const update = useMutation(api.suppliers.update);
   const [name, setName] = useState("");
+  const [personType, setPersonType] = useState<PersonChoice>("pj");
+  const [legalName, setLegalName] = useState("");
+  const [taxId, setTaxId] = useState("");
+  const [stateRegistration, setStateRegistration] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [website, setWebsite] = useState("");
+  const [address, setAddress] = useState("");
+  const [paymentTerms, setPaymentTerms] = useState("");
+  const [leadTime, setLeadTime] = useState("");
   const [categories, setCategories] = useState("");
   const [notes, setNotes] = useState("");
   const [nameError, setNameError] = useState<string | undefined>();
+  const [leadTimeError, setLeadTimeError] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setName(supplier?.name ?? "");
+    // Registro existente sem tipo continua "não informado" até o usuário escolher.
+    setPersonType(supplier ? (supplier.personType ?? "none") : "pj");
+    setLegalName(supplier?.legalName ?? "");
+    setTaxId(formatTaxId(supplier?.taxId ?? null) ?? "");
+    setStateRegistration(supplier?.stateRegistration ?? "");
+    setEmail(supplier?.email ?? "");
+    setPhone(supplier?.phone ?? "");
+    setWebsite(supplier?.website ?? "");
+    setAddress(supplier?.address ?? "");
+    setPaymentTerms(supplier?.paymentTerms ?? "");
+    setLeadTime(supplier?.defaultLeadTimeDays === null || supplier?.defaultLeadTimeDays === undefined ? "" : String(supplier.defaultLeadTimeDays));
     setCategories(supplier?.categories?.join(", ") ?? "");
     setNotes(supplier?.notes ?? "");
     setNameError(undefined);
+    setLeadTimeError(undefined);
   }, [open, supplier]);
 
   async function submit() {
@@ -37,20 +64,36 @@ export function SupplierFormSheet({ open, onClose, supplier, onSaved }: { open: 
       setNameError("Informe o nome");
       return;
     }
+    let defaultLeadTimeDays: number | null = null;
+    if (leadTime.trim()) {
+      const parsed = Number(leadTime.trim());
+      if (!Number.isInteger(parsed) || parsed < 0) {
+        setLeadTimeError("Informe um número inteiro de dias");
+        return;
+      }
+      defaultLeadTimeDays = parsed;
+    }
     setSaving(true);
     try {
       const payload = {
         name: name.trim(),
-        categories: categories.split(",").map((c) => c.trim()).filter(Boolean),
+        legalName: personType === "pf" ? "" : legalName.trim(),
+        stateRegistration: personType === "pf" ? "" : stateRegistration.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        website: website.trim(),
+        address: address.trim(),
+        paymentTerms: paymentTerms.trim(),
+        categories: categories.split(/[,;]/).map((c) => c.trim()).filter(Boolean),
         notes: notes.trim(),
       };
       let id: Id<"suppliers">;
       if (supplier) {
-        await update({ supplierId: supplier._id, ...payload });
+        await update({ supplierId: supplier._id, ...payload, personType: personType === "none" ? null : personType, taxId: taxId.trim() || null, defaultLeadTimeDays });
         id = supplier._id;
         toast.success("Fornecedor atualizado");
       } else {
-        id = await create(payload);
+        id = await create({ ...payload, personType: personType === "none" ? undefined : personType, taxId: taxId.trim() || undefined, defaultLeadTimeDays: defaultLeadTimeDays ?? undefined });
         toast.success("Fornecedor criado");
       }
       onClose();
@@ -62,13 +105,53 @@ export function SupplierFormSheet({ open, onClose, supplier, onSaved }: { open: 
     }
   }
 
+  const iconColor = colors.icon;
+  const isPj = personType === "pj";
+  const isPf = personType === "pf";
+  const taxLabel = isPj ? "CNPJ" : isPf ? "CPF" : "CNPJ/CPF";
+
   return (
-    <Sheet open={open} onClose={onClose} title={supplier ? "Editar fornecedor" : "Novo fornecedor"} maxHeight={0.8} footer={<AppButton label={supplier ? "Salvar" : "Criar fornecedor"} onPress={() => void submit()} loading={saving} />}>
-      <Field label="Nome *" icon={<Truck size={24} color={colors.icon} strokeWidth={1.6} />} value={name} onChangeText={(v) => { setName(v); setNameError(undefined); }} error={nameError} autoFocus={!supplier} />
-      <Field label="Categorias" icon={<Tags size={24} color={colors.icon} strokeWidth={1.6} />} value={categories} onChangeText={setCategories} placeholder="Dutos, Cobre, Elétrica" helper="Separe por vírgula." />
-      <Field label="Observações" icon={<StickyNote size={24} color={colors.icon} strokeWidth={1.6} />} value={notes} onChangeText={setNotes} multiline />
+    <Sheet open={open} onClose={onClose} title={supplier ? "Editar fornecedor" : "Novo fornecedor"} maxHeight={0.9} footer={<AppButton label={supplier ? "Salvar" : "Criar fornecedor"} onPress={() => void submit()} loading={saving} />}>
+      <SegmentedField<PersonChoice>
+        label="Tipo"
+        value={personType}
+        onChange={setPersonType}
+        options={[
+          { value: "pj", label: "Pessoa jurídica" },
+          { value: "pf", label: "Pessoa física" },
+          { value: "none", label: "Não informado" },
+        ]}
+      />
+      <Field label={isPj ? "Nome fantasia *" : "Nome *"} icon={isPj ? <Building2 size={24} color={iconColor} strokeWidth={1.6} /> : <Truck size={24} color={iconColor} strokeWidth={1.6} />} value={name} onChangeText={(v) => { setName(v); setNameError(undefined); }} error={nameError} autoFocus={!supplier} autoCapitalize="words" />
+      {!isPf ? (
+        <Field label="Razão social" icon={<FileText size={24} color={iconColor} strokeWidth={1.6} />} value={legalName} onChangeText={setLegalName} autoCapitalize="words" />
+      ) : null}
+      <Field label={taxLabel} icon={<FileText size={24} color={iconColor} strokeWidth={1.6} />} value={taxId} onChangeText={setTaxId} keyboardType="numbers-and-punctuation" placeholder={isPf ? "000.000.000-00" : "00.000.000/0000-00"} />
+      {!isPf ? (
+        <Field label="Inscrição estadual" icon={<FileText size={24} color={iconColor} strokeWidth={1.6} />} value={stateRegistration} onChangeText={setStateRegistration} keyboardType="numbers-and-punctuation" />
+      ) : null}
+      <Field label="Telefone" icon={<Phone size={24} color={iconColor} strokeWidth={1.6} />} value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="(11) 4000-0000" />
+      <Field label="E-mail" icon={<AtSign size={24} color={iconColor} strokeWidth={1.6} />} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} placeholder="vendas@fornecedor.com.br" />
+      <Field label="Site" icon={<Globe size={24} color={iconColor} strokeWidth={1.6} />} value={website} onChangeText={setWebsite} keyboardType="url" autoCapitalize="none" autoCorrect={false} placeholder="fornecedor.com.br" />
+      <Field label="Endereço" icon={<MapPin size={24} color={iconColor} strokeWidth={1.6} />} value={address} onChangeText={setAddress} placeholder="Rua, número, cidade/UF" />
+      <Field label="Condições de pagamento" icon={<Wallet size={24} color={iconColor} strokeWidth={1.6} />} value={paymentTerms} onChangeText={setPaymentTerms} placeholder="28 DDL, 30/60, à vista" />
+      <Field label="Prazo de entrega padrão (dias)" icon={<CalendarClock size={24} color={iconColor} strokeWidth={1.6} />} value={leadTime} onChangeText={(v) => { setLeadTime(v); setLeadTimeError(undefined); }} error={leadTimeError} keyboardType="number-pad" />
+      <Field label="Categorias" icon={<Tags size={24} color={iconColor} strokeWidth={1.6} />} value={categories} onChangeText={setCategories} placeholder="Dutos, Cobre, Elétrica" helper="Separe por vírgula." />
+      <Field label="Observações" icon={<StickyNote size={24} color={iconColor} strokeWidth={1.6} />} value={notes} onChangeText={setNotes} multiline />
     </Sheet>
   );
+}
+
+function LinkText({ value, href }: { value: string; href: string }) {
+  return (
+    <Pressable onPress={() => void Linking.openURL(href).catch(() => undefined)} hitSlop={6}>
+      <Text style={[type.body, { color: colors.primary }]}>{value}</Text>
+    </Pressable>
+  );
+}
+
+function leadTimeLabel(days: number): string {
+  return days === 1 ? "1 dia" : `${days} dias`;
 }
 
 /** Detalhe do fornecedor com contatos. */
@@ -155,7 +238,29 @@ export function SupplierDetailSheet({ supplierId, onClose }: { supplierId: Id<"s
         ) : (
           <>
             {!supplier.active ? <Pill label="Inativo" tone="warning" /> : null}
-            <KeyValueList items={[{ label: "Observações", value: supplier.notes }]} />
+            <KeyValueList
+              items={[
+                { label: "Razão social", value: supplier.legalName },
+                { label: supplier.personType === "pf" ? "CPF" : "CNPJ", value: formatTaxId(supplier.taxId) },
+                { label: "Inscrição estadual", value: supplier.stateRegistration },
+                {
+                  label: "Telefone",
+                  value: supplier.phone ? <LinkText value={supplier.phone} href={`tel:${supplier.phone.replace(/[^\d+]/g, "")}`} /> : null,
+                },
+                {
+                  label: "E-mail",
+                  value: supplier.email ? <LinkText value={supplier.email} href={`mailto:${supplier.email}`} /> : null,
+                },
+                {
+                  label: "Site",
+                  value: supplier.website ? <LinkText value={supplier.website.replace(/^https?:\/\//, "")} href={supplier.website} /> : null,
+                },
+                { label: "Endereço", value: supplier.address },
+                { label: "Condições de pagamento", value: supplier.paymentTerms },
+                { label: "Prazo de entrega padrão", value: supplier.defaultLeadTimeDays === null ? null : leadTimeLabel(supplier.defaultLeadTimeDays) },
+                { label: "Observações", value: supplier.notes },
+              ]}
+            />
             <View>
               <SectionTitle title="Contatos" style={{ paddingHorizontal: 4, paddingTop: 0 }} action="Adicionar" onAction={() => setContactOpen(true)} />
               {detail.contacts.length === 0 ? (

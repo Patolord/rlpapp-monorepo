@@ -689,25 +689,28 @@ export const TOOLS: readonly ToolSpec[] = [
     name: "list_suppliers",
     function: "suppliers:list",
     title: "List suppliers",
-    description: "Suppliers (fornecedores) with categories.",
+    description:
+      "Suppliers (fornecedores) with CNPJ/CPF, legal name, contact data, payment terms, default lead time and categories. `search` matches name, legal name, category or tax id digits.",
   },
   {
     name: "get_supplier",
     function: "suppliers:get",
     title: "Get supplier",
-    description: "One supplier with its contacts.",
+    description: "One supplier (full register) with its contact people.",
   },
   {
     name: "create_supplier",
     function: "suppliers:create",
     title: "Create supplier",
-    description: "Create a supplier. Returns the supplier id.",
+    description:
+      "Create a supplier: name (trade name) plus optional personType, legalName, taxId (CNPJ/CPF, validated and unique), stateRegistration, email, phone, website, address, paymentTerms, defaultLeadTimeDays, categories and notes. Returns the supplier id.",
   },
   {
     name: "update_supplier",
     function: "suppliers:update",
     title: "Update supplier",
-    description: "Change supplier fields.",
+    description:
+      "Change supplier register fields (same fields as create, plus active). Pass null in taxId/personType/defaultLeadTimeDays to clear them.",
     idempotent: true,
   },
   {
