@@ -33,7 +33,6 @@ import { Route as EngenhariaMedicoesRouteImport } from './routes/engenharia/medi
 import { Route as EngenhariaObrasRouteRouteImport } from './routes/engenharia/obras/route'
 import { Route as EngenhariaPoliticaPrivacidadeRouteImport } from './routes/engenharia/politica-privacidade'
 import { Route as EngenhariaQrCodesRouteImport } from './routes/engenharia/qr-codes'
-import { Route as EngenhariaRegistroDeCampoRouteImport } from './routes/engenharia/registro-de-campo'
 import { Route as EngenhariaRelatoriosRouteRouteImport } from './routes/engenharia/relatorios/route'
 import { Route as EngenhariaUsuariosRouteImport } from './routes/engenharia/usuarios'
 import { Route as EstoqueIndexRouteImport } from './routes/estoque/index'
@@ -218,12 +217,6 @@ const EngenhariaQrCodesRoute = EngenhariaQrCodesRouteImport.update({
   path: '/qr-codes',
   getParentRoute: () => EngenhariaRouteRoute,
 } as any)
-const EngenhariaRegistroDeCampoRoute =
-  EngenhariaRegistroDeCampoRouteImport.update({
-    id: '/registro-de-campo',
-    path: '/registro-de-campo',
-    getParentRoute: () => EngenhariaRouteRoute,
-  } as any)
 const EngenhariaRelatoriosRouteRoute =
   EngenhariaRelatoriosRouteRouteImport.update({
     id: '/relatorios',
@@ -589,7 +582,6 @@ export interface FileRoutesByFullPath {
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
   '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
-  '/engenharia/registro-de-campo': typeof EngenhariaRegistroDeCampoRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
@@ -669,7 +661,6 @@ export interface FileRoutesByTo {
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
   '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
-  '/engenharia/registro-de-campo': typeof EngenhariaRegistroDeCampoRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
@@ -755,7 +746,6 @@ export interface FileRoutesById {
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
   '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
-  '/engenharia/registro-de-campo': typeof EngenhariaRegistroDeCampoRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
@@ -845,7 +835,6 @@ export interface FileRouteTypes {
     | '/engenharia/medicoes'
     | '/engenharia/politica-privacidade'
     | '/engenharia/qr-codes'
-    | '/engenharia/registro-de-campo'
     | '/engenharia/usuarios'
     | '/estoque/movimentacao'
     | '/portal/$projectId'
@@ -925,7 +914,6 @@ export interface FileRouteTypes {
     | '/engenharia/medicoes'
     | '/engenharia/politica-privacidade'
     | '/engenharia/qr-codes'
-    | '/engenharia/registro-de-campo'
     | '/engenharia/usuarios'
     | '/estoque/movimentacao'
     | '/portal/$projectId'
@@ -1010,7 +998,6 @@ export interface FileRouteTypes {
     | '/engenharia/medicoes'
     | '/engenharia/politica-privacidade'
     | '/engenharia/qr-codes'
-    | '/engenharia/registro-de-campo'
     | '/engenharia/usuarios'
     | '/estoque/movimentacao'
     | '/portal/$projectId'
@@ -1271,13 +1258,6 @@ declare module '@tanstack/react-router' {
       path: '/qr-codes'
       fullPath: '/engenharia/qr-codes'
       preLoaderRoute: typeof EngenhariaQrCodesRouteImport
-      parentRoute: typeof EngenhariaRouteRoute
-    }
-    '/engenharia/registro-de-campo': {
-      id: '/engenharia/registro-de-campo'
-      path: '/registro-de-campo'
-      fullPath: '/engenharia/registro-de-campo'
-      preLoaderRoute: typeof EngenhariaRegistroDeCampoRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
     '/engenharia/relatorios': {
@@ -1856,7 +1836,6 @@ interface EngenhariaRouteRouteChildren {
   EngenhariaMedicoesRoute: typeof EngenhariaMedicoesRoute
   EngenhariaPoliticaPrivacidadeRoute: typeof EngenhariaPoliticaPrivacidadeRoute
   EngenhariaQrCodesRoute: typeof EngenhariaQrCodesRoute
-  EngenhariaRegistroDeCampoRoute: typeof EngenhariaRegistroDeCampoRoute
   EngenhariaUsuariosRoute: typeof EngenhariaUsuariosRoute
   EngenhariaIndexRoute: typeof EngenhariaIndexRoute
   EngenhariaEquipamentoIdRoute: typeof EngenhariaEquipamentoIdRoute
@@ -1872,7 +1851,6 @@ const EngenhariaRouteRouteChildren: EngenhariaRouteRouteChildren = {
   EngenhariaMedicoesRoute: EngenhariaMedicoesRoute,
   EngenhariaPoliticaPrivacidadeRoute: EngenhariaPoliticaPrivacidadeRoute,
   EngenhariaQrCodesRoute: EngenhariaQrCodesRoute,
-  EngenhariaRegistroDeCampoRoute: EngenhariaRegistroDeCampoRoute,
   EngenhariaUsuariosRoute: EngenhariaUsuariosRoute,
   EngenhariaIndexRoute: EngenhariaIndexRoute,
   EngenhariaEquipamentoIdRoute: EngenhariaEquipamentoIdRoute,

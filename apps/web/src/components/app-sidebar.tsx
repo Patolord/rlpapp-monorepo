@@ -62,11 +62,6 @@ function getNavGroups(): NavGroup[] {
         { to: "/engenharia/empreiteiros", label: "Empreiteiros", icon: HardHat },
         { to: "/engenharia/contratos", label: "Contratos", icon: FileText },
         { to: "/engenharia/qr-codes", label: "Códigos QR", icon: QrCode },
-        {
-          to: "/engenharia/registro-de-campo",
-          label: "Registro de Campo",
-          icon: ClipboardList,
-        },
       ],
     },
     {
