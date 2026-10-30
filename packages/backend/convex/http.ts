@@ -17,6 +17,7 @@ import {
   readPhotoBody,
 } from "./lib/rh/photo";
 import { hashAgentToken, looksLikeAgentToken } from "./lib/agentTokens";
+import { registerApiV1Routes } from "./gateway/v1";
 
 type ClerkEmailAddress = {
   id: string;
@@ -434,6 +435,9 @@ const handleTimeClockPhoto = httpAction(async (ctx, request) => {
 });
 
 const http = httpRouter();
+
+// API HTTP para agentes (`/api/v1/*` e `/.well-known/jwks.json`).
+registerApiV1Routes(http);
 
 http.route({
   path: AGENT_TOKEN_VERIFY_PATH,

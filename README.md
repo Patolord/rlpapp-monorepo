@@ -113,6 +113,30 @@ pnpm run dev
 - `pnpm run lint` — ESLint em todos os pacotes
 - `pnpm run check-types` — typecheck (`tsc --noEmit`) em todos os pacotes
 
+## API HTTP para agentes (`/api/v1`)
+
+Qualquer função pública do backend pode ser chamada por HTTP, direto no deployment Convex, com um token de agente (`rlp_…`, criado em **Minha conta → Agentes**):
+
+```bash
+API=https://<deployment>.convex.site/api/v1
+curl "$API/functions?search=supplier" -H "Authorization: Bearer rlp_…"
+curl "$API/query" -H "Authorization: Bearer rlp_…" -H "Content-Type: application/json" \
+  -d '{"path":"suppliers:list","args":{}}'
+curl "$API/mutation" -H "Authorization: Bearer rlp_…" -H "Content-Type: application/json" \
+  -d '{"path":"customers:create","args":{"name":"Cliente"}}'
+```
+
+O gateway (`packages/backend/convex/gateway/v1.ts`) confere o token, valida caminho, tipo, acesso e argumentos pelo catálogo de funções e executa a chamada em nome do dono com um JWT ES256 curto assinado pelo próprio deployment. Tokens `read_only` só executam queries; `agentTokens:*` nunca é exposto. Não envolve o Vercel: a única configuração é a chave de assinatura no Convex:
+
+```bash
+cd packages/backend
+node scripts/generate-api-signing-key.mjs
+npx convex env set --prod API_JWT_PRIVATE_KEY '<jwk impresso>'
+npx convex deploy
+```
+
+Contrato completo (endpoints, erros, descoberta de funções, exemplo para agentes) em [`docs/API.md`](docs/API.md).
+
 ## MCP (agentes de IA)
 
 O app web expõe um servidor MCP **2026-07-28** em `/mcp` (Streamable HTTP, stateless, com fallback para clientes de 2025). Claude Code, Claude Desktop, Cursor ou qualquer cliente MCP se conectam a ele de duas formas:
