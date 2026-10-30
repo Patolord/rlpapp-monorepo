@@ -986,6 +986,364 @@ export const TOOLS: readonly ToolSpec[] = [
   },
 
   // --------------------------------------------------------------------------
+  // Payroll lines, runs and loans
+  // --------------------------------------------------------------------------
+  {
+    name: "add_payroll_line",
+    function: "payroll:addEmployeeToRun",
+    title: "Add employee to payroll run",
+    description: "Add a payroll line to a run, either for an existing employee (employeeId) or an ad-hoc name. Returns the line id.",
+  },
+  {
+    name: "update_payroll_line",
+    function: "payroll:updateLine",
+    title: "Update payroll line",
+    description: "Change a payroll line: salary, earnings, deductions, allowances, 13th salary parts, manual loan deduction, notes. All money fields are BRL cents. Pass null to clear nullable text fields.",
+    idempotent: true,
+  },
+  {
+    name: "remove_payroll_line",
+    function: "payroll:removeLine",
+    title: "Remove payroll line",
+    description: "Remove an employee's line from a payroll run. Cannot be undone.",
+    destructive: true,
+  },
+  {
+    name: "set_payroll_line_paid",
+    function: "payroll:togglePaid",
+    title: "Mark payroll line paid",
+    description: "Mark a payroll line as paid or unpaid.",
+    idempotent: true,
+  },
+  {
+    name: "update_payroll_run_parameters",
+    function: "payroll:updateRunParameters",
+    title: "Update payroll run parameters",
+    description: "Change the run-wide defaults: meal voucher per day, food basket value, default daily transit and transport/food days (BRL cents where applicable).",
+    idempotent: true,
+  },
+  {
+    name: "close_payroll_run",
+    function: "payroll:closeRun",
+    title: "Close payroll run",
+    description: "Close a payroll run so its lines stop being editable. Reopen with reopen_payroll_run.",
+    idempotent: true,
+  },
+  {
+    name: "reopen_payroll_run",
+    function: "payroll:reopenRun",
+    title: "Reopen payroll run",
+    description: "Reopen a closed payroll run for corrections.",
+    idempotent: true,
+  },
+  {
+    name: "create_employee_loan",
+    function: "payroll:createLoan",
+    title: "Create employee loan",
+    description: "Register a loan/advance for an employee, split into monthly installments deducted from payroll starting at startYear/startMonth. Amounts in BRL cents. Returns the loan id.",
+  },
+  {
+    name: "update_employee_loan",
+    function: "payroll:updateLoan",
+    title: "Update employee loan",
+    description: "Change a loan's total, installments, start month or description.",
+    idempotent: true,
+  },
+  {
+    name: "archive_employee_loan",
+    function: "payroll:archiveLoan",
+    title: "Archive employee loan",
+    description: "Archive a loan so it stops being deducted. Cannot be undone from here.",
+    destructive: true,
+    idempotent: true,
+  },
+  {
+    name: "restore_employee",
+    function: "employees:restore",
+    title: "Restore employee",
+    description: "Restore an archived employee.",
+    idempotent: true,
+  },
+
+  // --------------------------------------------------------------------------
+  // Inventory: locations, movements, stock policies, rules
+  // --------------------------------------------------------------------------
+  {
+    name: "list_inventory_locations",
+    function: "inventoryStockPolicies:listLocations",
+    title: "List inventory locations",
+    description: "Stock locations (central warehouse and project sites) with ids. Use to pick a locationId for stock policies.",
+  },
+  {
+    name: "ensure_central_inventory_location",
+    function: "inventoryStockPolicies:ensureCentralLocation",
+    title: "Ensure central warehouse location",
+    description: "Return the central warehouse location id, creating it if it does not exist yet.",
+    idempotent: true,
+  },
+  {
+    name: "list_inventory_projects",
+    function: "inventory:listProjects",
+    title: "List projects with inventory",
+    description: "Projects that have a stock location, with the responsible user.",
+  },
+  {
+    name: "list_inventory_material_options",
+    function: "inventory:listMaterialOptions",
+    title: "Search materials for inventory",
+    description: "Materials tracked in inventory with unit, category and technical attributes. Use to pick materialIds for movement document lines.",
+  },
+  {
+    name: "list_inventory_movements",
+    function: "inventory:listEventsPaginated",
+    title: "List inventory movements (paginated)",
+    description: "Paginated stock movement events (material, location, quantity delta, document), optionally for one project.",
+    fieldDescriptions: { paginationOpts: PAGINATION_HINT },
+  },
+  {
+    name: "reverse_inventory_document",
+    function: "inventory:reverseDocument",
+    title: "Reverse posted inventory document",
+    description: "Create and post a reversal of a posted movement document, undoing its effect on balances. Requires a reason. Returns the reversal document id.",
+    destructive: true,
+  },
+  {
+    name: "update_inventory_physical_address",
+    function: "inventory:updatePhysicalAddress",
+    title: "Update shelf/bin address",
+    description: "Set the physical address (aisle/shelf/bin) of a stock balance.",
+    idempotent: true,
+  },
+  {
+    name: "quick_create_material",
+    function: "inventory:quickCreateMaterial",
+    title: "Quick-create material",
+    description: "Create a minimal material (name, variant, unit, category) from the warehouse or purchasing when a movement needs an item that is not in the catalog yet. Returns the material with its generated SKU.",
+  },
+  {
+    name: "get_stock_policy",
+    function: "inventoryStockPolicies:getForLocation",
+    title: "Get stock policy",
+    description: "Minimum, reorder point, target and lead time for one material at one location, or null if none is set.",
+  },
+  {
+    name: "list_material_stock_policies",
+    function: "inventoryStockPolicies:listForMaterial",
+    title: "List stock policies of a material",
+    description: "Stock policies of a material across all locations.",
+  },
+  {
+    name: "set_stock_policy",
+    function: "inventoryStockPolicies:upsert",
+    title: "Set stock policy (purchasing)",
+    description: "Create or update the minimum / reorder point / target quantities and lead time for a material at a location. Purchasing permission.",
+    idempotent: true,
+  },
+  {
+    name: "set_stock_policy_from_warehouse",
+    function: "inventoryStockPolicies:upsertFromWarehouse",
+    title: "Set stock policy (warehouse)",
+    description: "Same as set_stock_policy, for users of the warehouse team.",
+    idempotent: true,
+  },
+  {
+    name: "create_inventory_rule",
+    function: "inventory:createRule",
+    title: "Create inventory compatibility rule",
+    description: "Create a compatibility/incompatibility rule between materials or categories that is checked when posting movement documents. Admins only.",
+  },
+  {
+    name: "set_inventory_rule_active",
+    function: "inventory:setRuleActive",
+    title: "Enable or disable inventory rule",
+    description: "Activate or deactivate a compatibility rule. Admins only.",
+    idempotent: true,
+  },
+
+  // --------------------------------------------------------------------------
+  // Purchasing and customer registry: remaining operations
+  // --------------------------------------------------------------------------
+  {
+    name: "remove_supplier_contact",
+    function: "suppliers:removeContact",
+    title: "Remove supplier contact",
+    description: "Remove a contact person from a supplier.",
+    destructive: true,
+    idempotent: true,
+  },
+  {
+    name: "remove_supplier_material_offering",
+    function: "suppliers:removeMaterialOffering",
+    title: "Remove supplier offering",
+    description: "Remove the link between a supplier and a material.",
+    destructive: true,
+    idempotent: true,
+  },
+  {
+    name: "bulk_create_suppliers",
+    function: "suppliers:bulkCreate",
+    title: "Bulk create suppliers",
+    description: "Create several suppliers in one call (e.g. from a spreadsheet). Returns created/skipped counts with per-row errors.",
+  },
+  {
+    name: "restore_customer_contact",
+    function: "customers:restoreContact",
+    title: "Restore customer contact",
+    description: "Reactivate a removed customer contact.",
+    idempotent: true,
+  },
+  {
+    name: "bulk_create_customers",
+    function: "customers:bulkCreate",
+    title: "Bulk create customers",
+    description: "Create several customers in one call. Returns created/skipped counts with per-row errors.",
+  },
+  {
+    name: "restore_contractor_contact",
+    function: "contractors:restoreContact",
+    title: "Restore contractor contact",
+    description: "Reactivate a removed contractor contact.",
+    idempotent: true,
+  },
+  {
+    name: "list_material_aliases",
+    function: "materials:listAliases",
+    title: "List material aliases",
+    description: "Alternative names registered for a material.",
+  },
+  {
+    name: "list_material_variants",
+    function: "materials:listVariants",
+    title: "List material family variants",
+    description: "Materials that belong to a family (variants of the same product).",
+  },
+  {
+    name: "find_duplicate_materials",
+    function: "materials:findDuplicateCandidates",
+    title: "Find duplicate materials",
+    description: "Before creating a material, find existing ones that look like the same product (by name, family, variant, manufacturer part number, dimensions). `exact` marks a confident match.",
+  },
+  {
+    name: "preview_material_merge",
+    function: "materials:mergePreview",
+    title: "Preview material merge",
+    description: "Show what merging a duplicate material (source) into another (target) would move: stock per location, takeoff items, price events, offerings and aliases. Run before merge_materials.",
+  },
+  {
+    name: "merge_materials",
+    function: "materials:merge",
+    title: "Merge duplicate materials",
+    description: "Merge the source material into the target: stock, prices, offerings, takeoff items and aliases move to the target and the source is deactivated. Cannot be undone; confirm with the user and run preview_material_merge first.",
+    destructive: true,
+  },
+  {
+    name: "bulk_create_materials",
+    function: "materials:bulkCreate",
+    title: "Bulk create materials",
+    description: "Create several materials in one call (e.g. from a supplier catalog). Returns created/skipped counts with per-row errors.",
+  },
+  {
+    name: "promote_takeoff_item_to_material",
+    function: "takeoffs:promoteItemToMaterial",
+    title: "Promote takeoff item to material",
+    description: "Turn an unmatched takeoff line into a catalog material (or link it to one that already exists) and match the line to it.",
+  },
+  {
+    name: "apply_takeoff_suggested_price",
+    function: "takeoffs:applySuggestedPrice",
+    title: "Apply price to takeoff item",
+    description: "Set the estimated unit price (BRL cents) of a takeoff line, usually from get_latest_material_prices.",
+    idempotent: true,
+  },
+
+  // --------------------------------------------------------------------------
+  // Engineering: remaining structure operations
+  // --------------------------------------------------------------------------
+  {
+    name: "delete_checklist_template",
+    function: "checklists:removeTemplate",
+    title: "Delete checklist template",
+    description: "Delete a checklist template. Items already applied to equipment are kept.",
+    destructive: true,
+  },
+  {
+    name: "rename_duct_estimate",
+    function: "ductEstimates:rename",
+    title: "Rename duct estimate",
+    description: "Rename a saved duct sizing estimate.",
+    idempotent: true,
+  },
+  {
+    name: "delete_duct_estimate",
+    function: "ductEstimates:remove",
+    title: "Delete duct estimate",
+    description: "Delete a saved duct sizing estimate. Cannot be undone.",
+    destructive: true,
+  },
+  {
+    name: "duplicate_tower",
+    function: "towers:duplicate",
+    title: "Duplicate tower",
+    description: "Copy a tower with its floors, environments, systems and planned equipment. Returns the new tower id.",
+  },
+  {
+    name: "replicate_floor",
+    function: "floors:replicate",
+    title: "Replicate floor layout",
+    description: "Copy the environments, systems and planned equipment of one floor onto other floors of the same tower, optionally renaming environments per target floor. Returns counts of what was created.",
+    fieldDescriptions: {
+      renames: "Optional per-target renames: for a source environment, the name it should have on a given target floor. Pass [] to keep names.",
+    },
+  },
+  {
+    name: "bulk_create_systems",
+    function: "systems:bulkCreateSystems",
+    title: "Bulk create systems",
+    description: "Create several systems in a project by name; existing names are returned with created=false.",
+  },
+  {
+    name: "upsert_project_unit",
+    function: "projectUnits:upsert",
+    title: "Create or update project unit",
+    description: "Create a legacy project unit (floor + unit number, VRF or split) or update it when unitId is given. Returns the unit id.",
+    fieldDescriptions: { unitId: "Omit to create; pass an existing projectUnits id to update." },
+  },
+  {
+    name: "set_project_unit_deadline",
+    function: "projectUnits:setDeadline",
+    title: "Set project unit deadline",
+    description: "Set or clear (null) the installation deadline of a project unit.",
+    idempotent: true,
+  },
+  {
+    name: "delete_project_unit",
+    function: "projectUnits:remove",
+    title: "Delete project unit",
+    description: "Delete a project unit and its planned equipment. Cannot be undone.",
+    destructive: true,
+  },
+  {
+    name: "set_project_portal_users",
+    function: "projects:setPortalUsers",
+    title: "Set project portal users",
+    description: "Replace the list of customer portal users who can see a project.",
+    idempotent: true,
+  },
+  {
+    name: "list_contract_base_options",
+    function: "contracts:listBaseOptions",
+    title: "List base contracts for an addendum",
+    description: "Base contracts that an addendum can attach to, filtered by direction and project.",
+  },
+  {
+    name: "list_record_audit_logs",
+    function: "auditLogs:listByRecord",
+    title: "List audit logs of a record",
+    description: "Paginated audit trail for one record (table name + record id). Admins only.",
+    fieldDescriptions: { paginationOpts: PAGINATION_HINT },
+  },
+
+  // --------------------------------------------------------------------------
   // Agent tokens (self-service)
   // --------------------------------------------------------------------------
   {
