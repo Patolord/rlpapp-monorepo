@@ -116,6 +116,7 @@ export function SupplierFields({
           id={`${idPrefix}-name`}
           value={form.name}
           disabled={disabled}
+          aria-required="true"
           onChange={(e) => set("name", e.target.value)}
         />
       </div>

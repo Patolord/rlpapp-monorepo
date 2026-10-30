@@ -84,8 +84,9 @@ const COMMON_FIELD_HINTS: Array<{
     hint: "CPF or CNPJ (digits only or formatted).",
   },
   {
+    // Validador é um union de literais (e aceita null no update), não "string".
     names: ["personType"],
-    type: "string",
+    type: "*",
     hint: '"pj" (company, CNPJ) or "pf" (individual, CPF).',
   },
   {
@@ -104,8 +105,9 @@ const COMMON_FIELD_HINTS: Array<{
     hint: 'Default payment terms as free text, e.g. "28 DDL", "30/60", "à vista".',
   },
   {
+    // No update é `v.union(v.number(), v.null())`, então o tipo não é "number".
     names: ["defaultLeadTimeDays", "leadTimeDays"],
-    type: "number",
+    type: "*",
     hint: "Delivery lead time in whole days (non-negative integer).",
   },
   {

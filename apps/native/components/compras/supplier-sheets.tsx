@@ -14,6 +14,8 @@ import { colors, space, type } from "@/lib/theme";
 type Supplier = FunctionReturnType<typeof api.suppliers.list>[number];
 type Contact = NonNullable<FunctionReturnType<typeof api.suppliers.get>>["contacts"][number];
 type PersonType = "pf" | "pj";
+/** Escolha do formulário: PJ, PF ou "não informado" (mantém registros antigos sem tipo). */
+type PersonChoice = PersonType | "none";
 
 /** Criar / editar fornecedor. */
 export function SupplierFormSheet({ open, onClose, supplier, onSaved }: { open: boolean; onClose: () => void; supplier?: Supplier | null; onSaved?: (id: Id<"suppliers">) => void }) {
@@ -21,7 +23,7 @@ export function SupplierFormSheet({ open, onClose, supplier, onSaved }: { open: 
   const create = useMutation(api.suppliers.create);
   const update = useMutation(api.suppliers.update);
   const [name, setName] = useState("");
-  const [personType, setPersonType] = useState<PersonType>("pj");
+  const [personType, setPersonType] = useState<PersonChoice>("pj");
   const [legalName, setLegalName] = useState("");
   const [taxId, setTaxId] = useState("");
   const [stateRegistration, setStateRegistration] = useState("");
@@ -40,7 +42,8 @@ export function SupplierFormSheet({ open, onClose, supplier, onSaved }: { open: 
   useEffect(() => {
     if (!open) return;
     setName(supplier?.name ?? "");
-    setPersonType(supplier?.personType ?? "pj");
+    // Registro existente sem tipo continua "não informado" até o usuário escolher.
+    setPersonType(supplier ? (supplier.personType ?? "none") : "pj");
     setLegalName(supplier?.legalName ?? "");
     setTaxId(formatTaxId(supplier?.taxId ?? null) ?? "");
     setStateRegistration(supplier?.stateRegistration ?? "");
@@ -74,9 +77,8 @@ export function SupplierFormSheet({ open, onClose, supplier, onSaved }: { open: 
     try {
       const payload = {
         name: name.trim(),
-        personType,
-        legalName: personType === "pj" ? legalName.trim() : "",
-        stateRegistration: personType === "pj" ? stateRegistration.trim() : "",
+        legalName: personType === "pf" ? "" : legalName.trim(),
+        stateRegistration: personType === "pf" ? "" : stateRegistration.trim(),
         email: email.trim(),
         phone: phone.trim(),
         website: website.trim(),
@@ -87,11 +89,11 @@ export function SupplierFormSheet({ open, onClose, supplier, onSaved }: { open: 
       };
       let id: Id<"suppliers">;
       if (supplier) {
-        await update({ supplierId: supplier._id, ...payload, taxId: taxId.trim() || null, defaultLeadTimeDays });
+        await update({ supplierId: supplier._id, ...payload, personType: personType === "none" ? null : personType, taxId: taxId.trim() || null, defaultLeadTimeDays });
         id = supplier._id;
         toast.success("Fornecedor atualizado");
       } else {
-        id = await create({ ...payload, taxId: taxId.trim() || undefined, defaultLeadTimeDays: defaultLeadTimeDays ?? undefined });
+        id = await create({ ...payload, personType: personType === "none" ? undefined : personType, taxId: taxId.trim() || undefined, defaultLeadTimeDays: defaultLeadTimeDays ?? undefined });
         toast.success("Fornecedor criado");
       }
       onClose();
@@ -105,24 +107,27 @@ export function SupplierFormSheet({ open, onClose, supplier, onSaved }: { open: 
 
   const iconColor = colors.icon;
   const isPj = personType === "pj";
+  const isPf = personType === "pf";
+  const taxLabel = isPj ? "CNPJ" : isPf ? "CPF" : "CNPJ/CPF";
 
   return (
     <Sheet open={open} onClose={onClose} title={supplier ? "Editar fornecedor" : "Novo fornecedor"} maxHeight={0.9} footer={<AppButton label={supplier ? "Salvar" : "Criar fornecedor"} onPress={() => void submit()} loading={saving} />}>
-      <SegmentedField<PersonType>
+      <SegmentedField<PersonChoice>
         label="Tipo"
         value={personType}
         onChange={setPersonType}
         options={[
           { value: "pj", label: "Pessoa jurídica" },
           { value: "pf", label: "Pessoa física" },
+          { value: "none", label: "Não informado" },
         ]}
       />
       <Field label={isPj ? "Nome fantasia *" : "Nome *"} icon={isPj ? <Building2 size={24} color={iconColor} strokeWidth={1.6} /> : <Truck size={24} color={iconColor} strokeWidth={1.6} />} value={name} onChangeText={(v) => { setName(v); setNameError(undefined); }} error={nameError} autoFocus={!supplier} autoCapitalize="words" />
-      {isPj ? (
+      {!isPf ? (
         <Field label="Razão social" icon={<FileText size={24} color={iconColor} strokeWidth={1.6} />} value={legalName} onChangeText={setLegalName} autoCapitalize="words" />
       ) : null}
-      <Field label={isPj ? "CNPJ" : "CPF"} icon={<FileText size={24} color={iconColor} strokeWidth={1.6} />} value={taxId} onChangeText={setTaxId} keyboardType="numbers-and-punctuation" placeholder={isPj ? "00.000.000/0000-00" : "000.000.000-00"} />
-      {isPj ? (
+      <Field label={taxLabel} icon={<FileText size={24} color={iconColor} strokeWidth={1.6} />} value={taxId} onChangeText={setTaxId} keyboardType="numbers-and-punctuation" placeholder={isPf ? "000.000.000-00" : "00.000.000/0000-00"} />
+      {!isPf ? (
         <Field label="Inscrição estadual" icon={<FileText size={24} color={iconColor} strokeWidth={1.6} />} value={stateRegistration} onChangeText={setStateRegistration} keyboardType="numbers-and-punctuation" />
       ) : null}
       <Field label="Telefone" icon={<Phone size={24} color={iconColor} strokeWidth={1.6} />} value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="(11) 4000-0000" />
@@ -240,7 +245,7 @@ export function SupplierDetailSheet({ supplierId, onClose }: { supplierId: Id<"s
                 { label: "Inscrição estadual", value: supplier.stateRegistration },
                 {
                   label: "Telefone",
-                  value: supplier.phone ? <LinkText value={supplier.phone} href={`tel:${supplier.phone.replace(/\D/g, "")}`} /> : null,
+                  value: supplier.phone ? <LinkText value={supplier.phone} href={`tel:${supplier.phone.replace(/[^\d+]/g, "")}`} /> : null,
                 },
                 {
                   label: "E-mail",

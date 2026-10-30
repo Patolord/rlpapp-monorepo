@@ -147,7 +147,8 @@ function FornecedoresContent() {
         s.name.toLowerCase().includes(term) ||
         (s.legalName?.toLowerCase().includes(term) ?? false) ||
         (s.categories?.some((c) => c.toLowerCase().includes(term)) ?? false) ||
-        (digits.length >= 3 && (s.taxId?.includes(digits) ?? false))
+        (digits.length >= 3 &&
+          (s.taxId?.replace(/\D/g, "").includes(digits) ?? false))
     );
   }, [suppliers, search]);
 

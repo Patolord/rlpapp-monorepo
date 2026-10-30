@@ -85,6 +85,40 @@ describe("suppliers register", () => {
     ).rejects.toThrow(/Já existe um fornecedor com este CNPJ\/CPF/);
   });
 
+  test("validates the tax id even without a person type", async () => {
+    const { purchasing } = await seedPurchasing();
+
+    await expect(
+      purchasing.mutation(api.suppliers.create, {
+        name: "Sem tipo",
+        taxId: "123",
+      })
+    ).rejects.toThrow(/11 \(CPF\) ou 14 \(CNPJ\)/);
+
+    await expect(
+      purchasing.mutation(api.suppliers.create, {
+        name: "CNPJ ruim sem tipo",
+        taxId: "11.111.111/1111-11",
+      })
+    ).rejects.toThrow(/CNPJ inválido/);
+
+    // CPF válido (dígitos verificadores corretos) é aceito e inferido como PF.
+    const supplierId = await purchasing.mutation(api.suppliers.create, {
+      name: "CPF sem tipo",
+      taxId: "529.982.247-25",
+    });
+    const detail = await purchasing.query(api.suppliers.get, { supplierId });
+    expect(detail!.supplier.taxId).toBe("52998224725");
+    expect(detail!.supplier.personType).toBeNull();
+
+    await expect(
+      purchasing.mutation(api.suppliers.update, {
+        supplierId,
+        taxId: "12345",
+      })
+    ).rejects.toThrow(/11 \(CPF\) ou 14 \(CNPJ\)/);
+  });
+
   test("validates e-mail and lead time", async () => {
     const { purchasing } = await seedPurchasing();
 

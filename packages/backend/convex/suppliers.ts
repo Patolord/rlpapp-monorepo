@@ -168,6 +168,21 @@ function validateEmail(value: string | undefined): void {
   }
 }
 
+/**
+ * Sem tipo de pessoa informado, deduz PF/PJ pelo tamanho do documento para
+ * que o CNPJ/CPF seja sempre validado (tamanho + dígitos verificadores).
+ */
+function resolvePersonType(
+  taxId: string | undefined,
+  personType: "pf" | "pj" | undefined
+): "pf" | "pj" | undefined {
+  if (personType || !taxId) return personType;
+  const length = normalizeTaxId(taxId).length;
+  if (length === 11) return "pf";
+  if (length === 14) return "pj";
+  throw new Error("CNPJ/CPF deve conter 11 (CPF) ou 14 (CNPJ) dígitos");
+}
+
 async function assertUniqueSupplierTaxId(
   ctx: MutationCtx,
   taxId: string | undefined,
@@ -267,7 +282,7 @@ type SupplierFieldsInput = {
 /** Normaliza e valida os campos opcionais de um fornecedor novo. */
 function prepareSupplierFields(input: SupplierFieldsInput) {
   const taxId = input.taxId ? formatTaxId(input.taxId) : undefined;
-  validateTaxIdForPersonType(taxId, input.personType);
+  validateTaxIdForPersonType(taxId, resolvePersonType(taxId, input.personType));
   validateLeadTimeDays(input.defaultLeadTimeDays);
   const email = cleanOptional(input.email);
   validateEmail(email);
@@ -493,7 +508,10 @@ export const update = purchasingMutation({
     const nextTaxId = args.taxId === undefined ? supplier.taxId : updates.taxId;
     const nextPersonType =
       args.personType === undefined ? supplier.personType : updates.personType;
-    validateTaxIdForPersonType(nextTaxId, nextPersonType);
+    validateTaxIdForPersonType(
+      nextTaxId,
+      resolvePersonType(nextTaxId, nextPersonType)
+    );
     await assertUniqueSupplierTaxId(ctx, nextTaxId, args.supplierId);
 
     await ctx.db.patch("suppliers", args.supplierId, updates);
