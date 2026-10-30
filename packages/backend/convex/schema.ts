@@ -290,6 +290,12 @@ export const contractKind = v.union(
   v.literal("addendum")
 );
 
+// Permissão de um token de agente (MCP).
+export const agentTokenPermission = v.union(
+  v.literal("full_access"),
+  v.literal("read_only")
+);
+
 export default defineSchema({
   users: defineTable({
     name: v.string(),
@@ -309,6 +315,51 @@ export default defineSchema({
     .index("by_clerkId", ["clerkId"])
     .index("by_role", ["role"])
     .index("by_active", ["isActive"]),
+
+  // --- Tokens de agente (MCP / acesso programático) ---
+
+  // Credencial de longa duração que age em nome do usuário dono (mesma role e
+  // permissões). Só o SHA-256 do token é guardado; o texto puro aparece uma
+  // única vez, na criação. Usado pelo servidor MCP (apps/web /mcp) no lugar do
+  // OAuth do Clerk: o token é trocado por um JWT de delegação curto cujo `sub`
+  // é o clerkId do dono. Revogação e modo somente-leitura são aplicados
+  // centralmente em lib/agentTokens.ts.
+  agentTokens: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    /** SHA-256 (hex) do token em texto puro; usado na busca a cada pedido. */
+    tokenHash: v.string(),
+    /** Primeiros caracteres do token (`rlp_` + 8) para identificar na lista. */
+    tokenPrefix: v.string(),
+    /** `read_only` só executa queries; mutations e actions são rejeitadas. */
+    permission: agentTokenPermission,
+    createdAt: v.number(),
+    /** Atualizado no máximo uma vez por minuto. */
+    lastUsedAt: v.optional(v.number()),
+    expiresAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_tokenHash", ["tokenHash"]),
+
+  // Uma linha por chamada de ferramenta feita via MCP com um token de agente.
+  // Alimenta "Atividade recente" na página Agentes. Expurgado pelo cron após
+  // AGENT_TOKEN_CALL_RETENTION_DAYS.
+  agentTokenCalls: defineTable({
+    tokenId: v.id("agentTokens"),
+    userId: v.id("users"),
+    /** Nome da ferramenta MCP (ex.: `list_projects`, `call_function`). */
+    tool: v.string(),
+    /** Função Convex chamada, `modulo:funcao`. */
+    functionPath: v.optional(v.string()),
+    outcome: v.union(v.literal("success"), v.literal("error")),
+    errorMessage: v.optional(v.string()),
+    durationMs: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_createdAt", ["createdAt"])
+    .index("by_token", ["tokenId", "createdAt"])
+    .index("by_user", ["userId", "createdAt"]),
 
   // --- QR Code / Equipment tracking ---
 

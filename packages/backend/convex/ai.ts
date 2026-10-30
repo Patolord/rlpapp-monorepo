@@ -5,6 +5,7 @@ import OpenAI from "openai";
 import { action, env } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { aiIntentValidator } from "./aiIntents";
+import { rejectReadOnlyAgentTokenInAction } from "./lib/agentTokens";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
 const equipKindValidator = v.union(
@@ -154,6 +155,7 @@ export const proposeLayout = action({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    rejectReadOnlyAgentTokenInAction(identity);
 
     const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
@@ -384,6 +386,7 @@ export const interpret = action({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    rejectReadOnlyAgentTokenInAction(identity);
 
     const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 

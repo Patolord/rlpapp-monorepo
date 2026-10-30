@@ -3,6 +3,8 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 
+import type { McpPrincipal } from "./auth";
+
 export type ListProjectsResult = FunctionReturnType<typeof api.projects.list>;
 export type ResolveProjectResult = FunctionReturnType<
   typeof api.projects.resolve
@@ -39,5 +41,5 @@ export type EngineeringAdapter = {
 };
 
 export type EngineeringAdapterFactory = (
-  userId: string
+  principal: McpPrincipal
 ) => EngineeringAdapter | Promise<EngineeringAdapter>;

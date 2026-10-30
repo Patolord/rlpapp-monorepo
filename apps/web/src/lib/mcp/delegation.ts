@@ -11,6 +11,12 @@ export type DelegationConfig = {
   audience?: string;
   ttlSeconds?: number;
   kid?: string;
+  /**
+   * Claims extras no payload. Usado para `agent_token: { id, permission }`,
+   * que o Convex expõe como `identity["agent_token.id"]` e que a política de
+   * lib/agentTokens.ts (backend) usa para revogação e modo somente-leitura.
+   */
+  claims?: Record<string, unknown>;
 };
 
 function normalizePem(value: string): string {
@@ -43,7 +49,7 @@ export async function signDelegationJwt(
   const issuedAt = Math.floor(now / 1000);
   const ttl = config.ttlSeconds ?? DELEGATION_TTL_SECONDS;
 
-  return await new SignJWT({})
+  return await new SignJWT({ ...(config.claims ?? {}) })
     .setProtectedHeader({
       alg: "RS256",
       typ: "JWT",

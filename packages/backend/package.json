@@ -17,9 +17,10 @@
     "./convex/*": "./convex/*"
   },
   "scripts": {
-    "dev": "doppler run -- convex dev",
+    "dev": "node scripts/generate-mcp-catalog.mjs && doppler run -- convex dev",
     "dev:setup": "doppler run -- convex dev --configure --until-success",
-    "check-types": "tsc -p convex --noEmit",
+    "generate:catalog": "node scripts/generate-mcp-catalog.mjs",
+    "check-types": "node scripts/generate-mcp-catalog.mjs --check && tsc -p convex --noEmit",
     "lint": "eslint convex",
     "test": "vitest run"
   },
