@@ -2,7 +2,7 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Loader2, Package, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -71,6 +71,10 @@ export function SupplierDetailDialog({ supplier }: { supplier: SupplierSummary }
 
   const details = useQuery(
     api.suppliers.get,
+    open ? { supplierId: supplier._id } : "skip"
+  );
+  const offerings = useQuery(
+    api.suppliers.listMaterialOfferings,
     open ? { supplierId: supplier._id } : "skip"
   );
   const updateSupplier = useMutation(api.suppliers.update);
@@ -272,6 +276,67 @@ export function SupplierDetailDialog({ supplier }: { supplier: SupplierSummary }
               </Button>
             </div>
           </div>
+        </div>
+
+        <div className="space-y-3 border-t pt-5">
+          <div>
+            <h3 className="font-semibold">Materiais fornecidos</h3>
+            <p className="text-sm text-muted-foreground">
+              Vínculos feitos no cadastro de cada material. Prazo sem valor
+              próprio usa o padrão do fornecedor.
+            </p>
+          </div>
+          {offerings === undefined ? (
+            <Loader2 className="mx-auto size-5 animate-spin text-muted-foreground" />
+          ) : offerings.length === 0 ? (
+            <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+              Nenhum material vinculado a este fornecedor.
+            </p>
+          ) : (
+            <ul className="divide-y rounded-md border text-sm">
+              {offerings.map((offering) => {
+                const details = [
+                  offering.supplierCode ? `Cód. ${offering.supplierCode}` : null,
+                  offering.purchaseUnit,
+                  offering.effectiveLeadTimeDays != null
+                    ? `${offering.effectiveLeadTimeDays} dia${
+                        offering.effectiveLeadTimeDays === 1 ? "" : "s"
+                      }${offering.leadTimeDays == null ? " (padrão)" : ""}`
+                    : null,
+                ].filter(Boolean);
+                return (
+                  <li
+                    key={offering._id}
+                    className="flex items-center gap-3 px-3 py-2"
+                  >
+                    <Package className="size-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-medium">
+                          {offering.materialName}
+                          {offering.materialVariantLabel
+                            ? ` · ${offering.materialVariantLabel}`
+                            : ""}
+                        </span>
+                        {offering.preferred ? (
+                          <Badge variant="outline" className="gap-1">
+                            <Star className="size-3" />
+                            Preferido
+                          </Badge>
+                        ) : null}
+                        {!offering.active ? (
+                          <Badge variant="secondary">Inativo</Badge>
+                        ) : null}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {details.length > 0 ? details.join(" · ") : "Sem detalhes"}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
 
         <DialogFooter>

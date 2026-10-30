@@ -2,13 +2,13 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
-import { AtSign, Briefcase, Building2, CalendarClock, FileText, Globe, MapPin, MessageCircle, Pencil, Phone, Plus, StickyNote, Tags, Trash2, Truck, User, Wallet } from "lucide-react-native";
+import { AtSign, Briefcase, Building2, CalendarClock, FileText, Globe, MapPin, MessageCircle, Package, Pencil, Phone, Plus, StickyNote, Tags, Trash2, Truck, User, Wallet } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppButton, ConfirmDialog, EmptyState, Field, IconButton, KeyValueList, LoadingState, Pill, SectionTitle, SegmentedField, Sheet, Surface, useToast } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
-import { formatTaxId } from "@/lib/format";
+import { formatMaterialLabel, formatTaxId } from "@/lib/format";
 import { colors, space, type } from "@/lib/theme";
 
 type Supplier = FunctionReturnType<typeof api.suppliers.list>[number];
@@ -158,6 +158,7 @@ function leadTimeLabel(days: number): string {
 export function SupplierDetailSheet({ supplierId, onClose }: { supplierId: Id<"suppliers"> | null; onClose: () => void }) {
   const toast = useToast();
   const detail = useQuery(api.suppliers.get, supplierId ? { supplierId } : "skip");
+  const offerings = useQuery(api.suppliers.listMaterialOfferings, supplierId ? { supplierId } : "skip");
   const update = useMutation(api.suppliers.update);
   const addContact = useMutation(api.suppliers.addContact);
   const removeContact = useMutation(api.suppliers.removeContact);
@@ -296,6 +297,40 @@ export function SupplierDetailSheet({ supplierId, onClose }: { supplierId: Id<"s
                 </View>
               )}
             </View>
+            <View>
+              <SectionTitle title="Materiais fornecidos" style={{ paddingHorizontal: 4, paddingTop: 0 }} />
+              {offerings === undefined ? (
+                <LoadingState style={{ flex: 0, paddingVertical: space.lg }} />
+              ) : offerings.length === 0 ? (
+                <Surface style={{ alignItems: "center", paddingVertical: space.xl }}>
+                  <Text style={[type.bodySm, { color: colors.textSecondary }]}>Nenhum material vinculado. O vínculo é feito no cadastro do material.</Text>
+                </Surface>
+              ) : (
+                <Surface padded={false}>
+                  {offerings.map((offering, index) => {
+                    const details = [
+                      offering.supplierCode ? `Cód. ${offering.supplierCode}` : null,
+                      offering.purchaseUnit,
+                      offering.effectiveLeadTimeDays !== null ? `${leadTimeLabel(offering.effectiveLeadTimeDays)}${offering.leadTimeDays === null ? " (padrão)" : ""}` : null,
+                    ].filter(Boolean);
+                    return (
+                      <View key={offering._id} style={[styles.offering, index > 0 && styles.offeringBorder]}>
+                        <Package size={20} color={colors.icon} strokeWidth={1.8} />
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <Text style={[type.bodyStrong, { color: colors.text }]} numberOfLines={1}>
+                            {formatMaterialLabel(offering.materialName, offering.materialVariantLabel)}
+                          </Text>
+                          <Text style={[type.caption, { color: colors.textMuted }]} numberOfLines={1}>
+                            {details.length > 0 ? details.join(" · ") : "Sem detalhes"}
+                          </Text>
+                        </View>
+                        {offering.preferred ? <Pill label="Preferido" tone="success" /> : null}
+                      </View>
+                    );
+                  })}
+                </Surface>
+              )}
+            </View>
           </>
         )}
       </Sheet>
@@ -318,4 +353,6 @@ const styles = StyleSheet.create({
   footer: { flexDirection: "row", gap: space.md },
   contact: { flexDirection: "row", alignItems: "center", gap: space.sm, paddingLeft: space.md, paddingRight: 6, paddingVertical: 10 },
   contactIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
+  offering: { flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: space.md, paddingVertical: 10 },
+  offeringBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
 });
