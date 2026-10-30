@@ -7,7 +7,9 @@ import {
   mergeCatalog,
   normalizeDiscipline,
   parseRemoteCatalogResponse,
+  productName,
   SEED,
+  upgradeRemoteEntry,
   searchCatalog,
 } from "./catalog";
 
@@ -83,6 +85,44 @@ describe("catalog", () => {
     expect(() => parseRemoteCatalog({ nope: 1 })).toThrow();
   });
 
+  it("keeps every variant of a family as its own searchable entry", () => {
+    const items = ["MAXX 100 220V", "SONORA 14", "SONORA 18"].map((v, i) => ({
+      id: `m${i}`,
+      sku: `MAT-00013${i}`,
+      name: "Exaustor",
+      description: `Exaustor — Sicflux ${v}`,
+      group: "Ventilação e Exaustão",
+      unit: "pç",
+      status: "active",
+    }));
+    const store = { ...emptyCatalogStore(), remote: parseRemoteCatalog({ items }) };
+    const entries = mergeCatalog(store).filter((e) => e.source === "remote");
+    expect(entries.map((e) => e.variant)).toEqual([
+      "Sicflux MAXX 100 220V",
+      "Sicflux SONORA 14",
+      "Sicflux SONORA 18",
+    ]);
+    expect(searchCatalog(entries, "exaustor sonora 18").map((e) => e.sku)).toEqual(["MAT-000132"]);
+    expect(productName("Exaustor", "Exaustor")).toEqual({ name: "Exaustor" });
+    expect(productName("Exaustor", "Outro nome")).toEqual({ name: "Exaustor" });
+    // the spec after the variant is not part of the name; a spec alone is not a variant
+    expect(productName("Acionador", "Acionador — Verin VRE-AM2 - Endereçável — LEDs; IP65")).toEqual(
+      { name: "Acionador — Verin VRE-AM2 - Endereçável", variant: "Verin VRE-AM2 - Endereçável" },
+    );
+    const spec = "cadastro histórico genérico: fabricante, modelo, tecnologia e tensão não confirmados; revisar o projeto antes da compra";
+    expect(productName("Espelho", `Espelho — ${spec}`)).toEqual({ name: "Espelho" });
+    // the payload's own variant wins over the description
+    expect(productName("Espelho", `Espelho — ${spec}`, "Branco")).toEqual({
+      name: "Espelho — Branco",
+      variant: "Branco",
+    });
+    // entries cached by an earlier version are renamed once, never twice
+    const old = { name: "Exaustor", description: "Exaustor — Sicflux SONORA 18", group: "", unit: "pç", materialPrice: 0, laborPrice: 0 };
+    const upgraded = upgradeRemoteEntry(old);
+    expect(upgraded.name).toBe("Exaustor — Sicflux SONORA 18");
+    expect(upgradeRemoteEntry(upgraded)).toBe(upgraded);
+  });
+
   it("reads the company response: provenance, drafts and merge redirects", () => {
     const parsed = parseRemoteCatalogResponse({
       generatedAt: 1_761_200_000_000,
@@ -139,13 +179,15 @@ describe("catalog", () => {
     });
     expect(parsed.generatedAt).toBe(1_761_200_000_000);
     expect(parsed.redirects).toEqual({ m0: "m1" });
+    // a material is named after its product, so the variants of a family stay apart
     expect(parsed.entries.map((e) => e.name)).toEqual([
-      "Grelha de Insuflamento",
+      "Grelha de Insuflamento — Anodizada 200x200mm",
       "Damper corta-fogo",
     ]);
     expect(parsed.entries[0]).toMatchObject({
       catalogId: "m1",
       sku: "MAT-000101",
+      variant: "Anodizada 200x200mm",
       description: "Grelha de Insuflamento — Anodizada 200x200mm",
       materialPrice: 123.45,
       priceDate: 1_760_000_000_000,
@@ -154,6 +196,7 @@ describe("catalog", () => {
       system: undefined,
     });
     expect(parsed.entries[1]).toMatchObject({ status: "draft", priceDate: undefined });
+    expect(parsed.entries[1].variant).toBeUndefined();
     // a bare array (hand-made file) still works and has no generatedAt
     expect(parseRemoteCatalogResponse([{ name: "X", unit: "m" }]).generatedAt).toBeNull();
   });

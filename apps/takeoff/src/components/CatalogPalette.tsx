@@ -126,7 +126,7 @@ export function CatalogPalette() {
                 type="button"
                 onMouseEnter={() => setCursor(i)}
                 onClick={() => choose(e)}
-                title={e.description && e.description !== e.name ? e.description : undefined}
+                title={e.sku ? `${e.sku} · ${e.name}` : undefined}
                 className={clsx(
                   "flex w-full items-center gap-3 px-3 py-1.5 text-left text-xs",
                   i === cursor ? "bg-orange-500/15 text-neutral-100" : "text-neutral-200",
@@ -140,6 +140,9 @@ export function CatalogPalette() {
                     </>
                   ) : (
                     e.name
+                  )}
+                  {e.sku && (
+                    <span className="ml-2 whitespace-nowrap font-mono text-[10px] text-neutral-500">{e.sku}</span>
                   )}
                 </span>
                 {e.status === "draft" && (

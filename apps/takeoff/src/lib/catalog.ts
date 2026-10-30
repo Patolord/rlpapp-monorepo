@@ -35,10 +35,16 @@ export interface CatalogEntry {
   system?: string;
   /** Where the entry comes from: saved by the user, fetched from the company app, or bundled. */
   source?: "saved" | "remote" | "seed";
-  /** Company catalog only: the material's id there, its SKU and full description. */
+  /**
+   * Company catalog only: the material's id there, its SKU and full description. A company
+   * material is a family ("Exaustor") plus a variant ("Sicflux SONORA 18"); the entry is named
+   * after the product (the description) so variants can be told apart, searched and budgeted.
+   */
   catalogId?: string;
   sku?: string;
   description?: string;
+  /** What tells the product apart within its family; undefined when the family has one product. */
+  variant?: string;
   /** Company catalog only: when the price was quoted and until when it holds (ms epoch). */
   priceDate?: number;
   priceValidUntil?: number;
@@ -179,6 +185,39 @@ export interface RemoteCatalog {
 }
 
 /**
+ * A variant label is short ("Sicflux SONORA 18", "Verin VRC-MSA - Convencional - 12/24VCC");
+ * a spec is prose ("cadastro histórico genérico: fabricante, modelo…"), far longer than this.
+ */
+const MAX_VARIANT_LENGTH = 80;
+
+/**
+ * The company app describes a material as "family — variant — spec" ("Exaustor — Sicflux SONORA
+ * 18 — motor 220V"). The entry is named "family — variant", so the products of a family can be
+ * told apart, searched and budgeted; the spec stays in the description. The variant comes from
+ * the payload when it carries one, else from the description, where a segment of prose length is
+ * a spec, not a variant.
+ */
+export function productName(
+  family: string,
+  description: string | undefined,
+  variant?: string,
+): Pick<CatalogEntry, "name" | "variant"> {
+  const name = family.trim();
+  let label = variant?.trim();
+  if (!label) {
+    const sep = `${name} — `;
+    const full = description?.trim() ?? "";
+    const segment = full.startsWith(sep) ? full.slice(sep.length).split(" — ")[0].trim() : "";
+    if (segment && segment.length <= MAX_VARIANT_LENGTH) label = segment;
+  }
+  return label ? { name: `${name} — ${label}`, variant: label } : { name };
+}
+
+/** A company entry saved by a version that named it after the family only. */
+export const upgradeRemoteEntry = (e: CatalogEntry): CatalogEntry =>
+  e.variant ? e : { ...e, ...productName(e.name, e.description) };
+
+/**
  * Accepts the JSON the company app publishes (`GET /takeoff/catalog`: `{ generatedAt, items }`).
  * Still tolerates a bare array, other list keys and Portuguese field names, so a hand-made
  * JSON file works too. Archived materials are not entries: they only carry the redirect.
@@ -213,8 +252,9 @@ export function parseRemoteCatalogResponse(json: unknown): RemoteCatalog {
       if (catalogId && target) redirects[catalogId] = target;
       continue;
     }
+    const description = str(o.description);
     entries.push({
-      name: name.trim(),
+      ...productName(name, description, str(pick(o, ["variant", "variantLabel", "variante"]))),
       group: String(pick(o, ["group", "grupo", "categoria", "category"]) ?? "Diversos"),
       unit: String(pick(o, ["unit", "unidade", "un"]) ?? "pç"),
       materialPrice: num(
@@ -227,7 +267,7 @@ export function parseRemoteCatalogResponse(json: unknown): RemoteCatalog {
       source: "remote",
       catalogId,
       sku: str(o.sku),
-      description: str(o.description),
+      description,
       priceDate: ms(o.priceDate),
       priceValidUntil: ms(o.priceValidUntil),
       status: o.status === "draft" ? "draft" : catalogId ? "active" : undefined,
@@ -256,7 +296,10 @@ export async function loadCatalogStore(): Promise<CatalogStore> {
     if (Array.isArray(parsed)) return { ...emptyCatalogStore(), saved: parsed };
     // remoteUrl: a setting of earlier versions; the address is fixed now
     const { remoteUrl: _legacy, ...rest } = parsed;
-    return { ...emptyCatalogStore(), ...rest };
+    const store = { ...emptyCatalogStore(), ...rest };
+    // a catalog fetched by an earlier version named entries after the family only
+    store.remote = store.remote.map(upgradeRemoteEntry);
+    return store;
   } catch {
     return emptyCatalogStore();
   }
