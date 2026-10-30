@@ -242,7 +242,9 @@ Discovery:
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) roda lint + typecheck em todos os pushes para `main` e em PRs.
+GitHub Actions (`.github/workflows/ci.yml`) roda lint, typecheck e testes em PRs e em pushes para `master`, numa única invocação do Turbo (`turbo run lint check-types test`), com o cache do Turbo (`.turbo/cache`) guardado entre runs via `actions/cache`. Um pacote que não mudou desde a última run (do `master` ou da própria branch) tem suas tarefas reaproveitadas em vez de re-executadas; uma mudança só em páginas do `apps/web` re-executa apenas as tarefas do `web`.
+
+As runs no `master` são as que alimentam os caches das PRs (pnpm store e Turbo), por isso não são canceladas por `concurrency`.
 
 ## Deploy
 
