@@ -1,7 +1,15 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { FileUp, Plus, Search } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  FileUp,
+  Plus,
+  Search,
+  UserRoundCheck,
+  UserRoundX,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -73,6 +81,17 @@ const CUSTOMER_TEMPLATE_HEADERS = [
   "contactRole",
 ];
 
+type PersonTypeFilter = "all" | "pf" | "pj";
+type StatusFilter = "current" | "active" | "inactive" | "archived" | "all";
+
+const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: "current", label: "Ativos e inativos" },
+  { value: "active", label: "Somente ativos" },
+  { value: "inactive", label: "Somente inativos" },
+  { value: "archived", label: "Arquivados" },
+  { value: "all", label: "Todos" },
+];
+
 type CustomerImportItem = {
   name: string;
   personType?: "pf" | "pj";
@@ -103,7 +122,10 @@ function ClientesPage() {
 }
 
 function ClientesContent() {
-  const customers = useQuery(api.customers.list, { activeOnly: false });
+  const customers = useQuery(api.customers.list, {
+    activeOnly: false,
+    includeArchived: true,
+  });
   const createCustomer = useMutation(api.customers.create);
   const bulkCreateCustomers = useMutation(api.customers.bulkCreate);
   const updateCustomer = useMutation(api.customers.update);
@@ -111,6 +133,9 @@ function ClientesContent() {
   const restoreCustomer = useMutation(api.customers.restore);
 
   const [search, setSearch] = useState("");
+  const [personTypeFilter, setPersonTypeFilter] =
+    useState<PersonTypeFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("current");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -126,15 +151,36 @@ function ClientesContent() {
 
   const filtered = useMemo(() => {
     if (!customers) return [];
-    if (!search.trim()) return customers;
-    const term = search.toLowerCase();
-    return customers.filter(
-      (c) =>
+    const term = search.trim().toLowerCase();
+    return customers.filter((c) => {
+      if (personTypeFilter !== "all" && c.personType !== personTypeFilter) {
+        return false;
+      }
+      const archived = c.archivedAt !== null;
+      switch (statusFilter) {
+        case "current":
+          if (archived) return false;
+          break;
+        case "active":
+          if (archived || !c.active) return false;
+          break;
+        case "inactive":
+          if (archived || c.active) return false;
+          break;
+        case "archived":
+          if (!archived) return false;
+          break;
+        case "all":
+          break;
+      }
+      if (!term) return true;
+      return (
         c.name.toLowerCase().includes(term) ||
         (c.legalName?.toLowerCase().includes(term) ?? false) ||
         (c.taxId?.includes(term) ?? false)
-    );
-  }, [customers, search]);
+      );
+    });
+  }, [customers, search, personTypeFilter, statusFilter]);
 
   async function handleCreate() {
     if (!form.name.trim()) {
@@ -419,14 +465,46 @@ function ClientesContent() {
           <CardTitle className="text-base">Lista</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="relative max-w-sm">
-            <Search className="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-            <Input
-              className="pl-8"
-              placeholder="Buscar cliente..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
+              <Input
+                className="pl-8"
+                placeholder="Buscar cliente..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Select
+              value={personTypeFilter}
+              onValueChange={(value) =>
+                setPersonTypeFilter(value as PersonTypeFilter)
+              }
+            >
+              <SelectTrigger className="w-40" aria-label="Tipo de pessoa">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">PF e PJ</SelectItem>
+                <SelectItem value="pj">Pessoa jurídica</SelectItem>
+                <SelectItem value="pf">Pessoa física</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+            >
+              <SelectTrigger className="w-44" aria-label="Status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_FILTER_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <Table>
@@ -435,13 +513,31 @@ function ClientesContent() {
                 <TableHead>Nome</TableHead>
                 <TableHead>CNPJ/CPF</TableHead>
                 <TableHead>Contato</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
+                <TableHead className="w-28" />
               </TableRow>
             </TableHeader>
             <TableBody>
+              {filtered.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="py-8 text-center text-muted-foreground"
+                  >
+                    {customers === undefined
+                      ? "Carregando..."
+                      : "Nenhum cliente corresponde aos filtros."}
+                  </TableCell>
+                </TableRow>
+              )}
               {filtered.map((customer) => (
-                <TableRow key={customer._id}>
+                <TableRow
+                  key={customer._id}
+                  className={
+                    customer.archivedAt || !customer.active
+                      ? "text-muted-foreground"
+                      : undefined
+                  }
+                >
                   <TableCell>
                     <div className="flex items-center gap-2 font-medium">
                       {customer.name}
@@ -450,6 +546,11 @@ function ClientesContent() {
                           {customer.personType.toUpperCase()}
                         </Badge>
                       )}
+                      {customer.archivedAt ? (
+                        <Badge variant="secondary">Arquivado</Badge>
+                      ) : !customer.active ? (
+                        <Badge variant="outline">Inativo</Badge>
+                      ) : null}
                     </div>
                     {customer.legalName && (
                       <div className="text-xs text-muted-foreground">
@@ -464,37 +565,40 @@ function ClientesContent() {
                       {customer.phone ?? ""}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    {customer.archivedAt ? (
-                      <Badge variant="secondary">Arquivado</Badge>
-                    ) : customer.active ? (
-                      <Badge>Ativo</Badge>
-                    ) : (
-                      <Badge variant="outline">Inativo</Badge>
-                    )}
-                  </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-0.5 text-muted-foreground">
                       <CustomerDetailDialog customer={customer} />
                       {!customer.archivedAt && (
                         <Button
-                          variant="outline"
-                          size="sm"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={customer.active ? "Desativar" : "Ativar"}
+                          title={customer.active ? "Desativar" : "Ativar"}
                           onClick={() =>
                             toggleActive(customer._id, customer.active)
                           }
                         >
-                          {customer.active ? "Desativar" : "Ativar"}
+                          {customer.active ? (
+                            <UserRoundX className="size-4" />
+                          ) : (
+                            <UserRoundCheck className="size-4" />
+                          )}
                         </Button>
                       )}
                       <Button
                         variant="ghost"
-                        size="sm"
+                        size="icon-sm"
+                        aria-label={customer.archivedAt ? "Restaurar" : "Arquivar"}
+                        title={customer.archivedAt ? "Restaurar" : "Arquivar"}
                         onClick={() =>
                           toggleArchive(customer._id, Boolean(customer.archivedAt))
                         }
                       >
-                        {customer.archivedAt ? "Restaurar" : "Arquivar"}
+                        {customer.archivedAt ? (
+                          <ArchiveRestore className="size-4" />
+                        ) : (
+                          <Archive className="size-4" />
+                        )}
                       </Button>
                     </div>
                   </TableCell>
