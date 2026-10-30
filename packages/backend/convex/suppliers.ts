@@ -61,6 +61,13 @@ export const supplierMaterialValidator = v.object({
   leadTimeDays: v.union(v.number(), v.null()),
   preferred: v.boolean(),
   active: v.boolean(),
+  // Dados do fornecedor denormalizados para a UI não precisar cruzar listas.
+  supplierName: v.string(),
+  supplierActive: v.boolean(),
+  supplierPaymentTerms: v.union(v.string(), v.null()),
+  supplierDefaultLeadTimeDays: v.union(v.number(), v.null()),
+  // Prazo da oferta ou, na falta dele, o prazo padrão do fornecedor.
+  effectiveLeadTimeDays: v.union(v.number(), v.null()),
 });
 
 /** Campos editáveis do fornecedor, compartilhados por create/bulkCreate/update. */
@@ -599,9 +606,15 @@ export const listMaterialOfferings = engineeringOrPurchasingQuery({
             .withIndex("by_supplier", (q) => q.eq("supplierId", supplierId))
             .collect()
         : [];
-    return await Promise.all(
+    const supplierCache = new Map<string, Doc<"suppliers"> | null>();
+    const rows = await Promise.all(
       offerings.map(async (offering) => {
         const material = await ctx.db.get("materials", offering.materialId);
+        let supplier = supplierCache.get(offering.supplierId);
+        if (supplier === undefined) {
+          supplier = await ctx.db.get("suppliers", offering.supplierId);
+          supplierCache.set(offering.supplierId, supplier);
+        }
         return {
           _id: offering._id,
           supplierId: offering.supplierId,
@@ -615,9 +628,24 @@ export const listMaterialOfferings = engineeringOrPurchasingQuery({
           leadTimeDays: offering.leadTimeDays ?? null,
           preferred: offering.preferred,
           active: offering.active,
+          supplierName: supplier?.name ?? "Fornecedor removido",
+          supplierActive: supplier?.active ?? false,
+          supplierPaymentTerms: supplier?.paymentTerms ?? null,
+          supplierDefaultLeadTimeDays: supplier?.defaultLeadTimeDays ?? null,
+          effectiveLeadTimeDays:
+            offering.leadTimeDays ?? supplier?.defaultLeadTimeDays ?? null,
         };
       })
     );
+    // Preferidos primeiro, depois por nome do fornecedor / material.
+    return rows.sort((a, b) => {
+      if (a.preferred !== b.preferred) return a.preferred ? -1 : 1;
+      return (a.supplierName + a.materialName).localeCompare(
+        b.supplierName + b.materialName,
+        "pt-BR",
+        { sensitivity: "base" }
+      );
+    });
   },
 });
 

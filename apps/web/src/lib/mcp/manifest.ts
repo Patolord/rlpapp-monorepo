@@ -635,7 +635,8 @@ export const TOOLS: readonly ToolSpec[] = [
     name: "search_material_catalog",
     function: "materials:listCatalog",
     title: "Search material catalog (paginated)",
-    description: "Paginated material catalog with variants, families and current price info.",
+    description:
+      "Paginated material catalog with supplier summary (count, preferred supplier) and latest usable price with freshness. Filter by `search`, `category` and `status` (active | draft | archived).",
     fieldDescriptions: { paginationOpts: PAGINATION_HINT },
   },
   {
@@ -723,7 +724,8 @@ export const TOOLS: readonly ToolSpec[] = [
     name: "list_supplier_material_offerings",
     function: "suppliers:listMaterialOfferings",
     title: "List supplier offerings",
-    description: "Which suppliers offer a material (or which materials a supplier offers), with codes and lead times.",
+    description:
+      "Which suppliers offer a material (or which materials a supplier offers), with codes, purchase unit, payment terms and the effective lead time (offering value or the supplier default).",
   },
   {
     name: "upsert_supplier_material_offering",
