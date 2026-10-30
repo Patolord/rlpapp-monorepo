@@ -627,6 +627,39 @@ export const verify = internalQuery({
   },
 });
 
+/**
+ * Registra uma requisição da API HTTP (`/api/v1`, convex/gateway/v1.ts). O
+ * gateway já autenticou o token pelo hash, então a linha é atribuída
+ * diretamente a ele; aparece em "Atividade recente" junto com as chamadas do
+ * MCP, com `tool` = `api:<rota>`.
+ */
+export const recordApiRequest = internalMutation({
+  args: {
+    tokenId: v.id("agentTokens"),
+    userId: v.id("users"),
+    route: v.string(),
+    functionPath: v.optional(v.string()),
+    outcome: v.union(v.literal("success"), v.literal("error")),
+    errorMessage: v.optional(v.string()),
+    durationMs: v.number(),
+    createdAt: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.insert("agentTokenCalls", {
+      tokenId: args.tokenId,
+      userId: args.userId,
+      tool: `api:${args.route}`.slice(0, 80),
+      functionPath: args.functionPath?.slice(0, 160),
+      outcome: args.outcome,
+      errorMessage: args.errorMessage?.slice(0, MAX_CALL_ERROR_LENGTH),
+      durationMs: Math.max(0, Math.round(args.durationMs)),
+      createdAt: args.createdAt,
+    });
+    return null;
+  },
+});
+
 /** Registra uso, no máximo uma vez por minuto por token. */
 export const touch = internalMutation({
   args: { id: v.id("agentTokens"), now: v.number() },
