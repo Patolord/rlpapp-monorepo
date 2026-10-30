@@ -606,15 +606,23 @@ export const listMaterialOfferings = engineeringOrPurchasingQuery({
             .withIndex("by_supplier", (q) => q.eq("supplierId", supplierId))
             .collect()
         : [];
-    const supplierCache = new Map<string, Doc<"suppliers"> | null>();
+    // Guarda a promessa, não o resultado: as leituras rodam em paralelo e o
+    // mesmo fornecedor não pode ser buscado uma vez por oferta.
+    const supplierCache = new Map<string, Promise<Doc<"suppliers"> | null>>();
+    const loadSupplier = (id: Id<"suppliers">) => {
+      let pending = supplierCache.get(id);
+      if (!pending) {
+        pending = ctx.db.get("suppliers", id);
+        supplierCache.set(id, pending);
+      }
+      return pending;
+    };
     const rows = await Promise.all(
       offerings.map(async (offering) => {
-        const material = await ctx.db.get("materials", offering.materialId);
-        let supplier = supplierCache.get(offering.supplierId);
-        if (supplier === undefined) {
-          supplier = await ctx.db.get("suppliers", offering.supplierId);
-          supplierCache.set(offering.supplierId, supplier);
-        }
+        const [material, supplier] = await Promise.all([
+          ctx.db.get("materials", offering.materialId),
+          loadSupplier(offering.supplierId),
+        ]);
         return {
           _id: offering._id,
           supplierId: offering.supplierId,

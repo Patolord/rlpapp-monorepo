@@ -474,6 +474,78 @@ describe("materials catalog", () => {
     });
   });
 
+  test("listCatalog paginates archived materials without short pages", async () => {
+    const { purchasing } = await seedCatalogUsers();
+    // Intercala ativos e arquivados para o filtro não poder confiar na ordem.
+    for (let i = 0; i < 3; i++) {
+      await purchasing.mutation(api.materials.create, {
+        name: `Ativo ${i}`,
+        unit: "un",
+      });
+      const archivedId = await purchasing.mutation(api.materials.create, {
+        name: `Arquivado ${i}`,
+        unit: "un",
+      });
+      await purchasing.mutation(api.materials.update, {
+        materialId: archivedId,
+        active: false,
+      });
+    }
+
+    const first = await purchasing.query(api.materials.listCatalog, {
+      status: "archived",
+      paginationOpts: { numItems: 2, cursor: null },
+    });
+    expect(first.page).toHaveLength(2);
+    expect(first.isDone).toBe(false);
+
+    const second = await purchasing.query(api.materials.listCatalog, {
+      status: "archived",
+      paginationOpts: { numItems: 2, cursor: first.continueCursor },
+    });
+    expect(second.page).toHaveLength(1);
+    expect(second.isDone).toBe(true);
+    expect(
+      [...first.page, ...second.page].every((m) => m.name.startsWith("Arquivado"))
+    ).toBe(true);
+  });
+
+  test("latest price follows validity and review tiers, not creation order", async () => {
+    const { purchasing } = await seedCatalogUsers();
+    const materialId = await purchasing.mutation(api.materials.create, {
+      name: "Cabo PP",
+      unit: "m",
+    });
+    const day = 24 * 60 * 60 * 1000;
+    const now = Date.UTC(2026, 9, 30);
+    // Criado primeiro, mas é o mais recente por `occurredAt`.
+    await purchasing.mutation(api.priceEvents.add, {
+      materialId,
+      supplierNameRaw: "Loja A",
+      unitPriceCents: 900,
+      source: "manual",
+      occurredAt: now - 2 * day,
+    });
+    // Criado depois (import retroativo), mais antigo por `occurredAt`.
+    await purchasing.mutation(api.priceEvents.add, {
+      materialId,
+      supplierNameRaw: "Loja B",
+      unitPriceCents: 700,
+      source: "excel_import",
+      occurredAt: now - 40 * day,
+    });
+
+    const page = await purchasing.query(api.materials.listCatalog, {
+      search: "Cabo PP",
+      now,
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    expect(page.page[0]?.latestPrice).toMatchObject({
+      unitPriceCents: 900,
+      supplierName: "Loja A",
+    });
+  });
+
   test("keeps custom takeoff dimensions contextual until purchasing promotes them", async () => {
     const { purchasing, engineer } = await seedCatalogUsers();
     const takeoffId = await engineer.mutation(api.takeoffs.create, {

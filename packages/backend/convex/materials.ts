@@ -26,7 +26,7 @@ import {
 import { logAudit, diffFields } from "./lib/audit";
 import { materialDimensions, materialStatus, replenishmentState } from "./schema";
 import { normalizeText, priceFreshness } from "./lib/compras/procurement";
-import { isUsablePriceEvent } from "./model/procurement/priceSelection";
+import { pickCurrentPriceEvent } from "./model/procurement/priceSelection";
 import {
   bulkImportResultValidator,
   emptyBulkImportResult,
@@ -291,12 +291,13 @@ async function latestPriceFor(
   materialId: Id<"materials">,
   now: number
 ) {
-  const recent = await ctx.db
+  // Todo o histórico do material: o índice ordena por criação, não por
+  // `occurredAt`, e a escolha segue o contrato de validade/revisão do repo.
+  const events = await ctx.db
     .query("priceEvents")
     .withIndex("by_material", (q) => q.eq("materialId", materialId))
-    .order("desc")
-    .take(10);
-  const event = recent.find(isUsablePriceEvent);
+    .collect();
+  const event = pickCurrentPriceEvent(events, now);
   if (!event) return null;
   let supplierName = event.supplierNameRaw ?? "Fornecedor";
   if (event.supplierId) {
@@ -519,11 +520,68 @@ export const listCatalog = engineeringOrPurchasingQuery({
     const search = args.search?.trim();
     const category = args.category?.trim();
     const status = args.status;
-    // "active" usa o índice por `active`; rascunho/arquivado filtram a página.
     const activeOnly = Boolean(args.activeOnly) || status === "active";
+    const searchQuery = search ? normalizeText(search) || search : undefined;
+
+    /** Pagina em memória um conjunto já filtrado (cursor = deslocamento). */
+    const paginateInMemory = (items: Doc<"materials">[]) => {
+      const start = args.paginationOpts.cursor
+        ? Number.parseInt(args.paginationOpts.cursor, 10)
+        : 0;
+      const next = start + args.paginationOpts.numItems;
+      return {
+        page: items.slice(start, next),
+        isDone: next >= items.length,
+        continueCursor: String(next),
+      };
+    };
+    const matchesAll = (material: Doc<"materials">) =>
+      (!activeOnly || material.active) &&
+      matchesCatalogStatus(material, status) &&
+      (!search || materialMatchesSearch(material, search));
+
     let results;
-    if (search && !category) {
-      const searchQuery = normalizeText(search) || search;
+    if (status === "draft" || status === "archived") {
+      // Conjuntos pequenos sem índice combinável com busca/categoria: coleta
+      // os candidatos, filtra e só então pagina, para nenhuma página sair
+      // curta enquanto ainda há itens depois do cursor.
+      let candidates: Doc<"materials">[];
+      if (searchQuery) {
+        candidates = await ctx.db
+          .query("materials")
+          .withSearchIndex("search_text", (q) =>
+            q.search("searchText", searchQuery)
+          )
+          .collect();
+      } else if (category) {
+        candidates = await ctx.db
+          .query("materials")
+          .withIndex("by_category", (q) => q.eq("category", category))
+          .order("desc")
+          .collect();
+      } else {
+        const byStatus = await ctx.db
+          .query("materials")
+          .withIndex("by_status", (q) => q.eq("status", status))
+          .collect();
+        // Linhas antigas arquivadas só têm `active: false`, sem `status`.
+        const legacy =
+          status === "archived"
+            ? await ctx.db
+                .query("materials")
+                .withIndex("by_active", (q) => q.eq("active", false))
+                .collect()
+            : [];
+        const seen = new Set<string>();
+        candidates = [...byStatus, ...legacy]
+          .filter((m) => (seen.has(m._id) ? false : (seen.add(m._id), true)))
+          .sort((a, b) => b._creationTime - a._creationTime);
+      }
+      if (category) {
+        candidates = candidates.filter((m) => m.category === category);
+      }
+      results = paginateInMemory(candidates.filter(matchesAll));
+    } else if (searchQuery) {
       results = await ctx.db
         .query("materials")
         .withSearchIndex("search_text", (q) => {
@@ -531,59 +589,27 @@ export const listCatalog = engineeringOrPurchasingQuery({
           return activeOnly ? queried.eq("active", true) : queried;
         })
         .paginate(args.paginationOpts);
-      results = {
-        ...results,
-        page: results.page.filter(
-          (material) =>
-            materialMatchesSearch(material, search) &&
-            matchesCatalogStatus(material, status)
-        ),
-      };
+      // Só remove rascunhos marcados como ativos; nada fica além do cursor.
+      results = { ...results, page: results.page.filter(matchesAll) };
     } else if (category) {
       const all = await ctx.db
         .query("materials")
         .withIndex("by_category", (q) => q.eq("category", category))
         .order("desc")
         .collect();
-      const filtered = all.filter((material) => {
-        if (activeOnly && !material.active) return false;
-        if (!matchesCatalogStatus(material, status)) return false;
-        if (search && !materialMatchesSearch(material, search)) return false;
-        return true;
-      });
-      const start = args.paginationOpts.cursor
-        ? Number.parseInt(args.paginationOpts.cursor, 10)
-        : 0;
-      const page = filtered.slice(start, start + args.paginationOpts.numItems);
-      const next = start + args.paginationOpts.numItems;
-      results = {
-        page,
-        isDone: next >= filtered.length,
-        continueCursor: String(next),
-      };
+      results = paginateInMemory(all.filter(matchesAll));
     } else if (activeOnly) {
       results = await ctx.db
         .query("materials")
         .withIndex("by_active", (q) => q.eq("active", true))
         .order("desc")
         .paginate(args.paginationOpts);
-      if (status) {
-        results = {
-          ...results,
-          page: results.page.filter((m) => matchesCatalogStatus(m, status)),
-        };
-      }
+      results = { ...results, page: results.page.filter(matchesAll) };
     } else {
       results = await ctx.db
         .query("materials")
         .order("desc")
         .paginate(args.paginationOpts);
-      if (status) {
-        results = {
-          ...results,
-          page: results.page.filter((m) => matchesCatalogStatus(m, status)),
-        };
-      }
     }
 
     const now = args.now ?? Date.now();
