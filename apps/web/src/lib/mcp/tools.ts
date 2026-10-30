@@ -6,7 +6,7 @@ import type {
   ProjectHierarchyResult,
   ProjectOverviewResult,
 } from "./adapter";
-import { getAuthUserId } from "./auth";
+import { getPrincipal } from "./auth";
 import { sanitizeErrorMessage } from "./errors";
 import {
   getEquipmentInputSchema,
@@ -38,15 +38,25 @@ function errorResult(error: unknown) {
   };
 }
 
+/** Nomes das ferramentas embutidas; o manifesto do catálogo não pode reusá-los. */
+export const BUILT_IN_TOOL_NAMES: ReadonlySet<string> = new Set([
+  "list_projects",
+  "resolve_project",
+  "get_project_overview",
+  "get_project_hierarchy",
+  "get_equipment",
+  "get_project_report",
+]);
+
 async function resolveAdapter(
   ctx: ServerContext,
   factory: EngineeringAdapterFactory
 ) {
-  const userId = getAuthUserId(ctx.http?.authInfo);
-  if (!userId) {
+  const principal = getPrincipal(ctx.http?.authInfo);
+  if (!principal) {
     throw new Error("Not authenticated");
   }
-  return await factory(userId);
+  return await factory(principal);
 }
 
 function omitQrToken<T extends { token?: unknown }>(item: T): Omit<T, "token"> {

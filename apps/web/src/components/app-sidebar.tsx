@@ -20,6 +20,7 @@ import {
   ArrowLeftRight,
   Shield,
   Banknote,
+  Bot,
   Clock,
   type LucideIcon,
 } from "lucide-react";
@@ -110,6 +111,11 @@ function getNavGroups(): NavGroup[] {
         },
       ],
     },
+    {
+      key: "conta",
+      label: "Minha conta",
+      items: [{ to: "/conta/agentes", label: "Agentes (MCP)", icon: Bot }],
+    },
   ];
 }
 
@@ -188,6 +194,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         if (group.key === "configuracoes") {
           return hasEngineeringAccess || hasPurchasingAccess;
         }
+        // Tokens de agente são pessoais: todo usuário interno pode criar os seus.
+        if (group.key === "conta") return true;
         return false;
       });
 

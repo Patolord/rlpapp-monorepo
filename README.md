@@ -113,11 +113,48 @@ pnpm run dev
 - `pnpm run lint` — ESLint em todos os pacotes
 - `pnpm run check-types` — typecheck (`tsc --noEmit`) em todos os pacotes
 
-## MCP (engenharia, somente leitura)
+## MCP (agentes de IA)
 
-O app web expõe um servidor MCP **2026-07-28** em `/mcp` (stateless, com fallback para clientes Streamable HTTP de 2025). O endpoint exige OAuth do Clerk com o scope `rlp:engineering:read`. O token OAuth **não** é enviado ao Convex: a rota verifica o token, emite um JWT de delegação RS256 de curta duração (`aud: convex`, `sub` = Clerk user ID) e as queries de engenharia existentes continuam sendo a fonte de verdade do RBAC.
+O app web expõe um servidor MCP **2026-07-28** em `/mcp` (Streamable HTTP, stateless, com fallback para clientes de 2025). Claude Code, Claude Desktop, Cursor ou qualquer cliente MCP se conectam a ele de duas formas:
 
-Ferramentas: `list_projects`, `resolve_project`, `get_project_overview`, `get_project_hierarchy`, `get_equipment`, `get_project_report`.
+1. **Token de agente (recomendado).** Cada usuário interno cria os seus em **Minha conta → Agentes (MCP)** (`/conta/agentes`) e configura o cliente com `Authorization: Bearer rlp_…`. O token age em nome do dono, com a mesma role e o mesmo departamento, e pode ser `read_only` (só consultas) ou `full_access` (também grava). Revogar vale na hora.
+2. **OAuth do Clerk** com o scope `rlp:engineering:read` (fluxo original; ver "Clerk: scope e clientes OAuth").
+
+Em ambos os casos a credencial **não** vai para o Convex: a rota verifica o bearer, emite um JWT de delegação RS256 curto (`aud: convex`, `sub` = Clerk user ID; com token de agente, também as claims `agent_token.id` / `agent_token.permission`) e as funções existentes continuam sendo a fonte de verdade do RBAC. `lib/agentTokens.ts` (backend) rejeita centralmente tokens revogados e tokens somente-leitura em mutations.
+
+### Ferramentas
+
+- **6 ferramentas de engenharia embutidas** (`list_projects`, `resolve_project`, `get_project_overview`, `get_project_hierarchy`, `get_equipment`, `get_project_report`), que removem tokens de QR e ids de storage da resposta.
+- **~115 ferramentas curadas** geradas a partir do catálogo de funções (`apps/web/src/lib/mcp/manifest.ts`): obras, torres/andares/ambientes/sistemas, equipamentos planejados, checklists, clientes, empreiteiros, contratos, medições, documentos, materiais, fornecedores, preços, takeoffs, estoque, requisições, funcionários, folha, ponto e os próprios tokens. O schema de entrada de cada uma vem do validador real da função Convex (`exportArgs()`), servido por `mcpCatalog.list`; só aparecem as funções que o usuário pode chamar, e tokens `read_only` só veem queries.
+- `whoami`, `search_functions` (busca em todas as funções públicas) e, com `MCP_ALLOW_RAW_CALLS=1` no app web, `call_function` (qualquer função pública por nome, com validação de argumentos).
+- Cada chamada feita com token de agente fica registrada em `agentTokenCalls` e aparece em "Atividade recente" na página Agentes (30 dias de retenção).
+
+O catálogo (`packages/backend/convex/mcp/catalog.generated.ts`) é gerado por `pnpm --filter @rlpapp/backend generate:catalog` — roda automaticamente antes de `convex dev` e o `check-types` do backend falha se estiver desatualizado. Para criar o primeiro token sem passar pelo app:
+
+```bash
+cd packages/backend
+npx convex run agentTokens:createForUser '{"login":"voce@rlpeng.com.br","name":"CLI","permission":"full_access"}'
+```
+
+### Cliente
+
+```bash
+claude mcp add --transport http rlp https://app.rlpeng.com.br/mcp \
+  --header "Authorization: Bearer rlp_…"
+```
+
+```json
+{
+  "mcpServers": {
+    "rlp": {
+      "url": "https://app.rlpeng.com.br/mcp",
+      "headers": { "Authorization": "Bearer rlp_…" }
+    }
+  }
+}
+```
+
+Em desenvolvimento a URL é `http://localhost:3001/mcp`. A página Agentes mostra estes trechos já preenchidos ao criar um token.
 
 ### 1. Gerar o par de chaves de delegação
 
@@ -148,6 +185,8 @@ console.log(dataUri);
 | `MCP_JWT_PRIVATE_KEY` | PKCS#8 PEM; no Vercel use `\n` escapado (saída do `JSON.stringify` acima) |
 | `MCP_JWT_KEY_ID` | `mcp-delegation` (opcional) |
 | `MCP_ALLOWED_HOSTS` | `app.rlpeng.com.br,localhost:3001` |
+| `VITE_CONVEX_SITE_URL` | opcional; `https://<deployment>.convex.site`, onde fica `POST /agent-tokens/verify`. Derivada de `VITE_CONVEX_URL` quando ausente |
+| `MCP_ALLOW_RAW_CALLS` | opcional; `1` expõe `call_function` |
 | `VITE_CONVEX_URL` | URL do deployment Convex |
 | `VITE_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` | já usadas pelo app |
 
@@ -160,9 +199,9 @@ A rota recusa `Host` fora da allow-list. Clientes MCP costumam omitir `Origin`; 
 | `MCP_JWT_ISSUER` | o mesmo `iss` da etapa 2 |
 | `MCP_JWT_JWKS` | data URI gerada na etapa 1 |
 
-O provider JWT customizado só é registrado quando as duas variáveis existem. `applicationID` / `aud` permanece `convex`.
+O provider JWT customizado só é registrado quando as duas variáveis existem. `applicationID` / `aud` permanece `convex`. Tokens de agente não precisam de nada além disso: a verificação (`/agent-tokens/verify`) compara apenas o SHA-256 guardado em `agentTokens`.
 
-### 4. Clerk: scope e clientes OAuth
+### 4. Clerk: scope e clientes OAuth (só para o fluxo OAuth)
 
 1. No Clerk Dashboard, crie o scope customizado `rlp:engineering:read` e marque-o como necessário no consentimento do MCP.
 2. **Não habilite Dynamic Client Registration irrestrito.**
@@ -174,10 +213,6 @@ O provider JWT customizado só é registrado quando as duas variáveis existem. 
 Discovery:
 - Recurso: `/.well-known/oauth-protected-resource/mcp`
 - Authorization server: `/.well-known/oauth-authorization-server` (metadados do Clerk)
-
-### 5. Cliente (Cursor)
-
-URL do servidor: `https://<host>/mcp` (em dev, `http://localhost:3001/mcp`). O cliente deve pedir o scope `rlp:engineering:read` além de `openid` / `profile` / `email`.
 
 ## CI
 
