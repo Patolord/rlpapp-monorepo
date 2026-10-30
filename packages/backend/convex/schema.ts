@@ -862,7 +862,23 @@ export default defineSchema({
     .index("by_material", ["materialId"]),
 
   suppliers: defineTable({
+    // Nome fantasia (ou nome da pessoa física).
     name: v.string(),
+    personType: v.optional(v.union(v.literal("pf"), v.literal("pj"))),
+    // Razão social (PJ).
+    legalName: v.optional(v.string()),
+    // CNPJ/CPF como informado; `taxIdNormalized` guarda só dígitos.
+    taxId: v.optional(v.string()),
+    taxIdNormalized: v.optional(v.string()),
+    stateRegistration: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    website: v.optional(v.string()),
+    address: v.optional(v.string()),
+    // Condições comerciais padrão (ex.: "28 DDL", "à vista").
+    paymentTerms: v.optional(v.string()),
+    // Prazo de entrega padrão em dias (pode ser sobrescrito por material).
+    defaultLeadTimeDays: v.optional(v.number()),
     categories: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
     active: v.boolean(),
@@ -870,6 +886,7 @@ export default defineSchema({
     updatedAt: v.optional(v.number()),
   })
     .index("by_name", ["name"])
+    .index("by_tax_id_normalized", ["taxIdNormalized"])
     .index("by_active", ["active"]),
 
   supplierContacts: defineTable({

@@ -60,7 +60,6 @@ import type * as lib_rh_timeClockPunch from "../lib/rh/timeClockPunch.js";
 import type * as maintenanceLogs from "../maintenanceLogs.js";
 import type * as materialLookup from "../materialLookup.js";
 import type * as materials from "../materials.js";
-import type * as mcp_catalog_generated from "../mcp/catalog.generated.js";
 import type * as mcpCatalog from "../mcpCatalog.js";
 import type * as medicoes from "../medicoes.js";
 import type * as migrations from "../migrations.js";
@@ -154,7 +153,6 @@ declare const fullApi: ApiFromModules<{
   maintenanceLogs: typeof maintenanceLogs;
   materialLookup: typeof materialLookup;
   materials: typeof materials;
-  "mcp/catalog.generated": typeof mcp_catalog_generated;
   mcpCatalog: typeof mcpCatalog;
   medicoes: typeof medicoes;
   migrations: typeof migrations;

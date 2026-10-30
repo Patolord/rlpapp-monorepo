@@ -3,15 +3,34 @@ import { engineeringOrPurchasingQuery, purchasingMutation } from "./lib/rbac";
 import { logAudit, diffFields } from "./lib/audit";
 import { normalizeText } from "./lib/compras/procurement";
 import {
+  formatTaxId,
+  normalizeTaxId,
+  validateTaxIdForPersonType,
+} from "./lib/customers/helpers";
+import {
   bulkImportResultValidator,
   emptyBulkImportResult,
   requireTrimmedName,
 } from "./lib/compras/bulkImport";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
+
+const personTypeValidator = v.union(v.literal("pf"), v.literal("pj"));
 
 export const supplierValidator = v.object({
   _id: v.id("suppliers"),
   _creationTime: v.number(),
   name: v.string(),
+  personType: v.union(personTypeValidator, v.null()),
+  legalName: v.union(v.string(), v.null()),
+  taxId: v.union(v.string(), v.null()),
+  stateRegistration: v.union(v.string(), v.null()),
+  email: v.union(v.string(), v.null()),
+  phone: v.union(v.string(), v.null()),
+  website: v.union(v.string(), v.null()),
+  address: v.union(v.string(), v.null()),
+  paymentTerms: v.union(v.string(), v.null()),
+  defaultLeadTimeDays: v.union(v.number(), v.null()),
   categories: v.union(v.array(v.string()), v.null()),
   notes: v.union(v.string(), v.null()),
   active: v.boolean(),
@@ -44,26 +63,131 @@ export const supplierMaterialValidator = v.object({
   active: v.boolean(),
 });
 
-function toSupplierRow(s: {
-  _id: import("./_generated/dataModel").Id<"suppliers">;
-  _creationTime: number;
-  name: string;
-  categories?: string[];
-  notes?: string;
-  active: boolean;
-  createdAt: number;
-  updatedAt?: number;
-}) {
+/** Campos editáveis do fornecedor, compartilhados por create/bulkCreate/update. */
+const supplierFieldsValidator = v.object({
+  personType: v.optional(personTypeValidator),
+  legalName: v.optional(v.string()),
+  taxId: v.optional(v.string()),
+  stateRegistration: v.optional(v.string()),
+  email: v.optional(v.string()),
+  phone: v.optional(v.string()),
+  website: v.optional(v.string()),
+  address: v.optional(v.string()),
+  paymentTerms: v.optional(v.string()),
+  defaultLeadTimeDays: v.optional(v.number()),
+  categories: v.optional(v.array(v.string())),
+  notes: v.optional(v.string()),
+});
+
+function toSupplierRow(s: Doc<"suppliers">) {
   return {
     _id: s._id,
     _creationTime: s._creationTime,
     name: s.name,
+    personType: s.personType ?? null,
+    legalName: s.legalName ?? null,
+    taxId: s.taxId ?? null,
+    stateRegistration: s.stateRegistration ?? null,
+    email: s.email ?? null,
+    phone: s.phone ?? null,
+    website: s.website ?? null,
+    address: s.address ?? null,
+    paymentTerms: s.paymentTerms ?? null,
+    defaultLeadTimeDays: s.defaultLeadTimeDays ?? null,
     categories: s.categories ?? null,
     notes: s.notes ?? null,
     active: s.active,
     createdAt: s.createdAt,
     updatedAt: s.updatedAt ?? null,
   };
+}
+
+function supplierSnapshot(s: Doc<"suppliers">) {
+  return {
+    name: s.name,
+    personType: s.personType,
+    legalName: s.legalName,
+    taxId: s.taxId,
+    stateRegistration: s.stateRegistration,
+    email: s.email,
+    phone: s.phone,
+    website: s.website,
+    address: s.address,
+    paymentTerms: s.paymentTerms,
+    defaultLeadTimeDays: s.defaultLeadTimeDays,
+    categories: s.categories,
+    notes: s.notes,
+    active: s.active,
+  };
+}
+
+const SUPPLIER_AUDIT_FIELDS = [
+  "name",
+  "personType",
+  "legalName",
+  "taxId",
+  "stateRegistration",
+  "email",
+  "phone",
+  "website",
+  "address",
+  "paymentTerms",
+  "defaultLeadTimeDays",
+  "categories",
+  "notes",
+  "active",
+] as const;
+
+function cleanOptional(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function cleanCategories(values: string[] | undefined): string[] | undefined {
+  if (values === undefined) return undefined;
+  return values.map((c) => c.trim()).filter(Boolean);
+}
+
+function cleanWebsite(value: string | undefined): string | undefined {
+  const trimmed = cleanOptional(value);
+  if (!trimmed) return undefined;
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+function validateLeadTimeDays(value: number | undefined): void {
+  if (value === undefined) return;
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error("Prazo padrão deve ser um número inteiro não negativo");
+  }
+}
+
+function validateEmail(value: string | undefined): void {
+  if (!value) return;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    throw new Error("E-mail inválido");
+  }
+}
+
+async function assertUniqueSupplierTaxId(
+  ctx: MutationCtx,
+  taxId: string | undefined,
+  excludeId?: Id<"suppliers">
+): Promise<void> {
+  if (!taxId) return;
+  const taxIdNormalized = normalizeTaxId(taxId);
+  if (!taxIdNormalized) return;
+  const existing = await ctx.db
+    .query("suppliers")
+    .withIndex("by_tax_id_normalized", (q) =>
+      q.eq("taxIdNormalized", taxIdNormalized)
+    )
+    .collect();
+  const conflict = existing.find((s) => s._id !== excludeId);
+  if (conflict) {
+    throw new Error(
+      `Já existe um fornecedor com este CNPJ/CPF (${conflict.name})`
+    );
+  }
 }
 
 export const list = engineeringOrPurchasingQuery({
@@ -79,7 +203,16 @@ export const list = engineeringOrPurchasingQuery({
     }
     if (args.search?.trim()) {
       const term = normalizeText(args.search);
-      suppliers = suppliers.filter((s) => normalizeText(s.name).includes(term));
+      const digits = args.search.replace(/\D/g, "");
+      suppliers = suppliers.filter(
+        (s) =>
+          normalizeText(s.name).includes(term) ||
+          (s.legalName && normalizeText(s.legalName).includes(term)) ||
+          (s.categories ?? []).some((c) => normalizeText(c).includes(term)) ||
+          (digits.length >= 3 &&
+            s.taxIdNormalized !== undefined &&
+            s.taxIdNormalized.includes(digits))
+      );
     }
     return suppliers.map(toSupplierRow);
   },
@@ -116,21 +249,60 @@ export const get = engineeringOrPurchasingQuery({
   },
 });
 
+type SupplierFieldsInput = {
+  personType?: "pf" | "pj";
+  legalName?: string;
+  taxId?: string;
+  stateRegistration?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  address?: string;
+  paymentTerms?: string;
+  defaultLeadTimeDays?: number;
+  categories?: string[];
+  notes?: string;
+};
+
+/** Normaliza e valida os campos opcionais de um fornecedor novo. */
+function prepareSupplierFields(input: SupplierFieldsInput) {
+  const taxId = input.taxId ? formatTaxId(input.taxId) : undefined;
+  validateTaxIdForPersonType(taxId, input.personType);
+  validateLeadTimeDays(input.defaultLeadTimeDays);
+  const email = cleanOptional(input.email);
+  validateEmail(email);
+  return {
+    personType: input.personType,
+    legalName: cleanOptional(input.legalName),
+    taxId,
+    taxIdNormalized: taxId ? normalizeTaxId(taxId) : undefined,
+    stateRegistration: cleanOptional(input.stateRegistration),
+    email,
+    phone: cleanOptional(input.phone),
+    website: cleanWebsite(input.website),
+    address: cleanOptional(input.address),
+    paymentTerms: cleanOptional(input.paymentTerms),
+    defaultLeadTimeDays: input.defaultLeadTimeDays,
+    categories: cleanCategories(input.categories),
+    notes: cleanOptional(input.notes),
+  };
+}
+
 export const create = purchasingMutation({
   args: {
     name: v.string(),
-    categories: v.optional(v.array(v.string())),
-    notes: v.optional(v.string()),
+    ...supplierFieldsValidator.fields,
   },
   returns: v.id("suppliers"),
   handler: async (ctx, args) => {
     const name = args.name.trim();
     if (!name) throw new Error("Informe o nome do fornecedor");
+    const fields = prepareSupplierFields(args);
+    await assertUniqueSupplierTaxId(ctx, fields.taxId);
     const now = Date.now();
     const supplierId = await ctx.db.insert("suppliers", {
       name,
-      categories: args.categories?.map((c) => c.trim()).filter(Boolean),
-      notes: args.notes?.trim() || undefined,
+      ...fields,
       active: true,
       createdAt: now,
       updatedAt: now,
@@ -139,7 +311,13 @@ export const create = purchasingMutation({
       action: "create",
       tableName: "suppliers",
       recordId: supplierId,
+      entityLabel: name,
       details: name,
+      snapshotAfter: {
+        name,
+        personType: fields.personType,
+        taxId: fields.taxId,
+      },
     });
     return supplierId;
   },
@@ -154,8 +332,7 @@ const bulkSupplierContactValidator = v.object({
 
 const bulkSupplierItemValidator = v.object({
   name: v.string(),
-  categories: v.optional(v.array(v.string())),
-  notes: v.optional(v.string()),
+  ...supplierFieldsValidator.fields,
   contact: v.optional(bulkSupplierContactValidator),
 });
 
@@ -173,6 +350,9 @@ export const bulkCreate = purchasingMutation({
     const now = Date.now();
     const existing = await ctx.db.query("suppliers").collect();
     const existingNames = new Set(existing.map((s) => normalizeText(s.name)));
+    const existingTaxIds = new Set(
+      existing.flatMap((s) => (s.taxIdNormalized ? [s.taxIdNormalized] : []))
+    );
 
     let firstCreatedId: string | null = null;
 
@@ -191,10 +371,24 @@ export const bulkCreate = purchasingMutation({
         continue;
       }
 
+      let fields: ReturnType<typeof prepareSupplierFields>;
+      try {
+        fields = prepareSupplierFields(item);
+      } catch (error) {
+        result.errors.push({
+          row,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        continue;
+      }
+      if (fields.taxIdNormalized && existingTaxIds.has(fields.taxIdNormalized)) {
+        result.skipped++;
+        continue;
+      }
+
       const supplierId = await ctx.db.insert("suppliers", {
         name: nameCheck.name,
-        categories: item.categories?.map((c) => c.trim()).filter(Boolean),
-        notes: item.notes?.trim() || undefined,
+        ...fields,
         active: true,
         createdAt: now,
         updatedAt: now,
@@ -212,6 +406,7 @@ export const bulkCreate = purchasingMutation({
       }
 
       existingNames.add(normalizedName);
+      if (fields.taxIdNormalized) existingTaxIds.add(fields.taxIdNormalized);
       if (!firstCreatedId) firstCreatedId = supplierId;
       result.created++;
     }
@@ -233,6 +428,17 @@ export const update = purchasingMutation({
   args: {
     supplierId: v.id("suppliers"),
     name: v.optional(v.string()),
+    // `null` limpa o campo; omitir mantém o valor atual.
+    personType: v.optional(v.union(personTypeValidator, v.null())),
+    legalName: v.optional(v.string()),
+    taxId: v.optional(v.union(v.string(), v.null())),
+    stateRegistration: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    website: v.optional(v.string()),
+    address: v.optional(v.string()),
+    paymentTerms: v.optional(v.string()),
+    defaultLeadTimeDays: v.optional(v.union(v.number(), v.null())),
     categories: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
     active: v.optional(v.boolean()),
@@ -242,46 +448,63 @@ export const update = purchasingMutation({
     const supplier = await ctx.db.get("suppliers", args.supplierId);
     if (!supplier) throw new Error("Fornecedor não encontrado");
 
-    const before = {
-      name: supplier.name,
-      categories: supplier.categories,
-      notes: supplier.notes,
-      active: supplier.active,
-    };
+    const before = supplierSnapshot(supplier);
+    const updates: Partial<Doc<"suppliers">> = { updatedAt: Date.now() };
 
-    const updates: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.name !== undefined) {
       const name = args.name.trim();
       if (!name) throw new Error("Informe o nome do fornecedor");
       updates.name = name;
     }
-    if (args.categories !== undefined) {
-      updates.categories = args.categories.map((c) => c.trim()).filter(Boolean);
+    if (args.personType !== undefined) {
+      updates.personType = args.personType ?? undefined;
     }
-    if (args.notes !== undefined) updates.notes = args.notes.trim() || undefined;
+    if (args.legalName !== undefined) {
+      updates.legalName = cleanOptional(args.legalName);
+    }
+    if (args.taxId !== undefined) {
+      const taxId = args.taxId === null ? undefined : formatTaxId(args.taxId);
+      updates.taxId = taxId;
+      updates.taxIdNormalized = taxId ? normalizeTaxId(taxId) : undefined;
+    }
+    if (args.stateRegistration !== undefined) {
+      updates.stateRegistration = cleanOptional(args.stateRegistration);
+    }
+    if (args.email !== undefined) {
+      updates.email = cleanOptional(args.email);
+      validateEmail(updates.email);
+    }
+    if (args.phone !== undefined) updates.phone = cleanOptional(args.phone);
+    if (args.website !== undefined) updates.website = cleanWebsite(args.website);
+    if (args.address !== undefined) updates.address = cleanOptional(args.address);
+    if (args.paymentTerms !== undefined) {
+      updates.paymentTerms = cleanOptional(args.paymentTerms);
+    }
+    if (args.defaultLeadTimeDays !== undefined) {
+      validateLeadTimeDays(args.defaultLeadTimeDays ?? undefined);
+      updates.defaultLeadTimeDays = args.defaultLeadTimeDays ?? undefined;
+    }
+    if (args.categories !== undefined) {
+      updates.categories = cleanCategories(args.categories);
+    }
+    if (args.notes !== undefined) updates.notes = cleanOptional(args.notes);
     if (args.active !== undefined) updates.active = args.active;
+
+    const nextTaxId = args.taxId === undefined ? supplier.taxId : updates.taxId;
+    const nextPersonType =
+      args.personType === undefined ? supplier.personType : updates.personType;
+    validateTaxIdForPersonType(nextTaxId, nextPersonType);
+    await assertUniqueSupplierTaxId(ctx, nextTaxId, args.supplierId);
 
     await ctx.db.patch("suppliers", args.supplierId, updates);
     const afterDoc = await ctx.db.get("suppliers", args.supplierId);
-    const after = afterDoc
-      ? {
-          name: afterDoc.name,
-          categories: afterDoc.categories,
-          notes: afterDoc.notes,
-          active: afterDoc.active,
-        }
-      : before;
+    const after = afterDoc ? supplierSnapshot(afterDoc) : before;
     await logAudit(ctx, ctx.user, {
       action: "update",
       tableName: "suppliers",
       recordId: args.supplierId,
       entityLabel: after.name,
-      changes: diffFields(before, after, [
-        "name",
-        "categories",
-        "notes",
-        "active",
-      ]),
+      changes: diffFields(before, after, [...SUPPLIER_AUDIT_FIELDS]),
       snapshotBefore: before,
       snapshotAfter: after,
     });

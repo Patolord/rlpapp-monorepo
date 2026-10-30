@@ -84,6 +84,31 @@ const COMMON_FIELD_HINTS: Array<{
     hint: "CPF or CNPJ (digits only or formatted).",
   },
   {
+    names: ["personType"],
+    type: "string",
+    hint: '"pj" (company, CNPJ) or "pf" (individual, CPF).',
+  },
+  {
+    names: ["legalName"],
+    type: "string",
+    hint: "Razão social (registered company name); `name` is the trade name.",
+  },
+  {
+    names: ["stateRegistration"],
+    type: "string",
+    hint: "Inscrição estadual (state tax registration).",
+  },
+  {
+    names: ["paymentTerms"],
+    type: "string",
+    hint: 'Default payment terms as free text, e.g. "28 DDL", "30/60", "à vista".',
+  },
+  {
+    names: ["defaultLeadTimeDays", "leadTimeDays"],
+    type: "number",
+    hint: "Delivery lead time in whole days (non-negative integer).",
+  },
+  {
     names: ["slug"],
     type: "string",
     hint: "URL-friendly identifier shown in the app address bar.",
