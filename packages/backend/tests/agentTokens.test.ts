@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { api, internal } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
 import {
+  AGENT_TOKEN_CANNOT_MANAGE_TOKENS_MESSAGE,
   READ_ONLY_AGENT_TOKEN_MESSAGE,
   REVOKED_AGENT_TOKEN_MESSAGE,
   hashAgentToken,
@@ -184,19 +185,35 @@ describe("tokens de agente", () => {
     await expect(
       asReadOnly.mutation(api.customers.create, { name: "Cliente" })
     ).rejects.toThrow(READ_ONLY_AGENT_TOKEN_MESSAGE);
-    // Inclusive criar outro token (action + mutation interna).
-    await expect(
-      asReadOnly.action(api.agentTokens.create, {
-        name: "escalada",
-        permission: "full_access",
-      })
-    ).rejects.toThrow(READ_ONLY_AGENT_TOKEN_MESSAGE);
 
     const asFull = t.withIdentity(agentIdentity("eng1", full.id, "full_access"));
     const customerId = await asFull.mutation(api.customers.create, {
       name: "Cliente",
     });
     expect(customerId).toBeTruthy();
+
+    // Nenhum token gerencia tokens: um token vazado não se perpetua criando
+    // outro, nem revoga/renomeia os demais.
+    for (const agent of [asReadOnly, asFull]) {
+      await expect(
+        agent.action(api.agentTokens.create, {
+          name: "escalada",
+          permission: "full_access",
+        })
+      ).rejects.toThrow(AGENT_TOKEN_CANNOT_MANAGE_TOKENS_MESSAGE);
+    }
+    await expect(
+      asFull.mutation(api.agentTokens.rename, { id: readOnly.id, name: "x" })
+    ).rejects.toThrow(AGENT_TOKEN_CANNOT_MANAGE_TOKENS_MESSAGE);
+    await expect(
+      asFull.mutation(api.agentTokens.revoke, { id: readOnly.id })
+    ).rejects.toThrow(AGENT_TOKEN_CANNOT_MANAGE_TOKENS_MESSAGE);
+    // Para o token somente-leitura a política de escrita recusa antes.
+    await expect(
+      asReadOnly.mutation(api.agentTokens.revoke, { id: readOnly.id })
+    ).rejects.toThrow(READ_ONLY_AGENT_TOKEN_MESSAGE);
+    // Mas listam os próprios tokens e chamadas normalmente.
+    expect(await asFull.query(api.agentTokens.list, {})).toHaveLength(2);
     // A role do dono continua valendo: engenheiro não acessa RH.
     await expect(asFull.query(api.employees.list, {})).rejects.toThrow(
       "Acesso restrito à área de recursos humanos"
@@ -305,6 +322,53 @@ describe("tokens de agente", () => {
       id: created.id,
     });
     expect(revoked.revokedAt).toBeTypeOf("number");
+  });
+
+  test("limite de tokens ativos e revokeAllForUser percorrem todas as linhas", async () => {
+    const t = setup();
+    const asEng = await withUser(t, { clerkId: "eng1", role: "engenheiro" });
+    const asAdmin = await withUser(t, { clerkId: "adm", role: "admin" });
+    const userId = await t.run(async (ctx) => {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", "eng1"))
+        .unique();
+      // 120 tokens revogados antigos: mais do que qualquer janela fixa.
+      for (let i = 0; i < 120; i++) {
+        await ctx.db.insert("agentTokens", {
+          userId: user!._id,
+          name: `antigo ${i}`,
+          tokenHash: `hash-${i}`,
+          tokenPrefix: "rlp_antigo00",
+          permission: "read_only",
+          createdAt: i,
+          revokedAt: i + 1,
+        });
+      }
+      return user!._id;
+    });
+
+    for (let i = 0; i < 25; i++) {
+      await asEng.action(api.agentTokens.create, {
+        name: `ativo ${i}`,
+        permission: "read_only",
+      });
+    }
+    await expect(
+      asEng.action(api.agentTokens.create, { name: "26", permission: "read_only" })
+    ).rejects.toThrow("Limite de 25 tokens ativos");
+
+    expect(
+      await asAdmin.mutation(api.agentTokens.revokeAllForUser, { userId })
+    ).toBe(25);
+    const active = await t.run(async (ctx) => {
+      const rows = await ctx.db
+        .query("agentTokens")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .collect();
+      return rows.filter((r) => r.revokedAt === undefined).length;
+    });
+    expect(active).toBe(0);
   });
 
   test("createForUser (bootstrap) emite token por email", async () => {

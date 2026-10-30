@@ -14,7 +14,7 @@ import {
   generateAgentToken,
   getAgentTokenClaims,
   hashAgentToken,
-  rejectReadOnlyAgentTokenInAction,
+  rejectAgentTokenIdentity,
   type AgentTokenPermission,
 } from "./lib/agentTokens";
 import {
@@ -115,12 +115,16 @@ function isActiveToken(token: Doc<"agentTokens">, now: number): boolean {
   );
 }
 
-/** O dono gerencia os próprios tokens; director/admin gerenciam qualquer um. */
+/**
+ * O dono gerencia os próprios tokens; director/admin gerenciam qualquer um.
+ * Sempre a partir de uma sessão do app: tokens não gerenciam tokens.
+ */
 async function getManageableToken(
   ctx: MutationCtx,
   user: Doc<"users">,
   id: Id<"agentTokens">
 ) {
+  await requireHumanSession(ctx);
   const token = await ctx.db.get("agentTokens", id);
   if (!token) throw new Error("Token não encontrado");
   const isAdmin = user.role === "director" || user.role === "admin";
@@ -128,6 +132,12 @@ async function getManageableToken(
     throw new Error("Você só pode gerenciar os seus próprios tokens");
   }
   return token;
+}
+
+/** Rejeita identidades vindas de um JWT de delegação com token de agente. */
+async function requireHumanSession(ctx: QueryCtx | MutationCtx): Promise<void> {
+  const identity = await ctx.auth.getUserIdentity();
+  if (identity) rejectAgentTokenIdentity(identity);
 }
 
 async function insertToken(
@@ -151,11 +161,14 @@ async function insertToken(
   const now = Date.now();
   const expiresAt = computeExpiresAt(args.expiresInDays, now);
 
-  const existing = await ctx.db
+  // Linhas revogadas nunca são apagadas, então percorre todas as do usuário
+  // em vez de uma janela fixa (a mutation é atômica; não há corrida).
+  let active = 0;
+  for await (const token of ctx.db
     .query("agentTokens")
-    .withIndex("by_user", (q) => q.eq("userId", user._id))
-    .take(MAX_TOKENS_PER_USER * 2);
-  const active = existing.filter((t) => isActiveToken(t, now)).length;
+    .withIndex("by_user", (q) => q.eq("userId", user._id))) {
+    if (isActiveToken(token, now)) active++;
+  }
   if (active >= MAX_TOKENS_PER_USER) {
     throw new Error(
       `Limite de ${MAX_TOKENS_PER_USER} tokens ativos atingido. Revogue um token antes de criar outro`
@@ -230,7 +243,8 @@ export const create = action({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    rejectReadOnlyAgentTokenInAction(identity);
+    // Um token vazado não pode se perpetuar criando outro.
+    rejectAgentTokenIdentity(identity);
 
     const { token, tokenPrefix } = generateAgentToken();
     const tokenHash = await hashAgentToken(token);
@@ -429,15 +443,16 @@ export const revokeAllForUser = adminMutation({
   args: { userId: v.id("users") },
   returns: v.number(),
   handler: async (ctx, args) => {
+    await requireHumanSession(ctx);
     const user = await ctx.db.get("users", args.userId);
     if (!user) throw new Error("Usuário não encontrado");
-    const tokens = await ctx.db
-      .query("agentTokens")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .take(MAX_TOKENS_PER_USER * 4);
     const revokedAt = Date.now();
     let count = 0;
-    for (const token of tokens) {
+    // Todas as linhas do usuário: uma janela fixa deixaria tokens novos de
+    // fora depois de muitos ciclos de criar/revogar.
+    for await (const token of ctx.db
+      .query("agentTokens")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))) {
       if (token.revokedAt === undefined) {
         await ctx.db.patch("agentTokens", token._id, { revokedAt });
         count++;
@@ -467,7 +482,8 @@ export const insertForCurrentUser = internalMutation({
   }),
   handler: async (ctx, args) => {
     // Herda a autenticação da action `create`; `requireUser` aplica a
-    // política de tokens (um token somente-leitura é rejeitado aqui também).
+    // política de tokens e `requireHumanSession` repete a regra da action.
+    await requireHumanSession(ctx);
     const user = await requireUser(ctx);
     return await insertToken(ctx, user, args);
   },

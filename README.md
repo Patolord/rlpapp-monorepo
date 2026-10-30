@@ -118,7 +118,9 @@ pnpm run dev
 O app web expõe um servidor MCP **2026-07-28** em `/mcp` (Streamable HTTP, stateless, com fallback para clientes de 2025). Claude Code, Claude Desktop, Cursor ou qualquer cliente MCP se conectam a ele de duas formas:
 
 1. **Token de agente (recomendado).** Cada usuário interno cria os seus em **Minha conta → Agentes (MCP)** (`/conta/agentes`) e configura o cliente com `Authorization: Bearer rlp_…`. O token age em nome do dono, com a mesma role e o mesmo departamento, e pode ser `read_only` (só consultas) ou `full_access` (também grava). Revogar vale na hora.
-2. **OAuth do Clerk** com o scope `rlp:engineering:read` (fluxo original; ver "Clerk: scope e clientes OAuth").
+2. **OAuth do Clerk** com o scope `rlp:engineering:read` (fluxo original; ver "Clerk: scope e clientes OAuth"). Conexões OAuth são sempre somente-leitura: só existe o escopo de leitura.
+
+Tokens não gerenciam tokens: criar, renomear e revogar exigem uma sessão humana no app (um token vazado não consegue se perpetuar criando outro). A verificação no Convex tem timeout de 5 s; se o backend não responder, o `/mcp` devolve 503 em vez de 401.
 
 Em ambos os casos a credencial **não** vai para o Convex: a rota verifica o bearer, emite um JWT de delegação RS256 curto (`aud: convex`, `sub` = Clerk user ID; com token de agente, também as claims `agent_token.id` / `agent_token.permission`) e as funções existentes continuam sendo a fonte de verdade do RBAC. `lib/agentTokens.ts` (backend) rejeita centralmente tokens revogados e tokens somente-leitura em mutations.
 

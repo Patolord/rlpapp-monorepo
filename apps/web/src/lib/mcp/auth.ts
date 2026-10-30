@@ -9,6 +9,7 @@ import {
   type AgentTokenInfo,
   type AgentTokenUser,
 } from "./agent-token-auth";
+import { AGENT_WRITE_SCOPE } from "./constants";
 
 export async function verifyMcpOAuthToken(
   _request: Request,
@@ -60,10 +61,22 @@ export async function verifyMcpToken(
 export type McpPrincipal = {
   /** Clerk user id do dono (o `sub` do JWT de delegação). */
   userId: string;
+  /** Escopos concedidos à credencial (OAuth do Clerk ou derivados do token). */
+  scopes: string[];
   /** Presente quando a conexão autenticou com token de agente. */
   agentToken?: AgentTokenInfo;
   user?: AgentTokenUser;
 };
+
+/**
+ * Se a conexão só pode ler. Token de agente: pela permissão gravada. OAuth:
+ * só há o escopo de leitura hoje, então é somente-leitura a menos que um
+ * escopo de escrita tenha sido concedido.
+ */
+export function isReadOnlyPrincipal(principal: McpPrincipal): boolean {
+  if (principal.agentToken) return principal.agentToken.permission === "read_only";
+  return !principal.scopes.includes(AGENT_WRITE_SCOPE);
+}
 
 export function getAuthUserId(
   authInfo: AuthInfo | undefined
@@ -81,6 +94,7 @@ export function getPrincipal(
   const user = authInfo?.extra?.user as AgentTokenUser | undefined;
   return {
     userId,
+    scopes: authInfo?.scopes ?? [],
     ...(agentToken ? { agentToken } : {}),
     ...(user ? { user } : {}),
   };

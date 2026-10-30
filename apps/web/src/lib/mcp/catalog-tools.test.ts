@@ -91,11 +91,40 @@ const catalog: CatalogEntry[] = [
       },
     },
   },
+  {
+    path: "agentTokens:create",
+    module: "agentTokens",
+    name: "create",
+    type: "action",
+    access: { kind: "public" },
+    allowed: true,
+    signature: '{ name: string, permission: "full_access" | "read_only" }',
+    argsValidator: {
+      type: "object",
+      value: {
+        name: { fieldType: { type: "string" }, optional: false },
+        permission: {
+          fieldType: {
+            type: "union",
+            value: [
+              { type: "literal", value: "full_access" },
+              { type: "literal", value: "read_only" },
+            ],
+          },
+          optional: false,
+        },
+      },
+    },
+  },
 ];
 
 function principalFor(permission: "full_access" | "read_only"): McpPrincipal {
   return {
     userId: "user_eng",
+    scopes:
+      permission === "full_access"
+        ? [ENGINEERING_READ_SCOPE, AGENT_WRITE_SCOPE]
+        : [ENGINEERING_READ_SCOPE],
     agentToken: { id: "tok1", name: "Claude", prefix: "rlp_abcdefgh", permission },
     user: {
       id: "usr1",
@@ -332,6 +361,64 @@ describe("ferramentas derivadas do catálogo", () => {
     });
     expect(parsed.matches.find((m) => m.function === "customers:create")).toMatchObject({
       callable: false,
+    });
+  });
+
+  test("token full_access não gerencia tokens via call_function", async () => {
+    const caller: ConvexCaller = { call: vi.fn(async () => "novo") };
+    const client = await connect(
+      buildHandler({ permission: "full_access", caller, allowRawCalls: true })
+    );
+    clients.push(client);
+
+    const result = await client.callTool({
+      name: "call_function",
+      arguments: { path: "agentTokens:create", args: { name: "x", permission: "full_access" } },
+    });
+    expect(result.isError).toBe(true);
+    expect((result.content as Array<{ text: string }>)[0]!.text).toContain(
+      "cannot be called with an agent token"
+    );
+    expect(caller.call).not.toHaveBeenCalled();
+  });
+
+  test("conexão OAuth só com escopo de leitura recebe apenas queries", async () => {
+    const caller: ConvexCaller = { call: vi.fn(async () => []) };
+    const handler = createAuthenticatedMcpHandler({
+      adapterFactory: async () => mockAdapter,
+      resourceUrl: RESOURCE_URL,
+      verifyToken: async () => ({
+        token: "oauth-token",
+        clientId: "cursor",
+        scopes: [ENGINEERING_READ_SCOPE],
+        extra: { userId: "user_eng" },
+      }),
+      catalogLoader: async () => catalog,
+      callerFactory: () => caller,
+      allowRawCalls: true,
+      recordCall: null,
+      log: () => undefined,
+    });
+    const client = await connect(handler);
+    clients.push(client);
+
+    const { tools } = await client.listTools();
+    const names = tools.map((tool) => tool.name);
+    expect(names).toContain("list_customers");
+    expect(names).toContain("list_towers");
+    expect(names).not.toContain("create_customer");
+
+    const write = await client.callTool({
+      name: "call_function",
+      arguments: { path: "customers:create", args: { name: "x" } },
+    });
+    expect(write.isError).toBe(true);
+    expect((write.content as Array<{ text: string }>)[0]!.text).toContain("read-only");
+
+    const whoami = await client.callTool({ name: "whoami", arguments: {} });
+    expect(JSON.parse((whoami.content as Array<{ text: string }>)[0]!.text)).toMatchObject({
+      auth: "oauth",
+      agent_token: null,
     });
   });
 

@@ -3,6 +3,7 @@ import type { AuthInfo } from "@modelcontextprotocol/server";
 import {
   AGENT_TOKEN_PREFIX,
   AGENT_TOKEN_VERIFY_CACHE_MS,
+  AGENT_TOKEN_VERIFY_TIMEOUT_MS,
   AGENT_WRITE_SCOPE,
   ENGINEERING_READ_SCOPE,
 } from "./constants";
@@ -103,6 +104,9 @@ export async function verifyAgentToken(
     {
       method: "POST",
       headers: { Authorization: `Bearer ${bearer}`, Accept: "application/json" },
+      // Um Convex parado não pode prender todas as requisições MCP até o
+      // timeout da plataforma; abortar cai no 503 do handler.
+      signal: AbortSignal.timeout(AGENT_TOKEN_VERIFY_TIMEOUT_MS),
     }
   );
 

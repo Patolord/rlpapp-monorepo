@@ -27,6 +27,8 @@ export type AgentTokenPermission = "full_access" | "read_only";
 export const READ_ONLY_AGENT_TOKEN_MESSAGE =
   "Token de agente somente leitura: crie um token com acesso total para gravar";
 export const REVOKED_AGENT_TOKEN_MESSAGE = "Token de agente revogado";
+export const AGENT_TOKEN_CANNOT_MANAGE_TOKENS_MESSAGE =
+  "Tokens de agente não podem criar, renomear ou revogar tokens; faça isso logado no app";
 
 // ---------------------------------------------------------------------------
 // Criptografia
@@ -118,6 +120,17 @@ export function isWriteContext(ctx: QueryCtx | MutationCtx): boolean {
 export function rejectReadOnlyAgentTokenInAction(identity: UserIdentity): void {
   if (getAgentTokenClaims(identity)?.permission === "read_only") {
     throw new Error(READ_ONLY_AGENT_TOKEN_MESSAGE);
+  }
+}
+
+/**
+ * Gestão de tokens exige uma sessão humana (Clerk). Se um token vazado
+ * pudesse criar outro, revogar o original não bastaria para cortar o acesso;
+ * por isso nenhum token — nem `full_access` — gerencia tokens.
+ */
+export function rejectAgentTokenIdentity(identity: UserIdentity): void {
+  if (getAgentTokenClaims(identity)) {
+    throw new Error(AGENT_TOKEN_CANNOT_MANAGE_TOKENS_MESSAGE);
   }
 }
 

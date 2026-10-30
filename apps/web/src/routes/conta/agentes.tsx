@@ -73,6 +73,9 @@ type ExpiryOption = (typeof EXPIRY_OPTIONS)[number]["value"];
 
 const cardCls = "rounded-2xl border border-slate-100 bg-white shadow-sm";
 
+// Espelho de STAFF_ROLES em packages/backend/convex/lib/rbac.ts.
+const STAFF_ROLES = ["director", "admin", "manager", "operator", "engenheiro"];
+
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("pt-BR", {
     day: "2-digit",
@@ -218,6 +221,21 @@ function AgentesContent() {
   const isAdmin =
     currentUser?.role === "director" || currentUser?.role === "admin";
   const activeCount = tokens?.filter((t) => tokenStatus(t) === "active").length ?? 0;
+
+  // Tokens são só para a equipe interna (mesma regra de `staffQuery`):
+  // qr_operator e cliente do portal veem um aviso em vez de erros.
+  if (currentUser && !STAFF_ROLES.includes(currentUser.role)) {
+    return (
+      <div className="mx-auto max-w-2xl py-12 text-center">
+        <Bot className="mx-auto size-8 text-slate-400" />
+        <h1 className="mt-3 text-xl font-semibold">Agentes (MCP)</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Tokens de agente estão disponíveis apenas para usuários internos da
+          RLP.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -756,7 +774,10 @@ function RenameTokenDialog({
   const [name, setName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [seededFor, setSeededFor] = useState<Id<"agentTokens"> | null>(null);
-  if (target && seededFor !== target._id) {
+  if (!target && seededFor !== null) {
+    // Fechou (ou cancelou): a próxima abertura volta a usar o nome atual.
+    setSeededFor(null);
+  } else if (target && seededFor !== target._id) {
     setSeededFor(target._id);
     setName(target.name);
   }

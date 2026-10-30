@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
-import type { McpPrincipal } from "./auth";
+import { isReadOnlyPrincipal, type McpPrincipal } from "./auth";
 import { Catalog, type CatalogEntry, normalizePath } from "./catalog";
 import { MAX_TOOL_RESULT_CHARS } from "./constants";
 import { argsToInputSchema, describeValidator } from "./convex-schema";
@@ -59,6 +59,14 @@ function textResult(value: unknown) {
 function errorResult(message: string) {
   return { isError: true as const, content: [{ type: "text" as const, text: message }] };
 }
+
+/** Funções que o backend também recusa para identidades de token de agente. */
+const TOKEN_MANAGEMENT_FUNCTIONS: ReadonlySet<string> = new Set([
+  "agentTokens:create",
+  "agentTokens:rename",
+  "agentTokens:revoke",
+  "agentTokens:revokeAllForUser",
+]);
 
 const readOnlyAnnotations = {
   readOnlyHint: true,
@@ -158,7 +166,7 @@ export function buildInstructions(
     : principal.userId;
   const token = principal.agentToken
     ? ` via agent token "${principal.agentToken.name}" with ${principal.agentToken.permission === "read_only" ? "READ-ONLY" : "full-access"} permission`
-    : " via OAuth";
+    : " via OAuth (read-only)";
   const lines = [
     `You are connected to the RLP Engenharia workspace as ${who}${token}.`,
     "",
@@ -169,8 +177,15 @@ export function buildInstructions(
     "- Tools act as the connected user with their role; the backend enforces department permissions and the app's audit log records writes.",
     "- Tools marked destructive (delete_*, archive_*) cannot be undone from here; confirm with the user before calling them.",
   ];
-  if (principal.agentToken?.permission === "read_only") {
-    lines.push("- This token is read-only: only query tools are available. Writes are rejected.");
+  if (isReadOnlyPrincipal(principal)) {
+    lines.push(
+      "- This connection is read-only: only query tools are available. Writes are rejected."
+    );
+  }
+  if (principal.agentToken) {
+    lines.push(
+      "- Agent tokens cannot create, rename or revoke agent tokens; that is done by a person in the app."
+    );
   }
   lines.push(
     allowRawCalls
@@ -187,7 +202,7 @@ export function registerCatalogTools(
   const { principal } = options;
   const allowRawCalls = options.allowRawCalls ?? false;
   const reserved = options.reservedNames ?? new Set<string>();
-  const readOnly = principal.agentToken?.permission === "read_only";
+  const readOnly = isReadOnlyPrincipal(principal);
   const catalog = new Catalog(options.catalog);
   const registered: string[] = [];
   const skipped: RegisteredCatalogTools["skipped"] = [];
@@ -303,7 +318,14 @@ export function registerCatalogTools(
           );
         }
         if (readOnly && entry.type !== "query") {
-          return errorResult(`"${entry.path}" is a ${entry.type}; this agent token is read-only.`);
+          return errorResult(`"${entry.path}" is a ${entry.type}; this connection is read-only.`);
+        }
+        if (principal.agentToken && TOKEN_MANAGEMENT_FUNCTIONS.has(entry.path)) {
+          // Espelha a regra do backend: um token vazado não pode se perpetuar
+          // criando outro nem revogar os demais.
+          return errorResult(
+            `"${entry.path}" manages agent tokens and cannot be called with an agent token. Ask the user to do it in the app (Minha conta → Agentes).`
+          );
         }
         const inputSchema = argsToInputSchema(entry.argsValidator);
         const parsed = inputSchema.safeParse(args ?? {});
