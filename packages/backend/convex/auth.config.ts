@@ -36,9 +36,13 @@ if (mcpIssuer && mcpJwks) {
 // API HTTP para agentes (convex/gateway/v1.ts): tokens `rlp_…` são trocados
 // por JWTs ES256 curtos assinados por este deployment (API_JWT_PRIVATE_KEY).
 // O `sub` é o clerkId do dono, então as funções veem um usuário normal. O
-// issuer é a URL *site* do deployment, que o Convex define sempre; o
-// provider só é inútil (nunca valida nada) enquanto a chave não existir.
-const apiTokenIssuer = readOptional("CONVEX_SITE_URL")?.replace(/\/+$/, "");
+// issuer é a URL *site* do deployment. CONVEX_SITE_URL é uma variável de
+// sistema que o Convex define sempre, então pode ser lida diretamente — e
+// precisa ser: na avaliação do auth config as variáveis de sistema não
+// respondem ao `in` usado em `readOptional`, o que deixaria o provider de
+// fora silenciosamente ("No auth provider found matching the given token").
+// Enquanto a chave não existir o provider só nunca valida nada.
+const apiTokenIssuer = process.env.CONVEX_SITE_URL?.replace(/\/+$/, "");
 if (apiTokenIssuer) {
   providers.push({
     type: "customJwt",
