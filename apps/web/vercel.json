@@ -1,6 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "pnpm install --frozen-lockfile --filter web...",
   "buildCommand": "cd ../../packages/backend && npx convex deploy --cmd 'cd ../../apps/web && pnpm run build'",
   "ignoreCommand": "npx turbo-ignore",
   "framework": "tanstack-start",
