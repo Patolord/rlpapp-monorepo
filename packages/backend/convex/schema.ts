@@ -982,6 +982,11 @@ export default defineSchema({
     validUntil: v.optional(v.number()),
     projectId: v.optional(v.id("projects")),
     takeoffId: v.optional(v.id("takeoffs")),
+    // Item do takeoff que originou a cotação (fabricados sob medida).
+    takeoffItemId: v.optional(v.id("takeoffItems")),
+    // Medidas do item cotado: fabricados sob medida só são comparáveis por
+    // tamanho, então cada cotação guarda as suas para alimentar estimativas.
+    dimensions: v.optional(materialDimensions),
     notes: v.optional(v.string()),
     reviewStatus: v.optional(priceEventReviewStatus),
     needsReview: v.boolean(),
@@ -993,6 +998,7 @@ export default defineSchema({
     .index("by_material_supplier", ["materialId", "supplierId"])
     .index("by_project", ["projectId"])
     .index("by_takeoff", ["takeoffId"])
+    .index("by_takeoff_item", ["takeoffItemId"])
     .index("by_occurred_at", ["occurredAt"])
     .index("by_needs_review", ["needsReview"])
     .index("by_review_status", ["reviewStatus"]),

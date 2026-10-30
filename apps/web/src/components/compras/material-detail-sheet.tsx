@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { MaterialReplenishmentBadge } from "@/components/compras/material-replenishment-badge";
 import type { MaterialCatalogRow } from "@/components/compras/material-form-dialog";
 import { MaterialMergeDialog } from "@/components/compras/material-merge-dialog";
+import { MaterialPriceHistory } from "@/components/compras/material-price-history";
 import { MaterialStockPolicySheet } from "@/components/compras/material-stock-policy-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -205,6 +206,11 @@ export function MaterialDetailSheet({
                 state={material.centralReplenishmentState}
                 quantity={material.centralQuantity}
               />
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="text-sm font-medium">Preços</h3>
+              <MaterialPriceHistory materialId={material._id} />
             </section>
 
             <section className="space-y-3">

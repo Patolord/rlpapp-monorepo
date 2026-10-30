@@ -28,6 +28,11 @@ import { materialDimensions, materialStatus, replenishmentState } from "./schema
 import { normalizeText, priceFreshness } from "./lib/compras/procurement";
 import { pickCurrentPriceEvent } from "./model/procurement/priceSelection";
 import {
+  computePriceChange,
+  previousFromSameSupplier,
+  priceChangeValidator,
+} from "./model/procurement/priceHistory";
+import {
   bulkImportResultValidator,
   emptyBulkImportResult,
   requireTrimmedName,
@@ -123,6 +128,8 @@ export const materialCatalogValidator = v.object({
         v.literal("old"),
         v.literal("stale")
       ),
+      /** Variação vs. o preço anterior do mesmo fornecedor (mesma unidade). */
+      change: v.union(priceChangeValidator, v.null()),
     }),
     v.null()
   ),
@@ -299,6 +306,7 @@ async function latestPriceFor(
     .collect();
   const event = pickCurrentPriceEvent(events, now);
   if (!event) return null;
+  const previous = previousFromSameSupplier(events, event);
   let supplierName = event.supplierNameRaw ?? "Fornecedor";
   if (event.supplierId) {
     const supplier = await ctx.db.get("suppliers", event.supplierId);
@@ -310,6 +318,7 @@ async function latestPriceFor(
     occurredAt: event.occurredAt,
     supplierName,
     freshness: priceFreshness(event.occurredAt, now),
+    change: previous ? computePriceChange(event, previous) : null,
   };
 }
 

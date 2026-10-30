@@ -749,10 +749,27 @@ export const TOOLS: readonly ToolSpec[] = [
     serverArgs: nowArg,
   },
   {
+    name: "get_material_price_history",
+    function: "priceEvents:historyForMaterial",
+    title: "Price history for a material",
+    description:
+      "Price history of a material with variation: chronological series in the reference unit (each point compared with the previous price from the same supplier), latest price per supplier, and a summary (change vs 30/90 days ago, min/max). Prices in BRL cents, deltaPercent with one decimal.",
+    serverArgs: nowArg,
+  },
+  {
     name: "add_price_event",
     function: "priceEvents:add",
     title: "Record price",
-    description: "Record a price observation for a material from a quote, invoice or estimate. unitPriceCents in BRL cents. Returns the event id.",
+    description:
+      "Record a price observation for a material from a quote, invoice or estimate. unitPriceCents in BRL cents. For custom-fabricated items pass `takeoffItemId` (material, takeoff, project and dimensions are copied from the item; an item without a material gets a SKU for its size) or `dimensions` in mm, so the quote feeds size-based estimates. Returns the event id.",
+  },
+  {
+    name: "suggest_size_estimate",
+    function: "priceEvents:suggestEstimate",
+    title: "Estimate price by size",
+    description:
+      "Size-based price estimate for a custom-fabricated item (grille, damper, duct) from past quotes of the same material family. Identify the family by `materialId`, `familyId` or `familyName`, and pass the target `dimensions` in mm (widthMm/heightMm, diameterMm or lengthMm). Returns the method (exact size, nearest sizes or fitted curve), confidence, price range and the precedent quotes used. Optional `supplierId` restricts to that supplier when it has enough quotes.",
+    serverArgs: nowArg,
   },
   {
     name: "list_price_review_queue",
