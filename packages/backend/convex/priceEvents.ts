@@ -5,8 +5,23 @@ import {
   purchasingQuery,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
-import { priceEventReviewStatus, priceEventSource } from "./schema";
+import {
+  materialDimensions,
+  priceEventReviewStatus,
+  priceEventSource,
+} from "./schema";
 import { isUsablePriceEvent } from "./model/procurement/priceSelection";
+import {
+  buildPriceHistory,
+  priceChangeValidator,
+  type PriceChange,
+} from "./model/procurement/priceHistory";
+import {
+  suggestEstimate as suggestEstimateFromCandidates,
+  type EstimateCandidate,
+} from "./model/procurement/estimateSuggestion";
+import { promoteTakeoffItem } from "./model/procurement/takeoffPromotion";
+import { sanitizeDimensions } from "./lib/compras/catalog";
 import {
   computeNeedsReview,
   normalizeText,
@@ -31,6 +46,8 @@ export const priceEventValidator = v.object({
   validUntil: v.union(v.number(), v.null()),
   projectId: v.union(v.id("projects"), v.null()),
   takeoffId: v.union(v.id("takeoffs"), v.null()),
+  takeoffItemId: v.union(v.id("takeoffItems"), v.null()),
+  dimensions: v.union(materialDimensions, v.null()),
   notes: v.union(v.string(), v.null()),
   reviewStatus: v.union(priceEventReviewStatus, v.null()),
   needsReview: v.boolean(),
@@ -63,6 +80,8 @@ async function enrichEvent(
     validUntil?: number;
     projectId?: import("./_generated/dataModel").Id<"projects">;
     takeoffId?: import("./_generated/dataModel").Id<"takeoffs">;
+    takeoffItemId?: import("./_generated/dataModel").Id<"takeoffItems">;
+    dimensions?: import("./lib/compras/catalog").MaterialDimensions;
     notes?: string;
     reviewStatus?: "unreviewed" | "reviewed" | "ignored" | "duplicate";
     needsReview: boolean;
@@ -109,6 +128,8 @@ async function enrichEvent(
     validUntil: event.validUntil ?? null,
     projectId: event.projectId ?? null,
     takeoffId: event.takeoffId ?? null,
+    takeoffItemId: event.takeoffItemId ?? null,
+    dimensions: event.dimensions ?? null,
     notes: event.notes ?? null,
     reviewStatus: event.reviewStatus ?? null,
     needsReview: event.needsReview,
@@ -211,6 +232,170 @@ export const latestForMaterial = engineeringOrPurchasingQuery({
   },
 });
 
+const nullablePriceChange = v.union(priceChangeValidator, v.null());
+
+export function toPriceChange(change: PriceChange | null) {
+  return change
+    ? {
+        deltaCents: change.deltaCents,
+        deltaPercent: change.deltaPercent,
+        fromCents: change.fromCents,
+        fromAt: change.fromAt,
+      }
+    : null;
+}
+
+const priceHistoryPointValidator = v.object({
+  _id: v.id("priceEvents"),
+  occurredAt: v.number(),
+  unitPriceCents: v.number(),
+  unit: v.union(v.string(), v.null()),
+  supplierId: v.union(v.id("suppliers"), v.null()),
+  supplierName: v.string(),
+  source: priceEventSource,
+  needsReview: v.boolean(),
+  change: nullablePriceChange,
+});
+
+export const priceHistoryValidator = v.object({
+  unit: v.union(v.string(), v.null()),
+  current: v.union(priceEventValidator, v.null()),
+  summary: v.union(
+    v.object({
+      change30d: nullablePriceChange,
+      change90d: nullablePriceChange,
+      changeFromPrevious: nullablePriceChange,
+      minCents: v.number(),
+      minAt: v.number(),
+      maxCents: v.number(),
+      maxAt: v.number(),
+      count: v.number(),
+      firstAt: v.number(),
+      lastAt: v.number(),
+    }),
+    v.null()
+  ),
+  points: v.array(priceHistoryPointValidator),
+  suppliers: v.array(
+    v.object({
+      /** Chave única da série (id, nome bruto ou evento). */
+      key: v.string(),
+      supplierId: v.union(v.id("suppliers"), v.null()),
+      supplierName: v.string(),
+      unitPriceCents: v.number(),
+      unit: v.union(v.string(), v.null()),
+      occurredAt: v.number(),
+      source: priceEventSource,
+      freshness: v.union(
+        v.literal("fresh"),
+        v.literal("usable"),
+        v.literal("old"),
+        v.literal("stale")
+      ),
+      change: nullablePriceChange,
+      count: v.number(),
+    })
+  ),
+  excludedCount: v.number(),
+});
+
+/**
+ * Histórico de preços de um material com variação: série cronológica na
+ * unidade de referência (cada ponto comparado ao anterior do mesmo
+ * fornecedor), último preço por fornecedor e resumo (30/90 dias, mín/máx).
+ */
+export const historyForMaterial = engineeringOrPurchasingQuery({
+  args: {
+    materialId: v.id("materials"),
+    now: v.number(),
+  },
+  returns: priceHistoryValidator,
+  handler: async (ctx, args) => {
+    const [material, events] = await Promise.all([
+      ctx.db.get("materials", args.materialId),
+      ctx.db
+        .query("priceEvents")
+        .withIndex("by_material", (q) => q.eq("materialId", args.materialId))
+        .collect(),
+    ]);
+    const history = buildPriceHistory(events, args.now, {
+      materialUnit: material?.unit ?? null,
+    });
+
+    const supplierNames = new Map<string, string>();
+    const supplierNameOf = async (event: {
+      supplierId?: import("./_generated/dataModel").Id<"suppliers">;
+      supplierNameRaw?: string;
+    }) => {
+      const fallback = event.supplierNameRaw ?? "Fornecedor desconhecido";
+      if (!event.supplierId) return fallback;
+      const cached = supplierNames.get(event.supplierId);
+      if (cached) return cached;
+      const supplier = await ctx.db.get("suppliers", event.supplierId);
+      const name = supplier?.name ?? fallback;
+      supplierNames.set(event.supplierId, name);
+      return name;
+    };
+
+    const points = [];
+    for (const point of history.points) {
+      points.push({
+        _id: point.event._id,
+        occurredAt: point.event.occurredAt,
+        unitPriceCents: point.event.unitPriceCents,
+        unit: point.event.unit ?? null,
+        supplierId: point.event.supplierId ?? null,
+        supplierName: await supplierNameOf(point.event),
+        source: point.event.source,
+        needsReview: point.event.needsReview,
+        change: toPriceChange(point.change),
+      });
+    }
+
+    const suppliers = [];
+    for (const supplier of history.suppliers) {
+      suppliers.push({
+        key: supplier.key,
+        supplierId: supplier.supplierId,
+        supplierName: await supplierNameOf(supplier.latest),
+        unitPriceCents: supplier.latest.unitPriceCents,
+        unit: supplier.latest.unit ?? null,
+        occurredAt: supplier.latest.occurredAt,
+        source: supplier.latest.source,
+        freshness: priceFreshness(supplier.latest.occurredAt, args.now),
+        change: toPriceChange(supplier.change),
+        count: supplier.count,
+      });
+    }
+
+    return {
+      unit: history.unit,
+      current: history.current
+        ? await enrichEvent(ctx, history.current, args.now)
+        : null,
+      summary: history.summary
+        ? {
+            change30d: toPriceChange(history.summary.change30d),
+            change90d: toPriceChange(history.summary.change90d),
+            changeFromPrevious: toPriceChange(
+              history.summary.changeFromPrevious
+            ),
+            minCents: history.summary.minCents,
+            minAt: history.summary.minAt,
+            maxCents: history.summary.maxCents,
+            maxAt: history.summary.maxAt,
+            count: history.summary.count,
+            firstAt: history.summary.firstAt,
+            lastAt: history.summary.lastAt,
+          }
+        : null,
+      points,
+      suppliers,
+      excludedCount: history.excludedCount,
+    };
+  },
+});
+
 export const add = purchasingMutation({
   args: {
     rawDescription: v.optional(v.string()),
@@ -225,34 +410,75 @@ export const add = purchasingMutation({
     validUntil: v.optional(v.number()),
     projectId: v.optional(v.id("projects")),
     takeoffId: v.optional(v.id("takeoffs")),
+    /**
+     * Item do takeoff cotado. Preenche material, takeoff, obra, unidade,
+     * descrição e medidas a partir do item; um item sem material ganha o SKU
+     * da sua medida, para a cotação contar na família.
+     */
+    takeoffItemId: v.optional(v.id("takeoffItems")),
+    /** Medidas do item cotado (fabricados sob medida). */
+    dimensions: v.optional(materialDimensions),
     notes: v.optional(v.string()),
   },
   returns: v.id("priceEvents"),
   handler: async (ctx, args) => {
     if (args.unitPriceCents < 0) throw new Error("Preço inválido");
 
+    let materialId = args.materialId;
+    let takeoffId = args.takeoffId;
+    let projectId = args.projectId;
+    let unit = args.unit?.trim() || undefined;
+    let rawDescription = args.rawDescription?.trim() || undefined;
+    let dimensions = sanitizeDimensions(args.dimensions);
+
+    if (args.takeoffItemId) {
+      const item = await ctx.db.get("takeoffItems", args.takeoffItemId);
+      if (!item) throw new Error("Item do takeoff não encontrado");
+      if (materialId && item.materialId && materialId !== item.materialId) {
+        throw new Error("Material diferente do vinculado ao item do takeoff");
+      }
+      if (!item.materialId) {
+        const promoted = await promoteTakeoffItem(ctx, ctx.user, item);
+        materialId = promoted.materialId;
+      } else {
+        materialId = item.materialId;
+      }
+      takeoffId ??= item.takeoffId;
+      projectId ??= item.projectId;
+      unit ??= item.unit?.trim() || undefined;
+      rawDescription ??= item.rawDescription;
+      dimensions ??= sanitizeDimensions(item.customDimensions);
+    }
+
+    if (!dimensions && materialId) {
+      const material = await ctx.db.get("materials", materialId);
+      dimensions = material?.dimensions;
+    }
+
     const needsReview = computeNeedsReview({
-      materialId: args.materialId,
+      materialId,
       supplierId: args.supplierId,
       supplierNameRaw: args.supplierNameRaw,
-      unit: args.unit,
-      rawDescription: args.rawDescription,
+      unit,
+      rawDescription,
     });
 
     const now = Date.now();
     const eventId = await ctx.db.insert("priceEvents", {
-      rawDescription: args.rawDescription?.trim() || undefined,
-      materialId: args.materialId,
+      rawDescription,
+      materialId,
       supplierId: args.supplierId,
       supplierNameRaw: args.supplierNameRaw?.trim() || undefined,
       unitPriceCents: args.unitPriceCents,
-      unit: args.unit?.trim() || undefined,
+      unit,
       quantity: args.quantity,
       source: args.source,
       occurredAt: args.occurredAt,
       validUntil: args.validUntil,
-      projectId: args.projectId,
-      takeoffId: args.takeoffId,
+      projectId,
+      takeoffId,
+      takeoffItemId: args.takeoffItemId,
+      dimensions,
       notes: args.notes?.trim() || undefined,
       reviewStatus: needsReview ? "unreviewed" : "reviewed",
       needsReview,
@@ -267,6 +493,179 @@ export const add = purchasingMutation({
     });
 
     return eventId;
+  },
+});
+
+const estimatePrecedentValidator = v.object({
+  eventId: v.id("priceEvents"),
+  unitPriceCents: v.number(),
+  occurredAt: v.number(),
+  dimensions: materialDimensions,
+  supplierId: v.union(v.id("suppliers"), v.null()),
+  supplierName: v.string(),
+  materialId: v.union(v.id("materials"), v.null()),
+  variantLabel: v.union(v.string(), v.null()),
+  sizeDifferencePercent: v.number(),
+});
+
+export const estimateSuggestionValidator = v.object({
+  familyId: v.union(v.id("materialFamilies"), v.null()),
+  familyName: v.union(v.string(), v.null()),
+  method: v.union(
+    v.literal("exact"),
+    v.literal("nearest"),
+    v.literal("regression"),
+    v.null()
+  ),
+  suggestedUnitPriceCents: v.union(v.number(), v.null()),
+  confidence: v.union(
+    v.literal("high"),
+    v.literal("medium"),
+    v.literal("low"),
+    v.null()
+  ),
+  compatibleCount: v.number(),
+  usedCount: v.number(),
+  minCents: v.union(v.number(), v.null()),
+  maxCents: v.union(v.number(), v.null()),
+  supplierOnly: v.boolean(),
+  precedents: v.array(estimatePrecedentValidator),
+});
+
+/**
+ * Estimativa por tamanho para um item fabricado sob medida, a partir das
+ * cotações da mesma família de material. A família vem do material, do id
+ * informado ou do nome (descrição livre). Devolve o método usado (medida
+ * exata, vizinhos de tamanho próximo ou curva ajustada), a confiança e os
+ * precedentes considerados.
+ */
+export const suggestEstimate = engineeringOrPurchasingQuery({
+  args: {
+    materialId: v.optional(v.id("materials")),
+    familyId: v.optional(v.id("materialFamilies")),
+    familyName: v.optional(v.string()),
+    dimensions: materialDimensions,
+    supplierId: v.optional(v.id("suppliers")),
+    now: v.number(),
+  },
+  returns: estimateSuggestionValidator,
+  handler: async (ctx, args) => {
+    let family: import("./_generated/dataModel").Doc<"materialFamilies"> | null =
+      null;
+    if (args.materialId) {
+      const material = await ctx.db.get("materials", args.materialId);
+      if (material?.familyId) {
+        family = await ctx.db.get("materialFamilies", material.familyId);
+      }
+    }
+    if (!family && args.familyId) {
+      family = await ctx.db.get("materialFamilies", args.familyId);
+    }
+    if (!family && args.familyName?.trim()) {
+      family = await ctx.db
+        .query("materialFamilies")
+        .withIndex("by_name_normalized", (q) =>
+          q.eq("nameNormalized", normalizeText(args.familyName!))
+        )
+        .first();
+    }
+
+    const empty = {
+      familyId: family?._id ?? null,
+      familyName: family?.name ?? null,
+      method: null,
+      suggestedUnitPriceCents: null,
+      confidence: null,
+      compatibleCount: 0,
+      usedCount: 0,
+      minCents: null,
+      maxCents: null,
+      supplierOnly: false,
+      precedents: [],
+    };
+    if (!family) return empty;
+
+    const materials = await ctx.db
+      .query("materials")
+      .withIndex("by_family", (q) => q.eq("familyId", family!._id))
+      .collect();
+    const materialById = new Map(materials.map((m) => [m._id, m]));
+
+    const candidates: EstimateCandidate[] = [];
+    for (const material of materials) {
+      const events = await ctx.db
+        .query("priceEvents")
+        .withIndex("by_material", (q) => q.eq("materialId", material._id))
+        .collect();
+      for (const event of events) {
+        if (!isUsablePriceEvent(event)) continue;
+        const dimensions = event.dimensions ?? material.dimensions;
+        if (!dimensions) continue;
+        candidates.push({
+          eventId: event._id,
+          unitPriceCents: event.unitPriceCents,
+          occurredAt: event.occurredAt,
+          dimensions,
+          supplierId: event.supplierId,
+          supplierNameRaw: event.supplierNameRaw,
+          materialId: material._id,
+          needsReview: event.needsReview,
+        });
+      }
+    }
+
+    const result = suggestEstimateFromCandidates(
+      candidates,
+      args.dimensions,
+      args.now,
+      { supplierId: args.supplierId ?? null }
+    );
+
+    const supplierNames = new Map<string, string>();
+    const precedents = [];
+    for (const precedent of result.precedents) {
+      let supplierName = precedent.supplierNameRaw ?? "Fornecedor desconhecido";
+      if (precedent.supplierId) {
+        const cached = supplierNames.get(precedent.supplierId);
+        if (cached) {
+          supplierName = cached;
+        } else {
+          const supplier = await ctx.db.get("suppliers", precedent.supplierId);
+          if (supplier) supplierName = supplier.name;
+          supplierNames.set(precedent.supplierId, supplierName);
+        }
+      }
+      precedents.push({
+        eventId: precedent.eventId,
+        unitPriceCents: precedent.unitPriceCents,
+        occurredAt: precedent.occurredAt,
+        dimensions: precedent.dimensions,
+        supplierId: precedent.supplierId,
+        supplierName,
+        materialId: precedent.materialId,
+        variantLabel: precedent.materialId
+          ? (materialById.get(precedent.materialId)?.variantLabel ?? null)
+          : null,
+        sizeDifferencePercent: precedent.sizeDifferencePercent,
+      });
+    }
+
+    if (result.method === null) {
+      return { ...empty, compatibleCount: result.compatibleCount, precedents };
+    }
+    return {
+      familyId: family._id,
+      familyName: family.name,
+      method: result.method,
+      suggestedUnitPriceCents: result.suggestedUnitPriceCents,
+      confidence: result.confidence,
+      compatibleCount: result.compatibleCount,
+      usedCount: result.usedCount,
+      minCents: result.minCents,
+      maxCents: result.maxCents,
+      supplierOnly: result.supplierOnly,
+      precedents,
+    };
   },
 });
 

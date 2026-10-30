@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 42 módulos, 318 funções públicas.
+// 42 módulos, 320 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -282,9 +282,11 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "portal:listMyProjects": { kind: "authenticated" },
   "priceEvents:add": { kind: "permission", permission: "compras.write" },
   "priceEvents:dashboardStats": { kind: "permission", permission: "suprimentos.read" },
+  "priceEvents:historyForMaterial": { kind: "permission", permission: "suprimentos.read" },
   "priceEvents:latestForMaterial": { kind: "permission", permission: "suprimentos.read" },
   "priceEvents:list": { kind: "permission", permission: "suprimentos.read" },
   "priceEvents:reviewQueue": { kind: "permission", permission: "compras.read" },
+  "priceEvents:suggestEstimate": { kind: "permission", permission: "suprimentos.read" },
   "priceEvents:updateReview": { kind: "permission", permission: "compras.write" },
   "projectDocuments:create": { kind: "permission", permission: "engenharia.write" },
   "projectDocuments:discardUpload": { kind: "permission", permission: "engenharia.write" },

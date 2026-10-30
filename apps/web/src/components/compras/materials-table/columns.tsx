@@ -5,6 +5,7 @@ import { Archive, ArchiveRestore, Eye, MoreHorizontal, Pencil } from "lucide-rea
 import { MaterialReplenishmentBadge } from "@/components/compras/material-replenishment-badge";
 import type { MaterialCatalogRow } from "@/components/compras/material-form-dialog";
 import { MaterialImageThumb } from "@/components/compras/material-image-thumb";
+import { PriceChangeBadge } from "@/components/compras/price-change-badge";
 import { PriceFreshnessBadge } from "@/components/compras/price-freshness-badge";
 import { formatMaterialTitle } from "@/components/data-table/format-material-title";
 import { SortableHeader } from "@/components/data-table/sortable-header";
@@ -76,7 +77,10 @@ export function MaterialSuppliersSummary({
   );
 }
 
-/** Último preço utilizável com indicador de idade. */
+/**
+ * Último preço utilizável com indicador de idade e variação em relação ao
+ * preço anterior do mesmo fornecedor.
+ */
 export function MaterialLatestPrice({
   material,
 }: {
@@ -86,11 +90,14 @@ export function MaterialLatestPrice({
   if (!price) return <span className="text-muted-foreground">—</span>;
   return (
     <div className="min-w-0">
-      <p className="tabular-nums">
-        {formatCurrency(price.unitPriceCents)}
-        {price.unit ? (
-          <span className="text-xs text-muted-foreground">/{price.unit}</span>
-        ) : null}
+      <p className="flex items-center gap-1.5 tabular-nums">
+        <span>
+          {formatCurrency(price.unitPriceCents)}
+          {price.unit ? (
+            <span className="text-xs text-muted-foreground">/{price.unit}</span>
+          ) : null}
+        </span>
+        <PriceChangeBadge change={price.change} />
       </p>
       <div className="mt-0.5 flex items-center gap-1.5">
         <PriceFreshnessBadge freshness={price.freshness} />

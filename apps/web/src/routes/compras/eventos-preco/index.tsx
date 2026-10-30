@@ -50,6 +50,12 @@ function EventosPrecoPage() {
   );
 }
 
+function parseMm(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = Number.parseFloat(value.replace(",", "."));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
 function EventosPrecoContent() {
   const [now] = useState(() => Date.now());
   const events = useQuery(api.priceEvents.list, { now, limit: 100 });
@@ -69,6 +75,10 @@ function EventosPrecoContent() {
     source: "manual" as const,
     occurredAt: new Date().toISOString().slice(0, 10),
     notes: "",
+    widthMm: "",
+    heightMm: "",
+    lengthMm: "",
+    diameterMm: "",
   });
 
   async function handleAdd() {
@@ -76,6 +86,12 @@ function EventosPrecoContent() {
     try {
       const unitPriceCents = parseCurrencyToCents(form.unitPrice);
       const occurredAt = new Date(form.occurredAt).getTime();
+      const dimensions = {
+        widthMm: parseMm(form.widthMm),
+        heightMm: parseMm(form.heightMm),
+        lengthMm: parseMm(form.lengthMm),
+        diameterMm: parseMm(form.diameterMm),
+      };
       await addPrice({
         rawDescription: form.rawDescription || undefined,
         materialId: form.materialId ? (form.materialId as Id<"materials">) : undefined,
@@ -86,6 +102,9 @@ function EventosPrecoContent() {
         source: form.source,
         occurredAt,
         notes: form.notes || undefined,
+        dimensions: Object.values(dimensions).some((v) => v !== undefined)
+          ? dimensions
+          : undefined,
       });
       toast.success("Preço registrado");
       setOpen(false);
@@ -168,6 +187,18 @@ function EventosPrecoContent() {
               <div>
                 <Label>Data</Label>
                 <Input type="date" value={form.occurredAt} onChange={(e) => setForm({ ...form, occurredAt: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>Medidas (mm, para itens sob medida)</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  <Input type="number" min="0" step="any" value={form.widthMm} onChange={(e) => setForm({ ...form, widthMm: e.target.value })} placeholder="Largura" aria-label="Largura (mm)" />
+                  <Input type="number" min="0" step="any" value={form.heightMm} onChange={(e) => setForm({ ...form, heightMm: e.target.value })} placeholder="Altura" aria-label="Altura (mm)" />
+                  <Input type="number" min="0" step="any" value={form.lengthMm} onChange={(e) => setForm({ ...form, lengthMm: e.target.value })} placeholder="Compr." aria-label="Comprimento (mm)" />
+                  <Input type="number" min="0" step="any" value={form.diameterMm} onChange={(e) => setForm({ ...form, diameterMm: e.target.value })} placeholder="Ø" aria-label="Diâmetro (mm)" />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Cotações com medida alimentam a estimativa por tamanho no takeoff.
+                </p>
               </div>
               <div>
                 <Label>Observações</Label>

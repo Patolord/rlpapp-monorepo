@@ -2,13 +2,23 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Receipt, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { formatCurrency } from "@rlpapp/shared";
+import { formatCurrency, formatDate } from "@rlpapp/shared";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
+import { PriceChangeBadge } from "@/components/compras/price-change-badge";
 import { PriceFreshnessBadge } from "@/components/compras/price-freshness-badge";
+import {
+  type Dimensions,
+  hasAnyDimension,
+  SizeEstimateHint,
+} from "@/components/compras/size-estimate-hint";
+import {
+  TakeoffQuoteDialog,
+  type TakeoffQuoteTarget,
+} from "@/components/compras/takeoff-quote-dialog";
 import { ProjectShell } from "@/components/engenharia/project-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,6 +78,8 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
     diameterMm: "",
     customSpecification: "",
   });
+  const newLineDimensions = parseDimensions(newLine);
+  const [quoteTarget, setQuoteTarget] = useState<TakeoffQuoteTarget | null>(null);
   const suggestions = useQuery(
     api.materials.suggest,
     newLine.rawDescription.trim().length >= 2
@@ -111,30 +123,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
         quantity: newLine.quantity ? Number.parseFloat(newLine.quantity) : undefined,
         unit: newLine.unit || undefined,
         materialId,
-        customDimensions:
-          newLine.widthMm ||
-          newLine.heightMm ||
-          newLine.lengthMm ||
-          newLine.thicknessMm ||
-          newLine.diameterMm
-            ? {
-                widthMm: newLine.widthMm
-                  ? Number.parseFloat(newLine.widthMm.replace(",", "."))
-                  : undefined,
-                heightMm: newLine.heightMm
-                  ? Number.parseFloat(newLine.heightMm.replace(",", "."))
-                  : undefined,
-                lengthMm: newLine.lengthMm
-                  ? Number.parseFloat(newLine.lengthMm.replace(",", "."))
-                  : undefined,
-                thicknessMm: newLine.thicknessMm
-                  ? Number.parseFloat(newLine.thicknessMm.replace(",", "."))
-                  : undefined,
-                diameterMm: newLine.diameterMm
-                  ? Number.parseFloat(newLine.diameterMm.replace(",", "."))
-                  : undefined,
-              }
-            : undefined,
+        customDimensions: newLineDimensions ?? undefined,
         customSpecification: newLine.customSpecification || undefined,
       });
       setNewLine({
@@ -325,6 +314,12 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
               />
             </div>
           </div>
+          {newLineDimensions ? (
+            <SizeEstimateHint
+              familyName={newLine.rawDescription}
+              dimensions={newLineDimensions}
+            />
+          ) : null}
           <div>
             <Label>Detalhe personalizado</Label>
             <Input
@@ -388,12 +383,58 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                     {item.unit ? ` ${item.unit}` : ""}
                   </TableCell>
                   <TableCell>
-                    {item.estimatedUnitPriceCents != null
-                      ? formatCurrency(item.estimatedUnitPriceCents)
-                      : "—"}
+                    <div className="space-y-1">
+                      <span className="tabular-nums">
+                        {item.estimatedUnitPriceCents != null
+                          ? formatCurrency(item.estimatedUnitPriceCents)
+                          : "—"}
+                      </span>
+                      {item.customDimensions &&
+                      hasAnyDimension(item.customDimensions) ? (
+                        <SizeEstimateHint
+                          compact
+                          materialId={item.materialId}
+                          familyName={item.rawDescription}
+                          dimensions={item.customDimensions}
+                          onApply={(unitPriceCents) =>
+                            void applyPrice({
+                              itemId: item._id,
+                              unitPriceCents,
+                            }).then(
+                              () => toast.success("Estimativa aplicada"),
+                              (e) => toast.error(getErrorMessage(e, "Erro"))
+                            )
+                          }
+                        />
+                      ) : null}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">
+                      {item.quotes.map((quote) => (
+                        <div
+                          key={quote._id}
+                          className="flex flex-wrap items-center gap-1.5 text-xs"
+                        >
+                          <Receipt
+                            className="size-3 text-muted-foreground"
+                            aria-hidden
+                          />
+                          <span>
+                            {quote.supplierName}:{" "}
+                            <span className="tabular-nums">
+                              {formatCurrency(quote.unitPriceCents)}
+                            </span>
+                          </span>
+                          <span className="text-muted-foreground">
+                            {formatDate(quote.occurredAt)}
+                          </span>
+                          <PriceChangeBadge
+                            change={quote.versusEstimate}
+                            basis="estimativa"
+                          />
+                        </div>
+                      ))}
                       {item.latestPrices.slice(0, 3).map((p) => (
                         <div key={`${p.supplierName}-${p.occurredAt}`} className="flex items-center gap-2 text-xs">
                           <span>
@@ -420,7 +461,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                           )}
                         </div>
                       ))}
-                      {item.latestPrices.length === 0 && (
+                      {item.latestPrices.length === 0 && item.quotes.length === 0 && (
                         <span className="text-xs text-muted-foreground">Sem referência</span>
                       )}
                     </div>
@@ -436,6 +477,16 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
+                      {canPromoteMaterial ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setQuoteTarget(item)}
+                        >
+                          <Receipt className="mr-1 size-3.5" />
+                          Cotação
+                        </Button>
+                      ) : null}
                       {!item.materialId && canPromoteMaterial ? (
                         <Button
                           variant="outline"
@@ -482,8 +533,39 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
           </Table>
         </CardContent>
       </Card>
+
+      <TakeoffQuoteDialog
+        item={quoteTarget}
+        onOpenChange={(open) => {
+          if (!open) setQuoteTarget(null);
+        }}
+      />
     </div>
   );
+}
+
+function parseMm(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = Number.parseFloat(value.replace(",", "."));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+/** Medidas digitadas na linha nova; null quando nenhuma foi informada. */
+function parseDimensions(line: {
+  widthMm: string;
+  heightMm: string;
+  lengthMm: string;
+  thicknessMm: string;
+  diameterMm: string;
+}): Dimensions | null {
+  const dimensions: Dimensions = {
+    widthMm: parseMm(line.widthMm),
+    heightMm: parseMm(line.heightMm),
+    lengthMm: parseMm(line.lengthMm),
+    thicknessMm: parseMm(line.thicknessMm),
+    diameterMm: parseMm(line.diameterMm),
+  };
+  return hasAnyDimension(dimensions) ? dimensions : null;
 }
 
 function formatCustomDimensions(dimensions: {
