@@ -17,6 +17,10 @@ export const takeoffCatalogItemValidator = v.object({
   id: v.id("materials"),
   sku: v.union(v.string(), v.null()),
   name: v.string(),
+  // Variant of the family in `name` ("Sicflux SONORA 18" for "Exaustor").
+  // Published on its own because `description` joins name, variant and spec
+  // with " — " and the desktop app cannot split that string reliably.
+  variant: v.union(v.string(), v.null()),
   description: v.string(),
   group: v.string(),
   unit: v.string(),
@@ -38,6 +42,7 @@ export type TakeoffCatalogItem = {
   id: Doc<"materials">["_id"];
   sku: string | null;
   name: string;
+  variant: string | null;
   description: string;
   group: string;
   unit: string;
@@ -78,6 +83,7 @@ export function toTakeoffCatalogItem(
     id: material._id,
     sku: material.sku ?? null,
     name: material.name,
+    variant: material.variantLabel?.trim() || null,
     description: describeMaterial(material),
     group: material.category?.trim() || DEFAULT_TAKEOFF_GROUP,
     unit: takeoffUnit(material.unit),
