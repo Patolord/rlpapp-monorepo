@@ -467,6 +467,15 @@ describe("API HTTP /api/v1", () => {
       details: { requestId: "abc123", redacted: true },
     });
 
+    // Deployment sem o provider customJwt (deploy antigo): não é erro da função.
+    stubUpstream({ code: "Unauthenticated", message: "No auth provider found matching the given token" }, 401);
+    const noProvider = await call();
+    expect(noProvider.status).toBe(503);
+    expect((await noProvider.json()).error).toMatchObject({
+      code: "NOT_CONFIGURED",
+      details: { issuer: SITE_URL },
+    });
+
     stubUpstream({
       status: "error",
       errorMessage: "Uncaught ConvexError: x",

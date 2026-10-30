@@ -719,6 +719,17 @@ async function translateFunctionError(
     return errorResponse("UNAUTHORIZED", READ_ONLY_MESSAGE, { function: path });
   }
 
+  // O deployment não reconheceu o JWT que o próprio gateway emitiu: o provider
+  // `customJwt` de auth.config.ts não está no deployment (deploy antigo) ou o
+  // issuer não bate com CONVEX_SITE_URL. Não é erro da função nem do cliente.
+  if (/No auth provider found matching the given token/i.test(rawMessage)) {
+    return errorResponse(
+      "NOT_CONFIGURED",
+      `The deployment rejected the API's own JWT: auth.config.ts has no customJwt provider for issuer ${getApiTokenIssuer()}. Redeploy the backend (npx convex deploy) so the provider is registered.`,
+      { function: path, issuer: getApiTokenIssuer() }
+    );
+  }
+
   // O Convex rejeita args que falham nos validadores antes do handler rodar;
   // isso é erro do cliente, não falha genérica da função.
   const argMatch = rawMessage.match(/ArgumentValidationError:\s*([\s\S]*)$/);
