@@ -26,10 +26,8 @@ import {
 import { logAudit, diffFields } from "./lib/audit";
 import { materialDimensions, materialStatus, replenishmentState } from "./schema";
 import { normalizeText, priceFreshness } from "./lib/compras/procurement";
-import { pickCurrentPriceEvent } from "./model/procurement/priceSelection";
 import {
-  computePriceChange,
-  previousFromSameSupplier,
+  buildPriceHistory,
   priceChangeValidator,
 } from "./model/procurement/priceHistory";
 import {
@@ -295,18 +293,20 @@ async function summarizeSuppliers(ctx: QueryCtx, materialId: Id<"materials">) {
 
 async function latestPriceFor(
   ctx: QueryCtx,
-  materialId: Id<"materials">,
+  material: Pick<Doc<"materials">, "_id" | "unit">,
   now: number
 ) {
   // Todo o histórico do material: o índice ordena por criação, não por
   // `occurredAt`, e a escolha segue o contrato de validade/revisão do repo.
+  // A mesma série do detalhe (unidade do material), para a tabela e a
+  // seção "Preços" nunca discordarem sobre o preço atual.
   const events = await ctx.db
     .query("priceEvents")
-    .withIndex("by_material", (q) => q.eq("materialId", materialId))
+    .withIndex("by_material", (q) => q.eq("materialId", material._id))
     .collect();
-  const event = pickCurrentPriceEvent(events, now);
+  const history = buildPriceHistory(events, now, { materialUnit: material.unit });
+  const event = history.current;
   if (!event) return null;
-  const previous = previousFromSameSupplier(events, event);
   let supplierName = event.supplierNameRaw ?? "Fornecedor";
   if (event.supplierId) {
     const supplier = await ctx.db.get("suppliers", event.supplierId);
@@ -318,7 +318,7 @@ async function latestPriceFor(
     occurredAt: event.occurredAt,
     supplierName,
     freshness: priceFreshness(event.occurredAt, now),
-    change: previous ? computePriceChange(event, previous) : null,
+    change: history.summary?.changeFromPrevious ?? null,
   };
 }
 
@@ -368,7 +368,7 @@ async function buildCatalogRow(
   const [imageUrl, suppliers, latestPrice] = await Promise.all([
     material.imageId ? ctx.storage.getUrl(material.imageId) : null,
     summarizeSuppliers(ctx, material._id),
-    latestPriceFor(ctx, material._id, options.now ?? Date.now()),
+    latestPriceFor(ctx, material, options.now ?? Date.now()),
   ]);
 
   return {

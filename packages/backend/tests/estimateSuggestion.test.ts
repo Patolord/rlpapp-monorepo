@@ -150,6 +150,21 @@ describe("suggestEstimate", () => {
     expect(result.usedCount).toBe(7);
   });
 
+  test("counts distinct sizes regardless of key order, so three sizes never fit a curve", () => {
+    // Três tamanhos reais, cada um também na ordem de chaves invertida.
+    const sizes: [number, number][] = [
+      [100, 100],
+      [200, 200],
+      [300, 300],
+    ];
+    const candidates = sizes.flatMap(([w, h]) => [
+      quote({ widthMm: w, heightMm: h }, w * 100),
+      quote({ heightMm: h, widthMm: w }, w * 100 + 500),
+    ]);
+    const result = suggestEstimate(candidates, { widthMm: 500, heightMm: 500 }, NOW);
+    expect(result.method).not.toBe("regression");
+  });
+
   test("prefers the requested supplier when it has enough quotes", () => {
     const a = "sa" as Id<"suppliers">;
     const b = "sb" as Id<"suppliers">;

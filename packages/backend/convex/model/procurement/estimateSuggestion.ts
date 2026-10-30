@@ -69,6 +69,16 @@ export type EstimateResult =
       precedents: EstimatePrecedent[];
     };
 
+/**
+ * Chave canônica de um tamanho, em ordem fixa de medidas. `JSON.stringify`
+ * preservaria a ordem de inserção e contaria o mesmo tamanho duas vezes.
+ */
+export function sizeKey(dimensions: MaterialDimensions): string {
+  return dimensionKeys(dimensions)
+    .map((key) => `${key}=${dimensions[key]}`)
+    .join("|");
+}
+
 /** Chaves presentes e positivas, em ordem fixa. */
 export function dimensionKeys(dimensions: MaterialDimensions): DimensionKey[] {
   return DIMENSION_KEYS.filter((key) => {
@@ -274,7 +284,7 @@ export function suggestEstimate(
 
   // Curva por tamanho, quando há amostra suficiente e ela explica os preços.
   const distinctSizes = new Set(
-    weighted.map((entry) => JSON.stringify(entry.candidate.dimensions))
+    weighted.map((entry) => sizeKey(entry.candidate.dimensions))
   ).size;
   if (
     weighted.length >= REGRESSION_MIN_SAMPLES &&

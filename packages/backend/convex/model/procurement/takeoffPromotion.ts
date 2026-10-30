@@ -10,15 +10,18 @@ import {
   sanitizeDimensions,
 } from "../../lib/compras/catalog";
 import { normalizeText } from "../../lib/compras/procurement";
+import { logAudit } from "../../lib/audit";
 
 /**
  * Vincula um item do takeoff a um material do catálogo: acha a família pelo
  * nome (ou cria), monta a identidade pela medida/detalhe e reutiliza o SKU
  * existente ou cria um novo. Usado pela promoção manual e ao registrar uma
  * cotação de um item ainda sem material, para a cotação alimentar a família.
+ * A criação do material é auditada aqui, para cobrir todos os chamadores.
  */
 export async function promoteTakeoffItem(
   ctx: MutationCtx,
+  user: Doc<"users">,
   item: Doc<"takeoffItems">,
   options: { familyName?: string; category?: string } = {}
 ): Promise<{
@@ -103,5 +106,11 @@ export async function promoteTakeoffItem(
     updatedAt: now,
   });
   await ctx.db.patch("takeoffs", item.takeoffId, { updatedAt: now });
+  await logAudit(ctx, user, {
+    action: "create",
+    tableName: "materials",
+    recordId: materialId,
+    details: `Promovido do takeoff: ${family.name}`,
+  });
   return { materialId, created: true, familyName: family.name };
 }

@@ -483,18 +483,10 @@ export const promoteItemToMaterial = purchasingMutation({
       return { materialId: item.materialId, created: false };
     }
 
-    const promoted = await promoteTakeoffItem(ctx, item, {
+    const promoted = await promoteTakeoffItem(ctx, ctx.user, item, {
       familyName: args.familyName,
       category: args.category,
     });
-    if (promoted.created) {
-      await logAudit(ctx, ctx.user, {
-        action: "create",
-        tableName: "materials",
-        recordId: promoted.materialId,
-        details: `Promovido do takeoff: ${promoted.familyName}`,
-      });
-    }
     return { materialId: promoted.materialId, created: promoted.created };
   },
 });

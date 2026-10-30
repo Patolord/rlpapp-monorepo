@@ -278,6 +278,8 @@ export const priceHistoryValidator = v.object({
   points: v.array(priceHistoryPointValidator),
   suppliers: v.array(
     v.object({
+      /** Chave única da série (id, nome bruto ou evento). */
+      key: v.string(),
       supplierId: v.union(v.id("suppliers"), v.null()),
       supplierName: v.string(),
       unitPriceCents: v.number(),
@@ -353,6 +355,7 @@ export const historyForMaterial = engineeringOrPurchasingQuery({
     const suppliers = [];
     for (const supplier of history.suppliers) {
       suppliers.push({
+        key: supplier.key,
         supplierId: supplier.supplierId,
         supplierName: await supplierNameOf(supplier.latest),
         unitPriceCents: supplier.latest.unitPriceCents,
@@ -435,7 +438,7 @@ export const add = purchasingMutation({
         throw new Error("Material diferente do vinculado ao item do takeoff");
       }
       if (!item.materialId) {
-        const promoted = await promoteTakeoffItem(ctx, item);
+        const promoted = await promoteTakeoffItem(ctx, ctx.user, item);
         materialId = promoted.materialId;
       } else {
         materialId = item.materialId;

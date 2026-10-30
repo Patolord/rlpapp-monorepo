@@ -130,6 +130,17 @@ describe("price history helpers", () => {
     expect(history.suppliers[0]).toMatchObject({ count: 3, supplierId: a });
   });
 
+  test("same-day events from one supplier break ties by id, matching the series order", () => {
+    const a = "sa" as Id<"suppliers">;
+    const first = event({ supplierId: a, unitPriceCents: 1000, daysAgo: 10 });
+    const second = event({ supplierId: a, unitPriceCents: 1100, daysAgo: 10 });
+    const third = event({ supplierId: a, unitPriceCents: 1300, daysAgo: 1 });
+    // Mesmo `occurredAt`; `second` tem id maior, logo é o anterior de `third`.
+    expect(previousFromSameSupplier([third, first, second], third)?._id).toBe(second._id);
+    expect(previousFromSameSupplier([third, second, first], third)?._id).toBe(second._id);
+    expect(previousFromSameSupplier([first, second], second)?._id).toBe(first._id);
+  });
+
   test("current price is excluded from its own 30 day comparison", () => {
     const events = [
       event({ supplierNameRaw: "X", unitPriceCents: 1000, daysAgo: 45 }),
@@ -230,5 +241,28 @@ describe("price history query", () => {
       unitPriceCents: 1250,
       change: { deltaCents: 250, deltaPercent: 25 },
     });
+
+    // Um preço mais recente por caixa não vira o "último preço" de um
+    // material vendido por metro: tabela e detalhe mostram o mesmo atual.
+    await purchasing.mutation(api.priceEvents.add, {
+      materialId,
+      supplierId,
+      unitPriceCents: 90_000,
+      unit: "cx",
+      source: "invoice",
+      occurredAt: NOW - DAY_MS,
+    });
+    const after = await purchasing.query(api.materials.listCatalog, {
+      search: "Cabo PP",
+      now: NOW,
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    const detail = await purchasing.query(api.priceEvents.historyForMaterial, {
+      materialId,
+      now: NOW,
+    });
+    expect(after.page[0]?.latestPrice?.unitPriceCents).toBe(1250);
+    expect(detail.current?.unitPriceCents).toBe(1250);
+    expect(detail.excludedCount).toBe(1);
   });
 });

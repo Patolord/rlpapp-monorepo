@@ -105,7 +105,7 @@ function HistoryBody({ history, showAll, onToggleShowAll }: { history: PriceHist
           <Text style={styles.subheading}>Último preço por fornecedor</Text>
           <Surface padded={false}>
             {history.suppliers.map((supplier, index) => (
-              <View key={supplier.supplierId ?? supplier.supplierName} style={[styles.row, index > 0 && styles.rowBorder]}>
+              <View key={supplier.key} style={[styles.row, index > 0 && styles.rowBorder]}>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={[type.bodyStrong, { color: colors.text }]} numberOfLines={1}>
                     {supplier.supplierName}

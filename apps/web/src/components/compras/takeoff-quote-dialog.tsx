@@ -93,6 +93,18 @@ export function TakeoffQuoteDialog({
       toast.error("Informe o fornecedor");
       return;
     }
+    // O input de data pode ficar vazio; `new Date("")` vira NaN, que o
+    // validador numérico aceitaria e quebraria ordenação e recência.
+    const occurredAtMs = new Date(occurredAt).getTime();
+    if (!Number.isFinite(occurredAtMs)) {
+      toast.error("Informe a data da cotação");
+      return;
+    }
+    const validUntilMs = validUntil ? new Date(validUntil).getTime() : undefined;
+    if (validUntilMs !== undefined && !Number.isFinite(validUntilMs)) {
+      toast.error("Data de validade inválida");
+      return;
+    }
     setSubmitting(true);
     try {
       await addPrice({
@@ -103,8 +115,8 @@ export function TakeoffQuoteDialog({
           supplierId === NO_SUPPLIER ? supplierNameRaw.trim() : undefined,
         unitPriceCents,
         source: "quote",
-        occurredAt: new Date(occurredAt).getTime(),
-        validUntil: validUntil ? new Date(validUntil).getTime() : undefined,
+        occurredAt: occurredAtMs,
+        validUntil: validUntilMs,
         notes: notes.trim() || undefined,
       });
       toast.success("Cotação registrada");

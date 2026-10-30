@@ -104,7 +104,15 @@ export function previousFromSameSupplier<E extends PriceHistoryEvent>(
     }
     if (supplierKeyOf(event) !== key) continue;
     if (!isComparableUnit(event.unit, current.unit)) continue;
-    if (!previous || event.occurredAt > previous.occurredAt) previous = event;
+    // Mesma ordem total (occurredAt, _id) da série: em empate de data, o
+    // anterior é o de maior id, não o primeiro que a iteração encontrar.
+    if (
+      !previous ||
+      event.occurredAt > previous.occurredAt ||
+      (event.occurredAt === previous.occurredAt && event._id > previous._id)
+    ) {
+      previous = event;
+    }
   }
   return previous;
 }

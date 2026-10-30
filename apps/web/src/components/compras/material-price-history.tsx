@@ -126,7 +126,7 @@ export function MaterialPriceHistory({
           <ul className="divide-y rounded-md border text-sm">
             {suppliers.map((supplier) => (
               <li
-                key={supplier.supplierId ?? supplier.supplierName}
+                key={supplier.key}
                 className="flex items-center justify-between gap-3 px-3 py-2"
               >
                 <div className="min-w-0">
