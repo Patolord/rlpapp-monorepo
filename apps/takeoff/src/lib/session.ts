@@ -8,6 +8,7 @@ import { extractText, type TextBox } from "./pdf/text";
 import { collectThenIndex, type VectorIndex } from "./pdf/vectors";
 import type { Gray } from "./pdf/visual";
 import { isTauri } from "./platform";
+import type { ViewportTransform } from "./report/coords";
 import type { DrawingRevision } from "./types";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
@@ -56,6 +57,11 @@ export interface OpenDoc {
   task: PDFDocumentLoadingTask;
   renderer: PageRenderer;
   sizes: PageSize[];
+  /**
+   * pdf.js `viewport.transform` of each page at scale 1 (PDF user space → page space), so the
+   * cutout report can place markings without pdf.js. Session only, never saved.
+   */
+  transforms: ViewportTransform[];
   vectors: Map<number, VectorIndex>;
   vectorTime: Map<number, number>;
   texts: Map<number, TextBox[]>;
@@ -119,8 +125,19 @@ export const session = {
 
 /** Positioned text of a page, extracted once and cached. */
 export function ensureText(page: number): Promise<TextBox[]> {
-  const entry = active;
-  if (!entry) return Promise.resolve([]);
+  return active ? textOf(active, page) : Promise.resolve([]);
+}
+
+/**
+ * Positioned text of a page of any open PDF (path or dev key), shared with `ensureText`'s cache;
+ * undefined when that PDF is not open in the session.
+ */
+export function ensureDocText(key: string, page: number): Promise<TextBox[]> | undefined {
+  const entry = openDocs.get(key);
+  return entry ? textOf(entry, page) : undefined;
+}
+
+function textOf(entry: OpenDoc, page: number): Promise<TextBox[]> {
   const cached = entry.texts.get(page);
   if (cached) return Promise.resolve(cached);
   let p = entry.textPending.get(page);
@@ -175,10 +192,12 @@ async function parseDoc(
   const task = pdfjs.getDocument({ data });
   const doc = await task.promise;
   const sizes: PageSize[] = [];
+  const transforms: ViewportTransform[] = [];
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
     const vp = page.getViewport({ scale: 1 });
     sizes.push({ w: vp.width, h: vp.height });
+    transforms.push(vp.transform as unknown as ViewportTransform);
   }
   const vectors = new Map<number, VectorIndex>();
   const vectorTime = new Map<number, number>();
@@ -213,6 +232,7 @@ async function parseDoc(
     task,
     renderer,
     sizes,
+    transforms,
     vectors,
     vectorTime,
     texts: new Map(),
@@ -237,6 +257,10 @@ function activate(entry: OpenDoc) {
     error: null,
   }));
 }
+
+/** Viewport transforms (scale 1) of an open PDF's pages; undefined when it is not open. */
+export const pageTransforms = (key: string): readonly ViewportTransform[] | undefined =>
+  openDocs.get(key)?.transforms;
 
 /** Is this PDF already parsed (switching to it costs nothing)? */
 export const isDocOpen = (key: string): boolean => openDocs.has(key);

@@ -99,6 +99,7 @@ bun scripts/bench-vectors.ts <pdf>   # extraction + indexing timings
 | `F` `+` `-` wheel | Fit page / zoom |
 | `PgUp` `PgDn` | Previous / next page |
 | `Ctrl+S` `Ctrl+E` | Save project / export Planilha .xlsx |
+| `Ctrl+Shift+E` | Relatório de recortes: marked-up PDF cutouts per location |
 
 Items can be saved to the catalog (star). The catalog is seeded from past budget sheets
 (`src/data/catalog.seed.json`) and follows the company app at a fixed address
@@ -127,6 +128,19 @@ The Excel export mirrors the RLP workbook: a `Resumo` sheet, one sheet per syste
 "sistema" tag, defaulting to the project system), sections per location (ambiente) or per group
 (toggle in the Quote tab), a `Por Local` matrix, and the original styling (Arial, navy item rows,
 hair/medium borders, accounting formats, A4 landscape at 75 %).
+
+The **Relatório de recortes** (Takeoff menu or `Ctrl+Shift+E`) is a PDF for contractors that shows
+what was measured, location by location. Choose what to include (presets "Só dutos", "Só VRF",
+"Tudo da disciplina atual", or any discipline, category and items), which locations, and the
+paper. Each page is one region of a location: the original drawing cropped tight around the
+filtered markings (kept vector, the area outside the location washed out), the markings in their
+item colours with quantities and duct sections `a×b`, a scale bar for the printed zoom, and the
+items measured there (measured quantities, without waste) with the duct runs by section and the
+VRF runs by role and tube pair. Prices are off by default. A region too big to print legibly (below the "zoom mínimo", 0.5 by
+default) is split into clusters or tiles after a key map; each marking is listed on exactly one
+of those pages. An optional cover sums every location and indexes the pages. Code:
+`src/lib/report/` (`plan.ts` decides, `write.ts` draws with pdf-lib; Liberation Sans, OFL, in
+`public/fonts/`).
 
 ## How it stays fast
 
@@ -159,6 +173,8 @@ src/
   lib/ducts*    duct take-off: NBR 16401 bill, network items, reference workbook export
   lib/vrf*      VRF take-off: brand tables, system items, workbook export
   lib/kits.ts   kit presets · lib/weights.ts  weight-based prices · lib/symbols.ts  count marks
+  lib/markingShapes.ts  a marking's geometry and label, shared by the canvas and the report
+  lib/report/   cutout report: filter, coords, plan (pure), write (pdf-lib); reportExport.ts
   lib/pdf/      render.ts (page renderer), vectors*.ts (snap index + worker), magic.ts,
                 text.ts (positioned text), visual*.ts (image symbol search), similar.ts
   viewport.ts   zoom/pan state

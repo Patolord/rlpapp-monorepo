@@ -1,6 +1,6 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { AboutDialog } from "./components/AboutDialog";
 import { CalibrateDialog } from "./components/CalibrateDialog";
 import { CatalogPalette } from "./components/CatalogPalette";
@@ -39,6 +39,11 @@ import { isTauri } from "./lib/platform";
 import { useDoc } from "./lib/session";
 import { checkForUpdate } from "./lib/updater";
 import { useStore } from "./store";
+
+/** The cutout report dialog and its planner load in a chunk of their own. */
+const ReportDialog = lazy(() =>
+  import("./components/ReportDialog").then((m) => ({ default: m.ReportDialog })),
+);
 
 export default function App() {
   useHotkeys();
@@ -155,6 +160,9 @@ export default function App() {
       <DuctDialog />
       <VrfDialog />
       <VrfBrandsDialog />
+      <Suspense fallback={null}>
+        <ReportDialog />
+      </Suspense>
     </div>
   );
 }

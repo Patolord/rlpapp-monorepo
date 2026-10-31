@@ -2,38 +2,24 @@
  * Canvas painting of the viewer overlay: measurements, locations and labels in screen space.
  * Pure drawing; the Viewer decides what is visible, selected or hovered.
  */
-import {
-  bbox,
-  type Pt,
-  pointAlong,
-  polygonArea,
-  polygonCentroid,
-  polylineLength,
-  segmentMidpoint,
-} from "./geom";
+import { bbox, type Pt, polygonArea, segmentMidpoint } from "./geom";
+import { type LabelShape, type ShapeOpts, shapesOf } from "./markingShapes";
 import { drawSymbol } from "./symbols";
 import type { Location } from "./types";
-import { formatArea, formatLength, type Kind, type PageScale } from "./units";
+import { formatArea, type Kind, type PageScale } from "./units";
 
 /** Screen transform: CSS pixels per page point and the page origin on screen. */
 export type View = { zoom: number; x: number; y: number };
 
 const toScreen = (p: Pt, v: View): Pt => ({ x: p.x * v.zoom + v.x, y: p.y * v.zoom + v.y });
 
-export interface DrawOpts {
+/** Geometry and label come from lib/markingShapes (`ShapeOpts`); the rest is screen state. */
+export interface DrawOpts extends ShapeOpts {
   selected: boolean;
   hover: boolean;
   dashed: boolean;
-  /** Count marks: symbol id from lib/symbols (undefined = dot). */
-  symbol?: string;
   /** Multiplier for the hatch fill of areas and locations (0 = outline only, default 1). */
   fillAlpha?: number;
-  /** Linear runs: vertical length (project units) appended to the label. */
-  vertical?: number;
-  /** Times the measurement counts; shown as "×N" when above 1. */
-  repeat?: number;
-  /** Short prefix for the label (duct section). */
-  tag?: string;
 }
 
 const MARK_PX = 18;
@@ -47,12 +33,13 @@ export function drawMeasurement(
   scale: PageScale | null,
   o: DrawOpts,
 ) {
+  const shape = shapesOf(pts, kind, scale, o);
   const sp = pts.map((p) => toScreen(p, v));
   ctx.save();
-  if (kind === "count") {
+  if (shape.type === "symbol") {
     const c = sp[0];
     const emphasis = o.selected || o.hover;
-    drawSymbol(ctx, o.symbol, c.x, c.y, emphasis ? MARK_PX + 4 : MARK_PX, color, emphasis);
+    drawSymbol(ctx, shape.symbol.id, c.x, c.y, emphasis ? MARK_PX + 4 : MARK_PX, color, emphasis);
     if (o.selected) {
       ctx.beginPath();
       ctx.arc(c.x, c.y, 12, 0, Math.PI * 2);
@@ -60,11 +47,11 @@ export function drawMeasurement(
       ctx.strokeStyle = "#101a30";
       ctx.stroke();
     }
-    if (o.repeat && o.repeat > 1) drawLabel(ctx, `×${o.repeat}`, c.x + 14, c.y - 12, color);
+    if (shape.label) drawShapeLabel(ctx, v, shape.label, color);
     ctx.restore();
     return;
   }
-  if (kind === "linear" && sp.length === 1) {
+  if (shape.type === "ring") {
     // fixed length placed by a click kit: a ring around the point, its length on hover
     const c = sp[0];
     ctx.beginPath();
@@ -72,18 +59,14 @@ export function drawMeasurement(
     ctx.lineWidth = o.selected || o.hover ? 3 : 2;
     ctx.strokeStyle = o.selected ? "#101a30" : color;
     ctx.stroke();
-    if (o.hover) {
-      let text = formatLength(o.vertical ?? 0, scale?.unit ?? "m");
-      if (o.repeat && o.repeat > 1) text += ` ×${o.repeat}`;
-      drawLabel(ctx, text, c.x, c.y + 24, color);
-    }
+    if (o.hover) drawShapeLabel(ctx, v, shape.label, color);
     ctx.restore();
     return;
   }
   ctx.beginPath();
   ctx.moveTo(sp[0].x, sp[0].y);
   for (let i = 1; i < sp.length; i++) ctx.lineTo(sp[i].x, sp[i].y);
-  if (kind === "area") {
+  if (shape.closed) {
     ctx.closePath();
     const k = o.fillAlpha ?? 1;
     if (k > 0) {
@@ -117,27 +100,14 @@ export function drawMeasurement(
       ctx.stroke();
     }
   }
-  // label
-  let text: string;
-  let at: Pt;
-  if (kind === "linear") {
-    const len = polylineLength(pts);
-    text = scale
-      ? formatLength(len / scale.pointsPerUnit, scale.unit)
-      : `${len.toFixed(0)} pt · sem escala`;
-    if (o.vertical) text += ` + ${formatLength(o.vertical, scale?.unit ?? "m")} vert.`;
-    at = toScreen(pointAlong(pts, 0.5), v);
-  } else {
-    const area = polygonArea(pts);
-    text = scale
-      ? formatArea(area / (scale.pointsPerUnit * scale.pointsPerUnit), scale.unit)
-      : `${area.toFixed(0)} pt² · sem escala`;
-    at = toScreen(polygonCentroid(pts), v);
-  }
-  if (o.tag) text = `${o.tag} · ${text}`;
-  if (o.repeat && o.repeat > 1) text += ` ×${o.repeat}`;
-  drawLabel(ctx, text, at.x, at.y, color);
+  drawShapeLabel(ctx, v, shape.label, color);
   ctx.restore();
+}
+
+/** A marking's label at its page-space anchor, shifted by its offset in screen pixels. */
+function drawShapeLabel(ctx: CanvasRenderingContext2D, v: View, l: LabelShape, accent: string) {
+  const at = toScreen(l.at, v);
+  drawLabel(ctx, l.text, at.x + (l.offset?.x ?? 0), at.y + (l.offset?.y ?? 0), accent);
 }
 
 /** Zones: dashed outline, faint fill, name + area label near the top of the polygon. */

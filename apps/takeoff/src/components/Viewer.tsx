@@ -17,6 +17,7 @@ import {
   translate,
 } from "../lib/geom";
 import { kitMode } from "../lib/kits";
+import { markingTag } from "../lib/markingShapes";
 import { drawHandles, drawLabel, drawMeasurement, drawZone, type HandleRef } from "../lib/overlay";
 import { magicArea } from "../lib/pdf/magic";
 import { isCancelled, type Rect, type Rendered } from "../lib/pdf/render";
@@ -30,7 +31,6 @@ import { type Joined, joinedAt, reshape } from "../lib/reshape";
 import { ensureText, session, useDoc } from "../lib/session";
 import { locationOf } from "../lib/types";
 import type { Kind } from "../lib/units";
-import { vrfTag } from "../lib/vrf";
 import { type Tool, useStore } from "../store";
 import { viewerApi } from "../viewerApi";
 import { toPage, toScreen, useViewport } from "../viewport";
@@ -699,11 +699,7 @@ export function Viewer() {
           fillAlpha: fillK,
           vertical: m.vertical,
           repeat: m.repeat,
-          tag: m.duct
-            ? `${m.duct.a}×${m.duct.b}`
-            : m.vrf
-              ? vrfTag(m.vrf, item.vrf?.hp ?? 0)
-              : undefined,
+          tag: markingTag(m, item),
         });
         ctx.globalAlpha = 1;
       }

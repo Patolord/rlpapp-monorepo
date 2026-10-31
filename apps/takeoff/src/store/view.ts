@@ -68,6 +68,8 @@ export interface ViewSlice {
   weightsEditorOpen: boolean;
   /** "Catálogo e preços" dialog (catalog source, token, R$/kg of base materials). */
   catalogSettingsOpen: boolean;
+  /** "Relatório de recortes (PDF)" dialog. */
+  reportOpen: boolean;
   /** Side panel (items, locais, orçamento): shown, and its width in CSS px (remembered). */
   sidebarOpen: boolean;
   sidebarWidth: number;
@@ -109,6 +111,7 @@ export interface ViewSlice {
   setKitsEditorOpen(open: boolean): void;
   setWeightsEditorOpen(open: boolean): void;
   setCatalogSettingsOpen(open: boolean): void;
+  setReportOpen(open: boolean): void;
   setSidebarOpen(open: boolean): void;
   setSidebarWidth(px: number): void;
   /** Show a take-off view in the side panel. */
@@ -151,6 +154,7 @@ export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
   kitsEditorOpen: false,
   weightsEditorOpen: false,
   catalogSettingsOpen: false,
+  reportOpen: false,
   sidebarOpen: readPref("sidebarOpen", true),
   sidebarWidth: readPref("sidebarWidth", 580),
   panelTab: "items",
@@ -270,6 +274,7 @@ export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
   setKitsEditorOpen: (kitsEditorOpen) => set({ kitsEditorOpen }),
   setWeightsEditorOpen: (weightsEditorOpen) => set({ weightsEditorOpen }),
   setCatalogSettingsOpen: (catalogSettingsOpen) => set({ catalogSettingsOpen }),
+  setReportOpen: (reportOpen) => set({ reportOpen }),
   setSidebarOpen: (sidebarOpen) => {
     writePref("sidebarOpen", sidebarOpen);
     set({ sidebarOpen });

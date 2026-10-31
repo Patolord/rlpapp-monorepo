@@ -10,7 +10,7 @@
  *    "Pavimento 3: 1 mapa + 6 folhas").
  * 2. The writer draws `plan.cover` (optional), then each of `plan.pages` into
  *    `plan.layout`: header (project fields, `heading`, drawing and page, `plan.filterLabel`),
- *    frame, list (`rows` with `pricedQty`, then `ducts` and `vrf`), footer ("página n de N",
+ *    frame, list (`rows` by measured `qty`, then `ducts` and `vrf`), footer ("página n de N",
  *    `alsoIn` labels). Pages with `rowsScope: "page"` list only what they own (each marking on
  *    exactly one of them); key maps and single cutouts list the region total. A region holds
  *    everything inside its polygon, nested rooms included. The cover's `locations[]` are

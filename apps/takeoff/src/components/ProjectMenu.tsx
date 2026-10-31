@@ -1,6 +1,7 @@
 import {
   ChevronDown,
   FilePlus2,
+  FileText,
   FolderOpen,
   FolderX,
   Save,
@@ -22,6 +23,7 @@ export function ProjectMenu() {
   const filePath = useStore((s) => s.filePath);
   const setNewProjectOpen = useStore((s) => s.setNewProjectOpen);
   const setCatalogSettingsOpen = useStore((s) => s.setCatalogSettingsOpen);
+  const setReportOpen = useStore((s) => s.setReportOpen);
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
@@ -111,6 +113,15 @@ export function ProjectMenu() {
             () => void saveProject(true),
             <>
               <Kbd>{MOD}</Kbd>+<Kbd>Shift</Kbd>+<Kbd>S</Kbd>
+            </>,
+          )}
+          <div className="my-1 border-t border-neutral-800" />
+          {item(
+            <FileText size={16} />,
+            "Relatório de recortes (PDF)…",
+            () => setReportOpen(true),
+            <>
+              <Kbd>{MOD}</Kbd>+<Kbd>Shift</Kbd>+<Kbd>E</Kbd>
             </>,
           )}
           <div className="my-1 border-t border-neutral-800" />

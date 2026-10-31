@@ -54,7 +54,8 @@ export function useHotkeys() {
             return;
           case "e":
             e.preventDefault();
-            void exportXlsx();
+            if (e.shiftKey) s.setReportOpen(true);
+            else void exportXlsx();
             return;
           case "a":
             e.preventDefault();
