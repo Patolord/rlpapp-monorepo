@@ -2,7 +2,15 @@
  * Canvas painting of the viewer overlay: measurements, locations and labels in screen space.
  * Pure drawing; the Viewer decides what is visible, selected or hovered.
  */
-import { bbox, type Pt, pointAlong, polygonArea, polygonCentroid, polylineLength } from "./geom";
+import {
+  bbox,
+  type Pt,
+  pointAlong,
+  polygonArea,
+  polygonCentroid,
+  polylineLength,
+  segmentMidpoint,
+} from "./geom";
 import { drawSymbol } from "./symbols";
 import type { Location } from "./types";
 import { formatArea, formatLength, type Kind, type PageScale } from "./units";
@@ -179,6 +187,68 @@ export function drawZone(
     const top = toScreen({ x: (b.minX + b.maxX) / 2, y: b.minY }, v);
     drawLabel(ctx, loc ? `${loc.name} · ${areaText}` : areaText, top.x, top.y + 12, color);
   }
+  ctx.restore();
+}
+
+/** A vertex handle (index) or a segment midpoint handle (segment index) under the pointer. */
+export interface HandleRef {
+  index: number;
+  mid: boolean;
+}
+
+/**
+ * Edit handles of the one selected marking: a square on each vertex and, with `midpoints`, a
+ * small diamond on each segment (the closing one too when `closed`) to drag a new vertex from.
+ */
+export function drawHandles(
+  ctx: CanvasRenderingContext2D,
+  pts: readonly Pt[],
+  v: View,
+  o: {
+    midpoints: boolean;
+    closed?: boolean;
+    hot?: HandleRef | null;
+    /** the hot vertex is being dragged: draw it as a small dot so the snap marker stays readable */
+    dragging?: boolean;
+  },
+) {
+  ctx.save();
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "#101a30";
+  if (o.midpoints && pts.length >= 2) {
+    const n = o.closed && pts.length > 2 ? pts.length : pts.length - 1;
+    for (let i = 0; i < n; i++) {
+      const c = toScreen(segmentMidpoint(pts, i), v);
+      const r = o.hot?.mid && o.hot.index === i ? 5.5 : 4;
+      ctx.beginPath();
+      ctx.moveTo(c.x, c.y - r);
+      ctx.lineTo(c.x + r, c.y);
+      ctx.lineTo(c.x, c.y + r);
+      ctx.lineTo(c.x - r, c.y);
+      ctx.closePath();
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+  pts.forEach((p, i) => {
+    const c = toScreen(p, v);
+    const hot = o.hot && !o.hot.mid && o.hot.index === i;
+    if (hot && o.dragging) {
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = "#fff";
+      ctx.fill();
+      ctx.stroke();
+      return;
+    }
+    const r = hot ? 6.5 : 5;
+    ctx.beginPath();
+    ctx.rect(Math.round(c.x) - r + 0.5, Math.round(c.y) - r + 0.5, r * 2 - 1, r * 2 - 1);
+    ctx.fillStyle = hot ? "#facc15" : "#fff";
+    ctx.fill();
+    ctx.stroke();
+  });
   ctx.restore();
 }
 

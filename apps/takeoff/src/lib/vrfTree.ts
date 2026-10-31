@@ -54,17 +54,20 @@ export interface VrfTree {
   loose: VrfRun[];
 }
 
+/** What the joints are found from: a run's id, where it is drawn and its points. */
+export type JoinRun = Pick<VrfRun, "id" | "drawingId" | "page" | "points">;
+
 interface Endpoint {
-  run: VrfRun;
+  run: JoinRun;
   end: 0 | 1;
   pt: Pt;
   page: string;
 }
 
-const pageKey = (r: VrfRun) => `${r.drawingId ?? ""}#${r.page ?? 0}`;
+const pageKey = (r: JoinRun) => `${r.drawingId ?? ""}#${r.page ?? 0}`;
 
 /** Clusters run endpoints into joints: "runId:end" -> joint id. */
-function joinEndpoints(runs: VrfRun[]): Map<string, string> {
+function joinEndpoints(runs: readonly JoinRun[]): Map<string, string> {
   const endpoints: Endpoint[] = [];
   for (const r of runs) {
     if (!r.id || !r.points || r.points.length < 2) continue;
@@ -84,6 +87,35 @@ function joinEndpoints(runs: VrfRun[]): Map<string, string> {
   }
   return of;
 }
+
+/** One end of a run: its first (0) or last (1) point. */
+export interface RunEnd {
+  id: string;
+  end: 0 | 1;
+}
+
+/**
+ * The other run ends sharing a joint with one end of a run, as the tree joins them (same page,
+ * within `JOIN_TOLERANCE` of the joint). Moving them along with the end keeps the runs joined:
+ * reshaping a run by its endpoint does not break the system apart. Duct runs use it too.
+ */
+export function joinedEnds(runs: readonly JoinRun[], id: string, end: 0 | 1): RunEnd[] {
+  const of = joinEndpoints(runs);
+  const joint = of.get(`${id}:${end}`);
+  if (!joint) return [];
+  const out: RunEnd[] = [];
+  for (const r of runs) {
+    if (!r.id || r.id === id) continue;
+    for (const e of [0, 1] as const) {
+      if (of.get(`${r.id}:${e}`) === joint) out.push({ id: r.id, end: e });
+    }
+  }
+  return out;
+}
+
+/** A copy of a run's points with one end moved to `pt`. */
+export const withEnd = (points: readonly Pt[], end: 0 | 1, pt: Pt): Pt[] =>
+  points.map((q, i) => ((end === 0 ? i === 0 : i === points.length - 1) ? pt : q));
 
 /** Builds the tree of one system's runs. Runs without an id or geometry can only be loose. */
 export function buildVrfTree(runs: VrfRun[]): VrfTree {

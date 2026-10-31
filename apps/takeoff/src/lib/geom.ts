@@ -183,3 +183,59 @@ export function simplify(pts: readonly Pt[], eps: number): Pt[] {
 
 export const translate = (pts: readonly Pt[], dx: number, dy: number): Pt[] =>
   pts.map((p) => ({ x: p.x + dx, y: p.y + dy }));
+
+/** Index of the vertex nearest to `p` within `tol`, or -1. */
+export function hitVertex(pts: readonly Pt[], p: Pt, tol: number): number {
+  let best = -1;
+  let bd = tol;
+  pts.forEach((q, i) => {
+    const d = dist(p, q);
+    if (d <= bd) {
+      bd = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
+/** Midpoint of segment i (from vertex i to the next; the last one closes a polygon). */
+export const segmentMidpoint = (pts: readonly Pt[], i: number): Pt => {
+  const a = pts[i];
+  const b = pts[(i + 1) % pts.length];
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+};
+
+/**
+ * Segment whose midpoint is nearest to `p` within `tol`, or -1. Segment i runs from vertex i
+ * to vertex i + 1; a closed polygon also has the segment from the last vertex to the first.
+ */
+export function hitMidpoint(pts: readonly Pt[], p: Pt, tol: number, closed = false): number {
+  const n = closed && pts.length > 2 ? pts.length : pts.length - 1;
+  let best = -1;
+  let bd = tol;
+  for (let i = 0; i < n; i++) {
+    const d = dist(p, segmentMidpoint(pts, i));
+    if (d <= bd) {
+      bd = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+/** A copy with `p` inserted on segment i (it becomes vertex i + 1). */
+export const insertVertex = (pts: readonly Pt[], i: number, p: Pt): Pt[] => [
+  ...pts.slice(0, i + 1),
+  p,
+  ...pts.slice(i + 1),
+];
+
+/** A copy without vertex i, or null when that would leave fewer than `min` points. */
+export function removeVertex(pts: readonly Pt[], i: number, min: number): Pt[] | null {
+  if (i < 0 || i >= pts.length || pts.length - 1 < min) return null;
+  return [...pts.slice(0, i), ...pts.slice(i + 1)];
+}
+
+/** A copy with vertex i moved to `p`. */
+export const moveVertex = (pts: readonly Pt[], i: number, p: Pt): Pt[] =>
+  pts.map((q, j) => (j === i ? p : q));

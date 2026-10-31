@@ -82,6 +82,7 @@ export function useHotkeys() {
           s.setAboutOpen(!s.aboutOpen);
           return;
         case "Escape":
+          if (api?.cancelDrag()) return;
           if (s.aboutOpen) {
             s.setAboutOpen(false);
             return;
@@ -125,11 +126,12 @@ export function useHotkeys() {
           else api?.finishDraft();
           return;
         case "Backspace":
+          // the last drawn point, else the vertex under the pointer, else the selection
           if (api?.hasDraft()) api.popDraft();
-          else api?.deleteSelection();
+          else if (!api?.removeHoveredVertex()) api?.deleteSelection();
           return;
         case "Delete":
-          api?.deleteSelection();
+          if (!api?.removeHoveredVertex()) api?.deleteSelection();
           return;
         case "s":
           s.toggleSnap();

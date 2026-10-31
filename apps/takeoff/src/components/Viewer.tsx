@@ -6,13 +6,18 @@ import {
   boxesIntersect,
   dist,
   distToPolyline,
+  hitMidpoint,
+  hitVertex,
+  insertVertex,
+  moveVertex,
   orthoSnap,
   type Pt,
   pointInPolygon,
+  removeVertex,
   translate,
 } from "../lib/geom";
 import { kitMode } from "../lib/kits";
-import { drawLabel, drawMeasurement, drawZone } from "../lib/overlay";
+import { drawHandles, drawLabel, drawMeasurement, drawZone, type HandleRef } from "../lib/overlay";
 import { magicArea } from "../lib/pdf/magic";
 import { isCancelled, type Rect, type Rendered } from "../lib/pdf/render";
 import { type TextBox, textLinesIn, textNear } from "../lib/pdf/text";
@@ -21,6 +26,7 @@ import { crop } from "../lib/pdf/visual";
 import { ensureRaster, findVisual } from "../lib/pdf/visualClient";
 import { isEditableTarget } from "../lib/platform";
 import { pageScale, zoneOf } from "../lib/quantities";
+import { type Joined, joinedAt, reshape } from "../lib/reshape";
 import { ensureText, session, useDoc } from "../lib/session";
 import { locationOf } from "../lib/types";
 import type { Kind } from "../lib/units";
@@ -35,7 +41,31 @@ type Drag =
   | { kind: "rect"; start: Pt }
   | { kind: "similar"; start: Pt }
   | { kind: "legend"; start: Pt; startScreen: Pt; text: TextBox | null; moved: boolean }
-  | { kind: "marquee"; start: Pt };
+  | { kind: "marquee"; start: Pt }
+  | {
+      kind: "vertex";
+      id: string;
+      /** Vertex being dragged; with `insert`, the new vertex between index - 1 and index. */
+      index: number;
+      insert: boolean;
+      /** Points before the drag, restored by Esc. */
+      orig: Pt[];
+      /** Neighbouring vertex the ortho lock measures from. */
+      anchor: Pt | null;
+      /** Run ends joined to a dragged endpoint (duct and VRF runs); Ctrl leaves them. */
+      joined: Joined | null;
+      startScreen: Pt;
+      moved: boolean;
+    };
+
+/** The one selected marking whose vertices can be edited. */
+interface EditTarget {
+  id: string;
+  points: Pt[];
+  closed: boolean;
+  /** Fewest points it may keep: 2 for a run, 3 for an area or a location region. */
+  min: number;
+}
 
 interface Interaction {
   draft: Pt[];
@@ -53,6 +83,10 @@ interface Interaction {
   magicBusy: boolean;
   similarBusy: boolean;
   moveDelta: Pt | null;
+  /** Live geometry of a vertex drag by marking id (kit members and joined runs included). */
+  reshape: Map<string, Pt[]> | null;
+  /** Edit handle under the pointer (select tool). */
+  hoverHandle: (HandleRef & { id: string }) | null;
   marquee: { a: Pt; b: Pt } | null;
   size: { w: number; h: number };
   needsFit: boolean;
@@ -65,6 +99,7 @@ const RENDER_DEBOUNCE_MS = 70;
 const RENDER_MARGIN = 0.35;
 const SNAP_PX = 10;
 const HIT_PX = 6;
+const HANDLE_PX = 8;
 const DRAW_TOOLS: ReadonlySet<Tool> = new Set([
   "count",
   "linear",
@@ -116,6 +151,8 @@ export function Viewer() {
     magicBusy: false,
     similarBusy: false,
     moveDelta: null,
+    reshape: null,
+    hoverHandle: null,
     marquee: null,
     size: { w: 0, h: 0 },
     needsFit: false,
@@ -310,17 +347,19 @@ export function Viewer() {
       const s = st.current;
       const { snap, ortho, tool: t, page: p } = useStore.getState();
       const v = useViewport.getState();
+      // a dragged vertex snaps and locks like a drawn point, from its neighbouring vertex
+      const vd = s.drag?.kind === "vertex" ? s.drag : null;
       let hit: SnapHit | null = null;
-      if (snap && DRAW_TOOLS.has(t) && t !== "magic") {
+      if (snap && ((DRAW_TOOLS.has(t) && t !== "magic") || vd)) {
         const idx = session.vectors.get(p);
         if (idx) hit = snapPoint(idx, raw, SNAP_PX / v.zoom);
       }
       if (hit) return { pt: { x: hit.x, y: hit.y }, hit };
-      const anchor = s.draft[s.draft.length - 1];
+      const anchor = vd ? vd.anchor : s.draft[s.draft.length - 1];
       if (
         (ortho || s.shiftDown) &&
         anchor &&
-        (t === "linear" || t === "area" || t === "calibrate" || t === "zone")
+        (vd || t === "linear" || t === "area" || t === "calibrate" || t === "zone")
       ) {
         return { pt: orthoSnap(anchor, raw), hit: null };
       }
@@ -374,6 +413,100 @@ export function Viewer() {
       }
       return null;
     },
+    editTarget(): EditTarget | null {
+      const { project, selection, page: p, systemFilter } = useStore.getState();
+      if (selection.length === 0) return null;
+      const did = project.activeDrawingId;
+      if (selection.length === 1) {
+        const z = project.zones.find((x) => x.id === selection[0]);
+        if (z) {
+          if (z.drawingId !== did || z.page !== p || z.points.length < 3) return null;
+          return { id: z.id, points: z.points, closed: true, min: 3 };
+        }
+      }
+      // one measurement, or one kit group (its members share the geometry)
+      const sel = new Set(selection);
+      const ms = project.measurements.filter((m) => sel.has(m.id));
+      if (ms.length !== selection.length) return null;
+      const link = ms[0]?.linkId;
+      if (ms.length > 1 && (!link || ms.some((m) => m.linkId !== link))) return null;
+      const items = new Map(project.items.map((i) => [i.id, i]));
+      for (const m of ms) {
+        const item = items.get(m.itemId);
+        if (!item || item.kind === "count" || m.points.length < 2) continue;
+        if (m.drawingId !== did || m.page !== p) continue;
+        if (systemFilter !== null && (item.system || project.system || "") !== systemFilter)
+          continue;
+        const closed = item.kind === "area";
+        return { id: m.id, points: m.points, closed, min: closed ? 3 : 2 };
+      }
+      return null;
+    },
+    hitHandle(raw: Pt): (HandleRef & { id: string }) | null {
+      const t = this.editTarget();
+      if (!t) return null;
+      const tol = HANDLE_PX / useViewport.getState().zoom;
+      const i = hitVertex(t.points, raw, tol);
+      if (i >= 0) return { id: t.id, index: i, mid: false };
+      const j = hitMidpoint(t.points, raw, tol, t.closed);
+      if (j >= 0) return { id: t.id, index: j, mid: true };
+      return null;
+    },
+    startVertexDrag(handle: HandleRef & { id: string }, sp: Pt) {
+      const t = this.editTarget();
+      if (!t || t.id !== handle.id) return;
+      const pts = t.points;
+      const insert = handle.mid;
+      const index = insert ? handle.index + 1 : handle.index;
+      const anchor = insert
+        ? pts[handle.index]
+        : index > 0
+          ? pts[index - 1]
+          : t.closed
+            ? pts[pts.length - 1]
+            : pts[1];
+      st.current.drag = {
+        kind: "vertex",
+        id: t.id,
+        index,
+        insert,
+        orig: pts,
+        anchor,
+        joined: insert ? null : joinedAt(useStore.getState().project, t.id, index),
+        startScreen: sp,
+        moved: false,
+      };
+      st.current.hoverHandle = null;
+    },
+    /** Removes a vertex of the edited marking; false when it is not one (nothing to do). */
+    removeVertexAt(id: string, index: number): boolean {
+      const t = this.editTarget();
+      if (!t || t.id !== id || index >= t.points.length) return false;
+      const store = useStore.getState();
+      const next = removeVertex(t.points, index, t.min);
+      if (next) store.setPoints(id, next);
+      else {
+        store.setStatus(
+          t.closed
+            ? "Uma área precisa de pelo menos 3 pontos"
+            : "Uma linha precisa de pelo menos 2 pontos",
+        );
+      }
+      st.current.hoverHandle = null;
+      this.requestDraw();
+      return true;
+    },
+    /** Esc while dragging a vertex: back to the geometry before the drag. */
+    cancelVertexDrag(): boolean {
+      const s = st.current;
+      if (s.drag?.kind !== "vertex") return false;
+      s.drag = null;
+      s.reshape = null;
+      s.snapHit = null;
+      if (rootRef.current) updateCursor(rootRef.current, s);
+      this.requestDraw();
+      return true;
+    },
     finishDraft() {
       const s = st.current;
       const store = useStore.getState();
@@ -402,6 +535,7 @@ export function Viewer() {
       s.drag = null;
       s.marquee = null;
       s.moveDelta = null;
+      s.reshape = null;
       s.hoverText = null;
       this.requestDraw();
     },
@@ -517,14 +651,14 @@ export function Viewer() {
       viewBox.maxY += pad;
 
       for (const z of project.zones) {
-        if (z.drawingId !== did || z.page !== p || !boxesIntersect(bbox(z.points), viewBox)) {
-          continue;
-        }
+        if (z.drawingId !== did || z.page !== p) continue;
         const isSel = sel.has(z.id) || zoneFilter === z.locationId;
+        const pts =
+          s.reshape?.get(z.id) ??
+          (isSel && s.moveDelta ? translate(z.points, s.moveDelta.x, s.moveDelta.y) : z.points);
+        if (!boxesIntersect(bbox(pts), viewBox)) continue;
         // hidden locations (globally or individually) still show while selected or filtered
         if ((!zonesVisible || z.hidden) && !isSel) continue;
-        const pts =
-          isSel && s.moveDelta ? translate(z.points, s.moveDelta.x, s.moveDelta.y) : z.points;
         ctx.globalAlpha = isSel ? 1 : zoneOpacity;
         drawZone(ctx, v, pts, locationOf(project, z.locationId) ?? null, scale, {
           selected: isSel,
@@ -548,10 +682,11 @@ export function Viewer() {
         if (!item) continue;
         if (systemFilter !== null && (item.system || project.system || "") !== systemFilter)
           continue;
-        if (!boxesIntersect(bbox(m.points), viewBox)) continue;
         const isSel = sel.has(m.id);
         const pts =
-          isSel && s.moveDelta ? translate(m.points, s.moveDelta.x, s.moveDelta.y) : m.points;
+          s.reshape?.get(m.id) ??
+          (isSel && s.moveDelta ? translate(m.points, s.moveDelta.x, s.moveDelta.y) : m.points);
+        if (!boxesIntersect(bbox(pts), viewBox)) continue;
         const outside =
           zoneFilter !== null && (zoneOf(project, m, item.kind)?.locationId ?? "") !== zoneFilter;
         if (outside) ctx.globalAlpha = 0.18;
@@ -570,6 +705,19 @@ export function Viewer() {
               : undefined,
         });
         ctx.globalAlpha = 1;
+      }
+
+      // vertex handles of the one selected marking (hidden while it is moved whole)
+      const edit = t === "select" && !s.moveDelta ? this.editTarget() : null;
+      if (edit) {
+        const vd = s.drag?.kind === "vertex" ? s.drag : null;
+        const hover = s.hoverHandle?.id === edit.id ? s.hoverHandle : null;
+        drawHandles(ctx, s.reshape?.get(edit.id) ?? edit.points, v, {
+          midpoints: !vd,
+          closed: edit.closed,
+          hot: vd ? { index: vd.index, mid: false } : hover,
+          dragging: !!vd,
+        });
       }
 
       if (similarPreview && similarPreview.drawingId === did && similarPreview.page === p) {
@@ -688,11 +836,9 @@ export function Viewer() {
         ctx.stroke();
         ctx.restore();
       }
-      if (s.snapHit && !s.drag) {
+      if (s.snapHit && (!s.drag || s.drag.kind === "vertex")) {
         const c = toScreen(s.snapHit, v);
         ctx.save();
-        ctx.strokeStyle = "#facc15";
-        ctx.lineWidth = 2;
         ctx.beginPath();
         if (s.snapHit.kind === "end") ctx.rect(c.x - 6, c.y - 6, 12, 12);
         else if (s.snapHit.kind === "mid") {
@@ -701,6 +847,12 @@ export function Viewer() {
           ctx.lineTo(c.x - 7, c.y + 6);
           ctx.closePath();
         } else ctx.arc(c.x, c.y, 6, 0, Math.PI * 2);
+        // dark halo under the yellow so the marker's shape reads on any background
+        ctx.strokeStyle = "rgba(16,26,48,0.75)";
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        ctx.strokeStyle = "#facc15";
+        ctx.lineWidth = 2;
         ctx.stroke();
         ctx.restore();
       }
@@ -763,6 +915,12 @@ export function Viewer() {
         const s = st.current.size;
         useViewport.getState().zoomAt(s.w / 2, s.h / 2, f);
       },
+      cancelDrag: () => h.cancelVertexDrag(),
+      removeHoveredVertex: () => {
+        const hv = st.current.hoverHandle;
+        if (!hv || hv.mid || useStore.getState().tool !== "select") return false;
+        return h.removeVertexAt(hv.id, hv.index);
+      },
       deleteSelection: () => {
         const store = useStore.getState();
         store.removeMeasurements(store.selection);
@@ -822,6 +980,11 @@ export function Viewer() {
     const store = useStore.getState();
     s.shiftDown = e.shiftKey;
 
+    if (e.altKey && e.button === 0 && store.tool === "select" && !s.spaceDown) {
+      // Alt+click on a vertex of the selected marking removes it
+      const handle = h.hitHandle(raw);
+      if (handle && !handle.mid && h.removeVertexAt(handle.id, handle.index)) return;
+    }
     if (e.altKey && e.button === 0) {
       // Alt+click: name the item from the text under the cursor; Alt+drag: capture a legend
       const texts = session.texts.get(store.page) ?? [];
@@ -860,6 +1023,13 @@ export function Viewer() {
 
     switch (store.tool) {
       case "select": {
+        // the selected marking's handles win over whatever lies under them
+        const handle = h.hitHandle(raw);
+        if (handle) {
+          h.startVertexDrag(handle, sp);
+          updateCursor(root, s);
+          break;
+        }
         const hit = h.hitTest(raw);
         if (hit) {
           let sel = store.selection;
@@ -946,12 +1116,24 @@ export function Viewer() {
     s.eff = eff;
     s.snapHit = hit;
     if (d?.kind === "move") s.moveDelta = { x: raw.x - d.start.x, y: raw.y - d.start.y };
-    else if (d?.kind === "marquee") s.marquee = { a: d.start, b: sp };
+    else if (d?.kind === "vertex") {
+      d.moved = d.moved || Math.hypot(sp.x - d.startScreen.x, sp.y - d.startScreen.y) > 2;
+      if (d.moved) {
+        const pts = d.insert
+          ? insertVertex(d.orig, d.index - 1, eff)
+          : moveVertex(d.orig, d.index, eff);
+        s.reshape = reshape(useStore.getState().project, d.id, pts, e.ctrlKey ? null : d.joined);
+      }
+    } else if (d?.kind === "marquee") s.marquee = { a: d.start, b: sp };
     else if (d?.kind === "similar") s.marquee = { a: toScreen(d.start, v), b: sp };
     else if (d?.kind === "legend") {
       d.moved = d.moved || Math.hypot(sp.x - d.startScreen.x, sp.y - d.startScreen.y) > 3;
       s.marquee = d.moved ? { a: d.startScreen, b: sp } : null;
-    } else if (!d && useStore.getState().tool === "select") s.hoverId = h.hitTest(raw);
+    } else if (!d && useStore.getState().tool === "select") {
+      s.hoverId = h.hitTest(raw);
+      s.hoverHandle = h.hitHandle(raw);
+      if (rootRef.current) updateCursor(rootRef.current, s);
+    }
     if (!d && e.altKey) {
       s.hoverText = textNear(session.texts.get(useStore.getState().page) ?? [], raw);
     } else if (s.hoverText) s.hoverText = null;
@@ -976,6 +1158,11 @@ export function Viewer() {
       const delta = s.moveDelta;
       s.moveDelta = null;
       if (delta) store.moveMeasurements(d.ids, delta.x, delta.y);
+    } else if (d.kind === "vertex") {
+      const next = s.reshape?.get(d.id);
+      s.reshape = null;
+      s.snapHit = null;
+      if (d.moved && next) store.setPoints(d.id, next, e.ctrlKey ? null : d.joined);
     } else if (d.kind === "marquee") {
       const m = s.marquee;
       s.marquee = null;
@@ -1051,6 +1238,7 @@ export function Viewer() {
     st.current.cursor = null;
     st.current.snapHit = null;
     st.current.hoverId = null;
+    st.current.hoverHandle = null;
     helpers.current.requestDraw();
   };
 
@@ -1090,6 +1278,8 @@ function updateCursor(root: HTMLDivElement, s: Interaction) {
   const tool = useStore.getState().tool;
   if (s.drag?.kind === "pan") root.style.cursor = "grabbing";
   else if (s.spaceDown || tool === "pan") root.style.cursor = "grab";
-  else if (tool === "select") root.style.cursor = "default";
-  else root.style.cursor = "crosshair";
+  else if (tool === "select") {
+    const handle = s.drag?.kind === "vertex" ? { mid: false } : s.hoverHandle;
+    root.style.cursor = handle ? (handle.mid ? "copy" : "move") : "default";
+  } else root.style.cursor = "crosshair";
 }

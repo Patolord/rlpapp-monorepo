@@ -13,6 +13,10 @@ export interface ViewerApi {
    */
   focusBox(box: Box): void;
   zoomBy(factor: number): void;
+  /** Esc during a vertex drag: restores the geometry; false when no vertex is being dragged. */
+  cancelDrag(): boolean;
+  /** Removes the vertex under the pointer (select tool); false when there is none. */
+  removeHoveredVertex(): boolean;
   deleteSelection(): void;
   selectAllOnPage(): void;
 }

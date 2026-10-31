@@ -3,6 +3,7 @@ import { type CatalogEntry, kindForUnit, mergeCatalog, normalizeDiscipline } fro
 import type { Pt } from "../lib/geom";
 import { kitMode } from "../lib/kits";
 import { priceSourceOfEntry } from "../lib/priceSource";
+import { type Joined, reshape } from "../lib/reshape";
 import { guessSymbol } from "../lib/symbols";
 import { foldName } from "../lib/text";
 import {
@@ -65,6 +66,11 @@ export interface ItemsSlice {
   addMeasurements(itemId: string, page: number, pointsList: Pt[][]): number;
   updateMeasurement(id: string, patch: Partial<Measurement>): void;
   moveMeasurements(ids: string[], dx: number, dy: number): void;
+  /**
+   * New vertices for a measurement or a zone, in one undo step. Kit members linked to the
+   * measurement take the same geometry; `joined` run ends move with the dragged endpoint.
+   */
+  setPoints(id: string, points: Pt[], joined?: Joined | null): void;
   /** Removes measurements and zones with the given ids. */
   removeMeasurements(ids: string[]): void;
   /** Set the vertical length of linear measurements (0 clears it). */
@@ -283,6 +289,23 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
       ),
     }));
   },
+
+  setPoints: (id, points, joined) =>
+    get().commit((p) => {
+      const next = reshape(p, id, points, joined);
+      if (next.size === 0) return p;
+      return {
+        ...p,
+        measurements: p.measurements.map((m) => {
+          const pts = next.get(m.id);
+          return pts ? { ...m, points: pts } : m;
+        }),
+        zones: p.zones.map((z) => {
+          const pts = next.get(z.id);
+          return pts ? { ...z, points: pts } : z;
+        }),
+      };
+    }),
 
   removeMeasurements: (ids) => {
     if (ids.length === 0) return;

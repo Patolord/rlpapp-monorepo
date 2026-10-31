@@ -85,11 +85,13 @@ bun scripts/bench-vectors.ts <pdf>   # extraction + indexing timings
 | `Z` | Location: outline a region (floor, apartment, room) and name it; everything measured inside is grouped by it |
 | `Ctrl+K` | Material catalog: search and create a named, grouped, priced item |
 | `Alt`+click / `Alt`+drag | Name the active item from text in the drawing / turn a legend box into items |
+| Drag a handle of the selected marking | Reshape one run, area or location: drag a vertex (snapping and `Shift` apply, `Esc` cancels) or a segment's middle diamond to add one. Kit members follow; duct and VRF runs joined at a dragged end follow it (`Ctrl` pulls the end away) |
+| `Alt`+click a vertex / `Delete` over it | Remove the vertex (a run keeps 2 points, an area or location 3) |
 | `K` | Calibrate: click two points of a known distance |
 | `S` `O` / `Shift` | Toggle snapping to drawing geometry / ortho (45°) lock |
 | `1`–`9` | Activate item n (the tool follows the item's kind) |
 | `N` | New item of the current kind |
-| `Backspace` | Undo last point / delete selection |
+| `Backspace` | Undo last point / remove the vertex under the pointer / delete selection |
 | `Ctrl+Z` `Ctrl+Y` | Undo / redo |
 | `F` `+` `-` wheel | Fit page / zoom |
 | `PgUp` `PgDn` | Previous / next page |
