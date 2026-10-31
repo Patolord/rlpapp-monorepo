@@ -255,6 +255,7 @@ export async function prepareReport(
     textBoxes: await planTextBoxes(project, plan),
     prices: settings.prices,
     labels: settings.labels,
+    kits: useStore.getState().catalog.kits,
     washOut: settings.washOut,
     cover: settings.cover,
     missing,

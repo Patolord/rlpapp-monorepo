@@ -8,7 +8,7 @@ import {
   scalesDiffer,
 } from "../lib/clone";
 import type { Pt } from "../lib/geom";
-import { kitMode } from "../lib/kits";
+import { kitLabelSnapshot, kitMode } from "../lib/kits";
 import { priceSourceOfEntry } from "../lib/priceSource";
 import { pageScale } from "../lib/quantities";
 import { type Joined, reshape } from "../lib/reshape";
@@ -85,6 +85,11 @@ export interface ItemsSlice {
   setVertical(ids: string[], vertical: number): void;
   /** Set how many times the measurements count (1 clears it). */
   setRepeat(ids: string[], repeat: number): void;
+  /**
+   * The drawing label of these markings and of every member of their link groups, in one undo
+   * step; blank clears it (a kit run then shows its kit's label again).
+   */
+  setMarkingLabel(ids: string[], label: string): void;
 
   /** One drawn run: a measurement per kit component, items created from the catalog as needed. */
   addKitRun(kitId: string, page: number, points: Pt[]): number;
@@ -376,6 +381,25 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
     }));
   },
 
+  setMarkingLabel: (ids, label) => {
+    const text = label.trim() || undefined;
+    get().commit((p) => {
+      const want = new Set(ids);
+      const links = new Set<string>();
+      for (const m of p.measurements) if (m.linkId && want.has(m.id)) links.add(m.linkId);
+      let changed = false;
+      const measurements = p.measurements.map((m) => {
+        if (!want.has(m.id) && !(m.linkId && links.has(m.linkId))) return m;
+        if (m.label === text) return m;
+        changed = true;
+        const next = { ...m, label: text };
+        if (text === undefined) delete next.label;
+        return next;
+      });
+      return changed ? { ...p, measurements } : p;
+    });
+  },
+
   addKitRun: (kitId, page, points) => {
     const { project, catalog } = get();
     const kit = catalog.kits.find((k) => k.id === kitId);
@@ -384,6 +408,9 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
     const linkId = newId();
     const entries = mergeCatalog(catalog);
     const byClick = kitMode(kit) === "count";
+    // the run remembers its kit (its label follows the kit) and the label as drawn, for when
+    // the catalog no longer has the kit
+    const kitLabel = kitLabelSnapshot(kit);
     get().commit((p) => {
       let items = p.items;
       const measurements = [...p.measurements];
@@ -415,6 +442,8 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
           page,
           points: c.kind === "count" || byClick ? [points[0]] : points,
           linkId,
+          kitId: kit.id,
+          ...(kitLabel !== undefined ? { kitLabel } : {}),
           vertical: byClick && c.kind === "linear" && c.factor > 0 ? c.factor : undefined,
         });
       }
@@ -452,6 +481,10 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
           page: sample.page,
           points: item.kind === "count" ? [sample.points[0]] : sample.points,
           linkId,
+          // the group's kit and label come along
+          ...(sample.kitId !== undefined ? { kitId: sample.kitId } : {}),
+          ...(sample.kitLabel !== undefined ? { kitLabel: sample.kitLabel } : {}),
+          ...(sample.label !== undefined ? { label: sample.label } : {}),
         },
       ],
     }));

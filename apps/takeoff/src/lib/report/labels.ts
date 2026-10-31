@@ -64,7 +64,8 @@ function alongWithNormal(pts: readonly Pt[], t: number): { p: Pt; n: Pt } {
  * - Runs: on the run at 0.5, 0.3 and 0.7 of its length, then beside it (above, then below) at
  *   those points, then a step further out.
  * - Areas: the centroid, then above and below it, then to the sides.
- * - Symbols and rings: the screen's offset, then its mirror images.
+ * - Symbols and rings: the screen's offset, then its mirror images (a label `beside` its symbol
+ *   keeps its near edge at the offset).
  *
  * `toFrame` maps page space to output space; `unit` is output points per marker unit (the
  * screen pixels `LabelShape.offset` is given in).
@@ -121,14 +122,16 @@ export function labelCandidates(
           [-1, 1],
           [-1, -1],
         ];
+  // a label beside its symbol: the offset reaches its near edge
+  const dx = off.x * unit + (label.beside ? size.w / 2 : 0);
   const out = flips.map(([fx, fy]) => ({
-    x: at.x + fx * off.x * unit,
+    x: at.x + fx * dx,
     y: at.y - fy * off.y * unit,
   }));
   if (off.x === 0) {
     // a ring: also to either side
-    const dx = size.w / 2 + Math.abs(off.y) * unit * 0.6;
-    out.push({ x: at.x + dx, y: at.y }, { x: at.x - dx, y: at.y });
+    const side = size.w / 2 + Math.abs(off.y) * unit * 0.6;
+    out.push({ x: at.x + side, y: at.y }, { x: at.x - side, y: at.y });
   }
   return out;
 }

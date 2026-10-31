@@ -98,6 +98,18 @@ export interface Measurement {
   points: Pt[];
   /** Measurements created together by a kit share a link and are selected, moved and deleted as one. */
   linkId?: string;
+  /** The kit preset that created it (with the other members of its link group). */
+  kitId?: string;
+  /**
+   * The kit's drawing label when the run was drawn (or the kit last edited with this project
+   * open): shown when the catalog no longer has the kit (deleted, or another machine's catalog).
+   */
+  kitLabel?: string;
+  /**
+   * The run's own label, prefixed to its quantity on the drawing and in the report; it takes
+   * over from the kit's label. Same value on every member of a link group; undefined = none.
+   */
+  label?: string;
   /** Linear runs: extra length in project units for the vertical part the plan does not show. */
   vertical?: number;
   /** Times this measurement counts (10 identical floors measured once); undefined = 1. */

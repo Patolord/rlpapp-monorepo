@@ -123,4 +123,27 @@ describe("migration", () => {
     const q = migrateProject({ ...emptyProject(), drawings: [{ ...drawing, revisions }] });
     expect(q.drawings[0].revisions).toEqual(revisions);
   });
+
+  it("loads version 4 files from before kit labels unchanged, and keeps the labels of newer ones", () => {
+    const old = {
+      id: "m",
+      itemId: "i",
+      drawingId: "d",
+      page: 0,
+      points: [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+      ],
+      linkId: "L",
+    };
+    const p = migrateProject(
+      JSON.parse(JSON.stringify({ ...emptyProject(), measurements: [old] })),
+    );
+    expect(p.version).toBe(4);
+    expect(p.measurements).toEqual([old]);
+    for (const k of ["kitId", "kitLabel", "label"]) expect(k in p.measurements[0]).toBe(false);
+    const labelled = { ...old, kitId: "kit-12-000-inverter", kitLabel: '1/4" · 3/8"', label: "L1" };
+    const q = migrateProject({ ...emptyProject(), measurements: [labelled] });
+    expect(q.measurements).toEqual([labelled]);
+  });
 });

@@ -59,7 +59,7 @@ export function drawMeasurement(
     ctx.lineWidth = o.selected || o.hover ? 3 : 2;
     ctx.strokeStyle = o.selected ? "#101a30" : color;
     ctx.stroke();
-    if (o.hover) drawShapeLabel(ctx, v, shape.label, color);
+    if (o.hover && shape.label) drawShapeLabel(ctx, v, shape.label, color);
     ctx.restore();
     return;
   }
@@ -100,14 +100,14 @@ export function drawMeasurement(
       ctx.stroke();
     }
   }
-  drawShapeLabel(ctx, v, shape.label, color);
+  if (shape.label) drawShapeLabel(ctx, v, shape.label, color);
   ctx.restore();
 }
 
 /** A marking's label at its page-space anchor, shifted by its offset in screen pixels. */
 function drawShapeLabel(ctx: CanvasRenderingContext2D, v: View, l: LabelShape, accent: string) {
   const at = toScreen(l.at, v);
-  drawLabel(ctx, l.text, at.x + (l.offset?.x ?? 0), at.y + (l.offset?.y ?? 0), accent);
+  drawLabel(ctx, l.text, at.x + (l.offset?.x ?? 0), at.y + (l.offset?.y ?? 0), accent, l.beside);
 }
 
 /** Zones: dashed outline, faint fill, name + area label near the top of the polygon. */
@@ -228,10 +228,13 @@ export function drawLabel(
   x: number,
   y: number,
   accent: string,
+  /** `x` is the label's left edge instead of its centre. */
+  fromLeft = false,
 ) {
   ctx.save();
   ctx.font = "11px Cascadia Mono, Consolas, ui-monospace, monospace";
   const w = ctx.measureText(text).width + 12;
+  if (fromLeft) x += w / 2;
   const h = 18;
   const rx = Math.round(x - w / 2);
   const ry = Math.round(y - h / 2);

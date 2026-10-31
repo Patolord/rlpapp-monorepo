@@ -17,7 +17,7 @@ import {
 } from "../lib/catalogRemote";
 import { syncDuctItems } from "../lib/ductItems";
 import type { GaugeWeights } from "../lib/ducts";
-import type { Kit } from "../lib/kits";
+import { type Kit, refreshKitLabels } from "../lib/kits";
 import type { Project } from "../lib/types";
 import { syncWeightItems, type WeightRow } from "../lib/weights";
 import { errorMessage, type Slice } from "./shared";
@@ -216,8 +216,24 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
     },
 
     saveKits: async (kits) => {
-      const catalog = { ...get().catalog, kits };
-      set({ catalog, status: `${kits.length} presets de kit salvos` });
+      const { catalog: before, project, past, future } = get();
+      const catalog = { ...before, kits };
+      // runs of a relabelled kit already show the new label (it is read from the catalog); their
+      // saved copy follows, so the project shows it on a machine without the kit too. Outside
+      // undo, like the other catalog settings, and in the undo history as well, so stepping
+      // back and forth never brings an old label back into the file.
+      const relabel = (p: Project): Project => {
+        const measurements = refreshKitLabels(p.measurements, before.kits, kits);
+        return measurements === p.measurements ? p : { ...p, measurements };
+      };
+      const next = relabel(project);
+      set({
+        catalog,
+        status: `${kits.length} presets de kit salvos`,
+        past: past.map(relabel),
+        future: future.map(relabel),
+        ...(next !== project ? { project: next, dirty: true } : {}),
+      });
       await persist(catalog, "Não foi possível gravar os presets");
     },
   };

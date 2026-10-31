@@ -17,6 +17,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { DUCT_GROUP } from "../ductItems";
 import { DEFAULT_DUCT_SPEC } from "../ducts";
 import type { Pt } from "../geom";
+import type { Kit } from "../kits";
+import { markingShapes } from "../markingShapes";
 import { emptyProject, type Item, type Measurement, type Project, type Zone } from "../types";
 import { metricScale } from "../units";
 import {
@@ -606,5 +608,63 @@ describe("scale caption", () => {
     expect(scaleCaption(ppu(104.5), "m")).toBe("1:105");
     expect(scaleCaption(ppu(7.46), "m")).toBe("1:7,5");
     expect(scaleCaption(ppu(5), "m")).toBe("1:5");
+  });
+});
+
+describe("kit labels", () => {
+  const kits: Kit[] = [{ id: "ls", name: "12.000 Inverter", label: '1/4" · 3/8"', components: [] }];
+  /** A line-set kit run of two members across Copa, saved with an older label. */
+  function withKit(extra: Partial<Measurement> = {}): Project {
+    const p = project();
+    p.items.push(
+      item("cobre", { name: "Cobre", kind: "linear" }),
+      item("cabo", { name: "Cabo PP", kind: "linear" }),
+    );
+    const pts = [
+      { x: 340, y: 300 },
+      { x: 540, y: 300 },
+    ];
+    for (const itemId of ["cobre", "cabo"]) {
+      p.measurements.push({
+        id: `k-${itemId}`,
+        itemId,
+        drawingId: "d1",
+        page: 0,
+        points: pts,
+        linkId: "L",
+        kitId: "ls",
+        kitLabel: "antigo",
+        ...extra,
+      });
+    }
+    return p;
+  }
+
+  async function copaText(p: Project, opts: { kits?: Kit[] } = {}) {
+    const kplan = planReport(p, {}, { pageSize: sourcePageSize(loaded) });
+    const i = kplan.pages.findIndex((pg) => pg.locationId === "copa");
+    const report = await writeReport(kplan, loaded, { project: p, fonts, ...opts });
+    return pageText(report, 1 + i);
+  }
+
+  const count = (text: string, part: string) => text.split(part).length - 1;
+
+  it("prints a kit run's label once, the same text as on screen", async () => {
+    const p = withKit();
+    const m = p.measurements.find((x) => x.id === "k-cobre");
+    const cobre = p.items.find((x) => x.id === "cobre");
+    if (!m || !cobre) throw new Error("fixture");
+    const screen = markingShapes(m, cobre, SCALE, { kits }).label?.text ?? "";
+    expect(screen).toMatch(/^1\/4" · 3\/8" · \d+\.\d\d m$/);
+    const text = await copaText(p, { kits });
+    expect(count(text, screen)).toBe(1);
+    expect(text).not.toContain("antigo");
+  });
+
+  it("falls back to the label saved with the run, and shows the run's own label first", async () => {
+    expect(count(await copaText(withKit()), "antigo · ")).toBe(1);
+    const own = await copaText(withKit({ label: "LS-01" }), { kits });
+    expect(count(own, "LS-01 · ")).toBe(1);
+    expect(own).not.toContain('1/4" · 3/8"');
   });
 });

@@ -1,4 +1,5 @@
 import { foldName } from "./text";
+import type { Measurement } from "./types";
 import type { Kind, Unit } from "./units";
 
 /** One material of a kit: measured once, quantified `factor` times the run. */
@@ -25,6 +26,11 @@ export interface Kit {
   name: string;
   /** "linear" is drawn as a run; "count" is placed with one click (default linear). */
   mode?: "linear" | "count";
+  /**
+   * Prefix of the run's label on the drawing ('1/4" · 3/8"', "VE-01 · 1.200 m³/h").
+   * Undefined = never set (a seed-derived kit takes the seed's on load); "" = cleared, no label.
+   */
+  label?: string;
   components: KitComponent[];
 }
 
@@ -134,6 +140,7 @@ export const SEED_KITS: Kit[] = [
         id: `kit-${slug(name)}`,
         name,
         mode: "linear" as const,
+        label: `${row.liquid}" · ${row.gas}"`,
         components: lineSet(row.liquid, row.gas),
       };
     });
@@ -152,4 +159,75 @@ export function kitSummary(kit: Kit, unit: Unit = "m"): string {
           : c.name,
     )
     .join(" · ");
+}
+
+/**
+ * Kits saved before kits had a drawing label: one that came from a seed (same id) and has no
+ * `label` field takes the seed's. A label the user cleared ("") stays cleared. Returns the same
+ * array when nothing changes.
+ */
+export function migrateKitLabels(kits: Kit[]): Kit[] {
+  const seeds = new Map(SEED_KITS.map((k) => [k.id, k]));
+  let changed = false;
+  const out = kits.map((k) => {
+    const label = seeds.get(k.id)?.label;
+    if (k.label !== undefined || label === undefined) return k;
+    changed = true;
+    return { ...k, label };
+  });
+  return changed ? out : kits;
+}
+
+type KitLookup = readonly Kit[] | ReadonlyMap<string, Kit>;
+
+const findKit = (kits: KitLookup, id: string): Kit | undefined =>
+  "get" in kits ? kits.get(id) : kits.find((k) => k.id === id);
+
+/**
+ * The label a marking shows on the drawing, before its quantity: its own override, else the
+ * label of its kit in the current catalog (so editing a kit relabels the runs already drawn),
+ * else the label saved with the run when the catalog lacks the kit. Blank = no label.
+ */
+export function runLabel(
+  m: Pick<Measurement, "label" | "kitId" | "kitLabel">,
+  kits: KitLookup = [],
+): string | undefined {
+  const own = m.label?.trim();
+  if (own) return own;
+  if (!m.kitId) return undefined;
+  const kit = findKit(kits, m.kitId);
+  const text = (kit ? kit.label : m.kitLabel)?.trim();
+  return text || undefined;
+}
+
+/** A kit's label as saved with the runs it draws (blank = none). */
+export const kitLabelSnapshot = (kit: Kit): string | undefined => kit.label?.trim() || undefined;
+
+/**
+ * After the kits were edited: runs of a kit whose label changed save the new label, so a project
+ * opened with another catalog shows it too. Returns the same array when nothing changes.
+ */
+export function refreshKitLabels(
+  measurements: Measurement[],
+  before: readonly Kit[],
+  after: readonly Kit[],
+): Measurement[] {
+  const old = new Map(before.map((k) => [k.id, kitLabelSnapshot(k)]));
+  const relabelled = new Map<string, string | undefined>();
+  for (const k of after) {
+    const label = kitLabelSnapshot(k);
+    if (old.has(k.id) && old.get(k.id) !== label) relabelled.set(k.id, label);
+  }
+  if (relabelled.size === 0) return measurements;
+  let changed = false;
+  const out = measurements.map((m) => {
+    if (!m.kitId || !relabelled.has(m.kitId)) return m;
+    const kitLabel = relabelled.get(m.kitId);
+    if (m.kitLabel === kitLabel) return m;
+    changed = true;
+    const next = { ...m, kitLabel };
+    if (kitLabel === undefined) delete next.kitLabel;
+    return next;
+  });
+  return changed ? out : measurements;
 }

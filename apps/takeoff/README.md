@@ -87,6 +87,8 @@ bun scripts/bench-vectors.ts <pdf>   # extraction + indexing timings
 | `Alt`+click / `Alt`+drag | Name the active item from text in the drawing / turn a legend box into items |
 | Drag a handle of the selected marking | Reshape one run, area or location: drag a vertex (snapping and `Shift` apply, `Esc` cancels) or a segment's middle diamond to add one. Kit members follow; duct and VRF runs joined at a dragged end follow it (`Ctrl` pulls the end away) |
 | `Alt`+click a vertex / `Delete` over it | Remove the vertex (a run keeps 2 points, an area or location 3) |
+| `T` | Kit: one drawn run (or one click, for a count kit) measures every material of a preset at once |
+| Select a marking or a kit group, type in **Rótulo** | Its own label on the drawing and in the report, on every member of the group (one undo step); empty brings the kit's label back |
 | `K` | Calibrate: click two points of a known distance |
 | `S` `O` / `Shift` | Toggle snapping to drawing geometry / ortho (45°) lock |
 | `1`–`9` | Activate item n (the tool follows the item's kind) |
@@ -100,6 +102,17 @@ bun scripts/bench-vectors.ts <pdf>   # extraction + indexing timings
 | `PgUp` `PgDn` | Previous / next page |
 | `Ctrl+S` `Ctrl+E` | Save project / export Planilha .xlsx |
 | `Ctrl+Shift+E` | Relatório de recortes: marked-up PDF cutouts per location, with a live preview (reopens as it was left) |
+
+**Kits** (`T`, presets edited in "Presets de kit", saved with the catalog) create one linked
+measurement per material: a split's line set draws copper, insulation and cable in one run; a
+count kit places equipment, brackets and boxes with one click. Each kit has a **Rótulo no
+desenho** shown before the run's quantity (`1/4" · 3/8" · 3.00 m`; beside the symbol for a count
+kit, `VE-01 · 1.200 m³/h`); the line-set presets come labelled with their liquid and gas
+diameters. Only one member of a kit run is labelled, on screen and in the report. Runs remember
+their kit, so editing a kit's label relabels every run already drawn (and the copy saved in the
+open project, for a machine whose catalog lacks the kit); a run's own **Rótulo** (selection bar)
+takes over from the kit's. The label order is duct/VRF tag · label · quantity
+(`30×20 · VE-01 · 3.00 m`).
 
 Items can be saved to the catalog (star). The catalog is seeded from past budget sheets
 (`src/data/catalog.seed.json`) and follows the company app at a fixed address

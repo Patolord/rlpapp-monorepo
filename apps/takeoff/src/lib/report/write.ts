@@ -55,7 +55,8 @@ import {
   stroke,
 } from "pdf-lib";
 import type { Box, Pt } from "../geom";
-import { type MarkingShape, markingShapes } from "../markingShapes";
+import type { Kit } from "../kits";
+import { labelCarriers, type MarkingShape, markingShapes } from "../markingShapes";
 import type { SymbolDef } from "../symbols";
 import { symbolDef } from "../symbols";
 import type { Item, Measurement, Project } from "../types";
@@ -184,6 +185,11 @@ export interface WriteOptions {
   prices?: boolean;
   /** Quantity labels on the markings, duct section a×b on runs (default on). */
   labels?: boolean;
+  /**
+   * The catalog's kit presets: a kit run's label follows its kit's current label, like on
+   * screen (without them, the label saved with the run).
+   */
+  kits?: readonly Kit[];
   /** Wash out the drawing outside the region polygon (default on). */
   washOut?: boolean;
   /** Cover page with the summary per location and the page index (default on). */
@@ -977,6 +983,7 @@ export async function writeReport(
 
   const items = new Map(project.items.map((i) => [i.id, i]));
   const measurements = new Map<string, Measurement>(project.measurements.map((m) => [m.id, m]));
+  const kits = new Map((options.kits ?? []).map((k) => [k.id, k]));
   const listCtx: ListCtx = { project, prices, items };
 
   // each distinct source page once, one object copier per source PDF (shared resources once)
@@ -1284,11 +1291,15 @@ export async function writeReport(
 
     // markings, then their labels on top, each placed off the sheet's text and the others
     const shapes: { shape: MarkingShape; color: Color }[] = [];
-    for (const id of p.measurementIds) {
-      const m = measurements.get(id);
-      const item = m && items.get(m.itemId);
-      if (!m || !item || m.points.length === 0) continue;
-      const shape = markingShapes(m, item, p.scale);
+    const drawnHere = p.measurementIds
+      .map((id) => measurements.get(id))
+      .filter((m): m is Measurement => !!m && items.has(m.itemId) && m.points.length > 0);
+    // one label per kit group, as on screen
+    const carriers = labelCarriers(drawnHere, (m) => items.get(m.itemId)?.kind);
+    for (const m of drawnHere) {
+      const item = items.get(m.itemId);
+      if (!item) continue;
+      const shape = markingShapes(m, item, p.scale, { kits, bare: !carriers.has(m.id) });
       const color = hexColor(item.color);
       drawShape(cv, shape, toFrame, color);
       shapes.push({ shape, color });

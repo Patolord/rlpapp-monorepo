@@ -17,7 +17,7 @@ import {
   translate,
 } from "../lib/geom";
 import { kitMode } from "../lib/kits";
-import { markingTag } from "../lib/markingShapes";
+import { carriersLast, labelCarriers, markingOpts } from "../lib/markingShapes";
 import { drawHandles, drawLabel, drawMeasurement, drawZone, type HandleRef } from "../lib/overlay";
 import { magicArea } from "../lib/pdf/magic";
 import { isCancelled, type Rect, type Rendered } from "../lib/pdf/render";
@@ -677,12 +677,18 @@ export function Viewer() {
         });
       }
 
-      for (const m of project.measurements) {
-        if (m.drawingId !== did || m.page !== p) continue;
+      const onPage = project.measurements.filter((m) => {
+        if (m.drawingId !== did || m.page !== p) return false;
+        const item = items.get(m.itemId);
+        if (!item) return false;
+        return systemFilter === null || (item.system || project.system || "") === systemFilter;
+      });
+      // one label per kit group (its members overlap exactly), painted after the group's lines
+      const carriers = labelCarriers(onPage, (m) => items.get(m.itemId)?.kind);
+      const kits = new Map(store.catalog.kits.map((k) => [k.id, k]));
+      for (const m of carriersLast(onPage, carriers)) {
         const item = items.get(m.itemId);
         if (!item) continue;
-        if (systemFilter !== null && (item.system || project.system || "") !== systemFilter)
-          continue;
         const isSel = sel.has(m.id);
         const pts =
           s.reshape?.get(m.id) ??
@@ -695,11 +701,9 @@ export function Viewer() {
           selected: isSel,
           hover: s.hoverId === m.id,
           dashed: false,
-          symbol: item.symbol,
           fillAlpha: fillK,
-          vertical: m.vertical,
-          repeat: m.repeat,
-          tag: markingTag(m, item),
+          ...markingOpts(m, item, kits),
+          bare: !carriers.has(m.id),
         });
         ctx.globalAlpha = 1;
       }

@@ -1,6 +1,18 @@
-import { ArrowUpFromLine, Copy, CopyPlus, Link2Off, Pencil, Plus, Repeat, X } from "lucide-react";
-import { useMemo } from "react";
+import {
+  ArrowUpFromLine,
+  Copy,
+  CopyPlus,
+  Link2Off,
+  Pencil,
+  Plus,
+  Repeat,
+  Tag,
+  X,
+} from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 import { FLANGE_LABELS, INSULATION_LABELS } from "../lib/ducts";
+import { runLabel } from "../lib/kits";
+import type { Measurement } from "../lib/types";
 import { vrfTag } from "../lib/vrf";
 import { useStore } from "../store";
 import { duplicateOffset } from "../viewport";
@@ -8,8 +20,9 @@ import { Button } from "./ui";
 
 /**
  * Shown while measurements are selected: the vertical length of linear runs (risers and drops
- * the plan does not show) and, for a kit group, its members, add an item, ungroup. Copy and
- * duplicate are here too, for whoever does not know Ctrl+C / Ctrl+D.
+ * the plan does not show), the drawing label of one marking or kit group and, for a kit group,
+ * its members, add an item, ungroup. Copy and duplicate are here too, for whoever does not know
+ * Ctrl+C / Ctrl+D.
  */
 export function SelectionBar() {
   const selection = useStore((s) => s.selection);
@@ -79,6 +92,12 @@ export function SelectionBar() {
           className="num-input w-14"
         />
       </label>
+      {selection.length === selected.length && (group || selected.length === 1) && (
+        <LabelField
+          key={`${selected.map((m) => m.id).join(",")}:${selected[0].label ?? ""}`}
+          members={selected}
+        />
+      )}
       {linear.length > 0 && (
         <label
           className="flex items-center gap-1 text-neutral-400"
@@ -209,5 +228,57 @@ export function SelectionBar() {
         <CopyPlus size={14} /> Duplicar
       </Button>
     </div>
+  );
+}
+
+/**
+ * The drawing label of one marking or one kit group: typed text replaces the kit's label on
+ * every member (one undo step, on Enter or leaving the field); empty brings the kit's back.
+ * The placeholder shows the label in use without an override.
+ */
+function LabelField({ members }: { members: Measurement[] }) {
+  const kits = useStore((s) => s.catalog.kits);
+  const own = members[0]?.label ?? "";
+  const [draft, setDraft] = useState(own);
+  const cancelled = useRef(false);
+  const inherited = members[0] ? runLabel({ ...members[0], label: undefined }, kits) : undefined;
+  const apply = () => {
+    if (cancelled.current) {
+      cancelled.current = false;
+      setDraft(own);
+      return;
+    }
+    if (draft.trim() === own.trim()) return;
+    useStore.getState().setMarkingLabel(
+      members.map((m) => m.id),
+      draft,
+    );
+  };
+  return (
+    <label
+      className="flex items-center gap-1 text-neutral-400"
+      title={
+        inherited
+          ? `Rótulo no desenho, antes da quantidade. Vazio: o do kit (${inherited})`
+          : "Rótulo no desenho, antes da quantidade (ex.: VE-01). Vazio: sem rótulo"
+      }
+    >
+      <Tag size={13} /> Rótulo
+      <input
+        value={draft}
+        placeholder={inherited ?? "ex.: VE-01"}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={apply}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") {
+            cancelled.current = true;
+            e.currentTarget.blur();
+          }
+          e.stopPropagation();
+        }}
+        className="h-6 w-40 rounded bg-neutral-800 px-1.5 text-xs text-neutral-100 outline-none ring-1 ring-neutral-700 placeholder:text-neutral-500 focus:ring-orange-400"
+      />
+    </label>
   );
 }

@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   commonWordPrefix,
   emptyCatalogStore,
   isCatalogStale,
   kindForUnit,
+  loadCatalogStore,
   mergeCatalog,
   normalizeDiscipline,
   parseRemoteCatalogResponse,
@@ -12,6 +13,7 @@ import {
   searchCatalog,
   upgradeRemoteEntry,
 } from "./catalog";
+import { SEED_KITS } from "./kits";
 
 const parseRemoteCatalog = (json: unknown) => parseRemoteCatalogResponse(json).entries;
 
@@ -257,5 +259,29 @@ describe("catalog freshness", () => {
     expect(isCatalogStale(daysAgo(0), now)).toBe(false);
     expect(isCatalogStale(daysAgo(6), now)).toBe(false);
     expect(isCatalogStale(daysAgo(8), now)).toBe(true);
+  });
+});
+
+describe("loading the saved catalog", () => {
+  const storage = new Map<string, string>();
+  beforeEach(() => {
+    storage.clear();
+    // a browser tab: the catalog lives in localStorage
+    vi.stubGlobal("window", {});
+    vi.stubGlobal("localStorage", { getItem: (k: string) => storage.get(k) ?? null });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("gives seed kits saved before drawing labels their seed's label, keeps a cleared one", async () => {
+    const [a, b] = SEED_KITS;
+    const { label: _drop, ...noLabel } = a;
+    const own = { id: "mine", name: "Ventilador", mode: "count", components: [] };
+    storage.set(
+      "takeoff.catalog",
+      JSON.stringify({ saved: [], kits: [noLabel, { ...b, label: "" }, own] }),
+    );
+    const store = await loadCatalogStore();
+    expect(store.kits.map((k) => k.label)).toEqual([a.label, "", undefined]);
+    expect(a.label).toBe('1/4" · 3/8"');
   });
 });

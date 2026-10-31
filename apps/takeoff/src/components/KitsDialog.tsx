@@ -76,6 +76,8 @@ export function KitsDialog() {
       .map((k) => ({
         ...k,
         name: k.name.trim() || "Preset",
+        // "" (cleared) is kept: it stops a seed kit from taking its seed's label back
+        ...(k.label !== undefined ? { label: k.label.trim() } : {}),
         components: k.components
           .filter((c) => c.name.trim())
           .map((c) => ({
@@ -135,6 +137,7 @@ export function KitsDialog() {
                 {k.name || "Preset"}
                 <span className="block truncate text-[11px] font-normal text-neutral-500">
                   {k.components.length} {k.components.length === 1 ? "componente" : "componentes"}
+                  {k.label?.trim() ? ` · ${k.label.trim()}` : ""}
                 </span>
               </button>
             </li>
@@ -161,7 +164,7 @@ export function KitsDialog() {
               <input
                 value={kit.name}
                 onChange={(e) => update({ name: e.target.value })}
-                className={`${input} w-72 text-sm`}
+                className={`${input} min-w-0 flex-1 text-sm`}
                 placeholder="ex.: 12.000 Inverter"
               />
               <label className="flex items-center gap-1 text-xs text-neutral-400">
@@ -176,11 +179,25 @@ export function KitsDialog() {
                   <option value="count">Contagem (clique)</option>
                 </select>
               </label>
-              <span className="ml-auto text-[11px] text-neutral-500">
-                {kitMode(kit) === "count"
-                  ? "Um clique coloca todos os componentes, agrupados; os lineares somam o comprimento por clique"
-                  : "Um trecho desenhado cria todos os componentes abaixo, agrupados"}
-              </span>
+              <label
+                className="flex items-center gap-1 whitespace-nowrap text-xs text-neutral-400"
+                title="Texto mostrado no desenho e no relatório antes da quantidade de cada trecho ou peça deste kit; alterar aqui atualiza os já desenhados. Vazio: sem rótulo"
+              >
+                Rótulo no desenho
+                <input
+                  value={kit.label ?? ""}
+                  onChange={(e) => update({ label: e.target.value })}
+                  className={`${input} w-44`}
+                  placeholder={
+                    kitMode(kit) === "count" ? "ex.: VE-01 · 1.200 m³/h" : 'ex.: 1/4" · 3/8"'
+                  }
+                />
+              </label>
+            </div>
+            <div className="border-b border-neutral-800 px-3 py-1.5 text-[11px] text-neutral-500">
+              {kitMode(kit) === "count"
+                ? "Um clique coloca todos os componentes, agrupados; os lineares somam o comprimento por clique"
+                : "Um trecho desenhado cria todos os componentes abaixo, agrupados"}
             </div>
             <div className="min-w-0 flex-1 overflow-auto px-3 py-2">
               <table className="w-full text-xs">

@@ -7,7 +7,7 @@ import {
   type QueuedProposal,
 } from "./catalogRemote";
 import { defaultGaugeWeights, type GaugeWeights } from "./ducts";
-import { type Kit, SEED_KITS } from "./kits";
+import { type Kit, migrateKitLabels, SEED_KITS } from "./kits";
 import { isTauri } from "./platform";
 import { foldName } from "./text";
 import type { Kind } from "./units";
@@ -299,6 +299,8 @@ export async function loadCatalogStore(): Promise<CatalogStore> {
     const store = { ...emptyCatalogStore(), ...rest };
     // a catalog fetched by an earlier version named entries after the family only
     store.remote = store.remote.map(upgradeRemoteEntry);
+    // kits saved before kits had a drawing label take their seed's
+    store.kits = migrateKitLabels(store.kits);
     return store;
   } catch {
     return emptyCatalogStore();

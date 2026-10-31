@@ -59,7 +59,10 @@ describe("label candidates", () => {
     expect(a[1]).toEqual({ x: 50, y: 43 });
     const sym = shapesOf([{ x: 10, y: 10 }], "count", SCALE, { repeat: 3 });
     const s = labelCandidates(sym, id, SIZE, 0.5);
-    expect(s[0]).toEqual({ x: 17, y: 16 }); // offset (14, -12) px, y flipped, 0.5 pt per px
+    // beside the symbol: the near edge at offset (10, -12) px, y flipped, 0.5 pt per px
+    expect(s[0]).toEqual({ x: 10 + 5 + SIZE.w / 2, y: 16 });
+    // mirrored to the left: the near edge as far on the other side
+    expect(s[2]).toEqual({ x: 10 - 5 - SIZE.w / 2, y: 16 });
     expect(s).toHaveLength(4);
     expect(labelCandidates(shapesOf([{ x: 0, y: 0 }], "count", SCALE), id, SIZE, 1)).toEqual([]);
   });
