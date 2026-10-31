@@ -5,10 +5,11 @@
  * continuation pages.
  *
  * The original drawing stays vector. Each distinct source page is embedded once as a Form
- * XObject in its own user space (one `embedPages` call per source PDF, so shared fonts and images
- * are copied once); every cutout of that page is a tiny wrapper form whose BBox is the crop in
- * user space (the clip) and whose Matrix maps it into the frame. File size grows with the
- * distinct source pages, not with the cutouts.
+ * XObject in its own user space (`embedSheet`: one object copier per source PDF, so shared fonts
+ * and images are copied once, and the sheet's content stream is copied still encoded); every
+ * cutout of that page is a tiny wrapper form whose BBox is the crop in user space (the clip) and
+ * whose Matrix maps it into the frame. File size grows with the distinct source pages, not with
+ * the cutouts.
  *
  * Markings are painted from `markingShapes`, like the viewer canvas, mapped with `pageToFrame`.
  */
@@ -19,6 +20,7 @@ import {
   clip,
   closePath,
   concatTransformationMatrix,
+  decodePDFRawStream,
   drawObject,
   drawSvgPath,
   endPath,
@@ -27,14 +29,17 @@ import {
   LineJoinStyle,
   lineTo,
   moveTo,
+  PDFArray,
+  PDFContentStream,
   PDFDocument,
   type PDFDocument as PDFDocumentType,
-  type PDFEmbeddedPage,
   type PDFFont,
-  type PDFName,
+  PDFName,
+  PDFObjectCopier,
   PDFOperator,
   PDFOperatorNames,
   type PDFPage,
+  PDFRawStream,
   type PDFRef,
   popGraphicsState,
   pushGraphicsState,
@@ -66,6 +71,7 @@ import {
   viewportTransform,
 } from "./coords";
 import { type LabelSize, labelCandidates, placeLabel } from "./labels";
+import { omittedNote } from "./pages";
 import type {
   DuctBreakdownRow,
   Rect,
@@ -191,8 +197,29 @@ export interface WriteOptions {
    * in the session. Labels are placed off them; without them labels only avoid each other.
    */
   textBoxes?: (drawingId: string, page: number) => readonly Box[] | undefined;
+  /**
+   * Draw only these pages: plan page indices (each with its list continuations) and/or the
+   * cover. The layout and the numbering stay those of the whole report ("página n de N", the
+   * cover's index, key-map and "também em" references), and only the source sheets those pages
+   * show are embedded, so the preview can write the page in view at once. Default: every page.
+   */
+  pages?: readonly (number | "cover")[];
+  /** Told, once laid out and before drawing, which report pages the output holds, in order. */
+  onPages?: (pages: readonly WrittenPage[]) => void;
   /** Called after each page is drawn (await it to let the UI update). */
   onProgress?: (done: number, total: number) => void | Promise<void>;
+}
+
+/** A page of the output PDF, as `WriteOptions.onPages` describes it. */
+export interface WrittenPage {
+  /** Its number in the whole report, from 1 ("página n de N"). */
+  number: number;
+  /** Pages in the whole report (N). */
+  total: number;
+  /** Plan page it shows; undefined for the cover. */
+  planIndex?: number;
+  /** 0 for the page itself, 1… for the continuation pages of its list. */
+  continuation: number;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -853,6 +880,57 @@ export function scaleCaption(pointsPerUnit: number, unit: Unit): string {
   return `1:${r.toFixed(1).replace(".", ",")}`;
 }
 
+/**
+ * A source page as a Form XObject in its own user space (BBox = MediaBox, identity matrix), like
+ * pdf-lib's `embedPages` but without its costs: only the resources are copied (not the whole
+ * page node, whose content would be saved twice), and a single content stream keeps its encoded
+ * bytes and filter instead of being inflated and deflated again. On a heavy sheet that is most of
+ * the writing time. Several content streams are joined (they may split mid-operator) and
+ * deflated, as pdf-lib does.
+ */
+function embedSheet(doc: PDFDocumentType, page: PDFPage, copier: PDFObjectCopier): PDFRef {
+  const node = page.node;
+  const m = page.getMediaBox();
+  const dict = {
+    Type: "XObject",
+    Subtype: "Form",
+    FormType: 1,
+    BBox: [m.x, m.y, m.x + m.width, m.y + m.height],
+    Matrix: [1, 0, 0, 1, 0, 0],
+    Resources: copier.copy(node.Resources() ?? doc.context.obj({})),
+  };
+  const contents = node.Contents();
+  const streams =
+    contents instanceof PDFArray
+      ? contents.asArray().map((r) => node.context.lookup(r))
+      : [contents];
+  const only = streams.length === 1 ? streams[0] : undefined;
+  if (only instanceof PDFRawStream) {
+    const filter = only.dict.get(PDFName.of("Filter"));
+    const parms = only.dict.get(PDFName.of("DecodeParms"));
+    const stream = doc.context.stream(only.contents, {
+      ...dict,
+      ...(filter ? { Filter: copier.copy(filter) } : {}),
+      ...(parms ? { DecodeParms: copier.copy(parms) } : {}),
+    });
+    return doc.context.register(stream);
+  }
+  const parts: Uint8Array[] = [];
+  for (const s of streams) {
+    if (s instanceof PDFRawStream) parts.push(decodePDFRawStream(s).decode());
+    else if (s instanceof PDFContentStream) parts.push(s.getUnencodedContents());
+    else continue;
+    parts.push(Uint8Array.of(0x0a));
+  }
+  const joined = new Uint8Array(parts.reduce((n, a) => n + a.length, 0));
+  let at = 0;
+  for (const a of parts) {
+    joined.set(a, at);
+    at += a.length;
+  }
+  return doc.context.register(doc.context.flateStream(joined, dict));
+}
+
 /** A page of output: what to draw on it once all page numbers are known. */
 interface OutPage {
   draw: (
@@ -863,6 +941,8 @@ interface OutPage {
   ) => void;
   /** Plan page it belongs to (continuations included); undefined for the cover. */
   planIndex?: number;
+  /** 0 for the first page of a plan page (or the cover), 1… for continuations. */
+  continuation: number;
 }
 
 /**
@@ -892,16 +972,19 @@ export async function writeReport(
     bold: await doc.embedFont(options.fonts.bold, { subset: true }),
   };
 
+  const wanted = options.pages ? new Set(options.pages) : null;
+  const drawn = (key: number | "cover") => !wanted || wanted.has(key);
+
   const items = new Map(project.items.map((i) => [i.id, i]));
   const measurements = new Map<string, Measurement>(project.measurements.map((m) => [m.id, m]));
   const listCtx: ListCtx = { project, prices, items };
 
-  // each distinct source page once, one embedPages call per source PDF
-  const embedded = new Map<string, PDFEmbeddedPage>();
+  // each distinct source page once, one object copier per source PDF (shared resources once)
+  const embedded = new Map<string, PDFRef>();
   const usedPages = new Map<string, Set<number>>();
   for (const p of plan.pages) {
     const src = loaded.get(p.drawingId);
-    if (!src || p.page >= src.doc.getPageCount()) continue;
+    if (!src || p.page >= src.doc.getPageCount() || !drawn(p.index)) continue;
     const srcPage = src.doc.getPage(p.page);
     if (!srcPage.node.Contents()) continue; // a blank page: nothing to embed
     const set = usedPages.get(p.drawingId) ?? new Set<number>();
@@ -911,21 +994,10 @@ export async function writeReport(
   for (const [drawingId, pages] of usedPages) {
     const src = loaded.get(drawingId);
     if (!src) continue;
-    const list = [...pages].sort((a, b) => a - b);
-    const srcPages = list.map((i) => src.doc.getPage(i));
-    // the page in its own user space: BBox = MediaBox, identity matrix
-    const boxes = srcPages.map((sp) => {
-      const m = sp.getMediaBox();
-      return { left: m.x, bottom: m.y, right: m.x + m.width, top: m.y + m.height };
-    });
-    const forms = await doc.embedPages(
-      srcPages,
-      boxes,
-      srcPages.map(() => [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number]),
-    );
-    list.forEach((i, k) => {
-      embedded.set(`${drawingId}#${i}`, forms[k]);
-    });
+    const copier = PDFObjectCopier.for(src.doc.context, doc.context);
+    for (const i of [...pages].sort((a, b) => a - b)) {
+      embedded.set(`${drawingId}#${i}`, embedSheet(doc, src.doc.getPage(i), copier));
+    }
   }
   /** Wrapper forms per (sheet, crop, zoom): BBox = crop in user space, Matrix = into the frame. */
   const wrappers = new Map<string, PDFRef>();
@@ -940,7 +1012,7 @@ export async function writeReport(
       const stream = doc.context.formXObject([drawObject("P")], {
         BBox: [box.minX, box.minY, box.maxX, box.maxY],
         Matrix: [...userToFrameTransform(t, p.crop, p.zoom)],
-        Resources: { XObject: { P: form.ref } },
+        Resources: { XObject: { P: form } },
       });
       ref = doc.context.register(stream);
       wrappers.set(key, ref);
@@ -1043,6 +1115,14 @@ export async function writeReport(
       warnings.push(noteRow("Locais sem itens do filtro (não incluídos):", MUTED));
       warnings.push(noteRow(plan.skipped.map((s) => s.name).join(", "), MUTED));
     }
+    const omitted = omittedNote(plan);
+    if (omitted) {
+      warnings.push(noteRow(omitted, MUTED));
+      const names = (plan.omitted ?? []).join(", ");
+      for (const line of wrapText(fonts.regular, names, ROW_SIZE, colW - 4)) {
+        warnings.push(noteRow(line, MUTED));
+      }
+    }
     if (warnings.length) blocks.push({ title: titleRow("Avisos"), rows: warnings });
     const grandTotal = plan.cover.locations.length > 1;
     const note = nestedNote(plan, grandTotal);
@@ -1066,6 +1146,7 @@ export async function writeReport(
     const coverPages = Math.ceil(regions / perPage);
     for (let k = 0; k < coverPages; k++) {
       outPages.push({
+        continuation: k,
         draw: (cv, n, total) => {
           headerLines(
             cv,
@@ -1108,6 +1189,7 @@ export async function writeReport(
     for (let k = 0; k <= conts; k++) {
       outPages.push({
         planIndex: p.index,
+        continuation: k,
         draw: (cv, n, total, numberOf) => {
           headerLines(
             cv,
@@ -1361,15 +1443,27 @@ export async function writeReport(
   // ------------------------------------------------------------------- draw everything
 
   const total = outPages.length;
+  const selected = outPages
+    .map((o, i) => ({ o, number: i + 1 }))
+    .filter(({ o }) => drawn(o.planIndex ?? "cover"));
+  options.onPages?.(
+    selected.map(({ o, number }) => ({
+      number,
+      total,
+      planIndex: o.planIndex,
+      continuation: o.continuation,
+    })),
+  );
+  const planned = new Set(selected.flatMap(({ o }) => o.planIndex ?? [])).size;
   const done = new Set<number>();
-  for (let i = 0; i < outPages.length; i++) {
+  for (const { o, number } of selected) {
     const page = doc.addPage([layout.page.width, layout.page.height]);
     const cv = new Canvas(doc, page, fonts);
-    outPages[i].draw(cv, i + 1, total, numberOf);
-    const pi = outPages[i].planIndex;
+    o.draw(cv, number, total, numberOf);
+    const pi = o.planIndex;
     if (pi !== undefined && !done.has(pi)) {
       done.add(pi);
-      await options.onProgress?.(done.size, plan.pages.length);
+      await options.onProgress?.(done.size, planned);
     }
   }
   return doc.save();

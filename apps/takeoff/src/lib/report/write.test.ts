@@ -26,6 +26,7 @@ import {
   rectToPdfUserSpace,
   type ViewportTransform,
 } from "./coords";
+import { withoutPages } from "./pages";
 import { planReport, type ReportPlan } from "./plan";
 import {
   type Block,
@@ -38,6 +39,7 @@ import {
   type Row,
   scaleCaption,
   sourcePageSize,
+  type WrittenPage,
   writeReport,
 } from "./write";
 
@@ -272,6 +274,43 @@ describe("writeReport", () => {
     }
   });
 
+  it("copies a sheet's single content stream as it is, still encoded", async () => {
+    const src = await PDFDocument.load(bytes);
+    const contents = src.getPage(0).node.Contents();
+    const original = (
+      contents instanceof PDFArray ? src.context.lookup(contents.get(0)) : contents
+    ) as PDFRawStream;
+    const target = wrappersOf(out, out.getPage(1))[0].target;
+    const form = out.context.lookup(target) as PDFRawStream;
+    expect(form.dict.get(PDFName.of("Filter"))?.toString()).toBe(
+      original.dict.get(PDFName.of("Filter"))?.toString(),
+    );
+    expect(form.contents).toEqual(original.contents);
+    expect(nums(out, form.dict.get(PDFName.of("BBox")))).toEqual([0, 0, 600, 400]);
+  });
+
+  it("joins a sheet's several content streams into one form", async () => {
+    const two = await PDFDocument.create();
+    const page = two.addPage([300, 200]);
+    page.drawLine({ start: { x: 10, y: 10 }, end: { x: 290, y: 10 } });
+    page.node.addContentStream(two.context.register(two.context.flateStream("0 0 m 7 9 l S")));
+    const twoBytes = await two.save();
+    const src = await loadReportSources({ d1: { bytes: twoBytes } });
+    const p = project();
+    p.drawings[0].pages = [{ scale: SCALE }];
+    p.zones = [p.zones[0]];
+    p.measurements = [p.measurements[0]];
+    const one = planReport(p, {}, { pageSize: sourcePageSize(src) });
+    const doc = await PDFDocument.load(
+      await writeReport(one, src, { project: p, fonts, cover: false }),
+    );
+    const [w] = wrappersOf(doc, doc.getPage(0));
+    const form = doc.context.lookup(w.target) as PDFRawStream;
+    const text = new TextDecoder().decode(decodePDFRawStream(form).decode());
+    expect(text).toContain("0 0 m 7 9 l S");
+    expect(text).toMatch(/290 10 l/);
+  });
+
   it("clips each cutout to its crop in user space, rotated with the sheet", () => {
     const wrappers = out
       .getPages()
@@ -434,6 +473,82 @@ describe("cover", () => {
     expect(text).toContain("1 região · 1 marcação");
     expect(text).toContain("1 região · 3 marcações");
     expect(text).not.toContain("1 marcações");
+  });
+});
+
+describe("pages option", () => {
+  it("writes only the chosen pages, numbered as in the whole report", async () => {
+    const p = project();
+    const seen: WrittenPage[][] = [];
+    const progress: [number, number][] = [];
+    const report = await writeReport(plan, loaded, {
+      project: p,
+      fonts,
+      pages: [2],
+      onPages: (pages) => seen.push([...pages]),
+      onProgress: (d, t) => {
+        progress.push([d, t]);
+      },
+    });
+    const doc = await PDFDocument.load(report);
+    expect(doc.getPageCount()).toBe(1);
+    // cover + 3 cutouts: plan page 2 is page 4 of 4
+    expect(seen).toEqual([[{ number: 4, total: 4, planIndex: 2, continuation: 0 }]]);
+    expect(progress).toEqual([[1, 1]]);
+    const text = await pageText(report, 0);
+    expect(text).toContain("página 4 de 4");
+    expect(text).toContain("Cobertura");
+    // only the sheet that page shows is embedded
+    const targets = new Set(wrappersOf(doc, doc.getPage(0)).map((w) => w.target.toString()));
+    expect(targets.size).toBe(1);
+  });
+
+  it("writes the cover alone, its index pointing at the whole report's pages", async () => {
+    const seen: WrittenPage[] = [];
+    const report = await writeReport(plan, loaded, {
+      project: project(),
+      fonts,
+      pages: ["cover"],
+      onPages: (pages) => seen.push(...pages),
+    });
+    expect((await PDFDocument.load(report)).getPageCount()).toBe(1);
+    expect(seen).toEqual([{ number: 1, total: 4, planIndex: undefined, continuation: 0 }]);
+    const text = await pageText(report, 0);
+    expect(text).toContain("página 1 de 4");
+    expect(text).toContain("Índice");
+  });
+
+  it("describes every page when all are written", async () => {
+    const seen: WrittenPage[] = [];
+    await writeReport(plan, loaded, {
+      project: project(),
+      fonts,
+      onPages: (pages) => seen.push(...pages),
+    });
+    expect(seen.map((w) => [w.number, w.planIndex ?? "capa"])).toEqual([
+      [1, "capa"],
+      [2, 0],
+      [3, 1],
+      [4, 2],
+    ]);
+  });
+});
+
+describe("omitted pages", () => {
+  it("renumbers the footers and notes the omission on the cover, totals unchanged", async () => {
+    const p = project();
+    const printed = withoutPages(plan, [0]);
+    const report = await writeReport(printed, loaded, { project: p, fonts });
+    expect((await PDFDocument.load(report)).getPageCount()).toBe(3);
+    const cover = await pageText(report, 0);
+    expect(cover).toContain("1 página omitida; os totais da capa incluem os itens dela.");
+    expect(cover).toContain("Sala Técnica");
+    expect(cover).toContain("omitido");
+    expect(await pageText(report, 1)).toContain("página 2 de 3");
+    expect(await pageText(report, 2)).toContain("página 3 de 3");
+    expect(await pageText(await writeReport(plan, loaded, { project: p, fonts }), 0)).not.toContain(
+      "omitida",
+    );
   });
 });
 

@@ -23,6 +23,8 @@
  *    `polygon` (wash-out mask outside it), the markings in `measurementIds` and, on key maps,
  *    the `frames` with their labels, all through `pageToFrame(pt, page.crop, page.zoom)`. The
  *    scale bar comes from `page.scale` and `page.zoom`.
+ * 4. Pages the user unticks in the preview are keyed by `pageKey` (stable across re-plans) and
+ *    left out with `withoutPages(plan, indices)`, which renumbers every page reference.
  */
 export {
   applyTransform,
@@ -55,6 +57,14 @@ export {
   soDutos,
   soVrf,
 } from "./filter";
+export {
+  cropFocusBox,
+  omittedNote,
+  pageKey,
+  pageKeys,
+  skippedIndices,
+  withoutPages,
+} from "./pages";
 export {
   DEFAULT_LEGIBILITY_FLOOR,
   DEFAULT_MARGIN_PCT,

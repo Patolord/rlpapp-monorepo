@@ -358,6 +358,11 @@ export interface ReportPlan {
   pages: ReportPage[];
   /** Selected locations left out because nothing filtered lies in them. */
   skipped: { locationId: string; name: string }[];
+  /**
+   * Headings of planned pages the user left out (`withoutPages`); the cover notes them. Absent
+   * when every planned page is printed.
+   */
+  omitted?: string[];
 }
 
 // ---------------------------------------------------------------------------------------------

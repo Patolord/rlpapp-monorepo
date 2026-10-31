@@ -99,7 +99,7 @@ bun scripts/bench-vectors.ts <pdf>   # extraction + indexing timings
 | `F` `+` `-` wheel | Fit page / zoom |
 | `PgUp` `PgDn` | Previous / next page |
 | `Ctrl+S` `Ctrl+E` | Save project / export Planilha .xlsx |
-| `Ctrl+Shift+E` | Relatório de recortes: marked-up PDF cutouts per location |
+| `Ctrl+Shift+E` | Relatório de recortes: marked-up PDF cutouts per location, with a live preview (reopens as it was left) |
 
 Items can be saved to the catalog (star). The catalog is seeded from past budget sheets
 (`src/data/catalog.seed.json`) and follows the company app at a fixed address
@@ -138,9 +138,19 @@ item colours with quantities and duct sections `a×b`, a scale bar for the print
 items measured there (measured quantities, without waste) with the duct runs by section and the
 VRF runs by role and tube pair. Prices are off by default. A region too big to print legibly (below the "zoom mínimo", 0.5 by
 default) is split into clusters or tiles after a key map; each marking is listed on exactly one
-of those pages. An optional cover sums every location and indexes the pages. Code:
-`src/lib/report/` (`plan.ts` decides, `write.ts` draws with pdf-lib; Liberation Sans, OFL, in
-`public/fonts/`).
+of those pages. An optional cover sums every location and indexes the pages.
+
+The dialog previews the PDF itself on the right: the export's own writer runs half a second
+after each change ("atualizando…") and pdf.js shows the pages as thumbnails and one large page
+(wheel or `+`/`−` to zoom, drag to pan, `0` fits, `←`/`→` step through the pages). Untick
+**incluir** under a thumbnail to leave that page out: page numbers, the cover's index, the key
+maps' "pág. n" and "também em" are renumbered, the cover keeps its totals and notes the omitted
+pages, and the summary reads "X de Y páginas". **Ver na planta** (or a double click on the large
+page) closes the dialog and shows that cutout on its drawing, zoomed to it with its region
+selected; "Voltar ao relatório" over the viewer, `Ctrl+Shift+E` or the menu bring the dialog
+back with its settings, omitted pages and page in view. Code: `src/lib/report/` (`plan.ts`
+decides, `pages.ts` keys and omits pages, `write.ts` draws with pdf-lib; Liberation Sans, OFL,
+in `public/fonts/`), `src/lib/reportPreview.ts` and `components/ReportPreview.tsx`.
 
 ## How it stays fast
 
@@ -156,6 +166,10 @@ of those pages. An optional cover sums every location and indexes the pages. Cod
   region touches the border.
 - **Overlay**: all measurements are drawn on a single 2D canvas with viewport culling; React
   never re-renders on pointer moves.
+- **Cutout report**: each source sheet is embedded once, its content stream copied still
+  encoded, so writing does not grow with the drawing's complexity (40 pages over two A0 sheets
+  of 300k segments: ~0.5 s). The preview parses the PDFs once per dialog session and renders
+  thumbnails only as they scroll into view.
 
 ## Layout
 
@@ -164,7 +178,8 @@ src/
   components/   Viewer (canvas layers + tools), side panels, dialogs, ui.tsx (Button, Backdrop…)
   store/        zustand store in slices: project (model, drawings, undo), items (items,
                 measurements, locations), ducts, vrf, catalog, similar, revisions (replace dialog,
-                compare overlay), view (tool, filters, dialogs)
+                compare overlay), report (report dialog settings, omitted pages), view (tool,
+                filters, dialogs)
   lib/types.ts  project model and file-version migrations
   lib/align.ts  drawing revisions: two-point similarity, page map, moving markings to a new PDF
   lib/          geom, units, quantities (quote math), budgetOrder, overlay (canvas painting),
@@ -174,7 +189,8 @@ src/
   lib/vrf*      VRF take-off: brand tables, system items, workbook export
   lib/kits.ts   kit presets · lib/weights.ts  weight-based prices · lib/symbols.ts  count marks
   lib/markingShapes.ts  a marking's geometry and label, shared by the canvas and the report
-  lib/report/   cutout report: filter, coords, plan (pure), write (pdf-lib); reportExport.ts
+  lib/report/   cutout report: filter, coords, plan, pages (pure), write (pdf-lib);
+                reportExport.ts (shared with the preview), reportPreview.ts (pdf.js preview)
   lib/pdf/      render.ts (page renderer), vectors*.ts (snap index + worker), magic.ts,
                 text.ts (positioned text), visual*.ts (image symbol search), similar.ts
   viewport.ts   zoom/pan state

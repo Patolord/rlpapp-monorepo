@@ -1,48 +1,24 @@
 /**
  * Export of the location cutout report: the dialog's settings become plan options, the source
  * PDFs are read from disk (drawings whose PDF is missing are left out and listed on the cover),
- * the report is written with lib/report/write (loaded on demand: pdf-lib stays out of the main
- * bundle) and saved like the xlsx exports. Progress goes to the status bar.
+ * the pages the user unticked are left out (`withoutPages`), the report is written with
+ * lib/report/write (loaded on demand: pdf-lib stays out of the main bundle) and saved like the
+ * xlsx exports. Progress goes to the status bar. `prepareReport` is shared with the dialog's live
+ * preview, so the preview writes exactly what the export writes.
  */
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../store";
 import type { Box } from "./geom";
 import { isTauri } from "./platform";
-import type { ReportFilter } from "./report/filter";
+import { pageKeys, skippedIndices, withoutPages } from "./report/pages";
 import { planReport, type ReportOptions, type ReportPlan, type Size } from "./report/plan";
-import type { ReportFonts, ReportSource } from "./report/write";
+import type { ReportSettings } from "./report/settings";
+import type { LoadedSource, LoadedSources, ReportFonts, WriteOptions } from "./report/write";
 import { basename, ensureDocText, pageTransforms, session } from "./session";
 import { drawingOf, type Project } from "./types";
 
-/** Everything the report dialog chooses. */
-export interface ReportSettings {
-  filter: ReportFilter;
-  /** Locations to include; undefined = all. */
-  locationIds?: string[];
-  includeUnassigned: boolean;
-  paper: "A4" | "A3";
-  orientation: "landscape" | "portrait";
-  prices: boolean;
-  labels: boolean;
-  washOut: boolean;
-  cover: boolean;
-  legibilityFloor: number;
-  wholeSheet: boolean;
-}
-
-export const DEFAULT_REPORT_SETTINGS: ReportSettings = {
-  filter: {},
-  includeUnassigned: false,
-  paper: "A4",
-  orientation: "landscape",
-  prices: false,
-  labels: true,
-  washOut: true,
-  cover: true,
-  legibilityFloor: 0.5,
-  wholeSheet: false,
-};
+export { DEFAULT_REPORT_SETTINGS, type ReportSettings } from "./report/settings";
 
 /** Page sizes of the PDFs already open in the session (the dialog's live preview). */
 export const sessionPageSize =
@@ -98,9 +74,12 @@ export async function missingDrawings(project: Project, ids: readonly string[]):
       continue;
     }
     try {
+      // Vite answers a missing /@fs/ file with the app's own page
       const ok = isTauri()
         ? await invoke<boolean>("file_exists", { path })
-        : (await fetch(devUrl(path), { method: "HEAD" })).ok;
+        : await fetch(devUrl(path), { method: "HEAD" }).then(
+            (r) => r.ok && !r.headers.get("content-type")?.includes("text/html"),
+          );
       if (!ok) out.push(id);
     } catch {
       out.push(id);
@@ -116,17 +95,25 @@ async function readPdf(path: string): Promise<Uint8Array> {
   return new Uint8Array(await res.arrayBuffer());
 }
 
-async function loadFonts(): Promise<ReportFonts> {
+let fonts: Promise<ReportFonts> | null = null;
+
+/** The report's fonts, fetched once per run of the app. */
+function loadFonts(): Promise<ReportFonts> {
   const get = async (name: string) => {
     const res = await fetch(`/fonts/${name}`);
     if (!res.ok) throw new Error(`fonte ${name} não encontrada (${res.status})`);
     return new Uint8Array(await res.arrayBuffer());
   };
-  const [regular, bold] = await Promise.all([
-    get("LiberationSans-Regular.ttf"),
-    get("LiberationSans-Bold.ttf"),
-  ]);
-  return { regular, bold };
+  if (!fonts) {
+    fonts = Promise.all([get("LiberationSans-Regular.ttf"), get("LiberationSans-Bold.ttf")]).then(
+      ([regular, bold]) => ({ regular, bold }),
+    );
+    // a failed fetch is tried again next time
+    fonts.catch(() => {
+      fonts = null;
+    });
+  }
+  return fonts;
 }
 
 const tick = () => new Promise<void>((r) => window.setTimeout(r, 0));
@@ -135,7 +122,7 @@ const tick = () => new Promise<void>((r) => window.setTimeout(r, 0));
  * Text runs of the sheets a plan shows, for the drawings open in the session (the report keeps
  * its labels off the drawing's own text); sheets of other drawings get none.
  */
-async function planTextBoxes(
+export async function planTextBoxes(
   project: Project,
   plan: ReportPlan,
 ): Promise<(drawingId: string, page: number) => readonly Box[] | undefined> {
@@ -170,10 +157,130 @@ function download(bytes: Uint8Array, name: string) {
 }
 
 /**
- * Write the report and save it (native dialog in Tauri, a download in the browser). Returns the
+ * Source PDFs parsed for the report, per drawing: the dialog keeps one while it is open so the
+ * preview reads and parses each PDF once (a drawing pointed at another file is read again), and
+ * the export reuses it. A drawing whose PDF cannot be read is missing.
+ */
+export class ReportSources {
+  private byDrawing = new Map<string, { path: string; source: Promise<LoadedSource | null> }>();
+
+  async get(
+    project: Project,
+    ids: readonly string[],
+  ): Promise<{ loaded: LoadedSources; missingIds: string[] }> {
+    const loaded: LoadedSources = new Map();
+    const missingIds: string[] = [];
+    for (const id of ids) {
+      const path = drawingOf(project, id)?.path;
+      if (!path) {
+        missingIds.push(id);
+        continue;
+      }
+      let entry = this.byDrawing.get(id);
+      if (!entry || entry.path !== path) {
+        entry = { path, source: this.load(id, path) };
+        this.byDrawing.set(id, entry);
+      }
+      const source = await entry.source;
+      if (source) loaded.set(id, source);
+      else missingIds.push(id);
+    }
+    return { loaded, missingIds };
+  }
+
+  private async load(id: string, path: string): Promise<LoadedSource | null> {
+    // pdf-lib and fontkit load on the first report only (their own chunk)
+    const { loadReportSources } = await import("./report/write");
+    try {
+      const bytes = await readPdf(path);
+      const parsed = await loadReportSources({ [id]: { bytes, transforms: pageTransforms(path) } });
+      return parsed.get(id) ?? null;
+    } catch (e) {
+      // unreadable or not a PDF: left out like a missing file
+      console.warn(`report: cannot use ${path}`, e);
+      return null;
+    }
+  }
+
+  /** Forget every parsed PDF (the dialog closed). */
+  clear(): void {
+    this.byDrawing.clear();
+  }
+}
+
+/** A report ready to write: the plan with real page sizes, the pages left out, the writer. */
+export interface PreparedReport {
+  /** The takeoff without the drawings whose PDF is missing. */
+  project: Project;
+  /** Every planned page, before leaving any out. */
+  plan: ReportPlan;
+  /** `pageKey` of each planned page. */
+  keys: string[];
+  /** Plan indices the user left out. */
+  skipped: number[];
+  /** The report as printed: the plan without the skipped pages, renumbered. */
+  printed: ReportPlan;
+  /** Drawings (ids) left out because their PDF is missing or unreadable. */
+  missingIds: string[];
+  /** Their names. */
+  missing: string[];
+  /** Write a plan (`printed`, or `plan` for a look at skipped pages) with these settings. */
+  write(plan: ReportPlan, extra?: Partial<WriteOptions>): Promise<Uint8Array>;
+}
+
+/**
+ * Plan the report for the settings with the source PDFs' real page sizes and leave out the
+ * skipped pages (by `pageKey`). Shared by the preview and the export.
+ */
+export async function prepareReport(
+  settings: ReportSettings,
+  skippedKeys: readonly string[] = [],
+  sources: ReportSources = new ReportSources(),
+): Promise<PreparedReport> {
+  const full = useStore.getState().project;
+  const draft = planReport(full, settings.filter, reportOptions(full, settings));
+  const { loaded, missingIds } = await sources.get(full, planDrawings(draft));
+  const missing = missingIds.map((id) => drawingOf(full, id)?.name ?? id);
+  const project = withoutDrawings(full, new Set(missingIds));
+  const { sourcePageSize, writeReport } = await import("./report/write");
+  const plan = planReport(
+    project,
+    settings.filter,
+    reportOptions(project, settings, sourcePageSize(loaded)),
+  );
+  const skipped = skippedIndices(plan, skippedKeys);
+  const base: WriteOptions = {
+    project,
+    fonts: await loadFonts(),
+    textBoxes: await planTextBoxes(project, plan),
+    prices: settings.prices,
+    labels: settings.labels,
+    washOut: settings.washOut,
+    cover: settings.cover,
+    missing,
+  };
+  return {
+    project,
+    plan,
+    keys: pageKeys(plan),
+    skipped,
+    printed: withoutPages(plan, skipped),
+    missingIds,
+    missing,
+    write: (p, extra) => writeReport(p, loaded, { ...base, ...extra }),
+  };
+}
+
+/**
+ * Write the report and save it (native dialog in Tauri, a download in the browser), without the
+ * pages whose key is in `skipped`. `sources` reuses PDFs the dialog already parsed. Returns the
  * names of the drawings left out because their PDF was missing, or null when cancelled.
  */
-export async function exportReport(settings: ReportSettings): Promise<string[] | null> {
+export async function exportReport(
+  settings: ReportSettings,
+  skipped: readonly string[] = [],
+  sources?: ReportSources,
+): Promise<string[] | null> {
   const store = useStore.getState();
   const full = store.project;
   const draft = planReport(full, settings.filter, reportOptions(full, settings));
@@ -189,32 +296,13 @@ export async function exportReport(settings: ReportSettings): Promise<string[] |
   }
   try {
     store.setStatus("Relatório: lendo as plantas…");
-    const missingIds = await missingDrawings(full, planDrawings(draft));
-    const missing = missingIds.map((id) => drawingOf(full, id)?.name ?? id);
-    const project = withoutDrawings(full, new Set(missingIds));
-    const sources: Record<string, ReportSource> = {};
-    for (const id of planDrawings(draft)) {
-      const d = drawingOf(project, id);
-      if (!d?.path || missingIds.includes(id)) continue;
-      sources[id] = { bytes: await readPdf(d.path), transforms: pageTransforms(d.path) };
+    const report = await prepareReport(settings, skipped, sources);
+    const { missing, printed } = report;
+    if (printed.pages.length === 0) {
+      useStore.getState().setStatus("Relatório vazio: todas as páginas foram omitidas.");
+      return [];
     }
-    // pdf-lib and fontkit load on the first export only (their own chunk)
-    const { loadReportSources, sourcePageSize, writeReport } = await import("./report/write");
-    const loaded = await loadReportSources(sources);
-    const plan = planReport(
-      project,
-      settings.filter,
-      reportOptions(project, settings, sourcePageSize(loaded)),
-    );
-    const bytes = await writeReport(plan, loaded, {
-      project,
-      fonts: await loadFonts(),
-      textBoxes: await planTextBoxes(project, plan),
-      prices: settings.prices,
-      labels: settings.labels,
-      washOut: settings.washOut,
-      cover: settings.cover,
-      missing,
+    const bytes = await report.write(printed, {
       onProgress: async (done, total) => {
         useStore
           .getState()

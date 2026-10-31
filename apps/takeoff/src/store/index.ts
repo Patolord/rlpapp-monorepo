@@ -9,6 +9,7 @@ import { type CatalogSlice, createCatalogSlice } from "./catalog";
 import { createDuctSlice, type DuctSlice } from "./ducts";
 import { createItemsSlice, type ItemsSlice } from "./items";
 import { createProjectSlice, type ProjectSlice } from "./project";
+import { createReportSlice, type ReportSlice } from "./report";
 import { createRevisionSlice, type RevisionSlice } from "./revisions";
 import { createSimilarSlice, type SimilarSlice } from "./similar";
 import { createViewSlice, type ViewSlice } from "./view";
@@ -21,6 +22,7 @@ export type State = ProjectSlice &
   CatalogSlice &
   SimilarSlice &
   RevisionSlice &
+  ReportSlice &
   ViewSlice;
 
 export const useStore = create<State>()((...a) => ({
@@ -31,6 +33,7 @@ export const useStore = create<State>()((...a) => ({
   ...createCatalogSlice(...a),
   ...createSimilarSlice(...a),
   ...createRevisionSlice(...a),
+  ...createReportSlice(...a),
   ...createViewSlice(...a),
 }));
 
