@@ -1,5 +1,5 @@
 // Inspect PDFs: page sizes, operator counts, vector segment counts, text and images.
-// Usage: bun scripts/inspect-pdf.ts <file.pdf> [...more]
+// Usage: pnpm inspect <file.pdf> [...more]
 import { readFileSync } from "node:fs";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 

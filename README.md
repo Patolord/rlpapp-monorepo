@@ -10,6 +10,7 @@ Monorepo com [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-
 - **TanStack Start** — app web com SSR e TanStack Router
 - **Expo / React Native** — app mobile
 - **Next.js** — landing page institucional
+- **Tauri 2 (Rust) + React** — app desktop de takeoff e orçamento a partir de PDF (Windows e macOS)
 - **TailwindCSS + shadcn/ui** — UI
 - **Convex** — backend reativo (banco de dados + funções serverless + crons)
 - **Clerk** — autenticação (sync via webhook para a tabela `users` do Convex)
@@ -22,6 +23,7 @@ rlpapp/
 ├── apps/
 │   ├── web/           # App web (React + TanStack Start) — porta 3001
 │   ├── native/        # App mobile (React Native + Expo)
+│   ├── takeoff/       # App desktop de takeoff (Tauri + React; ver apps/takeoff/README.md)
 │   └── landing-page/  # Site institucional (Next.js)
 ├── packages/
 │   ├── backend/       # Backend Convex (schema, funções, crons, webhook Clerk)
@@ -107,6 +109,7 @@ pnpm run dev
 - `pnpm run dev` — todos os apps em modo dev
 - `pnpm run dev:web` — apenas o web
 - `pnpm run dev:native` — apenas o mobile (Expo)
+- `pnpm run dev:takeoff` — app desktop de takeoff numa janela nativa (precisa de Rust; ver `apps/takeoff/README.md`)
 - `pnpm run dev:server` — apenas o backend Convex
 - `pnpm run dev:setup` — configura o projeto Convex
 - `pnpm run build` — build de todos os apps
@@ -246,9 +249,12 @@ GitHub Actions (`.github/workflows/ci.yml`) roda lint, typecheck e testes em PRs
 
 As runs no `master` são as que alimentam os caches das PRs (pnpm store e Turbo), por isso não são canceladas por `concurrency`.
 
+O app desktop (`apps/takeoff`) tem mais dois workflows: `takeoff-rust.yml` (`cargo fmt` e `clippy`, só quando `apps/takeoff/src-tauri` muda) e `takeoff-release.yml` (instaladores Windows/macOS assinados, publicados em `Patolord/takeoff-releases` a cada tag `takeoff-vX.Y.Z`).
+
 ## Deploy
 
 - **Backend (produção):** `npx convex deploy` — somente via pipeline/manual consciente, nunca durante desenvolvimento.
 - **Web:** build com `pnpm run build` (saída do TanStack Start) — requer as env vars `VITE_*` no ambiente de build.
 - **Landing page:** Next.js (`apps/landing-page`).
 - **Mobile:** Expo (EAS config pendente — ver roadmap Sprint 4).
+- **Desktop (takeoff):** `pnpm release X.Y.Z` em `apps/takeoff` e push da tag `takeoff-vX.Y.Z`; os apps instalados se atualizam sozinhos.

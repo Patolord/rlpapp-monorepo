@@ -6,26 +6,32 @@ keyboard, price the items and export the budget as an Excel sheet in the RLP
 "Planilha Orçamentária" layout.
 
 Windows and macOS desktop app built with Tauri 2 (Rust) + React 19 + TypeScript + Tailwind 4, pdf.js for
-rendering, Bun for tooling.
+rendering. Part of the rlpapp monorepo (`apps/takeoff`, pnpm + Turborepo); its history before the
+move lives on in this folder's `git log`.
 
 ## Run
 
+From the repository root:
+
 ```bash
-bun install
-bun run tauri:dev      # native window (needs Rust + MSVC build tools + WebView2)
-bun run dev            # frontend only, in a browser (file dialogs disabled)
+pnpm install
+pnpm dev:takeoff                # native window (needs Rust; on Windows also MSVC build tools + WebView2)
+pnpm -F takeoff dev             # frontend only, in a browser (file dialogs disabled)
 ```
 
-Frontend-only mode accepts `?pdf=<absolute path>` to load a drawing through Vite, e.g.
-`http://localhost:1420/?pdf=C:/code/tauri-takeoff/samples/.../plan.pdf`.
+or the same scripts from `apps/takeoff` (`pnpm tauri:dev`, `pnpm dev`). On a machine that only
+works on the desktop app, `pnpm install --filter takeoff...` skips the web and mobile apps.
 
-Build an installer with `bun run tauri:build`.
+Frontend-only mode accepts `?pdf=<absolute path>` to load a drawing through Vite, e.g.
+`http://localhost:1420/?pdf=C:/code/rlpapp/apps/takeoff/samples/.../plan.pdf`.
+
+Build an installer with `pnpm tauri:build` (in `apps/takeoff`).
 
 ## Distribution and updates
 
-**Installers.** `bun run tauri:build` produces, on Windows,
+**Installers.** `pnpm tauri:build` produces, on Windows,
 `src-tauri/target/release/bundle/nsis/RLP Takeoff_<v>_x64-setup.exe` (per-user install,
-Portuguese); on a Mac, `bun run tauri build --target universal-apple-darwin` produces a universal
+Portuguese); on a Mac, `pnpm tauri build --target universal-apple-darwin` produces a universal
 `.dmg` (Apple Silicon + Intel). Nothing is code-signed with a vendor certificate: Windows
 SmartScreen shows "unknown publisher" on first run, and macOS (ad-hoc signature) needs
 right-click > Open the first time a downloaded copy is launched. Both are fine for internal use;
@@ -37,39 +43,43 @@ signed installer, installs it and restarts. Updates are signed with a minisign k
 the repository (`~/.tauri/takeoff.key` + `.password`); its public key is in the config. Losing
 that key means existing installs cannot accept new updates, so back it up.
 
-**Releasing a version.**
+**Releasing a version.** In `apps/takeoff`:
 
 ```bash
-bun run release 0.2.0        # bumps package.json, tauri.conf.json, Cargo.toml; commits; tags v0.2.0
-git push && git push origin v0.2.0
+pnpm release 0.7.0           # bumps package.json, tauri.conf.json, Cargo.toml; commits; tags takeoff-v0.7.0
+git push && git push origin takeoff-v0.7.0
 ```
 
-The tag triggers `.github/workflows/release.yml`, which builds on Windows and macOS, signs the
-updater artifacts and publishes one GitHub Release in the public repository
+The `takeoff-v` prefix keeps these tags apart from anything else in the monorepo. The tag
+triggers `.github/workflows/takeoff-release.yml` (at the repository root), which builds on
+Windows and macOS, signs the updater artifacts and publishes one GitHub Release, named `v0.7.0`
+as before the move, in the public repository
 [Patolord/takeoff-releases](https://github.com/Patolord/takeoff-releases) with the `.exe`, the
-`.dmg`, their `.sig` files and a shared `latest.json` (one entry per platform). Installed copies read that repository's
-`releases/latest/download/latest.json` (checked once at launch) and offer the
-update. Secrets in this private repository: `TAURI_SIGNING_PRIVATE_KEY`,
+`.dmg`, their `.sig` files and a shared `latest.json` (one entry per platform). Installed copies
+read that repository's `releases/latest/download/latest.json` (checked once at launch) and offer
+the update. Secrets in this private repository: `TAURI_SIGNING_PRIVATE_KEY`,
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` and `RELEASE_TOKEN` (a GitHub token that may create
 releases in takeoff-releases). To build and sign locally instead, set the two signing variables
-and run `bun run tauri:build`.
+and run `pnpm tauri:build`.
 
 If the tag cannot be pushed from where you are (a cloud session may only push its own branch),
-run the `release` workflow by hand from the Actions tab on a commit that already carries the
-bumped version: it checks the version against `tauri.conf.json`, creates the `vX.Y.Z` tag itself
-and then builds and publishes as usual.
+run the `takeoff-release` workflow by hand from the Actions tab on a commit that already carries
+the bumped version: it checks the version against `tauri.conf.json`, creates the
+`takeoff-vX.Y.Z` tag itself and then builds and publishes as usual.
 
 ## Quality gates
 
-`.github/workflows/ci.yml` runs these on every pull request and push to `main`: types, lint and
-tests for the frontend, `cargo fmt --check` and `cargo clippy -- -D warnings` for `src-tauri`.
+`.github/workflows/ci.yml` runs types, lint and tests for every workspace package, this one
+included, through Turbo on every pull request and push to `master`.
+`.github/workflows/takeoff-rust.yml` runs `cargo fmt --check` and `cargo clippy -- -D warnings`
+for `src-tauri` when it changes.
 
 ```bash
-bun run check-types    # tsc
-bun run lint           # biome
-bun run test           # vitest: geometry, quantities, migrations, catalog, ducts, VRF, weights, pdf
-bun run inspect <pdf>  # page sizes, op counts, vector density of a PDF
-bun scripts/bench-vectors.ts <pdf>   # extraction + indexing timings
+pnpm check-types       # tsc
+pnpm lint              # biome (this app keeps Biome; the rest of the monorepo uses ESLint)
+pnpm test              # vitest: geometry, quantities, migrations, catalog, ducts, VRF, weights, pdf
+pnpm inspect <pdf>     # page sizes, op counts, vector density of a PDF
+pnpm bench <pdf>       # vector extraction + indexing timings
 ```
 
 ## Using it

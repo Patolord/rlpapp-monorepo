@@ -1,46 +1,33 @@
-# Quality gates on every pull request and on pushes to main: types, lint and unit tests for the
-# frontend, formatting and clippy for the Rust side. The release workflow keeps its own
-# check-types + test step as a last gate before publishing.
-name: ci
+# Formatting and clippy for the Rust side of the desktop takeoff app (apps/takeoff/src-tauri).
+# Turbo does not know about cargo, so this runs on its own, only when the Rust code changes.
+# The frontend (types, lint, tests) is covered by the turbo run in ci.yml.
+name: takeoff-rust
 
 on:
   pull_request:
+    paths:
+      - "apps/takeoff/src-tauri/**"
+      - ".github/workflows/takeoff-rust.yml"
   push:
-    branches: [main]
+    branches: [master]
+    paths:
+      - "apps/takeoff/src-tauri/**"
+      - ".github/workflows/takeoff-rust.yml"
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: takeoff-rust-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 jobs:
-  web:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: "1.3.13"
-
-      - run: bun install --frozen-lockfile
-
-      - name: Types
-        run: bun run check-types
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Tests
-        run: bun run test
-
   rust:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
-        working-directory: src-tauri
+        working-directory: apps/takeoff/src-tauri
     steps:
       - uses: actions/checkout@v4
 
@@ -56,10 +43,10 @@ jobs:
 
       - uses: swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: apps/takeoff/src-tauri
 
       # tauri::generate_context! needs frontendDist (../dist) to exist; the frontend itself is not
-      # built here, the web job covers it.
+      # built here, ci.yml covers it.
       - name: Placeholder frontend
         run: mkdir -p ../dist
 

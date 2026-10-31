@@ -1,12 +1,13 @@
-// Bump the app version everywhere, commit and tag. Push the tag to trigger the release workflow.
-// Usage: bun scripts/release.mjs 0.2.0 [--no-commit]
+// Bump the app version everywhere, commit and tag takeoff-vX.Y.Z. Pushing that tag runs the
+// takeoff-release workflow (the prefix keeps it apart from other tags of the monorepo).
+// Usage, from apps/takeoff: pnpm release 0.2.0 [--no-commit]
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 
 const version = process.argv[2];
 const noCommit = process.argv.includes("--no-commit");
 if (!/^\d+\.\d+\.\d+$/.test(version ?? "")) {
-  console.error("Usage: bun scripts/release.mjs <major.minor.patch> [--no-commit]");
+  console.error("Usage: pnpm release <major.minor.patch> [--no-commit]");
   process.exit(1);
 }
 const status = execSync("git status --porcelain", { encoding: "utf8" }).trim();
@@ -47,7 +48,7 @@ execSync(
   "git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock",
 );
 execSync(`git commit -q -m "Release ${version}"`);
-execSync(`git tag -a v${version} -m "Takeoff ${version}"`);
+execSync(`git tag -a takeoff-v${version} -m "Takeoff ${version}"`);
 console.log(
-  `Committed and tagged v${version}. Publish with:\n  git push && git push origin v${version}`,
+  `Committed and tagged takeoff-v${version}. Publish with:\n  git push && git push origin takeoff-v${version}`,
 );

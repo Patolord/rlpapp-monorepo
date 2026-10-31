@@ -1,5 +1,5 @@
 // Benchmark vector extraction + indexing phases on a PDF page.
-// Usage: bun scripts/bench-vectors.ts <file.pdf> [pageNumber]
+// Usage: pnpm bench <file.pdf> [pageNumber]
 import { readFileSync } from "node:fs";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { collectPaths } from "../src/lib/pdf/vectors";

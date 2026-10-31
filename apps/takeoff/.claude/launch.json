@@ -3,14 +3,14 @@
   "configurations": [
     {
       "name": "vite",
-      "runtimeExecutable": "bun",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
       "port": 1420
     },
     {
       "name": "vite-alt",
-      "runtimeExecutable": "bun",
-      "runtimeArgs": ["run", "dev", "--", "--port", "1425"],
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev", "--port", "1425"],
       "port": 1425
     }
   ]
