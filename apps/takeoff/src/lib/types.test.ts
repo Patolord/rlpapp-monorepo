@@ -112,4 +112,15 @@ describe("migration", () => {
     expect(p.zones[2].hidden).toBe(true);
     expect("name" in p.zones[0]).toBe(false);
   });
+
+  it("loads version 4 files from before drawing revisions unchanged", () => {
+    const drawing = { id: "d", path: "/obra/planta.pdf", name: "planta.pdf", pages: [] };
+    const p = migrateProject({ ...emptyProject(), drawings: [drawing], activeDrawingId: "d" });
+    expect(p.drawings).toEqual([drawing]);
+    expect("revisions" in p.drawings[0]).toBe(false);
+    // and a file that has them keeps them
+    const revisions = [{ path: "/obra/planta-r0.pdf", name: "planta-r0.pdf", replacedAt: 1 }];
+    const q = migrateProject({ ...emptyProject(), drawings: [{ ...drawing, revisions }] });
+    expect(q.drawings[0].revisions).toEqual(revisions);
+  });
 });

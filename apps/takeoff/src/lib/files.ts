@@ -1,13 +1,26 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { useStore } from "../store";
+import { type RevisionChoice, useStore } from "../store";
 import { mergeCatalog } from "./catalog";
 import { confirmDialog } from "./dialogs";
 import { resolveDiscipline } from "./discipline";
 import { DUCT_TEMPLATE_URL, ductSheetInput, fillDuctWorkbook } from "./ductSheet";
 import { isTauri, mod } from "./platform";
 import { systemSheets } from "./quantities";
-import { basename, closePdf, isDocOpen, openPdfPath, preloadPdfPath, useDoc } from "./session";
+import {
+  basename,
+  closePdf,
+  dropDoc,
+  isDocOpen,
+  loadPdf,
+  type OpenDoc,
+  openPdfPath,
+  preloadPdfPath,
+  retireDoc,
+  revisionDocKey,
+  session,
+  useDoc,
+} from "./session";
 import { drawingOf, emptyProject, type FooterLine, migrateProject, UNTITLED } from "./types";
 import { buildVrfWorkbook } from "./vrfSheet";
 
@@ -114,8 +127,36 @@ async function warmDrawings(): Promise<void> {
   }
 }
 
+/** Drawing switches and replacements in progress (the viewer sync below waits for them). */
+let switching = 0;
+
 /** Make a drawing the active one and load its PDF (asking to relocate it when missing). */
 export async function switchDrawing(id: string): Promise<void> {
+  switching++;
+  try {
+    await showDrawing(id);
+  } finally {
+    switching--;
+  }
+}
+
+/**
+ * Keep the viewer on the active drawing's PDF when an edit changes which file that is (undo or
+ * redo of a revision replacement). Returns the unsubscribe function.
+ */
+export function syncViewerWithDrawing(): () => void {
+  return useStore.subscribe((s, prev) => {
+    if (switching || s.project === prev.project) return;
+    const id = s.project.activeDrawingId;
+    if (!id || id !== prev.project.activeDrawingId) return;
+    const d = drawingOf(s.project, id);
+    if (!d?.path || d === drawingOf(prev.project, id)) return;
+    const shown = session.activeKey;
+    if (shown && shown !== d.path) void switchDrawing(id);
+  });
+}
+
+async function showDrawing(id: string): Promise<void> {
   const store = useStore.getState();
   const drawing = drawingOf(store.project, id);
   if (!drawing) return;
@@ -147,6 +188,105 @@ export async function switchDrawing(id: string): Promise<void> {
   } catch (e) {
     store.setStatus(`Não foi possível abrir o PDF: ${e instanceof Error ? e.message : String(e)}`);
   }
+}
+
+/**
+ * Replace a drawing's PDF with a new revision ("Rev B"): pick the file, map its pages (aligning
+ * re-plotted sheets) in the revision dialog, and move the markings over as one undo step.
+ */
+export async function replaceDrawingPdf(id: string): Promise<void> {
+  const drawing = drawingOf(useStore.getState().project, id);
+  if (!drawing || useStore.getState().revisionRequest) return;
+  const picked = await open({
+    multiple: false,
+    filters: PDF_FILTER,
+    title: `Nova revisão de ${drawing.name}`,
+  });
+  if (typeof picked === "string") await replaceDrawingWith(id, picked);
+}
+
+/** Replace a drawing's PDF with the one at `path` (after the file pick; dev console in browser). */
+export async function replaceDrawingWith(id: string, path: string): Promise<void> {
+  switching++;
+  try {
+    await replaceWith(id, path);
+  } catch (e) {
+    useStore.getState().setStatus(`Não foi possível substituir a planta: ${errorText(e)}`);
+  } finally {
+    switching--;
+  }
+}
+
+const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+async function replaceWith(id: string, path: string): Promise<void> {
+  // the drawing being replaced is shown: its document and page sizes are the dialog's old side
+  const before = drawingOf(useStore.getState().project, id);
+  if (useStore.getState().project.activeDrawingId !== id || session.activeKey !== before?.path) {
+    await showDrawing(id);
+  }
+  const store = useStore.getState();
+  const drawing = drawingOf(store.project, id);
+  const oldKey = session.activeKey;
+  if (!drawing?.path || store.project.activeDrawingId !== id || oldKey !== drawing.path) return;
+  const oldSizes = useDoc.getState().sizes;
+  // a revision saved over the same file: park the parsed old version so the path reads anew
+  const samePath = drawing.path === path;
+  const parked = `${path}#substituindo`;
+  if (samePath) retireDoc(path, parked);
+  let next: OpenDoc;
+  try {
+    store.setStatus(`Abrindo ${basename(path)}…`);
+    next = await loadPdf(path);
+  } catch (e) {
+    if (samePath) retireDoc(parked, path);
+    throw e;
+  }
+  store.setStatus(`${basename(path)} aberto: confira a correspondência das páginas`);
+  const counts = oldSizes.map(() => 0);
+  for (const m of [...store.project.measurements, ...store.project.zones]) {
+    if (m.drawingId === id && m.page < counts.length) counts[m.page]++;
+  }
+  const choice = await new Promise<RevisionChoice | null>((resolve) =>
+    store.setRevisionRequest({
+      drawingId: id,
+      oldName: drawing.name,
+      newName: basename(path),
+      oldKey: samePath ? parked : (drawing.path ?? path),
+      newKey: next.key,
+      oldSizes,
+      newSizes: next.sizes,
+      counts,
+      resolve: (c) => {
+        useStore.getState().setRevisionRequest(null);
+        resolve(c);
+      },
+    }),
+  );
+  if (!choice) {
+    if (samePath) {
+      dropDoc(path);
+      retireDoc(parked, path);
+    }
+    useStore.getState().setStatus(null);
+    return;
+  }
+  const n = (p: { measurements: unknown[]; zones: unknown[] }) =>
+    p.measurements.length + p.zones.length;
+  const total = n(useStore.getState().project);
+  useStore
+    .getState()
+    .replaceDrawing(id, path, choice.pageMap, choice.transforms, next.sizes.length);
+  const after = useStore.getState().project;
+  const rev = drawingOf(after, id)?.revisions?.at(-1);
+  if (samePath) retireDoc(parked, rev ? revisionDocKey(path, rev) : `${path}#anterior`);
+  await showDrawing(id);
+  const dropped = total - n(after);
+  useStore
+    .getState()
+    .setStatus(
+      `${drawing.name} substituída por ${basename(path)}${dropped ? ` · ${dropped} marcações descartadas` : ""} · ${mod("Z")} desfaz`,
+    );
 }
 
 export async function saveProject(as = false): Promise<boolean> {

@@ -1,8 +1,8 @@
 import clsx from "clsx";
-import { FileText, Plus, X } from "lucide-react";
+import { FileText, FileUp, Plus, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { confirmDialog } from "../lib/dialogs";
-import { pickAndOpenPdf, switchDrawing } from "../lib/files";
+import { pickAndOpenPdf, replaceDrawingPdf, switchDrawing } from "../lib/files";
 import { mod } from "../lib/platform";
 import { dropDoc } from "../lib/session";
 import { useStore } from "../store";
@@ -145,6 +145,22 @@ export function DrawingTabs() {
               <FileText size={14} className={active ? "text-orange-400" : "text-neutral-500"} />
               <span className="truncate">{d.name}</span>
               <span className="font-mono text-[11px] text-neutral-500">{n}</span>
+            </button>
+            <button
+              type="button"
+              data-no-drag
+              aria-label={`Substituir a planta ${d.name} por nova revisão`}
+              title={`Substituir por nova revisão… (mantém as marcações${d.revisions?.length ? `; ${d.revisions.length} revisão(ões) anterior(es)` : ""})`}
+              onClick={(e) => {
+                e.stopPropagation();
+                void replaceDrawingPdf(d.id);
+              }}
+              className={clsx(
+                "rounded p-0.5 text-neutral-500 hover:text-orange-300 focus:opacity-100 group-hover:opacity-100",
+                active ? "opacity-70" : "opacity-0",
+              )}
+            >
+              <FileUp size={13} />
             </button>
             <button
               type="button"

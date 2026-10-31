@@ -1,3 +1,4 @@
+import type { PageMap, Similarity } from "./align";
 import type { DuctSettings, DuctSpec } from "./ducts";
 import type { Pt } from "./geom";
 import type { Kind, PageScale, Unit } from "./units";
@@ -66,12 +67,26 @@ export interface PageMeta {
   scale: PageScale | null;
 }
 
+/** A PDF a drawing pointed at before it was replaced by a newer revision. */
+export interface DrawingRevision {
+  path: string;
+  name: string;
+  /** When it was replaced (ms since epoch). */
+  replacedAt: number;
+  /** Where each of its pages went in the next revision (see lib/align); undefined = 1:1. */
+  pageMap?: PageMap;
+  /** Per old page, the alignment applied to its markings; missing or null = none. */
+  transforms?: (Similarity | null)[];
+}
+
 /** One PDF of the project. Markings and locations belong to a drawing; items are shared. */
 export interface Drawing {
   id: string;
   path: string | null;
   name: string;
   pages: PageMeta[];
+  /** Earlier PDFs of this drawing, oldest first (for the compare overlay); undefined = none. */
+  revisions?: DrawingRevision[];
 }
 
 export interface Measurement {

@@ -34,6 +34,7 @@ import { vrfTag } from "../lib/vrf";
 import { type Tool, useStore } from "../store";
 import { viewerApi } from "../viewerApi";
 import { toPage, toScreen, useViewport } from "../viewport";
+import { CompareLayer } from "./CompareLayer";
 
 type Drag =
   | { kind: "pan"; sx: number; sy: number; ox: number; oy: number; button: number; moved: boolean }
@@ -1261,6 +1262,7 @@ export function Viewer() {
       />
       <div ref={baseLayerRef} className="absolute left-0 top-0 origin-top-left" />
       <div ref={viewLayerRef} className="absolute left-0 top-0 origin-top-left" />
+      <CompareLayer />
       <canvas ref={overlayRef} className="absolute left-0 top-0" />
     </div>
   );

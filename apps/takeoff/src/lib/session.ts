@@ -8,6 +8,7 @@ import { extractText, type TextBox } from "./pdf/text";
 import { collectThenIndex, type VectorIndex } from "./pdf/vectors";
 import type { Gray } from "./pdf/visual";
 import { isTauri } from "./platform";
+import type { DrawingRevision } from "./types";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -68,6 +69,8 @@ export interface OpenDoc {
 const MAX_OPEN = 8;
 const openDocs = new Map<string, OpenDoc>();
 let active: OpenDoc | null = null;
+/** A document eviction must keep besides the one in view (the compare overlay's revision). */
+let pinned: string | null = null;
 let useCounter = 0;
 const EMPTY_VECTORS = new Map<number, VectorIndex>();
 const EMPTY_TEXTS = new Map<number, TextBox[]>();
@@ -107,6 +110,10 @@ export const session = {
   },
   get openCount(): number {
     return openDocs.size;
+  },
+  /** Key of the document in view (its path, or the dev key). */
+  get activeKey(): string | null {
+    return active?.key ?? null;
   },
 };
 
@@ -149,7 +156,7 @@ function destroyEntry(entry: OpenDoc) {
 function evict() {
   if (openDocs.size <= MAX_OPEN) return;
   const victims = [...openDocs.values()]
-    .filter((e) => e !== active)
+    .filter((e) => e !== active && e.key !== pinned)
     .sort((a, b) => a.used - b.used)
     .slice(0, openDocs.size - MAX_OPEN);
   for (const v of victims) {
@@ -291,6 +298,47 @@ export async function preloadPdfPath(path: string): Promise<void> {
   const buf = await invoke<ArrayBuffer>("read_file", { path });
   const entry = await preloadPdfBytes(new Uint8Array(buf), basename(path), path);
   await entry.renderer.renderBase(0).catch(() => {});
+}
+
+/** Keep one document open whatever eviction decides (null releases it). */
+export function pinDoc(key: string | null): void {
+  pinned = key;
+  evict();
+}
+
+/**
+ * Move an open document to another key. Used when a revision overwrote its PDF in place: the
+ * parsed old version stays reachable under `asKey` for the compare overlay, and the next open of
+ * the path parses the new file (with a fresh snap index and rasters) instead of the stale cache.
+ */
+export function retireDoc(key: string, asKey: string): void {
+  const entry = openDocs.get(key);
+  if (!entry) return;
+  openDocs.delete(key);
+  const previous = openDocs.get(asKey);
+  if (previous && previous !== active) destroyEntry(previous);
+  entry.key = asKey;
+  openDocs.set(asKey, entry);
+}
+
+/**
+ * Session key of a drawing's earlier revision: its path, or a key of its own when the revision
+ * was written over the same file (reachable only while the old version is still parsed).
+ */
+export const revisionDocKey = (currentPath: string | null, rev: DrawingRevision): string =>
+  rev.path === currentPath ? `${rev.path}#${rev.replacedAt}` : rev.path;
+
+/** Bytes of a PDF on disk: through Rust in the app, through Vite's /@fs/ in browser dev mode. */
+export async function readPdfBytes(path: string): Promise<Uint8Array> {
+  if (isTauri()) return new Uint8Array(await invoke<ArrayBuffer>("read_file", { path }));
+  const res = await fetch(`/@fs/${path.replace(/\\/g, "/")}`);
+  if (!res.ok) throw new Error(`${res.status} loading ${path}`);
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+/** Parse a PDF without showing it (instant when it is already open) and return it. */
+export async function loadPdf(path: string): Promise<OpenDoc> {
+  return openDocs.get(path) ?? preloadPdfBytes(await readPdfBytes(path), basename(path), path);
 }
 
 /** Forget one PDF (its planta was removed from the takeoff). */

@@ -13,6 +13,7 @@ import { LegendDialog } from "./components/LegendDialog";
 import { NewProjectDialog } from "./components/NewProjectDialog";
 import { PageStrip } from "./components/PageStrip";
 import { PanelDivider } from "./components/PanelDivider";
+import { RevisionDialog } from "./components/RevisionDialog";
 import { SelectionBar } from "./components/SelectionBar";
 import { Sidebar } from "./components/Sidebar";
 import { SimilarPreviewBar } from "./components/SimilarPreviewBar";
@@ -27,7 +28,13 @@ import { WeightsDialog } from "./components/WeightsDialog";
 import { Welcome } from "./components/Welcome";
 import { ZoneDialog } from "./components/ZoneDialog";
 import { useHotkeys } from "./hotkeys";
-import { autosave, confirmDiscard, openPdfFiles, openProjectFile } from "./lib/files";
+import {
+  autosave,
+  confirmDiscard,
+  openPdfFiles,
+  openProjectFile,
+  syncViewerWithDrawing,
+} from "./lib/files";
 import { isTauri } from "./lib/platform";
 import { useDoc } from "./lib/session";
 import { checkForUpdate } from "./lib/updater";
@@ -41,6 +48,9 @@ export default function App() {
   useEffect(() => {
     if (numPages) useStore.getState().ensurePages(numPages);
   }, [numPages]);
+
+  // undo/redo of a revision replacement changes the active drawing's PDF: follow it
+  useEffect(() => syncViewerWithDrawing(), []);
 
   // native file drop (Tauri delivers real paths)
   useEffect(() => {
@@ -128,6 +138,7 @@ export default function App() {
             <CalibrateDialog />
             <ZoneDialog />
             <LegendDialog />
+            <RevisionDialog />
           </div>
           <SpecialtyDrawer />
         </div>

@@ -2,6 +2,7 @@ import clsx from "clsx";
 import {
   ChevronLeft,
   ChevronRight,
+  GitCompare,
   Grid3x3,
   Magnet,
   Maximize,
@@ -14,6 +15,7 @@ import { useEffect, useState } from "react";
 import { ALT, MOD } from "../lib/platform";
 import { pageScale } from "../lib/quantities";
 import { useDoc } from "../lib/session";
+import { activeDrawing } from "../lib/types";
 import { useStore } from "../store";
 import { viewerApi } from "../viewerApi";
 import { useViewport } from "../viewport";
@@ -138,6 +140,10 @@ export function StatusBar() {
   const numPages = useDoc((s) => s.numPages);
   const { setPage, setScalePickerOpen } = useStore.getState();
   const { toggleSnap, toggleOrtho } = useStore.getState();
+  const compare = useStore((s) => s.compareRevision);
+  const previousRevision = useStore(
+    (s) => activeDrawing(s.project)?.revisions?.at(-1)?.name ?? null,
+  );
   const [zoom, setZoom] = useState(useViewport.getState().zoom);
   useEffect(() => useViewport.subscribe((v) => setZoom(v.zoom)), []);
   const zoomButton = (
@@ -279,6 +285,15 @@ export function StatusBar() {
         icon={Grid3x3}
         onClick={toggleOrtho}
       />
+      {previousRevision && (
+        <Toggle
+          on={compare}
+          label="comparar"
+          hint={`sobrepõe a revisão anterior, ${previousRevision}: vermelho = só na antiga, azul = só na nova, preto = igual`}
+          icon={GitCompare}
+          onClick={() => useStore.getState().setCompareRevision(!compare)}
+        />
+      )}
       {zoneFilterName && (
         <button
           type="button"

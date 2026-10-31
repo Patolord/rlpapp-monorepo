@@ -149,8 +149,10 @@ hair/medium borders, accounting formats, A4 landscape at 75 %).
 src/
   components/   Viewer (canvas layers + tools), side panels, dialogs, ui.tsx (Button, Backdrop…)
   store/        zustand store in slices: project (model, drawings, undo), items (items,
-                measurements, locations), ducts, vrf, catalog, similar, view (tool, filters, dialogs)
+                measurements, locations), ducts, vrf, catalog, similar, revisions (replace dialog,
+                compare overlay), view (tool, filters, dialogs)
   lib/types.ts  project model and file-version migrations
+  lib/align.ts  drawing revisions: two-point similarity, page map, moving markings to a new PDF
   lib/          geom, units, quantities (quote math), budgetOrder, overlay (canvas painting),
                 files (open/save/export), session (open PDFs), platform, text
   lib/catalog*  material catalog: local store, company API, proposals
@@ -168,6 +170,15 @@ samples/        client drawings and budget sheets (confidential, git-ignored)
 A project holds several drawings (PDFs): markings, locations and scales belong to the drawing
 they were made on, items and quantities are shared by the whole project. The top-bar switcher
 changes the drawing in view or adds another PDF.
+
+When the client sends a new revision, the upload icon on the drawing's tab (**Substituir por nova
+revisão…**) points the drawing at the new PDF and keeps its markings: a dialog maps old pages to
+new ones (1:1 by default; "—" drops a page's markings after a confirmation) and, for a sheet
+re-plotted at another size or position, aligns it by clicking the same two reference points on
+the old and new page (shift, uniform scale and rotation; the page scale follows, so quantities
+stay the same). It is one undo step. The drawing remembers its earlier PDFs, and **comparar** in
+the status bar lays the previous revision under the current one: red only in the old, blue only
+in the new, black where they match.
 
 Project files are JSON (`*.takeoff.json`) referencing each PDF by path; an autosave is written
 to the app data folder every 15 s while there are unsaved changes.

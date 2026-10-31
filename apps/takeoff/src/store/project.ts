@@ -1,7 +1,8 @@
+import { applyRevision, type PageMap, type Similarity } from "../lib/align";
 import { moveItemInBudget } from "../lib/budgetOrder";
 import { mergeCatalog } from "../lib/catalog";
 import { syncDuctItems } from "../lib/ductItems";
-import { useDoc } from "../lib/session";
+import { basename, useDoc } from "../lib/session";
 import {
   activeDrawing,
   type DisciplineSettings,
@@ -53,6 +54,18 @@ export interface ProjectSlice {
   /** Reorders the plantas: puts `id` right before `beforeId`, or last when it is null. */
   moveDrawing(id: string, beforeId: string | null): void;
   removeDrawing(id: string): void;
+  /**
+   * Point a drawing at a new revision of its PDF as one undo step: the old file joins its
+   * revision history, and its markings and locations follow `pageMap` (old page → new page, null
+   * drops them) and the per-old-page alignment `transforms` (see lib/align).
+   */
+  replaceDrawing(
+    id: string,
+    path: string,
+    pageMap: PageMap,
+    transforms: (Similarity | null)[],
+    pageCount: number,
+  ): void;
   setActiveDrawing(id: string | null): void;
   setFilePath(path: string | null): void;
   markSaved(): void;
@@ -153,6 +166,23 @@ export const createProjectSlice: Slice<ProjectSlice> = (set, get) => ({
       });
     });
     set({ selection: [], zoneFilter: null, page: 0 });
+  },
+
+  replaceDrawing: (id, path, pageMap, transforms, pageCount) => {
+    const before = get().project;
+    get().commit((p) =>
+      applyRevision(p, id, {
+        path,
+        name: basename(path),
+        pageMap,
+        transforms,
+        pageCount,
+        now: Date.now(),
+      }),
+    );
+    if (get().project === before || before.activeDrawingId !== id) return;
+    const page = Math.min(pageMap[get().page] ?? 0, Math.max(0, pageCount - 1));
+    set({ page, selection: [], similarPreview: null, calibration: null, pendingZone: null });
   },
 
   setActiveDrawing: (id) => {

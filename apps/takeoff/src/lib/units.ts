@@ -111,3 +111,15 @@ export const formatNumber = (v: number, currency: string, digits = 2): string =>
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(v);
+
+/**
+ * A pt-BR decimal with exactly `digits` decimals ("1,50"). Rounds first so a tiny negative
+ * value never reads "-0,00".
+ */
+export function formatFixed(v: number, digits: number): string {
+  const k = 10 ** digits;
+  return (Math.round(v * k) / k + 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
