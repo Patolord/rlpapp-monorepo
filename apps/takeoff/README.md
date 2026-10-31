@@ -227,3 +227,13 @@ in the new, black where they match.
 
 Project files are JSON (`*.takeoff.json`) referencing each PDF by path; an autosave is written
 to the app data folder every 15 s while there are unsaved changes.
+
+**Takeoffs in OneDrive or SharePoint.** Keep the takeoff file in the obra's synced folder, next to
+its PDFs, and it opens on any machine that syncs that folder, Windows or Mac. Each PDF is also
+saved relative to the takeoff file (`relPath`, e.g. `../Projetos/ARQ-101.pdf`), and a PDF missing
+at its saved path is looked up there (`src/lib/projectFile.ts`). Saving warns about a PDF kept
+outside such a folder (Downloads, another drive). If another machine saved the same file after it
+was opened here, `Ctrl+S` does not overwrite it: it offers to save a copy beside it or to reload
+the newer version, and the status bar mentions the change when the window gets focus. For work
+without internet, mark the obra folder "Sempre manter neste dispositivo", and let OneDrive finish
+syncing before switching machines.

@@ -31,6 +31,7 @@ import { useHotkeys } from "./hotkeys";
 import {
   autosave,
   confirmDiscard,
+  noticeExternalChange,
   openPdfFiles,
   openProjectFile,
   syncViewerWithDrawing,
@@ -56,6 +57,13 @@ export default function App() {
 
   // undo/redo of a revision replacement changes the active drawing's PDF: follow it
   useEffect(() => syncViewerWithDrawing(), []);
+
+  // the takeoff file may live in a synced folder: say so when another machine changed it
+  useEffect(() => {
+    const onFocus = () => void noticeExternalChange();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   // native file drop (Tauri delivers real paths)
   useEffect(() => {

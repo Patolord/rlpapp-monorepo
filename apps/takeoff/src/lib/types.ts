@@ -70,6 +70,8 @@ export interface PageMeta {
 /** A PDF a drawing pointed at before it was replaced by a newer revision. */
 export interface DrawingRevision {
   path: string;
+  /** `path` relative to the takeoff file's folder, written on save (see `Drawing.relPath`). */
+  relPath?: string;
   name: string;
   /** When it was replaced (ms since epoch). */
   replacedAt: number;
@@ -82,7 +84,15 @@ export interface DrawingRevision {
 /** One PDF of the project. Markings and locations belong to a drawing; items are shared. */
 export interface Drawing {
   id: string;
+  /** Absolute path of the PDF on this machine. */
   path: string | null;
+  /**
+   * The PDF relative to the folder of the takeoff file (`../Projetos/ARQ-101.pdf`), written on
+   * save and only in the file: a folder synced by OneDrive or SharePoint sits under a different
+   * root on each machine, and this finds the PDF there when `path` does not exist. Resolved
+   * into `path` and dropped when the file is opened (lib/projectFile.ts).
+   */
+  relPath?: string;
   name: string;
   pages: PageMeta[];
   /** Earlier PDFs of this drawing, oldest first (for the compare overlay); undefined = none. */

@@ -1,11 +1,19 @@
 import { invoke } from "@tauri-apps/api/core";
+import { downloadDir, tempDir } from "@tauri-apps/api/path";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { type RevisionChoice, useStore } from "../store";
 import { mergeCatalog } from "./catalog";
-import { confirmDialog } from "./dialogs";
+import { chooseDialog, confirmDialog } from "./dialogs";
 import { resolveDiscipline } from "./discipline";
 import { DUCT_TEMPLATE_URL, ductSheetInput, fillDuctWorkbook } from "./ductSheet";
 import { isTauri, mod } from "./platform";
+import {
+  contentHash,
+  copyPathFor,
+  resolveDrawingPaths,
+  unportableDrawings,
+  withRelativePaths,
+} from "./projectFile";
 import { systemSheets } from "./quantities";
 import {
   basename,
@@ -43,6 +51,7 @@ export async function newProject(
   const store = useStore.getState();
   const project = { ...emptyProject(), ...meta };
   closePdf();
+  fileStamp = null;
   store.resetProject(project, null);
   useStore.setState({ dirty: true });
   if (pdfs.length > 0) {
@@ -57,6 +66,7 @@ export async function newProject(
 export async function closeProject(): Promise<boolean> {
   if (!(await confirmDiscard())) return false;
   closePdf();
+  fileStamp = null;
   useStore.getState().resetProject(emptyProject(), null);
   return true;
 }
@@ -289,25 +299,90 @@ async function replaceWith(id: string, path: string): Promise<void> {
     );
 }
 
-export async function saveProject(as = false): Promise<boolean> {
+/**
+ * The project file as this window last read or wrote it. When the file sits in a folder synced
+ * by OneDrive or SharePoint, another machine may have saved a newer version since: saving over
+ * it would silently throw that version away.
+ */
+let fileStamp: { path: string; hash: string } | null = null;
+
+/** Whether `path` no longer holds what this window last read or wrote there. */
+async function changedOnDisk(path: string): Promise<boolean> {
+  if (!isTauri() || fileStamp?.path !== path) return false;
+  try {
+    if (!(await invoke<boolean>("file_exists", { path }))) return false;
+    const text = await invoke<string>("read_text", { path });
+    return contentHash(text) !== fileStamp.hash;
+  } catch {
+    return false;
+  }
+}
+
+/** Folders that are never synced, where a drawing will not be found on another machine. */
+async function localOnlyDirs(): Promise<string[]> {
+  if (!isTauri()) return [];
+  const dirs = await Promise.all([downloadDir().catch(() => ""), tempDir().catch(() => "")]);
+  return dirs.filter((d) => d !== "");
+}
+
+/**
+ * Save the takeoff. `as` (or no file yet) asks where; `suggestedPath` pre-fills that dialog.
+ * Saving over a file that another machine changed meanwhile asks first (copy, reload or cancel).
+ */
+export async function saveProject(as = false, suggestedPath?: string): Promise<boolean> {
   const store = useStore.getState();
   let path = store.filePath;
   if (!path || as) {
-    const suggested = `${store.project.name || "takeoff"}.takeoff.json`;
+    const suggested = suggestedPath ?? `${store.project.name || "takeoff"}.takeoff.json`;
     const picked = await save({ defaultPath: suggested, filters: PROJECT_FILTER });
     if (!picked) return false;
     path = picked;
+  } else if (await changedOnDisk(path)) {
+    const choice = await chooseDialog(
+      `"${basename(path)}" foi alterado em outra máquina depois que você o abriu ` +
+        "(o OneDrive ou o SharePoint sincronizou uma versão mais nova). Salvar agora apagaria aquela versão.\n\n" +
+        "Salvar como cópia: guarda as suas alterações num arquivo ao lado, sem mexer no original.\n" +
+        "Recarregar: abre a versão nova e descarta as alterações feitas aqui.",
+      { yes: "Salvar como cópia…", no: "Recarregar", cancel: "Cancelar" },
+    );
+    if (choice === "yes") return saveProject(true, copyPathFor(path));
+    if (choice === "no") {
+      if (await loadProjectFile(path)) {
+        useStore
+          .getState()
+          .setStatus(`Recarregado: a versão de ${basename(path)} salva em outra máquina`);
+      }
+    }
+    return false;
   }
-  await invoke("write_text", { path, contents: JSON.stringify(store.project, null, 2) });
+  const contents = JSON.stringify(withRelativePaths(store.project, path), null, 2);
+  await invoke("write_text", { path, contents });
+  fileStamp = { path, hash: contentHash(contents) };
   store.setFilePath(path);
   store.markSaved();
   store.pushRecent(path, store.project.name);
-  store.setStatus(`Salvo: ${basename(path)}`);
+  const away = unportableDrawings(store.project, path, await localOnlyDirs());
+  store.setStatus(
+    away.length === 0
+      ? `Salvo: ${basename(path)}`
+      : away.length === 1
+        ? `Salvo: ${basename(path)} · a planta ${away[0]} está fora da pasta do takeoff (Downloads ou outro disco) e não será encontrada em outra máquina. Mova-a para a pasta da obra.`
+        : `Salvo: ${basename(path)} · ${away.length} plantas (${away.join(", ")}) estão fora da pasta do takeoff (Downloads ou outro disco) e não serão encontradas em outra máquina. Mova-as para a pasta da obra.`,
+  );
   return true;
 }
 
 export async function openProjectFile(path: string): Promise<void> {
   if (!(await confirmDiscard())) return;
+  await loadProjectFile(path);
+}
+
+/**
+ * Read a takeoff file and show it, without asking about unsaved work. Drawings whose PDF is
+ * not at its saved path on this machine are looked up beside the file (`relPath`): the same
+ * OneDrive or SharePoint folder synced under another root.
+ */
+async function loadProjectFile(path: string): Promise<boolean> {
   const store = useStore.getState();
   let text: string;
   try {
@@ -317,14 +392,46 @@ export async function openProjectFile(path: string): Promise<void> {
       `Não foi possível abrir o takeoff: ${e instanceof Error ? e.message : String(e)}`,
     );
     useStore.setState({ recentProjects: store.recentProjects.filter((r) => r.path !== path) });
-    return;
+    return false;
   }
-  const project = migrateProject(JSON.parse(text));
+  const { project, relinked } = await resolveDrawingPaths(
+    migrateProject(JSON.parse(text)),
+    path,
+    (p) => invoke<boolean>("file_exists", { path: p }),
+  );
   closePdf();
   store.resetProject(project, path);
+  fileStamp = { path, hash: contentHash(text) };
   store.pushRecent(path, project.name);
   const first = project.activeDrawingId ?? project.drawings[0]?.id;
   if (first) await switchDrawing(first);
+  if (relinked > 0) {
+    useStore
+      .getState()
+      .setStatus(
+        `${relinked === 1 ? "1 planta encontrada" : `${relinked} plantas encontradas`} pela pasta do takeoff, neste computador`,
+      );
+  }
+  return true;
+}
+
+let noticedHash: string | null = null;
+/**
+ * Tell the user, once per version, that the open file was changed by another machine (called
+ * when the window gets focus). Saving then offers to keep a copy or reload.
+ */
+export async function noticeExternalChange(): Promise<void> {
+  const path = useStore.getState().filePath;
+  if (!path || !(await changedOnDisk(path))) return;
+  const text = await invoke<string>("read_text", { path }).catch(() => null);
+  const hash = text === null ? null : contentHash(text);
+  if (hash === null || hash === noticedHash) return;
+  noticedHash = hash;
+  useStore
+    .getState()
+    .setStatus(
+      `${basename(path)} foi alterado em outra máquina. Ao salvar, você escolhe entre salvar uma cópia ou recarregar.`,
+    );
 }
 
 export async function pickAndOpenProject(): Promise<void> {
@@ -496,6 +603,7 @@ export async function restoreAutosave(): Promise<boolean> {
   const project = migrateProject(JSON.parse(text));
   const first = project.activeDrawingId ?? project.drawings[0]?.id;
   if (!first) return false;
+  fileStamp = null;
   useStore.getState().resetProject(project, null);
   useStore.getState().setStatus("Sessão restaurada do salvamento automático (não salva)");
   await switchDrawing(first);

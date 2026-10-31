@@ -3,6 +3,7 @@ import type { PDFDocumentLoadingTask, PDFDocumentProxy } from "pdfjs-dist";
 import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { create } from "zustand";
+import { basename } from "./paths";
 import { PageRenderer } from "./pdf/render";
 import { extractText, type TextBox } from "./pdf/text";
 import { collectThenIndex, type VectorIndex } from "./pdf/vectors";
@@ -158,7 +159,7 @@ function textOf(entry: OpenDoc, page: number): Promise<TextBox[]> {
   return p;
 }
 
-export const basename = (path: string): string => path.split(/[\\/]/).pop() ?? path;
+export { basename };
 
 function destroyEntry(entry: OpenDoc) {
   entry.renderer.destroy();
