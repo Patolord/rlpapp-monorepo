@@ -1,8 +1,16 @@
 import { groupKey } from "../lib/budgetOrder";
 import { type CatalogEntry, kindForUnit, mergeCatalog, normalizeDiscipline } from "../lib/catalog";
+import {
+  type Clipboard,
+  type CloneTarget,
+  clipboardOf,
+  cloneMarkings,
+  scalesDiffer,
+} from "../lib/clone";
 import type { Pt } from "../lib/geom";
 import { kitMode } from "../lib/kits";
 import { priceSourceOfEntry } from "../lib/priceSource";
+import { pageScale } from "../lib/quantities";
 import { type Joined, reshape } from "../lib/reshape";
 import { guessSymbol } from "../lib/symbols";
 import { foldName } from "../lib/text";
@@ -84,6 +92,27 @@ export interface ItemsSlice {
   unlinkMeasurements(ids: string[]): void;
   /** Add an item to a kit group with the group's geometry. */
   addToGroup(linkId: string, itemId: string): void;
+
+  /** Copy the selected markings (measurements and regions) to the clipboard; returns how many. */
+  copySelection(): number;
+  /**
+   * Copies of the clipboard's markings on `target`, moved by `offset` (page points), in one
+   * undo step; the copies become the selection. Markings whose item was deleted since the copy
+   * are skipped. Returns the new ids. `duplicate` words the status as a duplicate, not a paste.
+   */
+  pasteMarkings(
+    clip: Clipboard,
+    target: CloneTarget,
+    offset: Pt,
+    opts?: { duplicate?: boolean },
+  ): string[];
+  /**
+   * Paste the clipboard on the page in view: centred on `at` (the page point under the cursor),
+   * or at the same page coordinates when `at` is null. Returns how many markings were pasted.
+   */
+  pasteClipboard(at: Pt | null): number;
+  /** Copies of the selection on the page in view, moved by `offset`; the clipboard is left alone. */
+  duplicateSelection(offset: Pt): number;
 
   /**
    * Draws a region on the active drawing. It joins the given location, or a new one of that
@@ -427,6 +456,90 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
       ],
     }));
     set({ selection: [...get().selection, id], status: `${item.name} adicionado ao grupo` });
+  },
+
+  copySelection: () => {
+    const clip = clipboardOf(get().project, get().selection);
+    if (!clip) return 0;
+    const n = clip.measurements.length + clip.zones.length;
+    set({
+      clipboard: clip,
+      status: `${n} ${n === 1 ? "marcação copiada" : "marcações copiadas"} · Ctrl+V cola na página atual`,
+    });
+    return n;
+  },
+
+  pasteMarkings: (clip, target, offset, opts) => {
+    const { project } = get();
+    const items = new Set(project.items.map((i) => i.id));
+    const locations = new Set([...project.locations, ...clip.locations].map((l) => l.id));
+    const kept = [
+      ...clip.measurements.filter((m) => items.has(m.itemId)),
+      ...clip.zones.filter((z) => locations.has(z.locationId)),
+    ];
+    const skipped = clip.measurements.length + clip.zones.length - kept.length;
+    if (kept.length === 0) {
+      set({ status: "Nada para colar: os itens copiados foram apagados" });
+      return [];
+    }
+    const copy = cloneMarkings(
+      clip,
+      kept.map((x) => x.id),
+      target,
+      (q) => ({ x: q.x + offset.x, y: q.y + offset.y }),
+    );
+    get().commit((p) => {
+      // a location whose last region was deleted after the copy comes back with the paste
+      const have = new Set(p.locations.map((l) => l.id));
+      const needed = new Set(copy.zones.map((z) => z.locationId));
+      const restored = clip.locations.filter((l) => needed.has(l.id) && !have.has(l.id));
+      return {
+        ...p,
+        locations: restored.length > 0 ? [...p.locations, ...restored] : p.locations,
+        measurements: [...p.measurements, ...copy.measurements],
+        zones: [...p.zones, ...copy.zones],
+      };
+    });
+    const ids = [...copy.measurements, ...copy.zones].map((x) => x.id);
+    // geometry is in page points, so quantities follow the target page's scale: say why they move
+    const toScale = pageScale(project, target.drawingId, target.page);
+    const rescaled = kept.some(
+      (x) =>
+        project.drawings.some((d) => d.id === x.drawingId) &&
+        scalesDiffer(pageScale(project, x.drawingId, x.page), toScale),
+    );
+    const done = opts?.duplicate
+      ? ids.length === 1
+        ? "marcação duplicada"
+        : "marcações duplicadas"
+      : ids.length === 1
+        ? "marcação colada"
+        : "marcações coladas";
+    const parts = [`${ids.length} ${done}`];
+    if (skipped > 0) parts.push(`${skipped} ignorada(s): item apagado`);
+    if (rescaled) parts.push("escala diferente: as quantidades serão recalculadas");
+    // select mode, so the copies can be dragged into place right away
+    if (get().tool !== "select") get().setTool("select");
+    set({ selection: ids, status: parts.join(" · ") });
+    return ids;
+  },
+
+  pasteClipboard: (at) => {
+    const { clipboard, project, page } = get();
+    if (!clipboard || !project.activeDrawingId) return 0;
+    const offset = at
+      ? { x: at.x - clipboard.anchor.x, y: at.y - clipboard.anchor.y }
+      : { x: 0, y: 0 };
+    const target = { drawingId: project.activeDrawingId, page };
+    return get().pasteMarkings(clipboard, target, offset).length;
+  },
+
+  duplicateSelection: (offset) => {
+    const { project, selection, page } = get();
+    const clip = clipboardOf(project, selection);
+    if (!clip || !project.activeDrawingId) return 0;
+    const target = { drawingId: project.activeDrawingId, page };
+    return get().pasteMarkings(clip, target, offset, { duplicate: true }).length;
   },
 
   addZone: (target, page, points) => {

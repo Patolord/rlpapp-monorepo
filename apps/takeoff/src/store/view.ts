@@ -1,3 +1,4 @@
+import type { Clipboard } from "../lib/clone";
 import {
   type Calibration,
   KIND_OF_TOOL,
@@ -51,6 +52,8 @@ export interface ViewSlice {
   legendCandidates: string[] | null;
   /** Preset the Kit tool draws with. */
   activeKitId: string | null;
+  /** Markings copied with Ctrl+C, for Ctrl+V on any page or drawing; in memory, never saved. */
+  clipboard: Clipboard | null;
   /** Transient message in the status bar (cleared by App after a few seconds). */
   status: string | null;
   /** Recently opened project files, newest first (per machine). */
@@ -94,6 +97,7 @@ export interface ViewSlice {
   setPendingZone(z: PendingZone | null): void;
   setLegendCandidates(lines: string[] | null): void;
   setActiveKit(id: string | null): void;
+  setClipboard(clip: Clipboard | null): void;
   setStatus(msg: string | null): void;
   pushRecent(path: string, name: string): void;
 
@@ -135,6 +139,7 @@ export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
   pendingZone: null,
   legendCandidates: null,
   activeKitId: readPref("activeKitId", null),
+  clipboard: null,
   status: null,
   recentProjects: readPref("recentProjects", []),
 
@@ -245,6 +250,7 @@ export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
     writePref("activeKitId", activeKitId);
     set({ activeKitId });
   },
+  setClipboard: (clipboard) => set({ clipboard }),
   setStatus: (status) => set({ status }),
   pushRecent: (path, name) => {
     const rest = get().recentProjects.filter((r) => r.path !== path);

@@ -1,4 +1,4 @@
-import type { Box } from "./lib/geom";
+import type { Box, Pt } from "./lib/geom";
 
 /** Imperative hooks into the Viewer for hotkeys, toolbar buttons and side panels. */
 export interface ViewerApi {
@@ -19,6 +19,8 @@ export interface ViewerApi {
   removeHoveredVertex(): boolean;
   deleteSelection(): void;
   selectAllOnPage(): void;
+  /** Page-space point under the mouse, or null when the pointer is off the canvas (paste target). */
+  cursorPage(): Pt | null;
 }
 
 export const viewerApi: { current: ViewerApi | null } = { current: null };

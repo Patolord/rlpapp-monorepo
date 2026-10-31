@@ -1,13 +1,15 @@
-import { ArrowUpFromLine, Link2Off, Pencil, Plus, Repeat, X } from "lucide-react";
+import { ArrowUpFromLine, Copy, CopyPlus, Link2Off, Pencil, Plus, Repeat, X } from "lucide-react";
 import { useMemo } from "react";
 import { FLANGE_LABELS, INSULATION_LABELS } from "../lib/ducts";
 import { vrfTag } from "../lib/vrf";
 import { useStore } from "../store";
+import { duplicateOffset } from "../viewport";
 import { Button } from "./ui";
 
 /**
  * Shown while measurements are selected: the vertical length of linear runs (risers and drops
- * the plan does not show) and, for a kit group, its members, add an item, ungroup.
+ * the plan does not show) and, for a kit group, its members, add an item, ungroup. Copy and
+ * duplicate are here too, for whoever does not know Ctrl+C / Ctrl+D.
  */
 export function SelectionBar() {
   const selection = useStore((s) => s.selection);
@@ -20,6 +22,8 @@ export function SelectionBar() {
     setRepeat,
     setDuctEditIds,
     setVrfEditIds,
+    copySelection,
+    duplicateSelection,
   } = useStore.getState();
   const info = useMemo(() => {
     const sel = new Set(selection);
@@ -192,6 +196,18 @@ export function SelectionBar() {
           <Link2Off size={14} /> Desagrupar
         </Button>
       )}
+      <Button
+        onClick={() => copySelection()}
+        title="Copiar a seleção (Ctrl+C); Ctrl+V cola sob o cursor em qualquer página ou planta, Ctrl+Shift+V nas mesmas coordenadas"
+      >
+        <Copy size={14} /> Copiar
+      </Button>
+      <Button
+        onClick={() => duplicateSelection(duplicateOffset())}
+        title="Duplicar a seleção ao lado, na mesma página (Ctrl+D)"
+      >
+        <CopyPlus size={14} /> Duplicar
+      </Button>
     </div>
   );
 }

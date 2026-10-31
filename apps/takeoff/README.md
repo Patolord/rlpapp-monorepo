@@ -92,6 +92,9 @@ bun scripts/bench-vectors.ts <pdf>   # extraction + indexing timings
 | `1`–`9` | Activate item n (the tool follows the item's kind) |
 | `N` | New item of the current kind |
 | `Backspace` | Undo last point / remove the vertex under the pointer / delete selection |
+| `Ctrl+C` `Ctrl+V` | Copy the selected markings / paste them on the current page, centred on the cursor (any page or drawing) |
+| `Ctrl+Shift+V` | Paste in place: same page coordinates (identical floors on another sheet) |
+| `Ctrl+D` | Duplicate the selection beside itself on the same page |
 | `Ctrl+Z` `Ctrl+Y` | Undo / redo |
 | `F` `+` `-` wheel | Fit page / zoom |
 | `PgUp` `PgDn` | Previous / next page |

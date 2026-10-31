@@ -4,6 +4,7 @@ import { isEditableTarget } from "./lib/platform";
 import { useDoc } from "./lib/session";
 import { type Tool, useStore } from "./store";
 import { viewerApi } from "./viewerApi";
+import { duplicateOffset } from "./viewport";
 
 const TOOL_KEYS: Record<string, Tool> = {
   v: "select",
@@ -58,6 +59,21 @@ export function useHotkeys() {
           case "a":
             e.preventDefault();
             api?.selectAllOnPage();
+            return;
+          case "c":
+            // nothing selected: leave the key to the system (text copied elsewhere)
+            if (s.selection.length === 0) return;
+            e.preventDefault();
+            s.copySelection();
+            return;
+          case "v":
+            // Shift: same page coordinates (identical floors); else centred on the cursor
+            e.preventDefault();
+            s.pasteClipboard(e.shiftKey ? null : (api?.cursorPage() ?? null));
+            return;
+          case "d":
+            e.preventDefault();
+            s.duplicateSelection(duplicateOffset());
             return;
           case "k":
             e.preventDefault();

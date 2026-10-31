@@ -933,6 +933,7 @@ export function Viewer() {
             .map((m) => m.id),
         );
       },
+      cursorPage: () => st.current.cursor,
     };
     return () => {
       ro.disconnect();

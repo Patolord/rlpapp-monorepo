@@ -87,3 +87,9 @@ export const toPage = (s: Pt, v: { zoom: number; x: number; y: number }): Pt => 
   x: (s.x - v.x) / v.zoom,
   y: (s.y - v.y) / v.zoom,
 });
+
+/** How far a duplicate (Ctrl+D) lands from its original: a few screen pixels at the current zoom. */
+export function duplicateOffset(): Pt {
+  const d = 16 / useViewport.getState().zoom;
+  return { x: d, y: d };
+}
