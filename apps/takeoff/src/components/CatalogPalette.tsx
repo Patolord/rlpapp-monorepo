@@ -142,7 +142,9 @@ export function CatalogPalette() {
                     e.name
                   )}
                   {e.sku && (
-                    <span className="ml-2 whitespace-nowrap font-mono text-[10px] text-neutral-500">{e.sku}</span>
+                    <span className="ml-2 whitespace-nowrap font-mono text-[10px] text-neutral-500">
+                      {e.sku}
+                    </span>
                   )}
                 </span>
                 {e.status === "draft" && (

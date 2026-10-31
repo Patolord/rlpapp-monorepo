@@ -778,12 +778,7 @@ fn write_footer(
                         )
                         .map_err(xe)?,
                     None => ws
-                        .write_number_with_format(
-                            r,
-                            COL_U_MAT,
-                            value.unwrap_or(0.0),
-                            &st.foot_num,
-                        )
+                        .write_number_with_format(r, COL_U_MAT, value.unwrap_or(0.0), &st.foot_num)
                         .map_err(xe)?,
                 };
                 ws.write_number_with_format(r, COL_U_LAB, *factor, &st.foot_factor)
@@ -848,10 +843,7 @@ fn write_footer(
             ws.write_formula_with_format(
                 r,
                 COL_T_LAB,
-                Formula::new(format!(
-                    "=IF({p}=0,0,ROUND({}/{p},2))",
-                    cell(COL_T_TOT, r)
-                )),
+                Formula::new(format!("=IF({p}=0,0,ROUND({}/{p},2))", cell(COL_T_TOT, r))),
                 money,
             )
             .map_err(xe)?;

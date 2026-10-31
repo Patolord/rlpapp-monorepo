@@ -61,6 +61,9 @@ and then builds and publishes as usual.
 
 ## Quality gates
 
+`.github/workflows/ci.yml` runs these on every pull request and push to `main`: types, lint and
+tests for the frontend, `cargo fmt --check` and `cargo clippy -- -D warnings` for `src-tauri`.
+
 ```bash
 bun run check-types    # tsc
 bun run lint           # biome

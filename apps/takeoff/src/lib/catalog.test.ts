@@ -9,8 +9,8 @@ import {
   parseRemoteCatalogResponse,
   productName,
   SEED,
-  upgradeRemoteEntry,
   searchCatalog,
+  upgradeRemoteEntry,
 } from "./catalog";
 
 const parseRemoteCatalog = (json: unknown) => parseRemoteCatalogResponse(json).entries;
@@ -106,10 +106,14 @@ describe("catalog", () => {
     expect(productName("Exaustor", "Exaustor")).toEqual({ name: "Exaustor" });
     expect(productName("Exaustor", "Outro nome")).toEqual({ name: "Exaustor" });
     // the spec after the variant is not part of the name; a spec alone is not a variant
-    expect(productName("Acionador", "Acionador — Verin VRE-AM2 - Endereçável — LEDs; IP65")).toEqual(
-      { name: "Acionador — Verin VRE-AM2 - Endereçável", variant: "Verin VRE-AM2 - Endereçável" },
-    );
-    const spec = "cadastro histórico genérico: fabricante, modelo, tecnologia e tensão não confirmados; revisar o projeto antes da compra";
+    expect(
+      productName("Acionador", "Acionador — Verin VRE-AM2 - Endereçável — LEDs; IP65"),
+    ).toEqual({
+      name: "Acionador — Verin VRE-AM2 - Endereçável",
+      variant: "Verin VRE-AM2 - Endereçável",
+    });
+    const spec =
+      "cadastro histórico genérico: fabricante, modelo, tecnologia e tensão não confirmados; revisar o projeto antes da compra";
     expect(productName("Espelho", `Espelho — ${spec}`)).toEqual({ name: "Espelho" });
     // the payload's own variant wins over the description
     expect(productName("Espelho", `Espelho — ${spec}`, "Branco")).toEqual({
@@ -117,7 +121,14 @@ describe("catalog", () => {
       variant: "Branco",
     });
     // entries cached by an earlier version are renamed once, never twice
-    const old = { name: "Exaustor", description: "Exaustor — Sicflux SONORA 18", group: "", unit: "pç", materialPrice: 0, laborPrice: 0 };
+    const old = {
+      name: "Exaustor",
+      description: "Exaustor — Sicflux SONORA 18",
+      group: "",
+      unit: "pç",
+      materialPrice: 0,
+      laborPrice: 0,
+    };
     const upgraded = upgradeRemoteEntry(old);
     expect(upgraded.name).toBe("Exaustor — Sicflux SONORA 18");
     expect(upgradeRemoteEntry(upgraded)).toBe(upgraded);
