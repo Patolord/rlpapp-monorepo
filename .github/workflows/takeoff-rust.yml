@@ -1,0 +1,57 @@
+# Formatting and clippy for the Rust side of the desktop takeoff app (apps/takeoff/src-tauri).
+# Turbo does not know about cargo, so this runs on its own, only when the Rust code changes.
+# The frontend (types, lint, tests) is covered by the turbo run in ci.yml.
+name: takeoff-rust
+
+on:
+  pull_request:
+    paths:
+      - "apps/takeoff/src-tauri/**"
+      - ".github/workflows/takeoff-rust.yml"
+  push:
+    branches: [master]
+    paths:
+      - "apps/takeoff/src-tauri/**"
+      - ".github/workflows/takeoff-rust.yml"
+
+concurrency:
+  group: takeoff-rust-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/takeoff/src-tauri
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tauri system dependencies
+        working-directory: .
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/takeoff/src-tauri
+
+      # tauri::generate_context! needs frontendDist (../dist) to exist; the frontend itself is not
+      # built here, ci.yml covers it.
+      - name: Placeholder frontend
+        run: mkdir -p ../dist
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --locked -- -D warnings

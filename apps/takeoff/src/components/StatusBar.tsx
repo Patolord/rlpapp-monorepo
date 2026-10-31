@@ -1,0 +1,330 @@
+import clsx from "clsx";
+import {
+  ChevronLeft,
+  ChevronRight,
+  GitCompare,
+  Grid3x3,
+  Magnet,
+  Maximize,
+  PaintBucket,
+  Proportions,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { ALT, MOD } from "../lib/platform";
+import { pageScale } from "../lib/quantities";
+import { useDoc } from "../lib/session";
+import { activeDrawing } from "../lib/types";
+import { useStore } from "../store";
+import { viewerApi } from "../viewerApi";
+import { useViewport } from "../viewport";
+import { ScalePicker } from "./ScalePicker";
+import { Kbd } from "./ui";
+
+/** A bottom-bar toggle (snap, ortho): a small chip that lights up while on. */
+function Toggle({
+  on,
+  label,
+  hint,
+  icon: Icon,
+  onClick,
+}: {
+  on: boolean;
+  label: string;
+  hint: string;
+  icon: typeof Magnet;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={on}
+      title={`${label} (${hint})`}
+      className={clsx(
+        "flex items-center gap-1 rounded px-1.5 py-0.5 ring-1",
+        on
+          ? "bg-orange-500/15 text-orange-300 ring-orange-400/60"
+          : "text-neutral-400 ring-neutral-700 hover:bg-neutral-700 hover:text-neutral-200",
+      )}
+    >
+      <Icon size={13} />
+      {label}
+    </button>
+  );
+}
+
+/** True under `vite` / `tauri dev`; false in the packaged app. */
+const DEV = import.meta.env.DEV;
+
+const HINTS: Record<string, React.ReactNode> = {
+  select: (
+    <>
+      Clique para selecionar · arraste para mover · <Kbd>{ALT}</Kbd>+clique num texto nomeia o item
+      · <Kbd>{ALT}</Kbd>+arraste sobre a legenda cria itens
+    </>
+  ),
+  pan: "Arraste para mover a vista · roda do mouse para zoom",
+  count: "Clique para marcar uma contagem",
+  linear: (
+    <>
+      Clique nos pontos · <Kbd>Enter</Kbd>, duplo clique ou botão direito para concluir ·{" "}
+      <Kbd>Backspace</Kbd> desfaz um ponto
+    </>
+  ),
+  area: (
+    <>
+      Clique nos pontos · clique no primeiro ponto ou <Kbd>Enter</Kbd> para fechar
+    </>
+  ),
+  rect: "Arraste um retângulo",
+  magic: "Clique dentro de um ambiente fechado para detectar o contorno",
+  calibrate: "Clique em dois pontos de distância conhecida",
+  duct: (
+    <>
+      Clique nos pontos do duto · <Kbd>Enter</Kbd> conclui e pede lado maior × lado menor
+    </>
+  ),
+  vrf: (
+    <>
+      Clique nos pontos da linha frigorígena · <Kbd>Enter</Kbd> conclui e pede o tipo do trecho
+      (condensadora, intermediário, evaporadora) e a capacidade
+    </>
+  ),
+  kit: (
+    <>
+      Preset linear: clique nos pontos e <Kbd>Enter</Kbd> conclui · preset de contagem: um clique
+      coloca todos os componentes, agrupados
+    </>
+  ),
+  similar: (
+    <>
+      Arraste uma caixa justa ao redor de um símbolo: os parecidos aparecem como prévia, clique
+      exclui, <Kbd>Enter</Kbd> marca · <Kbd>{MOD}</Kbd>+<Kbd>K</Kbd> abre o catálogo
+    </>
+  ),
+  zone: (
+    <>
+      Delimite o local clicando nos pontos · clique no primeiro ponto ou <Kbd>Enter</Kbd> para
+      fechar e dar nome
+    </>
+  ),
+};
+
+export function StatusBar() {
+  const page = useStore((s) => s.page);
+  const tool = useStore((s) => s.tool);
+  const snap = useStore((s) => s.snap);
+  const ortho = useStore((s) => s.ortho);
+  const status = useStore((s) => s.status);
+  const scale = useStore((s) => pageScale(s.project, s.project.activeDrawingId, s.page));
+  const selCount = useStore((s) => s.selection.length);
+  const activeKitId = useStore((s) => s.activeKitId);
+  const activeKitName = useStore(
+    (s) => s.catalog.kits.find((k) => k.id === s.activeKitId)?.name ?? null,
+  );
+  const zoneFilterName = useStore((s) =>
+    s.zoneFilter === null
+      ? null
+      : s.zoneFilter === ""
+        ? "Sem local"
+        : (s.project.locations.find((l) => l.id === s.zoneFilter)?.name ?? null),
+  );
+  const setZoneFilter = useStore((s) => s.setZoneFilter);
+  const fillOpacity = useStore((s) => s.fillOpacity);
+  const fillsVisible = useStore((s) => s.fillsVisible);
+  const { setFillOpacity, setFillsVisible } = useStore.getState();
+  const [fillOpen, setFillOpen] = useState(false);
+  const open = useStore((s) => s.scalePickerOpen);
+  const numPages = useDoc((s) => s.numPages);
+  const { setPage, setScalePickerOpen } = useStore.getState();
+  const { toggleSnap, toggleOrtho } = useStore.getState();
+  const compare = useStore((s) => s.compareRevision);
+  const previousRevision = useStore(
+    (s) => activeDrawing(s.project)?.revisions?.at(-1)?.name ?? null,
+  );
+  const [zoom, setZoom] = useState(useViewport.getState().zoom);
+  useEffect(() => useViewport.subscribe((v) => setZoom(v.zoom)), []);
+  const zoomButton = (
+    label: string,
+    hint: string,
+    Icon: typeof ZoomIn,
+    onClick: () => void,
+    disabled = false,
+  ) => (
+    <button
+      type="button"
+      className="rounded p-0.5 hover:bg-neutral-700 disabled:opacity-30"
+      disabled={disabled}
+      onClick={onClick}
+      title={`${label} (${hint})`}
+      aria-label={label}
+    >
+      <Icon size={14} />
+    </button>
+  );
+
+  return (
+    <div
+      className={clsx(
+        "relative flex h-7 items-center gap-3 whitespace-nowrap border-t px-2 text-[12px]",
+        // development build (vite / tauri dev): amber bar so it is never mistaken for the installed app
+        DEV
+          ? "border-amber-500/60 bg-amber-900/60 text-amber-100"
+          : "border-neutral-800 bg-neutral-900 text-neutral-400",
+      )}
+    >
+      {DEV && (
+        <span
+          title="Build de desenvolvimento (vite / tauri dev), não o app instalado"
+          className="rounded bg-amber-400 px-1.5 py-px font-mono text-[10px] font-bold leading-4 text-amber-950"
+        >
+          DEV
+        </span>
+      )}
+      <div className="flex items-center gap-0.5">
+        <button
+          type="button"
+          className="rounded p-0.5 hover:bg-neutral-700 disabled:opacity-30"
+          disabled={page <= 0}
+          onClick={() => setPage(page - 1)}
+          aria-label="Página anterior"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <span className="font-mono text-neutral-200">
+          {numPages ? page + 1 : 0} / {numPages}
+        </span>
+        <button
+          type="button"
+          className="rounded p-0.5 hover:bg-neutral-700 disabled:opacity-30"
+          disabled={page >= numPages - 1}
+          onClick={() => setPage(page + 1)}
+          aria-label="Próxima página"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+      <div className="flex items-center gap-0.5" title="Zoom da vista (roda do mouse também)">
+        {zoomButton("Afastar", "−", ZoomOut, () => viewerApi.current?.zoomBy(0.8), !numPages)}
+        <span className="w-10 text-center font-mono text-neutral-200">
+          {(zoom * 100).toFixed(0)}%
+        </span>
+        {zoomButton("Aproximar", "+", ZoomIn, () => viewerApi.current?.zoomBy(1.25), !numPages)}
+        {zoomButton("Ajustar página", "F", Maximize, () => viewerApi.current?.fit(), !numPages)}
+      </div>
+      <button
+        type="button"
+        onClick={() => setScalePickerOpen(!open)}
+        className={`flex items-center gap-1 rounded px-1.5 py-0.5 ring-1 ${
+          scale
+            ? "ring-neutral-700 text-neutral-200 hover:bg-neutral-700"
+            : "bg-amber-500/15 text-amber-300 ring-amber-500/50"
+        }`}
+        title="Escala da página"
+      >
+        <Proportions size={14} />
+        {scale ? scale.label : "Definir escala"}
+      </button>
+      <button
+        type="button"
+        onClick={() => setFillOpen(!fillOpen)}
+        title="Preenchimento das áreas e locais (Shift+Z alterna contorno/preenchido)"
+        className={`flex items-center gap-1 rounded px-1.5 py-0.5 ring-1 ${
+          fillsVisible
+            ? "ring-neutral-700 text-neutral-200 hover:bg-neutral-700"
+            : "bg-orange-500/15 text-orange-300 ring-orange-400"
+        }`}
+      >
+        <PaintBucket size={14} />
+        {fillsVisible ? `${Math.round(fillOpacity * 100)}%` : "contorno"}
+      </button>
+      {fillOpen && (
+        <div className="absolute bottom-8 left-40 z-20 w-64 rounded-lg border border-neutral-700 bg-neutral-900 p-3 text-xs shadow-xl">
+          <div className="mb-2 font-semibold text-neutral-100">Preenchimento (hachura)</div>
+          <label className="flex items-center gap-2 text-neutral-400">
+            <input
+              type="checkbox"
+              checked={fillsVisible}
+              onChange={(e) => setFillsVisible(e.target.checked)}
+            />
+            Preencher áreas e locais
+          </label>
+          <label className="mt-2 flex items-center gap-2 text-neutral-400">
+            Opacidade
+            <input
+              type="range"
+              min={5}
+              max={100}
+              step={5}
+              value={Math.round(fillOpacity * 100)}
+              onChange={(e) => setFillOpacity(Number(e.target.value) / 100)}
+              disabled={!fillsVisible}
+              className="min-w-0 flex-1 accent-[#2b3990]"
+            />
+            <span className="w-9 text-right font-mono">{Math.round(fillOpacity * 100)}%</span>
+          </label>
+          <p className="mt-2 text-[11px] text-neutral-500">
+            Só muda a exibição; as quantidades não são afetadas. <Kbd>Shift</Kbd>+<Kbd>Z</Kbd>{" "}
+            alterna rapidamente.
+          </p>
+        </div>
+      )}
+      <Toggle
+        on={snap}
+        label="snap"
+        hint="S: encaixa nos traços do desenho"
+        icon={Magnet}
+        onClick={toggleSnap}
+      />
+      <Toggle
+        on={ortho}
+        label="orto"
+        hint="O ou segure Shift: trava em 45°"
+        icon={Grid3x3}
+        onClick={toggleOrtho}
+      />
+      {previousRevision && (
+        <Toggle
+          on={compare}
+          label="comparar"
+          hint={`sobrepõe a revisão anterior, ${previousRevision}: vermelho = só na antiga, azul = só na nova, preto = igual`}
+          icon={GitCompare}
+          onClick={() => useStore.getState().setCompareRevision(!compare)}
+        />
+      )}
+      {zoneFilterName && (
+        <button
+          type="button"
+          onClick={() => setZoneFilter(null)}
+          title="Limpar o filtro de local"
+          className="rounded bg-orange-500/15 px-1.5 py-0.5 text-orange-300 ring-1 ring-orange-400/60"
+        >
+          local: {zoneFilterName} ×
+        </button>
+      )}
+      {tool === "kit" && (
+        <button
+          type="button"
+          onClick={() => useStore.getState().setKitPickerOpen(true)}
+          title="Trocar o preset do kit"
+          className="rounded bg-orange-500/15 px-1.5 py-0.5 text-orange-300 ring-1 ring-orange-400/60"
+        >
+          kit: {activeKitId && activeKitName ? activeKitName : "escolha o preset"} ▾
+        </button>
+      )}
+      {selCount > 0 && (
+        <span className="text-neutral-200">
+          {selCount} {selCount === 1 ? "selecionado" : "selecionados"}
+        </span>
+      )}
+      <span
+        className={clsx("ml-auto min-w-0 truncate", DEV ? "text-amber-200/80" : "text-neutral-500")}
+      >
+        {status ?? HINTS[tool]}
+      </span>
+      {open && <ScalePicker onClose={() => setScalePickerOpen(false)} />}
+    </div>
+  );
+}
