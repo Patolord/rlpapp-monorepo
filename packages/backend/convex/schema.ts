@@ -145,6 +145,7 @@ export const takeoffBudgetMeta = v.object({
   sheets: v.array(takeoffBudgetSheet),
 });
 
+// Validadores da tabela `ductEstimates` (deprecated, somente leitura; ver a tabela).
 export const ductNorma = v.union(v.literal(1), v.literal(2), v.literal(3));
 
 export const ductExternalInsulation = v.union(
@@ -846,6 +847,11 @@ export default defineSchema({
     // Texto denormalizado para busca (nome, sku, fabricante, etc.).
     searchText: v.optional(v.string()),
     imageId: v.optional(v.id("_storage")),
+    // Mão de obra por unidade (`unit`) usada nos orçamentos do RLP Takeoff,
+    // em centavos. Ausente = sem preço de mão de obra cadastrado.
+    laborPriceCents: v.optional(v.number()),
+    // Quando o preço de mão de obra foi definido pela última vez.
+    laborPriceUpdatedAt: v.optional(v.number()),
     active: v.boolean(),
     status: v.optional(materialStatus),
     // Set when this material was merged into another (status "archived");
@@ -963,6 +969,11 @@ export default defineSchema({
     .index("by_created", ["createdAt"])
     .index("by_source_external", ["source", "externalId"]),
 
+  // DEPRECATED, somente leitura. Levantamentos de dutos da antiga calculadora do
+  // dashboard (removida: o cálculo de dutos agora é só o do app takeoff, em
+  // @rlpapp/shared/engenharia/ducts). Nenhuma função lê nem grava esta tabela; a
+  // definição fica para que os documentos já gravados em produção continuem
+  // válidos, até o dono decidir exportá-los ou apagá-los. Não apagar dados aqui.
   ductEstimates: defineTable({
     projectId: v.id("projects"),
     name: v.string(),

@@ -1,6 +1,3 @@
-import ExcelJS from "exceljs";
-import type { CatalogEntry } from "./catalog";
-import { ductBillFor, ductNetworks } from "./ductItems";
 import {
   DEFAULT_DUCT_SETTINGS,
   type DuctFlange,
@@ -11,7 +8,10 @@ import {
   GAUGES,
   type GaugeWeights,
   gaugeKgm2,
-} from "./ducts";
+} from "@rlpapp/shared/engenharia/ducts";
+import ExcelJS from "exceljs";
+import type { CatalogEntry } from "./catalog";
+import { ductBillFor, ductNetworks } from "./ductItems";
 import { foldName } from "./text";
 import type { Project } from "./types";
 

@@ -19,7 +19,6 @@ import type * as contracts from "../contracts.js";
 import type * as crons from "../crons.js";
 import type * as customers from "../customers.js";
 import type * as dashboard from "../dashboard.js";
-import type * as ductEstimates from "../ductEstimates.js";
 import type * as employees from "../employees.js";
 import type * as environments from "../environments.js";
 import type * as equipment from "../equipment.js";
@@ -70,6 +69,7 @@ import type * as model_contracts_serviceItems from "../model/contracts/serviceIt
 import type * as model_contracts_validators from "../model/contracts/validators.js";
 import type * as model_procurement_desktopBudget from "../model/procurement/desktopBudget.js";
 import type * as model_procurement_priceSelection from "../model/procurement/priceSelection.js";
+import type * as model_procurement_seedLaborPrices from "../model/procurement/seedLaborPrices.js";
 import type * as model_procurement_takeoffCatalog from "../model/procurement/takeoffCatalog.js";
 import type * as model_procurement_takeoffProposals from "../model/procurement/takeoffProposals.js";
 import type * as payroll from "../payroll.js";
@@ -113,7 +113,6 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   customers: typeof customers;
   dashboard: typeof dashboard;
-  ductEstimates: typeof ductEstimates;
   employees: typeof employees;
   environments: typeof environments;
   equipment: typeof equipment;
@@ -164,6 +163,7 @@ declare const fullApi: ApiFromModules<{
   "model/contracts/validators": typeof model_contracts_validators;
   "model/procurement/desktopBudget": typeof model_procurement_desktopBudget;
   "model/procurement/priceSelection": typeof model_procurement_priceSelection;
+  "model/procurement/seedLaborPrices": typeof model_procurement_seedLaborPrices;
   "model/procurement/takeoffCatalog": typeof model_procurement_takeoffCatalog;
   "model/procurement/takeoffProposals": typeof model_procurement_takeoffProposals;
   payroll: typeof payroll;

@@ -1,7 +1,3 @@
-import { Cuboid, FileSpreadsheet, Plus, Settings2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { mergeCatalog } from "../lib/catalog";
-import { ductBillFor, ductNetworks, ductRunsByNetwork } from "../lib/ductItems";
 import {
   DEFAULT_DUCT_SETTINGS,
   type DuctFlange,
@@ -12,7 +8,11 @@ import {
   gaugeName,
   LABOR_ROW,
   NORMA_LABELS,
-} from "../lib/ducts";
+} from "@rlpapp/shared/engenharia/ducts";
+import { Cuboid, FileSpreadsheet, Plus, Settings2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { mergeCatalog } from "../lib/catalog";
+import { ductBillFor, ductNetworks, ductRunsByNetwork } from "../lib/ductItems";
 import { exportDuctSheet } from "../lib/files";
 import { formatMoney } from "../lib/units";
 import { useStore } from "../store";

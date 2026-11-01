@@ -8,7 +8,7 @@ import {
   mergeCatalog,
   searchCatalog,
 } from "../lib/catalog";
-import { priceSourceOfEntry } from "../lib/priceSource";
+import { priceSourceOfEntry, SEED_LABOR_NOTE } from "../lib/priceSource";
 import { formatMoney } from "../lib/units";
 import { useStore } from "../store";
 import { PriceSourceBadge } from "./PriceSourceBadge";
@@ -161,7 +161,11 @@ export function CatalogPalette() {
                 <span className="w-8 shrink-0 text-center font-mono text-[11px] text-neutral-500">
                   {e.unit}
                 </span>
-                <PriceSourceBadge source={priceSourceOfEntry(e)} priceDate={e.priceDate} />
+                <PriceSourceBadge
+                  source={priceSourceOfEntry(e)}
+                  priceDate={e.priceDate}
+                  laborSource={e.laborSource}
+                />
                 <span
                   className="w-24 shrink-0 text-right font-mono text-[12px] text-neutral-300"
                   title={
@@ -177,7 +181,13 @@ export function CatalogPalette() {
                   {formatMoney(e.materialPrice, currency)}
                 </span>
                 {e.laborPrice > 0 && (
-                  <span className="w-20 shrink-0 text-right font-mono text-[11px] text-neutral-500">
+                  <span
+                    className={clsx(
+                      "w-20 shrink-0 text-right font-mono text-[11px] text-neutral-500",
+                      e.laborSource === "seed" && "italic",
+                    )}
+                    title={e.laborSource === "seed" ? SEED_LABOR_NOTE : "Mão de obra por unidade"}
+                  >
                     + {formatMoney(e.laborPrice, currency)}
                   </span>
                 )}

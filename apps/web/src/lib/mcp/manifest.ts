@@ -586,18 +586,6 @@ export const TOOLS: readonly ToolSpec[] = [
     description: "Paginated feed of field activity (registrations, maintenances, status changes) in a project, optionally for one technician.",
     fieldDescriptions: { paginationOpts: PAGINATION_HINT },
   },
-  {
-    name: "list_duct_estimates",
-    function: "ductEstimates:list",
-    title: "List duct estimates",
-    description: "Saved duct sizing estimates of a project.",
-  },
-  {
-    name: "get_duct_estimate",
-    function: "ductEstimates:get",
-    title: "Get duct estimate",
-    description: "One duct sizing estimate with its inputs and results.",
-  },
 
   // --------------------------------------------------------------------------
   // Team and audit
@@ -1288,20 +1276,6 @@ export const TOOLS: readonly ToolSpec[] = [
     function: "checklists:removeTemplate",
     title: "Delete checklist template",
     description: "Delete a checklist template. Items already applied to equipment are kept.",
-    destructive: true,
-  },
-  {
-    name: "rename_duct_estimate",
-    function: "ductEstimates:rename",
-    title: "Rename duct estimate",
-    description: "Rename a saved duct sizing estimate.",
-    idempotent: true,
-  },
-  {
-    name: "delete_duct_estimate",
-    function: "ductEstimates:remove",
-    title: "Delete duct estimate",
-    description: "Delete a saved duct sizing estimate. Cannot be undone.",
     destructive: true,
   },
   {

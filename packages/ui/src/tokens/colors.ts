@@ -9,12 +9,38 @@
  * `apps/native/lib/colors.ts`.
  */
 
-/** Brand palette in hex (the canonical RLP identity). */
+/**
+ * RLP brand blue scale — the same palette used by the public site (rlpeng.com.br),
+ * which is Tailwind 4's default `blue` scale. 600 is the brand colour, 700 its
+ * hover/pressed state, 950 dark text/headings, 50/100 light surfaces and tints.
+ */
+export const brandBlue = {
+  50: "#eff6ff",
+  100: "#dbeafe",
+  200: "#bedbff",
+  300: "#8ec5ff",
+  400: "#51a2ff",
+  500: "#2b7fff",
+  600: "#155dfc",
+  700: "#1447e6",
+  800: "#193cb8",
+  900: "#1c398e",
+  950: "#162456",
+} as const;
+
+/**
+ * Brand palette in hex (the canonical RLP identity).
+ * White on `primary` has a 5.25:1 contrast ratio (WCAG AA for normal text).
+ */
 export const brand = {
-  primary: "#3a16d9",
-  primaryForeground: "#fafafa",
+  primary: brandBlue[600],
+  primaryForeground: "#ffffff",
+  /** Hover / pressed state of `primary`. */
+  primaryHover: brandBlue[700],
+  /** Light brand surface / tint (`primary` on it: 4.82:1). */
+  primarySoft: brandBlue[50],
   secondary: "#f4f4f5",
-  secondaryForeground: "#1a1a2e",
+  secondaryForeground: brandBlue[950],
 } as const;
 
 /**
@@ -30,7 +56,7 @@ export const semanticLight = {
   mutedForeground: "#737373",
   border: "#e5e5e5",
   input: "#e5e5e5",
-  ring: "#3a16d9",
+  ring: brandBlue[600],
 } as const;
 
 /** Semantic surface/text colors for dark mode. */
@@ -43,7 +69,8 @@ export const semanticDark = {
   mutedForeground: "#a1a1aa",
   border: "#2a2a3a",
   input: "#2a2a3a",
-  ring: "#6b4ee6",
+  /** Lighter blue in dark mode so the focus ring reads on dark surfaces. */
+  ring: brandBlue[400],
 } as const;
 
 /**
@@ -64,6 +91,7 @@ export type StatusColorKey = keyof typeof statusColors;
 
 export const colors = {
   brand,
+  brandBlue,
   light: semanticLight,
   dark: semanticDark,
   status: statusColors,

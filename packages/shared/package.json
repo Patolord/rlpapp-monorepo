@@ -9,7 +9,7 @@
     "./labels": "./src/labels.ts",
     "./usernames": "./src/usernames.ts",
     "./clerkErrors": "./src/clerkErrors.ts",
-    "./engenharia/nbr16401": "./src/engenharia/nbr16401.ts",
+    "./engenharia/ducts": "./src/engenharia/ducts.ts",
     "./takeoff/desktopBudget": "./src/takeoff/desktopBudget.ts"
   },
   "devDependencies": {

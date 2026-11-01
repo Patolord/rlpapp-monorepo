@@ -22,6 +22,10 @@ export const PRICE_SOURCE_LABEL: Record<PriceSource, string> = {
   weight: "por peso",
 };
 
+/** Labour taken from the bundled sheets because the company catalog has none (tooltip line). */
+export const SEED_LABOR_NOTE =
+  "Mão de obra das planilhas anteriores: o catálogo da empresa ainda não tem mão de obra para este material";
+
 /** One line saying where the material price came from, and when, for tooltips. */
 export function describePriceSource(source: PriceSource | undefined, priceDate?: number): string {
   switch (source) {
