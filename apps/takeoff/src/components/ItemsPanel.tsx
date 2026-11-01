@@ -391,7 +391,7 @@ type CompanyLink = "none" | "pending" | "draft" | "linked";
 
 const LINK_TITLE: Record<CompanyLink, string> = {
   none: "Propor ao catálogo da empresa: compras recebe um rascunho com este nome, unidade e preço",
-  pending: "Envio pendente (sem conexão ou sem token); clique para tentar de novo",
+  pending: "Envio pendente (sem conexão, sem login ou sem token); clique para tentar de novo",
   draft: "Rascunho aguardando compras; clique para enviar o preço atual como estimativa",
   linked: "Material do catálogo da empresa; clique para enviar o preço atual como estimativa",
 };
