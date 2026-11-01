@@ -11,7 +11,9 @@
 # se mudou um arquivo dele ou de um pacote do workspace de que ele depende (package.json), o lockfile
 # nas dependências dele, o turbo.json, ou um pacote de que a raiz depende. Base da comparação:
 #   - VERCEL_GIT_PREVIOUS_SHA (último deployment com sucesso do projeto nesse branch), se estiver no
-#     clone raso da Vercel (--depth=10). Assim, commits pulados se acumulam até o próximo build.
+#     clone raso da Vercel (--depth=10). Assim, commits pulados se acumulam até o próximo build. Em
+#     preview, se o ponto em que o branch saiu do master é posterior a esse deployment (branch
+#     reaproveitado depois de um merge), a base é esse ponto: o que já está no master não pede preview.
 #   - Produção sem essa base (primeiro deploy ou SHA fora do clone): builda sempre, para nunca deixar o
 #     backend do Convex (deployado pelo build do web) para trás.
 #   - Preview sem essa base (primeiro push do branch, force push): compara com o merge-base com o
@@ -36,14 +38,29 @@ fi
 prev="${VERCEL_GIT_PREVIOUS_SHA:-}"
 env="${VERCEL_ENV:-preview}"
 
+# Ponto em que o branch saiu do master (só para preview; busca raso do master). Vazio se não der.
+master_base() {
+  git fetch --quiet --no-tags --depth=50 origin master 2>/dev/null \
+    && git merge-base HEAD FETCH_HEAD 2>/dev/null
+}
+
 if [ -n "$prev" ] && git cat-file -e "${prev}^{commit}" 2>/dev/null; then
+  prev="$(git rev-parse "${prev}^{commit}")"
   base="$prev"
-  echo "vercel-ignore-build: $pkg ($env) comparado com o último deployment ($base)."
+  # Branch reaproveitado depois do merge (comum em sessões de agente): o último deployment dele é
+  # anterior a merges que já estão no master. O que já está no master não pede preview, então a
+  # base passa a ser o ponto em que o branch saiu do master, quando ele vem depois do deployment.
+  if [ "$env" != "production" ] && mb="$(master_base)" && [ -n "$mb" ] && [ "$mb" != "$prev" ] \
+    && git merge-base --is-ancestor "$prev" "$mb" 2>/dev/null; then
+    base="$mb"
+    echo "vercel-ignore-build: $pkg ($env) comparado com o master ($base), mais novo que o último deployment ($prev)."
+  else
+    echo "vercel-ignore-build: $pkg ($env) comparado com o último deployment ($base)."
+  fi
 elif [ "$env" = "production" ]; then
   echo "vercel-ignore-build: produção sem último deployment alcançável (${prev:-nenhum}); buildando."
   exit 1
-elif git fetch --quiet --no-tags --depth=50 origin master 2>/dev/null \
-  && mb="$(git merge-base HEAD FETCH_HEAD 2>/dev/null)" && [ -n "$mb" ]; then
+elif mb="$(master_base)" && [ -n "$mb" ]; then
   # Primeiro push do branch (ou force push): compara com o ponto em que ele saiu do master, para
   # cobrir todos os commits do push, não só o último.
   base="$mb"

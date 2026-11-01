@@ -1,5 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "ignoreCommand": "bash ../../scripts/vercel-ignore-build.sh"
+  "ignoreCommand": "bash ../../scripts/vercel-ignore-build.sh",
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "master": true
+    }
+  }
 }
