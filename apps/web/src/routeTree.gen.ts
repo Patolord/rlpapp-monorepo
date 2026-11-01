@@ -74,7 +74,6 @@ import { Route as EngenhariaObrasObraSlugAssistenteRouteImport } from './routes/
 import { Route as EngenhariaObrasObraSlugComprasRouteImport } from './routes/engenharia/obras/$obraSlug.compras'
 import { Route as EngenhariaObrasObraSlugContratosRouteImport } from './routes/engenharia/obras/$obraSlug.contratos'
 import { Route as EngenhariaObrasObraSlugDocumentosRouteImport } from './routes/engenharia/obras/$obraSlug.documentos'
-import { Route as EngenhariaObrasObraSlugDutosRouteImport } from './routes/engenharia/obras/$obraSlug.dutos'
 import { Route as EngenhariaObrasObraSlugEstoqueRouteImport } from './routes/engenharia/obras/$obraSlug.estoque'
 import { Route as EngenhariaObrasObraSlugGlobalRouteImport } from './routes/engenharia/obras/$obraSlug.global'
 import { Route as EngenhariaObrasObraSlugImprimirRouteImport } from './routes/engenharia/obras/$obraSlug.imprimir'
@@ -437,12 +436,6 @@ const EngenhariaObrasObraSlugDocumentosRoute =
     path: '/documentos',
     getParentRoute: () => EngenhariaObrasObraSlugRoute,
   } as any)
-const EngenhariaObrasObraSlugDutosRoute =
-  EngenhariaObrasObraSlugDutosRouteImport.update({
-    id: '/dutos',
-    path: '/dutos',
-    getParentRoute: () => EngenhariaObrasObraSlugRoute,
-  } as any)
 const EngenhariaObrasObraSlugEstoqueRoute =
   EngenhariaObrasObraSlugEstoqueRouteImport.update({
     id: '/estoque',
@@ -635,7 +628,6 @@ export interface FileRoutesByFullPath {
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
   '/engenharia/obras/$obraSlug/documentos': typeof EngenhariaObrasObraSlugDocumentosRoute
-  '/engenharia/obras/$obraSlug/dutos': typeof EngenhariaObrasObraSlugDutosRoute
   '/engenharia/obras/$obraSlug/estoque': typeof EngenhariaObrasObraSlugEstoqueRoute
   '/engenharia/obras/$obraSlug/global': typeof EngenhariaObrasObraSlugGlobalRoute
   '/engenharia/obras/$obraSlug/imprimir': typeof EngenhariaObrasObraSlugImprimirRoute
@@ -713,7 +705,6 @@ export interface FileRoutesByTo {
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
   '/engenharia/obras/$obraSlug/documentos': typeof EngenhariaObrasObraSlugDocumentosRoute
-  '/engenharia/obras/$obraSlug/dutos': typeof EngenhariaObrasObraSlugDutosRoute
   '/engenharia/obras/$obraSlug/estoque': typeof EngenhariaObrasObraSlugEstoqueRoute
   '/engenharia/obras/$obraSlug/global': typeof EngenhariaObrasObraSlugGlobalRoute
   '/engenharia/obras/$obraSlug/imprimir': typeof EngenhariaObrasObraSlugImprimirRoute
@@ -803,7 +794,6 @@ export interface FileRoutesById {
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
   '/engenharia/obras/$obraSlug/documentos': typeof EngenhariaObrasObraSlugDocumentosRoute
-  '/engenharia/obras/$obraSlug/dutos': typeof EngenhariaObrasObraSlugDutosRoute
   '/engenharia/obras/$obraSlug/estoque': typeof EngenhariaObrasObraSlugEstoqueRoute
   '/engenharia/obras/$obraSlug/global': typeof EngenhariaObrasObraSlugGlobalRoute
   '/engenharia/obras/$obraSlug/imprimir': typeof EngenhariaObrasObraSlugImprimirRoute
@@ -894,7 +884,6 @@ export interface FileRouteTypes {
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
     | '/engenharia/obras/$obraSlug/documentos'
-    | '/engenharia/obras/$obraSlug/dutos'
     | '/engenharia/obras/$obraSlug/estoque'
     | '/engenharia/obras/$obraSlug/global'
     | '/engenharia/obras/$obraSlug/imprimir'
@@ -972,7 +961,6 @@ export interface FileRouteTypes {
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
     | '/engenharia/obras/$obraSlug/documentos'
-    | '/engenharia/obras/$obraSlug/dutos'
     | '/engenharia/obras/$obraSlug/estoque'
     | '/engenharia/obras/$obraSlug/global'
     | '/engenharia/obras/$obraSlug/imprimir'
@@ -1061,7 +1049,6 @@ export interface FileRouteTypes {
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
     | '/engenharia/obras/$obraSlug/documentos'
-    | '/engenharia/obras/$obraSlug/dutos'
     | '/engenharia/obras/$obraSlug/estoque'
     | '/engenharia/obras/$obraSlug/global'
     | '/engenharia/obras/$obraSlug/imprimir'
@@ -1572,13 +1559,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaObrasObraSlugDocumentosRouteImport
       parentRoute: typeof EngenhariaObrasObraSlugRoute
     }
-    '/engenharia/obras/$obraSlug/dutos': {
-      id: '/engenharia/obras/$obraSlug/dutos'
-      path: '/dutos'
-      fullPath: '/engenharia/obras/$obraSlug/dutos'
-      preLoaderRoute: typeof EngenhariaObrasObraSlugDutosRouteImport
-      parentRoute: typeof EngenhariaObrasObraSlugRoute
-    }
     '/engenharia/obras/$obraSlug/estoque': {
       id: '/engenharia/obras/$obraSlug/estoque'
       path: '/estoque'
@@ -1780,7 +1760,6 @@ interface EngenhariaObrasObraSlugRouteChildren {
   EngenhariaObrasObraSlugComprasRoute: typeof EngenhariaObrasObraSlugComprasRoute
   EngenhariaObrasObraSlugContratosRoute: typeof EngenhariaObrasObraSlugContratosRoute
   EngenhariaObrasObraSlugDocumentosRoute: typeof EngenhariaObrasObraSlugDocumentosRoute
-  EngenhariaObrasObraSlugDutosRoute: typeof EngenhariaObrasObraSlugDutosRoute
   EngenhariaObrasObraSlugEstoqueRoute: typeof EngenhariaObrasObraSlugEstoqueRoute
   EngenhariaObrasObraSlugGlobalRoute: typeof EngenhariaObrasObraSlugGlobalRoute
   EngenhariaObrasObraSlugImprimirRoute: typeof EngenhariaObrasObraSlugImprimirRoute
@@ -1800,7 +1779,6 @@ const EngenhariaObrasObraSlugRouteChildren: EngenhariaObrasObraSlugRouteChildren
       EngenhariaObrasObraSlugContratosRoute,
     EngenhariaObrasObraSlugDocumentosRoute:
       EngenhariaObrasObraSlugDocumentosRoute,
-    EngenhariaObrasObraSlugDutosRoute: EngenhariaObrasObraSlugDutosRoute,
     EngenhariaObrasObraSlugEstoqueRoute: EngenhariaObrasObraSlugEstoqueRoute,
     EngenhariaObrasObraSlugGlobalRoute: EngenhariaObrasObraSlugGlobalRoute,
     EngenhariaObrasObraSlugImprimirRoute: EngenhariaObrasObraSlugImprimirRoute,
@@ -2026,13 +2004,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

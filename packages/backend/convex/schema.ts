@@ -119,6 +119,7 @@ export const takeoffItemStatus = v.union(
   v.literal("purchased")
 );
 
+// Validadores da tabela `ductEstimates` (deprecated, somente leitura; ver a tabela).
 export const ductNorma = v.union(v.literal(1), v.literal(2), v.literal(3));
 
 export const ductExternalInsulation = v.union(
@@ -928,6 +929,11 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_created", ["createdAt"]),
 
+  // DEPRECATED, somente leitura. Levantamentos de dutos da antiga calculadora do
+  // dashboard (removida: o cálculo de dutos agora é só o do app takeoff, em
+  // @rlpapp/shared/engenharia/ducts). Nenhuma função lê nem grava esta tabela; a
+  // definição fica para que os documentos já gravados em produção continuem
+  // válidos, até o dono decidir exportá-los ou apagá-los. Não apagar dados aqui.
   ductEstimates: defineTable({
     projectId: v.id("projects"),
     name: v.string(),

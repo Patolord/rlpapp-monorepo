@@ -1,6 +1,6 @@
+import { DEFAULT_DUCT_SPEC, type DuctSpec } from "@rlpapp/shared/engenharia/ducts";
 import { describe, expect, it } from "vitest";
 import { DUCT_GROUP } from "../ductItems";
-import { DEFAULT_DUCT_SPEC, type DuctSpec } from "../ducts";
 import type { Box, Pt } from "../geom";
 import { NO_LOCATION, totalsByRegion } from "../quantities";
 import { emptyProject, type Item, type Measurement, type Project, type Zone } from "../types";

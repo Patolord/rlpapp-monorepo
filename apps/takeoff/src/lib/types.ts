@@ -1,5 +1,5 @@
+import type { DuctSettings, DuctSpec } from "@rlpapp/shared/engenharia/ducts";
 import type { PageMap, Similarity } from "./align";
-import type { DuctSettings, DuctSpec } from "./ducts";
 import type { Pt } from "./geom";
 import type { Kind, PageScale, Unit } from "./units";
 import type { VrfSettings, VrfSpec } from "./vrf";

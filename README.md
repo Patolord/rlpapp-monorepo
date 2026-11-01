@@ -28,6 +28,7 @@ rlpapp/
 ├── packages/
 │   ├── backend/       # Backend Convex (schema, funções, crons, webhook Clerk)
 │   ├── env/           # Validação de variáveis de ambiente (zod)
+│   ├── shared/        # Código puro compartilhado; inclui o cálculo de dutos NBR 16401 (único, usado pelo takeoff)
 │   └── config/        # Configurações compartilhadas (tsconfig)
 ```
 

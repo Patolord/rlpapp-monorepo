@@ -4,6 +4,9 @@
  * an internal lining, a flange type and optional rechapeamento; the bill of materials (sheet
  * metal per gauge, insulation, tapes, flanges, paint, supports, labour) is computed for the
  * whole set of runs, exactly as the Calculos and Resumo sheets do.
+ *
+ * This is the single duct calculator of the monorepo: the takeoff desktop app uses it (and fills
+ * the official .xlsx with it); framework-free so any app or the backend can import it.
  */
 
 export type DuctInsulation = "S" | "L" | "I" | "P" | "T";
@@ -101,12 +104,22 @@ export type GaugeWeights = Record<string, number>;
 export const defaultGaugeWeights = (): GaugeWeights =>
   Object.fromEntries(GAUGES.map((g) => [g.name, g.kgm2]));
 
+/** Position in GAUGES: 0 = # 26 … 4 = # 18. */
+export type GaugeIndex = 0 | 1 | 2 | 3 | 4;
+
+/** One value per gauge, in GAUGES order. */
+export type PerGauge = [number, number, number, number, number];
+
+const GAUGE_INDEXES: readonly GaugeIndex[] = [0, 1, 2, 3, 4];
+
 /** Sheet weight of each gauge, in GAUGES order: the setting when valid, else the default. */
-export function gaugeKgm2(weights?: GaugeWeights): number[] {
-  return GAUGES.map((g) => {
+export function gaugeKgm2(weights?: GaugeWeights): PerGauge {
+  const weight = (g: (typeof GAUGES)[number]) => {
     const w = weights?.[g.name];
     return w !== undefined && w > 0 ? w : g.kgm2;
-  });
+  };
+  const [g26, g24, g22, g20, g18] = GAUGES;
+  return [weight(g26), weight(g24), weight(g22), weight(g20), weight(g18)];
 }
 
 /** Largest lado maior (cm) each gauge covers, per norma; beyond the last is # 18. */
@@ -117,9 +130,12 @@ const LIMITS: Record<DuctSettings["norma"], [number, number, number, number]> = 
 };
 
 /** Index into GAUGES for a duct whose larger side is `aCm`. */
-export function gaugeIndex(aCm: number, norma: DuctSettings["norma"]): number {
-  const lim = LIMITS[norma];
-  for (let i = 0; i < lim.length; i++) if (aCm <= lim[i]) return i;
+export function gaugeIndex(aCm: number, norma: DuctSettings["norma"]): GaugeIndex {
+  const [l26, l24, l22, l20] = LIMITS[norma];
+  if (aCm <= l26) return 0;
+  if (aCm <= l24) return 1;
+  if (aCm <= l22) return 2;
+  if (aCm <= l20) return 3;
   return 4;
 }
 
@@ -199,7 +215,7 @@ export function ductBill(
 ): DuctBillRow[] {
   const s = settings;
   const kgm2 = gaugeKgm2(weights);
-  const areaByGauge = [0, 0, 0, 0, 0];
+  const areaByGauge: PerGauge = [0, 0, 0, 0, 0];
   let manta = 0;
   let isopor = 0;
   let placa = 0;
@@ -270,7 +286,7 @@ export function ductBill(
 
   // rechapeamento and cantoneira are # 26 sheet: same weight as the first gauge of the table
   const rechapKg = rechap * kgm2[0];
-  const rawKg = areaByGauge.reduce((t, a, i) => t + a * kgm2[i], 0) + rechapKg;
+  const rawKg = GAUGE_INDEXES.reduce<number>((t, i) => t + areaByGauge[i] * kgm2[i], 0) + rechapKg;
   const sheetSlack = (s.sheetSlackPct ?? (rawKg > 10000 ? 15 : 20)) / 100 + 1;
   const insulSlack = s.insulSlackPct / 100 + 1;
 
@@ -281,11 +297,11 @@ export function ductBill(
 
   const sheetGroup = "Rede de Dutos";
   let sheetKg = 0;
-  GAUGES.forEach((g, i) => {
+  for (const i of GAUGE_INDEXES) {
     const kg = round0(areaByGauge[i] * kgm2[i] * sheetSlack);
     sheetKg += kg;
-    add(`Chapa galvanizada ${g.name}`, sheetGroup, "kg", kg, 17);
-  });
+    add(`Chapa galvanizada ${GAUGES[i].name}`, sheetGroup, "kg", kg, 17);
+  }
   const rechapRounded = round0(rechapKg);
   const cantoneiraKg = round0(cantoneiraArea * kgm2[0]);
   sheetKg += rechapRounded + cantoneiraKg;

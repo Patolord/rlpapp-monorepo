@@ -1,6 +1,3 @@
-import { Settings2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { ductNetworks } from "../lib/ductItems";
 import {
   DEFAULT_DUCT_SETTINGS,
   type DuctFlange,
@@ -13,7 +10,10 @@ import {
   INNER_LABELS,
   INSULATION_LABELS,
   NORMA_LABELS,
-} from "../lib/ducts";
+} from "@rlpapp/shared/engenharia/ducts";
+import { Settings2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ductNetworks } from "../lib/ductItems";
 import { useStore } from "../store";
 import { Dialog } from "./Dialog";
 import { Button, Kbd } from "./ui";

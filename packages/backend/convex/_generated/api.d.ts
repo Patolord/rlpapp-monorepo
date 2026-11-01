@@ -19,7 +19,6 @@ import type * as contracts from "../contracts.js";
 import type * as crons from "../crons.js";
 import type * as customers from "../customers.js";
 import type * as dashboard from "../dashboard.js";
-import type * as ductEstimates from "../ductEstimates.js";
 import type * as employees from "../employees.js";
 import type * as environments from "../environments.js";
 import type * as equipment from "../equipment.js";
@@ -112,7 +111,6 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   customers: typeof customers;
   dashboard: typeof dashboard;
-  ductEstimates: typeof ductEstimates;
   employees: typeof employees;
   environments: typeof environments;
   equipment: typeof equipment;

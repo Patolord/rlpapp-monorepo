@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
+import { DEFAULT_DUCT_SETTINGS } from "@rlpapp/shared/engenharia/ducts";
 import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
 import { fillDuctWorkbook } from "./ductSheet";
-import { DEFAULT_DUCT_SETTINGS } from "./ducts";
 
 const template = readFileSync("public/templates/levantamento-dutos.xlsx");
 

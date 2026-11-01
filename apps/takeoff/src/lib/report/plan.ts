@@ -25,15 +25,15 @@
  * Whole-sheet mode skips all that: each page with filtered markings is one "sheet" page.
  * Coordinates are page space (see ./coords for PDF user space); frame sizes are output points.
  */
-import { compareItemsForBudget } from "../budgetOrder";
-import { ductRuns } from "../ductItems";
 import {
   DEFAULT_DUCT_SETTINGS,
   type DuctInsulation,
   type DuctRun,
   gaugeName,
   INSULATION_LABELS,
-} from "../ducts";
+} from "@rlpapp/shared/engenharia/ducts";
+import { compareItemsForBudget } from "../budgetOrder";
+import { ductRuns } from "../ductItems";
 import { type Box, bbox, type Pt, pointInPolygon, polygonArea } from "../geom";
 import {
   anchorOf,
