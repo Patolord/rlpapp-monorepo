@@ -101,7 +101,7 @@ export function BuildingPanel({
                 size="xs"
                 onClick={() => actions.onAddFloors?.(selectedTower)}
               >
-                <Plus className="mr-1 size-3.5" />
+                <Plus />
                 Andares
               </Button>
             )}
@@ -121,7 +121,7 @@ export function BuildingPanel({
                 size="xs"
                 onClick={() => actions.onAddEnvironment?.(selectedFloor)}
               >
-                <Plus className="mr-1 size-3.5" />
+                <Plus />
                 Ambiente
               </Button>
             </div>

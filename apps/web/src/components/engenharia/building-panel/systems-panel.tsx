@@ -165,7 +165,7 @@ export function SystemsPanel({
     <div className="space-y-3">
       <div className="flex items-center justify-end">
         <Button size="xs" onClick={() => setNewSystemOpen(true)}>
-          <Plus className="mr-1.5 size-3.5" />
+          <Plus />
           Novo sistema
         </Button>
       </div>
@@ -177,7 +177,7 @@ export function SystemsPanel({
             Nenhum sistema cadastrado ainda. Crie o primeiro sistema desta obra.
           </p>
           <Button size="sm" onClick={() => setNewSystemOpen(true)}>
-            <Plus className="mr-1.5 size-4" />
+            <Plus />
             Novo sistema
           </Button>
         </div>
@@ -309,12 +309,12 @@ function SystemRow({
                       <Button
                         variant="ghost"
                         size="xs"
-                        className="ml-auto h-6 px-1.5 text-xs"
+                        className="ml-auto"
                         onClick={() =>
                           actions.onAddEquipment?.(location.env, group.system)
                         }
                       >
-                        <Plus className="mr-1 size-3" />
+                        <Plus />
                         Equipamento
                       </Button>
                     )}

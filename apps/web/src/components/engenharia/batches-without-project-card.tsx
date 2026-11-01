@@ -25,7 +25,7 @@ export function BatchesWithoutProjectCard() {
 
   return (
     <Card className="border-amber-300">
-      <CardHeader className="border-b pb-3">
+      <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <AlertTriangle className="h-4 w-4 text-amber-600" />
           Lotes sem obra
@@ -113,7 +113,7 @@ function BatchRow({
           </SelectContent>
         </Select>
         <Button onClick={handleSave} disabled={!projectId || saving}>
-          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {saving && <Loader2 className="animate-spin" />}
           Definir obra
         </Button>
       </div>

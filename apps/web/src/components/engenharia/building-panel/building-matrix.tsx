@@ -190,7 +190,7 @@ export function BuildingMatrixPanel({
         </p>
         {actions?.onAddTower && (
           <Button variant="outline" size="sm" onClick={actions.onAddTower}>
-            <Plus className="mr-1.5 size-4" />
+            <Plus />
             Nova torre
           </Button>
         )}
@@ -237,7 +237,7 @@ export function BuildingMatrixPanel({
                   size="xs"
                   onClick={actions.onAddTower}
                 >
-                  <Plus className="mr-1 size-3.5" />
+                  <Plus />
                   Nova torre
                 </Button>
               )}
@@ -247,7 +247,7 @@ export function BuildingMatrixPanel({
                   size="xs"
                   onClick={() => actions.onAddFloors?.(selectedTower)}
                 >
-                  <Plus className="mr-1 size-3.5" />
+                  <Plus />
                   Andares
                 </Button>
               )}
@@ -333,7 +333,7 @@ function BuildingMatrix({
             size="sm"
             onClick={() => actions.onAddFloors?.(tower)}
           >
-            <Plus className="mr-1.5 size-4" />
+            <Plus />
             Adicionar andares
           </Button>
         )}
@@ -677,21 +677,20 @@ function EnvironmentSheet({
                 {actions?.onEditEnvironment && (
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="size-7"
+                    size="icon-xs"
                     onClick={() => actions.onEditEnvironment?.(env)}
                   >
-                    <Pencil className="size-3.5" />
+                    <Pencil />
                   </Button>
                 )}
                 {actions?.onRemoveEnvironment && (
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="size-7 text-destructive hover:text-destructive"
+                    size="icon-xs"
+                    className="text-destructive hover:text-destructive"
                     onClick={() => actions.onRemoveEnvironment?.(env)}
                   >
-                    <Trash2 className="size-3.5" />
+                    <Trash2 />
                   </Button>
                 )}
               </div>
@@ -724,7 +723,7 @@ function EnvironmentSheet({
               className="w-full"
               onClick={() => sheetActions.onAddEquipment?.(env, null)}
             >
-              <Plus className="mr-1.5 size-4" />
+              <Plus />
               Adicionar equipamento
             </Button>
           </SheetFooter>
@@ -784,10 +783,10 @@ function SystemGroup({
           <Button
             variant="ghost"
             size="xs"
-            className="ml-auto h-6 px-1.5 text-xs"
+            className="ml-auto"
             onClick={() => actions.onAddEquipment?.(env, group.system)}
           >
-            <Plus className="mr-1 size-3" />
+            <Plus />
             Equipamento
           </Button>
         )}
@@ -875,10 +874,10 @@ export function EquipmentRow({
               <Button
                 variant="ghost"
                 size="xs"
-                className="h-6 px-1.5 text-xs text-muted-foreground"
+                className="text-muted-foreground"
                 onClick={() => actions.onUnlinkQr?.(item)}
               >
-                <Unlink className="mr-1 size-3" />
+                <Unlink />
                 Desvincular
               </Button>
             )}
@@ -889,10 +888,9 @@ export function EquipmentRow({
               <Button
                 variant="outline"
                 size="xs"
-                className="h-6 px-1.5 text-xs"
                 onClick={() => actions.onLinkQr?.(item)}
               >
-                <Link2 className="mr-1 size-3" />
+                <Link2 />
                 Vincular QR
               </Button>
             )}
@@ -900,10 +898,9 @@ export function EquipmentRow({
               <Button
                 variant="ghost"
                 size="xs"
-                className="h-6 px-1.5 text-xs"
                 onClick={() => actions.onGenerateQr?.(item)}
               >
-                <QrCode className="mr-1 size-3" />
+                <QrCode />
                 Gerar QR
               </Button>
             )}
@@ -913,20 +910,19 @@ export function EquipmentRow({
           <Button
             variant="ghost"
             size="xs"
-            className="h-6 px-1.5 text-xs"
             onClick={() => actions.onEditEquipment?.(item, env)}
           >
-            <Pencil className="size-3" />
+            <Pencil />
           </Button>
         )}
         {actions?.onRemoveEquipment && (
           <Button
             variant="ghost"
             size="xs"
-            className="ml-auto h-6 px-1.5 text-destructive hover:text-destructive"
+            className="ml-auto text-destructive hover:text-destructive"
             onClick={() => actions.onRemoveEquipment?.(item)}
           >
-            <Trash2 className="size-3" />
+            <Trash2 />
           </Button>
         )}
       </div>

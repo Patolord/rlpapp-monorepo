@@ -54,7 +54,7 @@ export function FloorDetail({
       <div className="space-y-3">
         {floor.environments.map((env) => (
           <Card key={env._id}>
-            <CardContent className="space-y-2 py-3">
+            <CardContent className="space-y-2">
               <div className="flex items-center gap-2">
                 <DoorOpen className="size-4 text-muted-foreground" />
                 <span className="font-medium">{env.name}</span>
@@ -70,10 +70,9 @@ export function FloorDetail({
                   <Button
                     variant="outline"
                     size="xs"
-                    className="h-6 px-1.5 text-xs"
                     onClick={() => onAddEquipment(env)}
                   >
-                    <Plus className="mr-1 size-3" />
+                    <Plus />
                     Equip.
                   </Button>
                 )}
@@ -125,10 +124,9 @@ export function FloorDetail({
                             <Button
                               variant="ghost"
                               size="xs"
-                              className="h-6 px-1.5 text-xs"
                               onClick={() => onGenerateQr(item)}
                             >
-                              <QrCode className="mr-1 size-3" />
+                              <QrCode />
                               Gerar QR
                             </Button>
                           )
@@ -137,20 +135,19 @@ export function FloorDetail({
                           <Button
                             variant="ghost"
                             size="xs"
-                            className="h-6 px-1.5 text-xs"
                             onClick={() => onEditEquipment(item, env)}
                           >
-                            <Pencil className="size-3" />
+                            <Pencil />
                           </Button>
                         )}
                         {onRemoveEquipment && (
                           <Button
                             variant="ghost"
                             size="xs"
-                            className="h-6 px-1.5 text-destructive hover:text-destructive"
+                            className="text-destructive hover:text-destructive"
                             onClick={() => onRemoveEquipment(item)}
                           >
-                            <Trash2 className="size-3" />
+                            <Trash2 />
                           </Button>
                         )}
                       </div>

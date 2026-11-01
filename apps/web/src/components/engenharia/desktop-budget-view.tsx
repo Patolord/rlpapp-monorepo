@@ -15,7 +15,13 @@ import type { TakeoffQuoteTarget } from "@/components/compras/takeoff-quote-dial
 import { TakeoffSavedQuotes } from "@/components/compras/takeoff-saved-quotes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -101,7 +107,7 @@ export function DesktopBudgetView({
 
       {sheets.length === 0 ? (
         <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+          <CardContent className="text-center text-sm text-muted-foreground">
             Este orçamento não tem linhas.
           </CardContent>
         </Card>
@@ -109,14 +115,14 @@ export function DesktopBudgetView({
 
       {sheets.map((sheet) => (
         <Card key={sheet.name}>
-          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+          <CardHeader>
             <CardTitle className="text-base">{sheet.name}</CardTitle>
-            <div className="text-sm">
+            <CardAction className="text-sm">
               BDI {formatBdi(sheet.bdi)} ·{" "}
               <span className="font-semibold tabular-nums">
                 {formatCurrency(sheet.proposalCents)}
               </span>
-            </div>
+            </CardAction>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
@@ -294,9 +300,8 @@ function DesktopBudgetLine({
               <PriceFreshnessBadge freshness={p.freshness} />
               {p.suggestedUnitPriceCents !== null ? (
                 <Button
-                  size="sm"
+                  size="xs"
                   variant="ghost"
-                  className="h-6 px-2"
                   onClick={() =>
                     void applyPrice({
                       itemId: item._id,
@@ -321,7 +326,7 @@ function DesktopBudgetLine({
         {canPromoteMaterial ? (
           <div className="flex justify-end gap-1">
             <Button variant="outline" size="sm" onClick={() => onQuote(item)}>
-              <Receipt className="mr-1 size-3.5" />
+              <Receipt />
               Cotação
             </Button>
             {!item.materialId ? (

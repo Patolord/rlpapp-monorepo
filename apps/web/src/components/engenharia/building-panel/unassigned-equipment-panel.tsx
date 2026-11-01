@@ -103,12 +103,12 @@ export function UnassignedEquipmentPanel({
         )}
         <Button
           variant="ghost"
-          size="icon"
-          className="ml-auto size-7"
+          size="icon-xs"
+          className="ml-auto"
           onClick={onClose}
           aria-label="Fechar painel de equipamentos"
         >
-          <X className="size-4" />
+          <X />
         </Button>
       </div>
 
@@ -141,7 +141,7 @@ export function UnassignedEquipmentPanel({
           size="xs"
           onClick={() => setShowCreate((v) => !v)}
         >
-          <Plus className="mr-1 size-3.5" />
+          <Plus />
           Novo
         </Button>
       </div>
@@ -213,7 +213,7 @@ export function UnassignedEquipmentPanel({
                 <div className="pt-1">
                   <Button
                     size="xs"
-                    className="h-6 w-full text-xs"
+                    className="w-full"
                     disabled={!target || assigningId !== null}
                     onClick={() => void handleAssign(item._id)}
                     title={
@@ -223,9 +223,9 @@ export function UnassignedEquipmentPanel({
                     }
                   >
                     {assigningId === item._id ? (
-                      <Loader2 className="mr-1 size-3 animate-spin" />
+                      <Loader2 className="animate-spin" />
                     ) : (
-                      <MousePointerClick className="mr-1 size-3" />
+                      <MousePointerClick />
                     )}
                     Atribuir
                   </Button>
@@ -370,9 +370,9 @@ function CreateUnassignedForm({
         </Button>
         <Button type="submit" size="xs" disabled={saving}>
           {saving ? (
-            <Loader2 className="mr-1 size-3 animate-spin" />
+            <Loader2 className="animate-spin" />
           ) : (
-            <Plus className="mr-1 size-3" />
+            <Plus />
           )}
           Criar
         </Button>

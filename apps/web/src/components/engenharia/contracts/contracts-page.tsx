@@ -117,7 +117,7 @@ export function ContractsPage({
           onOpenChange={setCreateOpen}
           trigger={
             <Button>
-              <Plus className="mr-2 size-4" />
+              <Plus />
               Novo contrato
             </Button>
           }
@@ -139,7 +139,7 @@ export function ContractsPage({
       )}
 
       <Card>
-        <CardContent className="space-y-4 pt-6">
+        <CardContent className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative max-w-sm flex-1">
               <Search className="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
@@ -266,7 +266,7 @@ export function ContractsPage({
                                 size="icon"
                                 title="Editar"
                               >
-                                <Pencil className="size-4" />
+                                <Pencil />
                               </Button>
                             }
                           />
@@ -279,7 +279,7 @@ export function ContractsPage({
                               void handleRemove(contract._id, contract.title)
                             }
                           >
-                            <Trash2 className="size-4" />
+                            <Trash2 />
                           </Button>
                         </div>
                       </TableCell>
@@ -298,7 +298,7 @@ export function ContractsPage({
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
     <Card>
-      <CardContent className="space-y-1 py-4">
+      <CardContent className="space-y-1">
         <p className="text-sm text-muted-foreground">{label}</p>
         <p className="text-2xl font-bold tabular-nums">{value}</p>
       </CardContent>
@@ -327,7 +327,7 @@ function EmptyState({
           defaultCustomerName={defaultCustomerName}
           trigger={
             <Button>
-              <Plus className="mr-2 size-4" />
+              <Plus />
               Criar primeiro contrato
             </Button>
           }

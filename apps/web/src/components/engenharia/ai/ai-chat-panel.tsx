@@ -340,7 +340,7 @@ export function AiChatPanel({
                 onClick={handleNewChat}
                 title="Nova conversa"
               >
-                <MessageSquarePlus className="size-4" />
+                <MessageSquarePlus />
               </Button>
               <Button
                 variant="ghost"
@@ -348,7 +348,7 @@ export function AiChatPanel({
                 onClick={() => setView("history")}
                 title="Histórico"
               >
-                <Clock className="size-4" />
+                <Clock />
               </Button>
             </>
           )}
@@ -359,7 +359,7 @@ export function AiChatPanel({
               onClick={() => setView("chat")}
               title="Voltar ao chat"
             >
-              <ChevronLeft className="size-4" />
+              <ChevronLeft />
             </Button>
           )}
           <Button
@@ -368,7 +368,7 @@ export function AiChatPanel({
             onClick={() => onOpenChange(false)}
             aria-label="Ocultar assistente"
           >
-            <PanelRightClose className="size-4" />
+            <PanelRightClose />
           </Button>
         </div>
       </div>
@@ -407,11 +407,10 @@ export function AiChatPanel({
                       />
                       <Button
                         variant="ghost"
-                        size="icon"
-                        className="size-7"
+                        size="icon-xs"
                         onClick={() => void saveTitle(s._id)}
                       >
-                        <Check className="size-3.5" />
+                        <Check />
                       </Button>
                     </div>
                   ) : (
@@ -438,10 +437,10 @@ export function AiChatPanel({
                           render={
                             <Button
                               variant="ghost"
-                              size="icon"
-                              className="size-7 opacity-0 group-hover:opacity-100"
+                              size="icon-xs"
+                              className="opacity-0 group-hover:opacity-100"
                             >
-                              <MoreVertical className="size-3.5" />
+                              <MoreVertical />
                             </Button>
                           }
                         />
@@ -527,7 +526,7 @@ export function AiChatPanel({
                   className="flex-1"
                   onClick={() => setPendingIntents(null)}
                 >
-                  <X className="mr-1 size-4" />
+                  <X />
                   Descartar
                 </Button>
                 <Button
@@ -537,9 +536,9 @@ export function AiChatPanel({
                   disabled={applying}
                 >
                   {applying ? (
-                    <Loader2 className="mr-1 size-4 animate-spin" />
+                    <Loader2 className="animate-spin" />
                   ) : (
-                    <Check className="mr-1 size-4" />
+                    <Check />
                   )}
                   Confirmar
                 </Button>
@@ -592,7 +591,7 @@ export function AiChatPanel({
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="Anexar arquivo"
               >
-                <Paperclip className="size-4" />
+                <Paperclip />
               </Button>
               <Button
                 variant={recording ? "destructive" : "ghost"}
@@ -601,9 +600,9 @@ export function AiChatPanel({
                 aria-label={recording ? "Parar gravação" : "Gravar áudio"}
               >
                 {recording ? (
-                  <Square className="size-4" />
+                  <Square />
                 ) : (
-                  <Mic className="size-4" />
+                  <Mic />
                 )}
               </Button>
               <Textarea
@@ -625,7 +624,7 @@ export function AiChatPanel({
                 disabled={sending || (!input.trim() && files.length === 0)}
                 aria-label="Enviar"
               >
-                <Send className="size-4" />
+                <Send />
               </Button>
             </div>
           </div>
