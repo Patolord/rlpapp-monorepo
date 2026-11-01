@@ -26,8 +26,14 @@ type IndexSearch = {
 export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>): IndexSearch => {
     const redirect = search.redirect;
-    // Só aceita caminhos internos para evitar open redirect
-    if (typeof redirect === "string" && redirect.startsWith("/")) {
+    // Só aceita caminhos internos para evitar open redirect ("//host" e
+    // "/\host" seriam outro site)
+    if (
+      typeof redirect === "string" &&
+      redirect.startsWith("/") &&
+      !redirect.startsWith("//") &&
+      !redirect.startsWith("/\\")
+    ) {
       return { redirect };
     }
     return {};
@@ -35,6 +41,7 @@ export const Route = createFileRoute("/")({
   component: IndexPage,
 });
 
+/** Caminho interno, que pode trazer query string (ex.: /takeoff/conectar?port=…). */
 function useLoginDestination() {
   const { redirect } = Route.useSearch();
   return redirect ?? "/app";
@@ -47,7 +54,7 @@ function IndexPage() {
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      void navigate({ to: destination });
+      void navigate({ href: destination });
     }
   }, [isLoaded, isSignedIn, navigate, destination]);
 
@@ -86,7 +93,7 @@ function LoginForm() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        await navigate({ to: destination });
+        await navigate({ href: destination });
       } else {
         setError("Erro ao fazer login. Tente novamente.");
       }

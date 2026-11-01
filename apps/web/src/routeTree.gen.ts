@@ -46,6 +46,7 @@ import { Route as QrOperadorOutrasObrasRouteImport } from './routes/qr-operador_
 import { Route as QrOperadorPendentesRouteImport } from './routes/qr-operador_.pendentes'
 import { Route as RhIndexRouteImport } from './routes/rh/index'
 import { Route as RhPontoRouteRouteImport } from './routes/rh/ponto/route'
+import { Route as TakeoffConectarRouteImport } from './routes/takeoff/conectar'
 import { Route as DotwellKnownOauthProtectedResourceMcpRouteImport } from './routes/[.]well-known/oauth-protected-resource/mcp'
 import { Route as ComprasEventosPrecoIndexRouteImport } from './routes/compras/eventos-preco/index'
 import { Route as ComprasFilaRevisaoIndexRouteImport } from './routes/compras/fila-revisao/index'
@@ -284,6 +285,11 @@ const RhPontoRouteRoute = RhPontoRouteRouteImport.update({
   id: '/ponto',
   path: '/ponto',
   getParentRoute: () => RhRouteRoute,
+} as any)
+const TakeoffConectarRoute = TakeoffConectarRouteImport.update({
+  id: '/takeoff/conectar',
+  path: '/takeoff/conectar',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const DotwellKnownOauthProtectedResourceMcpRoute =
   DotwellKnownOauthProtectedResourceMcpRouteImport.update({
@@ -602,6 +608,7 @@ export interface FileRoutesByFullPath {
   '/q/$token': typeof QTokenRoute
   '/qr-operador/outras-obras': typeof QrOperadorOutrasObrasRoute
   '/qr-operador/pendentes': typeof QrOperadorPendentesRoute
+  '/takeoff/conectar': typeof TakeoffConectarRoute
   '/app/': typeof AppIndexRoute
   '/compras/': typeof ComprasIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
@@ -683,6 +690,7 @@ export interface FileRoutesByTo {
   '/q/$token': typeof QTokenRoute
   '/qr-operador/outras-obras': typeof QrOperadorOutrasObrasRoute
   '/qr-operador/pendentes': typeof QrOperadorPendentesRoute
+  '/takeoff/conectar': typeof TakeoffConectarRoute
   '/app': typeof AppIndexRoute
   '/compras': typeof ComprasIndexRoute
   '/engenharia': typeof EngenhariaIndexRoute
@@ -770,6 +778,7 @@ export interface FileRoutesById {
   '/q/$token': typeof QTokenRoute
   '/qr-operador_/outras-obras': typeof QrOperadorOutrasObrasRoute
   '/qr-operador_/pendentes': typeof QrOperadorPendentesRoute
+  '/takeoff/conectar': typeof TakeoffConectarRoute
   '/app/': typeof AppIndexRoute
   '/compras/': typeof ComprasIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
@@ -861,6 +870,7 @@ export interface FileRouteTypes {
     | '/q/$token'
     | '/qr-operador/outras-obras'
     | '/qr-operador/pendentes'
+    | '/takeoff/conectar'
     | '/app/'
     | '/compras/'
     | '/engenharia/'
@@ -942,6 +952,7 @@ export interface FileRouteTypes {
     | '/q/$token'
     | '/qr-operador/outras-obras'
     | '/qr-operador/pendentes'
+    | '/takeoff/conectar'
     | '/app'
     | '/compras'
     | '/engenharia'
@@ -1028,6 +1039,7 @@ export interface FileRouteTypes {
     | '/q/$token'
     | '/qr-operador_/outras-obras'
     | '/qr-operador_/pendentes'
+    | '/takeoff/conectar'
     | '/app/'
     | '/compras/'
     | '/engenharia/'
@@ -1108,6 +1120,7 @@ export interface RootRouteChildren {
   QTokenRoute: typeof QTokenRoute
   QrOperadorOutrasObrasRoute: typeof QrOperadorOutrasObrasRoute
   QrOperadorPendentesRoute: typeof QrOperadorPendentesRoute
+  TakeoffConectarRoute: typeof TakeoffConectarRoute
   PortalIndexRoute: typeof PortalIndexRoute
   DotwellKnownOauthProtectedResourceMcpRoute: typeof DotwellKnownOauthProtectedResourceMcpRoute
   QrOperadorEstoqueObraSlugRoute: typeof QrOperadorEstoqueObraSlugRoute
@@ -1375,6 +1388,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/rh/ponto'
       preLoaderRoute: typeof RhPontoRouteRouteImport
       parentRoute: typeof RhRouteRoute
+    }
+    '/takeoff/conectar': {
+      id: '/takeoff/conectar'
+      path: '/takeoff/conectar'
+      fullPath: '/takeoff/conectar'
+      preLoaderRoute: typeof TakeoffConectarRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/.well-known/oauth-protected-resource/mcp': {
       id: '/.well-known/oauth-protected-resource/mcp'
@@ -2016,6 +2036,7 @@ const rootRouteChildren: RootRouteChildren = {
   QTokenRoute: QTokenRoute,
   QrOperadorOutrasObrasRoute: QrOperadorOutrasObrasRoute,
   QrOperadorPendentesRoute: QrOperadorPendentesRoute,
+  TakeoffConectarRoute: TakeoffConectarRoute,
   PortalIndexRoute: PortalIndexRoute,
   DotwellKnownOauthProtectedResourceMcpRoute:
     DotwellKnownOauthProtectedResourceMcpRoute,
