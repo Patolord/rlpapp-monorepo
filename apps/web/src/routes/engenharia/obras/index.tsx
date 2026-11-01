@@ -143,8 +143,8 @@ function ProjectCard({ project }: { project: ProjectSummary }) {
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${pct}%` }}
+                className="h-full w-full rounded-full bg-primary transition-transform duration-300 ease-snappy motion-reduce:transition-none"
+                style={{ transform: `translateX(${pct - 100}%)` }}
               />
             </div>
             <p className="text-right text-xs text-muted-foreground tabular-nums">
