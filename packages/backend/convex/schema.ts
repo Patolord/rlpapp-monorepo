@@ -145,75 +145,6 @@ export const takeoffBudgetMeta = v.object({
   sheets: v.array(takeoffBudgetSheet),
 });
 
-// Validadores da tabela `ductEstimates` (deprecated, somente leitura; ver a tabela).
-export const ductNorma = v.union(v.literal(1), v.literal(2), v.literal(3));
-
-export const ductExternalInsulation = v.union(
-  v.literal("none"),
-  v.literal("manta"),
-  v.literal("isopor"),
-  v.literal("placa"),
-  v.literal("pintura")
-);
-
-export const ductInternalInsulation = v.union(
-  v.literal("none"),
-  v.literal("bidim"),
-  v.literal("flexiliner")
-);
-
-export const ductFlange = v.union(
-  v.literal("none"),
-  v.literal("powermatic"),
-  v.literal("cantoneira")
-);
-
-export const ductLine = v.object({
-  tag: v.optional(v.string()),
-  largerSideCm: v.number(),
-  smallerSideCm: v.number(),
-  lengthM: v.number(),
-  externalInsulation: ductExternalInsulation,
-  internalInsulation: ductInternalInsulation,
-  flange: ductFlange,
-  reclad: v.boolean(),
-  paintReclad: v.boolean(),
-});
-
-export const ductPrices = v.object({
-  sheet26: v.number(),
-  sheet24: v.number(),
-  sheet22: v.number(),
-  sheet20: v.number(),
-  sheet18: v.number(),
-  sheet26Reclad: v.number(),
-  sheet26Angle: v.number(),
-  isopor: v.number(),
-  manta: v.number(),
-  placa: v.number(),
-  bidim: v.number(),
-  flexiliner: v.number(),
-  glue: v.number(),
-  coldAsphalt: v.number(),
-  nylonTape: v.number(),
-  nylonClip: v.number(),
-  alumTape: v.number(),
-  primerPaint: v.number(),
-  finishPaint: v.number(),
-  brush: v.number(),
-  thinner: v.number(),
-  supports: v.number(),
-  spliters: v.number(),
-  captors: v.number(),
-  pw2Light: v.number(),
-  pw2: v.number(),
-  pwCorners: v.number(),
-  pwClamps: v.number(),
-  rivets: v.number(),
-  pwTape: v.number(),
-  angleFlange: v.number(),
-});
-
 export const priceEventSource = v.union(
   v.literal("manual"),
   v.literal("quote"),
@@ -1000,32 +931,6 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_created", ["createdAt"])
     .index("by_source_external", ["source", "externalId"]),
-
-  // DEPRECATED, somente leitura. Levantamentos de dutos da antiga calculadora do
-  // dashboard (removida: o cálculo de dutos agora é só o do app takeoff, em
-  // @rlpapp/shared/engenharia/ducts). Nenhuma função lê nem grava esta tabela; a
-  // definição fica para que os documentos já gravados em produção continuem
-  // válidos, até o dono decidir exportá-los ou apagá-los. Não apagar dados aqui.
-  ductEstimates: defineTable({
-    projectId: v.id("projects"),
-    name: v.string(),
-    system: v.string(),
-    budgetNumber: v.string(),
-    norma: ductNorma,
-    laborRatePerKg: v.number(),
-    insulationAllowancePct: v.number(),
-    supportAllowancePct: v.number(),
-    insulationThicknessMm: v.number(),
-    flangeSpacingM: v.number(),
-    recladThicknessMm: v.number(),
-    splitersQty: v.number(),
-    captorsQty: v.number(),
-    prices: ductPrices,
-    lines: v.array(ductLine),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    createdByUserId: v.optional(v.id("users")),
-  }).index("by_project", ["projectId"]),
 
   takeoffItems: defineTable({
     takeoffId: v.id("takeoffs"),
