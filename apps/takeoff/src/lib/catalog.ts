@@ -97,13 +97,49 @@ const laborKey = (name: string): string =>
     .replace(/\s+/g, " ")
     .trim();
 
+/** Spellings of the same budget unit, folded (see unitKey). */
+const UNIT_SYNONYMS: Record<string, string> = {
+  un: "pc",
+  und: "pc",
+  unid: "pc",
+  unidade: "pc",
+  unidades: "pc",
+  peca: "pc",
+  pecas: "pc",
+  metro: "m",
+  metros: "m",
+  mt: "m",
+  ml: "m",
+  conjunto: "cj",
+  conjuntos: "cj",
+  quilograma: "kg",
+  quilogramas: "kg",
+  litro: "l",
+  litros: "l",
+};
+
+/**
+ * Comparison key of a unit: folded, without spaces or dots, ² read as 2, synonyms joined
+ * ("un"/"pç"/"peça" → "pc", "metro" → "m", "m²"/"m2", "conjunto" → "cj").
+ */
+export function unitKey(unit: string): string {
+  const k = foldName(unit)
+    .replace(/²/g, "2")
+    .replace(/[^a-z0-9]/g, "");
+  return UNIT_SYNONYMS[k] ?? k;
+}
+
+/** Key of the seed labour table: name and unit, so R$/m never becomes R$/rolo. */
+export const seedLaborKey = (name: string, unit: string): string =>
+  `${laborKey(name)}|${unitKey(unit)}`;
+
 let seedLabor: Map<string, number> | null = null;
-/** Labour price of the bundled seed by laborKey (entries with labour only; the first wins). */
+/** Labour price of the bundled seed by seedLaborKey (entries with labour only; the first wins). */
 function seedLaborPrices(): Map<string, number> {
   if (!seedLabor) {
     seedLabor = new Map();
     for (const e of SEED) {
-      const k = laborKey(e.name);
+      const k = seedLaborKey(e.name, e.unit);
       if (e.laborPrice > 0 && !seedLabor.has(k)) seedLabor.set(k, e.laborPrice);
     }
   }
@@ -111,16 +147,16 @@ function seedLaborPrices(): Map<string, number> {
 }
 
 /**
- * A company entry with no labour price takes the bundled seed's labour for the same name, marked
- * `laborSource: "seed"`, so a budget does not lose labour until purchasing fills it in. An entry
- * that already has labour is returned as is.
+ * A company entry with no labour price takes the bundled seed's labour for the same name and
+ * unit, marked `laborSource: "seed"`, so a budget does not lose labour until purchasing fills it
+ * in. An entry that already has labour, or whose unit differs from the seed's, is returned as is.
  */
 export function withSeedLabor(
   e: CatalogEntry,
   labor: ReadonlyMap<string, number> = seedLaborPrices(),
 ): CatalogEntry {
   if (e.laborPrice > 0) return e;
-  const price = labor.get(laborKey(e.name));
+  const price = labor.get(seedLaborKey(e.name, e.unit));
   return price ? { ...e, laborPrice: price, laborSource: "seed" } : e;
 }
 

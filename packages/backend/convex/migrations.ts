@@ -885,13 +885,17 @@ export const backfillSuppliersCatalog = internalMutation({
 /**
  * Importação avulsa (nunca roda sozinha): preenche `laborPriceCents` dos
  * materiais cujo nome normalizado (família, ou família + variante) é igual ao
- * de uma entrada do catálogo embutido do RLP Takeoff com mão de obra > 0.
+ * de uma entrada do catálogo embutido do RLP Takeoff com mão de obra > 0 na
+ * mesma unidade; nomes iguais em outra unidade só aparecem em
+ * `skippedUnitMismatch`.
  * Materiais que já têm mão de obra ficam como estão, salvo `overwrite`.
  * Por padrão só simula (`dryRun: true`); veja `convex/README.md` para rodar.
  */
 export const importSeedLaborPrices = internalMutation({
   args: {
-    entries: v.array(v.object({ name: v.string(), laborPrice: v.number() })),
+    entries: v.array(
+      v.object({ name: v.string(), unit: v.string(), laborPrice: v.number() })
+    ),
     dryRun: v.optional(v.boolean()),
     overwrite: v.optional(v.boolean()),
   },
@@ -900,6 +904,16 @@ export const importSeedLaborPrices = internalMutation({
     updated: v.number(),
     alreadySet: v.number(),
     ambiguous: v.array(v.string()),
+    // Mesmo nome, unidade diferente: listados para revisão, nunca gravados.
+    skippedUnitMismatch: v.array(
+      v.object({
+        materialId: v.id("materials"),
+        materialName: v.string(),
+        materialUnit: v.string(),
+        seedName: v.string(),
+        seedUnits: v.array(v.string()),
+      })
+    ),
     matches: v.array(
       v.object({
         materialId: v.id("materials"),
@@ -934,6 +948,7 @@ export const importSeedLaborPrices = internalMutation({
       updated: dryRun ? 0 : plan.matches.length,
       alreadySet: plan.alreadySet,
       ambiguous: plan.ambiguous,
+      skippedUnitMismatch: plan.skippedUnitMismatch,
       matches: plan.matches,
     };
   },
