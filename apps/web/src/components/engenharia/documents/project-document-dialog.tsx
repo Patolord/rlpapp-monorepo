@@ -363,7 +363,7 @@ export function ProjectDocumentDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {saving && <Loader2 className="animate-spin" />}
               {isEdit ? "Salvar" : saving ? "Enviando…" : "Enviar PDF"}
             </Button>
           </DialogFooter>

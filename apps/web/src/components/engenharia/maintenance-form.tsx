@@ -148,10 +148,10 @@ export function MaintenanceForm({
     return (
       <Button
         onClick={() => setOpen(true)}
-        className="h-14 w-full text-base"
-        size="lg"
+        className="w-full"
+        size="xl"
       >
-        <Plus className="mr-2 h-5 w-5" />
+        <Plus className="size-5" />
         Registrar Instalação ou Manutenção
       </Button>
     );
@@ -282,17 +282,19 @@ export function MaintenanceForm({
                 resetForm();
                 setOpen(false);
               }}
-              className="h-14 flex-1 text-base"
+              size="xl"
+              className="flex-1"
             >
               Cancelar
             </Button>
             <Button
               type="submit"
               disabled={submitting || !canSubmit}
-              className="h-14 flex-1 text-base"
+              size="xl"
+              className="flex-1"
             >
               {submitting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="animate-spin" />
               ) : null}
               {submitting
                 ? "Salvando..."

@@ -269,7 +269,7 @@ function HierarchyBuilding({
   return (
     <>
       <Card>
-        <CardContent className="space-y-4 py-6">
+        <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center justify-end gap-2">
             {view === "predio" && (
               <>
@@ -280,7 +280,7 @@ function HierarchyBuilding({
                     quickAddOpen ? closeQuickAdd() : openQuickAdd()
                   }
                 >
-                  <Zap className="mr-1.5 size-3.5" />
+                  <Zap />
                   Cadastro rápido
                 </Button>
                 <Button
@@ -288,7 +288,7 @@ function HierarchyBuilding({
                   size="xs"
                   onClick={togglePool}
                 >
-                  <PackagePlus className="mr-1.5 size-3.5" />
+                  <PackagePlus />
                   Equipamentos
                 </Button>
               </>
@@ -299,7 +299,7 @@ function HierarchyBuilding({
                 size="xs"
                 onClick={() => setView("predio")}
               >
-                <Building2 className="mr-1.5 size-3.5" />
+                <Building2 />
                 Prédio
               </Button>
               <Button
@@ -307,7 +307,7 @@ function HierarchyBuilding({
                 size="xs"
                 onClick={() => setView("sistemas")}
               >
-                <Boxes className="mr-1.5 size-3.5" />
+                <Boxes />
                 Sistemas
               </Button>
             </div>
@@ -449,7 +449,7 @@ function LegacyBuilding({
   return (
     <>
       <Card>
-        <CardContent className="py-6">
+        <CardContent>
           <BuildingGrid
             floors={project.floors}
             units={project.units}
@@ -597,7 +597,7 @@ function GlobalEquipmentTable({ project }: { project: ProjectOverview }) {
           onClick={() => exportCsv(filtered, project.name)}
           disabled={filtered.length === 0}
         >
-          <Download className="mr-1.5 size-4" />
+          <Download />
           Exportar CSV
         </Button>
       </div>

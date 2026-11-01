@@ -87,7 +87,7 @@ export function MaintenanceLogCard({ log }: MaintenanceLogProps) {
 
   return (
     <Card>
-      <CardContent className="space-y-3 pt-4">
+      <CardContent className="space-y-3">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -185,7 +185,7 @@ export function MaintenanceLogCard({ log }: MaintenanceLogProps) {
                 disabled={submitting || newPhotos.length === 0}
               >
                 {submitting ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="animate-spin" />
                 ) : null}
                 {submitting ? "Salvando..." : "Salvar Fotos"}
               </Button>
@@ -199,7 +199,7 @@ export function MaintenanceLogCard({ log }: MaintenanceLogProps) {
             className="w-full text-muted-foreground"
             onClick={() => setAddingPhotos(true)}
           >
-            <ImagePlus className="mr-2 h-4 w-4" />
+            <ImagePlus />
             Adicionar Fotos
           </Button>
         )}

@@ -17,12 +17,12 @@ export function SortableHeader<TData extends RowData, TValue = unknown>({
     <Button
       variant="ghost"
       size="sm"
-      className="-ml-2 h-8 px-2 text-muted-foreground hover:text-foreground"
+      className="-ml-2 px-2 text-muted-foreground hover:text-foreground"
       onClick={() => column.toggleSorting(sorted === "asc")}
     >
       {title}
       <ArrowUpDown
-        className={`ml-1 size-3.5 ${sorted ? "text-foreground" : "opacity-40"}`}
+        className={sorted ? "text-foreground" : "opacity-40"}
       />
     </Button>
   );

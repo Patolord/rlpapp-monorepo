@@ -26,16 +26,19 @@ const buttonVariants = cva(
         xs: "h-[28px] gap-[4px] px-[10px] text-xs has-data-[icon=inline-end]:pr-[6px] has-data-[icon=inline-start]:pl-[6px] [&_svg:not([class*='size-'])]:size-[12px]",
         sm: "h-[32px] px-[12px] has-data-[icon=inline-end]:pr-[8px] has-data-[icon=inline-start]:pl-[8px] [&_svg:not([class*='size-'])]:size-[14px]",
         lg: "h-[40px] gap-[8px] px-[16px] has-data-[icon=inline-end]:pr-[12px] has-data-[icon=inline-start]:pl-[12px]",
+        /** Tall touch target for field/mobile screens (48px). */
+        xl: "h-[48px] gap-[8px] px-[18px] text-base has-data-[icon=inline-end]:pr-[14px] has-data-[icon=inline-start]:pl-[14px] [&_svg:not([class*='size-'])]:size-[18px]",
         icon: "size-[36px]",
         "icon-xs": "size-[28px] [&_svg:not([class*='size-'])]:size-[12px]",
         "icon-sm": "size-[32px] [&_svg:not([class*='size-'])]:size-[14px]",
         "icon-lg": "size-[40px]",
+        "icon-xl": "size-[48px] [&_svg:not([class*='size-'])]:size-[18px]",
       },
     },
     compoundVariants: [
       {
         variant: "link",
-        size: ["default", "xs", "sm", "lg"],
+        size: ["default", "xs", "sm", "lg", "xl"],
         className: "px-[4px]",
       },
     ],

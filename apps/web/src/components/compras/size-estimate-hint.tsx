@@ -149,9 +149,8 @@ export function SizeEstimateHint({
         ) : null}
         {onApply ? (
           <Button
-            size="sm"
+            size="xs"
             variant="outline"
-            className="h-6 px-2 text-xs"
             onClick={() => onApply(suggestion.suggestedUnitPriceCents!)}
           >
             Usar

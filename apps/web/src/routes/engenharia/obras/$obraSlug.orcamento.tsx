@@ -23,7 +23,7 @@ import { TakeoffSourceBadge } from "@/components/compras/takeoff-source-badge";
 import { DesktopBudgetView } from "@/components/engenharia/desktop-budget-view";
 import { ProjectShell } from "@/components/engenharia/project-shell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -185,7 +185,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
             toast.success("Novo takeoff criado");
           }}
         >
-          <Plus className="mr-2 size-4" />
+          <Plus />
           Novo takeoff
         </Button>
       </div>
@@ -354,18 +354,20 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
               />
             </div>
             <Button onClick={() => void handleAddLine()}>
-              <Plus className="mr-2 size-4" />
+              <Plus />
               Adicionar linha
             </Button>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader>
             <CardTitle>Itens do takeoff</CardTitle>
-            <p className="text-sm font-medium">
-              Total estimado: {formatCurrency(totalEstimate)}
-            </p>
+            <CardAction>
+              <p className="text-sm font-medium">
+                Total estimado: {formatCurrency(totalEstimate)}
+              </p>
+            </CardAction>
           </CardHeader>
           <CardContent>
             <Table>
@@ -440,9 +442,8 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                             <PriceFreshnessBadge freshness={p.freshness} />
                             {p.suggestedUnitPriceCents != null && (
                               <Button
-                                size="sm"
+                                size="xs"
                                 variant="ghost"
-                                className="h-6 px-2"
                                 onClick={() =>
                                   void applyPrice({
                                     itemId: item._id,
@@ -480,7 +481,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                             size="sm"
                             onClick={() => setQuoteTarget(item)}
                           >
-                            <Receipt className="mr-1 size-3.5" />
+                            <Receipt />
                             Cotação
                           </Button>
                         ) : null}
@@ -520,7 +521,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                             )
                           }
                         >
-                          <Trash2 className="size-4" />
+                          <Trash2 />
                         </Button>
                       </div>
                     </TableCell>

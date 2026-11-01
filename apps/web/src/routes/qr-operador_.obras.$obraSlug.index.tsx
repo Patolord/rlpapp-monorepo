@@ -173,8 +173,8 @@ function CampoObraHubPage() {
               autoComplete="off"
               className="h-12 font-mono text-base uppercase placeholder:font-sans placeholder:normal-case"
             />
-            <Button type="submit" disabled={!code.trim()} className="h-12 shrink-0">
-              <Search className="mr-1.5 size-4" />
+            <Button type="submit" size="xl" disabled={!code.trim()} className="shrink-0">
+              <Search />
               Abrir
             </Button>
           </div>

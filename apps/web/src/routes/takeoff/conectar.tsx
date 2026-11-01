@@ -82,7 +82,7 @@ function ConectarPage() {
   if (!isLoaded || !isSignedIn) {
     return (
       <Shell>
-        <CardContent className="flex items-center gap-2 py-8 text-muted-foreground">
+        <CardContent className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> Carregando…
         </CardContent>
       </Shell>
@@ -152,16 +152,17 @@ function ConfirmConnection({ params }: { params: ConnectParams }) {
       <CardContent className="grid gap-3">
         {error && <p className="text-sm text-destructive">{error}</p>}
         <Button
-          className="h-11 text-base font-semibold"
+          size="xl"
+          className="font-semibold"
           disabled={phase === "busy" || !isAuthenticated}
           onClick={() => void connect()}
         >
           {(phase === "busy" || !isAuthenticated) && (
-            <Loader2 className="mr-2 size-4 animate-spin" />
+            <Loader2 className="animate-spin" />
           )}
           Conectar
         </Button>
-        <Button variant="outline" className="h-11" disabled={phase === "busy"} onClick={cancel}>
+        <Button variant="outline" size="xl" disabled={phase === "busy"} onClick={cancel}>
           Cancelar
         </Button>
         <p className="text-center text-xs text-muted-foreground">

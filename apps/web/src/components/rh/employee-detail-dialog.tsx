@@ -435,7 +435,7 @@ function AppUserSection({ employee }: { employee: EmployeeSummary }) {
             void save(selected === NO_USER ? null : (selected as Id<"users">))
           }
         >
-          <Link2 className="mr-1 size-3.5" />
+          <Link2 />
           Vincular
         </Button>
         {employee.userId ? (
@@ -445,7 +445,7 @@ function AppUserSection({ employee }: { employee: EmployeeSummary }) {
             disabled={saving}
             onClick={() => void save(null)}
           >
-            <Link2Off className="mr-1 size-3.5" />
+            <Link2Off />
             Desvincular
           </Button>
         ) : null}
@@ -553,7 +553,7 @@ export function EmployeeDetailDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
       <DialogTrigger render={<Button variant="outline" size="sm" />}>
-        <Pencil className="size-3.5" />
+        <Pencil />
         Detalhe
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
@@ -610,7 +610,7 @@ export function EmployeeDetailDialog({
                     )
                 }
               >
-                <RotateCcw className="mr-1 size-3.5" />
+                <RotateCcw />
                 Restaurar
               </Button>
             ) : (
@@ -630,7 +630,7 @@ export function EmployeeDetailDialog({
                     )
                 }
               >
-                <Archive className="mr-1 size-3.5" />
+                <Archive />
                 Arquivar
               </Button>
             )}

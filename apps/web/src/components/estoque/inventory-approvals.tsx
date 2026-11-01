@@ -116,7 +116,7 @@ export function InventoryApprovals({
                   size="sm"
                   onClick={() => openDecision(document, "approve")}
                 >
-                  <Check className="mr-1 size-4" />
+                  <Check />
                   Aprovar exceção
                 </Button>
                 <Button
@@ -124,7 +124,7 @@ export function InventoryApprovals({
                   variant="destructive"
                   onClick={() => openDecision(document, "reject")}
                 >
-                  <X className="mr-1 size-4" />
+                  <X />
                   Rejeitar
                 </Button>
               </div>

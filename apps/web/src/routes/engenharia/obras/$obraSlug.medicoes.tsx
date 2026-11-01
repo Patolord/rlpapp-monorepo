@@ -134,7 +134,7 @@ function MedicoesContent({
               contracts={contractOptions}
               trigger={
                 <Button>
-                  <Plus className="mr-2 size-4" />
+                  <Plus />
                   Nova medição
                 </Button>
               }
@@ -212,7 +212,7 @@ function EmptyState({ obraSlug }: { obraSlug: string }) {
               />
             }
           >
-            <Plus className="mr-2 size-4" />
+            <Plus />
             Ir para contratos
           </Button>
         }
@@ -260,7 +260,7 @@ function ContractCard({
             defaultContractId={contract._id}
             trigger={
               <Button size="sm">
-                <Plus className="mr-1.5 size-4" />
+                <Plus />
                 Nova medição
               </Button>
             }
@@ -404,7 +404,7 @@ function MedicaoRow({
                 variant="outline"
                 onClick={() => void handleStatus("aprovada", "Medição aprovada")}
               >
-                <Check className="mr-1 size-3.5" />
+                <Check />
                 Aprovar
               </Button>
               <MedicaoFormDialog
@@ -413,7 +413,7 @@ function MedicaoRow({
                 medicao={medicao}
                 trigger={
                   <Button variant="ghost" size="icon" title="Editar medição">
-                    <Pencil className="size-4" />
+                    <Pencil />
                   </Button>
                 }
               />
@@ -424,7 +424,7 @@ function MedicaoRow({
                 className="text-muted-foreground hover:text-destructive"
                 onClick={() => void handleRemove()}
               >
-                <Trash2 className="size-4" />
+                <Trash2 />
               </Button>
             </>
           )}
@@ -437,7 +437,7 @@ function MedicaoRow({
                   void handleStatus("paga", "Medição marcada como paga")
                 }
               >
-                <CircleDollarSign className="mr-1 size-3.5" />
+                <CircleDollarSign />
                 Marcar paga
               </Button>
               <Button
@@ -448,7 +448,7 @@ function MedicaoRow({
                   void handleStatus("rascunho", "Medição voltou para rascunho")
                 }
               >
-                <Undo2 className="size-4" />
+                <Undo2 />
               </Button>
             </>
           )}
@@ -461,7 +461,7 @@ function MedicaoRow({
                 void handleStatus("aprovada", "Medição voltou para aprovada")
               }
             >
-              <Undo2 className="size-4" />
+              <Undo2 />
             </Button>
           )}
         </div>

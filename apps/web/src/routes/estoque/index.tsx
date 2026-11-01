@@ -96,7 +96,7 @@ function EstoqueContent() {
           </p>
         </div>
         <Button render={<Link to="/estoque/movimentacao" />}>
-          <Plus className="mr-2 size-4" />
+          <Plus />
           Nova movimentação
         </Button>
       </div>
@@ -130,7 +130,7 @@ function EstoqueContent() {
             className="shrink-0"
             onClick={() => setSection(item.key)}
           >
-            <item.icon className="mr-1.5 size-4" />
+            <item.icon />
             {item.label}
           </Button>
         ))}

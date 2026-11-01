@@ -74,7 +74,7 @@ function UnauthenticatedView() {
       <div className="mx-auto w-full max-w-sm space-y-4">
         {equipment && (
           <Card>
-            <CardContent className="pt-4">
+            <CardContent>
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -101,7 +101,7 @@ function UnauthenticatedView() {
         )}
 
         <Card>
-          <CardContent className="flex flex-col items-center gap-5 pt-6 pb-6 text-center">
+          <CardContent className="flex flex-col items-center gap-5 text-center">
             {!equipment && (
               <>
                 <QrCode className="h-12 w-12 text-muted-foreground" />
@@ -120,10 +120,11 @@ function UnauthenticatedView() {
                 Se você é técnico, faça login para acessar o sistema:
               </p>
               <Button
-                className="h-12 w-full text-base"
+                size="xl"
+                className="w-full"
                 render={<Link to="/" search={{ redirect: `/q/${token}` }} />}
               >
-                <LogIn className="mr-2 h-4 w-4" />
+                <LogIn />
                 Entrar
               </Button>
             </div>
@@ -216,7 +217,7 @@ function AuthenticatedContent() {
       token={token}
       notFoundAction={
         <Button render={<Link to="/app" />}>
-          <Home className="mr-2 h-4 w-4" />
+          <Home />
           Voltar à tela inicial
         </Button>
       }

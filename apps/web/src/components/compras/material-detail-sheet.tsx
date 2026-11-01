@@ -292,7 +292,7 @@ export function MaterialDetailSheet({
                             )
                           }
                         >
-                          <Trash2 className="size-4" />
+                          <Trash2 />
                         </Button>
                       </li>
                     );
@@ -388,7 +388,7 @@ export function MaterialDetailSheet({
                     onClick={() => void handleAddOffering()}
                     disabled={!supplierId || submittingOffering}
                   >
-                    <Plus className="mr-1.5 size-4" />
+                    <Plus />
                     Vincular fornecedor
                   </Button>
                 </div>
@@ -450,7 +450,7 @@ export function MaterialDetailSheet({
                     onClick={() => void handleAddAlias()}
                     disabled={submittingAlias}
                   >
-                    <Plus className="size-4" />
+                    <Plus />
                   </Button>
                 </div>
               </div>
@@ -472,7 +472,7 @@ export function MaterialDetailSheet({
                     setPolicySheetOpen(true);
                   }}
                 >
-                  <Plus className="mr-1 size-4" />
+                  <Plus />
                   Nova política
                 </Button>
               </div>

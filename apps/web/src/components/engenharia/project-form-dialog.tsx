@@ -319,7 +319,7 @@ export function ProjectFormDialog({
                 Number(legacyNumber) <= 0
               }
             >
-              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {saving && <Loader2 className="animate-spin" />}
               {isEdit ? "Salvar alterações" : "Criar obra"}
             </Button>
           </DialogFooter>

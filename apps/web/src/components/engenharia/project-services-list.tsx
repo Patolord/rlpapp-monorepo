@@ -87,7 +87,7 @@ export function ProjectServicesList({
       )}
       {status === "LoadingMore" && (
         <Button variant="outline" className="w-full" disabled>
-          <Loader2 className="mr-2 size-4 animate-spin" />
+          <Loader2 className="animate-spin" />
           Carregando...
         </Button>
       )}

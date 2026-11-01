@@ -209,7 +209,7 @@ export function CsvImportDialog<T>({
                 downloadCsvTemplate(templateFilename, templateHeaders, templateSampleRow)
               }
             >
-              <Download className="mr-2 size-4" />
+              <Download />
               Baixar modelo CSV
             </Button>
             <Button
@@ -218,7 +218,7 @@ export function CsvImportDialog<T>({
               size="sm"
               onClick={() => fileInputRef.current?.click()}
             >
-              <FileUp className="mr-2 size-4" />
+              <FileUp />
               Selecionar arquivo
             </Button>
             <Input
@@ -320,7 +320,7 @@ export function CsvImportDialog<T>({
           >
             {importing ? (
               <>
-                <Loader2 className="mr-2 size-4 animate-spin" />
+                <Loader2 className="animate-spin" />
                 Importando...
               </>
             ) : (

@@ -270,7 +270,7 @@ function PageContent() {
         description="Gerencie lotes, reimpressões e códigos livres sem carregar a base inteira."
         actions={
           <Button render={<Link to="/engenharia/qr-codes" />}>
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus />
             Criar códigos QR
           </Button>
         }
@@ -287,7 +287,7 @@ function PageContent() {
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Card>
-          <CardHeader className="border-b pb-3">
+          <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <History className="h-4 w-4 text-muted-foreground" />
               Lotes recentes
@@ -318,7 +318,7 @@ function PageContent() {
                     <div className="flex flex-wrap gap-2">
                       <Button variant={activeBatchId === batch.batchId ? "default" : "outline"} size="sm" onClick={() => openBatch(batch.batchId)}>Abrir lote</Button>
                       <Button variant="ghost" size="sm" disabled={printingBatch === batch.batchId} onClick={() => handlePrintBatch(batch.batchId, batch.batchName ?? batch.batchId)}>
-                        {printingBatch === batch.batchId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+                        {printingBatch === batch.batchId ? <Loader2 className="animate-spin" /> : <RotateCcw />}
                         Reimprimir
                       </Button>
                     </div>
@@ -330,13 +330,13 @@ function PageContent() {
         </Card>
 
         <Card>
-          <CardHeader className="border-b pb-3">
+          <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Search className="h-4 w-4 text-muted-foreground" />
               Buscar lote ou código
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 pt-4">
+          <CardContent className="space-y-4">
             <form className="flex gap-2" onSubmit={handleSearch}>
               <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Código, nome do lote ou identificador" />
               <Button type="submit">Buscar</Button>
@@ -356,15 +356,15 @@ function PageContent() {
         <div className="flex flex-col gap-3 rounded-lg border bg-muted/50 p-3 sm:flex-row sm:items-center">
           <span className="text-sm font-medium">{selectedRecords.length} selecionado{selectedRecords.length > 1 ? "s" : ""}</span>
           <div className="flex-1" />
-          <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}><X className="mr-2 h-4 w-4" />Limpar</Button>
-          <Button variant="outline" size="sm" onClick={() => handlePrintTokens(selectedRecords.map((qr) => qr.token), "Códigos QR Selecionados")}><Printer className="mr-2 h-4 w-4" />Imprimir selecionados</Button>
-          <Button variant="destructive" size="sm" disabled={bulkDeleting} onClick={handleBulkDelete}>{bulkDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}Excluir livres</Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}><X />Limpar</Button>
+          <Button variant="outline" size="sm" onClick={() => handlePrintTokens(selectedRecords.map((qr) => qr.token), "Códigos QR Selecionados")}><Printer />Imprimir selecionados</Button>
+          <Button variant="destructive" size="sm" disabled={bulkDeleting} onClick={handleBulkDelete}>{bulkDeleting ? <Loader2 className="animate-spin" /> : <Trash2 />}Excluir livres</Button>
         </div>
       )}
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
         <Card className="overflow-hidden">
-          <CardHeader className="border-b pb-3">
+          <CardHeader>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle className="text-base">{activeBatchId ? "Códigos do lote" : "Selecione um lote"}</CardTitle>
@@ -432,7 +432,7 @@ function PageContent() {
                   {filteredCodes.map((qr) => <QrCodeRowItem key={qr._id} qr={qr} checked={selected.has(qr.token)} deleting={deletingToken === qr.token} onSelect={() => toggleSelect(qr.token)} onPreview={() => setPreviewToken(qr.token)} onPrint={() => handlePrintTokens([qr.token], `Código QR ${qr.token}`)} onDelete={() => handleDeleteQr(qr.token, !!qr.equipmentId)} />)}
                 </div>
                 <div className="border-t px-4 py-3">
-                  {batchCodes.status === "CanLoadMore" ? <Button variant="outline" size="sm" onClick={() => batchCodes.loadMore(25)}>Carregar mais códigos</Button> : batchCodes.status === "LoadingMore" ? <Button variant="outline" size="sm" disabled><Loader2 className="mr-2 h-4 w-4 animate-spin" />Carregando...</Button> : <p className="text-sm text-muted-foreground">Todos os códigos carregados para este lote.</p>}
+                  {batchCodes.status === "CanLoadMore" ? <Button variant="outline" size="sm" onClick={() => batchCodes.loadMore(25)}>Carregar mais códigos</Button> : batchCodes.status === "LoadingMore" ? <Button variant="outline" size="sm" disabled><Loader2 className="animate-spin" />Carregando...</Button> : <p className="text-sm text-muted-foreground">Todos os códigos carregados para este lote.</p>}
                 </div>
               </>
             )}
@@ -446,15 +446,15 @@ function PageContent() {
 
 function SearchResults({ results, deletingToken, printingBatch, onOpenBatch, onPrintBatch, onPreview, onPrintOne, onDelete }: { results: { batches: Array<{ batchId: string; batchName?: string; createdAt: number; count: number }>; qrCodes: QrCodeRow[] }; deletingToken: string | null; printingBatch: string | null; onOpenBatch: (batchId: string) => void; onPrintBatch: (batchId: string, title?: string) => void; onPreview: (token: string) => void; onPrintOne: (token: string) => void; onDelete: (token: string, isLinked: boolean) => void }) {
   if (results.batches.length === 0 && results.qrCodes.length === 0) return <p className="text-sm text-muted-foreground">Nenhum lote ou código encontrado nessa busca.</p>;
-  return <div className="space-y-4">{results.batches.length > 0 && <div className="space-y-2"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Lotes</p>{results.batches.map((batch) => <div key={batch.batchId} className="rounded-lg border p-3"><p className="truncate text-sm font-semibold">{batch.batchName ?? batch.batchId}</p>{batch.batchName && <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{batch.batchId}</p>}<p className="mt-1 text-xs text-muted-foreground">{batch.count} código QR{batch.count === 1 ? "" : "s"} · {new Date(batch.createdAt).toLocaleString("pt-BR")}</p><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" onClick={() => onOpenBatch(batch.batchId)}>Abrir lote</Button><Button variant="outline" size="sm" disabled={printingBatch === batch.batchId} onClick={() => onPrintBatch(batch.batchId, batch.batchName ?? batch.batchId)}>{printingBatch === batch.batchId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}Imprimir</Button></div></div>)}</div>}{results.qrCodes.length > 0 && <div className="space-y-2"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Códigos</p>{results.qrCodes.map((qr) => <QrSearchResult key={qr._id} qr={qr} deleting={deletingToken === qr.token} onPreview={() => onPreview(qr.token)} onPrint={() => onPrintOne(qr.token)} onDelete={() => onDelete(qr.token, !!qr.equipmentId)} />)}</div>}</div>;
+  return <div className="space-y-4">{results.batches.length > 0 && <div className="space-y-2"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Lotes</p>{results.batches.map((batch) => <div key={batch.batchId} className="rounded-lg border p-3"><p className="truncate text-sm font-semibold">{batch.batchName ?? batch.batchId}</p>{batch.batchName && <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{batch.batchId}</p>}<p className="mt-1 text-xs text-muted-foreground">{batch.count} código QR{batch.count === 1 ? "" : "s"} · {new Date(batch.createdAt).toLocaleString("pt-BR")}</p><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" onClick={() => onOpenBatch(batch.batchId)}>Abrir lote</Button><Button variant="outline" size="sm" disabled={printingBatch === batch.batchId} onClick={() => onPrintBatch(batch.batchId, batch.batchName ?? batch.batchId)}>{printingBatch === batch.batchId ? <Loader2 className="animate-spin" /> : <Printer />}Imprimir</Button></div></div>)}</div>}{results.qrCodes.length > 0 && <div className="space-y-2"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Códigos</p>{results.qrCodes.map((qr) => <QrSearchResult key={qr._id} qr={qr} deleting={deletingToken === qr.token} onPreview={() => onPreview(qr.token)} onPrint={() => onPrintOne(qr.token)} onDelete={() => onDelete(qr.token, !!qr.equipmentId)} />)}</div>}</div>;
 }
 
 function QrSearchResult({ qr, deleting, onPreview, onPrint, onDelete }: { qr: QrCodeRow; deleting: boolean; onPreview: () => void; onPrint: () => void; onDelete: () => void }) {
-  return <div className="rounded-lg border p-3"><div className="flex items-center gap-2"><p className="min-w-0 flex-1 truncate font-mono text-sm font-semibold">{qr.token}</p><StatusBadge linked={!!qr.equipmentId} /></div><p className="mt-1 truncate text-xs text-muted-foreground">{qr.batchName ?? (qr.batchId ? `Lote ${qr.batchId}` : "Sem lote")}</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="ghost" size="icon-sm" title="Ver código QR" onClick={onPreview}><Eye className="h-4 w-4" /></Button><Button variant="outline" size="sm" onClick={onPrint}><Printer className="mr-2 h-4 w-4" />Imprimir</Button><Button variant="ghost" size="sm" render={<Link to="/engenharia/qr/$token" params={{ token: qr.token }} />}>Detalhes</Button><Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive" disabled={!!qr.equipmentId || deleting} title={qr.equipmentId ? "código QR vinculado não pode ser excluído" : "Excluir código QR"} onClick={onDelete}>{deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</Button></div></div>;
+  return <div className="rounded-lg border p-3"><div className="flex items-center gap-2"><p className="min-w-0 flex-1 truncate font-mono text-sm font-semibold">{qr.token}</p><StatusBadge linked={!!qr.equipmentId} /></div><p className="mt-1 truncate text-xs text-muted-foreground">{qr.batchName ?? (qr.batchId ? `Lote ${qr.batchId}` : "Sem lote")}</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="ghost" size="icon-sm" title="Ver código QR" onClick={onPreview}><Eye /></Button><Button variant="outline" size="sm" onClick={onPrint}><Printer />Imprimir</Button><Button variant="ghost" size="sm" render={<Link to="/engenharia/qr/$token" params={{ token: qr.token }} />}>Detalhes</Button><Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive" disabled={!!qr.equipmentId || deleting} title={qr.equipmentId ? "código QR vinculado não pode ser excluído" : "Excluir código QR"} onClick={onDelete}>{deleting ? <Loader2 className="animate-spin" /> : <Trash2 />}</Button></div></div>;
 }
 
 function QrCodeRowItem({ qr, checked, deleting, onSelect, onPreview, onPrint, onDelete }: { qr: QrCodeRow; checked: boolean; deleting: boolean; onSelect: () => void; onPreview: () => void; onPrint: () => void; onDelete: () => void }) {
-  return <div className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_auto] sm:items-center"><div className="flex min-w-0 items-center gap-3"><Checkbox aria-label={`Selecionar código QR ${qr.token}`} checked={checked} onCheckedChange={onSelect} /><div className="min-w-0"><div className="flex items-center gap-2"><p className="truncate font-mono text-sm font-semibold">{qr.token}</p><StatusBadge linked={!!qr.equipmentId} /></div></div></div><div className="min-w-0 pl-8 sm:pl-0"><p className="truncate text-xs text-muted-foreground">{qr.batchName ?? (qr.batchId ? `Lote ${qr.batchId}` : "Sem lote")}</p><p className="truncate text-xs text-muted-foreground">{qr.equipment ? qr.equipment.description ?? "Equipamento" : "Sem equipamento"}</p></div><div className="flex flex-wrap gap-1.5 pl-8 sm:justify-end sm:pl-0"><Button variant="ghost" size="icon-sm" title="Ver código QR" onClick={onPreview}><Eye className="h-4 w-4" /></Button><Button variant="outline" size="sm" onClick={onPrint}><Printer className="mr-2 h-4 w-4" />Imprimir</Button><Button variant="ghost" size="sm" render={<Link to="/engenharia/qr/$token" params={{ token: qr.token }} />}>Detalhes</Button><Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive" disabled={!!qr.equipmentId || deleting} title={qr.equipmentId ? "código QR vinculado não pode ser excluído" : "Excluir código QR"} onClick={onDelete}>{deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</Button></div></div>;
+  return <div className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_auto] sm:items-center"><div className="flex min-w-0 items-center gap-3"><Checkbox aria-label={`Selecionar código QR ${qr.token}`} checked={checked} onCheckedChange={onSelect} /><div className="min-w-0"><div className="flex items-center gap-2"><p className="truncate font-mono text-sm font-semibold">{qr.token}</p><StatusBadge linked={!!qr.equipmentId} /></div></div></div><div className="min-w-0 pl-8 sm:pl-0"><p className="truncate text-xs text-muted-foreground">{qr.batchName ?? (qr.batchId ? `Lote ${qr.batchId}` : "Sem lote")}</p><p className="truncate text-xs text-muted-foreground">{qr.equipment ? qr.equipment.description ?? "Equipamento" : "Sem equipamento"}</p></div><div className="flex flex-wrap gap-1.5 pl-8 sm:justify-end sm:pl-0"><Button variant="ghost" size="icon-sm" title="Ver código QR" onClick={onPreview}><Eye /></Button><Button variant="outline" size="sm" onClick={onPrint}><Printer />Imprimir</Button><Button variant="ghost" size="sm" render={<Link to="/engenharia/qr/$token" params={{ token: qr.token }} />}>Detalhes</Button><Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive" disabled={!!qr.equipmentId || deleting} title={qr.equipmentId ? "código QR vinculado não pode ser excluído" : "Excluir código QR"} onClick={onDelete}>{deleting ? <Loader2 className="animate-spin" /> : <Trash2 />}</Button></div></div>;
 }
 
 const skeletonWidths = ["72%", "60%", "84%"] as const;
@@ -511,6 +511,6 @@ function StatusBadge({ linked }: { linked: boolean }) {
 }
 
 function QrPreviewPanel({ token, baseUrl, onClose }: { token: string | null; baseUrl: string; onClose: () => void }) {
-  if (!token) return <Card className="hidden lg:sticky lg:top-6 lg:block"><CardContent className="flex min-h-64 flex-col items-center justify-center p-5 text-center"><Eye className="mb-2 h-5 w-5 text-muted-foreground" /><p className="text-sm font-medium">Pré-visualização do QR</p><p className="mt-1 text-xs text-muted-foreground">Escolha um código para ver a imagem sem carregar todos na lista.</p></CardContent></Card>;
-  return <Card className="lg:sticky lg:top-6"><CardContent className="flex flex-col items-center p-5 text-center"><div className="mb-4 flex w-full items-center justify-between gap-2 border-b pb-3"><div className="min-w-0 text-left"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Pré-visualização</p><p className="truncate font-mono text-sm font-semibold">{token}</p></div><Button variant="ghost" size="icon-sm" aria-label="Fechar pré-visualização" onClick={onClose}><X className="h-4 w-4" /></Button></div><div className="rounded-xl border bg-white p-3"><QRCodeSVG value={`${baseUrl}/q/${token}`} size={170} level="M" /></div><p className="mt-3 text-xs text-muted-foreground">Use imprimir para gerar a etiqueta.</p></CardContent></Card>;
+  if (!token) return <Card className="hidden lg:sticky lg:top-6 lg:block"><CardContent className="flex min-h-64 flex-col items-center justify-center text-center"><Eye className="mb-2 h-5 w-5 text-muted-foreground" /><p className="text-sm font-medium">Pré-visualização do QR</p><p className="mt-1 text-xs text-muted-foreground">Escolha um código para ver a imagem sem carregar todos na lista.</p></CardContent></Card>;
+  return <Card className="lg:sticky lg:top-6"><CardContent className="flex flex-col items-center text-center"><div className="mb-4 flex w-full items-center justify-between gap-2 border-b pb-3"><div className="min-w-0 text-left"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Pré-visualização</p><p className="truncate font-mono text-sm font-semibold">{token}</p></div><Button variant="ghost" size="icon-sm" aria-label="Fechar pré-visualização" onClick={onClose}><X /></Button></div><div className="rounded-xl border bg-white p-3"><QRCodeSVG value={`${baseUrl}/q/${token}`} size={170} level="M" /></div><p className="mt-3 text-xs text-muted-foreground">Use imprimir para gerar a etiqueta.</p></CardContent></Card>;
 }

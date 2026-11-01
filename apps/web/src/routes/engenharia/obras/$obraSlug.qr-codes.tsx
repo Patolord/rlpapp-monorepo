@@ -173,7 +173,7 @@ function QrCodesContent({
             size="sm"
             render={<Link to="/meus-registros" />}
           >
-            <ClipboardList className="size-4" />
+            <ClipboardList />
             Meus registros
           </Button>
         </div>

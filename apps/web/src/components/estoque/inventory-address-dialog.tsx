@@ -55,7 +55,7 @@ export function InventoryAddressDialog({
           setOpen(true);
         }}
       >
-        <MapPin className="mr-1 size-4" />
+        <MapPin />
         {currentAddress || "Definir"}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>

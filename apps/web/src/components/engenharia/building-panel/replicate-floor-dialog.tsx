@@ -297,9 +297,9 @@ export function ReplicateFloorDialog({
             onClick={() => void handleSubmit()}
           >
             {saving ? (
-              <Loader2 className="mr-1.5 size-4 animate-spin" />
+              <Loader2 className="animate-spin" />
             ) : (
-              <CopyPlus className="mr-1.5 size-4" />
+              <CopyPlus />
             )}
             Replicar para {selectedFloors.length} andar
             {selectedFloors.length === 1 ? "" : "es"}

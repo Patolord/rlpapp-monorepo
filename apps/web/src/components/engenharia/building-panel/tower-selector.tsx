@@ -24,7 +24,7 @@ export function TowerSelector({
   if (towers.length === 0) {
     return onAddTower ? (
       <Button variant="outline" size="sm" onClick={onAddTower}>
-        <Plus className="mr-1.5 size-4" />
+        <Plus />
         Nova torre
       </Button>
     ) : null;

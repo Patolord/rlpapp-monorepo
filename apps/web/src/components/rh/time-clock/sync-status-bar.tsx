@@ -83,9 +83,9 @@ export function SyncStatusBar({
         disabled={busy || status === undefined || !status.configured}
       >
         {busy ? (
-          <Loader2 className="mr-2 size-4 animate-spin" />
+          <Loader2 className="animate-spin" />
         ) : (
-          <RefreshCw className="mr-2 size-4" />
+          <RefreshCw />
         )}
         {busy ? "Sincronizando…" : label}
       </Button>

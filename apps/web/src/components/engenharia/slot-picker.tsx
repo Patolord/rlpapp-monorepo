@@ -157,7 +157,7 @@ export function SlotPickerStep({
         )}
         {groups.map((group) => (
           <Card key={group.label}>
-            <CardContent className="space-y-1.5 py-3">
+            <CardContent className="space-y-1.5">
               <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <MapPin className="h-3.5 w-3.5" />
                 {group.label}
@@ -208,7 +208,8 @@ export function SlotPickerStep({
 
       <Button
         variant="outline"
-        className="h-12 w-full text-base"
+        size="xl"
+        className="w-full"
         disabled={claimingId !== null}
         onClick={onDone}
       >

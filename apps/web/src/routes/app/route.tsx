@@ -68,7 +68,7 @@ function RoleGate({ children }: { children: React.ReactNode }) {
           Usuário não encontrado no sistema.
         </p>
         <Button render={<Link to="/" />}>
-          <Home className="mr-2 size-4" />
+          <Home />
           Voltar à tela inicial
         </Button>
       </div>

@@ -79,7 +79,7 @@ function ComprasContent({
               />
             }
           >
-            <Calculator className="mr-1.5 size-4" />
+            <Calculator />
             Abrir orçamento
           </Button>
           <Button
@@ -87,7 +87,7 @@ function ComprasContent({
             size="sm"
             render={<Link to="/compras/takeoffs" />}
           >
-            <ExternalLink className="mr-1.5 size-4" />
+            <ExternalLink />
             Takeoffs gerais
           </Button>
           <Button
@@ -95,14 +95,14 @@ function ComprasContent({
             size="sm"
             render={<Link to="/compras/materiais" />}
           >
-            <Package className="mr-1.5 size-4" />
+            <Package />
             Materiais
           </Button>
         </div>
       </div>
 
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader>
           <CardTitle className="text-base">Takeoffs do projeto</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -125,7 +125,7 @@ function ComprasContent({
                 }
               >
                 Ir para orçamento
-                <ArrowRight className="ml-1.5 size-4" />
+                <ArrowRight />
               </Button>
             </div>
           ) : (
@@ -175,7 +175,7 @@ function ComprasContent({
                         }
                       >
                         Abrir
-                        <ArrowRight className="ml-1 size-3.5" />
+                        <ArrowRight />
                       </Button>
                     </TableCell>
                   </TableRow>

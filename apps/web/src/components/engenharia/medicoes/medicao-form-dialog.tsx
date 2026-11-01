@@ -350,7 +350,7 @@ export function MedicaoFormDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={saving || !contractId}>
-              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {saving && <Loader2 className="animate-spin" />}
               {isEdit ? "Salvar alterações" : "Criar medição"}
             </Button>
           </DialogFooter>
