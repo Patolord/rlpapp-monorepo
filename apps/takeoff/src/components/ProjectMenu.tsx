@@ -6,9 +6,11 @@ import {
   FolderX,
   Save,
   SaveAll,
+  Send,
   Settings2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { sentToAppLabel } from "../lib/appLink";
 import { closeProject, openProjectFile, pickAndOpenProject, saveProject } from "../lib/files";
 import { MOD } from "../lib/platform";
 import { basename } from "../lib/session";
@@ -24,6 +26,8 @@ export function ProjectMenu() {
   const setNewProjectOpen = useStore((s) => s.setNewProjectOpen);
   const setCatalogSettingsOpen = useStore((s) => s.setCatalogSettingsOpen);
   const setReportOpen = useStore((s) => s.setReportOpen);
+  const setSendBudgetOpen = useStore((s) => s.setSendBudgetOpen);
+  const sentToApp = useStore((s) => s.project.sentToApp);
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
@@ -123,6 +127,16 @@ export function ProjectMenu() {
             <>
               <Kbd>{MOD}</Kbd>+<Kbd>Shift</Kbd>+<Kbd>E</Kbd>
             </>,
+          )}
+          {item(
+            <Send size={16} />,
+            sentToApp ? "Atualizar orçamento aprovado no app…" : "Enviar orçamento aprovado…",
+            () => setSendBudgetOpen(true),
+          )}
+          {sentToApp && (
+            <p className="px-3 pb-1 pl-9 text-[11px] text-neutral-500">
+              {sentToAppLabel(sentToApp)}
+            </p>
           )}
           <div className="my-1 border-t border-neutral-800" />
           {item(<Settings2 size={16} />, "Catálogo e preços…", () => setCatalogSettingsOpen(true))}

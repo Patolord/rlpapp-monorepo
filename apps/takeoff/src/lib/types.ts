@@ -178,8 +178,32 @@ export interface DisciplineSettings {
   extrasPct?: number;
 }
 
+/**
+ * The approved budget of this takeoff as sent to the company app (dashboard): which obra and
+ * when. Only budgets the client approved are sent; sending again updates the same budget there.
+ */
+export interface SentToApp {
+  /** The obra (`projects` id in the company app). */
+  obraId: string;
+  obraName: string;
+  /** The obra's URL segment in the app (its slug, or its id for older obras). */
+  obraSlug?: string;
+  /** Last time it was sent (ms since epoch). */
+  sentAt: number;
+  /** Who sent it (the signed-in account's name). */
+  sentBy?: string;
+}
+
 export interface Project {
   version: 4;
+  /**
+   * Stable identity of this takeoff, the `externalId` of its budget in the company app: sending
+   * the budget again updates the same one there. Generated on the first save (files saved by
+   * older versions get one then); a copy saved as another budget gets a new one.
+   */
+  id?: string;
+  /** Where and when the approved budget was sent to the company app (see `SentToApp`). */
+  sentToApp?: SentToApp;
   name: string;
   unit: Unit;
   currency: string;
@@ -364,15 +388,42 @@ function disciplinesOf(raw: unknown): Record<string, DisciplineSettings> {
   return out;
 }
 
+/** The identity fields of a saved project, kept only when well formed. */
+function identityOf(r: Record<string, unknown>): Pick<Project, "id" | "sentToApp"> {
+  const out: Pick<Project, "id" | "sentToApp"> = {};
+  if (typeof r.id === "string" && r.id.trim()) out.id = r.id.trim();
+  const sent = r.sentToApp as Partial<SentToApp> | undefined;
+  if (
+    out.id &&
+    sent &&
+    typeof sent.obraId === "string" &&
+    sent.obraId &&
+    typeof sent.obraName === "string" &&
+    typeof sent.sentAt === "number" &&
+    Number.isFinite(sent.sentAt)
+  ) {
+    out.sentToApp = {
+      obraId: sent.obraId,
+      obraName: sent.obraName,
+      sentAt: sent.sentAt,
+      ...(typeof sent.obraSlug === "string" && sent.obraSlug ? { obraSlug: sent.obraSlug } : {}),
+      ...(typeof sent.sentBy === "string" && sent.sentBy ? { sentBy: sent.sentBy } : {}),
+    };
+  }
+  return out;
+}
+
 /** Load a project file of any supported version into the current shape. */
 export function migrateProject(raw: unknown): Project {
   if (!raw || typeof raw !== "object") throw new Error("Not a takeoff project");
   const r = raw as Record<string, unknown>;
   const base = emptyProject();
   if (r.version === 4) {
+    const { id: _id, sentToApp: _sent, ...rest } = r as Partial<Project>;
     return {
       ...base,
-      ...(r as Partial<Project>),
+      ...rest,
+      ...identityOf(r),
       disciplines: disciplinesOf(r.disciplines),
       version: 4,
     };

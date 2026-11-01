@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { downloadDir, tempDir } from "@tauri-apps/api/path";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { type RevisionChoice, useStore } from "../store";
+import { asksSameBudget, identityForSave, type SaveKind, withIdentityOf } from "./appLink";
 import { mergeCatalog } from "./catalog";
 import { chooseDialog, confirmDialog } from "./dialogs";
 import { resolveDiscipline } from "./discipline";
@@ -29,7 +30,14 @@ import {
   session,
   useDoc,
 } from "./session";
-import { drawingOf, emptyProject, type FooterLine, migrateProject, UNTITLED } from "./types";
+import {
+  drawingOf,
+  emptyProject,
+  type FooterLine,
+  migrateProject,
+  type Project,
+  UNTITLED,
+} from "./types";
 import { buildVrfWorkbook } from "./vrfSheet";
 
 /** Ask before throwing away unsaved work. Returns true when it is fine to continue. */
@@ -326,10 +334,45 @@ async function localOnlyDirs(): Promise<string[]> {
 }
 
 /**
+ * The project with the identity this save calls for (see `identityForSave`): an id when it has
+ * none, and a new one for a copy that is another budget. A copy of a takeoff already sent to the
+ * company app asks whether it is the same approved budget. Null when the user cancels. The store
+ * is not touched: the caller applies the identity only once the file is written, so a failed
+ * "Salvar como" cannot leave the open file with the copy's id.
+ */
+async function saveIdentity(
+  kind: SaveKind,
+): Promise<{ project: Project; changed: boolean; unlinked: boolean } | null> {
+  const { project } = useStore.getState();
+  let sameBudget = false;
+  if (asksSameBudget(project, kind)) {
+    const choice = await chooseDialog(
+      `Este takeoff já foi enviado ao app como orçamento aprovado da obra ${project.sentToApp?.obraName}.\n\n` +
+        "Mesmo orçamento: a cópia continua ligada a ele (por exemplo, uma revisão do orçamento aprovado); um novo envio atualiza o orçamento no app.\n" +
+        "Outro orçamento: a cópia fica sem vínculo; um envio dela cria outro orçamento no app.",
+      { yes: "Mesmo orçamento", no: "Outro orçamento", cancel: "Cancelar" },
+    );
+    if (choice === "cancel") return null;
+    sameBudget = choice === "yes";
+  }
+  const next = identityForSave(project, kind, sameBudget);
+  return {
+    project: next,
+    changed: next !== project,
+    unlinked: project.sentToApp !== undefined && next.sentToApp === undefined,
+  };
+}
+
+/**
  * Save the takeoff. `as` (or no file yet) asks where; `suggestedPath` pre-fills that dialog.
  * Saving over a file that another machine changed meanwhile asks first (copy, reload or cancel).
+ * `conflictCopy` marks that copy: it becomes another budget for the company app (new id).
  */
-export async function saveProject(as = false, suggestedPath?: string): Promise<boolean> {
+export async function saveProject(
+  as = false,
+  suggestedPath?: string,
+  conflictCopy = false,
+): Promise<boolean> {
   const store = useStore.getState();
   let path = store.filePath;
   if (!path || as) {
@@ -345,7 +388,7 @@ export async function saveProject(as = false, suggestedPath?: string): Promise<b
         "Recarregar: abre a versão nova e descarta as alterações feitas aqui.",
       { yes: "Salvar como cópia…", no: "Recarregar", cancel: "Cancelar" },
     );
-    if (choice === "yes") return saveProject(true, copyPathFor(path));
+    if (choice === "yes") return saveProject(true, copyPathFor(path), true);
     if (choice === "no") {
       if (await loadProjectFile(path)) {
         useStore
@@ -355,19 +398,34 @@ export async function saveProject(as = false, suggestedPath?: string): Promise<b
     }
     return false;
   }
-  const contents = JSON.stringify(withRelativePaths(store.project, path), null, 2);
+  const kind: SaveKind = conflictCopy
+    ? "conflictCopy"
+    : store.filePath && path !== store.filePath
+      ? "saveAs"
+      : "save";
+  const identity = await saveIdentity(kind);
+  if (identity === null) return false;
+  // the current project (in case it changed while the question was open) with the new identity
+  const project = withIdentityOf(useStore.getState().project, identity.project);
+  const contents = JSON.stringify(withRelativePaths(project, path), null, 2);
   await invoke("write_text", { path, contents });
+  if (identity.changed) {
+    store.setIdentity({ id: project.id, sentToApp: project.sentToApp });
+  }
   fileStamp = { path, hash: contentHash(contents) };
   store.setFilePath(path);
   store.markSaved();
-  store.pushRecent(path, store.project.name);
-  const away = unportableDrawings(store.project, path, await localOnlyDirs());
+  store.pushRecent(path, project.name);
+  const away = unportableDrawings(project, path, await localOnlyDirs());
+  const unlinked = identity.unlinked
+    ? " · esta cópia não está ligada ao orçamento já enviado ao app (um envio dela cria outro)"
+    : "";
   store.setStatus(
     away.length === 0
-      ? `Salvo: ${basename(path)}`
+      ? `Salvo: ${basename(path)}${unlinked}`
       : away.length === 1
-        ? `Salvo: ${basename(path)} · a planta ${away[0]} está fora da pasta do takeoff (Downloads ou outro disco) e não será encontrada em outra máquina. Mova-a para a pasta da obra.`
-        : `Salvo: ${basename(path)} · ${away.length} plantas (${away.join(", ")}) estão fora da pasta do takeoff (Downloads ou outro disco) e não serão encontradas em outra máquina. Mova-as para a pasta da obra.`,
+        ? `Salvo: ${basename(path)}${unlinked} · a planta ${away[0]} está fora da pasta do takeoff (Downloads ou outro disco) e não será encontrada em outra máquina. Mova-a para a pasta da obra.`
+        : `Salvo: ${basename(path)}${unlinked} · ${away.length} plantas (${away.join(", ")}) estão fora da pasta do takeoff (Downloads ou outro disco) e não serão encontradas em outra máquina. Mova-as para a pasta da obra.`,
   );
   return true;
 }

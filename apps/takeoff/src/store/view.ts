@@ -70,6 +70,8 @@ export interface ViewSlice {
   catalogSettingsOpen: boolean;
   /** "Relatório de recortes (PDF)" dialog. */
   reportOpen: boolean;
+  /** "Enviar orçamento aprovado" dialog (approved budget → company app). */
+  sendBudgetOpen: boolean;
   /** Side panel (items, locais, orçamento): shown, and its width in CSS px (remembered). */
   sidebarOpen: boolean;
   sidebarWidth: number;
@@ -112,6 +114,7 @@ export interface ViewSlice {
   setWeightsEditorOpen(open: boolean): void;
   setCatalogSettingsOpen(open: boolean): void;
   setReportOpen(open: boolean): void;
+  setSendBudgetOpen(open: boolean): void;
   setSidebarOpen(open: boolean): void;
   setSidebarWidth(px: number): void;
   /** Show a take-off view in the side panel. */
@@ -155,6 +158,7 @@ export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
   weightsEditorOpen: false,
   catalogSettingsOpen: false,
   reportOpen: false,
+  sendBudgetOpen: false,
   sidebarOpen: readPref("sidebarOpen", true),
   sidebarWidth: readPref("sidebarWidth", 580),
   panelTab: "items",
@@ -275,6 +279,7 @@ export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
   setWeightsEditorOpen: (weightsEditorOpen) => set({ weightsEditorOpen }),
   setCatalogSettingsOpen: (catalogSettingsOpen) => set({ catalogSettingsOpen }),
   setReportOpen: (reportOpen) => set({ reportOpen }),
+  setSendBudgetOpen: (sendBudgetOpen) => set({ sendBudgetOpen }),
   setSidebarOpen: (sidebarOpen) => {
     writePref("sidebarOpen", sidebarOpen);
     set({ sidebarOpen });
