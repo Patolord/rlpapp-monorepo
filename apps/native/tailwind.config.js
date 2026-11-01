@@ -14,11 +14,11 @@ module.exports = {
       colors: {
         border: "#D6DEEC",
         input: "#D6DEEC",
-        ring: "#3B82E0",
+        ring: "#155DFC",
         background: "#F6F9FD",
         foreground: "#1B2A5E",
         primary: {
-          DEFAULT: "#3B82E0",
+          DEFAULT: "#155DFC",
           foreground: "#FFFFFF",
         },
         secondary: {
@@ -34,7 +34,7 @@ module.exports = {
           foreground: "#4A5A8A",
         },
         accent: {
-          DEFAULT: "#E4EEFB",
+          DEFAULT: "#EFF6FF",
           foreground: "#1B2A5E",
         },
         card: {
