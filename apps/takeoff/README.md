@@ -230,6 +230,31 @@ Addresses default to production (`https://rosy-crow-250.convex.cloud`, web
 `API_JWT_PRIVATE_KEY` (the same key as the `/api/v1` gateway); without it the exchange answers 503.
 Signing in only works in the native window (`pnpm dev:takeoff`), not in the browser-only dev mode.
 
+## Orçamento aprovado → app da empresa
+
+Only a budget the client **approved** goes to the company app, where purchasing (Compras) works
+on it; it is an explicit, occasional action, never an automatic sync. **Enviar orçamento
+aprovado…** sits in the **Takeoff** menu and in the account menu (it reads "Atualizar orçamento
+aprovado no app…" once sent). The dialog needs the company account (offers **Entrar**) and a
+takeoff saved in a file, lists the obras from `takeoffs.desktopPublishOptions` (an obra is created
+in the app first: Engenharia › Obras; the dialog links there), shows the proposal number, client,
+tabs, lines and totals, and asks the user to confirm the client approved it before calling
+`takeoffs.publishFromDesktop`. The result lists new, updated and removed lines, the lines
+purchasing had already worked on (kept as they are in the app) and a link to the obra's
+Orçamento page (`<web>/engenharia/obras/<slug>/orcamento`). Refusals show the backend's reason
+(`ConvexError` codes `INVALID_BUDGET`, `UNSUPPORTED_CURRENCY`, `PROJECT_NOT_FOUND`; a missing
+engineering permission comes back as `canPublish: false`). Code: `src/lib/account/publish.ts`
+(flow, error messages), `src/lib/appLink.ts` (identity rules, links) and
+`components/SendBudgetDialog.tsx`.
+
+The project file carries the link: `id` (random, the budget's `externalId` in the app, written on
+the first save; files from older versions get one then) and `sentToApp` (obra, when, by whom),
+saved right after a successful send. Sending again updates the same budget, in the same obra by
+default. Undo never undoes the link. **Salvar como…** of a takeoff already sent asks whether the
+copy is the same approved budget (keeps the link) or another one (new id, unlinked); an unsent
+copy and the conflict copy ("Salvar como cópia") always get a new id, so two files never
+overwrite each other's budget in the app.
+
 ## How it stays fast
 
 - **Rendering**: one low-resolution base render per page (shown instantly, CSS-scaled while
