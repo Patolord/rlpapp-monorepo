@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { DEFAULT_DUCT_SPEC } from "@rlpapp/shared/engenharia/ducts";
 import {
   decodePDFRawStream,
   degrees,
@@ -15,7 +16,6 @@ import {
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { beforeAll, describe, expect, it } from "vitest";
 import { DUCT_GROUP } from "../ductItems";
-import { DEFAULT_DUCT_SPEC } from "../ducts";
 import type { Pt } from "../geom";
 import type { Kit } from "../kits";
 import { markingShapes } from "../markingShapes";

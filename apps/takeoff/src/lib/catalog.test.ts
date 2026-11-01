@@ -11,7 +11,10 @@ import {
   productName,
   SEED,
   searchCatalog,
+  seedLaborKey,
+  unitKey,
   upgradeRemoteEntry,
+  withSeedLabor,
 } from "./catalog";
 import { SEED_KITS } from "./kits";
 import { DEFAULT_GROUP } from "./types";
@@ -86,6 +89,107 @@ describe("catalog", () => {
       true,
     );
     expect(() => parseRemoteCatalog({ nope: 1 })).toThrow();
+  });
+
+  it("borrows the seed's labour for company entries without one, marked as such", () => {
+    const remote = parseRemoteCatalog({
+      items: [
+        // same name as a seed entry with labour (accents/case aside), no labour from the company
+        {
+          id: "m1",
+          name: "GRELHA DE EXAUSTAO C/ REGISTRO DIM. 150X100 MM",
+          unit: "pç",
+          materialPrice: 80,
+          laborPrice: 0,
+        },
+        // family + variant that together read as the seed's name
+        {
+          id: "m2",
+          name: "Grelha de Exaustão c/ Registro",
+          variant: "dim. 200x150 mm",
+          unit: "pç",
+          materialPrice: 75,
+          laborPrice: 0,
+        },
+        // the company's own labour always wins
+        {
+          id: "m3",
+          name: "Difusor Linear 03 Slots comp. 1500 mm Falso",
+          unit: "pç",
+          materialPrice: 400,
+          laborPrice: 12,
+        },
+        // no seed entry with that name: stays at zero, unmarked
+        { id: "m4", name: "Material novo", unit: "pç", materialPrice: 10, laborPrice: 0 },
+        // the seed prices this per metre: per roll it must not borrow R$/m
+        {
+          id: "m5",
+          name: "Rede de Dutos Flexiveis 150 mm",
+          unit: "rolo",
+          materialPrice: 300,
+          laborPrice: 0,
+        },
+      ],
+    });
+    const seedLabor = (name: string) => SEED.find((e) => e.name === name)!.laborPrice;
+    expect(seedLabor("Grelha de Exaustão c/ Registro dim. 150x100 mm")).toBeGreaterThan(0);
+
+    const entries = mergeCatalog({ ...emptyCatalogStore(), remote });
+    const byId = (id: string) => entries.find((e) => e.catalogId === id)!;
+    expect(byId("m1")).toMatchObject({
+      source: "remote",
+      laborPrice: seedLabor("Grelha de Exaustão c/ Registro dim. 150x100 mm"),
+      laborSource: "seed",
+      materialPrice: 80,
+    });
+    expect(byId("m2")).toMatchObject({
+      name: "Grelha de Exaustão c/ Registro — dim. 200x150 mm",
+      laborPrice: seedLabor("Grelha de Exaustão c/ Registro dim. 200x150 mm"),
+      laborSource: "seed",
+    });
+    expect(byId("m3").laborPrice).toBe(12);
+    expect(byId("m3").laborSource).toBeUndefined();
+    expect(byId("m4").laborPrice).toBe(0);
+    expect(byId("m4").laborSource).toBeUndefined();
+    const flexible = SEED.find((e) => e.name === "Rede de Dutos Flexiveis 150 mm")!;
+    expect(flexible).toMatchObject({ unit: "m" });
+    expect(flexible.laborPrice).toBeGreaterThan(0);
+    expect(byId("m5").laborPrice).toBe(0);
+    expect(byId("m5").laborSource).toBeUndefined();
+    // the same name in the seed's unit, spelled differently, does borrow
+    expect(withSeedLabor({ ...byId("m5"), source: undefined, unit: "metro" })).toMatchObject({
+      laborPrice: flexible.laborPrice,
+      laborSource: "seed",
+    });
+    // the cached company catalog itself is left untouched
+    expect(remote.every((e) => e.laborSource === undefined)).toBe(true);
+    // the bundled seed entries themselves still step aside
+    expect(entries.some((e) => e.source === "seed" && !e.kgPerUnit)).toBe(false);
+  });
+
+  it("compares units through their synonyms", () => {
+    for (const u of ["un", "pç", "pc", "peça", "PÇ", " Unidade "]) expect(unitKey(u)).toBe("pc");
+    expect(unitKey("metro")).toBe(unitKey("m"));
+    expect(unitKey("m2")).toBe(unitKey("m²"));
+    expect(unitKey("Conjunto")).toBe(unitKey("cj"));
+    expect(unitKey("KG")).toBe(unitKey("kg"));
+    expect(unitKey("rolo")).not.toBe(unitKey("m"));
+    expect(unitKey("m")).not.toBe(unitKey("m²"));
+  });
+
+  it("withSeedLabor only fills a zero labour price in the same unit", () => {
+    const labor = new Map([[seedLaborKey("Tubo de Cobre 1/4", "m"), 9.5]]);
+    const base = { name: "Tubo de Cobre — 1/4", group: "", unit: "m", materialPrice: 30 };
+    expect(withSeedLabor({ ...base, laborPrice: 0 }, labor)).toMatchObject({
+      laborPrice: 9.5,
+      laborSource: "seed",
+    });
+    const own = { ...base, laborPrice: 4 };
+    expect(withSeedLabor(own, labor)).toBe(own);
+    const unknown = { ...base, name: "Outro", laborPrice: 0 };
+    expect(withSeedLabor(unknown, labor)).toBe(unknown);
+    const perRoll = { ...base, unit: "rolo", laborPrice: 0 };
+    expect(withSeedLabor(perRoll, labor)).toBe(perRoll);
   });
 
   it("keeps every variant of a family as its own searchable entry", () => {

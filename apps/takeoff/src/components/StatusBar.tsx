@@ -261,7 +261,7 @@ export function StatusBar() {
               value={Math.round(fillOpacity * 100)}
               onChange={(e) => setFillOpacity(Number(e.target.value) / 100)}
               disabled={!fillsVisible}
-              className="min-w-0 flex-1 accent-[#2b3990]"
+              className="min-w-0 flex-1 accent-brand"
             />
             <span className="w-9 text-right font-mono">{Math.round(fillOpacity * 100)}%</span>
           </label>

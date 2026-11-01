@@ -15,6 +15,7 @@ import {
   sanitizeDimensions,
   toMaterialCatalogRow,
   toMaterialListRow,
+  validateLaborPriceCents,
   validateUnitsPerPurchaseUnit,
 } from "./lib/compras/catalog";
 import {
@@ -105,6 +106,9 @@ export const materialCatalogValidator = v.object({
   ),
   imageId: v.union(v.id("_storage"), v.null()),
   imageUrl: v.union(v.string(), v.null()),
+  // Mão de obra por unidade, em centavos, exportada ao RLP Takeoff.
+  laborPriceCents: v.union(v.number(), v.null()),
+  laborPriceUpdatedAt: v.union(v.number(), v.null()),
   active: v.boolean(),
   status: v.union(materialStatus, v.null()),
   createdAt: v.number(),
@@ -792,6 +796,8 @@ export type CreateMaterialInput = {
   technicalAttributes?: Array<{ key: string; value: string }>;
   aliases?: string[];
   imageId?: Id<"_storage">;
+  /** Mão de obra por unidade, em centavos (orçamentos do RLP Takeoff). */
+  laborPriceCents?: number;
 };
 
 const ALLOWED_MATERIAL_IMAGE_TYPES = new Set([
@@ -844,6 +850,7 @@ export async function createMaterialInternal(
   if (!name) throw new Error("Informe o nome do material");
 
   validateUnitsPerPurchaseUnit(args.unitsPerPurchaseUnit);
+  validateLaborPriceCents(args.laborPriceCents);
   if (args.imageId) {
     await assertAllowedMaterialImage(ctx, args.imageId);
   }
@@ -922,6 +929,9 @@ export async function createMaterialInternal(
       spec,
     }),
     imageId: args.imageId,
+    laborPriceCents: args.laborPriceCents,
+    laborPriceUpdatedAt:
+      args.laborPriceCents !== undefined ? now : undefined,
     active: true,
     status: "active",
     createdAt: now,
@@ -970,6 +980,7 @@ export const create = purchasingMutation({
     technicalAttributes: v.optional(v.array(technicalAttributeValidator)),
     aliases: v.optional(v.array(v.string())),
     imageId: v.optional(v.id("_storage")),
+    laborPriceCents: v.optional(v.number()),
   },
   returns: v.id("materials"),
   handler: async (ctx, args) => {
@@ -1214,6 +1225,8 @@ export const update = purchasingMutation({
     active: v.optional(v.boolean()),
     status: v.optional(materialStatus),
     imageId: v.optional(v.union(v.id("_storage"), v.null())),
+    // Mão de obra por unidade, em centavos; `null` remove o preço.
+    laborPriceCents: v.optional(v.union(v.number(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1228,8 +1241,10 @@ export const update = purchasingMutation({
       brandPreference: material.brandPreference,
       active: material.active,
       status: material.status,
+      laborPriceCents: material.laborPriceCents,
     };
     validateUnitsPerPurchaseUnit(args.unitsPerPurchaseUnit);
+    validateLaborPriceCents(args.laborPriceCents);
 
     const updates: Record<string, unknown> = { updatedAt: Date.now() };
     let familyId = args.familyId ?? material.familyId;
@@ -1307,6 +1322,14 @@ export const update = purchasingMutation({
       }
     }
     if (args.status !== undefined) updates.status = args.status;
+    if (args.laborPriceCents !== undefined) {
+      const laborPriceCents = args.laborPriceCents ?? undefined;
+      if (laborPriceCents !== material.laborPriceCents) {
+        updates.laborPriceCents = laborPriceCents;
+        updates.laborPriceUpdatedAt =
+          laborPriceCents === undefined ? undefined : updates.updatedAt;
+      }
+    }
     if (args.imageId !== undefined) {
       updates.imageId = await replaceMaterialImage(
         ctx,
@@ -1355,6 +1378,7 @@ export const update = purchasingMutation({
           brandPreference: afterDoc.brandPreference,
           active: afterDoc.active,
           status: afterDoc.status,
+          laborPriceCents: afterDoc.laborPriceCents,
         }
       : before;
     await logAudit(ctx, ctx.user, {
@@ -1370,6 +1394,7 @@ export const update = purchasingMutation({
         "brandPreference",
         "active",
         "status",
+        "laborPriceCents",
       ]),
       snapshotBefore: before,
       snapshotAfter: after,

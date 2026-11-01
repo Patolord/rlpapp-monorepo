@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { newDuctNetwork } from "./ductItems";
 import {
   buildQuote,
+  disciplineTotals,
   itemTotals,
   locationMatrix,
   measurementQty,
   NO_LOCATION,
   pricedQty,
+  round2,
   systemSheets,
   totalsByLocation,
   totalsByRegion,
@@ -275,6 +278,26 @@ describe("system sheets", () => {
     expect(sheets[0].sections.map((s) => s.name)).toEqual(["Térreo", "Sem local"]);
     p.sectionsBy = "grupo";
     expect(systemSheets(p)[1].sections.map((s) => s.name)).toEqual(["Rede de Dutos"]);
+  });
+  it("puts quantities typed by hand (duct networks) under Sem local when sections are locations", () => {
+    const p = project();
+    p.locations = [{ id: "l", name: "Térreo", color: "#fff" }];
+    p.zones = [{ id: "z", locationId: "l", drawingId: D1, page: 0, points: square(1000) }];
+    p.sectionsBy = "local";
+    const network = { ...newDuctNetwork(p), materialPrice: 5000, laborPrice: 1200 };
+    p.items.push(network);
+    // its runs only feed its bill: the network itself is 1 cj, wherever the runs are drawn
+    p.measurements.push({ ...p.measurements[0], id: "run", itemId: network.id });
+
+    expect(totalsByLocation(p).get(NO_LOCATION)?.get(network.id)?.qty).toBe(1);
+    expect(totalsByLocation(p).get("l")?.has(network.id)).toBe(false);
+    const [sheet] = systemSheets(p);
+    const semLocal = sheet.sections.find((s) => s.name === "Sem local");
+    expect(semLocal?.rows.map((r) => [r.item.id, r.qty])).toContainEqual([network.id, 1]);
+    // every priced quantity is on some row: the sheet adds up to its tab totals
+    const rows = sheet.sections.flatMap((s) => s.rows);
+    const material = rows.reduce((sum, r) => sum + round2(r.item.materialPrice * r.qty), 0);
+    expect(material).toBeCloseTo(disciplineTotals(p)[0].material, 2);
   });
 });
 

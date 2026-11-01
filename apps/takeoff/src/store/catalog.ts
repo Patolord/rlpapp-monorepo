@@ -1,3 +1,4 @@
+import type { GaugeWeights } from "@rlpapp/shared/engenharia/ducts";
 import { fetchCatalogAsUser, sendProposalAsUser } from "../lib/account/convex";
 import { isSignedIn } from "../lib/account/session";
 import {
@@ -18,7 +19,6 @@ import {
   sendProposal,
 } from "../lib/catalogRemote";
 import { syncDuctItems } from "../lib/ductItems";
-import type { GaugeWeights } from "../lib/ducts";
 import { type Kit, refreshKitLabels } from "../lib/kits";
 import type { Project } from "../lib/types";
 import { syncWeightItems, type WeightRow } from "../lib/weights";

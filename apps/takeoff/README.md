@@ -38,6 +38,8 @@ right-click > Open the first time a downloaded copy is launched. Both are fine f
 an Authenticode certificate / Apple Developer ID plug into the same builds later.
 
 **Auto-update.** The app checks `plugins.updater.endpoints` from `src-tauri/tauri.conf.json`
+(a single endpoint: the `latest.json` of the latest GitHub Release in
+[Patolord/takeoff-releases](https://github.com/Patolord/takeoff-releases), see below)
 a few seconds after start and shows an "Atualizar para x.y.z" button; one click downloads the
 signed installer, installs it and restarts. Updates are signed with a minisign key kept outside
 the repository (`~/.tauri/takeoff.key` + `.password`); its public key is in the config. Losing
@@ -130,7 +132,12 @@ Items can be saved to the catalog (star). The catalog is seeded from past budget
 (`CATALOG_URL` in `src/lib/catalogRemote.ts`; `VITE_CATALOG_URL` at build time points a dev
 build elsewhere), it is fetched on start and by "Atualizar preços" in the Ctrl+K footer, cached
 locally, and preferred over the seed. Each line's material price shows where it came from (cloud, saved
-catalog, bundled sheets, typed, by weight) next to the price box.
+catalog, bundled sheets, typed, by weight) next to the price box. The company catalog carries a
+labour price per material (`laborPrice`, set by purchasing in Compras → Materiais); while a
+company entry has none (0), it borrows the labour of the seed entry with the same name (accents,
+case and the " — " between family and variant aside) and Ctrl+K marks it: the labour shows in
+italics and the price-source badge gets a dot, with "Mão de obra das planilhas anteriores" in the
+tooltip.
 
 The status bar shows the page scale; click it for the 1:N presets or calibrate by measuring.
 Items carry a budget section (Equipamentos, Rede de Dutos, Bocas de Ar, ...), a material and
@@ -139,7 +146,10 @@ Diversos / Transportes / Supervisão extras, TOTAL GERAL and the BDI multiplier.
 
 Two tools quantify whole networks instead of single materials. **Duto (D)** asks the section of
 each run and the Dutos tab computes sheet metal, insulation, flanges, supports and labour per
-"Rede de dutos" item (NBR 16401 workbook). **VRF (Y)** asks what each refrigerant run is (saída
+"Rede de dutos" item (NBR 16401 workbook). The calculation itself (gauge tables, norma limits,
+bill of materials) lives in `packages/shared/src/engenharia/ducts.ts`
+(`@rlpapp/shared/engenharia/ducts`): it is the only duct calculator of the monorepo (the
+dashboard's one was removed), so any change to it is a change for every app. **VRF (Y)** asks what each refrigerant run is (saída
 da condensadora, trecho intermediário, ramal da evaporadora) and the capacity that sizes it;
 the VRF tab derives the gas/liquid diameters from the brand's tables (`lib/vrf.ts`, editable in
 "Regras das marcas", saved with the catalog), counts evaporators and Y-kits, and bills copper
@@ -253,7 +263,8 @@ src/
   lib/          geom, units, quantities (quote math), budgetOrder, overlay (canvas painting),
                 files (open/save/export), session (open PDFs), platform, text
   lib/catalog*  material catalog: local store, company API, proposals
-  lib/ducts*    duct take-off: NBR 16401 bill, network items, reference workbook export
+  lib/duct*     duct take-off: network items, reference workbook export (the NBR 16401 bill
+                itself is @rlpapp/shared/engenharia/ducts)
   lib/vrf*      VRF take-off: brand tables, system items, workbook export
   lib/kits.ts   kit presets · lib/weights.ts  weight-based prices · lib/symbols.ts  count marks
   lib/markingShapes.ts  a marking's geometry and label, shared by the canvas and the report

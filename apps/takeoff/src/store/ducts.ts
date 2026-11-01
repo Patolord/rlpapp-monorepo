@@ -1,4 +1,3 @@
-import { ductNetworks, newDuctNetwork } from "../lib/ductItems";
 import {
   DEFAULT_DUCT_SETTINGS,
   DEFAULT_DUCT_SPEC,
@@ -6,7 +5,8 @@ import {
   type DuctSpec,
   ductLabel,
   gaugeName,
-} from "../lib/ducts";
+} from "@rlpapp/shared/engenharia/ducts";
+import { ductNetworks, newDuctNetwork } from "../lib/ductItems";
 import type { Pt } from "../lib/geom";
 import { type Item, newId } from "../lib/types";
 import { type PendingZone, readPref, type Slice, writePref } from "./shared";

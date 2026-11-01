@@ -1,3 +1,4 @@
+import { defaultGaugeWeights, type GaugeWeights } from "@rlpapp/shared/engenharia/ducts";
 import { invoke } from "@tauri-apps/api/core";
 import seed from "../data/catalog.seed.json";
 import {
@@ -6,7 +7,6 @@ import {
   httpRequest,
   type QueuedProposal,
 } from "./catalogRemote";
-import { defaultGaugeWeights, type GaugeWeights } from "./ducts";
 import { type Kit, migrateKitLabels, SEED_KITS } from "./kits";
 import { isTauri } from "./platform";
 import { foldName } from "./text";
@@ -32,6 +32,11 @@ export interface CatalogEntry {
   unit: string;
   materialPrice: number;
   laborPrice: number;
+  /**
+   * Set when the labour price did not come with the entry: "seed" = a company entry without
+   * labour took the bundled sheets' labour for the same name (see withSeedLabor).
+   */
+  laborSource?: "seed";
   /** Budget system the entry came from (informative). */
   system?: string;
   /** Where the entry comes from: saved by the user, fetched from the company app, or bundled. */
@@ -83,6 +88,79 @@ export interface CatalogStore {
 
 export const SEED: CatalogEntry[] = (seed as CatalogEntry[]).map((e) => ({ ...e, source: "seed" }));
 
+/**
+ * Key that pairs a company entry with a seed entry for labour: the folded name, with the
+ * family/variant separator read as a space ("Damper — dim. 600x600" ~ "Damper dim. 600x600").
+ */
+const laborKey = (name: string): string =>
+  foldName(name)
+    .replace(/\s+—\s+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** Spellings of the same budget unit, folded (see unitKey). */
+const UNIT_SYNONYMS: Record<string, string> = {
+  un: "pc",
+  und: "pc",
+  unid: "pc",
+  unidade: "pc",
+  unidades: "pc",
+  peca: "pc",
+  pecas: "pc",
+  metro: "m",
+  metros: "m",
+  mt: "m",
+  ml: "m",
+  conjunto: "cj",
+  conjuntos: "cj",
+  quilograma: "kg",
+  quilogramas: "kg",
+  litro: "l",
+  litros: "l",
+};
+
+/**
+ * Comparison key of a unit: folded, without spaces or dots, ² read as 2, synonyms joined
+ * ("un"/"pç"/"peça" → "pc", "metro" → "m", "m²"/"m2", "conjunto" → "cj").
+ */
+export function unitKey(unit: string): string {
+  const k = foldName(unit)
+    .replace(/²/g, "2")
+    .replace(/[^a-z0-9]/g, "");
+  return UNIT_SYNONYMS[k] ?? k;
+}
+
+/** Key of the seed labour table: name and unit, so R$/m never becomes R$/rolo. */
+export const seedLaborKey = (name: string, unit: string): string =>
+  `${laborKey(name)}|${unitKey(unit)}`;
+
+let seedLabor: Map<string, number> | null = null;
+/** Labour price of the bundled seed by seedLaborKey (entries with labour only; the first wins). */
+function seedLaborPrices(): Map<string, number> {
+  if (!seedLabor) {
+    seedLabor = new Map();
+    for (const e of SEED) {
+      const k = seedLaborKey(e.name, e.unit);
+      if (e.laborPrice > 0 && !seedLabor.has(k)) seedLabor.set(k, e.laborPrice);
+    }
+  }
+  return seedLabor;
+}
+
+/**
+ * A company entry with no labour price takes the bundled seed's labour for the same name and
+ * unit, marked `laborSource: "seed"`, so a budget does not lose labour until purchasing fills it
+ * in. An entry that already has labour, or whose unit differs from the seed's, is returned as is.
+ */
+export function withSeedLabor(
+  e: CatalogEntry,
+  labor: ReadonlyMap<string, number> = seedLaborPrices(),
+): CatalogEntry {
+  if (e.laborPrice > 0) return e;
+  const price = labor.get(seedLaborKey(e.name, e.unit));
+  return price ? { ...e, laborPrice: price, laborSource: "seed" } : e;
+}
+
 export const emptyCatalogStore = (): CatalogStore => ({
   saved: [],
   remote: [],
@@ -125,9 +203,9 @@ export function normalizeDiscipline(system: string | undefined): string | undefi
 }
 
 /**
- * Saved entries first, then the remote catalog, then the weight table and the sheet-metal rows
- * (priced from the catalog's prices per kg), then the seed; later sources never duplicate
- * earlier names.
+ * Saved entries first, then the remote catalog (labour borrowed from the seed where it has
+ * none, see withSeedLabor), then the weight table and the sheet-metal rows (priced from the
+ * catalog's prices per kg), then the seed; later sources never duplicate earlier names.
  */
 export function mergeCatalog(store: CatalogStore): CatalogEntry[] {
   const out: CatalogEntry[] = [];
@@ -141,7 +219,11 @@ export function mergeCatalog(store: CatalogStore): CatalogEntry[] {
     }
   };
   add(store.saved, "saved");
-  add(store.remote, "remote");
+  // the company catalog may still lack labour: borrow it from the seed (marked) until it has it
+  add(
+    store.remote.map((e) => withSeedLabor(e)),
+    "remote",
+  );
   add(weightCatalogEntries(store.weights ?? [], store.basePrices), "seed");
   add(sheetCatalogEntries(store.basePrices), "seed");
   // once the company catalog is in use, the bundled seed is only a fallback

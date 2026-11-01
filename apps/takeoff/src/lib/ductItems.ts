@@ -1,4 +1,3 @@
-import type { CatalogEntry } from "./catalog";
 import {
   billTotals,
   DEFAULT_DUCT_SETTINGS,
@@ -7,7 +6,8 @@ import {
   type DuctTotals,
   ductBill,
   type GaugeWeights,
-} from "./ducts";
+} from "@rlpapp/shared/engenharia/ducts";
+import type { CatalogEntry } from "./catalog";
 import { measurementQty, pageScale, repeatOf, zoneOf } from "./quantities";
 import { foldName } from "./text";
 import { drawingOf, ITEM_COLORS, type Item, locationOf, newId, type Project } from "./types";
