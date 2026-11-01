@@ -18,6 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { internalRedirect } from "@/lib/safe-redirect";
 
 type IndexSearch = {
   redirect?: string;
@@ -25,18 +26,9 @@ type IndexSearch = {
 
 export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>): IndexSearch => {
-    const redirect = search.redirect;
-    // Só aceita caminhos internos para evitar open redirect ("//host" e
-    // "/\host" seriam outro site)
-    if (
-      typeof redirect === "string" &&
-      redirect.startsWith("/") &&
-      !redirect.startsWith("//") &&
-      !redirect.startsWith("/\\")
-    ) {
-      return { redirect };
-    }
-    return {};
+    // Só caminhos internos, para evitar open redirect (ver internalRedirect)
+    const redirect = internalRedirect(search.redirect);
+    return redirect ? { redirect } : {};
   },
   component: IndexPage,
 });

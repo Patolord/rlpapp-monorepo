@@ -128,17 +128,29 @@ async function ownerSummary(ctx: QueryCtx, userId: Id<"users">) {
 // PÚBLICO — gestão dos próprios tokens (página Agentes e o próprio MCP)
 // ===========================================================================
 
-/** Tokens do usuário atual, mais recentes primeiro. Nunca inclui o hash. */
+/**
+ * Tokens do usuário atual, mais recentes primeiro. Nunca inclui o hash. Todos os
+ * ativos aparecem sempre (para poderem ser revogados aqui); do histórico de
+ * revogados/vencidos, só os mais recentes. Cada novo login do Takeoff revoga o
+ * token anterior da instalação, então o histórico cresce bem mais que os ativos.
+ */
 export const list = staffQuery({
   args: {},
   returns: v.array(publicTokenValidator),
   handler: async (ctx) => {
+    const now = Date.now();
     const tokens = await ctx.db
       .query("agentTokens")
       .withIndex("by_user", (q) => q.eq("userId", ctx.user._id))
       .order("desc")
-      .take(MAX_TOKENS_PER_USER * 2);
-    return tokens.map(toPublicToken);
+      .collect();
+    const active = tokens.filter((t) => isActiveToken(t, now));
+    const inactive = tokens
+      .filter((t) => !isActiveToken(t, now))
+      .slice(0, MAX_TOKENS_PER_USER);
+    return [...active, ...inactive]
+      .sort((a, b) => b._creationTime - a._creationTime)
+      .map(toPublicToken);
   },
 });
 
