@@ -287,3 +287,14 @@ Sem o secret, o workflow só avisa e não apaga nada.
 - **Landing page:** Next.js (`apps/landing-page`).
 - **Mobile:** Expo (EAS config pendente — ver roadmap Sprint 4).
 - **Desktop (takeoff):** `pnpm release X.Y.Z` em `apps/takeoff` e push da tag `takeoff-vX.Y.Z`; os apps instalados se atualizam sozinhos.
+
+### Vercel: quando cada app builda
+
+Três projetos da Vercel apontam para este repositório: `rlpapp-web` (`apps/web`), `rlpapp-site` (`apps/landing-page`) e `rlpapp-internal-agent` (`apps/internal-agent`). O build do web também roda `npx convex deploy`, então é ele que publica o backend do Convex (preview por branch, produção no `master`). O time está no plano grátis, com **100 deployments por dia** somando todos os projetos.
+
+A cada push, dois filtros decidem se um projeto builda:
+
+1. **"Skip deployment" da Vercel** (Settings → Build and Deployment → Root Directory, ligado nos três). Usa o grafo do workspace pnpm (dependências `workspace:*` declaradas nos `package.json`) e pula o projeto antes de criar o deployment; esses pulos **não contam** no limite diário. Só que qualquer arquivo fora de `apps/*` e `packages/*` (`README.md`, `AGENTS.md`, `docs/`, `.github/`, `scripts/`…) conta como mudança global e libera os três.
+2. **Ignored Build Step** (`ignoreCommand` em cada `vercel.json`): [`scripts/vercel-ignore-build.sh`](scripts/vercel-ignore-build.sh), que roda `turbo query affected` para o app. O app builda se mudou algo nele, num pacote de que ele depende (para o web: `packages/backend`, `shared`, `ui`, `env`, `config`), nas dependências dele no `pnpm-lock.yaml`, no `turbo.json`, no `package.json` ou no `pnpm-workspace.yaml` da raiz. A base é o último deployment com sucesso do projeto no branch (`VERCEL_GIT_PREVIOUS_SHA`); sem ela, produção builda sempre e preview compara com o ponto em que o branch saiu do `master` (ou builda, se não der para descobrir). Um build cancelado aqui **conta** no limite (mas não gasta minutos de build nem cria preview no Convex).
+
+Para forçar um build que o script pularia: Redeploy no dashboard desmarcando "Use project's Ignore Build Step". Para testar o script localmente: `cd apps/web && VERCEL_ENV=preview VERCEL_GIT_PREVIOUS_SHA=<sha> bash ../../scripts/vercel-ignore-build.sh; echo $?` (0 = pula, 1 = builda).
