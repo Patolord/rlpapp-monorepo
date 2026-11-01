@@ -103,7 +103,7 @@ function PortalMetric({
 }) {
   return (
     <Card>
-      <CardContent className="py-3">
+      <CardContent>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {icon}
           {label}

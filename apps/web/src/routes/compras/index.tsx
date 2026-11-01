@@ -11,7 +11,7 @@ import {
 import { useState } from "react";
 
 import { AuthShell } from "@/components/auth-shell";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const Route = createFileRoute("/compras/")({
   component: ComprasDashboardPage,
@@ -105,11 +105,13 @@ function StatCard({
   return (
     <Link to={to}>
       <Card className={`${cardCls} transition-shadow hover:shadow-md`}>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground">
             {label}
           </CardTitle>
-          <Icon className={`size-4 ${highlight ? "text-amber-500" : "text-slate-400"}`} />
+          <CardAction>
+            <Icon className={`size-4 ${highlight ? "text-amber-500" : "text-slate-400"}`} />
+          </CardAction>
         </CardHeader>
         <CardContent>
           <p className={`text-3xl font-bold ${highlight ? "text-amber-600" : ""}`}>

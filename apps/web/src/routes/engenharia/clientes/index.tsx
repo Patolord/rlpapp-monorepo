@@ -335,14 +335,14 @@ function ClientesContent() {
             onImportBatch={(items) => bulkCreateCustomers({ items })}
             trigger={
               <Button variant="outline">
-                <FileUp className="mr-2 size-4" />
+                <FileUp />
                 Importar CSV
               </Button>
             }
           />
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger render={<Button />}>
-              <Plus className="mr-2 size-4" />
+              <Plus />
               Novo cliente
             </DialogTrigger>
             <DialogContent className="sm:max-w-lg">
@@ -579,9 +579,9 @@ function ClientesContent() {
                           }
                         >
                           {customer.active ? (
-                            <UserRoundX className="size-4" />
+                            <UserRoundX />
                           ) : (
-                            <UserRoundCheck className="size-4" />
+                            <UserRoundCheck />
                           )}
                         </Button>
                       )}
@@ -595,9 +595,9 @@ function ClientesContent() {
                         }
                       >
                         {customer.archivedAt ? (
-                          <ArchiveRestore className="size-4" />
+                          <ArchiveRestore />
                         ) : (
-                          <Archive className="size-4" />
+                          <Archive />
                         )}
                       </Button>
                     </div>

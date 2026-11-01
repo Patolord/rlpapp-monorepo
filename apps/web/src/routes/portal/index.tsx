@@ -54,7 +54,7 @@ function PortalHome() {
               className="block"
             >
               <Card className="transition-colors hover:border-primary/50">
-                <CardContent className="flex items-center gap-4 py-4">
+                <CardContent className="flex items-center gap-4">
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate font-semibold">

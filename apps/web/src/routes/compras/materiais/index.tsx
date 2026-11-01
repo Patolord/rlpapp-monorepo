@@ -258,13 +258,13 @@ function MateriaisContent() {
             }
             trigger={
               <Button variant="outline">
-                <FileUp className="mr-2 size-4" />
+                <FileUp />
                 Importar CSV
               </Button>
             }
           />
           <Button onClick={openCreate}>
-            <Plus className="mr-2 size-4" />
+            <Plus />
             Novo material
           </Button>
         </div>

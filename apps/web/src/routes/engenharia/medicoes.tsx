@@ -192,7 +192,7 @@ function SummaryCard({
 }) {
   return (
     <Card>
-      <CardContent className="space-y-1 py-4">
+      <CardContent className="space-y-1">
         <p className="text-sm text-muted-foreground">{label}</p>
         <p className={`text-2xl font-bold tabular-nums ${valueClassName ?? ""}`}>
           {formatCurrency(value)}

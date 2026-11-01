@@ -100,7 +100,7 @@ function TakeoffsSupportContent() {
                           />
                         }
                       >
-                        <ExternalLink className="mr-1 size-4" />
+                        <ExternalLink />
                         Ver orçamento
                       </Button>
                     ) : null}

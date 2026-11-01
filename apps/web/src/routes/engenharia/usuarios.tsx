@@ -303,7 +303,7 @@ function UsuariosContent() {
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus />
               Novo Usuário
             </Button>
           </DialogTrigger>
@@ -377,9 +377,9 @@ function UsuariosContent() {
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      <EyeOff className="text-muted-foreground" />
                     ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
+                      <Eye className="text-muted-foreground" />
                     )}
                   </Button>
                 </div>
@@ -469,7 +469,7 @@ function UsuariosContent() {
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent>
           <div className="flex flex-col gap-4 sm:flex-row">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -563,7 +563,7 @@ function UsuariosContent() {
                             onClick={() => openEdit(user)}
                             title="Editar"
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Pencil />
                           </Button>
                           <Button
                             variant="ghost"
@@ -574,9 +574,9 @@ function UsuariosContent() {
                             }
                           >
                             {user.isActive ? (
-                              <UserX className="h-4 w-4 text-destructive" />
+                              <UserX className="text-destructive" />
                             ) : (
-                              <UserCheck className="h-4 w-4 text-emerald-600" />
+                              <UserCheck className="text-emerald-600" />
                             )}
                           </Button>
                         </div>

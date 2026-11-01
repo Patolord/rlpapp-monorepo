@@ -46,7 +46,7 @@ function ObrasPage() {
         <ProjectFormDialog
           trigger={
             <Button>
-              <Plus className="mr-2 size-4" />
+              <Plus />
               Nova obra
             </Button>
           }
@@ -83,7 +83,7 @@ function EmptyState() {
           <ProjectFormDialog
             trigger={
               <Button>
-                <Plus className="mr-2 size-4" />
+                <Plus />
                 Criar primeira obra
               </Button>
             }

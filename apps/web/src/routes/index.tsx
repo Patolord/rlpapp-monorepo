@@ -99,7 +99,7 @@ function LoginForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f7f8fc] px-4">
       <Card className="w-full max-w-md shadow-sm">
-        <CardHeader className="items-center text-center pb-2">
+        <CardHeader className="items-center text-center">
           <img
             src="/logo.jpg"
             alt="RLP Engenharia"
@@ -150,9 +150,10 @@ function LoginForm() {
             <Button
               type="submit"
               disabled={loading}
-              className="h-12 w-full text-base font-semibold"
+              size="xl"
+              className="w-full font-semibold"
             >
-              {loading && <Loader2 className="mr-2 size-5 animate-spin" />}
+              {loading && <Loader2 className="size-5 animate-spin" />}
               Entrar
             </Button>
             <p className="text-center text-sm text-muted-foreground">
