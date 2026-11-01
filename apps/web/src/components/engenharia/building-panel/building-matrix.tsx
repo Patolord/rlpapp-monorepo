@@ -400,7 +400,7 @@ function BuildingMatrix({
                     <button
                       type="button"
                       onClick={() => actions.onReplicateFloor?.(floor)}
-                      className="text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                      className="text-muted-foreground transition-opacity hover:text-foreground [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
                       aria-label={`Replicar ${floor.label}`}
                       title="Replicar andar"
                     >
@@ -411,7 +411,7 @@ function BuildingMatrix({
                   <button
                     type="button"
                     onClick={() => actions.onEditFloor?.(floor)}
-                    className="text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                    className="text-muted-foreground transition-opacity hover:text-foreground [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
                     aria-label={`Editar ${floor.label}`}
                   >
                     <Pencil className="size-3" />
@@ -523,18 +523,14 @@ function MatrixCellButton({
         : null;
 
   const isPrimary = cell.segmentIndex === 0;
-  // Lados encostados em outro retângulo do mesmo ambiente colam no vizinho
-  // (sem margem/raio) e escondem a borda de um dos lados para unir a forma.
-  const merged =
-    cell.flushTop || cell.flushRight || cell.flushBottom || cell.flushLeft;
-
   return (
     <button
       type="button"
       onClick={() => onSelectEnvironment(floorLabel, env)}
       className={cn(
-        "m-2 flex min-h-18 flex-col gap-0.5 rounded-sm border-2 p-2 text-left shadow-sm transition-all hover:shadow-md",
-        !merged && "hover:-translate-y-0.5",
+        "m-2 flex min-h-18 flex-col gap-0.5 rounded-sm border-2 p-2 text-left shadow-sm transition-shadow duration-150 hover:shadow-md",
+        // Lados encostados em outro retângulo do mesmo ambiente colam no vizinho
+        // (sem margem/raio) e escondem a borda de um dos lados para unir a forma.
         cell.flushTop && "mt-0 rounded-t-none",
         cell.flushRight && "mr-0 rounded-r-none",
         cell.flushBottom && "mb-0 rounded-b-none",
