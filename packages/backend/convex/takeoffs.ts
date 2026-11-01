@@ -595,10 +595,9 @@ export const applySuggestedPrice = engineeringMutation({
     if (!item) throw new Error("Item não encontrado");
     await ctx.db.patch("takeoffItems", args.itemId, {
       estimatedUnitPriceCents: args.unitPriceCents,
-      // o total publicado pelo desktop era do preço anterior
-      ...(args.unitPriceCents !== item.estimatedUnitPriceCents
-        ? { materialTotalCents: undefined }
-        : {}),
+      // o total publicado pelo desktop era do preço anterior, que pode ter
+      // frações de centavo mesmo quando arredonda para este mesmo valor
+      materialTotalCents: undefined,
       updatedAt: Date.now(),
     });
     return null;

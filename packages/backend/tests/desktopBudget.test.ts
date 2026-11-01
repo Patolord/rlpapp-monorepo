@@ -468,10 +468,11 @@ describe("takeoffs.publishFromDesktop", () => {
     expect(items.get("a")).toMatchObject({ materialTotalCents: 135795, laborTotalCents: 45100 });
     expect(items.get("b")).toMatchObject({ materialTotalCents: null, laborTotalCents: null });
 
-    // novo preço de material: só o total de material deixa de valer
+    // aplicar um preço de referência, mesmo igual ao unitário arredondado
+    // (R$ 12,35 contra os R$ 12,345 do desktop): só o total de material deixa de valer
     await engineer.mutation(api.takeoffs.applySuggestedPrice, {
       itemId: items.get("a")!._id,
-      unitPriceCents: 1300,
+      unitPriceCents: 1235,
     });
     items = await read();
     expect(items.get("a")).toMatchObject({ materialTotalCents: null, laborTotalCents: 45100 });
