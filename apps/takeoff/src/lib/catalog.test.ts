@@ -359,6 +359,19 @@ describe("commonWordPrefix", () => {
   });
 });
 
+describe("company catalog groups", () => {
+  it("a blank or whitespace-only group falls back to the default group", () => {
+    const parsed = parseRemoteCatalogResponse({
+      items: [
+        { name: "A", group: "   " },
+        { name: "B", group: "" },
+        { name: "C", grupo: " Exaustão " },
+      ],
+    });
+    expect(parsed.entries.map((e) => e.group)).toEqual([DEFAULT_GROUP, DEFAULT_GROUP, "Exaustão"]);
+  });
+});
+
 describe("catalog freshness", () => {
   it("asks for an update after a week, or when never fetched", () => {
     const now = new Date(2026, 9, 26, 12).getTime();

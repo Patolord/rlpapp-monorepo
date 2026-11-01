@@ -323,6 +323,10 @@ export const agentTokenPermission = v.union(
   v.literal("read_only")
 );
 
+// Origem de um token de agente: criado à mão em /conta/agentes ("agent") ou
+// emitido pelo login de um app desktop, o RLP Takeoff ("device").
+export const agentTokenKind = v.union(v.literal("agent"), v.literal("device"));
+
 export default defineSchema({
   users: defineTable({
     name: v.string(),
@@ -365,9 +369,37 @@ export default defineSchema({
     lastUsedAt: v.optional(v.number()),
     expiresAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),
+    /** Ausente = "agent" (tokens anteriores ao login do desktop). */
+    kind: v.optional(agentTokenKind),
+    /**
+     * Só tokens de dispositivo: id aleatório da instalação do RLP Takeoff,
+     * gerado uma vez pelo app. Um novo login da mesma instalação revoga o
+     * token anterior dela (o nome do computador é só rótulo e pode repetir).
+     */
+    installationId: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
     .index("by_tokenHash", ["tokenHash"]),
+
+  // Códigos de uso único do login do RLP Takeoff (desktop). A página web
+  // /takeoff/conectar cria um código ligado ao usuário logado e ao desafio
+  // PKCE do app; o app troca o código (com o verificador) por um token de
+  // dispositivo em POST /takeoff/auth/exchange. Só o hash fica gravado.
+  takeoffAuthCodes: defineTable({
+    userId: v.id("users"),
+    /** SHA-256 (hex) do código em texto puro. */
+    codeHash: v.string(),
+    /** Desafio PKCE S256 (base64url do SHA-256 do verificador). */
+    codeChallenge: v.string(),
+    /** Nome do computador, mostrado no token criado ("Takeoff · <device>"). */
+    device: v.string(),
+    /** Id da instalação do app (ver agentTokens.installationId). */
+    installationId: v.optional(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_codeHash", ["codeHash"])
+    .index("by_user", ["userId"]),
 
   // Uma linha por chamada de ferramenta feita via MCP com um token de agente.
   // Alimenta "Atividade recente" na página Agentes. Expurgado pelo cron após
@@ -1076,6 +1108,8 @@ export default defineSchema({
     requestedName: v.optional(v.string()),
     requestedUnit: v.optional(v.string()),
     requestedBy: v.optional(v.string()),
+    /** Usuário logado no takeoff que enviou a proposta (ausente no caminho por token). */
+    requestedByUserId: v.optional(v.id("users")),
     takeoffName: v.optional(v.string()),
     createdAt: v.number(),
   })

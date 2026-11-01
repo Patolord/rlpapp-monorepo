@@ -87,6 +87,10 @@ const WRAPPER_HINTS = {
     kind: "anyPermission",
     permissions: ["estoque.write", "compras.write"],
   },
+  engineeringOrPurchasingMutation: {
+    kind: "anyPermission",
+    permissions: ["engenharia.write", "compras.write"],
+  },
 };
 
 /**

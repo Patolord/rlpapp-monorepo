@@ -18,6 +18,7 @@ import {
 } from "./lib/rh/photo";
 import { hashAgentToken, looksLikeAgentToken } from "./lib/agentTokens";
 import { registerApiV1Routes } from "./gateway/v1";
+import { registerTakeoffAuthRoutes } from "./gateway/takeoffAuth";
 
 type ClerkEmailAddress = {
   id: string;
@@ -438,6 +439,7 @@ const http = httpRouter();
 
 // API HTTP para agentes (`/api/v1/*` e `/.well-known/jwks.json`).
 registerApiV1Routes(http);
+registerTakeoffAuthRoutes(http);
 
 http.route({
   path: AGENT_TOKEN_VERIFY_PATH,

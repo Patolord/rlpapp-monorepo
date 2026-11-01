@@ -18,6 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { internalRedirect } from "@/lib/safe-redirect";
 
 type IndexSearch = {
   redirect?: string;
@@ -25,16 +26,14 @@ type IndexSearch = {
 
 export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>): IndexSearch => {
-    const redirect = search.redirect;
-    // Só aceita caminhos internos para evitar open redirect
-    if (typeof redirect === "string" && redirect.startsWith("/")) {
-      return { redirect };
-    }
-    return {};
+    // Só caminhos internos, para evitar open redirect (ver internalRedirect)
+    const redirect = internalRedirect(search.redirect);
+    return redirect ? { redirect } : {};
   },
   component: IndexPage,
 });
 
+/** Caminho interno, que pode trazer query string (ex.: /takeoff/conectar?port=…). */
 function useLoginDestination() {
   const { redirect } = Route.useSearch();
   return redirect ?? "/app";
@@ -47,7 +46,7 @@ function IndexPage() {
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      void navigate({ to: destination });
+      void navigate({ href: destination });
     }
   }, [isLoaded, isSignedIn, navigate, destination]);
 
@@ -86,7 +85,7 @@ function LoginForm() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        await navigate({ to: destination });
+        await navigate({ href: destination });
       } else {
         setError("Erro ao fazer login. Tente novamente.");
       }

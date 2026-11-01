@@ -1,5 +1,6 @@
-import { RefreshCw, Send } from "lucide-react";
+import { CircleUserRound, LogIn, RefreshCw, Send } from "lucide-react";
 import { useEffect, useState } from "react";
+import { canSignIn } from "../lib/account/session";
 import { CATALOG_URL } from "../lib/catalog";
 import { BASE_MATERIALS } from "../lib/weights";
 import { useStore } from "../store";
@@ -17,7 +18,9 @@ const input =
 export function CatalogSettingsDialog() {
   const open = useStore((s) => s.catalogSettingsOpen);
   const catalog = useStore((s) => s.catalog);
+  const account = useStore((s) => s.account);
   const {
+    signIn,
     setCatalogSettingsOpen,
     setCatalogToken,
     refreshCatalog,
@@ -38,7 +41,7 @@ export function CatalogSettingsDialog() {
   const refresh = async () => {
     setBusy("Buscando…");
     try {
-      setCatalogToken(token);
+      if (account.status !== "signedIn") setCatalogToken(token);
       const n = await refreshCatalog();
       setBusy(`${n} materiais carregados`);
     } catch (e) {
@@ -80,20 +83,45 @@ export function CatalogSettingsDialog() {
           "Catálogo da empresa",
           "De onde vêm os materiais e os preços de referência do Ctrl+K. Nada é enviado de volta sem você pedir.",
           <div className="space-y-1.5">
+            {account.status === "signedIn" ? (
+              <p className="flex items-center gap-1.5 rounded bg-neutral-800/60 px-2 py-1.5 text-neutral-300">
+                <CircleUserRound size={14} className="shrink-0 text-orange-400" />
+                <span className="min-w-0 flex-1">
+                  Conta da empresa
+                  {account.user ? `: ${account.user.name}` : ""}. Catálogo e propostas usam a sua
+                  conta; o token abaixo não é necessário.
+                </span>
+              </p>
+            ) : (
+              <div className="flex items-center gap-2 rounded bg-neutral-800/60 px-2 py-1.5 text-neutral-300">
+                <span className="min-w-0 flex-1">
+                  Entre com a conta da empresa para baixar o catálogo e enviar propostas em seu
+                  nome, sem token compartilhado.
+                </span>
+                <Button
+                  disabled={!canSignIn() || account.status === "signingIn"}
+                  onClick={() => void signIn()}
+                >
+                  <LogIn size={14} /> Entrar
+                </Button>
+              </div>
+            )}
             <p className="truncate font-mono text-[11px] text-neutral-500" title={CATALOG_URL}>
               {CATALOG_URL}
             </p>
-            <label className="block text-neutral-400">
-              Token de acesso
-              <input
-                type="password"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                autoComplete="off"
-                placeholder="fornecido pela RLP; fica só neste computador"
-                className={`${input} mt-0.5 font-mono`}
-              />
-            </label>
+            {account.status !== "signedIn" && (
+              <label className="block text-neutral-400">
+                Token de acesso (alternativa ao login)
+                <input
+                  type="password"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  autoComplete="off"
+                  placeholder="fornecido pela RLP; fica só neste computador"
+                  className={`${input} mt-0.5 font-mono`}
+                />
+              </label>
+            )}
             <div className="flex items-center gap-2 pt-0.5">
               <Button onClick={() => void refresh()}>
                 <RefreshCw size={14} /> Atualizar catálogo

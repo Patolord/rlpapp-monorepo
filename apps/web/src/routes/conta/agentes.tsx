@@ -184,6 +184,16 @@ function PermissionBadge({ permission }: { permission: Permission }) {
   );
 }
 
+/** Token emitido pelo login do RLP Takeoff (app desktop), não criado à mão. */
+function DeviceBadge({ kind }: { kind?: "agent" | "device" }) {
+  if (kind !== "device") return null;
+  return (
+    <Badge variant="outline" className="px-2 py-0.5 text-xs">
+      App desktop
+    </Badge>
+  );
+}
+
 function StatusBadge({
   status,
 }: {
@@ -277,7 +287,9 @@ function AgentesContent() {
           </CardTitle>
           <CardDescription>
             Só o prefixo fica visível. O token completo aparece uma única vez,
-            na criação.
+            na criação. Os marcados &ldquo;App desktop&rdquo; foram criados ao
+            entrar no RLP Takeoff com esta conta; revogar desconecta aquele
+            computador.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -305,6 +317,7 @@ function AgentesContent() {
                     <div className="min-w-0 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="truncate font-medium">{token.name}</span>
+                        <DeviceBadge kind={token.kind} />
                         <PermissionBadge permission={token.permission} />
                         {inactive && <StatusBadge status={status} />}
                       </div>
@@ -587,7 +600,10 @@ function AdminTokensCard({
                         </code>
                       </TableCell>
                       <TableCell>
-                        <PermissionBadge permission={token.permission} />
+                        <div className="flex flex-wrap gap-1">
+                          <PermissionBadge permission={token.permission} />
+                          <DeviceBadge kind={token.kind} />
+                        </div>
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={status} />

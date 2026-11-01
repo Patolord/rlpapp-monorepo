@@ -338,7 +338,7 @@ export function parseRemoteCatalogResponse(json: unknown): RemoteCatalog {
     const description = str(o.description);
     entries.push({
       ...productName(name, description, str(pick(o, ["variant", "variantLabel", "variante"]))),
-      group: String(pick(o, ["group", "grupo", "categoria", "category"]) ?? DEFAULT_GROUP),
+      group: str(pick(o, ["group", "grupo", "categoria", "category"])) ?? DEFAULT_GROUP,
       unit: String(pick(o, ["unit", "unidade", "un"]) ?? "pç"),
       materialPrice: num(
         pick(o, ["materialPrice", "material", "preco_material", "precoMaterial", "price", "preco"]),

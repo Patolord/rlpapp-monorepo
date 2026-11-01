@@ -55,7 +55,9 @@ describe("material proposals", () => {
       clientId: "c1",
       takeoffName: "Hospital",
       requestedBy: "Fernanda",
-      name: "Grelha de Insuflamento 400x400",
+      // family + size, so purchasing matches it to the existing material
+      name: "Grelha de Insuflamento",
+      dimensions: { widthMm: 400, heightMm: 400 },
       unit: "pç",
       category: "Bocas de Ar",
       unitPrice: 120.5,
@@ -80,7 +82,28 @@ describe("material proposals", () => {
     const free = buildProposal(item({ materialPrice: 0 }), project, "c5");
     expect(free.unitPrice).toBeUndefined();
     expect(free.priceDate).toBeUndefined();
-    expect(free.name).toBe("Grelha de Insuflamento 400x400");
+    expect(free.name).toBe("Grelha de Insuflamento");
+  });
+
+  it("sends variant, diameter and the weight as spec for a copper tube", () => {
+    const tube = buildProposal(
+      item({
+        name: 'Tubo de cobre 1/2"',
+        kind: "linear",
+        group: "Tubulações",
+        baseMaterial: "cobre",
+        kgPerUnit: 0.263,
+      }),
+      project,
+      "c7",
+    );
+    expect(tube).toMatchObject({
+      name: "Tubo de cobre",
+      variantLabel: '1/2"',
+      dimensions: { diameterMm: 12.7 },
+      spec: '0,263 kg/m (Cobre até 5/8")',
+      unit: "m",
+    });
   });
 
   it("omits empty header fields", () => {

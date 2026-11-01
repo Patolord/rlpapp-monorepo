@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 41 módulos, 315 funções públicas.
+// 44 módulos, 318 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -37,13 +37,16 @@ import * as m30 from "../reports";
 import * as m31 from "../rhidSync";
 import * as m32 from "../suppliers";
 import * as m33 from "../systems";
-import * as m34 from "../takeoffs";
-import * as m35 from "../technicianActivity";
-import * as m36 from "../technicianPortal";
-import * as m37 from "../timeClock";
-import * as m38 from "../timeClockPunch";
-import * as m39 from "../towers";
-import * as m40 from "../users";
+import * as m34 from "../takeoffAuth";
+import * as m35 from "../takeoffCatalog";
+import * as m36 from "../takeoffMaterials";
+import * as m37 from "../takeoffs";
+import * as m38 from "../technicianActivity";
+import * as m39 from "../technicianPortal";
+import * as m40 from "../timeClock";
+import * as m41 from "../timeClockPunch";
+import * as m42 from "../towers";
+import * as m43 from "../users";
 
 export type AccessHint =
   | { kind: "public" }
@@ -88,13 +91,16 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   rhidSync: m31,
   suppliers: m32,
   systems: m33,
-  takeoffs: m34,
-  technicianActivity: m35,
-  technicianPortal: m36,
-  timeClock: m37,
-  timeClockPunch: m38,
-  towers: m39,
-  users: m40,
+  takeoffAuth: m34,
+  takeoffCatalog: m35,
+  takeoffMaterials: m36,
+  takeoffs: m37,
+  technicianActivity: m38,
+  technicianPortal: m39,
+  timeClock: m40,
+  timeClockPunch: m41,
+  towers: m42,
+  users: m43,
 };
 
 export const ACCESS_HINTS: Record<string, AccessHint> = {
@@ -363,6 +369,9 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "systems:listSystemsByProject": { kind: "permission", permission: "engenharia.read" },
   "systems:removeSystemFromProject": { kind: "permission", permission: "engenharia.write" },
   "systems:updateSystemDetails": { kind: "permission", permission: "engenharia.write" },
+  "takeoffAuth:createCode": { kind: "public" },
+  "takeoffCatalog:current": { kind: "permission", permission: "suprimentos.read" },
+  "takeoffMaterials:proposeAsUser": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
   "takeoffs:addItem": { kind: "permission", permission: "engenharia.write" },
   "takeoffs:applySuggestedPrice": { kind: "permission", permission: "engenharia.write" },
   "takeoffs:create": { kind: "permission", permission: "engenharia.write" },
