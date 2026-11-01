@@ -37,7 +37,10 @@ export function Button({ variant = "ghost", className, ...rest }: ButtonProps) {
     <button
       type="button"
       className={clsx(
-        "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors disabled:opacity-40",
+        "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium disabled:opacity-40",
+        // press feedback: a slight shrink while held (the `scale` property, so a `transform` on
+        // the button is left alone); disabled buttons stay still
+        "transition-[color,background-color,border-color,box-shadow,scale] duration-[160ms] ease-out active:not-disabled:scale-[0.97]",
         variant === "primary"
           ? "bg-orange-500 text-neutral-950 hover:bg-orange-400"
           : "bg-neutral-800 text-neutral-200 ring-1 ring-neutral-700 hover:bg-neutral-700",
