@@ -33,8 +33,10 @@ export interface ConnectRequest {
   port: number;
   state: string;
   challenge: string;
-  /** Computer name, shown on the confirmation page and in the token list. */
+  /** Computer name, shown on the confirmation page and in the token list (a label only). */
   device: string;
+  /** This installation's random id: a new sign-in replaces only its own previous token. */
+  installation: string;
 }
 
 /** The web page that asks the signed-in user to connect this computer. */
@@ -44,6 +46,7 @@ export function connectUrl(webUrl: string, req: ConnectRequest): string {
   url.searchParams.set("state", req.state);
   url.searchParams.set("challenge", req.challenge);
   url.searchParams.set("device", req.device);
+  url.searchParams.set("installation", req.installation);
   return url.toString();
 }
 

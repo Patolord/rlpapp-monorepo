@@ -344,6 +344,12 @@ export default defineSchema({
     revokedAt: v.optional(v.number()),
     /** Ausente = "agent" (tokens anteriores ao login do desktop). */
     kind: v.optional(agentTokenKind),
+    /**
+     * Só tokens de dispositivo: id aleatório da instalação do RLP Takeoff,
+     * gerado uma vez pelo app. Um novo login da mesma instalação revoga o
+     * token anterior dela (o nome do computador é só rótulo e pode repetir).
+     */
+    installationId: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
     .index("by_tokenHash", ["tokenHash"]),
@@ -360,6 +366,8 @@ export default defineSchema({
     codeChallenge: v.string(),
     /** Nome do computador, mostrado no token criado ("Takeoff · <device>"). */
     device: v.string(),
+    /** Id da instalação do app (ver agentTokens.installationId). */
+    installationId: v.optional(v.string()),
     createdAt: v.number(),
     expiresAt: v.number(),
   })

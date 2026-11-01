@@ -34,6 +34,21 @@ describe("splitMaterialName", () => {
       variantLabel: '1.1/8"',
       dimensions: { diameterMm: 28.58 },
     });
+    // a mixed size with a space is one size, not "…cobre 1" + 1/8"
+    expect(splitMaterialName('Tubo de cobre 1 1/8"')).toEqual({
+      name: "Tubo de cobre",
+      variantLabel: '1.1/8"',
+      dimensions: { diameterMm: 28.58 },
+    });
+    expect(splitMaterialName('Tubo de cobre 2 1/2"')).toEqual({
+      name: "Tubo de cobre",
+      variantLabel: '2.1/2"',
+      dimensions: { diameterMm: 63.5 },
+    });
+    expect(splitMaterialName('Tubo de cobre 1-5/8"')).toMatchObject({
+      name: "Tubo de cobre",
+      dimensions: { diameterMm: 41.28 },
+    });
     expect(splitMaterialName('Tubo de cobre 1"')).toMatchObject({
       name: "Tubo de cobre",
       dimensions: { diameterMm: 25.4 },
@@ -73,6 +88,13 @@ describe("splitMaterialName", () => {
     expect(splitMaterialName("Split 12000 BTU")).toEqual({ name: "Split 12000 BTU" });
     // a bare size is not a family
     expect(splitMaterialName("400x200")).toEqual({ name: "400x200" });
+  });
+
+  it("never proposes a 0 dimension (the server refuses it)", () => {
+    for (const name of ['Tubo 0"', 'Tubo 0/8"', "Grelha 00x200", "Duto Ø 00", "Grelha 0,0x200"]) {
+      const dims = splitMaterialName(name).dimensions ?? {};
+      for (const value of Object.values(dims)) expect(value).toBeGreaterThan(0);
+    }
   });
 });
 

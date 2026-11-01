@@ -39,12 +39,14 @@ describe("browser round trip", () => {
         state: "s".repeat(32),
         challenge: "c".repeat(43),
         device: "PC da Ana & cia",
+        installation: "inst-0123456789abcdef",
       }),
     );
     expect(url.origin + url.pathname).toBe("https://app.rlpeng.com.br/takeoff/conectar");
     expect(url.searchParams.get("port")).toBe("53111");
     expect(url.searchParams.get("device")).toBe("PC da Ana & cia");
     expect(url.searchParams.get("challenge")).toBe("c".repeat(43));
+    expect(url.searchParams.get("installation")).toBe("inst-0123456789abcdef");
   });
 
   it("accepts the code only with the expected state", () => {

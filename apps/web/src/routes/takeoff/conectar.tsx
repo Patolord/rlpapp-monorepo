@@ -36,6 +36,7 @@ export const Route = createFileRoute("/takeoff/conectar")({
       state: pick("state"),
       challenge: pick("challenge"),
       device: pick("device"),
+      installation: pick("installation"),
     };
   },
   component: ConectarPage,
@@ -100,7 +101,11 @@ function ConfirmConnection({ params }: { params: ConnectParams }) {
     setPhase("busy");
     setError(null);
     try {
-      const { code } = await createCode({ challenge: params.challenge, device: params.device });
+      const { code } = await createCode({
+        challenge: params.challenge,
+        device: params.device,
+        installationId: params.installation,
+      });
       setPhase("done");
       window.location.assign(takeoffCallbackUrl(params, { code }));
     } catch (e) {

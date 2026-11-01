@@ -15,6 +15,7 @@ import {
   generateAuthCode,
   hashAuthCode,
   isValidChallenge,
+  isValidInstallationId,
   normalizeDeviceName,
 } from "./lib/takeoffAuth";
 
@@ -76,8 +77,13 @@ export const createCode = action({
   args: {
     /** Desafio PKCE S256 gerado pelo app (base64url, 43 caracteres). */
     challenge: v.string(),
-    /** Nome do computador, como o app informou. */
+    /** Nome do computador, como o app informou (só rótulo). */
     device: v.string(),
+    /**
+     * Id aleatório da instalação do app, gerado uma vez e guardado nela: um
+     * novo login da mesma instalação substitui o token anterior dela.
+     */
+    installationId: v.optional(v.string()),
   },
   returns: v.object({ code: v.string(), expiresAt: v.number() }),
   handler: async (ctx, args) => {
@@ -88,6 +94,9 @@ export const createCode = action({
     if (!isValidChallenge(args.challenge)) {
       throw new Error("Desafio PKCE inválido");
     }
+    if (args.installationId !== undefined && !isValidInstallationId(args.installationId)) {
+      throw new Error("Id da instalação inválido");
+    }
     const code = generateAuthCode();
     const expiresAt: number = await ctx.runMutation(
       internal.takeoffAuth.insertCode,
@@ -95,6 +104,7 @@ export const createCode = action({
         codeHash: await hashAuthCode(code),
         challenge: args.challenge,
         device: args.device,
+        installationId: args.installationId,
       }
     );
     return { code, expiresAt };
@@ -106,12 +116,20 @@ export const createCode = action({
 // ===========================================================================
 
 export const insertCode = internalMutation({
-  args: { codeHash: v.string(), challenge: v.string(), device: v.string() },
+  args: {
+    codeHash: v.string(),
+    challenge: v.string(),
+    device: v.string(),
+    installationId: v.optional(v.string()),
+  },
   returns: v.number(),
   handler: async (ctx, args) => {
     const user = await requireHumanStaff(ctx);
     if (!isValidChallenge(args.challenge)) {
       throw new Error("Desafio PKCE inválido");
+    }
+    if (args.installationId !== undefined && !isValidInstallationId(args.installationId)) {
+      throw new Error("Id da instalação inválido");
     }
     const now = Date.now();
 
@@ -136,6 +154,7 @@ export const insertCode = internalMutation({
       codeHash: args.codeHash,
       codeChallenge: args.challenge,
       device: normalizeDeviceName(args.device),
+      installationId: args.installationId,
       createdAt: now,
       expiresAt,
     });
@@ -146,7 +165,8 @@ export const insertCode = internalMutation({
 /**
  * Troca um código por um token de dispositivo, numa transação: o código é
  * apagado em qualquer tentativa (certa ou errada), então só vale uma vez. Um
- * novo login no mesmo computador revoga o token anterior desse computador.
+ * novo login da mesma instalação do app revoga o token anterior dela (pelo
+ * `installationId`, nunca pelo nome do computador, que pode repetir).
  *
  * Recebe o hash do código, o desafio recalculado a partir do verificador e o
  * hash do token novo, todos calculados na HTTP action (WebCrypto).
@@ -185,16 +205,18 @@ export const redeemCode = internalMutation({
     const user = await ctx.db.get("users", row.userId);
     if (!user || !user.isActive || !user.clerkId) return invalid;
 
-    const name = deviceTokenName(row.device);
-    await revokeDeviceTokensNamed(ctx, user._id, name, args.now);
+    if (row.installationId) {
+      await revokeInstallationTokens(ctx, user._id, row.installationId, args.now);
+    }
     let created: { id: Id<"agentTokens"> };
     try {
       created = await insertToken(ctx, user, {
-        name,
+        name: deviceTokenName(row.device),
         permission: "full_access",
         tokenHash: args.tokenHash,
         tokenPrefix: args.tokenPrefix,
         kind: "device",
+        installationId: row.installationId,
       });
     } catch (error) {
       // Limite de tokens ativos ou usuário sem role interna: nada foi gravado
@@ -213,10 +235,15 @@ export const redeemCode = internalMutation({
   },
 });
 
-async function revokeDeviceTokensNamed(
+/**
+ * Tokens de dispositivo ativos da mesma instalação. Tokens sem
+ * `installationId` (emitidos antes dele existir) ficam como estão: revogue
+ * em /conta/agentes se não forem mais usados.
+ */
+async function revokeInstallationTokens(
   ctx: MutationCtx,
   userId: Id<"users">,
-  name: string,
+  installationId: string,
   now: number
 ): Promise<void> {
   for await (const token of ctx.db
@@ -224,7 +251,7 @@ async function revokeDeviceTokensNamed(
     .withIndex("by_user", (q) => q.eq("userId", userId))) {
     if (
       token.kind === "device" &&
-      token.name === name &&
+      token.installationId === installationId &&
       token.revokedAt === undefined
     ) {
       await ctx.db.patch("agentTokens", token._id, { revokedAt: now });

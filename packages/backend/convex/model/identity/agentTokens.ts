@@ -62,6 +62,8 @@ export async function insertToken(
     tokenHash: string;
     tokenPrefix: string;
     kind?: "agent" | "device";
+    /** Tokens de dispositivo: a instalação do app que o recebeu. */
+    installationId?: string;
   }
 ) {
   assertStaff(user);
@@ -96,7 +98,9 @@ export async function insertToken(
     permission: args.permission,
     createdAt: now,
     expiresAt,
-    ...(args.kind === "device" ? { kind: "device" as const } : {}),
+    ...(args.kind === "device"
+      ? { kind: "device" as const, installationId: args.installationId }
+      : {}),
   });
   return { id, name, expiresAt };
 }

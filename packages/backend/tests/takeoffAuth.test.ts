@@ -9,6 +9,7 @@ import {
   normalizeDeviceName,
   pkceChallengeFromVerifier,
 } from "../convex/lib/takeoffAuth";
+import { ACCESS_HINTS } from "../convex/mcp/catalog.generated";
 import { setup, withUser } from "./helpers";
 
 /**
@@ -236,19 +237,49 @@ describe("POST /takeoff/auth/exchange", () => {
     expect(await unknown.json()).toMatchObject({ error: "invalid_grant" });
   });
 
-  test("entrar de novo no mesmo computador revoga o token anterior dele", async () => {
+  test("novo login da mesma instalação revoga o token anterior dela, não o de outra com o mesmo nome", async () => {
     const { t, asUser } = await signIn();
-    for (const device of ["PC-ROD", "PC-ROD", "NOTE"]) {
+    const login = async (device: string, installationId?: string) => {
       const { code } = await asUser.action(api.takeoffAuth.createCode, {
         challenge: RFC_CHALLENGE,
         device,
+        ...(installationId ? { installationId } : {}),
       });
-      expect((await exchange(t, { code, verifier: RFC_VERIFIER })).status).toBe(200);
-    }
+      const res = await exchange(t, { code, verifier: RFC_VERIFIER });
+      expect(res.status).toBe(200);
+      return (await res.json()).tokenPrefix as string;
+    };
+    const macA = "instalacao-mac-a-0001";
+    const macB = "instalacao-mac-b-0002";
+    const legacy = await login("Mac"); // sem id: token anterior ao installationId
+    const a1 = await login("Mac", macA);
+    const b1 = await login("Mac", macB);
+    const a2 = await login("Mac", macA);
+
     const tokens = await asUser.query(api.agentTokens.list, {});
-    const active = tokens.filter((tk) => tk.revokedAt === undefined).map((tk) => tk.name);
-    expect(active.sort()).toEqual(["Takeoff · NOTE", "Takeoff · PC-ROD"]);
-    expect(tokens).toHaveLength(3);
+    const byPrefix = new Map(tokens.map((tk) => [tk.tokenPrefix, tk]));
+    // a mesma instalação substitui o seu token
+    expect(byPrefix.get(a1)?.revokedAt).toBeDefined();
+    expect(byPrefix.get(a2)?.revokedAt).toBeUndefined();
+    // outra instalação com o mesmo nome de computador continua conectada
+    expect(byPrefix.get(b1)?.revokedAt).toBeUndefined();
+    // o token antigo sem id não é mais revogado pelo nome
+    expect(byPrefix.get(legacy)?.revokedAt).toBeUndefined();
+    const rows = await t.run((ctx) => ctx.db.query("agentTokens").collect());
+    expect(rows.find((r) => r.tokenPrefix === a2)?.installationId).toBe(macA);
+  });
+
+  test("id da instalação malformado é recusado", async () => {
+    const { asUser } = await signIn();
+    for (const installationId of ["curto", "x".repeat(65), "com espaço-0123456789"]) {
+      await expect(
+        asUser.action(api.takeoffAuth.createCode, {
+          challenge: RFC_CHALLENGE,
+          device: "PC",
+          installationId,
+        })
+      ).rejects.toThrow("Id da instalação inválido");
+    }
   });
 });
 
@@ -342,6 +373,30 @@ describe("catálogo e propostas como o usuário logado", () => {
         materialId: "nao-existe",
       })
     ).rejects.toMatchObject({ data: { code: "MATERIAL_NOT_FOUND" } });
+  });
+
+  test("dimensão zero é proposta inválida (não erro genérico que o app reenviaria)", async () => {
+    const { asUser } = await signIn();
+    for (const dimensions of [{ widthMm: 0, heightMm: 200 }, { diameterMm: 0 }]) {
+      await expect(
+        asUser.mutation(api.takeoffMaterials.proposeAsUser, {
+          clientId: `c-${JSON.stringify(dimensions)}`,
+          name: "Grelha",
+          dimensions,
+        })
+      ).rejects.toMatchObject({ data: { code: "INVALID_PROPOSAL" } });
+    }
+  });
+
+  test("proposeAsUser está no catálogo MCP / API com a permissão certa", () => {
+    expect(ACCESS_HINTS["takeoffMaterials:proposeAsUser"]).toEqual({
+      kind: "anyPermission",
+      permissions: ["engenharia.write", "compras.write"],
+    });
+    expect(ACCESS_HINTS["takeoffCatalog:current"]).toEqual({
+      kind: "permission",
+      permission: "suprimentos.read",
+    });
   });
 
   test("só engenharia ou compras propõem", async () => {

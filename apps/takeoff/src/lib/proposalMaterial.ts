@@ -60,10 +60,12 @@ export function splitMaterialName(raw: string): ProposalMaterial {
   }
 
   // a size in inches at the end: `Tubo de cobre 1.1/8"`
-  const inch = /^(.*\S)\s+((?:\d+[.\s-])?\d+\/\d+|\d+)\s*(?:"|''|”|pol\.?)$/iu.exec(name);
+  // lazy family: a mixed size ("1 1/8") is the size, not "…cobre 1" + "1/8"
+  const inch = /^(.*?\S)\s+((?:\d+[.\s-])?\d+\/\d+|\d+)\s*(?:"|''|”|pol\.?)$/iu.exec(name);
   if (inch) {
     const mm = inchesToMm(inch[2]);
-    if (mm !== undefined) {
+    // never a 0 dimension: the server refuses it (0", 0/8")
+    if (mm !== undefined && mm > 0) {
       return {
         name: tidy(inch[1]),
         variantLabel: `${inch[2].replace(/\s+|-/g, ".")}"`,

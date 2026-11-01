@@ -56,6 +56,11 @@ export const proposeAsUser = engineeringOrPurchasingMutation({
           message: MATERIAL_NOT_FOUND,
         });
       }
+      // Catalog validation (lib/compras/catalog.ts) the parser does not
+      // repeat: still a bad proposal, never worth retrying.
+      if (error instanceof Error && error.message.startsWith("Dimensão inválida")) {
+        throw new ConvexError({ code: "INVALID_PROPOSAL", message: error.message });
+      }
       throw error;
     }
   },

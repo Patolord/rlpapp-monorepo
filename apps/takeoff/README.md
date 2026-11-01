@@ -200,8 +200,12 @@ Signed in, the catalog comes from `takeoffCatalog.current` and proposals go to
 `takeoffMaterials.proposeAsUser` through a typed Convex client (`src/lib/account/convex.ts`,
 `api.*` and types from `@rlpapp/backend`); the server records the user as the requester.
 Proposals still wait in the local outbox when offline. **Sair** revokes the device token on the
-server (when reachable) and deletes it from the keychain; signing in again on the same computer
-replaces its previous token. A token revoked in the dashboard signs the app out on its next call.
+server (when reachable) and deletes it from the keychain; if the keychain refuses, the app says
+so instead of claiming a clean sign-out. Closing the sign-in (×) at any step keeps nothing (a
+token already issued to that attempt is revoked). Each installation has a random id
+(`installation-id` in the app data folder, `src-tauri/src/installation.rs`): signing in again
+replaces only that installation's previous token, so two computers with the same name never
+revoke each other. A token revoked in the dashboard signs the app out on its next call.
 Signed out, the shared token path keeps working exactly as before.
 
 Proposals of unlinked lines now carry the family, variant and dimensions parsed from the line's

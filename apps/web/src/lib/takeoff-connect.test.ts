@@ -4,24 +4,35 @@ import { parseConnectParams, takeoffCallbackUrl } from "./takeoff-connect";
 
 const challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
 const state = "abcdefghijklmnop_-12";
+const installation = "inst-0123456789abcdef";
 
 describe("parseConnectParams", () => {
   test("aceita os parâmetros do app", () => {
     expect(
-      parseConnectParams({ port: "53123", state, challenge, device: " PC\nROD " })
-    ).toEqual({ port: 53123, state, challenge, device: "PC ROD" });
+      parseConnectParams({ port: "53123", state, challenge, installation, device: " PC\nROD " })
+    ).toEqual({ port: 53123, state, challenge, installation, device: "PC ROD" });
   });
 
   test("porta precisa ser número entre 1024 e 65535", () => {
     for (const port of [undefined, "", "abc", "80", "70000", "1e4", "123456", "5000/evil"]) {
-      expect(parseConnectParams({ port, state, challenge, device: "PC" })).toBeNull();
+      expect(parseConnectParams({ port, state, challenge, installation, device: "PC" })).toBeNull();
     }
   });
 
   test("state e desafio precisam ter o formato esperado", () => {
-    expect(parseConnectParams({ port: "5000", state: "curto", challenge })).toBeNull();
-    expect(parseConnectParams({ port: "5000", state, challenge: "x" })).toBeNull();
-    expect(parseConnectParams({ port: "5000", state, challenge })?.device).toBe("computador");
+    expect(parseConnectParams({ port: "5000", state: "curto", challenge, installation })).toBeNull();
+    expect(parseConnectParams({ port: "5000", state, challenge: "x", installation })).toBeNull();
+    expect(parseConnectParams({ port: "5000", state, challenge, installation })?.device).toBe(
+      "computador"
+    );
+  });
+
+  test("id da instalação é obrigatório e tem formato fixo", () => {
+    for (const bad of [undefined, "", "curto", "x".repeat(65), "com espaço-0123456789"]) {
+      expect(
+        parseConnectParams({ port: "5000", state, challenge, installation: bad })
+      ).toBeNull();
+    }
   });
 });
 

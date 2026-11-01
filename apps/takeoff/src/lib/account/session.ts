@@ -157,37 +157,96 @@ function deviceLabel(name: string | null): string {
   return name?.trim() || (IS_MAC ? "Mac" : "Windows");
 }
 
+/** The user closed the sign-in prompt (×) before it finished. */
+export class SignInCancelledError extends Error {
+  constructor() {
+    super("cancelado");
+    this.name = "SignInCancelledError";
+  }
+}
+
+/** The sign-in in progress; cancelling marks it, and every step after an await checks. */
+let attempt: { cancelled: boolean } | null = null;
+
+/**
+ * This installation's random id (src-tauri/src/installation.rs): generated once, then the same
+ * on every sign-in, so the server replaces only this installation's previous token.
+ */
+async function installationId(): Promise<string> {
+  return await invoke<string>("installation_id", { candidate: randomString(18) });
+}
+
+/** `POST /takeoff/auth/revoke` with the device token; true only when the server confirms. */
+async function revokeOnServer(token: string): Promise<boolean> {
+  try {
+    const res = await httpRequest({ method: "POST", url: REVOKE_URL, token });
+    return res.status === 200 && readJson(res.body).revoked === true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The whole browser sign-in: listener, browser, wait, code exchange, keychain. Resolves with the
  * account once this computer is connected; rejects when the user cancels, the wait times out or
- * the server refuses the code.
+ * the server refuses the code. A cancel at any step wins: nothing is kept or activated, and a
+ * token the server already issued to this attempt is revoked and removed from the keychain.
  */
 export async function signInWithBrowser(): Promise<AccountUser> {
   if (!canSignIn()) throw new Error("O login com a conta da empresa só funciona no app instalado");
-  const device = deviceLabel(await invoke<string | null>("device_name").catch(() => null));
-  const { verifier, challenge } = await createPkce();
-  const state = randomString(24);
-  const port = await invoke<number>("auth_listen");
+  if (attempt) attempt.cancelled = true;
+  const current = { cancelled: false };
+  attempt = current;
+  const check = () => {
+    if (current.cancelled) throw new SignInCancelledError();
+  };
+  let issued: string | null = null;
+  let stored = false;
   try {
-    await openUrl(connectUrl(WEB_URL, { port, state, challenge, device }));
+    const device = deviceLabel(await invoke<string | null>("device_name").catch(() => null));
+    const installation = await installationId();
+    const { verifier, challenge } = await createPkce();
+    const state = randomString(24);
+    check();
+    const port = await invoke<number>("auth_listen");
+    try {
+      check();
+      await openUrl(connectUrl(WEB_URL, { port, state, challenge, device, installation }));
+    } catch (e) {
+      await invoke("auth_cancel").catch(() => undefined);
+      throw e;
+    }
+    const query = await invoke<string>("auth_wait", { timeoutSecs: SIGN_IN_TIMEOUT_SECS });
+    check();
+    const { code } = parseCallback(query, state);
+    const result = await exchangeCode(code, verifier);
+    issued = result.deviceToken;
+    check();
+    await invoke("device_token_set", { token: result.deviceToken });
+    stored = true;
+    check();
+    // the last check and the activation run without an await in between
+    deviceToken = result.deviceToken;
+    jwtCache.set(result.jwt);
+    return result.user;
   } catch (e) {
-    await invoke("auth_cancel").catch(() => undefined);
-    throw e;
+    if (current.cancelled && issued) {
+      if (stored) await invoke("device_token_delete").catch(() => undefined);
+      await revokeOnServer(issued);
+    }
+    throw current.cancelled ? new SignInCancelledError() : e;
+  } finally {
+    if (attempt === current) attempt = null;
   }
-  const query = await invoke<string>("auth_wait", { timeoutSecs: SIGN_IN_TIMEOUT_SECS });
-  const { code } = parseCallback(query, state);
-  const result = await exchangeCode(code, verifier);
-  await invoke("device_token_set", { token: result.deviceToken });
-  deviceToken = result.deviceToken;
-  jwtCache.set(result.jwt);
-  return result.user;
 }
 
-/** Stop waiting for the browser (the user closed the sign-in prompt). */
+/** Stop the sign-in in progress (the user closed the prompt), whatever step it is at. */
 export async function cancelSignIn(): Promise<void> {
+  if (attempt) attempt.cancelled = true;
   if (canSignIn()) await invoke("auth_cancel");
 }
 
+/** Forget the session here: memory first, then the keychain (which may fail). */
 async function forgetSession(): Promise<void> {
   deviceToken = null;
   jwtCache.clear();
@@ -195,15 +254,41 @@ async function forgetSession(): Promise<void> {
 }
 
 /**
- * "Sair": revoke the device token on the server (best effort: offline, it stays listed in the
- * dashboard until revoked there) and forget it here.
+ * "Sair" could not fully disconnect: the credential is still in this computer's keychain (and
+ * would sign back in on the next start unless the server revoked it).
  */
-export async function signOut(): Promise<void> {
-  const token = deviceToken;
-  await forgetSession();
-  if (token) {
-    await httpRequest({ method: "POST", url: REVOKE_URL, token }).catch(() => undefined);
+export class SignOutIncompleteError extends Error {
+  constructor(
+    readonly revoked: boolean,
+    cause: unknown,
+  ) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    super(
+      revoked
+        ? `Acesso revogado no servidor, mas a credencial não pôde ser apagada deste computador (${detail})`
+        : `A credencial não pôde ser apagada deste computador (${detail}) nem revogada no servidor: revogue em Minha conta › Agentes, no app web`,
+    );
+    this.name = "SignOutIncompleteError";
   }
+}
+
+/**
+ * "Sair": revoke the device token on the server, then forget it here. Revocation is always
+ * attempted, whatever happens to the keychain. Resolves with whether the server confirmed the
+ * revocation (offline, the token stays listed in the dashboard until revoked there); rejects with
+ * SignOutIncompleteError when the keychain entry could not be deleted.
+ */
+export async function signOut(): Promise<{ revoked: boolean }> {
+  const token = deviceToken;
+  deviceToken = null;
+  jwtCache.clear();
+  const revoked = token ? await revokeOnServer(token) : false;
+  try {
+    if (canSignIn()) await invoke("device_token_delete");
+  } catch (e) {
+    throw new SignOutIncompleteError(revoked, e);
+  }
+  return { revoked };
 }
 
 /** The server refused the device token while in use: forget it so the UI asks to sign in. */

@@ -28,6 +28,8 @@ const CHALLENGE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 // RFC 7636 §4.1: 43 a 128 caracteres do conjunto "unreserved".
 const VERIFIER_PATTERN = /^[A-Za-z0-9._~-]{43,128}$/;
 const CODE_PATTERN = /^[A-Za-z0-9_-]{20,128}$/;
+// Id aleatório gerado uma vez por instalação do app (base64url).
+const INSTALLATION_ID_PATTERN = /^[A-Za-z0-9_-]{16,64}$/;
 
 export function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = "";
@@ -70,6 +72,8 @@ export async function pkceChallengeFromVerifier(verifier: string): Promise<strin
 export const isValidChallenge = (value: string): boolean => CHALLENGE_PATTERN.test(value);
 export const isValidVerifier = (value: string): boolean => VERIFIER_PATTERN.test(value);
 export const isValidAuthCode = (value: string): boolean => CODE_PATTERN.test(value);
+export const isValidInstallationId = (value: string): boolean =>
+  INSTALLATION_ID_PATTERN.test(value);
 
 /**
  * Nome do computador como o app informa (vem da URL, então é texto livre):

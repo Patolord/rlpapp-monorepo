@@ -147,6 +147,9 @@ function readDimensions(
   const dimensions: MaterialDimensions = {};
   for (const key of DIMENSION_KEYS) {
     const read = readNumber(record, key, { min: 0 });
+    // sanitizeDimensions rejects 0 later with a plain error (a 500 / an
+    // endless retry in the app): refuse it here, as a bad request.
+    if (read === 0) throw new Error(`"dimensions.${key}" must be > 0`);
     if (read !== undefined) dimensions[key] = read;
   }
   return dimensions;

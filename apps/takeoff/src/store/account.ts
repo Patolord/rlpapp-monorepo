@@ -5,6 +5,7 @@ import {
   onAccountUser,
   restoreSession,
   SignedOutError,
+  SignInCancelledError,
   signInWithBrowser,
   signOut,
 } from "../lib/account/session";
@@ -74,9 +75,8 @@ export const createAccountSlice: Slice<AccountSlice> = (set, get) => {
           .catch((e) => set({ status: `Falha ao atualizar o catálogo: ${errorMessage(e)}` }));
       } catch (e) {
         const message = errorMessage(e);
-        set({
-          account: { ...signedOut, error: message === "cancelado" ? null : message },
-        });
+        const cancelled = e instanceof SignInCancelledError || message === "cancelado";
+        set({ account: { ...signedOut, error: cancelled ? null : message } });
       }
     },
 
@@ -85,8 +85,19 @@ export const createAccountSlice: Slice<AccountSlice> = (set, get) => {
     },
 
     signOut: async () => {
-      await signOut().catch(() => undefined);
-      set({ account: signedOut, status: "Conta da empresa desconectada deste computador" });
+      try {
+        const { revoked } = await signOut();
+        set({
+          account: signedOut,
+          status: revoked
+            ? "Conta da empresa desconectada deste computador"
+            : "Conta desconectada aqui, mas sem resposta do servidor: o token continua em Minha conta › Agentes até ser revogado lá",
+        });
+      } catch (e) {
+        // the credential is still in the keychain: say so instead of claiming a clean sign-out
+        const message = errorMessage(e);
+        set({ account: { ...signedOut, error: message }, status: message });
+      }
     },
 
     handleSignedOut: async (e) => {
