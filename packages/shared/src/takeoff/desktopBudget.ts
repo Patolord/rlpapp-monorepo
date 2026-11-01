@@ -15,6 +15,25 @@ export const DESKTOP_BUDGET_SOURCE = "desktop" as const;
 /** Limite de linhas por publicação (limites de escrita de uma mutation). */
 export const DESKTOP_BUDGET_MAX_LINES = 2000;
 
+/**
+ * Única moeda aceita na publicação: o app da empresa trata todos os preços como
+ * reais e o desktop não tem câmbio para converter.
+ */
+export const DESKTOP_BUDGET_CURRENCY = "BRL";
+
+/**
+ * Erro (em pt-BR) quando a moeda não é a aceita na publicação, ou null. Moeda
+ * vazia conta como reais (padrão do desktop).
+ */
+export function unsupportedCurrencyError(currency: string | undefined): string | null {
+  const code = currency?.trim().toUpperCase();
+  if (!code || code === DESKTOP_BUDGET_CURRENCY) return null;
+  return (
+    `O orçamento está em ${code}, mas o app da empresa só recebe orçamentos em reais ` +
+    `(${DESKTOP_BUDGET_CURRENCY}). Mude a moeda do projeto para ${DESKTOP_BUDGET_CURRENCY} antes de publicar.`
+  );
+}
+
 /** Resumo de uma aba (disciplina / sistema) da planilha orçamentária. */
 export interface DesktopBudgetSheetSummary {
   /** Nome da aba, igual ao `sheet` das linhas. */
@@ -41,6 +60,7 @@ export interface DesktopBudgetMeta {
   site?: string;
   /** Título do sistema impresso na planilha. */
   system?: string;
+  /** Só BRL (ou vazio) é aceito: ver `DESKTOP_BUDGET_CURRENCY`. */
   currency?: string;
   sheets: DesktopBudgetSheetSummary[];
 }

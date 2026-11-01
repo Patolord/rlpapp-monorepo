@@ -56,35 +56,61 @@ export function lineLaborCents(item: DesktopBudgetItem): number {
 }
 
 /**
- * Linhas na ordem recebida (a do desktop); abas na ordem do resumo publicado.
- * Linhas que saíram do orçamento desktop (`externalRemovedAt`) aparecem, mas
- * não entram nos totais.
+ * Chave de aba / seção como o desktop compara nomes no id da linha (maiúsculas
+ * e espaços nas pontas ignorados): uma linha que a Compras congelou guarda o
+ * nome antigo ("Exaustão") quando o desktop só muda a grafia ("EXAUSTÃO").
+ */
+function nameKey(name: string): string {
+  return name.trim().toLocaleLowerCase("pt-BR");
+}
+
+type Group<V> = { name: string; value: V };
+
+/** Grupo da chave `name`; o primeiro nome visto fica como o exibido. */
+function groupFor<V>(
+  groups: Map<string, Group<V>>,
+  name: string,
+  create: () => V
+): V {
+  const key = nameKey(name);
+  let group = groups.get(key);
+  if (!group) {
+    group = { name, value: create() };
+    groups.set(key, group);
+  }
+  return group.value;
+}
+
+/**
+ * Linhas na ordem recebida (a do desktop); abas na ordem do resumo publicado,
+ * com o nome do resumo. Linhas que saíram do orçamento desktop
+ * (`externalRemovedAt`) aparecem, mas não entram nos totais.
  */
 export function groupDesktopBudget<T extends DesktopBudgetItem>(
   items: readonly T[],
   sheetsMeta: readonly DesktopBudgetSheetMeta[]
 ): DesktopBudgetSheet<T>[] {
-  const bySheet = new Map<string, Map<string, T[]>>();
-  for (const meta of sheetsMeta) bySheet.set(meta.name, new Map());
+  type Sheet = {
+    meta: DesktopBudgetSheetMeta | undefined;
+    sections: Map<string, Group<T[]>>;
+  };
+  const bySheet = new Map<string, Group<Sheet>>();
+  for (const meta of sheetsMeta) {
+    groupFor(bySheet, meta.name, () => ({ meta, sections: new Map() }));
+  }
   for (const item of items) {
-    const sheetName = item.sheet ?? OTHER_SHEET;
-    let sections = bySheet.get(sheetName);
-    if (!sections) {
-      sections = new Map();
-      bySheet.set(sheetName, sections);
-    }
-    const sectionName = item.section ?? NO_SECTION;
-    const lines = sections.get(sectionName);
-    if (lines) lines.push(item);
-    else sections.set(sectionName, [item]);
+    const sheet = groupFor(bySheet, item.sheet ?? OTHER_SHEET, () => ({
+      meta: undefined,
+      sections: new Map(),
+    }));
+    groupFor(sheet.sections, item.section ?? NO_SECTION, () => []).push(item);
   }
 
-  const metaByName = new Map(sheetsMeta.map((m) => [m.name, m]));
   const out: DesktopBudgetSheet<T>[] = [];
-  for (const [name, sectionMap] of bySheet) {
-    if (sectionMap.size === 0) continue;
+  for (const { name, value: sheet } of bySheet.values()) {
+    if (sheet.sections.size === 0) continue;
     const sections: DesktopBudgetSection<T>[] = [];
-    for (const [sectionName, lines] of sectionMap) {
+    for (const { name: sectionName, value: lines } of sheet.sections.values()) {
       let materialCents = 0;
       let laborCents = 0;
       for (const line of lines) {
@@ -94,7 +120,7 @@ export function groupDesktopBudget<T extends DesktopBudgetItem>(
       }
       sections.push({ name: sectionName, lines, materialCents, laborCents });
     }
-    const meta = metaByName.get(name);
+    const meta = sheet.meta;
     const materialCents = sum(sections.map((s) => s.materialCents));
     const laborCents = sum(sections.map((s) => s.laborCents));
     const extrasPct = meta?.extrasPct ?? 0;

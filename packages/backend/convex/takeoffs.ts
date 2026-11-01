@@ -589,7 +589,8 @@ export const applySuggestedPrice = engineeringMutation({
  * Publica (ou republica) um orçamento do app desktop de takeoff. Idempotente
  * por `externalId`: cria o takeoff na primeira vez e depois atualiza linhas
  * por `externalLineId`, apagando as que saíram do orçamento — menos as que a
- * Compras já cotou ou levou adiante, que ficam e voltam em `kept`.
+ * Compras já cotou ou levou adiante, que o desktop não altera nem apaga e
+ * voltam em `kept`. Só aceita orçamentos em reais (BRL).
  */
 export const publishFromDesktop = engineeringMutation({
   args: publishDesktopBudgetArgs,

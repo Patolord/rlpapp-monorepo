@@ -292,6 +292,109 @@ describe("takeoffs.publishFromDesktop", () => {
     );
   });
 
+  test("does not overwrite a quoted line that is still in the budget", async () => {
+    const { engineer, purchasing } = await seed();
+    const first = await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([line("quoted"), line("plain")])
+    );
+    const detail = await engineer.query(api.takeoffs.get, {
+      takeoffId: first.takeoffId,
+      now: NOW,
+    });
+    const quotedId = detail!.items.find((i) => i.externalLineId === "quoted")!._id;
+    await purchasing.mutation(api.priceEvents.add, {
+      unitPriceCents: 1100,
+      source: "quote",
+      occurredAt: NOW,
+      supplierNameRaw: "Fornecedor A",
+      takeoffItemId: quotedId,
+    });
+
+    const result = await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([
+        line("plain", { quantity: 20 }),
+        line("quoted", { quantity: 99, rawDescription: "Outro item", estimatedUnitPriceCents: 1 }),
+      ])
+    );
+    expect(result).toMatchObject({ updated: 1, unchanged: 0 });
+    expect(result.kept).toEqual([
+      expect.objectContaining({
+        externalLineId: "quoted",
+        itemId: quotedId,
+        reason: "changed_in_desktop",
+      }),
+    ]);
+    const after = await engineer.query(api.takeoffs.get, {
+      takeoffId: first.takeoffId,
+      now: NOW,
+    });
+    // cotar não muda o status: a linha continua "matched", mas é da Compras
+    expect(after!.items.map((i) => i.externalLineId)).toEqual(["plain", "quoted"]);
+    expect(after!.items[1]).toMatchObject({
+      status: "matched",
+      quantity: 10,
+      rawDescription: "Item quoted",
+      estimatedUnitPriceCents: 1000,
+    });
+    expect(after!.items[0]!.quantity).toBe(20);
+  });
+
+  test("lines purchasing kept follow the takeoff to another obra", async () => {
+    const { t, engineer, purchasing, projectId } = await seed();
+    const [otherId, thirdId] = await t.run(async (ctx) =>
+      Promise.all(
+        ["Obra B", "Obra C"].map((name) =>
+          ctx.db.insert("projects", { name, floors: [], createdAt: Date.now() })
+        )
+      )
+    );
+    const first = await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([line("quoted"), line("sent"), line("plain")], { projectId })
+    );
+    const detail = await engineer.query(api.takeoffs.get, {
+      takeoffId: first.takeoffId,
+      now: NOW,
+    });
+    const byLine = new Map(detail!.items.map((i) => [i.externalLineId, i._id]));
+    await purchasing.mutation(api.priceEvents.add, {
+      unitPriceCents: 1100,
+      source: "quote",
+      occurredAt: NOW,
+      supplierNameRaw: "Fornecedor A",
+      takeoffItemId: byLine.get("quoted")!,
+    });
+    await engineer.mutation(api.takeoffs.updateItem, {
+      itemId: byLine.get("sent")!,
+      status: "sent_to_supplier",
+    });
+
+    const projectOf = async () =>
+      t.run(async (ctx) => {
+        const items = await ctx.db
+          .query("takeoffItems")
+          .withIndex("by_takeoff", (q) => q.eq("takeoffId", first.takeoffId))
+          .collect();
+        return Object.fromEntries(items.map((i) => [i.externalLineId, i.projectId]));
+      });
+
+    // "quoted" sai do orçamento na mesma publicação que muda a obra
+    await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([line("sent"), line("plain")], { projectId: otherId })
+    );
+    expect(await projectOf()).toEqual({ quoted: otherId, sent: otherId, plain: otherId });
+
+    // já marcada como removida, continua acompanhando a obra
+    await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([line("plain")], { projectId: thirdId })
+    );
+    expect(await projectOf()).toEqual({ quoted: thirdId, sent: thirdId, plain: thirdId });
+  });
+
   test("leaves unknown material ids unlinked and follows merges", async () => {
     const { engineer, materialId, mergedId } = await seed();
     const result = await engineer.mutation(
@@ -365,6 +468,48 @@ describe("takeoffs.publishFromDesktop", () => {
         budget([line("a", { estimatedUnitPriceCents: -5 })])
       )
     ).rejects.toThrow("Valor inválido");
+  });
+
+  test("rejects invalid sheet summaries", async () => {
+    const { engineer } = await seed();
+    const sheet = budget([]).meta.sheets[0]!;
+    const withSheet = (over: Partial<typeof sheet>) =>
+      engineer.mutation(
+        api.takeoffs.publishFromDesktop,
+        budget([line("a")], { meta: { sheets: [{ ...sheet, ...over }] } })
+      );
+    await expect(withSheet({ bdi: -1 })).rejects.toThrow('BDI inválido na aba "Exaustão"');
+    await expect(withSheet({ bdi: Number.NaN })).rejects.toThrow("BDI inválido");
+    await expect(withSheet({ extrasPct: -5 })).rejects.toThrow(
+      "Percentual de extras inválido"
+    );
+    await expect(withSheet({ totalCents: -1 })).rejects.toThrow("Valor inválido");
+    await expect(
+      withSheet({ proposalCents: Number.POSITIVE_INFINITY })
+    ).rejects.toThrow("Valor inválido");
+    // nada foi gravado
+    const created = await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([line("a")])
+    );
+    expect(created.created).toBe(true);
+  });
+
+  test("accepts only budgets in reais", async () => {
+    const { engineer } = await seed();
+    const meta = budget([]).meta;
+    await expect(
+      engineer.mutation(
+        api.takeoffs.publishFromDesktop,
+        budget([line("a")], { meta: { ...meta, currency: "USD" } })
+      )
+    ).rejects.toThrow("só recebe orçamentos em reais (BRL)");
+    const result = await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([line("a")], { meta: { ...meta, currency: " brl " } })
+    );
+    const list = await engineer.query(api.takeoffs.list, {});
+    expect(list.find((x) => x._id === result.takeoffId)?.budget?.currency).toBe("BRL");
   });
 
   test("handles a few hundred lines in one publication", async () => {

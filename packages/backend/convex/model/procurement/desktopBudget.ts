@@ -1,7 +1,9 @@
 import { v, type Infer } from "convex/values";
 import {
+  DESKTOP_BUDGET_CURRENCY,
   DESKTOP_BUDGET_MAX_LINES,
   type PublishDesktopBudgetArgs,
+  unsupportedCurrencyError,
 } from "@rlpapp/shared/takeoff/desktopBudget";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
@@ -14,7 +16,8 @@ import { takeoffBudgetMeta } from "../../schema";
  * cada item numa aba e numa seção vira uma linha com `externalLineId`
  * estável. Republicar atualiza o mesmo takeoff: insere linhas novas, atualiza
  * as existentes e apaga as que saíram — exceto as que a Compras já tocou
- * (cotação registrada ou status avançado), que ficam e são reportadas.
+ * (cotação registrada ou status avançado), que o desktop não muda nem apaga:
+ * ficam (acompanhando a obra do takeoff) e são reportadas.
  */
 
 export const desktopBudgetLineValidator = v.object({
@@ -201,33 +204,51 @@ async function normalizeLines(
   return { lines: out, unknownMaterialIds: [...unknown] };
 }
 
+function cleanFactor(value: number, field: string, sheet: string) {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`${field} inválido na aba "${sheet}"`);
+  }
+  return value;
+}
+
 function cleanMeta(meta: ValidatorArgs["meta"]): ValidatorArgs["meta"] {
+  // Os preços são gravados e somados como reais: sem câmbio, outra moeda não entra.
+  const currencyError = unsupportedCurrencyError(meta.currency);
+  if (currencyError) throw new Error(currencyError);
   return {
     proposalNumber: cleanText(meta.proposalNumber, 100),
     estimator: cleanText(meta.estimator, 200),
     client: cleanText(meta.client, 200),
     site: cleanText(meta.site, 200),
     system: cleanText(meta.system, 200),
-    currency: cleanText(meta.currency, 10),
-    sheets: meta.sheets.map((sheet) => ({
-      ...sheet,
-      name: cleanText(sheet.name, 200) ?? "Orçamento",
-    })),
+    currency: cleanText(meta.currency) ? DESKTOP_BUDGET_CURRENCY : undefined,
+    sheets: meta.sheets.map((sheet) => {
+      const name = cleanText(sheet.name, 200) ?? "Orçamento";
+      const cents = (value: number, field: string) =>
+        cleanCents(value, `${field} da aba "${name}"`)!;
+      return {
+        name,
+        bdi: cleanFactor(sheet.bdi, "BDI", name),
+        extrasPct: cleanFactor(sheet.extrasPct, "Percentual de extras", name),
+        materialCents: cents(sheet.materialCents, "material"),
+        laborCents: cents(sheet.laborCents, "mão de obra"),
+        extrasEachCents: cents(sheet.extrasEachCents, "extras"),
+        totalCents: cents(sheet.totalCents, "total geral"),
+        proposalCents: cents(sheet.proposalCents, "preço com BDI"),
+      };
+    }),
   };
 }
 
 /** Campos que o desktop controla numa linha. */
 function desktopFields(
   line: NormalizedLine,
-  existing: Doc<"takeoffItems"> | null,
-  hasQuotes: boolean
+  existing: Doc<"takeoffItems"> | null
 ) {
-  // Material vinculado pela Compras (promoção ou cotação) fica, a menos que o
-  // desktop indique outro material válido e ainda não haja cotação.
-  const materialId =
-    hasQuotes && existing?.materialId
-      ? existing.materialId
-      : (line.materialId ?? existing?.materialId);
+  // Material vinculado pela Compras (promoção) fica, a menos que o desktop
+  // indique outro material válido. Linhas cotadas nem chegam aqui: são
+  // preservadas inteiras (ver isPreserved).
+  const materialId = line.materialId ?? existing?.materialId;
   return {
     rawDescription: line.rawDescription,
     quantity: line.quantity,
@@ -274,6 +295,17 @@ async function hasQuotes(
     .withIndex("by_takeoff_item", (q) => q.eq("takeoffItemId", itemId))
     .first();
   return quote !== null;
+}
+
+/**
+ * Linha que a Compras já tocou: status avançado ou cotação registrada (cotar
+ * não muda o status — a linha fica "matched"). O desktop não muda nem apaga.
+ */
+async function isPreserved(
+  ctx: MutationCtx,
+  item: Doc<"takeoffItems">
+): Promise<boolean> {
+  return isFrozenTakeoffItem(item) || (await hasQuotes(ctx, item._id));
 }
 
 export async function publishDesktopBudget(
@@ -358,7 +390,7 @@ export async function publishDesktopBudget(
     const item = byExternalId.get(line.externalLineId) ?? null;
     byExternalId.delete(line.externalLineId);
     if (!item) {
-      const fields = desktopFields(line, null, false);
+      const fields = desktopFields(line, null);
       await ctx.db.insert("takeoffItems", {
         takeoffId,
         projectId,
@@ -372,10 +404,9 @@ export async function publishDesktopBudget(
       continue;
     }
 
-    const quoted = await hasQuotes(ctx, item._id);
-    const fields = desktopFields(line, item, quoted);
+    const fields = desktopFields(line, item);
     const sameProject = item.projectId === projectId;
-    if (isFrozenTakeoffItem(item)) {
+    if (await isPreserved(ctx, item)) {
       // Só a posição na planilha acompanha o desktop; o resto é da Compras.
       const reorder =
         item.sortOrder !== line.sortOrder ||
@@ -426,11 +457,17 @@ export async function publishDesktopBudget(
 
   // O que sobrou veio do desktop e não está mais no orçamento.
   for (const item of byExternalId.values()) {
-    if (isFrozenTakeoffItem(item) || (await hasQuotes(ctx, item._id))) {
-      if (item.externalRemovedAt === undefined) {
-        await ctx.db.patch("takeoffItems", item._id, {
-          externalRemovedAt: now,
-        });
+    if (await isPreserved(ctx, item)) {
+      // Fica, marcada como removida, e acompanha a obra do takeoff (consultas
+      // por obra — pedidos de estoque, cotações — a procuram lá).
+      const patch: {
+        externalRemovedAt?: number;
+        projectId?: Id<"projects">;
+      } = {};
+      if (item.externalRemovedAt === undefined) patch.externalRemovedAt = now;
+      if (item.projectId !== projectId) patch.projectId = projectId;
+      if (Object.keys(patch).length > 0) {
+        await ctx.db.patch("takeoffItems", item._id, patch);
       }
       result.kept.push({
         externalLineId: item.externalLineId!,

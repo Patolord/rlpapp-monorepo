@@ -113,7 +113,8 @@ export const NO_LOCATION = "";
 
 /**
  * Item totals per location id (NO_LOCATION for unassigned), every region of a location summed
- * together whatever drawing it is on. Only keys with measurements are present.
+ * together whatever drawing it is on. Only keys with measurements are present (NO_LOCATION also
+ * when an item has a quantity of its own: typed by hand or vertical length).
  */
 export const totalsByLocation = (project: Project): Map<string, Map<string, ItemTotal>> =>
   totalsBy(project, (z) => z.locationId);
@@ -152,16 +153,20 @@ function totalsBy(
         (item.factor ?? 1) *
         repeatOf(project, m, item.kind, zone);
   }
-  // item-level vertical length belongs to no location
+  // item-level quantities belong to no location: the quantity typed by hand (duct networks,
+  // VRF systems…) and the vertical length, as `itemTotals` counts them
   for (const item of project.items) {
-    if (item.kind !== "linear" || !item.vertical) continue;
+    const vertical =
+      item.kind === "linear" && item.vertical ? item.vertical * (item.factor ?? 1) : 0;
+    const qty = (item.manualQty ?? 0) + vertical;
+    if (!qty) continue;
     let totals = out.get(NO_LOCATION);
     if (!totals) {
       totals = new Map();
       out.set(NO_LOCATION, totals);
     }
     const t = totals.get(item.id) ?? { qty: 0, count: 0, unscaled: 0 };
-    t.qty += item.vertical * (item.factor ?? 1);
+    t.qty += qty;
     totals.set(item.id, t);
   }
   return out;

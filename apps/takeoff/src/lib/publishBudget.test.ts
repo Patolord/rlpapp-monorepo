@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { newDuctNetwork } from "./ductItems";
 import { budgetLineId, buildPublishBudget } from "./publishBudget";
 import { emptyProject, type Item, type Project } from "./types";
+import { metricScale } from "./units";
 
 const item = (over: Partial<Item> & { id: string }): Item => ({
   name: over.id,
@@ -157,6 +159,59 @@ describe("buildPublishBudget", () => {
     expect(buildPublishBudget(p, { externalId: "x" }).name).toBe("123/26");
     p.proposalNumber = "";
     expect(buildPublishBudget(p, { externalId: "x" }).name).toBe("Orçamento desktop");
+  });
+
+  it("publishes quantities typed by hand under Sem local when sections are locations", () => {
+    const p = project();
+    p.items[0]!.materialPrice = 12.5; // whole cents: only the missing lines may differ
+    p.sectionsBy = "local";
+    p.drawings = [{ id: "d", path: null, name: "planta.pdf", pages: [{ scale: metricScale(50) }] }];
+    p.locations = [{ id: "l", name: "Térreo", color: "#fff" }];
+    p.zones = [
+      {
+        id: "z",
+        locationId: "l",
+        drawingId: "d",
+        page: 0,
+        points: [
+          { x: 0, y: 0 },
+          { x: 100, y: 0 },
+          { x: 100, y: 100 },
+          { x: 0, y: 100 },
+        ],
+      },
+    ];
+    const network = { ...newDuctNetwork(p), materialPrice: 5000, laborPrice: 1200 };
+    p.items.push(network);
+    p.measurements = [
+      { id: "m", itemId: "grelha", drawingId: "d", page: 0, points: [{ x: 5, y: 5 }] },
+    ];
+
+    const args = buildPublishBudget(p, { externalId: "x" });
+    expect(args.lines.find((l) => l.rawDescription === network.name)).toMatchObject({
+      section: "Sem local",
+      quantity: 1,
+      unit: "cj",
+    });
+    // the lines add up to the tab summaries the dashboard shows next to them
+    for (const sheet of args.meta.sheets) {
+      const lines = args.lines.filter((l) => l.sheet === sheet.name);
+      const material = lines.reduce(
+        (sum, l) => sum + Math.round(l.quantity * (l.estimatedUnitPriceCents ?? 0)),
+        0,
+      );
+      expect(material).toBe(sheet.materialCents);
+    }
+  });
+
+  it("refuses to publish a budget priced in another currency", () => {
+    const p = project();
+    p.currency = "USD";
+    expect(() => buildPublishBudget(p, { externalId: "x" })).toThrow(
+      /USD.*só recebe orçamentos em reais \(BRL\)/,
+    );
+    p.currency = "brl";
+    expect(buildPublishBudget(p, { externalId: "x" }).meta.currency).toBe("brl");
   });
 
   it("produces unique line ids", () => {

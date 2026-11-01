@@ -71,6 +71,22 @@ describe("groupDesktopBudget", () => {
     expect(sheets.map((s) => s.name)).toEqual([OTHER_SHEET]);
     expect(sheets[0]!.sections[0]!.name).toBe("Sem seção");
   });
+
+  test("a tab or section renamed only in case or spaces stays one, under the summary name", () => {
+    // a frozen line keeps the spelling of an older publication
+    const sheets = groupDesktopBudget(
+      [
+        line({ id: "new", sheet: "EXAUSTÃO", section: "TÉRREO", estimatedUnitPriceCents: 100 }),
+        line({ id: "old", sheet: "Exaustão", section: " Térreo ", estimatedUnitPriceCents: 200 }),
+      ],
+      [{ name: "EXAUSTÃO", bdi: 1.42, extrasPct: 6, proposalCents: 0 }]
+    );
+    expect(sheets).toHaveLength(1);
+    expect(sheets[0]).toMatchObject({ name: "EXAUSTÃO", bdi: 1.42, extrasPct: 6, materialCents: 300 });
+    expect(sheets[0]!.sections.map((s) => [s.name, s.lines.map((l) => l.id)])).toEqual([
+      ["TÉRREO", ["new", "old"]],
+    ]);
+  });
 });
 
 test("formatBdi shows the multiplier as a percentage", () => {

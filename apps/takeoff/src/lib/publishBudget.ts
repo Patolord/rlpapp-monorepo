@@ -3,6 +3,7 @@ import {
   type DesktopBudgetSheetSummary,
   type PublishDesktopBudgetArgs,
   reaisToCents,
+  unsupportedCurrencyError,
 } from "@rlpapp/shared/takeoff/desktopBudget";
 import { disciplineTotals, systemSheets } from "./quantities";
 import { type Project, UNTITLED } from "./types";
@@ -15,11 +16,16 @@ import { type Project, UNTITLED } from "./types";
  *
  * `externalId` identifies the project on the server (publishing again updates the same budget);
  * `projectId` is the obra in the company app the budget belongs to.
+ *
+ * Throws (message in Portuguese, for the user) when the project is priced in a currency other
+ * than reais: the company app reads every price as BRL and there is no exchange rate to convert.
  */
 export function buildPublishBudget<ProjectId extends string = string>(
   project: Project,
   options: { externalId: string; projectId?: ProjectId },
 ): PublishDesktopBudgetArgs<ProjectId> {
+  const currencyError = unsupportedCurrencyError(project.currency);
+  if (currencyError) throw new Error(currencyError);
   const lines: DesktopBudgetLine[] = [];
   const byId = new Map<string, DesktopBudgetLine>();
   for (const sheet of systemSheets(project)) {
