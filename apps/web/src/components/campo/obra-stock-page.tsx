@@ -129,9 +129,12 @@ export function CampoObraStockPage({
                     <Badge variant={stock.variant}>{stock.label}</Badge>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
+                    {/* Two 48px columns: tighter padding and text-sm so the
+                        labels fit ~120px columns on 320px phones. */}
                     <Button
                       variant="outline"
                       size="xl"
+                      className="px-3 text-sm"
                       disabled={depleted}
                       onClick={() =>
                         setDepleting({
@@ -147,6 +150,7 @@ export function CampoObraStockPage({
                     </Button>
                     <Button
                       size="xl"
+                      className="px-3 text-sm"
                       onClick={() =>
                         openRequest({
                           materialId: item.materialId,
