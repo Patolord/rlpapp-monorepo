@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_DUCT_SETTINGS, ductBill, gaugeKgm2, gaugeName } from "./ducts";
+import { DEFAULT_DUCT_SETTINGS, ductBill, gaugeKgm2, gaugeName } from "../src/engenharia/ducts";
 
 const row = (rows: ReturnType<typeof ductBill>, name: string) => rows.find((r) => r.name === name);
 

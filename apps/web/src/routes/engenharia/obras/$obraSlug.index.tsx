@@ -7,7 +7,6 @@ import {
   Files,
   Package,
   Warehouse,
-  Wind,
   type LucideIcon,
 } from "lucide-react";
 
@@ -41,7 +40,6 @@ type ModuleTile = {
   to:
     | "/engenharia/obras/$obraSlug/predio"
     | "/engenharia/obras/$obraSlug/orcamento"
-    | "/engenharia/obras/$obraSlug/dutos"
     | "/engenharia/obras/$obraSlug/contratos"
     | "/engenharia/obras/$obraSlug/medicoes"
     | "/engenharia/obras/$obraSlug/compras"
@@ -76,12 +74,6 @@ function ObraHubContent({ project }: { project: ProjectOverview }) {
       label: "Orçamento",
       description: "Takeoffs e estimativas de materiais",
       icon: Calculator,
-    },
-    {
-      to: "/engenharia/obras/$obraSlug/dutos",
-      label: "Dutos",
-      description: "Levantamento NBR 16401 e quantitativos",
-      icon: Wind,
     },
     {
       to: "/engenharia/obras/$obraSlug/contratos",

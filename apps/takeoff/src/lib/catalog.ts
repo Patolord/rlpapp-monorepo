@@ -1,3 +1,4 @@
+import { defaultGaugeWeights, type GaugeWeights } from "@rlpapp/shared/engenharia/ducts";
 import { invoke } from "@tauri-apps/api/core";
 import seed from "../data/catalog.seed.json";
 import {
@@ -6,10 +7,10 @@ import {
   httpRequest,
   type QueuedProposal,
 } from "./catalogRemote";
-import { defaultGaugeWeights, type GaugeWeights } from "./ducts";
 import { type Kit, migrateKitLabels, SEED_KITS } from "./kits";
 import { isTauri } from "./platform";
 import { foldName } from "./text";
+import { DEFAULT_GROUP } from "./types";
 import type { Kind } from "./units";
 import { cloneBrands, SEED_BRANDS, type VrfBrand } from "./vrf";
 import {
@@ -337,7 +338,7 @@ export function parseRemoteCatalogResponse(json: unknown): RemoteCatalog {
     const description = str(o.description);
     entries.push({
       ...productName(name, description, str(pick(o, ["variant", "variantLabel", "variante"]))),
-      group: String(pick(o, ["group", "grupo", "categoria", "category"]) ?? "Diversos"),
+      group: String(pick(o, ["group", "grupo", "categoria", "category"]) ?? DEFAULT_GROUP),
       unit: String(pick(o, ["unit", "unidade", "un"]) ?? "pç"),
       materialPrice: num(
         pick(o, ["materialPrice", "material", "preco_material", "precoMaterial", "price", "preco"]),

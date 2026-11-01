@@ -6,8 +6,12 @@ import { describeMaterial } from "../../lib/compras/materialLookup";
 import { materialStatus } from "../../schema";
 import { centsToReais, pickCurrentPriceEvent } from "./priceSelection";
 
-/** Group used by the desktop app when a material has no category. */
-export const DEFAULT_TAKEOFF_GROUP = "Diversos";
+/**
+ * Group for a material with no category: the desktop app's own default group
+ * (`DEFAULT_GROUP` in apps/takeoff/src/lib/types.ts). Not "Diversos", which in
+ * the app is one of the budget extras lines (Diversos / Transportes / Supervisão).
+ */
+export const DEFAULT_TAKEOFF_GROUP = "Geral";
 /** The desktop app counts pieces as "pç"; the catalog stores them as "un". */
 export const TAKEOFF_PIECE_UNIT = "pç";
 // Same window `priceEvents.latestForMaterial` reads per material.
