@@ -95,8 +95,8 @@ export function CampoObraStockPage({
 
   return (
     <div className="mx-auto w-full max-w-lg space-y-6">
-      <Button className="h-12 w-full text-base" onClick={() => openRequest()}>
-        <PackagePlus className="mr-2 size-5" />
+      <Button size="xl" className="w-full" onClick={() => openRequest()}>
+        <PackagePlus className="size-5" />
         Pedir material
       </Button>
 
@@ -112,7 +112,7 @@ export function CampoObraStockPage({
             const stock = stockVisual(item.quantity, item.sentQuantity);
             return (
               <Card key={item.materialId}>
-                <CardContent className="space-y-3 py-4">
+                <CardContent className="space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-semibold">
@@ -131,7 +131,7 @@ export function CampoObraStockPage({
                   <div className="grid grid-cols-2 gap-2">
                     <Button
                       variant="outline"
-                      className="h-12"
+                      size="xl"
                       disabled={depleted}
                       onClick={() =>
                         setDepleting({
@@ -146,7 +146,7 @@ export function CampoObraStockPage({
                       Acabou
                     </Button>
                     <Button
-                      className="h-12"
+                      size="xl"
                       onClick={() =>
                         openRequest({
                           materialId: item.materialId,
@@ -181,7 +181,7 @@ export function CampoObraStockPage({
             };
             return (
               <Card key={request._id}>
-                <CardContent className="space-y-2 py-4">
+                <CardContent className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs text-muted-foreground">
                       {new Date(request.createdAt).toLocaleString("pt-BR")}

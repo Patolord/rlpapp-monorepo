@@ -192,10 +192,11 @@ function MaterialPickerSheet({
               <Button
                 type="button"
                 variant="outline"
-                className="h-12 w-full"
+                size="xl"
+                className="w-full"
                 onClick={() => setCreating(true)}
               >
-                <Plus className="mr-2 size-4" />
+                <Plus />
                 {trimmed
                   ? `Criar “${trimmed}”`
                   : "Criar material"}
@@ -347,7 +348,8 @@ function QuickCreatePanel({
       <div className="mt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <Button
           type="button"
-          className="h-12 w-full"
+          size="xl"
+          className="w-full"
           onClick={() => void submit()}
           disabled={submitting || Boolean(exactDuplicate)}
         >

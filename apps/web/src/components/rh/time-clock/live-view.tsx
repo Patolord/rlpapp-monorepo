@@ -18,7 +18,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   formatDateKeyLong,
@@ -177,7 +177,7 @@ export function TimeClockLiveView() {
 
       {/* Onde está…? */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent>
           <div className="relative">
             <Search className="absolute top-3 left-3 size-5 text-muted-foreground" />
             <Input
@@ -340,14 +340,16 @@ export function TimeClockLiveView() {
         {/* Mapa + detalhe */}
         <div className="min-w-0 space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader>
               <CardTitle className="text-base">
                 {focusedWorksite ? `Mapa · ${focusedWorksite.name}` : "Mapa agora"}
               </CardTitle>
               {focusedWorksite ? (
-                <Button variant="ghost" size="xs" onClick={() => setSelectedWorksite(null)}>
-                  Ver tudo
-                </Button>
+                <CardAction>
+                  <Button variant="ghost" size="xs" onClick={() => setSelectedWorksite(null)}>
+                    Ver tudo
+                  </Button>
+                </CardAction>
               ) : null}
             </CardHeader>
             <CardContent className="space-y-3">
@@ -680,7 +682,7 @@ function PersonDetail({
 }) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-3">
+      <CardHeader>
         <div className="flex items-center gap-3">
           <Avatar person={person} size="lg" />
           <div>
@@ -688,9 +690,11 @@ function PersonDetail({
             <p className="text-sm">{statusSentence(person, now)}</p>
           </div>
         </div>
-        <Button variant="ghost" size="xs" onClick={onClose}>
-          Fechar
-        </Button>
+        <CardAction>
+          <Button variant="ghost" size="xs" onClick={onClose}>
+            Fechar
+          </Button>
+        </CardAction>
       </CardHeader>
       <CardContent>
         {person.punches.length === 0 ? (

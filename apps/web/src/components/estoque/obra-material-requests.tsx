@@ -137,7 +137,7 @@ export function ObraMaterialRequests({
                             setReason("");
                           }}
                         >
-                          <Check className="mr-1 size-4" />
+                          <Check />
                           Aprovar
                         </Button>
                         <Button
@@ -149,7 +149,7 @@ export function ObraMaterialRequests({
                             setReason("");
                           }}
                         >
-                          <X className="mr-1 size-4" />
+                          <X />
                           Recusar
                         </Button>
                       </>
@@ -160,7 +160,7 @@ export function ObraMaterialRequests({
                         size="sm"
                         onClick={() => setFulfillRequest(request)}
                       >
-                        <Truck className="mr-1 size-4" />
+                        <Truck />
                         Enviar para a obra
                       </Button>
                     )}

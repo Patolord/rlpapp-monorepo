@@ -422,7 +422,7 @@ export function InventoryMovementForm({
             onClick={() => setLines((current) => [...current, emptyLine()])}
             disabled={lines.length >= 100}
           >
-            <Plus className="mr-1 size-4" />
+            <Plus />
             Adicionar
           </Button>
         </div>
@@ -457,8 +457,8 @@ export function InventoryMovementForm({
               <Button
                 type="button"
                 variant="ghost"
-                size="icon"
-                className="size-12 shrink-0"
+                size="icon-xl"
+                className="shrink-0"
                 aria-label={`Remover linha ${index + 1}`}
                 disabled={lines.length === 1}
                 onClick={() =>
@@ -467,7 +467,7 @@ export function InventoryMovementForm({
                   )
                 }
               >
-                <Trash2 className="size-4" />
+                <Trash2 />
               </Button>
             </div>
           </div>
@@ -516,7 +516,8 @@ export function InventoryMovementForm({
         )}
       >
         <Button
-          className={cn("w-full", layout === "page" && "h-12")}
+          size={layout === "page" ? "xl" : "default"}
+          className="w-full"
           onClick={() => void submit()}
           disabled={submitting}
         >

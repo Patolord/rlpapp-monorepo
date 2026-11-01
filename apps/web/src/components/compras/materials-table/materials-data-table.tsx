@@ -285,7 +285,7 @@ function EmptyState({
       }
       action={
         <Button onClick={onCreate}>
-          <Plus className="mr-2 size-4" />
+          <Plus />
           Novo material
         </Button>
       }

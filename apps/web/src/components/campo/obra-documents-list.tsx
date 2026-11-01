@@ -252,55 +252,55 @@ function DocumentCard({
       <div className="mt-3 grid grid-cols-3 gap-2">
         <Button
           variant="default"
-          className="h-11"
+          size="xl"
           disabled={!canReach || busy !== null}
           onClick={handleOpen}
         >
           {busy === "open" ? (
-            <Loader2 className="size-4 animate-spin" />
+            <Loader2 className="animate-spin" />
           ) : (
-            <ExternalLink className="size-4" />
+            <ExternalLink />
           )}
           Abrir
         </Button>
         <Button
           variant="outline"
-          className="h-11"
+          size="xl"
           disabled={!canReach || busy !== null}
           onClick={handleDownload}
         >
           {busy === "download" ? (
-            <Loader2 className="size-4 animate-spin" />
+            <Loader2 className="animate-spin" />
           ) : (
-            <Download className="size-4" />
+            <Download />
           )}
           Baixar
         </Button>
         {isSaved ? (
           <Button
             variant="outline"
-            className="h-11"
+            size="xl"
             disabled={busy !== null}
             onClick={handleRemove}
           >
             {busy === "remove" ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="animate-spin" />
             ) : (
-              <Trash2 className="size-4" />
+              <Trash2 />
             )}
             Remover
           </Button>
         ) : (
           <Button
             variant="outline"
-            className="h-11"
+            size="xl"
             disabled={!canSave || busy !== null}
             onClick={handleSave}
           >
             {busy === "save" ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="animate-spin" />
             ) : (
-              <CloudDownload className="size-4" />
+              <CloudDownload />
             )}
             Offline
           </Button>

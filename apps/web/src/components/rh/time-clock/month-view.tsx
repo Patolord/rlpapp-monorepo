@@ -116,7 +116,7 @@ export function TimeClockMonthView({
           </Select>
         </div>
         <Button variant="outline" size="sm" onClick={exportCsv} disabled={!stats}>
-          <Download className="mr-2 size-4" />
+          <Download />
           Exportar CSV
         </Button>
       </div>

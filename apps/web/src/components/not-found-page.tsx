@@ -23,7 +23,7 @@ export function NotFoundPage({
           <p className="text-muted-foreground">{description}</p>
         </div>
         <Button className="mt-2" render={<Link to="/app" />}>
-          <Home className="mr-2 size-4" />
+          <Home />
           Voltar à tela inicial
         </Button>
       </div>
