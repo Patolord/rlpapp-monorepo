@@ -146,4 +146,26 @@ describe("migration", () => {
     const q = migrateProject({ ...emptyProject(), measurements: [labelled] });
     expect(q.measurements).toEqual([labelled]);
   });
+
+  it("loads files without an app identity (older versions) with none, and keeps a valid one", () => {
+    const old = migrateProject(JSON.parse(JSON.stringify(emptyProject())));
+    expect("id" in old).toBe(false);
+    expect("sentToApp" in old).toBe(false);
+    const sentToApp = { obraId: "o1", obraName: "Obra", sentAt: 1, obraSlug: "obra" };
+    const p = migrateProject({ ...emptyProject(), id: " abc ", sentToApp });
+    expect(p.id).toBe("abc");
+    expect(p.sentToApp).toEqual(sentToApp);
+  });
+
+  it("drops a malformed app identity instead of sending to a wrong place", () => {
+    const p = migrateProject({ ...emptyProject(), id: 42, sentToApp: { obraId: "o1" } });
+    expect("id" in p).toBe(false);
+    expect("sentToApp" in p).toBe(false);
+    // a link without an id is useless: the next send would create another budget anyway
+    const q = migrateProject({
+      ...emptyProject(),
+      sentToApp: { obraId: "o1", obraName: "Obra", sentAt: 1 },
+    });
+    expect("sentToApp" in q).toBe(false);
+  });
 });

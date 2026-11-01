@@ -1,13 +1,17 @@
-import { v, type Infer } from "convex/values";
+import { ConvexError, v, type Infer } from "convex/values";
 import {
   DESKTOP_BUDGET_CURRENCY,
   DESKTOP_BUDGET_MAX_LINES,
+  type DesktopBudgetErrorCode,
+  type DesktopBudgetErrorData,
   type PublishDesktopBudgetArgs,
   unsupportedCurrencyError,
 } from "@rlpapp/shared/takeoff/desktopBudget";
 import type { Doc, Id } from "../../_generated/dataModel";
-import type { MutationCtx } from "../../_generated/server";
-import { takeoffBudgetMeta } from "../../schema";
+import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { hasPermission } from "../../lib/rbac";
+import { isProjectArchived } from "../../lib/projects/helpers";
+import { projectStatus, takeoffBudgetMeta } from "../../schema";
 
 /**
  * Publicação de orçamentos do app desktop de takeoff (apps/takeoff).
@@ -18,7 +22,20 @@ import { takeoffBudgetMeta } from "../../schema";
  * as existentes e apaga as que saíram — exceto as que a Compras já tocou
  * (cotação registrada ou status avançado), que o desktop não muda nem apaga:
  * ficam (acompanhando a obra do takeoff) e são reportadas.
+ *
+ * Só orçamentos aprovados pelo cliente chegam aqui: o desktop pede essa
+ * confirmação antes de enviar, e `publishedAt` registra cada envio.
+ *
+ * Falhas esperadas são `ConvexError({ code, message })` (códigos em
+ * `@rlpapp/shared/takeoff/desktopBudget`): em produção a mensagem de um
+ * `Error` comum vira "Server Error" e o desktop não teria o que mostrar.
  */
+
+function budgetError(code: DesktopBudgetErrorCode, message: string) {
+  return new ConvexError<DesktopBudgetErrorData>({ code, message });
+}
+
+const invalid = (message: string) => budgetError("INVALID_BUDGET", message);
 
 export const desktopBudgetLineValidator = v.object({
   externalLineId: v.string(),
@@ -106,7 +123,7 @@ function cleanText(value: string | undefined, max = MAX_TEXT) {
 function cleanCents(value: number | undefined, field: string) {
   if (value === undefined) return undefined;
   if (!Number.isFinite(value) || value < 0) {
-    throw new Error(`Valor inválido em ${field}`);
+    throw invalid(`Valor inválido em ${field}`);
   }
   return Math.round(value);
 }
@@ -158,7 +175,7 @@ async function normalizeLines(
   lines: ValidatorArgs["lines"]
 ): Promise<{ lines: NormalizedLine[]; unknownMaterialIds: string[] }> {
   if (lines.length > DESKTOP_BUDGET_MAX_LINES) {
-    throw new Error(
+    throw invalid(
       `Orçamento com ${lines.length} linhas; o limite por publicação é ${DESKTOP_BUDGET_MAX_LINES}`
     );
   }
@@ -168,17 +185,17 @@ async function normalizeLines(
   const out: NormalizedLine[] = [];
   for (const [index, line] of lines.entries()) {
     const externalLineId = line.externalLineId.trim();
-    if (!externalLineId) throw new Error(`Linha ${index + 1} sem id`);
+    if (!externalLineId) throw invalid(`Linha ${index + 1} sem id`);
     if (seen.has(externalLineId)) {
-      throw new Error(`Linha repetida: ${externalLineId}`);
+      throw invalid(`Linha repetida: ${externalLineId}`);
     }
     seen.add(externalLineId);
     const rawDescription = cleanText(line.rawDescription);
     if (!rawDescription) {
-      throw new Error(`Linha ${index + 1} sem descrição`);
+      throw invalid(`Linha ${index + 1} sem descrição`);
     }
     if (!Number.isFinite(line.quantity) || line.quantity < 0) {
-      throw new Error(`Quantidade inválida em "${rawDescription}"`);
+      throw invalid(`Quantidade inválida em "${rawDescription}"`);
     }
     let materialId: Id<"materials"> | undefined;
     const rawMaterialId = line.materialId?.trim();
@@ -215,7 +232,7 @@ async function normalizeLines(
 
 function cleanFactor(value: number, field: string, sheet: string) {
   if (!Number.isFinite(value) || value < 0) {
-    throw new Error(`${field} inválido na aba "${sheet}"`);
+    throw invalid(`${field} inválido na aba "${sheet}"`);
   }
   return value;
 }
@@ -223,7 +240,7 @@ function cleanFactor(value: number, field: string, sheet: string) {
 function cleanMeta(meta: ValidatorArgs["meta"]): ValidatorArgs["meta"] {
   // Os preços são gravados e somados como reais: sem câmbio, outra moeda não entra.
   const currencyError = unsupportedCurrencyError(meta.currency);
-  if (currencyError) throw new Error(currencyError);
+  if (currencyError) throw budgetError("UNSUPPORTED_CURRENCY", currencyError);
   return {
     proposalNumber: cleanText(meta.proposalNumber, 100),
     estimator: cleanText(meta.estimator, 200),
@@ -327,13 +344,15 @@ export async function publishDesktopBudget(
   args: ValidatorArgs
 ): Promise<PublishDesktopBudgetResult> {
   const externalId = args.externalId.trim();
-  if (!externalId) throw new Error("Informe o id do projeto do desktop");
-  if (externalId.length > 200) throw new Error("Id do projeto muito longo");
+  if (!externalId) throw invalid("Informe o id do projeto do desktop");
+  if (externalId.length > 200) throw invalid("Id do projeto muito longo");
   const name = cleanText(args.name, 200);
-  if (!name) throw new Error("Informe o nome do orçamento");
+  if (!name) throw invalid("Informe o nome do orçamento");
   if (args.projectId) {
     const project = await ctx.db.get("projects", args.projectId);
-    if (!project) throw new Error("Obra não encontrada");
+    if (!project) {
+      throw budgetError("PROJECT_NOT_FOUND", "Obra não encontrada no app");
+    }
   }
 
   const { lines, unknownMaterialIds } = await normalizeLines(ctx, args.lines);
@@ -541,3 +560,113 @@ async function moveLineQuotes(
   }
 }
 
+
+// ---------------------------------------------------------------------------
+// Opções do envio (seletor de obra do desktop)
+// ---------------------------------------------------------------------------
+
+/** Obras listadas no seletor do desktop (mais que isso: digite para filtrar no app). */
+const MAX_PUBLISH_PROJECTS = 1000;
+
+const publishProjectOption = v.object({
+  _id: v.id("projects"),
+  name: v.string(),
+  /** Slug da URL da obra no app (ou o id, em obras antigas sem slug). */
+  slug: v.string(),
+  legacyNumber: v.union(v.number(), v.null()),
+  status: v.union(projectStatus, v.null()),
+  archived: v.boolean(),
+});
+
+export const desktopPublishOptionsArgs = {
+  /** Id do projeto no desktop, para dizer se (e onde) ele já foi enviado. */
+  externalId: v.optional(v.string()),
+};
+
+export const desktopPublishOptionsResult = v.object({
+  /**
+   * Se o usuário pode enviar (`engenharia.write`, a mesma permissão de
+   * `publishFromDesktop`). Sem ela, `projects` vem vazio e `current` null: o
+   * desktop explica o motivo em vez de mostrar um erro genérico.
+   */
+  canPublish: v.boolean(),
+  /** Obras ativas por nome (mais a obra do envio anterior, mesmo arquivada). */
+  projects: v.array(publishProjectOption),
+  /** O orçamento já enviado com este `externalId`, se houver. */
+  current: v.union(
+    v.null(),
+    v.object({
+      takeoffId: v.id("takeoffs"),
+      projectId: v.union(v.id("projects"), v.null()),
+      projectName: v.union(v.string(), v.null()),
+      projectSlug: v.union(v.string(), v.null()),
+      publishedAt: v.union(v.number(), v.null()),
+      publishedByName: v.union(v.string(), v.null()),
+    })
+  ),
+});
+
+export type DesktopPublishOptions = Infer<typeof desktopPublishOptionsResult>;
+
+function projectOption(project: Doc<"projects">) {
+  return {
+    _id: project._id,
+    name: project.name,
+    slug: project.slug ?? project._id,
+    legacyNumber: project.legacyNumber ?? null,
+    status: project.status ?? null,
+    archived: isProjectArchived(project),
+  };
+}
+
+/**
+ * O que o desktop precisa para enviar um orçamento aprovado: se o usuário
+ * pode, as obras para escolher e o envio anterior do mesmo projeto.
+ */
+export async function desktopPublishOptions(
+  ctx: QueryCtx,
+  user: Doc<"users">,
+  externalId: string | undefined
+): Promise<DesktopPublishOptions> {
+  if (!hasPermission(user, "engenharia.write")) {
+    return { canPublish: false, projects: [], current: null };
+  }
+  const all = await ctx.db
+    .query("projects")
+    .withIndex("by_name")
+    .take(MAX_PUBLISH_PROJECTS);
+  const projects = all.filter((p) => !isProjectArchived(p)).map(projectOption);
+
+  const key = externalId?.trim();
+  const takeoff = key
+    ? await ctx.db
+        .query("takeoffs")
+        .withIndex("by_source_external", (q) =>
+          q.eq("source", "desktop").eq("externalId", key)
+        )
+        .unique()
+    : null;
+  if (!takeoff) return { canPublish: true, projects, current: null };
+
+  const project = takeoff.projectId
+    ? await ctx.db.get("projects", takeoff.projectId)
+    : null;
+  if (project && !projects.some((p) => p._id === project._id)) {
+    projects.push(projectOption(project));
+  }
+  const publisher = takeoff.publishedByUserId
+    ? await ctx.db.get("users", takeoff.publishedByUserId)
+    : null;
+  return {
+    canPublish: true,
+    projects,
+    current: {
+      takeoffId: takeoff._id,
+      projectId: project?._id ?? null,
+      projectName: project?.name ?? null,
+      projectSlug: project ? (project.slug ?? project._id) : null,
+      publishedAt: takeoff.publishedAt ?? null,
+      publishedByName: publisher?.name ?? null,
+    },
+  };
+}

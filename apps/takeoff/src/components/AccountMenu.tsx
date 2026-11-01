@@ -1,7 +1,8 @@
-import { CircleUserRound, Loader2, LogIn, LogOut, X } from "lucide-react";
+import { CircleUserRound, Loader2, LogIn, LogOut, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { WEB_URL } from "../lib/account/config";
 import { canSignIn } from "../lib/account/session";
+import { sentToAppLabel } from "../lib/appLink";
 import { useStore } from "../store";
 
 /**
@@ -10,7 +11,8 @@ import { useStore } from "../store";
  */
 export function AccountMenu() {
   const account = useStore((s) => s.account);
-  const { signIn, cancelSignIn, signOut } = useStore.getState();
+  const sentToApp = useStore((s) => s.project.sentToApp);
+  const { signIn, cancelSignIn, signOut, setSendBudgetOpen } = useStore.getState();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -98,6 +100,20 @@ export function AccountMenu() {
                 : "Catálogo da empresa e propostas de material usam a sua conta. Desconecte este computador também em Minha conta › Agentes, no app web."}
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              setSendBudgetOpen(true);
+            }}
+            title={
+              sentToApp ? sentToAppLabel(sentToApp) : "Só depois que o cliente aprovar a proposta"
+            }
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-neutral-200 hover:bg-neutral-800"
+          >
+            <Send size={15} />
+            {sentToApp ? "Atualizar orçamento aprovado no app…" : "Enviar orçamento aprovado…"}
+          </button>
           <button
             type="button"
             onClick={() => {

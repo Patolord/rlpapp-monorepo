@@ -1,5 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { ConvexHttpClient } from "convex/browser";
+import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import { ConvexError } from "convex/values";
 import type { RemoteCatalog } from "../catalog";
 import { parseRemoteCatalogResponse } from "../catalog";
@@ -84,4 +85,26 @@ export async function sendProposalAsUser(body: ProposalBody): Promise<SendOutcom
     }
     return { kind: "retry", message: e instanceof Error ? e.message : String(e) };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Approved budget → company app (takeoffs.desktopPublishOptions / publishFromDesktop)
+// ---------------------------------------------------------------------------
+
+/** Whether the user may send, the obras to choose from and where this takeoff already went. */
+export type PublishOptions = FunctionReturnType<typeof api.takeoffs.desktopPublishOptions>;
+export type PublishObra = PublishOptions["projects"][number];
+export type PublishArgs = FunctionArgs<typeof api.takeoffs.publishFromDesktop>;
+export type PublishResult = FunctionReturnType<typeof api.takeoffs.publishFromDesktop>;
+
+export function fetchPublishOptionsAsUser(externalId?: string): Promise<PublishOptions> {
+  return asUser((c) => c.query(api.takeoffs.desktopPublishOptions, { externalId }));
+}
+
+/**
+ * `takeoffs.publishFromDesktop`: creates or updates the approved budget of `externalId`. A retry
+ * after a refused JWT (see `asUser`) is safe: publishing the same budget twice is idempotent.
+ */
+export function publishBudgetAsUser(args: PublishArgs): Promise<PublishResult> {
+  return asUser((c) => c.mutation(api.takeoffs.publishFromDesktop, args));
 }

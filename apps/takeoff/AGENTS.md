@@ -76,15 +76,17 @@ Full tree in the README's "Layout" section. Where to start:
 - `src-tauri/src/lib.rs`: Rust commands for file IO, autosave and catalog paths, HTTP to the
   company app (no CORS) and the Excel export (rust_xlsxwriter).
 - The company catalog comes from the backend (`/takeoff/catalog`, see `src/lib/catalogRemote.ts`).
-  Integration with the backend is growing (login, publishing budgets to the dashboard); check the
-  current code before relying on details.
+  Signed in (`src/lib/account/`), the app also sends the client-approved budget to the dashboard
+  (`account/publish.ts`, `appLink.ts`, `components/SendBudgetDialog.tsx`; README "Orçamento
+  aprovado → app da empresa"). Check the current code before relying on details.
 
 ## Project file format
 
 Projects are saved as JSON `*.takeoff.json` (PDFs referenced by path plus `relPath` relative to
 the file; see `src/lib/projectFile.ts`). The shape is `Project` in `src/lib/types.ts`, with a
 `version` field, and `migrateProject` loads every older version into the current one. Adding an
-optional field with a safe default needs no bump. For any change that old files cannot read as
+optional field with a safe default needs no bump (as `id` and `sentToApp`, the link to the budget
+in the company app, were added). For any change that old files cannot read as
 is (renamed, moved or restructured data), bump `version`, add a migration step from the previous
 version in `migrateProject`, and cover it in `src/lib/types.test.ts`. Never break opening files
 saved by released versions.

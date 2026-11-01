@@ -15,6 +15,7 @@ import { PageStrip } from "./components/PageStrip";
 import { PanelDivider } from "./components/PanelDivider";
 import { RevisionDialog } from "./components/RevisionDialog";
 import { SelectionBar } from "./components/SelectionBar";
+import { SendBudgetDialog } from "./components/SendBudgetDialog";
 import { Sidebar } from "./components/Sidebar";
 import { SimilarPreviewBar } from "./components/SimilarPreviewBar";
 import { SpecialtyDrawer } from "./components/SpecialtyDrawer";
@@ -165,6 +166,7 @@ export default function App() {
       <KitsDialog />
       <WeightsDialog />
       <CatalogSettingsDialog />
+      <SendBudgetDialog />
       <DuctDialog />
       <VrfDialog />
       <VrfBrandsDialog />

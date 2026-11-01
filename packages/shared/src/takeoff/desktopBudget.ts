@@ -34,6 +34,31 @@ export function unsupportedCurrencyError(currency: string | undefined): string |
   );
 }
 
+/**
+ * Códigos dos erros esperados de `takeoffs.publishFromDesktop` e
+ * `takeoffs.desktopPublishOptions`, lançados como `ConvexError({ code,
+ * message })`: produção troca a mensagem de um `Error` comum por "Server
+ * Error", e o desktop precisa mostrar o motivo ao usuário.
+ *
+ * - `INVALID_BUDGET`: o orçamento não passou na validação (linha sem id,
+ *   repetida, valor negativo, nome vazio…).
+ * - `UNSUPPORTED_CURRENCY`: moeda diferente de reais.
+ * - `PROJECT_NOT_FOUND`: a obra escolhida não existe (foi apagada).
+ */
+export const DESKTOP_BUDGET_ERROR_CODES = [
+  "INVALID_BUDGET",
+  "UNSUPPORTED_CURRENCY",
+  "PROJECT_NOT_FOUND",
+] as const;
+
+export type DesktopBudgetErrorCode = (typeof DESKTOP_BUDGET_ERROR_CODES)[number];
+
+/** Dados do `ConvexError` desses erros. */
+export type DesktopBudgetErrorData = {
+  code: DesktopBudgetErrorCode;
+  message: string;
+};
+
 /** Resumo de uma aba (disciplina / sistema) da planilha orçamentária. */
 export interface DesktopBudgetSheetSummary {
   /** Nome da aba, igual ao `sheet` das linhas. */
