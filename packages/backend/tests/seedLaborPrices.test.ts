@@ -24,10 +24,22 @@ describe("planSeedLaborPrices", () => {
   ) => ({ _id: id as never, name, ...extra });
 
   test("laborUnitKey folds unit synonyms", () => {
-    for (const unit of ["un", "pç", "pc", "peça", "PEÇA", " Unidade ", undefined]) {
+    for (const unit of [
+      "un",
+      "und",
+      "unid",
+      "pç",
+      "pc",
+      "peça",
+      "PEÇAS",
+      " Unidade ",
+      undefined,
+    ]) {
       expect(laborUnitKey(unit)).toBe(laborUnitKey("pç"));
     }
-    expect(laborUnitKey("metro")).toBe(laborUnitKey("m"));
+    for (const unit of ["metro", "metros", "mt", "ml", "M"]) {
+      expect(laborUnitKey(unit)).toBe(laborUnitKey("m"));
+    }
     expect(laborUnitKey("m2")).toBe(laborUnitKey("m²"));
     expect(laborUnitKey("conjunto")).toBe(laborUnitKey("cj"));
     expect(laborUnitKey("KG")).toBe(laborUnitKey("kg"));
@@ -78,6 +90,21 @@ describe("planSeedLaborPrices", () => {
         seedName: "Rede de Dutos Flexiveis 150 mm",
         seedUnits: ["m"],
       },
+    ]);
+  });
+
+  test("units the desktop treats as equal also match in the import", () => {
+    const plan = planSeedLaborPrices(
+      [
+        material("g", "Rede de Dutos Flexíveis 150 mm", { unit: "mt" }),
+        material("h", "Damper Corta Fogo dim. 600x600 mm", { unit: "und" }),
+      ],
+      SEED
+    );
+    expect(plan.skippedUnitMismatch).toEqual([]);
+    expect(plan.matches.map((m) => [m.materialId, m.laborPriceCents])).toEqual([
+      ["g", 7000],
+      ["h", 8550],
     ]);
   });
 

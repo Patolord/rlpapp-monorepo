@@ -31,8 +31,14 @@ export type SeedLaborPlan = {
   alreadySet: number;
 };
 
-// Synonyms `takeoffUnit` keeps apart: sets, and the folded square metre.
+// Synonyms `takeoffUnit` keeps apart, aligned with the desktop's `unitKey`
+// (apps/takeoff/src/lib/catalog.ts) so both treat the same spellings as one.
 const LABOR_UNIT_ALIASES: Record<string, string> = {
+  und: "pc",
+  unid: "pc",
+  pecas: "pc",
+  mt: "m",
+  ml: "m",
   conjunto: "cj",
   conjuntos: "cj",
   cjs: "cj",
