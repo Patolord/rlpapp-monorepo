@@ -79,6 +79,14 @@ export interface DesktopBudgetLine {
   estimatedUnitPriceCents?: number;
   /** Preço unitário de mão de obra, em centavos. */
   laborUnitPriceCents?: number;
+  /**
+   * Total de material da linha como o desktop calcula (quantidade × preço sem
+   * arredondar, arredondado no fim), em centavos: o preço unitário em centavos
+   * inteiros pode não fechar com o total do desktop (110 × R$ 12,345).
+   */
+  materialTotalCents?: number;
+  /** Total de mão de obra da linha como o desktop calcula, em centavos. */
+  laborTotalCents?: number;
   /** Local (ambiente) ou grupo da planilha. */
   section?: string;
   /** Aba (disciplina / sistema). */

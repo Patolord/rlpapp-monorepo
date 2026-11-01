@@ -10,6 +10,9 @@ export type DesktopBudgetItem = {
   quantity: number | null;
   estimatedUnitPriceCents: number | null;
   laborUnitPriceCents: number | null;
+  /** Totais da linha como o desktop calculou; null = quantidade × preço. */
+  materialTotalCents: number | null;
+  laborTotalCents: number | null;
   sheet: string | null;
   section: string | null;
   externalRemovedAt: number | null;
@@ -47,12 +50,23 @@ export type DesktopBudgetSheet<T> = {
 export const OTHER_SHEET = "Outros itens";
 const NO_SECTION = "Sem seção";
 
+/**
+ * Total de material da linha: o publicado pelo desktop (preço sem arredondar,
+ * fecha com o resumo da aba) ou, se a Compras mudou quantidade ou preço (o
+ * backend apaga o total), quantidade × preço unitário em centavos.
+ */
 export function lineMaterialCents(item: DesktopBudgetItem): number {
-  return Math.round((item.quantity ?? 0) * (item.estimatedUnitPriceCents ?? 0));
+  return (
+    item.materialTotalCents ??
+    Math.round((item.quantity ?? 0) * (item.estimatedUnitPriceCents ?? 0))
+  );
 }
 
 export function lineLaborCents(item: DesktopBudgetItem): number {
-  return Math.round((item.quantity ?? 0) * (item.laborUnitPriceCents ?? 0));
+  return (
+    item.laborTotalCents ??
+    Math.round((item.quantity ?? 0) * (item.laborUnitPriceCents ?? 0))
+  );
 }
 
 /**

@@ -1006,6 +1006,11 @@ export default defineSchema({
     section: v.optional(v.string()),
     laborUnitPriceCents: v.optional(v.number()),
     sortOrder: v.optional(v.number()),
+    // Totais da linha (material / mão de obra) como o desktop calculou, com o
+    // preço sem arredondar; valem enquanto quantidade e preço não mudam aqui
+    // (updateItem / applySuggestedPrice os apagam).
+    materialTotalCents: v.optional(v.number()),
+    laborTotalCents: v.optional(v.number()),
     // Linha que saiu do orçamento desktop mas foi mantida porque a Compras
     // já trabalhou nela (cotação ou status avançado).
     externalRemovedAt: v.optional(v.number()),

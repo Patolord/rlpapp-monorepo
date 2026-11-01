@@ -77,6 +77,9 @@ describe("buildPublishBudget", () => {
         materialId: "mat_123",
         estimatedUnitPriceCents: 1235,
         laborUnitPriceCents: 410,
+        // 110 × R$ 12,345 = R$ 1.357,95, not 110 × 1235 cents
+        materialTotalCents: 135795,
+        laborTotalCents: 45100,
         section: "Rede de Dutos",
         sheet: "Exaustão",
       },
@@ -88,6 +91,8 @@ describe("buildPublishBudget", () => {
         materialId: undefined,
         estimatedUnitPriceCents: 25000,
         laborUnitPriceCents: 3000,
+        materialTotalCents: 75000,
+        laborTotalCents: 9000,
         section: "Bocas de Ar",
         sheet: "Exaustão",
       },
@@ -99,6 +104,8 @@ describe("buildPublishBudget", () => {
         materialId: undefined,
         estimatedUnitPriceCents: 90050,
         laborUnitPriceCents: 12000,
+        materialTotalCents: 180100,
+        laborTotalCents: 24000,
         section: "Bocas de Ar",
         sheet: "Pressurização",
       },
@@ -133,6 +140,17 @@ describe("buildPublishBudget", () => {
     expect(press?.materialCents).toBe(180100);
   });
 
+  it("line totals add up to the tab totals even when unit prices do not round to cents", () => {
+    const args = buildPublishBudget(project(), { externalId: "x" });
+    for (const sheet of args.meta.sheets) {
+      const lines = args.lines.filter((l) => l.sheet === sheet.name);
+      const sum = (pick: (l: (typeof lines)[number]) => number | undefined) =>
+        lines.reduce((s, l) => s + (pick(l) ?? 0), 0);
+      expect(sum((l) => l.materialTotalCents)).toBe(sheet.materialCents);
+      expect(sum((l) => l.laborTotalCents)).toBe(sheet.laborCents);
+    }
+  });
+
   it("keeps line ids stable across publications and edits that do not move the item", () => {
     const p = project();
     const before = buildPublishBudget(p, { externalId: "x" }).lines.map((l) => l.externalLineId);
@@ -163,7 +181,6 @@ describe("buildPublishBudget", () => {
 
   it("publishes quantities typed by hand under Sem local when sections are locations", () => {
     const p = project();
-    p.items[0]!.materialPrice = 12.5; // whole cents: only the missing lines may differ
     p.sectionsBy = "local";
     p.drawings = [{ id: "d", path: null, name: "planta.pdf", pages: [{ scale: metricScale(50) }] }];
     p.locations = [{ id: "l", name: "Térreo", color: "#fff" }];
@@ -196,10 +213,7 @@ describe("buildPublishBudget", () => {
     // the lines add up to the tab summaries the dashboard shows next to them
     for (const sheet of args.meta.sheets) {
       const lines = args.lines.filter((l) => l.sheet === sheet.name);
-      const material = lines.reduce(
-        (sum, l) => sum + Math.round(l.quantity * (l.estimatedUnitPriceCents ?? 0)),
-        0,
-      );
+      const material = lines.reduce((sum, l) => sum + (l.materialTotalCents ?? 0), 0);
       expect(material).toBe(sheet.materialCents);
     }
   });

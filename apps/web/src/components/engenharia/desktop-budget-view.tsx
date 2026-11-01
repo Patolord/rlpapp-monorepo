@@ -12,6 +12,7 @@ import {
   TakeoffSourceBadge,
 } from "@/components/compras/takeoff-source-badge";
 import type { TakeoffQuoteTarget } from "@/components/compras/takeoff-quote-dialog";
+import { TakeoffSavedQuotes } from "@/components/compras/takeoff-saved-quotes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -281,15 +282,7 @@ function DesktopBudgetLine({
       <MoneyCell cents={material + labor} />
       <TableCell>
         <div className="space-y-1">
-          {item.quotes.slice(0, 2).map((quote) => (
-            <div key={quote._id} className="flex items-center gap-1.5 text-xs">
-              <Receipt className="size-3 text-muted-foreground" aria-hidden />
-              {quote.supplierName}:{" "}
-              <span className="tabular-nums">
-                {formatCurrency(quote.unitPriceCents)}
-              </span>
-            </div>
-          ))}
+          <TakeoffSavedQuotes quotes={item.quotes} />
           {item.latestPrices.slice(0, 2).map((p) => (
             <div
               key={`${p.supplierName}-${p.occurredAt}`}

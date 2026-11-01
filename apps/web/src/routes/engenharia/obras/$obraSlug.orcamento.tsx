@@ -4,12 +4,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { Plus, Receipt, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { formatCurrency, formatDate } from "@rlpapp/shared";
+import { formatCurrency } from "@rlpapp/shared";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
-import { PriceChangeBadge } from "@/components/compras/price-change-badge";
 import { PriceFreshnessBadge } from "@/components/compras/price-freshness-badge";
+import { TakeoffSavedQuotes } from "@/components/compras/takeoff-saved-quotes";
 import {
   type Dimensions,
   hasAnyDimension,
@@ -431,30 +431,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        {item.quotes.map((quote) => (
-                          <div
-                            key={quote._id}
-                            className="flex flex-wrap items-center gap-1.5 text-xs"
-                          >
-                            <Receipt
-                              className="size-3 text-muted-foreground"
-                              aria-hidden
-                            />
-                            <span>
-                              {quote.supplierName}:{" "}
-                              <span className="tabular-nums">
-                                {formatCurrency(quote.unitPriceCents)}
-                              </span>
-                            </span>
-                            <span className="text-muted-foreground">
-                              {formatDate(quote.occurredAt)}
-                            </span>
-                            <PriceChangeBadge
-                              change={quote.versusEstimate}
-                              basis="estimativa"
-                            />
-                          </div>
-                        ))}
+                        <TakeoffSavedQuotes quotes={item.quotes} />
                         {item.latestPrices.slice(0, 3).map((p) => (
                           <div key={`${p.supplierName}-${p.occurredAt}`} className="flex items-center gap-2 text-xs">
                             <span>

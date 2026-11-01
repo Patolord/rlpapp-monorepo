@@ -371,6 +371,24 @@ describe("takeoffs.publishFromDesktop", () => {
       status: "sent_to_supplier",
     });
 
+    // cotação lançada de propósito em outra obra e cotação de outro takeoff
+    const elsewhereQuote = await purchasing.mutation(api.priceEvents.add, {
+      unitPriceCents: 900,
+      source: "quote",
+      occurredAt: NOW,
+      supplierNameRaw: "Fornecedor B",
+      takeoffItemId: byLine.get("quoted")!,
+      projectId: thirdId,
+    });
+    const unrelatedQuote = await purchasing.mutation(api.priceEvents.add, {
+      unitPriceCents: 800,
+      source: "quote",
+      occurredAt: NOW,
+      supplierNameRaw: "Fornecedor C",
+      rawDescription: "Outro item",
+      projectId,
+    });
+
     const projectOf = async () =>
       t.run(async (ctx) => {
         const items = await ctx.db
@@ -379,6 +397,22 @@ describe("takeoffs.publishFromDesktop", () => {
           .collect();
         return Object.fromEntries(items.map((i) => [i.externalLineId, i.projectId]));
       });
+    const quoteProjects = async () =>
+      t.run(async (ctx) => {
+        const events = await ctx.db.query("priceEvents").collect();
+        return {
+          line: events
+            .filter((e) => e.takeoffItemId === byLine.get("quoted") && e._id !== elsewhereQuote)
+            .map((e) => e.projectId),
+          elsewhere: events.find((e) => e._id === elsewhereQuote)?.projectId,
+          unrelated: events.find((e) => e._id === unrelatedQuote)?.projectId,
+        };
+      });
+    expect(await quoteProjects()).toEqual({
+      line: [projectId],
+      elsewhere: thirdId,
+      unrelated: projectId,
+    });
 
     // "quoted" sai do orçamento na mesma publicação que muda a obra
     await engineer.mutation(
@@ -386,6 +420,12 @@ describe("takeoffs.publishFromDesktop", () => {
       budget([line("sent"), line("plain")], { projectId: otherId })
     );
     expect(await projectOf()).toEqual({ quoted: otherId, sent: otherId, plain: otherId });
+    // as cotações da linha vão com ela; as outras ficam onde estavam
+    expect(await quoteProjects()).toEqual({
+      line: [otherId],
+      elsewhere: thirdId,
+      unrelated: projectId,
+    });
 
     // já marcada como removida, continua acompanhando a obra
     await engineer.mutation(
@@ -393,6 +433,63 @@ describe("takeoffs.publishFromDesktop", () => {
       budget([line("plain")], { projectId: thirdId })
     );
     expect(await projectOf()).toEqual({ quoted: thirdId, sent: thirdId, plain: thirdId });
+    expect((await quoteProjects()).line).toEqual([thirdId]);
+    // a lista de cotações da obra mostra as da linha
+    const quotes = await engineer.query(api.priceEvents.list, { now: NOW, projectId: thirdId });
+    expect(quotes.map((q) => q.takeoffItemId)).toEqual([
+      byLine.get("quoted"),
+      byLine.get("quoted"),
+    ]);
+  });
+
+  test("keeps the line totals the desktop computed until purchasing changes the math", async () => {
+    const { engineer } = await seed();
+    const first = await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([
+        line("a", {
+          quantity: 110,
+          estimatedUnitPriceCents: 1235,
+          laborUnitPriceCents: 410,
+          materialTotalCents: 135795,
+          laborTotalCents: 45100,
+        }),
+        line("b"),
+      ])
+    );
+    const read = async () => {
+      const detail = await engineer.query(api.takeoffs.get, {
+        takeoffId: first.takeoffId,
+        now: NOW,
+      });
+      return new Map(detail!.items.map((i) => [i.externalLineId, i]));
+    };
+    let items = await read();
+    expect(items.get("a")).toMatchObject({ materialTotalCents: 135795, laborTotalCents: 45100 });
+    expect(items.get("b")).toMatchObject({ materialTotalCents: null, laborTotalCents: null });
+
+    // novo preço de material: só o total de material deixa de valer
+    await engineer.mutation(api.takeoffs.applySuggestedPrice, {
+      itemId: items.get("a")!._id,
+      unitPriceCents: 1300,
+    });
+    items = await read();
+    expect(items.get("a")).toMatchObject({ materialTotalCents: null, laborTotalCents: 45100 });
+
+    // nova quantidade: nenhum total vale
+    await engineer.mutation(api.takeoffs.updateItem, {
+      itemId: items.get("a")!._id,
+      quantity: 120,
+    });
+    items = await read();
+    expect(items.get("a")).toMatchObject({ materialTotalCents: null, laborTotalCents: null });
+
+    await expect(
+      engineer.mutation(
+        api.takeoffs.publishFromDesktop,
+        budget([line("a", { materialTotalCents: -1 })])
+      )
+    ).rejects.toThrow("Valor inválido em total de material");
   });
 
   test("leaves unknown material ids unlinked and follows merges", async () => {

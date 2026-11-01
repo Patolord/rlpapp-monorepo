@@ -71,6 +71,9 @@ export const takeoffItemValidator = v.object({
   sheet: v.union(v.string(), v.null()),
   section: v.union(v.string(), v.null()),
   laborUnitPriceCents: v.union(v.number(), v.null()),
+  /** Totais da linha como o desktop calculou (null: quantidade × preço). */
+  materialTotalCents: v.union(v.number(), v.null()),
+  laborTotalCents: v.union(v.number(), v.null()),
   sortOrder: v.union(v.number(), v.null()),
   /** Saiu do orçamento desktop mas foi mantida pela Compras. */
   externalRemovedAt: v.union(v.number(), v.null()),
@@ -388,6 +391,8 @@ export const get = engineeringOrPurchasingQuery({
         sheet: item.sheet ?? null,
         section: item.section ?? null,
         laborUnitPriceCents: item.laborUnitPriceCents ?? null,
+        materialTotalCents: item.materialTotalCents ?? null,
+        laborTotalCents: item.laborTotalCents ?? null,
         sortOrder: item.sortOrder ?? null,
         externalRemovedAt: item.externalRemovedAt ?? null,
         warnings: itemWarnings(item),
@@ -507,6 +512,17 @@ export const updateItem = engineeringMutation({
       updates.rawDescription = desc;
     }
     if (args.quantity !== undefined) updates.quantity = args.quantity;
+    // Totais publicados pelo desktop deixam de valer quando a conta muda.
+    if (args.quantity !== undefined && args.quantity !== item.quantity) {
+      updates.materialTotalCents = undefined;
+      updates.laborTotalCents = undefined;
+    }
+    if (
+      args.estimatedUnitPriceCents !== undefined &&
+      args.estimatedUnitPriceCents !== item.estimatedUnitPriceCents
+    ) {
+      updates.materialTotalCents = undefined;
+    }
     if (args.unit !== undefined) updates.unit = args.unit.trim() || undefined;
     if (args.materialId !== undefined) {
       updates.materialId = args.materialId;
@@ -579,6 +595,10 @@ export const applySuggestedPrice = engineeringMutation({
     if (!item) throw new Error("Item não encontrado");
     await ctx.db.patch("takeoffItems", args.itemId, {
       estimatedUnitPriceCents: args.unitPriceCents,
+      // o total publicado pelo desktop era do preço anterior
+      ...(args.unitPriceCents !== item.estimatedUnitPriceCents
+        ? { materialTotalCents: undefined }
+        : {}),
       updatedAt: Date.now(),
     });
     return null;

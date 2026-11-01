@@ -5,7 +5,7 @@ import {
   reaisToCents,
   unsupportedCurrencyError,
 } from "@rlpapp/shared/takeoff/desktopBudget";
-import { disciplineTotals, systemSheets } from "./quantities";
+import { disciplineTotals, round2, systemSheets } from "./quantities";
 import { type Project, UNTITLED } from "./types";
 
 /**
@@ -32,10 +32,16 @@ export function buildPublishBudget<ProjectId extends string = string>(
     for (const section of sheet.sections) {
       for (const row of section.rows) {
         const externalLineId = budgetLineId(row.item.id, sheet.system, section.name);
+        // line totals as the desktop computes them (unrounded unit price × quantity): the unit
+        // prices in whole cents alone may not add up to the tab totals (110 × R$ 12,345)
+        const materialTotalCents = reaisToCents(round2(row.item.materialPrice * row.qty));
+        const laborTotalCents = reaisToCents(round2(row.item.laborPrice * row.qty));
         const same = byId.get(externalLineId);
         if (same) {
           // two sections spelt the same way (e.g. "Térreo" twice) print as one on the server
           same.quantity = round2(same.quantity + row.qty);
+          same.materialTotalCents = (same.materialTotalCents ?? 0) + materialTotalCents;
+          same.laborTotalCents = (same.laborTotalCents ?? 0) + laborTotalCents;
           continue;
         }
         const line: DesktopBudgetLine = {
@@ -46,6 +52,8 @@ export function buildPublishBudget<ProjectId extends string = string>(
           materialId: row.item.catalogId || undefined,
           estimatedUnitPriceCents: reaisToCents(row.item.materialPrice),
           laborUnitPriceCents: reaisToCents(row.item.laborPrice),
+          materialTotalCents,
+          laborTotalCents,
           section: section.name || undefined,
           sheet: sheet.system,
         };
@@ -96,5 +104,3 @@ const nameKey = (name: string): string => name.trim().toLocaleLowerCase("pt-BR")
 
 const textOrUndefined = (value: string | undefined): string | undefined =>
   value?.trim() || undefined;
-
-const round2 = (v: number): number => Math.round(v * 100) / 100;

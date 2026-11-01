@@ -29,6 +29,8 @@ export const desktopBudgetLineValidator = v.object({
   materialId: v.optional(v.string()),
   estimatedUnitPriceCents: v.optional(v.number()),
   laborUnitPriceCents: v.optional(v.number()),
+  materialTotalCents: v.optional(v.number()),
+  laborTotalCents: v.optional(v.number()),
   section: v.optional(v.string()),
   sheet: v.optional(v.string()),
 });
@@ -117,6 +119,8 @@ type NormalizedLine = {
   materialId?: Id<"materials">;
   estimatedUnitPriceCents?: number;
   laborUnitPriceCents?: number;
+  materialTotalCents?: number;
+  laborTotalCents?: number;
   section?: string;
   sheet?: string;
   sortOrder: number;
@@ -196,6 +200,11 @@ async function normalizeLines(
         line.laborUnitPriceCents,
         "preço de mão de obra"
       ),
+      materialTotalCents: cleanCents(
+        line.materialTotalCents,
+        "total de material"
+      ),
+      laborTotalCents: cleanCents(line.laborTotalCents, "total de mão de obra"),
       section: cleanText(line.section, 200),
       sheet: cleanText(line.sheet, 200),
       sortOrder: index,
@@ -256,6 +265,8 @@ function desktopFields(
     materialId,
     estimatedUnitPriceCents: line.estimatedUnitPriceCents,
     laborUnitPriceCents: line.laborUnitPriceCents,
+    materialTotalCents: line.materialTotalCents,
+    laborTotalCents: line.laborTotalCents,
     section: line.section,
     sheet: line.sheet,
     sortOrder: line.sortOrder,
@@ -274,6 +285,8 @@ function sameContent(
     item.materialId === fields.materialId &&
     item.estimatedUnitPriceCents === fields.estimatedUnitPriceCents &&
     item.laborUnitPriceCents === fields.laborUnitPriceCents &&
+    item.materialTotalCents === fields.materialTotalCents &&
+    item.laborTotalCents === fields.laborTotalCents &&
     item.section === fields.section &&
     item.sheet === fields.sheet
   );
@@ -491,6 +504,40 @@ export async function publishDesktopBudget(
     }
   }
 
+  await moveLineQuotes(ctx, takeoffId, currentItems, projectId);
+
   return result;
+}
+
+/**
+ * Cotações copiam a obra da linha ao serem registradas (priceEvents.add) e as
+ * listas por obra leem esse campo: quando as linhas mudam de obra, as cotações
+ * delas vão junto. Só as ligadas a linhas deste takeoff e ainda na obra antiga
+ * da linha (uma cotação lançada de propósito em outra obra fica). Uma consulta
+ * por takeoff, não por linha: as cotações ficam no limite de leituras.
+ */
+async function moveLineQuotes(
+  ctx: MutationCtx,
+  takeoffId: Id<"takeoffs">,
+  itemsBefore: Doc<"takeoffItems">[],
+  projectId: Id<"projects"> | undefined
+) {
+  // Linhas apagadas nesta publicação não tinham cotação (senão ficariam).
+  const previousProject = new Map<Id<"takeoffItems">, Id<"projects"> | undefined>();
+  for (const item of itemsBefore) {
+    if (item.projectId !== projectId) previousProject.set(item._id, item.projectId);
+  }
+  if (previousProject.size === 0) return;
+  const events = await ctx.db
+    .query("priceEvents")
+    .withIndex("by_takeoff", (q) => q.eq("takeoffId", takeoffId))
+    .collect();
+  for (const event of events) {
+    if (!event.takeoffItemId || !previousProject.has(event.takeoffItemId)) {
+      continue;
+    }
+    if (event.projectId !== previousProject.get(event.takeoffItemId)) continue;
+    await ctx.db.patch("priceEvents", event._id, { projectId });
+  }
 }
 
