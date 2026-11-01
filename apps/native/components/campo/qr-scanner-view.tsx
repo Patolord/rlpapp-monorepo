@@ -27,7 +27,9 @@ export function QrScannerView({ onToken, onClose, hint }: QrScannerViewProps) {
     handledRef.current = true;
     setScanned(true);
     // Confirma a leitura no tato, sem atrasar a navegação.
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {
+      // Falha no haptic não deve afetar a leitura.
+    });
     onToken(parseQrToken(value));
   }
 
