@@ -38,6 +38,8 @@ right-click > Open the first time a downloaded copy is launched. Both are fine f
 an Authenticode certificate / Apple Developer ID plug into the same builds later.
 
 **Auto-update.** The app checks `plugins.updater.endpoints` from `src-tauri/tauri.conf.json`
+(a single endpoint: the `latest.json` of the latest GitHub Release in
+[Patolord/takeoff-releases](https://github.com/Patolord/takeoff-releases), see below)
 a few seconds after start and shows an "Atualizar para x.y.z" button; one click downloads the
 signed installer, installs it and restarts. Updates are signed with a minisign key kept outside
 the repository (`~/.tauri/takeoff.key` + `.password`); its public key is in the config. Losing
