@@ -301,8 +301,8 @@ function ContractCard({
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
-              style={{ width: `${Math.min(pctMedido, 100)}%` }}
+              className="h-full w-full rounded-full bg-primary transition-transform duration-300 ease-snappy motion-reduce:transition-none"
+              style={{ transform: `translateX(${Math.min(pctMedido, 100) - 100}%)` }}
             />
           </div>
         </div>

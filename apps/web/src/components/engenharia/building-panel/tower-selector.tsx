@@ -72,7 +72,7 @@ export function TowerSelector({
                       e.stopPropagation();
                       onEditTower(tower);
                     }}
-                    className="relative z-10 ml-auto text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                    className="relative z-10 ml-auto text-muted-foreground transition-opacity hover:text-foreground [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
                     aria-label={`Editar ${tower.name}`}
                   >
                     <Pencil className="size-3.5" />
@@ -88,8 +88,8 @@ export function TowerSelector({
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                 <div
-                  className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
-                  style={{ width: `${pct}%` }}
+                  className="h-full w-full rounded-full bg-primary transition-transform duration-300 ease-snappy motion-reduce:transition-none"
+                  style={{ transform: `translateX(${pct - 100}%)` }}
                 />
               </div>
             </div>

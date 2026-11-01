@@ -30,7 +30,7 @@ export function DepartmentLayout({
         <SidebarInset className="bg-[#f7f8fc]">
           <header
             className={cn(
-              "flex h-16 shrink-0 items-center gap-2 border-b border-slate-100 bg-[#f7f8fc] transition-[height] duration-200 ease-out group-has-data-[collapsible=icon]/sidebar-wrapper:h-12",
+              "flex h-16 shrink-0 items-center gap-2 border-b border-slate-100 bg-[#f7f8fc] transition-[height] duration-200 ease-snappy group-has-data-[collapsible=icon]/sidebar-wrapper:h-12",
               printable && "print:hidden"
             )}
           >

@@ -151,8 +151,8 @@ function ObraHubContent({ project }: { project: ProjectOverview }) {
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
-                      style={{ width: `${pct}%` }}
+                      className="h-full w-full rounded-full bg-primary transition-transform duration-300 ease-snappy motion-reduce:transition-none"
+                      style={{ transform: `translateX(${pct - 100}%)` }}
                     />
                   </div>
                 </div>

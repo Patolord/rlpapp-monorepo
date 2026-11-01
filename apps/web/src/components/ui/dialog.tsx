@@ -41,7 +41,7 @@ const DialogBackdrop = React.forwardRef<
   <DialogPrimitive.Backdrop
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/50 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 transition-opacity duration-200 ease-out data-[ending-style]:duration-150",
+      "fixed inset-0 z-50 bg-black/50 transition-opacity duration-200 ease-snappy data-[ending-style]:duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
       className
     )}
     {...props}
@@ -58,7 +58,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Popup
       ref={ref}
       className={cn(
-        "bg-background fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border p-6 shadow-lg transition-[opacity,scale] duration-200 ease-out data-[ending-style]:duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 data-[ending-style]:scale-95 data-[starting-style]:scale-95",
+        "bg-background fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border p-6 shadow-lg transition-[opacity,scale] duration-200 ease-snappy data-[ending-style]:duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 data-[ending-style]:scale-95 data-[starting-style]:scale-95 motion-reduce:data-[ending-style]:scale-100 motion-reduce:data-[starting-style]:scale-100",
         className
       )}
       {...props}
