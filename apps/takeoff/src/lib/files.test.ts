@@ -10,6 +10,8 @@ const disk = new Map<string, string>();
 const savePicks: (string | null)[] = [];
 const answers: string[] = [];
 const questions: string[] = [];
+/** Paths whose write fails (disk full, no permission). */
+const failWrites = new Set<string>();
 
 vi.mock("./platform", () => ({
   isTauri: () => true,
@@ -24,6 +26,7 @@ vi.mock("@tauri-apps/api/core", () => ({
     const path = String(args.path);
     switch (cmd) {
       case "write_text":
+        if (failWrites.has(path)) throw new Error("permissão negada");
         disk.set(path, String(args.contents));
         return null;
       case "read_text":
@@ -62,6 +65,7 @@ beforeEach(() => {
   savePicks.length = 0;
   answers.length = 0;
   questions.length = 0;
+  failWrites.clear();
   useStore.getState().resetProject({ ...emptyProject(), name: "Obra A" }, null);
 });
 
@@ -148,6 +152,23 @@ describe("saving the project identity", () => {
     savePicks.push("/obra/c.takeoff.json");
     expect(await saveProject(true)).toBe(false);
     expect(disk.has("/obra/c.takeoff.json")).toBe(false);
+  });
+
+  it("a failed Save as keeps the open takeoff linked to its budget", async () => {
+    useStore.getState().setIdentity({ id: "desk-1", sentToApp });
+    savePicks.push("/obra/a.takeoff.json");
+    await saveProject(false);
+
+    answers.push("Outro orçamento");
+    savePicks.push("/protegida/b.takeoff.json");
+    failWrites.add("/protegida/b.takeoff.json");
+    await expect(saveProject(true)).rejects.toThrow("permissão negada");
+    expect(useStore.getState().project).toMatchObject({ id: "desk-1", sentToApp });
+
+    // the next plain save still writes the original file with its link
+    useStore.getState().setProjectMeta({ name: "Obra A revisada" });
+    await saveProject(false);
+    expect(read("/obra/a.takeoff.json")).toMatchObject({ id: "desk-1", sentToApp });
   });
 
   it("gives an unsent copy its own id without asking", async () => {

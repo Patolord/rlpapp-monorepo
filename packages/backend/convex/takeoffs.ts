@@ -609,13 +609,6 @@ export const applySuggestedPrice = engineeringMutation({
 });
 
 /**
- * Publica (ou republica) um orçamento do app desktop de takeoff. Idempotente
- * por `externalId`: cria o takeoff na primeira vez e depois atualiza linhas
- * por `externalLineId`, apagando as que saíram do orçamento — menos as que a
- * Compras já cotou ou levou adiante, que o desktop não altera nem apaga e
- * voltam em `kept`. Só aceita orçamentos em reais (BRL).
- */
-/**
  * Para o app desktop antes de enviar um orçamento aprovado: se o usuário pode
  * enviar, as obras para escolher e onde este projeto já foi enviado.
  *
@@ -633,9 +626,13 @@ export const desktopPublishOptions = authedQuery({
 });
 
 /**
- * Orçamento aprovado pelo cliente, enviado pelo app desktop (cria ou atualiza
- * o takeoff do mesmo `externalId`). Falhas esperadas: `ConvexError` com os
- * códigos de `DESKTOP_BUDGET_ERROR_CODES`.
+ * Publica (ou republica) o orçamento aprovado pelo cliente, enviado pelo app
+ * desktop de takeoff. Idempotente por `externalId`: cria o takeoff na primeira
+ * vez e depois atualiza linhas por `externalLineId`, apagando as que saíram do
+ * orçamento — menos as que a Compras já cotou ou levou adiante, que o desktop
+ * não altera nem apaga e voltam em `kept`. Só aceita orçamentos em reais (BRL).
+ * Falhas esperadas: `ConvexError` com os códigos de
+ * `DESKTOP_BUDGET_ERROR_CODES`.
  */
 export const publishFromDesktop = engineeringMutation({
   args: publishDesktopBudgetArgs,

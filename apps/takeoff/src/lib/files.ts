@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { downloadDir, tempDir } from "@tauri-apps/api/path";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { type RevisionChoice, useStore } from "../store";
-import { asksSameBudget, identityForSave, type SaveKind } from "./appLink";
+import { asksSameBudget, identityForSave, type SaveKind, withIdentityOf } from "./appLink";
 import { mergeCatalog } from "./catalog";
 import { chooseDialog, confirmDialog } from "./dialogs";
 import { resolveDiscipline } from "./discipline";
@@ -30,7 +30,14 @@ import {
   session,
   useDoc,
 } from "./session";
-import { drawingOf, emptyProject, type FooterLine, migrateProject, UNTITLED } from "./types";
+import {
+  drawingOf,
+  emptyProject,
+  type FooterLine,
+  migrateProject,
+  type Project,
+  UNTITLED,
+} from "./types";
 import { buildVrfWorkbook } from "./vrfSheet";
 
 /** Ask before throwing away unsaved work. Returns true when it is fine to continue. */
@@ -327,12 +334,16 @@ async function localOnlyDirs(): Promise<string[]> {
 }
 
 /**
- * Give the project the identity this save calls for (see `identityForSave`): an id when it has
+ * The project with the identity this save calls for (see `identityForSave`): an id when it has
  * none, and a new one for a copy that is another budget. A copy of a takeoff already sent to the
- * company app asks whether it is the same approved budget. Null when the user cancels.
+ * company app asks whether it is the same approved budget. Null when the user cancels. The store
+ * is not touched: the caller applies the identity only once the file is written, so a failed
+ * "Salvar como" cannot leave the open file with the copy's id.
  */
-async function saveIdentity(kind: SaveKind): Promise<{ unlinked: boolean } | null> {
-  const { project, setIdentity } = useStore.getState();
+async function saveIdentity(
+  kind: SaveKind,
+): Promise<{ project: Project; changed: boolean; unlinked: boolean } | null> {
+  const { project } = useStore.getState();
   let sameBudget = false;
   if (asksSameBudget(project, kind)) {
     const choice = await chooseDialog(
@@ -345,8 +356,11 @@ async function saveIdentity(kind: SaveKind): Promise<{ unlinked: boolean } | nul
     sameBudget = choice === "yes";
   }
   const next = identityForSave(project, kind, sameBudget);
-  if (next !== project) setIdentity({ id: next.id, sentToApp: next.sentToApp });
-  return { unlinked: project.sentToApp !== undefined && next.sentToApp === undefined };
+  return {
+    project: next,
+    changed: next !== project,
+    unlinked: project.sentToApp !== undefined && next.sentToApp === undefined,
+  };
 }
 
 /**
@@ -391,9 +405,13 @@ export async function saveProject(
       : "save";
   const identity = await saveIdentity(kind);
   if (identity === null) return false;
-  const project = useStore.getState().project;
+  // the current project (in case it changed while the question was open) with the new identity
+  const project = withIdentityOf(useStore.getState().project, identity.project);
   const contents = JSON.stringify(withRelativePaths(project, path), null, 2);
   await invoke("write_text", { path, contents });
+  if (identity.changed) {
+    store.setIdentity({ id: project.id, sentToApp: project.sentToApp });
+  }
   fileStamp = { path, hash: contentHash(contents) };
   store.setFilePath(path);
   store.markSaved();
