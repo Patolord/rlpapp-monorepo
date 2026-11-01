@@ -1,4 +1,5 @@
 import { Package, Search } from "lucide-react";
+import { EmptyState as EmptyStateBlock } from "@rlpapp/ui/web";
 import { useEffect, useMemo, useState } from "react";
 
 import { StockHealthBadge } from "@/components/compras/material-replenishment-badge";
@@ -242,20 +243,14 @@ function EmptyState({
 }) {
   if (hasActiveFilters) {
     return (
-      <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
-        <Search className="size-8 text-muted-foreground/50" />
-        <p className="font-medium">Nenhum material encontrado</p>
-        <p className="max-w-sm text-sm text-muted-foreground">
-          Ajuste a busca, a categoria ou limpe os filtros para ver outros itens.
-        </p>
-      </div>
+      <EmptyStateBlock
+        variant="inline"
+        description="Nenhum material encontrado. Ajuste a busca, a categoria ou limpe os filtros para ver outros itens."
+      />
     );
   }
 
   return (
-    <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
-      <Package className="size-8 text-muted-foreground/50" />
-      <p className="font-medium">{emptyMessage}</p>
-    </div>
+    <EmptyStateBlock icon={<Package />} title={emptyMessage} />
   );
 }

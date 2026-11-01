@@ -1,7 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
-import { MetricCard } from "@rlpapp/ui/web";
+import { MetricCard, MetricStrip } from "@rlpapp/ui/web";
 import {
   ChevronLeft,
   ChevronRight,
@@ -32,6 +32,7 @@ import {
   initials,
   isDateKey,
   PUNCH_KIND_COLOR,
+  PUNCH_KIND_BADGE_VARIANT,
   PUNCH_KIND_LABEL,
   PUNCH_KIND_ORDER,
   shiftDateKey,
@@ -49,16 +50,9 @@ type DayData = FunctionReturnType<typeof api.timeClock.getDay>;
 type DayPerson = DayData["people"][number];
 type PresenceFilter = "all" | "present" | "absent";
 
-const KIND_BADGE_CLASS: Record<PunchKind, string> = {
-  entrada: "border-transparent bg-emerald-100 text-emerald-800",
-  almoco_saida: "border-transparent bg-amber-100 text-amber-800",
-  almoco_retorno: "border-transparent bg-sky-100 text-sky-800",
-  saida: "border-transparent bg-rose-100 text-rose-800",
-};
-
 export function KindBadge({ kind }: { kind: PunchKind }) {
   return (
-    <Badge variant="outline" className={KIND_BADGE_CLASS[kind]}>
+    <Badge variant={PUNCH_KIND_BADGE_VARIANT[kind]}>
       {PUNCH_KIND_LABEL[kind]}
     </Badge>
   );
@@ -170,7 +164,7 @@ export function TimeClockDayView({
 
       <SyncStatusBar range={{ from: date, to: date }} label="Sincronizar dia" />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricStrip>
         <MetricCard
           title="Presentes"
           value={day ? day.summary.present : "—"}
@@ -199,7 +193,7 @@ export function TimeClockDayView({
           description={day ? `${day.worksites.length} cercas conhecidas` : undefined}
           icon={<HardHat className="size-4 text-amber-600" />}
         />
-      </div>
+      </MetricStrip>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Card className="min-w-0">

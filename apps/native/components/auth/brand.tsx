@@ -13,12 +13,12 @@ export const BRAND = {
   label: "#3C4A6E",
   inputBg: "#FFFFFF",
   inputBorder: "#D6DEEC",
-  inputBorderFocus: "#155DFC",
+  inputBorderFocus: "#2855AD",
   inputText: "#1B2A5E",
   placeholder: "#8A96B0",
   icon: "#6B7A99",
-  // Brand blue (Tailwind blue-600), the same as rlpeng.com.br.
-  button: "#155DFC",
+  // Brand blue: calm cobalt (oklch 0.47 0.15 262), shared with web and takeoff.
+  button: "#2855AD",
   buttonText: "#FFFFFF",
   footer: "#4A5A8A",
   track: "#E3EAF5",

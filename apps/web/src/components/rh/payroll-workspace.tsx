@@ -1,7 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { formatCurrency } from "@rlpapp/shared";
-import { MetricCard } from "@rlpapp/ui/web";
+import { MetricCard, MetricStrip } from "@rlpapp/ui/web";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { useEffect, useMemo, useState } from "react";
@@ -248,7 +248,7 @@ export function PayrollWorkspace() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricStrip>
         <MetricCard
           title="Total da folha"
           value={formatCurrency(workspace?.kpis.totalPaymentCents ?? 0)}
@@ -269,7 +269,7 @@ export function PayrollWorkspace() {
           value={`${workspace?.kpis.paidCount ?? 0} / ${workspace?.kpis.lineCount ?? 0}`}
           description={`${formatCurrency(workspace?.kpis.paidTotalCents ?? 0)} já confirmados`}
         />
-      </div>
+      </MetricStrip>
 
       <div className="flex flex-wrap items-center gap-5 rounded-[var(--radius)] border border-border bg-card px-4 py-3">
         <div className="flex min-w-[150px] flex-col gap-0.5">

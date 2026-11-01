@@ -53,7 +53,7 @@ function IndexPage() {
   if (!isLoaded || isSignedIn) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f7f8fc]">
-        <LoadingState label="Carregando..." />
+        <LoadingState label="Carregando…" />
       </div>
     );
   }

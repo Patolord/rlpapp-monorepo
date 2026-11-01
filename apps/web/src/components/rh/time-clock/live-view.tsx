@@ -1,5 +1,5 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { MetricCard } from "@rlpapp/ui/web";
+import { MetricCard, MetricStrip } from "@rlpapp/ui/web";
 import { Link } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
@@ -25,7 +25,7 @@ import {
   formatDuration,
   formatTime,
   initials,
-  LIVE_STATUS_BADGE_CLASS,
+  LIVE_STATUS_BADGE_VARIANT,
   LIVE_STATUS_COLOR,
   LIVE_STATUS_LABEL,
   PUNCH_KIND_LABEL,
@@ -241,7 +241,7 @@ export function TimeClockLiveView() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricStrip>
         <MetricCard
           title="Na obra agora"
           value={live ? live.summary.onSite : "—"}
@@ -270,7 +270,7 @@ export function TimeClockLiveView() {
           }
           icon={<UserX className="size-4 text-rose-600" />}
         />
-      </div>
+      </MetricStrip>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         {/* Quem está em cada obra */}
@@ -453,7 +453,7 @@ function PersonAnswer({
           <span className="truncate font-semibold">{person.name}</span>
           <StatusBadge status={person.status} />
           {stale ? (
-            <Badge variant="outline" className="border-amber-300 text-amber-700">
+            <Badge variant="warning">
               <AlertTriangle className="mr-1 size-3" /> sem saída há {formatDuration(now - person.since!)}
             </Badge>
           ) : null}
@@ -726,7 +726,7 @@ function PersonDetail({
 
 function StatusBadge({ status }: { status: LiveStatus }) {
   return (
-    <Badge variant="outline" className={LIVE_STATUS_BADGE_CLASS[status]}>
+    <Badge variant={LIVE_STATUS_BADGE_VARIANT[status]}>
       {LIVE_STATUS_LABEL[status]}
     </Badge>
   );

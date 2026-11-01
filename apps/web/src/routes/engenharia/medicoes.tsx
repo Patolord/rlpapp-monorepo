@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { formatCurrency } from "@rlpapp/shared";
 import { ChevronRight, CircleDollarSign } from "lucide-react";
+import { EmptyState as EmptyStateBlock } from "@rlpapp/ui/web";
 
 import { AuthShell } from "@/components/auth-shell";
 import { Badge } from "@/components/ui/badge";
@@ -204,18 +205,11 @@ function SummaryCard({
 function EmptyState() {
   return (
     <Card>
-      <CardContent className="flex flex-col items-center gap-4 py-14 text-center">
-        <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <CircleDollarSign className="size-7" />
-        </div>
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold">Nenhuma obra cadastrada</h2>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Crie uma obra em Obras e cadastre o contrato para começar a
-            registrar medições.
-          </p>
-        </div>
-      </CardContent>
+      <EmptyStateBlock
+        icon={<CircleDollarSign />}
+        title="Nenhuma obra cadastrada"
+        description="Crie uma obra em Obras e cadastre o contrato para começar a registrar medições."
+      />
     </Card>
   );
 }

@@ -1,4 +1,5 @@
 import { Package, Plus, Search } from "lucide-react";
+import { EmptyState as EmptyStateBlock } from "@rlpapp/ui/web";
 import { useMemo } from "react";
 
 import type { MaterialCatalogRow } from "@/components/compras/material-form-dialog";
@@ -257,13 +258,10 @@ function EmptyState({
 }) {
   if (hasActiveFilters) {
     return (
-      <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
-        <Search className="size-8 text-muted-foreground/50" />
-        <p className="font-medium">Nenhum material encontrado</p>
-        <p className="max-w-sm text-sm text-muted-foreground">
-          Ajuste a busca, a categoria ou o status para ver outros itens.
-        </p>
-      </div>
+      <EmptyStateBlock
+        variant="inline"
+        description="Nenhum material encontrado. Ajuste a busca, a categoria ou o status para ver outros itens."
+      />
     );
   }
 
@@ -277,18 +275,20 @@ function EmptyState({
           : "Catálogo vazio";
 
   return (
-    <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-      <Package className="size-8 text-muted-foreground/50" />
-      <p className="font-medium">{label}</p>
-      <p className="max-w-sm text-sm text-muted-foreground">
-        {statusFilter
+    <EmptyStateBlock
+      icon={<Package />}
+      title={label}
+      description={
+        statusFilter
           ? "Mude o filtro de status ou cadastre um novo item."
-          : "Cadastre o primeiro material ou use Importar CSV no topo da página."}
-      </p>
-      <Button className="mt-2" onClick={onCreate}>
-        <Plus className="mr-2 size-4" />
-        Novo material
-      </Button>
-    </div>
+          : "Cadastre o primeiro material ou use Importar CSV no topo da página."
+      }
+      action={
+        <Button onClick={onCreate}>
+          <Plus className="mr-2 size-4" />
+          Novo material
+        </Button>
+      }
+    />
   );
 }

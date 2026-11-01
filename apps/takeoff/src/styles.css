@@ -1,12 +1,11 @@
 @import "tailwindcss";
 
 /*
- * RLP brand theme: white surfaces with the rlpeng.com.br brand blue as the accent (Tailwind 4's
- * blue scale: blue-600 #155dfc for the brand, blue-700 #1447e6 for hover/pressed, blue-100
- * #dbeafe for tints). The components were written against Tailwind's dark neutral scale, so the
- * scale is remapped here: "neutral-900" surfaces become white, "neutral-100" text becomes
+ * RLP brand theme: white surfaces with the brand cobalt as the accent (the @rlpapp/ui `brandBlue`
+ * scale: 600 #2855ad for the brand, 700 #1a469d for hover/pressed, 100 #e0ecff for tints). The components were written against Tailwind's dark neutral
+ * scale, so the scale is remapped here: "neutral-900" surfaces become white, "neutral-100" text becomes
  * near-black, and the orange accent becomes the brand blue (darker steps for text, so it stays
- * AA-readable on the light tints: blue-700 on white is 6.8:1, blue-800 7.4:1+).
+ * AA-readable on the light tints: 700 on white is 8.7:1, 800 10:1+).
  */
 @theme {
   --font-sans: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
@@ -24,11 +23,11 @@
   --color-neutral-100: #101a30;
 
   /* accent text (200/300), rings and hover fill (400), fills and tints (500), pressed (600) */
-  --color-orange-200: #193cb8;
-  --color-orange-300: #1447e6;
-  --color-orange-400: #1447e6;
-  --color-orange-500: #155dfc;
-  --color-orange-600: #1447e6;
+  --color-orange-200: #153a83;
+  --color-orange-300: #1a469d;
+  --color-orange-400: #1a469d;
+  --color-orange-500: #2855ad;
+  --color-orange-600: #1a469d;
 
   --color-amber-300: #b45309;
   --color-amber-400: #b45309;
@@ -36,9 +35,9 @@
   --color-red-300: #b91c1c;
   --color-red-400: #dc2626;
 
-  --color-brand: #155dfc;
-  --color-brand-dark: #1447e6;
-  --color-brand-tint: #dbeafe;
+  --color-brand: #2855ad;
+  --color-brand-dark: #1a469d;
+  --color-brand-tint: #e0ecff;
 }
 
 html,

@@ -5,6 +5,7 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { formatCurrency, formatDate } from "@rlpapp/shared";
 import { FileText, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { EmptyState as EmptyStateBlock } from "@rlpapp/ui/web";
 
 import {
   ContractFormDialog,
@@ -315,28 +316,23 @@ function EmptyState({
   defaultCustomerName?: string | null;
 }) {
   return (
-    <div className="flex flex-col items-center gap-4 py-14 text-center">
-      <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-        <FileText className="size-7" />
-      </div>
-      <div className="space-y-1">
-        <h3 className="text-lg font-semibold">Nenhum contrato cadastrado</h3>
-        <p className="max-w-sm text-sm text-muted-foreground">
-          Cadastre contratos de venda ao cliente ou contratação de empreiteiros
-          com os serviços e valores acordados.
-        </p>
-      </div>
-      <ContractFormDialog
-        lockedProjectId={lockedProjectId}
-        defaultCustomerId={defaultCustomerId}
-        defaultCustomerName={defaultCustomerName}
-        trigger={
-          <Button>
-            <Plus className="mr-2 size-4" />
-            Criar primeiro contrato
-          </Button>
-        }
-      />
-    </div>
+    <EmptyStateBlock
+      icon={<FileText />}
+      title="Nenhum contrato cadastrado"
+      description="Cadastre contratos de venda ao cliente ou contratação de empreiteiros com os serviços e valores acordados."
+      action={
+        <ContractFormDialog
+          lockedProjectId={lockedProjectId}
+          defaultCustomerId={defaultCustomerId}
+          defaultCustomerName={defaultCustomerName}
+          trigger={
+            <Button>
+              <Plus className="mr-2 size-4" />
+              Criar primeiro contrato
+            </Button>
+          }
+        />
+      }
+    />
   );
 }

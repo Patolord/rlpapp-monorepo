@@ -12,6 +12,7 @@ import {
   Trash2,
   Undo2,
 } from "lucide-react";
+import { EmptyState as EmptyStateBlock } from "@rlpapp/ui/web";
 
 import { AuthShell } from "@/components/auth-shell";
 import { ProjectShell } from "@/components/engenharia/project-shell";
@@ -198,31 +199,24 @@ function TotalStat({
 function EmptyState({ obraSlug }: { obraSlug: string }) {
   return (
     <Card>
-      <CardContent className="flex flex-col items-center gap-4 py-14 text-center">
-        <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <CircleDollarSign className="size-7" />
-        </div>
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold">
-            Nenhum contrato elegível para medições
-          </h3>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Cadastre um contrato de venda ao cliente nesta obra para começar a
-            registrar medições.
-          </p>
-        </div>
-        <Button
-          render={
-            <Link
-              to="/engenharia/obras/$obraSlug/contratos"
-              params={{ obraSlug }}
-            />
-          }
-        >
-          <Plus className="mr-2 size-4" />
-          Ir para contratos
-        </Button>
-      </CardContent>
+      <EmptyStateBlock
+        icon={<CircleDollarSign />}
+        title="Nenhum contrato elegível para medições"
+        description="Cadastre um contrato de venda ao cliente nesta obra para começar a registrar medições."
+        action={
+          <Button
+            render={
+              <Link
+                to="/engenharia/obras/$obraSlug/contratos"
+                params={{ obraSlug }}
+              />
+            }
+          >
+            <Plus className="mr-2 size-4" />
+            Ir para contratos
+          </Button>
+        }
+      />
     </Card>
   );
 }
