@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import {
+  authedQuery,
   engineeringMutation,
   engineeringOrPurchasingQuery,
   purchasingMutation,
@@ -22,6 +23,9 @@ import { promoteTakeoffItem } from "./model/procurement/takeoffPromotion";
 import { isUsablePriceEvent } from "./model/procurement/priceSelection";
 import { computePriceChange } from "./model/procurement/priceHistory";
 import {
+  desktopPublishOptions as desktopPublishOptionsFor,
+  desktopPublishOptionsArgs,
+  desktopPublishOptionsResult,
   publishDesktopBudget,
   publishDesktopBudgetArgs,
   publishDesktopBudgetResult,
@@ -610,6 +614,28 @@ export const applySuggestedPrice = engineeringMutation({
  * por `externalLineId`, apagando as que saíram do orçamento — menos as que a
  * Compras já cotou ou levou adiante, que o desktop não altera nem apaga e
  * voltam em `kept`. Só aceita orçamentos em reais (BRL).
+ */
+/**
+ * Para o app desktop antes de enviar um orçamento aprovado: se o usuário pode
+ * enviar, as obras para escolher e onde este projeto já foi enviado.
+ *
+ * Qualquer usuário autenticado pode chamar: sem `engenharia.write` a resposta
+ * diz `canPublish: false` (sem obras), para o desktop explicar a falta de
+ * permissão — o erro do wrapper de permissão chega como "Server Error" em
+ * produção.
+ */
+export const desktopPublishOptions = authedQuery({
+  args: desktopPublishOptionsArgs,
+  returns: desktopPublishOptionsResult,
+  handler: async (ctx, args) => {
+    return await desktopPublishOptionsFor(ctx, ctx.user, args.externalId);
+  },
+});
+
+/**
+ * Orçamento aprovado pelo cliente, enviado pelo app desktop (cria ou atualiza
+ * o takeoff do mesmo `externalId`). Falhas esperadas: `ConvexError` com os
+ * códigos de `DESKTOP_BUDGET_ERROR_CODES`.
  */
 export const publishFromDesktop = engineeringMutation({
   args: publishDesktopBudgetArgs,

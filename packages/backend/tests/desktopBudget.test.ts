@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import { describe, expect, test } from "vitest";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
@@ -5,6 +6,15 @@ import type { PublishDesktopBudgetArgs } from "@rlpapp/shared/takeoff/desktopBud
 import { setup, withUser } from "./helpers";
 
 const NOW = Date.UTC(2026, 10, 1);
+
+/** A ConvexError({ code, message }) with this code and (part of) this message. */
+function hasError(e: unknown, code: string, message: string): boolean {
+  if (!(e instanceof ConvexError)) return false;
+  const data = e.data as { code?: unknown; message?: unknown };
+  return (
+    data.code === code && typeof data.message === "string" && data.message.includes(message)
+  );
+}
 
 type Args = PublishDesktopBudgetArgs<Id<"projects">>;
 type Line = Args["lines"][number];
@@ -576,7 +586,9 @@ describe("takeoffs.publishFromDesktop", () => {
         api.takeoffs.publishFromDesktop,
         budget([line("a")], { meta: { sheets: [{ ...sheet, ...over }] } })
       );
-    await expect(withSheet({ bdi: -1 })).rejects.toThrow('BDI inválido na aba "Exaustão"');
+    await expect(withSheet({ bdi: -1 })).rejects.toSatisfy((e) =>
+      hasError(e, "INVALID_BUDGET", 'BDI inválido na aba "Exaustão"')
+    );
     await expect(withSheet({ bdi: Number.NaN })).rejects.toThrow("BDI inválido");
     await expect(withSheet({ extrasPct: -5 })).rejects.toThrow(
       "Percentual de extras inválido"
@@ -670,5 +682,114 @@ describe("takeoffs.publishFromDesktop", () => {
       sheet: null,
       laborUnitPriceCents: null,
     });
+  });
+});
+
+describe("takeoffs.publishFromDesktop error codes", () => {
+  test("expected failures are ConvexErrors with a code the desktop can show", async () => {
+    const { t, engineer } = await seed();
+    const meta = budget([]).meta;
+    await expect(
+      engineer.mutation(
+        api.takeoffs.publishFromDesktop,
+        budget([line("a")], { meta: { ...meta, currency: "USD" } })
+      )
+    ).rejects.toSatisfy((e) => hasError(e, "UNSUPPORTED_CURRENCY", "reais"));
+    await expect(
+      engineer.mutation(api.takeoffs.publishFromDesktop, budget([line("a"), line("a")]))
+    ).rejects.toSatisfy((e) => hasError(e, "INVALID_BUDGET", "Linha repetida"));
+    const gone = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("projects", {
+        name: "Apagada",
+        floors: [],
+        createdAt: Date.now(),
+      });
+      await ctx.db.delete("projects", id);
+      return id;
+    });
+    await expect(
+      engineer.mutation(
+        api.takeoffs.publishFromDesktop,
+        budget([line("a")], { projectId: gone })
+      )
+    ).rejects.toSatisfy((e) => hasError(e, "PROJECT_NOT_FOUND", "Obra não encontrada"));
+  });
+});
+
+describe("takeoffs.desktopPublishOptions", () => {
+  test("lists the active obras by name for engineering", async () => {
+    const { t, engineer, projectId } = await seed();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("projects", {
+        name: "Arquivada",
+        floors: [],
+        createdAt: Date.now(),
+        archivedAt: Date.now(),
+      });
+      await ctx.db.insert("projects", {
+        name: "Alpha Residencial",
+        slug: "alpha-residencial",
+        legacyNumber: 42,
+        status: "in_progress",
+        floors: [],
+        createdAt: Date.now(),
+      });
+    });
+    const options = await engineer.query(api.takeoffs.desktopPublishOptions, {});
+    expect(options.canPublish).toBe(true);
+    expect(options.current).toBeNull();
+    expect(options.projects.map((p) => p.name)).toEqual(["Alpha Residencial", "Edifício Centro"]);
+    expect(options.projects[0]).toMatchObject({
+      slug: "alpha-residencial",
+      legacyNumber: 42,
+      status: "in_progress",
+      archived: false,
+    });
+    // obras antigas sem slug: a URL do app usa o id
+    expect(options.projects[1]).toMatchObject({ _id: projectId, slug: projectId });
+  });
+
+  test("reports where the desktop project was already sent", async () => {
+    const { t, engineer, projectId } = await seed();
+    const result = await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([line("a")], { projectId })
+    );
+    // a obra foi arquivada depois do envio: continua na lista para o reenvio
+    await t.run((ctx) => ctx.db.patch("projects", projectId, { archivedAt: Date.now() }));
+    const options = await engineer.query(api.takeoffs.desktopPublishOptions, {
+      externalId: " desk-project-1 ",
+    });
+    expect(options.current).toMatchObject({
+      takeoffId: result.takeoffId,
+      projectId,
+      projectName: "Edifício Centro",
+      projectSlug: projectId,
+      publishedByName: "Eng. Ana",
+    });
+    expect(options.current?.publishedAt).toEqual(expect.any(Number));
+    expect(options.projects).toEqual([expect.objectContaining({ _id: projectId, archived: true })]);
+
+    const other = await engineer.query(api.takeoffs.desktopPublishOptions, {
+      externalId: "another-desktop-project",
+    });
+    expect(other.current).toBeNull();
+    expect(other.projects).toEqual([]);
+  });
+
+  test("says when the user cannot send, without listing obras", async () => {
+    const { t, purchasing } = await seed();
+    const options = await purchasing.query(api.takeoffs.desktopPublishOptions, {
+      externalId: "desk-project-1",
+    });
+    expect(options).toEqual({ canPublish: false, projects: [], current: null });
+    const engineeringStaff = await withUser(t, {
+      clerkId: "eng-staff",
+      role: "operator",
+      department: "engenharia",
+    });
+    const staff = await engineeringStaff.query(api.takeoffs.desktopPublishOptions, {});
+    expect(staff.canPublish).toBe(true);
+    await expect(t.query(api.takeoffs.desktopPublishOptions, {})).rejects.toThrow();
   });
 });
