@@ -1,4 +1,5 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
+import * as Haptics from "expo-haptics";
 import { X } from "lucide-react-native";
 import { useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -25,6 +26,8 @@ export function QrScannerView({ onToken, onClose, hint }: QrScannerViewProps) {
     if (handledRef.current) return;
     handledRef.current = true;
     setScanned(true);
+    // Confirma a leitura no tato, sem atrasar a navegação.
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onToken(parseQrToken(value));
   }
 

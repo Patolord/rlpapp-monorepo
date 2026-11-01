@@ -89,6 +89,8 @@ export function FieldQrScanner({ onToken, autoStart = false }: FieldQrScannerPro
             setError("O conteúdo lido não é um código QR válido.");
             return;
           }
+          // Confirma a leitura no tato (Android; iOS ignora a Vibration API).
+          navigator.vibrate?.(30);
           void stopScanner().then(() => {
             if (onToken) onToken(token);
             else void navigate({ to: "/q/$token", params: { token } });
