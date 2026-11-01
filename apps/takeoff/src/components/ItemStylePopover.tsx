@@ -45,7 +45,7 @@ export function ItemStylePopover({
       onKeyDown={(e) => e.stopPropagation()}
       role="dialog"
       aria-label="Cor e símbolo do item"
-      className="absolute left-0 top-6 z-30 w-64 rounded-lg border border-neutral-700 bg-neutral-900 p-2.5 text-xs shadow-xl"
+      className="enter-pop absolute left-0 top-6 z-30 origin-top-left w-64 rounded-lg border border-neutral-700 bg-neutral-900 p-2.5 text-xs shadow-xl"
     >
       <div className={section}>Cor</div>
       <div className="flex flex-wrap items-center gap-1">

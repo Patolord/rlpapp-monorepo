@@ -115,7 +115,7 @@ export function Dialog({
             : undefined
         }
         className={clsx(
-          "pointer-events-auto flex max-h-[calc(100%-2rem)] max-w-[calc(100%-2rem)] flex-col overflow-hidden rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl ring-1 ring-black/40",
+          "enter-dialog pointer-events-auto flex max-h-[calc(100%-2rem)] max-w-[calc(100%-2rem)] flex-col overflow-hidden rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl ring-1 ring-black/40",
           className,
         )}
       >

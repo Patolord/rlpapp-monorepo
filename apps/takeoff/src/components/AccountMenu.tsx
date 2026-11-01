@@ -88,7 +88,7 @@ export function AccountMenu() {
         <span className="truncate">{first}</span>
       </button>
       {open && (
-        <div className="absolute right-0 top-9 z-40 w-72 rounded-md border border-neutral-700 bg-neutral-900 py-1 text-xs shadow-xl">
+        <div className="enter-pop absolute right-0 top-9 z-40 origin-top-right w-72 rounded-md border border-neutral-700 bg-neutral-900 py-1 text-xs shadow-xl">
           <div className="border-b border-neutral-800 px-3 py-2">
             <div className="truncate font-medium text-neutral-100">{name}</div>
             {account.user?.email && (
