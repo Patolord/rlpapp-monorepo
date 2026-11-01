@@ -4214,7 +4214,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-takeoff"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "keyring",
  "reqwest",
