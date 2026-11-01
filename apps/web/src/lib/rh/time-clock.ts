@@ -42,11 +42,27 @@ export const LIVE_STATUS_COLOR: Record<LiveStatus, string> = {
   absent: "#cbd5e1",
 };
 
-export const LIVE_STATUS_BADGE_CLASS: Record<LiveStatus, string> = {
-  on_site: "border-transparent bg-emerald-100 text-emerald-800",
-  lunch: "border-transparent bg-amber-100 text-amber-800",
-  left: "border-transparent bg-slate-200 text-slate-700",
-  absent: "text-muted-foreground",
+/** Variantes semânticas do `Badge` (pílula outline + ponto colorido). */
+export type StatusBadgeVariant =
+  | "neutral"
+  | "info"
+  | "success"
+  | "warning"
+  | "danger"
+  | "muted";
+
+export const LIVE_STATUS_BADGE_VARIANT: Record<LiveStatus, StatusBadgeVariant> = {
+  on_site: "success",
+  lunch: "warning",
+  left: "neutral",
+  absent: "muted",
+};
+
+export const PUNCH_KIND_BADGE_VARIANT: Record<PunchKind, StatusBadgeVariant> = {
+  entrada: "success",
+  almoco_saida: "warning",
+  almoco_retorno: "info",
+  saida: "neutral",
 };
 
 /** Duração curta ("5 min", "3 h 20"). */

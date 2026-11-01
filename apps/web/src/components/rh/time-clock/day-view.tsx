@@ -32,6 +32,7 @@ import {
   initials,
   isDateKey,
   PUNCH_KIND_COLOR,
+  PUNCH_KIND_BADGE_VARIANT,
   PUNCH_KIND_LABEL,
   PUNCH_KIND_ORDER,
   shiftDateKey,
@@ -49,16 +50,9 @@ type DayData = FunctionReturnType<typeof api.timeClock.getDay>;
 type DayPerson = DayData["people"][number];
 type PresenceFilter = "all" | "present" | "absent";
 
-const KIND_BADGE_CLASS: Record<PunchKind, string> = {
-  entrada: "border-transparent bg-emerald-100 text-emerald-800",
-  almoco_saida: "border-transparent bg-amber-100 text-amber-800",
-  almoco_retorno: "border-transparent bg-sky-100 text-sky-800",
-  saida: "border-transparent bg-rose-100 text-rose-800",
-};
-
 export function KindBadge({ kind }: { kind: PunchKind }) {
   return (
-    <Badge variant="outline" className={KIND_BADGE_CLASS[kind]}>
+    <Badge variant={PUNCH_KIND_BADGE_VARIANT[kind]}>
       {PUNCH_KIND_LABEL[kind]}
     </Badge>
   );

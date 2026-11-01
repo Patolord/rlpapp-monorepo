@@ -551,13 +551,7 @@ function UsuariosContent() {
                           : "—"}
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          className={
-                            user.isActive
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-gray-100 text-gray-500"
-                          }
-                        >
+                        <Badge variant={user.isActive ? "success" : "muted"}>
                           {user.isActive ? "Ativo" : "Inativo"}
                         </Badge>
                       </TableCell>
