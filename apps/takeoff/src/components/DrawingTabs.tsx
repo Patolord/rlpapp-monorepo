@@ -127,8 +127,8 @@ export function DrawingTabs() {
                 : "border-transparent text-neutral-400 hover:bg-neutral-700/60 hover:text-neutral-100",
               dragId === d.id && "cursor-grabbing opacity-40",
               // insertion marker on the side the tab would land
-              over === "before" && "shadow-[-2px_0_0_0_#fb923c]",
-              over === "after" && "shadow-[2px_0_0_0_#fb923c]",
+              over === "before" && "shadow-[-2px_0_0_0_var(--color-brand)]",
+              over === "after" && "shadow-[2px_0_0_0_var(--color-brand)]",
             )}
           >
             <button

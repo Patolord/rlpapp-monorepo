@@ -14,6 +14,7 @@ import {
   upgradeRemoteEntry,
 } from "./catalog";
 import { SEED_KITS } from "./kits";
+import { DEFAULT_GROUP } from "./types";
 
 const parseRemoteCatalog = (json: unknown) => parseRemoteCatalogResponse(json).entries;
 
@@ -161,7 +162,7 @@ describe("catalog", () => {
           sku: "MAT-000102",
           name: "Damper corta-fogo",
           description: "Damper corta-fogo",
-          group: "Diversos",
+          group: "Geral",
           unit: "pç",
           materialPrice: 0,
           priceDate: null,
@@ -177,7 +178,7 @@ describe("catalog", () => {
           sku: null,
           name: "Grelha Insuflamento Anodizada",
           description: "Grelha Insuflamento Anodizada",
-          group: "Diversos",
+          group: "Geral",
           unit: "pç",
           materialPrice: 0,
           priceDate: null,
@@ -211,7 +212,10 @@ describe("catalog", () => {
     expect(parsed.entries[1]).toMatchObject({ status: "draft", priceDate: undefined });
     expect(parsed.entries[1].variant).toBeUndefined();
     // a bare array (hand-made file) still works and has no generatedAt
-    expect(parseRemoteCatalogResponse([{ name: "X", unit: "m" }]).generatedAt).toBeNull();
+    const bare = parseRemoteCatalogResponse([{ name: "X", unit: "m" }]);
+    expect(bare.generatedAt).toBeNull();
+    // no group: the app's default group, not the "Diversos" extras line
+    expect(bare.entries[0].group).toBe(DEFAULT_GROUP);
   });
 });
 

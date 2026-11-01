@@ -209,7 +209,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <span className="truncate text-base font-bold tracking-tight group-hover/menu-button:text-sidebar-accent-foreground group-data-active/menu-button:text-sidebar-accent-foreground">
                   RLP Engenharia
                 </span>
-                <span className="truncate text-xs text-sidebar-foreground/70 group-hover/menu-button:text-sidebar-accent-foreground/80 group-data-active/menu-button:text-sidebar-accent-foreground/80">
+                <span className="truncate text-xs text-sidebar-foreground/70 group-hover/menu-button:text-sidebar-accent-foreground group-data-active/menu-button:text-sidebar-accent-foreground">
                   Sistema ERP
                 </span>
               </div>

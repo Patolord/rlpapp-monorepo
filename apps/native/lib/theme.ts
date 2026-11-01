@@ -30,8 +30,8 @@ export const colors = {
   icon: BRAND.icon,
   // Accent
   primary: BRAND.button,
-  primaryPressed: "#2F6FC9",
-  primarySoft: "#E4EEFB",
+  primaryPressed: "#1447E6",
+  primarySoft: "#EFF6FF",
   onPrimary: BRAND.buttonText,
   navy: BRAND.logo,
   // Semantic tones
@@ -42,7 +42,7 @@ export const colors = {
   danger: "#C8402E",
   dangerSoft: "#FBE3DF",
   info: BRAND.button,
-  infoSoft: "#E4EEFB",
+  infoSoft: "#EFF6FF",
   // Misc
   track: BRAND.track,
   overlay: "rgba(27, 42, 94, 0.45)",
