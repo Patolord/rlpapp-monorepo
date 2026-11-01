@@ -9,7 +9,9 @@
 //
 // Ambiente:
 //   CONVEX_MANAGEMENT_TOKEN  token de acesso do time ou do projeto no Convex (obrigatório)
-//   CONVEX_PROJECT_ID        id do projeto; dispensável quando o token é de projeto
+//   CONVEX_PROJECT_ID        id do projeto (opcional)
+//   CONVEX_DEPLOYMENT_NAME   um deployment do projeto (ex.: rosy-crow-250); com token de time,
+//                            o projeto é descoberto por ele quando CONVEX_PROJECT_ID falta
 //
 // O preview do Convex criado pelo build da Vercel tem como identificador o nome do branch do
 // git (VERCEL_GIT_COMMIT_REF), então o branch do PR basta para achá-lo. Só deployments do tipo
@@ -86,8 +88,16 @@ async function main() {
     const details = await api(token, "GET", "/token_details");
     projectId = details?.projectId ?? null;
   }
+  // Token de time: o projeto sai de um deployment conhecido dele (o de produção).
+  const deploymentName = process.env.CONVEX_DEPLOYMENT_NAME?.trim();
+  if (!projectId && deploymentName) {
+    const deployment = await api(token, "GET", `/deployments/${encodeURIComponent(deploymentName)}`);
+    projectId = deployment?.projectId ?? null;
+  }
   if (!projectId) {
-    throw new Error("token de time: defina a variável CONVEX_PROJECT_ID com o id do projeto");
+    throw new Error(
+      "não deu para descobrir o projeto: defina CONVEX_PROJECT_ID ou CONVEX_DEPLOYMENT_NAME",
+    );
   }
 
   const deployments = await api(

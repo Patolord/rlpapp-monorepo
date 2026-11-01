@@ -263,8 +263,9 @@ O build de preview da Vercel (`apps/web/vercel.json`) roda `npx convex deploy` c
 
 Só deployments do tipo `preview` são tocados. Para funcionar, o repositório precisa:
 
-1. do secret **`CONVEX_MANAGEMENT_TOKEN`**: um token de acesso do projeto no Convex (Project Settings › Access tokens), ou do time (Team Settings › Access Tokens);
-2. com token de time, também da variável **`CONVEX_PROJECT_ID`** (id do projeto, em Project Settings). Um token de projeto já diz qual é o projeto.
+do secret **`CONVEX_MANAGEMENT_TOKEN`**: um token de acesso do time no Convex (Team Settings › Access Tokens, https://dashboard.convex.dev/team/settings/access-tokens).
+
+O projeto é descoberto a partir do deployment de produção (`rosy-crow-250`). Se ele mudar, defina a variável `CONVEX_DEPLOYMENT_NAME` (ou `CONVEX_PROJECT_ID`) no repositório.
 
 Sem o secret, o workflow só avisa e não apaga nada.
 

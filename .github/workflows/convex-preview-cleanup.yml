@@ -4,8 +4,9 @@ name: Convex previews
 # time tem um limite de deployments. Este workflow apaga o preview do branch quando o PR fecha
 # (merge ou não) e, uma vez por dia, varre os previews que não têm mais PR aberto.
 #
-# Precisa do secret CONVEX_MANAGEMENT_TOKEN (token de acesso do projeto ou do time no Convex) e,
-# se o token for de time, da variável CONVEX_PROJECT_ID. Sem o secret, o job só avisa e sai.
+# Precisa do secret CONVEX_MANAGEMENT_TOKEN (token de acesso do time ou do projeto no Convex). O
+# projeto é descoberto pelo token ou pelo deployment de produção (rosy-crow-250). Sem o secret, o
+# job só avisa e sai.
 
 on:
   pull_request:
@@ -39,6 +40,8 @@ jobs:
     env:
       CONVEX_MANAGEMENT_TOKEN: ${{ secrets.CONVEX_MANAGEMENT_TOKEN }}
       CONVEX_PROJECT_ID: ${{ vars.CONVEX_PROJECT_ID }}
+      # deployment de produção (o mesmo do catálogo do takeoff); daqui sai o projeto
+      CONVEX_DEPLOYMENT_NAME: ${{ vars.CONVEX_DEPLOYMENT_NAME || 'rosy-crow-250' }}
     steps:
       - uses: actions/checkout@v4
         with:
