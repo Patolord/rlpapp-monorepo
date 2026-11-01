@@ -4,6 +4,10 @@ import { useQuery } from "convex/react";
 import { ExternalLink } from "lucide-react";
 
 import { AuthShell } from "@/components/auth-shell";
+import {
+  publishedLabel,
+  TakeoffSourceBadge,
+} from "@/components/compras/takeoff-source-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -37,7 +41,8 @@ function TakeoffsSupportContent() {
       <div>
         <h1 className="text-2xl font-bold">Takeoffs</h1>
         <p className="text-sm text-muted-foreground">
-          Visão de apoio da Compras. Orçamentos são criados pela Engenharia nas obras.
+          Visão de apoio da Compras. Orçamentos são criados pela Engenharia nas obras
+          ou publicados pelo app desktop de takeoff.
         </p>
       </div>
 
@@ -50,6 +55,7 @@ function TakeoffsSupportContent() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
+                <TableHead>Origem</TableHead>
                 <TableHead>Obra</TableHead>
                 <TableHead>Itens</TableHead>
                 <TableHead>Status</TableHead>
@@ -60,6 +66,18 @@ function TakeoffsSupportContent() {
               {(takeoffs ?? []).map((t) => (
                 <TableRow key={t._id}>
                   <TableCell className="font-medium">{t.name}</TableCell>
+                  <TableCell>
+                    {t.source === "desktop" ? (
+                      <div className="space-y-1">
+                        <TakeoffSourceBadge takeoff={t} />
+                        <div className="text-xs text-muted-foreground">
+                          {publishedLabel(t)}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Manual</span>
+                    )}
+                  </TableCell>
                   <TableCell>{t.projectName ?? "—"}</TableCell>
                   <TableCell>{t.itemCount}</TableCell>
                   <TableCell>

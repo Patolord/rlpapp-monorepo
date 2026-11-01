@@ -116,6 +116,17 @@ pnpm run dev
 - `pnpm run lint` — ESLint em todos os pacotes
 - `pnpm run check-types` — typecheck (`tsc --noEmit`) em todos os pacotes
 
+## Orçamentos do app desktop no dashboard
+
+O app desktop de takeoff (`apps/takeoff`) publica o orçamento de um projeto no dashboard pela mutation `takeoffs.publishFromDesktop` (permissão de engenharia, auditada):
+
+- **Payload**: montado por `buildPublishBudget(project, { externalId, projectId })` em `apps/takeoff/src/lib/publishBudget.ts`, a partir das mesmas abas → seções → linhas da planilha orçamentária. O tipo do argumento fica em `@rlpapp/shared/takeoff/desktopBudget` (sem Convex); o backend confere em tempo de compilação que o validador descreve o mesmo formato.
+- **Linhas**: uma por item × aba (disciplina / sistema) × seção (local ou grupo), com `externalLineId` estável, quantidade com perdas, preços unitários de material e mão de obra em centavos e `materialId` vindo do `catalogId` do item (ids que não existem no catálogo ficam sem vínculo e voltam em `unknownMaterialIds`). O cabeçalho (proposta, orçamentista, cliente, obra) e o resumo por aba (BDI, extras %, totais) vão em `budget`.
+- **Republicar é idempotente**: o takeoff é achado por `source: "desktop"` + `externalId` (o id do projeto no desktop); linhas novas entram, as existentes são atualizadas e as que saíram são apagadas. Linhas em que a Compras já trabalhou — cotação registrada ou status `sent_to_supplier` / `quoted` / `selected` / `purchased` — nunca são apagadas nem alteradas: ficam marcadas (`externalRemovedAt`) e voltam em `kept`. Um material vinculado pela Compras é mantido quando o desktop não manda outro; já o preço estimado das demais linhas volta ao do desktop a cada publicação.
+- **Dashboard**: na obra, **Orçamento** mostra o takeoff com o selo "Takeoff desktop", quem publicou e quando, as linhas agrupadas por aba e seção, subtotais, extras, TOTAL GERAL e preço com BDI por aba, e as ações de sempre por linha (usar preço de referência, cotação, criar SKU). **Compras → Takeoffs** e **Compras da obra** mostram a origem de cada takeoff.
+
+O botão "Publicar no app" do desktop (login Clerk + cliente Convex) chama essa mutation; o desktop precisa guardar no projeto um id estável para usar como `externalId`.
+
 ## API HTTP para agentes (`/api/v1`)
 
 Qualquer função pública do backend pode ser chamada por HTTP, direto no deployment Convex, com um token de agente (`rlp_…`, criado em **Minha conta → Agentes**):
