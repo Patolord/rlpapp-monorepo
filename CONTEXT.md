@@ -66,8 +66,8 @@ Compras.
 ## Drawing
 
 One PDF of a takeoff desktop project. The product interface calls it a
-“planta.” Markings, locations and page scales belong to a drawing; items are
-shared by the whole project.
+“planta.” Markings, page scales and the regions of locations belong to a
+drawing; items and locations are shared by the whole project.
 
 ## Marking
 
@@ -77,9 +77,10 @@ which is billable progress on a contract.
 
 ## Location
 
-A named place (floor, apartment, room) drawn as one or more regions, possibly
-on several drawings; markings inside a region are grouped under it in the
-budget. The product interface calls it a “local” or “ambiente.”
+A named place (floor, apartment, room) of the whole project, drawn as one or
+more regions; each region lies on one page of one drawing, and the markings
+inside a region are grouped under the location in the budget. The product
+interface calls it a “local” or “ambiente.”
 
 ## Kit
 
@@ -89,8 +90,10 @@ click (a split's line set: copper, insulation and cable together).
 ## Item
 
 A line of a takeoff desktop budget: a material or service with a unit, budget
-group, material and labour unit prices and optional waste. Its quantity comes
-from its markings.
+group, material and labour unit prices and optional waste. Its quantity is
+measured from its markings (runs also add their vertical lengths), except for
+a duct network or VRF system, whose quantity is a number of identical sets
+(“cj”) entered by hand while its markings only price it.
 
 ## Duct Network
 
@@ -106,5 +109,8 @@ tables. The product interface calls it a “sistema VRF.”
 
 ## BDI
 
-The multiplier applied to a budget's grand total (“TOTAL GERAL”) to reach the
-selling price; 1.42 means 42 % on top of cost.
+The multiplier applied to a discipline tab's grand total (“TOTAL GERAL”) to
+reach its selling price; 1.42 means 42 % on top of cost. The project sets a
+default and each discipline tab may override it, so the selling price of the
+whole budget is the sum of the tabs' selling prices, not the overall total
+times one BDI.
