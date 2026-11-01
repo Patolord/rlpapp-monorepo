@@ -9,7 +9,14 @@ const appVersion = JSON.parse(readFileSync("./package.json", "utf8")).version as
 
 export default defineConfig({
   define: { "import.meta.env.VITE_APP_VERSION": JSON.stringify(appVersion) },
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    // The backend's generated Convex client is plain JS; left in the React plugin's (fast refresh)
+    // scope, Vite transforms it with the root tsconfig, whose reference to apps/native extends
+    // expo/tsconfig.base and fails wherever only this app's dependencies are installed (the
+    // release workflow's `pnpm install --filter takeoff...`).
+    react({ exclude: [/\/node_modules\//, /\/convex\/_generated\//] }),
+    tailwindcss(),
+  ],
   clearScreen: false,
   server: {
     port: 1420,
