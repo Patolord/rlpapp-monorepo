@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as agentTokens from "../agentTokens.js";
 import type * as ai from "../ai.js";
 import type * as aiChat from "../aiChat.js";
 import type * as aiIntents from "../aiIntents.js";
@@ -24,11 +25,15 @@ import type * as environments from "../environments.js";
 import type * as equipment from "../equipment.js";
 import type * as equipmentHistory from "../equipmentHistory.js";
 import type * as floors from "../floors.js";
+import type * as gateway_v1 from "../gateway/v1.js";
+import type * as gateway_validate from "../gateway/validate.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as inventory from "../inventory.js";
 import type * as inventoryRequests from "../inventoryRequests.js";
 import type * as inventoryStockPolicies from "../inventoryStockPolicies.js";
+import type * as lib_agentTokens from "../lib/agentTokens.js";
+import type * as lib_apiCrypto from "../lib/apiCrypto.js";
 import type * as lib_audit from "../lib/audit.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_compras_bulkImport from "../lib/compras/bulkImport.js";
@@ -55,6 +60,7 @@ import type * as lib_rh_timeClockPunch from "../lib/rh/timeClockPunch.js";
 import type * as maintenanceLogs from "../maintenanceLogs.js";
 import type * as materialLookup from "../materialLookup.js";
 import type * as materials from "../materials.js";
+import type * as mcpCatalog from "../mcpCatalog.js";
 import type * as medicoes from "../medicoes.js";
 import type * as migrations from "../migrations.js";
 import type * as model_contracts_mutations from "../model/contracts/mutations.js";
@@ -95,6 +101,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  agentTokens: typeof agentTokens;
   ai: typeof ai;
   aiChat: typeof aiChat;
   aiIntents: typeof aiIntents;
@@ -111,11 +118,15 @@ declare const fullApi: ApiFromModules<{
   equipment: typeof equipment;
   equipmentHistory: typeof equipmentHistory;
   floors: typeof floors;
+  "gateway/v1": typeof gateway_v1;
+  "gateway/validate": typeof gateway_validate;
   healthCheck: typeof healthCheck;
   http: typeof http;
   inventory: typeof inventory;
   inventoryRequests: typeof inventoryRequests;
   inventoryStockPolicies: typeof inventoryStockPolicies;
+  "lib/agentTokens": typeof lib_agentTokens;
+  "lib/apiCrypto": typeof lib_apiCrypto;
   "lib/audit": typeof lib_audit;
   "lib/auth": typeof lib_auth;
   "lib/compras/bulkImport": typeof lib_compras_bulkImport;
@@ -142,6 +153,7 @@ declare const fullApi: ApiFromModules<{
   maintenanceLogs: typeof maintenanceLogs;
   materialLookup: typeof materialLookup;
   materials: typeof materials;
+  mcpCatalog: typeof mcpCatalog;
   medicoes: typeof medicoes;
   migrations: typeof migrations;
   "model/contracts/mutations": typeof model_contracts_mutations;

@@ -1,17 +1,27 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Star, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { MaterialReplenishmentBadge } from "@/components/compras/material-replenishment-badge";
 import type { MaterialCatalogRow } from "@/components/compras/material-form-dialog";
 import { MaterialMergeDialog } from "@/components/compras/material-merge-dialog";
+import { MaterialPriceHistory } from "@/components/compras/material-price-history";
 import { MaterialStockPolicySheet } from "@/components/compras/material-stock-policy-sheet";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -96,6 +106,9 @@ export function MaterialDetailSheet({
   }, [material]);
 
   if (!material) return null;
+
+  const selectedSupplier =
+    (suppliers ?? []).find((supplier) => supplier._id === supplierId) ?? null;
 
   async function handleAddAlias() {
     if (!aliasInput.trim()) return;
@@ -195,93 +208,68 @@ export function MaterialDetailSheet({
               />
             </section>
 
-            <section className="space-y-2">
+            <section className="space-y-3">
+              <h3 className="text-sm font-medium">Preços</h3>
+              <MaterialPriceHistory materialId={material._id} />
+            </section>
+
+            <section className="space-y-3">
               <h3 className="text-sm font-medium">Fornecedores</h3>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <select
-                  className="h-9 rounded-md border bg-background px-3 text-sm"
-                  value={supplierId}
-                  onChange={(event) => setSupplierId(event.target.value)}
-                  aria-label="Fornecedor"
-                >
-                  <option value="">Selecione...</option>
-                  {(suppliers ?? []).map((supplier) => (
-                    <option key={supplier._id} value={supplier._id}>
-                      {supplier.name}
-                    </option>
-                  ))}
-                </select>
-                <Input
-                  value={supplierCode}
-                  onChange={(event) => setSupplierCode(event.target.value)}
-                  placeholder="Código do fornecedor"
-                />
-                <Input
-                  value={supplierPurchaseUnit}
-                  onChange={(event) =>
-                    setSupplierPurchaseUnit(event.target.value)
-                  }
-                  placeholder="Unidade de compra"
-                />
-                <Input
-                  type="number"
-                  min="0"
-                  value={supplierLeadTimeDays}
-                  onChange={(event) =>
-                    setSupplierLeadTimeDays(event.target.value)
-                  }
-                  placeholder="Prazo (dias)"
-                />
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={preferredSupplier}
-                    onChange={(event) =>
-                      setPreferredSupplier(event.target.checked)
-                    }
-                  />
-                  Fornecedor preferido
-                </label>
-                <Button
-                  variant="outline"
-                  onClick={() => void handleAddOffering()}
-                  disabled={!supplierId || submittingOffering}
-                >
-                  Vincular
-                </Button>
-              </div>
               {(offerings ?? []).length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Nenhum fornecedor vinculado.
                 </p>
               ) : (
-                <ul className="space-y-1 text-sm">
+                <ul className="divide-y rounded-md border text-sm">
                   {(offerings ?? []).map((offering) => {
-                    const supplier = (suppliers ?? []).find(
-                      (item) => item._id === offering.supplierId
-                    );
+                    const leadTimeFromSupplier =
+                      offering.leadTimeDays == null &&
+                      offering.effectiveLeadTimeDays != null;
+                    const details = [
+                      offering.supplierCode
+                        ? `Cód. ${offering.supplierCode}`
+                        : null,
+                      offering.purchaseUnit,
+                      offering.effectiveLeadTimeDays != null
+                        ? `${offering.effectiveLeadTimeDays} dia${
+                            offering.effectiveLeadTimeDays === 1 ? "" : "s"
+                          }${leadTimeFromSupplier ? " (padrão)" : ""}`
+                        : null,
+                      offering.supplierPaymentTerms,
+                    ].filter(Boolean);
                     return (
                       <li
                         key={offering._id}
-                        className="flex items-center justify-between gap-2 rounded border px-2 py-1"
+                        className="flex items-center justify-between gap-2 px-3 py-2"
                       >
-                        <span>
-                          {supplier?.name ?? "Fornecedor"}
-                          {offering.supplierCode
-                            ? ` · ${offering.supplierCode}`
-                            : ""}
-                          {offering.purchaseUnit
-                            ? ` · ${offering.purchaseUnit}`
-                            : ""}
-                          {offering.leadTimeDays != null
-                            ? ` · ${offering.leadTimeDays} dias`
-                            : ""}
-                          {offering.preferred ? " · preferido" : ""}
-                        </span>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-medium">
+                              {offering.supplierName}
+                            </span>
+                            {offering.preferred ? (
+                              <Badge variant="outline" className="gap-1">
+                                <Star className="size-3" />
+                                Preferido
+                              </Badge>
+                            ) : null}
+                            {!offering.supplierActive ? (
+                              <Badge variant="secondary">
+                                Fornecedor inativo
+                              </Badge>
+                            ) : null}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {details.length > 0
+                              ? details.join(" · ")
+                              : "Sem detalhes"}
+                          </p>
+                        </div>
                         <Button
-                          size="icon"
+                          size="icon-sm"
                           variant="ghost"
                           aria-label="Remover fornecedor"
+                          title="Remover fornecedor"
                           onClick={() =>
                             void removeOffering({
                               offeringId: offering._id,
@@ -302,6 +290,100 @@ export function MaterialDetailSheet({
                   })}
                 </ul>
               )}
+
+              <div className="grid gap-2 rounded-md bg-muted/40 p-3 sm:grid-cols-2">
+                <div className="space-y-1 sm:col-span-2">
+                  <Label htmlFor="offering-supplier">Fornecedor</Label>
+                  <Select
+                    value={supplierId || "__none__"}
+                    onValueChange={(value) =>
+                      setSupplierId(value === "__none__" ? "" : value)
+                    }
+                  >
+                    <SelectTrigger id="offering-supplier" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Selecione...</SelectItem>
+                      {(suppliers ?? []).map((supplier) => (
+                        <SelectItem key={supplier._id} value={supplier._id}>
+                          {supplier.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="offering-code">Código no fornecedor</Label>
+                  <Input
+                    id="offering-code"
+                    value={supplierCode}
+                    onChange={(event) => setSupplierCode(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="offering-unit">Unidade de compra</Label>
+                  <Input
+                    id="offering-unit"
+                    value={supplierPurchaseUnit}
+                    placeholder={material.purchaseUnit ?? material.unit ?? ""}
+                    onChange={(event) =>
+                      setSupplierPurchaseUnit(event.target.value)
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="offering-lead-time">Prazo (dias)</Label>
+                  <Input
+                    id="offering-lead-time"
+                    type="number"
+                    min="0"
+                    value={supplierLeadTimeDays}
+                    placeholder={
+                      selectedSupplier?.defaultLeadTimeDays != null
+                        ? `Padrão: ${selectedSupplier.defaultLeadTimeDays}`
+                        : ""
+                    }
+                    onChange={(event) =>
+                      setSupplierLeadTimeDays(event.target.value)
+                    }
+                  />
+                  {selectedSupplier?.defaultLeadTimeDays != null &&
+                  !supplierLeadTimeDays ? (
+                    <p className="text-xs text-muted-foreground">
+                      Vazio usa o prazo padrão do fornecedor (
+                      {selectedSupplier.defaultLeadTimeDays} dias).
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex items-end pb-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={preferredSupplier}
+                      onCheckedChange={(checked) =>
+                        setPreferredSupplier(checked === true)
+                      }
+                    />
+                    Fornecedor preferido
+                  </label>
+                </div>
+                {selectedSupplier?.paymentTerms ? (
+                  <p className="text-xs text-muted-foreground sm:col-span-2">
+                    Condições de pagamento do fornecedor:{" "}
+                    {selectedSupplier.paymentTerms}
+                  </p>
+                ) : null}
+                <div className="flex justify-end sm:col-span-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => void handleAddOffering()}
+                    disabled={!supplierId || submittingOffering}
+                  >
+                    <Plus className="mr-1.5 size-4" />
+                    Vincular fornecedor
+                  </Button>
+                </div>
+              </div>
             </section>
 
             <section className="space-y-2">

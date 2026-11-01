@@ -196,9 +196,13 @@ export function CustomerDetailDialog({
   return (
     <Dialog open={open} onOpenChange={reset}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Pencil className="mr-1.5 size-3.5" />
-          Gerenciar
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Gerenciar"
+          title="Gerenciar"
+        >
+          <Pencil className="size-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">

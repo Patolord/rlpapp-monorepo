@@ -16,6 +16,8 @@ import {
   photoMimeType,
   readPhotoBody,
 } from "./lib/rh/photo";
+import { hashAgentToken, looksLikeAgentToken } from "./lib/agentTokens";
+import { registerApiV1Routes } from "./gateway/v1";
 
 type ClerkEmailAddress = {
   id: string;
@@ -149,6 +151,68 @@ const handleMaterialLookup = httpAction(async (ctx, request) => {
     })
   );
   return json(result);
+});
+
+// ---------------------------------------------------------------------------
+// Tokens de agente (MCP)
+// ---------------------------------------------------------------------------
+//
+// O servidor MCP (apps/web, rota /mcp) recebe `Authorization: Bearer rlp_…`
+// de clientes como Claude e Cursor e chama este endpoint para saber a quem o
+// token pertence. Só o SHA-256 é comparado; a resposta é o mesmo que o dono
+// do token já poderia ver sobre si mesmo. Depois disso o servidor MCP emite
+// um JWT de delegação (sub = clerkId do dono, claims agent_token.*) e as
+// funções Convex aplicam o RBAC normal mais a política de lib/agentTokens.ts.
+
+const AGENT_TOKEN_VERIFY_PATH = "/agent-tokens/verify";
+
+function readBearer(request: Request): string | null {
+  const header = request.headers.get("Authorization");
+  if (!header) return null;
+  const match = /^Bearer\s+(.+)$/i.exec(header.trim());
+  return match?.[1]?.trim() ?? null;
+}
+
+const handleAgentTokenVerify = httpAction(async (ctx, request) => {
+  const headers = { "Cache-Control": "no-store" };
+  const presented = readBearer(request);
+  if (!presented || !looksLikeAgentToken(presented)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: {
+        ...headers,
+        "Content-Type": "application/json; charset=utf-8",
+        "WWW-Authenticate": 'Bearer realm="agent-tokens"',
+      },
+    });
+  }
+
+  const now = Date.now();
+  const verified = await ctx.runQuery(internal.agentTokens.verify, {
+    tokenHash: await hashAgentToken(presented),
+    now,
+  });
+  if (!verified) {
+    console.log(
+      JSON.stringify({
+        event: "agent_token_rejected",
+        prefix: presented.slice(0, 12),
+      })
+    );
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...headers, "Content-Type": "application/json; charset=utf-8" },
+    });
+  }
+
+  await ctx.runMutation(internal.agentTokens.touch, {
+    id: verified.token._id,
+    now,
+  });
+  return new Response(JSON.stringify(verified), {
+    status: 200,
+    headers: { ...headers, "Content-Type": "application/json; charset=utf-8" },
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -371,6 +435,15 @@ const handleTimeClockPhoto = httpAction(async (ctx, request) => {
 });
 
 const http = httpRouter();
+
+// API HTTP para agentes (`/api/v1/*` e `/.well-known/jwks.json`).
+registerApiV1Routes(http);
+
+http.route({
+  path: AGENT_TOKEN_VERIFY_PATH,
+  method: "POST",
+  handler: handleAgentTokenVerify,
+});
 
 http.route({
   pathPrefix: TIME_CLOCK_PHOTO_PATH_PREFIX,

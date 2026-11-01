@@ -13,7 +13,10 @@ import {
   MaterialFormDialog,
   type MaterialCatalogRow,
 } from "@/components/compras/material-form-dialog";
-import { MaterialsDataTable } from "@/components/compras/materials-table/materials-data-table";
+import {
+  MaterialsDataTable,
+  type MaterialStatusFilter,
+} from "@/components/compras/materials-table/materials-data-table";
 import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/errors";
 import { splitList } from "@/lib/csv";
@@ -106,7 +109,10 @@ function MateriaisContent() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 300);
   const [category, setCategory] = useState("");
-  const [activeOnly, setActiveOnly] = useState(false);
+  // Padrão: só ativos; rascunhos e arquivados ficam a um filtro de distância.
+  const [statusFilter, setStatusFilter] = useState<MaterialStatusFilter>("active");
+  // Referência fixa para a idade dos preços; evita refazer a query a cada render.
+  const [now] = useState(() => Date.now());
   const [formOpen, setFormOpen] = useState(false);
   const [editMaterial, setEditMaterial] = useState<MaterialCatalogRow | null>(
     null
@@ -128,7 +134,8 @@ function MateriaisContent() {
     {
       search: debouncedSearch.trim() || undefined,
       category: category || undefined,
-      activeOnly: activeOnly || undefined,
+      status: statusFilter || undefined,
+      now,
     },
     { initialNumItems: 25 }
   );
@@ -271,8 +278,8 @@ function MateriaisContent() {
         category={category}
         onCategoryChange={setCategory}
         categories={categories}
-        activeOnly={activeOnly}
-        onActiveOnlyChange={setActiveOnly}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
         onLoadMore={() => catalog.loadMore(25)}
         onCreate={openCreate}
         hasActiveFilters={

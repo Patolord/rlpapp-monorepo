@@ -2,14 +2,18 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { Loader2, QrCode, Search } from "lucide-react";
+import type { FunctionReturnType } from "convex/server";
+import { ClipboardList, History, Loader2, QrCode, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { EquipmentStatusKey } from "@rlpapp/ui/tokens";
 
 import { AuthShell } from "@/components/auth-shell";
+import { PendingBanner } from "@/components/campo/pending-records";
+import { ProjectServicesList } from "@/components/engenharia/project-services-list";
 import { ProjectShell, type ProjectOverview } from "@/components/engenharia/project-shell";
 import { StatusBadge } from "@/components/engenharia/status-badge";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -51,6 +55,11 @@ function QrCodesPage() {
 
 const ALL = "all";
 
+// "Cadastrada" = etiqueta já vinculada a um equipamento (bipada em campo);
+// "Livre" = etiqueta do lote da obra ainda sem equipamento.
+type RegistrationFilter = "all" | "registered" | "free";
+type Tab = "labels" | "services";
+
 function QrCodesContent({
   projectId,
   project,
@@ -59,24 +68,42 @@ function QrCodesContent({
   project: ProjectOverview;
 }) {
   const rows = useQuery(api.qrCodes.listByProject, { projectId });
+  // null quando o usuário não tem engenharia.read: a aba de serviços fica oculta.
+  const activityUsers = useQuery(api.technicianActivity.listActivityUsers);
+  const canViewServices = Boolean(activityUsers);
+  const [tab, setTab] = useState<Tab>("labels");
   const [search, setSearch] = useState("");
+  const [registration, setRegistration] = useState<RegistrationFilter>("all");
   const [status, setStatus] = useState(ALL);
+
+  const registeredCount = useMemo(
+    () => rows?.filter((r) => r.equipmentId).length ?? 0,
+    [rows]
+  );
 
   const filtered = useMemo(() => {
     if (!rows) return [];
-    const term = search.trim().toLowerCase();
+    const term = search.trim().toLocaleLowerCase("pt-BR");
     return rows
+      .filter(
+        (r) =>
+          registration === "all" ||
+          (registration === "registered") === Boolean(r.equipmentId)
+      )
       .filter((r) => status === ALL || r.status === status)
       .filter(
         (r) =>
           !term ||
-          r.token.toLowerCase().includes(term) ||
-          (r.ambiente?.toLowerCase().includes(term) ?? false) ||
-          (r.modelo?.toLowerCase().includes(term) ?? false) ||
-          (r.system?.toLowerCase().includes(term) ?? false) ||
-          (r.environmentName?.toLowerCase().includes(term) ?? false)
+          [
+            r.token,
+            r.description,
+            r.ambiente,
+            r.modelo,
+            r.system,
+            r.environmentName,
+          ].some((value) => value?.toLocaleLowerCase("pt-BR").includes(term))
       );
-  }, [rows, search, status]);
+  }, [rows, search, registration, status]);
 
   if (rows === undefined) {
     return (
@@ -86,19 +113,81 @@ function QrCodesContent({
     );
   }
 
+  const showServices = canViewServices && tab === "services";
+  const registrationOptions: Array<{
+    id: RegistrationFilter;
+    label: string;
+    count: number;
+  }> = [
+    { id: "all", label: "Todas", count: rows.length },
+    { id: "registered", label: "Cadastradas", count: registeredCount },
+    { id: "free", label: "Livres", count: rows.length - registeredCount },
+  ];
+
   return (
     <section className="space-y-4">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold">QR codes da obra</h2>
-        <p className="text-sm text-muted-foreground">
-          {rows.length} QR{rows.length === 1 ? "" : "s"} atribuído
-          {rows.length === 1 ? "" : "s"} de {project.totalItems} equipamento
-          {project.totalItems === 1 ? "" : "s"} previsto
-          {project.totalItems === 1 ? "" : "s"}
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold">
+            {showServices ? "Serviços da obra" : "QR codes da obra"}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {showServices
+              ? "Registros enviados pelos técnicos em campo nesta obra."
+              : `${rows.length} QR${rows.length === 1 ? "" : "s"} atribuído${
+                  rows.length === 1 ? "" : "s"
+                } de ${project.totalItems} equipamento${
+                  project.totalItems === 1 ? "" : "s"
+                } previsto${project.totalItems === 1 ? "" : "s"}`}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {canViewServices && (
+            <div className="grid w-fit grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+              {(
+                [
+                  { id: "labels", label: "Etiquetas", icon: QrCode },
+                  { id: "services", label: "Serviços", icon: History },
+                ] as const
+              ).map((option) => {
+                const Icon = option.icon;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    aria-pressed={tab === option.id}
+                    onClick={() => setTab(option.id)}
+                    className="flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium text-muted-foreground transition-colors aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm"
+                  >
+                    <Icon className="size-4" />
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {/* Histórico completo (todas as obras), antes acessível pela tela
+              "Registro de campo" removida. */}
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link to="/meus-registros" />}
+          >
+            <ClipboardList className="size-4" />
+            Meus registros
+          </Button>
+        </div>
       </div>
 
-      {rows.length === 0 ? (
+      {/* Registros feitos sem internet ainda não enviados; some com a fila vazia. */}
+      <PendingBanner />
+
+      {showServices ? (
+        <ProjectServicesList
+          projectId={projectId}
+          activityUsers={activityUsers ?? []}
+        />
+      ) : rows.length === 0 ? (
         <div className="rounded-lg border border-dashed py-12 text-center">
           <QrCode className="mx-auto mb-3 size-10 text-muted-foreground" />
           <p className="font-medium">Nenhum QR code atribuído a esta obra</p>
@@ -109,15 +198,32 @@ function QrCodesContent({
         </div>
       ) : (
         <>
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <div className="relative sm:w-64">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="relative sm:w-72">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pl-9"
-                placeholder="Buscar token, ambiente, modelo..."
+                placeholder="Buscar token, descrição, ambiente, modelo..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {registrationOptions.map((option) => (
+                <Button
+                  key={option.id}
+                  type="button"
+                  size="sm"
+                  variant={registration === option.id ? "default" : "outline"}
+                  aria-pressed={registration === option.id}
+                  onClick={() => setRegistration(option.id)}
+                >
+                  {option.label}
+                  <span className="ml-1 tabular-nums opacity-80">
+                    ({option.count})
+                  </span>
+                </Button>
+              ))}
             </div>
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger className="sm:w-44">
@@ -176,31 +282,7 @@ function QrCodesContent({
                           />
                         </TableCell>
                         <TableCell>
-                          {r.plannedItemId ? (
-                            <div className="flex items-center gap-2">
-                              <div className="min-w-0">
-                                <p className="truncate font-medium">
-                                  {r.system ?? "—"}
-                                </p>
-                                <p className="truncate text-xs text-muted-foreground">
-                                  {[r.modelo, r.capacidade]
-                                    .filter(Boolean)
-                                    .join(" · ") || "—"}
-                                </p>
-                              </div>
-                              {r.kind && (
-                                <Badge variant="outline" className="shrink-0">
-                                  {r.kind === "condensadora"
-                                    ? "Condensadora"
-                                    : "Evaporadora"}
-                                </Badge>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">
-                              Sem item planejado
-                            </span>
-                          )}
+                          <EquipmentCell row={r} />
                         </TableCell>
                         <TableCell>
                           {r.status ? (
@@ -225,6 +307,42 @@ function QrCodesContent({
       )}
     </section>
   );
+}
+
+type QrRow = FunctionReturnType<typeof api.qrCodes.listByProject>[number];
+
+function EquipmentCell({ row }: { row: QrRow }) {
+  if (row.plannedItemId) {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="min-w-0">
+          <p className="truncate font-medium">{row.system ?? "—"}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {[row.modelo, row.capacidade].filter(Boolean).join(" · ") || "—"}
+          </p>
+        </div>
+        {row.kind && (
+          <Badge variant="outline" className="shrink-0">
+            {row.kind === "condensadora" ? "Condensadora" : "Evaporadora"}
+          </Badge>
+        )}
+      </div>
+    );
+  }
+  // Cadastrada em campo sem item planejado: a descrição do técnico é o nome.
+  if (row.equipmentId) {
+    return (
+      <div className="min-w-0">
+        <p className="truncate font-medium">
+          {row.description || "Cadastrado em campo"}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          Sem item planejado
+        </p>
+      </div>
+    );
+  }
+  return <span className="text-muted-foreground">Etiqueta livre</span>;
 }
 
 function LocationCell({

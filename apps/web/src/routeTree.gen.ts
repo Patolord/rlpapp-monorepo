@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as ComprasRouteRouteImport } from './routes/compras/route'
+import { Route as ContaRouteRouteImport } from './routes/conta/route'
 import { Route as EngenhariaRouteRouteImport } from './routes/engenharia/route'
 import { Route as EstoqueRouteRouteImport } from './routes/estoque/route'
 import { Route as ExcluirContaRouteImport } from './routes/excluir-conta'
@@ -27,13 +28,13 @@ import { Route as SuporteRouteImport } from './routes/suporte'
 import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './routes/[.]well-known/oauth-authorization-server'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as ComprasIndexRouteImport } from './routes/compras/index'
+import { Route as ContaAgentesRouteImport } from './routes/conta/agentes'
 import { Route as EngenhariaIndexRouteImport } from './routes/engenharia/index'
 import { Route as EngenhariaContratosRouteImport } from './routes/engenharia/contratos'
 import { Route as EngenhariaMedicoesRouteImport } from './routes/engenharia/medicoes'
 import { Route as EngenhariaObrasRouteRouteImport } from './routes/engenharia/obras/route'
 import { Route as EngenhariaPoliticaPrivacidadeRouteImport } from './routes/engenharia/politica-privacidade'
 import { Route as EngenhariaQrCodesRouteImport } from './routes/engenharia/qr-codes'
-import { Route as EngenhariaRegistroDeCampoRouteImport } from './routes/engenharia/registro-de-campo'
 import { Route as EngenhariaRelatoriosRouteRouteImport } from './routes/engenharia/relatorios/route'
 import { Route as EngenhariaUsuariosRouteImport } from './routes/engenharia/usuarios'
 import { Route as EstoqueIndexRouteImport } from './routes/estoque/index'
@@ -109,6 +110,11 @@ const AppRouteRoute = AppRouteRouteImport.update({
 const ComprasRouteRoute = ComprasRouteRouteImport.update({
   id: '/compras',
   path: '/compras',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContaRouteRoute = ContaRouteRouteImport.update({
+  id: '/conta',
+  path: '/conta',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EngenhariaRouteRoute = EngenhariaRouteRouteImport.update({
@@ -187,6 +193,11 @@ const ComprasIndexRoute = ComprasIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ComprasRouteRoute,
 } as any)
+const ContaAgentesRoute = ContaAgentesRouteImport.update({
+  id: '/agentes',
+  path: '/agentes',
+  getParentRoute: () => ContaRouteRoute,
+} as any)
 const EngenhariaIndexRoute = EngenhariaIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -218,12 +229,6 @@ const EngenhariaQrCodesRoute = EngenhariaQrCodesRouteImport.update({
   path: '/qr-codes',
   getParentRoute: () => EngenhariaRouteRoute,
 } as any)
-const EngenhariaRegistroDeCampoRoute =
-  EngenhariaRegistroDeCampoRouteImport.update({
-    id: '/registro-de-campo',
-    path: '/registro-de-campo',
-    getParentRoute: () => EngenhariaRouteRoute,
-  } as any)
 const EngenhariaRelatoriosRouteRoute =
   EngenhariaRelatoriosRouteRouteImport.update({
     id: '/relatorios',
@@ -569,6 +574,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteRouteWithChildren
   '/compras': typeof ComprasRouteRouteWithChildren
+  '/conta': typeof ContaRouteRouteWithChildren
   '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/estoque': typeof EstoqueRouteRouteWithChildren
   '/rh': typeof RhRouteRouteWithChildren
@@ -585,11 +591,11 @@ export interface FileRoutesByFullPath {
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
   '/rh/ponto': typeof RhPontoRouteRouteWithChildren
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/conta/agentes': typeof ContaAgentesRoute
   '/engenharia/contratos': typeof EngenhariaContratosRoute
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
   '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
-  '/engenharia/registro-de-campo': typeof EngenhariaRegistroDeCampoRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
@@ -655,6 +661,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/conta': typeof ContaRouteRouteWithChildren
   '/excluir-conta': typeof ExcluirContaRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
@@ -665,11 +672,11 @@ export interface FileRoutesByTo {
   '/sign-up': typeof SignUpRoute
   '/suporte': typeof SuporteRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/conta/agentes': typeof ContaAgentesRoute
   '/engenharia/contratos': typeof EngenhariaContratosRoute
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
   '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
-  '/engenharia/registro-de-campo': typeof EngenhariaRegistroDeCampoRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
@@ -735,6 +742,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRouteRouteWithChildren
   '/compras': typeof ComprasRouteRouteWithChildren
+  '/conta': typeof ContaRouteRouteWithChildren
   '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/estoque': typeof EstoqueRouteRouteWithChildren
   '/rh': typeof RhRouteRouteWithChildren
@@ -751,11 +759,11 @@ export interface FileRoutesById {
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
   '/rh/ponto': typeof RhPontoRouteRouteWithChildren
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/conta/agentes': typeof ContaAgentesRoute
   '/engenharia/contratos': typeof EngenhariaContratosRoute
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
   '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
   '/engenharia/qr-codes': typeof EngenhariaQrCodesRoute
-  '/engenharia/registro-de-campo': typeof EngenhariaRegistroDeCampoRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
@@ -825,6 +833,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/compras'
+    | '/conta'
     | '/engenharia'
     | '/estoque'
     | '/rh'
@@ -841,11 +850,11 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios'
     | '/rh/ponto'
     | '/.well-known/oauth-authorization-server'
+    | '/conta/agentes'
     | '/engenharia/contratos'
     | '/engenharia/medicoes'
     | '/engenharia/politica-privacidade'
     | '/engenharia/qr-codes'
-    | '/engenharia/registro-de-campo'
     | '/engenharia/usuarios'
     | '/estoque/movimentacao'
     | '/portal/$projectId'
@@ -911,6 +920,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/conta'
     | '/excluir-conta'
     | '/login'
     | '/mcp'
@@ -921,11 +931,11 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/suporte'
     | '/.well-known/oauth-authorization-server'
+    | '/conta/agentes'
     | '/engenharia/contratos'
     | '/engenharia/medicoes'
     | '/engenharia/politica-privacidade'
     | '/engenharia/qr-codes'
-    | '/engenharia/registro-de-campo'
     | '/engenharia/usuarios'
     | '/estoque/movimentacao'
     | '/portal/$projectId'
@@ -990,6 +1000,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/compras'
+    | '/conta'
     | '/engenharia'
     | '/estoque'
     | '/rh'
@@ -1006,11 +1017,11 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios'
     | '/rh/ponto'
     | '/.well-known/oauth-authorization-server'
+    | '/conta/agentes'
     | '/engenharia/contratos'
     | '/engenharia/medicoes'
     | '/engenharia/politica-privacidade'
     | '/engenharia/qr-codes'
-    | '/engenharia/registro-de-campo'
     | '/engenharia/usuarios'
     | '/estoque/movimentacao'
     | '/portal/$projectId'
@@ -1079,6 +1090,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRouteRoute: typeof AppRouteRouteWithChildren
   ComprasRouteRoute: typeof ComprasRouteRouteWithChildren
+  ContaRouteRoute: typeof ContaRouteRouteWithChildren
   EngenhariaRouteRoute: typeof EngenhariaRouteRouteWithChildren
   EstoqueRouteRoute: typeof EstoqueRouteRouteWithChildren
   RhRouteRoute: typeof RhRouteRouteWithChildren
@@ -1124,6 +1136,13 @@ declare module '@tanstack/react-router' {
       path: '/compras'
       fullPath: '/compras'
       preLoaderRoute: typeof ComprasRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/conta': {
+      id: '/conta'
+      path: '/conta'
+      fullPath: '/conta'
+      preLoaderRoute: typeof ContaRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/engenharia': {
@@ -1231,6 +1250,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ComprasIndexRouteImport
       parentRoute: typeof ComprasRouteRoute
     }
+    '/conta/agentes': {
+      id: '/conta/agentes'
+      path: '/agentes'
+      fullPath: '/conta/agentes'
+      preLoaderRoute: typeof ContaAgentesRouteImport
+      parentRoute: typeof ContaRouteRoute
+    }
     '/engenharia/': {
       id: '/engenharia/'
       path: '/'
@@ -1271,13 +1297,6 @@ declare module '@tanstack/react-router' {
       path: '/qr-codes'
       fullPath: '/engenharia/qr-codes'
       preLoaderRoute: typeof EngenhariaQrCodesRouteImport
-      parentRoute: typeof EngenhariaRouteRoute
-    }
-    '/engenharia/registro-de-campo': {
-      id: '/engenharia/registro-de-campo'
-      path: '/registro-de-campo'
-      fullPath: '/engenharia/registro-de-campo'
-      preLoaderRoute: typeof EngenhariaRegistroDeCampoRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
     '/engenharia/relatorios': {
@@ -1744,6 +1763,18 @@ const ComprasRouteRouteWithChildren = ComprasRouteRoute._addFileChildren(
   ComprasRouteRouteChildren,
 )
 
+interface ContaRouteRouteChildren {
+  ContaAgentesRoute: typeof ContaAgentesRoute
+}
+
+const ContaRouteRouteChildren: ContaRouteRouteChildren = {
+  ContaAgentesRoute: ContaAgentesRoute,
+}
+
+const ContaRouteRouteWithChildren = ContaRouteRoute._addFileChildren(
+  ContaRouteRouteChildren,
+)
+
 interface EngenhariaObrasObraSlugRouteChildren {
   EngenhariaObrasObraSlugAssistenteRoute: typeof EngenhariaObrasObraSlugAssistenteRoute
   EngenhariaObrasObraSlugComprasRoute: typeof EngenhariaObrasObraSlugComprasRoute
@@ -1856,7 +1887,6 @@ interface EngenhariaRouteRouteChildren {
   EngenhariaMedicoesRoute: typeof EngenhariaMedicoesRoute
   EngenhariaPoliticaPrivacidadeRoute: typeof EngenhariaPoliticaPrivacidadeRoute
   EngenhariaQrCodesRoute: typeof EngenhariaQrCodesRoute
-  EngenhariaRegistroDeCampoRoute: typeof EngenhariaRegistroDeCampoRoute
   EngenhariaUsuariosRoute: typeof EngenhariaUsuariosRoute
   EngenhariaIndexRoute: typeof EngenhariaIndexRoute
   EngenhariaEquipamentoIdRoute: typeof EngenhariaEquipamentoIdRoute
@@ -1872,7 +1902,6 @@ const EngenhariaRouteRouteChildren: EngenhariaRouteRouteChildren = {
   EngenhariaMedicoesRoute: EngenhariaMedicoesRoute,
   EngenhariaPoliticaPrivacidadeRoute: EngenhariaPoliticaPrivacidadeRoute,
   EngenhariaQrCodesRoute: EngenhariaQrCodesRoute,
-  EngenhariaRegistroDeCampoRoute: EngenhariaRegistroDeCampoRoute,
   EngenhariaUsuariosRoute: EngenhariaUsuariosRoute,
   EngenhariaIndexRoute: EngenhariaIndexRoute,
   EngenhariaEquipamentoIdRoute: EngenhariaEquipamentoIdRoute,
@@ -1968,6 +1997,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRouteRoute: AppRouteRouteWithChildren,
   ComprasRouteRoute: ComprasRouteRouteWithChildren,
+  ContaRouteRoute: ContaRouteRouteWithChildren,
   EngenhariaRouteRoute: EngenhariaRouteRouteWithChildren,
   EstoqueRouteRoute: EstoqueRouteRouteWithChildren,
   RhRouteRoute: RhRouteRouteWithChildren,

@@ -175,6 +175,7 @@ describe("takeoffCatalog.list", () => {
     expect(grelha).toMatchObject({
       sku: "MAT-000101",
       name: "Grelha de Insuflamento",
+      variant: "Anodizada 200x200mm",
       description: "Grelha de Insuflamento — Anodizada 200x200mm — com registro",
       group: "Diversos",
       unit: "pç",
@@ -196,6 +197,7 @@ describe("takeoffCatalog.list", () => {
     expect(cobre).toMatchObject({
       sku: "MAT-000102",
       name: "Tubo de Cobre",
+      variant: null,
       description: "Tubo de Cobre",
       group: "Ar Condicionado",
       unit: "m",
@@ -260,6 +262,7 @@ describe("GET /takeoff/catalog", () => {
       "Tubo de Cobre",
     ]);
     expect(body.items[0]).toMatchObject({
+      variant: "Anodizada 200x200mm",
       unit: "pç",
       materialPrice: 123.45,
       priceDate: NOW - 5 * DAY,
@@ -283,6 +286,7 @@ describe("GET /takeoff/catalog", () => {
       "status",
       "system",
       "unit",
+      "variant",
     ]);
   });
 });

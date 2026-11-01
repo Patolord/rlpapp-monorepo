@@ -1,0 +1,51 @@
+{
+  "name": "takeoff",
+  "private": true,
+  "version": "0.6.3",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "lint": "biome check src scripts",
+    "format": "biome format --write src scripts",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "inspect": "tsx scripts/inspect-pdf.ts",
+    "release": "node scripts/release.mjs",
+    "bench": "tsx scripts/bench-vectors.ts"
+  },
+  "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2.8.3",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.14.0",
+    "clsx": "^2.1.1",
+    "exceljs": "4.4.0",
+    "lucide-react": "^1.61.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.4.299",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.2",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2",
+    "@types/node": "^26.6.5",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.21.0",
+    "typescript": "catalog:",
+    "vite": "^8.0.16",
+    "vitest": "^5.0.5"
+  }
+}

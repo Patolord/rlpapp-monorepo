@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { departments, userRoles } from "./schema";
 import { adminMutation, staffQuery } from "./lib/rbac";
+import { enforceAgentTokenPolicy } from "./lib/agentTokens";
 
 /** Remove campos undefined — padrão dos updates parciais (ctx.db.patch). */
 function filterDefined<T extends object>(fields: T): Partial<T> {
@@ -31,6 +32,7 @@ export const getCurrentUser = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
+    await enforceAgentTokenPolicy(ctx, identity);
 
     const byClerkId = await ctx.db
       .query("users")
@@ -58,6 +60,7 @@ export const ensureUser = mutation({
     if (!identity) {
       throw new Error("Not authenticated");
     }
+    await enforceAgentTokenPolicy(ctx, identity);
     const clerkId = identity.subject;
     // No JWT template "convex" do Clerk, nickname = username
     const username = identity.nickname ?? identity.preferredUsername;

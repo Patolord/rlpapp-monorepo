@@ -24,10 +24,24 @@ import { cn } from "@/lib/utils";
 
 import {
   createMaterialsColumns,
+  MaterialLatestPrice,
+  MaterialStatusBadge,
+  MaterialSuppliersSummary,
   type MaterialsColumnHandlers,
 } from "./columns";
 
 const ALL_CATEGORIES = "__all__";
+const ALL_STATUSES = "__all__";
+
+/** "" = todos os status. */
+export type MaterialStatusFilter = "" | "active" | "draft" | "archived";
+
+const STATUS_OPTIONS: { value: MaterialStatusFilter; label: string }[] = [
+  { value: "active", label: "Ativos" },
+  { value: "draft", label: "Rascunhos" },
+  { value: "archived", label: "Arquivados" },
+  { value: "", label: "Todos os status" },
+];
 
 export type MaterialsCatalogStatus =
   | "LoadingFirstPage"
@@ -43,8 +57,8 @@ type MaterialsDataTableProps = MaterialsColumnHandlers & {
   category: string;
   onCategoryChange: (value: string) => void;
   categories: string[];
-  activeOnly: boolean;
-  onActiveOnlyChange: (value: boolean) => void;
+  statusFilter: MaterialStatusFilter;
+  onStatusFilterChange: (value: MaterialStatusFilter) => void;
   onLoadMore: () => void;
   onCreate: () => void;
   hasActiveFilters: boolean;
@@ -58,8 +72,8 @@ export function MaterialsDataTable({
   category,
   onCategoryChange,
   categories,
-  activeOnly,
-  onActiveOnlyChange,
+  statusFilter,
+  onStatusFilterChange,
   onLoadMore,
   onCreate,
   hasActiveFilters,
@@ -98,7 +112,7 @@ export function MaterialsDataTable({
       empty={
         <EmptyState
           hasActiveFilters={hasActiveFilters}
-          activeOnly={activeOnly}
+          statusFilter={statusFilter}
           onCreate={onCreate}
         />
       }
@@ -122,7 +136,10 @@ export function MaterialsDataTable({
                 onCategoryChange(value === ALL_CATEGORIES ? "" : value)
               }
             >
-              <SelectTrigger className="h-10 w-full bg-white sm:w-56">
+              <SelectTrigger
+                className="h-10 w-full bg-white sm:w-52"
+                aria-label="Categoria"
+              >
                 <SelectValue placeholder="Categoria" />
               </SelectTrigger>
               <SelectContent>
@@ -136,38 +153,46 @@ export function MaterialsDataTable({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="inline-flex rounded-md border bg-white p-0.5">
-              <Button
-                type="button"
-                size="sm"
-                variant={!activeOnly ? "secondary" : "ghost"}
-                className="h-8"
-                onClick={() => onActiveOnlyChange(false)}
+            <Select
+              value={statusFilter || ALL_STATUSES}
+              onValueChange={(value) =>
+                onStatusFilterChange(
+                  value === ALL_STATUSES ? "" : (value as MaterialStatusFilter)
+                )
+              }
+            >
+              <SelectTrigger
+                className="h-10 w-full bg-white sm:w-44"
+                aria-label="Status"
               >
-                Todos
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={activeOnly ? "secondary" : "ghost"}
-                className="h-8"
-                onClick={() => onActiveOnlyChange(true)}
-              >
-                Ativos
-              </Button>
-            </div>
-            {!isLoading && !isEmpty ? (
-              <p className="text-xs text-muted-foreground tabular-nums">
-                {data.length} nesta página
-              </p>
-            ) : null}
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((option) => (
+                  <SelectItem
+                    key={option.value || ALL_STATUSES}
+                    value={option.value || ALL_STATUSES}
+                  >
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+          {!isLoading && !isEmpty ? (
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {data.length} nesta página
+            </p>
+          ) : null}
         </div>
       }
       footer={<DataTableLoadMore status={status} onLoadMore={onLoadMore} />}
-      rowClassName={(row) => urgencyRailClass(row.centralReplenishmentState)}
+      rowClassName={(row) =>
+        cn(
+          urgencyRailClass(row.centralReplenishmentState),
+          !row.active && "text-muted-foreground"
+        )
+      }
       mobileRow={(material) => {
         const title = formatMaterialTitle(material.name, material.variantLabel);
         return (
@@ -185,29 +210,33 @@ export function MaterialsDataTable({
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-medium">{title}</p>
+                  <p className="flex flex-wrap items-center gap-2 font-medium">
+                    {title}
+                    <MaterialStatusBadge material={material} />
+                  </p>
                   <p className="mt-1 font-mono text-[11px] tracking-wide text-muted-foreground tabular-nums">
                     {material.sku ?? "Sem SKU"}
                   </p>
                 </div>
-                <span
-                  className={
-                    material.active
-                      ? "text-xs text-muted-foreground"
-                      : "text-xs text-muted-foreground/70"
-                  }
-                >
-                  {material.active ? "Ativo" : "Inativo"}
-                </span>
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                <span>{material.category ?? "Sem categoria"}</span>
-                <span>{material.unit ?? "—"}</span>
                 <MaterialReplenishmentBadge
                   tone="quiet"
                   state={material.centralReplenishmentState}
                   quantity={material.centralQuantity}
                 />
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Fornecedor</p>
+                  <MaterialSuppliersSummary material={material} />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Último preço</p>
+                  <MaterialLatestPrice material={material} />
+                </div>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                <span>{material.category ?? "Sem categoria"}</span>
+                <span>{material.unit ?? "—"}</span>
               </div>
             </button>
           </div>
@@ -219,11 +248,11 @@ export function MaterialsDataTable({
 
 function EmptyState({
   hasActiveFilters,
-  activeOnly,
+  statusFilter,
   onCreate,
 }: {
   hasActiveFilters: boolean;
-  activeOnly: boolean;
+  statusFilter: MaterialStatusFilter;
   onCreate: () => void;
 }) {
   if (hasActiveFilters) {
@@ -232,21 +261,28 @@ function EmptyState({
         <Search className="size-8 text-muted-foreground/50" />
         <p className="font-medium">Nenhum material encontrado</p>
         <p className="max-w-sm text-sm text-muted-foreground">
-          Ajuste a busca, a categoria ou limpe os filtros para ver outros itens.
+          Ajuste a busca, a categoria ou o status para ver outros itens.
         </p>
       </div>
     );
   }
 
+  const label =
+    statusFilter === "active"
+      ? "Nenhum material ativo"
+      : statusFilter === "draft"
+        ? "Nenhum rascunho"
+        : statusFilter === "archived"
+          ? "Nenhum material arquivado"
+          : "Catálogo vazio";
+
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
       <Package className="size-8 text-muted-foreground/50" />
-      <p className="font-medium">
-        {activeOnly ? "Nenhum material ativo" : "Catálogo vazio"}
-      </p>
+      <p className="font-medium">{label}</p>
       <p className="max-w-sm text-sm text-muted-foreground">
-        {activeOnly
-          ? "Mostre todos os materiais ou cadastre um novo item."
+        {statusFilter
+          ? "Mude o filtro de status ou cadastre um novo item."
           : "Cadastre o primeiro material ou use Importar CSV no topo da página."}
       </p>
       <Button className="mt-2" onClick={onCreate}>

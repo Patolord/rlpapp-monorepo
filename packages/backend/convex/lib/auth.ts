@@ -1,11 +1,15 @@
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { enforceAgentTokenPolicy } from "./agentTokens";
 
 export async function requireAuth(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
     throw new Error("Not authenticated");
   }
+  // No-op para sessões do Clerk; rejeita tokens de agente revogados e tokens
+  // somente-leitura em mutations (lib/agentTokens.ts).
+  await enforceAgentTokenPolicy(ctx, identity);
   return identity;
 }
 

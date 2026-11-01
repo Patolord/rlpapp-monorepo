@@ -10,6 +10,7 @@ Monorepo com [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-
 - **TanStack Start** — app web com SSR e TanStack Router
 - **Expo / React Native** — app mobile
 - **Next.js** — landing page institucional
+- **Tauri 2 (Rust) + React** — app desktop de takeoff e orçamento a partir de PDF (Windows e macOS)
 - **TailwindCSS + shadcn/ui** — UI
 - **Convex** — backend reativo (banco de dados + funções serverless + crons)
 - **Clerk** — autenticação (sync via webhook para a tabela `users` do Convex)
@@ -22,6 +23,7 @@ rlpapp/
 ├── apps/
 │   ├── web/           # App web (React + TanStack Start) — porta 3001
 │   ├── native/        # App mobile (React Native + Expo)
+│   ├── takeoff/       # App desktop de takeoff (Tauri + React; ver apps/takeoff/README.md)
 │   └── landing-page/  # Site institucional (Next.js)
 ├── packages/
 │   ├── backend/       # Backend Convex (schema, funções, crons, webhook Clerk)
@@ -107,17 +109,81 @@ pnpm run dev
 - `pnpm run dev` — todos os apps em modo dev
 - `pnpm run dev:web` — apenas o web
 - `pnpm run dev:native` — apenas o mobile (Expo)
+- `pnpm run dev:takeoff` — app desktop de takeoff numa janela nativa (precisa de Rust; ver `apps/takeoff/README.md`)
 - `pnpm run dev:server` — apenas o backend Convex
 - `pnpm run dev:setup` — configura o projeto Convex
 - `pnpm run build` — build de todos os apps
 - `pnpm run lint` — ESLint em todos os pacotes
 - `pnpm run check-types` — typecheck (`tsc --noEmit`) em todos os pacotes
 
-## MCP (engenharia, somente leitura)
+## API HTTP para agentes (`/api/v1`)
 
-O app web expõe um servidor MCP **2026-07-28** em `/mcp` (stateless, com fallback para clientes Streamable HTTP de 2025). O endpoint exige OAuth do Clerk com o scope `rlp:engineering:read`. O token OAuth **não** é enviado ao Convex: a rota verifica o token, emite um JWT de delegação RS256 de curta duração (`aud: convex`, `sub` = Clerk user ID) e as queries de engenharia existentes continuam sendo a fonte de verdade do RBAC.
+Qualquer função pública do backend pode ser chamada por HTTP, direto no deployment Convex, com um token de agente (`rlp_…`, criado em **Minha conta → Agentes**):
 
-Ferramentas: `list_projects`, `resolve_project`, `get_project_overview`, `get_project_hierarchy`, `get_equipment`, `get_project_report`.
+```bash
+API=https://<deployment>.convex.site/api/v1
+curl "$API/functions?search=supplier" -H "Authorization: Bearer rlp_…"
+curl "$API/query" -H "Authorization: Bearer rlp_…" -H "Content-Type: application/json" \
+  -d '{"path":"suppliers:list","args":{}}'
+curl "$API/mutation" -H "Authorization: Bearer rlp_…" -H "Content-Type: application/json" \
+  -d '{"path":"customers:create","args":{"name":"Cliente"}}'
+```
+
+O gateway (`packages/backend/convex/gateway/v1.ts`) confere o token, valida caminho, tipo, acesso e argumentos pelo catálogo de funções e executa a chamada em nome do dono com um JWT ES256 curto assinado pelo próprio deployment. Tokens `read_only` só executam queries; `agentTokens:*` nunca é exposto. Não envolve o Vercel: a única configuração é a chave de assinatura no Convex:
+
+```bash
+cd packages/backend
+node scripts/generate-api-signing-key.mjs
+npx convex env set --prod API_JWT_PRIVATE_KEY '<jwk impresso>'
+npx convex deploy
+```
+
+Contrato completo (endpoints, erros, descoberta de funções, exemplo para agentes) em [`docs/API.md`](docs/API.md).
+
+## MCP (agentes de IA)
+
+O app web expõe um servidor MCP **2026-07-28** em `/mcp` (Streamable HTTP, stateless, com fallback para clientes de 2025). Claude Code, Claude Desktop, Cursor ou qualquer cliente MCP se conectam a ele de duas formas:
+
+1. **Token de agente (recomendado).** Cada usuário interno cria os seus em **Minha conta → Agentes (MCP)** (`/conta/agentes`) e configura o cliente com `Authorization: Bearer rlp_…`. O token age em nome do dono, com a mesma role e o mesmo departamento, e pode ser `read_only` (só consultas) ou `full_access` (também grava). Revogar vale na hora.
+2. **OAuth do Clerk** com o scope `rlp:engineering:read` (fluxo original; ver "Clerk: scope e clientes OAuth"). Conexões OAuth são sempre somente-leitura: só existe o escopo de leitura.
+
+Tokens não gerenciam tokens: criar, renomear e revogar exigem uma sessão humana no app (um token vazado não consegue se perpetuar criando outro). A verificação no Convex tem timeout de 5 s; se o backend não responder, o `/mcp` devolve 503 em vez de 401.
+
+Em ambos os casos a credencial **não** vai para o Convex: a rota verifica o bearer, emite um JWT de delegação RS256 curto (`aud: convex`, `sub` = Clerk user ID; com token de agente, também as claims `agent_token.id` / `agent_token.permission`) e as funções existentes continuam sendo a fonte de verdade do RBAC. `lib/agentTokens.ts` (backend) rejeita centralmente tokens revogados e tokens somente-leitura em mutations.
+
+### Ferramentas
+
+- **6 ferramentas de engenharia embutidas** (`list_projects`, `resolve_project`, `get_project_overview`, `get_project_hierarchy`, `get_equipment`, `get_project_report`), que removem tokens de QR e ids de storage da resposta.
+- **~185 ferramentas curadas** geradas a partir do catálogo de funções (`apps/web/src/lib/mcp/manifest.ts`): obras, torres/andares/ambientes/sistemas, unidades, equipamentos planejados, checklists, clientes, empreiteiros, contratos, medições, documentos, materiais (incluindo duplicatas e merge), fornecedores, preços, takeoffs, estoque (movimentos, políticas de estoque, regras), requisições, funcionários, folha (linhas, fechamento, empréstimos), ponto e os próprios tokens. O schema de entrada de cada uma vem do validador real da função Convex (`exportArgs()`), servido por `mcpCatalog.list`; só aparecem as funções que o usuário pode chamar, e tokens `read_only` só veem queries.
+- `whoami`, `search_functions` (busca em todas as funções públicas) e, com `MCP_ALLOW_RAW_CALLS=1` no app web, `call_function` (qualquer função pública por nome, com validação de argumentos).
+- Cada chamada feita com token de agente fica registrada em `agentTokenCalls` e aparece em "Atividade recente" na página Agentes (30 dias de retenção).
+
+O catálogo (`packages/backend/convex/mcp/catalog.generated.ts`) é gerado por `pnpm --filter @rlpapp/backend generate:catalog` — roda automaticamente antes de `convex dev` e o `check-types` do backend falha se estiver desatualizado. Para criar o primeiro token sem passar pelo app:
+
+```bash
+cd packages/backend
+npx convex run agentTokens:createForUser '{"login":"voce@rlpeng.com.br","name":"CLI","permission":"full_access"}'
+```
+
+### Cliente
+
+```bash
+claude mcp add --transport http rlp https://app.rlpeng.com.br/mcp \
+  --header "Authorization: Bearer rlp_…"
+```
+
+```json
+{
+  "mcpServers": {
+    "rlp": {
+      "url": "https://app.rlpeng.com.br/mcp",
+      "headers": { "Authorization": "Bearer rlp_…" }
+    }
+  }
+}
+```
+
+Em desenvolvimento a URL é `http://localhost:3001/mcp`. A página Agentes mostra estes trechos já preenchidos ao criar um token.
 
 ### 1. Gerar o par de chaves de delegação
 
@@ -148,6 +214,8 @@ console.log(dataUri);
 | `MCP_JWT_PRIVATE_KEY` | PKCS#8 PEM; no Vercel use `\n` escapado (saída do `JSON.stringify` acima) |
 | `MCP_JWT_KEY_ID` | `mcp-delegation` (opcional) |
 | `MCP_ALLOWED_HOSTS` | `app.rlpeng.com.br,localhost:3001` |
+| `VITE_CONVEX_SITE_URL` | opcional; `https://<deployment>.convex.site`, onde fica `POST /agent-tokens/verify`. Derivada de `VITE_CONVEX_URL` quando ausente |
+| `MCP_ALLOW_RAW_CALLS` | opcional; `1` expõe `call_function` |
 | `VITE_CONVEX_URL` | URL do deployment Convex |
 | `VITE_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` | já usadas pelo app |
 
@@ -160,9 +228,9 @@ A rota recusa `Host` fora da allow-list. Clientes MCP costumam omitir `Origin`; 
 | `MCP_JWT_ISSUER` | o mesmo `iss` da etapa 2 |
 | `MCP_JWT_JWKS` | data URI gerada na etapa 1 |
 
-O provider JWT customizado só é registrado quando as duas variáveis existem. `applicationID` / `aud` permanece `convex`.
+O provider JWT customizado só é registrado quando as duas variáveis existem. `applicationID` / `aud` permanece `convex`. Tokens de agente não precisam de nada além disso: a verificação (`/agent-tokens/verify`) compara apenas o SHA-256 guardado em `agentTokens`.
 
-### 4. Clerk: scope e clientes OAuth
+### 4. Clerk: scope e clientes OAuth (só para o fluxo OAuth)
 
 1. No Clerk Dashboard, crie o scope customizado `rlp:engineering:read` e marque-o como necessário no consentimento do MCP.
 2. **Não habilite Dynamic Client Registration irrestrito.**
@@ -175,13 +243,13 @@ Discovery:
 - Recurso: `/.well-known/oauth-protected-resource/mcp`
 - Authorization server: `/.well-known/oauth-authorization-server` (metadados do Clerk)
 
-### 5. Cliente (Cursor)
-
-URL do servidor: `https://<host>/mcp` (em dev, `http://localhost:3001/mcp`). O cliente deve pedir o scope `rlp:engineering:read` além de `openid` / `profile` / `email`.
-
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) roda lint + typecheck em todos os pushes para `main` e em PRs.
+GitHub Actions (`.github/workflows/ci.yml`) roda lint, typecheck e testes em PRs e em pushes para `master`, numa única invocação do Turbo (`turbo run lint check-types test`), com o cache do Turbo (`.turbo/cache`) guardado entre runs via `actions/cache`. Um pacote que não mudou desde a última run (do `master` ou da própria branch) tem suas tarefas reaproveitadas em vez de re-executadas; uma mudança só em páginas do `apps/web` re-executa apenas as tarefas do `web`.
+
+As runs no `master` são as que alimentam os caches das PRs (pnpm store e Turbo), por isso não são canceladas por `concurrency`.
+
+O app desktop (`apps/takeoff`) tem mais dois workflows: `takeoff-rust.yml` (`cargo fmt` e `clippy`, só quando `apps/takeoff/src-tauri` muda) e `takeoff-release.yml` (instaladores Windows/macOS assinados, publicados em `Patolord/takeoff-releases` a cada tag `takeoff-vX.Y.Z`).
 
 ## Deploy
 
@@ -189,3 +257,4 @@ GitHub Actions (`.github/workflows/ci.yml`) roda lint + typecheck em todos os pu
 - **Web:** build com `pnpm run build` (saída do TanStack Start) — requer as env vars `VITE_*` no ambiente de build.
 - **Landing page:** Next.js (`apps/landing-page`).
 - **Mobile:** Expo (EAS config pendente — ver roadmap Sprint 4).
+- **Desktop (takeoff):** `pnpm release X.Y.Z` em `apps/takeoff` e push da tag `takeoff-vX.Y.Z`; os apps instalados se atualizam sozinhos.

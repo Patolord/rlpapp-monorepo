@@ -6,20 +6,15 @@ import {
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
 import { materialDimensions, takeoffItemStatus, takeoffStatus } from "./schema";
-import {
-  allocateNextSku,
-  buildMaterialIdentityKey,
-  buildMaterialSearchText,
-  deriveVariantLabel,
-  findMaterialByIdentity,
-  normalizeUnit,
-  sanitizeDimensions,
-} from "./lib/compras/catalog";
+import { sanitizeDimensions } from "./lib/compras/catalog";
 import {
   normalizeText,
   priceFreshness,
   suggestedUnitPriceCents,
 } from "./lib/compras/procurement";
+import { promoteTakeoffItem } from "./model/procurement/takeoffPromotion";
+import { isUsablePriceEvent } from "./model/procurement/priceSelection";
+import { computePriceChange } from "./model/procurement/priceHistory";
 
 export const takeoffValidator = v.object({
   _id: v.id("takeoffs"),
@@ -69,7 +64,72 @@ export const takeoffItemValidator = v.object({
       suggestedUnitPriceCents: v.union(v.number(), v.null()),
     })
   ),
+  /** Cotações registradas para este item, mais recente primeiro. */
+  quotes: v.array(
+    v.object({
+      _id: v.id("priceEvents"),
+      supplierId: v.union(v.id("suppliers"), v.null()),
+      supplierName: v.string(),
+      unitPriceCents: v.number(),
+      unit: v.union(v.string(), v.null()),
+      occurredAt: v.number(),
+      validUntil: v.union(v.number(), v.null()),
+      source: v.string(),
+      /** Desvio da cotação em relação ao preço estimado do item. */
+      versusEstimate: v.union(
+        v.object({
+          deltaCents: v.number(),
+          deltaPercent: v.union(v.number(), v.null()),
+          fromCents: v.number(),
+          fromAt: v.number(),
+        }),
+        v.null()
+      ),
+    })
+  ),
 });
+
+async function resolveItemQuotes(
+  ctx: { db: import("./_generated/server").QueryCtx["db"] },
+  item: {
+    _id: import("./_generated/dataModel").Id<"takeoffItems">;
+    estimatedUnitPriceCents?: number;
+    updatedAt?: number;
+    createdAt: number;
+  }
+) {
+  const events = await ctx.db
+    .query("priceEvents")
+    .withIndex("by_takeoff_item", (q) => q.eq("takeoffItemId", item._id))
+    .collect();
+  const out = [];
+  for (const event of events) {
+    if (!isUsablePriceEvent(event)) continue;
+    let supplierName = event.supplierNameRaw ?? "Fornecedor";
+    if (event.supplierId) {
+      const supplier = await ctx.db.get("suppliers", event.supplierId);
+      if (supplier) supplierName = supplier.name;
+    }
+    out.push({
+      _id: event._id,
+      supplierId: event.supplierId ?? null,
+      supplierName,
+      unitPriceCents: event.unitPriceCents,
+      unit: event.unit ?? null,
+      occurredAt: event.occurredAt,
+      validUntil: event.validUntil ?? null,
+      source: event.source,
+      versusEstimate:
+        item.estimatedUnitPriceCents !== undefined
+          ? computePriceChange(event, {
+              unitPriceCents: item.estimatedUnitPriceCents,
+              occurredAt: item.updatedAt ?? item.createdAt,
+            })
+          : null,
+    });
+  }
+  return out.sort((a, b) => b.occurredAt - a.occurredAt);
+}
 
 async function resolveLatestPrices(
   ctx: { db: import("./_generated/server").QueryCtx["db"] },
@@ -229,11 +289,14 @@ export const get = engineeringOrPurchasingQuery({
         const material = await ctx.db.get("materials", item.materialId);
         materialName = material?.name ?? null;
       }
-      const latestPrices = await resolveLatestPrices(ctx, {
-        materialId: item.materialId,
-        rawDescription: item.rawDescription,
-        now: args.now,
-      });
+      const [latestPrices, quotes] = await Promise.all([
+        resolveLatestPrices(ctx, {
+          materialId: item.materialId,
+          rawDescription: item.rawDescription,
+          now: args.now,
+        }),
+        resolveItemQuotes(ctx, item),
+      ]);
       itemsOut.push({
         _id: item._id,
         _creationTime: item._creationTime,
@@ -253,6 +316,7 @@ export const get = engineeringOrPurchasingQuery({
         updatedAt: item.updatedAt ?? null,
         warnings: itemWarnings(item),
         latestPrices,
+        quotes,
       });
     }
 
@@ -419,91 +483,11 @@ export const promoteItemToMaterial = purchasingMutation({
       return { materialId: item.materialId, created: false };
     }
 
-    const familyName = (args.familyName ?? item.rawDescription).trim();
-    if (!familyName) throw new Error("Informe o nome da família");
-    const nameNormalized = normalizeText(familyName);
-    let family = await ctx.db
-      .query("materialFamilies")
-      .withIndex("by_name_normalized", (q) =>
-        q.eq("nameNormalized", nameNormalized)
-      )
-      .first();
-    const now = Date.now();
-    if (!family) {
-      const familyId = await ctx.db.insert("materialFamilies", {
-        name: familyName,
-        nameNormalized,
-        category: args.category?.trim() || undefined,
-        baseUnit: normalizeUnit(item.unit),
-        active: true,
-        createdAt: now,
-        updatedAt: now,
-      });
-      family = await ctx.db.get("materialFamilies", familyId);
-    }
-    if (!family) throw new Error("Falha ao criar família de material");
-
-    const dimensions = sanitizeDimensions(item.customDimensions);
-    const variantLabel = deriveVariantLabel({
-      variantLabel: item.customSpecification,
-      dimensions,
+    const promoted = await promoteTakeoffItem(ctx, ctx.user, item, {
+      familyName: args.familyName,
+      category: args.category,
     });
-    const unit = normalizeUnit(item.unit);
-    const identityKey = buildMaterialIdentityKey({
-      familyId: family._id,
-      unit,
-      variantLabel,
-      dimensions,
-    });
-    const existing = await findMaterialByIdentity(ctx, {
-      identityKey,
-    });
-    if (existing) {
-      await ctx.db.patch("takeoffItems", item._id, {
-        materialId: existing._id,
-        status: "matched",
-        updatedAt: now,
-      });
-      return { materialId: existing._id, created: false };
-    }
-
-    const sku = await allocateNextSku(ctx);
-    const materialId = await ctx.db.insert("materials", {
-      name: family.name,
-      familyId: family._id,
-      variantLabel,
-      dimensions,
-      identityKey,
-      sku,
-      category: args.category?.trim() || family.category,
-      unit,
-      spec: item.customSpecification,
-      searchText: buildMaterialSearchText({
-        name: family.name,
-        variantLabel,
-        sku,
-        category: args.category?.trim() || family.category,
-        spec: item.customSpecification,
-      }),
-      trackInventory: true,
-      active: true,
-      status: "active",
-      createdAt: now,
-      updatedAt: now,
-    });
-    await ctx.db.patch("takeoffItems", item._id, {
-      materialId,
-      status: "matched",
-      updatedAt: now,
-    });
-    await ctx.db.patch("takeoffs", item.takeoffId, { updatedAt: now });
-    await logAudit(ctx, ctx.user, {
-      action: "create",
-      tableName: "materials",
-      recordId: materialId,
-      details: `Promovido do takeoff: ${family.name}`,
-    });
-    return { materialId, created: true };
+    return { materialId: promoted.materialId, created: promoted.created };
   },
 });
 

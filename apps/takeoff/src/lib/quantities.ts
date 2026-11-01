@@ -1,0 +1,521 @@
+import { compareSystems, groupKey, groupLabels, groupOf, sortItemsForBudget } from "./budgetOrder";
+import { resolveDiscipline } from "./discipline";
+import {
+  type Pt,
+  pointAlong,
+  pointInPolygon,
+  polygonArea,
+  polygonCentroid,
+  polylineLength,
+} from "./geom";
+import { drawingOf, type Item, type Measurement, type Project, type Zone } from "./types";
+import type { Kind, PageScale, Unit } from "./units";
+import { formatQty, qtyUnit } from "./units";
+
+/** Unit shown for an item: its own label (kg, gl…) or the one its kind implies. */
+export const itemUnit = (item: Item, unit: Unit): string => item.unit ?? qtyUnit(item.kind, unit);
+
+export function formatItemQty(item: Item, v: number, unit: Unit): string {
+  if (!item.unit) return formatQty(item.kind, v, unit);
+  const n = item.unit === "pç" ? Math.round(v) : Number.isInteger(v) ? v : v.toFixed(2);
+  return `${n} ${item.unit}`;
+}
+
+export const pageScale = (
+  project: Project,
+  drawingId: string | null | undefined,
+  page: number,
+): PageScale | null => drawingOf(project, drawingId)?.pages[page]?.scale ?? null;
+
+/** Quantity of one measurement in project units, or null when the page is not calibrated. */
+export function measurementQty(m: Measurement, kind: Kind, scale: PageScale | null): number | null {
+  if (kind === "count") return 1;
+  // a linear mark placed with one click (count kit) has no drawn length, only its vertical
+  if (kind === "linear" && m.points.length === 1) return 0;
+  if (!scale) return null;
+  if (kind === "linear") return polylineLength(m.points) / scale.pointsPerUnit;
+  return polygonArea(m.points) / (scale.pointsPerUnit * scale.pointsPerUnit);
+}
+
+/** The point that decides which zone a measurement belongs to. */
+export function anchorOf(kind: Kind, points: readonly Pt[]): Pt {
+  if (kind === "count" || points.length === 1) return points[0];
+  if (kind === "linear") return pointAlong(points, 0.5);
+  return polygonCentroid(points);
+}
+
+/** Smallest zone on the measurement page that contains its anchor, or null. */
+export function zoneOf(project: Project, m: Measurement, kind: Kind): Zone | null {
+  if (project.zones.length === 0) return null;
+  const a = anchorOf(kind, m.points);
+  let best: Zone | null = null;
+  let bestArea = Number.POSITIVE_INFINITY;
+  for (const z of project.zones) {
+    if (z.drawingId !== m.drawingId || z.page !== m.page || !pointInPolygon(a, z.points)) continue;
+    const area = polygonArea(z.points);
+    if (area < bestArea) {
+      best = z;
+      bestArea = area;
+    }
+  }
+  return best;
+}
+
+/** Times a measurement counts: its own repeat (identical floors) × its local's (identical apartments). */
+export function repeatOf(project: Project, m: Measurement, kind: Kind, zone?: Zone | null): number {
+  const z = zone === undefined ? zoneOf(project, m, kind) : zone;
+  return (m.repeat ?? 1) * (z?.repeat ?? 1);
+}
+
+export interface ItemTotal {
+  qty: number;
+  count: number;
+  /** Measurements that could not be quantified because their page has no scale. */
+  unscaled: number;
+}
+
+export function itemTotals(
+  project: Project,
+  include?: (m: Measurement, kind: Kind) => boolean,
+): Map<string, ItemTotal> {
+  const items = new Map(project.items.map((i) => [i.id, i]));
+  const totals = new Map<string, ItemTotal>();
+  for (const item of project.items) totals.set(item.id, { qty: 0, count: 0, unscaled: 0 });
+  for (const m of project.measurements) {
+    const item = items.get(m.itemId);
+    const t = totals.get(m.itemId);
+    if (!item || !t) continue;
+    if (item.derived) continue; // a duct network / VRF system is N cj; its runs only feed its bill
+    if (include && !include(m, item.kind)) continue;
+    const q = measurementQty(m, item.kind, pageScale(project, m.drawingId, m.page));
+    t.count++;
+    if (q === null) t.unscaled++;
+    else
+      t.qty +=
+        (q + (item.kind === "linear" ? (m.vertical ?? 0) : 0)) *
+        (item.factor ?? 1) *
+        repeatOf(project, m, item.kind);
+  }
+  // quantities entered directly (derived duct items) count when nothing filters by marking
+  if (!include) {
+    for (const item of project.items) {
+      const t = totals.get(item.id);
+      if (!t) continue;
+      if (item.manualQty) t.qty += item.manualQty;
+      if (item.kind === "linear" && item.vertical) t.qty += item.vertical * (item.factor ?? 1);
+    }
+  }
+  return totals;
+}
+
+/** Key used for measurements outside every location. */
+export const NO_LOCATION = "";
+
+/**
+ * Item totals per location id (NO_LOCATION for unassigned), every region of a location summed
+ * together whatever drawing it is on. Only keys with measurements are present.
+ */
+export const totalsByLocation = (project: Project): Map<string, Map<string, ItemTotal>> =>
+  totalsBy(project, (z) => z.locationId);
+
+/** Item totals per region (zone) id: what one polygon on one sheet holds. */
+export const totalsByRegion = (project: Project): Map<string, Map<string, ItemTotal>> =>
+  totalsBy(project, (z) => z.id);
+
+function totalsBy(
+  project: Project,
+  keyOf: (zone: Zone) => string,
+): Map<string, Map<string, ItemTotal>> {
+  const items = new Map(project.items.map((i) => [i.id, i]));
+  const out = new Map<string, Map<string, ItemTotal>>();
+  for (const m of project.measurements) {
+    const item = items.get(m.itemId);
+    if (!item || item.derived) continue;
+    const zone = zoneOf(project, m, item.kind);
+    const key = zone ? keyOf(zone) : NO_LOCATION;
+    let totals = out.get(key);
+    if (!totals) {
+      totals = new Map();
+      out.set(key, totals);
+    }
+    let t = totals.get(m.itemId);
+    if (!t) {
+      t = { qty: 0, count: 0, unscaled: 0 };
+      totals.set(m.itemId, t);
+    }
+    const q = measurementQty(m, item.kind, pageScale(project, m.drawingId, m.page));
+    t.count++;
+    if (q === null) t.unscaled++;
+    else
+      t.qty +=
+        (q + (item.kind === "linear" ? (m.vertical ?? 0) : 0)) *
+        (item.factor ?? 1) *
+        repeatOf(project, m, item.kind, zone);
+  }
+  // item-level vertical length belongs to no location
+  for (const item of project.items) {
+    if (item.kind !== "linear" || !item.vertical) continue;
+    let totals = out.get(NO_LOCATION);
+    if (!totals) {
+      totals = new Map();
+      out.set(NO_LOCATION, totals);
+    }
+    const t = totals.get(item.id) ?? { qty: 0, count: 0, unscaled: 0 };
+    t.qty += item.vertical * (item.factor ?? 1);
+    totals.set(item.id, t);
+  }
+  return out;
+}
+
+export interface SheetSectionRow {
+  item: Item;
+  unit: string;
+  qty: number;
+}
+
+export interface SheetSection {
+  name: string;
+  rows: SheetSectionRow[];
+}
+
+export interface SystemSheet {
+  system: string;
+  sections: SheetSection[];
+}
+
+/** Name of the workbook tab (discipline) an item is printed on. */
+export function sheetKey(project: Project, item: Item): string {
+  const fallback = project.system || "Orçamento";
+  return (item.system || fallback).trim() || fallback;
+}
+
+/** Money totals of one discipline tab, the way its sheet computes them. */
+export interface DisciplineTotals {
+  system: string;
+  material: number;
+  labor: number;
+  /** Diversos / Transportes / Supervisão: each this much. */
+  extraEach: number;
+  extrasPct: number;
+  totalGeral: number;
+  bdi: number;
+  /** TOTAL GERAL × the tab's BDI. */
+  proposal: number;
+}
+
+/** Totals per discipline tab, in tab order; each with its own extras and BDI. */
+export function disciplineTotals(project: Project): DisciplineTotals[] {
+  const totals = itemTotals(project);
+  const sums = new Map<string, { material: number; labor: number }>();
+  for (const item of project.items) {
+    const key = sheetKey(project, item);
+    const qty = pricedQty(item, totals.get(item.id)?.qty ?? 0);
+    const s = sums.get(key) ?? { material: 0, labor: 0 };
+    s.material += round2(item.materialPrice * qty);
+    s.labor += round2(item.laborPrice * qty);
+    sums.set(key, s);
+  }
+  return [...sums.keys()].sort(compareSystems).map((system) => {
+    const { material, labor } = sums.get(system) ?? { material: 0, labor: 0 };
+    const { bdi, extrasPct } = resolveDiscipline(project, system);
+    const extraEach = round2(((material + labor) * (extrasPct / 100)) / 3);
+    const totalGeral = material + labor + extraEach * 3;
+    return {
+      system,
+      material,
+      labor,
+      extraEach,
+      extrasPct,
+      totalGeral,
+      bdi,
+      proposal: round2(totalGeral * bdi),
+    };
+  });
+}
+
+/**
+ * Items grouped the way the RLP budget workbook is laid out: one sheet per system, and inside
+ * it one section per location (ambiente) when locations exist and `sectionsBy` is "local",
+ * otherwise one section per item group. Items with zero quantity are kept in group mode
+ * (the estimator may fill them by hand) but skipped per location.
+ */
+export function systemSheets(project: Project): SystemSheet[] {
+  const bySystem = new Map<string, Item[]>();
+  const labels = groupLabels(project.items);
+  for (const item of sortItemsForBudget(project.items)) {
+    const key = sheetKey(project, item);
+    bySystem.set(key, [...(bySystem.get(key) ?? []), item]);
+  }
+  const byLocation = project.sectionsBy === "local" && project.locations.length > 0;
+  const byLoc = byLocation ? totalsByLocation(project) : null;
+  const totals = itemTotals(project);
+  const unit = (item: Item) => itemUnit(item, project.unit);
+  const sheets: SystemSheet[] = [];
+  for (const system of [...bySystem.keys()].sort(compareSystems)) {
+    const items = bySystem.get(system) ?? [];
+    const sections: SheetSection[] = [];
+    if (byLoc) {
+      const columns = [
+        ...project.locations.map((l) => ({ key: l.id, name: l.name })),
+        { key: NO_LOCATION, name: "Sem local" },
+      ];
+      for (const c of columns) {
+        const t = byLoc.get(c.key);
+        if (!t) continue;
+        const rows = items
+          .map((item) => ({
+            item,
+            unit: unit(item),
+            qty: pricedQty(item, t.get(item.id)?.qty ?? 0),
+          }))
+          .filter((r) => r.qty > 0);
+        if (rows.length) sections.push({ name: c.name, rows });
+      }
+    } else {
+      // one section per group however its name was spelt; shown under the usual spelling
+      const groups = new Map<string, SheetSection>();
+      for (const item of items) {
+        const row = { item, unit: unit(item), qty: pricedQty(item, totals.get(item.id)?.qty ?? 0) };
+        const key = groupKey(item.group);
+        const g = groups.get(key);
+        if (g) g.rows.push(row);
+        else groups.set(key, { name: labels.get(key) ?? groupOf(item), rows: [row] });
+      }
+      sections.push(...groups.values());
+    }
+    sheets.push({ system, sections });
+  }
+  return sheets;
+}
+
+export interface LocationMatrix {
+  /** Column headers: location names, plus "Sem local" last when something is unassigned. */
+  columns: { key: string; name: string }[];
+  rows: { item: Item; unit: string; qty: number[]; total: number }[];
+}
+
+/** Item × location quantity table (priced quantities, with waste) for the "Por Local" sheet. */
+export function locationMatrix(project: Project): LocationMatrix {
+  const by = totalsByLocation(project);
+  const columns = project.locations.map((l) => ({ key: l.id, name: l.name }));
+  if (by.has(NO_LOCATION)) columns.push({ key: NO_LOCATION, name: "Sem local" });
+  const rows = project.items.map((item) => {
+    const qty = columns.map((c) => pricedQty(item, by.get(c.key)?.get(item.id)?.qty ?? 0));
+    return {
+      item,
+      unit: itemUnit(item, project.unit),
+      qty,
+      total: qty.reduce((s, q) => s + q, 0),
+    };
+  });
+  return { columns, rows };
+}
+
+export const round2 = (v: number): number => Math.round(v * 100) / 100;
+
+/** Quantity to price: measured quantity plus waste, counts rounded up to whole units. */
+export function pricedQty(item: Item, measured: number): number {
+  const q = measured * (1 + item.wastePct / 100);
+  return item.kind === "count" ? Math.ceil(q - 1e-9) || 0 : round2(q);
+}
+
+export interface QuoteLine {
+  item: Item;
+  /** Measured quantity before waste. */
+  measured: number;
+  /** Quantity used for pricing (with waste). */
+  qty: number;
+  unit: string;
+  unscaled: number;
+  material: number;
+  labor: number;
+  total: number;
+}
+
+export interface QuoteGroup {
+  name: string;
+  lines: QuoteLine[];
+  material: number;
+  labor: number;
+  total: number;
+}
+
+export interface Quote {
+  groups: QuoteGroup[];
+  /** Sum over all item lines. */
+  material: number;
+  labor: number;
+  subtotal: number;
+  /** Diversos (material), Transportes (labour), Supervisão (labour): each line, summed over the tabs. */
+  extraEach: number;
+  totalMaterial: number;
+  totalLabor: number;
+  totalGeral: number;
+  /** Sum over the tabs of TOTAL GERAL × that tab's BDI. */
+  proposal: number;
+}
+
+export function buildQuote(project: Project): Quote {
+  const totals = itemTotals(project);
+  const groups = new Map<string, QuoteGroup>();
+  const labels = groupLabels(project.items);
+  // tier → group → name: the groups come out in budget order as they are first seen
+  for (const item of sortItemsForBudget(project.items)) {
+    const t = totals.get(item.id) ?? { qty: 0, count: 0, unscaled: 0 };
+    const qty = pricedQty(item, t.qty);
+    const material = round2(item.materialPrice * qty);
+    const labor = round2(item.laborPrice * qty);
+    const line: QuoteLine = {
+      item,
+      measured: t.qty,
+      qty,
+      unit: itemUnit(item, project.unit),
+      unscaled: t.unscaled,
+      material,
+      labor,
+      total: round2(material + labor),
+    };
+    const key = groupKey(item.group);
+    let g = groups.get(key);
+    if (!g) {
+      g = { name: labels.get(key) ?? groupOf(item), lines: [], material: 0, labor: 0, total: 0 };
+      groups.set(key, g);
+    }
+    g.lines.push(line);
+    g.material += material;
+    g.labor += labor;
+    g.total += line.total;
+  }
+  const list = [...groups.values()];
+  const material = list.reduce((s, g) => s + g.material, 0);
+  const labor = list.reduce((s, g) => s + g.labor, 0);
+  const subtotal = material + labor;
+  // extras and BDI are per discipline tab: the quote sums what each tab computes
+  const tabs = disciplineTotals(project);
+  const extraEach = tabs.reduce((s, t) => s + t.extraEach, 0);
+  const totalMaterial = material + extraEach;
+  const totalLabor = labor + extraEach * 2;
+  const totalGeral = totalMaterial + totalLabor;
+  return {
+    groups: list,
+    material,
+    labor,
+    subtotal,
+    extraEach,
+    totalMaterial,
+    totalLabor,
+    totalGeral,
+    proposal: round2(tabs.reduce((s, t) => s + t.proposal, 0)),
+  };
+}
+
+export function quoteCsv(project: Project, quote: Quote): string {
+  const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+  const rows = [
+    [
+      "ITEM",
+      "DESCRIÇÃO",
+      "UNID.",
+      "QUANT.",
+      "MATERIAL",
+      "M. DE OBRA",
+      "TOTAL UNIT.",
+      "TOTAL MATERIAL",
+      "TOTAL M.O.",
+      "TOTAL",
+    ].join(";"),
+  ];
+  quote.groups.forEach((g, gi) => {
+    rows.push(
+      [
+        gi + 1,
+        esc(g.name),
+        "",
+        "",
+        "",
+        "",
+        "",
+        g.material.toFixed(2),
+        g.labor.toFixed(2),
+        g.total.toFixed(2),
+      ].join(";"),
+    );
+    g.lines.forEach((l, li) => {
+      rows.push(
+        [
+          `${gi + 1}.${li + 1}`,
+          esc(l.item.name),
+          l.unit,
+          l.qty.toFixed(2),
+          l.item.materialPrice.toFixed(2),
+          l.item.laborPrice.toFixed(2),
+          (l.item.materialPrice + l.item.laborPrice).toFixed(2),
+          l.material.toFixed(2),
+          l.labor.toFixed(2),
+          l.total.toFixed(2),
+        ].join(";"),
+      );
+    });
+  });
+  const n = quote.groups.length;
+  rows.push(
+    [
+      n + 1,
+      "Diversos",
+      "vb",
+      1,
+      quote.extraEach.toFixed(2),
+      "",
+      "",
+      quote.extraEach.toFixed(2),
+      "",
+      quote.extraEach.toFixed(2),
+    ].join(";"),
+  );
+  rows.push(
+    [
+      n + 2,
+      "Transportes",
+      "vb",
+      1,
+      "",
+      quote.extraEach.toFixed(2),
+      "",
+      "",
+      quote.extraEach.toFixed(2),
+      quote.extraEach.toFixed(2),
+    ].join(";"),
+  );
+  rows.push(
+    [
+      n + 3,
+      "Supervisão e Projeto As Built",
+      "vb",
+      1,
+      "",
+      quote.extraEach.toFixed(2),
+      "",
+      "",
+      quote.extraEach.toFixed(2),
+      quote.extraEach.toFixed(2),
+    ].join(";"),
+  );
+  rows.push(
+    [
+      "",
+      "TOTAL GERAL",
+      "",
+      "",
+      "",
+      "",
+      "",
+      quote.totalMaterial.toFixed(2),
+      quote.totalLabor.toFixed(2),
+      quote.totalGeral.toFixed(2),
+    ].join(";"),
+  );
+  rows.push(
+    ["", `BDI ${project.bdi}`, "", "", "", "", "", "", "", quote.proposal.toFixed(2)].join(";"),
+  );
+  return rows.join("\n");
+}

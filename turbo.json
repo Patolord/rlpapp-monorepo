@@ -3,8 +3,12 @@
   "ui": "tui",
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$"],
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$"
+      ],
       "outputs": [
         ".next/**",
         "!.next/cache/**",
@@ -21,6 +25,7 @@
         "VITE_CONVEX_URL",
         "VITE_CONVEX_SITE_URL",
         "VITE_CLERK_PUBLISHABLE_KEY",
+        "VITE_CATALOG_URL",
         "EXPO_PUBLIC_CONVEX_URL",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY",
         "CLERK_SECRET_KEY",
@@ -49,13 +54,13 @@
       ]
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "outputs": []
     },
     "check-types": {
-      "dependsOn": ["^check-types"]
+      "outputs": []
     },
     "test": {
-      "dependsOn": ["^test"]
+      "outputs": []
     },
     "dev": {
       "cache": false,
