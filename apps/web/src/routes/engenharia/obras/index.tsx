@@ -2,6 +2,7 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { Building2, Plus, Layers, ChevronRight } from "lucide-react";
+import { EmptyState as EmptyStateBlock } from "@rlpapp/ui/web";
 
 import { AuthShell } from "@/components/auth-shell";
 import { ProjectFormDialog } from "@/components/engenharia/project-form-dialog";
@@ -74,26 +75,21 @@ function ObrasPage() {
 function EmptyState() {
   return (
     <Card>
-      <CardContent className="flex flex-col items-center gap-4 py-14 text-center">
-        <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Building2 className="size-7" />
-        </div>
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold">Nenhuma obra cadastrada</h2>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Crie a primeira obra para montar o prédio e acompanhar o que já foi
-            instalado em cada andar.
-          </p>
-        </div>
-        <ProjectFormDialog
-          trigger={
-            <Button>
-              <Plus className="mr-2 size-4" />
-              Criar primeira obra
-            </Button>
-          }
-        />
-      </CardContent>
+      <EmptyStateBlock
+        icon={<Building2 />}
+        title="Nenhuma obra cadastrada"
+        description="Crie a primeira obra para montar o prédio e acompanhar o que já foi instalado em cada andar."
+        action={
+          <ProjectFormDialog
+            trigger={
+              <Button>
+                <Plus className="mr-2 size-4" />
+                Criar primeira obra
+              </Button>
+            }
+          />
+        }
+      />
     </Card>
   );
 }
