@@ -219,6 +219,23 @@ describe("signOut", () => {
     expect(session.isSignedIn()).toBe(true);
   });
 
+  it("cancel while waiting for a running Sair: the browser never opens", async () => {
+    await session.signInWithBrowser();
+    const gate = deferred<void>();
+    revokeGate = () => gate.promise;
+    const out = session.signOut();
+    revokeGate = async () => {};
+    calls.length = 0;
+    const signIn = session.signInWithBrowser();
+    await session.cancelSignIn();
+    gate.resolve();
+    await out;
+    await expect(signIn).rejects.toBeInstanceOf(session.SignInCancelledError);
+    expect(calls).not.toContain("open");
+    expect(calls).not.toContain("exchange");
+    expect(session.isSignedIn()).toBe(false);
+  });
+
   it("offline: forgets locally and says the server did not confirm", async () => {
     await session.signInWithBrowser();
     revokeReachable = false;

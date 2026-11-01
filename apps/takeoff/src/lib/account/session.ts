@@ -194,8 +194,6 @@ async function revokeOnServer(token: string): Promise<boolean> {
  */
 export async function signInWithBrowser(): Promise<AccountUser> {
   if (!canSignIn()) throw new Error("O login com a conta da empresa só funciona no app instalado");
-  // a "Sair" still running finishes first: it deletes the keychain entry this login will write
-  if (pendingSignOut) await pendingSignOut.catch(() => undefined);
   if (attempt) attempt.cancelled = true;
   const current = { cancelled: false };
   attempt = current;
@@ -205,6 +203,10 @@ export async function signInWithBrowser(): Promise<AccountUser> {
   let issued: string | null = null;
   let stored = false;
   try {
+    // a "Sair" still running finishes first: it deletes the keychain entry this login will write.
+    // The attempt is registered before this wait, so × during it is not lost.
+    if (pendingSignOut) await pendingSignOut.catch(() => undefined);
+    check();
     const device = deviceLabel(await invoke<string | null>("device_name").catch(() => null));
     const installation = await installationId();
     const { verifier, challenge } = await createPkce();
