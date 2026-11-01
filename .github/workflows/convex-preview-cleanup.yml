@@ -1,0 +1,65 @@
+name: Convex previews
+
+# Cada build de preview da Vercel cria um deployment de preview no Convex com o nome do branch, e o
+# time tem um limite de deployments. Este workflow apaga o preview do branch quando o PR fecha
+# (merge ou não) e, uma vez por dia, varre os previews que não têm mais PR aberto.
+#
+# Precisa do secret CONVEX_MANAGEMENT_TOKEN (token de acesso do projeto ou do time no Convex) e,
+# se o token for de time, da variável CONVEX_PROJECT_ID. Sem o secret, o job só avisa e sai.
+
+on:
+  pull_request:
+    types: [closed]
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Só listar o que seria apagado"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: convex-preview-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Apagar previews do Convex
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # PRs de fork não recebem secrets
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      CONVEX_MANAGEMENT_TOKEN: ${{ secrets.CONVEX_MANAGEMENT_TOKEN }}
+      CONVEX_PROJECT_ID: ${{ vars.CONVEX_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Preview do branch do PR
+        if: github.event_name == 'pull_request'
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: node .github/scripts/convex-preview-cleanup.mjs --branch "$BRANCH"
+
+      - name: Previews sem PR aberto
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          keep="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 500 \
+            --json headRefName --jq '[.[].headRefName] | join(",")')"
+          args=(--keep "$keep")
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          node .github/scripts/convex-preview-cleanup.mjs "${args[@]}"
