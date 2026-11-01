@@ -1,3 +1,4 @@
+import { defaultGaugeWeights, type GaugeWeights } from "@rlpapp/shared/engenharia/ducts";
 import { invoke } from "@tauri-apps/api/core";
 import seed from "../data/catalog.seed.json";
 import {
@@ -6,7 +7,6 @@ import {
   httpRequest,
   type QueuedProposal,
 } from "./catalogRemote";
-import { defaultGaugeWeights, type GaugeWeights } from "./ducts";
 import { type Kit, migrateKitLabels, SEED_KITS } from "./kits";
 import { isTauri } from "./platform";
 import { foldName } from "./text";

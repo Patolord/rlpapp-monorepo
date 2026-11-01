@@ -1,5 +1,5 @@
+import { GAUGES } from "@rlpapp/shared/engenharia/ducts";
 import type { CatalogEntry } from "./catalog";
-import { GAUGES } from "./ducts";
 import type { Item, Project } from "./types";
 
 /**

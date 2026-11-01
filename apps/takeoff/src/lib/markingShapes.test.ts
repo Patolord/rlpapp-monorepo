@@ -1,5 +1,5 @@
+import { DEFAULT_DUCT_SPEC } from "@rlpapp/shared/engenharia/ducts";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_DUCT_SPEC } from "./ducts";
 import type { Kit } from "./kits";
 import {
   carriersLast,
