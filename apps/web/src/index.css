@@ -192,8 +192,10 @@
   }
 }
 
-/* Sidebar alternada pelo atalho ⌘B/Ctrl+B: sem transição (ver sidebar.tsx). */
-[data-slot="sidebar-wrapper"][data-instant] * {
+/* Sidebar alternada pelo atalho ⌘B/Ctrl+B: sem transição (ver sidebar.tsx).
+   Só a sidebar e o header do layout; o conteúdo da página continua animando. */
+[data-slot="sidebar-wrapper"][data-instant]
+  :is([data-slot="sidebar"], [data-slot="sidebar"] *, [data-slot="sidebar-inset"] > header) {
   transition: none !important;
 }
 

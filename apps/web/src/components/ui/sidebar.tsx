@@ -38,6 +38,8 @@ type SidebarContextProps = {
   setOpenMobile: (open: boolean) => void
   isMobile: boolean
   toggleSidebar: () => void
+  /** Alternância veio do atalho de teclado: aplicar sem animação. */
+  instantToggle: boolean
 }
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null)
@@ -121,7 +123,7 @@ function SidebarProvider({
       cancelAnimationFrame(outer)
       cancelAnimationFrame(inner)
     }
-  }, [instantToggle, open])
+  }, [instantToggle, open, openMobile])
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
@@ -136,8 +138,18 @@ function SidebarProvider({
       openMobile,
       setOpenMobile,
       toggleSidebar,
+      instantToggle,
     }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
+    [
+      state,
+      open,
+      setOpen,
+      isMobile,
+      openMobile,
+      setOpenMobile,
+      toggleSidebar,
+      instantToggle,
+    ]
   )
 
   return (
@@ -177,7 +189,8 @@ function Sidebar({
   variant?: "sidebar" | "floating" | "inset"
   collapsible?: "offcanvas" | "icon" | "none"
 }) {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+  const { isMobile, state, openMobile, setOpenMobile, instantToggle } =
+    useSidebar()
 
   if (collapsible === "none") {
     return (
@@ -209,6 +222,7 @@ function Sidebar({
             } as React.CSSProperties
           }
           side={side}
+          instant={instantToggle}
         >
           <SheetHeader className="sr-only">
             <SheetTitle>Barra lateral</SheetTitle>
