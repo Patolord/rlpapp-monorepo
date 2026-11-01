@@ -88,6 +88,8 @@ function SendBudgetPanel() {
   const [sent, setSent] = useState<SentBudget | null>(null);
   /** The budget reached the app but the file with its link was not saved (why, or ""). */
   const [unsaved, setUnsaved] = useState<string | null>(null);
+  /** The takeoff the result belongs to: "Salvar" only saves it while it is still the open one. */
+  const [sentFor, setSentFor] = useState<{ id?: string; path: string | null } | null>(null);
 
   // the obras and the previous send, once signed in (again after "Recarregar", and when the
   // takeoff becomes another budget, e.g. "Salvar como" with the dialog open: what was loaded
@@ -160,6 +162,7 @@ function SendBudgetPanel() {
       return;
     }
     setIdentity({ sentToApp: out.value.sentToApp });
+    setSentFor({ id: sentProject.id, path: sendingPath });
     setSent(out.value);
     let saveError: string | null = null;
     let saved = false;
@@ -187,6 +190,13 @@ function SendBudgetPanel() {
           sent={sent}
           unsaved={unsaved}
           onSave={async () => {
+            const now = useStore.getState();
+            if (now.project.id !== sentFor?.id || now.filePath !== sentFor?.path) {
+              setUnsaved(
+                "o takeoff enviado não está mais aberto: abra-o e envie de novo para gravar o vínculo",
+              );
+              return;
+            }
             try {
               if (await saveProject(false)) setUnsaved(null);
             } catch (e) {
