@@ -63,9 +63,11 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.55 0.14 262);
-  --primary-foreground: oklch(1 0 0);
-  --primary-hover: oklch(0.5 0.14 262);
+  /* Lighter cobalt (brandBlue 400) so text-primary links read on dark cards
+     (6.6:1) and muted surfaces (5.6:1); fills take a dark-navy label (6:1). */
+  --primary: oklch(0.7 0.135 262);
+  --primary-foreground: oklch(0.25 0.08 262);
+  --primary-hover: oklch(0.8 0.1 262);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -97,7 +99,7 @@
   --sidebar-primary: oklch(0.47 0.15 262);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: var(--primary);
-  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-accent-foreground: var(--primary-foreground);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 }
