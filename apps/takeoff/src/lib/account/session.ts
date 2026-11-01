@@ -194,6 +194,8 @@ async function revokeOnServer(token: string): Promise<boolean> {
  */
 export async function signInWithBrowser(): Promise<AccountUser> {
   if (!canSignIn()) throw new Error("O login com a conta da empresa só funciona no app instalado");
+  // a "Sair" still running finishes first: it deletes the keychain entry this login will write
+  if (pendingSignOut) await pendingSignOut.catch(() => undefined);
   if (attempt) attempt.cancelled = true;
   const current = { cancelled: false };
   attempt = current;
@@ -278,7 +280,17 @@ export class SignOutIncompleteError extends Error {
  * revocation (offline, the token stays listed in the dashboard until revoked there); rejects with
  * SignOutIncompleteError when the keychain entry could not be deleted.
  */
-export async function signOut(): Promise<{ revoked: boolean }> {
+export function signOut(): Promise<{ revoked: boolean }> {
+  // a second "Sair" while one is running shares it, so the first can't later delete a new login
+  pendingSignOut ??= runSignOut().finally(() => {
+    pendingSignOut = null;
+  });
+  return pendingSignOut;
+}
+
+let pendingSignOut: Promise<{ revoked: boolean }> | null = null;
+
+async function runSignOut(): Promise<{ revoked: boolean }> {
   const token = deviceToken;
   deviceToken = null;
   jwtCache.clear();

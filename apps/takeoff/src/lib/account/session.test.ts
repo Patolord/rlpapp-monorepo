@@ -27,6 +27,7 @@ let tokenSet: () => Promise<void>;
 let exchangeResponse: () => Promise<{ status: number; body: string }>;
 const revoked: string[] = [];
 let revokeReachable = true;
+let revokeGate: () => Promise<void> = async () => {};
 
 vi.mock("../platform", () => ({ isTauri: () => true, IS_MAC: false }));
 vi.mock("@tauri-apps/plugin-opener", () => ({
@@ -72,6 +73,7 @@ vi.mock("../catalogRemote", () => ({
     }
     if (req.url.endsWith("/takeoff/auth/revoke")) {
       if (!revokeReachable) throw new Error("offline");
+      await revokeGate();
       revoked.push(req.token ?? "");
       return { status: 200, body: JSON.stringify({ revoked: true }) };
     }
@@ -108,6 +110,7 @@ beforeEach(async () => {
   calls.length = 0;
   revoked.length = 0;
   revokeReachable = true;
+  revokeGate = async () => {};
   keychain.token = null;
   keychain.deleteFails = false;
   const { openUrl } = await import("@tauri-apps/plugin-opener");
@@ -194,6 +197,26 @@ describe("signOut", () => {
     await expect(result).rejects.toMatchObject({ revoked: true });
     expect(revoked).toEqual(["rlp_issued"]);
     expect(keychain.token).toBe("rlp_issued");
+  });
+
+  it("a second Sair shares the first, and a new login waits for it to finish", async () => {
+    await session.signInWithBrowser();
+    const gate = deferred<void>();
+    revokeGate = () => gate.promise;
+    const first = session.signOut();
+    const second = session.signOut();
+    revokeGate = async () => {};
+    calls.length = 0;
+    const again = session.signInWithBrowser();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).not.toContain("exchange");
+    gate.resolve();
+    await expect(first).resolves.toEqual({ revoked: true });
+    await expect(second).resolves.toEqual({ revoked: true });
+    await again;
+    expect(revoked).toEqual(["rlp_issued"]);
+    expect(keychain.token).toBe("rlp_issued");
+    expect(session.isSignedIn()).toBe(true);
   });
 
   it("offline: forgets locally and says the server did not confirm", async () => {
