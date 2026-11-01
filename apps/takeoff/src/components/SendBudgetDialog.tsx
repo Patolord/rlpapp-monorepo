@@ -86,23 +86,31 @@ function SendBudgetPanel() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<PublishError | null>(null);
   const [sent, setSent] = useState<SentBudget | null>(null);
+  /** The budget reached the app but the file with its link was not saved (why, or ""). */
+  const [unsaved, setUnsaved] = useState<string | null>(null);
 
-  // the obras and the previous send, once signed in (again after "Recarregar")
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `reload` re-runs the load on purpose
+  // the obras and the previous send, once signed in (again after "Recarregar", and when the
+  // takeoff becomes another budget, e.g. "Salvar como" with the dialog open: what was loaded
+  // described the old one)
+  const projectId = project.id;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `reload` and `projectId` re-run the load on purpose
   useEffect(() => {
     if (!signedIn) return;
     let live = true;
     setOptions(null);
+    setObraId(null);
+    setConfirmed(false);
     const current = useStore.getState().project;
-    void loadPublishOptions(client, isSignedIn(), current.id).then((out) => {
+    void loadPublishOptions(client, isSignedIn(), current.id).then(async (out) => {
       if (!live) return;
       setOptions(out);
       if (out.ok) setObraId((id) => id ?? defaultObraId(current, out.value));
+      else if (out.error.revoked) await handleSignedOut(new SignedOutError(out.error.message));
     });
     return () => {
       live = false;
     };
-  }, [signedIn, reload]);
+  }, [signedIn, reload, projectId]);
 
   const preview = useMemo(() => {
     const problem = budgetProblem(project);
@@ -125,10 +133,12 @@ function SendBudgetPanel() {
     setSendError(null);
     // the id goes into the file with the link, so the next send updates the same budget
     if (!useStore.getState().project.id) setIdentity({ id: newProjectUid() });
+    const sentProject = useStore.getState().project;
+    const sendingPath = useStore.getState().filePath;
     const out = await sendApprovedBudget({
       client,
       signedIn: isSignedIn(),
-      project: useStore.getState().project,
+      project: sentProject,
       obra,
       userName: account.user?.name,
     });
@@ -138,18 +148,55 @@ function SendBudgetPanel() {
       if (out.error.revoked) await handleSignedOut(new SignedOutError(out.error.message));
       return;
     }
+    const verb = out.value.result.created ? "enviado ao app" : "atualizado no app";
+    // the dialog may have been closed and another takeoff opened while the send was running:
+    // the link belongs to the takeoff that was sent, never to whatever is open now
+    const now = useStore.getState();
+    if (now.project.id !== sentProject.id || now.filePath !== sendingPath) {
+      setStatus(
+        `Orçamento aprovado ${verb} (obra ${obra.name}) · o takeoff enviado não está mais aberto: ` +
+          "abra-o e envie de novo para gravar o vínculo no arquivo",
+      );
+      return;
+    }
     setIdentity({ sentToApp: out.value.sentToApp });
     setSent(out.value);
-    const saved = useStore.getState().filePath ? await saveProject(false) : false;
+    let saveError: string | null = null;
+    let saved = false;
+    try {
+      saved = now.filePath ? await saveProject(false) : false;
+    } catch (e) {
+      saveError = e instanceof Error ? e.message : String(e);
+    }
+    setUnsaved(saved ? null : (saveError ?? ""));
     setStatus(
-      `Orçamento aprovado ${out.value.result.created ? "enviado ao app" : "atualizado no app"} (obra ${obra.name})${
-        saved ? "" : " · salve o takeoff para guardar o vínculo no arquivo"
+      `Orçamento aprovado ${verb} (obra ${obra.name})${
+        saved
+          ? ""
+          : saveError
+            ? ` · não foi possível salvar o arquivo (${saveError}): salve o takeoff (Ctrl+S) para guardar o vínculo`
+            : " · salve o takeoff para guardar o vínculo no arquivo"
       }`,
     );
   };
 
   const body = (() => {
-    if (sent) return <SentResult sent={sent} onClose={close} />;
+    if (sent) {
+      return (
+        <SentResult
+          sent={sent}
+          unsaved={unsaved}
+          onSave={async () => {
+            try {
+              if (await saveProject(false)) setUnsaved(null);
+            } catch (e) {
+              setUnsaved(e instanceof Error ? e.message : String(e));
+            }
+          }}
+          onClose={close}
+        />
+      );
+    }
 
     if (!signedIn) {
       return (
@@ -409,7 +456,18 @@ function ErrorBox({ error }: { error: PublishError }) {
   );
 }
 
-function SentResult({ sent, onClose }: { sent: SentBudget; onClose: () => void }) {
+function SentResult({
+  sent,
+  unsaved,
+  onSave,
+  onClose,
+}: {
+  sent: SentBudget;
+  /** Not null when the link is not in the file yet: the save error, or "" (no file / cancelled). */
+  unsaved: string | null;
+  onSave: () => void;
+  onClose: () => void;
+}) {
   const { result, sentToApp } = sent;
   const url = sentToApp.obraSlug ? obraBudgetUrl(WEB_URL, sentToApp.obraSlug) : null;
   return (
@@ -422,6 +480,16 @@ function SentResult({ sent, onClose }: { sent: SentBudget; onClose: () => void }
             : `Orçamento aprovado atualizado na obra ${sentToApp.obraName}.`}
         </span>
       </p>
+      {unsaved !== null && (
+        <p className="flex items-center gap-2 text-amber-300">
+          <span>
+            O orçamento chegou ao app, mas o vínculo ainda não está salvo no arquivo
+            {unsaved ? ` (${unsaved})` : ""}: sem ele, um novo envio deste takeoff cria outro
+            orçamento.
+          </span>
+          <Button onClick={onSave}>Salvar</Button>
+        </p>
+      )}
       <p className="text-neutral-300">Linhas: {resultCounts(result)}.</p>
       {result.kept.length > 0 && (
         <section className="space-y-1">
