@@ -59,6 +59,16 @@ configurado (abaixo).
 - `convex-preview-cleanup.yml`: apaga o deployment de preview do Convex de um PR quando ele fecha,
   e varre diariamente os previews sem PR aberto (secret `CONVEX_MANAGEMENT_TOKEN`; ver README).
 
+## Deploys da Vercel (cota)
+
+A Vercel do time está no plano grátis (100 deployments por dia, somando todos os projetos). Cada
+push num branch que mexe em `apps/web` ou nos pacotes dele (`packages/backend`, `shared`, `ui`,
+`env`, `config`) gera um build de preview do web e um deployment de preview no Convex (limite de
+40). Por isso: faça commits locais à vontade, mas **push só quando o trabalho estiver pronto para
+o PR ou para responder a revisão**, num push só; não faça push de commit a commit nem de
+correções de docs separadas. Site e internal-agent só fazem deployment no `master`. Detalhes no
+README (Deploy → "Vercel: quando cada app builda").
+
 ## Secrets: Doppler
 
 Secrets locais vêm do Doppler (projeto `rlpeng`, config `dev`, ver `doppler.yaml`):
