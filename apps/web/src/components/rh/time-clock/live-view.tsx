@@ -1,5 +1,5 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { MetricCard } from "@rlpapp/ui/web";
+import { MetricCard, MetricStrip } from "@rlpapp/ui/web";
 import { Link } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
@@ -241,7 +241,7 @@ export function TimeClockLiveView() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricStrip>
         <MetricCard
           title="Na obra agora"
           value={live ? live.summary.onSite : "—"}
@@ -270,7 +270,7 @@ export function TimeClockLiveView() {
           }
           icon={<UserX className="size-4 text-rose-600" />}
         />
-      </div>
+      </MetricStrip>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         {/* Quem está em cada obra */}

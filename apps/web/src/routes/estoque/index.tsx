@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   Warehouse,
 } from "lucide-react";
+import { MetricCard, MetricStrip } from "@rlpapp/ui/web";
 import { useEffect, useState } from "react";
 
 import { AuthShell } from "@/components/auth-shell";
@@ -100,11 +101,10 @@ function EstoqueContent() {
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <MetricStrip>
         {access.canViewCentral && (
           <MetricCard
-            icon={Package}
-            label="Materiais no central"
+            title="Materiais no central"
             value={String(
               centralBalances.results.filter((balance) => balance.quantity > 0)
                 .length
@@ -112,16 +112,14 @@ function EstoqueContent() {
           />
         )}
         <MetricCard
-          icon={History}
-          label="Movimentações carregadas"
+          title="Movimentações carregadas"
           value={String(documents.results.length)}
         />
         <MetricCard
-          icon={ShieldAlert}
-          label="Suas aprovações pendentes"
+          title="Suas aprovações pendentes"
           value={String(approvals.length)}
         />
-      </div>
+      </MetricStrip>
 
       <div className="flex gap-1 overflow-x-auto rounded-xl border bg-white p-1">
         {sections.map((item) => (
@@ -201,29 +199,5 @@ function EstoqueContent() {
         />
       )}
     </div>
-  );
-}
-
-function MetricCard({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof Package;
-  label: string;
-  value: string;
-}) {
-  return (
-    <Card>
-      <CardContent className="flex items-center gap-4 p-5">
-        <div className="rounded-xl bg-primary/10 p-3 text-primary">
-          <Icon className="size-5" />
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="text-2xl font-bold">{value}</p>
-        </div>
-      </CardContent>
-    </Card>
   );
 }

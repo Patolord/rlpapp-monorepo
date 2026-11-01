@@ -15,7 +15,7 @@ import {
   type DuctLineInput,
   type NormaId,
 } from "@rlpapp/shared";
-import { MetricCard } from "@rlpapp/ui/web";
+import { MetricCard, MetricStrip } from "@rlpapp/ui/web";
 import {
   Check,
   ChevronDown,
@@ -624,7 +624,7 @@ export function DuctEstimateWorkspace({
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <MetricStrip>
         <MetricCard
           title="Material"
           value={formatReais(result.materialTotal)}
@@ -644,7 +644,7 @@ export function DuctEstimateWorkspace({
           value={formatReais(result.grandTotal)}
           description={`${formatReais(result.totalPerKg)} / kg`}
         />
-      </div>
+      </MetricStrip>
 
       <Card>
         <CardHeader>

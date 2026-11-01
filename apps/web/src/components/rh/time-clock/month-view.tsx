@@ -1,6 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { formatCurrency } from "@rlpapp/shared";
-import { MetricCard } from "@rlpapp/ui/web";
+import { MetricCard, MetricStrip } from "@rlpapp/ui/web";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
 import { CalendarDays, ChevronDown, ChevronRight, Download, HardHat, Users, Wallet } from "lucide-react";
@@ -125,7 +125,7 @@ export function TimeClockMonthView({
         <SyncStatusBar range={{ from: stats.from, to: stats.to }} label="Sincronizar mês" />
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricStrip>
         <MetricCard
           title="Homem-dia"
           value={stats ? stats.totalManDays : "—"}
@@ -154,7 +154,7 @@ export function TimeClockMonthView({
           }
           icon={<Wallet className="size-4 text-violet-600" />}
         />
-      </div>
+      </MetricStrip>
 
       <Card>
         <CardHeader>

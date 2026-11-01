@@ -1,7 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
-import { MetricCard } from "@rlpapp/ui/web";
+import { MetricCard, MetricStrip } from "@rlpapp/ui/web";
 import {
   ChevronLeft,
   ChevronRight,
@@ -170,7 +170,7 @@ export function TimeClockDayView({
 
       <SyncStatusBar range={{ from: date, to: date }} label="Sincronizar dia" />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricStrip>
         <MetricCard
           title="Presentes"
           value={day ? day.summary.present : "—"}
@@ -199,7 +199,7 @@ export function TimeClockDayView({
           description={day ? `${day.worksites.length} cercas conhecidas` : undefined}
           icon={<HardHat className="size-4 text-amber-600" />}
         />
-      </div>
+      </MetricStrip>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Card className="min-w-0">
