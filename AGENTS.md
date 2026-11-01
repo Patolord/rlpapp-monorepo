@@ -19,8 +19,9 @@ Glossário do domínio: [`CONTEXT.md`](CONTEXT.md).
 | `packages/env` | `@rlpapp/env` | Validação de variáveis de ambiente (zod) para web, native e MCP |
 | `packages/config` | `@rlpapp/config` | `tsconfig.base.json` compartilhado |
 
-Direção em andamento: lógica usada pelo dashboard e pelo app desktop (por exemplo o cálculo de
-dutos) migra para `packages/shared`, e o app desktop passa a se integrar mais ao backend (login,
+Direção em andamento: lógica usada pelo dashboard e pelo app desktop migra para `packages/shared`
+(o cálculo de dutos já mora em `packages/shared/src/engenharia/ducts.ts` e é o único; o dashboard
+não tem mais calculadora própria), e o app desktop passa a se integrar mais ao backend (login,
 publicação de orçamentos). Confira o código atual antes de supor onde algo mora.
 
 ## Comandos
