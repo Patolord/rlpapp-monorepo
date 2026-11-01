@@ -26,5 +26,11 @@ export {
   type SkeletonProps,
 } from "./loading-state";
 export { EmptyState, type EmptyStateProps } from "./empty-state";
-export { PageHeader, type PageHeaderProps } from "./page-header";
+export {
+  PageHeader,
+  type PageHeaderBreadcrumb,
+  type PageHeaderLinkProps,
+  type PageHeaderProps,
+  type PageHeaderTab,
+} from "./page-header";
 export { StatusBadge, type StatusBadgeProps } from "./status-badge";

@@ -11,7 +11,9 @@ import {
   EmptyState,
   LoadingState,
   MetricCard,
+  MetricStrip,
   PageHeader,
+  Skeleton,
 } from "@rlpapp/ui/web";
 import { linkStatusVariants } from "@rlpapp/ui/tokens";
 import { Button } from "@/components/ui/button";
@@ -21,8 +23,6 @@ import { Input } from "@/components/ui/input";
 import {
   Eye,
   History,
-  Link2,
-  Link2Off,
   Loader2,
   Plus,
   Printer,
@@ -30,7 +30,6 @@ import {
   RotateCcw,
   Search,
   Trash2,
-  Wrench,
   X,
 } from "lucide-react";
 import { ConvexUnauthRedirect } from "@/components/convex-unauth-redirect";
@@ -269,7 +268,7 @@ function PageContent() {
       <PageHeader
         title="Códigos QR"
         description="Gerencie lotes, reimpressões e códigos livres sem carregar a base inteira."
-        action={
+        actions={
           <Button render={<Link to="/engenharia/qr-codes" />}>
             <Plus className="mr-2 h-4 w-4" />
             Criar códigos QR
@@ -277,12 +276,12 @@ function PageContent() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard title="Equipamentos" value={totalEquipment.toString()} description={`${operational} operacionais${warnings > 0 ? `, ${warnings} alertas` : ""}${errors > 0 ? `, ${errors} erros` : ""}`} icon={<Wrench className="h-4 w-4 text-muted-foreground" />} />
-        <MetricCard title="Total de códigos QR" value={stats ? `${stats.total}${stats.capped ? "+" : ""}` : "..."} description="códigos gerados" icon={<QrCode className="h-4 w-4 text-muted-foreground" />} />
-        <MetricCard title="Vinculados" value={stats ? stats.linked.toString() : "..."} description="com equipamento vinculado" icon={<Link2 className="h-4 w-4 text-blue-500" />} />
-        <MetricCard title="Livres" value={stats ? stats.free.toString() : "..."} description="disponíveis para vínculo" icon={<Link2Off className="h-4 w-4 text-gray-400" />} />
-      </div>
+      <MetricStrip>
+        <MetricCard title="Equipamentos" value={totalEquipment.toString()} description={`${operational} operacionais${warnings > 0 ? `, ${warnings} alertas` : ""}${errors > 0 ? `, ${errors} erros` : ""}`} />
+        <MetricCard title="Total de códigos QR" value={stats ? `${stats.total}${stats.capped ? "+" : ""}` : "..."} description="códigos gerados" />
+        <MetricCard title="Vinculados" value={stats ? stats.linked.toString() : "..."} description="com equipamento vinculado" />
+        <MetricCard title="Livres" value={stats ? stats.free.toString() : "..."} description="disponíveis para vínculo" />
+      </MetricStrip>
 
       <BatchesWithoutProjectCard />
 
@@ -296,9 +295,14 @@ function PageContent() {
           </CardHeader>
           <CardContent className="p-0">
             {generationBatches === undefined ? (
-              <LoadingState size={20} className="py-8" />
+              <BatchListSkeleton />
             ) : generationBatches.length === 0 ? (
-              <p className="px-4 py-8 text-sm text-muted-foreground">Nenhum lote de geração encontrado ainda.</p>
+              <EmptyState
+                variant="default"
+                icon={<History />}
+                title="Nenhum lote gerado"
+                description="Os lotes aparecem aqui depois que você cria códigos QR."
+              />
             ) : (
               <div className="divide-y">
                 {generationBatches.map((batch) => (
@@ -338,7 +342,7 @@ function PageContent() {
               <Button type="submit">Buscar</Button>
             </form>
             {submittedSearch && searchResults === undefined ? (
-              <LoadingState size={20} className="py-4" />
+              <LoadingState size={18} label="Buscando…" className="py-4" />
             ) : submittedSearch && searchResults ? (
               <SearchResults results={searchResults} deletingToken={deletingToken} printingBatch={printingBatch} onOpenBatch={openBatch} onPrintBatch={handlePrintBatch} onPreview={setPreviewToken} onPrintOne={(token) => handlePrintTokens([token], `Código QR ${token}`)} onDelete={handleDeleteQr} />
             ) : (
@@ -399,15 +403,29 @@ function PageContent() {
           <CardContent className="p-0">
             {!activeBatchId ? (
               <EmptyState
-                variant="plain"
-                icon={<QrCode className="size-7" />}
+                variant="default"
+                icon={<QrCode />}
                 title="Selecione um lote"
                 description="A visualização de códigos fica vazia até você escolher um lote."
               />
             ) : batchCodes.status === "LoadingFirstPage" ? (
-              <LoadingState size={20} className="py-8" />
+              <QrCodeListSkeleton />
             ) : filteredCodes.length === 0 ? (
-              <p className="px-4 py-8 text-sm text-muted-foreground">{linkFilter === "all" ? "Nenhum código encontrado neste lote." : linkFilter === "linked" ? "Nenhum código vinculado neste lote." : "Nenhum código livre neste lote."}</p>
+              <EmptyState
+                variant="inline"
+                description={linkFilter === "all" ? "Nenhum código encontrado neste lote." : linkFilter === "linked" ? "Nenhum código vinculado neste lote." : "Nenhum código livre neste lote."}
+                action={
+                  linkFilter === "all" ? undefined : (
+                    <button
+                      type="button"
+                      className="ml-1 font-medium text-primary underline-offset-4 hover:underline"
+                      onClick={() => setLinkFilter("all")}
+                    >
+                      Mostrar todos
+                    </button>
+                  )
+                }
+              />
             ) : (
               <>
                 <div className="divide-y">
@@ -437,6 +455,51 @@ function QrSearchResult({ qr, deleting, onPreview, onPrint, onDelete }: { qr: Qr
 
 function QrCodeRowItem({ qr, checked, deleting, onSelect, onPreview, onPrint, onDelete }: { qr: QrCodeRow; checked: boolean; deleting: boolean; onSelect: () => void; onPreview: () => void; onPrint: () => void; onDelete: () => void }) {
   return <div className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_auto] sm:items-center"><div className="flex min-w-0 items-center gap-3"><Checkbox aria-label={`Selecionar código QR ${qr.token}`} checked={checked} onCheckedChange={onSelect} /><div className="min-w-0"><div className="flex items-center gap-2"><p className="truncate font-mono text-sm font-semibold">{qr.token}</p><StatusBadge linked={!!qr.equipmentId} /></div></div></div><div className="min-w-0 pl-8 sm:pl-0"><p className="truncate text-xs text-muted-foreground">{qr.batchName ?? (qr.batchId ? `Lote ${qr.batchId}` : "Sem lote")}</p><p className="truncate text-xs text-muted-foreground">{qr.equipment ? qr.equipment.description ?? "Equipamento" : "Sem equipamento"}</p></div><div className="flex flex-wrap gap-1.5 pl-8 sm:justify-end sm:pl-0"><Button variant="ghost" size="icon-sm" title="Ver código QR" onClick={onPreview}><Eye className="h-4 w-4" /></Button><Button variant="outline" size="sm" onClick={onPrint}><Printer className="mr-2 h-4 w-4" />Imprimir</Button><Button variant="ghost" size="sm" render={<Link to="/engenharia/qr/$token" params={{ token: qr.token }} />}>Detalhes</Button><Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive" disabled={!!qr.equipmentId || deleting} title={qr.equipmentId ? "código QR vinculado não pode ser excluído" : "Excluir código QR"} onClick={onDelete}>{deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}</Button></div></div>;
+}
+
+const skeletonWidths = ["72%", "60%", "84%"] as const;
+
+function BatchListSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Carregando lotes" className="divide-y">
+      {skeletonWidths.map((width, index) => (
+        <div key={index} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton width={width} />
+            <Skeleton width="45%" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton shape="pill" width={88} />
+            <Skeleton shape="pill" width={96} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function QrCodeListSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Carregando códigos" className="divide-y">
+      {skeletonWidths.map((width, index) => (
+        <div key={index} className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_auto] sm:items-center">
+          <div className="flex min-w-0 items-center gap-3">
+            <Skeleton width={16} className="h-4" />
+            <Skeleton width={width} />
+            <Skeleton shape="pill" width={64} />
+          </div>
+          <div className="min-w-0 space-y-2 pl-8 sm:pl-0">
+            <Skeleton width="66%" />
+            <Skeleton width="50%" />
+          </div>
+          <div className="flex gap-1.5 pl-8 sm:justify-end sm:pl-0">
+            <Skeleton shape="pill" width={88} />
+            <Skeleton shape="pill" width={72} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function StatusBadge({ linked }: { linked: boolean }) {
