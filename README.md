@@ -263,6 +263,23 @@ As runs no `master` são as que alimentam os caches das PRs (pnpm store e Turbo)
 
 O app desktop (`apps/takeoff`) tem mais dois workflows: `takeoff-rust.yml` (`cargo fmt` e `clippy`, só quando `apps/takeoff/src-tauri` muda) e `takeoff-release.yml` (instaladores Windows/macOS assinados, publicados em `Patolord/takeoff-releases` a cada tag `takeoff-vX.Y.Z`).
 
+### Previews do Convex
+
+O build de preview da Vercel (`apps/web/vercel.json`) roda `npx convex deploy` com a chave de preview, que cria um deployment de preview no Convex com o nome do branch. O time tem um limite de deployments (40 no plano atual); quando ele estoura, o build de preview falha com `DeploymentQuotaReached`.
+
+`convex-preview-cleanup.yml` apaga esses previews pela [Management API do Convex](https://docs.convex.dev/management-api):
+
+- quando um PR fecha (com merge ou não), apaga o preview do branch dele;
+- todo dia (e pelo `workflow_dispatch`, que por padrão só lista), apaga os previews cujo branch não tem PR aberto.
+
+Só deployments do tipo `preview` são tocados. Para funcionar, o repositório precisa:
+
+do secret **`CONVEX_MANAGEMENT_TOKEN`**: um token de acesso do time no Convex (Team Settings › Access Tokens, https://dashboard.convex.dev/team/settings/access-tokens).
+
+O projeto é descoberto a partir do deployment de produção (`rosy-crow-250`). Se ele mudar, defina a variável `CONVEX_DEPLOYMENT_NAME` (ou `CONVEX_PROJECT_ID`) no repositório.
+
+Sem o secret, o workflow só avisa e não apaga nada.
+
 ## Deploy
 
 - **Backend (produção):** `npx convex deploy` — somente via pipeline/manual consciente, nunca durante desenvolvimento.

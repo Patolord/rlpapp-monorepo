@@ -56,6 +56,8 @@ configurado (abaixo).
   `apps/takeoff/src-tauri`, só quando esse diretório muda.
 - `takeoff-release.yml`: instaladores do app desktop a cada tag `takeoff-v*` (ou
   `workflow_dispatch`). Ver [`apps/takeoff/AGENTS.md`](apps/takeoff/AGENTS.md).
+- `convex-preview-cleanup.yml`: apaga o deployment de preview do Convex de um PR quando ele fecha,
+  e varre diariamente os previews sem PR aberto (secret `CONVEX_MANAGEMENT_TOKEN`; ver README).
 
 ## Secrets: Doppler
 
