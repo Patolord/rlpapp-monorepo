@@ -9,7 +9,8 @@
     "./labels": "./src/labels.ts",
     "./usernames": "./src/usernames.ts",
     "./clerkErrors": "./src/clerkErrors.ts",
-    "./engenharia/ducts": "./src/engenharia/ducts.ts"
+    "./engenharia/ducts": "./src/engenharia/ducts.ts",
+    "./takeoff/desktopBudget": "./src/takeoff/desktopBudget.ts"
   },
   "devDependencies": {
     "@rlpapp/config": "workspace:*",

@@ -784,13 +784,15 @@ export const TOOLS: readonly ToolSpec[] = [
     name: "list_takeoffs",
     function: "takeoffs:list",
     title: "List takeoffs",
-    description: "Material takeoffs (quantity lists), optionally for one project.",
+    description:
+      "Material takeoffs (quantity lists), optionally for one project. source \"desktop\" marks budgets published by the desktop takeoff app (budget holds BDI, extras % and totals per sheet in BRL cents; publishedAt/publishedByName say when and by whom).",
   },
   {
     name: "get_takeoff",
     function: "takeoffs:get",
     title: "Get takeoff",
-    description: "A takeoff with its items, matched materials and current price suggestions.",
+    description:
+      "A takeoff with its items, matched materials and current price suggestions. Desktop budget lines also carry sheet (discipline/system), section (location or group), laborUnitPriceCents and externalRemovedAt (line dropped from the desktop budget but kept because purchasing already worked on it).",
     serverArgs: nowArg,
   },
   {

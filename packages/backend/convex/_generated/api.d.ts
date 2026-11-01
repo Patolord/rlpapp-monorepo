@@ -67,6 +67,7 @@ import type * as model_contracts_queries from "../model/contracts/queries.js";
 import type * as model_contracts_rules from "../model/contracts/rules.js";
 import type * as model_contracts_serviceItems from "../model/contracts/serviceItems.js";
 import type * as model_contracts_validators from "../model/contracts/validators.js";
+import type * as model_procurement_desktopBudget from "../model/procurement/desktopBudget.js";
 import type * as model_procurement_priceSelection from "../model/procurement/priceSelection.js";
 import type * as model_procurement_seedLaborPrices from "../model/procurement/seedLaborPrices.js";
 import type * as model_procurement_takeoffCatalog from "../model/procurement/takeoffCatalog.js";
@@ -160,6 +161,7 @@ declare const fullApi: ApiFromModules<{
   "model/contracts/rules": typeof model_contracts_rules;
   "model/contracts/serviceItems": typeof model_contracts_serviceItems;
   "model/contracts/validators": typeof model_contracts_validators;
+  "model/procurement/desktopBudget": typeof model_procurement_desktopBudget;
   "model/procurement/priceSelection": typeof model_procurement_priceSelection;
   "model/procurement/seedLaborPrices": typeof model_procurement_seedLaborPrices;
   "model/procurement/takeoffCatalog": typeof model_procurement_takeoffCatalog;
