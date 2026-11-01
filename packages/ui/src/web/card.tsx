@@ -17,7 +17,7 @@ const cardVariants = cva(
         default: "border border-border shadow-xs",
         elevated: "border border-border shadow-md",
         interactive:
-          "border border-border shadow-xs transition-all hover:shadow-md hover:border-primary/40 cursor-pointer",
+          "border border-border shadow-xs transition-[box-shadow,border-color] duration-150 hover:shadow-md hover:border-primary/40 cursor-pointer",
       },
     },
     defaultVariants: {

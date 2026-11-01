@@ -54,14 +54,19 @@ function fromDateInput(value: string): number | null {
 
 export function ApartmentPanel({
   projectId,
-  unit,
+  unit: unitProp,
   onClose,
 }: {
   projectId: Id<"projects">;
   unit: GridUnit | null;
   onClose: () => void;
 }) {
-  // Mantém o último apto durante o fade-out.
+  const open = unitProp !== null;
+  // Mantém o último apto durante a animação de saída do painel.
+  const [lastUnit, setLastUnit] = useState(unitProp);
+  if (unitProp && unitProp !== lastUnit) setLastUnit(unitProp);
+  const unit = unitProp ?? lastUnit;
+
   const [linkItemId, setLinkItemId] = useState<Id<"projectEquipment"> | null>(
     null
   );
@@ -106,7 +111,7 @@ export function ApartmentPanel({
   }
 
   return (
-    <Sheet open={unit !== null} onOpenChange={(o) => !o && onClose()}>
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-md">
         {unit && (
           <>

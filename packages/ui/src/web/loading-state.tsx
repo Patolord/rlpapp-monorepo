@@ -148,7 +148,7 @@ function ProgressBar({ className, label = "Carregando" }: ProgressBarProps) {
       aria-busy="true"
       className={cn("relative h-[2px] overflow-hidden bg-border", className)}
     >
-      <div className="absolute inset-y-0 w-[40%] rounded-[2px] bg-primary animate-progress motion-reduce:[animation-duration:3s]" />
+      <div className="absolute inset-y-0 left-0 w-[40%] rounded-[2px] bg-primary animate-progress motion-reduce:[animation-duration:3s]" />
     </div>
   );
 }

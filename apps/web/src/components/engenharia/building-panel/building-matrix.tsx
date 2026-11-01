@@ -525,16 +525,12 @@ function MatrixCellButton({
   const isPrimary = cell.segmentIndex === 0;
   // Lados encostados em outro retângulo do mesmo ambiente colam no vizinho
   // (sem margem/raio) e escondem a borda de um dos lados para unir a forma.
-  const merged =
-    cell.flushTop || cell.flushRight || cell.flushBottom || cell.flushLeft;
-
   return (
     <button
       type="button"
       onClick={() => onSelectEnvironment(floorLabel, env)}
       className={cn(
-        "m-2 flex min-h-18 flex-col gap-0.5 rounded-sm border-2 p-2 text-left shadow-sm transition-all hover:shadow-md",
-        !merged && "hover:-translate-y-0.5",
+        "m-2 flex min-h-18 flex-col gap-0.5 rounded-sm border-2 p-2 text-left shadow-sm transition-shadow hover:shadow-md",
         cell.flushTop && "mt-0 rounded-t-none",
         cell.flushRight && "mr-0 rounded-r-none",
         cell.flushBottom && "mb-0 rounded-b-none",

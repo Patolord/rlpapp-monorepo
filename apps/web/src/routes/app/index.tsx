@@ -262,7 +262,7 @@ function ProjectRow({
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
           <div
             className={
-              "h-full rounded-full transition-all " +
+              "h-full rounded-full transition-[width] duration-300 ease-out " +
               (project.overdue ? "bg-red-600" : "bg-primary")
             }
             style={{ width: `${project.pct}%` }}

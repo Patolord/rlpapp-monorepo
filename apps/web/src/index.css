@@ -163,7 +163,10 @@
 }
 
 @theme {
-  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --animate-shimmer: shimmer 1.4s linear infinite;
   --animate-progress: progress-indeterminate 1.1s ease-in-out infinite;
 
   @keyframes shimmer {
@@ -176,13 +179,19 @@
   }
 
   @keyframes progress-indeterminate {
+    /* translate é relativo à própria barra (40% da trilha): -100% a 250%. */
     from {
-      left: -40%;
+      translate: -100% 0;
     }
     to {
-      left: 100%;
+      translate: 250% 0;
     }
   }
+}
+
+/* Atalho de teclado (Ctrl/Cmd+B) alterna a sidebar sem animação. */
+[data-slot="sidebar-wrapper"][data-instant] * {
+  transition-duration: 0s !important;
 }
 
 @layer base {
