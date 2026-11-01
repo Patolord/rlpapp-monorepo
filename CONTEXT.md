@@ -92,8 +92,9 @@ click (a split's line set: copper, insulation and cable together).
 A line of a takeoff desktop budget: a material or service with a unit, budget
 group, material and labour unit prices and optional waste. Its quantity is
 measured from its markings (runs also add their vertical lengths), except for
-a duct network or VRF system, whose quantity is a number of identical sets
-(“cj”) entered by hand while its markings only price it.
+a duct network or VRF system, whose markings price it rather than measure it.
+A duct network always has quantity 1 (“cj”); a VRF system has a number of
+identical sets (“cj”) entered by hand.
 
 ## Duct Network
 
