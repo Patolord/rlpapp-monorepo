@@ -1,9 +1,10 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 
+import { WhatsAppContactButton } from "@/components/whatsapp-contact-button";
+
 const EMAIL_USER = "rlpeng";
 const EMAIL_DOMAIN = "rlpeng.com.br";
-const PHONE_NUMBER = "5511985782307";
 
 export const Route = createFileRoute("/politica-privacidade")({
   head: () => ({
@@ -22,7 +23,6 @@ export const Route = createFileRoute("/politica-privacidade")({
 
 function PoliticaPrivacidadePage() {
   const email = useMemo(() => `${EMAIL_USER}@${EMAIL_DOMAIN}`, []);
-  const whatsappLink = useMemo(() => `https://wa.me/${PHONE_NUMBER}`, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -228,14 +228,8 @@ function PoliticaPrivacidadePage() {
                   {email}
                 </a>
               </p>
-              <p>
-                WhatsApp:{" "}
-                <a
-                  href={whatsappLink}
-                  className="text-primary underline-offset-4 hover:underline"
-                >
-                  (11) 98578-2307
-                </a>
+              <p className="mt-3">
+                <WhatsAppContactButton />
               </p>
             </div>
           </section>
