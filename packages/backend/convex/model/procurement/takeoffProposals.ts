@@ -63,6 +63,8 @@ export type TakeoffMaterialProposalInput = {
   unitPrice?: number;
   priceDate?: number;
   requestedBy?: string;
+  /** Signed-in desktop user (takeoffMaterials.proposeAsUser); never from a body. */
+  requestedByUserId?: Id<"users">;
   takeoffName?: string;
 };
 
@@ -353,6 +355,7 @@ export async function proposeTakeoffMaterial(
     requestedName: input.name,
     requestedUnit: input.unit,
     requestedBy: input.requestedBy,
+    requestedByUserId: input.requestedByUserId,
     takeoffName: input.takeoffName,
     createdAt: now,
   });

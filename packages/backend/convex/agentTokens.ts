@@ -15,17 +15,21 @@ import {
   getAgentTokenClaims,
   hashAgentToken,
   rejectAgentTokenIdentity,
-  type AgentTokenPermission,
 } from "./lib/agentTokens";
 import {
   adminMutation,
   adminQuery,
-  assertStaff,
   requireUser,
   staffMutation,
   staffQuery,
 } from "./lib/rbac";
-import { agentTokenPermission } from "./schema";
+import {
+  insertToken,
+  isActiveToken,
+  MAX_TOKENS_PER_USER,
+  normalizeName,
+} from "./model/identity/agentTokens";
+import { agentTokenKind, agentTokenPermission } from "./schema";
 
 /**
  * Tokens de agente: credenciais pessoais para agentes de IA (Claude, Cursor,
@@ -33,9 +37,6 @@ import { agentTokenPermission } from "./schema";
  * "MCP" e lib/agentTokens.ts para a política central.
  */
 
-const MAX_TOKENS_PER_USER = 25;
-const MAX_NAME_LENGTH = 80;
-const MAX_EXPIRES_IN_DAYS = 3650;
 /** Intervalo mínimo entre gravações de `lastUsedAt`. */
 const LAST_USED_WRITE_INTERVAL_MS = 60_000;
 /** Linhas de `agentTokenCalls` mais antigas que isto são apagadas pelo cron. */
@@ -54,6 +55,8 @@ const publicTokenValidator = v.object({
   lastUsedAt: v.optional(v.number()),
   expiresAt: v.optional(v.number()),
   revokedAt: v.optional(v.number()),
+  /** "device" = emitido pelo login do RLP Takeoff; ausente = token de agente. */
+  kind: v.optional(agentTokenKind),
 });
 
 const callValidator = v.object({
@@ -79,40 +82,8 @@ function toPublicToken(token: Doc<"agentTokens">) {
     lastUsedAt: token.lastUsedAt,
     expiresAt: token.expiresAt,
     revokedAt: token.revokedAt,
+    kind: token.kind,
   };
-}
-
-function normalizeName(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) throw new Error("Informe um nome para o token");
-  if (trimmed.length > MAX_NAME_LENGTH) {
-    throw new Error(`O nome deve ter no máximo ${MAX_NAME_LENGTH} caracteres`);
-  }
-  return trimmed;
-}
-
-function computeExpiresAt(
-  expiresInDays: number | undefined,
-  now: number
-): number | undefined {
-  if (expiresInDays === undefined) return undefined;
-  if (
-    !Number.isFinite(expiresInDays) ||
-    expiresInDays <= 0 ||
-    expiresInDays > MAX_EXPIRES_IN_DAYS
-  ) {
-    throw new Error(
-      `A validade deve ser entre 1 e ${MAX_EXPIRES_IN_DAYS} dias`
-    );
-  }
-  return now + Math.round(expiresInDays * 24 * 60 * 60 * 1000);
-}
-
-function isActiveToken(token: Doc<"agentTokens">, now: number): boolean {
-  return (
-    token.revokedAt === undefined &&
-    (token.expiresAt === undefined || token.expiresAt > now)
-  );
 }
 
 /**
@@ -138,53 +109,6 @@ async function getManageableToken(
 async function requireHumanSession(ctx: QueryCtx | MutationCtx): Promise<void> {
   const identity = await ctx.auth.getUserIdentity();
   if (identity) rejectAgentTokenIdentity(identity);
-}
-
-async function insertToken(
-  ctx: MutationCtx,
-  user: Doc<"users">,
-  args: {
-    name: string;
-    permission: AgentTokenPermission;
-    expiresInDays?: number;
-    tokenHash: string;
-    tokenPrefix: string;
-  }
-) {
-  assertStaff(user);
-  if (!user.clerkId) {
-    throw new Error(
-      "Este usuário ainda não está vinculado a uma conta de login; entre no app antes de criar tokens"
-    );
-  }
-  const name = normalizeName(args.name);
-  const now = Date.now();
-  const expiresAt = computeExpiresAt(args.expiresInDays, now);
-
-  // Linhas revogadas nunca são apagadas, então percorre todas as do usuário
-  // em vez de uma janela fixa (a mutation é atômica; não há corrida).
-  let active = 0;
-  for await (const token of ctx.db
-    .query("agentTokens")
-    .withIndex("by_user", (q) => q.eq("userId", user._id))) {
-    if (isActiveToken(token, now)) active++;
-  }
-  if (active >= MAX_TOKENS_PER_USER) {
-    throw new Error(
-      `Limite de ${MAX_TOKENS_PER_USER} tokens ativos atingido. Revogue um token antes de criar outro`
-    );
-  }
-
-  const id = await ctx.db.insert("agentTokens", {
-    userId: user._id,
-    name,
-    tokenHash: args.tokenHash,
-    tokenPrefix: args.tokenPrefix,
-    permission: args.permission,
-    createdAt: now,
-    expiresAt,
-  });
-  return { id, name, expiresAt };
 }
 
 async function ownerSummary(ctx: QueryCtx, userId: Id<"users">) {
