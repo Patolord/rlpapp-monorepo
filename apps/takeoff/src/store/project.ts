@@ -1,4 +1,5 @@
 import { applyRevision, type PageMap, type Similarity } from "../lib/align";
+import { withIdentityOf } from "../lib/appLink";
 import { moveItemInBudget } from "../lib/budgetOrder";
 import { mergeCatalog } from "../lib/catalog";
 import { syncDuctItems } from "../lib/ductItems";
@@ -11,6 +12,7 @@ import {
   newId,
   type Project,
   pruneLocations,
+  type SentToApp,
 } from "../lib/types";
 import type { PageScale } from "../lib/units";
 import { syncVrfItems } from "../lib/vrfItems";
@@ -69,6 +71,11 @@ export interface ProjectSlice {
   setActiveDrawing(id: string | null): void;
   setFilePath(path: string | null): void;
   markSaved(): void;
+  /**
+   * The project's identity in the company app (its id, where its approved budget was sent). Not
+   * an edit: no undo entry, and undo/redo keep it. Marks the project unsaved.
+   */
+  setIdentity(identity: { id?: string; sentToApp?: SentToApp }): void;
 
   /**
    * Apply an edit to the project as one undo step. Derived items (duct networks, VRF systems,
@@ -205,6 +212,12 @@ export const createProjectSlice: Slice<ProjectSlice> = (set, get) => ({
   setFilePath: (filePath) => set({ filePath }),
   markSaved: () => set({ dirty: false }),
 
+  setIdentity: (identity) => {
+    const { project } = get();
+    const next = withIdentityOf(project, { ...project, ...identity } as Project);
+    if (next !== project) set({ project: next, dirty: true });
+  },
+
   commit: (mutate) => {
     const { project, past } = get();
     const mutated = mutate(project);
@@ -231,7 +244,7 @@ export const createProjectSlice: Slice<ProjectSlice> = (set, get) => ({
     if (past.length === 0) return;
     const prev = past[past.length - 1];
     set({
-      project: prev,
+      project: withIdentityOf(prev, project),
       past: past.slice(0, -1),
       future: [project, ...future],
       dirty: true,
@@ -244,7 +257,7 @@ export const createProjectSlice: Slice<ProjectSlice> = (set, get) => ({
     if (future.length === 0) return;
     const next = future[0];
     set({
-      project: next,
+      project: withIdentityOf(next, project),
       past: [...past, project],
       future: future.slice(1),
       dirty: true,
