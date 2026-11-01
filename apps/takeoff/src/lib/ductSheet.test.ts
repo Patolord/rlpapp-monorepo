@@ -6,6 +6,11 @@ import { fillDuctWorkbook } from "./ductSheet";
 
 const template = readFileSync("public/templates/levantamento-dutos.xlsx");
 
+// Parsing and re-writing the real workbook with exceljs takes ~1 s alone, but several seconds
+// when Turbo runs every package's tests at once (CI, `turbo run test`), past vitest's default
+// 5 s; give this one test room instead of letting it fail under load.
+const WORKBOOK_TIMEOUT_MS = 30_000;
+
 describe("reference duct workbook export", () => {
   it("fills header, parameters, runs and prices while keeping the formulas", async () => {
     const bytes = await fillDuctWorkbook(template, {
@@ -80,5 +85,5 @@ describe("reference duct workbook export", () => {
     // formulas survive the round trip
     const b13 = calc.getCell("B13").value as { formula?: string };
     expect(typeof b13 === "object" && b13 && "formula" in b13).toBe(true);
-  });
+  }, WORKBOOK_TIMEOUT_MS);
 });
