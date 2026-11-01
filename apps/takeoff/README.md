@@ -130,7 +130,12 @@ Items can be saved to the catalog (star). The catalog is seeded from past budget
 build elsewhere): with the access token set in "Catálogo e preços" it is fetched on start and
 by "Atualizar preços" in the Ctrl+K footer (through Rust, so no CORS), cached locally, and
 preferred over the seed. Each line's material price shows where it came from (cloud, saved
-catalog, bundled sheets, typed, by weight) next to the price box.
+catalog, bundled sheets, typed, by weight) next to the price box. The company catalog carries a
+labour price per material (`laborPrice`, set by purchasing in Compras → Materiais); while a
+company entry has none (0), it borrows the labour of the seed entry with the same name (accents,
+case and the " — " between family and variant aside) and Ctrl+K marks it: the labour shows in
+italics and the price-source badge gets a dot, with "Mão de obra das planilhas anteriores" in the
+tooltip.
 
 The status bar shows the page scale; click it for the 1:N presets or calibrate by measuring.
 Items carry a budget section (Equipamentos, Rede de Dutos, Bocas de Ar, ...), a material and

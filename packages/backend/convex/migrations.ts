@@ -7,6 +7,7 @@ import { findOrCreateCustomerByName } from "./customers";
 import { getLegacyClientLabel, getPortalUserIds } from "./lib/projects/helpers";
 import { normalizeCustomerName } from "./lib/customers/helpers";
 import type { Id } from "./_generated/dataModel";
+import { planSeedLaborPrices } from "./model/procurement/seedLaborPrices";
 
 /**
  * Backfill idempotente: cria, para cada obra que ainda não tem torres, uma
@@ -877,6 +878,63 @@ export const backfillSuppliersCatalog = internalMutation({
       updated,
       contactsCreated,
       skipped,
+    };
+  },
+});
+
+/**
+ * Importação avulsa (nunca roda sozinha): preenche `laborPriceCents` dos
+ * materiais cujo nome normalizado (família, ou família + variante) é igual ao
+ * de uma entrada do catálogo embutido do RLP Takeoff com mão de obra > 0.
+ * Materiais que já têm mão de obra ficam como estão, salvo `overwrite`.
+ * Por padrão só simula (`dryRun: true`); veja `convex/README.md` para rodar.
+ */
+export const importSeedLaborPrices = internalMutation({
+  args: {
+    entries: v.array(v.object({ name: v.string(), laborPrice: v.number() })),
+    dryRun: v.optional(v.boolean()),
+    overwrite: v.optional(v.boolean()),
+  },
+  returns: v.object({
+    dryRun: v.boolean(),
+    updated: v.number(),
+    alreadySet: v.number(),
+    ambiguous: v.array(v.string()),
+    matches: v.array(
+      v.object({
+        materialId: v.id("materials"),
+        materialName: v.string(),
+        seedName: v.string(),
+        laborPriceCents: v.number(),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? true;
+    // eslint-disable-next-line @convex-dev/no-collect-in-query -- catálogo limitado (centenas de materiais), lido uma vez numa migração manual
+    const materials = await ctx.db
+      .query("materials")
+      .withIndex("by_active", (q) => q.eq("active", true))
+      .collect();
+    const plan = planSeedLaborPrices(materials, args.entries, {
+      overwrite: args.overwrite,
+    });
+    if (!dryRun) {
+      const now = Date.now();
+      for (const match of plan.matches) {
+        await ctx.db.patch("materials", match.materialId, {
+          laborPriceCents: match.laborPriceCents,
+          laborPriceUpdatedAt: now,
+          updatedAt: now,
+        });
+      }
+    }
+    return {
+      dryRun,
+      updated: dryRun ? 0 : plan.matches.length,
+      alreadySet: plan.alreadySet,
+      ambiguous: plan.ambiguous,
+      matches: plan.matches,
     };
   },
 });
