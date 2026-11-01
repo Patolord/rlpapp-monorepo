@@ -34,6 +34,8 @@ async function seedCatalog() {
       sku?: string;
       category?: string;
       unit?: string;
+      laborPriceCents?: number;
+      laborPriceUpdatedAt?: number;
       active: boolean;
     }) => ctx.db.insert("materials", { ...material, createdAt });
 
@@ -50,6 +52,8 @@ async function seedCatalog() {
       sku: "MAT-000102",
       category: "Ar Condicionado",
       unit: "metro",
+      laborPriceCents: 1550,
+      laborPriceUpdatedAt: NOW - 3 * DAY,
       active: true,
     });
     await insertMaterial({
@@ -207,6 +211,7 @@ describe("takeoffCatalog.list", () => {
       priceDate: NOW - 5 * DAY,
       priceValidUntil: NOW + 25 * DAY,
       laborPrice: 0,
+      laborPriceDate: null,
       system: null,
       status: "active",
       mergedInto: null,
@@ -229,7 +234,8 @@ describe("takeoffCatalog.list", () => {
       priceDate: null,
       priceValidUntil: null,
       priceEventId: null,
-      laborPrice: 0,
+      laborPrice: 15.5,
+      laborPriceDate: NOW - 3 * DAY,
       system: null,
       status: "active",
       mergedInto: null,
@@ -293,13 +299,16 @@ describe("GET /takeoff/catalog", () => {
       priceValidUntil: NOW + 25 * DAY,
       priceEventId: expect.any(String),
       laborPrice: 0,
+      laborPriceDate: null,
       system: null,
     });
+    expect(body.items[1]).toMatchObject({ laborPrice: 15.5 });
     expect(Object.keys(body.items[0]!).sort()).toEqual([
       "description",
       "group",
       "id",
       "laborPrice",
+      "laborPriceDate",
       "materialPrice",
       "mergedInto",
       "name",

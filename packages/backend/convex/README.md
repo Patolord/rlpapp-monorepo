@@ -100,3 +100,26 @@ After migrating a domain:
 4. Run `pnpm check-types`.
 
 Production deployment is not part of this development workflow.
+
+## One-off: labour prices from the RLP Takeoff seed
+
+`materials.laborPriceCents` (labour per unit, in cents) is edited in Compras →
+Materiais and exported to the desktop app as `laborPrice`. To pre-fill it from
+the desktop app's bundled catalog (`apps/takeoff/src/data/catalog.seed.json`),
+run the internal mutation `migrations:importSeedLaborPrices` by hand. It matches
+active materials whose normalized name (family, or family + variant) equals a
+seed entry with labour > 0 priced in the same unit (`un`/`pç`/`peça`, `m`/`metro`,
+`m²`/`m2`, `cj`/`conjunto`, ...). Same-name matches in another unit are only
+listed in `skippedUnitMismatch`. It skips seed names with conflicting labour
+prices and never overwrites a labour price already set (unless `overwrite: true`). It only
+simulates unless `dryRun: false`; it writes no audit entries, so review the
+dry run first.
+
+```sh
+cd packages/backend
+ARGS=$(node -e 'const s=require("../../apps/takeoff/src/data/catalog.seed.json");console.log(JSON.stringify({entries:s.filter(e=>e.laborPrice>0).map(({name,unit,laborPrice})=>({name,unit,laborPrice}))}))')
+npx convex run migrations:importSeedLaborPrices "$ARGS"   # dry run: lists matches
+npx convex run migrations:importSeedLaborPrices "$(node -e 'const a=JSON.parse(process.argv[1]);a.dryRun=false;console.log(JSON.stringify(a))' "$ARGS")"
+```
+
+Add `--prod` to target production.

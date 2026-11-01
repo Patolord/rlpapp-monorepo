@@ -821,6 +821,11 @@ export default defineSchema({
     // Texto denormalizado para busca (nome, sku, fabricante, etc.).
     searchText: v.optional(v.string()),
     imageId: v.optional(v.id("_storage")),
+    // Mão de obra por unidade (`unit`) usada nos orçamentos do RLP Takeoff,
+    // em centavos. Ausente = sem preço de mão de obra cadastrado.
+    laborPriceCents: v.optional(v.number()),
+    // Quando o preço de mão de obra foi definido pela última vez.
+    laborPriceUpdatedAt: v.optional(v.number()),
     active: v.boolean(),
     status: v.optional(materialStatus),
     // Set when this material was merged into another (status "archived");

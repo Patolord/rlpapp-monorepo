@@ -1,5 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
+import { formatCurrency } from "@rlpapp/shared";
 import { useMutation, useQuery } from "convex/react";
 import { Plus, Star, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -200,6 +201,14 @@ export function MaterialDetailSheet({
                 <DetailItem
                   label="Marca preferida"
                   value={material.brandPreference}
+                />
+                <DetailItem
+                  label="Mão de obra"
+                  value={
+                    material.laborPriceCents != null
+                      ? `${formatCurrency(material.laborPriceCents)}${material.unit ? ` / ${material.unit}` : ""}`
+                      : null
+                  }
                 />
               </dl>
               <MaterialReplenishmentBadge

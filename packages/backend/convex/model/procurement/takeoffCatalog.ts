@@ -34,7 +34,10 @@ export const takeoffCatalogItemValidator = v.object({
   priceDate: v.union(v.number(), v.null()),
   priceValidUntil: v.union(v.number(), v.null()),
   priceEventId: v.union(v.id("priceEvents"), v.null()),
+  // Labour unit price (reais, like materialPrice) set on the material in the
+  // company app; 0 when none is set. laborPriceDate says when it was set.
   laborPrice: v.number(),
+  laborPriceDate: v.union(v.number(), v.null()),
   system: v.union(v.string(), v.null()),
   // "draft": proposed from the takeoff, awaiting purchasing. "archived" items
   // appear only when merged into another material, with the redirect.
@@ -55,6 +58,7 @@ export type TakeoffCatalogItem = {
   priceValidUntil: number | null;
   priceEventId: Id<"priceEvents"> | null;
   laborPrice: number;
+  laborPriceDate: number | null;
   system: string | null;
   status: "draft" | "active" | "archived";
   mergedInto: Id<"materials"> | null;
@@ -95,9 +99,13 @@ export function toTakeoffCatalogItem(
     priceDate: price?.occurredAt ?? null,
     priceValidUntil: price?.validUntil ?? null,
     priceEventId: price?._id ?? null,
-    // Placeholders: materials carry no labour price or discipline (HVAC,
-    // pressurisation, ...) yet. Both become real fields in a later schema change.
-    laborPrice: 0,
+    laborPrice: centsToReais(material.laborPriceCents ?? 0),
+    laborPriceDate:
+      material.laborPriceCents !== undefined
+        ? (material.laborPriceUpdatedAt ?? null)
+        : null,
+    // Placeholder: materials carry no discipline (HVAC, pressurisation, ...)
+    // yet. It becomes a real field in a later schema change.
     system: null,
     status: catalogStatus(material),
     mergedInto: material.mergedIntoId ?? null,

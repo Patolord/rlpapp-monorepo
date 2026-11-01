@@ -1,5 +1,6 @@
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import { formatDate } from "@rlpapp/shared";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
 import { ImagePlus, Package, X } from "lucide-react";
@@ -18,6 +19,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { getErrorMessage } from "@/lib/errors";
+import {
+  centsToLaborPriceInput,
+  parseLaborPriceInput,
+} from "@/lib/labor-price";
 import { uploadPhotos } from "@/lib/upload-photos";
 
 export type MaterialCatalogRow = FunctionReturnType<
@@ -58,6 +63,8 @@ export type MaterialFormValues = {
   spec: string;
   brandPreference: string;
   technicalAttributes: string;
+  /** Mão de obra por unidade, em reais ("45,50"); vazio = sem preço. */
+  laborPrice: string;
 };
 
 export const EMPTY_MATERIAL_FORM: MaterialFormValues = {
@@ -80,6 +87,7 @@ export const EMPTY_MATERIAL_FORM: MaterialFormValues = {
   spec: "",
   brandPreference: "",
   technicalAttributes: "",
+  laborPrice: "",
 };
 
 export function parseTechnicalAttributes(
@@ -140,6 +148,7 @@ function materialToForm(material: MaterialCatalogRow): MaterialFormValues {
     technicalAttributes: (material.technicalAttributes ?? [])
       .map((attribute) => `${attribute.key}=${attribute.value}`)
       .join("; "),
+    laborPrice: centsToLaborPriceInput(material.laborPriceCents),
   };
 }
 
@@ -267,6 +276,7 @@ export function MaterialFormDialog({
       const unitsPerPurchaseUnit = form.unitsPerPurchaseUnit.trim()
         ? Number.parseFloat(form.unitsPerPurchaseUnit)
         : undefined;
+      const laborPriceCents = parseLaborPriceInput(form.laborPrice);
       const imageId = await resolveImageId();
 
       if (isEdit && material) {
@@ -288,6 +298,7 @@ export function MaterialFormDialog({
           spec: form.spec || undefined,
           brandPreference: form.brandPreference || undefined,
           technicalAttributes,
+          laborPriceCents,
           ...(imageId !== undefined ? { imageId } : {}),
         });
         toast.success("Material atualizado");
@@ -309,6 +320,7 @@ export function MaterialFormDialog({
           spec: form.spec || undefined,
           brandPreference: form.brandPreference || undefined,
           technicalAttributes,
+          ...(laborPriceCents !== null ? { laborPriceCents } : {}),
           ...(imageId ? { imageId } : {}),
         });
         toast.success("Material criado");
@@ -541,6 +553,31 @@ export function MaterialFormDialog({
               />
               Controlar estoque deste material
             </label>
+          </section>
+
+          <section className="space-y-3">
+            <h3 className="text-sm font-medium">Orçamento</h3>
+            <div>
+              <Label htmlFor="material-labor-price">
+                Mão de obra (R$ por {form.unit.trim() || "unidade"})
+              </Label>
+              <Input
+                id="material-labor-price"
+                inputMode="decimal"
+                value={form.laborPrice}
+                onChange={(event) =>
+                  setForm({ ...form, laborPrice: event.target.value })
+                }
+                placeholder="Ex.: 45,50"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Enviado ao RLP Takeoff junto com o preço do material. Deixe em
+                branco quando não houver mão de obra.
+                {material?.laborPriceUpdatedAt
+                  ? ` Atualizado em ${formatDate(material.laborPriceUpdatedAt)}.`
+                  : ""}
+              </p>
+            </div>
           </section>
 
           <section className="space-y-3">
