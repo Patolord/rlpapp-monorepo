@@ -55,6 +55,14 @@ describe("parseTakeoffMaterialProposal", () => {
         dimensions: { widthMm: "300" },
       })
     ).toMatchObject({ ok: false, error: expect.stringContaining("widthMm") });
+    // zero passaria pelo parser e só falharia em sanitizeDimensions (500)
+    expect(
+      parseTakeoffMaterialProposal({
+        clientId: "c1",
+        name: "Duto",
+        dimensions: { widthMm: 300, heightMm: 0 },
+      })
+    ).toMatchObject({ ok: false, error: expect.stringContaining("heightMm") });
   });
 
   test("trims text and drops empty strings", () => {

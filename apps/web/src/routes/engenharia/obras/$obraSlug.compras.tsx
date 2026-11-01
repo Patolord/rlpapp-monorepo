@@ -6,6 +6,7 @@ import { useQuery } from "convex/react";
 import { ArrowRight, Calculator, ExternalLink, Package } from "lucide-react";
 
 import { AuthShell } from "@/components/auth-shell";
+import { TakeoffSourceBadge } from "@/components/compras/takeoff-source-badge";
 import { ProjectShell } from "@/components/engenharia/project-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -141,7 +142,12 @@ function ComprasContent({
               <TableBody>
                 {takeoffs.map((t) => (
                   <TableRow key={t._id}>
-                    <TableCell className="font-medium">{t.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {t.name}
+                        <TakeoffSourceBadge takeoff={t} />
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {t.status ? (
                         <Badge variant="secondary">

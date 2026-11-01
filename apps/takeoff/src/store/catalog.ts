@@ -1,3 +1,6 @@
+import type { GaugeWeights } from "@rlpapp/shared/engenharia/ducts";
+import { fetchCatalogAsUser, sendProposalAsUser } from "../lib/account/convex";
+import { isSignedIn } from "../lib/account/session";
 import {
   type CatalogEntry,
   type CatalogStore,
@@ -16,7 +19,6 @@ import {
   sendProposal,
 } from "../lib/catalogRemote";
 import { syncDuctItems } from "../lib/ductItems";
-import type { GaugeWeights } from "../lib/ducts";
 import { type Kit, refreshKitLabels } from "../lib/kits";
 import type { Project } from "../lib/types";
 import { syncWeightItems, type WeightRow } from "../lib/weights";
@@ -38,7 +40,10 @@ export interface CatalogSlice {
 
   loadCatalog(): Promise<void>;
   setCatalogToken(token: string): void;
-  /** Fetch the company catalog; returns how many entries arrived. */
+  /**
+   * Fetch the company catalog, as the signed-in user when there is one (else with the shared
+   * token); returns how many entries arrived.
+   */
   refreshCatalog(): Promise<number>;
   saveItemToCatalog(itemId: string): Promise<void>;
   /**
@@ -87,7 +92,18 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
 
     refreshCatalog: async () => {
       const { catalog } = get();
-      const remote = await fetchRemoteCatalog(catalog.remoteToken);
+      let remote: Awaited<ReturnType<typeof fetchRemoteCatalog>>;
+      if (isSignedIn()) {
+        try {
+          remote = await fetchCatalogAsUser();
+        } catch (e) {
+          // revoked in the dashboard: signed out now, the shared token (if any) takes over
+          if (!(await get().handleSignedOut(e)) || !catalog.remoteToken) throw e;
+          remote = await fetchRemoteCatalog(catalog.remoteToken);
+        }
+      } else {
+        remote = await fetchRemoteCatalog(catalog.remoteToken);
+      }
       const next = {
         ...catalog,
         remote: remote.entries,
@@ -155,15 +171,35 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
     flushProposals: async () => {
       const { catalog } = get();
       if (catalog.outbox.length === 0) return 0;
-      if (!catalog.remoteToken) {
-        set({ status: "Proposta guardada: configure o token do catálogo (Ctrl+K) para enviar" });
+      if (!isSignedIn() && !catalog.remoteToken) {
+        set({
+          status:
+            "Proposta guardada: entre com a conta da empresa (Entrar, no topo) para enviar a compras",
+        });
         return 0;
       }
       let accepted = 0;
       const remaining: QueuedProposal[] = [];
       let lastStatus: string | null = null;
+      // signed in, proposals go out as the user; otherwise with the shared token
+      const send = async (q: QueuedProposal) => {
+        if (isSignedIn()) {
+          try {
+            return await sendProposalAsUser(q.body);
+          } catch (e) {
+            if (!(await get().handleSignedOut(e))) throw e;
+          }
+        }
+        const token = get().catalog.remoteToken;
+        return token
+          ? await sendProposal(token, q.body)
+          : { kind: "retry" as const, message: "sem conta conectada" };
+      };
       for (const q of catalog.outbox) {
-        const outcome = await sendProposal(catalog.remoteToken, q.body);
+        const outcome = await send(q).catch((e: unknown) => ({
+          kind: "retry" as const,
+          message: errorMessage(e),
+        }));
         if (outcome.kind === "sent") {
           accepted++;
           const { result } = outcome;

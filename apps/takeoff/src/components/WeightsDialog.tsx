@@ -1,6 +1,11 @@
+import {
+  defaultGaugeWeights,
+  GAUGES,
+  type GaugeWeights,
+  gaugeKgm2,
+} from "@rlpapp/shared/engenharia/ducts";
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { defaultGaugeWeights, GAUGES, type GaugeWeights, gaugeKgm2 } from "../lib/ducts";
 import { GROUP_SUGGESTIONS } from "../lib/types";
 import { BASE_MATERIALS, cloneWeights, SEED_WEIGHTS, type WeightRow } from "../lib/weights";
 import { useStore } from "../store";

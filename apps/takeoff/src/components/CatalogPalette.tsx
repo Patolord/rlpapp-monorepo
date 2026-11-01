@@ -8,7 +8,7 @@ import {
   mergeCatalog,
   searchCatalog,
 } from "../lib/catalog";
-import { priceSourceOfEntry } from "../lib/priceSource";
+import { priceSourceOfEntry, SEED_LABOR_NOTE } from "../lib/priceSource";
 import { formatMoney } from "../lib/units";
 import { useStore } from "../store";
 import { PriceSourceBadge } from "./PriceSourceBadge";
@@ -22,6 +22,7 @@ export function CatalogPalette() {
   const open = useStore((s) => s.paletteOpen);
   const catalog = useStore((s) => s.catalog);
   const currency = useStore((s) => s.project.currency);
+  const signedIn = useStore((s) => s.account.status === "signedIn");
   const { setPaletteOpen, addItemFromCatalog, setCatalogSettingsOpen, refreshCatalog, setStatus } =
     useStore.getState();
   const [query, setQuery] = useState("");
@@ -59,9 +60,9 @@ export function CatalogPalette() {
         catalog.remoteGeneratedAt ?? catalog.fetchedAt,
       ).toLocaleDateString("pt-BR")}`
     : `${entries.length} materiais (planilhas anteriores)`;
-  /** Fetch the company prices now; without a token the settings open to ask for it. */
+  /** Fetch the company prices now; signed out and without a token the settings open to ask. */
   const refresh = async () => {
-    if (!catalog.remoteToken) {
+    if (!signedIn && !catalog.remoteToken) {
       openSettings();
       return;
     }
@@ -161,7 +162,11 @@ export function CatalogPalette() {
                 <span className="w-8 shrink-0 text-center font-mono text-[11px] text-neutral-500">
                   {e.unit}
                 </span>
-                <PriceSourceBadge source={priceSourceOfEntry(e)} priceDate={e.priceDate} />
+                <PriceSourceBadge
+                  source={priceSourceOfEntry(e)}
+                  priceDate={e.priceDate}
+                  laborSource={e.laborSource}
+                />
                 <span
                   className="w-24 shrink-0 text-right font-mono text-[12px] text-neutral-300"
                   title={
@@ -177,7 +182,13 @@ export function CatalogPalette() {
                   {formatMoney(e.materialPrice, currency)}
                 </span>
                 {e.laborPrice > 0 && (
-                  <span className="w-20 shrink-0 text-right font-mono text-[11px] text-neutral-500">
+                  <span
+                    className={clsx(
+                      "w-20 shrink-0 text-right font-mono text-[11px] text-neutral-500",
+                      e.laborSource === "seed" && "italic",
+                    )}
+                    title={e.laborSource === "seed" ? SEED_LABOR_NOTE : "Mão de obra por unidade"}
+                  >
                     + {formatMoney(e.laborPrice, currency)}
                   </span>
                 )}
@@ -225,7 +236,7 @@ export function CatalogPalette() {
             type="button"
             onClick={openSettings}
             className="inline-flex h-7 shrink-0 items-center gap-1 rounded px-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
-            title="Catálogo e preços: token de acesso, R$/kg dos insumos, tabela de pesos"
+            title="Catálogo e preços: conta da empresa ou token, R$/kg dos insumos, tabela de pesos"
           >
             <Settings2 size={14} /> Catálogo e preços
           </button>

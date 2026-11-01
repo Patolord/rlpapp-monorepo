@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 42 módulos, 320 funções públicas.
+// 44 módulos, 318 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -12,39 +12,41 @@ import * as m5 from "../contractors";
 import * as m6 from "../contracts";
 import * as m7 from "../customers";
 import * as m8 from "../dashboard";
-import * as m9 from "../ductEstimates";
-import * as m10 from "../employees";
-import * as m11 from "../environments";
-import * as m12 from "../equipment";
-import * as m13 from "../equipmentHistory";
-import * as m14 from "../floors";
-import * as m15 from "../healthCheck";
-import * as m16 from "../inventory";
-import * as m17 from "../inventoryRequests";
-import * as m18 from "../inventoryStockPolicies";
-import * as m19 from "../maintenanceLogs";
-import * as m20 from "../materials";
-import * as m21 from "../medicoes";
-import * as m22 from "../migrations";
-import * as m23 from "../payroll";
-import * as m24 from "../portal";
-import * as m25 from "../priceEvents";
-import * as m26 from "../projectDocuments";
-import * as m27 from "../projectEquipment";
-import * as m28 from "../projectUnits";
-import * as m29 from "../projects";
-import * as m30 from "../qrCodes";
-import * as m31 from "../reports";
-import * as m32 from "../rhidSync";
-import * as m33 from "../suppliers";
-import * as m34 from "../systems";
-import * as m35 from "../takeoffs";
-import * as m36 from "../technicianActivity";
-import * as m37 from "../technicianPortal";
-import * as m38 from "../timeClock";
-import * as m39 from "../timeClockPunch";
-import * as m40 from "../towers";
-import * as m41 from "../users";
+import * as m9 from "../employees";
+import * as m10 from "../environments";
+import * as m11 from "../equipment";
+import * as m12 from "../equipmentHistory";
+import * as m13 from "../floors";
+import * as m14 from "../healthCheck";
+import * as m15 from "../inventory";
+import * as m16 from "../inventoryRequests";
+import * as m17 from "../inventoryStockPolicies";
+import * as m18 from "../maintenanceLogs";
+import * as m19 from "../materials";
+import * as m20 from "../medicoes";
+import * as m21 from "../migrations";
+import * as m22 from "../payroll";
+import * as m23 from "../portal";
+import * as m24 from "../priceEvents";
+import * as m25 from "../projectDocuments";
+import * as m26 from "../projectEquipment";
+import * as m27 from "../projectUnits";
+import * as m28 from "../projects";
+import * as m29 from "../qrCodes";
+import * as m30 from "../reports";
+import * as m31 from "../rhidSync";
+import * as m32 from "../suppliers";
+import * as m33 from "../systems";
+import * as m34 from "../takeoffAuth";
+import * as m35 from "../takeoffCatalog";
+import * as m36 from "../takeoffMaterials";
+import * as m37 from "../takeoffs";
+import * as m38 from "../technicianActivity";
+import * as m39 from "../technicianPortal";
+import * as m40 from "../timeClock";
+import * as m41 from "../timeClockPunch";
+import * as m42 from "../towers";
+import * as m43 from "../users";
 
 export type AccessHint =
   | { kind: "public" }
@@ -64,39 +66,41 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   contracts: m6,
   customers: m7,
   dashboard: m8,
-  ductEstimates: m9,
-  employees: m10,
-  environments: m11,
-  equipment: m12,
-  equipmentHistory: m13,
-  floors: m14,
-  healthCheck: m15,
-  inventory: m16,
-  inventoryRequests: m17,
-  inventoryStockPolicies: m18,
-  maintenanceLogs: m19,
-  materials: m20,
-  medicoes: m21,
-  migrations: m22,
-  payroll: m23,
-  portal: m24,
-  priceEvents: m25,
-  projectDocuments: m26,
-  projectEquipment: m27,
-  projectUnits: m28,
-  projects: m29,
-  qrCodes: m30,
-  reports: m31,
-  rhidSync: m32,
-  suppliers: m33,
-  systems: m34,
-  takeoffs: m35,
-  technicianActivity: m36,
-  technicianPortal: m37,
-  timeClock: m38,
-  timeClockPunch: m39,
-  towers: m40,
-  users: m41,
+  employees: m9,
+  environments: m10,
+  equipment: m11,
+  equipmentHistory: m12,
+  floors: m13,
+  healthCheck: m14,
+  inventory: m15,
+  inventoryRequests: m16,
+  inventoryStockPolicies: m17,
+  maintenanceLogs: m18,
+  materials: m19,
+  medicoes: m20,
+  migrations: m21,
+  payroll: m22,
+  portal: m23,
+  priceEvents: m24,
+  projectDocuments: m25,
+  projectEquipment: m26,
+  projectUnits: m27,
+  projects: m28,
+  qrCodes: m29,
+  reports: m30,
+  rhidSync: m31,
+  suppliers: m32,
+  systems: m33,
+  takeoffAuth: m34,
+  takeoffCatalog: m35,
+  takeoffMaterials: m36,
+  takeoffs: m37,
+  technicianActivity: m38,
+  technicianPortal: m39,
+  timeClock: m40,
+  timeClockPunch: m41,
+  towers: m42,
+  users: m43,
 };
 
 export const ACCESS_HINTS: Record<string, AccessHint> = {
@@ -159,12 +163,6 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "customers:update": { kind: "permission", permission: "engenharia.write" },
   "customers:updateContact": { kind: "permission", permission: "engenharia.write" },
   "dashboard:getDirectorOverview": { kind: "permission", permission: "engenharia.read" },
-  "ductEstimates:create": { kind: "permission", permission: "engenharia.write" },
-  "ductEstimates:get": { kind: "permission", permission: "engenharia.read" },
-  "ductEstimates:list": { kind: "permission", permission: "engenharia.read" },
-  "ductEstimates:remove": { kind: "permission", permission: "engenharia.write" },
-  "ductEstimates:rename": { kind: "permission", permission: "engenharia.write" },
-  "ductEstimates:save": { kind: "permission", permission: "engenharia.write" },
   "employees:archive": { kind: "permission", permission: "rh.write" },
   "employees:create": { kind: "permission", permission: "rh.write" },
   "employees:get": { kind: "permission", permission: "rh.read" },
@@ -371,12 +369,16 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "systems:listSystemsByProject": { kind: "permission", permission: "engenharia.read" },
   "systems:removeSystemFromProject": { kind: "permission", permission: "engenharia.write" },
   "systems:updateSystemDetails": { kind: "permission", permission: "engenharia.write" },
+  "takeoffAuth:createCode": { kind: "public" },
+  "takeoffCatalog:current": { kind: "permission", permission: "suprimentos.read" },
+  "takeoffMaterials:proposeAsUser": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
   "takeoffs:addItem": { kind: "permission", permission: "engenharia.write" },
   "takeoffs:applySuggestedPrice": { kind: "permission", permission: "engenharia.write" },
   "takeoffs:create": { kind: "permission", permission: "engenharia.write" },
   "takeoffs:get": { kind: "permission", permission: "suprimentos.read" },
   "takeoffs:list": { kind: "permission", permission: "suprimentos.read" },
   "takeoffs:promoteItemToMaterial": { kind: "permission", permission: "compras.write" },
+  "takeoffs:publishFromDesktop": { kind: "permission", permission: "engenharia.write" },
   "takeoffs:removeItem": { kind: "permission", permission: "engenharia.write" },
   "takeoffs:updateItem": { kind: "permission", permission: "engenharia.write" },
   "technicianActivity:listActivityUsers": { kind: "authenticated" },

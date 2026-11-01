@@ -85,15 +85,15 @@ export default function App() {
     return () => unlisten?.();
   }, []);
 
-  // material catalog: local cache, then the company app when a URL is configured
+  // material catalog: local cache, then the company app as the signed-in account (or with the
+  // shared token of earlier versions)
   useEffect(() => {
-    void useStore
-      .getState()
-      .loadCatalog()
+    const { loadCatalog, restoreAccount } = useStore.getState();
+    void Promise.all([loadCatalog(), restoreAccount()])
       .then(() => {
-        // without a token the company app answers 401: wait for the user to configure it (Ctrl+K)
-        const { catalog, refreshCatalog } = useStore.getState();
-        return catalog.remoteToken ? refreshCatalog() : 0;
+        // with neither the company app answers 401: wait for the user to sign in or set a token
+        const { catalog, account, refreshCatalog } = useStore.getState();
+        return account.status === "signedIn" || catalog.remoteToken ? refreshCatalog() : 0;
       })
       .catch((e) => console.warn("catalog refresh failed", e));
   }, []);

@@ -9,12 +9,39 @@
  * `apps/native/lib/colors.ts`.
  */
 
-/** Brand palette in hex (the canonical RLP identity). */
+/**
+ * RLP brand blue scale: a calm cobalt (hue 262, chroma ≤ 0.15 in oklch), chosen
+ * in the 2026-11 design review over Tailwind's saturated blue-600. 600 is the
+ * brand colour (= web `--primary`, oklch(0.47 0.15 262)), 700 its hover/pressed
+ * state, 950 dark text/headings, 50/100 light surfaces and tints.
+ */
+export const brandBlue = {
+  50: "#f0f5ff",
+  100: "#e0ecff",
+  200: "#c4daff",
+  300: "#9bbeff",
+  400: "#6f9df2",
+  500: "#4777d2",
+  600: "#2855ad",
+  700: "#1a469d",
+  800: "#153a83",
+  900: "#102e6a",
+  950: "#0a1f47",
+} as const;
+
+/**
+ * Brand palette in hex (the canonical RLP identity).
+ * White on `primary` has a 7.0:1 contrast ratio (WCAG AA for normal text).
+ */
 export const brand = {
-  primary: "#2855ad",
-  primaryForeground: "#fafafa",
+  primary: brandBlue[600],
+  primaryForeground: "#ffffff",
+  /** Hover / pressed state of `primary`. */
+  primaryHover: brandBlue[700],
+  /** Light brand surface / tint (`primary` on it: 6.4:1). */
+  primarySoft: brandBlue[50],
   secondary: "#f4f4f5",
-  secondaryForeground: "#1a1a2e",
+  secondaryForeground: brandBlue[950],
 } as const;
 
 /**
@@ -30,7 +57,7 @@ export const semanticLight = {
   mutedForeground: "#737373",
   border: "#e5e5e5",
   input: "#e5e5e5",
-  ring: "#2855ad",
+  ring: brandBlue[600],
 } as const;
 
 /** Semantic surface/text colors for dark mode. */
@@ -43,12 +70,11 @@ export const semanticDark = {
   mutedForeground: "#a1a1aa",
   border: "#2a2a3a",
   input: "#2a2a3a",
-  ring: "#426ec2",
+  /** Lighter blue in dark mode so the focus ring reads on dark surfaces. */
+  ring: brandBlue[400],
 } as const;
 
 /**
- * Legacy soft-fill status colors (still used by native). Web badges now use
- * `statusDotColors`.
  * Status colors used by semantic badges and status indicators.
  * Each status maps to a soft background + readable foreground (light mode).
  */
@@ -82,6 +108,7 @@ export type StatusColorKey = keyof typeof statusColors;
 
 export const colors = {
   brand,
+  brandBlue,
   light: semanticLight,
   dark: semanticDark,
   status: statusColors,

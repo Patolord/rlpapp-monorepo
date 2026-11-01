@@ -46,6 +46,7 @@ import { Route as QrOperadorOutrasObrasRouteImport } from './routes/qr-operador_
 import { Route as QrOperadorPendentesRouteImport } from './routes/qr-operador_.pendentes'
 import { Route as RhIndexRouteImport } from './routes/rh/index'
 import { Route as RhPontoRouteRouteImport } from './routes/rh/ponto/route'
+import { Route as TakeoffConectarRouteImport } from './routes/takeoff/conectar'
 import { Route as DotwellKnownOauthProtectedResourceMcpRouteImport } from './routes/[.]well-known/oauth-protected-resource/mcp'
 import { Route as ComprasEventosPrecoIndexRouteImport } from './routes/compras/eventos-preco/index'
 import { Route as ComprasFilaRevisaoIndexRouteImport } from './routes/compras/fila-revisao/index'
@@ -74,7 +75,6 @@ import { Route as EngenhariaObrasObraSlugAssistenteRouteImport } from './routes/
 import { Route as EngenhariaObrasObraSlugComprasRouteImport } from './routes/engenharia/obras/$obraSlug.compras'
 import { Route as EngenhariaObrasObraSlugContratosRouteImport } from './routes/engenharia/obras/$obraSlug.contratos'
 import { Route as EngenhariaObrasObraSlugDocumentosRouteImport } from './routes/engenharia/obras/$obraSlug.documentos'
-import { Route as EngenhariaObrasObraSlugDutosRouteImport } from './routes/engenharia/obras/$obraSlug.dutos'
 import { Route as EngenhariaObrasObraSlugEstoqueRouteImport } from './routes/engenharia/obras/$obraSlug.estoque'
 import { Route as EngenhariaObrasObraSlugGlobalRouteImport } from './routes/engenharia/obras/$obraSlug.global'
 import { Route as EngenhariaObrasObraSlugImprimirRouteImport } from './routes/engenharia/obras/$obraSlug.imprimir'
@@ -285,6 +285,11 @@ const RhPontoRouteRoute = RhPontoRouteRouteImport.update({
   path: '/ponto',
   getParentRoute: () => RhRouteRoute,
 } as any)
+const TakeoffConectarRoute = TakeoffConectarRouteImport.update({
+  id: '/takeoff/conectar',
+  path: '/takeoff/conectar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DotwellKnownOauthProtectedResourceMcpRoute =
   DotwellKnownOauthProtectedResourceMcpRouteImport.update({
     id: '/.well-known/oauth-protected-resource/mcp',
@@ -435,12 +440,6 @@ const EngenhariaObrasObraSlugDocumentosRoute =
   EngenhariaObrasObraSlugDocumentosRouteImport.update({
     id: '/documentos',
     path: '/documentos',
-    getParentRoute: () => EngenhariaObrasObraSlugRoute,
-  } as any)
-const EngenhariaObrasObraSlugDutosRoute =
-  EngenhariaObrasObraSlugDutosRouteImport.update({
-    id: '/dutos',
-    path: '/dutos',
     getParentRoute: () => EngenhariaObrasObraSlugRoute,
   } as any)
 const EngenhariaObrasObraSlugEstoqueRoute =
@@ -602,6 +601,7 @@ export interface FileRoutesByFullPath {
   '/q/$token': typeof QTokenRoute
   '/qr-operador/outras-obras': typeof QrOperadorOutrasObrasRoute
   '/qr-operador/pendentes': typeof QrOperadorPendentesRoute
+  '/takeoff/conectar': typeof TakeoffConectarRoute
   '/app/': typeof AppIndexRoute
   '/compras/': typeof ComprasIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
@@ -635,7 +635,6 @@ export interface FileRoutesByFullPath {
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
   '/engenharia/obras/$obraSlug/documentos': typeof EngenhariaObrasObraSlugDocumentosRoute
-  '/engenharia/obras/$obraSlug/dutos': typeof EngenhariaObrasObraSlugDutosRoute
   '/engenharia/obras/$obraSlug/estoque': typeof EngenhariaObrasObraSlugEstoqueRoute
   '/engenharia/obras/$obraSlug/global': typeof EngenhariaObrasObraSlugGlobalRoute
   '/engenharia/obras/$obraSlug/imprimir': typeof EngenhariaObrasObraSlugImprimirRoute
@@ -683,6 +682,7 @@ export interface FileRoutesByTo {
   '/q/$token': typeof QTokenRoute
   '/qr-operador/outras-obras': typeof QrOperadorOutrasObrasRoute
   '/qr-operador/pendentes': typeof QrOperadorPendentesRoute
+  '/takeoff/conectar': typeof TakeoffConectarRoute
   '/app': typeof AppIndexRoute
   '/compras': typeof ComprasIndexRoute
   '/engenharia': typeof EngenhariaIndexRoute
@@ -713,7 +713,6 @@ export interface FileRoutesByTo {
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
   '/engenharia/obras/$obraSlug/documentos': typeof EngenhariaObrasObraSlugDocumentosRoute
-  '/engenharia/obras/$obraSlug/dutos': typeof EngenhariaObrasObraSlugDutosRoute
   '/engenharia/obras/$obraSlug/estoque': typeof EngenhariaObrasObraSlugEstoqueRoute
   '/engenharia/obras/$obraSlug/global': typeof EngenhariaObrasObraSlugGlobalRoute
   '/engenharia/obras/$obraSlug/imprimir': typeof EngenhariaObrasObraSlugImprimirRoute
@@ -770,6 +769,7 @@ export interface FileRoutesById {
   '/q/$token': typeof QTokenRoute
   '/qr-operador_/outras-obras': typeof QrOperadorOutrasObrasRoute
   '/qr-operador_/pendentes': typeof QrOperadorPendentesRoute
+  '/takeoff/conectar': typeof TakeoffConectarRoute
   '/app/': typeof AppIndexRoute
   '/compras/': typeof ComprasIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
@@ -803,7 +803,6 @@ export interface FileRoutesById {
   '/engenharia/obras/$obraSlug/compras': typeof EngenhariaObrasObraSlugComprasRoute
   '/engenharia/obras/$obraSlug/contratos': typeof EngenhariaObrasObraSlugContratosRoute
   '/engenharia/obras/$obraSlug/documentos': typeof EngenhariaObrasObraSlugDocumentosRoute
-  '/engenharia/obras/$obraSlug/dutos': typeof EngenhariaObrasObraSlugDutosRoute
   '/engenharia/obras/$obraSlug/estoque': typeof EngenhariaObrasObraSlugEstoqueRoute
   '/engenharia/obras/$obraSlug/global': typeof EngenhariaObrasObraSlugGlobalRoute
   '/engenharia/obras/$obraSlug/imprimir': typeof EngenhariaObrasObraSlugImprimirRoute
@@ -861,6 +860,7 @@ export interface FileRouteTypes {
     | '/q/$token'
     | '/qr-operador/outras-obras'
     | '/qr-operador/pendentes'
+    | '/takeoff/conectar'
     | '/app/'
     | '/compras/'
     | '/engenharia/'
@@ -894,7 +894,6 @@ export interface FileRouteTypes {
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
     | '/engenharia/obras/$obraSlug/documentos'
-    | '/engenharia/obras/$obraSlug/dutos'
     | '/engenharia/obras/$obraSlug/estoque'
     | '/engenharia/obras/$obraSlug/global'
     | '/engenharia/obras/$obraSlug/imprimir'
@@ -942,6 +941,7 @@ export interface FileRouteTypes {
     | '/q/$token'
     | '/qr-operador/outras-obras'
     | '/qr-operador/pendentes'
+    | '/takeoff/conectar'
     | '/app'
     | '/compras'
     | '/engenharia'
@@ -972,7 +972,6 @@ export interface FileRouteTypes {
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
     | '/engenharia/obras/$obraSlug/documentos'
-    | '/engenharia/obras/$obraSlug/dutos'
     | '/engenharia/obras/$obraSlug/estoque'
     | '/engenharia/obras/$obraSlug/global'
     | '/engenharia/obras/$obraSlug/imprimir'
@@ -1028,6 +1027,7 @@ export interface FileRouteTypes {
     | '/q/$token'
     | '/qr-operador_/outras-obras'
     | '/qr-operador_/pendentes'
+    | '/takeoff/conectar'
     | '/app/'
     | '/compras/'
     | '/engenharia/'
@@ -1061,7 +1061,6 @@ export interface FileRouteTypes {
     | '/engenharia/obras/$obraSlug/compras'
     | '/engenharia/obras/$obraSlug/contratos'
     | '/engenharia/obras/$obraSlug/documentos'
-    | '/engenharia/obras/$obraSlug/dutos'
     | '/engenharia/obras/$obraSlug/estoque'
     | '/engenharia/obras/$obraSlug/global'
     | '/engenharia/obras/$obraSlug/imprimir'
@@ -1108,6 +1107,7 @@ export interface RootRouteChildren {
   QTokenRoute: typeof QTokenRoute
   QrOperadorOutrasObrasRoute: typeof QrOperadorOutrasObrasRoute
   QrOperadorPendentesRoute: typeof QrOperadorPendentesRoute
+  TakeoffConectarRoute: typeof TakeoffConectarRoute
   PortalIndexRoute: typeof PortalIndexRoute
   DotwellKnownOauthProtectedResourceMcpRoute: typeof DotwellKnownOauthProtectedResourceMcpRoute
   QrOperadorEstoqueObraSlugRoute: typeof QrOperadorEstoqueObraSlugRoute
@@ -1376,6 +1376,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RhPontoRouteRouteImport
       parentRoute: typeof RhRouteRoute
     }
+    '/takeoff/conectar': {
+      id: '/takeoff/conectar'
+      path: '/takeoff/conectar'
+      fullPath: '/takeoff/conectar'
+      preLoaderRoute: typeof TakeoffConectarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/.well-known/oauth-protected-resource/mcp': {
       id: '/.well-known/oauth-protected-resource/mcp'
       path: '/.well-known/oauth-protected-resource/mcp'
@@ -1570,13 +1577,6 @@ declare module '@tanstack/react-router' {
       path: '/documentos'
       fullPath: '/engenharia/obras/$obraSlug/documentos'
       preLoaderRoute: typeof EngenhariaObrasObraSlugDocumentosRouteImport
-      parentRoute: typeof EngenhariaObrasObraSlugRoute
-    }
-    '/engenharia/obras/$obraSlug/dutos': {
-      id: '/engenharia/obras/$obraSlug/dutos'
-      path: '/dutos'
-      fullPath: '/engenharia/obras/$obraSlug/dutos'
-      preLoaderRoute: typeof EngenhariaObrasObraSlugDutosRouteImport
       parentRoute: typeof EngenhariaObrasObraSlugRoute
     }
     '/engenharia/obras/$obraSlug/estoque': {
@@ -1780,7 +1780,6 @@ interface EngenhariaObrasObraSlugRouteChildren {
   EngenhariaObrasObraSlugComprasRoute: typeof EngenhariaObrasObraSlugComprasRoute
   EngenhariaObrasObraSlugContratosRoute: typeof EngenhariaObrasObraSlugContratosRoute
   EngenhariaObrasObraSlugDocumentosRoute: typeof EngenhariaObrasObraSlugDocumentosRoute
-  EngenhariaObrasObraSlugDutosRoute: typeof EngenhariaObrasObraSlugDutosRoute
   EngenhariaObrasObraSlugEstoqueRoute: typeof EngenhariaObrasObraSlugEstoqueRoute
   EngenhariaObrasObraSlugGlobalRoute: typeof EngenhariaObrasObraSlugGlobalRoute
   EngenhariaObrasObraSlugImprimirRoute: typeof EngenhariaObrasObraSlugImprimirRoute
@@ -1800,7 +1799,6 @@ const EngenhariaObrasObraSlugRouteChildren: EngenhariaObrasObraSlugRouteChildren
       EngenhariaObrasObraSlugContratosRoute,
     EngenhariaObrasObraSlugDocumentosRoute:
       EngenhariaObrasObraSlugDocumentosRoute,
-    EngenhariaObrasObraSlugDutosRoute: EngenhariaObrasObraSlugDutosRoute,
     EngenhariaObrasObraSlugEstoqueRoute: EngenhariaObrasObraSlugEstoqueRoute,
     EngenhariaObrasObraSlugGlobalRoute: EngenhariaObrasObraSlugGlobalRoute,
     EngenhariaObrasObraSlugImprimirRoute: EngenhariaObrasObraSlugImprimirRoute,
@@ -2016,6 +2014,7 @@ const rootRouteChildren: RootRouteChildren = {
   QTokenRoute: QTokenRoute,
   QrOperadorOutrasObrasRoute: QrOperadorOutrasObrasRoute,
   QrOperadorPendentesRoute: QrOperadorPendentesRoute,
+  TakeoffConectarRoute: TakeoffConectarRoute,
   PortalIndexRoute: PortalIndexRoute,
   DotwellKnownOauthProtectedResourceMcpRoute:
     DotwellKnownOauthProtectedResourceMcpRoute,
@@ -2026,13 +2025,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

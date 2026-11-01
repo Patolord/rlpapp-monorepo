@@ -28,6 +28,7 @@ rlpapp/
 ├── packages/
 │   ├── backend/       # Backend Convex (schema, funções, crons, webhook Clerk)
 │   ├── env/           # Validação de variáveis de ambiente (zod)
+│   ├── shared/        # Código puro compartilhado; inclui o cálculo de dutos NBR 16401 (único, usado pelo takeoff)
 │   └── config/        # Configurações compartilhadas (tsconfig)
 ```
 
@@ -69,7 +70,7 @@ Guia oficial: [Convex + Clerk](https://docs.convex.dev/auth/clerk)
    - `CLERK_JWT_ISSUER_DOMAIN` — domínio do issuer do Clerk
    - `CLERK_WEBHOOK_SECRET` — secret do webhook (Clerk Dashboard > Webhooks, endpoint `https://<deployment>.convex.site/clerk-users-webhook`, eventos `user.created`, `user.updated`, `user.deleted`)
    - `MATERIAL_LOOKUP_TOKEN` — opcional; habilita `GET https://<deployment>.convex.site/materials/lookup?q=<texto>` (header `Authorization: Bearer <token>`) para agentes externos consultarem a descrição canônica de um material. Sem ele o endpoint responde 503. Gere com `npx convex env set MATERIAL_LOOKUP_TOKEN "$(openssl rand -hex 24)"`
-   - `TAKEOFF_CATALOG_TOKEN` — opcional; habilita `GET https://<deployment>.convex.site/takeoff/catalog` (header `Authorization: Bearer <token>`), o catálogo completo de materiais ativos com preço vigente que o app desktop **RLP Takeoff** consome. Sem ele o endpoint responde 503. Gere com `npx convex env set TAKEOFF_CATALOG_TOKEN "$(openssl rand -hex 24)"`. O mesmo token protege `POST /takeoff/materials`, por onde o app propõe um material novo (nasce como rascunho para compras ativar) ou uma estimativa de preço (entra na fila de revisão de preços).
+   - `TAKEOFF_CATALOG_TOKEN` — opcional; habilita `GET https://<deployment>.convex.site/takeoff/catalog` (header `Authorization: Bearer <token>`), o catálogo completo de materiais ativos com preço vigente que o app desktop **RLP Takeoff** consome (`materialPrice` e `laborPrice` em reais por unidade; a mão de obra é cadastrada no material em Compras → Materiais e vale 0 quando não há, `laborPriceDate` diz quando foi definida). Sem ele o endpoint responde 503. Gere com `npx convex env set TAKEOFF_CATALOG_TOKEN "$(openssl rand -hex 24)"`. O mesmo token protege `POST /takeoff/materials`, por onde o app propõe um material novo (nasce como rascunho para compras ativar) ou uma estimativa de preço (entra na fila de revisão de preços). Esse token compartilhado é o caminho antigo: o app também permite **entrar com a conta da empresa** (botão "Entrar" no topo → página `/takeoff/conectar` do app web → token de dispositivo listado e revogável em Minha conta › Agentes), e aí catálogo e propostas usam funções Convex tipadas como o próprio usuário. Requer `API_JWT_PRIVATE_KEY` (a mesma chave da API `/api/v1`). Ver `apps/takeoff/README.md` → "Conta da empresa (login)".
 
 ### 4.1 Ponto (RHID) — opcional
 
@@ -115,6 +116,17 @@ pnpm run dev
 - `pnpm run build` — build de todos os apps
 - `pnpm run lint` — ESLint em todos os pacotes
 - `pnpm run check-types` — typecheck (`tsc --noEmit`) em todos os pacotes
+
+## Orçamentos do app desktop no dashboard
+
+O app desktop de takeoff (`apps/takeoff`) publica o orçamento de um projeto no dashboard pela mutation `takeoffs.publishFromDesktop` (permissão de engenharia, auditada):
+
+- **Payload**: montado por `buildPublishBudget(project, { externalId, projectId })` em `apps/takeoff/src/lib/publishBudget.ts`, a partir das mesmas abas → seções → linhas da planilha orçamentária. O tipo do argumento fica em `@rlpapp/shared/takeoff/desktopBudget` (sem Convex); o backend confere em tempo de compilação que o validador descreve o mesmo formato.
+- **Linhas**: uma por item × aba (disciplina / sistema) × seção (local ou grupo), com `externalLineId` estável, quantidade com perdas, preços unitários de material e mão de obra em centavos e `materialId` vindo do `catalogId` do item (ids que não existem no catálogo ficam sem vínculo e voltam em `unknownMaterialIds`). O cabeçalho (proposta, orçamentista, cliente, obra) e o resumo por aba (BDI, extras %, totais) vão em `budget`.
+- **Republicar é idempotente**: o takeoff é achado por `source: "desktop"` + `externalId` (o id do projeto no desktop); linhas novas entram, as existentes são atualizadas e as que saíram são apagadas. Linhas em que a Compras já trabalhou — cotação registrada ou status `sent_to_supplier` / `quoted` / `selected` / `purchased` — nunca são apagadas nem alteradas: ficam marcadas (`externalRemovedAt`) e voltam em `kept`. Um material vinculado pela Compras é mantido quando o desktop não manda outro; já o preço estimado das demais linhas volta ao do desktop a cada publicação.
+- **Dashboard**: na obra, **Orçamento** mostra o takeoff com o selo "Takeoff desktop", quem publicou e quando, as linhas agrupadas por aba e seção, subtotais, extras, TOTAL GERAL e preço com BDI por aba, e as ações de sempre por linha (usar preço de referência, cotação, criar SKU). **Compras → Takeoffs** e **Compras da obra** mostram a origem de cada takeoff.
+
+O botão "Publicar no app" do desktop (login Clerk + cliente Convex) chama essa mutation; o desktop precisa guardar no projeto um id estável para usar como `externalId`.
 
 ## API HTTP para agentes (`/api/v1`)
 
@@ -250,6 +262,23 @@ GitHub Actions (`.github/workflows/ci.yml`) roda lint, typecheck e testes em PRs
 As runs no `master` são as que alimentam os caches das PRs (pnpm store e Turbo), por isso não são canceladas por `concurrency`.
 
 O app desktop (`apps/takeoff`) tem mais dois workflows: `takeoff-rust.yml` (`cargo fmt` e `clippy`, só quando `apps/takeoff/src-tauri` muda) e `takeoff-release.yml` (instaladores Windows/macOS assinados, publicados em `Patolord/takeoff-releases` a cada tag `takeoff-vX.Y.Z`).
+
+### Previews do Convex
+
+O build de preview da Vercel (`apps/web/vercel.json`) roda `npx convex deploy` com a chave de preview, que cria um deployment de preview no Convex com o nome do branch. O time tem um limite de deployments (40 no plano atual); quando ele estoura, o build de preview falha com `DeploymentQuotaReached`.
+
+`convex-preview-cleanup.yml` apaga esses previews pela [Management API do Convex](https://docs.convex.dev/management-api):
+
+- quando um PR fecha (com merge ou não), apaga o preview do branch dele;
+- todo dia (e pelo `workflow_dispatch`, que por padrão só lista), apaga os previews cujo branch não tem PR aberto.
+
+Só deployments do tipo `preview` são tocados. Para funcionar, o repositório precisa:
+
+do secret **`CONVEX_MANAGEMENT_TOKEN`**: um token de acesso do time no Convex (Team Settings › Access Tokens, https://dashboard.convex.dev/team/settings/access-tokens).
+
+O projeto é descoberto a partir do deployment de produção (`rosy-crow-250`). Se ele mudar, defina a variável `CONVEX_DEPLOYMENT_NAME` (ou `CONVEX_PROJECT_ID`) no repositório.
+
+Sem o secret, o workflow só avisa e não apaga nada.
 
 ## Deploy
 

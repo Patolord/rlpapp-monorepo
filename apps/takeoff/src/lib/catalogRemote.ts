@@ -1,5 +1,8 @@
+import type { api } from "@rlpapp/backend/convex/_generated/api";
 import { invoke } from "@tauri-apps/api/core";
+import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import { isTauri } from "./platform";
+import { proposalMaterial } from "./proposalMaterial";
 import { itemUnit } from "./quantities";
 import type { Item, Project } from "./types";
 
@@ -9,6 +12,9 @@ import type { Item, Project } from "./types";
  * both behind the same bearer token (`TAKEOFF_CATALOG_TOKEN` on the deployment). The address
  * is fixed: users only hold the token. A build with `VITE_CATALOG_URL` set points at another
  * deployment (the dev mirror, https://dusty-ferret-162.convex.site/takeoff/catalog).
+ *
+ * This shared-token path is the fallback: signed in with the company account (lib/account), the
+ * app calls the typed Convex functions as the user instead (lib/account/convex.ts).
  */
 export const CATALOG_URL: string =
   (import.meta.env.VITE_CATALOG_URL as string | undefined)?.trim() ||
@@ -54,7 +60,8 @@ export async function httpRequest(req: {
 
 /** Human message for a failed catalog call; the token hint matters most in practice. */
 export function describeHttpFailure(status: number, body: string): string {
-  if (status === 401) return "Token recusado: confira o token do catálogo (rodapé do Ctrl+K)";
+  if (status === 401)
+    return "Token recusado: confira o token do catálogo (rodapé do Ctrl+K) ou entre com a conta da empresa";
   if (status === 503) return "Catálogo desligado no servidor (token não configurado lá)";
   if (status === 404) return "Rota não encontrada: confira a URL do catálogo";
   let detail = "";
@@ -69,27 +76,17 @@ export function describeHttpFailure(status: number, body: string): string {
 // Material proposals (an item the user chooses to send to purchasing)
 // ---------------------------------------------------------------------------
 
-/** Body of `POST /takeoff/materials`. */
-export interface ProposalBody {
-  clientId: string;
-  materialId?: string;
-  name?: string;
-  unit?: string;
-  category?: string;
-  unitPrice?: number;
-  priceDate?: number;
-  requestedBy?: string;
-  takeoffName?: string;
-}
+/** Arguments of `takeoffMaterials.proposeAsUser` (the backend's own type). */
+export type SignedInProposal = FunctionArgs<typeof api.takeoffMaterials.proposeAsUser>;
 
-export interface ProposalResult {
-  outcome: "created" | "matched" | "replayed";
-  materialId: string;
-  sku: string | null;
-  materialStatus: "draft" | "active" | "archived";
-  mergedInto: string | null;
-  priceEventId: string | null;
-}
+/**
+ * A queued proposal: the signed-in mutation's arguments, plus the free-text requester the
+ * shared-token route (`POST /takeoff/materials`) needs. Signed in, the server records the user.
+ */
+export type ProposalBody = SignedInProposal & { requestedBy?: string };
+
+/** What the server answers to a proposal (the backend's own type). */
+export type ProposalResult = FunctionReturnType<typeof api.takeoffMaterials.proposeAsUser>;
 
 /** A proposal waiting to be sent; it survives restarts and is retried on every catalog refresh. */
 export interface QueuedProposal {
@@ -108,7 +105,8 @@ export const newClientId = (): string =>
 
 /**
  * What the company gets from a budget line. A line already linked to a catalog material only
- * proposes its price; an unlinked one proposes the material itself (it becomes a draft there).
+ * proposes its price; an unlinked one proposes the material itself (it becomes a draft there),
+ * split into family, variant and dimensions when its name carries them.
  * Prices of 0 are not sent: they are placeholders, not estimates.
  */
 export function buildProposal(item: Item, project: Project, clientId: string): ProposalBody {
@@ -119,8 +117,14 @@ export function buildProposal(item: Item, project: Project, clientId: string): P
   };
   if (item.catalogId) body.materialId = item.catalogId;
   else {
-    body.name = item.name;
-    body.unit = itemUnit(item, project.unit);
+    const unit = itemUnit(item, project.unit);
+    // family + size, so purchasing matches it to the existing material (lib/proposalMaterial)
+    const material = proposalMaterial(item, unit);
+    body.name = material.name;
+    if (material.variantLabel) body.variantLabel = material.variantLabel;
+    if (material.dimensions) body.dimensions = material.dimensions;
+    if (material.spec) body.spec = material.spec;
+    body.unit = unit;
     body.category = item.group || undefined;
   }
   if (item.materialPrice > 0) {

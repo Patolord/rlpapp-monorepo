@@ -38,6 +38,8 @@ right-click > Open the first time a downloaded copy is launched. Both are fine f
 an Authenticode certificate / Apple Developer ID plug into the same builds later.
 
 **Auto-update.** The app checks `plugins.updater.endpoints` from `src-tauri/tauri.conf.json`
+(a single endpoint: the `latest.json` of the latest GitHub Release in
+[Patolord/takeoff-releases](https://github.com/Patolord/takeoff-releases), see below)
 a few seconds after start and shows an "Atualizar para x.y.z" button; one click downloads the
 signed installer, installs it and restarts. Updates are signed with a minisign key kept outside
 the repository (`~/.tauri/takeoff.key` + `.password`); its public key is in the config. Losing
@@ -125,12 +127,17 @@ takes over from the kit's. The label order is duct/VRF tag · label · quantity
 (`30×20 · VE-01 · 3.00 m`).
 
 Items can be saved to the catalog (star). The catalog is seeded from past budget sheets
-(`src/data/catalog.seed.json`) and follows the company app at a fixed address
+(`src/data/catalog.seed.json`) and follows the company app: signed in with the company account
+(see below) or, as before, with the shared access token set in "Catálogo e preços"
 (`CATALOG_URL` in `src/lib/catalogRemote.ts`; `VITE_CATALOG_URL` at build time points a dev
-build elsewhere): with the access token set in "Catálogo e preços" it is fetched on start and
-by "Atualizar preços" in the Ctrl+K footer (through Rust, so no CORS), cached locally, and
-preferred over the seed. Each line's material price shows where it came from (cloud, saved
-catalog, bundled sheets, typed, by weight) next to the price box.
+build elsewhere), it is fetched on start and by "Atualizar preços" in the Ctrl+K footer, cached
+locally, and preferred over the seed. Each line's material price shows where it came from (cloud, saved
+catalog, bundled sheets, typed, by weight) next to the price box. The company catalog carries a
+labour price per material (`laborPrice`, set by purchasing in Compras → Materiais); while a
+company entry has none (0), it borrows the labour of the seed entry with the same name (accents,
+case and the " — " between family and variant aside) and Ctrl+K marks it: the labour shows in
+italics and the price-source badge gets a dot, with "Mão de obra das planilhas anteriores" in the
+tooltip.
 
 The status bar shows the page scale; click it for the 1:N presets or calibrate by measuring.
 Items carry a budget section (Equipamentos, Rede de Dutos, Bocas de Ar, ...), a material and
@@ -139,7 +146,10 @@ Diversos / Transportes / Supervisão extras, TOTAL GERAL and the BDI multiplier.
 
 Two tools quantify whole networks instead of single materials. **Duto (D)** asks the section of
 each run and the Dutos tab computes sheet metal, insulation, flanges, supports and labour per
-"Rede de dutos" item (NBR 16401 workbook). **VRF (Y)** asks what each refrigerant run is (saída
+"Rede de dutos" item (NBR 16401 workbook). The calculation itself (gauge tables, norma limits,
+bill of materials) lives in `packages/shared/src/engenharia/ducts.ts`
+(`@rlpapp/shared/engenharia/ducts`): it is the only duct calculator of the monorepo (the
+dashboard's one was removed), so any change to it is a change for every app. **VRF (Y)** asks what each refrigerant run is (saída
 da condensadora, trecho intermediário, ramal da evaporadora) and the capacity that sizes it;
 the VRF tab derives the gas/liquid diameters from the brand's tables (`lib/vrf.ts`, editable in
 "Regras das marcas", saved with the catalog), counts evaporators and Y-kits, and bills copper
@@ -175,6 +185,51 @@ back with its settings, omitted pages and page in view. Code: `src/lib/report/` 
 decides, `pages.ts` keys and omits pages, `write.ts` draws with pdf-lib; Liberation Sans, OFL,
 in `public/fonts/`), `src/lib/reportPreview.ts` and `components/ReportPreview.tsx`.
 
+## Conta da empresa (login)
+
+**Entrar** in the top bar connects this computer to the user's own account on the company app
+(app.rlpeng.com.br, Clerk), so the catalog and the material proposals go out *as that person*,
+with their permissions, instead of with one token shared by everybody:
+
+1. the app opens a one-shot listener on `127.0.0.1:<random port>` (Rust, `src-tauri/src/auth.rs`),
+   generates a `state` and a PKCE pair (S256, `src/lib/account/pkce.ts`) and opens the system
+   browser at `<web>/takeoff/conectar?port&state&challenge&device`;
+2. the page (signed in to the dashboard; it asks to sign in first otherwise) shows "Conectar o
+   RLP Takeoff (<computer>) à sua conta?"; on **Conectar** the backend stores a one-time code
+   (hash only, 2 min, bound to the user and the challenge) and the browser goes back to
+   `http://127.0.0.1:<port>/callback?code=…&state=…`;
+3. the app exchanges `{code, verifier}` at `POST <deployment>.convex.site/takeoff/auth/exchange`
+   for a **device token** (an agent token, `rlp_…`, named "Takeoff · <computer>" and marked "App
+   desktop" in Minha conta › Agentes, where it can be revoked) and a first JWT;
+4. the device token goes to the OS credential store (Windows Credential Manager / macOS
+   Keychain, `src-tauri/src/keychain.rs`), never to the catalog file or localStorage. The JWT
+   (about 1 h) lives in memory and is renewed a few minutes before it expires at
+   `POST /api/v1/auth/token` (`src/lib/account/tokens.ts`, `session.ts`).
+
+Signed in, the catalog comes from `takeoffCatalog.current` and proposals go to
+`takeoffMaterials.proposeAsUser` through a typed Convex client (`src/lib/account/convex.ts`,
+`api.*` and types from `@rlpapp/backend`); the server records the user as the requester.
+Proposals still wait in the local outbox when offline. **Sair** revokes the device token on the
+server (when reachable) and deletes it from the keychain; if the keychain refuses, the app says
+so instead of claiming a clean sign-out. Closing the sign-in (×) at any step keeps nothing (a
+token already issued to that attempt is revoked). Each installation has a random id
+(`installation-id` in the app data folder, `src-tauri/src/installation.rs`): signing in again
+replaces only that installation's previous token, so two computers with the same name never
+revoke each other. A token revoked in the dashboard signs the app out on its next call.
+Signed out, the shared token path keeps working exactly as before.
+
+Proposals of unlinked lines now carry the family, variant and dimensions parsed from the line's
+name (`src/lib/proposalMaterial.ts`: `Tubo de cobre 1/2"` → family "Tubo de cobre", variant
+`1/2"`, Ø 12.7 mm; `Grelha 400x200` → 400 × 200 mm), so purchasing matches them to the existing
+material instead of creating one family per size.
+
+Addresses default to production (`https://rosy-crow-250.convex.cloud`, web
+`https://app.rlpeng.com.br`). A dev build sets `VITE_TAKEOFF_CONVEX_URL` (deployment
+`.convex.cloud` URL; without it the deployment follows `VITE_CATALOG_URL`) and
+`VITE_TAKEOFF_WEB_URL` (e.g. `http://localhost:3001` for `pnpm dev:web`). The deployment needs
+`API_JWT_PRIVATE_KEY` (the same key as the `/api/v1` gateway); without it the exchange answers 503.
+Signing in only works in the native window (`pnpm dev:takeoff`), not in the browser-only dev mode.
+
 ## How it stays fast
 
 - **Rendering**: one low-resolution base render per page (shown instantly, CSS-scaled while
@@ -208,7 +263,8 @@ src/
   lib/          geom, units, quantities (quote math), budgetOrder, overlay (canvas painting),
                 files (open/save/export), session (open PDFs), platform, text
   lib/catalog*  material catalog: local store, company API, proposals
-  lib/ducts*    duct take-off: NBR 16401 bill, network items, reference workbook export
+  lib/duct*     duct take-off: network items, reference workbook export (the NBR 16401 bill
+                itself is @rlpapp/shared/engenharia/ducts)
   lib/vrf*      VRF take-off: brand tables, system items, workbook export
   lib/kits.ts   kit presets · lib/weights.ts  weight-based prices · lib/symbols.ts  count marks
   lib/markingShapes.ts  a marking's geometry and label, shared by the canvas and the report

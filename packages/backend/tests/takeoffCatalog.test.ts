@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { internal } from "../convex/_generated/api";
-import type { Id } from "../convex/_generated/dataModel";
+import type { Doc, Id } from "../convex/_generated/dataModel";
 import {
   centsToReais,
   pickCurrentPriceEvent,
 } from "../convex/model/procurement/priceSelection";
-import { takeoffUnit } from "../convex/model/procurement/takeoffCatalog";
+import {
+  DEFAULT_TAKEOFF_GROUP,
+  takeoffUnit,
+  toTakeoffCatalogItem,
+} from "../convex/model/procurement/takeoffCatalog";
 import { setup } from "./helpers";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -30,6 +34,8 @@ async function seedCatalog() {
       sku?: string;
       category?: string;
       unit?: string;
+      laborPriceCents?: number;
+      laborPriceUpdatedAt?: number;
       active: boolean;
     }) => ctx.db.insert("materials", { ...material, createdAt });
 
@@ -46,6 +52,8 @@ async function seedCatalog() {
       sku: "MAT-000102",
       category: "Ar Condicionado",
       unit: "metro",
+      laborPriceCents: 1550,
+      laborPriceUpdatedAt: NOW - 3 * DAY,
       active: true,
     });
     await insertMaterial({
@@ -164,6 +172,25 @@ describe("price selection", () => {
   });
 });
 
+describe("takeoff catalog group", () => {
+  const material = (category: string | undefined): Doc<"materials"> =>
+    ({
+      _id: "m1" as Id<"materials">,
+      _creationTime: NOW,
+      name: "Damper corta-fogo",
+      category,
+      active: true,
+      createdAt: NOW,
+    }) as Doc<"materials">;
+
+  test("a material without a category goes to the app's default group", () => {
+    expect(DEFAULT_TAKEOFF_GROUP).toBe("Geral");
+    expect(toTakeoffCatalogItem(material(undefined), null).group).toBe("Geral");
+    expect(toTakeoffCatalogItem(material("   "), null).group).toBe("Geral");
+    expect(toTakeoffCatalogItem(material(" Dutos "), null).group).toBe("Dutos");
+  });
+});
+
 describe("takeoffCatalog.list", () => {
   test("exports active materials with the current price in reais", async () => {
     const t = await seedCatalog();
@@ -177,12 +204,14 @@ describe("takeoffCatalog.list", () => {
       name: "Grelha de Insuflamento",
       variant: "Anodizada 200x200mm",
       description: "Grelha de Insuflamento — Anodizada 200x200mm — com registro",
-      group: "Diversos",
+      // No category: the desktop app's default group, not its "Diversos" extras line.
+      group: "Geral",
       unit: "pç",
       materialPrice: 123.45,
       priceDate: NOW - 5 * DAY,
       priceValidUntil: NOW + 25 * DAY,
       laborPrice: 0,
+      laborPriceDate: null,
       system: null,
       status: "active",
       mergedInto: null,
@@ -205,7 +234,8 @@ describe("takeoffCatalog.list", () => {
       priceDate: null,
       priceValidUntil: null,
       priceEventId: null,
-      laborPrice: 0,
+      laborPrice: 15.5,
+      laborPriceDate: NOW - 3 * DAY,
       system: null,
       status: "active",
       mergedInto: null,
@@ -269,13 +299,16 @@ describe("GET /takeoff/catalog", () => {
       priceValidUntil: NOW + 25 * DAY,
       priceEventId: expect.any(String),
       laborPrice: 0,
+      laborPriceDate: null,
       system: null,
     });
+    expect(body.items[1]).toMatchObject({ laborPrice: 15.5 });
     expect(Object.keys(body.items[0]!).sort()).toEqual([
       "description",
       "group",
       "id",
       "laborPrice",
+      "laborPriceDate",
       "materialPrice",
       "mergedInto",
       "name",

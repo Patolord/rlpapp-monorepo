@@ -1,3 +1,4 @@
+import { FLANGE_LABELS, INSULATION_LABELS } from "@rlpapp/shared/engenharia/ducts";
 import {
   ArrowUpFromLine,
   Copy,
@@ -10,7 +11,6 @@ import {
   X,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
-import { FLANGE_LABELS, INSULATION_LABELS } from "../lib/ducts";
 import { runLabel } from "../lib/kits";
 import type { Measurement } from "../lib/types";
 import { vrfTag } from "../lib/vrf";

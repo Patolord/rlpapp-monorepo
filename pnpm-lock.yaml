@@ -382,12 +382,21 @@ importers:
       '@pdf-lib/fontkit':
         specifier: ^1.1.1
         version: 1.1.1
+      '@rlpapp/backend':
+        specifier: workspace:*
+        version: link:../../packages/backend
+      '@rlpapp/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@tauri-apps/api':
         specifier: ^2
         version: 2.12.4
       '@tauri-apps/plugin-dialog':
         specifier: ^2.8.3
         version: 2.8.4
+      '@tauri-apps/plugin-opener':
+        specifier: ^2.7.2
+        version: 2.7.2
       '@tauri-apps/plugin-process':
         specifier: ^2.4.0
         version: 2.4.0
@@ -397,6 +406,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      convex:
+        specifier: 'catalog:'
+        version: 1.42.1(@clerk/clerk-react@5.61.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@clerk/react@6.14.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(bufferutil@4.1.0)(react@19.2.6)(utf-8-validate@5.0.10)
       exceljs:
         specifier: 4.4.0
         version: 4.4.0
@@ -5791,10 +5803,6 @@ packages:
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
 
-  '@sanity-labs/design-tokens@0.0.2-alpha.7':
-    resolution: {integrity: sha512-gcOmtA4g7JVevk47ZsjTVqGsIbWl9lsXUodu4bpHEhdBYInHPlT5JkWnylmKnoR/tpo2zh6MZgX/Y9B8PUCpkQ==}
-    engines: {node: '>=20.19 <22 || >=22.12'}
-
   '@sanity-labs/design-tokens@0.0.2-alpha.9':
     resolution: {integrity: sha512-ptkJsn9NXkll4GnZV1e3Mmm05oeE2diih9+5wuDijrYkjrLJcCXX3zUZ8RrhG5RkRiIJZ1OA79ukv7VnWwR+BQ==}
     engines: {node: '>=20.19 <22 || >=22.12'}
@@ -7039,6 +7047,9 @@ packages:
 
   '@tauri-apps/plugin-dialog@2.8.4':
     resolution: {integrity: sha512-+6ZOiXenOaxXwb8qCbBPdT2jX2cFPaVVHGIskrpmJLpmWj+qKRTD6X/z9x7hTdSQn7NedcoXCkWGej4a7dC4lw==}
+
+  '@tauri-apps/plugin-opener@2.7.2':
+    resolution: {integrity: sha512-LyybP1VSzTMQiaFYcsbAse47KpivlyXdLZMQzGLEnkgQacGESnpjAfFoQ6h5sqWgAdZDH9szYjPzHMpv0Sz+TQ==}
 
   '@tauri-apps/plugin-process@2.4.0':
     resolution: {integrity: sha512-GddrmsSLAYrLa/yTXlXK/YRDzUgYeeOnUXTbiyvJWkmI424RmDPD3FVLeqcon7rv6O6ZfhBilcrHWnSo7o6hIQ==}
@@ -20536,8 +20547,6 @@ snapshots:
 
   '@rtsao/scc@1.1.0': {}
 
-  '@sanity-labs/design-tokens@0.0.2-alpha.7': {}
-
   '@sanity-labs/design-tokens@0.0.2-alpha.9': {}
 
   '@sanity-labs/oclif-plugin-skills-flag@0.2.1(@oclif/core@4.13.5)':
@@ -20968,7 +20977,7 @@ snapshots:
       '@inquirer/prompts': 8.5.2(@types/node@24.10.10)
       '@oclif/core': 4.13.5
       '@oclif/plugin-help': 6.2.58
-      '@sanity-labs/design-tokens': 0.0.2-alpha.7
+      '@sanity-labs/design-tokens': 0.0.2-alpha.9
       '@sanity-labs/oclif-plugin-skills-flag': 0.2.1(@oclif/core@4.13.5)
       '@sanity/blueprints': 0.23.6(vite@8.2.1(@types/node@24.10.10)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.46.0)(tsx@4.23.12)(yaml@2.9.0))
       '@sanity/blueprints-parser': 0.5.0
@@ -22496,6 +22505,10 @@ snapshots:
     dependencies:
       '@tauri-apps/api': 2.12.4
 
+  '@tauri-apps/plugin-opener@2.7.2':
+    dependencies:
+      '@tauri-apps/api': 2.12.4
+
   '@tauri-apps/plugin-process@2.4.0':
     dependencies:
       '@tauri-apps/api': 2.12.4
@@ -22599,7 +22612,7 @@ snapshots:
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 25.6.2
+      '@types/node': 26.6.6
 
   '@types/debug@4.1.13':
     dependencies:
@@ -22705,7 +22718,7 @@ snapshots:
 
   '@types/set-cookie-parser@2.4.10':
     dependencies:
-      '@types/node': 25.6.2
+      '@types/node': 26.6.6
 
   '@types/stack-utils@2.0.3': {}
 
@@ -22723,11 +22736,11 @@ snapshots:
 
   '@types/ws@7.4.7':
     dependencies:
-      '@types/node': 25.6.2
+      '@types/node': 26.6.6
 
   '@types/ws@8.18.1':
     dependencies:
-      '@types/node': 25.6.2
+      '@types/node': 26.6.6
 
   '@types/yargs-parser@21.0.3': {}
 
@@ -24367,7 +24380,7 @@ snapshots:
 
   chrome-launcher@0.15.2(supports-color@8.1.1):
     dependencies:
-      '@types/node': 25.6.2
+      '@types/node': 26.6.6
       escape-string-regexp: 4.0.0
       is-wsl: 2.2.0
       lighthouse-logger: 1.4.2(supports-color@8.1.1)
@@ -24387,7 +24400,7 @@ snapshots:
 
   chromium-edge-launcher@0.3.0(supports-color@8.1.1):
     dependencies:
-      '@types/node': 25.6.2
+      '@types/node': 26.6.6
       escape-string-regexp: 4.0.0
       is-wsl: 2.2.0
       lighthouse-logger: 1.4.2(supports-color@8.1.1)
@@ -27062,7 +27075,7 @@ snapshots:
 
   jest-worker@29.7.0:
     dependencies:
-      '@types/node': 25.6.2
+      '@types/node': 26.6.6
       jest-util: 29.7.0
       merge-stream: 2.0.0
       supports-color: 8.1.1

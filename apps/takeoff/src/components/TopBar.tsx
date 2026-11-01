@@ -3,6 +3,7 @@ import { exportXlsx, pickAndOpenPdf } from "../lib/files";
 import { mod } from "../lib/platform";
 import { basename } from "../lib/session";
 import { useStore } from "../store";
+import { AccountMenu } from "./AccountMenu";
 import { ProjectMenu } from "./ProjectMenu";
 import { UpdateButton } from "./UpdateButton";
 import { Button } from "./ui";
@@ -44,6 +45,7 @@ export function TopBar() {
         <Button variant="primary" onClick={() => void exportXlsx()} title={mod("E")}>
           <FileSpreadsheet size={16} /> Planilha .xlsx
         </Button>
+        <AccountMenu />
         <button
           type="button"
           onClick={() => setAboutOpen(true)}
