@@ -3,8 +3,8 @@
 // (https://docs.convex.dev/management-api). Usado por .github/workflows/convex-preview-cleanup.yml.
 //
 //   node convex-preview-cleanup.mjs --branch <nome>          apaga o preview desse branch
-//   node convex-preview-cleanup.mjs --keep <a,b,...>         apaga todo preview cujo branch
-//                                                            não está na lista (PRs abertos)
+//   node convex-preview-cleanup.mjs --keep '["a","b"]'       apaga todo preview cujo branch
+//                                                            não está na lista JSON (PRs abertos)
 //   --dry-run                                                só lista o que seria apagado
 //
 // Ambiente:
@@ -30,7 +30,22 @@ export function parseArgs(argv) {
     throw new Error("use --branch <nome> ou --keep <lista>, um dos dois");
   }
   if (args.branch !== null && !args.branch.trim()) throw new Error("--branch vazio");
+  if (args.keep !== null) args.keep = parseKeep(args.keep);
   return args;
+}
+
+/** Lista JSON de branches (nomes de branch podem ter vírgula, então nada de separador). */
+export function parseKeep(raw) {
+  let list;
+  try {
+    list = JSON.parse(raw);
+  } catch {
+    throw new Error("--keep espera uma lista JSON de branches, ex.: '[\"main\"]'");
+  }
+  if (!Array.isArray(list) || list.some((b) => typeof b !== "string")) {
+    throw new Error("--keep espera uma lista JSON de strings");
+  }
+  return list;
 }
 
 /** Os previews a apagar: só tipo "preview", com identificador, e pelo critério pedido. */
@@ -41,12 +56,7 @@ export function previewsToDelete(deployments, { branch, keep }) {
   if (branch !== null && branch !== undefined) {
     return previews.filter((d) => d.previewIdentifier === branch);
   }
-  const kept = new Set(
-    String(keep ?? "")
-      .split(",")
-      .map((b) => b.trim())
-      .filter(Boolean),
-  );
+  const kept = new Set(keep ?? []);
   return previews.filter((d) => !kept.has(d.previewIdentifier));
 }
 

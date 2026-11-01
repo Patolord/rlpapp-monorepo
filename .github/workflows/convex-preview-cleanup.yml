@@ -23,8 +23,10 @@ permissions:
   contents: read
   pull-requests: read
 
+# Um grupo por branch: vários PRs fechando juntos não se substituem na fila (o GitHub guarda só
+# uma run pendente por grupo). A varredura diária tem o grupo dela.
 concurrency:
-  group: convex-preview-cleanup
+  group: convex-preview-cleanup-${{ github.event.pull_request.head.ref || 'sweep' }}
   cancel-in-progress: false
 
 jobs:
@@ -59,7 +61,7 @@ jobs:
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         run: |
           keep="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 500 \
-            --json headRefName --jq '[.[].headRefName] | join(",")')"
+            --json headRefName --jq '[.[].headRefName]')"
           args=(--keep "$keep")
           if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
           node .github/scripts/convex-preview-cleanup.mjs "${args[@]}"
