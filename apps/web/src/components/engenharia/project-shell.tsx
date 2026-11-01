@@ -203,7 +203,7 @@ function ProjectShellLayout({
   return (
     <div
       className={cn(
-        "mx-auto max-w-7xl space-y-6 transition-[padding] duration-200",
+        "mx-auto max-w-7xl space-y-6",
         aiOpen && "lg:pr-116"
       )}
     >
@@ -461,8 +461,8 @@ function ProgressSummary({
         </span>
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full rounded-full bg-primary transition-all"
-            style={{ width: `${pct}%` }}
+            className="h-full w-full rounded-full bg-primary transition-transform duration-300 ease-snappy motion-reduce:transition-none"
+            style={{ transform: `translateX(${pct - 100}%)` }}
           />
         </div>
       </div>
