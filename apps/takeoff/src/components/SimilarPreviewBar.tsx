@@ -14,7 +14,7 @@ export function SimilarPreviewBar() {
   const excluded = shown.filter((i) => preview.excluded.includes(i)).length;
   const toMark = shown.length - excluded;
   return (
-    <div className="absolute left-1/2 top-3 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-x-3 gap-y-1.5 whitespace-nowrap rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs shadow-xl">
+    <div className="enter-drop absolute left-1/2 top-3 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-x-3 gap-y-1.5 whitespace-nowrap rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs shadow-xl">
       <span className="font-medium text-neutral-100">
         {shown.length} {shown.length === 1 ? "semelhante" : "semelhantes"}
         {excluded > 0 && (

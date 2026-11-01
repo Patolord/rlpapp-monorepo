@@ -38,6 +38,9 @@
   --color-brand: #2855ad;
   --color-brand-dark: #1a469d;
   --color-brand-tint: #e0ecff;
+
+  /* entrances of surfaces that open over the drawing (overrides Tailwind's default ease-out) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 html,
@@ -76,6 +79,54 @@ canvas {
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/*
+ * Entrances for the occasional surfaces that open over the drawing (dialogs, menus, popovers, the
+ * "semelhantes" bar). Entry only: they unmount instantly on close. Panels animate the individual
+ * `scale` property and never `transform`, so the dialog's inline drag offset stays immediate; the
+ * bar slides with `transform`, which composes with Tailwind's `translate` centring. Put the scale
+ * origin at the trigger with `origin-*`. High-frequency or keyboard-opened surfaces (palette,
+ * selection bar) stay instant. Reduced motion keeps only the fade.
+ */
+.enter-pop,
+.enter-dialog {
+  transition-property: scale, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: var(--ease-out);
+}
+.enter-dialog {
+  transition-duration: 180ms;
+}
+.enter-drop {
+  transition-property: transform, opacity;
+  transition-duration: 200ms;
+  transition-timing-function: var(--ease-out);
+}
+@starting-style {
+  .enter-pop,
+  .enter-dialog,
+  .enter-drop {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  @starting-style {
+    .enter-pop,
+    .enter-dialog {
+      scale: 0.97;
+    }
+    .enter-drop {
+      transform: translateY(-8px);
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .enter-pop,
+  .enter-dialog,
+  .enter-drop {
+    transition-duration: 120ms;
+  }
 }
 
 /* in the components layer so width utilities (w-12, w-[4rem]) can override the default w-20 */

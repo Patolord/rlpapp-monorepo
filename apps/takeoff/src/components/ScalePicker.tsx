@@ -14,7 +14,7 @@ export function ScalePicker({ onClose }: { onClose: () => void }) {
   const which = all ? "all" : "current";
 
   return (
-    <div className="absolute bottom-8 left-24 z-20 w-72 rounded-lg border border-neutral-700 bg-neutral-900 p-3 shadow-xl">
+    <div className="enter-pop absolute bottom-8 left-24 z-20 origin-bottom-left w-72 rounded-lg border border-neutral-700 bg-neutral-900 p-3 shadow-xl">
       <div className="mb-2 flex items-center justify-between text-xs">
         <span className="font-semibold text-neutral-100">Escala do desenho</span>
         <label className="flex items-center gap-1 text-neutral-400">

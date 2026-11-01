@@ -69,7 +69,7 @@ export function ProjectMenu() {
         Takeoff <ChevronDown size={15} />
       </button>
       {open && (
-        <div className="absolute left-0 top-9 z-40 w-72 rounded-md border border-neutral-700 bg-neutral-900 py-1 shadow-xl">
+        <div className="enter-pop absolute left-0 top-9 z-40 origin-top-left w-72 rounded-md border border-neutral-700 bg-neutral-900 py-1 shadow-xl">
           {item(
             <FilePlus2 size={16} />,
             "Novo takeoff…",
