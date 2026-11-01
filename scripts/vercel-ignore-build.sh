@@ -14,8 +14,9 @@
 #     clone raso da Vercel (--depth=10). Assim, commits pulados se acumulam até o próximo build.
 #   - Produção sem essa base (primeiro deploy ou SHA fora do clone): builda sempre, para nunca deixar o
 #     backend do Convex (deployado pelo build do web) para trás.
-#   - Preview sem essa base (primeiro push do branch, force push): compara com HEAD^1, como recomenda a
-#     Vercel para o turbo-ignore. Para forçar um preview: Redeploy sem "Use project's Ignore Build Step".
+#   - Preview sem essa base (primeiro push do branch, force push): compara com o merge-base com o
+#     master (busca raso do master); se não der para descobrir, builda. Para forçar um preview:
+#     Redeploy sem "Use project's Ignore Build Step".
 #
 # Simular localmente (dentro de apps/<app>, com o commit desejado em HEAD):
 #   VERCEL_ENV=preview VERCEL_GIT_PREVIOUS_SHA=<sha> bash ../../scripts/vercel-ignore-build.sh; echo $?
@@ -41,11 +42,14 @@ if [ -n "$prev" ] && git cat-file -e "${prev}^{commit}" 2>/dev/null; then
 elif [ "$env" = "production" ]; then
   echo "vercel-ignore-build: produção sem último deployment alcançável (${prev:-nenhum}); buildando."
   exit 1
-elif git cat-file -e "HEAD^1^{commit}" 2>/dev/null; then
-  base="HEAD^1"
-  echo "vercel-ignore-build: $pkg ($env) sem último deployment alcançável (${prev:-nenhum}); comparado com HEAD^1."
+elif git fetch --quiet --no-tags --depth=50 origin master 2>/dev/null \
+  && mb="$(git merge-base HEAD FETCH_HEAD 2>/dev/null)" && [ -n "$mb" ]; then
+  # Primeiro push do branch (ou force push): compara com o ponto em que ele saiu do master, para
+  # cobrir todos os commits do push, não só o último.
+  base="$mb"
+  echo "vercel-ignore-build: $pkg ($env) sem último deployment alcançável (${prev:-nenhum}); comparado com o master ($base)."
 else
-  echo "vercel-ignore-build: sem commit para comparar; buildando."
+  echo "vercel-ignore-build: $pkg ($env) sem base confiável para comparar; buildando."
   exit 1
 fi
 
