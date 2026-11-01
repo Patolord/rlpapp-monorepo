@@ -10,14 +10,15 @@ export interface MetricStripProps {
 /**
  * MetricStrip — "Single strip" restyle: one card shell holding 3–4
  * `MetricCard` cells laid out as a responsive grid of equal columns, separated
- * by hairline dividers. Cells wrap on narrow screens.
+ * by hairline dividers. Cells are at least 240px wide and wrap on narrow
+ * screens, so full currency totals (e.g. "R$ 1.234.567,89") stay readable.
  */
 function MetricStrip({ children, className }: MetricStripProps) {
   return (
     <div
       data-slot="metric-strip"
       className={cn(
-        "grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xs",
+        "grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xs",
         className,
       )}
     >
@@ -91,14 +92,15 @@ function MetricCard({
     <div
       data-slot="metric-card"
       className={cn(
-        "min-w-0 px-[20px] py-[16px] shadow-[-1px_0_0_var(--border),0_-1px_0_var(--border)]",
+        "@container min-w-0 px-[20px] py-[16px] shadow-[-1px_0_0_var(--border),0_-1px_0_var(--border)]",
         className,
       )}
     >
       <div className="text-[0.8125rem] leading-snug font-medium text-muted-foreground">
         {title}
       </div>
-      <div className="mt-[6px] text-[28px] leading-[34px] font-semibold tracking-[-0.02em] tabular-nums">
+      {/* 22px in narrow cells, 28px once the cell has room; long values wrap instead of clipping. */}
+      <div className="mt-[6px] text-[22px] leading-[28px] font-semibold tracking-[-0.02em] tabular-nums [overflow-wrap:anywhere] @[300px]:text-[28px] @[300px]:leading-[34px]">
         {value}
       </div>
       {hasChange ? (
