@@ -127,18 +127,26 @@ jobs:
           includeUpdaterJson: true
           args: ${{ matrix.args }}
 
-  # Rebuilds latest.json from the .sig assets that are actually on the release once the builds
-  # are done, so every entry matches the artifact next to it. tauri-action merges its own
-  # latest.json into the existing one and keeps the darwin-* entries it finds there, so on a
-  # re-run (one job failed, the workflow was dispatched again) the macOS signature stayed the
-  # one from the previous run while the .app.tar.gz it signs had been replaced, and the updater
-  # rejected the update. Runs even when a build failed: the entries then still describe the
-  # assets that are there (a failed job never replaces its artifact).
+  # Rebuilds latest.json from the assets that are actually on the release once the builds are
+  # done, after checking each signature against the artifact next to it with the app's public
+  # key. tauri-action merges its own latest.json into the existing one and keeps the darwin-*
+  # entries it finds there, so on a re-run (one job failed, the workflow was dispatched again)
+  # the macOS signature stayed the one from the previous run while the .app.tar.gz it signs had
+  # been replaced, and the updater rejected the update. Runs even when a build failed: the
+  # entries then still describe the assets that are there (a failed job never replaces its
+  # artifact), and a pair that does not verify fails the run instead of being published.
   updater-json:
     needs: [create-release, build]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: apps/takeoff/src-tauri/tauri.conf.json
+          sparse-checkout-cone-mode: false
+
+      - run: sudo apt-get update -q && sudo apt-get install -y -q minisign
+
       - name: Rebuild latest.json from the release assets
         shell: bash
         env:
@@ -148,19 +156,33 @@ jobs:
           REPO=Patolord/takeoff-releases
           TAG="v${VERSION#takeoff-v}"
           BASE="https://github.com/$REPO/releases/download/$TAG"
-          mkdir sigs
-          gh release download "$TAG" --repo "$REPO" --pattern '*.sig' --dir sigs
-          # {signature, url} for an artifact, or nothing when its .sig is not on the release
+          jq -r .plugins.updater.pubkey apps/takeoff/src-tauri/tauri.conf.json | base64 -d > pubkey.txt
+          mkdir assets
+          gh release download "$TAG" --repo "$REPO" --dir assets \
+            --pattern '*.sig' --pattern '*.exe' --pattern '*.app.tar.gz'
+          # Prints {signature, url} for an artifact, or "null" when the platform is not on the
+          # release at all. An artifact without its .sig (or the other way round), or a
+          # signature that does not verify against the artifact, fails the job.
           entry() {
-            [ -f "sigs/$1.sig" ] || return 0
-            jq -n --arg url "$BASE/$1" --arg sig "$(tr -d '\n\r' < "sigs/$1.sig")" \
+            local a="assets/$1"
+            if [ ! -e "$a" ] && [ ! -e "$a.sig" ]; then echo null; return; fi
+            if [ ! -e "$a" ] || [ ! -e "$a.sig" ]; then
+              echo "::error::$1: the artifact and its .sig must both be on the release" >&2
+              return 1
+            fi
+            base64 -d "$a.sig" > "$a.sig.txt"
+            if ! minisign -Vm "$a" -x "$a.sig.txt" -p pubkey.txt >&2; then
+              echo "::error::$1: the published .sig does not verify against the published artifact" >&2
+              return 1
+            fi
+            jq -n --arg url "$BASE/$1" --arg sig "$(tr -d '\n\r' < "$a.sig")" \
               '{signature: $sig, url: $url}'
           }
           # GitHub stores "RLP Takeoff_1.2.3_x64-setup.exe" as "RLP.Takeoff_1.2.3_x64-setup.exe"
-          MAC=$(entry "RLP.Takeoff_universal.app.tar.gz")
-          WIN=$(entry "RLP.Takeoff_${TAG#v}_x64-setup.exe")
+          MAC=$(entry "RLP.Takeoff_universal.app.tar.gz") || exit 1
+          WIN=$(entry "RLP.Takeoff_${TAG#v}_x64-setup.exe") || exit 1
           jq -n --arg version "${TAG#v}" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --argjson mac "${MAC:-null}" --argjson win "${WIN:-null}" '
+            --argjson mac "$MAC" --argjson win "$WIN" '
             {version: $version, notes: "", pub_date: $date,
              platforms: ({
                "darwin-aarch64": $mac, "darwin-x86_64": $mac,
