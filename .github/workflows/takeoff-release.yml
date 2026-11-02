@@ -71,6 +71,13 @@ jobs:
             gh release create "$TAG" --repo "$REPO" --target main \
               --title "RLP Takeoff $TAG" \
               --notes "Windows: RLP.Takeoff_<versão>_x64-setup.exe · macOS: RLP.Takeoff_<versão>_universal.dmg (primeira abertura: botão direito > Abrir). O app instalado oferece as versões seguintes sozinho."
+          else
+            # Re-run of a release that already has assets (e.g. one job failed and the workflow
+            # was dispatched again): drop its latest.json so this run regenerates it. tauri-action
+            # merges into an existing latest.json and keeps the darwin-* entries it finds there,
+            # so the macOS signature would stay the one from the previous run while the
+            # .app.tar.gz it signs is replaced, and the updater would reject the update.
+            gh release delete-asset "$TAG" latest.json --repo "$REPO" --yes 2>/dev/null || true
           fi
           echo "id=$(gh api "repos/$REPO/releases/tags/$TAG" --jq .id)" >> "$GITHUB_OUTPUT"
 
