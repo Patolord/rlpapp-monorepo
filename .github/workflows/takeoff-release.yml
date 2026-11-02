@@ -71,13 +71,6 @@ jobs:
             gh release create "$TAG" --repo "$REPO" --target main \
               --title "RLP Takeoff $TAG" \
               --notes "Windows: RLP.Takeoff_<versão>_x64-setup.exe · macOS: RLP.Takeoff_<versão>_universal.dmg (primeira abertura: botão direito > Abrir). O app instalado oferece as versões seguintes sozinho."
-          else
-            # Re-run of a release that already has assets (e.g. one job failed and the workflow
-            # was dispatched again): drop its latest.json so this run regenerates it. tauri-action
-            # merges into an existing latest.json and keeps the darwin-* entries it finds there,
-            # so the macOS signature would stay the one from the previous run while the
-            # .app.tar.gz it signs is replaced, and the updater would reject the update.
-            gh release delete-asset "$TAG" latest.json --repo "$REPO" --yes 2>/dev/null || true
           fi
           echo "id=$(gh api "repos/$REPO/releases/tags/$TAG" --jq .id)" >> "$GITHUB_OUTPUT"
 
@@ -133,3 +126,47 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.id }}
           includeUpdaterJson: true
           args: ${{ matrix.args }}
+
+  # Rebuilds latest.json from the .sig assets that are actually on the release once the builds
+  # are done, so every entry matches the artifact next to it. tauri-action merges its own
+  # latest.json into the existing one and keeps the darwin-* entries it finds there, so on a
+  # re-run (one job failed, the workflow was dispatched again) the macOS signature stayed the
+  # one from the previous run while the .app.tar.gz it signs had been replaced, and the updater
+  # rejected the update. Runs even when a build failed: the entries then still describe the
+  # assets that are there (a failed job never replaces its artifact).
+  updater-json:
+    needs: [create-release, build]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rebuild latest.json from the release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+        run: |
+          REPO=Patolord/takeoff-releases
+          TAG="v${VERSION#takeoff-v}"
+          BASE="https://github.com/$REPO/releases/download/$TAG"
+          mkdir sigs
+          gh release download "$TAG" --repo "$REPO" --pattern '*.sig' --dir sigs
+          # {signature, url} for an artifact, or nothing when its .sig is not on the release
+          entry() {
+            [ -f "sigs/$1.sig" ] || return 0
+            jq -n --arg url "$BASE/$1" --arg sig "$(tr -d '\n\r' < "sigs/$1.sig")" \
+              '{signature: $sig, url: $url}'
+          }
+          # GitHub stores "RLP Takeoff_1.2.3_x64-setup.exe" as "RLP.Takeoff_1.2.3_x64-setup.exe"
+          MAC=$(entry "RLP.Takeoff_universal.app.tar.gz")
+          WIN=$(entry "RLP.Takeoff_${TAG#v}_x64-setup.exe")
+          jq -n --arg version "${TAG#v}" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson mac "${MAC:-null}" --argjson win "${WIN:-null}" '
+            {version: $version, notes: "", pub_date: $date,
+             platforms: ({
+               "darwin-aarch64": $mac, "darwin-x86_64": $mac,
+               "darwin-aarch64-app": $mac, "darwin-x86_64-app": $mac,
+               "windows-x86_64": $win, "windows-x86_64-nsis": $win
+             } | with_entries(select(.value != null)))}' > latest.json
+          jq -e '.platforms | length > 0' latest.json >/dev/null
+          cat latest.json
+          gh release upload "$TAG" latest.json --repo "$REPO" --clobber
