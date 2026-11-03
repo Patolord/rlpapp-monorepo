@@ -958,8 +958,11 @@ export const importSeedLaborPrices = internalMutation({
 /**
  * Usuários criados a partir do username (sem nome no Clerk) ficaram com o nome
  * todo em minúsculas. Põe a inicial em maiúscula. Idempotente; tabela pequena.
+ *
+ *   npx convex run --prod migrations:backfillCapitalizeUserNames '{"dryRun":true}'
+ *   npx convex run --prod migrations:backfillCapitalizeUserNames '{}'
  */
-export const backfillCapitalizeUserNames = adminMutation({
+export const backfillCapitalizeUserNames = internalMutation({
   args: { dryRun: v.optional(v.boolean()) },
   returns: v.object({
     scanned: v.number(),
