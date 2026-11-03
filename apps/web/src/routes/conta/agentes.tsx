@@ -1,5 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { env } from "@rlpapp/env/web";
+import { formatUsername } from "@rlpapp/shared";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -590,7 +591,7 @@ function AdminTokensCard({
                           {token.owner?.name ?? "—"}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {token.owner?.email ?? token.owner?.username ?? ""}
+                          {token.owner?.email ?? (token.owner?.username ? formatUsername(token.owner.username) : "")}
                         </div>
                       </TableCell>
                       <TableCell>

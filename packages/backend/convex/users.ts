@@ -1,4 +1,6 @@
+import { capitalizeFirst } from "@rlpapp/shared/usernames";
 import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { departments, userRoles } from "./schema";
 import { adminMutation, staffQuery } from "./lib/rbac";
@@ -94,7 +96,7 @@ export const ensureUser = mutation({
     const name =
       identity.name ??
       identity.givenName ??
-      username ??
+      (username ? capitalizeFirst(username) : undefined) ??
       identity.email?.split("@")[0] ??
       "Usuário";
 
@@ -278,25 +280,26 @@ export const update = adminMutation({
   args: {
     id: v.id("users"),
     name: v.optional(v.string()),
-    email: v.optional(v.string()),
+    // null limpa o campo; undefined (omitido) mantém o valor atual.
+    email: v.optional(v.union(v.string(), v.null())),
     role: v.optional(userRoles),
-    department: v.optional(departments),
-    phone: v.optional(v.string()),
+    department: v.optional(v.union(departments, v.null())),
+    phone: v.optional(v.union(v.string(), v.null())),
     isActive: v.optional(v.boolean()),
   },
   returns: v.id("users"),
   handler: async (ctx, args) => {
-    const { id, ...updates } = args;
+    const { id, email, phone, department, ...updates } = args;
     const existing = await ctx.db.get("users", id);
     
     if (!existing) {
       throw new Error("Usuário não encontrado");
     }
     
-    if (updates.email && updates.email !== existing.email) {
+    if (email && email !== existing.email) {
       const emailExists = await ctx.db
         .query("users")
-        .withIndex("by_email", (q) => q.eq("email", updates.email!))
+        .withIndex("by_email", (q) => q.eq("email", email))
         .first();
       
       if (emailExists) {
@@ -304,9 +307,12 @@ export const update = adminMutation({
       }
     }
     
-    const filteredUpdates = filterDefined(updates);
+    const patch: Partial<Doc<"users">> = filterDefined(updates);
+    if (email !== undefined) patch.email = email ?? undefined;
+    if (phone !== undefined) patch.phone = phone ?? undefined;
+    if (department !== undefined) patch.department = department ?? undefined;
 
-    await ctx.db.patch("users", id, filteredUpdates);
+    await ctx.db.patch("users", id, patch);
     return id;
   },
 });
@@ -336,6 +342,9 @@ export const remove = adminMutation({
     
     if (!existing) {
       throw new Error("Usuário não encontrado");
+    }
+    if (existing._id === ctx.user._id) {
+      throw new Error("Você não pode desativar o próprio acesso");
     }
     
     await ctx.db.patch("users", args.id, { isActive: false });
