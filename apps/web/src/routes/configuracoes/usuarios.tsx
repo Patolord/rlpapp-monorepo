@@ -774,10 +774,10 @@ function EditUserForm({ user, onClose }: { user: User; onClose: () => void }) {
         updateUser({
           id: user._id,
           name: form.name.trim(),
-          email: form.email.trim() || undefined,
-          phone: form.phone.trim() || undefined,
+          email: form.email.trim() || null,
+          phone: form.phone.trim() || null,
           role: form.role,
-          department: form.department || undefined,
+          department: form.department || null,
         }),
       "Alterações salvas",
       "Erro ao salvar alterações"
@@ -793,7 +793,7 @@ function EditUserForm({ user, onClose }: { user: User; onClose: () => void }) {
         <DialogDescription>
           {user.username ? (
             <>
-              Login <span className="font-mono">{user.username}</span>. O login
+              Login <span className="font-mono">{formatUsername(user.username)}</span>. O login
               não pode ser alterado.
             </>
           ) : (
