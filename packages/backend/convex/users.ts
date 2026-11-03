@@ -182,10 +182,12 @@ export const upsertFromClerk = internalMutation({
       .first();
 
     if (byClerkId) {
+      // Telefone do convite: também quando ensureUser vinculou antes do webhook.
       await ctx.db.patch("users", byClerkId._id, {
         name: args.name,
         email: args.email,
         username: args.username,
+        ...(args.phone && !byClerkId.phone ? { phone: args.phone } : {}),
       });
       return byClerkId._id;
     }
@@ -517,8 +519,9 @@ export const getInternal = internalQuery({
 
 /**
  * Cria o cadastro de um convite enviado, ou atualiza o convite pendente que já
- * existe para o email (reenvio). Quem já tem conta (clerkId) não pode ser
- * convidado de novo.
+ * existe para o email (reenvio). Quem já tem conta (clerkId), ou um cadastro
+ * antigo que nunca foi convite (sem invitedAt), não entra por aqui: o cancelar
+ * do convite apaga o cadastro, e um cadastro com histórico não pode ser apagado.
  */
 export const upsertInvited = internalMutation({
   args: {
@@ -535,10 +538,11 @@ export const upsertInvited = internalMutation({
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", email))
       .first();
-    const name = args.name?.trim() || email.split("@")[0] || email;
+    // Reenvio sem nome mantém o nome que já aparecia na lista.
+    const name = args.name?.trim() || existing?.name || email.split("@")[0] || email;
 
     if (existing) {
-      if (existing.clerkId) {
+      if (existing.clerkId || existing.invitedAt === undefined) {
         throw new Error("Já existe um usuário com este email");
       }
       await ctx.db.patch("users", existing._id, {

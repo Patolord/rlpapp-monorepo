@@ -37,6 +37,18 @@ const CLERK_ERROR_MESSAGES: Record<string, string> = {
   duplicate_record: "Já existe um convite pendente para este email.",
 };
 
+/** Falha da Backend API do Clerk, com o status HTTP e o código do primeiro erro. */
+class ClerkApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code: string | undefined
+  ) {
+    super(message);
+    this.name = "ClerkApiError";
+  }
+}
+
 async function clerkRequest<T>(path: string, body?: Record<string, unknown>): Promise<T> {
   const response = await fetch(`${CLERK_API}${path}`, {
     method: "POST",
@@ -60,7 +72,7 @@ async function clerkRequest<T>(path: string, body?: Record<string, unknown>): Pr
       first?.long_message ??
       first?.message ??
       `Clerk API error (${response.status})`;
-    throw new Error(msg);
+    throw new ClerkApiError(msg, response.status, first?.code);
   }
 
   return (await response.json()) as T;
@@ -102,12 +114,23 @@ async function createClerkInvitation(args: {
   return invitation.id;
 }
 
-/** Revoga a invitation; um convite já aceito ou expirado não é erro. */
+/**
+ * Revoga a invitation. O Clerk responde 400 quando ela já não está pendente
+ * (aceita, expirada ou revogada antes) e 404 quando não existe mais; nos dois
+ * casos o link já não vale e seguimos. Qualquer outra falha (chave inválida,
+ * rede, 5xx) interrompe, para não apagar o cadastro com o link ainda ativo.
+ */
 async function revokeClerkInvitation(invitationId: string): Promise<void> {
   try {
     await clerkRequest<ClerkInvitationResponse>(`/invitations/${invitationId}/revoke`);
   } catch (error) {
-    console.warn(`Clerk: não foi possível revogar a invitation ${invitationId}`, error);
+    if (error instanceof ClerkApiError && (error.status === 400 || error.status === 404)) {
+      console.warn(
+        `Clerk: invitation ${invitationId} já não estava pendente (${error.code ?? error.status})`
+      );
+      return;
+    }
+    throw error;
   }
 }
 
@@ -198,9 +221,11 @@ export const adminInviteUser = action({
     }
     const redirectUrl = assertRedirectUrl(args.redirectUrl);
 
-    // Checa antes de falar com o Clerk, para não criar convite à toa.
+    // Checa antes de falar com o Clerk, para não criar convite à toa. Só um
+    // convite pendente pode ser reenviado; quem já tem conta, ou um cadastro
+    // antigo sem convite, não é convidado por aqui (mesma regra de upsertInvited).
     const existing = await ctx.runQuery(internal.users.getByEmailInternal, { email });
-    if (existing?.clerkId) {
+    if (existing && (existing.clerkId || existing.invitedAt === undefined)) {
       throw new Error("Já existe um usuário com este email");
     }
 

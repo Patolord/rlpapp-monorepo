@@ -505,7 +505,9 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <div className="grid gap-1.5">
+    // content-start: numa linha com dois campos, o que não tem hint não
+    // distribui a altura sobrando entre rótulo e input.
+    <div className="grid content-start gap-1.5">
       <Label htmlFor={id}>
         {label}
         {optional && (
@@ -700,7 +702,9 @@ function NewUserDialog({ trigger }: { trigger: ReactNode }) {
       <DialogContent className={DIALOG_CLASS}>
         <DialogHeader className="gap-4 space-y-0 px-6 pt-6 pb-4 pr-12">
           <div className="space-y-1.5">
-            <DialogTitle>Novo usuário</DialogTitle>
+            <DialogTitle>
+              {mode === "invite" ? "Convidar usuário" : "Novo usuário com login e senha"}
+            </DialogTitle>
             <DialogDescription>
               {mode === "invite"
                 ? "A pessoa recebe um email com o link para criar a própria conta: nome, login e senha."

@@ -78,9 +78,18 @@ describe("convites por email", () => {
     expect(user?.roles).toEqual(["compras", "estoque"]);
     const stored = await t.run((ctx) => ctx.db.get("users", id));
     expect(stored?.clerkInvitationId).toBe("inv_2");
+
+    // reenvio sem nome mantém o nome que já aparecia na lista
+    await t.mutation(internal.users.upsertInvited, {
+      email: "nova@rlp.com",
+      roles: ["compras", "estoque"],
+      clerkInvitationId: "inv_3",
+    });
+    user = await asDirector.query(api.users.get, { id });
+    expect(user?.name).toBe("Nova Pessoa");
   });
 
-  test("upsertInvited recusa email de quem já tem conta", async () => {
+  test("upsertInvited recusa email de quem já tem conta ou de cadastro antigo sem convite", async () => {
     const t = setup();
     await withUser(t, { clerkId: "ana", role: "operator", email: "ana@rlp.com" });
     await expect(
@@ -88,6 +97,29 @@ describe("convites por email", () => {
         email: "ana@rlp.com",
         roles: ["compras"],
         clerkInvitationId: "inv_1",
+      })
+    ).rejects.toThrow("Já existe um usuário com este email");
+
+    // cadastro criado por users.create (sem clerkId e sem convite) não vira
+    // convite: cancelar o convite apagaria um cadastro com histórico
+    const asDirector = await withUser(t, { clerkId: "dir1", role: "director" });
+    await asDirector.mutation(api.users.create, {
+      name: "Bia",
+      email: "bia@rlp.com",
+      roles: ["rh"],
+    });
+    await expect(
+      t.mutation(internal.users.upsertInvited, {
+        email: "bia@rlp.com",
+        roles: ["compras"],
+        clerkInvitationId: "inv_2",
+      })
+    ).rejects.toThrow("Já existe um usuário com este email");
+    await expect(
+      asDirector.action(api.userAdmin.adminInviteUser, {
+        email: "bia@rlp.com",
+        roles: ["compras"],
+        redirectUrl: REDIRECT,
       })
     ).rejects.toThrow("Já existe um usuário com este email");
   });
@@ -159,6 +191,43 @@ describe("convites por email", () => {
     const user = await asDirector.query(api.users.get, { id });
     expect(user?.name).toBe("Nova Pessoa");
     expect(user?.roles).toEqual(["compras", "rh"]);
+  });
+
+  test("telefone do convite é mantido quando ensureUser vincula antes do webhook", async () => {
+    const t = setup();
+    const id = await t.mutation(internal.users.upsertInvited, {
+      email: "nova@rlp.com",
+      roles: ["estoque"],
+      clerkInvitationId: "inv_1",
+    });
+    const asNova = t.withIdentity({
+      subject: "clerk_nova",
+      email: "nova@rlp.com",
+      name: "Nova Pessoa",
+      nickname: "nova.pessoa",
+    });
+    await asNova.mutation(api.users.ensureUser, {});
+    const linked = await t.mutation(internal.users.upsertFromClerk, {
+      clerkId: "clerk_nova",
+      email: "nova@rlp.com",
+      username: "nova.pessoa",
+      name: "Nova Pessoa",
+      phone: "11999999999",
+    });
+    expect(linked).toBe(id);
+    const me = await asNova.query(api.users.getCurrentUser, {});
+    expect(me?.phone).toBe("11999999999");
+
+    // um telefone já cadastrado não é sobrescrito pelo webhook
+    await t.mutation(internal.users.upsertFromClerk, {
+      clerkId: "clerk_nova",
+      email: "nova@rlp.com",
+      username: "nova.pessoa",
+      name: "Nova Pessoa",
+      phone: "11888888888",
+    });
+    const after = await asNova.query(api.users.getCurrentUser, {});
+    expect(after?.phone).toBe("11999999999");
   });
 
   test("deleteInvited apaga só convites pendentes", async () => {
