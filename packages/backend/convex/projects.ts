@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
-import { engineeringMutation, engineeringQuery } from "./lib/rbac";
+import {
+  hasRole, engineeringMutation, engineeringQuery } from "./lib/rbac";
 import { equipmentStatusValidator } from "./equipment";
 import { projectStatus } from "./schema";
 import { logAudit, diffFields } from "./lib/audit";
@@ -832,8 +833,8 @@ export const setTechnicians = engineeringMutation({
     for (const userId of args.technicianIds) {
       const user = await ctx.db.get("users", userId);
       if (!user || !user.isActive) continue;
-      // Aceita qr_operator e staff (técnicos internos também atuam em campo).
-      if (user.role === "client") continue;
+      // Aceita técnicos de campo e equipe (técnicos internos também atuam em campo).
+      if (hasRole(user, "client")) continue;
       valid.push(user._id);
     }
 

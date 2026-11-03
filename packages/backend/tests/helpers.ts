@@ -20,10 +20,13 @@ export async function withUser(
   overrides: Partial<Doc<"users">> & { clerkId: string }
 ) {
   await t.run(async (ctx) => {
+    // Fixtures podem informar `roles` (modelo atual) ou role + department
+    // (legado, traduzido pela política).
     await ctx.db.insert("users", {
       name: overrides.name ?? "Usuário Teste",
       email: overrides.email,
       clerkId: overrides.clerkId,
+      roles: overrides.roles,
       role: overrides.role ?? "operator",
       department: overrides.department,
       isActive: overrides.isActive ?? true,

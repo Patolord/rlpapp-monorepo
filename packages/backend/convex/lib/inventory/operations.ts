@@ -1,7 +1,7 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../audit";
-import { hasPermission } from "../rbac";
+import { hasPermission, hasRole } from "../rbac";
 import { evaluateCompatibility } from "./compatibility";
 
 export const MAX_INVENTORY_DOCUMENT_LINES = 100;
@@ -36,7 +36,7 @@ export function canDecideInventoryException(
   user: Doc<"users">,
   project: Doc<"projects">
 ): boolean {
-  return user.role === "engenheiro" && project.responsibleId === user._id;
+  return hasRole(user, "engenheiro") && project.responsibleId === user._id;
 }
 
 function isAssignedTechnician(

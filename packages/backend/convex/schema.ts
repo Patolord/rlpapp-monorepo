@@ -1,7 +1,8 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-// User roles
+// Cargo legado (`users.role`). O acesso vem de `users.roles` (abaixo); este
+// campo e `department` são projeções mantidas até a fase 3 da migração.
 export const userRoles = v.union(
   v.literal("director"),
   v.literal("admin"),
@@ -32,6 +33,20 @@ export const projectDocumentTechnicianAccess = v.union(
   v.literal("none"),
   v.literal("all"),
   v.literal("selected")
+);
+
+// Acessos combináveis do usuário (ver @rlpapp/shared/auth/permissions).
+export const accessRoles = v.union(
+  v.literal("director"),
+  v.literal("admin"),
+  v.literal("engenheiro"),
+  v.literal("engenharia"),
+  v.literal("compras"),
+  v.literal("estoque"),
+  v.literal("rh"),
+  v.literal("takeoff"),
+  v.literal("qr_operator"),
+  v.literal("client")
 );
 
 // Department types
@@ -337,6 +352,11 @@ export default defineSchema({
     username: v.optional(v.string()),
     // Clerk user ID (subject do JWT). Optional para usuários criados antes do webhook.
     clerkId: v.optional(v.string()),
+    // Acessos do usuário (fonte de verdade da autorização). Opcional até a
+    // migração `migrations:backfillUserRoles` rodar em produção; sem ele vale
+    // a tradução de role + department (rolesFromLegacy).
+    roles: v.optional(v.array(accessRoles)),
+    // Legado: cargo e departamento, derivados de `roles` a cada gravação.
     role: userRoles,
     department: v.optional(departments),
     phone: v.optional(v.string()),

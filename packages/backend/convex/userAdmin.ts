@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import { action, env } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { departments, userRoles } from "./schema";
+import { accessRoles } from "./schema";
 import { rejectReadOnlyAgentTokenInAction } from "./lib/agentTokens";
 import { requireActionPermission } from "./lib/rbac";
 
@@ -63,8 +63,7 @@ export const adminCreateUser = action({
     password: v.string(),
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
-    role: userRoles,
-    department: v.optional(departments),
+    roles: v.array(accessRoles),
   },
   returns: v.id("users"),
   handler: async (ctx, args): Promise<Id<"users">> => {
@@ -89,8 +88,7 @@ export const adminCreateUser = action({
       name: args.name,
       email: args.email,
       username: args.username,
-      role: args.role,
-      department: args.department,
+      roles: args.roles,
       phone: args.phone,
     });
 

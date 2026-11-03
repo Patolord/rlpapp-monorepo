@@ -1,8 +1,15 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { can } from "@rlpapp/shared/auth/permissions";
+import {
+  ROLES,
+  ROLE_DESCRIPTIONS,
+  ROLE_LABELS,
+  can,
+  type Role,
+} from "@rlpapp/shared/auth/permissions";
 import type { FunctionReturnType } from "convex/server";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
+  Check,
   Eye,
   EyeOff,
   Pencil,
@@ -25,7 +32,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import {
   formatDisplayName,
   formatUsername,
@@ -35,36 +41,24 @@ import {
 import { getErrorMessage } from "@/lib/errors";
 
 type User = FunctionReturnType<typeof api.users.list>[number];
-type UserRole =
-  | "director"
-  | "admin"
-  | "manager"
-  | "operator"
-  | "engenheiro"
-  | "qr_operator";
-type Department = "rh" | "engenharia";
 
-const ROLE_LABELS: Record<string, string> = {
-  director: "Diretor",
-  admin: "Administrador",
-  manager: "Gerente",
-  operator: "Operador",
-  engenheiro: "Engenheiro",
-  qr_operator: "Operador QR",
-};
+/**
+ * Acessos de um cadastro: `roles` quando já migrado; senão a projeção legada
+ * (cargo + departamento), que o backend traduz do mesmo jeito.
+ */
+function userRoles(user: User): Role[] {
+  if (user.roles) return user.roles;
+  const legacy: Role[] = [];
+  if (user.role === "director" || user.role === "admin" || user.role === "engenheiro") {
+    legacy.push(user.role);
+  }
+  if (user.role === "qr_operator" || user.role === "client") legacy.push(user.role);
+  if (user.department && !(user.role === "engenheiro" && user.department === "engenharia")) {
+    legacy.push(user.department);
+  }
+  return ROLES.filter((role) => legacy.includes(role));
+}
 
-const DEPARTMENT_LABELS: Record<string, string> = {
-  rh: "Recursos Humanos",
-  engenharia: "Engenharia",
-};
-
-const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({
-  value,
-  label,
-}));
-const DEPARTMENT_OPTIONS = Object.entries(DEPARTMENT_LABELS).map(
-  ([value, label]) => ({ value, label })
-);
 const STATUS_FILTERS = [
   { value: "all", label: "Todos" },
   { value: "active", label: "Ativos" },
@@ -93,16 +87,14 @@ export default function UsuariosScreen() {
     password: "",
     email: "",
     phone: "",
-    role: "",
-    department: "",
+    roles: [] as Role[],
   };
   const [createForm, setCreateForm] = useState({ ...emptyCreate });
   const [editForm, setEditForm] = useState({
     name: "",
     email: "",
     phone: "",
-    role: "",
-    department: "",
+    roles: [] as Role[],
   });
 
   const isAdmin = can(currentUser, "admin.manage");
@@ -131,7 +123,7 @@ export default function UsuariosScreen() {
     if (!createForm.username.trim()) return Alert.alert("Informe o username");
     if (createForm.password.length < 8)
       return Alert.alert("A senha deve ter pelo menos 8 caracteres");
-    if (!createForm.role) return Alert.alert("Selecione o cargo");
+    if (createForm.roles.length === 0) return Alert.alert("Marque pelo menos um acesso");
 
     setIsSubmitting(true);
     try {
@@ -142,10 +134,7 @@ export default function UsuariosScreen() {
         password: createForm.password,
         email: createForm.email.trim() || undefined,
         phone: createForm.phone.trim() || undefined,
-        role: createForm.role as UserRole,
-        department: createForm.department
-          ? (createForm.department as Department)
-          : undefined,
+        roles: createForm.roles,
       });
       setIsCreateOpen(false);
       setCreateForm({ ...emptyCreate });
@@ -166,10 +155,7 @@ export default function UsuariosScreen() {
         name: editForm.name.trim() || undefined,
         email: editForm.email.trim() || undefined,
         phone: editForm.phone.trim() || undefined,
-        role: editForm.role ? (editForm.role as UserRole) : undefined,
-        department: editForm.department
-          ? (editForm.department as Department)
-          : undefined,
+        roles: editForm.roles,
       });
       setEditingUser(null);
     } catch (error) {
@@ -210,8 +196,7 @@ export default function UsuariosScreen() {
       name: user.name,
       email: user.email ?? "",
       phone: user.phone ?? "",
-      role: user.role,
-      department: user.department ?? "",
+      roles: userRoles(user),
     });
     setEditingUser(user);
   }
@@ -407,25 +392,10 @@ export default function UsuariosScreen() {
             />
           </View>
           <View className="gap-1.5">
-            <Label>Cargo *</Label>
-            <Select
-              value={createForm.role}
-              onValueChange={(v) => setCreateForm((f) => ({ ...f, role: v }))}
-              options={ROLE_OPTIONS}
-              placeholder="Selecione o cargo"
-              className="h-12"
-            />
-          </View>
-          <View className="gap-1.5">
-            <Label>Departamento</Label>
-            <Select
-              value={createForm.department}
-              onValueChange={(v) =>
-                setCreateForm((f) => ({ ...f, department: v }))
-              }
-              options={DEPARTMENT_OPTIONS}
-              placeholder="Selecione o departamento"
-              className="h-12"
+            <Label>Acessos *</Label>
+            <AccessPicker
+              roles={createForm.roles}
+              onChange={(roles) => setCreateForm((f) => ({ ...f, roles }))}
             />
           </View>
         </View>
@@ -483,26 +453,16 @@ export default function UsuariosScreen() {
             />
           </View>
           <View className="gap-1.5">
-            <Label>Cargo</Label>
-            <Select
-              value={editForm.role}
-              onValueChange={(v) => setEditForm((f) => ({ ...f, role: v }))}
-              options={ROLE_OPTIONS}
-              placeholder="Selecione o cargo"
-              className="h-12"
+            <Label>Acessos</Label>
+            <AccessPicker
+              roles={editForm.roles}
+              onChange={(roles) => setEditForm((f) => ({ ...f, roles }))}
             />
-          </View>
-          <View className="gap-1.5">
-            <Label>Departamento</Label>
-            <Select
-              value={editForm.department}
-              onValueChange={(v) =>
-                setEditForm((f) => ({ ...f, department: v }))
-              }
-              options={DEPARTMENT_OPTIONS}
-              placeholder="Nenhum"
-              className="h-12"
-            />
+            {editForm.roles.length === 0 ? (
+              <Text className="text-xs text-muted-foreground">
+                Sem acessos, o usuário não entra em nenhuma área.
+              </Text>
+            ) : null}
           </View>
         </View>
         <DialogFooter>
@@ -568,16 +528,62 @@ function UserCard({
       </View>
 
       <View className="flex-row flex-wrap items-center gap-2">
-        <Badge variant="outline">{ROLE_LABELS[user.role] ?? user.role}</Badge>
-        {user.department ? (
-          <Badge variant="secondary">
-            {DEPARTMENT_LABELS[user.department] ?? user.department}
+        {userRoles(user).map((role) => (
+          <Badge key={role} variant="outline">
+            {ROLE_LABELS[role]}
           </Badge>
+        ))}
+        {userRoles(user).length === 0 ? (
+          <Text className="text-xs text-muted-foreground">Sem acessos</Text>
         ) : null}
         <Badge variant={user.isActive ? "success" : "secondary"}>
           {user.isActive ? "Ativo" : "Inativo"}
         </Badge>
       </View>
     </Card>
+  );
+}
+
+/** Um toque por acesso; os acessos se somam. */
+function AccessPicker({
+  roles,
+  onChange,
+}: {
+  roles: Role[];
+  onChange: (roles: Role[]) => void;
+}) {
+  const toggle = (role: Role) => {
+    const next = roles.includes(role) ? roles.filter((r) => r !== role) : [...roles, role];
+    onChange(ROLES.filter((r) => next.includes(r)));
+  };
+  return (
+    <View className="gap-2">
+      {ROLES.map((role) => {
+        const selected = roles.includes(role);
+        return (
+          <Pressable
+            key={role}
+            onPress={() => toggle(role)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: selected }}
+            className={`flex-row items-start gap-3 rounded-md border p-3 ${
+              selected ? "border-primary bg-primary/10" : "border-input bg-card"
+            }`}
+          >
+            <View
+              className={`mt-0.5 h-5 w-5 items-center justify-center rounded border ${
+                selected ? "border-primary bg-primary" : "border-input"
+              }`}
+            >
+              {selected ? <Check size={14} color="#fafafa" /> : null}
+            </View>
+            <View className="min-w-0 flex-1">
+              <Text className="text-sm font-medium text-foreground">{ROLE_LABELS[role]}</Text>
+              <Text className="text-xs text-muted-foreground">{ROLE_DESCRIPTIONS[role]}</Text>
+            </View>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }

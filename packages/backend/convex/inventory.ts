@@ -8,6 +8,7 @@ import {
 } from "./schema";
 import {
   hasPermission,
+  hasRole,
   inventoryMutation,
   inventoryQuery,
   inventoryRulesMutation,
@@ -358,7 +359,7 @@ export const listPendingApprovals = inventoryQuery({
   returns: v.array(documentRowValidator),
   handler: async (ctx) => {
     // Só o engenheiro responsável decide (canDecideInventoryException).
-    if (ctx.user.role !== "engenheiro") return [];
+    if (!hasRole(ctx.user, "engenheiro")) return [];
     const pending = await ctx.db
       .query("inventoryDocuments")
       .withIndex("by_status", (q) => q.eq("status", "pending_approval"))

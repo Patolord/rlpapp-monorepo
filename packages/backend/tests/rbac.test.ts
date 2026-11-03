@@ -52,6 +52,103 @@ describe("erros de acesso tipados", () => {
   });
 });
 
+describe("acessos combináveis (roles)", () => {
+  test("permissões são a união dos acessos e roles vence o legado", async () => {
+    const t = setup();
+    const asMixed = await withUser(t, {
+      clerkId: "mix1",
+      roles: ["compras", "estoque"],
+      role: "director", // legado inconsistente de propósito: roles manda
+    });
+    const me = await asMixed.query(api.users.getCurrentUser, {});
+    expect(me?.roles).toEqual(["compras", "estoque"]);
+    expect(me?.permissions).toEqual([
+      "compras.read",
+      "compras.write",
+      "suprimentos.read",
+      "estoque.read",
+      "estoque.write",
+      "estoque.central.read",
+    ]);
+    expect(me?.homeArea).toBe("compras");
+    await expect(
+      asMixed.query(internal.users.assertPermission, { permission: "admin.manage" })
+    ).rejects.toThrow("Insufficient permissions");
+  });
+
+  test("cadastro legado é traduzido para acessos", async () => {
+    const t = setup();
+    const asLegacy = await withUser(t, {
+      clerkId: "leg1",
+      role: "engenheiro",
+      department: "rh",
+    });
+    const me = await asLegacy.query(api.users.getCurrentUser, {});
+    expect(me?.roles).toEqual(["engenheiro", "rh", "takeoff"]);
+    expect(me?.permissions).toContain("rh.write");
+    expect(me?.permissions).toContain("takeoff.use");
+  });
+
+  test("usuário sem acesso nenhum não é staff", async () => {
+    const t = setup();
+    const asNone = await withUser(t, { clerkId: "none1", roles: [] });
+    const me = await asNone.query(api.users.getCurrentUser, {});
+    expect(me?.isStaff).toBe(false);
+    expect(me?.permissions).toEqual([]);
+    await expect(asNone.query(api.users.list, {})).rejects.toThrow(
+      "Insufficient permissions"
+    );
+  });
+
+  test("users.list filtra pelo acesso resolvido, não só pelo cargo legado", async () => {
+    const t = setup();
+    const asAdmin = await withUser(t, { clerkId: "adm1", roles: ["admin"] });
+    await withUser(t, { clerkId: "t1", name: "Técnico puro", roles: ["qr_operator"] });
+    await withUser(t, {
+      clerkId: "t2",
+      name: "Engenheiro e técnico",
+      roles: ["engenheiro", "qr_operator"],
+    });
+    await withUser(t, { clerkId: "t3", name: "Legado QR", role: "qr_operator" });
+    await withUser(t, { clerkId: "t4", name: "Só compras", roles: ["compras"] });
+    const technicians = await asAdmin.query(api.users.list, { role: "qr_operator" });
+    expect(technicians.map((u) => u.name).sort()).toEqual([
+      "Engenheiro e técnico",
+      "Legado QR",
+      "Técnico puro",
+    ]);
+  });
+
+  test("migração preenche roles a partir do legado e é idempotente", async () => {
+    const t = setup();
+    await withUser(t, { clerkId: "a", role: "operator", department: "compras" });
+    await withUser(t, { clerkId: "b", role: "engenheiro" });
+    await withUser(t, { clerkId: "c", roles: ["rh"], role: "operator" });
+    const first = await t.mutation(internal.migrations.backfillUserRoles, {});
+    expect(first).toEqual({ updated: 2, skipped: 1 });
+    const second = await t.mutation(internal.migrations.backfillUserRoles, {});
+    expect(second).toEqual({ updated: 0, skipped: 3 });
+    const users = await t.run(async (ctx) => ctx.db.query("users").collect());
+    const byClerk = Object.fromEntries(users.map((u) => [u.clerkId, u.roles]));
+    expect(byClerk).toEqual({
+      a: ["compras", "takeoff"],
+      b: ["engenheiro", "takeoff"],
+      c: ["rh"],
+    });
+  });
+
+  test("login do app Takeoff exige o acesso takeoff.use", async () => {
+    const t = setup();
+    const asRh = await withUser(t, { clerkId: "rh1", roles: ["rh"] });
+    await expect(
+      asRh.action(api.takeoffAuth.createCode, {
+        challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+        device: "PC-RH",
+      })
+    ).rejects.toThrow("não tem acesso ao app RLP Takeoff");
+  });
+});
+
 describe("users.getCurrentUser", () => {
   test("devolve as permissões calculadas, isStaff e a área inicial", async () => {
     const t = setup();
@@ -63,12 +160,14 @@ describe("users.getCurrentUser", () => {
     const me = await asCompras.query(api.users.getCurrentUser, {});
     expect(me?.isStaff).toBe(true);
     expect(me?.homeArea).toBe("compras");
+    // Cadastro legado de compras: ganha também o app Takeoff (já entrava nele).
     expect(me?.permissions).toEqual([
       "compras.read",
       "compras.write",
       "suprimentos.read",
       "estoque.read",
       "estoque.central.read",
+      "takeoff.use",
     ]);
 
     const asDirector = await withUser(t, { clerkId: "dir1", role: "director" });
@@ -106,7 +205,7 @@ describe("gate de permissão para actions", () => {
         name: "Novo",
         username: "novo",
         password: "senha-forte-123",
-        role: "operator",
+        roles: ["compras"],
       })
     ).rejects.toThrow("Insufficient permissions");
   });

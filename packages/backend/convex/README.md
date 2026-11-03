@@ -69,13 +69,17 @@ Domain terminology is defined in the repository-level `CONTEXT.md`.
 
 ## Access control
 
-The policy (which role/department holds which `Permission`) lives in
-`@rlpapp/shared/auth/permissions` (`packages/shared/src/auth/permissions.ts`),
-with a role × permission matrix test in `packages/shared/tests`. It is shared
-with the apps, which only use it to hide navigation and actions; enforcement
-happens here, in `lib/rbac.ts`:
+Each user holds a set of combinable **access roles** (`users.roles`: `director`,
+`admin`, `engenheiro`, `engenharia`, `compras`, `estoque`, `rh`, `takeoff`,
+`qr_operator`, `client`). Every role grants a fixed set of permissions
+(`ROLE_PERMISSIONS`) and the user's permissions are the union. The policy lives
+in `@rlpapp/shared/auth/permissions` (`packages/shared/src/auth/permissions.ts`),
+with a matrix test in `packages/shared/tests`. It is shared with the apps, which
+only use it to hide navigation and actions; enforcement happens here, in
+`lib/rbac.ts`:
 
-1. `hasPermission` / `isStaff` / `isAdmin` are re-exported from the shared policy.
+1. `hasPermission` / `hasRole` / `isStaff` / `isAdmin` are re-exported from the
+   shared policy.
 2. Gate functions (`requireUser`, `requirePermission`, `assertStaff`, ...)
    perform manual authorization checks when needed. They throw
    `ConvexError({ code: "UNAUTHENTICATED" | "FORBIDDEN", message, permission? })`
@@ -85,9 +89,21 @@ happens here, in `lib/rbac.ts`:
 4. Actions have no `ctx.db`: call `requireActionPermission(ctx, permission)`
    (runs `internal.users.assertPermission` under the caller's identity) before
    any external side effect.
-5. `users.getCurrentUser` returns `permissions`, `isStaff` and `homeArea`
-   computed by the policy. Clients check `can(currentUser, "compras.write")`
-   instead of comparing `role`/`department`.
+5. `users.getCurrentUser` returns `roles`, `permissions`, `isStaff` and
+   `homeArea` computed by the policy. Clients check
+   `can(currentUser, "compras.write")` instead of comparing `role`/`department`.
+
+Migration from the legacy `role` (job title) + `department` pair:
+
+- `rolesFromLegacy` translates the pair into equivalent roles and is what the
+  policy uses while a user document has no `roles`; `legacyFromRoles` keeps
+  `role`/`department` filled on every write (`lib/users.ts` `accessFields`) for
+  code that still reads them (the `by_role` index, labels, the HTTP gateway).
+- After deploying, run `npx convex run migrations:backfillUserRoles` once. Then
+  `roles` can become required and `role`/`department` can be dropped (phase 3).
+- Legacy users with only `manager`/`operator` and no department had no
+  permissions and now have no roles, so they are no longer staff until an admin
+  assigns access in Configurações → Usuários.
 
 Public functions that access user data use the appropriate wrapper rather than
 raw `query` or `mutation`:

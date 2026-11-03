@@ -2,7 +2,7 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import { UserButton } from "@clerk/tanstack-react-start";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { formatDisplayName } from "@rlpapp/shared";
-import { can } from "@rlpapp/shared/auth/permissions";
+import { ROLE_LABELS, can, type Role } from "@rlpapp/shared/auth/permissions";
 import { AREA_PERMISSIONS, type DepartmentArea } from "@/components/role-area-gate";
 import { useQuery } from "convex/react";
 import {
@@ -142,17 +142,15 @@ function getNavGroups(): NavGroup[] {
   ];
 }
 
-const roleLabels: Record<string, string> = {
-  director: "Diretor",
-  admin: "Administrador",
-  manager: "Gerente",
-  operator: "Operador",
-  engenheiro: "Engenheiro",
-  qr_operator: "Operador QR",
-  client: "Cliente",
-};
+/** "Compras, Estoque" ou "Compras +2": acessos do usuário em uma linha. */
+function describeRoles(roles: readonly Role[] | undefined): string {
+  if (!roles || roles.length === 0) return "";
+  const labels = roles.map((role) => ROLE_LABELS[role]);
+  if (labels.length <= 2) return labels.join(", ");
+  return `${labels[0]} +${labels.length - 1}`;
+}
 
-function NavUser({ name, role }: { name?: string; role?: string }) {
+function NavUser({ name, roles }: { name?: string; roles?: readonly Role[] }) {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -169,8 +167,8 @@ function NavUser({ name, role }: { name?: string; role?: string }) {
             <span className="truncate text-sm font-semibold text-slate-800">
               {name ?? "Conta"}
             </span>
-            <span className="truncate text-xs text-slate-500">
-              {role ? roleLabels[role] ?? role : ""}
+            <span className="truncate text-xs text-slate-500" title={roles?.map((r) => ROLE_LABELS[r]).join(", ")}>
+              {describeRoles(roles)}
             </span>
           </div>
           <ChevronsUpDown className="size-4 shrink-0 text-slate-400 group-data-[collapsible=icon]:hidden" />
@@ -269,7 +267,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter className="border-t border-slate-100">
         <NavUser
           name={currentUser?.name ? formatDisplayName(currentUser.name) : undefined}
-          role={currentUser?.role}
+          roles={currentUser?.roles}
         />
       </SidebarFooter>
       <SidebarRail />

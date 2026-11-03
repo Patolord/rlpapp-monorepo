@@ -9,11 +9,14 @@ import {
   STAFF_ROLES,
   getPermissions,
   hasPermission,
+  hasRole,
   isAdmin,
   isStaff,
+  resolveRoles,
   type Department,
+  type LegacyUserRole,
   type Permission,
-  type UserRole,
+  type Role,
 } from "@rlpapp/shared/auth/permissions";
 import { mutation, query } from "../_generated/server";
 import type { ActionCtx, MutationCtx, QueryCtx } from "../_generated/server";
@@ -36,15 +39,24 @@ export {
   STAFF_ROLES,
   getPermissions,
   hasPermission,
+  hasRole,
   isAdmin,
   isStaff,
+  resolveRoles,
 };
-export type { Permission };
+export type { Permission, Role };
 
 // Falha de compilação se os validadores de schema.ts e a política do shared
-// divergirem (uma role ou departamento criado só de um lado).
+// divergirem (um acesso, cargo ou departamento criado só de um lado).
 type Equals<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
-export const SCHEMA_ROLES_MATCH_POLICY: Equals<Doc<"users">["role"], UserRole> = true;
+export const SCHEMA_ACCESS_ROLES_MATCH_POLICY: Equals<
+  NonNullable<Doc<"users">["roles"]>[number],
+  Role
+> = true;
+export const SCHEMA_LEGACY_ROLES_MATCH_POLICY: Equals<
+  Doc<"users">["role"],
+  LegacyUserRole
+> = true;
 export const SCHEMA_DEPARTMENTS_MATCH_POLICY: Equals<
   NonNullable<Doc<"users">["department"]>,
   Department
@@ -90,16 +102,16 @@ export function requirePermission(
   }
 }
 
-/** Gate baseado em ctx (uso manual em handlers, ex.: qrCodes). */
+/** Gate baseado em ctx: exige que o usuário tenha algum dos acessos. */
 export async function requireRole(
   ctx: QueryCtx | MutationCtx,
-  allowedRoles: readonly string[]
+  allowedRoles: readonly Role[]
 ) {
   const user = await getUserByIdentity(ctx);
   if (!user) {
     throw unauthenticated("User not found in database");
   }
-  if (!allowedRoles.includes(user.role)) {
+  if (!resolveRoles(user).some((role) => allowedRoles.includes(role))) {
     throw forbidden();
   }
   return user;

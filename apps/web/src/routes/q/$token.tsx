@@ -182,7 +182,7 @@ function AuthenticatedContent() {
   // cobre o cadastro offline.
   if (
     (currentUser === undefined && online) ||
-    (currentUser?.role === "qr_operator" && data === undefined && online)
+    (currentUser?.homeArea === "qr-operador" && data === undefined && online)
   ) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -191,7 +191,8 @@ function AuthenticatedContent() {
     );
   }
   let obraSlug: string | null = null;
-  if (currentUser?.role === "qr_operator" && data) {
+  // Técnico de campo (sem acesso de escritório): a etiqueta abre dentro da obra.
+  if (currentUser?.homeArea === "qr-operador" && data) {
     obraSlug = fieldObraSlug(data.project) ?? fieldObraSlug(data.batchProject);
   }
   if (obraSlug) {
