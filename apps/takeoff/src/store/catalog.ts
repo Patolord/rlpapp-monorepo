@@ -160,10 +160,12 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
         },
       );
       const { project } = get();
-      // derived prices (weight lines, duct networks, VRF systems) follow the new defaults
+      // derived prices follow what arrived: weight lines and duct networks here, VRF systems
+      // (priced from the catalog entries, the weight table, the prices per kg and the brand
+      // rules) right after, each a no-op when nothing changed
       const synced = syncDerived(project, next);
       set({ catalog: next, ...(synced !== project ? { project: synced, dirty: true } : {}) });
-      if (next.vrfBrands !== catalog.vrfBrands) get().resyncVrf();
+      get().resyncVrf();
       relabelRuns(catalog.kits, next.kits);
       await saveCatalogStore(next);
       // lines linked to a material purchasing merged into another follow it, prices untouched
@@ -285,10 +287,11 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
       if (price === undefined || Number.isNaN(price)) delete basePriceOverrides[key];
       else basePriceOverrides[key] = price;
       const next = withCompanyDefaults(catalog, { basePriceOverrides });
-      // every weight-priced line and duct network of the open takeoff follows the new price per kg
-      // (no undo step: the setting itself is not part of the project)
+      // every weight-priced line, duct network and VRF system of the open takeoff follows the
+      // new price per kg (no undo step: the setting itself is not part of the project)
       const synced = syncDerived(project, next);
       set({ catalog: next, ...(synced !== project ? { project: synced, dirty: true } : {}) });
+      get().resyncVrf();
       void saveCatalogStore(next);
     },
 
@@ -310,6 +313,8 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
         }`,
         ...(synced !== project ? { project: synced, dirty: true } : {}),
       });
+      // VRF copper is priced from the weight table and the prices per kg too
+      get().resyncVrf();
       await persist(catalog, "Não foi possível gravar a tabela de pesos");
     },
 

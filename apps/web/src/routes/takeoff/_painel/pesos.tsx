@@ -4,7 +4,7 @@ import { BASE_MATERIALS, type WeightRow } from "@rlpapp/shared/takeoff/weights";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { Download, Loader2, Monitor, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
@@ -57,8 +57,11 @@ function PesosPage() {
   const [gauges, setGauges] = useState<Texts>({});
   const [rows, setRows] = useState<WeightRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
-  // the forms follow the published values until the user edits them (a save ends the edit)
+  // the forms follow the published values until the user edits them; a save ends the edit only
+  // when nothing was typed while the request ran (latest holds what is on screen right now)
   const [dirty, setDirty] = useState<{ prices: boolean; weights: boolean }>({ prices: false, weights: false });
+  const latest = useRef({ prices, gauges, rows });
+  latest.current = { prices, gauges, rows };
   useEffect(() => {
     if (!settings) return;
     if (!dirty.prices) setPrices(toTexts(settings.basePrices));
@@ -81,16 +84,20 @@ function PesosPage() {
   };
   const submitPrices = () =>
     run("prices", async () => {
+      const sent = JSON.stringify(prices);
       await saveBasePrices({ prices: toNumbers(prices) });
-      setDirty((d) => ({ ...d, prices: false }));
+      if (JSON.stringify(latest.current.prices) === sent) setDirty((d) => ({ ...d, prices: false }));
     }, "Preços por kg publicados");
   const submitWeights = () =>
     run("weights", async () => {
+      const sent = JSON.stringify({ gauges, rows });
       await saveWeights({
         rows: rows.filter((r) => r.name.trim()),
         gaugeWeights: toNumbers(gauges),
       });
-      setDirty((d) => ({ ...d, weights: false }));
+      if (JSON.stringify({ gauges: latest.current.gauges, rows: latest.current.rows }) === sent) {
+        setDirty((d) => ({ ...d, weights: false }));
+      }
     }, "Tabela de pesos publicada");
   const loadFactory = () =>
     run("seed", () => seedDefaults({ kind: "weights" }), "Tabela do fornecedor carregada");

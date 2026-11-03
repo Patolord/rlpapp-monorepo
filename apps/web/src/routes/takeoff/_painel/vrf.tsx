@@ -8,7 +8,7 @@ import {
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { Copy, Download, Loader2, Monitor, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
@@ -51,6 +51,9 @@ function VrfPage() {
   const [sel, setSel] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  // what is on screen right now: a save ends the edit only when nothing changed while it ran
+  const latest = useRef(brands);
+  latest.current = brands;
   useEffect(() => {
     if (!settings || dirty) return;
     const list = (settings.vrfBrands ?? []).map(fromStored);
@@ -84,8 +87,9 @@ function VrfPage() {
   const submit = async () => {
     setBusy("save");
     try {
+      const sent = JSON.stringify(brands);
       await saveVrfBrands({ brands });
-      setDirty(false);
+      if (JSON.stringify(latest.current) === sent) setDirty(false);
       toast.success("Marcas de VRF publicadas");
     } catch (error) {
       toast.error(getErrorMessage(error, "Não foi possível salvar as marcas"));
