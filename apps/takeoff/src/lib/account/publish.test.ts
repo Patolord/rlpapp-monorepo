@@ -2,7 +2,14 @@ import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { ConvexError } from "convex/values";
 import { describe, expect, it, vi } from "vitest";
 import { emptyProject, type Item, type Project } from "../types";
-import type { PublishArgs, PublishObra, PublishOptions, PublishResult } from "./convex";
+import type {
+  PublishArgs,
+  PublishObra,
+  PublishOptions,
+  PublishResult,
+  RemoveArgs,
+  RemoveResult,
+} from "./convex";
 import {
   defaultObraId,
   describePublishError,
@@ -10,6 +17,7 @@ import {
   loadPublishOptions,
   type PublishClient,
   publishArgs,
+  removeSentBudget,
   resultCounts,
   sendApprovedBudget,
 } from "./publish";
@@ -67,13 +75,24 @@ const okResult = (over: Partial<PublishResult> = {}): PublishResult => ({
   ...over,
 });
 
+const removedResult = (over: Partial<RemoveResult> = {}): RemoveResult => ({
+  takeoffId: "t1" as RemoveResult["takeoffId"],
+  name: "Edifício Centro",
+  projectId: obraId("o1"),
+  projectName: "Edifício Centro",
+  removedLines: 3,
+  ...over,
+});
+
 /** A fake company app: records what it was sent, answers or throws as told. */
 function fakeClient(answer: {
   options?: () => Promise<PublishOptions>;
   publish?: (args: PublishArgs) => Promise<PublishResult>;
+  remove?: (args: RemoveArgs) => Promise<RemoveResult>;
 }) {
   const sent: PublishArgs[] = [];
   const asked: (string | undefined)[] = [];
+  const removed: RemoveArgs[] = [];
   const client: PublishClient = {
     options: async (externalId) => {
       asked.push(externalId);
@@ -86,8 +105,12 @@ function fakeClient(answer: {
       sent.push(args);
       return answer.publish?.(args) ?? okResult();
     },
+    remove: async (args) => {
+      removed.push(args);
+      return answer.remove?.(args) ?? removedResult();
+    },
   };
-  return { client, sent, asked };
+  return { client, sent, asked, removed };
 }
 
 describe("payload", () => {
@@ -284,5 +307,59 @@ describe("resultCounts", () => {
     expect(resultCounts(okResult({ inserted: 1, updated: 2, removed: 0, unchanged: 3 }))).toBe(
       "1 nova · 2 atualizadas · 0 removidas · 3 sem mudança",
     );
+  });
+});
+
+describe("removeSentBudget", () => {
+  it("removes the budget of the project's id and reports what the app deleted", async () => {
+    const { client, removed } = fakeClient({});
+    const out = await removeSentBudget({ client, signedIn: true, project: project() });
+    expect(removed).toEqual([{ externalId: "desk-1" }]);
+    expect(out).toEqual({ ok: true, value: { removed: true, result: removedResult() } });
+  });
+
+  it("treats a budget that is no longer in the app as removed", async () => {
+    const { client } = fakeClient({
+      remove: () =>
+        Promise.reject(new ConvexError({ code: "BUDGET_NOT_FOUND", message: "não está no app" })),
+    });
+    const out = await removeSentBudget({ client, signedIn: true, project: project() });
+    expect(out).toEqual({ ok: true, value: { removed: false, result: null } });
+  });
+
+  it("passes on the app's refusal when purchasing already worked on it", async () => {
+    const { client } = fakeClient({
+      remove: () =>
+        Promise.reject(
+          new ConvexError({
+            code: "BUDGET_IN_USE",
+            message: "A Compras já trabalhou neste orçamento",
+          }),
+        ),
+    });
+    const out = await removeSentBudget({ client, signedIn: true, project: project() });
+    expect(out).toEqual({
+      ok: false,
+      error: { code: "BUDGET_IN_USE", message: "A Compras já trabalhou neste orçamento" },
+    });
+  });
+
+  it("does not call the app when signed out or without an id", async () => {
+    const { client, removed } = fakeClient({});
+    const signedOut = await removeSentBudget({ client, signedIn: false, project: project() });
+    expect(signedOut).toMatchObject({ ok: false, error: { code: "SIGNED_OUT" } });
+    const noId = await removeSentBudget({
+      client,
+      signedIn: true,
+      project: project({ id: undefined }),
+    });
+    expect(noId).toMatchObject({ ok: false, error: { code: "UNKNOWN" } });
+    expect(removed).toEqual([]);
+  });
+
+  it("drops the session when the device token was revoked", async () => {
+    const { client } = fakeClient({ remove: () => Promise.reject(new SignedOutError()) });
+    const out = await removeSentBudget({ client, signedIn: true, project: project() });
+    expect(out).toMatchObject({ ok: false, error: { code: "SIGNED_OUT", revoked: true } });
   });
 });

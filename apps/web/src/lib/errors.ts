@@ -4,7 +4,10 @@ import { toast } from "sonner";
 /** Extrai mensagem legível de erros (Convex, Error ou desconhecido). */
 export function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof ConvexError) {
-    return typeof error.data === "string" ? error.data : fallback;
+    if (typeof error.data === "string") return error.data;
+    // erros com código ({ code, message }), como os do orçamento do desktop
+    const message = (error.data as { message?: unknown } | null)?.message;
+    return typeof message === "string" && message ? message : fallback;
   }
   if (error instanceof Error && error.message) {
     // Convex prefixa erros de servidor; mantém só a parte útil

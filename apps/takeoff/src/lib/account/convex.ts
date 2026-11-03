@@ -88,7 +88,8 @@ export async function sendProposalAsUser(body: ProposalBody): Promise<SendOutcom
 }
 
 // ---------------------------------------------------------------------------
-// Approved budget → company app (takeoffs.desktopPublishOptions / publishFromDesktop)
+// Approved budget → company app (takeoffs.desktopPublishOptions / publishFromDesktop /
+// removeFromDesktop)
 // ---------------------------------------------------------------------------
 
 /** Whether the user may send, the obras to choose from and where this takeoff already went. */
@@ -107,4 +108,16 @@ export function fetchPublishOptionsAsUser(externalId?: string): Promise<PublishO
  */
 export function publishBudgetAsUser(args: PublishArgs): Promise<PublishResult> {
   return asUser((c) => c.mutation(api.takeoffs.publishFromDesktop, args));
+}
+
+export type RemoveArgs = FunctionArgs<typeof api.takeoffs.removeFromDesktop>;
+export type RemoveResult = FunctionReturnType<typeof api.takeoffs.removeFromDesktop>;
+
+/**
+ * `takeoffs.removeFromDesktop`: deletes the approved budget of `externalId` from the app, with
+ * its lines. A retry after a refused JWT (see `asUser`) that finds the budget already gone comes
+ * back as a `BUDGET_NOT_FOUND` ConvexError, which the flow treats as done.
+ */
+export function removeBudgetAsUser(args: RemoveArgs): Promise<RemoveResult> {
+  return asUser((c) => c.mutation(api.takeoffs.removeFromDesktop, args));
 }

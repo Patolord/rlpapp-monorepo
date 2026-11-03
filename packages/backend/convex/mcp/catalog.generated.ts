@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 45 módulos, 328 funções públicas.
+// 45 módulos, 326 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -343,19 +343,15 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "qrCodes:batchCreate": { kind: "staff" },
   "qrCodes:create": { kind: "staff" },
   "qrCodes:generateForProjectEquipment": { kind: "permission", permission: "engenharia.write" },
-  "qrCodes:getBatchTokens": { kind: "staff" },
   "qrCodes:getByEquipmentId": { kind: "staff" },
   "qrCodes:getByToken": { kind: "public" },
   "qrCodes:getFullContext": { kind: "public" },
   "qrCodes:linkTokenToProjectEquipment": { kind: "permission", permission: "engenharia.write" },
-  "qrCodes:list": { kind: "staff" },
   "qrCodes:listAvailableBatches": { kind: "permission", permission: "engenharia.read" },
   "qrCodes:listBatches": { kind: "staff" },
   "qrCodes:listBatchesWithoutProject": { kind: "permission", permission: "engenharia.read" },
-  "qrCodes:listByBatch": { kind: "staff" },
   "qrCodes:listByProject": { kind: "staff" },
   "qrCodes:listRegisteredForProject": { kind: "permission", permission: "engenharia.read" },
-  "qrCodes:listWithEquipment": { kind: "staff" },
   "qrCodes:registerForQr": { kind: "authenticated" },
   "qrCodes:remove": { kind: "staff" },
   "qrCodes:removeMany": { kind: "staff" },
@@ -391,6 +387,8 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "takeoffs:list": { kind: "permission", permission: "suprimentos.read" },
   "takeoffs:promoteItemToMaterial": { kind: "permission", permission: "compras.write" },
   "takeoffs:publishFromDesktop": { kind: "permission", permission: "engenharia.write" },
+  "takeoffs:remove": { kind: "permission", permission: "engenharia.write" },
+  "takeoffs:removeFromDesktop": { kind: "permission", permission: "engenharia.write" },
   "takeoffs:removeItem": { kind: "permission", permission: "engenharia.write" },
   "takeoffs:updateItem": { kind: "permission", permission: "engenharia.write" },
   "technicianActivity:listActivityUsers": { kind: "authenticated" },

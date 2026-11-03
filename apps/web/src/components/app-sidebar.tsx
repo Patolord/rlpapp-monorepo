@@ -10,7 +10,6 @@ import {
   HardHat,
   LayoutDashboard,
   Package,
-  QrCode,
   Receipt,
   ShoppingCart,
   Truck,
@@ -52,6 +51,9 @@ interface NavGroup {
   items: readonly NavItem[];
 }
 
+// Um grupo por departamento, mais os cadastros compartilhados (Backoffice),
+// a administração (Configurações) e a área pessoal. Códigos QR são
+// gerenciados dentro de cada obra, por isso não aparecem aqui.
 function getNavGroups(): NavGroup[] {
   return [
     {
@@ -59,10 +61,7 @@ function getNavGroups(): NavGroup[] {
       label: "Engenharia",
       items: [
         { to: "/engenharia/obras", label: "Obras", icon: Building2 },
-        { to: "/engenharia/clientes", label: "Clientes", icon: Users },
-        { to: "/engenharia/empreiteiros", label: "Empreiteiros", icon: HardHat },
         { to: "/engenharia/contratos", label: "Contratos", icon: FileText },
-        { to: "/engenharia/qr-codes", label: "Códigos QR", icon: QrCode },
       ],
     },
     {
@@ -78,6 +77,14 @@ function getNavGroups(): NavGroup[] {
       ],
     },
     {
+      key: "estoque",
+      label: "Estoque",
+      items: [
+        { to: "/estoque", label: "Estoque central", icon: Warehouse, exact: true },
+        { to: "/estoque/movimentacao", label: "Nova movimentação", icon: ArrowLeftRight },
+      ],
+    },
+    {
       key: "rh",
       label: "Recursos Humanos",
       items: [
@@ -87,20 +94,20 @@ function getNavGroups(): NavGroup[] {
       ],
     },
     {
-      key: "estoque",
-      label: "Estoque",
+      key: "backoffice",
+      label: "Backoffice",
       items: [
-        { to: "/estoque/movimentacao", label: "Nova movimentação", icon: ArrowLeftRight },
-        { to: "/estoque", label: "Estoque central", icon: Warehouse, exact: true },
+        { to: "/backoffice/clientes", label: "Clientes", icon: Users },
+        { to: "/backoffice/empreiteiros", label: "Empreiteiros", icon: HardHat },
       ],
     },
     {
       key: "configuracoes",
       label: "Configurações",
       items: [
-        { to: "/engenharia/usuarios", label: "Usuários", icon: UserPlus },
+        { to: "/configuracoes/usuarios", label: "Usuários", icon: UserPlus },
         {
-          to: "/engenharia/politica-privacidade",
+          to: "/configuracoes/politica-privacidade",
           label: "Política de Privacidade",
           icon: Shield,
         },
@@ -186,6 +193,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         if (group.key === "compras") return hasPurchasingAccess;
         if (group.key === "estoque") return hasInventoryAccess;
         if (group.key === "rh") return hasRhAccess;
+        // Cadastros de clientes/empreiteiros são funções de engenharia no
+        // backend (engenharia.read); o grupo segue a mesma regra.
+        if (group.key === "backoffice") return hasEngineeringAccess;
         if (group.key === "configuracoes") {
           return hasEngineeringAccess || hasPurchasingAccess;
         }
