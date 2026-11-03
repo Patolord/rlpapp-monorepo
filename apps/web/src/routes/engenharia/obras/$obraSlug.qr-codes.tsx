@@ -20,7 +20,10 @@ import type { EquipmentStatusKey } from "@rlpapp/ui/tokens";
 
 import { AuthShell } from "@/components/auth-shell";
 import { PendingBanner } from "@/components/campo/pending-records";
-import { GenerateQrBatchDialog } from "@/components/engenharia/generate-qr-batch-dialog";
+import {
+  GenerateQrBatchDialog,
+  type CreatedQrBatch,
+} from "@/components/engenharia/generate-qr-batch-dialog";
 import { ProjectServicesList } from "@/components/engenharia/project-services-list";
 import { ProjectShell, type ProjectOverview } from "@/components/engenharia/project-shell";
 import { StatusBadge } from "@/components/engenharia/status-badge";
@@ -107,6 +110,31 @@ function QrCodesContent({
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [deletingToken, setDeletingToken] = useState<string | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [generateOpen, setGenerateOpen] = useState(false);
+
+  // Trocar de lote ou de situação limpa a seleção: evita agir sobre etiquetas
+  // que saíram da tela.
+  function changeBatchFilter(value: string) {
+    setBatchFilter(value);
+    setSelected(new Set());
+  }
+  function changeRegistration(value: RegistrationFilter) {
+    setRegistration(value);
+    setSelected(new Set());
+  }
+  function changeStatus(value: string) {
+    setStatus(value);
+    setSelected(new Set());
+  }
+
+  // Lote recém-gerado: mostra só ele, já selecionado para imprimir/revisar.
+  function handleBatchCreated(batch: CreatedQrBatch) {
+    setSearch("");
+    setRegistration("all");
+    setStatus(ALL);
+    setBatchFilter(batch.batchId);
+    setSelected(new Set(batch.tokens));
+  }
 
   const baseUrl =
     typeof window !== "undefined"
@@ -174,10 +202,10 @@ function QrCodesContent({
       );
   }, [rows, search, registration, status, batchFilter]);
 
-  // Seleção só conta etiquetas ainda visíveis (a lista é reativa).
+  // Ações em massa só alcançam etiquetas visíveis com os filtros atuais.
   const selectedRows = useMemo(
-    () => (rows ?? []).filter((r) => selected.has(r.token)),
-    [rows, selected]
+    () => filtered.filter((r) => selected.has(r.token)),
+    [filtered, selected]
   );
   const allFilteredSelected =
     filtered.length > 0 && filtered.every((r) => selected.has(r.token));
@@ -297,22 +325,23 @@ function QrCodesContent({
     { id: "free", label: "Livres", count: rows.length - registeredCount },
   ];
   const generateButton = (
-    <GenerateQrBatchDialog
-      projectId={projectId}
-      projectName={project.name}
-      // Deixa o lote recém-gerado selecionado para imprimir/revisar na lista.
-      onCreated={(tokens) => setSelected(new Set(tokens))}
-      trigger={
-        <Button size="sm">
-          <Plus />
-          Gerar etiquetas
-        </Button>
-      }
-    />
+    <Button size="sm" onClick={() => setGenerateOpen(true)}>
+      <Plus />
+      Gerar etiquetas
+    </Button>
   );
 
   return (
     <section className="space-y-4">
+      {/* Um só diálogo para os dois botões: a tela "Lote gerado" continua
+          aberta mesmo quando a lista deixa de estar vazia. */}
+      <GenerateQrBatchDialog
+        projectId={projectId}
+        projectName={project.name}
+        open={generateOpen}
+        onOpenChange={setGenerateOpen}
+        onCreated={handleBatchCreated}
+      />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold">
@@ -406,7 +435,7 @@ function QrCodesContent({
                   size="sm"
                   variant={registration === option.id ? "default" : "outline"}
                   aria-pressed={registration === option.id}
-                  onClick={() => setRegistration(option.id)}
+                  onClick={() => changeRegistration(option.id)}
                 >
                   {option.label}
                   <span className="ml-1 tabular-nums opacity-80">
@@ -415,7 +444,7 @@ function QrCodesContent({
                 </Button>
               ))}
             </div>
-            <Select value={status} onValueChange={setStatus}>
+            <Select value={status} onValueChange={changeStatus}>
               <SelectTrigger className="sm:w-44">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -428,7 +457,7 @@ function QrCodesContent({
               </SelectContent>
             </Select>
             {(batches.length > 0 || hasRowsWithoutBatch) && (
-              <Select value={batchFilter} onValueChange={setBatchFilter}>
+              <Select value={batchFilter} onValueChange={changeBatchFilter}>
                 <SelectTrigger className="sm:w-56">
                   <SelectValue placeholder="Lote" />
                 </SelectTrigger>
@@ -462,8 +491,8 @@ function QrCodesContent({
                       batchFilter === batch.batchId ? "bg-muted" : ""
                     }`}
                     onClick={() =>
-                      setBatchFilter((current) =>
-                        current === batch.batchId ? ALL : batch.batchId
+                      changeBatchFilter(
+                        batchFilter === batch.batchId ? ALL : batch.batchId
                       )
                     }
                     title={new Date(batch.createdAt).toLocaleString("pt-BR")}

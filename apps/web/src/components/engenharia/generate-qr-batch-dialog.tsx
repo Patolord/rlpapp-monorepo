@@ -42,7 +42,7 @@ function buildTokens(quantity: number, prefix: string): string[] {
   return Array.from(tokens);
 }
 
-type CreatedBatch = {
+export type CreatedQrBatch = {
   batchId: string;
   batchName: string | null;
   tokens: string[];
@@ -51,25 +51,34 @@ type CreatedBatch = {
 /**
  * Gera um lote de etiquetas QR livres para a obra (impressas e depois
  * cadastradas em campo pelo técnico). O lote nasce vinculado à obra.
+ *
+ * Pode ser controlado de fora (`open`/`onOpenChange`, sem `trigger`) para que
+ * vários botões abram o mesmo diálogo e a tela "Lote gerado" sobreviva a
+ * mudanças de layout da página.
  */
 export function GenerateQrBatchDialog({
   projectId,
   projectName,
   trigger,
+  open: controlledOpen,
+  onOpenChange,
   onCreated,
 }: {
   projectId: Id<"projects">;
   projectName: string;
-  trigger: ReactNode;
-  onCreated?: (tokens: string[]) => void;
+  trigger?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onCreated?: (batch: CreatedQrBatch) => void;
 }) {
   const batchCreate = useMutation(api.qrCodes.batchCreate);
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = controlledOpen ?? uncontrolledOpen;
   const [batchName, setBatchName] = useState("");
   const [prefix, setPrefix] = useState("");
   const [quantity, setQuantity] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [created, setCreated] = useState<CreatedBatch | null>(null);
+  const [created, setCreated] = useState<CreatedQrBatch | null>(null);
 
   const parsedQuantity = parseInt(quantity, 10);
   const isValidQuantity =
@@ -83,7 +92,8 @@ export function GenerateQrBatchDialog({
       : "https://app.rlp.com";
 
   function handleOpenChange(next: boolean) {
-    setOpen(next);
+    setUncontrolledOpen(next);
+    onOpenChange?.(next);
     if (!next) {
       setBatchName("");
       setPrefix("");
@@ -107,12 +117,13 @@ export function GenerateQrBatchDialog({
         toast.error("Nenhuma etiqueta nova foi criada");
         return;
       }
-      setCreated({
+      const batch: CreatedQrBatch = {
         batchId: result.batchId,
         batchName: result.batchName ?? null,
         tokens,
-      });
-      onCreated?.(tokens);
+      };
+      setCreated(batch);
+      onCreated?.(batch);
       toast.success(
         `${tokens.length} etiqueta${tokens.length === 1 ? "" : "s"} gerada${
           tokens.length === 1 ? "" : "s"
@@ -136,7 +147,7 @@ export function GenerateQrBatchDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="sm:max-w-lg">
         {created ? (
           <>
