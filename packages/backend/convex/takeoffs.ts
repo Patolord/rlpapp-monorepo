@@ -32,6 +32,7 @@ import {
   removeDesktopBudget,
   removeDesktopBudgetArgs,
   removeDesktopBudgetResult,
+  removeDesktopTakeoff,
 } from "./model/procurement/desktopBudget";
 import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
@@ -676,6 +677,31 @@ export const removeFromDesktop = engineeringMutation({
       source: "desktop",
       details:
         `Orçamento desktop removido pelo app desktop: ` +
+        `${result.removedLines} linhas apagadas` +
+        (result.projectName ? ` (obra ${result.projectName})` : ""),
+    });
+    return result;
+  },
+});
+
+/**
+ * Remove, pelo app, um orçamento publicado pelo app desktop (com suas
+ * linhas). Mesmas recusas de `removeFromDesktop`: `BUDGET_IN_USE` quando a
+ * Compras já trabalhou nele, `BUDGET_NOT_FOUND` se não existe; e só takeoffs
+ * de origem desktop (`INVALID_BUDGET` para os manuais).
+ */
+export const remove = engineeringMutation({
+  args: { takeoffId: v.id("takeoffs") },
+  returns: removeDesktopBudgetResult,
+  handler: async (ctx, args) => {
+    const result = await removeDesktopTakeoff(ctx, args.takeoffId);
+    await logAudit(ctx, ctx.user, {
+      action: "delete",
+      tableName: "takeoffs",
+      recordId: result.takeoffId,
+      entityLabel: result.name,
+      details:
+        `Orçamento desktop removido no app: ` +
         `${result.removedLines} linhas apagadas` +
         (result.projectName ? ` (obra ${result.projectName})` : ""),
     });

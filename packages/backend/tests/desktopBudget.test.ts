@@ -881,6 +881,9 @@ describe("takeoffs.removeFromDesktop", () => {
     await expect(
       engineer.mutation(api.takeoffs.removeFromDesktop, { externalId: "desk-project-1" })
     ).rejects.toSatisfy((e) => hasError(e, "BUDGET_IN_USE", "1 linha já cotada ou comprada"));
+    await expect(
+      engineer.mutation(api.takeoffs.remove, { takeoffId: published.takeoffId })
+    ).rejects.toSatisfy((e) => hasError(e, "BUDGET_IN_USE", "1 linha já cotada ou comprada"));
 
     // nothing was deleted
     const after = await engineer.query(api.takeoffs.get, {
@@ -930,5 +933,64 @@ describe("takeoffs.removeFromDesktop", () => {
     await expect(
       t.mutation(api.takeoffs.removeFromDesktop, { externalId: "desk-project-1" })
     ).rejects.toThrow();
+  });
+});
+
+describe("takeoffs.remove", () => {
+  test("deletes a desktop budget from the app, with its lines and an audit entry", async () => {
+    const { t, engineer, projectId } = await seed();
+    const published = await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([line("a"), line("b")], { projectId })
+    );
+    const result = await engineer.mutation(api.takeoffs.remove, {
+      takeoffId: published.takeoffId,
+    });
+    expect(result).toEqual({
+      takeoffId: published.takeoffId,
+      name: "Proposta 123 - Edifício Centro",
+      projectId,
+      projectName: "Edifício Centro",
+      removedLines: 2,
+    });
+    expect(await engineer.query(api.takeoffs.list, { projectId })).toEqual([]);
+    expect(
+      await engineer.query(api.takeoffs.get, { takeoffId: published.takeoffId, now: NOW })
+    ).toBeNull();
+    const audit = await t.run((ctx) =>
+      ctx.db
+        .query("auditLogs")
+        .filter((q) => q.eq(q.field("action"), "delete"))
+        .collect()
+    );
+    expect(audit).toHaveLength(1);
+    expect(audit[0]).toMatchObject({ tableName: "takeoffs", recordId: published.takeoffId });
+
+    // the desktop file still points at the removed budget: the next send is a new one and the
+    // desktop's own removal finds nothing
+    const again = await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([line("a")], { projectId })
+    );
+    expect(again.created).toBe(true);
+    await expect(
+      engineer.mutation(api.takeoffs.remove, { takeoffId: published.takeoffId })
+    ).rejects.toSatisfy((e) => hasError(e, "BUDGET_NOT_FOUND", "não encontrado"));
+  });
+
+  test("only removes budgets published by the desktop", async () => {
+    const { engineer, purchasing, projectId } = await seed();
+    const manualId = await engineer.mutation(api.takeoffs.create, {
+      projectId,
+      name: "Takeoff manual",
+    });
+    await expect(
+      engineer.mutation(api.takeoffs.remove, { takeoffId: manualId })
+    ).rejects.toSatisfy((e) => hasError(e, "INVALID_BUDGET", "app desktop"));
+
+    const published = await engineer.mutation(api.takeoffs.publishFromDesktop, budget([line("a")]));
+    await expect(
+      purchasing.mutation(api.takeoffs.remove, { takeoffId: published.takeoffId })
+    ).rejects.toThrow(/Acesso restrito/);
   });
 });

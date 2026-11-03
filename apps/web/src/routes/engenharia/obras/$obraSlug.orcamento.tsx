@@ -158,6 +158,12 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
     currentUser?.role === "director" ||
     currentUser?.role === "admin" ||
     currentUser?.department === "compras";
+  // quem publica (engenharia.write) também remove um orçamento do desktop
+  const canRemoveDesktopBudget =
+    currentUser?.role === "director" ||
+    currentUser?.role === "admin" ||
+    currentUser?.role === "engenheiro" ||
+    currentUser?.department === "engenharia";
   const activeSummary = takeoffs?.find((t) => t._id === activeTakeoffId);
   // Orçamentos do desktop são editados lá e republicados: sem entrada manual.
   const isDesktop = activeSummary?.source === "desktop";
@@ -211,7 +217,10 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
         <DesktopBudgetView
           detail={takeoffDetail}
           canPromoteMaterial={canPromoteMaterial}
+          canRemove={canRemoveDesktopBudget}
           onQuote={setQuoteTarget}
+          // o efeito acima escolhe o primeiro orçamento que sobrou
+          onRemoved={() => setActiveTakeoffId(null)}
         />
       ) : null}
 

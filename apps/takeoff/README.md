@@ -252,8 +252,10 @@ which (after a native confirmation) calls `takeoffs.removeFromDesktop` to delete
 its lines from the app and takes `sentToApp` out of the file (the `id` stays; the next send
 creates a new budget). The app refuses with `BUDGET_IN_USE` once purchasing has worked on the
 budget (a quoted or purchased line, a quote on the takeoff, a line added in the app): that removal
-is settled with purchasing in the app. A budget that is already gone (`BUDGET_NOT_FOUND`, removed
-elsewhere) just drops the stale link.
+is settled with purchasing in the app. Engineering can also remove a desktop budget from the
+dashboard (`takeoffs.remove`, same rule); the file keeps its `sentToApp` until the dialog here
+finds the budget gone (`BUDGET_NOT_FOUND`) and drops the stale link, and a new send creates a new
+budget.
 
 The project file carries the link: `id` (random, the budget's `externalId` in the app, written on
 the first save; files from older versions get one then) and `sentToApp` (obra, when, by whom),

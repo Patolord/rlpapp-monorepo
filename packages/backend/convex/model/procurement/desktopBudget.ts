@@ -592,33 +592,17 @@ const plural = (n: number, one: string, many: string) =>
   `${n} ${n === 1 ? one : many}`;
 
 /**
- * Apaga o orçamento publicado pelo desktop com este `externalId`, com todas as
- * suas linhas: o desktop desfaz um envio (enviado à obra errada, aprovação que
- * caiu, teste). Só enquanto o app ainda não trabalhou nele: uma linha cotada,
- * levada adiante pela Compras (`isPreserved`) ou adicionada no app, ou uma
- * cotação lançada no takeoff, é trabalho de outra pessoa que o desktop não
- * pode descartar — `BUDGET_IN_USE`, e a remoção fica para o app. Sem orçamento
- * com este id: `BUDGET_NOT_FOUND` (já removido, ou nunca chegou).
+ * Apaga um orçamento publicado pelo desktop com todas as suas linhas, seja a
+ * pedido do desktop (desfazer um envio) ou do app (`takeoffs.remove`). Só
+ * enquanto a Compras ainda não trabalhou nele: uma linha cotada ou levada
+ * adiante (`isPreserved`), uma linha adicionada no app ou uma cotação lançada
+ * no takeoff é trabalho de outra pessoa que a remoção descartaria —
+ * `BUDGET_IN_USE`.
  */
-export async function removeDesktopBudget(
+async function deleteDesktopTakeoff(
   ctx: MutationCtx,
-  args: { externalId: string }
+  takeoff: Doc<"takeoffs">
 ): Promise<RemoveDesktopBudgetResult> {
-  const externalId = args.externalId.trim();
-  if (!externalId) throw invalid("Informe o id do projeto do desktop");
-  const takeoff = await ctx.db
-    .query("takeoffs")
-    .withIndex("by_source_external", (q) =>
-      q.eq("source", "desktop").eq("externalId", externalId)
-    )
-    .unique();
-  if (!takeoff) {
-    throw budgetError(
-      "BUDGET_NOT_FOUND",
-      "Este orçamento não está (mais) no app da empresa"
-    );
-  }
-
   const items = await ctx.db
     .query("takeoffItems")
     .withIndex("by_takeoff", (q) => q.eq("takeoffId", takeoff._id))
@@ -646,8 +630,8 @@ export async function removeDesktopBudget(
     if (worked === 0 && manual === 0) reasons.push("cotações registradas");
     throw budgetError(
       "BUDGET_IN_USE",
-      `A Compras já trabalhou neste orçamento no app (${reasons.join(", ")}): ` +
-        "ele não pode ser removido pelo desktop. Combine a remoção com a Compras no app."
+      `A Compras já trabalhou neste orçamento (${reasons.join(", ")}): ` +
+        "ele não pode ser removido. Combine com a Compras o que fazer com ele."
     );
   }
 
@@ -666,6 +650,56 @@ export async function removeDesktopBudget(
     projectName: project?.name ?? null,
     removedLines: items.length,
   };
+}
+
+/**
+ * O desktop desfaz um envio: apaga o orçamento com este `externalId` (enviado
+ * à obra errada, aprovação que caiu, teste). Sem orçamento com este id:
+ * `BUDGET_NOT_FOUND` (já removido, ou nunca chegou). Recusas em
+ * `deleteDesktopTakeoff`.
+ */
+export async function removeDesktopBudget(
+  ctx: MutationCtx,
+  args: { externalId: string }
+): Promise<RemoveDesktopBudgetResult> {
+  const externalId = args.externalId.trim();
+  if (!externalId) throw invalid("Informe o id do projeto do desktop");
+  const takeoff = await ctx.db
+    .query("takeoffs")
+    .withIndex("by_source_external", (q) =>
+      q.eq("source", "desktop").eq("externalId", externalId)
+    )
+    .unique();
+  if (!takeoff) {
+    throw budgetError(
+      "BUDGET_NOT_FOUND",
+      "Este orçamento não está (mais) no app da empresa"
+    );
+  }
+  return await deleteDesktopTakeoff(ctx, takeoff);
+}
+
+/**
+ * O app remove um orçamento publicado pelo desktop, pelo id do takeoff. Só os
+ * do desktop: um takeoff manual tem as suas linhas apagadas uma a uma. O
+ * arquivo no desktop continua achando que foi enviado; o próximo envio cria
+ * outro orçamento, e "Remover do app" lá só tira o vínculo. Recusas em
+ * `deleteDesktopTakeoff`.
+ */
+export async function removeDesktopTakeoff(
+  ctx: MutationCtx,
+  takeoffId: Id<"takeoffs">
+): Promise<RemoveDesktopBudgetResult> {
+  const takeoff = await ctx.db.get("takeoffs", takeoffId);
+  if (!takeoff) {
+    throw budgetError("BUDGET_NOT_FOUND", "Orçamento não encontrado");
+  }
+  if (takeoff.source !== "desktop") {
+    throw invalid(
+      "Só orçamentos publicados pelo app desktop podem ser removidos por aqui"
+    );
+  }
+  return await deleteDesktopTakeoff(ctx, takeoff);
 }
 
 // ---------------------------------------------------------------------------
