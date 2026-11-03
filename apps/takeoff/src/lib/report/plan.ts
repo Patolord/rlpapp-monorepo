@@ -176,6 +176,8 @@ export interface ReportOptions {
   pageSize?: (drawingId: string, page: number) => Size | undefined;
   /** VRF rule sets that size the tubes of the breakdown; default the bundled ones. */
   vrfBrands?: readonly VrfBrand[];
+  /** The company's labour per evaporator, for a takeoff that sets none (labels only). */
+  vrfLaborPerEvap?: number;
 }
 
 export const DEFAULT_LEGIBILITY_FLOOR = 0.5;
@@ -974,6 +976,7 @@ export function planReport(
       brand,
       item.vrf?.hp ?? DEFAULT_SYSTEM_HP,
       project.vrfSettings ?? DEFAULT_VRF_SETTINGS,
+      options.vrfLaborPerEvap,
     );
     for (const s of bill.sized) if (s.id) vrf.set(s.id, s);
   }

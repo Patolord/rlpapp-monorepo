@@ -1,5 +1,6 @@
 import {
   DEFAULT_DUCT_SETTINGS,
+  DEFAULT_LABOR_PER_KG,
   type DuctFlange,
   type DuctInner,
   type DuctInsulation,
@@ -93,10 +94,11 @@ export function ductSheetInput(
   catalog: readonly CatalogEntry[],
   networkId: string,
   gaugeWeights?: GaugeWeights,
+  laborPerKg: number = DEFAULT_LABOR_PER_KG,
 ): DuctSheetInput {
   const network = ductNetworks(project).find((n) => n.id === networkId);
   if (!network) throw new Error("rede de dutos não encontrada");
-  const bill = ductBillFor(project, catalog, network, undefined, gaugeWeights);
+  const bill = ductBillFor(project, catalog, network, undefined, gaugeWeights, laborPerKg);
   const prices: Record<string, number> = {};
   for (const [, name] of PRICE_CELLS) {
     const row = bill.rows.find((r) => r.name === name);
@@ -113,7 +115,10 @@ export function ductSheetInput(
     site: project.site,
     system: network.system || project.system,
     proposalNumber: project.proposalNumber,
-    settings: project.duct ?? DEFAULT_DUCT_SETTINGS,
+    settings: {
+      ...(project.duct ?? DEFAULT_DUCT_SETTINGS),
+      laborPerKg: project.duct?.laborPerKg ?? laborPerKg,
+    },
     runs: bill.runs,
     prices,
     gaugeKgm2: gaugeKgm2(gaugeWeights),

@@ -5,6 +5,8 @@ import type { Id } from "./_generated/dataModel";
 import { env, httpAction } from "./_generated/server";
 import { MAX_LOOKUP_QUERY_LENGTH } from "./lib/compras/materialLookup";
 import type { TakeoffCatalogItem } from "./model/procurement/takeoffCatalog";
+import type { TakeoffKit } from "./model/procurement/takeoffKits";
+import type { TakeoffSettings } from "./model/procurement/takeoffSettings";
 import {
   MATERIAL_NOT_FOUND,
   parseTakeoffMaterialProposal,
@@ -220,9 +222,12 @@ const handleAgentTokenVerify = httpAction(async (ctx, request) => {
 // Catálogo para o RLP Takeoff (app desktop)
 // ---------------------------------------------------------------------------
 //
-// Exporta todo o catálogo ativo com o preço vigente de cada material. O app
-// desktop lê isto ao abrir e cai no seed embutido quando o endpoint falha, por
-// isso a resposta é um JSON único e não paginado.
+// Exporta todo o catálogo ativo com o preço vigente de cada material, mais os
+// kits padrão da empresa (`takeoffKits`) e as demais configurações do app
+// (`takeoffSettings`: pesos, preços por kg, marcas de VRF, mão de obra,
+// parâmetros de dutos por norma). O app desktop lê
+// isto ao abrir e cai no seed embutido quando o endpoint falha, por isso a
+// resposta é um JSON único e não paginado.
 
 const handleTakeoffCatalog = httpAction(async (ctx, request) => {
   const token = env.TAKEOFF_CATALOG_TOKEN;
@@ -236,14 +241,23 @@ const handleTakeoffCatalog = httpAction(async (ctx, request) => {
     internal.takeoffCatalog.list,
     { now: startedAt }
   );
+  const kits: TakeoffKit[] = await ctx.runQuery(
+    internal.takeoffKits.listPublished,
+    {}
+  );
+  const settings: TakeoffSettings = await ctx.runQuery(
+    internal.takeoffSettings.listPublished,
+    {}
+  );
   console.log(
     JSON.stringify({
       event: "takeoff_catalog",
       items: items.length,
+      kits: kits.length,
       ms: Date.now() - startedAt,
     })
   );
-  return json({ generatedAt: startedAt, items });
+  return json({ generatedAt: startedAt, items, kits, ...settings });
 });
 
 // Proposta de material vinda do takeoff. Cadastrar material é tarefa de

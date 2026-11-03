@@ -1,3 +1,4 @@
+import { DEFAULT_LABOR_PER_EVAP } from "@rlpapp/shared/takeoff/labor";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_VRF_SETTINGS,
@@ -72,7 +73,7 @@ describe("VRF take-off (Levantamento VRF Completo workbook)", () => {
     expect(row(rows, "Suporte da Condensadora VRF")?.qty).toBe(1);
     const labor = row(rows, LABOR_ROW);
     expect(labor?.qty).toBe(6);
-    expect(labor?.labor).toBe(DEFAULT_VRF_SETTINGS.laborPerEvap);
+    expect(labor?.labor).toBe(DEFAULT_LABOR_PER_EVAP);
     // five Y-kits (six evaporators): the first sized by 22 HP, the others by the trunks (0 HP)
     expect(summary.ykits).toEqual([
       { model: "KHRP26A72T", hp: 22, qty: 1 },

@@ -1,7 +1,15 @@
-import { Copy, Plus, Trash2 } from "lucide-react";
+import { Copy, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { kindForUnit, mergeCatalog, normalizeDiscipline } from "../lib/catalog";
-import { type Kit, type KitComponent, kitMode } from "../lib/kits";
+import {
+  cloneKit,
+  type Kit,
+  type KitComponent,
+  type KitOrigin,
+  kitDefaults,
+  kitMode,
+  kitOrigin,
+} from "../lib/kits";
 import { foldName } from "../lib/text";
 import { DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS, newId } from "../lib/types";
 import { useStore } from "../store";
@@ -10,11 +18,36 @@ import { Button } from "./ui";
 
 const EMPTY_COMPONENT: KitComponent = { name: "", group: "", kind: "linear", factor: 1 };
 
-/** Create and edit kit presets (saved with the catalog on this machine). */
+const ORIGIN_LABEL: Record<KitOrigin, { text: string; title: string; className: string }> = {
+  default: {
+    text: "padrão",
+    title: "Igual ao padrão da empresa: segue as atualizações publicadas no app da empresa",
+    className: "text-neutral-500",
+  },
+  modified: {
+    text: "modificado aqui",
+    title:
+      "Versão deste computador de um padrão da empresa: atualizações do padrão não a substituem",
+    className: "text-orange-300",
+  },
+  local: {
+    text: "só aqui",
+    title: "Preset criado neste computador; a empresa não o tem",
+    className: "text-sky-300",
+  },
+};
+
+/**
+ * Create and edit kit presets. The list starts as the company defaults (published with the
+ * catalog, edited in the dashboard's "App Takeoff" section); what the user changes here is kept
+ * on this machine as an override and survives every catalog refresh.
+ */
 export function KitsDialog() {
   const open = useStore((s) => s.kitsEditorOpen);
   const stored = useStore((s) => s.catalog.kits);
   const catalog = useStore((s) => s.catalog);
+  const defaults = useMemo(() => kitDefaults(catalog.remoteKits), [catalog.remoteKits]);
+  const published = catalog.remoteKits !== null && catalog.remoteKits.length > 0;
   const unit = useStore((s) => s.project.unit);
   const { setKitsEditorOpen, saveKits, setActiveKit } = useStore.getState();
   const [kits, setKits] = useState<Kit[]>([]);
@@ -31,6 +64,18 @@ export function KitsDialog() {
   if (!open) return null;
 
   const kit = kits.find((k) => k.id === sel) ?? null;
+  const origin = kit ? kitOrigin(defaults, kit) : null;
+  const hiddenDefaults = defaults.filter((d) => !kits.some((k) => k.id === d.id));
+  /** Put the selected kit back as the company publishes it. */
+  const restore = () => {
+    if (!kit) return;
+    const d = defaults.find((k) => k.id === kit.id);
+    if (d) setKits((ks) => ks.map((k) => (k.id === kit.id ? cloneKit(d) : k)));
+  };
+  /** Bring back the defaults removed on this machine. */
+  const restoreHidden = () => {
+    setKits((ks) => [...ks, ...hiddenDefaults.map(cloneKit)]);
+  };
   const update = (patch: Partial<Kit>) =>
     setKits((ks) => ks.map((k) => (k.id === sel ? { ...k, ...patch } : k)));
   const updateComp = (i: number, patch: Partial<KitComponent>) => {
@@ -123,26 +168,49 @@ export function KitsDialog() {
       </datalist>
       <div className="flex w-56 shrink-0 flex-col border-r border-neutral-800">
         <ul className="min-h-0 flex-1 overflow-y-auto py-1">
-          {kits.map((k) => (
-            <li key={k.id}>
-              <button
-                type="button"
-                onClick={() => setSel(k.id)}
-                className={
-                  k.id === sel
-                    ? "w-full bg-orange-500/10 px-3 py-1.5 text-left text-xs font-medium text-orange-300"
-                    : "w-full px-3 py-1.5 text-left text-xs text-neutral-200 hover:bg-neutral-800"
-                }
-              >
-                {k.name || "Preset"}
-                <span className="block truncate text-[11px] font-normal text-neutral-500">
-                  {k.components.length} {k.components.length === 1 ? "componente" : "componentes"}
-                  {k.label?.trim() ? ` · ${k.label.trim()}` : ""}
-                </span>
-              </button>
-            </li>
-          ))}
+          {kits.map((k) => {
+            const from = kitOrigin(defaults, k);
+            const o = ORIGIN_LABEL[from];
+            return (
+              <li key={k.id}>
+                <button
+                  type="button"
+                  onClick={() => setSel(k.id)}
+                  className={
+                    k.id === sel
+                      ? "w-full bg-orange-500/10 px-3 py-1.5 text-left text-xs font-medium text-orange-300"
+                      : "w-full px-3 py-1.5 text-left text-xs text-neutral-200 hover:bg-neutral-800"
+                  }
+                >
+                  {k.name || "Preset"}
+                  <span className="block truncate text-[11px] font-normal text-neutral-500">
+                    {k.components.length} {k.components.length === 1 ? "componente" : "componentes"}
+                    {k.label?.trim() ? ` · ${k.label.trim()}` : ""}
+                    {from !== "default" && (
+                      <span className={o.className} title={o.title}>
+                        {" "}
+                        · {o.text}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
+        {hiddenDefaults.length > 0 && (
+          <button
+            type="button"
+            onClick={restoreHidden}
+            className="border-t border-neutral-800 px-3 py-1.5 text-left text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+            title={hiddenDefaults.map((d) => d.name).join(", ")}
+          >
+            <RotateCcw size={11} className="mr-1 inline" />
+            {hiddenDefaults.length === 1
+              ? "Trazer de volta 1 padrão removido"
+              : `Trazer de volta ${hiddenDefaults.length} padrões removidos`}
+          </button>
+        )}
         <div className="flex gap-1 border-t border-neutral-800 p-2">
           <Button onClick={addKit} title="Novo preset">
             <Plus size={14} /> Novo
@@ -194,10 +262,27 @@ export function KitsDialog() {
                 />
               </label>
             </div>
-            <div className="border-b border-neutral-800 px-3 py-1.5 text-[11px] text-neutral-500">
-              {kitMode(kit) === "count"
-                ? "Um clique coloca todos os componentes, agrupados; os lineares somam o comprimento por clique"
-                : "Um trecho desenhado cria todos os componentes abaixo, agrupados"}
+            <div className="flex items-center gap-2 border-b border-neutral-800 px-3 py-1.5 text-[11px] text-neutral-500">
+              <span className="min-w-0 flex-1">
+                {kitMode(kit) === "count"
+                  ? "Um clique coloca todos os componentes, agrupados; os lineares somam o comprimento por clique"
+                  : "Um trecho desenhado cria todos os componentes abaixo, agrupados"}
+              </span>
+              {origin && (
+                <span className={ORIGIN_LABEL[origin].className} title={ORIGIN_LABEL[origin].title}>
+                  {ORIGIN_LABEL[origin].text}
+                </span>
+              )}
+              {origin === "modified" && (
+                <button
+                  type="button"
+                  onClick={restore}
+                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-neutral-300 ring-1 ring-neutral-700 hover:bg-neutral-800"
+                  title="Descartar as alterações deste computador e voltar ao padrão da empresa"
+                >
+                  <RotateCcw size={11} /> Restaurar padrão
+                </button>
+              )}
             </div>
             <div className="min-w-0 flex-1 overflow-auto px-3 py-2">
               <table className="w-full text-xs">
@@ -330,8 +415,17 @@ export function KitsDialog() {
           </div>
         )}
         <div className="flex items-center justify-end gap-2 border-t border-neutral-800 px-3 py-2">
-          <span className="mr-auto text-[11px] text-neutral-500">
-            Salvo neste computador junto com o catálogo
+          <span
+            className="mr-auto text-[11px] text-neutral-500"
+            title={
+              published
+                ? "Os padrões vêm do app da empresa (seção App Takeoff) a cada atualização do catálogo; o que você mudar aqui fica neste computador e não é substituído"
+                : "A empresa ainda não publicou kits: os padrões são os de fábrica. O que você mudar aqui fica neste computador"
+            }
+          >
+            {published
+              ? `${defaults.length} padrões da empresa · alterações ficam neste computador`
+              : "Padrões de fábrica · alterações ficam neste computador"}
           </span>
           <Button onClick={() => setKitsEditorOpen(false)}>Cancelar</Button>
           <Button variant="primary" onClick={save}>

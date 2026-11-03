@@ -4,17 +4,19 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useEffect } from "react";
 
-// "backoffice" e "configuracoes" não são departamentos de usuário:
+// "backoffice", "configuracoes" e "takeoff" não são departamentos de usuário:
 // backoffice é a área de cadastros compartilhados (clientes, empreiteiros),
 // liberada para quem tem engenharia; configuracoes é a administração
-// (usuários, política de privacidade), liberada para engenharia e compras.
+// (usuários, política de privacidade) e takeoff é a configuração do app
+// desktop RLP Takeoff (kits), ambas liberadas para engenharia e compras.
 export type DepartmentArea =
   | "rh"
   | "engenharia"
   | "compras"
   | "estoque"
   | "backoffice"
-  | "configuracoes";
+  | "configuracoes"
+  | "takeoff";
 
 /**
  * Permissões (qualquer uma) que abrem cada área do dashboard. Espelha o que
@@ -31,9 +33,10 @@ export const AREA_PERMISSIONS: Record<DepartmentArea, Permission[]> = {
   // Backoffice (clientes, empreiteiros) segue o acesso de engenharia, que é a
   // permissão exigida pelo backend (engenharia.read).
   backoffice: ["engenharia.read"],
-  // Configurações segue a mesma regra do grupo na sidebar (engenharia ou
-  // compras); a página de usuários ainda exige admin para editar.
+  // Configurações e App Takeoff seguem a mesma regra do grupo na sidebar
+  // (engenharia ou compras); a página de usuários ainda exige admin para editar.
   configuracoes: ["engenharia.read", "compras.read"],
+  takeoff: ["engenharia.read", "compras.read"],
 };
 
 // Bloqueia áreas internas (departamentos):

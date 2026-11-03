@@ -59,7 +59,7 @@ export function CatalogSettingsDialog() {
     ? `${catalog.remote.length} materiais · catálogo de ${new Date(
         catalog.remoteGeneratedAt ?? catalog.fetchedAt,
       ).toLocaleString("pt-BR")}${drafts ? ` · ${drafts} em rascunho` : ""}`
-    : "Ainda não carregado: o Ctrl+K usa as planilhas anteriores";
+    : "Ainda não carregado: o Ctrl+K só tem o seu catálogo e a tabela de pesos";
 
   const section = (title: string, hint: string, body: React.ReactNode) => (
     <section className="space-y-2 border-b border-neutral-800 px-4 py-3 last:border-b-0">
@@ -143,29 +143,38 @@ export function CatalogSettingsDialog() {
         )}
         {section(
           "Insumos (R$/kg)",
-          "Tubos de cobre e a chapa dos dutos têm o preço derivado do peso × estes valores, no app todo. Um preço digitado numa linha sobrescreve só aquela linha.",
+          "Tubos de cobre e a chapa dos dutos têm o preço derivado do peso × estes valores, no app todo. Vazio = o preço da empresa (App Takeoff no app da empresa), senão a tabela do fornecedor; um valor aqui fica só neste computador. Um preço digitado numa linha sobrescreve só aquela linha.",
           <div className="grid grid-cols-[auto_6rem_1fr] items-center gap-x-3 gap-y-1.5">
-            {BASE_MATERIALS.map((m) => (
-              <div key={m.key} className="contents">
-                <span className="text-neutral-300">{m.label}</span>
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={catalog.basePrices[m.key] ?? ""}
-                  placeholder={m.defaultPrice !== undefined ? String(m.defaultPrice) : "—"}
-                  onChange={(e) =>
-                    setBasePrice(m.key, e.target.value === "" ? undefined : Number(e.target.value))
-                  }
-                  className={`${input} text-right font-mono`}
-                />
-                <span className="text-[11px] text-neutral-500">
-                  {m.defaultPrice !== undefined
-                    ? `vazio = ${m.defaultPrice} (tabela do fornecedor)`
-                    : "vazio = cada linha de chapa dos dutos mantém o próprio preço"}
-                </span>
-              </div>
-            ))}
+            {BASE_MATERIALS.map((m) => {
+              const company = catalog.remoteBasePrices?.[m.key];
+              const fallback = company ?? m.defaultPrice;
+              return (
+                <div key={m.key} className="contents">
+                  <span className="text-neutral-300">{m.label}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={catalog.basePriceOverrides[m.key] ?? ""}
+                    placeholder={fallback !== undefined ? String(fallback) : "—"}
+                    onChange={(e) =>
+                      setBasePrice(
+                        m.key,
+                        e.target.value === "" ? undefined : Number(e.target.value),
+                      )
+                    }
+                    className={`${input} text-right font-mono`}
+                  />
+                  <span className="text-[11px] text-neutral-500">
+                    {company !== undefined
+                      ? `vazio = ${company} (padrão da empresa)`
+                      : m.defaultPrice !== undefined
+                        ? `vazio = ${m.defaultPrice} (tabela do fornecedor)`
+                        : "vazio = cada linha de chapa dos dutos mantém o próprio preço"}
+                  </span>
+                </div>
+              );
+            })}
           </div>,
         )}
         {section(

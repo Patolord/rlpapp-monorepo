@@ -199,8 +199,18 @@ export function VrfPanel() {
                 type="number"
                 min={0}
                 step="any"
-                value={settings.laborPerEvap}
-                onChange={(e) => patchSettings({ laborPerEvap: num(e.target.value) })}
+                value={settings.laborPerEvap ?? ""}
+                placeholder={String(catalog.labor.vrfPerEvap)}
+                title={`Vazio = R$ ${catalog.labor.vrfPerEvap} por evaporadora (${
+                  catalog.remoteLabor?.vrfPerEvap !== undefined
+                    ? "mão de obra da empresa, App Takeoff"
+                    : "planilha; a empresa ainda não publicou a dela"
+                })`}
+                onChange={(e) =>
+                  patchSettings({
+                    laborPerEvap: e.target.value === "" ? undefined : num(e.target.value),
+                  })
+                }
                 className={`${input} w-full`}
               />
             </label>

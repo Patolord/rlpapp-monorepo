@@ -8,11 +8,28 @@
  * insulation, elbows, cables, boxes, supports and labour exactly as the Resultados sheet does.
  */
 
+import { DEFAULT_LABOR_PER_EVAP } from "@rlpapp/shared/takeoff/labor";
+import {
+  DIAMETERS,
+  type Diameter,
+  SEED_BRANDS,
+  type VrfBrand,
+  type VrfRole,
+} from "@rlpapp/shared/takeoff/vrfBrands";
 import type { Pt } from "./geom";
 import { buildVrfTree, type VrfTree } from "./vrfTree";
 
-/** Saída da condensadora · trecho intermediário (between Y-kits) · ramal de uma evaporadora. */
-export type VrfRole = "main" | "trunk" | "branch";
+export {
+  cloneBrand,
+  cloneBrands,
+  DIAMETERS,
+  type Diameter,
+  type HpRow,
+  SEED_BRANDS,
+  type VrfBrand,
+  type VrfRole,
+  type YkitRow,
+} from "@rlpapp/shared/takeoff/vrfBrands";
 
 export const ROLE_LABELS: Record<VrfRole, string> = {
   main: "Saída da condensadora",
@@ -43,130 +60,7 @@ export interface VrfSpec {
 
 export const DEFAULT_VRF_SPEC: VrfSpec = { role: "branch", hp: 1.5, curves: 0 };
 
-/** Tube sizes as the catalog names them (Cobre de 1.1/8"), smallest first. */
-export const DIAMETERS = [
-  "1/4",
-  "3/8",
-  "1/2",
-  "5/8",
-  "3/4",
-  "7/8",
-  "1",
-  "1.1/8",
-  "1.1/4",
-  "1.3/8",
-  "1.1/2",
-  "1.5/8",
-  "1.3/4",
-  "1.7/8",
-] as const;
-export type Diameter = (typeof DIAMETERS)[number];
-
 export const diameterIndex = (d: string): number => DIAMETERS.indexOf(d as Diameter);
-
-/** A row of a sizing table: from `hp` (inclusive) up to the next row, this gas/liquid pair. */
-export interface HpRow {
-  hp: number;
-  gas: Diameter;
-  liquid: Diameter;
-}
-
-/** From `hp` (inclusive) up to the next row, this Y-kit (refnet) model. */
-export interface YkitRow {
-  hp: number;
-  model: string;
-}
-
-/** One maker's rules: three sizing tables (by role) and the Y-kit models by downstream HP. */
-export interface VrfBrand {
-  id: string;
-  name: string;
-  main: HpRow[];
-  trunk: HpRow[];
-  branch: HpRow[];
-  ykit: YkitRow[];
-}
-
-const row = (hp: number, gas: Diameter, liquid: Diameter): HpRow => ({ hp, gas, liquid });
-
-/**
- * The workbook's Cálculos tables (INTERNA / interm / SAIDA). The 6 HP evaporator row reads
- * 3/8" gas in the workbook, below the 2.5 HP row; that is a typo and 3/4" is used here.
- */
-const WORKBOOK_BRANCH: HpRow[] = [
-  row(0, "1/2", "1/4"),
-  row(2, "5/8", "1/4"),
-  row(2.5, "5/8", "3/8"),
-  row(6, "3/4", "3/8"),
-  row(10, "7/8", "3/8"),
-  row(16, "1.1/8", "1/2"),
-];
-const WORKBOOK_TRUNK: HpRow[] = [
-  row(0, "5/8", "3/8"),
-  row(6, "3/4", "3/8"),
-  row(9, "7/8", "3/8"),
-  row(12, "1", "1/2"),
-  row(16, "1.1/8", "1/2"),
-  row(18, "1.1/8", "5/8"),
-  row(26, "1.1/4", "3/4"),
-  row(36, "1.1/2", "3/4"),
-];
-const WORKBOOK_MAIN: HpRow[] = [
-  row(0, "3/4", "3/8"),
-  row(10, "7/8", "3/8"),
-  row(12, "1", "1/2"),
-  row(16, "1.1/8", "1/2"),
-  row(18, "1.1/8", "5/8"),
-  row(26, "1.1/4", "3/4"),
-  row(36, "1.1/2", "3/4"),
-];
-
-const clone = (rows: HpRow[]) => rows.map((r) => ({ ...r }));
-
-/**
- * Starting rule sets. Both brands carry the workbook's tube tables (the sheet has one set);
- * the Y-kit models follow each maker's refnet selection by downstream capacity. Confirm the
- * Hitachi tubes and kits against the maker's catalog; everything is editable in the app.
- */
-export const SEED_BRANDS: VrfBrand[] = [
-  {
-    id: "daikin",
-    name: "Daikin",
-    main: clone(WORKBOOK_MAIN),
-    trunk: clone(WORKBOOK_TRUNK),
-    branch: clone(WORKBOOK_BRANCH),
-    ykit: [
-      { hp: 0, model: "KHRP26A22T" },
-      { hp: 8, model: "KHRP26A33T" },
-      { hp: 11.6, model: "KHRP26A72T" },
-      { hp: 25.6, model: "KHRP26A73T" },
-    ],
-  },
-  {
-    id: "hitachi",
-    name: "Hitachi",
-    main: clone(WORKBOOK_MAIN),
-    trunk: clone(WORKBOOK_TRUNK),
-    branch: clone(WORKBOOK_BRANCH),
-    ykit: [
-      { hp: 0, model: "E-102SN4" },
-      { hp: 8, model: "E-162SN4" },
-      { hp: 18, model: "E-242SN4" },
-      { hp: 26, model: "E-302SN4" },
-      { hp: 54, model: "E-52XN4" },
-    ],
-  },
-];
-
-export const cloneBrand = (b: VrfBrand): VrfBrand => ({
-  ...b,
-  main: clone(b.main),
-  trunk: clone(b.trunk),
-  branch: clone(b.branch),
-  ykit: b.ykit.map((r) => ({ ...r })),
-});
-
-export const cloneBrands = (brands: readonly VrfBrand[]): VrfBrand[] => brands.map(cloneBrand);
 
 /** The brand with that id, else the first one available (seeds when the list is empty). */
 export function brandOf(brands: readonly VrfBrand[], id: string | undefined): VrfBrand {
@@ -206,15 +100,17 @@ export interface VrfSettings {
   elbowsFrom: Diameter;
   /** Insulation thickness used on every tube, mm (13 mm for VRF). */
   insulationMm: number;
-  /** Installation labour per evaporator, project currency. */
-  laborPerEvap: number;
+  /**
+   * Installation labour per evaporator set for this takeoff; unset = the company's price
+   * (`laborPerEvap` of vrfBill), else DEFAULT_LABOR_PER_EVAP.
+   */
+  laborPerEvap?: number;
 }
 
 export const DEFAULT_VRF_SETTINGS: VrfSettings = {
   slackPct: 10,
   elbowsFrom: "3/8",
   insulationMm: 13,
-  laborPerEvap: 700,
 };
 
 export interface VrfRun {
@@ -413,7 +309,10 @@ export function vrfBill(
   brand: VrfBrand,
   systemHp: number,
   settings: VrfSettings = DEFAULT_VRF_SETTINGS,
+  /** The company's labour per evaporator, used when the settings set none. */
+  laborPerEvap: number = DEFAULT_LABOR_PER_EVAP,
 ): VrfBillResult {
+  const laborEvap = settings.laborPerEvap ?? laborPerEvap;
   const tree = buildVrfTree(runs);
   const fromTree = treeComplete(tree);
   const sized = sizeRuns(runs, brand, systemHp, fromTree ? tree : undefined);
@@ -469,7 +368,7 @@ export function vrfBill(
   add(SUPPORT_EVAP, "Equipamentos", "pç", evaporators, 50);
   const condensers = sized.length > 0 ? 1 : 0;
   add(SUPPORT_COND, "Equipamentos", "pç", condensers, 70);
-  add(LABOR_ROW, "Equipamentos", "pç", evaporators, 0, settings.laborPerEvap);
+  add(LABOR_ROW, "Equipamentos", "pç", evaporators, 0, laborEvap);
   return {
     rows,
     sized,

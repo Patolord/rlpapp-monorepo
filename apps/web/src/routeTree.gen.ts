@@ -53,6 +53,7 @@ import { Route as QrOperadorOutrasObrasRouteImport } from './routes/qr-operador_
 import { Route as QrOperadorPendentesRouteImport } from './routes/qr-operador_.pendentes'
 import { Route as RhIndexRouteImport } from './routes/rh/index'
 import { Route as RhPontoRouteRouteImport } from './routes/rh/ponto/route'
+import { Route as TakeoffPainelRouteImport } from './routes/takeoff/_painel'
 import { Route as TakeoffConectarRouteImport } from './routes/takeoff/conectar'
 import { Route as DotwellKnownOauthProtectedResourceMcpRouteImport } from './routes/[.]well-known/oauth-protected-resource/mcp'
 import { Route as BackofficeClientesIndexRouteImport } from './routes/backoffice/clientes/index'
@@ -77,6 +78,10 @@ import { Route as RhPontoIndexRouteImport } from './routes/rh/ponto/index'
 import { Route as RhPontoDiaRouteImport } from './routes/rh/ponto/dia'
 import { Route as RhPontoMensalRouteImport } from './routes/rh/ponto/mensal'
 import { Route as RhPontoVinculosRouteImport } from './routes/rh/ponto/vinculos'
+import { Route as TakeoffPainelKitsRouteImport } from './routes/takeoff/_painel/kits'
+import { Route as TakeoffPainelParametrosRouteImport } from './routes/takeoff/_painel/parametros'
+import { Route as TakeoffPainelPesosRouteImport } from './routes/takeoff/_painel/pesos'
+import { Route as TakeoffPainelVrfRouteImport } from './routes/takeoff/_painel/vrf'
 import { Route as EngenhariaObrasObraSlugIndexRouteImport } from './routes/engenharia/obras/$obraSlug.index'
 import { Route as EngenhariaObrasObraSlugAssistenteRouteImport } from './routes/engenharia/obras/$obraSlug.assistente'
 import { Route as EngenhariaObrasObraSlugComprasRouteImport } from './routes/engenharia/obras/$obraSlug.compras'
@@ -328,6 +333,11 @@ const RhPontoRouteRoute = RhPontoRouteRouteImport.update({
   path: '/ponto',
   getParentRoute: () => RhRouteRoute,
 } as any)
+const TakeoffPainelRoute = TakeoffPainelRouteImport.update({
+  id: '/takeoff/_painel',
+  path: '/takeoff',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TakeoffConectarRoute = TakeoffConectarRouteImport.update({
   id: '/takeoff/conectar',
   path: '/takeoff/conectar',
@@ -454,6 +464,26 @@ const RhPontoVinculosRoute = RhPontoVinculosRouteImport.update({
   id: '/vinculos',
   path: '/vinculos',
   getParentRoute: () => RhPontoRouteRoute,
+} as any)
+const TakeoffPainelKitsRoute = TakeoffPainelKitsRouteImport.update({
+  id: '/kits',
+  path: '/kits',
+  getParentRoute: () => TakeoffPainelRoute,
+} as any)
+const TakeoffPainelParametrosRoute = TakeoffPainelParametrosRouteImport.update({
+  id: '/parametros',
+  path: '/parametros',
+  getParentRoute: () => TakeoffPainelRoute,
+} as any)
+const TakeoffPainelPesosRoute = TakeoffPainelPesosRouteImport.update({
+  id: '/pesos',
+  path: '/pesos',
+  getParentRoute: () => TakeoffPainelRoute,
+} as any)
+const TakeoffPainelVrfRoute = TakeoffPainelVrfRouteImport.update({
+  id: '/vrf',
+  path: '/vrf',
+  getParentRoute: () => TakeoffPainelRoute,
 } as any)
 const EngenhariaObrasObraSlugIndexRoute =
   EngenhariaObrasObraSlugIndexRouteImport.update({
@@ -649,6 +679,7 @@ export interface FileRoutesByFullPath {
   '/q/$token': typeof QTokenRoute
   '/qr-operador/outras-obras': typeof QrOperadorOutrasObrasRoute
   '/qr-operador/pendentes': typeof QrOperadorPendentesRoute
+  '/takeoff': typeof TakeoffPainelRouteWithChildren
   '/takeoff/conectar': typeof TakeoffConectarRoute
   '/app/': typeof AppIndexRoute
   '/backoffice/': typeof BackofficeIndexRoute
@@ -668,6 +699,10 @@ export interface FileRoutesByFullPath {
   '/rh/ponto/dia': typeof RhPontoDiaRoute
   '/rh/ponto/mensal': typeof RhPontoMensalRoute
   '/rh/ponto/vinculos': typeof RhPontoVinculosRoute
+  '/takeoff/kits': typeof TakeoffPainelKitsRoute
+  '/takeoff/parametros': typeof TakeoffPainelParametrosRoute
+  '/takeoff/pesos': typeof TakeoffPainelPesosRoute
+  '/takeoff/vrf': typeof TakeoffPainelVrfRoute
   '/backoffice/clientes/': typeof BackofficeClientesIndexRoute
   '/backoffice/empreiteiros/': typeof BackofficeEmpreiteirosIndexRoute
   '/compras/eventos-preco/': typeof ComprasEventosPrecoIndexRoute
@@ -735,6 +770,7 @@ export interface FileRoutesByTo {
   '/q/$token': typeof QTokenRoute
   '/qr-operador/outras-obras': typeof QrOperadorOutrasObrasRoute
   '/qr-operador/pendentes': typeof QrOperadorPendentesRoute
+  '/takeoff': typeof TakeoffPainelRouteWithChildren
   '/takeoff/conectar': typeof TakeoffConectarRoute
   '/app': typeof AppIndexRoute
   '/backoffice': typeof BackofficeIndexRoute
@@ -751,6 +787,10 @@ export interface FileRoutesByTo {
   '/rh/ponto/dia': typeof RhPontoDiaRoute
   '/rh/ponto/mensal': typeof RhPontoMensalRoute
   '/rh/ponto/vinculos': typeof RhPontoVinculosRoute
+  '/takeoff/kits': typeof TakeoffPainelKitsRoute
+  '/takeoff/parametros': typeof TakeoffPainelParametrosRoute
+  '/takeoff/pesos': typeof TakeoffPainelPesosRoute
+  '/takeoff/vrf': typeof TakeoffPainelVrfRoute
   '/backoffice/clientes': typeof BackofficeClientesIndexRoute
   '/backoffice/empreiteiros': typeof BackofficeEmpreiteirosIndexRoute
   '/compras/eventos-preco': typeof ComprasEventosPrecoIndexRoute
@@ -829,6 +869,7 @@ export interface FileRoutesById {
   '/q/$token': typeof QTokenRoute
   '/qr-operador_/outras-obras': typeof QrOperadorOutrasObrasRoute
   '/qr-operador_/pendentes': typeof QrOperadorPendentesRoute
+  '/takeoff/_painel': typeof TakeoffPainelRouteWithChildren
   '/takeoff/conectar': typeof TakeoffConectarRoute
   '/app/': typeof AppIndexRoute
   '/backoffice/': typeof BackofficeIndexRoute
@@ -848,6 +889,10 @@ export interface FileRoutesById {
   '/rh/ponto/dia': typeof RhPontoDiaRoute
   '/rh/ponto/mensal': typeof RhPontoMensalRoute
   '/rh/ponto/vinculos': typeof RhPontoVinculosRoute
+  '/takeoff/_painel/kits': typeof TakeoffPainelKitsRoute
+  '/takeoff/_painel/parametros': typeof TakeoffPainelParametrosRoute
+  '/takeoff/_painel/pesos': typeof TakeoffPainelPesosRoute
+  '/takeoff/_painel/vrf': typeof TakeoffPainelVrfRoute
   '/backoffice/clientes/': typeof BackofficeClientesIndexRoute
   '/backoffice/empreiteiros/': typeof BackofficeEmpreiteirosIndexRoute
   '/compras/eventos-preco/': typeof ComprasEventosPrecoIndexRoute
@@ -927,6 +972,7 @@ export interface FileRouteTypes {
     | '/q/$token'
     | '/qr-operador/outras-obras'
     | '/qr-operador/pendentes'
+    | '/takeoff'
     | '/takeoff/conectar'
     | '/app/'
     | '/backoffice/'
@@ -946,6 +992,10 @@ export interface FileRouteTypes {
     | '/rh/ponto/dia'
     | '/rh/ponto/mensal'
     | '/rh/ponto/vinculos'
+    | '/takeoff/kits'
+    | '/takeoff/parametros'
+    | '/takeoff/pesos'
+    | '/takeoff/vrf'
     | '/backoffice/clientes/'
     | '/backoffice/empreiteiros/'
     | '/compras/eventos-preco/'
@@ -1013,6 +1063,7 @@ export interface FileRouteTypes {
     | '/q/$token'
     | '/qr-operador/outras-obras'
     | '/qr-operador/pendentes'
+    | '/takeoff'
     | '/takeoff/conectar'
     | '/app'
     | '/backoffice'
@@ -1029,6 +1080,10 @@ export interface FileRouteTypes {
     | '/rh/ponto/dia'
     | '/rh/ponto/mensal'
     | '/rh/ponto/vinculos'
+    | '/takeoff/kits'
+    | '/takeoff/parametros'
+    | '/takeoff/pesos'
+    | '/takeoff/vrf'
     | '/backoffice/clientes'
     | '/backoffice/empreiteiros'
     | '/compras/eventos-preco'
@@ -1106,6 +1161,7 @@ export interface FileRouteTypes {
     | '/q/$token'
     | '/qr-operador_/outras-obras'
     | '/qr-operador_/pendentes'
+    | '/takeoff/_painel'
     | '/takeoff/conectar'
     | '/app/'
     | '/backoffice/'
@@ -1125,6 +1181,10 @@ export interface FileRouteTypes {
     | '/rh/ponto/dia'
     | '/rh/ponto/mensal'
     | '/rh/ponto/vinculos'
+    | '/takeoff/_painel/kits'
+    | '/takeoff/_painel/parametros'
+    | '/takeoff/_painel/pesos'
+    | '/takeoff/_painel/vrf'
     | '/backoffice/clientes/'
     | '/backoffice/empreiteiros/'
     | '/compras/eventos-preco/'
@@ -1190,6 +1250,7 @@ export interface RootRouteChildren {
   QTokenRoute: typeof QTokenRoute
   QrOperadorOutrasObrasRoute: typeof QrOperadorOutrasObrasRoute
   QrOperadorPendentesRoute: typeof QrOperadorPendentesRoute
+  TakeoffPainelRoute: typeof TakeoffPainelRouteWithChildren
   TakeoffConectarRoute: typeof TakeoffConectarRoute
   PortalIndexRoute: typeof PortalIndexRoute
   DotwellKnownOauthProtectedResourceMcpRoute: typeof DotwellKnownOauthProtectedResourceMcpRoute
@@ -1508,6 +1569,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RhPontoRouteRouteImport
       parentRoute: typeof RhRouteRoute
     }
+    '/takeoff/_painel': {
+      id: '/takeoff/_painel'
+      path: '/takeoff'
+      fullPath: '/takeoff'
+      preLoaderRoute: typeof TakeoffPainelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/takeoff/conectar': {
       id: '/takeoff/conectar'
       path: '/takeoff/conectar'
@@ -1675,6 +1743,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/rh/ponto/vinculos'
       preLoaderRoute: typeof RhPontoVinculosRouteImport
       parentRoute: typeof RhPontoRouteRoute
+    }
+    '/takeoff/_painel/kits': {
+      id: '/takeoff/_painel/kits'
+      path: '/kits'
+      fullPath: '/takeoff/kits'
+      preLoaderRoute: typeof TakeoffPainelKitsRouteImport
+      parentRoute: typeof TakeoffPainelRoute
+    }
+    '/takeoff/_painel/parametros': {
+      id: '/takeoff/_painel/parametros'
+      path: '/parametros'
+      fullPath: '/takeoff/parametros'
+      preLoaderRoute: typeof TakeoffPainelParametrosRouteImport
+      parentRoute: typeof TakeoffPainelRoute
+    }
+    '/takeoff/_painel/pesos': {
+      id: '/takeoff/_painel/pesos'
+      path: '/pesos'
+      fullPath: '/takeoff/pesos'
+      preLoaderRoute: typeof TakeoffPainelPesosRouteImport
+      parentRoute: typeof TakeoffPainelRoute
+    }
+    '/takeoff/_painel/vrf': {
+      id: '/takeoff/_painel/vrf'
+      path: '/vrf'
+      fullPath: '/takeoff/vrf'
+      preLoaderRoute: typeof TakeoffPainelVrfRouteImport
+      parentRoute: typeof TakeoffPainelRoute
     }
     '/engenharia/obras/$obraSlug/': {
       id: '/engenharia/obras/$obraSlug/'
@@ -2122,6 +2218,24 @@ const RhRouteRouteChildren: RhRouteRouteChildren = {
 const RhRouteRouteWithChildren =
   RhRouteRoute._addFileChildren(RhRouteRouteChildren)
 
+interface TakeoffPainelRouteChildren {
+  TakeoffPainelKitsRoute: typeof TakeoffPainelKitsRoute
+  TakeoffPainelParametrosRoute: typeof TakeoffPainelParametrosRoute
+  TakeoffPainelPesosRoute: typeof TakeoffPainelPesosRoute
+  TakeoffPainelVrfRoute: typeof TakeoffPainelVrfRoute
+}
+
+const TakeoffPainelRouteChildren: TakeoffPainelRouteChildren = {
+  TakeoffPainelKitsRoute: TakeoffPainelKitsRoute,
+  TakeoffPainelParametrosRoute: TakeoffPainelParametrosRoute,
+  TakeoffPainelPesosRoute: TakeoffPainelPesosRoute,
+  TakeoffPainelVrfRoute: TakeoffPainelVrfRoute,
+}
+
+const TakeoffPainelRouteWithChildren = TakeoffPainelRoute._addFileChildren(
+  TakeoffPainelRouteChildren,
+)
+
 interface QrOperadorObrasObraSlugRouteChildren {
   QrOperadorObrasObraSlugDocumentosRoute: typeof QrOperadorObrasObraSlugDocumentosRoute
   QrOperadorObrasObraSlugEscanearRoute: typeof QrOperadorObrasObraSlugEscanearRoute
@@ -2177,6 +2291,7 @@ const rootRouteChildren: RootRouteChildren = {
   QTokenRoute: QTokenRoute,
   QrOperadorOutrasObrasRoute: QrOperadorOutrasObrasRoute,
   QrOperadorPendentesRoute: QrOperadorPendentesRoute,
+  TakeoffPainelRoute: TakeoffPainelRouteWithChildren,
   TakeoffConectarRoute: TakeoffConectarRoute,
   PortalIndexRoute: PortalIndexRoute,
   DotwellKnownOauthProtectedResourceMcpRoute:
