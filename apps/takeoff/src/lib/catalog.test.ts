@@ -203,6 +203,22 @@ describe("catalog", () => {
           materialPrice: 500,
           laborPrice: 0,
         },
+        {
+          id: "t1",
+          name: "Terminal 2,5 mm²",
+          categoria: "Terminais Elétricos",
+          unit: "pç",
+          materialPrice: 1,
+          laborPrice: 0,
+        },
+        {
+          id: "d1",
+          name: "Difusor linear por metro",
+          categoria: "Bocas de Ar",
+          unit: "m",
+          materialPrice: 200,
+          laborPrice: 0,
+        },
       ],
     });
     const entries = mergeCatalog({ ...emptyCatalogStore(), remote });
@@ -212,6 +228,10 @@ describe("catalog", () => {
     expect(byId("g3")).toMatchObject({ laborPrice: 30 });
     expect(byId("g3").laborSource).toBeUndefined();
     expect(byId("e1").laborPrice).toBe(0);
+    // not an air terminal, or not sold by the piece: no per-piece default
+    expect(byId("t1").laborPrice).toBe(0);
+    expect(byId("d1").laborPrice).toBe(0);
+    expect(byId("d1").laborSource).toBeUndefined();
     // the bundled seed gets it too; the user's own entries are kept as saved
     const seedOnly = mergeCatalog(emptyCatalogStore());
     expect(seedOnly.filter((e) => e.group === "Bocas de Ar").every((e) => e.laborPrice > 0)).toBe(

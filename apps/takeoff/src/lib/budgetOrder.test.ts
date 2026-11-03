@@ -33,6 +33,8 @@ describe("budget order", () => {
     expect(groupTier("Elétrica")).toBe(1);
     expect(groupTier("Isolamento")).toBe(1);
     expect(groupTier("Suportes")).toBe(1);
+    expect(groupTier("Rede de Ventilação")).toBe(1);
+    expect(groupTier("Terminais Elétricos")).toBe(1);
     expect(groupTier("Diversos")).toBe(2);
     expect(groupTier("Geral")).toBe(2);
     expect(groupTier("")).toBe(2);

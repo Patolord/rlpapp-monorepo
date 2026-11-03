@@ -167,7 +167,7 @@ export function withSeedLabor(
 /** Installation price RLP charges per air terminal (grille, diffuser, louvre) when nothing else is known. */
 export const AIR_TERMINAL_LABOR = 45;
 
-const AIR_TERMINAL_GROUP = /boca|grelha|difusor|venezian|terminai/;
+const AIR_TERMINAL_GROUP = /boca|grelha|difusor|venezian/;
 const AIR_TERMINAL_NAME = /grelha|difusor|venezian|boca de ar/;
 
 /** Grilles, diffusers and louvres: the "Bocas de Ar" group, or named as one. */
@@ -175,12 +175,13 @@ export const isAirTerminal = (e: Pick<CatalogEntry, "name" | "group">): boolean 
   AIR_TERMINAL_GROUP.test(foldName(e.group)) || AIR_TERMINAL_NAME.test(foldName(e.name));
 
 /**
- * An air terminal with no labour price gets the usual installation price (R$ 45 a piece),
- * marked `laborSource: "default"`, so the budget already carries it. Anything priced, or not
- * an air terminal, is returned as is.
+ * An air terminal sold by the piece with no labour price gets the usual installation price
+ * (R$ 45 a piece), marked `laborSource: "default"`, so the budget already carries it. Anything
+ * priced, not an air terminal, or priced per metre (a linear diffuser by length) is returned
+ * as is.
  */
 export function withAirTerminalLabor(e: CatalogEntry): CatalogEntry {
-  if (e.laborPrice > 0 || !isAirTerminal(e)) return e;
+  if (e.laborPrice > 0 || unitKey(e.unit) !== "pc" || !isAirTerminal(e)) return e;
   return { ...e, laborPrice: AIR_TERMINAL_LABOR, laborSource: "default" };
 }
 

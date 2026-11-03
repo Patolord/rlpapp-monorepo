@@ -11,10 +11,10 @@ import { DEFAULT_GROUP, DISCIPLINE_SUGGESTIONS, type Item } from "./types";
 export type GroupTier = 0 | 1 | 2 | 3;
 
 const EQUIPMENT =
-  /equip|ventila|exaustor|split|vrf|condensad|evaporad|fan ?coil|bomba|chiller|filtr/;
+  /equip|ventilad|exaustor|split|vrf|condensad|evaporad|fan ?coil|bomba|chiller|filtr/;
 const NETWORKS =
   /duto|tubul|tubo|eletric|cabo|isolament|suporte|acessor|\brede\b|linha|infra|drenag|eletrocalha|conduit|frigor|fixa/;
-const AIR_TERMINALS = /boca|grelha|difusor|venezian|terminai/;
+const AIR_TERMINALS = /boca|grelha|difusor|venezian/;
 
 export function groupTier(group: string): GroupTier {
   const g = foldName(group || DEFAULT_GROUP);
