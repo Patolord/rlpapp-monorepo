@@ -793,3 +793,204 @@ describe("takeoffs.desktopPublishOptions", () => {
     await expect(t.query(api.takeoffs.desktopPublishOptions, {})).rejects.toThrow();
   });
 });
+
+describe("takeoffs.removeFromDesktop", () => {
+  test("deletes the desktop budget with its lines and writes an audit entry", async () => {
+    const { t, engineer, projectId } = await seed();
+    const published = await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([line("a"), line("b")], { projectId })
+    );
+
+    const result = await engineer.mutation(api.takeoffs.removeFromDesktop, {
+      externalId: " desk-project-1 ",
+    });
+    expect(result).toEqual({
+      takeoffId: published.takeoffId,
+      name: "Proposta 123 - Edifício Centro",
+      projectId,
+      projectName: "Edifício Centro",
+      removedLines: 2,
+    });
+
+    expect(await engineer.query(api.takeoffs.list, { projectId })).toEqual([]);
+    const items = await t.run((ctx) =>
+      ctx.db
+        .query("takeoffItems")
+        .withIndex("by_takeoff", (q) => q.eq("takeoffId", published.takeoffId))
+        .collect()
+    );
+    expect(items).toEqual([]);
+    const options = await engineer.query(api.takeoffs.desktopPublishOptions, {
+      externalId: "desk-project-1",
+    });
+    expect(options.current).toBeNull();
+
+    const audit = await t.run((ctx) =>
+      ctx.db
+        .query("auditLogs")
+        .filter((q) => q.eq(q.field("action"), "delete"))
+        .collect()
+    );
+    expect(audit).toHaveLength(1);
+    expect(audit[0]).toMatchObject({
+      tableName: "takeoffs",
+      recordId: published.takeoffId,
+      source: "desktop",
+      entityLabel: "Proposta 123 - Edifício Centro",
+    });
+
+    // sending again after the removal creates a new budget
+    const again = await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([line("a")], { projectId })
+    );
+    expect(again.created).toBe(true);
+    expect(again.takeoffId).not.toBe(published.takeoffId);
+  });
+
+  test("is refused when there is no budget with that id", async () => {
+    const { engineer } = await seed();
+    await expect(
+      engineer.mutation(api.takeoffs.removeFromDesktop, { externalId: "nothing-here" })
+    ).rejects.toSatisfy((e) => hasError(e, "BUDGET_NOT_FOUND", "não está (mais) no app"));
+    await expect(
+      engineer.mutation(api.takeoffs.removeFromDesktop, { externalId: "  " })
+    ).rejects.toSatisfy((e) => hasError(e, "INVALID_BUDGET", "Informe o id"));
+  });
+
+  test("is refused once purchasing worked on a line", async () => {
+    const { engineer, purchasing } = await seed();
+    const published = await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([line("quoted"), line("plain")])
+    );
+    const detail = await engineer.query(api.takeoffs.get, {
+      takeoffId: published.takeoffId,
+      now: NOW,
+    });
+    const quotedId = detail!.items.find((i) => i.externalLineId === "quoted")!._id;
+    await purchasing.mutation(api.priceEvents.add, {
+      unitPriceCents: 1100,
+      source: "quote",
+      occurredAt: NOW,
+      supplierNameRaw: "Fornecedor A",
+      takeoffItemId: quotedId,
+    });
+
+    await expect(
+      engineer.mutation(api.takeoffs.removeFromDesktop, { externalId: "desk-project-1" })
+    ).rejects.toSatisfy((e) => hasError(e, "BUDGET_IN_USE", "1 linha já cotada ou comprada"));
+    await expect(
+      engineer.mutation(api.takeoffs.remove, { takeoffId: published.takeoffId })
+    ).rejects.toSatisfy((e) => hasError(e, "BUDGET_IN_USE", "1 linha já cotada ou comprada"));
+
+    // nothing was deleted
+    const after = await engineer.query(api.takeoffs.get, {
+      takeoffId: published.takeoffId,
+      now: NOW,
+    });
+    expect(after?.items).toHaveLength(2);
+  });
+
+  test("is refused once a line was moved forward or added in the app", async () => {
+    const { engineer } = await seed();
+    const published = await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([line("frozen")])
+    );
+    const detail = await engineer.query(api.takeoffs.get, {
+      takeoffId: published.takeoffId,
+      now: NOW,
+    });
+    await engineer.mutation(api.takeoffs.updateItem, {
+      itemId: detail!.items[0]!._id,
+      status: "sent_to_supplier",
+    });
+    await expect(
+      engineer.mutation(api.takeoffs.removeFromDesktop, { externalId: "desk-project-1" })
+    ).rejects.toSatisfy((e) => hasError(e, "BUDGET_IN_USE", "linha já cotada ou comprada"));
+
+    const other = await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([line("a")], { externalId: "desk-project-2" })
+    );
+    await engineer.mutation(api.takeoffs.addItem, {
+      takeoffId: other.takeoffId,
+      rawDescription: "Linha manual",
+    });
+    await expect(
+      engineer.mutation(api.takeoffs.removeFromDesktop, { externalId: "desk-project-2" })
+    ).rejects.toSatisfy((e) => hasError(e, "BUDGET_IN_USE", "1 linha adicionada no app"));
+  });
+
+  test("requires engineering permission", async () => {
+    const { t, engineer, purchasing } = await seed();
+    await engineer.mutation(api.takeoffs.publishFromDesktop, budget([line("a")]));
+    await expect(
+      purchasing.mutation(api.takeoffs.removeFromDesktop, { externalId: "desk-project-1" })
+    ).rejects.toThrow(/Acesso restrito/);
+    await expect(
+      t.mutation(api.takeoffs.removeFromDesktop, { externalId: "desk-project-1" })
+    ).rejects.toThrow();
+  });
+});
+
+describe("takeoffs.remove", () => {
+  test("deletes a desktop budget from the app, with its lines and an audit entry", async () => {
+    const { t, engineer, projectId } = await seed();
+    const published = await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([line("a"), line("b")], { projectId })
+    );
+    const result = await engineer.mutation(api.takeoffs.remove, {
+      takeoffId: published.takeoffId,
+    });
+    expect(result).toEqual({
+      takeoffId: published.takeoffId,
+      name: "Proposta 123 - Edifício Centro",
+      projectId,
+      projectName: "Edifício Centro",
+      removedLines: 2,
+    });
+    expect(await engineer.query(api.takeoffs.list, { projectId })).toEqual([]);
+    expect(
+      await engineer.query(api.takeoffs.get, { takeoffId: published.takeoffId, now: NOW })
+    ).toBeNull();
+    const audit = await t.run((ctx) =>
+      ctx.db
+        .query("auditLogs")
+        .filter((q) => q.eq(q.field("action"), "delete"))
+        .collect()
+    );
+    expect(audit).toHaveLength(1);
+    expect(audit[0]).toMatchObject({ tableName: "takeoffs", recordId: published.takeoffId });
+
+    // the desktop file still points at the removed budget: the next send is a new one and the
+    // desktop's own removal finds nothing
+    const again = await engineer.mutation(
+      api.takeoffs.publishFromDesktop,
+      budget([line("a")], { projectId })
+    );
+    expect(again.created).toBe(true);
+    await expect(
+      engineer.mutation(api.takeoffs.remove, { takeoffId: published.takeoffId })
+    ).rejects.toSatisfy((e) => hasError(e, "BUDGET_NOT_FOUND", "não encontrado"));
+  });
+
+  test("only removes budgets published by the desktop", async () => {
+    const { engineer, purchasing, projectId } = await seed();
+    const manualId = await engineer.mutation(api.takeoffs.create, {
+      projectId,
+      name: "Takeoff manual",
+    });
+    await expect(
+      engineer.mutation(api.takeoffs.remove, { takeoffId: manualId })
+    ).rejects.toSatisfy((e) => hasError(e, "INVALID_BUDGET", "app desktop"));
+
+    const published = await engineer.mutation(api.takeoffs.publishFromDesktop, budget([line("a")]));
+    await expect(
+      purchasing.mutation(api.takeoffs.remove, { takeoffId: published.takeoffId })
+    ).rejects.toThrow(/Acesso restrito/);
+  });
+});

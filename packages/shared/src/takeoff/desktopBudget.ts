@@ -35,20 +35,27 @@ export function unsupportedCurrencyError(currency: string | undefined): string |
 }
 
 /**
- * Códigos dos erros esperados de `takeoffs.publishFromDesktop` e
- * `takeoffs.desktopPublishOptions`, lançados como `ConvexError({ code,
- * message })`: produção troca a mensagem de um `Error` comum por "Server
- * Error", e o desktop precisa mostrar o motivo ao usuário.
+ * Códigos dos erros esperados de `takeoffs.publishFromDesktop`,
+ * `takeoffs.desktopPublishOptions` e `takeoffs.removeFromDesktop`, lançados
+ * como `ConvexError({ code, message })`: produção troca a mensagem de um
+ * `Error` comum por "Server Error", e o desktop precisa mostrar o motivo ao
+ * usuário.
  *
  * - `INVALID_BUDGET`: o orçamento não passou na validação (linha sem id,
  *   repetida, valor negativo, nome vazio…).
  * - `UNSUPPORTED_CURRENCY`: moeda diferente de reais.
  * - `PROJECT_NOT_FOUND`: a obra escolhida não existe (foi apagada).
+ * - `BUDGET_NOT_FOUND`: não há orçamento com este `externalId` no app (ao
+ *   remover: já foi removido, ou nunca chegou).
+ * - `BUDGET_IN_USE`: a Compras já trabalhou no orçamento (cotação, compra em
+ *   andamento ou linhas adicionadas no app): o desktop não pode removê-lo.
  */
 export const DESKTOP_BUDGET_ERROR_CODES = [
   "INVALID_BUDGET",
   "UNSUPPORTED_CURRENCY",
   "PROJECT_NOT_FOUND",
+  "BUDGET_NOT_FOUND",
+  "BUDGET_IN_USE",
 ] as const;
 
 export type DesktopBudgetErrorCode = (typeof DESKTOP_BUDGET_ERROR_CODES)[number];
@@ -127,6 +134,12 @@ export interface PublishDesktopBudgetArgs<ProjectId extends string = string> {
   name: string;
   meta: DesktopBudgetMeta;
   lines: DesktopBudgetLine[];
+}
+
+/** Argumento de `takeoffs.removeFromDesktop`. */
+export interface RemoveDesktopBudgetArgs {
+  /** Id do projeto no desktop (o `externalId` do orçamento no app). */
+  externalId: string;
 }
 
 /** Reais → centavos inteiros (arredondado). */

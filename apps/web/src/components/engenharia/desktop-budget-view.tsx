@@ -2,8 +2,8 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import { formatCurrency, formatNumber } from "@rlpapp/shared";
 import { useMutation } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { Receipt } from "lucide-react";
-import { Fragment, useMemo } from "react";
+import { Receipt, Trash2 } from "lucide-react";
+import { Fragment, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { PriceFreshnessBadge } from "@/components/compras/price-freshness-badge";
@@ -49,18 +49,53 @@ const COLUMNS = 9;
  * grupo) → linhas, com preços de material e mão de obra, subtotais, extras,
  * BDI e total por aba. As ações por linha (usar preço de referência, cotação,
  * criar SKU) são as mesmas do takeoff manual; as linhas em si são editadas no
- * desktop e publicadas de novo.
+ * desktop e publicadas de novo. A engenharia pode remover o orçamento inteiro
+ * (`takeoffs.remove`) enquanto a Compras não trabalhou nele.
  */
 export function DesktopBudgetView({
   detail,
   canPromoteMaterial,
+  canRemove,
   onQuote,
+  onRemoved,
 }: {
   detail: TakeoffDetail;
   canPromoteMaterial: boolean;
+  /** Pode remover o orçamento (engenharia). */
+  canRemove: boolean;
   onQuote: (item: TakeoffQuoteTarget) => void;
+  /** Depois de removido: o takeoff não existe mais e a página troca de orçamento. */
+  onRemoved: () => void;
 }) {
   const { takeoff, items } = detail;
+  const removeTakeoff = useMutation(api.takeoffs.remove);
+  const [removing, setRemoving] = useState(false);
+
+  async function handleRemove() {
+    const ok = window.confirm(
+      `Remover o orçamento "${takeoff.name}" do app?\n\n` +
+        "Ele é apagado com todas as suas linhas. O arquivo no app desktop continua " +
+        "existindo; um novo envio de lá cria outro orçamento aqui.\n\n" +
+        "Se a Compras já trabalhou nele (cotações, compras, linhas adicionadas aqui), " +
+        "a remoção é recusada."
+    );
+    if (!ok) return;
+    setRemoving(true);
+    try {
+      const result = await removeTakeoff({ takeoffId: takeoff._id });
+      toast.success(
+        `Orçamento removido (${result.removedLines} ${
+          result.removedLines === 1 ? "linha apagada" : "linhas apagadas"
+        })`
+      );
+      onRemoved();
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Erro ao remover o orçamento"));
+    } finally {
+      setRemoving(false);
+    }
+  }
+
   const budget = takeoff.budget;
   const sheets = useMemo(
     () => groupDesktopBudget(items, budget?.sheets ?? []),
@@ -83,6 +118,20 @@ export function DesktopBudgetView({
             <CardTitle>{takeoff.name}</CardTitle>
             <TakeoffSourceBadge takeoff={takeoff} />
           </div>
+          {canRemove ? (
+            <CardAction>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={removing}
+                onClick={() => void handleRemove()}
+                title="Apaga este orçamento e suas linhas do app; o arquivo no desktop continua"
+              >
+                <Trash2 />
+                Remover orçamento
+              </Button>
+            </CardAction>
+          ) : null}
           {header.length > 0 ? (
             <p className="text-sm text-muted-foreground">{header.join(" · ")}</p>
           ) : null}
