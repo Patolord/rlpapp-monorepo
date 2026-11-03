@@ -5,7 +5,7 @@ import { type RevisionChoice, useStore } from "../store";
 import { asksSameBudget, identityForSave, type SaveKind, withIdentityOf } from "./appLink";
 import { mergeCatalog } from "./catalog";
 import { chooseDialog, confirmDialog } from "./dialogs";
-import { resolveDiscipline } from "./discipline";
+import { type BdiLayout, resolveDiscipline } from "./discipline";
 import { DUCT_TEMPLATE_URL, ductSheetInput, fillDuctWorkbook } from "./ductSheet";
 import { isTauri, mod } from "./platform";
 import {
@@ -507,13 +507,14 @@ export interface SheetExport {
   estimator: string;
   currency: string;
   date: string;
-  /** One worksheet per system, each with its sections (locations or groups) and its own BDI, extras and footer. */
+  /** One worksheet per system, each with its sections (locations or groups) and its own BDI, extras, footer and BDI layout. */
   sheets: {
     system: string;
     sections: { name: string; rows: SheetRow[] }[];
     bdi: number;
     extrasPct: number;
     footer: FooterLine[];
+    bdiLayout: BdiLayout;
   }[];
   /** Project defaults (kept for older readers of the payload). */
   extrasPct: number;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultFooter, resolveDiscipline } from "./discipline";
+import { defaultBdiLayout, defaultFooter, resolveDiscipline } from "./discipline";
 import { buildQuote, disciplineTotals } from "./quantities";
 import { emptyProject, migrateProject, type Project } from "./types";
 
@@ -57,6 +57,16 @@ describe("discipline settings", () => {
     const r = resolveDiscipline(p, "Exaustão");
     expect(r.bdi).toBe(1.25);
     expect(r.extrasPct).toBe(6);
+  });
+
+  it("print the BDIs across a row on the exhaust and outside-air tabs only", () => {
+    expect(defaultBdiLayout("Exaustão")).toBe("row");
+    expect(defaultBdiLayout("Exaustão Mec. Áreas Comuns")).toBe("row");
+    expect(defaultBdiLayout("TAE (Tomada de Ar Externo)")).toBe("row");
+    expect(defaultBdiLayout("Tomada de Ar Ext.")).toBe("row");
+    expect(defaultBdiLayout("Pressurização de Escadas")).toBe("column");
+    expect(defaultBdiLayout("Infra AC")).toBe("column");
+    expect(resolveDiscipline(project(), "Exaustão").bdiLayout).toBe("row");
   });
 
   it("have equipment and installation factors on the AC tabs only", () => {

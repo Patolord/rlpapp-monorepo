@@ -34,9 +34,10 @@ export interface CatalogEntry {
   laborPrice: number;
   /**
    * Set when the labour price did not come with the entry: "seed" = a company entry without
-   * labour took the bundled sheets' labour for the same name (see withSeedLabor).
+   * labour took the bundled sheets' labour for the same name (see withSeedLabor); "default" =
+   * an air terminal took the usual installation price (see withAirTerminalLabor).
    */
-  laborSource?: "seed";
+  laborSource?: LaborSource;
   /** Budget system the entry came from (informative). */
   system?: string;
   /** Where the entry comes from: saved by the user, fetched from the company app, or bundled. */
@@ -60,6 +61,8 @@ export interface CatalogEntry {
   baseMaterial?: string;
   kgPerUnit?: number;
 }
+
+export type LaborSource = "seed" | "default";
 
 /** What is persisted locally: the user's own entries plus the last remote fetch. */
 export interface CatalogStore {
@@ -161,6 +164,26 @@ export function withSeedLabor(
   return price ? { ...e, laborPrice: price, laborSource: "seed" } : e;
 }
 
+/** Installation price RLP charges per air terminal (grille, diffuser, louvre) when nothing else is known. */
+export const AIR_TERMINAL_LABOR = 45;
+
+const AIR_TERMINAL_GROUP = /boca|grelha|difusor|venezian|terminai/;
+const AIR_TERMINAL_NAME = /grelha|difusor|venezian|boca de ar/;
+
+/** Grilles, diffusers and louvres: the "Bocas de Ar" group, or named as one. */
+export const isAirTerminal = (e: Pick<CatalogEntry, "name" | "group">): boolean =>
+  AIR_TERMINAL_GROUP.test(foldName(e.group)) || AIR_TERMINAL_NAME.test(foldName(e.name));
+
+/**
+ * An air terminal with no labour price gets the usual installation price (R$ 45 a piece),
+ * marked `laborSource: "default"`, so the budget already carries it. Anything priced, or not
+ * an air terminal, is returned as is.
+ */
+export function withAirTerminalLabor(e: CatalogEntry): CatalogEntry {
+  if (e.laborPrice > 0 || !isAirTerminal(e)) return e;
+  return { ...e, laborPrice: AIR_TERMINAL_LABOR, laborSource: "default" };
+}
+
 export const emptyCatalogStore = (): CatalogStore => ({
   saved: [],
   remote: [],
@@ -205,7 +228,9 @@ export function normalizeDiscipline(system: string | undefined): string | undefi
 /**
  * Saved entries first, then the remote catalog (labour borrowed from the seed where it has
  * none, see withSeedLabor), then the weight table and the sheet-metal rows (priced from the
- * catalog's prices per kg), then the seed; later sources never duplicate earlier names.
+ * catalog's prices per kg), then the seed; later sources never duplicate earlier names. Air
+ * terminals from the company catalog or the seed still without labour get the usual price
+ * (withAirTerminalLabor); the user's own entries are left as saved.
  */
 export function mergeCatalog(store: CatalogStore): CatalogEntry[] {
   const out: CatalogEntry[] = [];
@@ -215,7 +240,8 @@ export function mergeCatalog(store: CatalogStore): CatalogEntry[] {
       const k = foldName(e.name);
       if (seen.has(k)) continue;
       seen.add(k);
-      out.push({ ...e, source });
+      const entry = { ...e, source };
+      out.push(source === "saved" ? entry : withAirTerminalLabor(entry));
     }
   };
   add(store.saved, "saved");
