@@ -2,19 +2,23 @@ import { foldName } from "./text";
 import { DEFAULT_GROUP, DISCIPLINE_SUGGESTIONS, type Item } from "./types";
 
 /**
- * Where a group of items sits in the budget, the way RLP proposals read: equipment first, then
- * the networks and lines that connect it (ducts, pipes, cables, insulation, supports), and at
- * the bottom the air terminals and the rest of the small pieces. Inside a tier groups are
- * alphabetical, and inside a group items are alphabetical unless the user nudged them.
+ * Where a group of items sits in the budget, the way RLP proposals read: equipment first
+ * (fans, filter boxes, splits), then the networks and lines that connect it (ducts, pipes,
+ * cables, insulation, supports), then the rest of the small pieces, and always last the air
+ * terminals (grilles, diffusers, louvres). Inside a tier groups are alphabetical, and inside a
+ * group items are alphabetical unless the user nudged them.
  */
-export type GroupTier = 0 | 1 | 2;
+export type GroupTier = 0 | 1 | 2 | 3;
 
-const EQUIPMENT = /equip|ventilad|exaustor|split|vrf|condensad|evaporad|fan ?coil|bomba|chiller/;
+const EQUIPMENT =
+  /equip|ventilad|exaustor|split|vrf|condensad|evaporad|fan ?coil|bomba|chiller|filtr/;
 const NETWORKS =
   /duto|tubul|tubo|eletric|cabo|isolament|suporte|acessor|\brede\b|linha|infra|drenag|eletrocalha|conduit|frigor|fixa/;
+const AIR_TERMINALS = /boca|grelha|difusor|venezian/;
 
 export function groupTier(group: string): GroupTier {
   const g = foldName(group || DEFAULT_GROUP);
+  if (AIR_TERMINALS.test(g)) return 3;
   if (EQUIPMENT.test(g)) return 0;
   if (NETWORKS.test(g)) return 1;
   return 2;

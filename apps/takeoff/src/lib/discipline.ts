@@ -1,11 +1,30 @@
 import { normalizeDiscipline } from "./catalog";
 import type { DisciplineSettings, FooterLine, Project } from "./types";
 
-/** BDI, extras and footer of one discipline tab, with the project's defaults filled in. */
+/**
+ * How the BDI options are printed under a tab's TOTAL GERAL: "column" is the usual ladder
+ * (one row per BDI, with a VENDA column when the tab counts points); "row" spreads the BDIs
+ * across the columns, with a Venda (per point) and a Venda Total line under them.
+ */
+export type BdiLayout = "column" | "row";
+
+/** BDI, extras, footer and BDI layout of one discipline tab, with the project's defaults filled in. */
 export interface ResolvedDiscipline {
   bdi: number;
   extrasPct: number;
   footer: FooterLine[];
+  bdiLayout: BdiLayout;
+}
+
+/** The exhaust and outside-air tabs print their BDIs across a row; the others as a ladder. */
+export function defaultBdiLayout(discipline: string): BdiLayout {
+  switch (normalizeDiscipline(discipline)) {
+    case "Exaustão":
+    case "TAE (Tomada de Ar Externo)":
+      return "row";
+    default:
+      return "column";
+  }
 }
 
 /**
@@ -43,5 +62,6 @@ export function resolveDiscipline(project: Project, discipline: string): Resolve
     bdi: own.bdi ?? project.bdi,
     extrasPct: own.extrasPct ?? project.extrasPct,
     footer: defaultFooter(discipline),
+    bdiLayout: defaultBdiLayout(discipline),
   };
 }

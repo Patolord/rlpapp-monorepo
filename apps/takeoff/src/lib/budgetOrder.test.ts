@@ -24,18 +24,23 @@ const item = (id: string, name: string, group: string, over: Partial<Item> = {})
 });
 
 describe("budget order", () => {
-  it("tiers groups: equipment, then networks and lines, then air terminals and pieces", () => {
+  it("tiers groups: equipment, then networks and lines, then pieces, air terminals last", () => {
     expect(groupTier("Equipamentos")).toBe(0);
     expect(groupTier("Ventiladores")).toBe(0);
+    expect(groupTier("Filtros")).toBe(0);
     expect(groupTier("Rede de Dutos")).toBe(1);
     expect(groupTier("Tubulações")).toBe(1);
     expect(groupTier("Elétrica")).toBe(1);
     expect(groupTier("Isolamento")).toBe(1);
     expect(groupTier("Suportes")).toBe(1);
-    expect(groupTier("Bocas de Ar")).toBe(2);
-    expect(groupTier("Grelhas")).toBe(2);
+    expect(groupTier("Rede de Ventilação")).toBe(1);
+    expect(groupTier("Terminais Elétricos")).toBe(1);
+    expect(groupTier("Diversos")).toBe(2);
     expect(groupTier("Geral")).toBe(2);
     expect(groupTier("")).toBe(2);
+    expect(groupTier("Bocas de Ar")).toBe(3);
+    expect(groupTier("Grelhas")).toBe(3);
+    expect(groupTier("Difusores")).toBe(3);
   });
 
   it("compares names the way people read sizes", () => {
