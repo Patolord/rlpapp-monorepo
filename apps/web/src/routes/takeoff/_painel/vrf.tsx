@@ -121,7 +121,7 @@ function VrfPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {settings && settings.vrfBrands === null && (
+          {settings && (settings.vrfBrands?.length ?? 0) === 0 && (
             <Button variant="outline" onClick={() => void loadFactory()} disabled={busy !== null}>
               <Download className="size-4" /> Carregar marcas da planilha
             </Button>
@@ -192,7 +192,7 @@ function VrfPage() {
               />
             ) : (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                {settings?.vrfBrands === null
+                {(settings?.vrfBrands?.length ?? 0) === 0
                   ? "Nenhuma marca publicada: carregue as da planilha ou crie uma."
                   : "Selecione ou crie uma marca."}
               </p>

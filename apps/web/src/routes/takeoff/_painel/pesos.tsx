@@ -174,7 +174,7 @@ function PesosPage() {
                 {updatedLine(settings?.meta.weights ?? null) ?? " Ainda não publicado: o app usa a tabela do fornecedor."}
               </CardDescription>
             </div>
-            {settings && settings.weights === null && (
+            {settings && (settings.weights?.rows.length ?? 0) === 0 && (
               <Button variant="outline" onClick={() => void loadFactory()} disabled={busy !== null}>
                 <Download className="size-4" /> Carregar tabela do fornecedor
               </Button>

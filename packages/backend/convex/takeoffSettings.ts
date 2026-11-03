@@ -136,16 +136,35 @@ export const saveVrfBrands = engineeringOrPurchasingMutation({
 
 /**
  * Carrega as tabelas de fábrica do app numa configuração que a empresa ainda
- * não publicou (nada é sobrescrito). Retorna se entrou.
+ * não publicou, ou publicou vazia (o app lê uma lista vazia como "nada
+ * publicado"); uma tabela com conteúdo nunca é sobrescrita, e o kg/m² das
+ * chapas já publicado fica. Retorna se entrou.
  */
 export const seedDefaults = engineeringOrPurchasingMutation({
   args: { kind: v.union(v.literal("weights"), v.literal("vrfBrands")) },
   returns: v.boolean(),
   handler: async (ctx, { kind }) => {
-    if (await getTakeoffSetting(ctx, kind)) return false;
+    const existing = await getTakeoffSetting(ctx, kind);
+    if (existing) {
+      const empty =
+        existing.kind === "weights"
+          ? existing.rows.length === 0
+          : existing.kind === "vrfBrands" && existing.brands.length === 0;
+      if (!empty) return false;
+    }
     const { id } =
       kind === "weights"
-        ? await putTakeoffSetting(ctx, "weights", factoryTakeoffWeights(), ctx.user._id)
+        ? await putTakeoffSetting(
+            ctx,
+            "weights",
+            {
+              ...factoryTakeoffWeights(),
+              ...(existing?.kind === "weights"
+                ? { gaugeWeights: existing.gaugeWeights }
+                : {}),
+            },
+            ctx.user._id
+          )
         : await putTakeoffSetting(
             ctx,
             "vrfBrands",

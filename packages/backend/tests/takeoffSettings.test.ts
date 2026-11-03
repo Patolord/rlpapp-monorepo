@@ -138,4 +138,18 @@ describe("takeoffSettings", () => {
     const after = await engineering.query(api.takeoffSettings.get, {});
     expect(after.vrfBrands?.map((b) => b.id)).toEqual(["daikin"]);
   });
+
+  test("an empty published table still takes the factory one, keeping the gauges", async () => {
+    const { engineering } = await seedUsers();
+    await engineering.mutation(api.takeoffSettings.saveWeights, {
+      rows: [],
+      gaugeWeights: { "# 26": 4.5 },
+    });
+    await engineering.mutation(api.takeoffSettings.saveVrfBrands, { brands: [] });
+    expect(await engineering.mutation(api.takeoffSettings.seedDefaults, { kind: "weights" })).toBe(true);
+    expect(await engineering.mutation(api.takeoffSettings.seedDefaults, { kind: "vrfBrands" })).toBe(true);
+    const settings = await engineering.query(api.takeoffSettings.get, {});
+    expect(settings.weights).toEqual({ rows: SEED_WEIGHTS, gaugeWeights: { "# 26": 4.5 } });
+    expect(settings.vrfBrands?.map((b) => b.id)).toEqual(["daikin", "hitachi"]);
+  });
 });
