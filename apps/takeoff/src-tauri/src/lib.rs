@@ -1330,6 +1330,77 @@ mod tests {
         export_xlsx(path.to_string_lossy().into_owned(), sheet).expect("export");
         let meta = std::fs::metadata(&path).expect("file written");
         assert!(meta.len() > 2000, "workbook too small: {}", meta.len());
+
+        // sheet1 = Resumo, sheet2 = Pressurização (ladder), sheet3 = Exaustão Mec. (row)
+        let strings = zip_entry(&path, "xl/sharedStrings.xml");
+        for label in [
+            "Sub-Total item 1",
+            "Número de pontos",
+            "Venda",
+            "Venda Total",
+            "VENDA",
+        ] {
+            assert!(strings.contains(&format!(">{label}<")), "missing {label}");
+        }
+        let styles = zip_entry(&path, "xl/styles.xml");
+        assert!(styles.contains("formatCode=\"#,##0.00;[Red]-#,##0.00;&quot;-&quot;\""));
+        assert!(styles.contains("formatCode=\"General;-General;&quot;-&quot;\""));
+
+        // ladder: BDI in H, VENDA per point in I, TOTAL in J, under the stats block
+        let ladder = zip_entry(&path, "xl/worksheets/sheet2.xml");
+        assert!(ladder.contains("<f>ROUND(J23*H29,2)</f>"));
+        assert!(ladder.contains("<f>IF(E24=0,0,ROUND(J29/E24,2))</f>"));
+        assert!(ladder.contains("<f>SUM(H13,H17)+SUM(H19:H21)</f>"));
+
+        // row layout: BDI across E..J, Venda and Venda Total under it
+        let row = zip_entry(&path, "xl/worksheets/sheet3.xml");
+        assert!(row.contains("<f>ROUND(J19*E22,2)</f>"), "{row}");
+        assert!(row.contains("<f>ROUND(J19*J22,2)</f>"));
+        assert!(row.contains("<f>IF(E20=0,0,ROUND(E24/E20,2))</f>"));
+        assert!(cell_xml(&row, "J22").contains("<v>1.5</v>"));
+        assert!(cell_xml(&row, "D12").contains("<v>0</v>"));
+
+        // Resumo: no reference to the other sheets, amounts blank, BDI as a number
+        let resumo = zip_entry(&path, "xl/worksheets/sheet1.xml");
+        assert!(
+            !resumo.contains('!'),
+            "Resumo still references other sheets"
+        );
+        for c in ["E12", "F12", "E14", "F14"] {
+            let x = cell_xml(&resumo, c);
+            assert!(
+                !x.contains("<v>") && !x.contains("<f>"),
+                "{c} not blank: {x}"
+            );
+        }
+        assert!(cell_xml(&resumo, "H12").contains("<v>1.25</v>"));
+        assert!(resumo.contains("<f>ROUND(H12*G12,2)</f>"));
+        assert!(resumo.contains("<f>SUM(J12:J14)</f>"));
+        assert!(resumo.contains("<f>ROUND(G16*F23,2)</f>"));
+    }
+
+    /// One file of the saved workbook (an .xlsx is a zip) as text.
+    fn zip_entry(path: &std::path::Path, name: &str) -> String {
+        let file = std::fs::File::open(path).expect("open workbook");
+        let mut zip = zip::ZipArchive::new(file).expect("read zip");
+        let mut entry = zip.by_name(name).expect(name);
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut entry, &mut text).expect("utf-8");
+        text
+    }
+
+    /// The `<c r="A1" …>` element of a worksheet, up to the next cell or the end of the row.
+    fn cell_xml<'a>(sheet: &'a str, cell: &str) -> &'a str {
+        let start = sheet
+            .find(&format!("<c r=\"{cell}\""))
+            .unwrap_or_else(|| panic!("no cell {cell}"));
+        let rest = &sheet[start + 1..];
+        let end = ["<c ", "</row>"]
+            .iter()
+            .filter_map(|t| rest.find(t))
+            .min()
+            .unwrap_or(rest.len());
+        &sheet[start..start + 1 + end]
     }
 
     #[test]
