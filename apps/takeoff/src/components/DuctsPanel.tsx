@@ -8,6 +8,8 @@ import {
   gaugeName,
   LABOR_ROW,
   NORMA_LABELS,
+  normaDefaults,
+  settingsForNorma,
 } from "@rlpapp/shared/engenharia/ducts";
 import { Cuboid, FileSpreadsheet, Plus, Settings2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -74,9 +76,10 @@ export function DuctsPanel() {
             network,
             byNetwork.get(network.id) ?? [],
             catalog.gaugeWeights,
+            catalog.labor.ductPerKg,
           )
         : null,
-    [project, entries, network, byNetwork, catalog.gaugeWeights],
+    [project, entries, network, byNetwork, catalog.gaugeWeights, catalog.labor.ductPerKg],
   );
   const [showSettings, setShowSettings] = useState(false);
   const settings: DuctSettings = project.duct ?? DEFAULT_DUCT_SETTINGS;
@@ -158,12 +161,25 @@ export function DuctsPanel() {
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         {showSettings && (
           <div className="grid grid-cols-3 gap-2 border-b border-neutral-800 bg-neutral-800/40 px-2 py-2 text-[11px] text-neutral-400">
-            <label className="col-span-3 block">
+            <label className="col-span-2 block">
               <span className="mb-0.5 block">Norma (bitola da chapa pelo lado maior)</span>
               <select
                 value={settings.norma}
-                onChange={(e) => patchSettings({ norma: Number(e.target.value) as 1 | 2 | 3 })}
+                onChange={(e) =>
+                  // the norma's parameters come from the company's table; the user may adjust
+                  setDuctSettings(
+                    settingsForNorma(
+                      settings,
+                      Number(e.target.value) as 1 | 2 | 3,
+                      catalog.ductNormas,
+                    ),
+                  )
+                }
                 className="h-6 w-full rounded bg-neutral-800 px-1 text-xs ring-1 ring-neutral-700"
+                title={`Limites de bitola (# 26 / # 24 / # 22 / # 20, cm): ${(
+                  settings.gaugeLimits ??
+                    normaDefaults(settings.norma, catalog.ductNormas).gaugeLimits
+                ).join(" / ")}`}
               >
                 {([1, 2, 3] as const).map((n) => (
                   <option key={n} value={n}>
@@ -172,6 +188,20 @@ export function DuctsPanel() {
                 ))}
               </select>
             </label>
+            <button
+              type="button"
+              onClick={() =>
+                setDuctSettings(settingsForNorma(settings, settings.norma, catalog.ductNormas))
+              }
+              className="self-end rounded px-1.5 py-1 text-neutral-300 ring-1 ring-neutral-700 hover:bg-neutral-800"
+              title={
+                catalog.remoteDuctNormas?.length
+                  ? "Volta aos parâmetros desta norma publicados pela empresa (App Takeoff); a mão de obra fica"
+                  : "Volta aos parâmetros desta norma da planilha (a empresa ainda não publicou os dela)"
+              }
+            >
+              Restaurar padrão da norma
+            </button>
             {(
               [
                 ["insulThickness", "Isolamento (mm)"],
@@ -179,7 +209,6 @@ export function DuctsPanel() {
                 ["rechapThickness", "Rechapeado (mm)"],
                 ["insulSlackPct", "Folga isolamento %"],
                 ["supportsPct", "Suportes % do peso"],
-                ["laborPerKg", "M. obra R$/kg"],
               ] as const
             ).map(([key, label]) => (
               <label key={key} className="block">
@@ -206,6 +235,27 @@ export function DuctsPanel() {
                 onChange={(e) =>
                   patchSettings({
                     sheetSlackPct: e.target.value === "" ? null : num(e.target.value),
+                  })
+                }
+                className={`${input} w-full`}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-0.5 block">M. obra R$/kg</span>
+              <input
+                type="number"
+                min={0}
+                step="any"
+                value={settings.laborPerKg ?? ""}
+                placeholder={String(catalog.labor.ductPerKg)}
+                title={`Vazio = R$ ${catalog.labor.ductPerKg}/kg (${
+                  catalog.remoteLabor?.ductPerKg !== undefined
+                    ? "mão de obra da empresa, App Takeoff"
+                    : "planilha; a empresa ainda não publicou a dela"
+                })`}
+                onChange={(e) =>
+                  patchSettings({
+                    laborPerKg: e.target.value === "" ? undefined : num(e.target.value),
                   })
                 }
                 className={`${input} w-full`}

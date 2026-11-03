@@ -77,6 +77,8 @@ import type * as model_procurement_priceHistory from "../model/procurement/price
 import type * as model_procurement_priceSelection from "../model/procurement/priceSelection.js";
 import type * as model_procurement_seedLaborPrices from "../model/procurement/seedLaborPrices.js";
 import type * as model_procurement_takeoffCatalog from "../model/procurement/takeoffCatalog.js";
+import type * as model_procurement_takeoffKits from "../model/procurement/takeoffKits.js";
+import type * as model_procurement_takeoffSettings from "../model/procurement/takeoffSettings.js";
 import type * as model_procurement_takeoffPromotion from "../model/procurement/takeoffPromotion.js";
 import type * as model_procurement_takeoffProposals from "../model/procurement/takeoffProposals.js";
 import type * as model_rh_alimonies from "../model/rh/alimonies.js";
@@ -94,7 +96,9 @@ import type * as suppliers from "../suppliers.js";
 import type * as systems from "../systems.js";
 import type * as takeoffAuth from "../takeoffAuth.js";
 import type * as takeoffCatalog from "../takeoffCatalog.js";
+import type * as takeoffKits from "../takeoffKits.js";
 import type * as takeoffMaterials from "../takeoffMaterials.js";
+import type * as takeoffSettings from "../takeoffSettings.js";
 import type * as takeoffs from "../takeoffs.js";
 import type * as technicianActivity from "../technicianActivity.js";
 import type * as technicianPortal from "../technicianPortal.js";
@@ -180,6 +184,8 @@ declare const fullApi: ApiFromModules<{
   "model/procurement/priceSelection": typeof model_procurement_priceSelection;
   "model/procurement/seedLaborPrices": typeof model_procurement_seedLaborPrices;
   "model/procurement/takeoffCatalog": typeof model_procurement_takeoffCatalog;
+  "model/procurement/takeoffKits": typeof model_procurement_takeoffKits;
+  "model/procurement/takeoffSettings": typeof model_procurement_takeoffSettings;
   "model/procurement/takeoffPromotion": typeof model_procurement_takeoffPromotion;
   "model/procurement/takeoffProposals": typeof model_procurement_takeoffProposals;
   "model/rh/alimonies": typeof model_rh_alimonies;
@@ -197,7 +203,9 @@ declare const fullApi: ApiFromModules<{
   systems: typeof systems;
   takeoffAuth: typeof takeoffAuth;
   takeoffCatalog: typeof takeoffCatalog;
+  takeoffKits: typeof takeoffKits;
   takeoffMaterials: typeof takeoffMaterials;
+  takeoffSettings: typeof takeoffSettings;
   takeoffs: typeof takeoffs;
   technicianActivity: typeof technicianActivity;
   technicianPortal: typeof technicianPortal;

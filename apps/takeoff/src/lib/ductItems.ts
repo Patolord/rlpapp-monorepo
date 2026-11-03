@@ -101,8 +101,10 @@ export function ductBillFor(
   network: Item,
   runs = ductRunsByNetwork(project).get(network.id) ?? [],
   gaugeWeights?: GaugeWeights,
+  /** The company's labour per kg, for a takeoff that sets none. */
+  laborPerKg?: number,
 ): DuctBillForNetwork {
-  const rows = ductBill(runs, project.duct ?? DEFAULT_DUCT_SETTINGS, gaugeWeights);
+  const rows = ductBill(runs, project.duct ?? DEFAULT_DUCT_SETTINGS, gaugeWeights, laborPerKg);
   const price = (row: DuctBillRow) => ductPrice(project, catalog, row);
   return { network, runs, rows, price, totals: billTotals(rows, price) };
 }
@@ -115,6 +117,7 @@ export function syncDuctItems(
   project: Project,
   catalog: () => readonly CatalogEntry[],
   gaugeWeights?: GaugeWeights,
+  laborPerKg?: number,
 ): Project {
   if (!project.items.some((i) => i.derived === "duct")) return project;
   const entries = catalog();
@@ -122,7 +125,14 @@ export function syncDuctItems(
   let changed = false;
   const items = project.items.map((it) => {
     if (it.derived !== "duct") return it;
-    const t = ductBillFor(project, entries, it, byNetwork.get(it.id) ?? [], gaugeWeights).totals;
+    const t = ductBillFor(
+      project,
+      entries,
+      it,
+      byNetwork.get(it.id) ?? [],
+      gaugeWeights,
+      laborPerKg,
+    ).totals;
     if (it.materialPrice === t.material && it.laborPrice === t.labor && it.manualQty === 1) {
       return it;
     }

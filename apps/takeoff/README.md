@@ -115,9 +115,19 @@ pnpm bench <pdf>       # vector extraction + indexing timings
 | `Ctrl+S` `Ctrl+E` | Save project / export Planilha .xlsx |
 | `Ctrl+Shift+E` | Relatório de recortes: marked-up PDF cutouts per location, with a live preview (reopens as it was left) |
 
-**Kits** (`T`, presets edited in "Presets de kit", saved with the catalog) create one linked
-measurement per material: a split's line set draws copper, insulation and cable in one run; a
-count kit places equipment, brackets and boxes with one click. Each kit has a **Rótulo no
+**Kits** (`T`, presets edited in "Presets de kit") create one linked measurement per material: a
+split's line set draws copper, insulation and cable in one run; a count kit places equipment,
+brackets and boxes with one click. The presets are the **company defaults** published with the
+catalog (edited in the dashboard under App Takeoff → Kits; the bundled factory presets until the
+company publishes any), with the user's own changes on top: a default edited here keeps the local
+version ("modificado aqui"), a default removed here stays hidden, a kit created here is "só aqui";
+"Restaurar padrão" drops a local edit. Every catalog refresh replaces the defaults and keeps the
+overrides, so a kit the user never touched always follows the company's version (the model is in
+`lib/overrides.ts` and `lib/kits.ts`, the shared types and factory presets in
+`@rlpapp/shared/takeoff/kits`). The weight table, the kg/m² per duct gauge, the prices per kg
+(Ctrl+K footer) and the VRF brand rules follow the same model: company defaults from the
+dashboard's App Takeoff section (the supplier's and the workbook's tables until the company
+publishes any), each user's changes kept on their machine. Each kit has a **Rótulo no
 desenho** shown before the run's quantity (`1/4" · 3/8" · 3.00 m`; beside the symbol for a count
 kit, `VE-01 · 1.200 m³/h`); the line-set presets come labelled with their liquid and gas
 diameters. Only one member of a kit run is labelled, on screen and in the report. Runs remember
@@ -126,19 +136,18 @@ open project, for a machine whose catalog lacks the kit); a run's own **Rótulo*
 takes over from the kit's. The label order is duct/VRF tag · label · quantity
 (`30×20 · VE-01 · 3.00 m`).
 
-Items can be saved to the catalog (star). The catalog is seeded from past budget sheets
-(`src/data/catalog.seed.json`) and follows the company app: signed in with the company account
+Items can be saved to the catalog (star). The catalog is the company app's (there is no bundled
+catalog any more: without the company's, the user has their own saved entries and the weight
+table): signed in with the company account
 (see below) or, as before, with the shared access token set in "Catálogo e preços"
 (`CATALOG_URL` in `src/lib/catalogRemote.ts`; `VITE_CATALOG_URL` at build time points a dev
 build elsewhere), it is fetched on start and by "Atualizar preços" in the Ctrl+K footer, cached
-locally, and preferred over the seed. Each line's material price shows where it came from (cloud, saved
-catalog, bundled sheets, typed, by weight) next to the price box. The company catalog carries a
-labour price per material (`laborPrice`, set by purchasing in Compras → Materiais); while a
-company entry has none (0), it borrows the labour of the seed entry with the same name (accents,
-case and the " — " between family and variant aside) and Ctrl+K marks it: the labour shows in
-italics and the price-source badge gets a dot, with "Mão de obra das planilhas anteriores" in the
-tooltip. An air terminal (the "Bocas de Ar" group, or a grelha, difusor or veneziana by name)
-still without labour gets the usual R$ 45 a piece, marked the same way.
+locally. Each line's material price shows where it came from (cloud, saved catalog, the app's
+tables, typed, by weight) next to the price box. The company catalog carries a labour price per
+material (`laborPrice`, set by purchasing in Compras → Materiais). An air terminal (the "Bocas
+de Ar" group, or a grelha, difusor or veneziana by name) without labour gets the usual R$ 45 a
+piece, and Ctrl+K marks it: the labour shows in italics and the price-source badge gets a dot,
+with the reason in the tooltip.
 
 The status bar shows the page scale; click it for the 1:N presets or calibrate by measuring.
 Items carry a budget section (Equipamentos, Rede de Dutos, Bocas de Ar, ...), a material and
@@ -149,16 +158,22 @@ GERAL and the BDI multiplier.
 
 Two tools quantify whole networks instead of single materials. **Duto (D)** asks the section of
 each run and the Dutos tab computes sheet metal, insulation, flanges, supports and labour per
-"Rede de dutos" item (NBR 16401 workbook). The calculation itself (gauge tables, norma limits,
+"Rede de dutos" item (NBR 16401 workbook). Choosing the norma in "Parâmetros" loads that norma's
+gauge limits, thicknesses and allowances from the company's table (dashboard, App Takeoff →
+Parâmetros; the workbook's until the company publishes one), which the takeoff may then adjust;
+the labour per kg is the company's unless the takeoff sets its own. The calculation itself (gauge tables, norma limits,
 bill of materials) lives in `packages/shared/src/engenharia/ducts.ts`
 (`@rlpapp/shared/engenharia/ducts`): it is the only duct calculator of the monorepo (the
 dashboard's one was removed), so any change to it is a change for every app. **VRF (Y)** asks what each refrigerant run is (saída
 da condensadora, trecho intermediário, ramal da evaporadora) and the capacity that sizes it;
 the VRF tab derives the gas/liquid diameters from the brand's tables (`lib/vrf.ts`, editable in
-"Regras das marcas", saved with the catalog), counts evaporators and Y-kits, and bills copper
+"Marcas de VRF": the company's rules published with the catalog, under this machine's
+overrides, like the kits), counts evaporators and Y-kits, and bills copper
 (priced by weight), elbows, 13 mm insulation, cables, boxes, supports and labour per evaporator,
-following the "Levantamento VRF Completo" workbook. Each system is one "Sistema VRF" item in
-the budget (quantity = identical systems); the detail goes to the exported VRF workbook.
+following the "Levantamento VRF Completo" workbook. The allowance, elbow threshold and
+insulation are the takeoff's; the labour per evaporator is the company's (App Takeoff →
+Parâmetros) unless the takeoff sets its own. Each system is one "Sistema VRF" item in the
+budget (quantity = identical systems); the detail goes to the exported VRF workbook.
 
 The Excel export mirrors the RLP workbook: a `Resumo` sheet, one sheet per system (an item's
 "sistema" tag, defaulting to the project system), sections per location (ambiente) or per group

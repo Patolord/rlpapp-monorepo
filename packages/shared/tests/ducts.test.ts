@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_DUCT_SETTINGS, ductBill, gaugeKgm2, gaugeName } from "../src/engenharia/ducts";
+import {
+  DEFAULT_DUCT_NORMAS,
+  DEFAULT_DUCT_SETTINGS,
+  DEFAULT_LABOR_PER_KG,
+  ductBill,
+  gaugeKgm2,
+  gaugeName,
+  normaDefaults,
+  settingsForNorma,
+} from "../src/engenharia/ducts";
 
 const row = (rows: ReturnType<typeof ductBill>, name: string) => rows.find((r) => r.name === name);
 
@@ -12,6 +21,33 @@ describe("duct take-off (NBR 16401 workbook)", () => {
     expect(gaugeName(40, 2)).toBe("# 26");
     expect(gaugeName(100, 2)).toBe("# 22");
     expect(gaugeName(180, 3)).toBe("# 20");
+    // the company's limits for a norma replace the workbook's
+    expect(gaugeName(40, 1, [50, 80, 140, 210])).toBe("# 26");
+  });
+
+  it("switches a takeoff to a norma with the table's values, keeping its labour", () => {
+    const current = { ...DEFAULT_DUCT_SETTINGS, norma: 2 as const, laborPerKg: 25 };
+    const custom = [{ ...normaDefaults(1), insulThickness: 38, gaugeLimits: [50, 80, 140, 210] as const }];
+    const switched = settingsForNorma(current, 1, custom.map((n) => ({ ...n, gaugeLimits: [...n.gaugeLimits] as [number, number, number, number] })));
+    expect(switched).toMatchObject({ norma: 1, insulThickness: 38, gaugeLimits: [50, 80, 140, 210], laborPerKg: 25 });
+    // a norma missing from the table falls back to the workbook's row
+    expect(settingsForNorma(current, 3, []).gaugeLimits).toEqual(DEFAULT_DUCT_NORMAS[2].gaugeLimits);
+    expect(DEFAULT_DUCT_NORMAS.map((n) => n.norma)).toEqual([1, 2, 3]);
+  });
+
+  it("prices labour from the takeoff's value, else the company's, else the workbook's", () => {
+    const run = {
+      spec: { a: 100, b: 50, insulation: "S" as const, inner: "S" as const, flange: "P" as const, rechapeado: false, paintRechap: false },
+      length: 100,
+    };
+    const labor = (rows: ReturnType<typeof ductBill>) => rows.find((r) => /m[aã]o de obra/i.test(r.name))!;
+    const sheetKg = (rows: ReturnType<typeof ductBill>) => labor(rows).qty;
+    const base = ductBill([run], DEFAULT_DUCT_SETTINGS);
+    const kg = sheetKg(base);
+    expect(kg).toBeGreaterThan(500);
+    expect(labor(base).labor).toBe(DEFAULT_LABOR_PER_KG);
+    expect(labor(ductBill([run], DEFAULT_DUCT_SETTINGS, undefined, 30)).labor).toBe(30);
+    expect(labor(ductBill([run], { ...DEFAULT_DUCT_SETTINGS, laborPerKg: 22 }, undefined, 30)).labor).toBe(22);
   });
 
   it("matches the workbook example: 40×25 cm, 3 m, Powermatic, no insulation, norma ABNT", () => {

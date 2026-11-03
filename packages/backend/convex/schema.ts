@@ -130,6 +130,69 @@ export const takeoffItemStatus = v.union(
 /** Origem de um takeoff criado fora do app web. */
 export const takeoffSource = v.literal("desktop");
 
+// Kits (presets) do RLP Takeoff: um trecho desenhado (ou um clique) mede
+// vários materiais de uma vez. Mesma forma de `Kit` em
+// @rlpapp/shared/takeoff/kits, que o app desktop consome.
+export const takeoffKitMode = v.union(v.literal("linear"), v.literal("count"));
+export const takeoffKitComponentKind = v.union(
+  v.literal("count"),
+  v.literal("linear"),
+  v.literal("area")
+);
+/** Linha da tabela de materiais por peso do RLP Takeoff. */
+export const takeoffWeightRow = v.object({
+  name: v.string(),
+  group: v.string(),
+  /** kg por metro ("m") ou por peça ("pç"). */
+  unit: v.union(v.literal("m"), v.literal("pç")),
+  /** Chave do insumo (BASE_MATERIALS em @rlpapp/shared/takeoff/weights). */
+  material: v.string(),
+  kgPerUnit: v.number(),
+});
+
+/** Linha de uma tabela de bitolas de VRF: a partir de `hp`, este par gás/líquido. */
+export const takeoffVrfHpRow = v.object({
+  hp: v.number(),
+  gas: v.string(),
+  liquid: v.string(),
+});
+
+/** Regras de uma marca de VRF (mesma forma de VrfBrand em @rlpapp/shared). */
+export const takeoffVrfBrand = v.object({
+  id: v.string(),
+  name: v.string(),
+  main: v.array(takeoffVrfHpRow),
+  trunk: v.array(takeoffVrfHpRow),
+  branch: v.array(takeoffVrfHpRow),
+  ykit: v.array(v.object({ hp: v.number(), model: v.string() })),
+});
+
+/** Parâmetros de dutos de uma norma (DuctNormaDefaults em @rlpapp/shared/engenharia/ducts). */
+export const takeoffDuctNorma = v.object({
+  norma: v.union(v.literal(1), v.literal(2), v.literal(3)),
+  /** Maior lado (cm) coberto por # 26, # 24, # 22 e # 20; acima, # 18. */
+  gaugeLimits: v.array(v.number()),
+  insulThickness: v.number(),
+  flangeSpacing: v.number(),
+  rechapThickness: v.number(),
+  /** null = regra da planilha (20 %, 15 % acima de 10 000 kg). */
+  sheetSlackPct: v.union(v.number(), v.null()),
+  insulSlackPct: v.number(),
+  supportsPct: v.number(),
+});
+
+export const takeoffKitComponent = v.object({
+  /** Nome no catálogo do app (produto da empresa ou material das planilhas). */
+  name: v.string(),
+  /** Seção do orçamento (Tubulações, Equipamentos, ...). */
+  group: v.string(),
+  /** Disciplina (Infra AC, Detecção de Incêndio, ...). */
+  system: v.optional(v.string()),
+  kind: takeoffKitComponentKind,
+  /** Multiplicador da medida (kit linear) ou quantidade por clique (kit de contagem). */
+  factor: v.number(),
+});
+
 /** Resumo de uma aba da planilha orçamentária publicada pelo desktop. */
 export const takeoffBudgetSheet = v.object({
   name: v.string(),
@@ -918,6 +981,77 @@ export default defineSchema({
     .index("by_material", ["materialId"])
     .index("by_supplier_material", ["supplierId", "materialId"])
     .index("by_supplier_code", ["supplierId", "supplierCode"]),
+
+  // Padrões da empresa dos kits do RLP Takeoff, editados em App Takeoff →
+  // Kits no dashboard e publicados com o catálogo (`takeoffCatalog`). `key` é
+  // o id que o app usa (os trechos salvos num projeto o guardam); os kits de
+  // fábrica do app têm chaves fixas (kit-9-000-inverter) para que a cópia
+  // local de cada usuário continue pareada com a da empresa. Remover
+  // desativa, nunca apaga: a chave fica reservada.
+  takeoffKits: defineTable({
+    key: v.string(),
+    name: v.string(),
+    mode: takeoffKitMode,
+    /** Prefixo do rótulo no desenho ('1/4" · 3/8"'); ausente = sem rótulo. */
+    label: v.optional(v.string()),
+    components: v.array(takeoffKitComponent),
+    sortOrder: v.number(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+  })
+    .index("by_key", ["key"])
+    .index("by_active_sortOrder", ["active", "sortOrder"]),
+
+  // Demais configurações do RLP Takeoff editadas em App Takeoff no dashboard e
+  // publicadas com o catálogo: um documento por `kind`. Mesmas formas de
+  // @rlpapp/shared/takeoff/weights e vrfBrands. O app aplica tudo como padrão
+  // sob as alterações locais de cada usuário.
+  takeoffSettings: defineTable(
+    v.union(
+      // Materiais por peso (kg por unidade × preço do insumo) e kg/m² por
+      // bitola de chapa dos dutos.
+      v.object({
+        kind: v.literal("weights"),
+        rows: v.array(takeoffWeightRow),
+        gaugeWeights: v.record(v.string(), v.number()),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.id("users")),
+      }),
+      // Preço por kg dos insumos (cobre, cobre_grosso, chapa).
+      v.object({
+        kind: v.literal("basePrices"),
+        prices: v.record(v.string(), v.number()),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.id("users")),
+      }),
+      // Regras das marcas de VRF: tabelas de bitola por HP e modelos de Y-kit.
+      v.object({
+        kind: v.literal("vrfBrands"),
+        brands: v.array(takeoffVrfBrand),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.id("users")),
+      }),
+      // Mão de obra global: R$/kg de chapa (dutos) e R$ por evaporadora (VRF).
+      // Um takeoff pode fixar o próprio valor; ausente aqui = padrão da planilha.
+      v.object({
+        kind: v.literal("labor"),
+        ductPerKg: v.optional(v.number()),
+        vrfPerEvap: v.optional(v.number()),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.id("users")),
+      }),
+      // Parâmetros de dutos por norma (bitola pelo lado maior, espessuras e
+      // folgas): o takeoff parte deles ao escolher a norma e pode ajustar.
+      v.object({
+        kind: v.literal("ductNormas"),
+        normas: v.array(takeoffDuctNorma),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.id("users")),
+      })
+    )
+  ).index("by_kind", ["kind"]),
 
   takeoffs: defineTable({
     projectId: v.optional(v.id("projects")),

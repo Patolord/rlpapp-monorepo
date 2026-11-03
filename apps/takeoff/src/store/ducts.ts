@@ -84,11 +84,11 @@ export const createDuctSlice: Slice<DuctSlice> = (set, get) => ({
         },
       ],
     }));
-    const norma = (get().project.duct ?? DEFAULT_DUCT_SETTINGS).norma;
+    const duct = get().project.duct ?? DEFAULT_DUCT_SETTINGS;
     set({
       lastDuctSpec: spec,
       activeItemId: itemId,
-      status: `${ductLabel(spec)} em ${target.name}: chapa ${gaugeName(spec.a, norma)} · rede recalculada`,
+      status: `${ductLabel(spec)} em ${target.name}: chapa ${gaugeName(spec.a, duct.norma, duct.gaugeLimits)} · rede recalculada`,
     });
   },
 

@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 45 módulos, 326 funções públicas.
+// 47 módulos, 338 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -40,14 +40,16 @@ import * as m33 from "../suppliers";
 import * as m34 from "../systems";
 import * as m35 from "../takeoffAuth";
 import * as m36 from "../takeoffCatalog";
-import * as m37 from "../takeoffMaterials";
-import * as m38 from "../takeoffs";
-import * as m39 from "../technicianActivity";
-import * as m40 from "../technicianPortal";
-import * as m41 from "../timeClock";
-import * as m42 from "../timeClockPunch";
-import * as m43 from "../towers";
-import * as m44 from "../users";
+import * as m37 from "../takeoffKits";
+import * as m38 from "../takeoffMaterials";
+import * as m39 from "../takeoffSettings";
+import * as m40 from "../takeoffs";
+import * as m41 from "../technicianActivity";
+import * as m42 from "../technicianPortal";
+import * as m43 from "../timeClock";
+import * as m44 from "../timeClockPunch";
+import * as m45 from "../towers";
+import * as m46 from "../users";
 
 export type AccessHint =
   | { kind: "public" }
@@ -95,14 +97,16 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   systems: m34,
   takeoffAuth: m35,
   takeoffCatalog: m36,
-  takeoffMaterials: m37,
-  takeoffs: m38,
-  technicianActivity: m39,
-  technicianPortal: m40,
-  timeClock: m41,
-  timeClockPunch: m42,
-  towers: m43,
-  users: m44,
+  takeoffKits: m37,
+  takeoffMaterials: m38,
+  takeoffSettings: m39,
+  takeoffs: m40,
+  technicianActivity: m41,
+  technicianPortal: m42,
+  timeClock: m43,
+  timeClockPunch: m44,
+  towers: m45,
+  users: m46,
 };
 
 export const ACCESS_HINTS: Record<string, AccessHint> = {
@@ -378,6 +382,11 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "systems:updateSystemDetails": { kind: "permission", permission: "engenharia.write" },
   "takeoffAuth:createCode": { kind: "public" },
   "takeoffCatalog:current": { kind: "permission", permission: "suprimentos.read" },
+  "takeoffKits:list": { kind: "permission", permission: "suprimentos.read" },
+  "takeoffKits:missingFactory": { kind: "permission", permission: "suprimentos.read" },
+  "takeoffKits:remove": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
+  "takeoffKits:save": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
+  "takeoffKits:seedDefaults": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
   "takeoffMaterials:proposeAsUser": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
   "takeoffs:addItem": { kind: "permission", permission: "engenharia.write" },
   "takeoffs:applySuggestedPrice": { kind: "permission", permission: "engenharia.write" },
@@ -391,6 +400,13 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "takeoffs:removeFromDesktop": { kind: "permission", permission: "engenharia.write" },
   "takeoffs:removeItem": { kind: "permission", permission: "engenharia.write" },
   "takeoffs:updateItem": { kind: "permission", permission: "engenharia.write" },
+  "takeoffSettings:get": { kind: "permission", permission: "suprimentos.read" },
+  "takeoffSettings:saveBasePrices": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
+  "takeoffSettings:saveDuctNormas": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
+  "takeoffSettings:saveLabor": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
+  "takeoffSettings:saveVrfBrands": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
+  "takeoffSettings:saveWeights": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
+  "takeoffSettings:seedDefaults": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
   "technicianActivity:listActivityUsers": { kind: "authenticated" },
   "technicianActivity:listMineForProject": { kind: "authenticated" },
   "technicianActivity:listMineProjects": { kind: "authenticated" },

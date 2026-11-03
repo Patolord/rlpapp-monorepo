@@ -225,7 +225,12 @@ export const createProjectSlice: Slice<ProjectSlice> = (set, get) => ({
     // derived prices follow their sources: duct items from the runs, weight lines from R$/kg
     const next = syncWeightItems(
       syncVrfItems(
-        syncDuctItems(mutated, () => mergeCatalog(get().catalog), get().catalog.gaugeWeights),
+        syncDuctItems(
+          mutated,
+          () => mergeCatalog(get().catalog),
+          get().catalog.gaugeWeights,
+          get().catalog.labor.ductPerKg,
+        ),
         () => get().vrfPricing(),
         () => get().catalog.vrfBrands,
       ),

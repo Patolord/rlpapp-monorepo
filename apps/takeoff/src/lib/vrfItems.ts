@@ -90,6 +90,8 @@ export interface VrfPricing {
   catalog: readonly CatalogEntry[];
   weights: readonly WeightRow[];
   basePrices: BasePrices | undefined;
+  /** The company's installation labour per evaporator, for a takeoff that sets none. */
+  laborPerEvap?: number;
 }
 
 /**
@@ -134,7 +136,13 @@ export function vrfBillFor(
 ): VrfBillForSystem {
   const brand = brandOf(brands, item.vrf?.brand);
   const hp = item.vrf?.hp ?? DEFAULT_SYSTEM_HP;
-  const bill = vrfBill(runs, brand, hp, project.vrfSettings ?? DEFAULT_VRF_SETTINGS);
+  const bill = vrfBill(
+    runs,
+    brand,
+    hp,
+    project.vrfSettings ?? DEFAULT_VRF_SETTINGS,
+    pricing.laborPerEvap,
+  );
   const price = (row: VrfBillRow) => vrfPrice(project, pricing, row);
   return { ...bill, item, brand, hp, runs, price, totals: vrfTotals(bill.rows, price) };
 }
@@ -177,4 +185,5 @@ export const vrfPricingOf = (store: CatalogStore): VrfPricing => ({
   catalog: mergeCatalog(store),
   weights: store.weights ?? [],
   basePrices: store.basePrices,
+  laborPerEvap: store.labor.vrfPerEvap,
 });

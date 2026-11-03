@@ -28,9 +28,20 @@ export interface DuctSpec {
   paintRechap: boolean;
 }
 
-export interface DuctSettings {
-  /** 1 ABNT, 2 ABNT v.2008, 3 ABNT c/ reforço TR. */
-  norma: 1 | 2 | 3;
+export type DuctNorma = 1 | 2 | 3;
+
+/** Largest lado maior (cm) that # 26, # 24, # 22 and # 20 cover; beyond the last is # 18. */
+export type GaugeLimits = [number, number, number, number];
+
+/**
+ * The parameters a norma fixes: which gauge a duct takes by its larger side, and the usual
+ * thicknesses and allowances. The company publishes its own table (dashboard, App Takeoff →
+ * Parâmetros); `DEFAULT_DUCT_NORMAS` is the workbook's. A takeoff starts from the table's
+ * values for its norma and may adjust them (see settingsForNorma).
+ */
+export interface DuctNormaDefaults {
+  norma: DuctNorma;
+  gaugeLimits: GaugeLimits;
   /** External insulation thickness, mm. */
   insulThickness: number;
   /** Flange spacing (duct section length), m. */
@@ -41,9 +52,32 @@ export interface DuctSettings {
   sheetSlackPct: number | null;
   insulSlackPct: number;
   supportsPct: number;
-  /** Labour, R$ per kg of sheet metal (doubled below 500 kg, as in the workbook). */
-  laborPerKg: number;
 }
+
+export interface DuctSettings {
+  /** 1 ABNT, 2 ABNT v.2008, 3 ABNT c/ reforço TR. */
+  norma: DuctNorma;
+  /** The norma's gauge limits as applied to this takeoff; unset = the workbook's for `norma`. */
+  gaugeLimits?: GaugeLimits;
+  /** External insulation thickness, mm. */
+  insulThickness: number;
+  /** Flange spacing (duct section length), m. */
+  flangeSpacing: number;
+  /** Rechapeamento thickness, mm. */
+  rechapThickness: number;
+  /** Sheet-metal allowance %, or null for the workbook rule (20 %, 15 % above 10 000 kg). */
+  sheetSlackPct: number | null;
+  insulSlackPct: number;
+  supportsPct: number;
+  /**
+   * Labour, R$ per kg of sheet metal (doubled below 500 kg, as in the workbook), set for this
+   * takeoff; unset = the company's price (`laborPerKg` of ductBill), else DEFAULT_LABOR_PER_KG.
+   */
+  laborPerKg?: number;
+}
+
+/** The workbook's labour per kg of sheet metal, used until the company publishes its own. */
+export const DEFAULT_LABOR_PER_KG = 18;
 
 export const DEFAULT_DUCT_SETTINGS: DuctSettings = {
   norma: 2,
@@ -53,7 +87,6 @@ export const DEFAULT_DUCT_SETTINGS: DuctSettings = {
   sheetSlackPct: null,
   insulSlackPct: 15,
   supportsPct: 30,
-  laborPerKg: 18,
 };
 
 export const DEFAULT_DUCT_SPEC: DuctSpec = {
@@ -122,16 +155,57 @@ export function gaugeKgm2(weights?: GaugeWeights): PerGauge {
   return [weight(g26), weight(g24), weight(g22), weight(g20), weight(g18)];
 }
 
-/** Largest lado maior (cm) each gauge covers, per norma; beyond the last is # 18. */
-const LIMITS: Record<DuctSettings["norma"], [number, number, number, number]> = {
+/** Largest lado maior (cm) each gauge covers, per norma (the workbook); beyond the last is # 18. */
+const LIMITS: Record<DuctNorma, GaugeLimits> = {
   1: [30, 75, 140, 210],
   2: [70, 90, 120, 150],
   3: [90, 120, 150, 180],
 };
 
+export const DUCT_NORMAS: readonly DuctNorma[] = [1, 2, 3];
+
+/** The workbook's row for a norma: its gauge limits and the usual thicknesses and allowances. */
+export const workbookNorma = (norma: DuctNorma): DuctNormaDefaults => ({
+  norma,
+  gaugeLimits: [...LIMITS[norma]] as GaugeLimits,
+  insulThickness: DEFAULT_DUCT_SETTINGS.insulThickness,
+  flangeSpacing: DEFAULT_DUCT_SETTINGS.flangeSpacing,
+  rechapThickness: DEFAULT_DUCT_SETTINGS.rechapThickness,
+  sheetSlackPct: DEFAULT_DUCT_SETTINGS.sheetSlackPct,
+  insulSlackPct: DEFAULT_DUCT_SETTINGS.insulSlackPct,
+  supportsPct: DEFAULT_DUCT_SETTINGS.supportsPct,
+});
+
+/** The workbook's table, one row per norma. */
+export const DEFAULT_DUCT_NORMAS: readonly DuctNormaDefaults[] = DUCT_NORMAS.map(workbookNorma);
+
+/** The table's row for a norma, else the workbook's. */
+export const normaDefaults = (
+  norma: DuctNorma,
+  normas: readonly DuctNormaDefaults[] = DEFAULT_DUCT_NORMAS,
+): DuctNormaDefaults => normas.find((n) => n.norma === norma) ?? workbookNorma(norma);
+
+/**
+ * A takeoff's settings switched to a norma: its gauge limits, thicknesses and allowances from
+ * the table (the company's), the labour untouched.
+ */
+export function settingsForNorma(
+  current: DuctSettings,
+  norma: DuctNorma,
+  normas: readonly DuctNormaDefaults[] = DEFAULT_DUCT_NORMAS,
+): DuctSettings {
+  const { norma: _n, ...values } = normaDefaults(norma, normas);
+  void _n;
+  return { ...current, norma, ...values, gaugeLimits: [...values.gaugeLimits] as GaugeLimits };
+}
+
 /** Index into GAUGES for a duct whose larger side is `aCm`. */
-export function gaugeIndex(aCm: number, norma: DuctSettings["norma"]): GaugeIndex {
-  const [l26, l24, l22, l20] = LIMITS[norma];
+export function gaugeIndex(
+  aCm: number,
+  norma: DuctNorma,
+  limits: GaugeLimits = LIMITS[norma],
+): GaugeIndex {
+  const [l26, l24, l22, l20] = limits;
   if (aCm <= l26) return 0;
   if (aCm <= l24) return 1;
   if (aCm <= l22) return 2;
@@ -139,8 +213,8 @@ export function gaugeIndex(aCm: number, norma: DuctSettings["norma"]): GaugeInde
   return 4;
 }
 
-export const gaugeName = (aCm: number, norma: DuctSettings["norma"]): string =>
-  GAUGES[gaugeIndex(aCm, norma)].name;
+export const gaugeName = (aCm: number, norma: DuctNorma, limits?: GaugeLimits): string =>
+  GAUGES[gaugeIndex(aCm, norma, limits)].name;
 
 export const ductLabel = (s: DuctSpec): string => `Duto ${s.a}×${s.b} cm`;
 
@@ -212,8 +286,11 @@ export function ductBill(
   runs: DuctRun[],
   settings: DuctSettings = DEFAULT_DUCT_SETTINGS,
   weights?: GaugeWeights,
+  /** The company's labour per kg, used when the settings set none. */
+  laborPerKg: number = DEFAULT_LABOR_PER_KG,
 ): DuctBillRow[] {
   const s = settings;
+  const laborKg = s.laborPerKg ?? laborPerKg;
   const kgm2 = gaugeKgm2(weights);
   const areaByGauge: PerGauge = [0, 0, 0, 0, 0];
   let manta = 0;
@@ -239,7 +316,7 @@ export function ductBill(
     if (D <= 0 || spec.a <= 0 || spec.b <= 0) continue;
     const per = ((spec.a + spec.b) / 100) * 2;
     const area = per * D;
-    areaByGauge[gaugeIndex(spec.a, s.norma)] += area;
+    areaByGauge[gaugeIndex(spec.a, s.norma, s.gaugeLimits)] += area;
     switch (spec.insulation) {
       case "L":
         manta += area;
@@ -360,7 +437,7 @@ export function ductBill(
   );
 
   if (sheetKg > 0) {
-    const perKg = sheetKg < 500 ? s.laborPerKg * 2 : s.laborPerKg;
+    const perKg = sheetKg < 500 ? laborKg * 2 : laborKg;
     add(LABOR_ROW, sheetGroup, "kg", sheetKg, 0, perKg);
   }
   return rows;

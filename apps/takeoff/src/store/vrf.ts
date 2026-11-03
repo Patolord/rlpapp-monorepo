@@ -1,4 +1,4 @@
-import { saveCatalogStore } from "../lib/catalog";
+import { diffVrfBrands, saveCatalogStore, withCompanyDefaults } from "../lib/catalog";
 import type { Pt } from "../lib/geom";
 import { type Item, newId } from "../lib/types";
 import {
@@ -46,7 +46,14 @@ export interface VrfSlice {
   /** Unit price of a VRF material in this takeoff (bill row name). */
   setVrfPrice(name: string, price: number): void;
   /** Replace the VRF brand rules, saved with the catalog. */
+  /**
+   * Replace the brand list the user works with. What differs from the company defaults is kept
+   * as a local override (an edited brand, a removed brand, a brand of this machine); the rest
+   * follows the defaults on every catalog refresh.
+   */
   saveVrfBrands(brands: VrfBrand[]): Promise<void>;
+  /** The open takeoff's systems follow the brand rules in use (a setting, not an edit: no undo). */
+  resyncVrf(): void;
   /** Everything that prices a VRF bill row (catalog, copper weights, R$/kg). */
   vrfPricing(): VrfPricing;
 }
@@ -60,6 +67,15 @@ export const createVrfSlice: Slice<VrfSlice> = (set, get) => ({
   setPendingVrf: (pendingVrf) => set({ pendingVrf }),
   setVrfEditIds: (vrfEditIds) => set({ vrfEditIds }),
   setVrfBrandsEditorOpen: (vrfBrandsEditorOpen) => set({ vrfBrandsEditorOpen }),
+  resyncVrf: () => {
+    const { project, catalog } = get();
+    const synced = syncVrfItems(
+      project,
+      () => get().vrfPricing(),
+      () => catalog.vrfBrands,
+    );
+    if (synced !== project) set({ project: synced, dirty: true });
+  },
   vrfPricing: () => vrfPricingOf(get().catalog),
 
   addVrfSystem: (opts = {}) => {
@@ -163,17 +179,18 @@ export const createVrfSlice: Slice<VrfSlice> = (set, get) => ({
   setVrfPrice: (name, price) =>
     get().commit((p) => ({ ...p, vrfPrices: { ...p.vrfPrices, [name]: price } })),
 
-  saveVrfBrands: async (vrfBrands) => {
-    const catalog = { ...get().catalog, vrfBrands };
-    set({ catalog, status: `${vrfBrands.length} marcas de VRF salvas` });
-    // the open takeoff's systems follow the new rules at once (a setting, not an edit: no undo)
-    const { project } = get();
-    const synced = syncVrfItems(
-      project,
-      () => get().vrfPricing(),
-      () => vrfBrands,
-    );
-    if (synced !== project) set({ project: synced, dirty: true });
+  saveVrfBrands: async (brands) => {
+    const before = get().catalog;
+    // what differs from the company defaults stays as this machine's override (see lib/overrides)
+    const catalog = withCompanyDefaults(before, diffVrfBrands(before, brands));
+    const own = catalog.vrfBrandOverrides.length + catalog.vrfBrandRemoved.length;
+    set({
+      catalog,
+      status: `${catalog.vrfBrands.length} marcas de VRF salvas${
+        own > 0 ? ` (${own} ${own === 1 ? "alteração local" : "alterações locais"})` : ""
+      }`,
+    });
+    get().resyncVrf();
     try {
       await saveCatalogStore(catalog);
     } catch (e) {
