@@ -49,9 +49,13 @@ class ClerkApiError extends Error {
   }
 }
 
-async function clerkRequest<T>(path: string, body?: Record<string, unknown>): Promise<T> {
+async function clerkRequest<T>(
+  path: string,
+  body?: Record<string, unknown>,
+  method: "GET" | "POST" = "POST"
+): Promise<T> {
   const response = await fetch(`${CLERK_API}${path}`, {
-    method: "POST",
+    method,
     headers: {
       Authorization: `Bearer ${env.CLERK_SECRET_KEY}`,
       "Content-Type": "application/json",
@@ -115,22 +119,41 @@ async function createClerkInvitation(args: {
 }
 
 /**
- * Revoga a invitation. O Clerk responde 400 quando ela já não está pendente
- * (aceita, expirada ou revogada antes) e 404 quando não existe mais; nos dois
- * casos o link já não vale e seguimos. Qualquer outra falha (chave inválida,
- * rede, 5xx) interrompe, para não apagar o cadastro com o link ainda ativo.
+ * Estado atual da invitation no Clerk, ou null se não existe (ou já foi
+ * revogada: a listagem padrão não traz revogadas). `query` filtra por id.
+ */
+async function findClerkInvitation(invitationId: string): Promise<ClerkInvitationResponse | null> {
+  const result = await clerkRequest<
+    ClerkInvitationResponse[] | { data: ClerkInvitationResponse[] }
+  >(`/invitations?query=${encodeURIComponent(invitationId)}&limit=10`, undefined, "GET");
+  const list = Array.isArray(result) ? result : result.data;
+  return list.find((invitation) => invitation.id === invitationId) ?? null;
+}
+
+/**
+ * Revoga a invitation, garantindo que o link deixou de valer antes de o
+ * chamador apagar ou recriar o cadastro. Se o Clerk recusar (400/404), confere
+ * o estado: só segue quando a invitation não existe mais ou já não está
+ * pendente (aceita, expirada, revogada antes). Qualquer outra falha (chave
+ * inválida, rede, 5xx) interrompe.
  */
 async function revokeClerkInvitation(invitationId: string): Promise<void> {
   try {
     await clerkRequest<ClerkInvitationResponse>(`/invitations/${invitationId}/revoke`);
+    return;
   } catch (error) {
-    if (error instanceof ClerkApiError && (error.status === 400 || error.status === 404)) {
-      console.warn(
-        `Clerk: invitation ${invitationId} já não estava pendente (${error.code ?? error.status})`
-      );
-      return;
+    if (!(error instanceof ClerkApiError) || (error.status !== 400 && error.status !== 404)) {
+      throw error;
     }
-    throw error;
+    const current = await findClerkInvitation(invitationId);
+    if (current?.status === "pending") {
+      throw new Error(
+        `Não foi possível cancelar o convite no Clerk: ${error.message}`
+      );
+    }
+    console.warn(
+      `Clerk: invitation ${invitationId} já não estava pendente (${current?.status ?? "inexistente"})`
+    );
   }
 }
 
