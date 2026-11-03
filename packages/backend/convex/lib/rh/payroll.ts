@@ -15,8 +15,10 @@ export const MONTH_LABELS = [
 
 export const DEFAULT_MEAL_VOUCHER_PER_DAY_CENTS = 2500;
 export const DEFAULT_FOOD_BASKET_CENTS = 35_000;
-export const DEFAULT_DAILY_TRANSIT_CENTS = 2140;
-export const DEFAULT_TRANSPORT_FOOD_DAYS = 22;
+export {
+  DEFAULT_DAILY_TRANSIT_CENTS,
+  DEFAULT_TRANSPORT_FOOD_DAYS,
+} from "@rlpapp/shared/rh/staffGroups";
 export const DEFAULT_PAYMENT_DAY = 5;
 
 export type MonthKey = { year: number; month: number };

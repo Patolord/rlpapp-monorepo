@@ -19,6 +19,18 @@ import {
   previousMonth,
 } from "./lib/rh/payroll";
 import { employeePaymentMethod } from "./schema";
+import {
+  alimonyLineValidator,
+  alimonyTotals,
+  alimonyTotalsValidator,
+  alimonyValidator,
+  findAlimonyLine,
+  insertAlimonyLine,
+  listActiveAlimoniesForEmployee,
+  listAlimonyLinesForRun,
+  toAlimonyLineRow,
+  toAlimonyRow,
+} from "./model/rh/alimonies";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 
@@ -392,6 +404,12 @@ export const getWorkspace = hrQuery({
         jobTitle: v.union(v.string(), v.null()),
       })
     ),
+    // Pensões alimentícias do mês: linhas próprias, pagas ao beneficiário,
+    // com totais separados dos totais dos funcionários.
+    alimonyLines: v.array(alimonyLineValidator),
+    alimonyTotals: alimonyTotalsValidator,
+    // Pensões ativas de funcionários desta folha que ainda não têm linha.
+    availableAlimonies: v.array(alimonyValidator),
   }),
   handler: async (ctx, args) => {
     assertYear(args.year);
@@ -426,6 +444,9 @@ export const getWorkspace = hrQuery({
             code: employee.code ?? null,
             jobTitle: employee.jobTitle ?? null,
           })),
+        alimonyLines: [],
+        alimonyTotals: alimonyTotals([]),
+        availableAlimonies: [],
       };
     }
 
@@ -464,6 +485,17 @@ export const getWorkspace = hrQuery({
     const paidLines = sorted.filter((line) => line.paid);
     const usedIds = new Set(sorted.map((line) => line.employeeId));
 
+    const alimonyLines = (await listAlimonyLinesForRun(ctx, run._id)).sort(
+      (a, b) => a.beneficiaryName.localeCompare(b.beneficiaryName, "pt-BR")
+    );
+    const alimonyLineIds = new Set(alimonyLines.map((line) => line.alimonyId));
+    const availableAlimonies: Doc<"employeeAlimonies">[] = [];
+    for (const employeeId of usedIds) {
+      for (const alimony of await listActiveAlimoniesForEmployee(ctx, employeeId)) {
+        if (!alimonyLineIds.has(alimony._id)) availableAlimonies.push(alimony);
+      }
+    }
+
     return {
       run: toRunRow(run),
       lines: lineRows,
@@ -494,9 +526,41 @@ export const getWorkspace = hrQuery({
           code: employee.code ?? null,
           jobTitle: employee.jobTitle ?? null,
         })),
+      alimonyLines: alimonyLines.map(toAlimonyLineRow),
+      alimonyTotals: alimonyTotals(alimonyLines),
+      availableAlimonies: availableAlimonies
+        .sort((a, b) => a.beneficiaryName.localeCompare(b.beneficiaryName, "pt-BR"))
+        .map(toAlimonyRow),
     };
   },
 });
+
+/**
+ * Pensões alimentícias do mês: uma linha por pensão ativa de cada funcionário
+ * que entrou na folha, com o valor do mês anterior quando houver (senão o
+ * padrão do cadastro). Pagas ao beneficiário, fora da linha do funcionário.
+ */
+async function insertAlimonyLinesForRun(
+  ctx: MutationCtx,
+  run: Doc<"payrollRuns">,
+  previous: Doc<"payrollRuns"> | undefined
+) {
+  const lines = await ctx.db
+    .query("payrollLines")
+    .withIndex("by_run", (q) => q.eq("runId", run._id))
+    .collect();
+  for (const line of lines) {
+    const employee = await ctx.db.get("employees", line.employeeId);
+    if (!employee) continue;
+    for (const alimony of await listActiveAlimoniesForEmployee(ctx, employee._id)) {
+      if (await findAlimonyLine(ctx, run._id, alimony._id)) continue;
+      const source = previous
+        ? await findAlimonyLine(ctx, previous._id, alimony._id)
+        : null;
+      await insertAlimonyLine(ctx, run, alimony, employee, source ?? undefined);
+    }
+  }
+}
 
 export const createRun = hrMutation({
   args: {
@@ -568,6 +632,7 @@ export const createRun = hrMutation({
         await insertLineFromEmployee(ctx, run, employee);
       }
     }
+    await insertAlimonyLinesForRun(ctx, run, previous);
 
     await logAudit(ctx, ctx.user, {
       action: "create",
@@ -697,6 +762,10 @@ export const addEmployeeToRun = hrMutation({
     }
 
     const lineId = await insertLineFromEmployee(ctx, run, employee);
+    for (const alimony of await listActiveAlimoniesForEmployee(ctx, employee._id)) {
+      if (await findAlimonyLine(ctx, run._id, alimony._id)) continue;
+      await insertAlimonyLine(ctx, run, alimony, employee);
+    }
     await logAudit(ctx, ctx.user, {
       action: "create",
       tableName: "payrollLines",
