@@ -71,22 +71,6 @@ export const Route = createFileRoute("/configuracoes/usuarios")({
 
 const MIN_PASSWORD_LENGTH = 8;
 
-/**
- * Acessos de um cadastro: `roles` quando já migrado; senão a projeção legada
- * (cargo + departamento), que o backend traduz do mesmo jeito.
- */
-function userRoles(user: User): Role[] {
-  if (user.roles) return user.roles;
-  const legacy: Role[] = [];
-  if (user.role === "director" || user.role === "admin" || user.role === "engenheiro") {
-    legacy.push(user.role);
-  }
-  if (user.role === "qr_operator" || user.role === "client") legacy.push(user.role);
-  if (user.department && !(user.role === "engenheiro" && user.department === "engenharia")) {
-    legacy.push(user.department);
-  }
-  return ROLES.filter((role) => legacy.includes(role));
-}
 
 /** "João Silva" → "joao.silva" (sem acentos, só caracteres aceitos pelo Clerk). */
 function suggestUsername(firstName: string, lastName: string): string {
@@ -294,7 +278,7 @@ function UsuariosContent() {
                           {user.username ? formatUsername(user.username) : "—"}
                         </TableCell>
                         <TableCell>
-                          <RoleBadges roles={userRoles(user)} />
+                          <RoleBadges roles={user.roles} />
                         </TableCell>
                         <TableCell>
                           <Badge variant={user.isActive ? "success" : "muted"}>
@@ -739,7 +723,7 @@ function EditUserForm({ user, onClose }: { user: User; onClose: () => void }) {
     name: user.name,
     email: user.email ?? "",
     phone: user.phone ?? "",
-    roles: userRoles(user),
+    roles: user.roles,
   });
   const [saving, setSaving] = useState(false);
 

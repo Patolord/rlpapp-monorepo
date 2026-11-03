@@ -34,8 +34,8 @@ export type AgentTokenUser = {
   name: string;
   email: string | null;
   username: string | null;
-  role: string;
-  department: string | null;
+  /** Acessos do dono (ver ROLES em @rlpapp/shared/auth/permissions). */
+  roles: string[];
 };
 
 export type VerifiedAgentToken = {
@@ -57,8 +57,7 @@ type VerifyResponse = {
     name: string;
     email: string | null;
     username: string | null;
-    role: string;
-    department: string | null;
+    roles: string[];
   };
 };
 
@@ -132,8 +131,7 @@ export async function verifyAgentToken(
         name: body.user.name,
         email: body.user.email,
         username: body.user.username,
-        role: body.user.role,
-        department: body.user.department,
+        roles: body.user.roles,
       },
     };
   }

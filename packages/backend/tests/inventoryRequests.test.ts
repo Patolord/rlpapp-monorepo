@@ -10,38 +10,35 @@ async function seedFieldInventory() {
     const warehouseUserId = await ctx.db.insert("users", {
       name: "Operador Estoque",
       clerkId: "wh-req",
-      role: "operator",
-      department: "estoque",
+      roles: ["estoque"],
       isActive: true,
       createdAt: now,
     });
     const purchasingUserId = await ctx.db.insert("users", {
       name: "Compras",
       clerkId: "buy-req",
-      role: "operator",
-      department: "compras",
+      roles: ["compras"],
       isActive: true,
       createdAt: now,
     });
     const engineerUserId = await ctx.db.insert("users", {
       name: "Engenheiro",
       clerkId: "eng-req",
-      role: "engenheiro",
-      department: "engenharia",
+      roles: ["engenheiro"],
       isActive: true,
       createdAt: now,
     });
     const techUserId = await ctx.db.insert("users", {
       name: "Técnico Campo",
       clerkId: "tech-req",
-      role: "qr_operator",
+      roles: ["qr_operator"],
       isActive: true,
       createdAt: now,
     });
     const otherTechUserId = await ctx.db.insert("users", {
       name: "Outro Técnico",
       clerkId: "tech-req-other",
-      role: "qr_operator",
+      roles: ["qr_operator"],
       isActive: true,
       createdAt: now,
     });

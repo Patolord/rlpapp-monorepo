@@ -24,8 +24,7 @@ const verifyBody = {
     name: "Eng",
     email: "eng@rlp.test",
     username: null,
-    role: "engenheiro",
-    department: null,
+    roles: ["engenheiro", "takeoff"],
   },
 };
 
@@ -66,8 +65,7 @@ describe("agent token auth", () => {
         name: "Eng",
         email: "eng@rlp.test",
         username: null,
-        role: "engenheiro",
-        department: null,
+        roles: ["engenheiro", "takeoff"],
       },
     });
 

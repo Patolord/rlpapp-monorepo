@@ -170,8 +170,7 @@ describe("price history query", () => {
       await ctx.db.insert("users", {
         name: "Compras",
         clerkId: "purchasing",
-        role: "operator",
-        department: "compras",
+        roles: ["compras"],
         isActive: true,
         createdAt: Date.now(),
       });

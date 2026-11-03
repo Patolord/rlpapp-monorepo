@@ -11,12 +11,12 @@
  * `["engenheiro", "takeoff"]`. Cada acesso concede um conjunto fixo de
  * permissões (`ROLE_PERMISSIONS`); as permissões do usuário são a união.
  *
- * Legado: cadastros anteriores guardam `role` (cargo) + `department`
- * (departamento). `rolesFromLegacy` traduz esse par para acessos equivalentes,
- * e é o que vale enquanto `roles` não for preenchido (migração
- * `migrations:backfillUserRoles`). Os apps nunca comparam `role`/`department`
- * para decidir acesso: perguntam por uma permissão (`can`) ou por um acesso
- * (`hasRole`).
+ * Legado: cadastros anteriores à migração `migrations:migrateUserAccess`
+ * guardam `role` (cargo) + `department` (departamento). `rolesFromLegacy`
+ * traduz esse par para acessos equivalentes e só vale enquanto um documento
+ * ainda não tem `roles`; depois da migração, nada lê esses campos. Os apps
+ * nunca comparam `role`/`department`: perguntam por uma permissão (`can`) ou
+ * por um acesso (`hasRole`).
  */
 
 // ---------------------------------------------------------------------------
@@ -157,7 +157,8 @@ export const PERMISSION_DENIED_MESSAGES: Record<Permission, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Legado: cargo + departamento
+// Legado: cargo + departamento (só para a migração e para documentos ainda
+// não migrados; sai junto com os campos no passo final do schema)
 // ---------------------------------------------------------------------------
 
 /** Valores do campo legado `users.role` (cargo). */
@@ -218,39 +219,14 @@ export function rolesFromLegacy(
   return normalizeRoles(roles);
 }
 
-/**
- * Projeção dos acessos para os campos legados, mantidos preenchidos enquanto
- * houver código lendo `role`/`department` (índice `by_role`, rótulos antigos).
- */
-export function legacyFromRoles(roles: readonly Role[]): {
-  role: LegacyUserRole;
-  department?: Department;
-} {
-  const has = (role: Role) => roles.includes(role);
-  const role: LegacyUserRole = has("director")
-    ? "director"
-    : has("admin")
-      ? "admin"
-      : has("engenheiro")
-        ? "engenheiro"
-        : has("qr_operator")
-          ? "qr_operator"
-          : has("client")
-            ? "client"
-            : "operator";
-  const department =
-    DEPARTMENTS.find((department) => has(department)) ??
-    (role === "engenheiro" ? "engenharia" : undefined);
-  return department ? { role, department } : { role };
-}
-
 // ---------------------------------------------------------------------------
 // Sujeito e consultas
 // ---------------------------------------------------------------------------
 
 /**
  * O que a política precisa saber de um usuário (subconjunto de `users`).
- * `roles` manda; sem ele, vale a tradução do par legado.
+ * `roles` manda; sem ele (documento ainda não migrado), vale a tradução do
+ * par legado.
  */
 export type AccessSubject = {
   roles?: readonly Role[] | null;

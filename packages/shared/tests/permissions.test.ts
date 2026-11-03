@@ -15,7 +15,6 @@ import {
   hasRole,
   isAdmin,
   isStaff,
-  legacyFromRoles,
   normalizeRoles,
   resolveHomeArea,
   resolveRoles,
@@ -168,27 +167,14 @@ describe("legado: cargo + departamento", () => {
     expect(isAdmin(subject)).toBe(false);
   });
 
-  test("ida e volta: legacyFromRoles mantém as permissões efetivas", () => {
+  test("rolesFromLegacy cobre todos os cargos e departamentos", () => {
     for (const role of LEGACY_USER_ROLES) {
       for (const department of [undefined, ...DEPARTMENTS]) {
         const roles = rolesFromLegacy(role, department);
-        const legacy = legacyFromRoles(roles);
-        expect(sorted(getPermissions({ roles }))).toEqual(
-          sorted(getPermissions({ role: legacy.role, department: legacy.department }))
-        );
+        expect(roles).toEqual([...new Set(roles)]);
+        expect(isStaff({ roles })).toBe(isStaff({ role, department }));
       }
     }
-  });
-
-  test("legacyFromRoles escolhe o cargo mais forte e o primeiro departamento", () => {
-    expect(legacyFromRoles(["compras", "admin"])).toEqual({ role: "admin", department: "compras" });
-    expect(legacyFromRoles(["engenheiro"])).toEqual({ role: "engenheiro", department: "engenharia" });
-    expect(legacyFromRoles(["estoque", "qr_operator"])).toEqual({
-      role: "qr_operator",
-      department: "estoque",
-    });
-    expect(legacyFromRoles([])).toEqual({ role: "operator" });
-    expect(legacyFromRoles(["takeoff"])).toEqual({ role: "operator" });
   });
 });
 

@@ -16,24 +16,21 @@ async function seedCatalogUsers() {
     await ctx.db.insert("users", {
       name: "Compras",
       clerkId: "purchasing",
-      role: "operator",
-      department: "compras",
+      roles: ["compras"],
       isActive: true,
       createdAt: now,
     });
     await ctx.db.insert("users", {
       name: "Estoque",
       clerkId: "warehouse",
-      role: "operator",
-      department: "estoque",
+      roles: ["estoque"],
       isActive: true,
       createdAt: now,
     });
     await ctx.db.insert("users", {
       name: "Engenheiro",
       clerkId: "engineer",
-      role: "engenheiro",
-      department: "engenharia",
+      roles: ["engenheiro"],
       isActive: true,
       createdAt: now,
     });

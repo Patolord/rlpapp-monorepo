@@ -164,7 +164,7 @@ describe("API HTTP /api/v1", () => {
     const me = await t.fetch("/api/v1/me", { headers: bearer });
     expect(me.status).toBe(200);
     expect(await me.json()).toMatchObject({
-      user: { email: "eng@rlp.test", role: "engenheiro" },
+      user: { email: "eng@rlp.test", roles: ["engenheiro", "takeoff"] },
       agent_token: {
         id: created.id,
         name: "Grok",
@@ -367,7 +367,10 @@ describe("API HTTP /api/v1", () => {
     expect(forbidden.status).toBe(403);
     expect((await forbidden.json()).error).toMatchObject({
       code: "FORBIDDEN",
-      details: { access: { kind: "permission", permission: "rh.read" }, role: "engenheiro" },
+      details: {
+        access: { kind: "permission", permission: "rh.read" },
+        roles: ["engenheiro", "takeoff"],
+      },
     });
 
     const badArg = await post("projects:list", { includeArchived: "yes" });

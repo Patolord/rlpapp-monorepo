@@ -55,11 +55,17 @@ describe("erros de acesso tipados", () => {
 describe("acessos combináveis (roles)", () => {
   test("permissões são a união dos acessos e roles vence o legado", async () => {
     const t = setup();
-    const asMixed = await withUser(t, {
-      clerkId: "mix1",
-      roles: ["compras", "estoque"],
-      role: "director", // legado inconsistente de propósito: roles manda
+    await t.run(async (ctx) => {
+      await ctx.db.insert("users", {
+        name: "Misto",
+        clerkId: "mix1",
+        roles: ["compras", "estoque"],
+        role: "director", // legado inconsistente de propósito: roles manda
+        isActive: true,
+        createdAt: Date.now(),
+      });
     });
+    const asMixed = t.withIdentity({ subject: "mix1" });
     const me = await asMixed.query(api.users.getCurrentUser, {});
     expect(me?.roles).toEqual(["compras", "estoque"]);
     expect(me?.permissions).toEqual([
@@ -76,13 +82,19 @@ describe("acessos combináveis (roles)", () => {
     ).rejects.toThrow("Insufficient permissions");
   });
 
-  test("cadastro legado é traduzido para acessos", async () => {
+  test("cadastro legado (sem roles) é traduzido para acessos", async () => {
     const t = setup();
-    const asLegacy = await withUser(t, {
-      clerkId: "leg1",
-      role: "engenheiro",
-      department: "rh",
+    await t.run(async (ctx) => {
+      await ctx.db.insert("users", {
+        name: "Legado",
+        clerkId: "leg1",
+        role: "engenheiro",
+        department: "rh",
+        isActive: true,
+        createdAt: Date.now(),
+      });
     });
+    const asLegacy = t.withIdentity({ subject: "leg1" });
     const me = await asLegacy.query(api.users.getCurrentUser, {});
     expect(me?.roles).toEqual(["engenheiro", "rh", "takeoff"]);
     expect(me?.permissions).toContain("rh.write");
@@ -109,7 +121,15 @@ describe("acessos combináveis (roles)", () => {
       name: "Engenheiro e técnico",
       roles: ["engenheiro", "qr_operator"],
     });
-    await withUser(t, { clerkId: "t3", name: "Legado QR", role: "qr_operator" });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("users", {
+        name: "Legado QR",
+        clerkId: "t3",
+        role: "qr_operator",
+        isActive: true,
+        createdAt: Date.now(),
+      });
+    });
     await withUser(t, { clerkId: "t4", name: "Só compras", roles: ["compras"] });
     const technicians = await asAdmin.query(api.users.list, { role: "qr_operator" });
     expect(technicians.map((u) => u.name).sort()).toEqual([
@@ -119,22 +139,32 @@ describe("acessos combináveis (roles)", () => {
     ]);
   });
 
-  test("migração preenche roles a partir do legado e é idempotente", async () => {
+  test("migração preenche roles a partir do legado, apaga os campos antigos e é idempotente", async () => {
     const t = setup();
-    await withUser(t, { clerkId: "a", role: "operator", department: "compras" });
-    await withUser(t, { clerkId: "b", role: "engenheiro" });
-    await withUser(t, { clerkId: "c", roles: ["rh"], role: "operator" });
-    const first = await t.mutation(internal.migrations.backfillUserRoles, {});
-    expect(first).toEqual({ updated: 2, skipped: 1 });
-    const second = await t.mutation(internal.migrations.backfillUserRoles, {});
-    expect(second).toEqual({ updated: 0, skipped: 3 });
+    await t.run(async (ctx) => {
+      const base = { isActive: true, createdAt: Date.now() };
+      await ctx.db.insert("users", { name: "a", clerkId: "a", role: "operator", department: "compras", ...base });
+      await ctx.db.insert("users", { name: "b", clerkId: "b", role: "engenheiro", ...base });
+      // Já tem roles, mas ainda carrega o legado: só limpa.
+      await ctx.db.insert("users", { name: "c", clerkId: "c", roles: ["rh"], role: "operator", ...base });
+    });
+    await withUser(t, { clerkId: "d", roles: ["estoque"] }); // já limpo
+    const first = await t.mutation(internal.migrations.migrateUserAccess, {});
+    expect(first).toEqual({ updated: 3, skipped: 1 });
+    const second = await t.mutation(internal.migrations.migrateUserAccess, {});
+    expect(second).toEqual({ updated: 0, skipped: 4 });
     const users = await t.run(async (ctx) => ctx.db.query("users").collect());
     const byClerk = Object.fromEntries(users.map((u) => [u.clerkId, u.roles]));
     expect(byClerk).toEqual({
       a: ["compras", "takeoff"],
       b: ["engenheiro", "takeoff"],
       c: ["rh"],
+      d: ["estoque"],
     });
+    for (const user of users) {
+      expect(user.role).toBeUndefined();
+      expect(user.department).toBeUndefined();
+    }
   });
 
   test("login do app Takeoff exige o acesso takeoff.use", async () => {

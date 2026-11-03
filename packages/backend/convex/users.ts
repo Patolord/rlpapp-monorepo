@@ -4,20 +4,19 @@ import {
   hasRole,
   isStaff,
   resolveHomeArea,
-  resolveRoles,
 } from "@rlpapp/shared/auth/permissions";
 import { capitalizeFirst } from "@rlpapp/shared/usernames";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { accessRoles, departments, userRoles } from "./schema";
+import { accessRoles, departments } from "./schema";
 import {
   adminMutation,
   requirePermission,
   requireUser,
   staffQuery,
 } from "./lib/rbac";
-import { accessFields } from "./lib/users";
+import { accessFields, toUserView } from "./lib/users";
 import { enforceAgentTokenPolicy } from "./lib/agentTokens";
 
 /** Remove campos undefined — padrão dos updates parciais (ctx.db.patch). */
@@ -34,9 +33,8 @@ export const userValidator = v.object({
   email: v.optional(v.string()),
   username: v.optional(v.string()),
   clerkId: v.optional(v.string()),
-  roles: v.optional(v.array(accessRoles)),
-  role: userRoles,
-  department: v.optional(departments),
+  /** Acessos (ver ROLES no shared); documentos antigos chegam traduzidos. */
+  roles: v.array(accessRoles),
   phone: v.optional(v.string()),
   isActive: v.boolean(),
   createdAt: v.number(),
@@ -53,13 +51,10 @@ export const permissionValidator = v.union(
 /**
  * Usuário atual com o acesso já resolvido pela política
  * (@rlpapp/shared/auth/permissions). Os apps decidem navegação e ações a
- * partir de `permissions`, `roles`, `isStaff` e `homeArea`, nunca comparando
- * `role` ou `department` por conta própria. `roles` aqui já considera a
- * tradução do legado para cadastros ainda não migrados.
+ * partir de `permissions`, `roles`, `isStaff` e `homeArea`.
  */
 export const currentUserValidator = v.object({
   ...userValidator.fields,
-  roles: v.array(accessRoles),
   permissions: v.array(permissionValidator),
   isStaff: v.boolean(),
   homeArea: v.union(departments, v.literal("qr-operador"), v.null()),
@@ -88,8 +83,7 @@ export const getCurrentUser = query({
         : null);
     if (!user) return null;
     return {
-      ...user,
-      roles: resolveRoles(user),
+      ...toUserView(user),
       permissions: getPermissions(user),
       isStaff: isStaff(user),
       homeArea: resolveHomeArea(user),
@@ -253,10 +247,9 @@ export const list = staffQuery({
           .collect()
       : await ctx.db.query("users").collect();
     const role = args.role;
-    if (!role) return users;
     // Acessos se combinam (um técnico pode ser também da equipe), então o
-    // filtro olha o conjunto resolvido, não o índice do cargo legado.
-    return users.filter((user) => hasRole(user, role));
+    // filtro olha o conjunto inteiro.
+    return (role ? users.filter((user) => hasRole(user, role)) : users).map(toUserView);
   },
 });
 
@@ -265,7 +258,8 @@ export const get = staffQuery({
   args: { id: v.id("users") },
   returns: v.union(userValidator, v.null()),
   handler: async (ctx, args) => {
-    return await ctx.db.get("users", args.id);
+    const user = await ctx.db.get("users", args.id);
+    return user ? toUserView(user) : null;
   },
 });
 
@@ -274,10 +268,11 @@ export const getByEmail = staffQuery({
   args: { email: v.string() },
   returns: v.union(userValidator, v.null()),
   handler: async (ctx, args) => {
-    return await ctx.db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email))
       .first();
+    return user ? toUserView(user) : null;
   },
 });
 

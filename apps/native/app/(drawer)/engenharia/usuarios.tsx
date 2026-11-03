@@ -42,22 +42,6 @@ import { getErrorMessage } from "@/lib/errors";
 
 type User = FunctionReturnType<typeof api.users.list>[number];
 
-/**
- * Acessos de um cadastro: `roles` quando já migrado; senão a projeção legada
- * (cargo + departamento), que o backend traduz do mesmo jeito.
- */
-function userRoles(user: User): Role[] {
-  if (user.roles) return user.roles;
-  const legacy: Role[] = [];
-  if (user.role === "director" || user.role === "admin" || user.role === "engenheiro") {
-    legacy.push(user.role);
-  }
-  if (user.role === "qr_operator" || user.role === "client") legacy.push(user.role);
-  if (user.department && !(user.role === "engenheiro" && user.department === "engenharia")) {
-    legacy.push(user.department);
-  }
-  return ROLES.filter((role) => legacy.includes(role));
-}
 
 const STATUS_FILTERS = [
   { value: "all", label: "Todos" },
@@ -196,7 +180,7 @@ export default function UsuariosScreen() {
       name: user.name,
       email: user.email ?? "",
       phone: user.phone ?? "",
-      roles: userRoles(user),
+      roles: user.roles,
     });
     setEditingUser(user);
   }
@@ -528,12 +512,12 @@ function UserCard({
       </View>
 
       <View className="flex-row flex-wrap items-center gap-2">
-        {userRoles(user).map((role) => (
+        {user.roles.map((role) => (
           <Badge key={role} variant="outline">
             {ROLE_LABELS[role]}
           </Badge>
         ))}
-        {userRoles(user).length === 0 ? (
+        {user.roles.length === 0 ? (
           <Text className="text-xs text-muted-foreground">Sem acessos</Text>
         ) : null}
         <Badge variant={user.isActive ? "success" : "secondary"}>

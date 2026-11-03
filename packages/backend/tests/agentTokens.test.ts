@@ -84,7 +84,7 @@ describe("tokens de agente", () => {
     });
     expect(verified).toMatchObject({
       token: { _id: created.id, permission: "read_only", expiresAt: null },
-      user: { clerkId: "eng1", role: "engenheiro", email: "eng@rlp.test" },
+      user: { clerkId: "eng1", roles: ["engenheiro", "takeoff"], email: "eng@rlp.test" },
     });
 
     expect(
@@ -154,7 +154,7 @@ describe("tokens de agente", () => {
     const body = await ok.json();
     expect(body).toMatchObject({
       token: { _id: created.id, name: "HTTP", permission: "full_access" },
-      user: { clerkId: "eng1", role: "engenheiro" },
+      user: { clerkId: "eng1", roles: ["engenheiro", "takeoff"] },
     });
 
     const listed = await asEng.query(api.agentTokens.list, {});
@@ -347,7 +347,7 @@ describe("tokens de agente", () => {
     expect(all).toHaveLength(1);
     expect(all[0]).toMatchObject({
       name: "renomeado",
-      owner: { role: "engenheiro" },
+      owner: { roles: ["engenheiro", "takeoff"] },
     });
 
     const revoked = await asAdmin.mutation(api.agentTokens.revoke, {

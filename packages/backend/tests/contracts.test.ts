@@ -72,8 +72,7 @@ async function seedEngineering() {
     await ctx.db.insert("users", {
       name: "Engenheiro",
       clerkId: "engineer-contracts",
-      role: "engenheiro",
-      department: "engenharia",
+      roles: ["engenheiro"],
       isActive: true,
       createdAt: now,
     });

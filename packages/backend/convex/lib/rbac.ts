@@ -54,7 +54,7 @@ export const SCHEMA_ACCESS_ROLES_MATCH_POLICY: Equals<
   Role
 > = true;
 export const SCHEMA_LEGACY_ROLES_MATCH_POLICY: Equals<
-  Doc<"users">["role"],
+  NonNullable<Doc<"users">["role"]>,
   LegacyUserRole
 > = true;
 export const SCHEMA_DEPARTMENTS_MATCH_POLICY: Equals<

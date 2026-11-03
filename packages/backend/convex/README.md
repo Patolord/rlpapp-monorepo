@@ -95,12 +95,19 @@ only use it to hide navigation and actions; enforcement happens here, in
 
 Migration from the legacy `role` (job title) + `department` pair:
 
-- `rolesFromLegacy` translates the pair into equivalent roles and is what the
-  policy uses while a user document has no `roles`; `legacyFromRoles` keeps
-  `role`/`department` filled on every write (`lib/users.ts` `accessFields`) for
-  code that still reads them (the `by_role` index, labels, the HTTP gateway).
-- After deploying, run `npx convex run migrations:backfillUserRoles` once. Then
-  `roles` can become required and `role`/`department` can be dropped (phase 3).
+- Nothing reads or writes `role`/`department` any more, except the migration.
+  A user document that still lacks `roles` is read through `rolesFromLegacy`
+  (same effective permissions); every write of access (`lib/users.ts`
+  `accessFields`) stores `roles` and clears the two legacy fields.
+- After deploying, run `npx convex run migrations:migrateUserAccess` once
+  (idempotent): it fills `roles` where missing and removes `role`/`department`
+  from every user.
+- Final step, in a later deploy once the migration has run (Convex validates
+  existing documents against the schema at deploy time, so this cannot ship
+  together): make `roles` required, delete `role`, `department` and the
+  `userRoles` validator from `schema.ts`, and drop `rolesFromLegacy`,
+  `LEGACY_USER_ROLES` and the `role`/`department` fields of `AccessSubject`
+  from the shared policy.
 - Legacy users with only `manager`/`operator` and no department had no
   permissions and now have no roles, so they are no longer staff until an admin
   assigns access in Configurações → Usuários.

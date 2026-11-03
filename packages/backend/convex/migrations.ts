@@ -986,16 +986,17 @@ export const backfillCapitalizeUserNames = internalMutation({
 });
 
 /**
- * Preenche `users.roles` a partir do par legado cargo + departamento
- * (rolesFromLegacy), mantendo as permissões efetivas de cada usuário. Pula
- * quem já tem `roles`. Rodar uma vez após o deploy da fase 2:
+ * Migra o acesso dos usuários para `roles`: preenche a partir do par legado
+ * cargo + departamento (rolesFromLegacy, mesmas permissões efetivas) em quem
+ * ainda não tem, e apaga `role`/`department` de todos. Idempotente. Rodar uma
+ * vez após o deploy:
  *
- *   npx convex run migrations:backfillUserRoles
+ *   npx convex run migrations:migrateUserAccess
  *
- * Depois disso `roles` pode virar obrigatório no schema e `role`/`department`
- * podem sair (fase 3).
+ * Depois disso `roles` pode virar obrigatório e `role`/`department` saem do
+ * schema (passo final).
  */
-export const backfillUserRoles = internalMutation({
+export const migrateUserAccess = internalMutation({
   args: {},
   returns: v.object({ updated: v.number(), skipped: v.number() }),
   handler: async (ctx) => {
@@ -1003,12 +1004,15 @@ export const backfillUserRoles = internalMutation({
     let updated = 0;
     let skipped = 0;
     for (const user of users) {
-      if (user.roles) {
+      const clean = user.roles !== undefined && user.role === undefined && user.department === undefined;
+      if (clean) {
         skipped += 1;
         continue;
       }
       await ctx.db.patch("users", user._id, {
-        roles: rolesFromLegacy(user.role, user.department),
+        roles: user.roles ?? rolesFromLegacy(user.role ?? "operator", user.department),
+        role: undefined,
+        department: undefined,
       });
       updated += 1;
     }

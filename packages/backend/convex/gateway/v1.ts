@@ -1,4 +1,5 @@
 import type { HttpRouter } from "convex/server";
+import type { Role } from "@rlpapp/shared/auth/permissions";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { httpAction, type ActionCtx } from "../_generated/server";
@@ -143,8 +144,7 @@ interface AuthenticatedCaller {
     name: string;
     email: string | null;
     username: string | null;
-    role: string;
-    department: string | null;
+    roles: Role[];
   };
 }
 
@@ -239,8 +239,7 @@ function describeCaller(caller: AuthenticatedCaller) {
       name: caller.user.name,
       email: caller.user.email,
       username: caller.user.username,
-      role: caller.user.role,
-      department: caller.user.department,
+      roles: caller.user.roles,
     },
     agent_token: {
       id: caller.token._id,
@@ -525,7 +524,7 @@ async function preflight(
       response: errorResponse(
         "FORBIDDEN",
         "The owner of this agent token is not an internal user; the API only serves internal roles.",
-        { function: path, role: caller.user.role }
+        { function: path, roles: caller.user.roles }
       ),
     };
   }
@@ -554,10 +553,10 @@ async function preflight(
     return {
       response: errorResponse(
         "FORBIDDEN",
-        `${path} ${accessDescription(entry)}; the token owner (${caller.user.role}${
-          caller.user.department ? `, ${caller.user.department}` : ""
+        `${path} ${accessDescription(entry)}; the token owner (roles: ${
+          caller.user.roles.join(", ") || "none"
         }) does not have it.`,
-        { function: path, access: entry.access, role: caller.user.role }
+        { function: path, access: entry.access, roles: caller.user.roles }
       ),
     };
   }
@@ -973,7 +972,7 @@ const listFunctions = guarded("functions", async (ctx, request, audit) => {
     throw new ApiError(
       "FORBIDDEN",
       "The owner of this agent token is not an internal user; the API only serves internal roles.",
-      { role: caller.user.role }
+      { roles: caller.user.roles }
     );
   }
   const readOnly = caller.token.permission === "read_only";
@@ -1007,7 +1006,7 @@ const listFunctions = guarded("functions", async (ctx, request, audit) => {
         allowed: allowedOnly,
       },
       agent_token: { permission: caller.token.permission },
-      user: { role: caller.user.role, department: caller.user.department },
+      user: { roles: caller.user.roles },
       functions,
     },
     200,

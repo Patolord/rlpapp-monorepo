@@ -1,8 +1,10 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
+import { accessRoles } from "./schema";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
-import { authedQuery, hasPermission } from "./lib/rbac";
+import {
+  resolveRoles, authedQuery, hasPermission } from "./lib/rbac";
 
 // Histórico unificado de serviços do técnico (qr_operator ou staff), agrupado
 // por obra: cadastro de equipamento, registros de instalação/manutenção
@@ -386,7 +388,7 @@ export const listActivityUsers = authedQuery({
       v.object({
         _id: v.id("users"),
         name: v.string(),
-        role: v.string(),
+        roles: v.array(accessRoles),
         isActive: v.boolean(),
       })
     ),
@@ -399,7 +401,7 @@ export const listActivityUsers = authedQuery({
       .map((user) => ({
         _id: user._id,
         name: user.name,
-        role: user.role,
+        roles: resolveRoles(user),
         isActive: user.isActive,
       }))
       .sort(

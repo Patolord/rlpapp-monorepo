@@ -3,7 +3,7 @@ import { api } from "../convex/_generated/api";
 import { setup, withUser } from "./helpers";
 
 describe("users.update e users.remove", () => {
-  test("null limpa email e telefone; omitido mantém; roles grava a projeção legada", async () => {
+  test("null limpa email e telefone; omitido mantém; roles substitui o conjunto", async () => {
     const t = setup();
     const asDirector = await withUser(t, { clerkId: "dir1", role: "director" });
     const id = await asDirector.mutation(api.users.create, {
@@ -18,8 +18,6 @@ describe("users.update e users.remove", () => {
     expect(user?.name).toBe("Ana Souza");
     expect(user?.email).toBe("ana@rlp.com");
     expect(user?.roles).toEqual(["compras"]);
-    expect(user?.role).toBe("operator");
-    expect(user?.department).toBe("compras");
 
     await asDirector.mutation(api.users.update, {
       id,
@@ -31,14 +29,10 @@ describe("users.update e users.remove", () => {
     expect(user?.email).toBeUndefined();
     expect(user?.phone).toBeUndefined();
     expect(user?.roles).toEqual(["compras", "estoque", "qr_operator"]);
-    expect(user?.role).toBe("qr_operator");
-    expect(user?.department).toBe("compras");
 
     await asDirector.mutation(api.users.update, { id, roles: [] });
     user = await asDirector.query(api.users.get, { id });
     expect(user?.roles).toEqual([]);
-    expect(user?.role).toBe("operator");
-    expect(user?.department).toBeUndefined();
   });
 
   test("admin não remove o próprio acesso de administração", async () => {
