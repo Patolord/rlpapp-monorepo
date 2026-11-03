@@ -11,7 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * Layout padrão das áreas de departamento (engenharia, rh):
+ * Layout padrão das áreas internas (engenharia, compras, estoque, rh, backoffice):
  * gate de acesso por departamento + sidebar + header.
  * `printable` esconde o chrome na impressão (usado pela engenharia).
  * Sem `area`, só bloqueia qr_operator (páginas pessoais como /conta).

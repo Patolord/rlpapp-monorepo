@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/table";
 import { getErrorMessage } from "@/lib/errors";
 
-export const Route = createFileRoute("/engenharia/empreiteiros/")({
+export const Route = createFileRoute("/backoffice/empreiteiros/")({
   component: EmpreiteirosPage,
 });
 

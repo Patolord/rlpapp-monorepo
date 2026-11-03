@@ -1,20 +1,33 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { ClipboardList, History, Loader2, QrCode, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  ClipboardList,
+  History,
+  Loader2,
+  Plus,
+  Printer,
+  QrCode,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
 import type { EquipmentStatusKey } from "@rlpapp/ui/tokens";
 
 import { AuthShell } from "@/components/auth-shell";
 import { PendingBanner } from "@/components/campo/pending-records";
+import { GenerateQrBatchDialog } from "@/components/engenharia/generate-qr-batch-dialog";
 import { ProjectServicesList } from "@/components/engenharia/project-services-list";
 import { ProjectShell, type ProjectOverview } from "@/components/engenharia/project-shell";
 import { StatusBadge } from "@/components/engenharia/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -32,6 +45,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
+import { getErrorMessage } from "@/lib/errors";
+import { printQrCodes } from "@/lib/qr-print";
 
 export const Route = createFileRoute("/engenharia/obras/$obraSlug/qr-codes")({
   component: QrCodesPage,
@@ -54,11 +69,22 @@ function QrCodesPage() {
 }
 
 const ALL = "all";
+// Valor do filtro de lote para etiquetas legadas sem lote.
+const NO_BATCH = "__sem_lote__";
 
 // "Cadastrada" = etiqueta já vinculada a um equipamento (bipada em campo);
 // "Livre" = etiqueta do lote da obra ainda sem equipamento.
 type RegistrationFilter = "all" | "registered" | "free";
 type Tab = "labels" | "services";
+
+type QrRow = FunctionReturnType<typeof api.qrCodes.listByProject>[number];
+
+type BatchSummary = {
+  batchId: string;
+  batchName: string | null;
+  createdAt: number;
+  count: number;
+};
 
 function QrCodesContent({
   projectId,
@@ -70,14 +96,51 @@ function QrCodesContent({
   const rows = useQuery(api.qrCodes.listByProject, { projectId });
   // null quando o usuário não tem engenharia.read: a aba de serviços fica oculta.
   const activityUsers = useQuery(api.technicianActivity.listActivityUsers);
+  const removeQrCode = useMutation(api.qrCodes.remove);
+  const removeManyQrCodes = useMutation(api.qrCodes.removeMany);
   const canViewServices = Boolean(activityUsers);
   const [tab, setTab] = useState<Tab>("labels");
   const [search, setSearch] = useState("");
   const [registration, setRegistration] = useState<RegistrationFilter>("all");
   const [status, setStatus] = useState(ALL);
+  const [batchFilter, setBatchFilter] = useState(ALL);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [deletingToken, setDeletingToken] = useState<string | null>(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const baseUrl =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "https://app.rlp.com";
 
   const registeredCount = useMemo(
     () => rows?.filter((r) => r.equipmentId).length ?? 0,
+    [rows]
+  );
+
+  // Lotes da obra (mais recentes primeiro), para filtrar e reimprimir.
+  const batches = useMemo<BatchSummary[]>(() => {
+    if (!rows) return [];
+    const byId = new Map<string, BatchSummary>();
+    for (const row of rows) {
+      if (!row.batchId) continue;
+      const existing = byId.get(row.batchId);
+      if (existing) {
+        existing.count += 1;
+        existing.createdAt = Math.min(existing.createdAt, row.createdAt);
+      } else {
+        byId.set(row.batchId, {
+          batchId: row.batchId,
+          batchName: row.batchName,
+          createdAt: row.createdAt,
+          count: 1,
+        });
+      }
+    }
+    return Array.from(byId.values()).sort((a, b) => b.createdAt - a.createdAt);
+  }, [rows]);
+  const hasRowsWithoutBatch = useMemo(
+    () => rows?.some((r) => !r.batchId) ?? false,
     [rows]
   );
 
@@ -91,6 +154,11 @@ function QrCodesContent({
           (registration === "registered") === Boolean(r.equipmentId)
       )
       .filter((r) => status === ALL || r.status === status)
+      .filter((r) => {
+        if (batchFilter === ALL) return true;
+        if (batchFilter === NO_BATCH) return !r.batchId;
+        return r.batchId === batchFilter;
+      })
       .filter(
         (r) =>
           !term ||
@@ -101,9 +169,114 @@ function QrCodesContent({
             r.modelo,
             r.system,
             r.environmentName,
+            r.batchName,
           ].some((value) => value?.toLocaleLowerCase("pt-BR").includes(term))
       );
-  }, [rows, search, registration, status]);
+  }, [rows, search, registration, status, batchFilter]);
+
+  // Seleção só conta etiquetas ainda visíveis (a lista é reativa).
+  const selectedRows = useMemo(
+    () => (rows ?? []).filter((r) => selected.has(r.token)),
+    [rows, selected]
+  );
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((r) => selected.has(r.token));
+
+  const toggleToken = useCallback((token: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(token)) next.delete(token);
+      else next.add(token);
+      return next;
+    });
+  }, []);
+
+  function toggleAllFiltered() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        for (const r of filtered) next.delete(r.token);
+      } else {
+        for (const r of filtered) next.add(r.token);
+      }
+      return next;
+    });
+  }
+
+  function printTokens(tokens: string[], title: string) {
+    if (tokens.length === 0) return;
+    printQrCodes({
+      tokens,
+      baseUrl,
+      title: `${title} - ${project.name} - RLP Engenharia`,
+    });
+  }
+
+  function handlePrintBatch(batch: BatchSummary) {
+    const tokens = (rows ?? [])
+      .filter((r) => r.batchId === batch.batchId)
+      .map((r) => r.token);
+    printTokens(tokens, `Códigos QR ${batch.batchName ?? batch.batchId}`);
+  }
+
+  async function handleDelete(row: QrRow) {
+    if (row.equipmentId) {
+      toast.error("Etiqueta cadastrada em campo não pode ser excluída");
+      return;
+    }
+    if (!window.confirm(`Excluir a etiqueta ${row.token}?`)) return;
+    setDeletingToken(row.token);
+    try {
+      await removeQrCode({ token: row.token });
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(row.token);
+        return next;
+      });
+      toast.success("Etiqueta excluída");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Erro ao excluir etiqueta"));
+    } finally {
+      setDeletingToken(null);
+    }
+  }
+
+  async function handleBulkDelete() {
+    const freeTokens = selectedRows
+      .filter((r) => !r.equipmentId)
+      .map((r) => r.token);
+    if (freeTokens.length === 0) {
+      toast.error("Nenhuma etiqueta livre selecionada para exclusão");
+      return;
+    }
+    const linkedCount = selectedRows.length - freeTokens.length;
+    const message =
+      linkedCount > 0
+        ? `Excluir ${freeTokens.length} etiqueta(s) livre(s)? ${linkedCount} cadastrada(s) em campo serão mantidas.`
+        : `Excluir ${freeTokens.length} etiqueta(s) selecionada(s)?`;
+    if (!window.confirm(message)) return;
+    setBulkDeleting(true);
+    try {
+      const result = await removeManyQrCodes({ tokens: freeTokens });
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const token of [...result.deleted, ...result.missing]) {
+          next.delete(token);
+        }
+        return next;
+      });
+      if (result.deleted.length > 0) {
+        toast.success(`${result.deleted.length} etiqueta(s) excluída(s)`);
+      }
+      if (result.blocked.length > 0) {
+        toast.error(`${result.blocked.length} etiqueta(s) cadastrada(s) mantida(s)`);
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Erro ao excluir etiquetas"));
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
 
   if (rows === undefined) {
     return (
@@ -123,6 +296,20 @@ function QrCodesContent({
     { id: "registered", label: "Cadastradas", count: registeredCount },
     { id: "free", label: "Livres", count: rows.length - registeredCount },
   ];
+  const generateButton = (
+    <GenerateQrBatchDialog
+      projectId={projectId}
+      projectName={project.name}
+      // Deixa o lote recém-gerado selecionado para imprimir/revisar na lista.
+      onCreated={(tokens) => setSelected(new Set(tokens))}
+      trigger={
+        <Button size="sm">
+          <Plus />
+          Gerar etiquetas
+        </Button>
+      }
+    />
+  );
 
   return (
     <section className="space-y-4">
@@ -176,6 +363,7 @@ function QrCodesContent({
             <ClipboardList />
             Meus registros
           </Button>
+          {!showServices && generateButton}
         </div>
       </div>
 
@@ -191,10 +379,12 @@ function QrCodesContent({
         <div className="rounded-lg border border-dashed py-12 text-center">
           <QrCode className="mx-auto mb-3 size-10 text-muted-foreground" />
           <p className="font-medium">Nenhum QR code atribuído a esta obra</p>
-          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-            Gere QR codes a partir dos equipamentos previstos (botão "Gerar QR"
-            na hierarquia da obra) ou vincule etiquetas já escaneadas em campo.
+          <p className="mx-auto mt-1 mb-4 max-w-md text-sm text-muted-foreground">
+            Gere um lote de etiquetas livres para imprimir e cadastrar em campo,
+            ou gere QR codes a partir dos equipamentos previstos (botão "Gerar
+            QR" na hierarquia da obra).
           </p>
+          {generateButton}
         </div>
       ) : (
         <>
@@ -203,7 +393,7 @@ function QrCodesContent({
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pl-9"
-                placeholder="Buscar token, descrição, ambiente, modelo..."
+                placeholder="Buscar token, lote, descrição, ambiente..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -237,25 +427,136 @@ function QrCodesContent({
                 <SelectItem value="error">Erro</SelectItem>
               </SelectContent>
             </Select>
+            {(batches.length > 0 || hasRowsWithoutBatch) && (
+              <Select value={batchFilter} onValueChange={setBatchFilter}>
+                <SelectTrigger className="sm:w-56">
+                  <SelectValue placeholder="Lote" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>Todos os lotes</SelectItem>
+                  {batches.map((batch) => (
+                    <SelectItem key={batch.batchId} value={batch.batchId}>
+                      {batch.batchName ?? batch.batchId} ({batch.count})
+                    </SelectItem>
+                  ))}
+                  {hasRowsWithoutBatch && (
+                    <SelectItem value={NO_BATCH}>Sem lote</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            )}
           </div>
+
+          {/* Lotes recentes: reimpressão em um clique. */}
+          {batches.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Lotes:</span>
+              {batches.slice(0, 6).map((batch) => (
+                <div
+                  key={batch.batchId}
+                  className="flex items-center overflow-hidden rounded-md border"
+                >
+                  <button
+                    type="button"
+                    className={`px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent ${
+                      batchFilter === batch.batchId ? "bg-muted" : ""
+                    }`}
+                    onClick={() =>
+                      setBatchFilter((current) =>
+                        current === batch.batchId ? ALL : batch.batchId
+                      )
+                    }
+                    title={new Date(batch.createdAt).toLocaleString("pt-BR")}
+                  >
+                    {batch.batchName ?? batch.batchId}
+                    <span className="ml-1 tabular-nums text-muted-foreground">
+                      ({batch.count})
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="border-l px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    title={`Imprimir lote ${batch.batchName ?? batch.batchId}`}
+                    aria-label={`Imprimir lote ${batch.batchName ?? batch.batchId}`}
+                    onClick={() => handlePrintBatch(batch)}
+                  >
+                    <Printer className="size-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {selectedRows.length > 0 && (
+            <div className="flex flex-col gap-3 rounded-lg border bg-muted/50 p-3 sm:flex-row sm:items-center">
+              <span className="text-sm font-medium">
+                {selectedRows.length} selecionada
+                {selectedRows.length === 1 ? "" : "s"}
+              </span>
+              <div className="flex-1" />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelected(new Set())}
+              >
+                <X />
+                Limpar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  printTokens(
+                    selectedRows.map((r) => r.token),
+                    "Códigos QR selecionados"
+                  )
+                }
+              >
+                <Printer />
+                Imprimir selecionadas
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={bulkDeleting}
+                onClick={handleBulkDelete}
+              >
+                {bulkDeleting ? <Loader2 className="animate-spin" /> : <Trash2 />}
+                Excluir livres
+              </Button>
+            </div>
+          )}
 
           <Card>
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        aria-label={
+                          allFilteredSelected
+                            ? "Desmarcar etiquetas listadas"
+                            : "Selecionar etiquetas listadas"
+                        }
+                        checked={allFilteredSelected}
+                        disabled={filtered.length === 0}
+                        onCheckedChange={toggleAllFiltered}
+                      />
+                    </TableHead>
                     <TableHead>Token</TableHead>
                     <TableHead>Localização</TableHead>
                     <TableHead>Equipamento</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Lote</TableHead>
+                    <TableHead className="w-24 text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={5}
+                        colSpan={7}
                         className="py-10 text-center text-muted-foreground"
                       >
                         Nenhum QR corresponde aos filtros.
@@ -263,7 +564,17 @@ function QrCodesContent({
                     </TableRow>
                   ) : (
                     filtered.map((r) => (
-                      <TableRow key={r._id}>
+                      <TableRow
+                        key={r._id}
+                        data-state={selected.has(r.token) ? "selected" : undefined}
+                      >
+                        <TableCell>
+                          <Checkbox
+                            aria-label={`Selecionar etiqueta ${r.token}`}
+                            checked={selected.has(r.token)}
+                            onCheckedChange={() => toggleToken(r.token)}
+                          />
+                        </TableCell>
                         <TableCell>
                           <Link
                             to="/engenharia/qr/$token"
@@ -294,7 +605,41 @@ function QrCodesContent({
                           )}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
-                          {r.batchName ?? "—"}
+                          {r.batchName ?? r.batchId ?? "—"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              title="Imprimir etiqueta"
+                              aria-label={`Imprimir etiqueta ${r.token}`}
+                              onClick={() =>
+                                printTokens([r.token], `Código QR ${r.token}`)
+                              }
+                            >
+                              <Printer />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-muted-foreground hover:text-destructive"
+                              disabled={!!r.equipmentId || deletingToken === r.token}
+                              title={
+                                r.equipmentId
+                                  ? "Etiqueta cadastrada em campo não pode ser excluída"
+                                  : "Excluir etiqueta"
+                              }
+                              aria-label={`Excluir etiqueta ${r.token}`}
+                              onClick={() => handleDelete(r)}
+                            >
+                              {deletingToken === r.token ? (
+                                <Loader2 className="animate-spin" />
+                              ) : (
+                                <Trash2 />
+                              )}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -308,8 +653,6 @@ function QrCodesContent({
     </section>
   );
 }
-
-type QrRow = FunctionReturnType<typeof api.qrCodes.listByProject>[number];
 
 function EquipmentCell({ row }: { row: QrRow }) {
   if (row.plannedItemId) {

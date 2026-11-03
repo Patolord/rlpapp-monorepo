@@ -3,7 +3,14 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useEffect } from "react";
 
-export type DepartmentArea = "rh" | "engenharia" | "compras" | "estoque";
+// "backoffice" não é um departamento de usuário: é a área de cadastros
+// compartilhados (clientes, empreiteiros), liberada para quem tem engenharia.
+export type DepartmentArea =
+  | "rh"
+  | "engenharia"
+  | "compras"
+  | "estoque"
+  | "backoffice";
 
 // Mesma regra da navegação: diretores acessam tudo; engenheiro só engenharia;
 // demais usuários só o próprio departamento (default "engenharia").
@@ -20,6 +27,8 @@ function resolveAllowedArea(user: {
 // - não-diretores só acessam o próprio departamento
 // - Estoque permite leitura compartilhada com Compras e Engenharia; as ações
 //   continuam protegidas por permissões específicas no backend.
+// - Backoffice (clientes, empreiteiros) segue o acesso de engenharia, que é a
+//   permissão exigida pelo backend (engenharia.read).
 export function RoleAreaGate({
   area,
   children,
@@ -39,12 +48,17 @@ export function RoleAreaGate({
     currentUser?.department === "engenharia" ||
     currentUser?.department === "compras" ||
     currentUser?.department === "estoque";
+  const hasEngineeringAccess =
+    isAdmin ||
+    currentUser?.role === "engenheiro" ||
+    currentUser?.department === "engenharia";
   const wrongDepartment =
     !!currentUser &&
     !!area &&
     !isAdmin &&
     !isQrOperator &&
     !(area === "estoque" && hasInventoryAccess) &&
+    !(area === "backoffice" && hasEngineeringAccess) &&
     resolveAllowedArea(currentUser) !== area;
 
   useEffect(() => {

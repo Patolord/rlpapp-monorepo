@@ -109,7 +109,7 @@ type CustomerImportItem = {
   };
 };
 
-export const Route = createFileRoute("/engenharia/clientes/")({
+export const Route = createFileRoute("/backoffice/clientes/")({
   component: ClientesPage,
 });
 

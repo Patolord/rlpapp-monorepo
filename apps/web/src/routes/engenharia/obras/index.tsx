@@ -5,6 +5,7 @@ import { Building2, Plus, Layers, ChevronRight } from "lucide-react";
 import { EmptyState as EmptyStateBlock } from "@rlpapp/ui/web";
 
 import { AuthShell } from "@/components/auth-shell";
+import { BatchesWithoutProjectCard } from "@/components/engenharia/batches-without-project-card";
 import { ProjectFormDialog } from "@/components/engenharia/project-form-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -68,6 +69,9 @@ function ObrasPage() {
           ))}
         </div>
       )}
+
+      {/* Lotes de etiquetas legados sem obra: só aparece enquanto existirem. */}
+      <BatchesWithoutProjectCard />
     </div>
   );
 }
