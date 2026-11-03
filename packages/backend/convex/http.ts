@@ -6,6 +6,7 @@ import { env, httpAction } from "./_generated/server";
 import { MAX_LOOKUP_QUERY_LENGTH } from "./lib/compras/materialLookup";
 import type { TakeoffCatalogItem } from "./model/procurement/takeoffCatalog";
 import type { TakeoffKit } from "./model/procurement/takeoffKits";
+import type { TakeoffSettings } from "./model/procurement/takeoffSettings";
 import {
   MATERIAL_NOT_FOUND,
   parseTakeoffMaterialProposal,
@@ -222,9 +223,10 @@ const handleAgentTokenVerify = httpAction(async (ctx, request) => {
 // ---------------------------------------------------------------------------
 //
 // Exporta todo o catálogo ativo com o preço vigente de cada material, mais os
-// kits padrão da empresa (`takeoffKits`). O app desktop lê isto ao abrir e cai
-// no seed embutido quando o endpoint falha, por isso a resposta é um JSON
-// único e não paginado.
+// kits padrão da empresa (`takeoffKits`) e as demais configurações do app
+// (`takeoffSettings`: pesos, preços por kg, marcas de VRF). O app desktop lê
+// isto ao abrir e cai no seed embutido quando o endpoint falha, por isso a
+// resposta é um JSON único e não paginado.
 
 const handleTakeoffCatalog = httpAction(async (ctx, request) => {
   const token = env.TAKEOFF_CATALOG_TOKEN;
@@ -242,6 +244,10 @@ const handleTakeoffCatalog = httpAction(async (ctx, request) => {
     internal.takeoffKits.listPublished,
     {}
   );
+  const settings: TakeoffSettings = await ctx.runQuery(
+    internal.takeoffSettings.listPublished,
+    {}
+  );
   console.log(
     JSON.stringify({
       event: "takeoff_catalog",
@@ -250,7 +256,7 @@ const handleTakeoffCatalog = httpAction(async (ctx, request) => {
       ms: Date.now() - startedAt,
     })
   );
-  return json({ generatedAt: startedAt, items, kits });
+  return json({ generatedAt: startedAt, items, kits, ...settings });
 });
 
 // Proposta de material vinda do takeoff. Cadastrar material é tarefa de

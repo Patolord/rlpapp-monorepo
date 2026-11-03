@@ -1,13 +1,10 @@
-import {
-  defaultGaugeWeights,
-  GAUGES,
-  type GaugeWeights,
-  gaugeKgm2,
-} from "@rlpapp/shared/engenharia/ducts";
+import { GAUGES, type GaugeWeights } from "@rlpapp/shared/engenharia/ducts";
 import { Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { gaugeWeightDefaults, WEIGHT_RULES, weightDefaults } from "../lib/catalog";
+import { originOf } from "../lib/overrides";
 import { GROUP_SUGGESTIONS } from "../lib/types";
-import { BASE_MATERIALS, cloneWeights, SEED_WEIGHTS, type WeightRow } from "../lib/weights";
+import { BASE_MATERIALS, cloneWeights, type WeightRow } from "../lib/weights";
 import { useStore } from "../store";
 import { Dialog } from "./Dialog";
 import { Button } from "./ui";
@@ -21,16 +18,23 @@ const EMPTY_ROW: WeightRow = {
 };
 
 /**
- * Edit the table of materials priced by weight and the sheet weight of each duct gauge (saved
- * with the catalog on this machine).
+ * Edit the table of materials priced by weight and the sheet weight of each duct gauge. The
+ * table starts as the company's (published with the catalog, edited in the dashboard's "App
+ * Takeoff" section; the supplier's until the company publishes one); what the user changes here
+ * is kept on this machine as an override and survives every catalog refresh.
  */
 export function WeightsDialog() {
   const open = useStore((s) => s.weightsEditorOpen);
   const stored = useStore((s) => s.catalog.weights);
-  const storedGauges = useStore((s) => s.catalog.gaugeWeights);
+  const storedGauges = useStore((s) => s.catalog.gaugeWeightOverrides);
+  const remoteRows = useStore((s) => s.catalog.remoteWeights);
+  const remoteGauges = useStore((s) => s.catalog.remoteGaugeWeights);
   const { setWeightsEditorOpen, saveWeights } = useStore.getState();
   const [rows, setRows] = useState<WeightRow[]>([]);
   const [gauges, setGauges] = useState<GaugeWeights>({});
+  const defaults = useMemo(() => weightDefaults(remoteRows), [remoteRows]);
+  const gaugeDefaults = useMemo(() => gaugeWeightDefaults(remoteGauges), [remoteGauges]);
+  const published = remoteRows !== null && remoteRows.length > 0;
   useEffect(() => {
     if (open) {
       setRows(cloneWeights(stored));
@@ -45,11 +49,11 @@ export function WeightsDialog() {
     const clean = rows
       .map((r) => ({ ...r, name: r.name.trim(), group: r.group.trim() || "Tubulações" }))
       .filter((r) => r.name && r.kgPerUnit > 0);
-    // an emptied or zero gauge goes back to the supplier's weight
-    const kgm2 = gaugeKgm2(gauges);
-    void saveWeights(clean, Object.fromEntries(GAUGES.map((g, i) => [g.name, kgm2[i]])));
+    // an emptied or zero gauge goes back to the default (the company's, else the supplier's)
+    void saveWeights(clean, gauges);
     setWeightsEditorOpen(false);
   };
+  const origin = (r: WeightRow) => originOf(defaults, r, WEIGHT_RULES);
   const input =
     "h-7 rounded bg-neutral-800 px-1.5 text-xs ring-1 ring-neutral-700 focus:ring-orange-400 outline-none";
 
@@ -82,8 +86,12 @@ export function WeightsDialog() {
                 min={0}
                 step="0.01"
                 value={gauges[g.name] ?? ""}
-                placeholder={String(g.kgm2)}
-                title={`Padrão do fornecedor (Salviaco): ${g.kgm2} kg/m²`}
+                placeholder={String(gaugeDefaults[g.name] ?? g.kgm2)}
+                title={
+                  remoteGauges?.[g.name] !== undefined
+                    ? `Padrão da empresa: ${remoteGauges[g.name]} kg/m² (fornecedor: ${g.kgm2}); vazio = padrão`
+                    : `Padrão do fornecedor (Salviaco): ${g.kgm2} kg/m²; vazio = padrão`
+                }
                 onChange={(e) =>
                   setGauges((gs) => {
                     const { [g.name]: _, ...rest } = gs;
@@ -107,6 +115,12 @@ export function WeightsDialog() {
               <th className="w-14 px-1 py-1 text-left">Un.</th>
               <th className="w-40 px-1 py-1 text-left">Insumo (R$/kg)</th>
               <th className="w-20 px-1 py-1 text-right">kg / un.</th>
+              <th
+                className="w-20 px-1 py-1 text-left"
+                title="Padrão da empresa, modificado neste computador ou só deste computador"
+              >
+                Origem
+              </th>
               <th className="w-8" />
             </tr>
           </thead>
@@ -162,6 +176,19 @@ export function WeightsDialog() {
                     className={`${input} w-full text-right font-mono`}
                   />
                 </td>
+                <td className="px-1 py-0.5 text-[11px]">
+                  {origin(r) === "modified" ? (
+                    <span className="text-orange-300" title="Difere do padrão da empresa">
+                      modificado
+                    </span>
+                  ) : origin(r) === "local" ? (
+                    <span className="text-sky-300" title="Só neste computador">
+                      só aqui
+                    </span>
+                  ) : (
+                    <span className="text-neutral-600">padrão</span>
+                  )}
+                </td>
                 <td className="px-1 py-0.5 text-center">
                   <button
                     type="button"
@@ -183,14 +210,29 @@ export function WeightsDialog() {
         </Button>
         <Button
           onClick={() => {
-            setRows(cloneWeights(SEED_WEIGHTS));
-            setGauges(defaultGaugeWeights());
+            setRows(cloneWeights(defaults));
+            setGauges({});
           }}
-          title="Volta às tabelas do fornecedor embutidas no app (cobre e chapas)"
+          title={
+            published
+              ? "Descarta as alterações deste computador e volta à tabela da empresa (cobre e chapas)"
+              : "Volta às tabelas do fornecedor embutidas no app (cobre e chapas)"
+          }
         >
           Restaurar tabela padrão
         </Button>
-        <span className="flex-1" />
+        <span
+          className="min-w-0 flex-1 truncate text-[11px] text-neutral-500"
+          title={
+            published
+              ? "A tabela vem do app da empresa (seção App Takeoff) a cada atualização do catálogo; o que você mudar aqui fica neste computador e não é substituído"
+              : "A empresa ainda não publicou a tabela: vale a do fornecedor. O que você mudar aqui fica neste computador"
+          }
+        >
+          {published
+            ? `${defaults.length} materiais padrão da empresa · alterações ficam neste computador`
+            : "Tabela do fornecedor · alterações ficam neste computador"}
+        </span>
         <Button onClick={() => setWeightsEditorOpen(false)}>Cancelar</Button>
         <Button variant="primary" onClick={save}>
           Salvar

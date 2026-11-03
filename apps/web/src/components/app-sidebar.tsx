@@ -22,6 +22,8 @@ import {
   Bot,
   Clock,
   Layers,
+  Scale,
+  Snowflake,
   type LucideIcon,
 } from "lucide-react";
 
@@ -109,7 +111,11 @@ function getNavGroups(): NavGroup[] {
       // e Engenharia justamente para deixar isso claro.
       key: "takeoff",
       label: "App Takeoff",
-      items: [{ to: "/takeoff/kits", label: "Kits (presets)", icon: Layers }],
+      items: [
+        { to: "/takeoff/kits", label: "Kits (presets)", icon: Layers },
+        { to: "/takeoff/pesos", label: "Pesos e insumos", icon: Scale },
+        { to: "/takeoff/vrf", label: "Marcas VRF", icon: Snowflake },
+      ],
     },
     {
       key: "configuracoes",

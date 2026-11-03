@@ -123,7 +123,11 @@ company publishes any), with the user's own changes on top: a default edited her
 version ("modificado aqui"), a default removed here stays hidden, a kit created here is "só aqui";
 "Restaurar padrão" drops a local edit. Every catalog refresh replaces the defaults and keeps the
 overrides, so a kit the user never touched always follows the company's version (the model is in
-`lib/kits.ts`, the shared types and factory presets in `@rlpapp/shared/takeoff/kits`). Each kit has a **Rótulo no
+`lib/overrides.ts` and `lib/kits.ts`, the shared types and factory presets in
+`@rlpapp/shared/takeoff/kits`). The weight table, the kg/m² per duct gauge, the prices per kg
+(Ctrl+K footer) and the VRF brand rules follow the same model: company defaults from the
+dashboard's App Takeoff section (the supplier's and the workbook's tables until the company
+publishes any), each user's changes kept on their machine. Each kit has a **Rótulo no
 desenho** shown before the run's quantity (`1/4" · 3/8" · 3.00 m`; beside the symbol for a count
 kit, `VE-01 · 1.200 m³/h`); the line-set presets come labelled with their liquid and gas
 diameters. Only one member of a kit run is labelled, on screen and in the report. Runs remember
@@ -158,7 +162,8 @@ bill of materials) lives in `packages/shared/src/engenharia/ducts.ts`
 dashboard's one was removed), so any change to it is a change for every app. **VRF (Y)** asks what each refrigerant run is (saída
 da condensadora, trecho intermediário, ramal da evaporadora) and the capacity that sizes it;
 the VRF tab derives the gas/liquid diameters from the brand's tables (`lib/vrf.ts`, editable in
-"Regras das marcas", saved with the catalog), counts evaporators and Y-kits, and bills copper
+"Marcas de VRF": the company's rules published with the catalog, under this machine's
+overrides, like the kits), counts evaporators and Y-kits, and bills copper
 (priced by weight), elbows, 13 mm insulation, cables, boxes, supports and labour per evaporator,
 following the "Levantamento VRF Completo" workbook. Each system is one "Sistema VRF" item in
 the budget (quantity = identical systems); the detail goes to the exported VRF workbook.

@@ -1,3 +1,5 @@
+import { cloneBrand, SEED_BRANDS } from "@rlpapp/shared/takeoff/vrfBrands";
+import { SEED_WEIGHTS, weightKey } from "@rlpapp/shared/takeoff/weights";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   commonWordPrefix,
@@ -15,7 +17,7 @@ import {
   seedLaborKey,
   unitKey,
   upgradeRemoteEntry,
-  withEffectiveKits,
+  withCompanyDefaults,
   withSeedLabor,
 } from "./catalog";
 import { SEED_KITS } from "./kits";
@@ -457,13 +459,120 @@ describe("loading the saved catalog", () => {
       JSON.stringify({ saved: [], remoteKits: remote, kitOverrides: [], kitRemoved: [] }),
     );
     const store = await loadCatalogStore();
-    const again = withEffectiveKits(store, { remoteKits: parseRemoteKits(remote) });
+    const again = withCompanyDefaults(store, { remoteKits: parseRemoteKits(remote) });
     expect(again.kits).toBe(store.kits);
-    const changed = withEffectiveKits(store, {
+    const changed = withCompanyDefaults(store, {
       remoteKits: parseRemoteKits([{ ...remote[0], label: "1/4" }]),
     });
     expect(changed.kits).not.toBe(store.kits);
     expect(changed.kits[0].label).toBe("1/4");
+  });
+
+  it("reads the weight table of before as overrides of the supplier's, and the other settings too", async () => {
+    const [first, second, ...rest] = SEED_WEIGHTS;
+    const edited = { ...first, kgPerUnit: 0.2 };
+    const mine = {
+      name: "Barra chata",
+      group: "Ferragens",
+      unit: "pç" as const,
+      material: "chapa",
+      kgPerUnit: 1.5,
+    };
+    storage.set(
+      "takeoff.catalog",
+      JSON.stringify({
+        saved: [],
+        weights: [edited, ...rest, mine],
+        gaugeWeights: { "# 26": 4.38, "# 24": 5 },
+        basePrices: { cobre: 125 },
+        vrfBrands: [{ ...SEED_BRANDS[0], name: "Daikin (RLP)" }],
+      }),
+    );
+    const store = await loadCatalogStore();
+    expect(store.weightOverrides.map((r) => r.name)).toEqual([first.name, "Barra chata"]);
+    expect(store.weightRemoved).toEqual([weightKey(second)]);
+    expect(store.weights.map((r) => r.name)).toEqual([
+      first.name,
+      ...rest.map((r) => r.name),
+      "Barra chata",
+    ]);
+    expect(store.weights[0].kgPerUnit).toBe(0.2);
+    // the supplier's # 26 is not an override; the # 24 set by the user is
+    expect(store.gaugeWeightOverrides).toEqual({ "# 24": 5 });
+    expect(store.gaugeWeights["# 24"]).toBe(5);
+    expect(store.gaugeWeights["# 26"]).toBe(4.38);
+    expect(store.basePriceOverrides).toEqual({ cobre: 125 });
+    expect(store.basePrices).toEqual({ cobre: 125 });
+    expect(store.vrfBrandOverrides.map((b) => b.id)).toEqual(["daikin"]);
+    expect(store.vrfBrandRemoved).toEqual(["hitachi"]);
+    expect(store.vrfBrands.map((b) => b.name)).toEqual(["Daikin (RLP)"]);
+  });
+
+  it("layers the company's weights, gauges, prices and brands under the overrides", async () => {
+    storage.set(
+      "takeoff.catalog",
+      JSON.stringify({
+        saved: [],
+        remoteWeights: [SEED_WEIGHTS[0]],
+        weightOverrides: [],
+        weightRemoved: [],
+        remoteGaugeWeights: { "# 26": 4.5 },
+        gaugeWeightOverrides: { "# 24": 5 },
+        remoteBasePrices: { cobre: 110, chapa: 9 },
+        basePriceOverrides: { chapa: 10 },
+        remoteVrfBrands: [SEED_BRANDS[1]],
+        vrfBrandOverrides: [],
+        vrfBrandRemoved: [],
+      }),
+    );
+    const store = await loadCatalogStore();
+    expect(store.weights).toEqual([SEED_WEIGHTS[0]]);
+    expect(store.gaugeWeights).toMatchObject({ "# 26": 4.5, "# 24": 5, "# 22": 6.82 });
+    expect(store.basePrices).toEqual({ cobre: 110, chapa: 10 });
+    expect(store.vrfBrands.map((b) => b.id)).toEqual(["hitachi"]);
+    // a refresh with the same defaults keeps every list's identity
+    const same = withCompanyDefaults(store, {
+      remoteWeights: [{ ...SEED_WEIGHTS[0] }],
+      remoteVrfBrands: [cloneBrand(SEED_BRANDS[1])],
+      remoteBasePrices: { cobre: 110, chapa: 9 },
+    });
+    expect(same.weights).toBe(store.weights);
+    expect(same.vrfBrands).toBe(store.vrfBrands);
+    expect(same.basePrices).toBe(store.basePrices);
+    expect(same.gaugeWeights).toBe(store.gaugeWeights);
+  });
+
+  it("reads the weights, prices and brands of the catalog response, skipping what is invalid", () => {
+    const parsed = parseRemoteCatalogResponse({
+      generatedAt: 1,
+      items: [],
+      kits: [],
+      weights: {
+        rows: [
+          { name: " Tubo ", group: "", unit: "pç", material: "chapa", kgPerUnit: 1.5 },
+          { name: "Sem peso", group: "x", unit: "m", material: "cobre", kgPerUnit: 0 },
+          { name: "Ouro", group: "x", unit: "m", material: "ouro", kgPerUnit: 1 },
+        ],
+        gaugeWeights: { "# 26": 4.5, "# 99": 1, "# 24": -1 },
+      },
+      basePrices: { cobre: 125, ouro: 1, chapa: 0 },
+      vrfBrands: [
+        SEED_BRANDS[0],
+        { ...SEED_BRANDS[1], main: [{ hp: 0, gas: "9/9", liquid: "1/4" }] },
+        { id: "", name: "sem id", main: [], trunk: [], branch: [], ykit: [] },
+      ],
+    });
+    expect(parsed.weights).toEqual({
+      rows: [{ name: "Tubo", group: "Tubulações", unit: "pç", material: "chapa", kgPerUnit: 1.5 }],
+      gaugeWeights: { "# 26": 4.5 },
+    });
+    expect(parsed.basePrices).toEqual({ cobre: 125 });
+    expect(parsed.vrfBrands?.map((b) => b.id)).toEqual(["daikin"]);
+    // a server from before these settings: nothing arrives, the defaults in use stay
+    const older = parseRemoteCatalogResponse({ generatedAt: 1, items: [] });
+    expect(older.weights).toBeNull();
+    expect(older.basePrices).toBeNull();
+    expect(older.vrfBrands).toBeNull();
   });
 
   it("reads the company's kits from the catalog response, skipping what is not a kit", () => {

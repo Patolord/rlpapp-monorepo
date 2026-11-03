@@ -79,6 +79,8 @@ import { Route as RhPontoDiaRouteImport } from './routes/rh/ponto/dia'
 import { Route as RhPontoMensalRouteImport } from './routes/rh/ponto/mensal'
 import { Route as RhPontoVinculosRouteImport } from './routes/rh/ponto/vinculos'
 import { Route as TakeoffPainelKitsRouteImport } from './routes/takeoff/_painel/kits'
+import { Route as TakeoffPainelPesosRouteImport } from './routes/takeoff/_painel/pesos'
+import { Route as TakeoffPainelVrfRouteImport } from './routes/takeoff/_painel/vrf'
 import { Route as EngenhariaObrasObraSlugIndexRouteImport } from './routes/engenharia/obras/$obraSlug.index'
 import { Route as EngenhariaObrasObraSlugAssistenteRouteImport } from './routes/engenharia/obras/$obraSlug.assistente'
 import { Route as EngenhariaObrasObraSlugComprasRouteImport } from './routes/engenharia/obras/$obraSlug.compras'
@@ -467,6 +469,16 @@ const TakeoffPainelKitsRoute = TakeoffPainelKitsRouteImport.update({
   path: '/kits',
   getParentRoute: () => TakeoffPainelRoute,
 } as any)
+const TakeoffPainelPesosRoute = TakeoffPainelPesosRouteImport.update({
+  id: '/pesos',
+  path: '/pesos',
+  getParentRoute: () => TakeoffPainelRoute,
+} as any)
+const TakeoffPainelVrfRoute = TakeoffPainelVrfRouteImport.update({
+  id: '/vrf',
+  path: '/vrf',
+  getParentRoute: () => TakeoffPainelRoute,
+} as any)
 const EngenhariaObrasObraSlugIndexRoute =
   EngenhariaObrasObraSlugIndexRouteImport.update({
     id: '/',
@@ -682,6 +694,8 @@ export interface FileRoutesByFullPath {
   '/rh/ponto/mensal': typeof RhPontoMensalRoute
   '/rh/ponto/vinculos': typeof RhPontoVinculosRoute
   '/takeoff/kits': typeof TakeoffPainelKitsRoute
+  '/takeoff/pesos': typeof TakeoffPainelPesosRoute
+  '/takeoff/vrf': typeof TakeoffPainelVrfRoute
   '/backoffice/clientes/': typeof BackofficeClientesIndexRoute
   '/backoffice/empreiteiros/': typeof BackofficeEmpreiteirosIndexRoute
   '/compras/eventos-preco/': typeof ComprasEventosPrecoIndexRoute
@@ -767,6 +781,8 @@ export interface FileRoutesByTo {
   '/rh/ponto/mensal': typeof RhPontoMensalRoute
   '/rh/ponto/vinculos': typeof RhPontoVinculosRoute
   '/takeoff/kits': typeof TakeoffPainelKitsRoute
+  '/takeoff/pesos': typeof TakeoffPainelPesosRoute
+  '/takeoff/vrf': typeof TakeoffPainelVrfRoute
   '/backoffice/clientes': typeof BackofficeClientesIndexRoute
   '/backoffice/empreiteiros': typeof BackofficeEmpreiteirosIndexRoute
   '/compras/eventos-preco': typeof ComprasEventosPrecoIndexRoute
@@ -866,6 +882,8 @@ export interface FileRoutesById {
   '/rh/ponto/mensal': typeof RhPontoMensalRoute
   '/rh/ponto/vinculos': typeof RhPontoVinculosRoute
   '/takeoff/_painel/kits': typeof TakeoffPainelKitsRoute
+  '/takeoff/_painel/pesos': typeof TakeoffPainelPesosRoute
+  '/takeoff/_painel/vrf': typeof TakeoffPainelVrfRoute
   '/backoffice/clientes/': typeof BackofficeClientesIndexRoute
   '/backoffice/empreiteiros/': typeof BackofficeEmpreiteirosIndexRoute
   '/compras/eventos-preco/': typeof ComprasEventosPrecoIndexRoute
@@ -966,6 +984,8 @@ export interface FileRouteTypes {
     | '/rh/ponto/mensal'
     | '/rh/ponto/vinculos'
     | '/takeoff/kits'
+    | '/takeoff/pesos'
+    | '/takeoff/vrf'
     | '/backoffice/clientes/'
     | '/backoffice/empreiteiros/'
     | '/compras/eventos-preco/'
@@ -1051,6 +1071,8 @@ export interface FileRouteTypes {
     | '/rh/ponto/mensal'
     | '/rh/ponto/vinculos'
     | '/takeoff/kits'
+    | '/takeoff/pesos'
+    | '/takeoff/vrf'
     | '/backoffice/clientes'
     | '/backoffice/empreiteiros'
     | '/compras/eventos-preco'
@@ -1149,6 +1171,8 @@ export interface FileRouteTypes {
     | '/rh/ponto/mensal'
     | '/rh/ponto/vinculos'
     | '/takeoff/_painel/kits'
+    | '/takeoff/_painel/pesos'
+    | '/takeoff/_painel/vrf'
     | '/backoffice/clientes/'
     | '/backoffice/empreiteiros/'
     | '/compras/eventos-preco/'
@@ -1715,6 +1739,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TakeoffPainelKitsRouteImport
       parentRoute: typeof TakeoffPainelRoute
     }
+    '/takeoff/_painel/pesos': {
+      id: '/takeoff/_painel/pesos'
+      path: '/pesos'
+      fullPath: '/takeoff/pesos'
+      preLoaderRoute: typeof TakeoffPainelPesosRouteImport
+      parentRoute: typeof TakeoffPainelRoute
+    }
+    '/takeoff/_painel/vrf': {
+      id: '/takeoff/_painel/vrf'
+      path: '/vrf'
+      fullPath: '/takeoff/vrf'
+      preLoaderRoute: typeof TakeoffPainelVrfRouteImport
+      parentRoute: typeof TakeoffPainelRoute
+    }
     '/engenharia/obras/$obraSlug/': {
       id: '/engenharia/obras/$obraSlug/'
       path: '/'
@@ -2163,10 +2201,14 @@ const RhRouteRouteWithChildren =
 
 interface TakeoffPainelRouteChildren {
   TakeoffPainelKitsRoute: typeof TakeoffPainelKitsRoute
+  TakeoffPainelPesosRoute: typeof TakeoffPainelPesosRoute
+  TakeoffPainelVrfRoute: typeof TakeoffPainelVrfRoute
 }
 
 const TakeoffPainelRouteChildren: TakeoffPainelRouteChildren = {
   TakeoffPainelKitsRoute: TakeoffPainelKitsRoute,
+  TakeoffPainelPesosRoute: TakeoffPainelPesosRoute,
+  TakeoffPainelVrfRoute: TakeoffPainelVrfRoute,
 }
 
 const TakeoffPainelRouteWithChildren = TakeoffPainelRoute._addFileChildren(

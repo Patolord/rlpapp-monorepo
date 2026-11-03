@@ -131,6 +131,34 @@ export const takeoffKitComponentKind = v.union(
   v.literal("linear"),
   v.literal("area")
 );
+/** Linha da tabela de materiais por peso do RLP Takeoff. */
+export const takeoffWeightRow = v.object({
+  name: v.string(),
+  group: v.string(),
+  /** kg por metro ("m") ou por peça ("pç"). */
+  unit: v.union(v.literal("m"), v.literal("pç")),
+  /** Chave do insumo (BASE_MATERIALS em @rlpapp/shared/takeoff/weights). */
+  material: v.string(),
+  kgPerUnit: v.number(),
+});
+
+/** Linha de uma tabela de bitolas de VRF: a partir de `hp`, este par gás/líquido. */
+export const takeoffVrfHpRow = v.object({
+  hp: v.number(),
+  gas: v.string(),
+  liquid: v.string(),
+});
+
+/** Regras de uma marca de VRF (mesma forma de VrfBrand em @rlpapp/shared). */
+export const takeoffVrfBrand = v.object({
+  id: v.string(),
+  name: v.string(),
+  main: v.array(takeoffVrfHpRow),
+  trunk: v.array(takeoffVrfHpRow),
+  branch: v.array(takeoffVrfHpRow),
+  ykit: v.array(v.object({ hp: v.number(), model: v.string() })),
+});
+
 export const takeoffKitComponent = v.object({
   /** Nome no catálogo do app (produto da empresa ou material das planilhas). */
   name: v.string(),
@@ -953,6 +981,38 @@ export default defineSchema({
   })
     .index("by_key", ["key"])
     .index("by_active_sortOrder", ["active", "sortOrder"]),
+
+  // Demais configurações do RLP Takeoff editadas em App Takeoff no dashboard e
+  // publicadas com o catálogo: um documento por `kind`. Mesmas formas de
+  // @rlpapp/shared/takeoff/weights e vrfBrands. O app aplica tudo como padrão
+  // sob as alterações locais de cada usuário.
+  takeoffSettings: defineTable(
+    v.union(
+      // Materiais por peso (kg por unidade × preço do insumo) e kg/m² por
+      // bitola de chapa dos dutos.
+      v.object({
+        kind: v.literal("weights"),
+        rows: v.array(takeoffWeightRow),
+        gaugeWeights: v.record(v.string(), v.number()),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.id("users")),
+      }),
+      // Preço por kg dos insumos (cobre, cobre_grosso, chapa).
+      v.object({
+        kind: v.literal("basePrices"),
+        prices: v.record(v.string(), v.number()),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.id("users")),
+      }),
+      // Regras das marcas de VRF: tabelas de bitola por HP e modelos de Y-kit.
+      v.object({
+        kind: v.literal("vrfBrands"),
+        brands: v.array(takeoffVrfBrand),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.id("users")),
+      })
+    )
+  ).index("by_kind", ["kind"]),
 
   takeoffs: defineTable({
     projectId: v.optional(v.id("projects")),

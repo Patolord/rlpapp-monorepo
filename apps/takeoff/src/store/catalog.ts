@@ -4,13 +4,15 @@ import { isSignedIn } from "../lib/account/session";
 import {
   type CatalogEntry,
   type CatalogStore,
+  diffGaugeWeights,
+  diffWeights,
   emptyCatalogStore,
   fetchRemoteCatalog,
   loadCatalogStore,
   mergeCatalog,
   saveCatalogStore,
   unitForKind,
-  withEffectiveKits,
+  withCompanyDefaults,
 } from "../lib/catalog";
 import {
   applyRedirects,
@@ -55,11 +57,16 @@ export interface CatalogSlice {
   /** Try to deliver every queued proposal; returns how many were accepted. */
   flushProposals(): Promise<number>;
 
-  /** Price per kg of a base material, app-wide (undefined = back to the bundled default). */
+  /**
+   * Price per kg of a base material on this machine (undefined = back to the company's price,
+   * else the bundled default). What the user sets here outlives every catalog refresh.
+   */
   setBasePrice(key: string, price: number | undefined): void;
   /**
    * Replace the weight table (materials priced by weight) and the sheet weight of each duct
-   * gauge, saved with the catalog; the duct networks of the open takeoff follow.
+   * gauge. What differs from the company defaults is kept as a local override (an edited row,
+   * a removed row, a row of this machine, a gauge set here); the rest follows the defaults on
+   * every catalog refresh. The duct networks of the open takeoff follow.
    */
   saveWeights(rows: WeightRow[], gaugeWeights: GaugeWeights): Promise<void>;
   /**
@@ -130,9 +137,9 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
       } else {
         remote = await fetchRemoteCatalog(catalog.remoteToken);
       }
-      // the company's kit defaults come with the catalog; a server from before kits (no list)
-      // leaves the defaults in use as they are
-      const next = withEffectiveKits(
+      // the company's defaults (kits, weight table, gauges, prices per kg, VRF brands) come
+      // with the catalog; what a server from before them leaves out stays as it is
+      const next = withCompanyDefaults(
         {
           ...catalog,
           remote: remote.entries,
@@ -140,9 +147,23 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
           remoteGeneratedAt: remote.generatedAt,
           fetchedAt: new Date().toISOString(),
         },
-        remote.kits !== null ? { remoteKits: remote.kits } : {},
+        {
+          ...(remote.kits !== null ? { remoteKits: remote.kits } : {}),
+          ...(remote.weights !== null
+            ? {
+                remoteWeights: remote.weights.rows,
+                remoteGaugeWeights: remote.weights.gaugeWeights,
+              }
+            : {}),
+          ...(remote.basePrices !== null ? { remoteBasePrices: remote.basePrices } : {}),
+          ...(remote.vrfBrands !== null ? { remoteVrfBrands: remote.vrfBrands } : {}),
+        },
       );
-      set({ catalog: next });
+      const { project } = get();
+      // derived prices (weight lines, duct networks, VRF systems) follow the new defaults
+      const synced = syncDerived(project, next);
+      set({ catalog: next, ...(synced !== project ? { project: synced, dirty: true } : {}) });
+      if (next.vrfBrands !== catalog.vrfBrands) get().resyncVrf();
       relabelRuns(catalog.kits, next.kits);
       await saveCatalogStore(next);
       // lines linked to a material purchasing merged into another follow it, prices untouched
@@ -260,10 +281,10 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
 
     setBasePrice: (key, price) => {
       const { catalog, project } = get();
-      const basePrices = { ...catalog.basePrices };
-      if (price === undefined || Number.isNaN(price)) delete basePrices[key];
-      else basePrices[key] = price;
-      const next = { ...catalog, basePrices };
+      const basePriceOverrides = { ...catalog.basePriceOverrides };
+      if (price === undefined || Number.isNaN(price)) delete basePriceOverrides[key];
+      else basePriceOverrides[key] = price;
+      const next = withCompanyDefaults(catalog, { basePriceOverrides });
       // every weight-priced line and duct network of the open takeoff follows the new price per kg
       // (no undo step: the setting itself is not part of the project)
       const synced = syncDerived(project, next);
@@ -272,12 +293,21 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
     },
 
     saveWeights: async (rows, gaugeWeights) => {
-      const { project } = get();
-      const catalog = { ...get().catalog, weights: rows, gaugeWeights };
+      const { project, catalog: before } = get();
+      const catalog = withCompanyDefaults(before, {
+        ...diffWeights(before, rows),
+        gaugeWeightOverrides: diffGaugeWeights(before, gaugeWeights),
+      });
       const synced = syncDerived(project, catalog);
+      const own =
+        catalog.weightOverrides.length +
+        catalog.weightRemoved.length +
+        Object.keys(catalog.gaugeWeightOverrides).length;
       set({
         catalog,
-        status: `${rows.length} materiais por peso e pesos das chapas salvos`,
+        status: `${catalog.weights.length} materiais por peso e pesos das chapas salvos${
+          own > 0 ? ` (${own} ${own === 1 ? "alteração local" : "alterações locais"})` : ""
+        }`,
         ...(synced !== project ? { project: synced, dirty: true } : {}),
       });
       await persist(catalog, "Não foi possível gravar a tabela de pesos");
@@ -285,16 +315,12 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
 
     saveKits: async (kits) => {
       const before = get().catalog;
-      const defaults = kitDefaults(before.remoteKits);
-      const diff = diffKits(defaults, kits);
       // a default removed here stays hidden even after it leaves the company's list (the
-      // company may publish it again later): its id is kept until the user brings it back
-      const current = new Set(defaults.map((k) => k.id));
-      const kitRemoved = [
-        ...diff.kitRemoved,
-        ...before.kitRemoved.filter((id) => !current.has(id)),
-      ];
-      const catalog = withEffectiveKits(before, { ...diff, kitRemoved });
+      // company may publish it again later): diffKits keeps its id until the user brings it back
+      const catalog = withCompanyDefaults(
+        before,
+        diffKits(kitDefaults(before.remoteKits), kits, before),
+      );
       const own = catalog.kitOverrides.length + catalog.kitRemoved.length;
       set({
         catalog,

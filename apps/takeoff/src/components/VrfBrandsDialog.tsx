@@ -1,7 +1,10 @@
-import { Copy, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Copy, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { BRAND_RULES, brandDefaults } from "../lib/catalog";
+import { type Origin, originOf } from "../lib/overrides";
 import { newId } from "../lib/types";
 import {
+  cloneBrand,
   cloneBrands,
   DIAMETERS,
   type Diameter,
@@ -24,17 +27,42 @@ const ROLE_NOTE: Record<VrfRole, string> = {
   branch: "pela capacidade da evaporadora",
 };
 
+const ORIGIN_LABEL: Record<Origin, { text: string; title: string; className: string }> = {
+  default: {
+    text: "padrão",
+    title: "Igual ao padrão da empresa: segue as atualizações publicadas no app da empresa",
+    className: "text-neutral-500",
+  },
+  modified: {
+    text: "modificada aqui",
+    title:
+      "Versão deste computador de uma marca da empresa: atualizações do padrão não a substituem",
+    className: "text-orange-300",
+  },
+  local: {
+    text: "só aqui",
+    title: "Marca criada neste computador; a empresa não a tem",
+    className: "text-sky-300",
+  },
+};
+
 /**
  * Edit each maker's rules: three tube-sizing tables (gas/liquid pair from a minimum HP) and the
- * Y-kit models by downstream HP. Saved with the catalog on this machine; takeoffs keep only the
- * brand id, so a rule change re-prices every open system.
+ * Y-kit models by downstream HP. The list starts as the company's brands (published with the
+ * catalog, edited in the dashboard's "App Takeoff" section; the workbook's until the company
+ * publishes any); what the user changes here is kept on this machine as an override and
+ * survives every catalog refresh. Takeoffs keep only the brand id, so a rule change re-prices
+ * every open system.
  */
 export function VrfBrandsDialog() {
   const open = useStore((s) => s.vrfBrandsEditorOpen);
   const stored = useStore((s) => s.catalog.vrfBrands);
+  const remote = useStore((s) => s.catalog.remoteVrfBrands);
   const { setVrfBrandsEditorOpen, saveVrfBrands } = useStore.getState();
   const [brands, setBrands] = useState<VrfBrand[]>([]);
   const [sel, setSel] = useState<string | null>(null);
+  const defaults = useMemo(() => brandDefaults(remote), [remote]);
+  const published = remote !== null && remote.length > 0;
   useEffect(() => {
     if (open) {
       const copy = cloneBrands(stored.length ? stored : SEED_BRANDS);
@@ -45,6 +73,14 @@ export function VrfBrandsDialog() {
   if (!open) return null;
 
   const brand = brands.find((b) => b.id === sel) ?? null;
+  const origin = brand ? originOf(defaults, brand, BRAND_RULES) : null;
+  const hiddenDefaults = defaults.filter((d) => !brands.some((b) => b.id === d.id));
+  /** Put the selected brand back as the company publishes it. */
+  const restore = () => {
+    if (!brand) return;
+    const d = defaults.find((b) => b.id === brand.id);
+    if (d) setBrands((bs) => bs.map((b) => (b.id === brand.id ? cloneBrand(d) : b)));
+  };
   const update = (patch: Partial<VrfBrand>) =>
     setBrands((bs) => bs.map((b) => (b.id === sel ? { ...b, ...patch } : b)));
   const updateRow = (key: VrfRole, i: number, patch: Partial<HpRow>) => {
@@ -96,25 +132,48 @@ export function VrfBrandsDialog() {
     >
       <div className="flex w-52 shrink-0 flex-col border-r border-neutral-800">
         <ul className="min-h-0 flex-1 overflow-y-auto py-1">
-          {brands.map((b) => (
-            <li key={b.id}>
-              <button
-                type="button"
-                onClick={() => setSel(b.id)}
-                className={
-                  b.id === sel
-                    ? "w-full bg-orange-500/10 px-3 py-1.5 text-left text-xs font-medium text-orange-300"
-                    : "w-full px-3 py-1.5 text-left text-xs text-neutral-200 hover:bg-neutral-800"
-                }
-              >
-                {b.name || "Marca"}
-                <span className="block truncate text-[11px] font-normal text-neutral-500">
-                  {b.ykit.length} Y-kits
-                </span>
-              </button>
-            </li>
-          ))}
+          {brands.map((b) => {
+            const from = originOf(defaults, b, BRAND_RULES);
+            const o = ORIGIN_LABEL[from];
+            return (
+              <li key={b.id}>
+                <button
+                  type="button"
+                  onClick={() => setSel(b.id)}
+                  className={
+                    b.id === sel
+                      ? "w-full bg-orange-500/10 px-3 py-1.5 text-left text-xs font-medium text-orange-300"
+                      : "w-full px-3 py-1.5 text-left text-xs text-neutral-200 hover:bg-neutral-800"
+                  }
+                >
+                  {b.name || "Marca"}
+                  <span className="block truncate text-[11px] font-normal text-neutral-500">
+                    {b.ykit.length} Y-kits
+                    {from !== "default" && (
+                      <span className={o.className} title={o.title}>
+                        {" "}
+                        · {o.text}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
+        {hiddenDefaults.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setBrands((bs) => [...bs, ...hiddenDefaults.map(cloneBrand)])}
+            className="border-t border-neutral-800 px-3 py-1.5 text-left text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+            title={hiddenDefaults.map((d) => d.name).join(", ")}
+          >
+            <RotateCcw size={11} className="mr-1 inline" />
+            {hiddenDefaults.length === 1
+              ? "Trazer de volta 1 marca removida"
+              : `Trazer de volta ${hiddenDefaults.length} marcas removidas`}
+          </button>
+        )}
         <div className="flex gap-1 border-t border-neutral-800 p-2">
           <Button onClick={addBrand} title="Nova marca (começa com as tabelas da planilha)">
             <Plus size={14} /> Nova
@@ -143,6 +202,24 @@ export function VrfBrandsDialog() {
                 Cada linha vale a partir do HP mínimo até a linha seguinte (como o VLOOKUP da
                 planilha)
               </span>
+              {origin && (
+                <span
+                  className={`text-[11px] ${ORIGIN_LABEL[origin].className}`}
+                  title={ORIGIN_LABEL[origin].title}
+                >
+                  {ORIGIN_LABEL[origin].text}
+                </span>
+              )}
+              {origin === "modified" && (
+                <button
+                  type="button"
+                  onClick={restore}
+                  className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-neutral-300 ring-1 ring-neutral-700 hover:bg-neutral-800"
+                  title="Descartar as alterações deste computador e voltar ao padrão da empresa"
+                >
+                  <RotateCcw size={11} /> Restaurar padrão
+                </button>
+              )}
             </div>
             <div className="grid min-h-0 flex-1 grid-cols-4 gap-3 overflow-auto px-3 py-2 text-xs">
               {(["main", "trunk", "branch"] as VrfRole[]).map((key) => (
@@ -299,20 +376,33 @@ export function VrfBrandsDialog() {
           </div>
         )}
         <div className="flex items-center gap-2 border-t border-neutral-800 px-3 py-2">
-          <span className="text-[11px] text-neutral-500">
-            Tabelas iniciais vêm da planilha Levantamento VRF; confira os modelos de Y-kit com o
-            catálogo do fabricante. Salvo neste computador junto com o catálogo.
+          <span
+            className="text-[11px] text-neutral-500"
+            title={
+              published
+                ? "As marcas vêm do app da empresa (seção App Takeoff) a cada atualização do catálogo; o que você mudar aqui fica neste computador e não é substituído"
+                : "A empresa ainda não publicou marcas: valem as da planilha Levantamento VRF. O que você mudar aqui fica neste computador"
+            }
+          >
+            {published
+              ? `${defaults.length} marcas padrão da empresa · alterações ficam neste computador`
+              : "Marcas da planilha Levantamento VRF · alterações ficam neste computador"}
+            . Confira os modelos de Y-kit com o catálogo do fabricante.
           </span>
           <span className="flex-1" />
           <Button
             onClick={() => {
-              const seeds = cloneBrands(SEED_BRANDS);
-              setBrands(seeds);
-              setSel(seeds[0].id);
+              const all = cloneBrands(defaults);
+              setBrands(all);
+              setSel(all[0]?.id ?? null);
             }}
-            title="Volta às marcas e tabelas embutidas no app"
+            title={
+              published
+                ? "Descarta as alterações deste computador e volta às marcas da empresa"
+                : "Volta às marcas e tabelas embutidas no app"
+            }
           >
-            Restaurar padrão
+            Restaurar todas
           </Button>
           <Button onClick={() => setVrfBrandsEditorOpen(false)}>Cancelar</Button>
           <Button variant="primary" onClick={save}>

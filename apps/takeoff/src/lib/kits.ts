@@ -1,4 +1,13 @@
 import { type Kit, kitMode, SEED_KITS, sameKit } from "@rlpapp/shared/takeoff/kits";
+import {
+  applyOverrides,
+  defaultsOf,
+  diffOverrides,
+  type Origin,
+  type OverrideRules,
+  type Overrides,
+  originOf,
+} from "./overrides";
 import type { Measurement } from "./types";
 import type { Unit } from "./units";
 
@@ -31,14 +40,8 @@ export function kitSummary(kit: Kit, unit: Unit = "m"): string {
 }
 
 // ---------------------------------------------------------------------------
-// Company defaults and local overrides
+// Company defaults and local overrides (see lib/overrides.ts)
 // ---------------------------------------------------------------------------
-//
-// The kits a user sees are the company's defaults (published with the catalog by the dashboard's
-// "App Takeoff" section; the bundled SEED_KITS until the company publishes any) with the user's
-// own changes on top: a default edited here keeps the local version, a default removed here stays
-// hidden, and a kit created here is appended. Refreshing the catalog replaces the defaults and
-// keeps every override, so a team fix reaches everyone who did not touch that kit.
 
 /** The user's changes to the kit list, kept with the catalog on this machine. */
 export interface KitOverrides {
@@ -48,53 +51,44 @@ export interface KitOverrides {
   kitRemoved: string[];
 }
 
+export const KIT_RULES: OverrideRules<Kit> = { key: (k) => k.id, same: sameKit };
+
+const toGeneric = (o: KitOverrides): Overrides<Kit> => ({
+  overrides: o.kitOverrides,
+  removed: o.kitRemoved,
+});
+
 /** The company defaults in use: the published ones, else the bundled presets. */
 export const kitDefaults = (remoteKits: readonly Kit[] | null | undefined): readonly Kit[] =>
-  remoteKits && remoteKits.length > 0 ? remoteKits : SEED_KITS;
+  defaultsOf(remoteKits, SEED_KITS);
 
 /**
  * The kit list the user works with: the defaults in their order, each replaced by its local
  * version when there is one and dropped when removed locally, then the kits that exist only here.
  */
-export function effectiveKits(defaults: readonly Kit[], overrides: KitOverrides): Kit[] {
-  const own = new Map(overrides.kitOverrides.map((k) => [k.id, k]));
-  const removed = new Set(overrides.kitRemoved);
-  const out: Kit[] = [];
-  for (const d of defaults) {
-    if (removed.has(d.id)) continue;
-    const local = own.get(d.id);
-    out.push(local ?? d);
-    own.delete(d.id);
-  }
-  for (const k of overrides.kitOverrides) if (own.has(k.id)) out.push(k);
-  return out;
-}
+export const effectiveKits = (defaults: readonly Kit[], overrides: KitOverrides): Kit[] =>
+  applyOverrides(defaults, toGeneric(overrides), KIT_RULES);
 
 /**
  * What of an edited list is the user's own: kits that differ from the default of the same id
  * (or have none), and the defaults missing from the list. A kit put back exactly as its default
- * stops being an override.
+ * stops being an override. With `previous`, a default removed earlier that the current defaults
+ * do not carry stays removed.
  */
-export function diffKits(defaults: readonly Kit[], kits: readonly Kit[]): KitOverrides {
-  const byId = new Map(defaults.map((k) => [k.id, k]));
-  const present = new Set(kits.map((k) => k.id));
-  return {
-    kitOverrides: kits.filter((k) => {
-      const d = byId.get(k.id);
-      return !d || !sameKit(d, k);
-    }),
-    kitRemoved: defaults.filter((d) => !present.has(d.id)).map((d) => d.id),
-  };
+export function diffKits(
+  defaults: readonly Kit[],
+  kits: readonly Kit[],
+  previous?: KitOverrides,
+): KitOverrides {
+  const d = diffOverrides(defaults, kits, KIT_RULES, previous && toGeneric(previous));
+  return { kitOverrides: d.overrides, kitRemoved: d.removed };
 }
 
 /** Where a kit in the user's list comes from, for the kits dialog. */
-export type KitOrigin = "default" | "modified" | "local";
+export type KitOrigin = Origin;
 
-export function kitOrigin(defaults: readonly Kit[], kit: Kit): KitOrigin {
-  const d = defaults.find((k) => k.id === kit.id);
-  if (!d) return "local";
-  return sameKit(d, kit) ? "default" : "modified";
-}
+export const kitOrigin = (defaults: readonly Kit[], kit: Kit): KitOrigin =>
+  originOf(defaults, kit, KIT_RULES);
 
 /**
  * The saved list of versions before overrides existed (the defaults cloned into `kits` and

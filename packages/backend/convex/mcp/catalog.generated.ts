@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 45 módulos, 322 funções públicas.
+// 46 módulos, 327 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -41,13 +41,14 @@ import * as m34 from "../takeoffAuth";
 import * as m35 from "../takeoffCatalog";
 import * as m36 from "../takeoffKits";
 import * as m37 from "../takeoffMaterials";
-import * as m38 from "../takeoffs";
-import * as m39 from "../technicianActivity";
-import * as m40 from "../technicianPortal";
-import * as m41 from "../timeClock";
-import * as m42 from "../timeClockPunch";
-import * as m43 from "../towers";
-import * as m44 from "../users";
+import * as m38 from "../takeoffSettings";
+import * as m39 from "../takeoffs";
+import * as m40 from "../technicianActivity";
+import * as m41 from "../technicianPortal";
+import * as m42 from "../timeClock";
+import * as m43 from "../timeClockPunch";
+import * as m44 from "../towers";
+import * as m45 from "../users";
 
 export type AccessHint =
   | { kind: "public" }
@@ -96,13 +97,14 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   takeoffCatalog: m35,
   takeoffKits: m36,
   takeoffMaterials: m37,
-  takeoffs: m38,
-  technicianActivity: m39,
-  technicianPortal: m40,
-  timeClock: m41,
-  timeClockPunch: m42,
-  towers: m43,
-  users: m44,
+  takeoffSettings: m38,
+  takeoffs: m39,
+  technicianActivity: m40,
+  technicianPortal: m41,
+  timeClock: m42,
+  timeClockPunch: m43,
+  towers: m44,
+  users: m45,
 };
 
 export const ACCESS_HINTS: Record<string, AccessHint> = {
@@ -387,6 +389,11 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "takeoffs:removeFromDesktop": { kind: "permission", permission: "engenharia.write" },
   "takeoffs:removeItem": { kind: "permission", permission: "engenharia.write" },
   "takeoffs:updateItem": { kind: "permission", permission: "engenharia.write" },
+  "takeoffSettings:get": { kind: "permission", permission: "suprimentos.read" },
+  "takeoffSettings:saveBasePrices": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
+  "takeoffSettings:saveVrfBrands": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
+  "takeoffSettings:saveWeights": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
+  "takeoffSettings:seedDefaults": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
   "technicianActivity:listActivityUsers": { kind: "authenticated" },
   "technicianActivity:listMineForProject": { kind: "authenticated" },
   "technicianActivity:listMineProjects": { kind: "authenticated" },
