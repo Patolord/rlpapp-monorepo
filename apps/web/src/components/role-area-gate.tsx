@@ -3,7 +3,17 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useEffect } from "react";
 
-export type DepartmentArea = "rh" | "engenharia" | "compras" | "estoque";
+// "backoffice" e "configuracoes" não são departamentos de usuário:
+// backoffice é a área de cadastros compartilhados (clientes, empreiteiros),
+// liberada para quem tem engenharia; configuracoes é a administração
+// (usuários, política de privacidade), liberada para engenharia e compras.
+export type DepartmentArea =
+  | "rh"
+  | "engenharia"
+  | "compras"
+  | "estoque"
+  | "backoffice"
+  | "configuracoes";
 
 // Mesma regra da navegação: diretores acessam tudo; engenheiro só engenharia;
 // demais usuários só o próprio departamento (default "engenharia").
@@ -20,6 +30,10 @@ function resolveAllowedArea(user: {
 // - não-diretores só acessam o próprio departamento
 // - Estoque permite leitura compartilhada com Compras e Engenharia; as ações
 //   continuam protegidas por permissões específicas no backend.
+// - Backoffice (clientes, empreiteiros) segue o acesso de engenharia, que é a
+//   permissão exigida pelo backend (engenharia.read).
+// - Configurações segue a mesma regra do grupo na sidebar (engenharia ou
+//   compras); a página de usuários ainda exige admin para editar.
 export function RoleAreaGate({
   area,
   children,
@@ -39,12 +53,22 @@ export function RoleAreaGate({
     currentUser?.department === "engenharia" ||
     currentUser?.department === "compras" ||
     currentUser?.department === "estoque";
+  const hasEngineeringAccess =
+    isAdmin ||
+    currentUser?.role === "engenheiro" ||
+    currentUser?.department === "engenharia";
+  const hasPurchasingAccess = isAdmin || currentUser?.department === "compras";
   const wrongDepartment =
     !!currentUser &&
     !!area &&
     !isAdmin &&
     !isQrOperator &&
     !(area === "estoque" && hasInventoryAccess) &&
+    !(area === "backoffice" && hasEngineeringAccess) &&
+    !(
+      area === "configuracoes" &&
+      (hasEngineeringAccess || hasPurchasingAccess)
+    ) &&
     resolveAllowedArea(currentUser) !== area;
 
   useEffect(() => {
