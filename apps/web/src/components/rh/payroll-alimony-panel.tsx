@@ -3,8 +3,10 @@ import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { formatCurrency } from "@rlpapp/shared";
 import type { FunctionReturnType } from "convex/server";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { getErrorMessage } from "@/lib/errors";
 import { formatCentsInput, parsePayrollAmountToCents } from "@/lib/rh/money";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +42,14 @@ function CommitInput({
       placeholder={placeholder}
       onChange={(event) => setText(event.target.value)}
       onBlur={() => {
-        if (text !== value) onCommit(text);
+        if (text === value) return;
+        try {
+          onCommit(text);
+        } catch (error) {
+          // Valor que não dá para interpretar (ex.: "abc"): avisa e volta ao salvo.
+          toast.error(getErrorMessage(error, "Valor inválido"));
+          setText(value);
+        }
       }}
       onKeyDown={(event) => {
         if (event.key === "Enter") (event.target as HTMLInputElement).blur();
@@ -82,7 +91,11 @@ export function PayrollAlimonyPanel({
   onAdd: (alimonyId: Id<"employeeAlimonies">) => void;
 }) {
   const [selected, setSelected] = useState<string>("");
-  const selectedId = selected || available[0]?._id || "";
+  // A pensão escolhida sai de `available` assim que é incluída; sem isto o
+  // botão repetiria o id antigo e daria erro de duplicada.
+  const selectedId = available.some((alimony) => alimony._id === selected)
+    ? selected
+    : (available[0]?._id ?? "");
 
   return (
     <section className="flex max-h-[240px] min-h-0 shrink-0 flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-card">

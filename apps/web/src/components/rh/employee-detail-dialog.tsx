@@ -488,7 +488,14 @@ function CommitInput({
       value={text}
       onChange={(event) => setText(event.target.value)}
       onBlur={() => {
-        if (text !== value) onCommit(text);
+        if (text === value) return;
+        try {
+          onCommit(text);
+        } catch (error) {
+          // Valor que não dá para interpretar (ex.: "abc"): avisa e volta ao salvo.
+          toast.error(getErrorMessage(error, "Valor inválido"));
+          setText(value);
+        }
       }}
       onKeyDown={(event) => {
         if (event.key === "Enter") (event.target as HTMLInputElement).blur();
@@ -510,7 +517,9 @@ function LoansSection({ employee }: { employee: EmployeeSummary }) {
     paymentMonth: month,
   });
   const [open, setOpen] = useState(false);
-  const active = (loans ?? []).filter((loan) => !loan.settled);
+  // `settled` já é verdadeiro no mês da última parcela; ela ainda está em
+  // desconto, então continua visível até o mês virar.
+  const active = (loans ?? []).filter((loan) => !loan.settled || loan.dueCents > 0);
   const outstanding = active.reduce((sum, loan) => sum + loan.outstandingCents, 0);
 
   return (
