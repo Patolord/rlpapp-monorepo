@@ -1,6 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
+import { formatUsername } from "@rlpapp/shared";
 import { Check, HardHat } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -87,7 +88,7 @@ export function TechniciansSheet({ open, onClose, projectId }: { open: boolean; 
                     {user.name}
                   </Text>
                   {user.username ? (
-                    <Text style={[type.caption, { color: colors.textMuted }]}>@{user.username}</Text>
+                    <Text style={[type.caption, { color: colors.textMuted }]}>@{formatUsername(user.username)}</Text>
                   ) : null}
                 </View>
               </Pressable>

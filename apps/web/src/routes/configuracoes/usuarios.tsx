@@ -1,20 +1,30 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import {
+  formatDate,
+  formatDisplayName,
+  formatUsername,
+  normalizeUsername,
+  sanitizeUsernameInput,
+} from "@rlpapp/shared";
+import { EmptyState, LoadingState } from "@rlpapp/ui/web";
 import { createFileRoute } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
-import { useQuery, useMutation, useAction } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
-  Plus,
-  Pencil,
-  Search,
-  UserX,
-  UserCheck,
   Eye,
   EyeOff,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+  UserCheck,
+  UserX,
+  Users,
 } from "lucide-react";
-import { useState, useMemo } from "react";
-import { normalizeUsername, sanitizeUsernameInput } from "@rlpapp/shared";
-import { toast } from "sonner";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 
+import { AuthShell } from "@/components/auth-shell";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -43,61 +53,56 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { AuthShell } from "@/components/auth-shell";
-import { getErrorMessage } from "@/lib/errors";
+import { runWithToast } from "@/lib/errors";
 
 type User = FunctionReturnType<typeof api.users.list>[number];
+type Role = User["role"];
+type Department = NonNullable<User["department"]>;
 
 export const Route = createFileRoute("/configuracoes/usuarios")({
   component: UsuariosPage,
 });
 
-const ROLE_LABELS: Record<string, string> = {
+const ROLE_LABELS: Record<Role, string> = {
   director: "Diretor",
   admin: "Administrador",
   manager: "Gerente",
   operator: "Operador",
   engenheiro: "Engenheiro",
   qr_operator: "Operador QR",
+  client: "Cliente",
 };
 
-const DEPARTMENT_LABELS: Record<string, string> = {
+const DEPARTMENT_LABELS: Record<Department, string> = {
   rh: "Recursos Humanos",
   engenharia: "Engenharia",
   compras: "Compras",
   estoque: "Estoque",
 };
 
-type CreateFormData = {
-  firstName: string;
-  lastName: string;
-  username: string;
-  password: string;
-  email: string;
-  phone: string;
-  role: string;
-  department: string;
-};
+const ROLE_OPTIONS = Object.entries(ROLE_LABELS) as [Role, string][];
+const DEPARTMENT_OPTIONS = Object.entries(DEPARTMENT_LABELS) as [
+  Department,
+  string,
+][];
 
-const emptyCreateForm: CreateFormData = {
-  firstName: "",
-  lastName: "",
-  username: "",
-  password: "",
-  email: "",
-  phone: "",
-  role: "",
-  department: "",
-};
+const NO_DEPARTMENT = "__none__";
+const MIN_PASSWORD_LENGTH = 8;
 
-type EditFormData = {
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
-  department: string;
-};
+/** "João Silva" → "joao.silva" (sem acentos, só caracteres aceitos pelo Clerk). */
+function suggestUsername(firstName: string, lastName: string): string {
+  const parts = [firstName, lastName]
+    .map((part) =>
+      sanitizeUsernameInput(
+        part
+          .trim()
+          .normalize("NFD")
+          .replace(/[̀-ͯ]/g, "")
+      )
+    )
+    .filter(Boolean);
+  return parts.join(".");
+}
 
 function UsuariosPage() {
   return (
@@ -110,27 +115,11 @@ function UsuariosPage() {
 function UsuariosContent() {
   const currentUser = useQuery(api.users.getCurrentUser);
   const users = useQuery(api.users.list, {});
-  const createUser = useAction(api.userAdmin.adminCreateUser);
-  const updateUser = useMutation(api.users.update);
-  const removeUser = useMutation(api.users.remove);
-  const reactivateUser = useMutation(api.users.reactivate);
 
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [createForm, setCreateForm] = useState<CreateFormData>({
-    ...emptyCreateForm,
-  });
-  const [editForm, setEditForm] = useState<EditFormData>({
-    name: "",
-    email: "",
-    phone: "",
-    role: "",
-    department: "",
-  });
+  const [deactivatingUser, setDeactivatingUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const isAdmin =
     currentUser?.role === "director" || currentUser?.role === "admin";
@@ -143,8 +132,8 @@ function UsuariosContent() {
     } else if (filterStatus === "inactive") {
       result = result.filter((u) => !u.isActive);
     }
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
+    const term = searchTerm.trim().toLowerCase();
+    if (term) {
       result = result.filter(
         (u) =>
           u.name.toLowerCase().includes(term) ||
@@ -152,132 +141,16 @@ function UsuariosContent() {
           u.username?.toLowerCase().includes(term)
       );
     }
-    return result;
+    return result.sort((a, b) => {
+      if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+      return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+    });
   }, [users, filterStatus, searchTerm]);
 
-  const handleCreate = async () => {
-    if (!createForm.firstName.trim()) {
-      toast.error("Informe o nome");
-      return;
-    }
-    if (!createForm.lastName.trim()) {
-      toast.error("Informe o sobrenome");
-      return;
-    }
-    if (!createForm.username.trim()) {
-      toast.error("Informe o username");
-      return;
-    }
-    if (createForm.password.length < 8) {
-      toast.error("A senha deve ter pelo menos 8 caracteres");
-      return;
-    }
-    if (!createForm.role) {
-      toast.error("Selecione o cargo");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const fullName = `${createForm.firstName.trim()} ${createForm.lastName.trim()}`;
-      await createUser({
-        name: fullName,
-        username: normalizeUsername(createForm.username),
-        password: createForm.password,
-        email: createForm.email.trim() || undefined,
-        phone: createForm.phone.trim() || undefined,
-        role: createForm.role as
-          | "director"
-          | "admin"
-          | "manager"
-          | "operator"
-          | "engenheiro"
-          | "qr_operator",
-        department: createForm.department
-          ? (createForm.department as
-              | "rh"
-              | "engenharia"
-              | "compras"
-              | "estoque")
-          : undefined,
-      });
-      toast.success("Usuário criado com sucesso");
-      setIsCreateOpen(false);
-      setCreateForm({ ...emptyCreateForm });
-      setShowPassword(false);
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Erro ao criar usuário"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleUpdate = async () => {
-    if (!editingUser) return;
-    setIsSubmitting(true);
-    try {
-      await updateUser({
-        id: editingUser._id,
-        name: editForm.name.trim() || undefined,
-        email: editForm.email.trim() || undefined,
-        phone: editForm.phone.trim() || undefined,
-        role: editForm.role
-          ? (editForm.role as
-              | "director"
-              | "admin"
-              | "manager"
-              | "operator"
-              | "engenheiro"
-              | "qr_operator")
-          : undefined,
-        department: editForm.department
-          ? (editForm.department as
-              | "rh"
-              | "engenharia"
-              | "compras"
-              | "estoque")
-          : undefined,
-      });
-      toast.success("Usuário atualizado");
-      setEditingUser(null);
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Erro ao atualizar usuário"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleToggleActive = async (user: User) => {
-    try {
-      if (user.isActive) {
-        await removeUser({ id: user._id });
-        toast.success("Usuário desativado");
-      } else {
-        await reactivateUser({ id: user._id });
-        toast.success("Usuário reativado");
-      }
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Erro ao alterar status"));
-    }
-  };
-
-  const openEdit = (user: User) => {
-    setEditForm({
-      name: user.name,
-      email: user.email ?? "",
-      phone: user.phone ?? "",
-      role: user.role,
-      department: user.department ?? "",
-    });
-    setEditingUser(user);
-  };
+  const isFiltering = searchTerm.trim() !== "" || filterStatus !== "all";
 
   if (!currentUser) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <p className="text-muted-foreground">Carregando...</p>
-      </div>
-    );
+    return <LoadingState variant="skeleton" label="Carregando usuários" fullHeight />;
   }
 
   if (!isAdmin) {
@@ -292,224 +165,96 @@ function UsuariosContent() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
           <h1 className="text-2xl font-bold">Usuários</h1>
-          <p className="text-muted-foreground">
-            Gerencie os usuários do sistema
+          <p className="text-sm text-muted-foreground">
+            Quem acessa o sistema, com qual cargo e em qual departamento.
           </p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
+        <CreateUserDialog
+          trigger={
             <Button>
               <Plus />
-              Novo Usuário
+              Novo usuário
             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Criar Usuário</DialogTitle>
-              <DialogDescription>
-                Crie um novo usuário com acesso ao sistema. As credenciais serão
-                usadas para login.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="grid gap-2">
-                  <Label htmlFor="create-firstName">Nome *</Label>
-                  <Input
-                    id="create-firstName"
-                    placeholder="João"
-                    value={createForm.firstName}
-                    onChange={(e) =>
-                      setCreateForm((f) => ({ ...f, firstName: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="create-lastName">Sobrenome *</Label>
-                  <Input
-                    id="create-lastName"
-                    placeholder="Silva"
-                    value={createForm.lastName}
-                    onChange={(e) =>
-                      setCreateForm((f) => ({ ...f, lastName: e.target.value }))
-                    }
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="create-username">Username (login) *</Label>
-                <Input
-                  id="create-username"
-                  placeholder="joao.silva"
-                  value={createForm.username}
-                  onChange={(e) =>
-                    setCreateForm((f) => ({
-                      ...f,
-                      username: sanitizeUsernameInput(e.target.value),
-                    }))
-                  }
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="create-password">Senha *</Label>
-                <div className="relative">
-                  <Input
-                    id="create-password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Mínimo 8 caracteres"
-                    value={createForm.password}
-                    onChange={(e) =>
-                      setCreateForm((f) => ({ ...f, password: e.target.value }))
-                    }
-                    className="pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="text-muted-foreground" />
-                    ) : (
-                      <Eye className="text-muted-foreground" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="create-email">Email</Label>
-                <Input
-                  id="create-email"
-                  type="email"
-                  placeholder="joao@empresa.com"
-                  value={createForm.email}
-                  onChange={(e) =>
-                    setCreateForm((f) => ({ ...f, email: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="create-phone">Telefone</Label>
-                <Input
-                  id="create-phone"
-                  placeholder="(11) 99999-9999"
-                  value={createForm.phone}
-                  onChange={(e) =>
-                    setCreateForm((f) => ({ ...f, phone: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Cargo *</Label>
-                <Select
-                  value={createForm.role}
-                  onValueChange={(v) =>
-                    setCreateForm((f) => ({ ...f, role: v }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o cargo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>Departamento</Label>
-                <Select
-                  value={createForm.department}
-                  onValueChange={(v) =>
-                    setCreateForm((f) => ({ ...f, department: v }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o departamento" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(DEPARTMENT_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsCreateOpen(false);
-                  setCreateForm({ ...emptyCreateForm });
-                  setShowPassword(false);
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button onClick={handleCreate} disabled={isSubmitting}>
-                {isSubmitting ? "Criando..." : "Criar Usuário"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          }
+        />
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent>
-          <div className="flex flex-col gap-4 sm:flex-row">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome, email ou username..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="active">Ativos</SelectItem>
-                <SelectItem value="inactive">Inativos</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Buscar por nome, email ou login"
+            aria-label="Buscar usuários"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger
+            className="w-full sm:w-[180px]"
+            aria-label="Filtrar por status"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os status</SelectItem>
+            <SelectItem value="active">Somente ativos</SelectItem>
+            <SelectItem value="inactive">Somente inativos</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      {/* Users table */}
       <Card>
         <CardHeader>
           <CardTitle>
-            {filteredUsers.length} usuário{filteredUsers.length !== 1 && "s"}
+            {users === undefined
+              ? "Usuários"
+              : isFiltering
+                ? `${filteredUsers.length} de ${users.length} usuários`
+                : `${users.length} usuário${users.length === 1 ? "" : "s"}`}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {!users ? (
-            <p className="text-center text-muted-foreground py-8">
-              Carregando...
-            </p>
+          {users === undefined ? (
+            <LoadingState variant="skeleton" label="Carregando usuários" />
+          ) : users.length === 0 ? (
+            <EmptyState
+              icon={<Users />}
+              title="Nenhum usuário cadastrado"
+              description="Crie o primeiro usuário para liberar o acesso ao sistema."
+              action={
+                <CreateUserDialog
+                  trigger={
+                    <Button>
+                      <Plus />
+                      Novo usuário
+                    </Button>
+                  }
+                />
+              }
+            />
           ) : filteredUsers.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              Nenhum usuário encontrado
-            </p>
+            <EmptyState
+              variant="inline"
+              description="Nenhum usuário corresponde aos filtros."
+              action={
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setFilterStatus("all");
+                  }}
+                >
+                  Limpar filtros
+                </button>
+              }
+            />
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -520,69 +265,88 @@ function UsuariosContent() {
                     <TableHead>Cargo</TableHead>
                     <TableHead>Departamento</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Último acesso</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.map((user) => (
-                    <TableRow key={user._id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{user.name}</p>
+                  {filteredUsers.map((user) => {
+                    const isSelf = user._id === currentUser._id;
+                    return (
+                      <TableRow
+                        key={user._id}
+                        className={user.isActive ? undefined : "text-muted-foreground"}
+                      >
+                        <TableCell>
+                          <p className="font-medium text-foreground">
+                            {formatDisplayName(user.name)}
+                            {isSelf && (
+                              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                você
+                              </span>
+                            )}
+                          </p>
                           {user.email && (
                             <p className="text-sm text-muted-foreground">
                               {user.email}
                             </p>
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {user.username ?? "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {ROLE_LABELS[user.role] ?? user.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {user.department
-                          ? DEPARTMENT_LABELS[user.department] ??
-                            user.department
-                          : "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={user.isActive ? "success" : "muted"}>
-                          {user.isActive ? "Ativo" : "Inativo"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEdit(user)}
-                            title="Editar"
-                          >
-                            <Pencil />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleToggleActive(user)}
-                            title={
-                              user.isActive ? "Desativar" : "Reativar"
-                            }
-                          >
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {user.username ? formatUsername(user.username) : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {ROLE_LABELS[user.role] ?? user.role}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {user.department
+                            ? (DEPARTMENT_LABELS[user.department] ?? user.department)
+                            : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={user.isActive ? "success" : "muted"}>
+                            {user.isActive ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground tabular-nums">
+                          {user.lastLoginAt ? formatDate(user.lastLoginAt) : "Nunca"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditingUser(user)}
+                              title="Editar"
+                              aria-label={`Editar ${user.name}`}
+                            >
+                              <Pencil />
+                            </Button>
                             {user.isActive ? (
-                              <UserX className="text-destructive" />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setDeactivatingUser(user)}
+                                disabled={isSelf}
+                                title={
+                                  isSelf
+                                    ? "Você não pode desativar o próprio acesso"
+                                    : "Desativar"
+                                }
+                                aria-label={`Desativar ${user.name}`}
+                              >
+                                <UserX className="text-destructive" />
+                              </Button>
                             ) : (
-                              <UserCheck className="text-emerald-600" />
+                              <ReactivateButton user={user} />
                             )}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -590,101 +354,561 @@ function UsuariosContent() {
         </CardContent>
       </Card>
 
-      {/* Edit dialog */}
-      <Dialog
-        open={!!editingUser}
-        onOpenChange={(open) => !open && setEditingUser(null)}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Editar Usuário</DialogTitle>
-            <DialogDescription>
-              Altere as informações do usuário {editingUser?.name}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-name">Nome completo</Label>
-              <Input
-                id="edit-name"
-                value={editForm.name}
-                onChange={(e) =>
-                  setEditForm((f) => ({ ...f, name: e.target.value }))
-                }
-              />
+      <EditUserDialog
+        user={editingUser}
+        onClose={() => setEditingUser(null)}
+      />
+      <DeactivateUserDialog
+        user={deactivatingUser}
+        onClose={() => setDeactivatingUser(null)}
+      />
+    </div>
+  );
+}
+
+function ReactivateButton({ user }: { user: User }) {
+  const reactivateUser = useMutation(api.users.reactivate);
+  const [busy, setBusy] = useState(false);
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        await runWithToast(
+          () => reactivateUser({ id: user._id }),
+          "Usuário reativado",
+          "Erro ao reativar usuário"
+        );
+        setBusy(false);
+      }}
+      title="Reativar"
+      aria-label={`Reativar ${user.name}`}
+    >
+      {busy ? <Loader2 className="animate-spin" /> : <UserCheck className="text-emerald-600" />}
+    </Button>
+  );
+}
+
+/* ---------- Form building blocks ---------- */
+
+/** Bloco de campos com rótulo de seção, como nos dialogs do RH. */
+function FormSection({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <fieldset className="grid gap-3">
+      <legend className="mb-3 flex w-full items-baseline justify-between gap-3">
+        <span className="text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+          {title}
+        </span>
+        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+      </legend>
+      {children}
+    </fieldset>
+  );
+}
+
+function Field({
+  id,
+  label,
+  hint,
+  children,
+}: {
+  id?: string;
+  label: string;
+  hint?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      {children}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
+function RoleAndDepartmentFields({
+  idPrefix,
+  role,
+  department,
+  onRoleChange,
+  onDepartmentChange,
+}: {
+  idPrefix: string;
+  role: Role | "";
+  department: Department | "";
+  onRoleChange: (role: Role) => void;
+  onDepartmentChange: (department: Department | "") => void;
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <Field id={`${idPrefix}-role`} label="Cargo">
+        <Select
+          value={role || undefined}
+          onValueChange={(v) => onRoleChange(v as Role)}
+          required
+        >
+          <SelectTrigger id={`${idPrefix}-role`}>
+            <SelectValue placeholder="Selecione o cargo" />
+          </SelectTrigger>
+          <SelectContent>
+            {ROLE_OPTIONS.map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field id={`${idPrefix}-department`} label="Departamento">
+        <Select
+          value={department || NO_DEPARTMENT}
+          onValueChange={(v) =>
+            onDepartmentChange(v === NO_DEPARTMENT ? "" : (v as Department))
+          }
+        >
+          <SelectTrigger id={`${idPrefix}-department`}>
+            <SelectValue placeholder="Nenhum" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_DEPARTMENT}>Nenhum</SelectItem>
+            {DEPARTMENT_OPTIONS.map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+    </div>
+  );
+}
+
+/* ---------- Create ---------- */
+
+type CreateFormData = {
+  firstName: string;
+  lastName: string;
+  username: string;
+  password: string;
+  email: string;
+  phone: string;
+  role: Role | "";
+  department: Department | "";
+};
+
+const emptyCreateForm: CreateFormData = {
+  firstName: "",
+  lastName: "",
+  username: "",
+  password: "",
+  email: "",
+  phone: "",
+  role: "",
+  department: "",
+};
+
+function CreateUserDialog({ trigger }: { trigger: ReactNode }) {
+  const createUser = useAction(api.userAdmin.adminCreateUser);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<CreateFormData>(emptyCreateForm);
+  const [usernameTouched, setUsernameTouched] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const reset = () => {
+    setForm(emptyCreateForm);
+    setUsernameTouched(false);
+    setShowPassword(false);
+  };
+
+  const update = (patch: Partial<CreateFormData>) =>
+    setForm((f) => ({ ...f, ...patch }));
+
+  const setName = (patch: Pick<CreateFormData, "firstName"> | Pick<CreateFormData, "lastName">) =>
+    setForm((f) => {
+      const next = { ...f, ...patch };
+      if (!usernameTouched) {
+        next.username = suggestUsername(next.firstName, next.lastName);
+      }
+      return next;
+    });
+
+  const canSubmit =
+    form.firstName.trim() !== "" &&
+    form.lastName.trim() !== "" &&
+    form.username !== "" &&
+    form.password.length >= MIN_PASSWORD_LENGTH &&
+    form.role !== "";
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSubmit || saving || form.role === "") return;
+    setSaving(true);
+    const ok = await runWithToast(
+      () =>
+        createUser({
+          name: `${form.firstName.trim()} ${form.lastName.trim()}`,
+          username: normalizeUsername(form.username),
+          password: form.password,
+          email: form.email.trim() || undefined,
+          phone: form.phone.trim() || undefined,
+          role: form.role as Role,
+          department: form.department || undefined,
+        }),
+      "Usuário criado",
+      "Erro ao criar usuário"
+    );
+    setSaving(false);
+    if (ok) setOpen(false);
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) reset();
+      }}
+    >
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Novo usuário</DialogTitle>
+          <DialogDescription>
+            O login e a senha são usados para entrar no sistema e no app.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <FormSection title="Identificação">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field id="create-firstName" label="Nome">
+                <Input
+                  id="create-firstName"
+                  placeholder="João"
+                  autoComplete="off"
+                  value={form.firstName}
+                  onChange={(e) => setName({ firstName: e.target.value })}
+                  required
+                />
+              </Field>
+              <Field id="create-lastName" label="Sobrenome">
+                <Input
+                  id="create-lastName"
+                  placeholder="Silva"
+                  autoComplete="off"
+                  value={form.lastName}
+                  onChange={(e) => setName({ lastName: e.target.value })}
+                  required
+                />
+              </Field>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-email">Email</Label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field id="create-email" label="Email" hint="Opcional">
+                <Input
+                  id="create-email"
+                  type="email"
+                  placeholder="joao@rlpeng.com.br"
+                  autoComplete="off"
+                  value={form.email}
+                  onChange={(e) => update({ email: e.target.value })}
+                />
+              </Field>
+              <Field id="create-phone" label="Telefone" hint="Opcional">
+                <Input
+                  id="create-phone"
+                  type="tel"
+                  placeholder="(11) 99999-9999"
+                  autoComplete="off"
+                  value={form.phone}
+                  onChange={(e) => update({ phone: e.target.value })}
+                />
+              </Field>
+            </div>
+          </FormSection>
+
+          <FormSection title="Acesso">
+            <Field
+              id="create-username"
+              label="Login"
+              hint={
+                usernameTouched
+                  ? "Só letras minúsculas, números, ponto, hífen e sublinhado."
+                  : "Sugerido a partir do nome. Edite se preferir outro."
+              }
+            >
+              <Input
+                id="create-username"
+                placeholder="joao.silva"
+                className="font-mono"
+                autoCapitalize="none"
+                autoCorrect="off"
+                autoComplete="off"
+                spellCheck={false}
+                value={form.username}
+                onChange={(e) => {
+                  setUsernameTouched(true);
+                  update({ username: sanitizeUsernameInput(e.target.value) });
+                }}
+                required
+              />
+            </Field>
+            <Field
+              id="create-password"
+              label="Senha"
+              hint={`Mínimo de ${MIN_PASSWORD_LENGTH} caracteres.`}
+            >
+              <div className="relative">
+                <Input
+                  id="create-password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  className="pr-10"
+                  value={form.password}
+                  minLength={MIN_PASSWORD_LENGTH}
+                  onChange={(e) => update({ password: e.target.value })}
+                  required
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? (
+                    <EyeOff className="text-muted-foreground" />
+                  ) : (
+                    <Eye className="text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            </Field>
+          </FormSection>
+
+          <FormSection title="Função">
+            <RoleAndDepartmentFields
+              idPrefix="create"
+              role={form.role}
+              department={form.department}
+              onRoleChange={(role) => update({ role })}
+              onDepartmentChange={(department) => update({ department })}
+            />
+          </FormSection>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={saving || !canSubmit}>
+              {saving && <Loader2 className="animate-spin" />}
+              Criar usuário
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ---------- Edit ---------- */
+
+type EditFormData = {
+  name: string;
+  email: string;
+  phone: string;
+  role: Role;
+  department: Department | "";
+};
+
+function EditUserDialog({
+  user,
+  onClose,
+}: {
+  user: User | null;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open={user !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        {user && <EditUserForm key={user._id} user={user} onClose={onClose} />}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditUserForm({ user, onClose }: { user: User; onClose: () => void }) {
+  const updateUser = useMutation(api.users.update);
+  const [form, setForm] = useState<EditFormData>({
+    name: user.name,
+    email: user.email ?? "",
+    phone: user.phone ?? "",
+    role: user.role,
+    department: user.department ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  const update = (patch: Partial<EditFormData>) =>
+    setForm((f) => ({ ...f, ...patch }));
+
+  const canSubmit = form.name.trim() !== "";
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSubmit || saving) return;
+    setSaving(true);
+    const ok = await runWithToast(
+      () =>
+        updateUser({
+          id: user._id,
+          name: form.name.trim(),
+          email: form.email.trim() || undefined,
+          phone: form.phone.trim() || undefined,
+          role: form.role,
+          department: form.department || undefined,
+        }),
+      "Alterações salvas",
+      "Erro ao salvar alterações"
+    );
+    setSaving(false);
+    if (ok) onClose();
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Editar usuário</DialogTitle>
+        <DialogDescription>
+          {user.username ? (
+            <>
+              Login <span className="font-mono">{user.username}</span>. O login
+              não pode ser alterado.
+            </>
+          ) : (
+            "Usuário sem login próprio; entra pelo email."
+          )}
+        </DialogDescription>
+      </DialogHeader>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <FormSection title="Identificação">
+          <Field id="edit-name" label="Nome completo">
+            <Input
+              id="edit-name"
+              autoComplete="off"
+              value={form.name}
+              onChange={(e) => update({ name: e.target.value })}
+              required
+            />
+          </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field id="edit-email" label="Email" hint="Opcional">
               <Input
                 id="edit-email"
                 type="email"
-                value={editForm.email}
-                onChange={(e) =>
-                  setEditForm((f) => ({ ...f, email: e.target.value }))
-                }
+                autoComplete="off"
+                value={form.email}
+                onChange={(e) => update({ email: e.target.value })}
               />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-phone">Telefone</Label>
+            </Field>
+            <Field id="edit-phone" label="Telefone" hint="Opcional">
               <Input
                 id="edit-phone"
-                value={editForm.phone}
-                onChange={(e) =>
-                  setEditForm((f) => ({ ...f, phone: e.target.value }))
-                }
+                type="tel"
+                autoComplete="off"
+                value={form.phone}
+                onChange={(e) => update({ phone: e.target.value })}
               />
-            </div>
-            <div className="grid gap-2">
-              <Label>Cargo</Label>
-              <Select
-                value={editForm.role}
-                onValueChange={(v) =>
-                  setEditForm((f) => ({ ...f, role: v }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label>Departamento</Label>
-              <Select
-                value={editForm.department}
-                onValueChange={(v) =>
-                  setEditForm((f) => ({ ...f, department: v }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Nenhum" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(DEPARTMENT_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            </Field>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingUser(null)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleUpdate} disabled={isSubmitting}>
-              {isSubmitting ? "Salvando..." : "Salvar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+        </FormSection>
+
+        <FormSection title="Função">
+          <RoleAndDepartmentFields
+            idPrefix="edit"
+            role={form.role}
+            department={form.department}
+            onRoleChange={(role) => update({ role })}
+            onDepartmentChange={(department) => update({ department })}
+          />
+        </FormSection>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={saving || !canSubmit}>
+            {saving && <Loader2 className="animate-spin" />}
+            Salvar alterações
+          </Button>
+        </DialogFooter>
+      </form>
+    </>
+  );
+}
+
+/* ---------- Deactivate ---------- */
+
+function DeactivateUserDialog({
+  user,
+  onClose,
+}: {
+  user: User | null;
+  onClose: () => void;
+}) {
+  const removeUser = useMutation(api.users.remove);
+  const [saving, setSaving] = useState(false);
+
+  const handleConfirm = async () => {
+    if (!user) return;
+    setSaving(true);
+    const ok = await runWithToast(
+      () => removeUser({ id: user._id }),
+      "Usuário desativado",
+      "Erro ao desativar usuário"
+    );
+    setSaving(false);
+    if (ok) onClose();
+  };
+
+  return (
+    <Dialog open={user !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Desativar usuário?</DialogTitle>
+          <DialogDescription>
+            {user ? formatDisplayName(user.name) : "O usuário"} perde o acesso
+            ao sistema e ao app na hora. O cadastro continua na lista e pode ser
+            reativado depois.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={saving}
+            onClick={handleConfirm}
+          >
+            {saving && <Loader2 className="animate-spin" />}
+            Desativar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

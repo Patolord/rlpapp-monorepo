@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import { formatCurrency } from "@rlpapp/shared";
+import { formatCurrency, formatUsername } from "@rlpapp/shared";
 import {
   STAFF_GROUPS,
   STAFF_GROUP_DESCRIPTIONS,
@@ -843,7 +843,7 @@ function AppUserSection({ employee }: { employee: EmployeeSummary }) {
       </p>
       <p className="text-xs text-muted-foreground">
         {current
-          ? `Vinculado a ${current.name}${current.username ? ` (@${current.username})` : ""}. `
+          ? `Vinculado a ${current.name}${current.username ? ` (@${formatUsername(current.username)})` : ""}. `
           : employee.userId
             ? "Vinculado a um usuário inativo. "
             : "Sem usuário vinculado: este funcionário ainda não consegue bater ponto pelo app. "}
@@ -863,7 +863,7 @@ function AppUserSection({ employee }: { employee: EmployeeSummary }) {
             {sorted.map((user) => (
               <SelectItem key={user._id} value={user._id}>
                 {user.name}
-                {user.username ? ` (@${user.username})` : user.email ? ` (${user.email})` : ""}
+                {user.username ? ` (@${formatUsername(user.username)})` : user.email ? ` (${user.email})` : ""}
               </SelectItem>
             ))}
           </SelectContent>

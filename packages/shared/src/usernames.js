@@ -6,3 +6,18 @@ export function sanitizeUsernameInput(value) {
 export function normalizeUsername(value) {
     return sanitizeUsernameInput(value.trim());
 }
+/** First letter uppercase, rest untouched. */
+export function capitalizeFirst(value) {
+    return value.charAt(0).toUpperCase() + value.slice(1);
+}
+/** Display: first letter uppercase (the stored/login value stays lowercase for Clerk). */
+export function formatUsername(value) {
+    return capitalizeFirst(value);
+}
+/**
+ * Display name: users created from a username (sem nome no Clerk) ficaram com o
+ * nome todo em minúsculas; na tela a inicial vai em maiúscula.
+ */
+export function formatDisplayName(value) {
+    return capitalizeFirst(value);
+}

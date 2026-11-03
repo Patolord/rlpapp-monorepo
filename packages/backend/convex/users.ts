@@ -1,3 +1,4 @@
+import { capitalizeFirst } from "@rlpapp/shared/usernames";
 import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { departments, userRoles } from "./schema";
@@ -94,7 +95,7 @@ export const ensureUser = mutation({
     const name =
       identity.name ??
       identity.givenName ??
-      username ??
+      (username ? capitalizeFirst(username) : undefined) ??
       identity.email?.split("@")[0] ??
       "Usuário";
 

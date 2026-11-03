@@ -1,3 +1,4 @@
+import { capitalizeFirst } from "@rlpapp/shared/usernames";
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -951,5 +952,31 @@ export const importSeedLaborPrices = internalMutation({
       skippedUnitMismatch: plan.skippedUnitMismatch,
       matches: plan.matches,
     };
+  },
+});
+
+/**
+ * Usuários criados a partir do username (sem nome no Clerk) ficaram com o nome
+ * todo em minúsculas. Põe a inicial em maiúscula. Idempotente; tabela pequena.
+ */
+export const backfillCapitalizeUserNames = adminMutation({
+  args: { dryRun: v.optional(v.boolean()) },
+  returns: v.object({
+    scanned: v.number(),
+    updated: v.number(),
+    names: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const users = await ctx.db.query("users").collect();
+    const names: string[] = [];
+    for (const user of users) {
+      const name = capitalizeFirst(user.name);
+      if (name === user.name) continue;
+      names.push(`${user.name} → ${name}`);
+      if (!args.dryRun) {
+        await ctx.db.patch("users", user._id, { name });
+      }
+    }
+    return { scanned: users.length, updated: names.length, names };
   },
 });
