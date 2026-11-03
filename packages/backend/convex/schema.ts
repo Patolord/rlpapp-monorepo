@@ -167,6 +167,20 @@ export const takeoffVrfBrand = v.object({
   ykit: v.array(v.object({ hp: v.number(), model: v.string() })),
 });
 
+/** Parâmetros de dutos de uma norma (DuctNormaDefaults em @rlpapp/shared/engenharia/ducts). */
+export const takeoffDuctNorma = v.object({
+  norma: v.union(v.literal(1), v.literal(2), v.literal(3)),
+  /** Maior lado (cm) coberto por # 26, # 24, # 22 e # 20; acima, # 18. */
+  gaugeLimits: v.array(v.number()),
+  insulThickness: v.number(),
+  flangeSpacing: v.number(),
+  rechapThickness: v.number(),
+  /** null = regra da planilha (20 %, 15 % acima de 10 000 kg). */
+  sheetSlackPct: v.union(v.number(), v.null()),
+  insulSlackPct: v.number(),
+  supportsPct: v.number(),
+});
+
 export const takeoffKitComponent = v.object({
   /** Nome no catálogo do app (produto da empresa ou material das planilhas). */
   name: v.string(),
@@ -1016,6 +1030,23 @@ export default defineSchema({
       v.object({
         kind: v.literal("vrfBrands"),
         brands: v.array(takeoffVrfBrand),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.id("users")),
+      }),
+      // Mão de obra global: R$/kg de chapa (dutos) e R$ por evaporadora (VRF).
+      // Um takeoff pode fixar o próprio valor; ausente aqui = padrão da planilha.
+      v.object({
+        kind: v.literal("labor"),
+        ductPerKg: v.optional(v.number()),
+        vrfPerEvap: v.optional(v.number()),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.id("users")),
+      }),
+      // Parâmetros de dutos por norma (bitola pelo lado maior, espessuras e
+      // folgas): o takeoff parte deles ao escolher a norma e pode ajustar.
+      v.object({
+        kind: v.literal("ductNormas"),
+        normas: v.array(takeoffDuctNorma),
         updatedAt: v.number(),
         updatedByUserId: v.optional(v.id("users")),
       })

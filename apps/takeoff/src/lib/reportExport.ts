@@ -44,6 +44,7 @@ export function reportOptions(
     wholeSheet: s.wholeSheet,
     pageSize,
     vrfBrands: useStore.getState().catalog.vrfBrands,
+    vrfLaborPerEvap: useStore.getState().catalog.labor.vrfPerEvap,
   };
 }
 

@@ -23,6 +23,7 @@ import {
   Clock,
   Layers,
   Scale,
+  SlidersHorizontal,
   Snowflake,
   type LucideIcon,
 } from "lucide-react";
@@ -115,6 +116,7 @@ function getNavGroups(): NavGroup[] {
         { to: "/takeoff/kits", label: "Kits (presets)", icon: Layers },
         { to: "/takeoff/pesos", label: "Pesos e insumos", icon: Scale },
         { to: "/takeoff/vrf", label: "Marcas VRF", icon: Snowflake },
+        { to: "/takeoff/parametros", label: "Parâmetros", icon: SlidersHorizontal },
       ],
     },
     {

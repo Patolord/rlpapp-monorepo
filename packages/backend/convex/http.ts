@@ -224,7 +224,8 @@ const handleAgentTokenVerify = httpAction(async (ctx, request) => {
 //
 // Exporta todo o catálogo ativo com o preço vigente de cada material, mais os
 // kits padrão da empresa (`takeoffKits`) e as demais configurações do app
-// (`takeoffSettings`: pesos, preços por kg, marcas de VRF). O app desktop lê
+// (`takeoffSettings`: pesos, preços por kg, marcas de VRF, mão de obra,
+// parâmetros de dutos por norma). O app desktop lê
 // isto ao abrir e cai no seed embutido quando o endpoint falha, por isso a
 // resposta é um JSON único e não paginado.
 

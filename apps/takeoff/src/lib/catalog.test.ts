@@ -1,3 +1,5 @@
+import { DEFAULT_DUCT_NORMAS, normaDefaults } from "@rlpapp/shared/engenharia/ducts";
+import { DEFAULT_LABOR_PER_EVAP } from "@rlpapp/shared/takeoff/labor";
 import { cloneBrand, SEED_BRANDS } from "@rlpapp/shared/takeoff/vrfBrands";
 import { SEED_WEIGHTS, weightKey } from "@rlpapp/shared/takeoff/weights";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,13 +15,10 @@ import {
   parseRemoteCatalogResponse,
   parseRemoteKits,
   productName,
-  SEED,
   searchCatalog,
-  seedLaborKey,
   unitKey,
   upgradeRemoteEntry,
   withCompanyDefaults,
-  withSeedLabor,
 } from "./catalog";
 import { SEED_KITS } from "./kits";
 import { DEFAULT_GROUP } from "./types";
@@ -27,15 +26,6 @@ import { DEFAULT_GROUP } from "./types";
 const parseRemoteCatalog = (json: unknown) => parseRemoteCatalogResponse(json).entries;
 
 describe("catalog", () => {
-  it("ships a seed with categorised entries", () => {
-    expect(SEED.length).toBeGreaterThan(100);
-    expect(SEED.some((e) => e.group === "Bocas de Ar")).toBe(true);
-    expect(SEED.some((e) => e.unit === "m")).toBe(true);
-    expect(
-      SEED.every((e) => ["pç", "cj", "vb", "m", "m²", "kg", "gl", "bd", "l"].includes(e.unit)),
-    ).toBe(true);
-  });
-
   it("maps units to measurement kinds", () => {
     expect(kindForUnit("m")).toBe("linear");
     expect(kindForUnit("m²")).toBe("area");
@@ -59,10 +49,11 @@ describe("catalog", () => {
     expect(hits[0].name).toBe("Grelha de Insuflamento 400x400");
     expect(hits[0].source).toBe("saved");
     expect(searchCatalog(entries, "xyzzy nothing")).toEqual([]);
-    expect(searchCatalog(entries, "veneziana").every((e) => /veneziana/i.test(e.name))).toBe(true);
+    // without the company catalog, only the user's entries and the weight table are there
+    expect(entries.every((e) => e.source === "saved" || e.kgPerUnit)).toBe(true);
   });
 
-  it("prefers the company catalog over the seed once it has been fetched", () => {
+  it("puts the company catalog before the weight table once it has been fetched", () => {
     const remote = parseRemoteCatalog({
       items: [
         {
@@ -87,89 +78,10 @@ describe("catalog", () => {
     const entries = mergeCatalog({ ...emptyCatalogStore(), remote });
     const fromCompany = entries.filter((e) => e.source === "remote");
     expect(fromCompany).toHaveLength(2);
-    // the bundled seed steps aside; the weight table (copper tubes) stays available after it
+    // the weight table (copper tubes) stays available after the company's entries
     expect(entries.slice(0, 2)).toEqual(fromCompany);
     expect(entries.slice(2).every((e) => e.source === "seed" && e.kgPerUnit)).toBe(true);
-    expect(mergeCatalog(emptyCatalogStore()).some((e) => e.source === "seed" && !e.kgPerUnit)).toBe(
-      true,
-    );
     expect(() => parseRemoteCatalog({ nope: 1 })).toThrow();
-  });
-
-  it("borrows the seed's labour for company entries without one, marked as such", () => {
-    const remote = parseRemoteCatalog({
-      items: [
-        // same name as a seed entry with labour (accents/case aside), no labour from the company
-        {
-          id: "m1",
-          name: "GRELHA DE EXAUSTAO C/ REGISTRO DIM. 150X100 MM",
-          unit: "pç",
-          materialPrice: 80,
-          laborPrice: 0,
-        },
-        // family + variant that together read as the seed's name
-        {
-          id: "m2",
-          name: "Grelha de Exaustão c/ Registro",
-          variant: "dim. 200x150 mm",
-          unit: "pç",
-          materialPrice: 75,
-          laborPrice: 0,
-        },
-        // the company's own labour always wins
-        {
-          id: "m3",
-          name: "Difusor Linear 03 Slots comp. 1500 mm Falso",
-          unit: "pç",
-          materialPrice: 400,
-          laborPrice: 12,
-        },
-        // no seed entry with that name: stays at zero, unmarked
-        { id: "m4", name: "Material novo", unit: "pç", materialPrice: 10, laborPrice: 0 },
-        // the seed prices this per metre: per roll it must not borrow R$/m
-        {
-          id: "m5",
-          name: "Rede de Dutos Flexiveis 150 mm",
-          unit: "rolo",
-          materialPrice: 300,
-          laborPrice: 0,
-        },
-      ],
-    });
-    const seedLabor = (name: string) => SEED.find((e) => e.name === name)!.laborPrice;
-    expect(seedLabor("Grelha de Exaustão c/ Registro dim. 150x100 mm")).toBeGreaterThan(0);
-
-    const entries = mergeCatalog({ ...emptyCatalogStore(), remote });
-    const byId = (id: string) => entries.find((e) => e.catalogId === id)!;
-    expect(byId("m1")).toMatchObject({
-      source: "remote",
-      laborPrice: seedLabor("Grelha de Exaustão c/ Registro dim. 150x100 mm"),
-      laborSource: "seed",
-      materialPrice: 80,
-    });
-    expect(byId("m2")).toMatchObject({
-      name: "Grelha de Exaustão c/ Registro — dim. 200x150 mm",
-      laborPrice: seedLabor("Grelha de Exaustão c/ Registro dim. 200x150 mm"),
-      laborSource: "seed",
-    });
-    expect(byId("m3").laborPrice).toBe(12);
-    expect(byId("m3").laborSource).toBeUndefined();
-    expect(byId("m4").laborPrice).toBe(0);
-    expect(byId("m4").laborSource).toBeUndefined();
-    const flexible = SEED.find((e) => e.name === "Rede de Dutos Flexiveis 150 mm")!;
-    expect(flexible).toMatchObject({ unit: "m" });
-    expect(flexible.laborPrice).toBeGreaterThan(0);
-    expect(byId("m5").laborPrice).toBe(0);
-    expect(byId("m5").laborSource).toBeUndefined();
-    // the same name in the seed's unit, spelled differently, does borrow
-    expect(withSeedLabor({ ...byId("m5"), source: undefined, unit: "metro" })).toMatchObject({
-      laborPrice: flexible.laborPrice,
-      laborSource: "seed",
-    });
-    // the cached company catalog itself is left untouched
-    expect(remote.every((e) => e.laborSource === undefined)).toBe(true);
-    // the bundled seed entries themselves still step aside
-    expect(entries.some((e) => e.source === "seed" && !e.kgPerUnit)).toBe(false);
   });
 
   it("gives air terminals without labour the usual installation price", () => {
@@ -255,21 +167,6 @@ describe("catalog", () => {
     expect(unitKey("KG")).toBe(unitKey("kg"));
     expect(unitKey("rolo")).not.toBe(unitKey("m"));
     expect(unitKey("m")).not.toBe(unitKey("m²"));
-  });
-
-  it("withSeedLabor only fills a zero labour price in the same unit", () => {
-    const labor = new Map([[seedLaborKey("Tubo de Cobre 1/4", "m"), 9.5]]);
-    const base = { name: "Tubo de Cobre — 1/4", group: "", unit: "m", materialPrice: 30 };
-    expect(withSeedLabor({ ...base, laborPrice: 0 }, labor)).toMatchObject({
-      laborPrice: 9.5,
-      laborSource: "seed",
-    });
-    const own = { ...base, laborPrice: 4 };
-    expect(withSeedLabor(own, labor)).toBe(own);
-    const unknown = { ...base, name: "Outro", laborPrice: 0 };
-    expect(withSeedLabor(unknown, labor)).toBe(unknown);
-    const perRoll = { ...base, unit: "rolo", laborPrice: 0 };
-    expect(withSeedLabor(perRoll, labor)).toBe(perRoll);
   });
 
   it("keeps every variant of a family as its own searchable entry", () => {
@@ -649,6 +546,68 @@ describe("loading the saved catalog", () => {
     expect(older.weights).toBeNull();
     expect(older.basePrices).toBeNull();
     expect(older.vrfBrands).toBeNull();
+  });
+
+  it("reads the company's labour prices and norma table, and keeps the workbook's otherwise", () => {
+    const parsed = parseRemoteCatalogResponse({
+      generatedAt: 1,
+      items: [],
+      labor: { ductPerKg: 22, vrfPerEvap: 0, other: 5 },
+      ductNormas: [
+        {
+          norma: 1,
+          gaugeLimits: [50, 80, 140, 210],
+          insulThickness: 38,
+          flangeSpacing: 1,
+          rechapThickness: 25,
+          sheetSlackPct: null,
+          insulSlackPct: 15,
+          supportsPct: 30,
+        },
+        {
+          norma: 2,
+          gaugeLimits: [70, 60, 120, 150],
+          insulThickness: 25,
+          flangeSpacing: 1,
+          rechapThickness: 25,
+          sheetSlackPct: 20,
+          insulSlackPct: 15,
+          supportsPct: 30,
+        },
+        {
+          norma: 9,
+          gaugeLimits: [1, 2, 3, 4],
+          insulThickness: 1,
+          flangeSpacing: 1,
+          rechapThickness: 1,
+          sheetSlackPct: null,
+          insulSlackPct: 1,
+          supportsPct: 1,
+        },
+      ],
+    });
+    expect(parsed.labor).toEqual({ ductPerKg: 22 });
+    expect(parsed.ductNormas?.map((n) => n.norma)).toEqual([1]);
+    expect(parsed.ductNormas?.[0]).toMatchObject({
+      insulThickness: 38,
+      gaugeLimits: [50, 80, 140, 210],
+    });
+    const older = parseRemoteCatalogResponse({ generatedAt: 1, items: [] });
+    expect(older.labor).toBeNull();
+    expect(older.ductNormas).toBeNull();
+
+    const store = withCompanyDefaults(emptyCatalogStore(), {
+      remoteLabor: parsed.labor,
+      remoteDuctNormas: parsed.ductNormas,
+    });
+    // the company's labour over the workbook's; a norma it did not publish keeps the workbook's row
+    expect(store.labor).toEqual({ ductPerKg: 22, vrfPerEvap: DEFAULT_LABOR_PER_EVAP });
+    expect(store.ductNormas.map((n) => n.norma)).toEqual([1]);
+    expect(normaDefaults(1, store.ductNormas).insulThickness).toBe(38);
+    expect(normaDefaults(3, store.ductNormas)).toEqual(DEFAULT_DUCT_NORMAS[2]);
+    const again = withCompanyDefaults(store, { remoteLabor: { ductPerKg: 22 } });
+    expect(again.labor).toBe(store.labor);
+    expect(again.ductNormas).toBe(store.ductNormas);
   });
 
   it("reads the company's kits from the catalog response, skipping what is not a kit", () => {

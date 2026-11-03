@@ -59,7 +59,7 @@ export function CatalogPalette() {
     ? `${catalog.remote.length} materiais da empresa · preços de ${new Date(
         catalog.remoteGeneratedAt ?? catalog.fetchedAt,
       ).toLocaleDateString("pt-BR")}`
-    : `${entries.length} materiais (planilhas anteriores)`;
+    : `${entries.length} materiais (seu catálogo e tabela de pesos; entre para carregar o da empresa)`;
   /** Fetch the company prices now; signed out and without a token the settings open to ask. */
   const refresh = async () => {
     if (!signedIn && !catalog.remoteToken) {

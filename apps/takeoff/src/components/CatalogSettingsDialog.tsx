@@ -59,7 +59,7 @@ export function CatalogSettingsDialog() {
     ? `${catalog.remote.length} materiais · catálogo de ${new Date(
         catalog.remoteGeneratedAt ?? catalog.fetchedAt,
       ).toLocaleString("pt-BR")}${drafts ? ` · ${drafts} em rascunho` : ""}`
-    : "Ainda não carregado: o Ctrl+K usa as planilhas anteriores";
+    : "Ainda não carregado: o Ctrl+K só tem o seu catálogo e a tabela de pesos";
 
   const section = (title: string, hint: string, body: React.ReactNode) => (
     <section className="space-y-2 border-b border-neutral-800 px-4 py-3 last:border-b-0">

@@ -17,14 +17,14 @@ const date = (ms?: number) => (ms ? ` em ${new Date(ms).toLocaleDateString("pt-B
 export const PRICE_SOURCE_LABEL: Record<PriceSource, string> = {
   catalog: "nuvem",
   saved: "salvo",
-  seed: "planilhas",
+  seed: "tabela",
   manual: "digitado",
   weight: "por peso",
 };
 
-/** Labour taken from the bundled sheets because the company catalog has none (tooltip line). */
+/** Labour taken from the sheets once bundled with the app (old lines only; tooltip line). */
 export const SEED_LABOR_NOTE =
-  "Mão de obra das planilhas anteriores: o catálogo da empresa ainda não tem mão de obra para este material";
+  "Mão de obra das planilhas antigas do app: o catálogo da empresa não tinha mão de obra para este material";
 
 /** Labour of an air terminal set to the usual installation price (tooltip line). */
 export const DEFAULT_LABOR_NOTE =
@@ -46,7 +46,7 @@ export function describePriceSource(source: PriceSource | undefined, priceDate?:
     case "saved":
       return `Preço do seu catálogo salvo neste computador${date(priceDate)}`;
     case "seed":
-      return "Preço das planilhas anteriores (catálogo embutido no app)";
+      return "Preço das tabelas do app (chapa por kg) ou das planilhas antigas (linha antiga)";
     case "manual":
       return `Preço digitado${date(priceDate)}`;
     case "weight":

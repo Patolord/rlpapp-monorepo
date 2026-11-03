@@ -26,7 +26,7 @@ describe("price source", () => {
     expect(describePriceSource("catalog", d)).toContain("nuvem");
     expect(describePriceSource("catalog", d)).toContain("26/10/2026");
     expect(describePriceSource("manual", d)).toBe("Preço digitado em 26/10/2026");
-    expect(describePriceSource("seed")).toContain("planilhas anteriores");
+    expect(describePriceSource("seed")).toContain("tabelas do app");
     expect(describePriceSource(undefined)).toContain("não registrada");
   });
 

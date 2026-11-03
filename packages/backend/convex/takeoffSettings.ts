@@ -6,22 +6,26 @@ import {
   engineeringOrPurchasingQuery,
 } from "./lib/rbac";
 import {
+  factoryTakeoffDuctNormas,
   factoryTakeoffVrfBrands,
   factoryTakeoffWeights,
   getTakeoffSetting,
   listPublishedTakeoffSettings,
   putTakeoffSetting,
   sanitizeTakeoffBasePrices,
+  sanitizeTakeoffDuctNormas,
+  sanitizeTakeoffLabor,
   sanitizeTakeoffVrfBrands,
   sanitizeTakeoffWeights,
   takeoffSettingsValidator,
 } from "./model/procurement/takeoffSettings";
-import { takeoffVrfBrand, takeoffWeightRow } from "./schema";
+import { takeoffDuctNorma, takeoffVrfBrand, takeoffWeightRow } from "./schema";
 
 /**
  * Configurações do RLP Takeoff além dos kits (ver `takeoffKits.ts`): a tabela
- * de materiais por peso com o kg/m² das chapas, os preços por kg dos insumos
- * e as regras das marcas de VRF. Padrões da empresa, editados no dashboard em
+ * de materiais por peso com o kg/m² das chapas, os preços por kg dos insumos,
+ * as regras das marcas de VRF, a mão de obra global (dutos por kg, VRF por
+ * evaporadora) e os parâmetros de dutos por norma. Padrões da empresa, editados no dashboard em
  * App Takeoff por engenharia ou compras e publicados ao app desktop junto com
  * o catálogo (`takeoffCatalog.current` e `GET /takeoff/catalog`). Cada
  * usuário do app pode sobrescrever localmente; o padrão daqui vale para quem
@@ -42,11 +46,15 @@ export const get = engineeringOrPurchasingQuery({
       weights: metaValidator,
       basePrices: metaValidator,
       vrfBrands: metaValidator,
+      labor: metaValidator,
+      ductNormas: metaValidator,
     }),
   }),
   handler: async (ctx) => {
     const settings = await listPublishedTakeoffSettings(ctx);
-    const meta = async (kind: "weights" | "basePrices" | "vrfBrands") => {
+    const meta = async (
+      kind: "weights" | "basePrices" | "vrfBrands" | "labor" | "ductNormas"
+    ) => {
       const doc = await getTakeoffSetting(ctx, kind);
       if (!doc) return null;
       const user = doc.updatedByUserId
@@ -60,6 +68,8 @@ export const get = engineeringOrPurchasingQuery({
         weights: await meta("weights"),
         basePrices: await meta("basePrices"),
         vrfBrands: await meta("vrfBrands"),
+        labor: await meta("labor"),
+        ductNormas: await meta("ductNormas"),
       },
     };
   },
@@ -134,6 +144,44 @@ export const saveVrfBrands = engineeringOrPurchasingMutation({
   },
 });
 
+/** Substitui a mão de obra global (uma chave ausente = padrão da planilha). */
+export const saveLabor = engineeringOrPurchasingMutation({
+  args: { ductPerKg: v.optional(v.number()), vrfPerEvap: v.optional(v.number()) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const clean = sanitizeTakeoffLabor(args);
+    const { id, before } = await putTakeoffSetting(ctx, "labor", clean, ctx.user._id);
+    await logAudit(ctx, ctx.user, {
+      action: before ? "update" : "create",
+      tableName: "takeoffSettings",
+      recordId: id,
+      entityLabel: "Mão de obra",
+      snapshotBefore: before ?? undefined,
+      snapshotAfter: clean,
+    });
+    return null;
+  },
+});
+
+/** Substitui os parâmetros de dutos por norma. */
+export const saveDuctNormas = engineeringOrPurchasingMutation({
+  args: { normas: v.array(takeoffDuctNorma) },
+  returns: v.null(),
+  handler: async (ctx, { normas }) => {
+    const clean = { normas: sanitizeTakeoffDuctNormas(normas) };
+    const { id, before } = await putTakeoffSetting(ctx, "ductNormas", clean, ctx.user._id);
+    await logAudit(ctx, ctx.user, {
+      action: before ? "update" : "create",
+      tableName: "takeoffSettings",
+      recordId: id,
+      entityLabel: "Parâmetros de dutos por norma",
+      snapshotBefore: before ?? undefined,
+      snapshotAfter: clean,
+    });
+    return null;
+  },
+});
+
 /**
  * Carrega as tabelas de fábrica do app numa configuração que a empresa ainda
  * não publicou, ou publicou vazia (o app lê uma lista vazia como "nada
@@ -141,7 +189,9 @@ export const saveVrfBrands = engineeringOrPurchasingMutation({
  * chapas já publicado fica. Retorna se entrou.
  */
 export const seedDefaults = engineeringOrPurchasingMutation({
-  args: { kind: v.union(v.literal("weights"), v.literal("vrfBrands")) },
+  args: {
+    kind: v.union(v.literal("weights"), v.literal("vrfBrands"), v.literal("ductNormas")),
+  },
   returns: v.boolean(),
   handler: async (ctx, { kind }) => {
     const existing = await getTakeoffSetting(ctx, kind);
@@ -149,7 +199,9 @@ export const seedDefaults = engineeringOrPurchasingMutation({
       const empty =
         existing.kind === "weights"
           ? existing.rows.length === 0
-          : existing.kind === "vrfBrands" && existing.brands.length === 0;
+          : existing.kind === "vrfBrands"
+            ? existing.brands.length === 0
+            : existing.kind === "ductNormas" && existing.normas.length === 0;
       if (!empty) return false;
     }
     const { id } =
@@ -165,17 +217,29 @@ export const seedDefaults = engineeringOrPurchasingMutation({
             },
             ctx.user._id
           )
-        : await putTakeoffSetting(
-            ctx,
-            "vrfBrands",
-            { brands: factoryTakeoffVrfBrands() },
-            ctx.user._id
-          );
+        : kind === "vrfBrands"
+          ? await putTakeoffSetting(
+              ctx,
+              "vrfBrands",
+              { brands: factoryTakeoffVrfBrands() },
+              ctx.user._id
+            )
+          : await putTakeoffSetting(
+              ctx,
+              "ductNormas",
+              { normas: factoryTakeoffDuctNormas() },
+              ctx.user._id
+            );
+    const labels = {
+      weights: "Materiais por peso",
+      vrfBrands: "Marcas de VRF",
+      ductNormas: "Parâmetros de dutos por norma",
+    } as const;
     await logAudit(ctx, ctx.user, {
       action: "seed",
       tableName: "takeoffSettings",
       recordId: id,
-      entityLabel: kind === "weights" ? "Materiais por peso" : "Marcas de VRF",
+      entityLabel: labels[kind],
       details: "tabela de fábrica carregada",
     });
     return true;

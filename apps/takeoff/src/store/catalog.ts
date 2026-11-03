@@ -30,7 +30,12 @@ import { errorMessage, type Slice } from "./shared";
 /** Derived prices that follow the catalog settings: duct networks (kg/m², R$/kg), weight lines. */
 const syncDerived = (project: Project, catalog: CatalogStore): Project =>
   syncWeightItems(
-    syncDuctItems(project, () => mergeCatalog(catalog), catalog.gaugeWeights),
+    syncDuctItems(
+      project,
+      () => mergeCatalog(catalog),
+      catalog.gaugeWeights,
+      catalog.labor.ductPerKg,
+    ),
     catalog.basePrices,
   );
 
@@ -157,6 +162,8 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
             : {}),
           ...(remote.basePrices !== null ? { remoteBasePrices: remote.basePrices } : {}),
           ...(remote.vrfBrands !== null ? { remoteVrfBrands: remote.vrfBrands } : {}),
+          ...(remote.labor !== null ? { remoteLabor: remote.labor } : {}),
+          ...(remote.ductNormas !== null ? { remoteDuctNormas: remote.ductNormas } : {}),
         },
       );
       const { project } = get();

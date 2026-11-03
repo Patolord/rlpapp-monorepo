@@ -1,5 +1,11 @@
 import { type Infer, v } from "convex/values";
 import {
+  DEFAULT_DUCT_NORMAS,
+  type DuctNormaDefaults,
+  type GaugeLimits,
+} from "@rlpapp/shared/engenharia/ducts";
+import { isLaborPriceKey, type LaborPrices } from "@rlpapp/shared/takeoff/labor";
+import {
   cloneBrands,
   type HpRow,
   isDiameter,
@@ -17,7 +23,7 @@ import {
 } from "@rlpapp/shared/takeoff/weights";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { takeoffVrfBrand, takeoffWeightRow } from "../../schema";
+import { takeoffDuctNorma, takeoffVrfBrand, takeoffWeightRow } from "../../schema";
 
 /**
  * Company defaults of the RLP Takeoff settings other than kits (`takeoffSettings`): the weight
@@ -46,15 +52,25 @@ export const takeoffSettingsValidator = v.object({
   ),
   basePrices: v.union(v.record(v.string(), v.number()), v.null()),
   vrfBrands: v.union(v.array(takeoffVrfBrand), v.null()),
+  labor: v.union(
+    v.object({ ductPerKg: v.optional(v.number()), vrfPerEvap: v.optional(v.number()) }),
+    v.null()
+  ),
+  ductNormas: v.union(v.array(takeoffDuctNorma), v.null()),
 });
 
 /** A brand as stored: the diameters are plain strings until sanitized. */
 export type StoredVrfBrand = Infer<typeof takeoffVrfBrand>;
 
+/** A norma's row as stored: the limits are a plain array until sanitized. */
+export type StoredDuctNorma = Infer<typeof takeoffDuctNorma>;
+
 export type TakeoffSettings = {
   weights: TakeoffWeights | null;
   basePrices: BasePrices | null;
   vrfBrands: StoredVrfBrand[] | null;
+  labor: LaborPrices | null;
+  ductNormas: StoredDuctNorma[] | null;
 };
 
 export type SettingKind = Doc<"takeoffSettings">["kind"];
@@ -78,10 +94,19 @@ export async function listPublishedTakeoffSettings(
   const weights = await getTakeoffSetting(ctx, "weights");
   const basePrices = await getTakeoffSetting(ctx, "basePrices");
   const vrfBrands = await getTakeoffSetting(ctx, "vrfBrands");
+  const labor = await getTakeoffSetting(ctx, "labor");
+  const ductNormas = await getTakeoffSetting(ctx, "ductNormas");
   return {
     weights: weights ? { rows: weights.rows, gaugeWeights: weights.gaugeWeights } : null,
     basePrices: basePrices ? basePrices.prices : null,
     vrfBrands: vrfBrands ? vrfBrands.brands : null,
+    labor: labor
+      ? {
+          ...(labor.ductPerKg !== undefined ? { ductPerKg: labor.ductPerKg } : {}),
+          ...(labor.vrfPerEvap !== undefined ? { vrfPerEvap: labor.vrfPerEvap } : {}),
+        }
+      : null,
+    ductNormas: ductNormas ? ductNormas.normas : null,
   };
 }
 
@@ -123,6 +148,63 @@ export function sanitizeTakeoffWeights(input: TakeoffWeights): TakeoffWeights {
     gaugeWeights[gauge] = kgm2;
   }
   return { rows, gaugeWeights };
+}
+
+/** Labour prices: known keys with positive values; a missing key means "the workbook's". */
+export function sanitizeTakeoffLabor(prices: Record<string, number | undefined>): LaborPrices {
+  const out: LaborPrices = {};
+  for (const [key, price] of Object.entries(prices)) {
+    if (price === undefined) continue;
+    if (!isLaborPriceKey(key)) throw new Error(`Mão de obra desconhecida: ${key}`);
+    if (!positive(price)) throw new Error(`${key}: o valor deve ser maior que zero`);
+    out[key] = price;
+  }
+  return out;
+}
+
+const nonNegative = (n: number) => Number.isFinite(n) && n >= 0;
+
+/**
+ * The duct parameters per norma: each of the three normas at most once, four ascending
+ * positive gauge limits, non-negative thicknesses and allowances.
+ */
+export function sanitizeTakeoffDuctNormas(normas: StoredDuctNorma[]): DuctNormaDefaults[] {
+  const seen = new Set<number>();
+  return normas.map((n) => {
+    if (seen.has(n.norma)) throw new Error(`Norma ${n.norma} repetida`);
+    seen.add(n.norma);
+    if (n.gaugeLimits.length !== 4) {
+      throw new Error(`Norma ${n.norma}: informe os quatro limites de bitola`);
+    }
+    const limits = n.gaugeLimits as GaugeLimits;
+    for (let i = 0; i < limits.length; i++) {
+      if (!positive(limits[i]) || (i > 0 && limits[i] <= limits[i - 1])) {
+        throw new Error(`Norma ${n.norma}: os limites de bitola devem ser crescentes`);
+      }
+    }
+    for (const [field, value] of [
+      ["insulThickness", n.insulThickness],
+      ["flangeSpacing", n.flangeSpacing],
+      ["rechapThickness", n.rechapThickness],
+      ["insulSlackPct", n.insulSlackPct],
+      ["supportsPct", n.supportsPct],
+    ] as const) {
+      if (!nonNegative(value)) throw new Error(`Norma ${n.norma}: ${field} inválido`);
+    }
+    if (n.sheetSlackPct !== null && !nonNegative(n.sheetSlackPct)) {
+      throw new Error(`Norma ${n.norma}: folga de chapa inválida`);
+    }
+    return {
+      norma: n.norma,
+      gaugeLimits: [limits[0], limits[1], limits[2], limits[3]],
+      insulThickness: n.insulThickness,
+      flangeSpacing: n.flangeSpacing,
+      rechapThickness: n.rechapThickness,
+      sheetSlackPct: n.sheetSlackPct,
+      insulSlackPct: n.insulSlackPct,
+      supportsPct: n.supportsPct,
+    };
+  });
 }
 
 /** Prices per kg: known base materials with positive prices; a missing key means "no price". */
@@ -233,3 +315,6 @@ export const factoryTakeoffWeights = (): TakeoffWeights => ({
 });
 
 export const factoryTakeoffVrfBrands = (): VrfBrand[] => cloneBrands(SEED_BRANDS);
+
+export const factoryTakeoffDuctNormas = (): DuctNormaDefaults[] =>
+  DEFAULT_DUCT_NORMAS.map((n) => ({ ...n, gaugeLimits: [...n.gaugeLimits] as GaugeLimits }));

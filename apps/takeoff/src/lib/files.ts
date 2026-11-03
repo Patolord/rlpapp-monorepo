@@ -575,6 +575,7 @@ export async function exportDuctSheet(networkId: string): Promise<void> {
       mergeCatalog(store.catalog),
       networkId,
       store.catalog.gaugeWeights,
+      store.catalog.labor.ductPerKg,
     );
     const bytes = await fillDuctWorkbook(await res.arrayBuffer(), input);
     const name = `Levantamento Dutos - ${network?.name ?? "Rede"}${project.site ? ` - ${project.site}` : ""}.xlsx`;

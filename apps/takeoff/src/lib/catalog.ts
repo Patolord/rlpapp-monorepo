@@ -1,4 +1,12 @@
-import { defaultGaugeWeights, GAUGES, type GaugeWeights } from "@rlpapp/shared/engenharia/ducts";
+import {
+  DEFAULT_DUCT_NORMAS,
+  type DuctNormaDefaults,
+  defaultGaugeWeights,
+  GAUGES,
+  type GaugeLimits,
+  type GaugeWeights,
+} from "@rlpapp/shared/engenharia/ducts";
+import { isLaborPriceKey, type LaborPrices, laborPricesOf } from "@rlpapp/shared/takeoff/labor";
 import {
   isDiameter,
   SEED_BRANDS,
@@ -15,7 +23,6 @@ import {
   weightKey,
 } from "@rlpapp/shared/takeoff/weights";
 import { invoke } from "@tauri-apps/api/core";
-import seed from "../data/catalog.seed.json";
 import {
   CATALOG_URL,
   describeHttpFailure,
@@ -58,14 +65,17 @@ export interface CatalogEntry {
   materialPrice: number;
   laborPrice: number;
   /**
-   * Set when the labour price did not come with the entry: "seed" = a company entry without
-   * labour took the bundled sheets' labour for the same name (see withSeedLabor); "default" =
-   * an air terminal took the usual installation price (see withAirTerminalLabor).
+   * Set when the labour price did not come with the entry: "default" = an air terminal took the
+   * usual installation price (see withAirTerminalLabor). ("seed", the labour of the sheets once
+   * bundled with the app, is no longer produced; old lines may still carry it.)
    */
   laborSource?: LaborSource;
   /** Budget system the entry came from (informative). */
   system?: string;
-  /** Where the entry comes from: saved by the user, fetched from the company app, or bundled. */
+  /**
+   * Where the entry comes from: saved by the user, fetched from the company app, or derived
+   * from the app's tables ("seed": the weight table and the sheet-metal rows priced per kg).
+   */
   source?: "saved" | "remote" | "seed";
   /**
    * Company catalog only: the material's id there, its SKU and full description. A company
@@ -151,7 +161,24 @@ export interface CatalogStore {
   vrfBrandOverrides: VrfBrand[];
   /** Ids of company brands the user removed here. */
   vrfBrandRemoved: string[];
+  /**
+   * Labour prices in use (ducts per kg, VRF per evaporator): the company's over the workbook's.
+   * A takeoff may set its own value; these apply where it does not. Derived from the field below.
+   */
+  labor: Required<LaborPrices>;
+  remoteLabor: LaborPrices | null;
+  /**
+   * Duct parameters per norma in use (gauge limits, thicknesses, allowances): the company's
+   * table, else the workbook's. A takeoff copies its norma's row and may adjust it. Derived.
+   */
+  ductNormas: DuctNormaDefaults[];
+  remoteDuctNormas: DuctNormaDefaults[] | null;
 }
+
+/** The company's norma table in use: the published one, else the workbook's. */
+export const ductNormaDefaults = (
+  remote: readonly DuctNormaDefaults[] | null | undefined,
+): readonly DuctNormaDefaults[] => defaultsOf(remote, DEFAULT_DUCT_NORMAS);
 
 export const WEIGHT_RULES: OverrideRules<WeightRow> = { key: weightKey, same: sameWeightRow };
 export const BRAND_RULES: OverrideRules<VrfBrand> = { key: (b) => b.id, same: sameBrand };
@@ -171,18 +198,6 @@ export const gaugeWeightDefaults = (remote: GaugeWeights | null | undefined): Ga
 export const basePriceDefaults = (remote: BasePrices | null | undefined): BasePrices => ({
   ...(remote ?? {}),
 });
-
-export const SEED: CatalogEntry[] = (seed as CatalogEntry[]).map((e) => ({ ...e, source: "seed" }));
-
-/**
- * Key that pairs a company entry with a seed entry for labour: the folded name, with the
- * family/variant separator read as a space ("Damper — dim. 600x600" ~ "Damper dim. 600x600").
- */
-const laborKey = (name: string): string =>
-  foldName(name)
-    .replace(/\s+—\s+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 
 /** Spellings of the same budget unit, folded (see unitKey). */
 const UNIT_SYNONYMS: Record<string, string> = {
@@ -214,37 +229,6 @@ export function unitKey(unit: string): string {
     .replace(/²/g, "2")
     .replace(/[^a-z0-9]/g, "");
   return UNIT_SYNONYMS[k] ?? k;
-}
-
-/** Key of the seed labour table: name and unit, so R$/m never becomes R$/rolo. */
-export const seedLaborKey = (name: string, unit: string): string =>
-  `${laborKey(name)}|${unitKey(unit)}`;
-
-let seedLabor: Map<string, number> | null = null;
-/** Labour price of the bundled seed by seedLaborKey (entries with labour only; the first wins). */
-function seedLaborPrices(): Map<string, number> {
-  if (!seedLabor) {
-    seedLabor = new Map();
-    for (const e of SEED) {
-      const k = seedLaborKey(e.name, e.unit);
-      if (e.laborPrice > 0 && !seedLabor.has(k)) seedLabor.set(k, e.laborPrice);
-    }
-  }
-  return seedLabor;
-}
-
-/**
- * A company entry with no labour price takes the bundled seed's labour for the same name and
- * unit, marked `laborSource: "seed"`, so a budget does not lose labour until purchasing fills it
- * in. An entry that already has labour, or whose unit differs from the seed's, is returned as is.
- */
-export function withSeedLabor(
-  e: CatalogEntry,
-  labor: ReadonlyMap<string, number> = seedLaborPrices(),
-): CatalogEntry {
-  if (e.laborPrice > 0) return e;
-  const price = labor.get(seedLaborKey(e.name, e.unit));
-  return price ? { ...e, laborPrice: price, laborSource: "seed" } : e;
 }
 
 /** Installation price RLP charges per air terminal (grille, diffuser, louvre) when nothing else is known. */
@@ -294,6 +278,10 @@ export const emptyCatalogStore = (): CatalogStore => ({
   remoteVrfBrands: null,
   vrfBrandOverrides: [],
   vrfBrandRemoved: [],
+  labor: laborPricesOf(null),
+  remoteLabor: null,
+  ductNormas: [...ductNormaDefaults(null)],
+  remoteDuctNormas: null,
 });
 
 export function kindForUnit(unit: string): Kind {
@@ -323,11 +311,11 @@ export function normalizeDiscipline(system: string | undefined): string | undefi
 }
 
 /**
- * Saved entries first, then the remote catalog (labour borrowed from the seed where it has
- * none, see withSeedLabor), then the weight table and the sheet-metal rows (priced from the
- * catalog's prices per kg), then the seed; later sources never duplicate earlier names. Air
- * terminals from the company catalog or the seed still without labour get the usual price
- * (withAirTerminalLabor); the user's own entries are left as saved.
+ * Saved entries first, then the company catalog, then the weight table and the sheet-metal rows
+ * (priced from the catalog's prices per kg); later sources never duplicate earlier names. There
+ * is no bundled catalog any more: without the company's, the user has their own entries and
+ * the weight table. Air terminals from the company catalog still without labour get the usual
+ * price (withAirTerminalLabor); the user's own entries are left as saved.
  */
 export function mergeCatalog(store: CatalogStore): CatalogEntry[] {
   const out: CatalogEntry[] = [];
@@ -342,15 +330,9 @@ export function mergeCatalog(store: CatalogStore): CatalogEntry[] {
     }
   };
   add(store.saved, "saved");
-  // the company catalog may still lack labour: borrow it from the seed (marked) until it has it
-  add(
-    store.remote.map((e) => withSeedLabor(e)),
-    "remote",
-  );
+  add(store.remote, "remote");
   add(weightCatalogEntries(store.weights ?? [], store.basePrices), "seed");
   add(sheetCatalogEntries(store.basePrices), "seed");
-  // once the company catalog is in use, the bundled seed is only a fallback
-  if (store.remote.length === 0) add(SEED, "seed");
   return out;
 }
 
@@ -396,6 +378,10 @@ export interface RemoteCatalog {
   basePrices: BasePrices | null;
   /** The company's VRF brands; null when the response has none. */
   vrfBrands: VrfBrand[] | null;
+  /** The company's labour prices; null when the response has none. */
+  labor: LaborPrices | null;
+  /** The company's duct parameters per norma; null when the response has none. */
+  ductNormas: DuctNormaDefaults[] | null;
 }
 
 /** The fields a refresh or a save may change before the lists in use are recomputed. */
@@ -413,6 +399,8 @@ export type CompanyDefaultsPatch = Partial<
     | "remoteVrfBrands"
     | "vrfBrandOverrides"
     | "vrfBrandRemoved"
+    | "remoteLabor"
+    | "remoteDuctNormas"
   > &
     KitOverrides
 >;
@@ -460,6 +448,12 @@ export const withCompanyDefaults = (
         BRAND_RULES,
       ),
       sameBrand,
+    ),
+    labor: keepRecord(store.labor, laborPricesOf(next.remoteLabor)) as Required<LaborPrices>,
+    ductNormas: keep(
+      store.ductNormas,
+      [...ductNormaDefaults(next.remoteDuctNormas)],
+      (a, b) => JSON.stringify(a) === JSON.stringify(b),
     ),
   };
 };
@@ -651,7 +645,63 @@ export function parseRemoteCatalogResponse(json: unknown): RemoteCatalog {
     weights: bare ? null : parseRemoteWeights(root.weights),
     basePrices: bare ? null : parseRemoteBasePrices(root.basePrices),
     vrfBrands: bare ? null : parseRemoteVrfBrands(root.vrfBrands),
+    labor: bare ? null : parseRemoteLabor(root.labor),
+    ductNormas: bare ? null : parseRemoteDuctNormas(root.ductNormas),
   };
+}
+
+/** The `labor` record of the company response (R$ by labour key), or null. */
+export function parseRemoteLabor(json: unknown): LaborPrices | null {
+  if (!isRecord(json)) return null;
+  return parsePositiveRecord(json, isLaborPriceKey);
+}
+
+/**
+ * The `ductNormas` list of the company response: a row per norma with four ascending gauge
+ * limits and non-negative values; anything else is skipped. Null when the response has none.
+ */
+export function parseRemoteDuctNormas(json: unknown): DuctNormaDefaults[] | null {
+  if (!Array.isArray(json)) return null;
+  const num = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
+  const out: DuctNormaDefaults[] = [];
+  const seen = new Set<number>();
+  for (const raw of json) {
+    if (!isRecord(raw)) continue;
+    const norma = raw.norma;
+    if (norma !== 1 && norma !== 2 && norma !== 3) continue;
+    if (seen.has(norma)) continue;
+    const limits = raw.gaugeLimits;
+    if (
+      !Array.isArray(limits) ||
+      limits.length !== 4 ||
+      !limits.every((v, i) => positive(v) && (i === 0 || v > (limits[i - 1] as number)))
+    ) {
+      continue;
+    }
+    const sheet = raw.sheetSlackPct;
+    if (
+      !num(raw.insulThickness) ||
+      !num(raw.flangeSpacing) ||
+      !num(raw.rechapThickness) ||
+      !num(raw.insulSlackPct) ||
+      !num(raw.supportsPct) ||
+      !(sheet === null || num(sheet))
+    ) {
+      continue;
+    }
+    seen.add(norma);
+    out.push({
+      norma,
+      gaugeLimits: [limits[0], limits[1], limits[2], limits[3]] as GaugeLimits,
+      insulThickness: raw.insulThickness,
+      flangeSpacing: raw.flangeSpacing,
+      rechapThickness: raw.rechapThickness,
+      sheetSlackPct: sheet,
+      insulSlackPct: raw.insulSlackPct,
+      supportsPct: raw.supportsPct,
+    });
+  }
+  return out;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>

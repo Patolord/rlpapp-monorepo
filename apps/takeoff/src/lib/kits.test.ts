@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { SEED } from "./catalog";
 import {
   diffKits,
   effectiveKits,
@@ -13,19 +12,9 @@ import {
   runLabel,
   SEED_KITS,
 } from "./kits";
-import { foldName } from "./text";
 import type { Measurement } from "./types";
 
 describe("kit presets", () => {
-  it("every seed component is a catalog material, so prices come along", () => {
-    const names = new Set(SEED.map((e) => foldName(e.name)));
-    for (const kit of SEED_KITS) {
-      for (const c of kit.components) {
-        expect(names.has(foldName(c.name)), `${kit.name}: ${c.name}`).toBe(true);
-      }
-    }
-  });
-
   it("covers every capacity of the reference table, inverter and conventional", () => {
     const names = SEED_KITS.filter((k) => k.mode !== "count").map((k) => k.name);
     expect(names).toHaveLength(16);

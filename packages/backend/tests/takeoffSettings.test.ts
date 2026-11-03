@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { DEFAULT_DUCT_NORMAS } from "@rlpapp/shared/engenharia/ducts";
 import { SEED_BRANDS } from "@rlpapp/shared/takeoff/vrfBrands";
 import { SEED_WEIGHTS } from "@rlpapp/shared/takeoff/weights";
 import { api, internal } from "../convex/_generated/api";
@@ -88,10 +89,18 @@ describe("takeoffSettings", () => {
       weights: null,
       basePrices: null,
       vrfBrands: null,
-      meta: { weights: null, basePrices: null, vrfBrands: null },
+      labor: null,
+      ductNormas: null,
+      meta: { weights: null, basePrices: null, vrfBrands: null, labor: null, ductNormas: null },
     });
     const published = await t.query(internal.takeoffSettings.listPublished, {});
-    expect(published).toEqual({ weights: null, basePrices: null, vrfBrands: null });
+    expect(published).toEqual({
+      weights: null,
+      basePrices: null,
+      vrfBrands: null,
+      labor: null,
+      ductNormas: null,
+    });
     const catalog = await engineering.query(api.takeoffCatalog.current, {});
     expect(catalog).toMatchObject({ weights: null, basePrices: null, vrfBrands: null, kits: [] });
   });
@@ -122,6 +131,40 @@ describe("takeoffSettings", () => {
     await expect(
       hr.mutation(api.takeoffSettings.saveBasePrices, { prices: { cobre: 1 } })
     ).rejects.toThrow();
+  });
+
+  test("labour and duct normas: saved whole, validated, seeded from the workbook", async () => {
+    const { t, engineering } = await seedUsers();
+    await engineering.mutation(api.takeoffSettings.saveLabor, { ductPerKg: 22 });
+    let settings = await engineering.query(api.takeoffSettings.get, {});
+    expect(settings.labor).toEqual({ ductPerKg: 22 });
+    await engineering.mutation(api.takeoffSettings.saveLabor, { vrfPerEvap: 800 });
+    settings = await engineering.query(api.takeoffSettings.get, {});
+    expect(settings.labor).toEqual({ vrfPerEvap: 800 });
+    await expect(
+      engineering.mutation(api.takeoffSettings.saveLabor, { ductPerKg: 0 })
+    ).rejects.toThrow(/maior que zero/);
+
+    expect(await engineering.mutation(api.takeoffSettings.seedDefaults, { kind: "ductNormas" })).toBe(true);
+    settings = await engineering.query(api.takeoffSettings.get, {});
+    expect(settings.ductNormas).toEqual(DEFAULT_DUCT_NORMAS);
+    const [abnt] = settings.ductNormas!;
+    await engineering.mutation(api.takeoffSettings.saveDuctNormas, {
+      normas: [{ ...abnt, insulThickness: 38, gaugeLimits: [50, 80, 140, 210] }],
+    });
+    const published = await t.query(internal.takeoffSettings.listPublished, {});
+    expect(published.ductNormas).toEqual([
+      { ...abnt, insulThickness: 38, gaugeLimits: [50, 80, 140, 210] },
+    ]);
+    expect(published.labor).toEqual({ vrfPerEvap: 800 });
+    await expect(
+      engineering.mutation(api.takeoffSettings.saveDuctNormas, {
+        normas: [{ ...abnt, gaugeLimits: [50, 40, 140, 210] }],
+      })
+    ).rejects.toThrow(/crescentes/);
+    await expect(
+      engineering.mutation(api.takeoffSettings.saveDuctNormas, { normas: [abnt, abnt] })
+    ).rejects.toThrow(/repetida/);
   });
 
   test("seedDefaults loads a factory table once and never overwrites", async () => {

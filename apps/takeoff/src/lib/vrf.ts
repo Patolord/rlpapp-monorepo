@@ -8,6 +8,7 @@
  * insulation, elbows, cables, boxes, supports and labour exactly as the Resultados sheet does.
  */
 
+import { DEFAULT_LABOR_PER_EVAP } from "@rlpapp/shared/takeoff/labor";
 import {
   DIAMETERS,
   type Diameter,
@@ -99,15 +100,17 @@ export interface VrfSettings {
   elbowsFrom: Diameter;
   /** Insulation thickness used on every tube, mm (13 mm for VRF). */
   insulationMm: number;
-  /** Installation labour per evaporator, project currency. */
-  laborPerEvap: number;
+  /**
+   * Installation labour per evaporator set for this takeoff; unset = the company's price
+   * (`laborPerEvap` of vrfBill), else DEFAULT_LABOR_PER_EVAP.
+   */
+  laborPerEvap?: number;
 }
 
 export const DEFAULT_VRF_SETTINGS: VrfSettings = {
   slackPct: 10,
   elbowsFrom: "3/8",
   insulationMm: 13,
-  laborPerEvap: 700,
 };
 
 export interface VrfRun {
@@ -306,7 +309,10 @@ export function vrfBill(
   brand: VrfBrand,
   systemHp: number,
   settings: VrfSettings = DEFAULT_VRF_SETTINGS,
+  /** The company's labour per evaporator, used when the settings set none. */
+  laborPerEvap: number = DEFAULT_LABOR_PER_EVAP,
 ): VrfBillResult {
+  const laborEvap = settings.laborPerEvap ?? laborPerEvap;
   const tree = buildVrfTree(runs);
   const fromTree = treeComplete(tree);
   const sized = sizeRuns(runs, brand, systemHp, fromTree ? tree : undefined);
@@ -362,7 +368,7 @@ export function vrfBill(
   add(SUPPORT_EVAP, "Equipamentos", "pç", evaporators, 50);
   const condensers = sized.length > 0 ? 1 : 0;
   add(SUPPORT_COND, "Equipamentos", "pç", condensers, 70);
-  add(LABOR_ROW, "Equipamentos", "pç", evaporators, 0, settings.laborPerEvap);
+  add(LABOR_ROW, "Equipamentos", "pç", evaporators, 0, laborEvap);
   return {
     rows,
     sized,
