@@ -45,6 +45,7 @@ import { confirmDialog } from "../lib/dialogs";
 import { saveProject } from "../lib/files";
 import { isTauri } from "../lib/platform";
 import { buildPublishBudget } from "../lib/publishBudget";
+import type { SentToApp } from "../lib/types";
 import { useStore } from "../store";
 import { Dialog } from "./Dialog";
 import { Button } from "./ui";
@@ -151,15 +152,22 @@ function SendBudgetPanel() {
     }
   };
 
-  /** The "Salvar" of a result: only while the takeoff the result belongs to is still open. */
-  const saveLinkAgain = async () => {
+  /**
+   * The "Salvar" of a result: only while the takeoff the result belongs to is still open. The
+   * link is applied again first: the failed save may have reloaded the file ("Recarregar" in a
+   * conflict), bringing back what the file had before.
+   */
+  const saveLinkAgain = async (link: SentToApp | undefined) => {
     const now = useStore.getState();
     if (now.project.id !== sentFor?.id || now.filePath !== sentFor?.path) {
       setUnsaved(
-        "o takeoff enviado não está mais aberto: abra-o e envie de novo para gravar o vínculo",
+        link
+          ? "o takeoff enviado não está mais aberto: abra-o e envie de novo para gravar o vínculo"
+          : "o takeoff não está mais aberto: abra-o e use Remover do app de novo para tirar o vínculo",
       );
       return;
     }
+    setIdentity({ sentToApp: link });
     setUnsaved(await saveLink());
   };
 
@@ -249,9 +257,10 @@ function SendBudgetPanel() {
     // same care as in `send`: the link belongs to the takeoff whose budget was removed
     const now = useStore.getState();
     if (now.project.id !== removingProject.id || now.filePath !== removingPath) {
+      // the file still says "sent": the removal there finds nothing in the app and drops the link
       setStatus(
-        `Orçamento aprovado ${verb} · o takeoff não está mais aberto: abra-o e salve-o para ` +
-          "tirar o vínculo do arquivo",
+        `Orçamento aprovado ${verb} · o takeoff não está mais aberto: abra-o e use Remover do app ` +
+          "de novo para tirar o vínculo do arquivo",
       );
       return;
     }
@@ -271,7 +280,7 @@ function SendBudgetPanel() {
         <SentResult
           sent={sent}
           unsaved={unsaved}
-          onSave={() => void saveLinkAgain()}
+          onSave={() => void saveLinkAgain(sent.sentToApp)}
           onClose={close}
         />
       );
@@ -282,7 +291,7 @@ function SendBudgetPanel() {
           removed={removed}
           obraName={linkedObraName}
           unsaved={unsaved}
-          onSave={() => void saveLinkAgain()}
+          onSave={() => void saveLinkAgain(undefined)}
           onClose={close}
         />
       );
@@ -497,7 +506,6 @@ function SendBudgetPanel() {
         </label>
 
         {sendError && <ErrorBox error={sendError} />}
-        {removeError && <ErrorBox error={removeError} />}
       </div>
     );
   })();
@@ -530,7 +538,15 @@ function SendBudgetPanel() {
       className="max-h-[85vh] w-[32rem] text-xs"
       bodyClassName="flex flex-col"
     >
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">{body}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        {body}
+        {/* outside `body`: the removal is offered even when the budget cannot be sent as is (currency) */}
+        {removeError && !sent && !removed && (
+          <div className="mt-3">
+            <ErrorBox error={removeError} />
+          </div>
+        )}
+      </div>
       {!sent && !removed && (
         <div className="flex items-center justify-end gap-2 border-t border-neutral-800 px-4 py-2">
           {resend && (
