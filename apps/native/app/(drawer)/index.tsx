@@ -62,19 +62,17 @@ export default function HomeScreen() {
 function RoleAwareHome() {
   const currentUser = useQuery(api.users.getCurrentUser);
   const router = useRouter();
-  const isDirector = currentUser?.role === "director";
+  // Diretor fica aqui; os demais vão para a área inicial calculada pelo
+  // backend (qr_operator é redirecionado para /campo pelo layout do drawer).
+  const isDirector = currentUser != null && currentUser.homeArea === null;
 
   useEffect(() => {
-    if (currentUser === undefined) return;
-    if (currentUser === null) return;
-    if (!isDirector) {
-      const dest =
-        currentUser.role === "engenheiro"
-          ? "/(drawer)/engenharia"
-          : `/(drawer)/${currentUser.department ?? "engenharia"}`;
-      router.replace(dest as Href);
+    if (!currentUser) return;
+    const area = currentUser.homeArea;
+    if (area && area !== "qr-operador") {
+      router.replace(`/(drawer)/${area}` as Href);
     }
-  }, [currentUser, isDirector, router]);
+  }, [currentUser, router]);
 
   if (currentUser === undefined) {
     return (

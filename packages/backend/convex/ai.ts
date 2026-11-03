@@ -6,6 +6,7 @@ import { action, env } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { aiIntentValidator } from "./aiIntents";
 import { rejectReadOnlyAgentTokenInAction } from "./lib/agentTokens";
+import { requireActionPermission } from "./lib/rbac";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
 const equipKindValidator = v.union(
@@ -156,6 +157,7 @@ export const proposeLayout = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
     rejectReadOnlyAgentTokenInAction(identity);
+    await requireActionPermission(ctx, "engenharia.write");
 
     const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
@@ -387,6 +389,7 @@ export const interpret = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
     rejectReadOnlyAgentTokenInAction(identity);
+    await requireActionPermission(ctx, "engenharia.write");
 
     const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 

@@ -6,6 +6,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { departments, userRoles } from "./schema";
 import { rejectReadOnlyAgentTokenInAction } from "./lib/agentTokens";
+import { requireActionPermission } from "./lib/rbac";
 
 type ClerkCreateUserResponse = {
   id: string;
@@ -55,8 +56,6 @@ async function createClerkUser(args: {
   return user.id;
 }
 
-const ADMIN_ROLES = ["director", "admin"];
-
 export const adminCreateUser = action({
   args: {
     name: v.string(),
@@ -72,11 +71,7 @@ export const adminCreateUser = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
     rejectReadOnlyAgentTokenInAction(identity);
-
-    const caller = await ctx.runQuery(internal.users.getCallerRole, {});
-    if (!caller || !ADMIN_ROLES.includes(caller.role)) {
-      throw new Error("Insufficient permissions");
-    }
+    await requireActionPermission(ctx, "admin.manage");
 
     const nameParts = args.name.trim().split(/\s+/);
     const firstName = nameParts[0] ?? args.name;

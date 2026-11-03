@@ -1,4 +1,5 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import { can } from "@rlpapp/shared/auth/permissions";
 import {
   formatDate,
   formatDisplayName,
@@ -121,8 +122,7 @@ function UsuariosContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
 
-  const isAdmin =
-    currentUser?.role === "director" || currentUser?.role === "admin";
+  const isAdmin = can(currentUser, "admin.manage");
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];

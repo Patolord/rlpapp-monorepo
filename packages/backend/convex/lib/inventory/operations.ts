@@ -27,16 +27,16 @@ type CreateDocumentInput = {
   lines: InventoryLineInput[];
 };
 
-function isAdmin(user: Doc<"users">): boolean {
-  return user.role === "director" || user.role === "admin";
-}
-
-function isEngineering(user: Doc<"users">): boolean {
-  return user.role === "engenheiro" || user.department === "engenharia";
-}
-
-function isPurchasing(user: Doc<"users">): boolean {
-  return user.department === "compras";
+/**
+ * Exceções de compatibilidade (movimentação pendente de aprovação) são
+ * decididas pelo engenheiro responsável pela obra: regra por recurso, não por
+ * área. Admin/diretor não entram, de propósito.
+ */
+export function canDecideInventoryException(
+  user: Doc<"users">,
+  project: Doc<"projects">
+): boolean {
+  return user.role === "engenheiro" && project.responsibleId === user._id;
 }
 
 function isAssignedTechnician(
@@ -53,9 +53,12 @@ async function assertCanCreate(
   type: InventoryMovementType,
   projectId?: Id<"projects">
 ): Promise<void> {
-  if (isAdmin(user) || hasPermission(user, "estoque.write")) return;
-  if (type === "entry" && isPurchasing(user)) return;
-  if ((type === "consumption" || type === "return") && isEngineering(user)) {
+  if (hasPermission(user, "estoque.write")) return;
+  if (type === "entry" && hasPermission(user, "compras.write")) return;
+  if (
+    (type === "consumption" || type === "return") &&
+    hasPermission(user, "engenharia.write")
+  ) {
     return;
   }
   if (type === "consumption" && projectId) {
@@ -71,9 +74,9 @@ async function assertCanPost(
   type: InventoryMovementType | "reversal",
   projectId?: Id<"projects">
 ): Promise<void> {
-  if (isAdmin(user) || hasPermission(user, "estoque.write")) return;
-  if (type === "entry" && isPurchasing(user)) return;
-  if (type === "consumption" && isEngineering(user)) return;
+  if (hasPermission(user, "estoque.write")) return;
+  if (type === "entry" && hasPermission(user, "compras.write")) return;
+  if (type === "consumption" && hasPermission(user, "engenharia.write")) return;
   if (type === "consumption" && projectId) {
     const project = await ctx.db.get("projects", projectId);
     if (isAssignedTechnician(user, project)) return;
@@ -524,7 +527,7 @@ export async function reviewInventoryDocument(
 
   const project = await ctx.db.get("projects", document.projectId);
   if (!project) throw new Error("Obra não encontrada");
-  if (user.role !== "engenheiro" || project.responsibleId !== user._id) {
+  if (!canDecideInventoryException(user, project)) {
     throw new Error(
       "Somente o engenheiro responsável pela obra pode decidir esta exceção"
     );

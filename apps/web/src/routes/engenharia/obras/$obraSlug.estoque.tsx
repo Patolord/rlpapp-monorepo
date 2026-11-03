@@ -1,5 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
+import { can } from "@rlpapp/shared/auth/permissions";
 import { createFileRoute } from "@tanstack/react-router";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { History, ClipboardList, Package, Warehouse } from "lucide-react";
@@ -41,20 +42,6 @@ function ObraEstoquePage() {
   );
 }
 
-function canReadEstoque(user: {
-  role: string;
-  department?: string | null;
-}): boolean {
-  return (
-    user.role === "director" ||
-    user.role === "admin" ||
-    user.role === "engenheiro" ||
-    user.department === "engenharia" ||
-    user.department === "compras" ||
-    user.department === "estoque"
-  );
-}
-
 function ObraEstoqueContent({
   project,
   projectId,
@@ -63,10 +50,7 @@ function ObraEstoqueContent({
   projectId: Id<"projects">;
 }) {
   const currentUser = useQuery(api.users.getCurrentUser, {});
-  const hasEstoqueRead =
-    currentUser !== undefined &&
-    currentUser !== null &&
-    canReadEstoque(currentUser);
+  const hasEstoqueRead = can(currentUser, "estoque.read");
   const inventoryArgs = hasEstoqueRead ? {} : "skip";
   const projectInventoryArgs = hasEstoqueRead ? { projectId } : "skip";
 

@@ -1,6 +1,6 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { STAFF_ROLES } from "../rbac";
+import { isStaff } from "../rbac";
 import { isProjectArchived } from "./helpers";
 
 /** Limite por arquivo (PDF). Convex aceita arquivos maiores, mas em campo
@@ -24,7 +24,7 @@ export function canUserViewDocument(
     "technicianAccess" | "allowedTechnicianIds"
   >
 ): boolean {
-  if (STAFF_ROLES.includes(user.role)) return true;
+  if (isStaff(user)) return true;
   // Obra arquivada some do campo (mesma regra de listMyProjects/getMyProject).
   if (isProjectArchived(project)) return false;
   if (!(project.technicianIds ?? []).includes(user._id)) return false;

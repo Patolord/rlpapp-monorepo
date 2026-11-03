@@ -19,6 +19,7 @@ import {
 import {
   adminMutation,
   adminQuery,
+  isAdmin,
   requireUser,
   staffMutation,
   staffQuery,
@@ -98,8 +99,7 @@ async function getManageableToken(
   await requireHumanSession(ctx);
   const token = await ctx.db.get("agentTokens", id);
   if (!token) throw new Error("Token não encontrado");
-  const isAdmin = user.role === "director" || user.role === "admin";
-  if (token.userId !== user._id && !isAdmin) {
+  if (token.userId !== user._id && !isAdmin(user)) {
     throw new Error("Você só pode gerenciar os seus próprios tokens");
   }
   return token;

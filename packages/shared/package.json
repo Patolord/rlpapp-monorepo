@@ -11,7 +11,8 @@
     "./clerkErrors": "./src/clerkErrors.ts",
     "./engenharia/ducts": "./src/engenharia/ducts.ts",
     "./rh/staffGroups": "./src/rh/staffGroups.ts",
-    "./takeoff/desktopBudget": "./src/takeoff/desktopBudget.ts"
+    "./takeoff/desktopBudget": "./src/takeoff/desktopBudget.ts",
+    "./auth/permissions": "./src/auth/permissions.ts"
   },
   "devDependencies": {
     "@rlpapp/config": "workspace:*",

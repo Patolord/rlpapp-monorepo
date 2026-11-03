@@ -7,11 +7,14 @@ import {
   inventoryMovementType,
 } from "./schema";
 import {
+  hasPermission,
   inventoryMutation,
   inventoryQuery,
   inventoryRulesMutation,
+  isAdmin,
   staffMutation,
   warehouseOrPurchasingMutation,
+  type Permission,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
 import { createMaterialInternal } from "./materials";
@@ -103,22 +106,18 @@ export const getAccess = inventoryQuery({
     canFulfillMaterialRequests: v.boolean(),
   }),
   handler: async (ctx) => {
-    const isAdmin =
-      ctx.user.role === "director" || ctx.user.role === "admin";
-    const isWarehouse = ctx.user.department === "estoque";
-    const isEngineer =
-      ctx.user.role === "engenheiro" ||
-      ctx.user.department === "engenharia";
-    const isPurchasing = ctx.user.department === "compras";
+    const can = (permission: Permission) => hasPermission(ctx.user, permission);
+    const canWriteCentral = can("estoque.write");
+    const canCreateEntry = canWriteCentral || can("compras.write");
     return {
       canViewCentral: canViewCentralInventory(ctx.user),
-      canWriteCentral: isAdmin || isWarehouse,
-      canCreateEntry:
-        isAdmin || isWarehouse || isPurchasing,
-      canCreateProjectMovement: isAdmin || isWarehouse || isEngineer,
-      canConfigureRules: isAdmin,
-      canQuickCreateMaterial: isAdmin || isWarehouse || isPurchasing,
-      isEngineer,
+      canWriteCentral,
+      canCreateEntry,
+      canCreateProjectMovement: canWriteCentral || can("engenharia.write"),
+      canConfigureRules: can("estoque.rules"),
+      canQuickCreateMaterial: canCreateEntry,
+      // Equipe de engenharia (não admin): vê a aba de aprovações de exceções.
+      isEngineer: can("engenharia.write") && !isAdmin(ctx.user),
       canReviewMaterialRequests: canReviewMaterialRequests(ctx.user),
       canFulfillMaterialRequests: canFulfillMaterialRequests(ctx.user),
     };
@@ -358,6 +357,7 @@ export const listPendingApprovals = inventoryQuery({
   args: {},
   returns: v.array(documentRowValidator),
   handler: async (ctx) => {
+    // Só o engenheiro responsável decide (canDecideInventoryException).
     if (ctx.user.role !== "engenheiro") return [];
     const pending = await ctx.db
       .query("inventoryDocuments")

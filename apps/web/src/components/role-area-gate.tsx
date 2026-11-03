@@ -1,4 +1,5 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import { can, type Permission } from "@rlpapp/shared/auth/permissions";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useEffect } from "react";
@@ -15,25 +16,30 @@ export type DepartmentArea =
   | "backoffice"
   | "configuracoes";
 
-// Mesma regra da navegação: diretores acessam tudo; engenheiro só engenharia;
-// demais usuários só o próprio departamento (default "engenharia").
-function resolveAllowedArea(user: {
-  role: string;
-  department?: string;
-}): DepartmentArea {
-  if (user.role === "engenheiro") return "engenharia";
-  return (user.department as DepartmentArea | undefined) ?? "engenharia";
-}
+/**
+ * Permissões (qualquer uma) que abrem cada área do dashboard. Espelha o que
+ * as funções do backend de cada módulo exigem; quem nega continua sendo o
+ * backend. Também usada pela sidebar para montar a navegação.
+ */
+export const AREA_PERMISSIONS: Record<DepartmentArea, Permission[]> = {
+  rh: ["rh.read"],
+  engenharia: ["engenharia.read"],
+  compras: ["compras.read"],
+  // Estoque permite leitura compartilhada com Compras e Engenharia; as ações
+  // continuam protegidas por permissões específicas no backend.
+  estoque: ["estoque.read"],
+  // Backoffice (clientes, empreiteiros) segue o acesso de engenharia, que é a
+  // permissão exigida pelo backend (engenharia.read).
+  backoffice: ["engenharia.read"],
+  // Configurações segue a mesma regra do grupo na sidebar (engenharia ou
+  // compras); a página de usuários ainda exige admin para editar.
+  configuracoes: ["engenharia.read", "compras.read"],
+};
 
 // Bloqueia áreas internas (departamentos):
 // - qr_operator só pode acessar páginas /q/$token → vai para /qr-operador
-// - não-diretores só acessam o próprio departamento
-// - Estoque permite leitura compartilhada com Compras e Engenharia; as ações
-//   continuam protegidas por permissões específicas no backend.
-// - Backoffice (clientes, empreiteiros) segue o acesso de engenharia, que é a
-//   permissão exigida pelo backend (engenharia.read).
-// - Configurações segue a mesma regra do grupo na sidebar (engenharia ou
-//   compras); a página de usuários ainda exige admin para editar.
+// - quem não tem permissão na área vai para a própria área inicial
+//   (`homeArea`, calculada pelo backend) ou vê um aviso, se for a mesma.
 export function RoleAreaGate({
   area,
   children,
@@ -44,45 +50,40 @@ export function RoleAreaGate({
   const currentUser = useQuery(api.users.getCurrentUser);
   const navigate = useNavigate();
 
-  const isQrOperator = currentUser?.role === "qr_operator";
-  const isAdmin =
-    currentUser?.role === "director" || currentUser?.role === "admin";
-  const hasInventoryAccess =
-    isAdmin ||
-    currentUser?.role === "engenheiro" ||
-    currentUser?.department === "engenharia" ||
-    currentUser?.department === "compras" ||
-    currentUser?.department === "estoque";
-  const hasEngineeringAccess =
-    isAdmin ||
-    currentUser?.role === "engenheiro" ||
-    currentUser?.department === "engenharia";
-  const hasPurchasingAccess = isAdmin || currentUser?.department === "compras";
-  const wrongDepartment =
+  const isQrOperator = currentUser?.homeArea === "qr-operador";
+  const denied =
     !!currentUser &&
     !!area &&
-    !isAdmin &&
     !isQrOperator &&
-    !(area === "estoque" && hasInventoryAccess) &&
-    !(area === "backoffice" && hasEngineeringAccess) &&
-    !(
-      area === "configuracoes" &&
-      (hasEngineeringAccess || hasPurchasingAccess)
-    ) &&
-    resolveAllowedArea(currentUser) !== area;
+    !can(currentUser, ...AREA_PERMISSIONS[area]);
+  const fallbackArea =
+    denied && currentUser?.homeArea && currentUser.homeArea !== area
+      ? currentUser.homeArea
+      : null;
 
   useEffect(() => {
     if (isQrOperator) {
       void navigate({ to: "/qr-operador" });
-    } else if (wrongDepartment && currentUser) {
-      void navigate({ to: `/${resolveAllowedArea(currentUser)}` });
+    } else if (fallbackArea) {
+      void navigate({ to: `/${fallbackArea}` });
     }
-  }, [isQrOperator, wrongDepartment, currentUser, navigate]);
+  }, [isQrOperator, fallbackArea, navigate]);
 
-  if (isQrOperator || wrongDepartment) {
+  if (isQrOperator || fallbackArea) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-muted-foreground">Redirecionando...</p>
+      </div>
+    );
+  }
+
+  if (denied) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 px-6 text-center">
+        <h1 className="text-xl font-semibold">Acesso restrito</h1>
+        <p className="text-muted-foreground">
+          Você não tem acesso a esta área. Fale com um administrador.
+        </p>
       </div>
     );
   }

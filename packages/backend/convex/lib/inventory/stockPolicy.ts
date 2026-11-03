@@ -1,5 +1,6 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { hasPermission } from "../rbac";
 import {
   computeReplenishmentState,
   validateStockPolicyQuantities,
@@ -40,8 +41,7 @@ export async function enrichBalanceWithReplenishment(
 
 /** Estoque Central: Estoque, Compras, admin e diretor. Engenharia só vê obras. */
 export function canViewCentralInventory(user: Doc<"users">): boolean {
-  if (user.role === "director" || user.role === "admin") return true;
-  return user.department === "compras" || user.department === "estoque";
+  return hasPermission(user, "estoque.central.read");
 }
 
 export function canManageStockPolicy(user: Doc<"users">): boolean {

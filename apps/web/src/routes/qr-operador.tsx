@@ -24,11 +24,13 @@ export const Route = createFileRoute("/qr-operador")({
 function QrOperadorPage() {
   const currentUser = useQuery(api.users.getCurrentUser);
 
-  const backTo =
-    currentUser?.role === "director"
+  // Equipe interna que abriu a página por engano volta para a própria área.
+  const backTo = !currentUser
+    ? null
+    : currentUser.homeArea === null
       ? "/app"
-      : currentUser?.role !== "qr_operator" && currentUser?.department
-        ? `/${currentUser.department}`
+      : currentUser.homeArea !== "qr-operador"
+        ? `/${currentUser.homeArea}`
         : null;
 
   return (

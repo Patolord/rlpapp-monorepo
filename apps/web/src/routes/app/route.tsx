@@ -34,22 +34,11 @@ function RoleGate({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (currentUser === undefined) return;
-    if (currentUser === null) return;
-
-    if (currentUser.role === "qr_operator") {
-      void navigate({ to: "/qr-operador" });
-      return;
-    }
-
-    if (currentUser.role === "engenheiro") {
-      void navigate({ to: "/engenharia" });
-      return;
-    }
-
-    if (currentUser.role !== "director") {
-      const dept = currentUser.department ?? "engenharia";
-      void navigate({ to: `/${dept}` });
+    if (!currentUser) return;
+    // Área inicial calculada pelo backend (qr_operator → /qr-operador,
+    // engenheiro → /engenharia, demais → departamento; diretor fica aqui).
+    if (currentUser.homeArea) {
+      void navigate({ to: `/${currentUser.homeArea}` });
     }
   }, [currentUser, navigate]);
 

@@ -1,4 +1,5 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import { can } from "@rlpapp/shared/auth/permissions";
 import type { FunctionReturnType } from "convex/server";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
@@ -104,8 +105,7 @@ export default function UsuariosScreen() {
     department: "",
   });
 
-  const isAdmin =
-    currentUser?.role === "director" || currentUser?.role === "admin";
+  const isAdmin = can(currentUser, "admin.manage");
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];

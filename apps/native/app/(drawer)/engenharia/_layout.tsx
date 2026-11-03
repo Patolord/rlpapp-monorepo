@@ -1,4 +1,5 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import { can } from "@rlpapp/shared/auth/permissions";
 import { useQuery } from "convex/react";
 import { Tabs, useNavigation } from "expo-router";
 import {
@@ -18,8 +19,7 @@ export default function EngenhariaTabsLayout() {
   const navigation = useNavigation<{ openDrawer: () => void }>();
 
   const currentUser = useQuery(api.users.getCurrentUser);
-  const isAdmin =
-    currentUser?.role === "director" || currentUser?.role === "admin";
+  const isAdmin = can(currentUser, "admin.manage");
 
   const bg = colors.bg;
   const inactive = colors.icon;

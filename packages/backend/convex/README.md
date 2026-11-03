@@ -69,12 +69,25 @@ Domain terminology is defined in the repository-level `CONTEXT.md`.
 
 ## Access control
 
-Authorization policy lives in `lib/rbac.ts`:
+The policy (which role/department holds which `Permission`) lives in
+`@rlpapp/shared/auth/permissions` (`packages/shared/src/auth/permissions.ts`),
+with a role × permission matrix test in `packages/shared/tests`. It is shared
+with the apps, which only use it to hide navigation and actions; enforcement
+happens here, in `lib/rbac.ts`:
 
-1. `Permission` defines supported permissions.
-2. `hasPermission` is the central role and department policy.
-3. Gate functions perform manual authorization checks when needed.
-4. Named wrappers authenticate the caller and add `ctx.user`.
+1. `hasPermission` / `isStaff` / `isAdmin` are re-exported from the shared policy.
+2. Gate functions (`requireUser`, `requirePermission`, `assertStaff`, ...)
+   perform manual authorization checks when needed. They throw
+   `ConvexError({ code: "UNAUTHENTICATED" | "FORBIDDEN", message, permission? })`
+   (`lib/accessErrors.ts`), so the message reaches clients in production and the
+   gateway maps the code to 401/403.
+3. Named wrappers authenticate the caller and add `ctx.user`.
+4. Actions have no `ctx.db`: call `requireActionPermission(ctx, permission)`
+   (runs `internal.users.assertPermission` under the caller's identity) before
+   any external side effect.
+5. `users.getCurrentUser` returns `permissions`, `isStaff` and `homeArea`
+   computed by the policy. Clients check `can(currentUser, "compras.write")`
+   instead of comparing `role`/`department`.
 
 Public functions that access user data use the appropriate wrapper rather than
 raw `query` or `mutation`:
@@ -88,7 +101,10 @@ raw `query` or `mutation`:
 - `hrQuery` / `hrMutation`: HR access.
 
 New access rules belong in the central permission policy rather than ad hoc
-wrappers.
+wrappers or inline `user.role` / `user.department` comparisons. The only
+inline role checks left are per-resource rules (e.g. the responsible engineer
+deciding an inventory exception) and routing by principal type (`qr_operator`,
+`client`).
 
 ## Verification
 

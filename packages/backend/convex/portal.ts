@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authedQuery } from "./lib/rbac";
+import { authedQuery, isStaff } from "./lib/rbac";
 import { buildProjectHierarchy } from "./lib/engenharia/hierarchy";
 import {
   getPortalUserIds,
@@ -12,17 +12,6 @@ import type { QueryCtx } from "./_generated/server";
 
 // Portal do cliente: somente leitura. Um cliente vê apenas as obras em que
 // está listado (project.clientIds). Equipe interna enxerga todas.
-const STAFF_ROLES = new Set([
-  "director",
-  "admin",
-  "manager",
-  "operator",
-  "engenheiro",
-]);
-
-function isStaff(user: Doc<"users">): boolean {
-  return STAFF_ROLES.has(user.role);
-}
 
 async function assertProjectAccess(
   ctx: QueryCtx,

@@ -1,6 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { formatDisplayName, formatUsername } from "@rlpapp/shared";
+import { can } from "@rlpapp/shared/auth/permissions";
 import { useAuth } from "@clerk/expo";
 import type { DrawerContentComponentProps } from "@react-navigation/drawer";
 import { DrawerContentScrollView, DrawerItemList } from "@react-navigation/drawer";
@@ -69,14 +70,14 @@ function RoleAwareDrawer({
     api.users.getCurrentUser,
     isSignedIn ? undefined : "skip"
   );
-  const isDirector = currentUser?.role === "director";
-  const isEngenheiro = currentUser?.role === "engenheiro";
-  const userDept = currentUser?.department ?? "engenharia";
+  // Diretor fica na página inicial do app (homeArea null) e vê o portal.
+  const isDirector = currentUser != null && currentUser.homeArea === null;
 
-  const showRh = isDirector || (!isEngenheiro && userDept === "rh");
-  const showEngenharia = isDirector || isEngenheiro || userDept === "engenharia";
-  const showCompras = isDirector || userDept === "compras";
-  const showEstoque = isDirector || userDept === "estoque" || userDept === "compras" || isEngenheiro;
+  // Mesmas permissões que o backend exige em cada módulo.
+  const showRh = can(currentUser, "rh.read");
+  const showEngenharia = can(currentUser, "engenharia.read");
+  const showCompras = can(currentUser, "compras.read");
+  const showEstoque = can(currentUser, "estoque.read");
   const showPortal = isDirector || currentUser?.role === "client";
 
   const userName = currentUser?.name
