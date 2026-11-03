@@ -16,7 +16,7 @@ import {
   requireUser,
   staffQuery,
 } from "./lib/rbac";
-import { accessFields, toUserView } from "./lib/users";
+import { accessFields, normalizeEmail, toUserView } from "./lib/users";
 import { enforceAgentTokenPolicy } from "./lib/agentTokens";
 
 /** Remove campos undefined — padrão dos updates parciais (ctx.db.patch). */
@@ -39,6 +39,8 @@ export const userValidator = v.object({
   isActive: v.boolean(),
   createdAt: v.number(),
   lastLoginAt: v.optional(v.number()),
+  /** Convite por email enviado; pendente enquanto não há `clerkId`. */
+  invitedAt: v.optional(v.number()),
 });
 
 /** Lista de acessos recebida dos formulários (ver ROLES no shared). */
@@ -125,9 +127,14 @@ export const ensureUser = mutation({
         .first();
 
       if (byEmail) {
+        // Convite aceito sem o webhook ter chegado antes: nome e login vêm do
+        // que a pessoa preencheu ao criar a conta.
+        const invited = byEmail.invitedAt !== undefined;
         await ctx.db.patch("users", byEmail._id, {
           clerkId,
           lastLoginAt: Date.now(),
+          ...(invited && identity.name ? { name: identity.name } : {}),
+          ...(invited && username ? { username } : {}),
         });
         return byEmail._id;
       }
@@ -164,6 +171,8 @@ export const upsertFromClerk = internalMutation({
     email: v.optional(v.string()),
     username: v.optional(v.string()),
     name: v.string(),
+    /** Telefone informado ao aceitar um convite (unsafe_metadata do Clerk). */
+    phone: v.optional(v.string()),
   },
   returns: v.id("users"),
   handler: async (ctx, args) => {
@@ -181,7 +190,8 @@ export const upsertFromClerk = internalMutation({
       return byClerkId._id;
     }
 
-    // Vincula usuários criados antes do webhook (sem clerkId) pelo email
+    // Vincula usuários criados antes do webhook (sem clerkId) e convites
+    // pendentes pelo email
     if (args.email) {
       const byEmail = await ctx.db
         .query("users")
@@ -193,6 +203,7 @@ export const upsertFromClerk = internalMutation({
           clerkId: args.clerkId,
           name: args.name,
           username: args.username,
+          ...(args.phone && !byEmail.phone ? { phone: args.phone } : {}),
         });
         return byEmail._id;
       }
@@ -203,6 +214,7 @@ export const upsertFromClerk = internalMutation({
       name: args.name,
       email: args.email,
       username: args.username,
+      phone: args.phone,
       ...accessFields([]),
       isActive: true,
       createdAt: Date.now(),
@@ -328,6 +340,17 @@ export const update = adminMutation({
       throw new Error("Usuário não encontrado");
     }
     
+    if (
+      email !== undefined &&
+      email !== existing.email &&
+      existing.clerkId === undefined &&
+      existing.invitedAt !== undefined
+    ) {
+      throw new Error(
+        "O email é a chave do convite pendente. Cancele o convite e envie outro para o email certo."
+      );
+    }
+
     if (email && email !== existing.email) {
       const emailExists = await ctx.db
         .query("users")
@@ -461,5 +484,117 @@ export const createWithClerkId = internalMutation({
       isActive: true,
       createdAt: Date.now(),
     });
+  },
+});
+
+// --- Convites por email (chamados por userAdmin.ts) ---
+
+export const getByEmailInternal = internalQuery({
+  args: { email: v.string() },
+  returns: v.union(userValidator, v.null()),
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", normalizeEmail(args.email)))
+      .first();
+    return user ? toUserView(user) : null;
+  },
+});
+
+export const getInternal = internalQuery({
+  args: { id: v.id("users") },
+  returns: v.union(
+    v.object({ ...userValidator.fields, clerkInvitationId: v.optional(v.string()) }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get("users", args.id);
+    return user
+      ? { ...toUserView(user), clerkInvitationId: user.clerkInvitationId }
+      : null;
+  },
+});
+
+/**
+ * Cria o cadastro de um convite enviado, ou atualiza o convite pendente que já
+ * existe para o email (reenvio). Quem já tem conta (clerkId) não pode ser
+ * convidado de novo.
+ */
+export const upsertInvited = internalMutation({
+  args: {
+    email: v.string(),
+    name: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    roles: rolesArg,
+    clerkInvitationId: v.string(),
+  },
+  returns: v.id("users"),
+  handler: async (ctx, args) => {
+    const email = normalizeEmail(args.email);
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .first();
+    const name = args.name?.trim() || email.split("@")[0] || email;
+
+    if (existing) {
+      if (existing.clerkId) {
+        throw new Error("Já existe um usuário com este email");
+      }
+      await ctx.db.patch("users", existing._id, {
+        name,
+        phone: args.phone ?? existing.phone,
+        ...accessFields(args.roles),
+        isActive: true,
+        invitedAt: Date.now(),
+        clerkInvitationId: args.clerkInvitationId,
+      });
+      return existing._id;
+    }
+
+    return await ctx.db.insert("users", {
+      name,
+      email,
+      phone: args.phone,
+      ...accessFields(args.roles),
+      isActive: true,
+      createdAt: Date.now(),
+      invitedAt: Date.now(),
+      clerkInvitationId: args.clerkInvitationId,
+    });
+  },
+});
+
+/** Registra um reenvio: novo id de invitation e nova data. */
+export const markInviteResent = internalMutation({
+  args: { id: v.id("users"), clerkInvitationId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get("users", args.id);
+    if (!user) throw new Error("Usuário não encontrado");
+    if (user.clerkId) throw new Error("Este usuário já aceitou o convite");
+    await ctx.db.patch("users", args.id, {
+      invitedAt: Date.now(),
+      clerkInvitationId: args.clerkInvitationId,
+    });
+    return null;
+  },
+});
+
+/**
+ * Apaga um convite pendente. Só cadastros sem conta (sem clerkId) e sem
+ * histórico: um usuário que já entrou é desativado, nunca apagado.
+ */
+export const deleteInvited = internalMutation({
+  args: { id: v.id("users") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get("users", args.id);
+    if (!user) return null;
+    if (user.clerkId || user.invitedAt === undefined) {
+      throw new Error("Este usuário já aceitou o convite");
+    }
+    await ctx.db.delete("users", args.id);
+    return null;
   },
 });

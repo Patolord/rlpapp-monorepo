@@ -49,3 +49,35 @@ export function getClerkLoginErrorMessage(
 
   return text || fallback;
 }
+
+const SIGN_UP_ERROR_MESSAGES: Record<string, string> = {
+  form_identifier_exists: "Este login já está em uso. Escolha outro.",
+  form_username_invalid_length: "O login precisa ter entre 4 e 64 caracteres.",
+  form_username_invalid_character:
+    "O login só pode ter letras minúsculas, números, ponto, hífen e sublinhado.",
+  form_password_length_too_short: "A senha precisa ter pelo menos 8 caracteres.",
+  form_password_pwned:
+    "Esta senha apareceu em vazamentos de dados. Escolha outra, mais difícil de adivinhar.",
+  form_password_not_strong_enough: "A senha é fraca demais. Use mais caracteres ou combine letras, números e símbolos.",
+  form_password_size_in_bytes_exceeded: "A senha é longa demais.",
+  ticket_invalid: "Este convite não é válido. Peça um novo convite ao administrador.",
+  ticket_expired: "Este convite expirou. Peça um novo convite ao administrador.",
+  invitation_already_accepted: "Este convite já foi usado. Entre com seu login e senha.",
+  too_many_attempts: "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+};
+
+/** Maps Clerk sign-up (invitation) errors to Portuguese messages. */
+export function getClerkSignUpErrorMessage(
+  error: unknown,
+  fallback = "Erro ao criar a conta."
+): string {
+  const clerkError = getFirstClerkError(error);
+  if (!clerkError) {
+    return fallback;
+  }
+  const mapped = SIGN_UP_ERROR_MESSAGES[clerkError.code ?? ""];
+  if (mapped) {
+    return mapped;
+  }
+  return clerkError.longMessage ?? clerkError.message ?? fallback;
+}

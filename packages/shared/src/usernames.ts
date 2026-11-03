@@ -25,3 +25,16 @@ export function formatUsername(value: string): string {
 export function formatDisplayName(value: string): string {
   return capitalizeFirst(value);
 }
+
+/**
+ * Sugestão de login a partir do nome: "João Silva" → "joao.silva" (sem acentos,
+ * só caracteres aceitos pelo Clerk). Partes vazias são ignoradas.
+ */
+export function suggestUsername(firstName: string, lastName: string): string {
+  return [firstName, lastName]
+    .map((part) =>
+      sanitizeUsernameInput(part.trim().normalize("NFD").replace(/[̀-ͯ]/g, ""))
+    )
+    .filter(Boolean)
+    .join(".");
+}

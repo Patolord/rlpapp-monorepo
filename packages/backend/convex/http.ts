@@ -34,6 +34,8 @@ type ClerkUserData = {
   last_name: string | null;
   primary_email_address_id: string | null;
   email_addresses: ClerkEmailAddress[];
+  /** Preenchido pela página /convite do app web (telefone opcional). */
+  unsafe_metadata?: Record<string, unknown> | null;
 };
 
 type ClerkWebhookEvent = {
@@ -51,6 +53,11 @@ function primaryEmail(user: ClerkUserData): string | null {
 function fullName(user: ClerkUserData): string | null {
   const name = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
   return name.length > 0 ? name : null;
+}
+
+function invitedPhone(user: ClerkUserData): string | undefined {
+  const phone = user.unsafe_metadata?.phone;
+  return typeof phone === "string" && phone.trim() ? phone.trim() : undefined;
 }
 
 async function validateRequest(
@@ -101,6 +108,7 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
         username,
         name:
           fullName(user) ?? username ?? email?.split("@")[0] ?? "Usuário",
+        phone: invitedPhone(user),
       });
       break;
     }
