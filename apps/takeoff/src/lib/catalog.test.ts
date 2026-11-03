@@ -2,6 +2,7 @@ import { cloneBrand, SEED_BRANDS } from "@rlpapp/shared/takeoff/vrfBrands";
 import { SEED_WEIGHTS, weightKey } from "@rlpapp/shared/takeoff/weights";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  AIR_TERMINAL_LABOR,
   commonWordPrefix,
   emptyCatalogStore,
   isCatalogStale,
@@ -169,6 +170,81 @@ describe("catalog", () => {
     expect(remote.every((e) => e.laborSource === undefined)).toBe(true);
     // the bundled seed entries themselves still step aside
     expect(entries.some((e) => e.source === "seed" && !e.kgPerUnit)).toBe(false);
+  });
+
+  it("gives air terminals without labour the usual installation price", () => {
+    const remote = parseRemoteCatalog({
+      items: [
+        {
+          id: "g1",
+          name: "Veneziana p/ Tomada de Ar c/ Tela dim 999x999mm",
+          categoria: "Bocas de Ar",
+          unit: "pç",
+          materialPrice: 50,
+          laborPrice: 0,
+        },
+        {
+          id: "g2",
+          name: "Grelha nova 123x456",
+          categoria: "Diversos",
+          unit: "pç",
+          materialPrice: 50,
+          laborPrice: 0,
+        },
+        {
+          id: "g3",
+          name: "Grelha nova 123x456 com preço",
+          categoria: "Bocas de Ar",
+          unit: "pç",
+          materialPrice: 50,
+          laborPrice: 30,
+        },
+        {
+          id: "e1",
+          name: "Exaustor novo",
+          categoria: "Equipamentos",
+          unit: "pç",
+          materialPrice: 500,
+          laborPrice: 0,
+        },
+        {
+          id: "t1",
+          name: "Terminal 2,5 mm²",
+          categoria: "Terminais Elétricos",
+          unit: "pç",
+          materialPrice: 1,
+          laborPrice: 0,
+        },
+        {
+          id: "d1",
+          name: "Difusor linear por metro",
+          categoria: "Bocas de Ar",
+          unit: "m",
+          materialPrice: 200,
+          laborPrice: 0,
+        },
+      ],
+    });
+    const entries = mergeCatalog({ ...emptyCatalogStore(), remote });
+    const byId = (id: string) => entries.find((e) => e.catalogId === id)!;
+    expect(byId("g1")).toMatchObject({ laborPrice: AIR_TERMINAL_LABOR, laborSource: "default" });
+    expect(byId("g2")).toMatchObject({ laborPrice: AIR_TERMINAL_LABOR, laborSource: "default" });
+    expect(byId("g3")).toMatchObject({ laborPrice: 30 });
+    expect(byId("g3").laborSource).toBeUndefined();
+    expect(byId("e1").laborPrice).toBe(0);
+    // not an air terminal, or not sold by the piece: no per-piece default
+    expect(byId("t1").laborPrice).toBe(0);
+    expect(byId("d1").laborPrice).toBe(0);
+    expect(byId("d1").laborSource).toBeUndefined();
+    // the bundled seed gets it too; the user's own entries are kept as saved
+    const seedOnly = mergeCatalog(emptyCatalogStore());
+    expect(seedOnly.filter((e) => e.group === "Bocas de Ar").every((e) => e.laborPrice > 0)).toBe(
+      true,
+    );
+    const saved = [
+      { name: "Grelha minha", group: "Bocas de Ar", unit: "pç", materialPrice: 1, laborPrice: 0 },
+    ];
+    expect(mergeCatalog({ ...emptyCatalogStore(), saved })[0].laborPrice).toBe(0);
   });
 
   it("compares units through their synonyms", () => {

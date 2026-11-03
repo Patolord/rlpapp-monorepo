@@ -1,4 +1,4 @@
-import type { CatalogEntry } from "./catalog";
+import type { CatalogEntry, LaborSource } from "./catalog";
 import type { Item } from "./types";
 
 export type PriceSource = NonNullable<Item["priceSource"]>;
@@ -25,6 +25,18 @@ export const PRICE_SOURCE_LABEL: Record<PriceSource, string> = {
 /** Labour taken from the bundled sheets because the company catalog has none (tooltip line). */
 export const SEED_LABOR_NOTE =
   "Mão de obra das planilhas anteriores: o catálogo da empresa ainda não tem mão de obra para este material";
+
+/** Labour of an air terminal set to the usual installation price (tooltip line). */
+export const DEFAULT_LABOR_NOTE =
+  "Mão de obra padrão de boca de ar (R$ 45 por peça): o catálogo não tem mão de obra para este material";
+
+/** The tooltip line of a borrowed labour price, if any. */
+export const laborNote = (laborSource: LaborSource | undefined): string | undefined =>
+  laborSource === "seed"
+    ? SEED_LABOR_NOTE
+    : laborSource === "default"
+      ? DEFAULT_LABOR_NOTE
+      : undefined;
 
 /** One line saying where the material price came from, and when, for tooltips. */
 export function describePriceSource(source: PriceSource | undefined, priceDate?: number): string {

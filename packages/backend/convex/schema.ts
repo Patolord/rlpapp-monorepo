@@ -54,6 +54,14 @@ export const employeePaymentMethod = v.union(
   v.literal("other")
 );
 
+// Equipe do funcionário (ver @rlpapp/shared/rh/staffGroups). Cada equipe tem
+// padrões próprios de benefícios na folha; cadastros antigos sem equipe são obra.
+export const employeeStaffGroup = v.union(
+  v.literal("obra"),
+  v.literal("escritorio"),
+  v.literal("diretoria")
+);
+
 export const payrollRunStatus = v.union(
   v.literal("draft"),
   v.literal("closed")
@@ -1423,6 +1431,8 @@ export default defineSchema({
     nameNormalized: v.string(),
     cpf: v.optional(v.string()),
     cpfNormalized: v.optional(v.string()),
+    // Ausente nos cadastros anteriores à equipe: tratado como "obra".
+    staffGroup: v.optional(employeeStaffGroup),
     jobTitle: v.optional(v.string()),
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
@@ -1519,6 +1529,48 @@ export default defineSchema({
     createdByUserId: v.optional(v.id("users")),
     updatedByUserId: v.optional(v.id("users")),
   }).index("by_employee", ["employeeId"]),
+
+  // Pensão alimentícia: pagamento mensal a um beneficiário (ex-cônjuge, filho)
+  // por conta de um funcionário. É uma linha própria da folha, paga direto ao
+  // beneficiário, com valor que pode mudar mês a mês. Não se mistura com a
+  // linha do funcionário: não entra nos descontos nem no total dele (a
+  // retenção oficial fica no holerite da contabilidade).
+  employeeAlimonies: defineTable({
+    employeeId: v.id("employees"),
+    beneficiaryName: v.string(),
+    // Valor padrão ao abrir um mês sem histórico; a folha ajusta por mês.
+    amountCents: v.number(),
+    paymentMethod: employeePaymentMethod,
+    pixKey: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    archivedAt: v.optional(v.number()),
+    archivedByUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    createdByUserId: v.optional(v.id("users")),
+    updatedByUserId: v.optional(v.id("users")),
+  }).index("by_employee", ["employeeId"]),
+
+  payrollAlimonyLines: defineTable({
+    runId: v.id("payrollRuns"),
+    alimonyId: v.id("employeeAlimonies"),
+    employeeId: v.id("employees"),
+    // Snapshots do mês, como nas linhas de funcionário.
+    employeeName: v.string(),
+    beneficiaryName: v.string(),
+    amountCents: v.number(),
+    paymentMethod: employeePaymentMethod,
+    pixKey: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    paid: v.boolean(),
+    paidAt: v.optional(v.number()),
+    paidByUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_run", ["runId"])
+    .index("by_alimony", ["alimonyId"])
+    .index("by_run_and_alimony", ["runId", "alimonyId"]),
 
   // --- RH: Ponto (espelho do controle de acesso RHID) ---
   //

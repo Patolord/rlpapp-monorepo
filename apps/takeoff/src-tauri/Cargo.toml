@@ -32,6 +32,10 @@ tauri-plugin-process = "2.4.0"
 tauri-plugin-opener = "2"
 keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }
 
+[dev-dependencies]
+# reads back the exported workbook in tests (same version and features as rust_xlsxwriter's)
+zip = { version = "9.0", default-features = false, features = ["deflate"] }
+
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

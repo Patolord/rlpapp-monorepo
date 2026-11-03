@@ -917,7 +917,8 @@ export const TOOLS: readonly ToolSpec[] = [
     name: "list_employees",
     function: "employees:list",
     title: "List employees",
-    description: "Employees (funcionários) with job title, status and payroll parameters.",
+    description:
+      "Employees (funcionários) with staff group (obra, escritorio, diretoria), job title, status and payroll parameters. Filter by staffGroup.",
   },
   {
     name: "get_employee",
@@ -929,7 +930,8 @@ export const TOOLS: readonly ToolSpec[] = [
     name: "create_employee",
     function: "employees:create",
     title: "Create employee",
-    description: "Create an employee. Salary and allowance fields are in BRL cents. Returns the employee id.",
+    description:
+      "Create an employee. staffGroup (obra, escritorio or diretoria; default obra) sets the default food basket, daily transit and voucher days when they are omitted. Salary and allowance fields are in BRL cents. Returns the employee id.",
   },
   {
     name: "update_employee",
@@ -937,6 +939,35 @@ export const TOOLS: readonly ToolSpec[] = [
     title: "Update employee",
     description: "Change employee fields. Pass null to clear nullable fields.",
     idempotent: true,
+  },
+  {
+    name: "list_employee_alimonies",
+    function: "alimonies:listForEmployee",
+    title: "List employee alimonies",
+    description:
+      "Pensões alimentícias (alimony) paid on behalf of an employee: beneficiary, default monthly amount, payment method. Separate from the employee's own payroll line.",
+  },
+  {
+    name: "create_employee_alimony",
+    function: "alimonies:create",
+    title: "Create employee alimony",
+    description:
+      "Register an alimony for an employee (beneficiary name, amount in BRL cents, payment method, PIX key). It joins open draft payrolls the employee is in. Returns the alimony id.",
+  },
+  {
+    name: "update_employee_alimony",
+    function: "alimonies:update",
+    title: "Update employee alimony",
+    description:
+      "Change an alimony's beneficiary, default amount, payment method, PIX key or notes. Name, method and PIX key propagate to unpaid draft lines; the amount only applies to new months.",
+    idempotent: true,
+  },
+  {
+    name: "archive_employee_alimony",
+    function: "alimonies:archive",
+    title: "End employee alimony",
+    description: "End an alimony: removed from unpaid draft payrolls and no longer added to new months.",
+    destructive: true,
   },
   {
     name: "archive_employee",

@@ -80,8 +80,9 @@ export function PayrollLoanDialog({
   jobTitle: string | null;
   year: number;
   paymentMonth: number;
-  lineId: Id<"payrollLines">;
-  manualLoanDeductionCents: number;
+  /** Linha da folha do mês; sem ela (aberto pelo cadastro) não há desconto avulso. */
+  lineId?: Id<"payrollLines">;
+  manualLoanDeductionCents?: number;
   closed: boolean;
   onClose: () => void;
 }) {
@@ -95,7 +96,7 @@ export function PayrollLoanDialog({
   const archiveLoan = useMutation(api.payroll.archiveLoan);
   const updateLine = useMutation(api.payroll.updateLine);
   const [avulso, setAvulso] = useState(
-    formatCentsInput(manualLoanDeductionCents)
+    formatCentsInput(manualLoanDeductionCents ?? 0)
   );
   const [newTotal, setNewTotal] = useState("");
   const [newCount, setNewCount] = useState("10");
@@ -112,6 +113,7 @@ export function PayrollLoanDialog({
   }
 
   async function saveAvulso() {
+    if (!lineId) return;
     try {
       await updateLine({
         lineId,
@@ -384,16 +386,23 @@ export function PayrollLoanDialog({
               </div>
             ))
           )}
-          <Label className="border-t border-border pt-3.5 text-[10.5px] font-semibold tracking-[0.04em] text-muted-foreground uppercase">
-            Desconto avulso neste mês (fora de empréstimo, R$)
-            <Input
-              className="mt-1 h-8 w-[130px] text-right text-sm font-semibold tabular-nums"
-              disabled={closed}
-              value={avulso}
-              onChange={(event) => setAvulso(event.target.value)}
-              onBlur={() => void saveAvulso()}
-            />
-          </Label>
+          {lineId ? (
+            <Label className="border-t border-border pt-3.5 text-[10.5px] font-semibold tracking-[0.04em] text-muted-foreground uppercase">
+              Desconto avulso neste mês (fora de empréstimo, R$)
+              <Input
+                className="mt-1 h-8 w-[130px] text-right text-sm font-semibold tabular-nums"
+                disabled={closed}
+                value={avulso}
+                onChange={(event) => setAvulso(event.target.value)}
+                onBlur={() => void saveAvulso()}
+              />
+            </Label>
+          ) : (
+            <p className="border-t border-border pt-3.5 text-xs text-muted-foreground">
+              As parcelas entram como desconto na folha de cada mês a partir do
+              início escolhido. Descontos avulsos são lançados na própria folha.
+            </p>
+          )}
         </div>
       </DialogContent>
     </Dialog>

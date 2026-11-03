@@ -12,6 +12,7 @@ import type * as agentTokens from "../agentTokens.js";
 import type * as ai from "../ai.js";
 import type * as aiChat from "../aiChat.js";
 import type * as aiIntents from "../aiIntents.js";
+import type * as alimonies from "../alimonies.js";
 import type * as auditLogs from "../auditLogs.js";
 import type * as checklists from "../checklists.js";
 import type * as contractors from "../contractors.js";
@@ -80,6 +81,7 @@ import type * as model_procurement_takeoffKits from "../model/procurement/takeof
 import type * as model_procurement_takeoffSettings from "../model/procurement/takeoffSettings.js";
 import type * as model_procurement_takeoffPromotion from "../model/procurement/takeoffPromotion.js";
 import type * as model_procurement_takeoffProposals from "../model/procurement/takeoffProposals.js";
+import type * as model_rh_alimonies from "../model/rh/alimonies.js";
 import type * as payroll from "../payroll.js";
 import type * as portal from "../portal.js";
 import type * as priceEvents from "../priceEvents.js";
@@ -117,6 +119,7 @@ declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   aiChat: typeof aiChat;
   aiIntents: typeof aiIntents;
+  alimonies: typeof alimonies;
   auditLogs: typeof auditLogs;
   checklists: typeof checklists;
   contractors: typeof contractors;
@@ -185,6 +188,7 @@ declare const fullApi: ApiFromModules<{
   "model/procurement/takeoffSettings": typeof model_procurement_takeoffSettings;
   "model/procurement/takeoffPromotion": typeof model_procurement_takeoffPromotion;
   "model/procurement/takeoffProposals": typeof model_procurement_takeoffProposals;
+  "model/rh/alimonies": typeof model_rh_alimonies;
   payroll: typeof payroll;
   portal: typeof portal;
   priceEvents: typeof priceEvents;

@@ -147,12 +147,15 @@ labour price per material (`laborPrice`, set by purchasing in Compras → Materi
 company entry has none (0), it borrows the labour of the seed entry with the same name (accents,
 case and the " — " between family and variant aside) and Ctrl+K marks it: the labour shows in
 italics and the price-source badge gets a dot, with "Mão de obra das planilhas anteriores" in the
-tooltip.
+tooltip. An air terminal (the "Bocas de Ar" group, or a grelha, difusor or veneziana by name)
+still without labour gets the usual R$ 45 a piece, marked the same way.
 
 The status bar shows the page scale; click it for the 1:N presets or calibrate by measuring.
 Items carry a budget section (Equipamentos, Rede de Dutos, Bocas de Ar, ...), a material and
-a labour unit price and an optional waste percentage. The Quote tab shows the grouped sheet with
-Diversos / Transportes / Supervisão extras, TOTAL GERAL and the BDI multiplier.
+a labour unit price and an optional waste percentage. The budget lists equipment (fans, filter
+boxes) first, then networks and lines, then the other pieces, and the air terminals always last.
+The Quote tab shows the grouped sheet with Diversos / Transportes / Supervisão extras, TOTAL
+GERAL and the BDI multiplier.
 
 Two tools quantify whole networks instead of single materials. **Duto (D)** asks the section of
 each run and the Dutos tab computes sheet metal, insulation, flanges, supports and labour per
@@ -171,7 +174,13 @@ the budget (quantity = identical systems); the detail goes to the exported VRF w
 The Excel export mirrors the RLP workbook: a `Resumo` sheet, one sheet per system (an item's
 "sistema" tag, defaulting to the project system), sections per location (ambiente) or per group
 (toggle in the Quote tab), a `Por Local` matrix, and the original styling (Arial, navy item rows,
-hair/medium borders, accounting formats, A4 landscape at 75 %).
+hair/medium borders, sub-total lines framed in medium, accounting formats, A4 landscape at 75 %).
+Zero amounts and quantities print as "-", never as 0. Under each tab's TOTAL GERAL come its stats
+lines and the BDI options, the tab's own first and highlighted: a ladder on most tabs, and on
+Exaustão and TAE a row of BDIs with Venda (per point) and Venda Total lines under it. The
+`Resumo` carries one line per tab with its BDI filled in and the amounts blank, so the estimator
+copies each TOTAL GERAL over after a last check; its TOTAL and the BDI options under it compute
+from what is typed.
 
 The **Relatório de recortes** (Takeoff menu or `Ctrl+Shift+E`) is a PDF for contractors that shows
 what was measured, location by location. Choose what to include (presets "Só dutos", "Só VRF",

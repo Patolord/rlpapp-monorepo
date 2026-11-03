@@ -232,6 +232,17 @@ enum FooterLine {
     },
 }
 
+/// How the BDI options are printed under TOTAL GERAL (see `BdiLayout` in `src/lib/discipline.ts`).
+#[derive(Deserialize, Clone, Copy, PartialEq, Default)]
+#[serde(rename_all = "lowercase")]
+enum BdiLayout {
+    /// One row per BDI, with a VENDA column when the tab counts points.
+    #[default]
+    Column,
+    /// The BDIs across the columns, with a Venda and a Venda Total line under them.
+    Row,
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SystemSheet {
@@ -241,6 +252,8 @@ struct SystemSheet {
     extras_pct: f64,
     #[serde(default)]
     footer: Vec<FooterLine>,
+    #[serde(default)]
+    bdi_layout: BdiLayout,
 }
 
 #[derive(Deserialize)]
@@ -280,7 +293,12 @@ const COL_T_TOT: u16 = 9; // J
 const NAVY: Color = Color::RGB(0x000080);
 const HEADER_FILL: Color = Color::RGB(0xF2F2F2);
 const CHOSEN_FILL: Color = Color::RGB(0xFFFF00);
-const FMT_PRICE: &str = "#,##0.00;[Red]#,##0.00";
+// zero amounts and quantities print as "-", never as 0
+const FMT_PRICE: &str = "#,##0.00;[Red]-#,##0.00;\"-\"";
+const FMT_QTY: &str = "General;-General;\"-\"";
+const FMT_FACTOR: &str = "0.00;-0.00;\"-\"";
+/// The BDI options every tab offers besides its own.
+const BDI_OPTIONS: [f64; 5] = [1.30, 1.35, 1.40, 1.45, 1.50];
 const FMT_ACCOUNTING: &str = "_(* #,##0.00_);_(* (#,##0.00);_(* \"-\"??_);_(@_)";
 const FMT_MONEY_BRL: &str = "_-\"R$\" * #,##0.00_-;-\"R$\" * #,##0.00_-;_-\"R$\" * \"-\"??_-;_-@_-";
 
@@ -334,16 +352,19 @@ struct Styles {
     text_bold: Format,
     center: Format,
     center_wrap: Format,
+    qty: Format,
     price: Format,
+    factor_bold: Format,
     acc_bold: Format,
     total_label: Format,
     total_acc: Format,
     total_big: Format,
-    pct: Format,
     bdi_pct: Format,
     bdi_pct_chosen: Format,
     bdi_money: Format,
     bdi_money_chosen: Format,
+    bdi_num: Format,
+    bdi_num_chosen: Format,
     foot_label: Format,
     foot_unit: Format,
     foot_num: Format,
@@ -391,9 +412,16 @@ impl Styles {
             center_wrap: row(arial(10.0))
                 .set_align(FormatAlign::Center)
                 .set_text_wrap(),
+            qty: row(arial(10.0))
+                .set_num_format(FMT_QTY)
+                .set_align(FormatAlign::Center)
+                .set_text_wrap(),
             price: row(arial(10.0))
                 .set_num_format(FMT_PRICE)
                 .set_align(FormatAlign::Right),
+            factor_bold: row(arial(10.0).set_bold())
+                .set_num_format(FMT_FACTOR)
+                .set_align(FormatAlign::Center),
             acc_bold: row(arial(10.0).set_bold())
                 .set_num_format(FMT_ACCOUNTING)
                 .set_align(FormatAlign::Right),
@@ -412,9 +440,6 @@ impl Styles {
                 .set_num_format(FMT_ACCOUNTING)
                 .set_align(FormatAlign::VerticalCenter)
                 .set_border(FormatBorder::Medium),
-            pct: row(arial(10.0))
-                .set_num_format("0%")
-                .set_align(FormatAlign::Center),
             bdi_pct: arial(10.0)
                 .set_num_format("0%")
                 .set_align(FormatAlign::Center),
@@ -427,6 +452,14 @@ impl Styles {
             bdi_money_chosen: arial(10.0)
                 .set_bold()
                 .set_num_format(FMT_MONEY_BRL)
+                .set_background_color(CHOSEN_FILL),
+            bdi_num: arial(10.0)
+                .set_num_format(FMT_PRICE)
+                .set_align(FormatAlign::Right),
+            bdi_num_chosen: arial(10.0)
+                .set_bold()
+                .set_num_format(FMT_PRICE)
+                .set_align(FormatAlign::Right)
                 .set_background_color(CHOSEN_FILL),
             foot_label: arial(10.0)
                 .set_bold()
@@ -462,6 +495,14 @@ fn boxed(base: &Format, col: u16) -> Format {
         f = f.set_border_right(FormatBorder::Medium);
     }
     f
+}
+
+/// Clone `base` with medium lines above and below: the sub-total rows stand out from the
+/// hairlines of the item rows.
+fn heavy(base: &Format) -> Format {
+    base.clone()
+        .set_border_top(FormatBorder::Medium)
+        .set_border_bottom(FormatBorder::Medium)
 }
 
 /// Title band plus the Cliente / Obra / Proposta / Orçamentista block (rows 0..=6).
@@ -587,7 +628,8 @@ fn write_line_formulas(ws: &mut Worksheet, st: &Styles, r: u32) -> R<()> {
     Ok(())
 }
 
-/// "Sub-Total item N" line closing a local: H/I/J sum the section's rows `first..=last`.
+/// "Sub-Total item N" line closing a local: H/I/J sum the section's rows `first..=last`. The
+/// whole line is framed by medium lines (see the sample sheets).
 fn write_subtotal_row(
     ws: &mut Worksheet,
     st: &Styles,
@@ -596,19 +638,24 @@ fn write_subtotal_row(
     first: u32,
     last: u32,
 ) -> R<()> {
-    ws.write_blank(r, COL_ITEM, &boxed(&st.center, COL_ITEM))
+    ws.write_blank(r, COL_ITEM, &heavy(&boxed(&st.center, COL_ITEM)))
         .map_err(xe)?;
-    ws.write_string_with_format(r, COL_DESC, format!("Sub-Total item {n}"), &st.text_bold)
-        .map_err(xe)?;
+    ws.write_string_with_format(
+        r,
+        COL_DESC,
+        format!("Sub-Total item {n}"),
+        &heavy(&st.text_bold),
+    )
+    .map_err(xe)?;
     for c in COL_UNIT..=COL_U_TOT {
-        ws.write_blank(r, c, &st.text).map_err(xe)?;
+        ws.write_blank(r, c, &heavy(&st.text)).map_err(xe)?;
     }
     for c in [COL_T_MAT, COL_T_LAB, COL_T_TOT] {
         ws.write_formula_with_format(
             r,
             c,
             Formula::new(format!("=SUM({}:{})", cell(c, first), cell(c, last))),
-            &boxed(&st.acc_bold, c),
+            &heavy(&boxed(&st.acc_bold, c)),
         )
         .map_err(xe)?;
     }
@@ -649,12 +696,11 @@ fn set_budget_layout(ws: &mut Worksheet) -> R<()> {
     Ok(())
 }
 
-/// Row indices (0-based) of the TOTAL GERAL line and of the tab's own BDI in its ladder,
-/// needed by the Resumo references.
+/// What the Resumo prints for a system tab: its name and its own BDI. The amounts are left
+/// for the estimator to copy over after a last check of each tab.
 struct SystemTotals {
     sheet: String,
-    total_row: u32,
-    bdi_row: u32,
+    bdi: f64,
 }
 
 fn write_system_sheet(
@@ -695,7 +741,7 @@ fn write_system_sheet(
                 .map_err(xe)?;
             ws.write_string_with_format(r, COL_UNIT, &row.unit, &st.center_wrap)
                 .map_err(xe)?;
-            ws.write_number_with_format(r, COL_QTY, row.qty, &st.center_wrap)
+            ws.write_number_with_format(r, COL_QTY, row.qty, &st.qty)
                 .map_err(xe)?;
             ws.write_number_with_format(r, COL_U_MAT, row.material_price, &st.price)
                 .map_err(xe)?;
@@ -796,12 +842,11 @@ fn write_system_sheet(
     let total_row = r;
     r += 1;
 
-    let bdi_row = write_footer(ws, st, sys, total_row, r)?;
+    write_footer(ws, st, sys, total_row, r)?;
     set_budget_layout(ws)?;
     Ok(SystemTotals {
         sheet: String::new(),
-        total_row,
-        bdi_row,
+        bdi: sys.bdi,
     })
 }
 
@@ -815,16 +860,24 @@ fn write_footer_label(ws: &mut Worksheet, st: &Styles, r: u32, label: &str) -> R
     Ok(())
 }
 
+/// The tab's own BDI first, then the usual options it does not already cover.
+fn bdi_factors(own: f64) -> Vec<f64> {
+    let mut factors = vec![own];
+    factors.extend(BDI_OPTIONS.iter().filter(|f| (*f - own).abs() > 1e-9));
+    factors
+}
+
 /// The stats block under TOTAL GERAL (points, value per point, amount × factor lines), then the
-/// BDI ladder: the tab's own BDI first, highlighted, followed by the usual options, with a
-/// VENDA (per point) column when the tab has a points line. Returns the row of the tab's BDI.
+/// BDI options, the tab's own first and highlighted: as a ladder (`BdiLayout::Column`, with a
+/// VENDA per point column when the tab has a points line) or across the columns
+/// (`BdiLayout::Row`, with Venda per point and Venda Total lines).
 fn write_footer(
     ws: &mut Worksheet,
     st: &Styles,
     sys: &SystemSheet,
     total_row: u32,
     start: u32,
-) -> R<u32> {
+) -> R<()> {
     let mut r = start;
     let total = |c: u16| cell(c, total_row);
     let mut points_cell: Option<String> = None;
@@ -890,6 +943,54 @@ fn write_footer(
         }
         r += 1;
     }
+    let factors = bdi_factors(sys.bdi);
+
+    if sys.bdi_layout == BdiLayout::Row {
+        // BDI / Venda / Venda Total lines, one column per option from E on
+        write_footer_label(ws, st, r, "BDI")?;
+        let bdi_line = r;
+        r += 1;
+        let venda_line = points_cell.is_some().then_some(r);
+        if venda_line.is_some() {
+            write_footer_label(ws, st, r, "Venda")?;
+            r += 1;
+        }
+        write_footer_label(ws, st, r, "Venda Total")?;
+        let total_line = r;
+        for (k, f) in factors.iter().enumerate() {
+            let c = COL_U_MAT + k as u16;
+            let chosen = k == 0;
+            let (pct, num, money) = if chosen {
+                (&st.bdi_pct_chosen, &st.bdi_num_chosen, &st.bdi_money_chosen)
+            } else {
+                (&st.bdi_pct, &st.bdi_num, &st.bdi_money)
+            };
+            ws.write_number_with_format(bdi_line, c, *f, pct)
+                .map_err(xe)?;
+            ws.write_formula_with_format(
+                total_line,
+                c,
+                Formula::new(format!(
+                    "=ROUND({}*{},2)",
+                    total(COL_T_TOT),
+                    cell(c, bdi_line)
+                )),
+                money,
+            )
+            .map_err(xe)?;
+            if let (Some(p), Some(v)) = (&points_cell, venda_line) {
+                ws.write_formula_with_format(
+                    v,
+                    c,
+                    Formula::new(format!("=IF({p}=0,0,ROUND({}/{p},2))", cell(c, total_line))),
+                    num,
+                )
+                .map_err(xe)?;
+            }
+        }
+        return Ok(());
+    }
+
     if !sys.footer.is_empty() {
         r += 1;
     }
@@ -904,13 +1005,6 @@ fn write_footer(
     ws.write_string_with_format(r, COL_T_TOT, "TOTAL", &st.foot_head)
         .map_err(xe)?;
     r += 1;
-    let bdi_row = r;
-    let mut factors = vec![sys.bdi];
-    for f in [1.30, 1.35, 1.40, 1.45, 1.50] {
-        if (f - sys.bdi).abs() > 1e-9 {
-            factors.push(f);
-        }
-    }
     for (k, f) in factors.iter().enumerate() {
         let chosen = k == 0;
         let (pct, money) = if chosen {
@@ -943,10 +1037,12 @@ fn write_footer(
         ws.set_row_height(r, 15.0).map_err(xe)?;
         r += 1;
     }
-    Ok(bdi_row)
+    Ok(())
 }
 
-/// "Resumo" sheet: one line per system referencing that system's TOTAL GERAL.
+/// "Resumo" sheet: one line per system tab, with its BDI filled in and the amounts left
+/// blank: the estimator copies each tab's TOTAL GERAL over after a last check, and the
+/// line, the TOTAL and the BDI options under it compute from what is typed.
 fn write_resumo(
     ws: &mut Worksheet,
     st: &Styles,
@@ -969,7 +1065,6 @@ fn write_resumo(
     r += 1;
     let first = r;
     for (i, t) in totals.iter().enumerate() {
-        let sheet_ref = format!("'{}'", t.sheet.replace('\'', "''"));
         ws.write_string_with_format(
             r,
             COL_ITEM,
@@ -981,22 +1076,11 @@ fn write_resumo(
             .map_err(xe)?;
         ws.write_string_with_format(r, COL_UNIT, "pç", &st.center)
             .map_err(xe)?;
-        ws.write_number_with_format(r, COL_QTY, 1.0, &st.center)
+        ws.write_number_with_format(r, COL_QTY, 1.0, &st.qty)
             .map_err(xe)?;
-        ws.write_formula_with_format(
-            r,
-            COL_U_MAT,
-            Formula::new(format!("={sheet_ref}!{}", cell(COL_T_MAT, t.total_row))),
-            &st.price,
-        )
-        .map_err(xe)?;
-        ws.write_formula_with_format(
-            r,
-            COL_U_LAB,
-            Formula::new(format!("={sheet_ref}!{}", cell(COL_T_LAB, t.total_row))),
-            &st.price,
-        )
-        .map_err(xe)?;
+        // material and labour are typed in by hand after checking each tab
+        ws.write_blank(r, COL_U_MAT, &st.price).map_err(xe)?;
+        ws.write_blank(r, COL_U_LAB, &st.price).map_err(xe)?;
         ws.write_formula_with_format(
             r,
             COL_U_TOT,
@@ -1004,13 +1088,8 @@ fn write_resumo(
             &st.acc_bold,
         )
         .map_err(xe)?;
-        ws.write_formula_with_format(
-            r,
-            COL_T_MAT,
-            Formula::new(format!("={sheet_ref}!{}", cell(COL_T_MAT, t.bdi_row))),
-            &boxed(&st.pct, COL_T_MAT),
-        )
-        .map_err(xe)?;
+        ws.write_number_with_format(r, COL_T_MAT, t.bdi, &boxed(&st.factor_bold, COL_T_MAT))
+            .map_err(xe)?;
         ws.write_formula_with_format(
             r,
             COL_T_LAB,
@@ -1065,10 +1144,36 @@ fn write_resumo(
             g = cell(COL_U_TOT, r),
             i = cell(COL_T_LAB, r)
         )),
-        &st.total_acc,
+        &st.total_acc.clone().set_num_format(FMT_FACTOR),
     )
     .map_err(xe)?;
     ws.set_row_height(r, 18.75).map_err(xe)?;
+    let total_row = r;
+    r += 1;
+
+    // the BDI options over the TOTAL, under it (F: BDI, G: TOTAL)
+    ws.write_string_with_format(r, COL_U_LAB, "BDI", &st.foot_head)
+        .map_err(xe)?;
+    ws.write_string_with_format(r, COL_U_TOT, "TOTAL", &st.foot_head)
+        .map_err(xe)?;
+    r += 1;
+    for f in BDI_OPTIONS.iter().chain([1.55].iter()) {
+        ws.write_number_with_format(r, COL_U_LAB, *f, &st.bdi_pct)
+            .map_err(xe)?;
+        ws.write_formula_with_format(
+            r,
+            COL_U_TOT,
+            Formula::new(format!(
+                "=ROUND({}*{},2)",
+                cell(COL_U_TOT, total_row),
+                cell(COL_U_LAB, r)
+            )),
+            &st.bdi_money,
+        )
+        .map_err(xe)?;
+        ws.set_row_height(r, 15.0).map_err(xe)?;
+        r += 1;
+    }
     set_budget_layout(ws)?;
     Ok(())
 }
@@ -1160,6 +1265,7 @@ mod tests {
                             factor: 2.0,
                         },
                     ],
+                    bdi_layout: BdiLayout::Column,
                     sections: vec![
                         Section {
                             name: "Térreo".into(),
@@ -1187,7 +1293,33 @@ mod tests {
                     system: "Exaustão Mec.".into(),
                     bdi: 1.42,
                     extras_pct: 5.0,
+                    footer: vec![
+                        FooterLine::Points {
+                            label: "Número de pontos".into(),
+                            value: 6.0,
+                        },
+                        FooterLine::PerPoint {
+                            label: "Valor por ponto".into(),
+                        },
+                    ],
+                    bdi_layout: BdiLayout::Row,
+                    sections: vec![Section {
+                        name: "Bocas de Ar".into(),
+                        rows: vec![SheetRow {
+                            name: "Veneziana p/ Descarga c/ Tela dim 200x200mm".into(),
+                            unit: "pç".into(),
+                            qty: 0.0,
+                            material_price: 0.0,
+                            labor_price: 45.0,
+                        }],
+                    }],
+                },
+                SystemSheet {
+                    system: "Detecção".into(),
+                    bdi: 1.42,
+                    extras_pct: 5.0,
                     footer: vec![],
+                    bdi_layout: BdiLayout::Column,
                     sections: vec![],
                 },
             ],
@@ -1198,6 +1330,94 @@ mod tests {
         export_xlsx(path.to_string_lossy().into_owned(), sheet).expect("export");
         let meta = std::fs::metadata(&path).expect("file written");
         assert!(meta.len() > 2000, "workbook too small: {}", meta.len());
+
+        // sheet1 = Resumo, sheet2 = Pressurização (ladder), sheet3 = Exaustão Mec. (row)
+        let strings = zip_entry(&path, "xl/sharedStrings.xml");
+        for label in [
+            "Sub-Total item 1",
+            "Número de pontos",
+            "Venda",
+            "Venda Total",
+            "VENDA",
+        ] {
+            assert!(strings.contains(&format!(">{label}<")), "missing {label}");
+        }
+        let styles = zip_entry(&path, "xl/styles.xml");
+        assert!(styles.contains("formatCode=\"#,##0.00;[Red]-#,##0.00;&quot;-&quot;\""));
+        assert!(styles.contains("formatCode=\"General;-General;&quot;-&quot;\""));
+
+        // ladder: BDI in H, VENDA per point in I, TOTAL in J, under the stats block
+        let ladder = zip_entry(&path, "xl/worksheets/sheet2.xml");
+        assert!(ladder.contains("<f>ROUND(J23*H29,2)</f>"));
+        assert!(ladder.contains("<f>IF(E24=0,0,ROUND(J29/E24,2))</f>"));
+        assert!(ladder.contains("<f>SUM(H13,H17)+SUM(H19:H21)</f>"));
+
+        // row layout: BDI across E..J, Venda and Venda Total under it
+        let row = zip_entry(&path, "xl/worksheets/sheet3.xml");
+        assert!(row.contains("<f>ROUND(J19*E22,2)</f>"), "{row}");
+        assert!(row.contains("<f>ROUND(J19*J22,2)</f>"));
+        assert!(row.contains("<f>IF(E20=0,0,ROUND(E24/E20,2))</f>"));
+        assert!(cell_xml(&row, "J22").contains("<v>1.5</v>"));
+        assert!(cell_xml(&row, "D12").contains("<v>0</v>"));
+
+        // Resumo: no reference to the other sheets, amounts blank, BDI as a number
+        let resumo = zip_entry(&path, "xl/worksheets/sheet1.xml");
+        assert!(
+            !resumo.contains('!'),
+            "Resumo still references other sheets"
+        );
+        for c in ["E12", "F12", "E14", "F14"] {
+            let x = cell_xml(&resumo, c);
+            assert!(
+                !x.contains("<v>") && !x.contains("<f>"),
+                "{c} not blank: {x}"
+            );
+        }
+        assert!(cell_xml(&resumo, "H12").contains("<v>1.25</v>"));
+        assert!(resumo.contains("<f>ROUND(H12*G12,2)</f>"));
+        assert!(resumo.contains("<f>SUM(J12:J14)</f>"));
+        assert!(resumo.contains("<f>ROUND(G16*F23,2)</f>"));
+    }
+
+    /// One file of the saved workbook (an .xlsx is a zip) as text.
+    fn zip_entry(path: &std::path::Path, name: &str) -> String {
+        let file = std::fs::File::open(path).expect("open workbook");
+        let mut zip = zip::ZipArchive::new(file).expect("read zip");
+        let mut entry = zip.by_name(name).expect(name);
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut entry, &mut text).expect("utf-8");
+        text
+    }
+
+    /// The `<c r="A1" …>` element of a worksheet, up to the next cell or the end of the row.
+    fn cell_xml<'a>(sheet: &'a str, cell: &str) -> &'a str {
+        let start = sheet
+            .find(&format!("<c r=\"{cell}\""))
+            .unwrap_or_else(|| panic!("no cell {cell}"));
+        let rest = &sheet[start + 1..];
+        let end = ["<c ", "</row>"]
+            .iter()
+            .filter_map(|t| rest.find(t))
+            .min()
+            .unwrap_or(rest.len());
+        &sheet[start..start + 1 + end]
+    }
+
+    #[test]
+    fn bdi_layout_defaults_to_the_ladder() {
+        let json = r#"{"system":"Exaustão","sections":[],"bdi":1.3,"extrasPct":5}"#;
+        let sheet: SystemSheet = serde_json::from_str(json).expect("parse");
+        assert!(sheet.bdi_layout == BdiLayout::Column);
+        let json =
+            r#"{"system":"Exaustão","sections":[],"bdi":1.3,"extrasPct":5,"bdiLayout":"row"}"#;
+        let sheet: SystemSheet = serde_json::from_str(json).expect("parse");
+        assert!(sheet.bdi_layout == BdiLayout::Row);
+    }
+
+    #[test]
+    fn bdi_options_start_with_the_tabs_own() {
+        assert_eq!(bdi_factors(1.42), vec![1.42, 1.30, 1.35, 1.40, 1.45, 1.50]);
+        assert_eq!(bdi_factors(1.40), vec![1.40, 1.30, 1.35, 1.45, 1.50]);
     }
 
     #[test]

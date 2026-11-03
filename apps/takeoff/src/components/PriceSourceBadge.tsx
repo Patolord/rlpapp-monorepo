@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import { Bookmark, BookOpen, Cloud, type LucideIcon, PenLine, Weight } from "lucide-react";
-import { describePriceSource, type PriceSource, SEED_LABOR_NOTE } from "../lib/priceSource";
+import type { LaborSource } from "../lib/catalog";
+import { describePriceSource, laborNote, type PriceSource } from "../lib/priceSource";
 
 const ICON: Record<PriceSource, { Icon: LucideIcon; className: string }> = {
   catalog: { Icon: Cloud, className: "text-sky-400" },
@@ -12,8 +13,8 @@ const ICON: Record<PriceSource, { Icon: LucideIcon; className: string }> = {
 
 /**
  * Where a material price came from: cloud catalog, saved catalog, bundled sheets, typed, by
- * weight. `laborSource: "seed"` adds that the labour came from the bundled sheets (a company
- * entry without labour), with a small dot on the icon.
+ * weight. `laborSource` adds that the labour came from the bundled sheets or is the usual air
+ * terminal price (an entry without labour), with a small dot on the icon.
  */
 export function PriceSourceBadge({
   source,
@@ -24,21 +25,21 @@ export function PriceSourceBadge({
 }: {
   source: PriceSource | undefined;
   priceDate?: number;
-  laborSource?: "seed";
+  laborSource?: LaborSource;
   size?: number;
   className?: string;
 }) {
   if (!source) return null;
   const { Icon, className: color } = ICON[source];
-  const description =
-    describePriceSource(source, priceDate) + (laborSource === "seed" ? `\n${SEED_LABOR_NOTE}` : "");
+  const note = laborNote(laborSource);
+  const description = describePriceSource(source, priceDate) + (note ? `\n${note}` : "");
   return (
     <span
       title={description}
       className={clsx("relative inline-flex shrink-0 items-center", color, className)}
     >
       <Icon size={size} aria-label={description} />
-      {laborSource === "seed" && (
+      {note && (
         <span className="absolute -right-0.5 -bottom-0.5 h-1.5 w-1.5 rounded-full bg-neutral-500" />
       )}
     </span>
