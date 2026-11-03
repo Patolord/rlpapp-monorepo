@@ -54,6 +54,14 @@ export const employeePaymentMethod = v.union(
   v.literal("other")
 );
 
+// Equipe do funcionário (ver @rlpapp/shared/rh/staffGroups). Cada equipe tem
+// padrões próprios de benefícios na folha; cadastros antigos sem equipe são obra.
+export const employeeStaffGroup = v.union(
+  v.literal("obra"),
+  v.literal("escritorio"),
+  v.literal("diretoria")
+);
+
 export const payrollRunStatus = v.union(
   v.literal("draft"),
   v.literal("closed")
@@ -1320,6 +1328,8 @@ export default defineSchema({
     nameNormalized: v.string(),
     cpf: v.optional(v.string()),
     cpfNormalized: v.optional(v.string()),
+    // Ausente nos cadastros anteriores à equipe: tratado como "obra".
+    staffGroup: v.optional(employeeStaffGroup),
     jobTitle: v.optional(v.string()),
     email: v.optional(v.string()),
     phone: v.optional(v.string()),

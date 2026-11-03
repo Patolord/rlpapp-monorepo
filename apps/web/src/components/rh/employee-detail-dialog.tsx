@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
+import {
+  STAFF_GROUPS,
+  STAFF_GROUP_DESCRIPTIONS,
+  STAFF_GROUP_LABELS,
+  STAFF_GROUP_PAYROLL_DEFAULTS,
+  baseSalaryLabel,
+  type StaffGroup,
+} from "@rlpapp/shared/rh/staffGroups";
 import { useMutation, useQuery } from "convex/react";
 import { Archive, Link2, Link2Off, Pencil, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
@@ -33,6 +41,8 @@ export type EmployeeSummary = {
   code: string | null;
   name: string;
   cpf: string | null;
+  /** Equipe: obra, escritório ou diretoria. Define os padrões da folha. */
+  staffGroup: StaffGroup;
   jobTitle: string | null;
   email: string | null;
   phone: string | null;
@@ -54,6 +64,7 @@ type EmployeeForm = {
   code: string;
   name: string;
   cpf: string;
+  staffGroup: StaffGroup;
   jobTitle: string;
   email: string;
   phone: string;
@@ -94,6 +105,7 @@ function employeeToForm(employee: EmployeeSummary): EmployeeForm {
     code: employee.code ?? "",
     name: employee.name,
     cpf: employee.cpf ?? "",
+    staffGroup: employee.staffGroup,
     jobTitle: employee.jobTitle ?? "",
     email: employee.email ?? "",
     phone: employee.phone ?? "",
@@ -109,10 +121,31 @@ function employeeToForm(employee: EmployeeSummary): EmployeeForm {
   };
 }
 
+/** Campos da folha preenchidos pelo padrão da equipe. */
+function staffGroupDefaults(
+  group: StaffGroup
+): Pick<
+  EmployeeForm,
+  "receivesFoodBasket" | "dailyTransit" | "defaultTransportFoodDays"
+> {
+  const defaults = STAFF_GROUP_PAYROLL_DEFAULTS[group];
+  return {
+    receivesFoodBasket: defaults.receivesFoodBasket,
+    dailyTransit: formatCentsInput(defaults.dailyTransitCents),
+    defaultTransportFoodDays: String(defaults.defaultTransportFoodDays),
+  };
+}
+
+/** Troca a equipe e aplica os padrões dela aos campos de benefícios. */
+function withStaffGroup(form: EmployeeForm, group: StaffGroup): EmployeeForm {
+  return { ...form, staffGroup: group, ...staffGroupDefaults(group) };
+}
+
 const emptyEmployeeForm: EmployeeForm = {
   code: "",
   name: "",
   cpf: "",
+  staffGroup: "obra",
   jobTitle: "",
   email: "",
   phone: "",
@@ -122,9 +155,7 @@ const emptyEmployeeForm: EmployeeForm = {
   paymentMethod: "pix",
   pixKey: "",
   baseSalary: "0,00",
-  receivesFoodBasket: true,
-  dailyTransit: "21,40",
-  defaultTransportFoodDays: "22",
+  ...staffGroupDefaults("obra"),
 };
 
 function formPayload(form: EmployeeForm) {
@@ -132,6 +163,7 @@ function formPayload(form: EmployeeForm) {
     code: form.code || undefined,
     name: form.name,
     cpf: form.cpf || undefined,
+    staffGroup: form.staffGroup,
     jobTitle: form.jobTitle || undefined,
     email: form.email || undefined,
     phone: form.phone || undefined,
@@ -185,6 +217,26 @@ function EmployeeFields({
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
+              <Label htmlFor="employee-group">Equipe</Label>
+              <Select
+                value={form.staffGroup}
+                onValueChange={(value) =>
+                  setForm(withStaffGroup(form, value as StaffGroup))
+                }
+              >
+                <SelectTrigger id="employee-group">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STAFF_GROUPS.map((group) => (
+                    <SelectItem key={group} value={group}>
+                      {STAFF_GROUP_LABELS[group]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="employee-job">Cargo</Label>
               <Input
                 id="employee-job"
@@ -194,6 +246,8 @@ function EmployeeFields({
                 }
               />
             </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="employee-cpf">CPF</Label>
               <Input
@@ -204,8 +258,6 @@ function EmployeeFields({
                 }
               />
             </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="employee-phone">Telefone</Label>
               <Input
@@ -216,6 +268,8 @@ function EmployeeFields({
                 }
               />
             </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="employee-email">E-mail</Label>
               <Input
@@ -227,8 +281,6 @@ function EmployeeFields({
                 }
               />
             </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="employee-hired">Admissão</Label>
               <Input
@@ -240,6 +292,8 @@ function EmployeeFields({
                 }
               />
             </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="employee-status">Situação</Label>
               <Select
@@ -275,13 +329,20 @@ function EmployeeFields({
         </div>
       </div>
       <div>
-        <p className="mb-2 text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+        <p className="text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
           Padrões da folha
+        </p>
+        <p className="mt-1 mb-2 text-xs text-muted-foreground">
+          {STAFF_GROUP_LABELS[form.staffGroup]}:{" "}
+          {STAFF_GROUP_DESCRIPTIONS[form.staffGroup]} Ajuste abaixo se este
+          funcionário for exceção.
         </p>
         <div className="grid gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="employee-salary">Salário base (R$)</Label>
+              <Label htmlFor="employee-salary">
+                {baseSalaryLabel(form.staffGroup)} (R$)
+              </Label>
               <Input
                 id="employee-salary"
                 className="text-right tabular-nums"
@@ -363,6 +424,21 @@ function EmployeeFields({
       </div>
     </div>
   );
+}
+
+/** Resumo dos benefícios da folha para a visualização do funcionário. */
+function describeBenefits(employee: EmployeeSummary): string {
+  const parts: string[] = [];
+  if (employee.receivesFoodBasket) parts.push("cesta básica");
+  if (employee.defaultTransportFoodDays > 0) {
+    parts.push(`vale-refeição (${employee.defaultTransportFoodDays} dias)`);
+    if (employee.dailyTransitCents > 0) {
+      parts.push(
+        `vale-transporte (R$ ${formatCentsInput(employee.dailyTransitCents)}/dia)`
+      );
+    }
+  }
+  return parts.length ? parts.join(", ") : "nenhum";
 }
 
 const NO_USER = "__none__";
@@ -576,6 +652,10 @@ export function EmployeeDetailDialog({
               {employee.code ?? "—"}
             </p>
             <p>
+              <span className="text-muted-foreground">Equipe:</span>{" "}
+              {STAFF_GROUP_LABELS[employee.staffGroup]}
+            </p>
+            <p>
               <span className="text-muted-foreground">Cargo:</span>{" "}
               {employee.jobTitle ?? "—"}
             </p>
@@ -588,8 +668,14 @@ export function EmployeeDetailDialog({
               {employee.paymentMethod.toUpperCase()}
             </p>
             <p>
-              <span className="text-muted-foreground">Salário base:</span>{" "}
+              <span className="text-muted-foreground">
+                {baseSalaryLabel(employee.staffGroup)}:
+              </span>{" "}
               {formatCentsInput(employee.baseSalaryCents)}
+            </p>
+            <p>
+              <span className="text-muted-foreground">Benefícios:</span>{" "}
+              {describeBenefits(employee)}
             </p>
             {!employee.archivedAt ? <AppUserSection employee={employee} /> : null}
           </div>
