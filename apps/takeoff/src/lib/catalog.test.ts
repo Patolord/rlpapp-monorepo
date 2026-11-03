@@ -402,7 +402,107 @@ describe("loading the saved catalog", () => {
       JSON.stringify({ saved: [], kits: [noLabel, { ...b, label: "" }, own] }),
     );
     const store = await loadCatalogStore();
+    // the list of before overrides: the seed kit as is (not an override), a cleared label and a
+    // kit of this machine as overrides, the other seeds hidden
     expect(store.kits.map((k) => k.label)).toEqual([a.label, "", undefined]);
     expect(a.label).toBe('1/4" · 3/8"');
+    expect(store.kitOverrides.map((k) => k.id)).toEqual([b.id, "mine"]);
+    expect(store.kitRemoved).toEqual(SEED_KITS.slice(2).map((k) => k.id));
+    expect(store.remoteKits).toBeNull();
+  });
+
+  it("recomputes the kits in use from the company defaults and the overrides", async () => {
+    const remote = [
+      {
+        id: "kit-x",
+        name: "X",
+        mode: "linear",
+        components: [{ name: "Cobre", group: "T", kind: "linear", factor: 1 }],
+      },
+      {
+        id: "kit-y",
+        name: "Y",
+        mode: "count",
+        components: [{ name: "Split", group: "E", kind: "count", factor: 1 }],
+      },
+    ];
+    const edited = { ...remote[0], label: "1/4" };
+    storage.set(
+      "takeoff.catalog",
+      JSON.stringify({
+        saved: [],
+        kits: [{ id: "stale", name: "ignored", components: [] }],
+        remoteKits: remote,
+        kitOverrides: [edited],
+        kitRemoved: ["kit-y"],
+      }),
+    );
+    const store = await loadCatalogStore();
+    expect(store.kits).toEqual([edited]);
+  });
+
+  it("reads the company's kits from the catalog response, skipping what is not a kit", () => {
+    const parsed = parseRemoteCatalogResponse({
+      generatedAt: 1,
+      items: [],
+      kits: [
+        {
+          id: "kit-9-000-inverter",
+          name: "9.000 Inverter",
+          mode: "linear",
+          label: '1/4" · 3/8"',
+          components: [
+            {
+              name: 'Cobre de 1/4"',
+              group: "Tubulações",
+              system: "Infra AC",
+              kind: "linear",
+              factor: 1,
+            },
+            { name: "Cabo PP", group: "", system: null, kind: "linear", factor: 2 },
+            { name: "", group: "x", system: null, kind: "linear", factor: 1 },
+            { name: "Bad kind", group: "x", system: null, kind: "weird", factor: 1 },
+          ],
+        },
+        { id: "kit-empty", name: "Sem componentes", mode: "count", label: null, components: [] },
+        {
+          id: "kit-click",
+          name: "Clique",
+          mode: "count",
+          label: null,
+          components: [
+            { name: "Split", group: "Equipamentos", system: null, kind: "count", factor: 1 },
+          ],
+        },
+        "junk",
+      ],
+    });
+    expect(parsed.kits).toEqual([
+      {
+        id: "kit-9-000-inverter",
+        name: "9.000 Inverter",
+        mode: "linear",
+        label: '1/4" · 3/8"',
+        components: [
+          {
+            name: 'Cobre de 1/4"',
+            group: "Tubulações",
+            system: "Infra AC",
+            kind: "linear",
+            factor: 1,
+          },
+          { name: "Cabo PP", group: DEFAULT_GROUP, kind: "linear", factor: 2 },
+        ],
+      },
+      {
+        id: "kit-click",
+        name: "Clique",
+        mode: "count",
+        components: [{ name: "Split", group: "Equipamentos", kind: "count", factor: 1 }],
+      },
+    ]);
+    // a server from before kits: no list, the defaults in use stay as they are
+    expect(parseRemoteCatalogResponse({ generatedAt: 1, items: [] }).kits).toBeNull();
+    expect(parseRemoteCatalogResponse([]).kits).toBeNull();
   });
 });

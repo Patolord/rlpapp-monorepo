@@ -115,9 +115,15 @@ pnpm bench <pdf>       # vector extraction + indexing timings
 | `Ctrl+S` `Ctrl+E` | Save project / export Planilha .xlsx |
 | `Ctrl+Shift+E` | Relatório de recortes: marked-up PDF cutouts per location, with a live preview (reopens as it was left) |
 
-**Kits** (`T`, presets edited in "Presets de kit", saved with the catalog) create one linked
-measurement per material: a split's line set draws copper, insulation and cable in one run; a
-count kit places equipment, brackets and boxes with one click. Each kit has a **Rótulo no
+**Kits** (`T`, presets edited in "Presets de kit") create one linked measurement per material: a
+split's line set draws copper, insulation and cable in one run; a count kit places equipment,
+brackets and boxes with one click. The presets are the **company defaults** published with the
+catalog (edited in the dashboard under App Takeoff → Kits; the bundled factory presets until the
+company publishes any), with the user's own changes on top: a default edited here keeps the local
+version ("modificado aqui"), a default removed here stays hidden, a kit created here is "só aqui";
+"Restaurar padrão" drops a local edit. Every catalog refresh replaces the defaults and keeps the
+overrides, so a kit the user never touched always follows the company's version (the model is in
+`lib/kits.ts`, the shared types and factory presets in `@rlpapp/shared/takeoff/kits`). Each kit has a **Rótulo no
 desenho** shown before the run's quantity (`1/4" · 3/8" · 3.00 m`; beside the symbol for a count
 kit, `VE-01 · 1.200 m³/h`); the line-set presets come labelled with their liquid and gas
 diameters. Only one member of a kit run is labelled, on screen and in the report. Runs remember

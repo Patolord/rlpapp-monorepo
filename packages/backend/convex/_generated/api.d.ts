@@ -76,6 +76,7 @@ import type * as model_procurement_priceHistory from "../model/procurement/price
 import type * as model_procurement_priceSelection from "../model/procurement/priceSelection.js";
 import type * as model_procurement_seedLaborPrices from "../model/procurement/seedLaborPrices.js";
 import type * as model_procurement_takeoffCatalog from "../model/procurement/takeoffCatalog.js";
+import type * as model_procurement_takeoffKits from "../model/procurement/takeoffKits.js";
 import type * as model_procurement_takeoffPromotion from "../model/procurement/takeoffPromotion.js";
 import type * as model_procurement_takeoffProposals from "../model/procurement/takeoffProposals.js";
 import type * as payroll from "../payroll.js";
@@ -92,6 +93,7 @@ import type * as suppliers from "../suppliers.js";
 import type * as systems from "../systems.js";
 import type * as takeoffAuth from "../takeoffAuth.js";
 import type * as takeoffCatalog from "../takeoffCatalog.js";
+import type * as takeoffKits from "../takeoffKits.js";
 import type * as takeoffMaterials from "../takeoffMaterials.js";
 import type * as takeoffs from "../takeoffs.js";
 import type * as technicianActivity from "../technicianActivity.js";
@@ -177,6 +179,7 @@ declare const fullApi: ApiFromModules<{
   "model/procurement/priceSelection": typeof model_procurement_priceSelection;
   "model/procurement/seedLaborPrices": typeof model_procurement_seedLaborPrices;
   "model/procurement/takeoffCatalog": typeof model_procurement_takeoffCatalog;
+  "model/procurement/takeoffKits": typeof model_procurement_takeoffKits;
   "model/procurement/takeoffPromotion": typeof model_procurement_takeoffPromotion;
   "model/procurement/takeoffProposals": typeof model_procurement_takeoffProposals;
   payroll: typeof payroll;
@@ -193,6 +196,7 @@ declare const fullApi: ApiFromModules<{
   systems: typeof systems;
   takeoffAuth: typeof takeoffAuth;
   takeoffCatalog: typeof takeoffCatalog;
+  takeoffKits: typeof takeoffKits;
   takeoffMaterials: typeof takeoffMaterials;
   takeoffs: typeof takeoffs;
   technicianActivity: typeof technicianActivity;

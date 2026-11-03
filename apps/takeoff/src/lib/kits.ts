@@ -1,152 +1,21 @@
-import { foldName } from "./text";
+import { type Kit, kitMode, SEED_KITS, sameKit } from "@rlpapp/shared/takeoff/kits";
 import type { Measurement } from "./types";
-import type { Kind, Unit } from "./units";
-
-/** One material of a kit: measured once, quantified `factor` times the run. */
-export interface KitComponent {
-  /** Catalog name; prices and discipline are pulled from the catalog when the item is created. */
-  name: string;
-  group: string;
-  system?: string;
-  /**
-   * Linear kits: "linear" follows the drawn run; "count" is added once per run (e.g. a drain kit).
-   * Count kits: "count" places `factor` units per click; "linear" adds `factor` of length per click.
-   */
-  kind: Kind;
-  /**
-   * Multiplier on the measured quantity (2 for a cable that runs both ways); in a count kit, the
-   * units (count) or the length in project units (linear) each click adds.
-   */
-  factor: number;
-}
-
-/** A preset ("9.000 Inverter"): one drawn run creates every component at once. */
-export interface Kit {
-  id: string;
-  name: string;
-  /** "linear" is drawn as a run; "count" is placed with one click (default linear). */
-  mode?: "linear" | "count";
-  /**
-   * Prefix of the run's label on the drawing ('1/4" · 3/8"', "VE-01 · 1.200 m³/h").
-   * Undefined = never set (a seed-derived kit takes the seed's on load); "" = cleared, no label.
-   */
-  label?: string;
-  components: KitComponent[];
-}
-
-export const kitMode = (kit: Kit): "linear" | "count" => kit.mode ?? "linear";
-
-const linear = (name: string, group: string, factor = 1, system = "Infra AC"): KitComponent => ({
-  name,
-  group,
-  system,
-  kind: "linear",
-  factor,
-});
-
-/** One click places `qty` of a material (equipment, bracket, box, detector…). */
-const count = (name: string, group: string, qty = 1, system = "AC com Equip"): KitComponent => ({
-  name,
-  group,
-  system,
-  kind: "count",
-  factor: qty,
-});
-
-/** Count presets: everything a single click should place. */
-const COUNT_KITS: Kit[] = [
-  {
-    id: "kit-split-12000-equip",
-    name: "Split Hi Wall 12.000 · equipamento + suportes",
-    mode: "count",
-    components: [
-      count("Split Hi Wall 12.000 Btu/h", "Equipamentos"),
-      count("Suporte da Condensadora - 12.000 BTU/h", "Equipamentos"),
-      count("Suporte da Evaporadora", "Equipamentos"),
-      count("Caixa de espera da Condensadora", "Equipamentos", 1, "Infra AC"),
-      count("Caixa de espera da Evaporadora", "Equipamentos", 1, "Infra AC"),
-    ],
-  },
-  {
-    id: "kit-split-18000-equip",
-    name: "Split Hi Wall 18.000 · equipamento + suportes",
-    mode: "count",
-    components: [
-      count("Split hi Wall 18.000 Btu/h", "Equipamentos"),
-      count("Suporte da Condensadora - 18.000 BTU/h", "Equipamentos"),
-      count("Suporte da Evaporadora", "Equipamentos"),
-      count("Caixa de espera da Condensadora", "Equipamentos", 1, "Infra AC"),
-      count("Caixa de espera da Evaporadora", "Equipamentos", 1, "Infra AC"),
-    ],
-  },
-  {
-    id: "kit-detector-fumaca",
-    name: "Detector de fumaça · com instalação",
-    mode: "count",
-    components: [
-      count("Detector de Fumaça Enderaçável", "Detecção", 1, "Detecção de Incêndio"),
-      count("Mão de obra detectores", "Detecção", 1, "Detecção de Incêndio"),
-    ],
-  },
-];
-
-/** Copper line set of a split: liquid and gas tubes, their insulation and the interconnect cable (both ways). */
-function lineSet(liquid: string, gas: string): KitComponent[] {
-  return [
-    linear(`Cobre de ${liquid}"`, "Tubulações"),
-    linear(`Cobre de ${gas}"`, "Tubulações"),
-    linear(`Isolamento de ${liquid}" - Espessura 09 mm`, "Isolamento"),
-    linear(`Isolamento de ${gas}" - Espessura 09 mm`, "Isolamento"),
-    linear("Cabo PP 5 x 1,5 mm²", "Elétrica", 2),
-  ];
-}
+import type { Unit } from "./units";
 
 /**
- * Copper diameters per capacity (BTU/h) for split systems common in Brazil: [liquid, gas].
- * Reference table supplied by RLP (preliminary; depends on maker, model and run length).
+ * Kit presets. The types and the factory presets are shared with the backend and the dashboard
+ * (`@rlpapp/shared/takeoff/kits`); this module holds what only the app needs: the company
+ * defaults + local overrides model, and the labels kits put on the drawing.
  */
-const TABLE: {
-  btu: string;
-  type: "Inverter" | "Convencional" | "Inverter / Conv.";
-  liquid: string;
-  gas: string;
-}[] = [
-  { btu: "9.000", type: "Inverter / Conv.", liquid: "1/4", gas: "3/8" },
-  { btu: "12.000", type: "Inverter", liquid: "1/4", gas: "3/8" },
-  { btu: "12.000", type: "Convencional", liquid: "1/4", gas: "1/2" },
-  { btu: "18.000", type: "Inverter", liquid: "1/4", gas: "1/2" },
-  { btu: "18.000", type: "Convencional", liquid: "1/4", gas: "5/8" },
-  // the table allows 1/4" or 3/8" liquid for 24.000 inverter; 3/8" is the common choice
-  { btu: "24.000", type: "Inverter", liquid: "3/8", gas: "5/8" },
-  { btu: "24.000", type: "Convencional", liquid: "3/8", gas: "5/8" },
-  { btu: "30.000", type: "Inverter / Conv.", liquid: "3/8", gas: "5/8" },
-  { btu: "36.000", type: "Inverter / Conv.", liquid: "3/8", gas: "3/4" },
-  { btu: "48.000", type: "Inverter / Conv.", liquid: "3/8", gas: "3/4" },
-  { btu: "60.000", type: "Inverter / Conv.", liquid: "3/8", gas: "7/8" },
-];
-
-const slug = (s: string) =>
-  foldName(s)
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-
-/** Starting presets, one per capacity and type; the user edits them in the kits dialog. */
-export const SEED_KITS: Kit[] = [
-  ...TABLE.flatMap((row) => {
-    const types = row.type === "Inverter / Conv." ? ["Inverter", "Convencional"] : [row.type];
-    return types.map((t) => {
-      const name = `${row.btu} ${t}`;
-      return {
-        id: `kit-${slug(name)}`,
-        name,
-        mode: "linear" as const,
-        label: `${row.liquid}" · ${row.gas}"`,
-        components: lineSet(row.liquid, row.gas),
-      };
-    });
-  }),
-  ...COUNT_KITS,
-];
+export {
+  cloneKit,
+  type Kit,
+  type KitComponent,
+  type KitMode,
+  kitMode,
+  SEED_KITS,
+  sameKit,
+} from "@rlpapp/shared/takeoff/kits";
 
 /** Short description of a kit for lists: "Cobre de 1/4" · Cobre de 3/8" · Cabo PP 5 x 1,5 mm² ×2". */
 export function kitSummary(kit: Kit, unit: Unit = "m"): string {
@@ -160,6 +29,84 @@ export function kitSummary(kit: Kit, unit: Unit = "m"): string {
     )
     .join(" · ");
 }
+
+// ---------------------------------------------------------------------------
+// Company defaults and local overrides
+// ---------------------------------------------------------------------------
+//
+// The kits a user sees are the company's defaults (published with the catalog by the dashboard's
+// "App Takeoff" section; the bundled SEED_KITS until the company publishes any) with the user's
+// own changes on top: a default edited here keeps the local version, a default removed here stays
+// hidden, and a kit created here is appended. Refreshing the catalog replaces the defaults and
+// keeps every override, so a team fix reaches everyone who did not touch that kit.
+
+/** The user's changes to the kit list, kept with the catalog on this machine. */
+export interface KitOverrides {
+  /** Local versions by id: an edited default or a kit that exists only here. */
+  kitOverrides: Kit[];
+  /** Ids of defaults the user removed here. */
+  kitRemoved: string[];
+}
+
+/** The company defaults in use: the published ones, else the bundled presets. */
+export const kitDefaults = (remoteKits: readonly Kit[] | null | undefined): readonly Kit[] =>
+  remoteKits && remoteKits.length > 0 ? remoteKits : SEED_KITS;
+
+/**
+ * The kit list the user works with: the defaults in their order, each replaced by its local
+ * version when there is one and dropped when removed locally, then the kits that exist only here.
+ */
+export function effectiveKits(defaults: readonly Kit[], overrides: KitOverrides): Kit[] {
+  const own = new Map(overrides.kitOverrides.map((k) => [k.id, k]));
+  const removed = new Set(overrides.kitRemoved);
+  const out: Kit[] = [];
+  for (const d of defaults) {
+    if (removed.has(d.id)) continue;
+    const local = own.get(d.id);
+    out.push(local ?? d);
+    own.delete(d.id);
+  }
+  for (const k of overrides.kitOverrides) if (own.has(k.id)) out.push(k);
+  return out;
+}
+
+/**
+ * What of an edited list is the user's own: kits that differ from the default of the same id
+ * (or have none), and the defaults missing from the list. A kit put back exactly as its default
+ * stops being an override.
+ */
+export function diffKits(defaults: readonly Kit[], kits: readonly Kit[]): KitOverrides {
+  const byId = new Map(defaults.map((k) => [k.id, k]));
+  const present = new Set(kits.map((k) => k.id));
+  return {
+    kitOverrides: kits.filter((k) => {
+      const d = byId.get(k.id);
+      return !d || !sameKit(d, k);
+    }),
+    kitRemoved: defaults.filter((d) => !present.has(d.id)).map((d) => d.id),
+  };
+}
+
+/** Where a kit in the user's list comes from, for the kits dialog. */
+export type KitOrigin = "default" | "modified" | "local";
+
+export function kitOrigin(defaults: readonly Kit[], kit: Kit): KitOrigin {
+  const d = defaults.find((k) => k.id === kit.id);
+  if (!d) return "local";
+  return sameKit(d, kit) ? "default" : "modified";
+}
+
+/**
+ * The saved list of versions before overrides existed (the defaults cloned into `kits` and
+ * edited in place), read as overrides of the bundled presets: the same kits come out of
+ * effectiveKits, and from now on a changed default reaches the machine.
+ */
+export const overridesFromLegacyKits = (kits: readonly Kit[]): KitOverrides =>
+  diffKits(SEED_KITS, kits);
+
+// ---------------------------------------------------------------------------
+// Labels on the drawing
+// ---------------------------------------------------------------------------
 
 /**
  * Kits saved before kits had a drawing label: one that came from a seed (same id) and has no

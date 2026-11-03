@@ -122,6 +122,27 @@ export const takeoffItemStatus = v.union(
 /** Origem de um takeoff criado fora do app web. */
 export const takeoffSource = v.literal("desktop");
 
+// Kits (presets) do RLP Takeoff: um trecho desenhado (ou um clique) mede
+// vários materiais de uma vez. Mesma forma de `Kit` em
+// @rlpapp/shared/takeoff/kits, que o app desktop consome.
+export const takeoffKitMode = v.union(v.literal("linear"), v.literal("count"));
+export const takeoffKitComponentKind = v.union(
+  v.literal("count"),
+  v.literal("linear"),
+  v.literal("area")
+);
+export const takeoffKitComponent = v.object({
+  /** Nome no catálogo do app (produto da empresa ou material das planilhas). */
+  name: v.string(),
+  /** Seção do orçamento (Tubulações, Equipamentos, ...). */
+  group: v.string(),
+  /** Disciplina (Infra AC, Detecção de Incêndio, ...). */
+  system: v.optional(v.string()),
+  kind: takeoffKitComponentKind,
+  /** Multiplicador da medida (kit linear) ou quantidade por clique (kit de contagem). */
+  factor: v.number(),
+});
+
 /** Resumo de uma aba da planilha orçamentária publicada pelo desktop. */
 export const takeoffBudgetSheet = v.object({
   name: v.string(),
@@ -910,6 +931,28 @@ export default defineSchema({
     .index("by_material", ["materialId"])
     .index("by_supplier_material", ["supplierId", "materialId"])
     .index("by_supplier_code", ["supplierId", "supplierCode"]),
+
+  // Padrões da empresa dos kits do RLP Takeoff, editados em App Takeoff →
+  // Kits no dashboard e publicados com o catálogo (`takeoffCatalog`). `key` é
+  // o id que o app usa (os trechos salvos num projeto o guardam); os kits de
+  // fábrica do app têm chaves fixas (kit-9-000-inverter) para que a cópia
+  // local de cada usuário continue pareada com a da empresa. Remover
+  // desativa, nunca apaga: a chave fica reservada.
+  takeoffKits: defineTable({
+    key: v.string(),
+    name: v.string(),
+    mode: takeoffKitMode,
+    /** Prefixo do rótulo no desenho ('1/4" · 3/8"'); ausente = sem rótulo. */
+    label: v.optional(v.string()),
+    components: v.array(takeoffKitComponent),
+    sortOrder: v.number(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+  })
+    .index("by_key", ["key"])
+    .index("by_active_sortOrder", ["active", "sortOrder"]),
 
   takeoffs: defineTable({
     projectId: v.optional(v.id("projects")),

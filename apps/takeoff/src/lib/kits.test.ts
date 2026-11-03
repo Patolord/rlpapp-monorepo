@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { SEED } from "./catalog";
 import {
+  diffKits,
+  effectiveKits,
   type Kit,
+  kitDefaults,
+  kitOrigin,
   kitSummary,
   migrateKitLabels,
+  overridesFromLegacyKits,
   refreshKitLabels,
   runLabel,
   SEED_KITS,
@@ -152,5 +157,77 @@ describe("kit labels", () => {
     expect("kitLabel" in cleared[0]).toBe(false);
     // a deleted kit keeps the last saved text
     expect(refreshKitLabels(out, after, [after[1]])).toBe(out);
+  });
+});
+
+describe("company defaults and local overrides", () => {
+  const base = (id: string, name: string, label?: string): Kit => ({
+    id,
+    name,
+    mode: "linear",
+    ...(label !== undefined ? { label } : {}),
+    components: [{ name: "Cobre", group: "Tubulações", kind: "linear", factor: 1 }],
+  });
+  const defaults = [base("a", "A", "1/4"), base("b", "B"), base("c", "C")];
+
+  it("falls back to the bundled presets until the company publishes kits", () => {
+    expect(kitDefaults(null)).toBe(SEED_KITS);
+    expect(kitDefaults([])).toBe(SEED_KITS);
+    expect(kitDefaults(defaults)).toBe(defaults);
+  });
+
+  it("applies edits, removals and local kits on top of the defaults, in the defaults' order", () => {
+    const mine = base("mine", "Meu kit");
+    const editedA = { ...defaults[0], label: "3/8" };
+    const kits = effectiveKits(defaults, { kitOverrides: [mine, editedA], kitRemoved: ["b"] });
+    expect(kits.map((k) => k.id)).toEqual(["a", "c", "mine"]);
+    expect(kits[0]).toBe(editedA);
+    expect(kits[1]).toBe(defaults[2]);
+  });
+
+  it("keeps as overrides only what differs from the defaults", () => {
+    const edited = {
+      ...defaults[1],
+      components: [
+        ...defaults[1].components,
+        { name: "Cabo", group: "Elétrica", kind: "linear" as const, factor: 2 },
+      ],
+    };
+    const mine = base("mine", "Meu kit");
+    const spelledOut = { ...defaults[2], name: " C ", label: "" };
+    const diff = diffKits(defaults, [defaults[0], edited, spelledOut, mine]);
+    expect(diff.kitOverrides.map((k) => k.id)).toEqual(["b", "mine"]);
+    expect(diff.kitRemoved).toEqual([]);
+    expect(kitOrigin(defaults, defaults[0])).toBe("default");
+    expect(kitOrigin(defaults, spelledOut)).toBe("default");
+    expect(kitOrigin(defaults, edited)).toBe("modified");
+    expect(kitOrigin(defaults, mine)).toBe("local");
+  });
+
+  it("a default missing from the list is a removal, and a new default reaches the user", () => {
+    const diff = diffKits(defaults, [defaults[0]]);
+    expect(diff.kitRemoved).toEqual(["b", "c"]);
+    const newer = [...defaults, base("d", "D")];
+    expect(effectiveKits(newer, diff).map((k) => k.id)).toEqual(["a", "d"]);
+  });
+
+  it("a default edited locally survives a change of the default; one put back follows it again", () => {
+    const edited = { ...defaults[0], label: "3/8" };
+    const diff = diffKits(defaults, [edited, defaults[1], defaults[2]]);
+    const newer = [base("a", "A renamed", "1/2"), ...defaults.slice(1)];
+    expect(effectiveKits(newer, diff)[0]).toBe(edited);
+    const back = diffKits(newer, effectiveKits(newer, { kitOverrides: [], kitRemoved: [] }));
+    expect(back).toEqual({ kitOverrides: [], kitRemoved: [] });
+  });
+
+  it("reads the list saved before overrides existed as overrides of the bundled presets", () => {
+    const [a, b, ...rest] = SEED_KITS;
+    const editedA = { ...a, label: "x" };
+    const mine = base("mine", "Meu kit");
+    const legacy = [editedA, ...rest, mine];
+    const over = overridesFromLegacyKits(legacy);
+    expect(over.kitOverrides.map((k) => k.id)).toEqual([a.id, "mine"]);
+    expect(over.kitRemoved).toEqual([b.id]);
+    expect(effectiveKits(SEED_KITS, over)).toEqual(legacy);
   });
 });

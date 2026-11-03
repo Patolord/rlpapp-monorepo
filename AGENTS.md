@@ -21,8 +21,10 @@ Glossário do domínio: [`CONTEXT.md`](CONTEXT.md).
 
 Direção em andamento: lógica usada pelo dashboard e pelo app desktop migra para `packages/shared`
 (o cálculo de dutos já mora em `packages/shared/src/engenharia/ducts.ts` e é o único; o dashboard
-não tem mais calculadora própria), e o app desktop passa a se integrar mais ao backend (login,
-publicação de orçamentos). Confira o código atual antes de supor onde algo mora.
+não tem mais calculadora própria; os tipos e os kits de fábrica do takeoff estão em
+`packages/shared/src/takeoff/kits.ts`), e o app desktop passa a se integrar mais ao backend
+(login, publicação de orçamentos, kits padrão da empresa editados em App Takeoff no dashboard).
+Confira o código atual antes de supor onde algo mora.
 
 ## Comandos
 

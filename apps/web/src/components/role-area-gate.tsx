@@ -3,17 +3,19 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useEffect } from "react";
 
-// "backoffice" e "configuracoes" não são departamentos de usuário:
+// "backoffice", "configuracoes" e "takeoff" não são departamentos de usuário:
 // backoffice é a área de cadastros compartilhados (clientes, empreiteiros),
 // liberada para quem tem engenharia; configuracoes é a administração
-// (usuários, política de privacidade), liberada para engenharia e compras.
+// (usuários, política de privacidade) e takeoff é a configuração do app
+// desktop RLP Takeoff (kits), ambas liberadas para engenharia e compras.
 export type DepartmentArea =
   | "rh"
   | "engenharia"
   | "compras"
   | "estoque"
   | "backoffice"
-  | "configuracoes";
+  | "configuracoes"
+  | "takeoff";
 
 // Mesma regra da navegação: diretores acessam tudo; engenheiro só engenharia;
 // demais usuários só o próprio departamento (default "engenharia").
@@ -32,8 +34,8 @@ function resolveAllowedArea(user: {
 //   continuam protegidas por permissões específicas no backend.
 // - Backoffice (clientes, empreiteiros) segue o acesso de engenharia, que é a
 //   permissão exigida pelo backend (engenharia.read).
-// - Configurações segue a mesma regra do grupo na sidebar (engenharia ou
-//   compras); a página de usuários ainda exige admin para editar.
+// - Configurações e App Takeoff seguem a mesma regra do grupo na sidebar
+//   (engenharia ou compras); a página de usuários ainda exige admin para editar.
 export function RoleAreaGate({
   area,
   children,
@@ -66,7 +68,7 @@ export function RoleAreaGate({
     !(area === "estoque" && hasInventoryAccess) &&
     !(area === "backoffice" && hasEngineeringAccess) &&
     !(
-      area === "configuracoes" &&
+      (area === "configuracoes" || area === "takeoff") &&
       (hasEngineeringAccess || hasPurchasingAccess)
     ) &&
     resolveAllowedArea(currentUser) !== area;

@@ -21,6 +21,7 @@ import {
   Banknote,
   Bot,
   Clock,
+  Layers,
   type LucideIcon,
 } from "lucide-react";
 
@@ -52,8 +53,9 @@ interface NavGroup {
 }
 
 // Um grupo por departamento, mais os cadastros compartilhados (Backoffice),
-// a administração (Configurações) e a área pessoal. Códigos QR são
-// gerenciados dentro de cada obra, por isso não aparecem aqui.
+// a configuração do app desktop (App Takeoff), a administração
+// (Configurações) e a área pessoal. Códigos QR são gerenciados dentro de cada
+// obra, por isso não aparecem aqui.
 function getNavGroups(): NavGroup[] {
   return [
     {
@@ -100,6 +102,14 @@ function getNavGroups(): NavGroup[] {
         { to: "/backoffice/clientes", label: "Clientes", icon: Users },
         { to: "/backoffice/empreiteiros", label: "Empreiteiros", icon: HardHat },
       ],
+    },
+    {
+      // O que se edita aqui reflete no RLP Takeoff (desktop) de todos os
+      // usuários na próxima atualização do catálogo; fica separado de Compras
+      // e Engenharia justamente para deixar isso claro.
+      key: "takeoff",
+      label: "App Takeoff",
+      items: [{ to: "/takeoff/kits", label: "Kits (presets)", icon: Layers }],
     },
     {
       key: "configuracoes",
@@ -196,7 +206,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         // Cadastros de clientes/empreiteiros são funções de engenharia no
         // backend (engenharia.read); o grupo segue a mesma regra.
         if (group.key === "backoffice") return hasEngineeringAccess;
-        if (group.key === "configuracoes") {
+        if (group.key === "configuracoes" || group.key === "takeoff") {
           return hasEngineeringAccess || hasPurchasingAccess;
         }
         // Tokens de agente são pessoais: todo usuário interno pode criar os seus.

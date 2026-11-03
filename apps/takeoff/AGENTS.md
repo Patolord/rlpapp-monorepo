@@ -69,7 +69,9 @@ Full tree in the README's "Layout" section. Where to start:
 - `src/lib/types.ts`: the project model and file-version migrations.
 - `src/lib/`: geometry, units, quote math (`quantities.ts`), canvas overlay, files and session;
   `catalog*` (company catalog and proposals), `ducts*` (NBR 16401 duct take-off), `vrf*`
-  (VRF take-off), `kits.ts`, `weights.ts`, `markingShapes.ts` (shared by canvas and report).
+  (VRF take-off), `kits.ts` (kit presets: company defaults from the catalog + local overrides;
+  types and factory presets in `packages/shared/src/takeoff/kits.ts`), `weights.ts`,
+  `markingShapes.ts` (shared by canvas and report).
 - `src/lib/report/`: cutout report PDF (pure planning in `plan.ts`/`pages.ts`, writing in
   `write.ts` with pdf-lib); preview in `src/lib/reportPreview.ts`.
 - `src/lib/pdf/`: page rendering, vector snap index (Web Worker), magic area, text, symbol search.

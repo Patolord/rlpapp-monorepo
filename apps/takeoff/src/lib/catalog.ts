@@ -7,7 +7,14 @@ import {
   httpRequest,
   type QueuedProposal,
 } from "./catalogRemote";
-import { type Kit, migrateKitLabels, SEED_KITS } from "./kits";
+import {
+  effectiveKits,
+  type Kit,
+  type KitOverrides,
+  kitDefaults,
+  migrateKitLabels,
+  overridesFromLegacyKits,
+} from "./kits";
 import { isTauri } from "./platform";
 import { foldName } from "./text";
 import { DEFAULT_GROUP } from "./types";
@@ -74,8 +81,18 @@ export interface CatalogStore {
   redirects: Record<string, string>;
   /** Material proposals not yet accepted by the server (retried on every refresh). */
   outbox: QueuedProposal[];
-  /** Kit presets (one drawn run creates several items). */
+  /**
+   * Kit presets in use (one drawn run creates several items): the company defaults with the
+   * local overrides applied (see lib/kits.ts). Derived from the three fields below and kept
+   * here for the components; recomputed on load and whenever either side changes.
+   */
   kits: Kit[];
+  /** Kit defaults published by the company app with the catalog; null until received. */
+  remoteKits: Kit[] | null;
+  /** The user's own kit versions (an edited default or a kit that exists only here). */
+  kitOverrides: Kit[];
+  /** Ids of company defaults the user removed here. */
+  kitRemoved: string[];
   /** Materials priced by weight (copper tubes…): editable table, seeded with the supplier's. */
   weights: WeightRow[];
   /** Sheet weight (kg/m²) of each duct gauge, editable; seeded with the supplier's (Salviaco). */
@@ -169,7 +186,10 @@ export const emptyCatalogStore = (): CatalogStore => ({
   remoteGeneratedAt: null,
   redirects: {},
   outbox: [],
-  kits: SEED_KITS.map((k) => ({ ...k, components: k.components.map((c) => ({ ...c })) })),
+  kits: effectiveKits(kitDefaults(null), { kitOverrides: [], kitRemoved: [] }),
+  remoteKits: null,
+  kitOverrides: [],
+  kitRemoved: [],
   weights: cloneWeights(SEED_WEIGHTS),
   gaugeWeights: defaultGaugeWeights(),
   basePrices: {},
@@ -265,6 +285,64 @@ export interface RemoteCatalog {
   redirects: Record<string, string>;
   /** Server time the catalog was generated at (ms epoch), when the response says. */
   generatedAt: number | null;
+  /** The company's kit defaults; null when the response has none (a server before kits). */
+  kits: Kit[] | null;
+}
+
+/** The kits the user works with after the company defaults or the overrides changed. */
+export const withEffectiveKits = (
+  store: CatalogStore,
+  patch: Partial<Pick<CatalogStore, "remoteKits"> & KitOverrides> = {},
+): CatalogStore => {
+  const next = { ...store, ...patch };
+  return { ...next, kits: effectiveKits(kitDefaults(next.remoteKits), next) };
+};
+
+const KIT_KINDS = new Set(["count", "linear", "area"]);
+
+/**
+ * The `kits` list of the company response, in the app's shape; entries that are not kits are
+ * skipped. Null when the response carries no list (a server from before kit defaults).
+ */
+export function parseRemoteKits(json: unknown): Kit[] | null {
+  if (!Array.isArray(json)) return null;
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const kits: Kit[] = [];
+  for (const raw of json) {
+    if (!raw || typeof raw !== "object") continue;
+    const o = raw as Record<string, unknown>;
+    const id = str(o.id);
+    const name = str(o.name);
+    if (!id || !name || !Array.isArray(o.components)) continue;
+    const components = o.components.flatMap((c) => {
+      if (!c || typeof c !== "object") return [];
+      const comp = c as Record<string, unknown>;
+      const cname = str(comp.name);
+      const kind = str(comp.kind);
+      if (!cname || !KIT_KINDS.has(kind)) return [];
+      const factor = typeof comp.factor === "number" && comp.factor > 0 ? comp.factor : 1;
+      const system = str(comp.system);
+      return [
+        {
+          name: cname,
+          group: str(comp.group) || DEFAULT_GROUP,
+          ...(system ? { system } : {}),
+          kind: kind as Kit["components"][number]["kind"],
+          factor,
+        },
+      ];
+    });
+    if (components.length === 0) continue;
+    const label = typeof o.label === "string" ? o.label.trim() : undefined;
+    kits.push({
+      id,
+      name,
+      mode: o.mode === "count" ? "count" : "linear",
+      ...(label !== undefined ? { label } : {}),
+      components,
+    });
+  }
+  return kits;
 }
 
 /**
@@ -357,7 +435,8 @@ export function parseRemoteCatalogResponse(json: unknown): RemoteCatalog {
     });
   }
   const generatedAt = Array.isArray(root) ? undefined : ms(root.generatedAt);
-  return { entries, redirects, generatedAt: generatedAt ?? null };
+  const kits = Array.isArray(root) ? null : parseRemoteKits(root.kits);
+  return { entries, redirects, generatedAt: generatedAt ?? null, kits };
 }
 
 const LS_KEY = "takeoff.catalog";
@@ -382,8 +461,13 @@ export async function loadCatalogStore(): Promise<CatalogStore> {
     const store = { ...emptyCatalogStore(), ...rest };
     // a catalog fetched by an earlier version named entries after the family only
     store.remote = store.remote.map(upgradeRemoteEntry);
-    // kits saved before kits had a drawing label take their seed's
-    store.kits = migrateKitLabels(store.kits);
+    // before company defaults, `kits` was the whole list (the presets cloned and edited in
+    // place): read it as overrides of the bundled presets. Kits saved before kits had a drawing
+    // label take their seed's first.
+    if (rest.kitOverrides === undefined && Array.isArray(rest.kits)) {
+      Object.assign(store, overridesFromLegacyKits(migrateKitLabels(rest.kits)));
+    }
+    store.kits = effectiveKits(kitDefaults(store.remoteKits), store);
     return store;
   } catch {
     return emptyCatalogStore();

@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 44 módulos, 317 funções públicas.
+// 45 módulos, 321 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -39,14 +39,15 @@ import * as m32 from "../suppliers";
 import * as m33 from "../systems";
 import * as m34 from "../takeoffAuth";
 import * as m35 from "../takeoffCatalog";
-import * as m36 from "../takeoffMaterials";
-import * as m37 from "../takeoffs";
-import * as m38 from "../technicianActivity";
-import * as m39 from "../technicianPortal";
-import * as m40 from "../timeClock";
-import * as m41 from "../timeClockPunch";
-import * as m42 from "../towers";
-import * as m43 from "../users";
+import * as m36 from "../takeoffKits";
+import * as m37 from "../takeoffMaterials";
+import * as m38 from "../takeoffs";
+import * as m39 from "../technicianActivity";
+import * as m40 from "../technicianPortal";
+import * as m41 from "../timeClock";
+import * as m42 from "../timeClockPunch";
+import * as m43 from "../towers";
+import * as m44 from "../users";
 
 export type AccessHint =
   | { kind: "public" }
@@ -93,14 +94,15 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   systems: m33,
   takeoffAuth: m34,
   takeoffCatalog: m35,
-  takeoffMaterials: m36,
-  takeoffs: m37,
-  technicianActivity: m38,
-  technicianPortal: m39,
-  timeClock: m40,
-  timeClockPunch: m41,
-  towers: m42,
-  users: m43,
+  takeoffKits: m36,
+  takeoffMaterials: m37,
+  takeoffs: m38,
+  technicianActivity: m39,
+  technicianPortal: m40,
+  timeClock: m41,
+  timeClockPunch: m42,
+  towers: m43,
+  users: m44,
 };
 
 export const ACCESS_HINTS: Record<string, AccessHint> = {
@@ -367,6 +369,10 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "systems:updateSystemDetails": { kind: "permission", permission: "engenharia.write" },
   "takeoffAuth:createCode": { kind: "public" },
   "takeoffCatalog:current": { kind: "permission", permission: "suprimentos.read" },
+  "takeoffKits:list": { kind: "permission", permission: "suprimentos.read" },
+  "takeoffKits:remove": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
+  "takeoffKits:save": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
+  "takeoffKits:seedDefaults": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
   "takeoffMaterials:proposeAsUser": { kind: "anyPermission", permissions: ["engenharia.write","compras.write"] },
   "takeoffs:addItem": { kind: "permission", permission: "engenharia.write" },
   "takeoffs:applySuggestedPrice": { kind: "permission", permission: "engenharia.write" },
