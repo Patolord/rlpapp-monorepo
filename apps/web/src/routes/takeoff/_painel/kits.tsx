@@ -1,10 +1,9 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { SEED_KITS } from "@rlpapp/shared/takeoff/kits";
 import { createFileRoute } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
 import { Copy, Download, Monitor, Pencil, Plus, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
@@ -51,14 +50,11 @@ function KitsPage() {
   const kits = useQuery(api.takeoffKits.list, {});
   const remove = useMutation(api.takeoffKits.remove);
   const seedDefaults = useMutation(api.takeoffKits.seedDefaults);
+  // what "Carregar kits de fábrica" would add: a removed factory kit keeps its key and does not
+  // come back, so the count comes from the backend, not from the active list
+  const missingFactory = useQuery(api.takeoffKits.missingFactory, {}) ?? 0;
   const [draft, setDraft] = useState<KitDraft | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const missingFactory = useMemo(() => {
-    if (!kits) return 0;
-    const keys = new Set(kits.map((k) => k.key));
-    return SEED_KITS.filter((k) => !keys.has(k.id)).length;
-  }, [kits]);
 
   const edit = (kit: KitRow) =>
     setDraft({

@@ -216,6 +216,15 @@ export async function insertTakeoffKit(
   });
 }
 
+/** The factory presets no document (active or removed) carries: what seeding would add. */
+export async function missingFactoryTakeoffKits(ctx: QueryCtx): Promise<number> {
+  let missing = 0;
+  for (const seed of SEED_KITS) {
+    if (!(await findByKey(ctx, seed.id))) missing++;
+  }
+  return missing;
+}
+
 /**
  * Add the app's factory presets that the company does not have yet (by key);
  * an existing one, active or removed, is left alone so a team's edits and

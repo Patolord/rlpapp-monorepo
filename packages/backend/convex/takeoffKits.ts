@@ -10,6 +10,7 @@ import {
   isFactoryKey,
   listActiveTakeoffKits,
   listPublishedTakeoffKits,
+  missingFactoryTakeoffKits,
   sanitizeTakeoffKitInput,
   seedFactoryTakeoffKits,
   takeoffKitInputValidator,
@@ -134,6 +135,16 @@ export const remove = engineeringOrPurchasingMutation({
     });
     return null;
   },
+});
+
+/**
+ * Quantos kits de fábrica `seedDefaults` ainda acrescentaria: os cuja chave
+ * não existe, nem ativa nem removida (um removido fica reservado).
+ */
+export const missingFactory = engineeringOrPurchasingQuery({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => await missingFactoryTakeoffKits(ctx),
 });
 
 /**

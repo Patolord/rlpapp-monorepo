@@ -14,6 +14,7 @@ import {
   kitDefaults,
   migrateKitLabels,
   overridesFromLegacyKits,
+  sameKit,
 } from "./kits";
 import { isTauri } from "./platform";
 import { foldName } from "./text";
@@ -289,13 +290,19 @@ export interface RemoteCatalog {
   kits: Kit[] | null;
 }
 
-/** The kits the user works with after the company defaults or the overrides changed. */
+/**
+ * The kits the user works with after the company defaults or the overrides changed. The list
+ * keeps its identity when nothing in it changed (a refresh that brought the same defaults), so
+ * what watches it (the open kits dialog) is not reset for nothing.
+ */
 export const withEffectiveKits = (
   store: CatalogStore,
   patch: Partial<Pick<CatalogStore, "remoteKits"> & KitOverrides> = {},
 ): CatalogStore => {
   const next = { ...store, ...patch };
-  return { ...next, kits: effectiveKits(kitDefaults(next.remoteKits), next) };
+  const kits = effectiveKits(kitDefaults(next.remoteKits), next);
+  const same = kits.length === store.kits.length && kits.every((k, i) => sameKit(k, store.kits[i]));
+  return { ...next, kits: same ? store.kits : kits };
 };
 
 const KIT_KINDS = new Set(["count", "linear", "area"]);

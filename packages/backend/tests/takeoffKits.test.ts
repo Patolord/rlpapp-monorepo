@@ -124,7 +124,9 @@ describe("takeoffKits", () => {
 
   test("seedDefaults loads the factory presets once and never overwrites an edit", async () => {
     const { engineering } = await seedUsers();
+    expect(await engineering.query(api.takeoffKits.missingFactory, {})).toBe(SEED_KITS.length);
     expect(await engineering.mutation(api.takeoffKits.seedDefaults, {})).toBe(SEED_KITS.length);
+    expect(await engineering.query(api.takeoffKits.missingFactory, {})).toBe(0);
     const rows = await engineering.query(api.takeoffKits.list, {});
     expect(rows.map((k) => k.key)).toEqual(SEED_KITS.map((k) => k.id));
     expect(rows.every((k) => k.factory)).toBe(true);
@@ -138,6 +140,8 @@ describe("takeoffKits", () => {
       components: inverter.components,
     });
     await engineering.mutation(api.takeoffKits.remove, { id: rows[1]._id });
+    // a removed factory kit keeps its key: nothing left to add, and the page knows it
+    expect(await engineering.query(api.takeoffKits.missingFactory, {})).toBe(0);
     expect(await engineering.mutation(api.takeoffKits.seedDefaults, {})).toBe(0);
     const after = await engineering.query(api.takeoffKits.list, {});
     expect(after).toHaveLength(SEED_KITS.length - 1);

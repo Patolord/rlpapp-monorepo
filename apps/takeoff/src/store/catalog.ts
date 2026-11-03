@@ -285,7 +285,16 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
 
     saveKits: async (kits) => {
       const before = get().catalog;
-      const catalog = withEffectiveKits(before, diffKits(kitDefaults(before.remoteKits), kits));
+      const defaults = kitDefaults(before.remoteKits);
+      const diff = diffKits(defaults, kits);
+      // a default removed here stays hidden even after it leaves the company's list (the
+      // company may publish it again later): its id is kept until the user brings it back
+      const current = new Set(defaults.map((k) => k.id));
+      const kitRemoved = [
+        ...diff.kitRemoved,
+        ...before.kitRemoved.filter((id) => !current.has(id)),
+      ];
+      const catalog = withEffectiveKits(before, { ...diff, kitRemoved });
       const own = catalog.kitOverrides.length + catalog.kitRemoved.length;
       set({
         catalog,

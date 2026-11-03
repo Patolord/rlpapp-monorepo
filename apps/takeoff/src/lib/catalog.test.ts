@@ -8,12 +8,14 @@ import {
   mergeCatalog,
   normalizeDiscipline,
   parseRemoteCatalogResponse,
+  parseRemoteKits,
   productName,
   SEED,
   searchCatalog,
   seedLaborKey,
   unitKey,
   upgradeRemoteEntry,
+  withEffectiveKits,
   withSeedLabor,
 } from "./catalog";
 import { SEED_KITS } from "./kits";
@@ -439,6 +441,29 @@ describe("loading the saved catalog", () => {
     );
     const store = await loadCatalogStore();
     expect(store.kits).toEqual([edited]);
+  });
+
+  it("keeps the kit list's identity when a refresh brings the same defaults", async () => {
+    const remote = [
+      {
+        id: "kit-x",
+        name: "X",
+        mode: "linear",
+        components: [{ name: "Cobre", group: "T", kind: "linear", factor: 1 }],
+      },
+    ];
+    storage.set(
+      "takeoff.catalog",
+      JSON.stringify({ saved: [], remoteKits: remote, kitOverrides: [], kitRemoved: [] }),
+    );
+    const store = await loadCatalogStore();
+    const again = withEffectiveKits(store, { remoteKits: parseRemoteKits(remote) });
+    expect(again.kits).toBe(store.kits);
+    const changed = withEffectiveKits(store, {
+      remoteKits: parseRemoteKits([{ ...remote[0], label: "1/4" }]),
+    });
+    expect(changed.kits).not.toBe(store.kits);
+    expect(changed.kits[0].label).toBe("1/4");
   });
 
   it("reads the company's kits from the catalog response, skipping what is not a kit", () => {
