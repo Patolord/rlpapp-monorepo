@@ -14,6 +14,7 @@ import {
   Home,
 } from "lucide-react";
 import { AuthShell } from "@/components/auth-shell";
+import { OBRAS_LIST_PATH, obraLinkSlug } from "@/lib/engenharia/obra-paths";
 
 export const Route = createFileRoute("/engenharia/qr/$token")({
   component: QrDetailPage,
@@ -59,9 +60,9 @@ function QrDetailContent() {
               <Home />
               Voltar à tela inicial
             </Button>
-            <Button variant="outline" render={<Link to="/engenharia" />}>
+            <Button variant="outline" render={<Link to={OBRAS_LIST_PATH} />}>
               <ArrowLeft />
-              Voltar
+              Voltar às obras
             </Button>
           </div>
         </div>
@@ -69,15 +70,31 @@ function QrDetailContent() {
     );
   }
 
-  const { qrCode, equipment } = data;
+  const { qrCode, equipment, project } = data;
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
       <div className="mb-4">
-        <Button variant="ghost" size="sm" render={<Link to="/engenharia" />}>
-          <ArrowLeft />
-          Voltar para códigos QR
-        </Button>
+        {project ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            render={
+              <Link
+                to="/engenharia/obras/$obraSlug/qr-codes"
+                params={{ obraSlug: obraLinkSlug({ slug: project.projectSlug, _id: project.projectId }) }}
+              />
+            }
+          >
+            <ArrowLeft />
+            Voltar para QR codes de {project.projectName}
+          </Button>
+        ) : (
+          <Button variant="ghost" size="sm" render={<Link to={OBRAS_LIST_PATH} />}>
+            <ArrowLeft />
+            Voltar às obras
+          </Button>
+        )}
       </div>
 
       <Card className="mb-4">

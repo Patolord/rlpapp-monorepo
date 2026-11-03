@@ -1,4 +1,3 @@
-import { paginationOptsValidator } from "convex/server";
 import {
   internalMutation,
   internalQuery,
@@ -109,14 +108,6 @@ export async function getBatchDestination(
     archived: isProjectArchived(project),
   };
 }
-const paginatedQrCodesWithEquipmentValidator = v.object({
-  page: v.array(qrCodeWithEquipmentValidator),
-  isDone: v.boolean(),
-  continueCursor: v.string(),
-  pageStatus: v.optional(v.union(v.string(), v.null())),
-  splitCursor: v.optional(v.union(v.string(), v.null())),
-});
-
 export const getByToken = query({
   args: { token: v.string() },
   returns: v.union(
@@ -175,52 +166,6 @@ export const getByToken = query({
   },
 });
 
-export const list = staffQuery({
-  args: {},
-  returns: v.array(qrCodeValidator),
-  handler: async (ctx) => {
-    return await ctx.db.query("qrCodes").order("desc").collect();
-  },
-});
-
-export const listWithEquipment = staffQuery({
-  args: {
-    filter: v.optional(
-      v.union(
-        v.literal("linked"),
-        v.literal("free"),
-        v.literal("all"),
-        v.literal("latest_batch")
-      )
-    ),
-  },
-  returns: v.array(qrCodeWithEquipmentValidator),
-  handler: async (ctx, args) => {
-    let qrCodes = await ctx.db.query("qrCodes").order("desc").collect();
-
-    const filterMode = args.filter ?? "all";
-    if (filterMode === "linked") {
-      qrCodes = qrCodes.filter((q) => q.equipmentId);
-    } else if (filterMode === "free") {
-      qrCodes = qrCodes.filter((q) => !q.equipmentId);
-    } else if (filterMode === "latest_batch") {
-      const latestBatch = qrCodes.find((q) => q.batchId)?.batchId;
-      if (latestBatch) {
-        qrCodes = qrCodes.filter((q) => q.batchId === latestBatch);
-      } else {
-        qrCodes = [];
-      }
-    }
-
-    return Promise.all(
-      qrCodes.map(async (qr) => ({
-        ...qr,
-        equipment: qr.equipmentId ? await ctx.db.get("equipment", qr.equipmentId) : null,
-      }))
-    );
-  },
-});
-
 export const stats = staffQuery({
   args: {},
   returns: v.object({
@@ -240,45 +185,6 @@ export const stats = staffQuery({
       free: qrCodes.length - linked,
       capped: qrCodes.length === maxRows,
     };
-  },
-});
-
-export const listByBatch = staffQuery({
-  args: {
-    batchId: v.string(),
-    paginationOpts: paginationOptsValidator,
-  },
-  returns: paginatedQrCodesWithEquipmentValidator,
-  handler: async (ctx, args) => {
-    const results = await ctx.db
-      .query("qrCodes")
-      .withIndex("by_batchId", (q) => q.eq("batchId", args.batchId))
-      .order("desc")
-      .paginate(args.paginationOpts);
-
-    return {
-      ...results,
-      page: await Promise.all(
-        results.page.map(async (qr) => ({
-          ...qr,
-          equipment: qr.equipmentId ? await ctx.db.get("equipment", qr.equipmentId) : null,
-        }))
-      ),
-    };
-  },
-});
-
-export const getBatchTokens = staffQuery({
-  args: { batchId: v.string() },
-  returns: v.array(v.string()),
-  handler: async (ctx, args) => {
-    const qrCodes = await ctx.db
-      .query("qrCodes")
-      .withIndex("by_batchId", (q) => q.eq("batchId", args.batchId))
-      .order("desc")
-      .take(1000);
-
-    return qrCodes.map((qr) => qr.token);
   },
 });
 
@@ -535,6 +441,8 @@ export const batchCreate = staffMutation({
   },
 });
 
+// Lotes recentes de toda a base (todas as obras). Exposto ao MCP
+// (`list_qr_batches`); no dashboard os lotes são vistos por obra.
 export const listBatches = staffQuery({
   args: {
     limit: v.optional(v.number()),
@@ -1390,7 +1298,9 @@ const projectQrRowValidator = v.object({
   _id: v.id("qrCodes"),
   token: v.string(),
   qrStatus: qrCodeStatus,
+  batchId: v.union(v.string(), v.null()),
   batchName: v.union(v.string(), v.null()),
+  createdAt: v.number(),
   equipmentId: v.union(v.id("equipment"), v.null()),
   plannedItemId: v.union(v.id("projectEquipment"), v.null()),
   // Texto livre informado pelo técnico no cadastro em campo; é o único nome
@@ -1456,7 +1366,9 @@ export const listByProject = staffQuery({
           _id: qr._id,
           token: qr.token,
           qrStatus: qr.status,
+          batchId: qr.batchId ?? null,
           batchName: qr.batchName ?? null,
+          createdAt: qr.createdAt,
           equipmentId: qr.equipmentId ?? null,
           plannedItemId: planned?._id ?? null,
           description: equipment?.description ?? null,
