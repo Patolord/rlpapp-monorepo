@@ -4,6 +4,7 @@ import {
   ROLE_DESCRIPTIONS,
   ROLE_LABELS,
   can,
+  hasRole,
   type Role,
 } from "@rlpapp/shared/auth/permissions";
 import {
@@ -12,6 +13,7 @@ import {
   formatUsername,
   normalizeUsername,
   sanitizeUsernameInput,
+  suggestUsername,
 } from "@rlpapp/shared";
 import { EmptyState, LoadingState } from "@rlpapp/ui/web";
 import { createFileRoute } from "@tanstack/react-router";
@@ -20,17 +22,22 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import {
   Eye,
   EyeOff,
+  KeyRound,
   Loader2,
+  Mail,
+  MailX,
   Pencil,
-  Plus,
   Search,
+  Send,
   UserCheck,
+  UserPlus,
   UserX,
   Users,
 } from "lucide-react";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 
 import { AuthShell } from "@/components/auth-shell";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,7 +68,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { runWithToast } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 
 type User = FunctionReturnType<typeof api.users.list>[number];
 
@@ -71,20 +80,21 @@ export const Route = createFileRoute("/configuracoes/usuarios")({
 
 const MIN_PASSWORD_LENGTH = 8;
 
+/** Convite enviado e ainda não aceito: o cadastro existe, a conta não. */
+function isPendingInvite(user: Pick<User, "clerkId" | "invitedAt">): boolean {
+  return user.clerkId === undefined && user.invitedAt !== undefined;
+}
 
-/** "João Silva" → "joao.silva" (sem acentos, só caracteres aceitos pelo Clerk). */
-function suggestUsername(firstName: string, lastName: string): string {
-  const parts = [firstName, lastName]
-    .map((part) =>
-      sanitizeUsernameInput(
-        part
-          .trim()
-          .normalize("NFD")
-          .replace(/[̀-ͯ]/g, "")
-      )
-    )
-    .filter(Boolean);
-  return parts.join(".");
+/** Página /convite deste app, destino do link que o Clerk envia por email. */
+function inviteRedirectUrl(): string {
+  return `${window.location.origin}/convite`;
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const first = parts[0]?.[0] ?? "";
+  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "";
+  return (first + last).toUpperCase() || "?";
 }
 
 function UsuariosPage() {
@@ -101,6 +111,7 @@ function UsuariosContent() {
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deactivatingUser, setDeactivatingUser] = useState<User | null>(null);
+  const [revokingUser, setRevokingUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
 
@@ -110,9 +121,11 @@ function UsuariosContent() {
     if (!users) return [];
     let result = [...users];
     if (filterStatus === "active") {
-      result = result.filter((u) => u.isActive);
+      result = result.filter((u) => u.isActive && !isPendingInvite(u));
     } else if (filterStatus === "inactive") {
       result = result.filter((u) => !u.isActive);
+    } else if (filterStatus === "invited") {
+      result = result.filter((u) => isPendingInvite(u));
     }
     const term = searchTerm.trim().toLowerCase();
     if (term) {
@@ -130,6 +143,7 @@ function UsuariosContent() {
   }, [users, filterStatus, searchTerm]);
 
   const isFiltering = searchTerm.trim() !== "" || filterStatus !== "all";
+  const pendingCount = users?.filter(isPendingInvite).length ?? 0;
 
   if (!currentUser) {
     return <LoadingState variant="skeleton" label="Carregando usuários" fullHeight />;
@@ -156,11 +170,11 @@ function UsuariosContent() {
             pessoa pode ter vários.
           </p>
         </div>
-        <CreateUserDialog
+        <NewUserDialog
           trigger={
             <Button>
-              <Plus />
-              Novo usuário
+              <UserPlus />
+              Convidar usuário
             </Button>
           }
         />
@@ -180,7 +194,7 @@ function UsuariosContent() {
         </div>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger
-            className="w-full sm:w-[180px]"
+            className="w-full sm:w-[200px]"
             aria-label="Filtrar por status"
           >
             <SelectValue />
@@ -188,6 +202,9 @@ function UsuariosContent() {
           <SelectContent>
             <SelectItem value="all">Todos os status</SelectItem>
             <SelectItem value="active">Somente ativos</SelectItem>
+            <SelectItem value="invited">
+              Convites pendentes{pendingCount > 0 ? ` (${pendingCount})` : ""}
+            </SelectItem>
             <SelectItem value="inactive">Somente inativos</SelectItem>
           </SelectContent>
         </Select>
@@ -210,13 +227,13 @@ function UsuariosContent() {
             <EmptyState
               icon={<Users />}
               title="Nenhum usuário cadastrado"
-              description="Crie o primeiro usuário para liberar o acesso ao sistema."
+              description="Convide a primeira pessoa pelo email para liberar o acesso ao sistema."
               action={
-                <CreateUserDialog
+                <NewUserDialog
                   trigger={
                     <Button>
-                      <Plus />
-                      Novo usuário
+                      <UserPlus />
+                      Convidar usuário
                     </Button>
                   }
                 />
@@ -254,6 +271,7 @@ function UsuariosContent() {
                 <TableBody>
                   {filteredUsers.map((user) => {
                     const isSelf = user._id === currentUser._id;
+                    const pending = isPendingInvite(user);
                     return (
                       <TableRow
                         key={user._id}
@@ -275,45 +293,60 @@ function UsuariosContent() {
                           )}
                         </TableCell>
                         <TableCell className="font-mono text-sm">
-                          {user.username ? formatUsername(user.username) : "—"}
+                          {user.username ? (
+                            formatUsername(user.username)
+                          ) : (
+                            <span className="font-sans text-muted-foreground">
+                              {pending ? "Define ao aceitar" : "—"}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <RoleBadges roles={user.roles} />
                         </TableCell>
                         <TableCell>
-                          <Badge variant={user.isActive ? "success" : "muted"}>
-                            {user.isActive ? "Ativo" : "Inativo"}
-                          </Badge>
+                          <UserStatusBadge user={user} />
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground tabular-nums">
-                          {user.lastLoginAt ? formatDate(user.lastLoginAt) : "Nunca"}
+                          {user.lastLoginAt
+                            ? formatDate(user.lastLoginAt)
+                            : pending && user.invitedAt
+                              ? `Convidado em ${formatDate(user.invitedAt)}`
+                              : "Nunca"}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
+                            <IconAction
+                              label={`Editar ${user.name}`}
+                              tooltip="Editar"
                               onClick={() => setEditingUser(user)}
-                              title="Editar"
-                              aria-label={`Editar ${user.name}`}
                             >
                               <Pencil />
-                            </Button>
-                            {user.isActive ? (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setDeactivatingUser(user)}
-                                disabled={isSelf}
-                                title={
+                            </IconAction>
+                            {pending ? (
+                              <>
+                                <ResendInviteButton user={user} />
+                                <IconAction
+                                  label={`Cancelar convite de ${user.name}`}
+                                  tooltip="Cancelar convite"
+                                  onClick={() => setRevokingUser(user)}
+                                >
+                                  <MailX className="text-destructive" />
+                                </IconAction>
+                              </>
+                            ) : user.isActive ? (
+                              <IconAction
+                                label={`Desativar ${user.name}`}
+                                tooltip={
                                   isSelf
                                     ? "Você não pode desativar o próprio acesso"
                                     : "Desativar"
                                 }
-                                aria-label={`Desativar ${user.name}`}
+                                disabled={isSelf}
+                                onClick={() => setDeactivatingUser(user)}
                               >
                                 <UserX className="text-destructive" />
-                              </Button>
+                              </IconAction>
                             ) : (
                               <ReactivateButton user={user} />
                             )}
@@ -331,13 +364,53 @@ function UsuariosContent() {
 
       <EditUserDialog
         user={editingUser}
+        currentUserId={currentUser._id}
         onClose={() => setEditingUser(null)}
       />
       <DeactivateUserDialog
         user={deactivatingUser}
         onClose={() => setDeactivatingUser(null)}
       />
+      <RevokeInviteDialog
+        user={revokingUser}
+        onClose={() => setRevokingUser(null)}
+      />
     </div>
+  );
+}
+
+/* ---------- Row actions ---------- */
+
+function IconAction({
+  label,
+  tooltip,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  tooltip: string;
+  disabled?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={disabled}
+            onClick={onClick}
+            aria-label={label}
+          />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -345,9 +418,9 @@ function ReactivateButton({ user }: { user: User }) {
   const reactivateUser = useMutation(api.users.reactivate);
   const [busy, setBusy] = useState(false);
   return (
-    <Button
-      variant="ghost"
-      size="icon"
+    <IconAction
+      label={`Reativar ${user.name}`}
+      tooltip="Reativar"
       disabled={busy}
       onClick={async () => {
         setBusy(true);
@@ -358,12 +431,39 @@ function ReactivateButton({ user }: { user: User }) {
         );
         setBusy(false);
       }}
-      title="Reativar"
-      aria-label={`Reativar ${user.name}`}
     >
-      {busy ? <Loader2 className="animate-spin" /> : <UserCheck className="text-emerald-600" />}
-    </Button>
+      {busy ? <Loader2 className="animate-spin" /> : <UserCheck className="text-status-success" />}
+    </IconAction>
   );
+}
+
+function ResendInviteButton({ user }: { user: User }) {
+  const resendInvite = useAction(api.userAdmin.adminResendInvite);
+  const [busy, setBusy] = useState(false);
+  return (
+    <IconAction
+      label={`Reenviar convite para ${user.name}`}
+      tooltip="Reenviar convite"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        await runWithToast(
+          () => resendInvite({ id: user._id, redirectUrl: inviteRedirectUrl() }),
+          `Convite reenviado para ${user.email}`,
+          "Erro ao reenviar convite"
+        );
+        setBusy(false);
+      }}
+    >
+      {busy ? <Loader2 className="animate-spin" /> : <Send />}
+    </IconAction>
+  );
+}
+
+function UserStatusBadge({ user }: { user: Pick<User, "isActive" | "clerkId" | "invitedAt"> }) {
+  if (!user.isActive) return <Badge variant="muted">Inativo</Badge>;
+  if (isPendingInvite(user)) return <Badge variant="warning">Convite pendente</Badge>;
+  return <Badge variant="success">Ativo</Badge>;
 }
 
 /* ---------- Form building blocks ---------- */
@@ -375,7 +475,7 @@ function FormSection({
   children,
 }: {
   title: string;
-  hint?: string;
+  hint?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -394,19 +494,69 @@ function FormSection({
 function Field({
   id,
   label,
+  optional,
   hint,
   children,
 }: {
   id?: string;
   label: string;
+  optional?: boolean;
   hint?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <div className="grid gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
+    // content-start: numa linha com dois campos, o que não tem hint não
+    // distribui a altura sobrando entre rótulo e input.
+    <div className="grid content-start gap-1.5">
+      <Label htmlFor={id}>
+        {label}
+        {optional && (
+          <span className="font-normal text-muted-foreground">(opcional)</span>
+        )}
+      </Label>
       {children}
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
+function PasswordInput({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        type={show ? "text" : "password"}
+        autoComplete="new-password"
+        className="pr-10"
+        value={value}
+        minLength={MIN_PASSWORD_LENGTH}
+        onChange={(e) => onChange(e.target.value)}
+        required
+      />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className="absolute right-1 top-1/2 -translate-y-1/2 hover:bg-transparent"
+        onClick={() => setShow((v) => !v)}
+        aria-label={show ? "Ocultar senha" : "Mostrar senha"}
+        aria-pressed={show}
+      >
+        {show ? (
+          <EyeOff className="text-muted-foreground" />
+        ) : (
+          <Eye className="text-muted-foreground" />
+        )}
+      </Button>
     </div>
   );
 }
@@ -448,7 +598,7 @@ function AccessFields({
           <label
             key={role}
             htmlFor={id}
-            className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 p-3 has-data-checked:border-primary/40 has-data-checked:bg-primary/5"
+            className="flex cursor-pointer items-start gap-3 rounded-lg border border-control-border bg-card p-3 transition-colors hover:bg-muted/60 has-data-checked:border-primary/50 has-data-checked:bg-primary/5 has-focus-visible:outline-2 has-focus-visible:outline-offset-1 has-focus-visible:outline-ring/45"
           >
             <Checkbox
               id={id}
@@ -467,9 +617,52 @@ function AccessFields({
   );
 }
 
-/* ---------- Create ---------- */
+function accessHint(count: number): string {
+  if (count === 0) return "Marque pelo menos um";
+  return `${count} de ${ROLES.length} marcado${count === 1 ? "" : "s"}`;
+}
 
-type CreateFormData = {
+/* ---------- Dialog chrome (cabeçalho fixo, corpo rolável, rodapé fixo) ---------- */
+
+const DIALOG_CLASS =
+  "flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg";
+
+function DialogBody({ children }: { children: ReactNode }) {
+  return <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">{children}</div>;
+}
+
+function DialogActions({
+  start,
+  children,
+}: {
+  /** Ação secundária alinhada à esquerda (ex.: reenviar convite). */
+  start?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <DialogFooter
+      className={cn(
+        "border-t border-border bg-muted/30 px-6 py-4 sm:items-center",
+        start ? "sm:justify-between" : "sm:justify-end"
+      )}
+    >
+      {start}
+      <div className="flex flex-col-reverse gap-2 sm:flex-row">{children}</div>
+    </DialogFooter>
+  );
+}
+
+/* ---------- Novo usuário ---------- */
+
+type NewUserMode = "invite" | "manual";
+
+type InviteFormData = {
+  email: string;
+  name: string;
+  roles: Role[];
+};
+
+type ManualFormData = {
   firstName: string;
   lastName: string;
   username: string;
@@ -479,7 +672,9 @@ type CreateFormData = {
   roles: Role[];
 };
 
-const emptyCreateForm: CreateFormData = {
+const emptyInviteForm: InviteFormData = { email: "", name: "", roles: [] };
+
+const emptyManualForm: ManualFormData = {
   firstName: "",
   lastName: "",
   username: "",
@@ -489,24 +684,181 @@ const emptyCreateForm: CreateFormData = {
   roles: [],
 };
 
-function CreateUserDialog({ trigger }: { trigger: ReactNode }) {
-  const createUser = useAction(api.userAdmin.adminCreateUser);
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function NewUserDialog({ trigger }: { trigger: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<CreateFormData>(emptyCreateForm);
-  const [usernameTouched, setUsernameTouched] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [mode, setMode] = useState<NewUserMode>("invite");
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) setMode("invite");
+      }}
+    >
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className={DIALOG_CLASS}>
+        <DialogHeader className="gap-4 space-y-0 px-6 pt-6 pb-4 pr-12">
+          <div className="space-y-1.5">
+            <DialogTitle>
+              {mode === "invite" ? "Convidar usuário" : "Novo usuário com login e senha"}
+            </DialogTitle>
+            <DialogDescription>
+              {mode === "invite"
+                ? "A pessoa recebe um email com o link para criar a própria conta: nome, login e senha."
+                : "Para quem não tem email. Você define o login e a senha e repassa à pessoa."}
+            </DialogDescription>
+          </div>
+          <ModeSwitch mode={mode} onChange={setMode} />
+        </DialogHeader>
+        {open && mode === "invite" ? (
+          <InviteUserForm key="invite" onDone={() => setOpen(false)} />
+        ) : open ? (
+          <ManualUserForm key="manual" onDone={() => setOpen(false)} />
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ModeSwitch({
+  mode,
+  onChange,
+}: {
+  mode: NewUserMode;
+  onChange: (mode: NewUserMode) => void;
+}) {
+  const options: Array<{ value: NewUserMode; label: string; icon: ReactNode }> = [
+    { value: "invite", label: "Convidar por email", icon: <Mail /> },
+    { value: "manual", label: "Login e senha", icon: <KeyRound /> },
+  ];
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Como criar o usuário"
+      className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1"
+    >
+      {options.map((option) => {
+        const selected = option.value === mode;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "inline-flex h-8 items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring/45 [&_svg]:size-4 [&_svg]:shrink-0",
+              selected
+                ? "bg-card text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {option.icon}
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function InviteUserForm({ onDone }: { onDone: () => void }) {
+  const inviteUser = useAction(api.userAdmin.adminInviteUser);
+  const [form, setForm] = useState<InviteFormData>(emptyInviteForm);
   const [saving, setSaving] = useState(false);
 
-  const reset = () => {
-    setForm(emptyCreateForm);
-    setUsernameTouched(false);
-    setShowPassword(false);
-  };
-
-  const update = (patch: Partial<CreateFormData>) =>
+  const update = (patch: Partial<InviteFormData>) =>
     setForm((f) => ({ ...f, ...patch }));
 
-  const setName = (patch: Pick<CreateFormData, "firstName"> | Pick<CreateFormData, "lastName">) =>
+  const email = form.email.trim().toLowerCase();
+  const canSubmit = EMAIL_PATTERN.test(email) && form.roles.length > 0;
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSubmit || saving) return;
+    setSaving(true);
+    const ok = await runWithToast(
+      () =>
+        inviteUser({
+          email,
+          name: form.name.trim() || undefined,
+          roles: form.roles,
+          redirectUrl: inviteRedirectUrl(),
+        }),
+      `Convite enviado para ${email}`,
+      "Erro ao enviar convite"
+    );
+    setSaving(false);
+    if (ok) onDone();
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="contents">
+      <DialogBody>
+        <FormSection title="Quem convidar">
+          <Field id="invite-email" label="Email">
+            <Input
+              id="invite-email"
+              type="email"
+              placeholder="nome@rlpeng.com.br"
+              autoComplete="off"
+              autoFocus
+              value={form.email}
+              onChange={(e) => update({ email: e.target.value })}
+              required
+            />
+          </Field>
+          <Field
+            id="invite-name"
+            label="Nome"
+            optional
+            hint="Como aparece na lista até o convite ser aceito. A pessoa define o nome final."
+          >
+            <Input
+              id="invite-name"
+              placeholder="João Silva"
+              autoComplete="off"
+              value={form.name}
+              onChange={(e) => update({ name: e.target.value })}
+            />
+          </Field>
+        </FormSection>
+
+        <FormSection title="Acessos" hint={accessHint(form.roles.length)}>
+          <AccessFields
+            idPrefix="invite"
+            roles={form.roles}
+            onChange={(roles) => update({ roles })}
+          />
+        </FormSection>
+      </DialogBody>
+
+      <DialogActions>
+        <Button type="button" variant="outline" onClick={onDone}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={saving || !canSubmit}>
+          {saving ? <Loader2 className="animate-spin" /> : <Send />}
+          Enviar convite
+        </Button>
+      </DialogActions>
+    </form>
+  );
+}
+
+function ManualUserForm({ onDone }: { onDone: () => void }) {
+  const createUser = useAction(api.userAdmin.adminCreateUser);
+  const [form, setForm] = useState<ManualFormData>(emptyManualForm);
+  const [usernameTouched, setUsernameTouched] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const update = (patch: Partial<ManualFormData>) =>
+    setForm((f) => ({ ...f, ...patch }));
+
+  const setName = (patch: Pick<ManualFormData, "firstName"> | Pick<ManualFormData, "lastName">) =>
     setForm((f) => {
       const next = { ...f, ...patch };
       if (!usernameTouched) {
@@ -540,75 +892,62 @@ function CreateUserDialog({ trigger }: { trigger: ReactNode }) {
       "Erro ao criar usuário"
     );
     setSaving(false);
-    if (ok) setOpen(false);
+    if (ok) onDone();
   };
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) reset();
-      }}
-    >
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Novo usuário</DialogTitle>
-          <DialogDescription>
-            O login e a senha são usados para entrar no sistema e no app.
-          </DialogDescription>
-        </DialogHeader>
+    <form onSubmit={handleSubmit} className="contents">
+      <DialogBody>
+        <FormSection title="Identificação">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field id="create-firstName" label="Nome">
+              <Input
+                id="create-firstName"
+                placeholder="João"
+                autoComplete="off"
+                autoFocus
+                value={form.firstName}
+                onChange={(e) => setName({ firstName: e.target.value })}
+                required
+              />
+            </Field>
+            <Field id="create-lastName" label="Sobrenome">
+              <Input
+                id="create-lastName"
+                placeholder="Silva"
+                autoComplete="off"
+                value={form.lastName}
+                onChange={(e) => setName({ lastName: e.target.value })}
+                required
+              />
+            </Field>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field id="create-email" label="Email" optional>
+              <Input
+                id="create-email"
+                type="email"
+                placeholder="joao@rlpeng.com.br"
+                autoComplete="off"
+                value={form.email}
+                onChange={(e) => update({ email: e.target.value })}
+              />
+            </Field>
+            <Field id="create-phone" label="Telefone" optional>
+              <Input
+                id="create-phone"
+                type="tel"
+                placeholder="(11) 99999-9999"
+                autoComplete="off"
+                value={form.phone}
+                onChange={(e) => update({ phone: e.target.value })}
+              />
+            </Field>
+          </div>
+        </FormSection>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <FormSection title="Identificação">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field id="create-firstName" label="Nome">
-                <Input
-                  id="create-firstName"
-                  placeholder="João"
-                  autoComplete="off"
-                  value={form.firstName}
-                  onChange={(e) => setName({ firstName: e.target.value })}
-                  required
-                />
-              </Field>
-              <Field id="create-lastName" label="Sobrenome">
-                <Input
-                  id="create-lastName"
-                  placeholder="Silva"
-                  autoComplete="off"
-                  value={form.lastName}
-                  onChange={(e) => setName({ lastName: e.target.value })}
-                  required
-                />
-              </Field>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field id="create-email" label="Email" hint="Opcional">
-                <Input
-                  id="create-email"
-                  type="email"
-                  placeholder="joao@rlpeng.com.br"
-                  autoComplete="off"
-                  value={form.email}
-                  onChange={(e) => update({ email: e.target.value })}
-                />
-              </Field>
-              <Field id="create-phone" label="Telefone" hint="Opcional">
-                <Input
-                  id="create-phone"
-                  type="tel"
-                  placeholder="(11) 99999-9999"
-                  autoComplete="off"
-                  value={form.phone}
-                  onChange={(e) => update({ phone: e.target.value })}
-                />
-              </Field>
-            </div>
-          </FormSection>
-
-          <FormSection title="Acesso">
+        <FormSection title="Acesso">
+          <div className="grid gap-3 sm:grid-cols-2">
             <Field
               id="create-username"
               label="Login"
@@ -639,60 +978,38 @@ function CreateUserDialog({ trigger }: { trigger: ReactNode }) {
               label="Senha"
               hint={`Mínimo de ${MIN_PASSWORD_LENGTH} caracteres.`}
             >
-              <div className="relative">
-                <Input
-                  id="create-password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="new-password"
-                  className="pr-10"
-                  value={form.password}
-                  minLength={MIN_PASSWORD_LENGTH}
-                  onChange={(e) => update({ password: e.target.value })}
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                  aria-pressed={showPassword}
-                >
-                  {showPassword ? (
-                    <EyeOff className="text-muted-foreground" />
-                  ) : (
-                    <Eye className="text-muted-foreground" />
-                  )}
-                </Button>
-              </div>
+              <PasswordInput
+                id="create-password"
+                value={form.password}
+                onChange={(password) => update({ password })}
+              />
             </Field>
-          </FormSection>
+          </div>
+        </FormSection>
 
-          <FormSection title="Acessos" hint="Marque pelo menos um">
-            <AccessFields
-              idPrefix="create"
-              roles={form.roles}
-              onChange={(roles) => update({ roles })}
-            />
-          </FormSection>
+        <FormSection title="Acessos" hint={accessHint(form.roles.length)}>
+          <AccessFields
+            idPrefix="create"
+            roles={form.roles}
+            onChange={(roles) => update({ roles })}
+          />
+        </FormSection>
+      </DialogBody>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={saving || !canSubmit}>
-              {saving && <Loader2 className="animate-spin" />}
-              Criar usuário
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <DialogActions>
+        <Button type="button" variant="outline" onClick={onDone}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={saving || !canSubmit}>
+          {saving && <Loader2 className="animate-spin" />}
+          Criar usuário
+        </Button>
+      </DialogActions>
+    </form>
   );
 }
 
-/* ---------- Edit ---------- */
+/* ---------- Editar ---------- */
 
 type EditFormData = {
   name: string;
@@ -703,22 +1020,45 @@ type EditFormData = {
 
 function EditUserDialog({
   user,
+  currentUserId,
   onClose,
 }: {
   user: User | null;
+  currentUserId: User["_id"];
   onClose: () => void;
 }) {
   return (
     <Dialog open={user !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        {user && <EditUserForm key={user._id} user={user} onClose={onClose} />}
+      <DialogContent className={DIALOG_CLASS}>
+        {user && (
+          <EditUserForm
+            key={user._id}
+            user={user}
+            isSelf={user._id === currentUserId}
+            onClose={onClose}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
 }
 
-function EditUserForm({ user, onClose }: { user: User; onClose: () => void }) {
+function sameRoles(a: Role[], b: Role[]): boolean {
+  return a.length === b.length && a.every((role, i) => role === b[i]);
+}
+
+function EditUserForm({
+  user,
+  isSelf,
+  onClose,
+}: {
+  user: User;
+  isSelf: boolean;
+  onClose: () => void;
+}) {
   const updateUser = useMutation(api.users.update);
+  const resendInvite = useAction(api.userAdmin.adminResendInvite);
+  const pending = isPendingInvite(user);
   const [form, setForm] = useState<EditFormData>({
     name: user.name,
     email: user.email ?? "",
@@ -726,11 +1066,23 @@ function EditUserForm({ user, onClose }: { user: User; onClose: () => void }) {
     roles: user.roles,
   });
   const [saving, setSaving] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const update = (patch: Partial<EditFormData>) =>
     setForm((f) => ({ ...f, ...patch }));
 
-  const canSubmit = form.name.trim() !== "";
+  const isDirty =
+    form.name.trim() !== user.name ||
+    form.email.trim() !== (user.email ?? "") ||
+    form.phone.trim() !== (user.phone ?? "") ||
+    !sameRoles(form.roles, user.roles);
+
+  // Mesma regra do backend (users.update): quem edita a si mesmo mantém
+  // administração ou diretoria.
+  const removesOwnAdmin =
+    isSelf && !hasRole({ roles: form.roles }, "admin") && !hasRole({ roles: form.roles }, "director");
+
+  const canSubmit = form.name.trim() !== "" && isDirty && !removesOwnAdmin;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -741,7 +1093,8 @@ function EditUserForm({ user, onClose }: { user: User; onClose: () => void }) {
         updateUser({
           id: user._id,
           name: form.name.trim(),
-          email: form.email.trim() || null,
+          // Convite pendente: o email é a chave do convite e fica como está.
+          email: pending ? undefined : form.email.trim() || null,
           phone: form.phone.trim() || null,
           roles: form.roles,
         }),
@@ -752,24 +1105,52 @@ function EditUserForm({ user, onClose }: { user: User; onClose: () => void }) {
     if (ok) onClose();
   };
 
+  const handleResend = async () => {
+    setResending(true);
+    await runWithToast(
+      () => resendInvite({ id: user._id, redirectUrl: inviteRedirectUrl() }),
+      `Convite reenviado para ${user.email}`,
+      "Erro ao reenviar convite"
+    );
+    setResending(false);
+  };
+
+  const meta: string[] = [];
+  if (user.username) meta.push(`Login ${formatUsername(user.username)}`);
+  if (pending && user.invitedAt) meta.push(`Convidado em ${formatDate(user.invitedAt)}`);
+  else if (user.lastLoginAt) meta.push(`Último acesso em ${formatDate(user.lastLoginAt)}`);
+  else meta.push("Nunca acessou");
+
   return (
-    <>
-      <DialogHeader>
-        <DialogTitle>Editar usuário</DialogTitle>
-        <DialogDescription>
-          {user.username ? (
-            <>
-              Login <span className="font-mono">{formatUsername(user.username)}</span>. O login
-              não pode ser alterado.
-            </>
-          ) : (
-            "Usuário sem login próprio; entra pelo email."
-          )}
-        </DialogDescription>
+    <form onSubmit={handleSubmit} className="contents">
+      <DialogHeader className="flex-row items-center gap-4 space-y-0 px-6 pt-6 pb-4 pr-12 text-left">
+        <Avatar size="lg">
+          <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
+            {initials(user.name)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <DialogTitle className="truncate text-lg">
+              {formatDisplayName(user.name)}
+            </DialogTitle>
+            <UserStatusBadge user={user} />
+          </div>
+          <DialogDescription className="truncate">
+            {meta.join(" · ")}
+          </DialogDescription>
+        </div>
       </DialogHeader>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <FormSection title="Identificação">
+      <DialogBody>
+        {pending && (
+          <p className="rounded-lg border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-sm text-foreground">
+            O convite ainda não foi aceito. Nome e login são definidos pela
+            própria pessoa ao criar a conta; os acessos valem desde já.
+          </p>
+        )}
+
+        <FormSection title="Contato">
           <Field id="edit-name" label="Nome completo">
             <Input
               id="edit-name"
@@ -780,53 +1161,98 @@ function EditUserForm({ user, onClose }: { user: User; onClose: () => void }) {
             />
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field id="edit-email" label="Email" hint="Opcional">
+            <Field
+              id="edit-email"
+              label="Email"
+              optional={!pending}
+              hint={
+                pending
+                  ? "É o email do convite. Para mudar, cancele o convite e envie outro."
+                  : undefined
+              }
+            >
               <Input
                 id="edit-email"
                 type="email"
                 autoComplete="off"
                 value={form.email}
                 onChange={(e) => update({ email: e.target.value })}
+                readOnly={pending}
+                className={pending ? "bg-muted/60 text-muted-foreground" : undefined}
               />
             </Field>
-            <Field id="edit-phone" label="Telefone" hint="Opcional">
+            <Field id="edit-phone" label="Telefone" optional>
               <Input
                 id="edit-phone"
                 type="tel"
                 autoComplete="off"
+                placeholder="(11) 99999-9999"
                 value={form.phone}
                 onChange={(e) => update({ phone: e.target.value })}
               />
             </Field>
           </div>
+          {!user.username && !pending && (
+            <p className="text-xs text-muted-foreground">
+              Usuário sem login próprio; entra pelo email.
+            </p>
+          )}
         </FormSection>
 
         <FormSection
           title="Acessos"
-          hint={form.roles.length === 0 ? "Sem acessos, o usuário não entra em nenhuma área" : undefined}
+          hint={
+            form.roles.length === 0
+              ? "Sem acessos, o usuário não entra em nenhuma área"
+              : accessHint(form.roles.length)
+          }
         >
           <AccessFields
             idPrefix="edit"
             roles={form.roles}
             onChange={(roles) => update({ roles })}
           />
+          {removesOwnAdmin && (
+            <p role="alert" className="text-xs text-destructive">
+              Você não pode remover o próprio acesso de administração.
+            </p>
+          )}
         </FormSection>
+      </DialogBody>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={saving || !canSubmit}>
-            {saving && <Loader2 className="animate-spin" />}
-            Salvar alterações
-          </Button>
-        </DialogFooter>
-      </form>
-    </>
+      <DialogActions
+        start={
+          pending ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={resending}
+              onClick={handleResend}
+            >
+              {resending ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <Send />
+              )}
+              Reenviar convite
+            </Button>
+          ) : undefined
+        }
+      >
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={saving || !canSubmit}>
+          {saving && <Loader2 className="animate-spin" />}
+          Salvar alterações
+        </Button>
+      </DialogActions>
+    </form>
   );
 }
 
-/* ---------- Deactivate ---------- */
+/* ---------- Desativar ---------- */
 
 function DeactivateUserDialog({
   user,
@@ -873,6 +1299,59 @@ function DeactivateUserDialog({
           >
             {saving && <Loader2 className="animate-spin" />}
             Desativar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ---------- Cancelar convite ---------- */
+
+function RevokeInviteDialog({
+  user,
+  onClose,
+}: {
+  user: User | null;
+  onClose: () => void;
+}) {
+  const revokeInvite = useAction(api.userAdmin.adminRevokeInvite);
+  const [saving, setSaving] = useState(false);
+
+  const handleConfirm = async () => {
+    if (!user) return;
+    setSaving(true);
+    const ok = await runWithToast(
+      () => revokeInvite({ id: user._id }),
+      "Convite cancelado",
+      "Erro ao cancelar convite"
+    );
+    setSaving(false);
+    if (ok) onClose();
+  };
+
+  return (
+    <Dialog open={user !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Cancelar convite?</DialogTitle>
+          <DialogDescription>
+            O link enviado para {user?.email ?? "a pessoa"} deixa de valer e o
+            cadastro sai da lista. Você pode convidar de novo quando quiser.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Manter convite
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={saving}
+            onClick={handleConfirm}
+          >
+            {saving && <Loader2 className="animate-spin" />}
+            Cancelar convite
           </Button>
         </DialogFooter>
       </DialogContent>

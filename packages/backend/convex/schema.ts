@@ -366,6 +366,13 @@ export default defineSchema({
     isActive: v.boolean(),
     createdAt: v.number(),
     lastLoginAt: v.optional(v.number()),
+    // Convite por email (Configurações → Usuários): o cadastro nasce sem
+    // clerkId e é vinculado quando a pessoa aceita o convite e cria a conta
+    // (webhook user.created ou ensureUser, ambos pelo email). Enquanto não há
+    // clerkId, o convite está pendente.
+    invitedAt: v.optional(v.number()),
+    // Id da invitation no Clerk, para reenviar ou revogar.
+    clerkInvitationId: v.optional(v.string()),
   })
     .index("by_email", ["email"])
     .index("by_clerkId", ["clerkId"])

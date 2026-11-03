@@ -4,6 +4,7 @@ import {
   formatUsername,
   normalizeUsername,
   sanitizeUsernameInput,
+  suggestUsername,
 } from "../src/usernames";
 
 describe("usernames", () => {
@@ -26,5 +27,17 @@ describe("usernames", () => {
     expect(formatDisplayName("rodrigo")).toBe("Rodrigo");
     expect(formatDisplayName("Wellington Bispo")).toBe("Wellington Bispo");
     expect(formatDisplayName("joão de souza")).toBe("João de souza");
+  });
+});
+
+describe("suggestUsername", () => {
+  it("joins first and last name with a dot, without accents", () => {
+    expect(suggestUsername("João", "Silva")).toBe("joao.silva");
+    expect(suggestUsername(" Maria Clara ", "Souza Lima")).toBe("mariaclara.souzalima");
+  });
+
+  it("skips empty parts", () => {
+    expect(suggestUsername("Ana", "")).toBe("ana");
+    expect(suggestUsername("", "")).toBe("");
   });
 });

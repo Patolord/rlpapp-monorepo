@@ -19,6 +19,17 @@ export function accessFields(
 
 /** Usuário como os apps o veem: só `roles`, já resolvido para documentos antigos. */
 export function toUserView(user: Doc<"users">) {
-  const { role: _role, department: _department, roles: _roles, ...rest } = user;
+  const {
+    role: _role,
+    department: _department,
+    roles: _roles,
+    clerkInvitationId: _clerkInvitationId,
+    ...rest
+  } = user;
   return { ...rest, roles: resolveRoles(user) };
+}
+
+/** Email como chave de vínculo (índice by_email): minúsculas, sem espaços nas pontas. */
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
 }
