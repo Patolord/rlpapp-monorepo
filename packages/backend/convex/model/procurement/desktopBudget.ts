@@ -5,6 +5,7 @@ import {
   type DesktopBudgetErrorCode,
   type DesktopBudgetErrorData,
   type PublishDesktopBudgetArgs,
+  type RemoveDesktopBudgetArgs,
   unsupportedCurrencyError,
 } from "@rlpapp/shared/takeoff/desktopBudget";
 import type { Doc, Id } from "../../_generated/dataModel";
@@ -560,6 +561,112 @@ async function moveLineQuotes(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Remoção do orçamento (o desktop desfaz um envio)
+// ---------------------------------------------------------------------------
+
+export const removeDesktopBudgetArgs = {
+  /** Id do projeto no desktop (o `externalId` do orçamento no app). */
+  externalId: v.string(),
+};
+
+const _removeArgsObject = v.object(removeDesktopBudgetArgs);
+const _sameRemoveShape: Same<
+  Infer<typeof _removeArgsObject>,
+  RemoveDesktopBudgetArgs
+> = true;
+void _sameRemoveShape;
+
+export const removeDesktopBudgetResult = v.object({
+  takeoffId: v.id("takeoffs"),
+  name: v.string(),
+  projectId: v.union(v.id("projects"), v.null()),
+  projectName: v.union(v.string(), v.null()),
+  /** Linhas apagadas junto com o orçamento. */
+  removedLines: v.number(),
+});
+
+export type RemoveDesktopBudgetResult = Infer<typeof removeDesktopBudgetResult>;
+
+const plural = (n: number, one: string, many: string) =>
+  `${n} ${n === 1 ? one : many}`;
+
+/**
+ * Apaga o orçamento publicado pelo desktop com este `externalId`, com todas as
+ * suas linhas: o desktop desfaz um envio (enviado à obra errada, aprovação que
+ * caiu, teste). Só enquanto o app ainda não trabalhou nele: uma linha cotada,
+ * levada adiante pela Compras (`isPreserved`) ou adicionada no app, ou uma
+ * cotação lançada no takeoff, é trabalho de outra pessoa que o desktop não
+ * pode descartar — `BUDGET_IN_USE`, e a remoção fica para o app. Sem orçamento
+ * com este id: `BUDGET_NOT_FOUND` (já removido, ou nunca chegou).
+ */
+export async function removeDesktopBudget(
+  ctx: MutationCtx,
+  args: { externalId: string }
+): Promise<RemoveDesktopBudgetResult> {
+  const externalId = args.externalId.trim();
+  if (!externalId) throw invalid("Informe o id do projeto do desktop");
+  const takeoff = await ctx.db
+    .query("takeoffs")
+    .withIndex("by_source_external", (q) =>
+      q.eq("source", "desktop").eq("externalId", externalId)
+    )
+    .unique();
+  if (!takeoff) {
+    throw budgetError(
+      "BUDGET_NOT_FOUND",
+      "Este orçamento não está (mais) no app da empresa"
+    );
+  }
+
+  const items = await ctx.db
+    .query("takeoffItems")
+    .withIndex("by_takeoff", (q) => q.eq("takeoffId", takeoff._id))
+    .collect();
+  let worked = 0;
+  let manual = 0;
+  for (const item of items) {
+    if (!item.externalLineId) manual++;
+    else if (await isPreserved(ctx, item)) worked++;
+  }
+  const takeoffQuote = await ctx.db
+    .query("priceEvents")
+    .withIndex("by_takeoff", (q) => q.eq("takeoffId", takeoff._id))
+    .first();
+  if (worked > 0 || manual > 0 || takeoffQuote) {
+    const reasons: string[] = [];
+    if (worked > 0) {
+      reasons.push(
+        plural(worked, "linha já cotada ou comprada", "linhas já cotadas ou compradas")
+      );
+    }
+    if (manual > 0) {
+      reasons.push(plural(manual, "linha adicionada no app", "linhas adicionadas no app"));
+    }
+    if (worked === 0 && manual === 0) reasons.push("cotações registradas");
+    throw budgetError(
+      "BUDGET_IN_USE",
+      `A Compras já trabalhou neste orçamento no app (${reasons.join(", ")}): ` +
+        "ele não pode ser removido pelo desktop. Combine a remoção com a Compras no app."
+    );
+  }
+
+  for (const item of items) {
+    await ctx.db.delete("takeoffItems", item._id);
+  }
+  await ctx.db.delete("takeoffs", takeoff._id);
+
+  const project = takeoff.projectId
+    ? await ctx.db.get("projects", takeoff.projectId)
+    : null;
+  return {
+    takeoffId: takeoff._id,
+    name: takeoff.name,
+    projectId: project?._id ?? null,
+    projectName: project?.name ?? null,
+    removedLines: items.length,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Opções do envio (seletor de obra do desktop)

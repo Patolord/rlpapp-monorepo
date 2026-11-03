@@ -29,6 +29,9 @@ import {
   publishDesktopBudget,
   publishDesktopBudgetArgs,
   publishDesktopBudgetResult,
+  removeDesktopBudget,
+  removeDesktopBudgetArgs,
+  removeDesktopBudgetResult,
 } from "./model/procurement/desktopBudget";
 import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
@@ -649,6 +652,32 @@ export const publishFromDesktop = engineeringMutation({
         `Orçamento desktop publicado: ${result.inserted} novas, ` +
         `${result.updated} atualizadas, ${result.removed} removidas, ` +
         `${result.kept.length} mantidas pela Compras`,
+    });
+    return result;
+  },
+});
+
+/**
+ * Remove o orçamento publicado pelo app desktop com este `externalId`, com
+ * suas linhas (o desktop desfaz um envio). Recusa com `BUDGET_IN_USE` se a
+ * Compras já trabalhou nele (cotação, compra em andamento, linha adicionada
+ * no app) e com `BUDGET_NOT_FOUND` se não há orçamento com este id.
+ */
+export const removeFromDesktop = engineeringMutation({
+  args: removeDesktopBudgetArgs,
+  returns: removeDesktopBudgetResult,
+  handler: async (ctx, args) => {
+    const result = await removeDesktopBudget(ctx, args);
+    await logAudit(ctx, ctx.user, {
+      action: "delete",
+      tableName: "takeoffs",
+      recordId: result.takeoffId,
+      entityLabel: result.name,
+      source: "desktop",
+      details:
+        `Orçamento desktop removido pelo app desktop: ` +
+        `${result.removedLines} linhas apagadas` +
+        (result.projectName ? ` (obra ${result.projectName})` : ""),
     });
     return result;
   },

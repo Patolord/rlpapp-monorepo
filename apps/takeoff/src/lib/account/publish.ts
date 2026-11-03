@@ -6,18 +6,27 @@ import {
 import { ConvexError } from "convex/values";
 import { buildPublishBudget } from "../publishBudget";
 import type { Project, SentToApp } from "../types";
-import type { PublishArgs, PublishObra, PublishOptions, PublishResult } from "./convex";
+import type {
+  PublishArgs,
+  PublishObra,
+  PublishOptions,
+  PublishResult,
+  RemoveArgs,
+  RemoveResult,
+} from "./convex";
 import { SignedOutError } from "./session";
 
 /**
  * Sending the approved budget to the company app, as the signed-in user: load the obras and the
- * previous send, then publish and turn the server's answer (or refusal) into something the dialog
- * can show. The Convex calls come in as `PublishClient`, so the flow is tested without a network.
+ * previous send, then publish (or remove a previous send) and turn the server's answer (or
+ * refusal) into something the dialog can show. The Convex calls come in as `PublishClient`, so
+ * the flow is tested without a network.
  */
 
 export interface PublishClient {
   options(externalId: string | undefined): Promise<PublishOptions>;
   publish(args: PublishArgs): Promise<PublishResult>;
+  remove(args: RemoveArgs): Promise<RemoveResult>;
 }
 
 export type PublishErrorCode =
@@ -179,6 +188,51 @@ export async function sendApprovedBudget(input: {
     };
   } catch (e) {
     return { ok: false, error: describePublishError(e) };
+  }
+}
+
+export interface RemovedBudget {
+  /** The budget was in the app and is gone now; false when nothing with this id was there. */
+  removed: boolean;
+  /** What the app deleted (null when it had nothing). */
+  result: RemoveResult | null;
+}
+
+/**
+ * Remove the budget this takeoff sent to the app (undoing the send). The caller has the user's
+ * confirmation; on success the `sentToApp` link comes out of the file. A budget that is no longer
+ * there (removed in the app, or on another machine) counts as done, so the stale link is dropped
+ * too. The app refuses (`BUDGET_IN_USE`) once purchasing worked on it.
+ */
+export async function removeSentBudget(input: {
+  client: PublishClient;
+  signedIn: boolean;
+  project: Project;
+}): Promise<Outcome<RemovedBudget>> {
+  if (!input.signedIn) {
+    return {
+      ok: false,
+      error: {
+        code: "SIGNED_OUT",
+        message: "Entre com a conta da empresa para remover o orçamento do app.",
+      },
+    };
+  }
+  const externalId = input.project.id;
+  if (!externalId) {
+    return {
+      ok: false,
+      error: { code: "UNKNOWN", message: "Este takeoff não tem id: nunca foi enviado ao app." },
+    };
+  }
+  try {
+    const result = await input.client.remove({ externalId });
+    return { ok: true, value: { removed: true, result } };
+  } catch (e) {
+    const error = describePublishError(e);
+    if (error.code === "BUDGET_NOT_FOUND")
+      return { ok: true, value: { removed: false, result: null } };
+    return { ok: false, error };
   }
 }
 

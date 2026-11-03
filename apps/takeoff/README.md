@@ -247,6 +247,14 @@ engineering permission comes back as `canPublish: false`). Code: `src/lib/accoun
 (flow, error messages), `src/lib/appLink.ts` (identity rules, links) and
 `components/SendBudgetDialog.tsx`.
 
+A send can be undone: once the takeoff is linked, the same dialog offers **Remover do app…**,
+which (after a native confirmation) calls `takeoffs.removeFromDesktop` to delete the budget and
+its lines from the app and takes `sentToApp` out of the file (the `id` stays; the next send
+creates a new budget). The app refuses with `BUDGET_IN_USE` once purchasing has worked on the
+budget (a quoted or purchased line, a quote on the takeoff, a line added in the app): that removal
+is settled with purchasing in the app. A budget that is already gone (`BUDGET_NOT_FOUND`, removed
+elsewhere) just drops the stale link.
+
 The project file carries the link: `id` (random, the budget's `externalId` in the app, written on
 the first save; files from older versions get one then) and `sentToApp` (obra, when, by whom),
 saved right after a successful send. Sending again updates the same budget, in the same obra by

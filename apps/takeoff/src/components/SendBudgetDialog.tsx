@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Save,
   Send,
+  Trash2,
   TriangleAlert,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -15,6 +16,7 @@ import {
   fetchPublishOptionsAsUser,
   type PublishOptions,
   publishBudgetAsUser,
+  removeBudgetAsUser,
 } from "../lib/account/convex";
 import {
   budgetProblem,
@@ -24,6 +26,8 @@ import {
   type Outcome,
   type PublishClient,
   type PublishError,
+  type RemovedBudget,
+  removeSentBudget,
   resultCounts,
   type SentBudget,
   sendApprovedBudget,
@@ -37,6 +41,7 @@ import {
   obrasUrl,
   sentToAppLabel,
 } from "../lib/appLink";
+import { confirmDialog } from "../lib/dialogs";
 import { saveProject } from "../lib/files";
 import { isTauri } from "../lib/platform";
 import { buildPublishBudget } from "../lib/publishBudget";
@@ -47,6 +52,7 @@ import { Button } from "./ui";
 const client: PublishClient = {
   options: fetchPublishOptionsAsUser,
   publish: publishBudgetAsUser,
+  remove: removeBudgetAsUser,
 };
 
 /** Open a dashboard page: the system browser inside the app, a new tab in the browser. */
@@ -61,7 +67,9 @@ const input =
 /**
  * "Enviar orçamento aprovado": once the client approves the proposal, its budget goes to the
  * company app, where purchasing works on it. An explicit, occasional action (never automatic):
- * choose the obra, confirm the approval, send; sending again updates the same budget there.
+ * choose the obra, confirm the approval, send; sending again updates the same budget there. A
+ * budget already sent can also be removed from the app (undoing the send), while purchasing has
+ * not worked on it yet.
  */
 export function SendBudgetDialog() {
   const open = useStore((s) => s.sendBudgetOpen);
@@ -86,7 +94,13 @@ function SendBudgetPanel() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<PublishError | null>(null);
   const [sent, setSent] = useState<SentBudget | null>(null);
-  /** The budget reached the app but the file with its link was not saved (why, or ""). */
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<PublishError | null>(null);
+  const [removed, setRemoved] = useState<RemovedBudget | null>(null);
+  /**
+   * The app changed (budget sent, or removed) but the file with the new link state was not saved
+   * (why, or "").
+   */
   const [unsaved, setUnsaved] = useState<string | null>(null);
   /** The takeoff the result belongs to: "Salvar" only saves it while it is still the open one. */
   const [sentFor, setSentFor] = useState<{ id?: string; path: string | null } | null>(null);
@@ -127,6 +141,35 @@ function SendBudgetPanel() {
   const linkedObraName = previous?.obraName ?? serverCurrent?.projectName ?? null;
   const resend = linkedObraId !== null || serverCurrent !== null;
 
+  /** Save the open file after the link changed: null when saved, else the error (or ""). */
+  const saveLink = async (): Promise<string | null> => {
+    const now = useStore.getState();
+    try {
+      return now.filePath && (await saveProject(false)) ? null : "";
+    } catch (e) {
+      return e instanceof Error ? e.message : String(e);
+    }
+  };
+
+  /** The "Salvar" of a result: only while the takeoff the result belongs to is still open. */
+  const saveLinkAgain = async () => {
+    const now = useStore.getState();
+    if (now.project.id !== sentFor?.id || now.filePath !== sentFor?.path) {
+      setUnsaved(
+        "o takeoff enviado não está mais aberto: abra-o e envie de novo para gravar o vínculo",
+      );
+      return;
+    }
+    setUnsaved(await saveLink());
+  };
+
+  const unsavedStatus = (unsavedNow: string | null, what: string): string =>
+    unsavedNow === null
+      ? ""
+      : unsavedNow
+        ? ` · não foi possível salvar o arquivo (${unsavedNow}): salve o takeoff (Ctrl+S) para ${what}`
+        : ` · salve o takeoff para ${what}`;
+
   const send = async () => {
     if (!options?.ok) return;
     const obra = options.value.projects.find((p) => p._id === obraId);
@@ -164,22 +207,61 @@ function SendBudgetPanel() {
     setIdentity({ sentToApp: out.value.sentToApp });
     setSentFor({ id: sentProject.id, path: sendingPath });
     setSent(out.value);
-    let saveError: string | null = null;
-    let saved = false;
-    try {
-      saved = now.filePath ? await saveProject(false) : false;
-    } catch (e) {
-      saveError = e instanceof Error ? e.message : String(e);
-    }
-    setUnsaved(saved ? null : (saveError ?? ""));
+    const unsavedNow = await saveLink();
+    setUnsaved(unsavedNow);
     setStatus(
-      `Orçamento aprovado ${verb} (obra ${obra.name})${
-        saved
-          ? ""
-          : saveError
-            ? ` · não foi possível salvar o arquivo (${saveError}): salve o takeoff (Ctrl+S) para guardar o vínculo`
-            : " · salve o takeoff para guardar o vínculo no arquivo"
-      }`,
+      `Orçamento aprovado ${verb} (obra ${obra.name})${unsavedStatus(unsavedNow, "guardar o vínculo no arquivo")}`,
+    );
+  };
+
+  /** Undo the send: the budget leaves the app and the link leaves the file. */
+  const remove = async () => {
+    if (!options?.ok || removing || sending) return;
+    const where = linkedObraName ? ` da obra ${linkedObraName}` : "";
+    const confirmed = await confirmDialog(
+      `Remover o orçamento aprovado${where} do app da empresa?\n\n` +
+        "O orçamento é apagado do app com todas as suas linhas, e este takeoff deixa de estar " +
+        "vinculado a ele: um novo envio cria outro orçamento lá.\n\n" +
+        "Se a Compras já trabalhou no orçamento (cotações, compras, linhas adicionadas no app), " +
+        "o app recusa a remoção.",
+      "Remover orçamento do app",
+    );
+    if (!confirmed) return;
+    setRemoving(true);
+    setRemoveError(null);
+    const removingProject = useStore.getState().project;
+    const removingPath = useStore.getState().filePath;
+    const out = await removeSentBudget({
+      client,
+      signedIn: isSignedIn(),
+      project: removingProject,
+    });
+    setRemoving(false);
+    if (!out.ok) {
+      setRemoveError(out.error);
+      if (out.error.revoked) await handleSignedOut(new SignedOutError(out.error.message));
+      return;
+    }
+    const obraName = out.value.result?.projectName ?? linkedObraName;
+    const verb = out.value.removed
+      ? `removido do app${obraName ? ` (obra ${obraName})` : ""}`
+      : "já não estava no app";
+    // same care as in `send`: the link belongs to the takeoff whose budget was removed
+    const now = useStore.getState();
+    if (now.project.id !== removingProject.id || now.filePath !== removingPath) {
+      setStatus(
+        `Orçamento aprovado ${verb} · o takeoff não está mais aberto: abra-o e salve-o para ` +
+          "tirar o vínculo do arquivo",
+      );
+      return;
+    }
+    setIdentity({ sentToApp: undefined });
+    setSentFor({ id: removingProject.id, path: removingPath });
+    setRemoved(out.value);
+    const unsavedNow = await saveLink();
+    setUnsaved(unsavedNow);
+    setStatus(
+      `Orçamento aprovado ${verb}${unsavedStatus(unsavedNow, "tirar o vínculo do arquivo")}`,
     );
   };
 
@@ -189,20 +271,18 @@ function SendBudgetPanel() {
         <SentResult
           sent={sent}
           unsaved={unsaved}
-          onSave={async () => {
-            const now = useStore.getState();
-            if (now.project.id !== sentFor?.id || now.filePath !== sentFor?.path) {
-              setUnsaved(
-                "o takeoff enviado não está mais aberto: abra-o e envie de novo para gravar o vínculo",
-              );
-              return;
-            }
-            try {
-              if (await saveProject(false)) setUnsaved(null);
-            } catch (e) {
-              setUnsaved(e instanceof Error ? e.message : String(e));
-            }
-          }}
+          onSave={() => void saveLinkAgain()}
+          onClose={close}
+        />
+      );
+    }
+    if (removed) {
+      return (
+        <RemovedResult
+          removed={removed}
+          obraName={linkedObraName}
+          unsaved={unsaved}
+          onSave={() => void saveLinkAgain()}
           onClose={close}
         />
       );
@@ -417,6 +497,7 @@ function SendBudgetPanel() {
         </label>
 
         {sendError && <ErrorBox error={sendError} />}
+        {removeError && <ErrorBox error={removeError} />}
       </div>
     );
   })();
@@ -430,18 +511,39 @@ function SendBudgetPanel() {
     (preview.summary?.lines ?? 0) > 0 &&
     obraId !== null &&
     confirmed &&
-    !sending;
+    !sending &&
+    !removing;
+  // the previous send can be undone while the obras loaded (the app is reachable and the user may
+  // send) and nothing is in flight
+  const canRemove = resend && signedIn && options?.ok === true && !sending && !removing;
 
   return (
     <Dialog
-      title={resend ? "Atualizar orçamento aprovado no app" : "Enviar orçamento aprovado ao app"}
+      title={
+        removed
+          ? "Orçamento removido do app"
+          : resend
+            ? "Atualizar orçamento aprovado no app"
+            : "Enviar orçamento aprovado ao app"
+      }
       onClose={close}
       className="max-h-[85vh] w-[32rem] text-xs"
       bodyClassName="flex flex-col"
     >
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">{body}</div>
-      {!sent && (
+      {!sent && !removed && (
         <div className="flex items-center justify-end gap-2 border-t border-neutral-800 px-4 py-2">
+          {resend && (
+            <Button
+              disabled={!canRemove}
+              onClick={() => void remove()}
+              title="Apaga o orçamento enviado do app e tira o vínculo deste takeoff"
+              className="mr-auto text-red-300 hover:bg-red-500/10"
+            >
+              {removing ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              Remover do app…
+            </Button>
+          )}
           <Button onClick={close}>Cancelar</Button>
           <Button variant="primary" disabled={!canSend} onClick={() => void send()}>
             {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
@@ -531,6 +633,58 @@ function SentResult({
             <ExternalLink size={14} /> Abrir no app
           </Button>
         )}
+        <Button variant="primary" onClick={onClose}>
+          Fechar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function RemovedResult({
+  removed,
+  obraName,
+  unsaved,
+  onSave,
+  onClose,
+}: {
+  removed: RemovedBudget;
+  /** The obra the file (or the app) said the budget was in, for the message. */
+  obraName: string | null;
+  /** Not null while the file still carries the link: the save error, or "" (cancelled). */
+  unsaved: string | null;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  const name = removed.result?.projectName ?? obraName;
+  return (
+    <div className="space-y-3">
+      <p className="flex items-start gap-2 text-emerald-300">
+        <CheckCircle2 size={16} className="shrink-0" />
+        <span>
+          {removed.removed
+            ? `Orçamento aprovado removido do app${name ? ` (obra ${name})` : ""}.`
+            : "Este orçamento já não estava no app: o vínculo foi tirado deste takeoff."}
+        </span>
+      </p>
+      {removed.result && (
+        <p className="text-neutral-300">
+          {removed.result.removedLines === 1
+            ? "1 linha apagada no app."
+            : `${removed.result.removedLines} linhas apagadas no app.`}
+        </p>
+      )}
+      {unsaved !== null && (
+        <p className="flex items-center gap-2 text-amber-300">
+          <span>
+            O vínculo com o app ainda está gravado no arquivo{unsaved ? ` (${unsaved})` : ""}: salve
+            o takeoff para tirá-lo.
+          </span>
+          <Button onClick={onSave}>Salvar</Button>
+        </p>
+      )}
+      <p className="text-neutral-400">Um novo envio deste takeoff cria outro orçamento no app.</p>
+      <div className="flex items-center justify-end gap-2 pt-1">
         <Button variant="primary" onClick={onClose}>
           Fechar
         </Button>
