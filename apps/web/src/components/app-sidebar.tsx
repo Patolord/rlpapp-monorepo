@@ -1,6 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { UserButton } from "@clerk/tanstack-react-start";
 import { Link, useRouterState } from "@tanstack/react-router";
+import { formatDisplayName } from "@rlpapp/shared";
 import { useQuery } from "convex/react";
 import {
   Building2,
@@ -140,7 +141,7 @@ function getNavGroups(): NavGroup[] {
 }
 
 const roleLabels: Record<string, string> = {
-  director: "Diretora",
+  director: "Diretor",
   admin: "Administrador",
   manager: "Gerente",
   operator: "Operador",
@@ -289,7 +290,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ))}
       </SidebarContent>
       <SidebarFooter className="border-t border-slate-100">
-        <NavUser name={currentUser?.name} role={currentUser?.role} />
+        <NavUser
+          name={currentUser?.name ? formatDisplayName(currentUser.name) : undefined}
+          role={currentUser?.role}
+        />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

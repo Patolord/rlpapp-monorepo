@@ -25,7 +25,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { normalizeUsername, sanitizeUsernameInput } from "@rlpapp/shared";
+import {
+  formatDisplayName,
+  formatUsername,
+  normalizeUsername,
+  sanitizeUsernameInput,
+} from "@rlpapp/shared";
 import { getErrorMessage } from "@/lib/errors";
 
 type User = FunctionReturnType<typeof api.users.list>[number];
@@ -527,7 +532,7 @@ function UserCard({
       <View className="flex-row items-start justify-between gap-2">
         <View className="min-w-0 flex-1">
           <Text className="text-base font-semibold text-foreground" numberOfLines={1}>
-            {user.name}
+            {formatDisplayName(user.name)}
           </Text>
           {user.email ? (
             <Text className="text-sm text-muted-foreground" numberOfLines={1}>
@@ -536,7 +541,7 @@ function UserCard({
           ) : null}
           {user.username ? (
             <Text className="font-mono text-xs text-muted-foreground">
-              @{user.username}
+              @{formatUsername(user.username)}
             </Text>
           ) : null}
         </View>

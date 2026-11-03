@@ -1,5 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
+import { formatDisplayName, formatUsername } from "@rlpapp/shared";
 import { useAuth } from "@clerk/expo";
 import type { DrawerContentComponentProps } from "@react-navigation/drawer";
 import { DrawerContentScrollView, DrawerItemList } from "@react-navigation/drawer";
@@ -78,7 +79,11 @@ function RoleAwareDrawer({
   const showEstoque = isDirector || userDept === "estoque" || userDept === "compras" || isEngenheiro;
   const showPortal = isDirector || currentUser?.role === "client";
 
-  const userName = currentUser?.name ?? currentUser?.username ?? "";
+  const userName = currentUser?.name
+    ? formatDisplayName(currentUser.name)
+    : currentUser?.username
+      ? formatUsername(currentUser.username)
+      : "";
   const roleLabel = currentUser?.role ? ROLE_LABEL[currentUser.role] ?? currentUser.role : "";
 
   const drawerContent = useCallback(
