@@ -6,7 +6,6 @@ import {
   STAFF_GROUP_DESCRIPTIONS,
   STAFF_GROUP_LABELS,
   STAFF_GROUP_PAYROLL_DEFAULTS,
-  baseSalaryLabel,
   type StaffGroup,
 } from "@rlpapp/shared/rh/staffGroups";
 import { useMutation, useQuery } from "convex/react";
@@ -340,9 +339,7 @@ function EmployeeFields({
         <div className="grid gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="employee-salary">
-                {baseSalaryLabel(form.staffGroup)} (R$)
-              </Label>
+              <Label htmlFor="employee-salary">Salário base (R$)</Label>
               <Input
                 id="employee-salary"
                 className="text-right tabular-nums"
@@ -431,7 +428,7 @@ function describeBenefits(employee: EmployeeSummary): string {
   const parts: string[] = [];
   if (employee.receivesFoodBasket) parts.push("cesta básica");
   if (employee.defaultTransportFoodDays > 0) {
-    parts.push(`vale-refeição (${employee.defaultTransportFoodDays} dias)`);
+    parts.push(`vale-alimentação (${employee.defaultTransportFoodDays} dias)`);
     if (employee.dailyTransitCents > 0) {
       parts.push(
         `vale-transporte (R$ ${formatCentsInput(employee.dailyTransitCents)}/dia)`
@@ -668,9 +665,7 @@ export function EmployeeDetailDialog({
               {employee.paymentMethod.toUpperCase()}
             </p>
             <p>
-              <span className="text-muted-foreground">
-                {baseSalaryLabel(employee.staffGroup)}:
-              </span>{" "}
+              <span className="text-muted-foreground">Salário base:</span>{" "}
               {formatCentsInput(employee.baseSalaryCents)}
             </p>
             <p>

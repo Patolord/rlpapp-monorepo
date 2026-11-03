@@ -94,14 +94,14 @@ describe("employees API", () => {
     );
     expect(byId.get(diretor)).toMatchObject({
       staffGroup: "diretoria",
-      receivesFoodBasket: false,
+      receivesFoodBasket: true,
       dailyTransitCents: 0,
       defaultTransportFoodDays: 0,
       baseSalaryCents: 1_500_000,
     });
     expect(byId.get(analista)).toMatchObject({
       staffGroup: "escritorio",
-      receivesFoodBasket: false,
+      receivesFoodBasket: true,
       dailyTransitCents: 2140,
       defaultTransportFoodDays: 22,
     });
@@ -125,6 +125,7 @@ describe("employees API", () => {
       staffGroup: "diretoria",
       dailyTransitCents: 1000,
       defaultTransportFoodDays: 10,
+      receivesFoodBasket: false,
     });
     const dora = await hr.query(api.employees.get, { employeeId: diretorComVt });
     expect(dora).toMatchObject({

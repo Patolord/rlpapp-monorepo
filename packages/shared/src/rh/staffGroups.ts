@@ -1,13 +1,16 @@
 /**
  * Equipes do quadro de funcionários da RLP. Cada equipe tem padrões próprios
- * de benefícios na folha mensal:
+ * de benefícios na folha mensal (conferidos na planilha FOLHA_DE_PAGTO 2026):
  *
- * - Obra: cesta básica, vale-transporte e vale-refeição por dia trabalhado.
- * - Escritório: vale-transporte e vale-refeição por dia, sem cesta básica.
- * - Diretoria: pró-labore fixo, sem cesta, vale-transporte ou vale-refeição.
+ * - Obra: cesta básica, vale-alimentação e vale-transporte por dia trabalhado.
+ * - Escritório: cesta básica e vale-alimentação por dia; vale-transporte só
+ *   para quem usa transporte público (engenheiros e gerentes ficam com
+ *   passagem zero).
+ * - Diretoria: cesta básica e salário base, sem vale-alimentação nem
+ *   vale-transporte; o restante da remuneração entra como complemento na folha.
  *
  * Os padrões só preenchem o cadastro; cada funcionário pode ser ajustado
- * individualmente (um diretor que recebe vale-transporte, por exemplo).
+ * individualmente (uma gerente sem vale-alimentação, por exemplo).
  */
 export const STAFF_GROUPS = ["obra", "escritorio", "diretoria"] as const;
 
@@ -23,9 +26,11 @@ export const STAFF_GROUP_LABELS: Record<StaffGroup, string> = {
 };
 
 export const STAFF_GROUP_DESCRIPTIONS: Record<StaffGroup, string> = {
-  obra: "Cesta básica, vale-transporte e vale-refeição por dia trabalhado.",
-  escritorio: "Vale-transporte e vale-refeição por dia, sem cesta básica.",
-  diretoria: "Pró-labore fixo, sem cesta básica, vale-transporte ou vale-refeição.",
+  obra: "Cesta básica, vale-alimentação e vale-transporte por dia trabalhado.",
+  escritorio:
+    "Cesta básica e vale-alimentação por dia; zere a passagem de quem não usa transporte público.",
+  diretoria:
+    "Cesta básica e salário base, sem vale-alimentação nem vale-transporte; o restante entra como complemento na folha.",
 };
 
 /** Passagem diária padrão (ida e volta) em centavos. */
@@ -49,12 +54,12 @@ export const STAFF_GROUP_PAYROLL_DEFAULTS: Record<
     defaultTransportFoodDays: DEFAULT_TRANSPORT_FOOD_DAYS,
   },
   escritorio: {
-    receivesFoodBasket: false,
+    receivesFoodBasket: true,
     dailyTransitCents: DEFAULT_DAILY_TRANSIT_CENTS,
     defaultTransportFoodDays: DEFAULT_TRANSPORT_FOOD_DAYS,
   },
   diretoria: {
-    receivesFoodBasket: false,
+    receivesFoodBasket: true,
     dailyTransitCents: 0,
     defaultTransportFoodDays: 0,
   },
@@ -64,9 +69,4 @@ export function isStaffGroup(value: unknown): value is StaffGroup {
   return (
     typeof value === "string" && (STAFF_GROUPS as readonly string[]).includes(value)
   );
-}
-
-/** Nome do valor fixo mensal: salário para empregados, pró-labore para a diretoria. */
-export function baseSalaryLabel(group: StaffGroup): string {
-  return group === "diretoria" ? "Pró-labore" : "Salário base";
 }
