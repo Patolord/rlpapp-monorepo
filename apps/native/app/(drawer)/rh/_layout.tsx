@@ -1,4 +1,4 @@
-import { Tabs, useNavigation } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { Clock, Users, Wallet } from "lucide-react-native";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,11 +8,19 @@ import { colors } from "@/lib/theme";
 
 export default function RhTabsLayout() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<{ openDrawer: () => void }>();
+  const router = useRouter();
+
+  function goBack() {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(drawer)");
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top }}>
-      <ScreenHeader title="Recursos Humanos" onMenu={() => navigation.openDrawer()} large />
+      <ScreenHeader title="Recursos Humanos" onBack={goBack} large />
       <Tabs
         screenOptions={{
           headerShown: false,
