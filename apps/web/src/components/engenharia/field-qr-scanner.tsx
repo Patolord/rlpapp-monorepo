@@ -89,6 +89,8 @@ export function FieldQrScanner({ onToken, autoStart = false }: FieldQrScannerPro
             setError("O conteúdo lido não é um código QR válido.");
             return;
           }
+          // Confirma a leitura no tato (Android; iOS ignora a Vibration API).
+          navigator.vibrate?.(30);
           void stopScanner().then(() => {
             if (onToken) onToken(token);
             else void navigate({ to: "/q/$token", params: { token } });
@@ -134,11 +136,11 @@ export function FieldQrScanner({ onToken, autoStart = false }: FieldQrScannerPro
             {error}
           </p>
         )}
-        <Button className="h-12 w-full max-w-sm text-base" onClick={() => void startScanner()}>
+        <Button size="xl" className="w-full max-w-sm" onClick={() => void startScanner()}>
           {state === "error" ? (
-            <RotateCcw className="mr-2 size-5" />
+            <RotateCcw className="size-5" />
           ) : (
-            <Camera className="mr-2 size-5" />
+            <Camera className="size-5" />
           )}
           {state === "error" ? "Tentar novamente" : "Abrir câmera"}
         </Button>
@@ -162,10 +164,11 @@ export function FieldQrScanner({ onToken, autoStart = false }: FieldQrScannerPro
       </p>
       <Button
         variant="outline"
-        className="h-12 w-full text-base"
+        size="xl"
+        className="w-full"
         onClick={() => void stopScanner()}
       >
-        <X className="mr-2 size-5" />
+        <X className="size-5" />
         Cancelar leitura
       </Button>
     </div>

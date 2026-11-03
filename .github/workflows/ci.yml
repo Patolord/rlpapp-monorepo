@@ -2,16 +2,21 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Em PRs, só o último commit importa. No master a run precisa terminar para
+  # gravar os caches (pnpm e Turbo) que as PRs reaproveitam.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
 
 jobs:
   check:
-    name: Lint e Typecheck
+    name: Lint, Typecheck e Testes
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -27,11 +32,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
+      # Cache do Turbo: pacotes que não mudaram desde a última run (do master ou
+      # da própria branch) têm lint/typecheck/test reaproveitados em vez de
+      # re-executados. A chave inclui o SHA para gravar uma entrada nova por
+      # commit; restore-keys pega a mais recente disponível.
+      - name: Restore Turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
 
-      - name: Typecheck
-        run: pnpm check-types
-
-      - name: Testes
-        run: pnpm test
+      # Uma única invocação: o Turbo agenda lint, typecheck e testes de todos
+      # os pacotes em paralelo (antes eram três passes sequenciais).
+      # --continue reporta todas as falhas em vez de parar na primeira.
+      - name: Lint, Typecheck e Testes
+        run: pnpm exec turbo run lint check-types test --continue

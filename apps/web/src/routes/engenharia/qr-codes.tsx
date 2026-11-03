@@ -186,7 +186,7 @@ function QrCodesContent() {
           className="mb-2"
           onClick={() => navigate({ to: "/engenharia" })}
         >
-          <ArrowLeft className="mr-2 h-4 w-4" />
+          <ArrowLeft />
           Voltar para códigos QR
         </Button>
         <h1 className="text-2xl font-bold">Gerar códigos QR</h1>
@@ -196,7 +196,7 @@ function QrCodesContent() {
       </div>
 
       <Card className="mb-6 print:hidden">
-        <CardContent className="pt-4">
+        <CardContent>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
             <div className="flex-1 space-y-2">
               <Label htmlFor="batchName">Nome do lote</Label>
@@ -256,12 +256,12 @@ function QrCodesContent() {
             <Button
               onClick={handleGenerate}
               disabled={generating || !isValidQuantity || !projectId}
-              className="h-12 text-base"
+              size="xl"
             >
               {generating ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="animate-spin" />
               ) : (
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus />
               )}
               Gerar
             </Button>
@@ -286,7 +286,7 @@ function QrCodesContent() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={handlePrint}>
-                <Printer className="mr-2 h-4 w-4" />
+                <Printer />
                 Imprimir lote
               </Button>
               <Button
@@ -294,7 +294,7 @@ function QrCodesContent() {
                 disabled={selectedCreatedCount === 0}
                 onClick={handlePrintSelected}
               >
-                <Printer className="mr-2 h-4 w-4" />
+                <Printer />
                 Imprimir selecionados ({selectedCreatedCount})
               </Button>
               <Button
@@ -306,14 +306,14 @@ function QrCodesContent() {
                   })
                 }
               >
-                <ListChecks className="mr-2 h-4 w-4" />
+                <ListChecks />
                 Ver no gerenciamento
               </Button>
             </div>
           </div>
           <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
             <Card className="overflow-hidden print:hidden">
-              <CardHeader className="border-b pb-3">
+              <CardHeader>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <CardTitle className="text-base">Códigos do lote</CardTitle>
@@ -365,7 +365,7 @@ function QrCodesContent() {
                           title="Ver código QR"
                           onClick={() => setPreviewToken(token)}
                         >
-                          <Eye className="h-4 w-4" />
+                          <Eye />
                         </Button>
                         <Button
                           type="button"
@@ -373,7 +373,7 @@ function QrCodesContent() {
                           size="sm"
                           onClick={() => handlePrintOne(token)}
                         >
-                          <Printer className="mr-2 h-4 w-4" />
+                          <Printer />
                           Imprimir
                         </Button>
                       </div>
@@ -426,7 +426,7 @@ function QrPreviewCard({
   if (!token) {
     return (
       <Card className="hidden print:hidden lg:sticky lg:top-6 lg:block">
-        <CardContent className="flex min-h-64 flex-col items-center justify-center p-5 text-center">
+        <CardContent className="flex min-h-64 flex-col items-center justify-center text-center">
           <Eye className="mb-2 h-5 w-5 text-muted-foreground" />
           <p className="text-sm font-medium">Pré-visualização do QR</p>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -441,7 +441,7 @@ function QrPreviewCard({
 
   return (
     <Card className="print:hidden lg:sticky lg:top-6">
-      <CardContent className="flex flex-col items-center p-5 text-center">
+      <CardContent className="flex flex-col items-center text-center">
         <div className="mb-4 flex w-full items-center justify-between gap-2 border-b pb-3">
           <div className="min-w-0 text-left">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -456,7 +456,7 @@ function QrPreviewCard({
             aria-label="Fechar pré-visualização"
             onClick={onClose}
           >
-            <X className="h-4 w-4" />
+            <X />
           </Button>
         </div>
         <div className="rounded-xl border bg-white p-3">

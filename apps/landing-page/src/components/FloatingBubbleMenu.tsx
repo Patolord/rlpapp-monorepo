@@ -38,7 +38,7 @@ export default function FloatingBubbleMenu() {
     };
   }, []);
 
-  const whatsappNumber = "5511999999999"; // Replace with actual number
+  const whatsappNumber = "5511985782307";
   const whatsappMessage = encodeURIComponent(
     "Olá! Gostaria de mais informações sobre os serviços da RLP Engenharia."
   );

@@ -181,10 +181,11 @@ export function EquipmentForm({
       <Button
         type="submit"
         disabled={submitting || !canSubmit}
-        className="h-14 w-full text-lg"
+        size="xl"
+        className="w-full"
       >
         {submitting ? (
-          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          <Loader2 className="animate-spin" />
         ) : null}
         {submitting
           ? "Registrando..."

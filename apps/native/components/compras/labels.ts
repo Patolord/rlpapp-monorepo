@@ -20,6 +20,7 @@ export const PRICE_SOURCE: Record<string, string> = {
   invoice: "Nota fiscal",
   whatsapp: "WhatsApp",
   supplier_form: "Formulário",
+  excel_import: "Planilha",
 };
 
 export const FRESHNESS: Record<string, { label: string; tone: Tone }> = {

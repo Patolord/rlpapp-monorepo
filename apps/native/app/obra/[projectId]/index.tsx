@@ -11,7 +11,6 @@ import {
   Ruler,
   ShoppingCart,
   Warehouse,
-  Wind,
 } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -32,7 +31,6 @@ const MODULES: ModuleTile[] = [
   { label: "Medições", segment: "medicoes", icon: Ruler, color: "#06b6d4" },
   { label: "Compras", segment: "compras", icon: ShoppingCart, color: "#f97316" },
   { label: "Estoque", segment: "estoque", icon: Warehouse, color: "#10b981" },
-  { label: "Dutos", segment: "dutos", icon: Wind, color: "#0ea5e9" },
   { label: "Contratos", segment: "contratos", icon: FileText, color: "#eab308" },
   { label: "QR Codes", segment: "qr-codes", icon: QrCode, color: "#ec4899" },
 ];

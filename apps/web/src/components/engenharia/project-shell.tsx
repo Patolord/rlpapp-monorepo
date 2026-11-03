@@ -140,11 +140,11 @@ export function ProjectShell({
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
           <Button render={<Link to="/app" />}>
-            <Home className="mr-2 size-4" />
+            <Home />
             Voltar à tela inicial
           </Button>
           <Button variant="outline" render={<Link to={OBRAS_LIST_PATH} />}>
-            <ArrowLeft className="mr-2 size-4" />
+            <ArrowLeft />
             Voltar para obras
           </Button>
         </div>
@@ -203,7 +203,7 @@ function ProjectShellLayout({
   return (
     <div
       className={cn(
-        "mx-auto max-w-7xl space-y-6 transition-[padding] duration-200",
+        "mx-auto max-w-7xl space-y-6",
         aiOpen && "lg:pr-116"
       )}
     >
@@ -214,7 +214,7 @@ function ProjectShellLayout({
           className="mb-2 -ml-2"
           render={<Link to={OBRAS_LIST_PATH} />}
         >
-          <ArrowLeft className="mr-1.5 size-4" />
+          <ArrowLeft />
           Obras
         </Button>
 
@@ -267,7 +267,7 @@ function ProjectShellLayout({
                 }}
                 trigger={
                   <Button variant="outline" size="sm">
-                    <Pencil className="mr-1.5 size-4" />
+                    <Pencil />
                     Editar
                   </Button>
                 }
@@ -278,9 +278,8 @@ function ProjectShellLayout({
               size="icon"
               onClick={() => setMetricsOpen((v) => !v)}
               title="Visualizar métricas"
-              className="size-9"
             >
-              <BarChart3 className="size-4" />
+              <BarChart3 />
             </Button>
             <AssignTechniciansDialog projectId={project._id} />
             <Button
@@ -293,7 +292,7 @@ function ProjectShellLayout({
                 />
               }
             >
-              <QrCode className="mr-1.5 size-4" />
+              <QrCode />
               QR Codes
             </Button>
             <Button
@@ -306,7 +305,7 @@ function ProjectShellLayout({
                 />
               }
             >
-              <Printer className="mr-1.5 size-4" />
+              <Printer />
               Imprimir
             </Button>
           </div>
@@ -333,7 +332,7 @@ function ProjectShellLayout({
           className="fixed bottom-6 right-6 z-40 rounded-full shadow-lg"
           onClick={() => setAiOpenPersist(true)}
         >
-          <Sparkles className="mr-2 size-4" />
+          <Sparkles />
           Assistente IA
         </Button>
       )}
@@ -364,12 +363,6 @@ const OBRA_MODULES = [
     key: "orcamento",
     label: "Orçamento",
     to: "/engenharia/obras/$obraSlug/orcamento" as const,
-    match: "prefix" as const,
-  },
-  {
-    key: "dutos",
-    label: "Dutos",
-    to: "/engenharia/obras/$obraSlug/dutos" as const,
     match: "prefix" as const,
   },
   {
@@ -468,8 +461,8 @@ function ProgressSummary({
         </span>
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full rounded-full bg-primary transition-all"
-            style={{ width: `${pct}%` }}
+            className="h-full w-full rounded-full bg-primary transition-transform duration-300 ease-snappy motion-reduce:transition-none"
+            style={{ transform: `translateX(${pct - 100}%)` }}
           />
         </div>
       </div>

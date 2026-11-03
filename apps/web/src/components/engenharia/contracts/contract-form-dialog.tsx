@@ -618,7 +618,7 @@ export function ContractFormDialog({
                     setServiceRows((rows) => [...rows, newServiceRow()])
                   }
                 >
-                  <Plus className="mr-1.5 size-3.5" />
+                  <Plus />
                   Item
                 </Button>
               </div>
@@ -679,7 +679,7 @@ export function ContractFormDialog({
                           )
                         }
                       >
-                        <Trash2 className="size-4" />
+                        <Trash2 />
                       </Button>
                     </div>
                   </div>
@@ -723,7 +723,7 @@ export function ContractFormDialog({
                 Cancelar
               </Button>
               <Button type="submit" disabled={saving || !title.trim()}>
-                {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                {saving && <Loader2 className="animate-spin" />}
                 {isEdit ? "Salvar alterações" : "Criar contrato"}
               </Button>
             </DialogFooter>

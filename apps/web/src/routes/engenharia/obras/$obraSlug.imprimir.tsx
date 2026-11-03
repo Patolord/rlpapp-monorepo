@@ -57,7 +57,7 @@ function PrintPage() {
           Esta obra pode ter sido removida ou o endereço está incorreto.
         </p>
         <Button className="mt-6" render={<Link to="/app" />}>
-          <Home className="mr-2 size-4" />
+          <Home />
           Voltar à tela inicial
         </Button>
       </div>
@@ -87,11 +87,11 @@ function PrintPage() {
             />
           }
         >
-          <ArrowLeft className="mr-1.5 size-4" />
+          <ArrowLeft />
           Voltar
         </Button>
         <Button size="sm" onClick={() => window.print()}>
-          <Printer className="mr-1.5 size-4" />
+          <Printer />
           Imprimir
         </Button>
       </div>

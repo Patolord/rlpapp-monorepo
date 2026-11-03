@@ -197,7 +197,7 @@ export function ContractorDetailDialog({
     <Dialog open={open} onOpenChange={reset}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          <Pencil className="mr-1.5 size-3.5" />
+          <Pencil />
           Gerenciar
         </Button>
       </DialogTrigger>
@@ -328,7 +328,7 @@ export function ContractorDetailDialog({
         {!isArchived && (
           <div className="flex justify-end">
             <Button onClick={saveContractor} disabled={saving || !form.name.trim()}>
-              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {saving && <Loader2 className="animate-spin" />}
               Salvar dados
             </Button>
           </div>
@@ -347,7 +347,7 @@ export function ContractorDetailDialog({
               size="sm"
               onClick={() => setShowHistory((current) => !current)}
             >
-              <History className="mr-1.5 size-4" />
+              <History />
               {showHistory ? "Mostrar ativos" : "Ver histórico"}
             </Button>
           </div>
@@ -389,7 +389,7 @@ export function ContractorDetailDialog({
                           })
                         }
                       >
-                        <Pencil className="mr-1.5 size-3.5" />
+                        <Pencil />
                         Editar
                       </Button>
                     )}
@@ -402,9 +402,9 @@ export function ContractorDetailDialog({
                         }
                       >
                         {contact.active ? (
-                          <Archive className="mr-1.5 size-3.5" />
+                          <Archive />
                         ) : (
-                          <RotateCcw className="mr-1.5 size-3.5" />
+                          <RotateCcw />
                         )}
                         {contact.active ? "Arquivar" : "Restaurar"}
                       </Button>
@@ -489,7 +489,7 @@ export function ContractorDetailDialog({
                   onClick={saveContact}
                   disabled={saving || !contactForm.name.trim()}
                 >
-                  <Plus className="mr-1.5 size-4" />
+                  <Plus />
                   {contactForm.contactId
                     ? "Salvar contato"
                     : "Adicionar contato"}

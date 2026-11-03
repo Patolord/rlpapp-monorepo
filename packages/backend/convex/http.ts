@@ -4,12 +4,21 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { env, httpAction } from "./_generated/server";
 import { MAX_LOOKUP_QUERY_LENGTH } from "./lib/compras/materialLookup";
+import type { TakeoffCatalogItem } from "./model/procurement/takeoffCatalog";
+import {
+  MATERIAL_NOT_FOUND,
+  parseTakeoffMaterialProposal,
+  type TakeoffMaterialProposalResult,
+} from "./model/procurement/takeoffProposals";
 import {
   PHOTO_FETCH_TIMEOUT_MS,
   isAllowedPhotoUrl,
   photoMimeType,
   readPhotoBody,
 } from "./lib/rh/photo";
+import { hashAgentToken, looksLikeAgentToken } from "./lib/agentTokens";
+import { registerApiV1Routes } from "./gateway/v1";
+import { registerTakeoffAuthRoutes } from "./gateway/takeoffAuth";
 
 type ClerkEmailAddress = {
   id: string;
@@ -140,6 +149,142 @@ const handleMaterialLookup = httpAction(async (ctx, request) => {
       status: result.status,
       matchedBy: result.status === "found" ? result.matchedBy : null,
       ms: Date.now() - startedAt,
+    })
+  );
+  return json(result);
+});
+
+// ---------------------------------------------------------------------------
+// Tokens de agente (MCP)
+// ---------------------------------------------------------------------------
+//
+// O servidor MCP (apps/web, rota /mcp) recebe `Authorization: Bearer rlp_…`
+// de clientes como Claude e Cursor e chama este endpoint para saber a quem o
+// token pertence. Só o SHA-256 é comparado; a resposta é o mesmo que o dono
+// do token já poderia ver sobre si mesmo. Depois disso o servidor MCP emite
+// um JWT de delegação (sub = clerkId do dono, claims agent_token.*) e as
+// funções Convex aplicam o RBAC normal mais a política de lib/agentTokens.ts.
+
+const AGENT_TOKEN_VERIFY_PATH = "/agent-tokens/verify";
+
+function readBearer(request: Request): string | null {
+  const header = request.headers.get("Authorization");
+  if (!header) return null;
+  const match = /^Bearer\s+(.+)$/i.exec(header.trim());
+  return match?.[1]?.trim() ?? null;
+}
+
+const handleAgentTokenVerify = httpAction(async (ctx, request) => {
+  const headers = { "Cache-Control": "no-store" };
+  const presented = readBearer(request);
+  if (!presented || !looksLikeAgentToken(presented)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: {
+        ...headers,
+        "Content-Type": "application/json; charset=utf-8",
+        "WWW-Authenticate": 'Bearer realm="agent-tokens"',
+      },
+    });
+  }
+
+  const now = Date.now();
+  const verified = await ctx.runQuery(internal.agentTokens.verify, {
+    tokenHash: await hashAgentToken(presented),
+    now,
+  });
+  if (!verified) {
+    console.log(
+      JSON.stringify({
+        event: "agent_token_rejected",
+        prefix: presented.slice(0, 12),
+      })
+    );
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...headers, "Content-Type": "application/json; charset=utf-8" },
+    });
+  }
+
+  await ctx.runMutation(internal.agentTokens.touch, {
+    id: verified.token._id,
+    now,
+  });
+  return new Response(JSON.stringify(verified), {
+    status: 200,
+    headers: { ...headers, "Content-Type": "application/json; charset=utf-8" },
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Catálogo para o RLP Takeoff (app desktop)
+// ---------------------------------------------------------------------------
+//
+// Exporta todo o catálogo ativo com o preço vigente de cada material. O app
+// desktop lê isto ao abrir e cai no seed embutido quando o endpoint falha, por
+// isso a resposta é um JSON único e não paginado.
+
+const handleTakeoffCatalog = httpAction(async (ctx, request) => {
+  const token = env.TAKEOFF_CATALOG_TOKEN;
+  if (!token) return json({ error: "Takeoff catalog is not configured" }, 503);
+  if (request.headers.get("Authorization") !== `Bearer ${token}`) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
+  const startedAt = Date.now();
+  const items: TakeoffCatalogItem[] = await ctx.runQuery(
+    internal.takeoffCatalog.list,
+    { now: startedAt }
+  );
+  console.log(
+    JSON.stringify({
+      event: "takeoff_catalog",
+      items: items.length,
+      ms: Date.now() - startedAt,
+    })
+  );
+  return json({ generatedAt: startedAt, items });
+});
+
+// Proposta de material vinda do takeoff. Cadastrar material é tarefa de
+// compras: aqui só nasce um rascunho (ou o vínculo com o material idêntico
+// já existente) e, se veio preço, uma estimativa na fila de revisão.
+// Idempotente por clientId para o app poder reenviar sem medo.
+const handleTakeoffMaterialProposal = httpAction(async (ctx, request) => {
+  const token = env.TAKEOFF_CATALOG_TOKEN;
+  if (!token) return json({ error: "Takeoff catalog is not configured" }, 503);
+  if (request.headers.get("Authorization") !== `Bearer ${token}`) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "Body must be JSON" }, 400);
+  }
+  const parsed = parseTakeoffMaterialProposal(body);
+  if (!parsed.ok) return json({ error: parsed.error }, 400);
+
+  let result: TakeoffMaterialProposalResult;
+  try {
+    result = await ctx.runMutation(
+      internal.takeoffMaterials.propose,
+      parsed.value
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes(MATERIAL_NOT_FOUND)) {
+      return json({ error: "Material not found" }, 404);
+    }
+    throw error;
+  }
+  console.log(
+    JSON.stringify({
+      event: "takeoff_material_proposal",
+      outcome: result.outcome,
+      materialId: result.materialId,
+      priceEventId: result.priceEventId,
     })
   );
   return json(result);
@@ -292,6 +437,16 @@ const handleTimeClockPhoto = httpAction(async (ctx, request) => {
 
 const http = httpRouter();
 
+// API HTTP para agentes (`/api/v1/*` e `/.well-known/jwks.json`).
+registerApiV1Routes(http);
+registerTakeoffAuthRoutes(http);
+
+http.route({
+  path: AGENT_TOKEN_VERIFY_PATH,
+  method: "POST",
+  handler: handleAgentTokenVerify,
+});
+
 http.route({
   pathPrefix: TIME_CLOCK_PHOTO_PATH_PREFIX,
   method: "GET",
@@ -326,6 +481,18 @@ http.route({
   path: "/materials/lookup",
   method: "GET",
   handler: handleMaterialLookup,
+});
+
+http.route({
+  path: "/takeoff/catalog",
+  method: "GET",
+  handler: handleTakeoffCatalog,
+});
+
+http.route({
+  path: "/takeoff/materials",
+  method: "POST",
+  handler: handleTakeoffMaterialProposal,
 });
 
 export default http;

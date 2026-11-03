@@ -67,6 +67,9 @@ apps/native/android/
 **/xcuserdata/
 
 *.md
+# Agent/contributor guides (root and per package) are tracked
+!AGENTS.md
+!CLAUDE.md
 # Eve agent markdown is functional (system prompt, skills), keep it tracked
 !apps/internal-agent/**/*.md
 

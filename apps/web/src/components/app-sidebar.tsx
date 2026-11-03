@@ -20,6 +20,7 @@ import {
   ArrowLeftRight,
   Shield,
   Banknote,
+  Bot,
   Clock,
   type LucideIcon,
 } from "lucide-react";
@@ -62,11 +63,6 @@ function getNavGroups(): NavGroup[] {
         { to: "/engenharia/empreiteiros", label: "Empreiteiros", icon: HardHat },
         { to: "/engenharia/contratos", label: "Contratos", icon: FileText },
         { to: "/engenharia/qr-codes", label: "Códigos QR", icon: QrCode },
-        {
-          to: "/engenharia/registro-de-campo",
-          label: "Registro de Campo",
-          icon: ClipboardList,
-        },
       ],
     },
     {
@@ -109,6 +105,11 @@ function getNavGroups(): NavGroup[] {
           icon: Shield,
         },
       ],
+    },
+    {
+      key: "conta",
+      label: "Minha conta",
+      items: [{ to: "/conta/agentes", label: "Agentes (MCP)", icon: Bot }],
     },
   ];
 }
@@ -188,6 +189,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         if (group.key === "configuracoes") {
           return hasEngineeringAccess || hasPurchasingAccess;
         }
+        // Tokens de agente são pessoais: todo usuário interno pode criar os seus.
+        if (group.key === "conta") return true;
         return false;
       });
 
@@ -206,7 +209,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <span className="truncate text-base font-bold tracking-tight group-hover/menu-button:text-sidebar-accent-foreground group-data-active/menu-button:text-sidebar-accent-foreground">
                   RLP Engenharia
                 </span>
-                <span className="truncate text-xs text-sidebar-foreground/70 group-hover/menu-button:text-sidebar-accent-foreground/80 group-data-active/menu-button:text-sidebar-accent-foreground/80">
+                <span className="truncate text-xs text-sidebar-foreground/70 group-hover/menu-button:text-sidebar-accent-foreground group-data-active/menu-button:text-sidebar-accent-foreground">
                   Sistema ERP
                 </span>
               </div>

@@ -20,6 +20,8 @@ function rejectDisallowedHost(request: Request): Response | null {
 
 let handler: ((request: Request) => Promise<Response>) | undefined;
 
+// Autentica token de agente (rlp_…) ou OAuth do Clerk e monta, por
+// requisição, as ferramentas que o usuário autenticado pode usar.
 function getHandler() {
   handler ??= createAuthenticatedMcpHandler();
   return handler;

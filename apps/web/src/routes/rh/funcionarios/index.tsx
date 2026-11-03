@@ -55,7 +55,7 @@ function FuncionariosContent() {
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 size-4" />
+          <Plus />
           Novo funcionário
         </Button>
       </div>

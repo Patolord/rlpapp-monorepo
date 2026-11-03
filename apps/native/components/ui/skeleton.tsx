@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Animated, View } from "react-native";
+import { AccessibilityInfo, Animated, View } from "react-native";
 import { cn } from "@/lib/utils";
 
 function Skeleton({ className }: { className?: string }) {
@@ -10,18 +10,27 @@ function Skeleton({ className }: { className?: string }) {
       Animated.sequence([
         Animated.timing(opacity, {
           toValue: 1,
-          duration: 1000,
+          duration: 800,
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
           toValue: 0.3,
-          duration: 1000,
+          duration: 800,
           useNativeDriver: true,
         }),
       ])
     );
-    animation.start();
-    return () => animation.stop();
+    let cancelled = false;
+    // Com "Reduzir movimento" ativo, o placeholder fica estático.
+    void AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (cancelled) return;
+      if (reduce) opacity.setValue(0.6);
+      else animation.start();
+    });
+    return () => {
+      cancelled = true;
+      animation.stop();
+    };
   }, [opacity]);
 
   return (

@@ -72,7 +72,7 @@ export function AssignTechniciansDialog({
       <DialogTrigger asChild>
         {trigger ?? (
           <Button variant="outline" size="sm">
-            <Users className="mr-1.5 size-4" />
+            <Users />
             Técnicos
           </Button>
         )}
@@ -133,7 +133,7 @@ export function AssignTechniciansDialog({
             onClick={() => void handleSave()}
             disabled={loading || saving}
           >
-            {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+            {saving && <Loader2 className="animate-spin" />}
             Salvar
           </Button>
         </DialogFooter>

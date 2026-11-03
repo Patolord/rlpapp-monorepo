@@ -159,7 +159,7 @@ function EmpreiteirosContent() {
         <div className="flex flex-wrap gap-2">
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger render={<Button />}>
-              <Plus className="mr-2 size-4" />
+              <Plus />
               Novo empreiteiro
             </DialogTrigger>
             <DialogContent className="sm:max-w-lg">

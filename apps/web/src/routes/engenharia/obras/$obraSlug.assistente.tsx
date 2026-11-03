@@ -262,7 +262,7 @@ function AssistantContent({ project }: { project: ProjectOverview }) {
               onClick={() => fileInputRef.current?.click()}
               aria-label="Anexar arquivo"
             >
-              <Paperclip className="size-4" />
+              <Paperclip />
             </Button>
             <Button
               variant={recording ? "destructive" : "ghost"}
@@ -271,9 +271,9 @@ function AssistantContent({ project }: { project: ProjectOverview }) {
               aria-label={recording ? "Parar gravação" : "Gravar áudio"}
             >
               {recording ? (
-                <Square className="size-4" />
+                <Square />
               ) : (
-                <Mic className="size-4" />
+                <Mic />
               )}
             </Button>
             <Textarea
@@ -295,7 +295,7 @@ function AssistantContent({ project }: { project: ProjectOverview }) {
               disabled={sending || (!input.trim() && files.length === 0)}
               aria-label="Enviar"
             >
-              <Send className="size-4" />
+              <Send />
             </Button>
           </div>
         </div>
@@ -338,7 +338,7 @@ function AssistantContent({ project }: { project: ProjectOverview }) {
                 className="flex-1"
                 onClick={() => setProposal(null)}
               >
-                <X className="mr-1.5 size-4" />
+                <X />
                 Descartar
               </Button>
               <Button
@@ -347,9 +347,9 @@ function AssistantContent({ project }: { project: ProjectOverview }) {
                 disabled={approving}
               >
                 {approving ? (
-                  <Loader2 className="mr-1.5 size-4 animate-spin" />
+                  <Loader2 className="animate-spin" />
                 ) : (
-                  <Check className="mr-1.5 size-4" />
+                  <Check />
                 )}
                 Aprovar e salvar
               </Button>
@@ -392,7 +392,7 @@ function ProposalUnitCard({
 }) {
   return (
     <Card>
-      <CardContent className="space-y-2 py-3">
+      <CardContent className="space-y-2">
         <div className="flex items-center gap-2">
           <Input
             className="h-8 w-24"

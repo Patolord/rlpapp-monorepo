@@ -520,8 +520,20 @@ export function normalizeRoster(raw: unknown): NormalizedPerson[] {
   return Array.from(people.values());
 }
 
+/** Subconjunto de uma marcação necessário para o resumo diário. */
+export type SummarizablePunch = Pick<
+  NormalizedPunch,
+  | "rhidPersonId"
+  | "personName"
+  | "date"
+  | "punchedAt"
+  | "kind"
+  | "rhidGeofenceId"
+  | "geofenceName"
+>;
+
 /** Resume as marcações por pessoa e dia (obra = primeira marcação do dia). */
-export function summarizeDays(punches: NormalizedPunch[]): DaySummary[] {
+export function summarizeDays(punches: SummarizablePunch[]): DaySummary[] {
   const summaries = new Map<string, DaySummary>();
   const sorted = [...punches].sort((a, b) => a.punchedAt - b.punchedAt);
   for (const punch of sorted) {
@@ -575,6 +587,9 @@ export function liveStatusForKind(kind: PunchKind | null | undefined): LiveStatu
       return "lunch";
     case "saida":
       return "left";
+    case null:
+    case undefined:
+      return "absent";
     default:
       return "absent";
   }

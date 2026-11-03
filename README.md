@@ -10,6 +10,7 @@ Monorepo com [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-
 - **TanStack Start** — app web com SSR e TanStack Router
 - **Expo / React Native** — app mobile
 - **Next.js** — landing page institucional
+- **Tauri 2 (Rust) + React** — app desktop de takeoff e orçamento a partir de PDF (Windows e macOS)
 - **TailwindCSS + shadcn/ui** — UI
 - **Convex** — backend reativo (banco de dados + funções serverless + crons)
 - **Clerk** — autenticação (sync via webhook para a tabela `users` do Convex)
@@ -22,10 +23,12 @@ rlpapp/
 ├── apps/
 │   ├── web/           # App web (React + TanStack Start) — porta 3001
 │   ├── native/        # App mobile (React Native + Expo)
+│   ├── takeoff/       # App desktop de takeoff (Tauri + React; ver apps/takeoff/README.md)
 │   └── landing-page/  # Site institucional (Next.js)
 ├── packages/
 │   ├── backend/       # Backend Convex (schema, funções, crons, webhook Clerk)
 │   ├── env/           # Validação de variáveis de ambiente (zod)
+│   ├── shared/        # Código puro compartilhado; inclui o cálculo de dutos NBR 16401 (único, usado pelo takeoff)
 │   └── config/        # Configurações compartilhadas (tsconfig)
 ```
 
@@ -67,6 +70,7 @@ Guia oficial: [Convex + Clerk](https://docs.convex.dev/auth/clerk)
    - `CLERK_JWT_ISSUER_DOMAIN` — domínio do issuer do Clerk
    - `CLERK_WEBHOOK_SECRET` — secret do webhook (Clerk Dashboard > Webhooks, endpoint `https://<deployment>.convex.site/clerk-users-webhook`, eventos `user.created`, `user.updated`, `user.deleted`)
    - `MATERIAL_LOOKUP_TOKEN` — opcional; habilita `GET https://<deployment>.convex.site/materials/lookup?q=<texto>` (header `Authorization: Bearer <token>`) para agentes externos consultarem a descrição canônica de um material. Sem ele o endpoint responde 503. Gere com `npx convex env set MATERIAL_LOOKUP_TOKEN "$(openssl rand -hex 24)"`
+   - `TAKEOFF_CATALOG_TOKEN` — opcional; habilita `GET https://<deployment>.convex.site/takeoff/catalog` (header `Authorization: Bearer <token>`), o catálogo completo de materiais ativos com preço vigente que o app desktop **RLP Takeoff** consome (`materialPrice` e `laborPrice` em reais por unidade; a mão de obra é cadastrada no material em Compras → Materiais e vale 0 quando não há, `laborPriceDate` diz quando foi definida). Sem ele o endpoint responde 503. Gere com `npx convex env set TAKEOFF_CATALOG_TOKEN "$(openssl rand -hex 24)"`. O mesmo token protege `POST /takeoff/materials`, por onde o app propõe um material novo (nasce como rascunho para compras ativar) ou uma estimativa de preço (entra na fila de revisão de preços). Esse token compartilhado é o caminho antigo: o app também permite **entrar com a conta da empresa** (botão "Entrar" no topo → página `/takeoff/conectar` do app web → token de dispositivo listado e revogável em Minha conta › Agentes), e aí catálogo e propostas usam funções Convex tipadas como o próprio usuário. Requer `API_JWT_PRIVATE_KEY` (a mesma chave da API `/api/v1`). Ver `apps/takeoff/README.md` → "Conta da empresa (login)".
 
 ### 4.1 Ponto (RHID) — opcional
 
@@ -106,17 +110,92 @@ pnpm run dev
 - `pnpm run dev` — todos os apps em modo dev
 - `pnpm run dev:web` — apenas o web
 - `pnpm run dev:native` — apenas o mobile (Expo)
+- `pnpm run dev:takeoff` — app desktop de takeoff numa janela nativa (precisa de Rust; ver `apps/takeoff/README.md`)
 - `pnpm run dev:server` — apenas o backend Convex
 - `pnpm run dev:setup` — configura o projeto Convex
 - `pnpm run build` — build de todos os apps
 - `pnpm run lint` — ESLint em todos os pacotes
 - `pnpm run check-types` — typecheck (`tsc --noEmit`) em todos os pacotes
 
-## MCP (engenharia, somente leitura)
+## Orçamentos do app desktop no dashboard
 
-O app web expõe um servidor MCP **2026-07-28** em `/mcp` (stateless, com fallback para clientes Streamable HTTP de 2025). O endpoint exige OAuth do Clerk com o scope `rlp:engineering:read`. O token OAuth **não** é enviado ao Convex: a rota verifica o token, emite um JWT de delegação RS256 de curta duração (`aud: convex`, `sub` = Clerk user ID) e as queries de engenharia existentes continuam sendo a fonte de verdade do RBAC.
+O app desktop de takeoff (`apps/takeoff`) publica o orçamento de um projeto no dashboard pela mutation `takeoffs.publishFromDesktop` (permissão de engenharia, auditada):
 
-Ferramentas: `list_projects`, `resolve_project`, `get_project_overview`, `get_project_hierarchy`, `get_equipment`, `get_project_report`.
+- **Payload**: montado por `buildPublishBudget(project, { externalId, projectId })` em `apps/takeoff/src/lib/publishBudget.ts`, a partir das mesmas abas → seções → linhas da planilha orçamentária. O tipo do argumento fica em `@rlpapp/shared/takeoff/desktopBudget` (sem Convex); o backend confere em tempo de compilação que o validador descreve o mesmo formato.
+- **Linhas**: uma por item × aba (disciplina / sistema) × seção (local ou grupo), com `externalLineId` estável, quantidade com perdas, preços unitários de material e mão de obra em centavos e `materialId` vindo do `catalogId` do item (ids que não existem no catálogo ficam sem vínculo e voltam em `unknownMaterialIds`). O cabeçalho (proposta, orçamentista, cliente, obra) e o resumo por aba (BDI, extras %, totais) vão em `budget`.
+- **Republicar é idempotente**: o takeoff é achado por `source: "desktop"` + `externalId` (o id do projeto no desktop); linhas novas entram, as existentes são atualizadas e as que saíram são apagadas. Linhas em que a Compras já trabalhou — cotação registrada ou status `sent_to_supplier` / `quoted` / `selected` / `purchased` — nunca são apagadas nem alteradas: ficam marcadas (`externalRemovedAt`) e voltam em `kept`. Um material vinculado pela Compras é mantido quando o desktop não manda outro; já o preço estimado das demais linhas volta ao do desktop a cada publicação.
+- **Dashboard**: na obra, **Orçamento** mostra o takeoff com o selo "Takeoff desktop", quem publicou e quando, as linhas agrupadas por aba e seção, subtotais, extras, TOTAL GERAL e preço com BDI por aba, e as ações de sempre por linha (usar preço de referência, cotação, criar SKU). **Compras → Takeoffs** e **Compras da obra** mostram a origem de cada takeoff.
+
+O botão "Publicar no app" do desktop (login Clerk + cliente Convex) chama essa mutation; o desktop precisa guardar no projeto um id estável para usar como `externalId`.
+
+## API HTTP para agentes (`/api/v1`)
+
+Qualquer função pública do backend pode ser chamada por HTTP, direto no deployment Convex, com um token de agente (`rlp_…`, criado em **Minha conta → Agentes**):
+
+```bash
+API=https://<deployment>.convex.site/api/v1
+curl "$API/functions?search=supplier" -H "Authorization: Bearer rlp_…"
+curl "$API/query" -H "Authorization: Bearer rlp_…" -H "Content-Type: application/json" \
+  -d '{"path":"suppliers:list","args":{}}'
+curl "$API/mutation" -H "Authorization: Bearer rlp_…" -H "Content-Type: application/json" \
+  -d '{"path":"customers:create","args":{"name":"Cliente"}}'
+```
+
+O gateway (`packages/backend/convex/gateway/v1.ts`) confere o token, valida caminho, tipo, acesso e argumentos pelo catálogo de funções e executa a chamada em nome do dono com um JWT ES256 curto assinado pelo próprio deployment. Tokens `read_only` só executam queries; `agentTokens:*` nunca é exposto. Não envolve o Vercel: a única configuração é a chave de assinatura no Convex:
+
+```bash
+cd packages/backend
+node scripts/generate-api-signing-key.mjs
+npx convex env set --prod API_JWT_PRIVATE_KEY '<jwk impresso>'
+npx convex deploy
+```
+
+Contrato completo (endpoints, erros, descoberta de funções, exemplo para agentes) em [`docs/API.md`](docs/API.md).
+
+## MCP (agentes de IA)
+
+O app web expõe um servidor MCP **2026-07-28** em `/mcp` (Streamable HTTP, stateless, com fallback para clientes de 2025). Claude Code, Claude Desktop, Cursor ou qualquer cliente MCP se conectam a ele de duas formas:
+
+1. **Token de agente (recomendado).** Cada usuário interno cria os seus em **Minha conta → Agentes (MCP)** (`/conta/agentes`) e configura o cliente com `Authorization: Bearer rlp_…`. O token age em nome do dono, com a mesma role e o mesmo departamento, e pode ser `read_only` (só consultas) ou `full_access` (também grava). Revogar vale na hora.
+2. **OAuth do Clerk** com o scope `rlp:engineering:read` (fluxo original; ver "Clerk: scope e clientes OAuth"). Conexões OAuth são sempre somente-leitura: só existe o escopo de leitura.
+
+Tokens não gerenciam tokens: criar, renomear e revogar exigem uma sessão humana no app (um token vazado não consegue se perpetuar criando outro). A verificação no Convex tem timeout de 5 s; se o backend não responder, o `/mcp` devolve 503 em vez de 401.
+
+Em ambos os casos a credencial **não** vai para o Convex: a rota verifica o bearer, emite um JWT de delegação RS256 curto (`aud: convex`, `sub` = Clerk user ID; com token de agente, também as claims `agent_token.id` / `agent_token.permission`) e as funções existentes continuam sendo a fonte de verdade do RBAC. `lib/agentTokens.ts` (backend) rejeita centralmente tokens revogados e tokens somente-leitura em mutations.
+
+### Ferramentas
+
+- **6 ferramentas de engenharia embutidas** (`list_projects`, `resolve_project`, `get_project_overview`, `get_project_hierarchy`, `get_equipment`, `get_project_report`), que removem tokens de QR e ids de storage da resposta.
+- **~185 ferramentas curadas** geradas a partir do catálogo de funções (`apps/web/src/lib/mcp/manifest.ts`): obras, torres/andares/ambientes/sistemas, unidades, equipamentos planejados, checklists, clientes, empreiteiros, contratos, medições, documentos, materiais (incluindo duplicatas e merge), fornecedores, preços, takeoffs, estoque (movimentos, políticas de estoque, regras), requisições, funcionários, folha (linhas, fechamento, empréstimos), ponto e os próprios tokens. O schema de entrada de cada uma vem do validador real da função Convex (`exportArgs()`), servido por `mcpCatalog.list`; só aparecem as funções que o usuário pode chamar, e tokens `read_only` só veem queries.
+- `whoami`, `search_functions` (busca em todas as funções públicas) e, com `MCP_ALLOW_RAW_CALLS=1` no app web, `call_function` (qualquer função pública por nome, com validação de argumentos).
+- Cada chamada feita com token de agente fica registrada em `agentTokenCalls` e aparece em "Atividade recente" na página Agentes (30 dias de retenção).
+
+O catálogo (`packages/backend/convex/mcp/catalog.generated.ts`) é gerado por `pnpm --filter @rlpapp/backend generate:catalog` — roda automaticamente antes de `convex dev` e o `check-types` do backend falha se estiver desatualizado. Para criar o primeiro token sem passar pelo app:
+
+```bash
+cd packages/backend
+npx convex run agentTokens:createForUser '{"login":"voce@rlpeng.com.br","name":"CLI","permission":"full_access"}'
+```
+
+### Cliente
+
+```bash
+claude mcp add --transport http rlp https://app.rlpeng.com.br/mcp \
+  --header "Authorization: Bearer rlp_…"
+```
+
+```json
+{
+  "mcpServers": {
+    "rlp": {
+      "url": "https://app.rlpeng.com.br/mcp",
+      "headers": { "Authorization": "Bearer rlp_…" }
+    }
+  }
+}
+```
+
+Em desenvolvimento a URL é `http://localhost:3001/mcp`. A página Agentes mostra estes trechos já preenchidos ao criar um token.
 
 ### 1. Gerar o par de chaves de delegação
 
@@ -147,6 +226,8 @@ console.log(dataUri);
 | `MCP_JWT_PRIVATE_KEY` | PKCS#8 PEM; no Vercel use `\n` escapado (saída do `JSON.stringify` acima) |
 | `MCP_JWT_KEY_ID` | `mcp-delegation` (opcional) |
 | `MCP_ALLOWED_HOSTS` | `app.rlpeng.com.br,localhost:3001` |
+| `VITE_CONVEX_SITE_URL` | opcional; `https://<deployment>.convex.site`, onde fica `POST /agent-tokens/verify`. Derivada de `VITE_CONVEX_URL` quando ausente |
+| `MCP_ALLOW_RAW_CALLS` | opcional; `1` expõe `call_function` |
 | `VITE_CONVEX_URL` | URL do deployment Convex |
 | `VITE_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` | já usadas pelo app |
 
@@ -159,9 +240,9 @@ A rota recusa `Host` fora da allow-list. Clientes MCP costumam omitir `Origin`; 
 | `MCP_JWT_ISSUER` | o mesmo `iss` da etapa 2 |
 | `MCP_JWT_JWKS` | data URI gerada na etapa 1 |
 
-O provider JWT customizado só é registrado quando as duas variáveis existem. `applicationID` / `aud` permanece `convex`.
+O provider JWT customizado só é registrado quando as duas variáveis existem. `applicationID` / `aud` permanece `convex`. Tokens de agente não precisam de nada além disso: a verificação (`/agent-tokens/verify`) compara apenas o SHA-256 guardado em `agentTokens`.
 
-### 4. Clerk: scope e clientes OAuth
+### 4. Clerk: scope e clientes OAuth (só para o fluxo OAuth)
 
 1. No Clerk Dashboard, crie o scope customizado `rlp:engineering:read` e marque-o como necessário no consentimento do MCP.
 2. **Não habilite Dynamic Client Registration irrestrito.**
@@ -174,13 +255,30 @@ Discovery:
 - Recurso: `/.well-known/oauth-protected-resource/mcp`
 - Authorization server: `/.well-known/oauth-authorization-server` (metadados do Clerk)
 
-### 5. Cliente (Cursor)
-
-URL do servidor: `https://<host>/mcp` (em dev, `http://localhost:3001/mcp`). O cliente deve pedir o scope `rlp:engineering:read` além de `openid` / `profile` / `email`.
-
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) roda lint + typecheck em todos os pushes para `main` e em PRs.
+GitHub Actions (`.github/workflows/ci.yml`) roda lint, typecheck e testes em PRs e em pushes para `master`, numa única invocação do Turbo (`turbo run lint check-types test`), com o cache do Turbo (`.turbo/cache`) guardado entre runs via `actions/cache`. Um pacote que não mudou desde a última run (do `master` ou da própria branch) tem suas tarefas reaproveitadas em vez de re-executadas; uma mudança só em páginas do `apps/web` re-executa apenas as tarefas do `web`.
+
+As runs no `master` são as que alimentam os caches das PRs (pnpm store e Turbo), por isso não são canceladas por `concurrency`.
+
+O app desktop (`apps/takeoff`) tem mais dois workflows: `takeoff-rust.yml` (`cargo fmt` e `clippy`, só quando `apps/takeoff/src-tauri` muda) e `takeoff-release.yml` (instaladores Windows/macOS assinados, publicados em `Patolord/takeoff-releases` a cada tag `takeoff-vX.Y.Z`).
+
+### Previews do Convex
+
+O build de preview da Vercel (`apps/web/vercel.json`) roda `npx convex deploy` com a chave de preview, que cria um deployment de preview no Convex com o nome do branch. O time tem um limite de deployments (40 no plano atual); quando ele estoura, o build de preview falha com `DeploymentQuotaReached`.
+
+`convex-preview-cleanup.yml` apaga esses previews pela [Management API do Convex](https://docs.convex.dev/management-api):
+
+- quando um PR fecha (com merge ou não), apaga o preview do branch dele;
+- todo dia (e pelo `workflow_dispatch`, que por padrão só lista), apaga os previews cujo branch não tem PR aberto.
+
+Só deployments do tipo `preview` são tocados. Para funcionar, o repositório precisa:
+
+do secret **`CONVEX_MANAGEMENT_TOKEN`**: um token de acesso do time no Convex (Team Settings › Access Tokens, https://dashboard.convex.dev/team/settings/access-tokens).
+
+O projeto é descoberto a partir do deployment de produção (`rosy-crow-250`). Se ele mudar, defina a variável `CONVEX_DEPLOYMENT_NAME` (ou `CONVEX_PROJECT_ID`) no repositório.
+
+Sem o secret, o workflow só avisa e não apaga nada.
 
 ## Deploy
 
@@ -188,3 +286,19 @@ GitHub Actions (`.github/workflows/ci.yml`) roda lint + typecheck em todos os pu
 - **Web:** build com `pnpm run build` (saída do TanStack Start) — requer as env vars `VITE_*` no ambiente de build.
 - **Landing page:** Next.js (`apps/landing-page`).
 - **Mobile:** Expo (EAS config pendente — ver roadmap Sprint 4).
+- **Desktop (takeoff):** `pnpm release X.Y.Z` em `apps/takeoff` e push da tag `takeoff-vX.Y.Z`; os apps instalados se atualizam sozinhos.
+
+### Vercel: quando cada app builda
+
+Três projetos da Vercel apontam para este repositório: `rlpapp-web` (`apps/web`), `rlpapp-site` (`apps/landing-page`) e `rlpapp-internal-agent` (`apps/internal-agent`). O build do web também roda `npx convex deploy`, então é ele que publica o backend do Convex (preview por branch, produção no `master`). O time está no plano grátis, com **100 deployments por dia** somando todos os projetos.
+
+A cada push, dois filtros decidem se um projeto builda:
+
+1. **"Skip deployment" da Vercel** (Settings → Build and Deployment → Root Directory, ligado nos três). Usa o grafo do workspace pnpm (dependências `workspace:*` declaradas nos `package.json`) e pula o projeto antes de criar o deployment; esses pulos **não contam** no limite diário. Só que qualquer arquivo fora de `apps/*` e `packages/*` (`README.md`, `AGENTS.md`, `docs/`, `.github/`, `scripts/`…) conta como mudança global e libera os três.
+2. **Ignored Build Step** (`ignoreCommand` em cada `vercel.json`): [`scripts/vercel-ignore-build.sh`](scripts/vercel-ignore-build.sh), que roda `turbo query affected` para o app. O app builda se mudou algo nele, num pacote de que ele depende (para o web: `packages/backend`, `shared`, `ui`, `env`, `config`), nas dependências dele no `pnpm-lock.yaml`, no `turbo.json`, no `package.json` ou no `pnpm-workspace.yaml` da raiz. A base é o último deployment com sucesso do projeto no branch (`VERCEL_GIT_PREVIOUS_SHA`); em preview, se o branch saiu do `master` depois desse deployment (branch reaproveitado depois de um merge), a base passa a ser esse ponto do `master`, porque o que já está no `master` não pede preview. Sem base, produção builda sempre e preview compara com o ponto em que o branch saiu do `master` (ou builda, se não der para descobrir). Um build cancelado aqui **conta** no limite (mas não gasta minutos de build nem cria preview no Convex).
+
+**Previews só do web.** O site e o internal-agent não fazem deployment de preview: os `vercel.json` deles têm `"git": {"deploymentEnabled": {"**": false, "master": true}}`, então só o `master` cria deployment nesses dois (quando um branch casa com mais de uma regra, vale a que for `true`). Antes, cada push de qualquer PR com arquivo fora de `apps/*`/`packages/*` criava um deployment em cada um, quase sempre cancelado, e todos contavam no limite. Para ver um preview do site num branch: no projeto `rlpapp-site`, Create Deployment com o branch, ou `vercel deploy` em `apps/landing-page`.
+
+**Pushes custam deployments.** Cada push num branch que mexe no web (ou no backend, shared, ui, env) é um build de preview do web e um deployment de preview no Convex. Junte os commits e faça push quando o trabalho estiver pronto para revisão, não a cada commit (vale para agentes também: ver `AGENTS.md`).
+
+Para forçar um build que o script pularia: Redeploy no dashboard desmarcando "Use project's Ignore Build Step". Para testar o script localmente: `cd apps/web && VERCEL_ENV=preview VERCEL_GIT_PREVIOUS_SHA=<sha> bash ../../scripts/vercel-ignore-build.sh; echo $?` (0 = pula, 1 = builda).

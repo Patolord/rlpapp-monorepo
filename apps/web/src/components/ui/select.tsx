@@ -129,7 +129,7 @@ const SelectContent = React.forwardRef<
       <SelectPrimitive.Popup
         ref={ref}
         className={cn(
-          "bg-popover text-popover-foreground relative z-[100] max-h-96 min-w-[var(--anchor-width)] overflow-hidden rounded-md border shadow-md data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
+          "bg-popover text-popover-foreground relative z-[100] max-h-96 min-w-[var(--anchor-width)] overflow-hidden rounded-md border shadow-md origin-(--transform-origin) transition-[opacity,scale] duration-150 ease-snappy data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.97] data-[starting-style]:scale-[0.97] motion-reduce:scale-100!",
           className
         )}
         {...props}

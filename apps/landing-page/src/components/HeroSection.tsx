@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { Star, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import { useRef, useEffect, useState, useMemo } from "react";
 
 const PHONE_NUMBER = "5511985782307";
@@ -45,6 +45,16 @@ export default function HeroSection() {
     { name: "Pentagonal Construções", logo: "/clientes/pentagona.png" },
     { name: "Bom Peixe", logo: "/clientes/bompeixelogo.png" },
     { name: "Sadia", logo: "/clientes/sadialogo.png" },
+  ];
+
+  const featuredClients = [
+    {
+      name: "Tegra Incorporadora",
+      logo: "/clientes/Tegra_Incorporadora_Logo_Fundo_Branco1.jpg",
+    },
+    { name: "Construtora PATRIANI", logo: "/clientes/patrini.png" },
+    { name: "Construtora Fresno", logo: "/clientes/fresno.jpeg" },
+    { name: "Construtora Lopes Kalil", logo: "/clientes/lopeskalil.png" },
   ];
 
   useEffect(() => {
@@ -139,32 +149,23 @@ export default function HeroSection() {
 
             <div className="flex items-center">
               <div className="flex -space-x-2 mr-3">
-                {[
-                  "/clientes/cliente1.png",
-                  "/clientes/cliente2.png",
-                  "/clientes/cliente3.png",
-                  "/clientes/cliente4.png",
-                ].map((src, i) => (
+                {featuredClients.map((client) => (
                   <div
-                    key={i}
-                    className="w-8 h-8 rounded-full border-2 border-white overflow-hidden"
+                    key={client.name}
+                    className="w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-white"
                   >
                     <Image
-                      src={src}
+                      src={client.logo}
                       width={32}
                       height={32}
-                      alt={`Cliente ${i + 1}`}
-                      className="object-cover"
+                      alt={client.name}
+                      className="w-full h-full object-cover"
                     />
                   </div>
                 ))}
               </div>
               <div>
-                <div className="flex text-yellow-400">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Star key={i} className="w-4 h-4 fill-current" />
-                  ))}
-                </div>
+                <p className="text-sm font-bold text-blue-950">Desde 1998</p>
                 <p className="text-sm text-gray-600">
                   +300 obras entregues no prazo
                 </p>

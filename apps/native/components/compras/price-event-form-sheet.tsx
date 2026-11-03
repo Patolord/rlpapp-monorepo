@@ -1,17 +1,24 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Calendar, Hash, StickyNote, Tag, Truck, Wallet } from "lucide-react-native";
+import { Calendar, Hash, Ruler, StickyNote, Tag, Truck, Wallet } from "lucide-react-native";
 import { useEffect, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 
 import { AppButton, Field, PickerField, SegmentedField, Sheet, useToast } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
 import { maskDateInput, parseCurrencyInput, parseDateInput, toDateInput } from "@/lib/format";
-import { colors } from "@/lib/theme";
+import { colors, space, type } from "@/lib/theme";
 
 import { MaterialPickerField, type PickedMaterial } from "./material-picker";
 
 type Source = "manual" | "quote" | "purchase" | "invoice";
+
+function parseMm(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = Number.parseFloat(value.replace(",", "."));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
 
 /** Registrar um preço (cotação, compra, nota) para um material. */
 export function PriceEventFormSheet({ open, onClose, initialMaterial }: { open: boolean; onClose: () => void; initialMaterial?: PickedMaterial | null }) {
@@ -29,6 +36,10 @@ export function PriceEventFormSheet({ open, onClose, initialMaterial }: { open: 
   const [occurredAt, setOccurredAt] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [notes, setNotes] = useState("");
+  const [widthMm, setWidthMm] = useState("");
+  const [heightMm, setHeightMm] = useState("");
+  const [lengthMm, setLengthMm] = useState("");
+  const [diameterMm, setDiameterMm] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -44,6 +55,10 @@ export function PriceEventFormSheet({ open, onClose, initialMaterial }: { open: 
     setOccurredAt(toDateInput(Date.now()));
     setValidUntil("");
     setNotes("");
+    setWidthMm("");
+    setHeightMm("");
+    setLengthMm("");
+    setDiameterMm("");
     setErrors({});
   }, [open, initialMaterial]);
 
@@ -61,6 +76,13 @@ export function PriceEventFormSheet({ open, onClose, initialMaterial }: { open: 
     setSaving(true);
     try {
       const qty = quantity.trim() ? Number.parseFloat(quantity.replace(",", ".")) : undefined;
+      const dimensions = {
+        widthMm: parseMm(widthMm),
+        heightMm: parseMm(heightMm),
+        lengthMm: parseMm(lengthMm),
+        diameterMm: parseMm(diameterMm),
+      };
+      const hasDimensions = Object.values(dimensions).some((value) => value !== undefined);
       await add({
         materialId: material!.materialId,
         supplierId: (supplierId as Id<"suppliers"> | null) ?? undefined,
@@ -72,6 +94,7 @@ export function PriceEventFormSheet({ open, onClose, initialMaterial }: { open: 
         occurredAt: date!,
         validUntil: validUntil ? (parseDateInput(validUntil) ?? undefined) : undefined,
         notes: notes.trim() || undefined,
+        dimensions: hasDimensions ? dimensions : undefined,
       });
       toast.success("Preço registrado");
       onClose();
@@ -118,7 +141,24 @@ export function PriceEventFormSheet({ open, onClose, initialMaterial }: { open: 
       />
       <Field label="Data *" icon={<Calendar size={24} color={iconColor} strokeWidth={1.6} />} value={occurredAt} onChangeText={(v) => setOccurredAt(maskDateInput(v))} keyboardType="number-pad" placeholder="dd/mm/aaaa" error={errors.occurredAt} />
       <Field label="Válido até" icon={<Calendar size={24} color={iconColor} strokeWidth={1.6} />} value={validUntil} onChangeText={(v) => setValidUntil(maskDateInput(v))} keyboardType="number-pad" placeholder="dd/mm/aaaa" error={errors.validUntil} />
+      <View style={styles.dimensionsHeader}>
+        <Ruler size={18} color={iconColor} strokeWidth={1.6} />
+        <Text style={[type.label, { color: colors.textSecondary }]}>Medidas (mm), para itens sob medida</Text>
+      </View>
+      <View style={styles.dimensionsRow}>
+        <Field label="Largura" size="md" value={widthMm} onChangeText={setWidthMm} keyboardType="decimal-pad" containerStyle={{ flex: 1 }} />
+        <Field label="Altura" size="md" value={heightMm} onChangeText={setHeightMm} keyboardType="decimal-pad" containerStyle={{ flex: 1 }} />
+      </View>
+      <View style={styles.dimensionsRow}>
+        <Field label="Comprimento" size="md" value={lengthMm} onChangeText={setLengthMm} keyboardType="decimal-pad" containerStyle={{ flex: 1 }} />
+        <Field label="Diâmetro" size="md" value={diameterMm} onChangeText={setDiameterMm} keyboardType="decimal-pad" containerStyle={{ flex: 1 }} />
+      </View>
       <Field label="Observações" icon={<StickyNote size={24} color={iconColor} strokeWidth={1.6} />} value={notes} onChangeText={setNotes} multiline />
     </Sheet>
   );
 }
+
+const styles = StyleSheet.create({
+  dimensionsHeader: { flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.sm, marginLeft: 4 },
+  dimensionsRow: { flexDirection: "row", gap: space.sm },
+});

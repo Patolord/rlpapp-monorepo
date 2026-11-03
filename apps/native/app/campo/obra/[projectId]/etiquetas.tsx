@@ -2,21 +2,21 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { usePaginatedQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronRight, Link2, QrCode, Search, Unlink } from "lucide-react-native";
+import { QrCode, Search } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { FlatList, StyleSheet, TextInput, View } from "react-native";
 
 import { EmptyState, LoadingState } from "@rlpapp/ui/native";
-import { StatusBadge } from "@/components/engenharia/status-badge";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-type QrFilter = "all" | "registered" | "free";
+import { BigRow, StatusPill } from "@/components/campo/field-ui";
+import { EQUIPMENT_STATUS_LABELS, type EquipmentStatus } from "@/lib/equipment-status";
+import { colors, radius, space, type Tone } from "@/lib/theme";
 
-const FILTERS: { key: QrFilter; label: string }[] = [
-  { key: "all", label: "Todas" },
-  { key: "registered", label: "Cadastradas" },
-  { key: "free", label: "Livres" },
-];
+const STATUS_TONE: Record<EquipmentStatus, Tone> = {
+  installing: "info",
+  operational: "success",
+  warning: "warning",
+  error: "danger",
+};
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -27,12 +27,11 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-/** Etiquetas QR da obra, com busca e filtro no servidor. */
+/** Equipamentos (etiquetas QR) da obra: busca e uma linha grande por item. */
 export default function ObraEtiquetasScreen() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<QrFilter>("all");
   const debouncedSearch = useDebouncedValue(search.trim(), 300);
 
   const { results, status, loadMore } = usePaginatedQuery(
@@ -40,125 +39,66 @@ export default function ObraEtiquetasScreen() {
     {
       projectId: projectId as Id<"projects">,
       search: debouncedSearch || undefined,
-      filter,
+      filter: "all",
     },
     { initialNumItems: 30 }
   );
 
-  const chipBg = "#e2e8f0";
-  const chipText = "#64748b";
-
   return (
-    <View className="flex-1">
-      <View className="gap-3 px-5 pb-2 pt-4">
-        <View className="flex-row items-center gap-2 rounded-lg border border-input bg-card px-3">
-          <Search size={16} color="#9ca3af" />
-          <Input
-            className="h-12 flex-1 border-0 bg-transparent px-0 text-base"
-            placeholder="Código, descrição, ambiente ou lote"
+    <View style={styles.screen}>
+      <View style={styles.searchWrap}>
+        <View style={styles.search}>
+          <Search size={24} color={colors.icon} strokeWidth={2.2} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar"
+            placeholderTextColor={colors.textMuted}
             value={search}
             onChangeText={setSearch}
             autoCorrect={false}
             autoCapitalize="none"
             returnKeyType="search"
+            accessibilityLabel="Buscar equipamento"
           />
-        </View>
-        <View className="flex-row gap-2">
-          {FILTERS.map((f) => {
-            const active = f.key === filter;
-            return (
-              <Pressable
-                key={f.key}
-                onPress={() => setFilter(f.key)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                style={{
-                  paddingHorizontal: 14,
-                  paddingVertical: 7,
-                  borderRadius: 20,
-                  backgroundColor: active ? "#f59e0b" : chipBg,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontWeight: active ? "700" : "500",
-                    color: active ? "#000" : chipText,
-                  }}
-                >
-                  {f.label}
-                </Text>
-              </Pressable>
-            );
-          })}
         </View>
       </View>
 
       {status === "LoadingFirstPage" ? (
-        <LoadingState label="Carregando etiquetas…" />
+        <LoadingState label="Carregando…" />
       ) : (
         <FlatList
           data={results}
           keyExtractor={(item) => item._id}
-          contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: 40, gap: 8 }}
+          contentContainerStyle={styles.list}
           keyboardShouldPersistTaps="handled"
           onEndReached={() => {
             if (status === "CanLoadMore") loadMore(30);
           }}
           onEndReachedThreshold={0.5}
           renderItem={({ item }) => (
-            <Pressable
+            <BigRow
+              title={item.equipmentId ? (item.description ?? item.token) : "Etiqueta livre"}
+              subtitle={item.equipmentId ? item.ambiente : item.token}
+              trailing={
+                !item.equipmentId ? (
+                  <StatusPill label="Cadastrar" tone="neutral" />
+                ) : item.status ? (
+                  <StatusPill label={EQUIPMENT_STATUS_LABELS[item.status]} tone={STATUS_TONE[item.status]} />
+                ) : undefined
+              }
               onPress={() =>
                 router.push({
                   pathname: "/campo/obra/[projectId]/equipamento/[token]",
                   params: { projectId: projectId!, token: item.token },
                 })
               }
-              accessibilityRole="button"
-            >
-              <Card className="gap-1.5 p-4">
-                <View className="flex-row items-center justify-between gap-2">
-                  <View className="min-w-0 flex-1 flex-row items-center gap-2">
-                    {item.equipmentId ? (
-                      <Link2 size={16} color="#10b981" />
-                    ) : (
-                      <Unlink size={16} color="#d97706" />
-                    )}
-                    <Text className="font-mono text-sm font-semibold text-foreground">
-                      {item.token}
-                    </Text>
-                  </View>
-                  {item.status ? (
-                    <StatusBadge status={item.status} />
-                  ) : (
-                    <Text className="text-xs text-muted-foreground">Livre</Text>
-                  )}
-                  <ChevronRight size={16} color="#9ca3af" />
-                </View>
-                {item.description ? (
-                  <Text className="text-sm text-foreground" numberOfLines={1}>
-                    {item.description}
-                  </Text>
-                ) : null}
-                {(item.ambiente || item.modelo || item.batchName) ? (
-                  <Text className="text-xs text-muted-foreground" numberOfLines={1}>
-                    {[item.ambiente, item.modelo, item.batchName && `Lote: ${item.batchName}`]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </Text>
-                ) : null}
-              </Card>
-            </Pressable>
+            />
           )}
           ListEmptyComponent={
             <EmptyState
-              icon={<QrCode size={28} color="#d97706" />}
-              title="Nenhuma etiqueta"
-              description={
-                debouncedSearch
-                  ? "Nenhuma etiqueta corresponde à busca."
-                  : "Esta obra ainda não tem etiquetas QR."
-              }
+              icon={<QrCode size={28} color={colors.primary} />}
+              title="Nada aqui"
+              description={debouncedSearch ? "Nenhum resultado." : "Sem etiquetas nesta obra."}
             />
           }
           ListFooterComponent={
@@ -169,3 +109,21 @@ export default function ObraEtiquetasScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.bg },
+  searchWrap: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.sm },
+  search: {
+    height: 60,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  searchInput: { flex: 1, fontSize: 18, fontWeight: "500", color: colors.text },
+  list: { padding: space.lg, paddingTop: space.sm, paddingBottom: 48, gap: space.md },
+});

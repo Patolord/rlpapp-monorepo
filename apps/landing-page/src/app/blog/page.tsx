@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { type SanityDocument } from "next-sanity";
@@ -5,6 +6,16 @@ import { createImageUrlBuilder } from "@sanity/image-url";
 import type { SanityImageSource } from "@sanity/image-url";
 import { client } from "@/sanity/client";
 import { Calendar, ArrowRight } from "lucide-react";
+
+const title = "Blog de HVAC, Pressurização e AVCB";
+const description =
+  "Artigos sobre climatização, pressurização de escadas, manutenção de ar-condicionado, PMOC e AVCB para construtoras e condomínios em São Paulo.";
+
+export const metadata: Metadata = {
+  title,
+  description,
+  openGraph: { title, description },
+};
 
 const POSTS_QUERY = `*[
   _type == "post"

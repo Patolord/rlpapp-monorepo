@@ -1,3 +1,4 @@
+import { useAuth } from "@clerk/expo";
 import NetInfo from "@react-native-community/netinfo";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
@@ -11,6 +12,14 @@ import {
   subscribeQueue,
   type PendingRecord,
 } from "@/lib/offline-queue";
+import {
+  listPendingPunches,
+  removePendingPunch,
+  setPendingPunchError,
+  setPendingPunchPhotoStorageId,
+  subscribePunchQueue,
+  type PendingPunch,
+} from "@/lib/punch-queue";
 import { uploadPhotos } from "@/lib/upload-photos";
 
 async function isOnline(): Promise<boolean> {
@@ -29,10 +38,40 @@ async function isOnline(): Promise<boolean> {
 export function OfflineSync() {
   const convex = useConvex();
   const { isAuthenticated } = useConvexAuth();
+  const { userId } = useAuth();
   const registerForQr = useMutation(api.qrCodes.registerForQr);
   const createLog = useMutation(api.maintenanceLogs.create);
   const generateUploadUrl = useMutation(api.maintenanceLogs.generateUploadUrl);
+  const registerPunch = useMutation(api.timeClockPunch.register);
+  const generatePunchUploadUrl = useMutation(api.timeClockPunch.generatePhotoUploadUrl);
   const syncing = useRef(false);
+
+  /**
+   * Marcação de ponto feita sem internet: sobe a foto (uma vez só) e registra
+   * como offline. O servidor é idempotente pelo `clientPunchId`.
+   */
+  const processPunch = useCallback(
+    async (punch: PendingPunch) => {
+      let photoStorageId = punch.photoStorageId as Id<"_storage"> | undefined;
+      if (!photoStorageId && punch.photoUri) {
+        [photoStorageId] = await uploadPhotos(generatePunchUploadUrl, [punch.photoUri]);
+        await setPendingPunchPhotoStorageId(punch.clientPunchId, photoStorageId);
+      }
+      await registerPunch({
+        clientPunchId: punch.clientPunchId,
+        capturedAt: punch.capturedAt,
+        latitude: punch.latitude,
+        longitude: punch.longitude,
+        accuracyMeters: punch.accuracyMeters,
+        photoStorageId,
+        photoCapturedAt: punch.photoCapturedAt,
+        offline: true,
+        deviceModel: punch.deviceModel,
+        appVersion: punch.appVersion,
+      });
+    },
+    [generatePunchUploadUrl, registerPunch]
+  );
 
   const processRecord = useCallback(
     async (record: PendingRecord) => {
@@ -99,6 +138,21 @@ export function OfflineSync() {
     if (!(await isOnline())) return;
     syncing.current = true;
     try {
+      // Só as marcações do usuário logado: a fila é do aparelho, e cada item
+      // pertence a quem o criou.
+      const currentUserId = userId;
+      for (const punch of currentUserId ? await listPendingPunches(currentUserId) : []) {
+        try {
+          await processPunch(punch);
+          await removePendingPunch(punch.clientPunchId);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Erro desconhecido";
+          console.error("Offline punch sync failed:", punch.clientPunchId, err);
+          await setPendingPunchError(punch.clientPunchId, message);
+          if (!(await isOnline())) return;
+        }
+      }
+
       const records = await listPendingRecords();
       if (records.length === 0) return;
 
@@ -117,10 +171,10 @@ export function OfflineSync() {
     } finally {
       syncing.current = false;
     }
-  }, [processRecord]);
+  }, [processRecord, processPunch, userId]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !userId) return;
 
     void runSync();
 
@@ -130,12 +184,14 @@ export function OfflineSync() {
       if (online) void runSync();
     });
     const unsubscribeQueue = subscribeQueue(() => void runSync());
+    const unsubscribePunches = subscribePunchQueue(() => void runSync());
 
     return () => {
       unsubscribeNet();
       unsubscribeQueue();
+      unsubscribePunches();
     };
-  }, [isAuthenticated, runSync]);
+  }, [isAuthenticated, userId, runSync]);
 
   return null;
 }

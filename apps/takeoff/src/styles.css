@@ -1,0 +1,137 @@
+@import "tailwindcss";
+
+/*
+ * RLP brand theme: white surfaces with the brand cobalt as the accent (the @rlpapp/ui `brandBlue`
+ * scale: 600 #2855ad for the brand, 700 #1a469d for hover/pressed, 100 #e0ecff for tints). The components were written against Tailwind's dark neutral
+ * scale, so the scale is remapped here: "neutral-900" surfaces become white, "neutral-100" text becomes
+ * near-black, and the orange accent becomes the brand blue (darker steps for text, so it stays
+ * AA-readable on the light tints: 700 on white is 8.7:1, 800 10:1+).
+ */
+@theme {
+  --font-sans: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "Consolas", ui-monospace, monospace;
+
+  --color-neutral-950: #ffffff;
+  --color-neutral-900: #ffffff;
+  --color-neutral-800: #eef3f9;
+  --color-neutral-700: #cfdae8;
+  --color-neutral-600: #a9b8cc;
+  --color-neutral-500: #64748f;
+  --color-neutral-400: #46556f;
+  --color-neutral-300: #2f3b52;
+  --color-neutral-200: #1f2a44;
+  --color-neutral-100: #101a30;
+
+  /* accent text (200/300), rings and hover fill (400), fills and tints (500), pressed (600) */
+  --color-orange-200: #153a83;
+  --color-orange-300: #1a469d;
+  --color-orange-400: #1a469d;
+  --color-orange-500: #2855ad;
+  --color-orange-600: #1a469d;
+
+  --color-amber-300: #b45309;
+  --color-amber-400: #b45309;
+  --color-amber-500: #d97706;
+  --color-red-300: #b91c1c;
+  --color-red-400: #dc2626;
+
+  --color-brand: #2855ad;
+  --color-brand-dark: #1a469d;
+  --color-brand-tint: #e0ecff;
+
+  /* entrances of surfaces that open over the drawing (overrides Tailwind's default ease-out) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #eef3f9;
+  color: #101a30;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+select {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+canvas {
+  display: block;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cfdae8;
+  border-radius: 5px;
+  border: 2px solid #ffffff;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/*
+ * Entrances for the occasional surfaces that open over the drawing (dialogs, menus, popovers, the
+ * "semelhantes" bar). Entry only: they unmount instantly on close. Panels animate the individual
+ * `scale` property and never `transform`, so the dialog's inline drag offset stays immediate; the
+ * bar slides with `transform`, which composes with Tailwind's `translate` centring. Put the scale
+ * origin at the trigger with `origin-*`. High-frequency or keyboard-opened surfaces (palette,
+ * selection bar) stay instant. Reduced motion keeps only the fade.
+ */
+.enter-pop,
+.enter-dialog {
+  transition-property: scale, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: var(--ease-out);
+}
+.enter-dialog {
+  transition-duration: 180ms;
+}
+.enter-drop {
+  transition-property: transform, opacity;
+  transition-duration: 200ms;
+  transition-timing-function: var(--ease-out);
+}
+@starting-style {
+  .enter-pop,
+  .enter-dialog,
+  .enter-drop {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  @starting-style {
+    .enter-pop,
+    .enter-dialog {
+      scale: 0.97;
+    }
+    .enter-drop {
+      transform: translateY(-8px);
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .enter-pop,
+  .enter-dialog,
+  .enter-drop {
+    transition-duration: 120ms;
+  }
+}
+
+/* in the components layer so width utilities (w-12, w-[4rem]) can override the default w-20 */
+@layer components {
+  .num-input {
+    @apply w-20 rounded bg-neutral-800 px-1.5 py-0.5 text-right font-mono text-xs text-neutral-100 outline-none ring-1 ring-neutral-700 focus:ring-orange-400;
+  }
+}

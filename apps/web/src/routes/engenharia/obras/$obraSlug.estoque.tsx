@@ -169,7 +169,7 @@ function ObraEstoqueContent({
             className="shrink-0"
             onClick={() => setSection(item.key)}
           >
-            <item.icon className="mr-1.5 size-4" />
+            <item.icon />
             {item.label}
             {item.key === "solicitacoes" && pendingRequestCount > 0 ? (
               <Badge variant="warning" className="ml-1.5">

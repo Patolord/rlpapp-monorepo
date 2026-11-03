@@ -21,4 +21,13 @@ crons.cron(
   {},
 );
 
+// 04:00 UTC = 01:00 America/Sao_Paulo: apaga o registro de chamadas MCP mais
+// antigo que AGENT_TOKEN_CALL_RETENTION_DAYS (agentTokens.ts).
+crons.cron(
+  "agent tokens: expurgar chamadas antigas",
+  "0 4 * * *",
+  internal.agentTokens.purgeCalls,
+  {},
+);
+
 export default crons;

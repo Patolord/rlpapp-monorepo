@@ -63,6 +63,11 @@ function useOfflineDocuments(ownerId: string | null, obraSlug: string) {
   return docs;
 }
 
+// Three equal columns of 48px field buttons: on phones the icon sits above a
+// small label so "Remover"/"Offline" fit a ~90px column; side by side from sm.
+const DOC_ACTION_CLASS =
+  "min-w-0 flex-col gap-1 px-1 text-xs [&_svg:not([class*='size-'])]:size-[16px] sm:flex-row sm:gap-1.5 sm:px-3 sm:text-sm";
+
 export function ObraDocumentsList({
   projectId,
   obraSlug,
@@ -252,55 +257,59 @@ function DocumentCard({
       <div className="mt-3 grid grid-cols-3 gap-2">
         <Button
           variant="default"
-          className="h-11"
+          size="xl"
+          className={DOC_ACTION_CLASS}
           disabled={!canReach || busy !== null}
           onClick={handleOpen}
         >
           {busy === "open" ? (
-            <Loader2 className="size-4 animate-spin" />
+            <Loader2 className="animate-spin" />
           ) : (
-            <ExternalLink className="size-4" />
+            <ExternalLink />
           )}
           Abrir
         </Button>
         <Button
           variant="outline"
-          className="h-11"
+          size="xl"
+          className={DOC_ACTION_CLASS}
           disabled={!canReach || busy !== null}
           onClick={handleDownload}
         >
           {busy === "download" ? (
-            <Loader2 className="size-4 animate-spin" />
+            <Loader2 className="animate-spin" />
           ) : (
-            <Download className="size-4" />
+            <Download />
           )}
           Baixar
         </Button>
         {isSaved ? (
           <Button
             variant="outline"
-            className="h-11"
+            size="xl"
+            className={DOC_ACTION_CLASS}
             disabled={busy !== null}
             onClick={handleRemove}
           >
             {busy === "remove" ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="animate-spin" />
             ) : (
-              <Trash2 className="size-4" />
+              <Trash2 />
             )}
             Remover
           </Button>
         ) : (
           <Button
             variant="outline"
-            className="h-11"
+            size="xl"
+            className={DOC_ACTION_CLASS}
             disabled={!canSave || busy !== null}
             onClick={handleSave}
           >
             {busy === "save" ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader2 className="animate-spin" />
             ) : (
-              <CloudDownload className="size-4" />
+              <CloudDownload />
             )}
             Offline
           </Button>

@@ -2,16 +2,28 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Receipt, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatCurrency } from "@rlpapp/shared";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
 import { PriceFreshnessBadge } from "@/components/compras/price-freshness-badge";
+import { TakeoffSavedQuotes } from "@/components/compras/takeoff-saved-quotes";
+import {
+  type Dimensions,
+  hasAnyDimension,
+  SizeEstimateHint,
+} from "@/components/compras/size-estimate-hint";
+import {
+  TakeoffQuoteDialog,
+  type TakeoffQuoteTarget,
+} from "@/components/compras/takeoff-quote-dialog";
+import { TakeoffSourceBadge } from "@/components/compras/takeoff-source-badge";
+import { DesktopBudgetView } from "@/components/engenharia/desktop-budget-view";
 import { ProjectShell } from "@/components/engenharia/project-shell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -68,6 +80,8 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
     diameterMm: "",
     customSpecification: "",
   });
+  const newLineDimensions = parseDimensions(newLine);
+  const [quoteTarget, setQuoteTarget] = useState<TakeoffQuoteTarget | null>(null);
   const suggestions = useQuery(
     api.materials.suggest,
     newLine.rawDescription.trim().length >= 2
@@ -111,30 +125,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
         quantity: newLine.quantity ? Number.parseFloat(newLine.quantity) : undefined,
         unit: newLine.unit || undefined,
         materialId,
-        customDimensions:
-          newLine.widthMm ||
-          newLine.heightMm ||
-          newLine.lengthMm ||
-          newLine.thicknessMm ||
-          newLine.diameterMm
-            ? {
-                widthMm: newLine.widthMm
-                  ? Number.parseFloat(newLine.widthMm.replace(",", "."))
-                  : undefined,
-                heightMm: newLine.heightMm
-                  ? Number.parseFloat(newLine.heightMm.replace(",", "."))
-                  : undefined,
-                lengthMm: newLine.lengthMm
-                  ? Number.parseFloat(newLine.lengthMm.replace(",", "."))
-                  : undefined,
-                thicknessMm: newLine.thicknessMm
-                  ? Number.parseFloat(newLine.thicknessMm.replace(",", "."))
-                  : undefined,
-                diameterMm: newLine.diameterMm
-                  ? Number.parseFloat(newLine.diameterMm.replace(",", "."))
-                  : undefined,
-              }
-            : undefined,
+        customDimensions: newLineDimensions ?? undefined,
         customSpecification: newLine.customSpecification || undefined,
       });
       setNewLine({
@@ -167,6 +158,12 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
     currentUser?.role === "director" ||
     currentUser?.role === "admin" ||
     currentUser?.department === "compras";
+  const activeSummary = takeoffs?.find((t) => t._id === activeTakeoffId);
+  // Orçamentos do desktop são editados lá e republicados: sem entrada manual.
+  const isDesktop = activeSummary?.source === "desktop";
+  const showSelector =
+    !!takeoffs &&
+    (takeoffs.length > 1 || takeoffs.some((t) => t.source === "desktop"));
 
   return (
     <div className="space-y-6">
@@ -188,302 +185,387 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
             toast.success("Novo takeoff criado");
           }}
         >
-          <Plus className="mr-2 size-4" />
+          <Plus />
           Novo takeoff
         </Button>
       </div>
 
-      {takeoffs && takeoffs.length > 1 && (
+      {showSelector && (
         <div className="flex flex-wrap gap-2">
           {takeoffs.map((t) => (
-            <Button
-              key={t._id}
-              size="sm"
-              variant={activeTakeoffId === t._id ? "default" : "outline"}
-              onClick={() => setActiveTakeoffId(t._id)}
-            >
-              {t.name} ({t.itemCount})
-            </Button>
+            <div key={t._id} className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant={activeTakeoffId === t._id ? "default" : "outline"}
+                onClick={() => setActiveTakeoffId(t._id)}
+              >
+                {t.name} ({t.itemCount})
+              </Button>
+              <TakeoffSourceBadge takeoff={t} />
+            </div>
           ))}
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Adicionar item</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div>
-            <Label>Descrição livre</Label>
-            <Input
-              value={newLine.rawDescription}
-              onChange={(e) => void handleSuggest(e.target.value)}
-              placeholder="Tubo cobre 1/4 - 300m"
-            />
-          </div>
-          {suggestions && suggestions.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {suggestions.map((s) => (
-                <Button
-                  key={s._id}
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    setNewLine((prev) => ({
-                      ...prev,
-                      rawDescription: s.name,
-                      unit: prev.unit || s.unit || "",
-                    }));
-                    void handleAddLine(s._id);
-                  }}
-                >
-                  {s.name}
-                  {s.variantLabel ? ` — ${s.variantLabel}` : ""}
-                </Button>
-              ))}
-              <Button size="sm" variant="ghost" onClick={() => void handleAddLine()}>
-                Manter texto livre
-              </Button>
-            </div>
-          )}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label>Quantidade (opcional)</Label>
-              <Input
-                value={newLine.quantity}
-                onChange={(e) => setNewLine({ ...newLine, quantity: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label>Unidade (opcional)</Label>
-              <Input
-                value={newLine.unit}
-                onChange={(e) => setNewLine({ ...newLine, unit: e.target.value })}
-                placeholder="m, un..."
-              />
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-5">
-            <div>
-              <Label>Largura personalizada (mm)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="any"
-                value={newLine.widthMm}
-                onChange={(event) =>
-                  setNewLine({ ...newLine, widthMm: event.target.value })
-                }
-              />
-            </div>
-            <div>
-              <Label>Altura personalizada (mm)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="any"
-                value={newLine.heightMm}
-                onChange={(event) =>
-                  setNewLine({ ...newLine, heightMm: event.target.value })
-                }
-              />
-            </div>
-            <div>
-              <Label>Comprimento (mm)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="any"
-                value={newLine.lengthMm}
-                onChange={(event) =>
-                  setNewLine({ ...newLine, lengthMm: event.target.value })
-                }
-              />
-            </div>
-            <div>
-              <Label>Espessura (mm)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="any"
-                value={newLine.thicknessMm}
-                onChange={(event) =>
-                  setNewLine({ ...newLine, thicknessMm: event.target.value })
-                }
-              />
-            </div>
-            <div>
-              <Label>Diâmetro (mm)</Label>
-              <Input
-                type="number"
-                min="0"
-                step="any"
-                value={newLine.diameterMm}
-                onChange={(event) =>
-                  setNewLine({ ...newLine, diameterMm: event.target.value })
-                }
-              />
-            </div>
-          </div>
-          <div>
-            <Label>Detalhe personalizado</Label>
-            <Input
-              value={newLine.customSpecification}
-              onChange={(event) =>
-                setNewLine({
-                  ...newLine,
-                  customSpecification: event.target.value,
-                })
-              }
-              placeholder="Cor, acabamento..."
-            />
-          </div>
-          <Button onClick={() => void handleAddLine()}>
-            <Plus className="mr-2 size-4" />
-            Adicionar linha
-          </Button>
-        </CardContent>
-      </Card>
+      {isDesktop && takeoffDetail ? (
+        <DesktopBudgetView
+          detail={takeoffDetail}
+          canPromoteMaterial={canPromoteMaterial}
+          onQuote={setQuoteTarget}
+        />
+      ) : null}
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Itens do takeoff</CardTitle>
-          <p className="text-sm font-medium">
-            Total estimado: {formatCurrency(totalEstimate)}
-          </p>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Qtd</TableHead>
-                <TableHead>Preço est.</TableHead>
-                <TableHead>Referências</TableHead>
-                <TableHead>Avisos</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(takeoffDetail?.items ?? []).map((item) => (
-                <TableRow key={item._id}>
-                  <TableCell>
-                    <div className="font-medium">{item.rawDescription}</div>
-                    {item.materialName && (
-                      <div className="text-xs text-muted-foreground">{item.materialName}</div>
-                    )}
-                    {item.customDimensions ? (
-                      <div className="text-xs text-muted-foreground">
-                        {formatCustomDimensions(item.customDimensions)}
-                      </div>
-                    ) : null}
-                    {item.customSpecification ? (
-                      <div className="text-xs text-muted-foreground">
-                        {item.customSpecification}
-                      </div>
-                    ) : null}
-                  </TableCell>
-                  <TableCell>
-                    {item.quantity ?? "—"}
-                    {item.unit ? ` ${item.unit}` : ""}
-                  </TableCell>
-                  <TableCell>
-                    {item.estimatedUnitPriceCents != null
-                      ? formatCurrency(item.estimatedUnitPriceCents)
-                      : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      {item.latestPrices.slice(0, 3).map((p) => (
-                        <div key={`${p.supplierName}-${p.occurredAt}`} className="flex items-center gap-2 text-xs">
-                          <span>
-                            {p.supplierName}: {formatCurrency(p.unitPriceCents)}
-                          </span>
-                          <PriceFreshnessBadge freshness={p.freshness} />
-                          {p.suggestedUnitPriceCents != null && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 px-2"
-                              onClick={() =>
-                                void applyPrice({
-                                  itemId: item._id,
-                                  unitPriceCents: p.suggestedUnitPriceCents!,
-                                }).then(
-                                  () => toast.success("Preço aplicado"),
-                                  (e) => toast.error(getErrorMessage(e, "Erro"))
-                                )
-                              }
-                            >
-                              Usar
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                      {item.latestPrices.length === 0 && (
-                        <span className="text-xs text-muted-foreground">Sem referência</span>
+      {!isDesktop && (
+        <>
+        <Card>
+          <CardHeader>
+            <CardTitle>Adicionar item</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <Label>Descrição livre</Label>
+              <Input
+                value={newLine.rawDescription}
+                onChange={(e) => void handleSuggest(e.target.value)}
+                placeholder="Tubo cobre 1/4 - 300m"
+              />
+            </div>
+            {suggestions && suggestions.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {suggestions.map((s) => (
+                  <Button
+                    key={s._id}
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      setNewLine((prev) => ({
+                        ...prev,
+                        rawDescription: s.name,
+                        unit: prev.unit || s.unit || "",
+                      }));
+                      void handleAddLine(s._id);
+                    }}
+                  >
+                    {s.name}
+                    {s.variantLabel ? ` — ${s.variantLabel}` : ""}
+                  </Button>
+                ))}
+                <Button size="sm" variant="ghost" onClick={() => void handleAddLine()}>
+                  Manter texto livre
+                </Button>
+              </div>
+            )}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label>Quantidade (opcional)</Label>
+                <Input
+                  value={newLine.quantity}
+                  onChange={(e) => setNewLine({ ...newLine, quantity: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Unidade (opcional)</Label>
+                <Input
+                  value={newLine.unit}
+                  onChange={(e) => setNewLine({ ...newLine, unit: e.target.value })}
+                  placeholder="m, un..."
+                />
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-5">
+              <div>
+                <Label>Largura personalizada (mm)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={newLine.widthMm}
+                  onChange={(event) =>
+                    setNewLine({ ...newLine, widthMm: event.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label>Altura personalizada (mm)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={newLine.heightMm}
+                  onChange={(event) =>
+                    setNewLine({ ...newLine, heightMm: event.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label>Comprimento (mm)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={newLine.lengthMm}
+                  onChange={(event) =>
+                    setNewLine({ ...newLine, lengthMm: event.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label>Espessura (mm)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={newLine.thicknessMm}
+                  onChange={(event) =>
+                    setNewLine({ ...newLine, thicknessMm: event.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <Label>Diâmetro (mm)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={newLine.diameterMm}
+                  onChange={(event) =>
+                    setNewLine({ ...newLine, diameterMm: event.target.value })
+                  }
+                />
+              </div>
+            </div>
+            {newLineDimensions ? (
+              <SizeEstimateHint
+                familyName={newLine.rawDescription}
+                dimensions={newLineDimensions}
+              />
+            ) : null}
+            <div>
+              <Label>Detalhe personalizado</Label>
+              <Input
+                value={newLine.customSpecification}
+                onChange={(event) =>
+                  setNewLine({
+                    ...newLine,
+                    customSpecification: event.target.value,
+                  })
+                }
+                placeholder="Cor, acabamento..."
+              />
+            </div>
+            <Button onClick={() => void handleAddLine()}>
+              <Plus />
+              Adicionar linha
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Itens do takeoff</CardTitle>
+            <CardAction>
+              <p className="text-sm font-medium">
+                Total estimado: {formatCurrency(totalEstimate)}
+              </p>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead>Qtd</TableHead>
+                  <TableHead>Preço est.</TableHead>
+                  <TableHead>Referências</TableHead>
+                  <TableHead>Avisos</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(takeoffDetail?.items ?? []).map((item) => (
+                  <TableRow key={item._id}>
+                    <TableCell>
+                      <div className="font-medium">{item.rawDescription}</div>
+                      {item.materialName && (
+                        <div className="text-xs text-muted-foreground">{item.materialName}</div>
                       )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {item.warnings.map((w) => (
-                        <Badge key={w} variant="outline" className="text-xs font-normal">
-                          {w}
-                        </Badge>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-1">
-                      {!item.materialId && canPromoteMaterial ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            void promoteItem({ itemId: item._id }).then(
-                              ({ created }) =>
-                                toast.success(
-                                  created
-                                    ? "SKU criado e vinculado"
-                                    : "SKU existente vinculado"
-                                ),
-                              (error) =>
-                                toast.error(
-                                  getErrorMessage(
-                                    error,
-                                    "Apenas Compras pode criar o SKU"
+                      {item.customDimensions ? (
+                        <div className="text-xs text-muted-foreground">
+                          {formatCustomDimensions(item.customDimensions)}
+                        </div>
+                      ) : null}
+                      {item.customSpecification ? (
+                        <div className="text-xs text-muted-foreground">
+                          {item.customSpecification}
+                        </div>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      {item.quantity ?? "—"}
+                      {item.unit ? ` ${item.unit}` : ""}
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <span className="tabular-nums">
+                          {item.estimatedUnitPriceCents != null
+                            ? formatCurrency(item.estimatedUnitPriceCents)
+                            : "—"}
+                        </span>
+                        {item.customDimensions &&
+                        hasAnyDimension(item.customDimensions) ? (
+                          <SizeEstimateHint
+                            compact
+                            materialId={item.materialId}
+                            familyName={item.rawDescription}
+                            dimensions={item.customDimensions}
+                            onApply={(unitPriceCents) =>
+                              void applyPrice({
+                                itemId: item._id,
+                                unitPriceCents,
+                              }).then(
+                                () => toast.success("Estimativa aplicada"),
+                                (e) => toast.error(getErrorMessage(e, "Erro"))
+                              )
+                            }
+                          />
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <TakeoffSavedQuotes quotes={item.quotes} />
+                        {item.latestPrices.slice(0, 3).map((p) => (
+                          <div key={`${p.supplierName}-${p.occurredAt}`} className="flex items-center gap-2 text-xs">
+                            <span>
+                              {p.supplierName}: {formatCurrency(p.unitPriceCents)}
+                            </span>
+                            <PriceFreshnessBadge freshness={p.freshness} />
+                            {p.suggestedUnitPriceCents != null && (
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                onClick={() =>
+                                  void applyPrice({
+                                    itemId: item._id,
+                                    unitPriceCents: p.suggestedUnitPriceCents!,
+                                  }).then(
+                                    () => toast.success("Preço aplicado"),
+                                    (e) => toast.error(getErrorMessage(e, "Erro"))
                                   )
-                                )
+                                }
+                              >
+                                Usar
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        {item.latestPrices.length === 0 && item.quotes.length === 0 && (
+                          <span className="text-xs text-muted-foreground">Sem referência</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {item.warnings.map((w) => (
+                          <Badge key={w} variant="outline" className="text-xs font-normal">
+                            {w}
+                          </Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        {canPromoteMaterial ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setQuoteTarget(item)}
+                          >
+                            <Receipt />
+                            Cotação
+                          </Button>
+                        ) : null}
+                        {!item.materialId && canPromoteMaterial ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              void promoteItem({ itemId: item._id }).then(
+                                ({ created }) =>
+                                  toast.success(
+                                    created
+                                      ? "SKU criado e vinculado"
+                                      : "SKU existente vinculado"
+                                  ),
+                                (error) =>
+                                  toast.error(
+                                    getErrorMessage(
+                                      error,
+                                      "Apenas Compras pode criar o SKU"
+                                    )
+                                  )
+                              )
+                            }
+                          >
+                            Criar SKU
+                          </Button>
+                        ) : null}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Remover item"
+                          onClick={() =>
+                            void removeItem({ itemId: item._id }).then(
+                              () => toast.success("Item removido"),
+                              (e) => toast.error(getErrorMessage(e, "Erro"))
                             )
                           }
                         >
-                          Criar SKU
+                          <Trash2 />
                         </Button>
-                      ) : null}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Remover item"
-                        onClick={() =>
-                          void removeItem({ itemId: item._id }).then(
-                            () => toast.success("Item removido"),
-                            (e) => toast.error(getErrorMessage(e, "Erro"))
-                          )
-                        }
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+        </>
+      )}
+
+      <TakeoffQuoteDialog
+        item={quoteTarget}
+        onOpenChange={(open) => {
+          if (!open) setQuoteTarget(null);
+        }}
+      />
     </div>
   );
+}
+
+function parseMm(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = Number.parseFloat(value.replace(",", "."));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+/** Medidas digitadas na linha nova; null quando nenhuma foi informada. */
+function parseDimensions(line: {
+  widthMm: string;
+  heightMm: string;
+  lengthMm: string;
+  thicknessMm: string;
+  diameterMm: string;
+}): Dimensions | null {
+  const dimensions: Dimensions = {
+    widthMm: parseMm(line.widthMm),
+    heightMm: parseMm(line.heightMm),
+    lengthMm: parseMm(line.lengthMm),
+    thicknessMm: parseMm(line.thicknessMm),
+    diameterMm: parseMm(line.diameterMm),
+  };
+  return hasAnyDimension(dimensions) ? dimensions : null;
 }
 
 function formatCustomDimensions(dimensions: {

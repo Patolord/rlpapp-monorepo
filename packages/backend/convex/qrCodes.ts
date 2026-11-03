@@ -1393,6 +1393,9 @@ const projectQrRowValidator = v.object({
   batchName: v.union(v.string(), v.null()),
   equipmentId: v.union(v.id("equipment"), v.null()),
   plannedItemId: v.union(v.id("projectEquipment"), v.null()),
+  // Texto livre informado pelo técnico no cadastro em campo; é o único nome
+  // de muitas etiquetas sem item planejado.
+  description: v.union(v.string(), v.null()),
   system: v.union(v.string(), v.null()),
   ambiente: v.union(v.string(), v.null()),
   kind: v.union(
@@ -1456,6 +1459,7 @@ export const listByProject = staffQuery({
           batchName: qr.batchName ?? null,
           equipmentId: qr.equipmentId ?? null,
           plannedItemId: planned?._id ?? null,
+          description: equipment?.description ?? null,
           system: planned?.system ?? null,
           ambiente: planned?.ambiente ?? null,
           kind: planned?.kind ?? null,

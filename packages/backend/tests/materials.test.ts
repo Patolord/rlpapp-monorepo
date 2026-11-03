@@ -154,6 +154,73 @@ describe("materials catalog", () => {
     ).rejects.toThrow("SKU já cadastrado");
   });
 
+  test("sets, audits and clears the labour price", async () => {
+    const { t, purchasing, warehouse, engineer } = await seedCatalogUsers();
+
+    const materialId = await purchasing.mutation(api.materials.create, {
+      name: "Grelha de retorno",
+      unit: "un",
+      laborPriceCents: 4500,
+    });
+    const created = await engineer.query(api.materials.get, { materialId });
+    expect(created?.laborPriceCents).toBe(4500);
+    expect(created?.laborPriceUpdatedAt).toEqual(expect.any(Number));
+
+    await purchasing.mutation(api.materials.update, {
+      materialId,
+      laborPriceCents: 6250,
+    });
+    const updated = await purchasing.query(api.materials.get, { materialId });
+    expect(updated?.laborPriceCents).toBe(6250);
+
+    const audit = await t.run(async (ctx) =>
+      (await ctx.db.query("auditLogs").collect()).filter(
+        (log) => log.recordId === materialId && log.action === "update"
+      )
+    );
+    expect(audit.at(-1)?.changes).toEqual([
+      { field: "laborPriceCents", previousValue: "4500", newValue: "6250" },
+    ]);
+
+    // Updating other fields leaves the labour price and its date alone.
+    await purchasing.mutation(api.materials.update, {
+      materialId,
+      spec: "alumínio",
+    });
+    const untouched = await purchasing.query(api.materials.get, {
+      materialId,
+    });
+    expect(untouched?.laborPriceCents).toBe(6250);
+    expect(untouched?.laborPriceUpdatedAt).toBe(updated?.laborPriceUpdatedAt);
+
+    await purchasing.mutation(api.materials.update, {
+      materialId,
+      laborPriceCents: null,
+    });
+    const cleared = await purchasing.query(api.materials.get, { materialId });
+    expect(cleared?.laborPriceCents).toBeNull();
+    expect(cleared?.laborPriceUpdatedAt).toBeNull();
+
+    await expect(
+      purchasing.mutation(api.materials.update, {
+        materialId,
+        laborPriceCents: -1,
+      })
+    ).rejects.toThrow("mão de obra");
+    await expect(
+      purchasing.mutation(api.materials.update, {
+        materialId,
+        laborPriceCents: 12.5,
+      })
+    ).rejects.toThrow("mão de obra");
+    await expect(
+      warehouse.mutation(api.materials.update, {
+        materialId,
+        laborPriceCents: 100,
+      })
+    ).rejects.toThrow("compras");
+  });
+
   test("listCatalog supports search by SKU", async () => {
     const { purchasing } = await seedCatalogUsers();
     await purchasing.mutation(api.materials.create, {
@@ -384,6 +451,166 @@ describe("materials catalog", () => {
       "A-100",
       "B-200",
     ]);
+  });
+
+  test("offerings carry supplier terms and fall back to the supplier default lead time", async () => {
+    const { purchasing } = await seedCatalogUsers();
+    const materialId = await purchasing.mutation(api.materials.create, {
+      name: "Tubo de cobre",
+      unit: "m",
+    });
+    const supplierId = await purchasing.mutation(api.suppliers.create, {
+      name: "Cobre & Cia",
+      paymentTerms: "28 DDL",
+      defaultLeadTimeDays: 7,
+    });
+    await purchasing.mutation(api.suppliers.upsertMaterialOffering, {
+      supplierId,
+      materialId,
+      preferred: true,
+    });
+
+    let [offering] = await purchasing.query(api.suppliers.listMaterialOfferings, {
+      supplierId,
+    });
+    expect(offering?.supplierName).toBe("Cobre & Cia");
+    expect(offering?.supplierPaymentTerms).toBe("28 DDL");
+    expect(offering?.leadTimeDays).toBeNull();
+    expect(offering?.effectiveLeadTimeDays).toBe(7);
+
+    await purchasing.mutation(api.suppliers.upsertMaterialOffering, {
+      supplierId,
+      materialId,
+      leadTimeDays: 3,
+    });
+    [offering] = await purchasing.query(api.suppliers.listMaterialOfferings, {
+      materialId,
+    });
+    expect(offering?.effectiveLeadTimeDays).toBe(3);
+
+    const page = await purchasing.query(api.materials.listCatalog, {
+      search: "Tubo de cobre",
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    expect(page.page[0]?.supplierCount).toBe(1);
+    expect(page.page[0]?.preferredSupplierName).toBe("Cobre & Cia");
+    expect(page.page[0]?.latestPrice).toBeNull();
+  });
+
+  test("listCatalog filters by status and reports the latest usable price", async () => {
+    const { purchasing } = await seedCatalogUsers();
+    const activeId = await purchasing.mutation(api.materials.create, {
+      name: "Filtro ativo",
+      unit: "un",
+    });
+    const archivedId = await purchasing.mutation(api.materials.create, {
+      name: "Filtro arquivado",
+      unit: "un",
+    });
+    await purchasing.mutation(api.materials.update, {
+      materialId: archivedId,
+      active: false,
+    });
+    const now = Date.UTC(2026, 9, 30);
+    await purchasing.mutation(api.priceEvents.add, {
+      materialId: activeId,
+      supplierNameRaw: "Loja do filtro",
+      unitPriceCents: 1250,
+      unit: "un",
+      source: "manual",
+      occurredAt: now - 3 * 24 * 60 * 60 * 1000,
+    });
+
+    const archived = await purchasing.query(api.materials.listCatalog, {
+      status: "archived",
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    expect(archived.page.map((m) => m.name)).toEqual(["Filtro arquivado"]);
+
+    const active = await purchasing.query(api.materials.listCatalog, {
+      status: "active",
+      now,
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    expect(active.page.map((m) => m.name)).toEqual(["Filtro ativo"]);
+    expect(active.page[0]?.latestPrice).toMatchObject({
+      unitPriceCents: 1250,
+      unit: "un",
+      supplierName: "Loja do filtro",
+      freshness: "fresh",
+    });
+  });
+
+  test("listCatalog paginates archived materials without short pages", async () => {
+    const { purchasing } = await seedCatalogUsers();
+    // Intercala ativos e arquivados para o filtro não poder confiar na ordem.
+    for (let i = 0; i < 3; i++) {
+      await purchasing.mutation(api.materials.create, {
+        name: `Ativo ${i}`,
+        unit: "un",
+      });
+      const archivedId = await purchasing.mutation(api.materials.create, {
+        name: `Arquivado ${i}`,
+        unit: "un",
+      });
+      await purchasing.mutation(api.materials.update, {
+        materialId: archivedId,
+        active: false,
+      });
+    }
+
+    const first = await purchasing.query(api.materials.listCatalog, {
+      status: "archived",
+      paginationOpts: { numItems: 2, cursor: null },
+    });
+    expect(first.page).toHaveLength(2);
+    expect(first.isDone).toBe(false);
+
+    const second = await purchasing.query(api.materials.listCatalog, {
+      status: "archived",
+      paginationOpts: { numItems: 2, cursor: first.continueCursor },
+    });
+    expect(second.page).toHaveLength(1);
+    expect(second.isDone).toBe(true);
+    expect(
+      [...first.page, ...second.page].every((m) => m.name.startsWith("Arquivado"))
+    ).toBe(true);
+  });
+
+  test("latest price follows validity and review tiers, not creation order", async () => {
+    const { purchasing } = await seedCatalogUsers();
+    const materialId = await purchasing.mutation(api.materials.create, {
+      name: "Cabo PP",
+      unit: "m",
+    });
+    const day = 24 * 60 * 60 * 1000;
+    const now = Date.UTC(2026, 9, 30);
+    // Criado primeiro, mas é o mais recente por `occurredAt`.
+    await purchasing.mutation(api.priceEvents.add, {
+      materialId,
+      supplierNameRaw: "Loja A",
+      unitPriceCents: 900,
+      source: "manual",
+      occurredAt: now - 2 * day,
+    });
+    // Criado depois (import retroativo), mais antigo por `occurredAt`.
+    await purchasing.mutation(api.priceEvents.add, {
+      materialId,
+      supplierNameRaw: "Loja B",
+      unitPriceCents: 700,
+      source: "excel_import",
+      occurredAt: now - 40 * day,
+    });
+
+    const page = await purchasing.query(api.materials.listCatalog, {
+      search: "Cabo PP",
+      now,
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    expect(page.page[0]?.latestPrice).toMatchObject({
+      unitPriceCents: 900,
+      supplierName: "Loja A",
+    });
   });
 
   test("keeps custom takeoff dimensions contextual until purchasing promotes them", async () => {

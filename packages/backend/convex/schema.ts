@@ -76,6 +76,16 @@ export const rhidSyncStatus = v.union(
 
 export const rhidLinkSource = v.union(v.literal("auto"), v.literal("manual"));
 
+// Origem de uma marcação: espelho do RHID ou registrada pelo app RLP.
+export const timeClockPunchSource = v.union(v.literal("rhid"), v.literal("app"));
+
+// Resultado da checagem de cerca (mesma semântica do RHID: 0/1/2).
+export const timeClockGeofenceStatus = v.union(
+  v.literal("not_controlled"),
+  v.literal("inside"),
+  v.literal("outside")
+);
+
 // --- Compras / Materiais / Preços ---
 
 export const materialStatus = v.union(
@@ -109,72 +119,30 @@ export const takeoffItemStatus = v.union(
   v.literal("purchased")
 );
 
-export const ductNorma = v.union(v.literal(1), v.literal(2), v.literal(3));
+/** Origem de um takeoff criado fora do app web. */
+export const takeoffSource = v.literal("desktop");
 
-export const ductExternalInsulation = v.union(
-  v.literal("none"),
-  v.literal("manta"),
-  v.literal("isopor"),
-  v.literal("placa"),
-  v.literal("pintura")
-);
-
-export const ductInternalInsulation = v.union(
-  v.literal("none"),
-  v.literal("bidim"),
-  v.literal("flexiliner")
-);
-
-export const ductFlange = v.union(
-  v.literal("none"),
-  v.literal("powermatic"),
-  v.literal("cantoneira")
-);
-
-export const ductLine = v.object({
-  tag: v.optional(v.string()),
-  largerSideCm: v.number(),
-  smallerSideCm: v.number(),
-  lengthM: v.number(),
-  externalInsulation: ductExternalInsulation,
-  internalInsulation: ductInternalInsulation,
-  flange: ductFlange,
-  reclad: v.boolean(),
-  paintReclad: v.boolean(),
+/** Resumo de uma aba da planilha orçamentária publicada pelo desktop. */
+export const takeoffBudgetSheet = v.object({
+  name: v.string(),
+  bdi: v.number(),
+  extrasPct: v.number(),
+  materialCents: v.number(),
+  laborCents: v.number(),
+  extrasEachCents: v.number(),
+  totalCents: v.number(),
+  proposalCents: v.number(),
 });
 
-export const ductPrices = v.object({
-  sheet26: v.number(),
-  sheet24: v.number(),
-  sheet22: v.number(),
-  sheet20: v.number(),
-  sheet18: v.number(),
-  sheet26Reclad: v.number(),
-  sheet26Angle: v.number(),
-  isopor: v.number(),
-  manta: v.number(),
-  placa: v.number(),
-  bidim: v.number(),
-  flexiliner: v.number(),
-  glue: v.number(),
-  coldAsphalt: v.number(),
-  nylonTape: v.number(),
-  nylonClip: v.number(),
-  alumTape: v.number(),
-  primerPaint: v.number(),
-  finishPaint: v.number(),
-  brush: v.number(),
-  thinner: v.number(),
-  supports: v.number(),
-  spliters: v.number(),
-  captors: v.number(),
-  pw2Light: v.number(),
-  pw2: v.number(),
-  pwCorners: v.number(),
-  pwClamps: v.number(),
-  rivets: v.number(),
-  pwTape: v.number(),
-  angleFlange: v.number(),
+/** Cabeçalho do orçamento publicado pelo desktop (ver @rlpapp/shared). */
+export const takeoffBudgetMeta = v.object({
+  proposalNumber: v.optional(v.string()),
+  estimator: v.optional(v.string()),
+  client: v.optional(v.string()),
+  site: v.optional(v.string()),
+  system: v.optional(v.string()),
+  currency: v.optional(v.string()),
+  sheets: v.array(takeoffBudgetSheet),
 });
 
 export const priceEventSource = v.union(
@@ -280,6 +248,16 @@ export const contractKind = v.union(
   v.literal("addendum")
 );
 
+// Permissão de um token de agente (MCP).
+export const agentTokenPermission = v.union(
+  v.literal("full_access"),
+  v.literal("read_only")
+);
+
+// Origem de um token de agente: criado à mão em /conta/agentes ("agent") ou
+// emitido pelo login de um app desktop, o RLP Takeoff ("device").
+export const agentTokenKind = v.union(v.literal("agent"), v.literal("device"));
+
 export default defineSchema({
   users: defineTable({
     name: v.string(),
@@ -299,6 +277,79 @@ export default defineSchema({
     .index("by_clerkId", ["clerkId"])
     .index("by_role", ["role"])
     .index("by_active", ["isActive"]),
+
+  // --- Tokens de agente (MCP / acesso programático) ---
+
+  // Credencial de longa duração que age em nome do usuário dono (mesma role e
+  // permissões). Só o SHA-256 do token é guardado; o texto puro aparece uma
+  // única vez, na criação. Usado pelo servidor MCP (apps/web /mcp) no lugar do
+  // OAuth do Clerk: o token é trocado por um JWT de delegação curto cujo `sub`
+  // é o clerkId do dono. Revogação e modo somente-leitura são aplicados
+  // centralmente em lib/agentTokens.ts.
+  agentTokens: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    /** SHA-256 (hex) do token em texto puro; usado na busca a cada pedido. */
+    tokenHash: v.string(),
+    /** Primeiros caracteres do token (`rlp_` + 8) para identificar na lista. */
+    tokenPrefix: v.string(),
+    /** `read_only` só executa queries; mutations e actions são rejeitadas. */
+    permission: agentTokenPermission,
+    createdAt: v.number(),
+    /** Atualizado no máximo uma vez por minuto. */
+    lastUsedAt: v.optional(v.number()),
+    expiresAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    /** Ausente = "agent" (tokens anteriores ao login do desktop). */
+    kind: v.optional(agentTokenKind),
+    /**
+     * Só tokens de dispositivo: id aleatório da instalação do RLP Takeoff,
+     * gerado uma vez pelo app. Um novo login da mesma instalação revoga o
+     * token anterior dela (o nome do computador é só rótulo e pode repetir).
+     */
+    installationId: v.optional(v.string()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_tokenHash", ["tokenHash"]),
+
+  // Códigos de uso único do login do RLP Takeoff (desktop). A página web
+  // /takeoff/conectar cria um código ligado ao usuário logado e ao desafio
+  // PKCE do app; o app troca o código (com o verificador) por um token de
+  // dispositivo em POST /takeoff/auth/exchange. Só o hash fica gravado.
+  takeoffAuthCodes: defineTable({
+    userId: v.id("users"),
+    /** SHA-256 (hex) do código em texto puro. */
+    codeHash: v.string(),
+    /** Desafio PKCE S256 (base64url do SHA-256 do verificador). */
+    codeChallenge: v.string(),
+    /** Nome do computador, mostrado no token criado ("Takeoff · <device>"). */
+    device: v.string(),
+    /** Id da instalação do app (ver agentTokens.installationId). */
+    installationId: v.optional(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_codeHash", ["codeHash"])
+    .index("by_user", ["userId"]),
+
+  // Uma linha por chamada de ferramenta feita via MCP com um token de agente.
+  // Alimenta "Atividade recente" na página Agentes. Expurgado pelo cron após
+  // AGENT_TOKEN_CALL_RETENTION_DAYS.
+  agentTokenCalls: defineTable({
+    tokenId: v.id("agentTokens"),
+    userId: v.id("users"),
+    /** Nome da ferramenta MCP (ex.: `list_projects`, `call_function`). */
+    tool: v.string(),
+    /** Função Convex chamada, `modulo:funcao`. */
+    functionPath: v.optional(v.string()),
+    outcome: v.union(v.literal("success"), v.literal("error")),
+    errorMessage: v.optional(v.string()),
+    durationMs: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_createdAt", ["createdAt"])
+    .index("by_token", ["tokenId", "createdAt"])
+    .index("by_user", ["userId", "createdAt"]),
 
   // --- QR Code / Equipment tracking ---
 
@@ -759,8 +810,16 @@ export default defineSchema({
     // Texto denormalizado para busca (nome, sku, fabricante, etc.).
     searchText: v.optional(v.string()),
     imageId: v.optional(v.id("_storage")),
+    // Mão de obra por unidade (`unit`) usada nos orçamentos do RLP Takeoff,
+    // em centavos. Ausente = sem preço de mão de obra cadastrado.
+    laborPriceCents: v.optional(v.number()),
+    // Quando o preço de mão de obra foi definido pela última vez.
+    laborPriceUpdatedAt: v.optional(v.number()),
     active: v.boolean(),
     status: v.optional(materialStatus),
+    // Set when this material was merged into another (status "archived");
+    // lets external consumers (RLP Takeoff) follow the redirect.
+    mergedIntoId: v.optional(v.id("materials")),
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
   })
@@ -798,7 +857,23 @@ export default defineSchema({
     .index("by_material", ["materialId"]),
 
   suppliers: defineTable({
+    // Nome fantasia (ou nome da pessoa física).
     name: v.string(),
+    personType: v.optional(v.union(v.literal("pf"), v.literal("pj"))),
+    // Razão social (PJ).
+    legalName: v.optional(v.string()),
+    // CNPJ/CPF como informado; `taxIdNormalized` guarda só dígitos.
+    taxId: v.optional(v.string()),
+    taxIdNormalized: v.optional(v.string()),
+    stateRegistration: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    website: v.optional(v.string()),
+    address: v.optional(v.string()),
+    // Condições comerciais padrão (ex.: "28 DDL", "à vista").
+    paymentTerms: v.optional(v.string()),
+    // Prazo de entrega padrão em dias (pode ser sobrescrito por material).
+    defaultLeadTimeDays: v.optional(v.number()),
     categories: v.optional(v.array(v.string())),
     notes: v.optional(v.string()),
     active: v.boolean(),
@@ -806,6 +881,7 @@ export default defineSchema({
     updatedAt: v.optional(v.number()),
   })
     .index("by_name", ["name"])
+    .index("by_tax_id_normalized", ["taxIdNormalized"])
     .index("by_active", ["active"]),
 
   supplierContacts: defineTable({
@@ -842,31 +918,19 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
     createdByUserId: v.optional(v.id("users")),
+    // Orçamentos publicados pelo app desktop de takeoff: `externalId` é o id
+    // do projeto no desktop (único por origem); republicar atualiza o mesmo
+    // takeoff.
+    source: v.optional(takeoffSource),
+    externalId: v.optional(v.string()),
+    budget: v.optional(takeoffBudgetMeta),
+    publishedAt: v.optional(v.number()),
+    publishedByUserId: v.optional(v.id("users")),
   })
     .index("by_project", ["projectId"])
     .index("by_status", ["status"])
-    .index("by_created", ["createdAt"]),
-
-  ductEstimates: defineTable({
-    projectId: v.id("projects"),
-    name: v.string(),
-    system: v.string(),
-    budgetNumber: v.string(),
-    norma: ductNorma,
-    laborRatePerKg: v.number(),
-    insulationAllowancePct: v.number(),
-    supportAllowancePct: v.number(),
-    insulationThicknessMm: v.number(),
-    flangeSpacingM: v.number(),
-    recladThicknessMm: v.number(),
-    splitersQty: v.number(),
-    captorsQty: v.number(),
-    prices: ductPrices,
-    lines: v.array(ductLine),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    createdByUserId: v.optional(v.id("users")),
-  }).index("by_project", ["projectId"]),
+    .index("by_created", ["createdAt"])
+    .index("by_source_external", ["source", "externalId"]),
 
   takeoffItems: defineTable({
     takeoffId: v.id("takeoffs"),
@@ -882,8 +946,25 @@ export default defineSchema({
     status: v.optional(takeoffItemStatus),
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
+    // Linhas vindas do desktop: id estável (item + aba + seção), aba
+    // (disciplina / sistema), seção (local ou grupo), preço de mão de obra e
+    // posição na planilha.
+    externalLineId: v.optional(v.string()),
+    sheet: v.optional(v.string()),
+    section: v.optional(v.string()),
+    laborUnitPriceCents: v.optional(v.number()),
+    sortOrder: v.optional(v.number()),
+    // Totais da linha (material / mão de obra) como o desktop calculou, com o
+    // preço sem arredondar; valem enquanto quantidade e preço não mudam aqui
+    // (updateItem / applySuggestedPrice os apagam).
+    materialTotalCents: v.optional(v.number()),
+    laborTotalCents: v.optional(v.number()),
+    // Linha que saiu do orçamento desktop mas foi mantida porque a Compras
+    // já trabalhou nela (cotação ou status avançado).
+    externalRemovedAt: v.optional(v.number()),
   })
     .index("by_takeoff", ["takeoffId"])
+    .index("by_takeoff_external_line", ["takeoffId", "externalLineId"])
     .index("by_project", ["projectId"])
     .index("by_material", ["materialId"])
     .index("by_status", ["status"]),
@@ -901,6 +982,11 @@ export default defineSchema({
     validUntil: v.optional(v.number()),
     projectId: v.optional(v.id("projects")),
     takeoffId: v.optional(v.id("takeoffs")),
+    // Item do takeoff que originou a cotação (fabricados sob medida).
+    takeoffItemId: v.optional(v.id("takeoffItems")),
+    // Medidas do item cotado: fabricados sob medida só são comparáveis por
+    // tamanho, então cada cotação guarda as suas para alimentar estimativas.
+    dimensions: v.optional(materialDimensions),
     notes: v.optional(v.string()),
     reviewStatus: v.optional(priceEventReviewStatus),
     needsReview: v.boolean(),
@@ -912,9 +998,28 @@ export default defineSchema({
     .index("by_material_supplier", ["materialId", "supplierId"])
     .index("by_project", ["projectId"])
     .index("by_takeoff", ["takeoffId"])
+    .index("by_takeoff_item", ["takeoffItemId"])
     .index("by_occurred_at", ["occurredAt"])
     .index("by_needs_review", ["needsReview"])
     .index("by_review_status", ["reviewStatus"]),
+
+  // Proposals sent by the RLP Takeoff desktop app (POST /takeoff/materials).
+  // One row per clientId so the app can retry the call safely.
+  takeoffMaterialProposals: defineTable({
+    clientId: v.string(),
+    materialId: v.id("materials"),
+    priceEventId: v.optional(v.id("priceEvents")),
+    outcome: v.union(v.literal("created"), v.literal("matched")),
+    requestedName: v.optional(v.string()),
+    requestedUnit: v.optional(v.string()),
+    requestedBy: v.optional(v.string()),
+    /** Usuário logado no takeoff que enviou a proposta (ausente no caminho por token). */
+    requestedByUserId: v.optional(v.id("users")),
+    takeoffName: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_client_id", ["clientId"])
+    .index("by_material", ["materialId"]),
 
   materialAliases: defineTable({
     alias: v.string(),
@@ -1229,6 +1334,8 @@ export default defineSchema({
     receivesFoodBasket: v.boolean(),
     dailyTransitCents: v.number(),
     defaultTransportFoodDays: v.number(),
+    // Usuário do app que bate ponto como este funcionário.
+    userId: v.optional(v.id("users")),
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
     createdByUserId: v.optional(v.id("users")),
@@ -1237,7 +1344,9 @@ export default defineSchema({
     .index("by_name_normalized", ["nameNormalized"])
     .index("by_code", ["code"])
     .index("by_cpf_normalized", ["cpfNormalized"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_user", ["userId"])
+    .index("by_email", ["email"]),
 
   payrollRuns: defineTable({
     year: v.number(),
@@ -1338,8 +1447,19 @@ export default defineSchema({
     manDayCostCents: v.number(),
     // Departamentos do RHID considerados na presença. Vazio = todos.
     trackedDepartments: v.array(v.string()),
+    // Regras da marcação pelo app RLP (mesmos controles do RHID).
+    photoRequired: v.optional(v.boolean()),
+    locationRequired: v.optional(v.boolean()),
+    // Janela (min) em que uma nova marcação do mesmo funcionário é ignorada.
+    duplicateWindowMinutes: v.optional(v.number()),
     updatedAt: v.number(),
     updatedByUserId: v.optional(v.id("users")),
+  }).index("by_key", ["key"]),
+
+  // Contadores monotônicos do ponto (ex.: NSR das marcações do app).
+  timeClockCounters: defineTable({
+    key: v.string(),
+    value: v.number(),
   }).index("by_key", ["key"]),
 
   // Cadastro de pessoas do RHID. Não duplica `employees`: cada pessoa pode ser
@@ -1378,10 +1498,17 @@ export default defineSchema({
     .index("by_rhid_geofence_id", ["rhidGeofenceId"])
     .index("by_project", ["projectId"]),
 
-  // Uma linha por marcação (registro AFD mobile) do RHID.
+  // Uma linha por marcação: registro AFD mobile do RHID (source = "rhid") ou
+  // marcação feita pelo app RLP (source = "app"). Marcações do app carregam
+  // `employeeId`; `rhidPersonId` é preenchido quando o funcionário tem vínculo
+  // com uma pessoa do RHID, para aparecer nas telas que ainda usam esse id.
   timeClockPunches: defineTable({
-    rhidRecordId: v.number(),
-    rhidPersonId: v.number(),
+    rhidRecordId: v.optional(v.number()),
+    rhidPersonId: v.optional(v.number()),
+    source: v.optional(timeClockPunchSource),
+    employeeId: v.optional(v.id("employees")),
+    // Chave de idempotência gerada no aparelho (reenvio da fila offline).
+    clientPunchId: v.optional(v.string()),
     personName: v.string(),
     // Dia civil em Brasília ("YYYY-MM-DD").
     date: v.string(),
@@ -1394,13 +1521,30 @@ export default defineSchema({
     latitude: v.optional(v.number()),
     longitude: v.optional(v.number()),
     photoUrl: v.optional(v.string()),
+    photoStorageId: v.optional(v.id("_storage")),
     rhidGeofenceId: v.optional(v.number()),
     geofenceName: v.optional(v.string()),
+    worksiteId: v.optional(v.id("rhidWorksites")),
+    geofenceStatus: v.optional(timeClockGeofenceStatus),
+    // Relógio do aparelho no momento da marcação (o oficial é `punchedAt`,
+    // atribuído pelo servidor).
+    capturedAt: v.optional(v.number()),
+    accuracyMeters: v.optional(v.number()),
+    offline: v.optional(v.boolean()),
+    deviceModel: v.optional(v.string()),
+    appVersion: v.optional(v.string()),
+    // Comprovante: número sequencial e hash SHA-256 da marcação.
+    nsr: v.optional(v.number()),
+    hash: v.optional(v.string()),
+    excluded: v.optional(v.boolean()),
+    excludedReason: v.optional(v.string()),
     syncedAt: v.number(),
   })
     .index("by_rhid_record_id", ["rhidRecordId"])
     .index("by_date", ["date"])
-    .index("by_person_and_date", ["rhidPersonId", "date"]),
+    .index("by_person_and_date", ["rhidPersonId", "date"])
+    .index("by_employee_and_date", ["employeeId", "date"])
+    .index("by_client_punch_id", ["clientPunchId"]),
 
   // Resumo diário por pessoa (só dias com marcação). Derivado de
   // `timeClockPunches` na mesma mutation de sincronização.

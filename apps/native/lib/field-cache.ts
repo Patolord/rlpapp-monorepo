@@ -41,3 +41,22 @@ export async function cacheFieldObra<T>(identifier: string, obra: T): Promise<vo
 export async function getCachedFieldObra<T>(identifier: string): Promise<T | null> {
   return readJson<T>(`${OBRA_PREFIX}${identifier}`);
 }
+
+const LAST_OBRA_KEY = "rlp-field-last-obra";
+
+/** Última obra aberta no aparelho: fica no topo de "Minhas obras". */
+export async function setLastFieldObra(projectId: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(LAST_OBRA_KEY, projectId);
+  } catch {
+    // Cache é melhor esforço.
+  }
+}
+
+export async function getLastFieldObra(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(LAST_OBRA_KEY);
+  } catch {
+    return null;
+  }
+}

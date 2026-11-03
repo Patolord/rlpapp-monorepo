@@ -18,6 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { internalRedirect } from "@/lib/safe-redirect";
 
 type IndexSearch = {
   redirect?: string;
@@ -25,16 +26,14 @@ type IndexSearch = {
 
 export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>): IndexSearch => {
-    const redirect = search.redirect;
-    // Só aceita caminhos internos para evitar open redirect
-    if (typeof redirect === "string" && redirect.startsWith("/")) {
-      return { redirect };
-    }
-    return {};
+    // Só caminhos internos, para evitar open redirect (ver internalRedirect)
+    const redirect = internalRedirect(search.redirect);
+    return redirect ? { redirect } : {};
   },
   component: IndexPage,
 });
 
+/** Caminho interno, que pode trazer query string (ex.: /takeoff/conectar?port=…). */
 function useLoginDestination() {
   const { redirect } = Route.useSearch();
   return redirect ?? "/app";
@@ -47,14 +46,14 @@ function IndexPage() {
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      void navigate({ to: destination });
+      void navigate({ href: destination });
     }
   }, [isLoaded, isSignedIn, navigate, destination]);
 
   if (!isLoaded || isSignedIn) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f7f8fc]">
-        <LoadingState label="Carregando..." />
+        <LoadingState label="Carregando…" />
       </div>
     );
   }
@@ -86,7 +85,7 @@ function LoginForm() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        await navigate({ to: destination });
+        await navigate({ href: destination });
       } else {
         setError("Erro ao fazer login. Tente novamente.");
       }
@@ -100,7 +99,7 @@ function LoginForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f7f8fc] px-4">
       <Card className="w-full max-w-md shadow-sm">
-        <CardHeader className="items-center text-center pb-2">
+        <CardHeader className="items-center text-center">
           <img
             src="/logo.jpg"
             alt="RLP Engenharia"
@@ -151,9 +150,10 @@ function LoginForm() {
             <Button
               type="submit"
               disabled={loading}
-              className="h-12 w-full text-base font-semibold"
+              size="xl"
+              className="w-full font-semibold"
             >
-              {loading && <Loader2 className="mr-2 size-5 animate-spin" />}
+              {loading && <Loader2 className="size-5 animate-spin" />}
               Entrar
             </Button>
             <p className="text-center text-sm text-muted-foreground">

@@ -8,6 +8,12 @@ const mcpEnvSchema = z.object({
   MCP_JWT_PRIVATE_KEY: z.string().min(1),
   MCP_ALLOWED_HOSTS: z.string().min(1),
   MCP_JWT_KEY_ID: z.string().min(1).default("mcp-delegation"),
+  // URL *site* do deployment Convex (https://<nome>.convex.site), onde fica o
+  // endpoint de verificação de tokens de agente. Derivada de VITE_CONVEX_URL
+  // quando ausente.
+  VITE_CONVEX_SITE_URL: z.url().optional(),
+  // "1" expõe a ferramenta `call_function` (qualquer função pública por nome).
+  MCP_ALLOW_RAW_CALLS: z.string().optional(),
 });
 
 export type McpEnv = z.infer<typeof mcpEnvSchema>;
@@ -39,10 +45,28 @@ export function getMcpEnv(): McpEnv {
     MCP_JWT_PRIVATE_KEY: readValue("MCP_JWT_PRIVATE_KEY"),
     MCP_ALLOWED_HOSTS: readValue("MCP_ALLOWED_HOSTS"),
     MCP_JWT_KEY_ID: readValue("MCP_JWT_KEY_ID"),
+    VITE_CONVEX_SITE_URL: readValue("VITE_CONVEX_SITE_URL"),
+    MCP_ALLOW_RAW_CALLS: readValue("MCP_ALLOW_RAW_CALLS"),
   });
   return cached;
 }
 
 export function resetMcpEnvForTests(): void {
   cached = undefined;
+}
+
+/**
+ * URL do endpoint que valida tokens de agente (Convex HTTP action). O site URL
+ * difere do URL do cliente só pelo TLD (`.convex.cloud` → `.convex.site`) ou,
+ * no backend local, pela porta (3210 → 3211).
+ */
+export function deriveConvexSiteUrl(env: Pick<McpEnv, "VITE_CONVEX_URL" | "VITE_CONVEX_SITE_URL">): string {
+  if (env.VITE_CONVEX_SITE_URL) return env.VITE_CONVEX_SITE_URL.replace(/\/+$/, "");
+  return env.VITE_CONVEX_URL.replace(/\/+$/, "")
+    .replace(".convex.cloud", ".convex.site")
+    .replace(":3210", ":3211");
+}
+
+export function allowRawMcpCalls(env: Pick<McpEnv, "MCP_ALLOW_RAW_CALLS">): boolean {
+  return ["1", "true", "yes"].includes((env.MCP_ALLOW_RAW_CALLS ?? "").trim().toLowerCase());
 }

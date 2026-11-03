@@ -1,6 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import { formatCurrency, formatDate } from "@rlpapp/shared";
+import { formatDate } from "@rlpapp/shared";
 import { useMutation, useQuery } from "convex/react";
 import { Archive, ArchiveRestore, Pencil, Plus } from "lucide-react-native";
 import { useState } from "react";
@@ -23,16 +23,15 @@ import { getErrorMessage } from "@/lib/errors";
 import { formatQty } from "@/lib/format";
 import { colors, space, type } from "@/lib/theme";
 
-import { FRESHNESS, MATERIAL_STATUS, PRICE_SOURCE, REPLENISHMENT } from "./labels";
+import { MATERIAL_STATUS, REPLENISHMENT } from "./labels";
 import { MaterialFormSheet } from "./material-form-sheet";
+import { MaterialPriceHistory } from "./material-price-history";
 
-/** Detalhe do material: dados, estoque central, apelidos, últimos preços. */
+/** Detalhe do material: dados, estoque central, apelidos, histórico de preços. */
 export function MaterialDetailSheet({ materialId, onClose }: { materialId: Id<"materials"> | null; onClose: () => void }) {
   const toast = useToast();
-  const [now] = useState(() => Date.now());
   const material = useQuery(api.materials.get, materialId ? { materialId } : "skip");
   const aliases = useQuery(api.materials.listAliases, materialId ? { materialId } : "skip");
-  const prices = useQuery(api.priceEvents.latestForMaterial, materialId ? { materialId, now } : "skip");
   const update = useMutation(api.materials.update);
   const addAlias = useMutation(api.materials.addAlias);
 
@@ -140,38 +139,7 @@ export function MaterialDetailSheet({ materialId, onClose }: { materialId: Id<"m
               </View>
             </View>
 
-            <View>
-              <SectionTitle title="Últimos preços" style={styles.section} />
-              {prices === undefined ? (
-                <LoadingState style={{ flex: 0, paddingVertical: space.lg }} />
-              ) : prices.length === 0 ? (
-                <Surface style={{ alignItems: "center", paddingVertical: space.lg }}>
-                  <Text style={[type.bodySm, { color: colors.textSecondary }]}>Nenhum preço registrado.</Text>
-                </Surface>
-              ) : (
-                <Surface padded={false}>
-                  {prices.slice(0, 5).map((p, index) => (
-                    <View key={p._id} style={[styles.price, index > 0 && styles.priceBorder]}>
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={[type.bodyStrong, { color: colors.text }]} numberOfLines={1}>
-                          {p.supplierName}
-                        </Text>
-                        <Text style={[type.caption, { color: colors.textMuted }]}>
-                          {formatDate(p.occurredAt)} · {PRICE_SOURCE[p.source] ?? p.source}
-                        </Text>
-                      </View>
-                      <View style={{ alignItems: "flex-end", gap: 4 }}>
-                        <Text style={[type.bodyStrong, { color: colors.text }]}>
-                          {formatCurrency(p.unitPriceCents)}
-                          {p.unit ? <Text style={[type.caption, { color: colors.textMuted }]}>/{p.unit}</Text> : null}
-                        </Text>
-                        <Pill label={FRESHNESS[p.freshness]?.label ?? p.freshness} tone={FRESHNESS[p.freshness]?.tone ?? "neutral"} />
-                      </View>
-                    </View>
-                  ))}
-                </Surface>
-              )}
-            </View>
+            <MaterialPriceHistory materialId={material._id} />
           </>
         )}
       </Sheet>
@@ -198,6 +166,4 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: 4, paddingTop: 0, paddingBottom: 6 },
   aliases: { flexDirection: "row", flexWrap: "wrap", gap: space.sm, marginBottom: space.md },
   aliasRow: { flexDirection: "row", alignItems: "center", gap: space.sm },
-  price: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: 12 },
-  priceBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
 });

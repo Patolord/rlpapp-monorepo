@@ -14,12 +14,13 @@ import { cn } from "@/lib/utils";
  * Layout padrão das áreas de departamento (engenharia, rh):
  * gate de acesso por departamento + sidebar + header.
  * `printable` esconde o chrome na impressão (usado pela engenharia).
+ * Sem `area`, só bloqueia qr_operator (páginas pessoais como /conta).
  */
 export function DepartmentLayout({
   area,
   printable = false,
 }: {
-  area: DepartmentArea;
+  area?: DepartmentArea;
   printable?: boolean;
 }) {
   return (
@@ -29,7 +30,7 @@ export function DepartmentLayout({
         <SidebarInset className="bg-[#f7f8fc]">
           <header
             className={cn(
-              "flex h-16 shrink-0 items-center gap-2 border-b border-slate-100 bg-[#f7f8fc] transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12",
+              "flex h-16 shrink-0 items-center gap-2 border-b border-slate-100 bg-[#f7f8fc] transition-[height] duration-200 ease-snappy group-has-data-[collapsible=icon]/sidebar-wrapper:h-12",
               printable && "print:hidden"
             )}
           >

@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/engenharia/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { WhatsAppContactButton } from "@/components/whatsapp-contact-button";
 import {
   Tag,
   Clock,
@@ -15,12 +16,8 @@ import {
   QrCode,
   Home,
   LogIn,
-  MessageCircle,
   Globe,
 } from "lucide-react";
-
-const WHATSAPP_URL =
-  "https://wa.me/5511985782307?text=Olá,%20gostaria%20de%20solicitar%20um%20orçamento";
 
 // URL pública impressa na etiqueta. Depois do login, o técnico de campo é
 // levado para a etiqueta dentro da obra dela (tudo acontece em uma obra);
@@ -74,7 +71,7 @@ function UnauthenticatedView() {
       <div className="mx-auto w-full max-w-sm space-y-4">
         {equipment && (
           <Card>
-            <CardContent className="pt-4">
+            <CardContent>
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -101,7 +98,7 @@ function UnauthenticatedView() {
         )}
 
         <Card>
-          <CardContent className="flex flex-col items-center gap-5 pt-6 pb-6 text-center">
+          <CardContent className="flex flex-col items-center gap-5 text-center">
             {!equipment && (
               <>
                 <QrCode className="h-12 w-12 text-muted-foreground" />
@@ -120,10 +117,11 @@ function UnauthenticatedView() {
                 Se você é técnico, faça login para acessar o sistema:
               </p>
               <Button
-                className="h-12 w-full text-base"
+                size="xl"
+                className="w-full"
                 render={<Link to="/" search={{ redirect: `/q/${token}` }} />}
               >
-                <LogIn className="mr-2 h-4 w-4" />
+                <LogIn />
                 Entrar
               </Button>
             </div>
@@ -138,15 +136,10 @@ function UnauthenticatedView() {
               <p className="text-sm font-medium">
                 Entre em contato conosco:
               </p>
-              <a
-                href={WHATSAPP_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#25D366] text-base font-medium text-white hover:bg-[#1DA851] transition-colors"
-              >
-                <MessageCircle className="h-4 w-4" />
-                Falar no WhatsApp
-              </a>
+              <WhatsAppContactButton
+                prefilledText="Olá, gostaria de solicitar um orçamento"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#25D366] text-base font-medium text-white no-underline transition-colors hover:bg-[#1DA851] hover:no-underline"
+              />
               <a
                 href="https://www.rlpeng.com.br"
                 target="_blank"
@@ -216,7 +209,7 @@ function AuthenticatedContent() {
       token={token}
       notFoundAction={
         <Button render={<Link to="/app" />}>
-          <Home className="mr-2 h-4 w-4" />
+          <Home />
           Voltar à tela inicial
         </Button>
       }

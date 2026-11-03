@@ -25,7 +25,7 @@ export default function FornecedoresScreen() {
         subtitle={suppliers === undefined ? "Parceiros de compra" : `${suppliers.length} fornecedor${suppliers.length === 1 ? "" : "es"}`}
         right={<IconButton label="Novo fornecedor" tone="primary" icon={<Plus size={22} color={colors.onPrimary} strokeWidth={2.2} />} onPress={() => setCreating(true)} />}
       />
-      <SearchField value={search} onChangeText={setSearch} placeholder="Nome ou categoria" containerStyle={{ marginHorizontal: space.screen, marginBottom: space.md }} />
+      <SearchField value={search} onChangeText={setSearch} placeholder="Nome, CNPJ ou categoria" containerStyle={{ marginHorizontal: space.screen, marginBottom: space.md }} />
       <Chips<Scope> active={scope} onChange={setScope} items={[{ key: "active", label: "Ativos" }, { key: "all", label: "Todos" }]} />
       {suppliers === undefined ? (
         <LoadingState />

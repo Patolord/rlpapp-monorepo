@@ -1,25 +1,37 @@
 import { v } from "convex/values";
 import {
+  authedQuery,
   engineeringMutation,
   engineeringOrPurchasingQuery,
   purchasingMutation,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
-import { materialDimensions, takeoffItemStatus, takeoffStatus } from "./schema";
 import {
-  allocateNextSku,
-  buildMaterialIdentityKey,
-  buildMaterialSearchText,
-  deriveVariantLabel,
-  findMaterialByIdentity,
-  normalizeUnit,
-  sanitizeDimensions,
-} from "./lib/compras/catalog";
+  materialDimensions,
+  takeoffBudgetMeta,
+  takeoffItemStatus,
+  takeoffSource,
+  takeoffStatus,
+} from "./schema";
+import { sanitizeDimensions } from "./lib/compras/catalog";
 import {
   normalizeText,
   priceFreshness,
   suggestedUnitPriceCents,
 } from "./lib/compras/procurement";
+import { promoteTakeoffItem } from "./model/procurement/takeoffPromotion";
+import { isUsablePriceEvent } from "./model/procurement/priceSelection";
+import { computePriceChange } from "./model/procurement/priceHistory";
+import {
+  desktopPublishOptions as desktopPublishOptionsFor,
+  desktopPublishOptionsArgs,
+  desktopPublishOptionsResult,
+  publishDesktopBudget,
+  publishDesktopBudgetArgs,
+  publishDesktopBudgetResult,
+} from "./model/procurement/desktopBudget";
+import type { Doc } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
 
 export const takeoffValidator = v.object({
   _id: v.id("takeoffs"),
@@ -32,6 +44,13 @@ export const takeoffValidator = v.object({
   createdAt: v.number(),
   updatedAt: v.union(v.number(), v.null()),
   itemCount: v.number(),
+  /** "desktop" quando publicado pelo app desktop de takeoff. */
+  source: v.union(takeoffSource, v.null()),
+  externalId: v.union(v.string(), v.null()),
+  /** Cabeçalho e resumo por aba do orçamento publicado pelo desktop. */
+  budget: v.union(takeoffBudgetMeta, v.null()),
+  publishedAt: v.union(v.number(), v.null()),
+  publishedByName: v.union(v.string(), v.null()),
 });
 
 export const takeoffItemValidator = v.object({
@@ -51,6 +70,17 @@ export const takeoffItemValidator = v.object({
   status: v.union(takeoffItemStatus, v.null()),
   createdAt: v.number(),
   updatedAt: v.union(v.number(), v.null()),
+  /** Linhas do desktop: id estável, aba, seção, mão de obra e posição. */
+  externalLineId: v.union(v.string(), v.null()),
+  sheet: v.union(v.string(), v.null()),
+  section: v.union(v.string(), v.null()),
+  laborUnitPriceCents: v.union(v.number(), v.null()),
+  /** Totais da linha como o desktop calculou (null: quantidade × preço). */
+  materialTotalCents: v.union(v.number(), v.null()),
+  laborTotalCents: v.union(v.number(), v.null()),
+  sortOrder: v.union(v.number(), v.null()),
+  /** Saiu do orçamento desktop mas foi mantida pela Compras. */
+  externalRemovedAt: v.union(v.number(), v.null()),
   warnings: v.array(v.string()),
   latestPrices: v.array(
     v.object({
@@ -69,7 +99,77 @@ export const takeoffItemValidator = v.object({
       suggestedUnitPriceCents: v.union(v.number(), v.null()),
     })
   ),
+  /** Cotações registradas para este item, mais recente primeiro. */
+  quotes: v.array(
+    v.object({
+      _id: v.id("priceEvents"),
+      supplierId: v.union(v.id("suppliers"), v.null()),
+      supplierName: v.string(),
+      unitPriceCents: v.number(),
+      unit: v.union(v.string(), v.null()),
+      occurredAt: v.number(),
+      validUntil: v.union(v.number(), v.null()),
+      source: v.string(),
+      /** Desvio da cotação em relação ao preço estimado do item. */
+      versusEstimate: v.union(
+        v.object({
+          deltaCents: v.number(),
+          deltaPercent: v.union(v.number(), v.null()),
+          fromCents: v.number(),
+          fromAt: v.number(),
+        }),
+        v.null()
+      ),
+    })
+  ),
 });
+
+async function resolveItemQuotes(
+  ctx: { db: import("./_generated/server").QueryCtx["db"] },
+  item: {
+    _id: import("./_generated/dataModel").Id<"takeoffItems">;
+    estimatedUnitPriceCents?: number;
+    updatedAt?: number;
+    createdAt: number;
+  }
+) {
+  const events = await ctx.db
+    .query("priceEvents")
+    .withIndex("by_takeoff_item", (q) => q.eq("takeoffItemId", item._id))
+    .collect();
+  const out = [];
+  for (const event of events) {
+    if (!isUsablePriceEvent(event)) continue;
+    let supplierName = event.supplierNameRaw ?? "Fornecedor";
+    if (event.supplierId) {
+      const supplier = await ctx.db.get("suppliers", event.supplierId);
+      if (supplier) supplierName = supplier.name;
+    }
+    out.push({
+      _id: event._id,
+      supplierId: event.supplierId ?? null,
+      supplierName,
+      unitPriceCents: event.unitPriceCents,
+      unit: event.unit ?? null,
+      occurredAt: event.occurredAt,
+      validUntil: event.validUntil ?? null,
+      source: event.source,
+      versusEstimate:
+        item.estimatedUnitPriceCents !== undefined
+          ? computePriceChange(event, {
+              unitPriceCents: item.estimatedUnitPriceCents,
+              occurredAt: item.updatedAt ?? item.createdAt,
+            })
+          : null,
+    });
+  }
+  return out.sort((a, b) => b.occurredAt - a.occurredAt);
+}
+
+type PriceLookupCache = {
+  recent?: Doc<"priceEvents">[];
+  byMaterial?: Map<string, Doc<"priceEvents">[]>;
+};
 
 async function resolveLatestPrices(
   ctx: { db: import("./_generated/server").QueryCtx["db"] },
@@ -77,15 +177,25 @@ async function resolveLatestPrices(
     materialId?: import("./_generated/dataModel").Id<"materials">;
     rawDescription: string;
     now: number;
-  }
+  },
+  cache: PriceLookupCache = {}
 ) {
-  const events = params.materialId
-    ? await ctx.db
+  const materialId = params.materialId;
+  let events: Doc<"priceEvents">[] = [];
+  if (materialId) {
+    cache.byMaterial ??= new Map();
+    const cached = cache.byMaterial.get(materialId);
+    if (cached) {
+      events = cached;
+    } else {
+      events = await ctx.db
         .query("priceEvents")
-        .withIndex("by_material", (q) => q.eq("materialId", params.materialId))
+        .withIndex("by_material", (q) => q.eq("materialId", materialId))
         .order("desc")
-        .take(50)
-    : [];
+        .take(50);
+      cache.byMaterial.set(materialId, events);
+    }
+  }
 
   let filtered = events.filter(
     (e) => e.reviewStatus !== "ignored" && e.reviewStatus !== "duplicate"
@@ -93,7 +203,11 @@ async function resolveLatestPrices(
 
   if (filtered.length === 0 && params.rawDescription.trim()) {
     const term = normalizeText(params.rawDescription);
-    const all = await ctx.db.query("priceEvents").order("desc").take(200);
+    cache.recent ??= await ctx.db
+      .query("priceEvents")
+      .order("desc")
+      .take(200);
+    const all = cache.recent;
     filtered = all.filter(
       (e) =>
         e.reviewStatus !== "ignored" &&
@@ -149,13 +263,49 @@ function itemWarnings(item: {
   return warnings;
 }
 
+async function takeoffSummary(
+  ctx: { db: QueryCtx["db"] },
+  t: Doc<"takeoffs">,
+  itemCount: number
+) {
+  let projectName: string | null = null;
+  let projectSlug: string | null = null;
+  if (t.projectId) {
+    const project = await ctx.db.get("projects", t.projectId);
+    projectName = project?.name ?? null;
+    projectSlug = project ? (project.slug ?? project._id) : null;
+  }
+  let publishedByName: string | null = null;
+  if (t.publishedByUserId) {
+    const user = await ctx.db.get("users", t.publishedByUserId);
+    publishedByName = user?.name ?? null;
+  }
+  return {
+    _id: t._id,
+    _creationTime: t._creationTime,
+    projectId: t.projectId ?? null,
+    projectName,
+    projectSlug,
+    name: t.name,
+    status: t.status ?? null,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt ?? null,
+    itemCount,
+    source: t.source ?? null,
+    externalId: t.externalId ?? null,
+    budget: t.budget ?? null,
+    publishedAt: t.publishedAt ?? null,
+    publishedByName,
+  };
+}
+
 export const list = engineeringOrPurchasingQuery({
   args: {
     projectId: v.optional(v.id("projects")),
   },
   returns: v.array(takeoffValidator),
   handler: async (ctx, args) => {
-    let takeoffs = args.projectId
+    const takeoffs = args.projectId
       ? await ctx.db
           .query("takeoffs")
           .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -169,25 +319,7 @@ export const list = engineeringOrPurchasingQuery({
         .query("takeoffItems")
         .withIndex("by_takeoff", (q) => q.eq("takeoffId", t._id))
         .collect();
-      let projectName: string | null = null;
-      let projectSlug: string | null = null;
-      if (t.projectId) {
-        const project = await ctx.db.get("projects", t.projectId);
-        projectName = project?.name ?? null;
-        projectSlug = project ? (project.slug ?? project._id) : null;
-      }
-      out.push({
-        _id: t._id,
-        _creationTime: t._creationTime,
-        projectId: t.projectId ?? null,
-        projectName,
-        projectSlug,
-        name: t.name,
-        status: t.status ?? null,
-        createdAt: t.createdAt,
-        updatedAt: t.updatedAt ?? null,
-        itemCount: items.length,
-      });
+      out.push(await takeoffSummary(ctx, t, items.length));
     }
     return out;
   },
@@ -213,15 +345,16 @@ export const get = engineeringOrPurchasingQuery({
       .query("takeoffItems")
       .withIndex("by_takeoff", (q) => q.eq("takeoffId", args.takeoffId))
       .collect();
+    // Linhas do desktop na ordem da planilha; as manuais seguem pela criação.
+    items.sort(
+      (a, b) =>
+        (a.sortOrder ?? Number.MAX_SAFE_INTEGER) -
+        (b.sortOrder ?? Number.MAX_SAFE_INTEGER)
+    );
 
-    let projectName: string | null = null;
-    let projectSlug: string | null = null;
-    if (takeoff.projectId) {
-      const project = await ctx.db.get("projects", takeoff.projectId);
-      projectName = project?.name ?? null;
-      projectSlug = project ? (project.slug ?? project._id) : null;
-    }
-
+    // Orçamentos do desktop têm centenas de linhas: a busca por descrição
+    // (sem material) lê os eventos recentes uma vez só.
+    const priceCache: PriceLookupCache = {};
     const itemsOut = [];
     for (const item of items) {
       let materialName: string | null = null;
@@ -229,11 +362,18 @@ export const get = engineeringOrPurchasingQuery({
         const material = await ctx.db.get("materials", item.materialId);
         materialName = material?.name ?? null;
       }
-      const latestPrices = await resolveLatestPrices(ctx, {
-        materialId: item.materialId,
-        rawDescription: item.rawDescription,
-        now: args.now,
-      });
+      const [latestPrices, quotes] = await Promise.all([
+        resolveLatestPrices(
+          ctx,
+          {
+            materialId: item.materialId,
+            rawDescription: item.rawDescription,
+            now: args.now,
+          },
+          priceCache
+        ),
+        resolveItemQuotes(ctx, item),
+      ]);
       itemsOut.push({
         _id: item._id,
         _creationTime: item._creationTime,
@@ -251,24 +391,22 @@ export const get = engineeringOrPurchasingQuery({
         status: item.status ?? null,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt ?? null,
+        externalLineId: item.externalLineId ?? null,
+        sheet: item.sheet ?? null,
+        section: item.section ?? null,
+        laborUnitPriceCents: item.laborUnitPriceCents ?? null,
+        materialTotalCents: item.materialTotalCents ?? null,
+        laborTotalCents: item.laborTotalCents ?? null,
+        sortOrder: item.sortOrder ?? null,
+        externalRemovedAt: item.externalRemovedAt ?? null,
         warnings: itemWarnings(item),
         latestPrices,
+        quotes,
       });
     }
 
     return {
-      takeoff: {
-        _id: takeoff._id,
-        _creationTime: takeoff._creationTime,
-        projectId: takeoff.projectId ?? null,
-        projectName,
-        projectSlug,
-        name: takeoff.name,
-        status: takeoff.status ?? null,
-        createdAt: takeoff.createdAt,
-        updatedAt: takeoff.updatedAt ?? null,
-        itemCount: itemsOut.length,
-      },
+      takeoff: await takeoffSummary(ctx, takeoff, itemsOut.length),
       items: itemsOut,
     };
   },
@@ -378,6 +516,17 @@ export const updateItem = engineeringMutation({
       updates.rawDescription = desc;
     }
     if (args.quantity !== undefined) updates.quantity = args.quantity;
+    // Totais publicados pelo desktop deixam de valer quando a conta muda.
+    if (args.quantity !== undefined && args.quantity !== item.quantity) {
+      updates.materialTotalCents = undefined;
+      updates.laborTotalCents = undefined;
+    }
+    if (
+      args.estimatedUnitPriceCents !== undefined &&
+      args.estimatedUnitPriceCents !== item.estimatedUnitPriceCents
+    ) {
+      updates.materialTotalCents = undefined;
+    }
     if (args.unit !== undefined) updates.unit = args.unit.trim() || undefined;
     if (args.materialId !== undefined) {
       updates.materialId = args.materialId;
@@ -419,91 +568,11 @@ export const promoteItemToMaterial = purchasingMutation({
       return { materialId: item.materialId, created: false };
     }
 
-    const familyName = (args.familyName ?? item.rawDescription).trim();
-    if (!familyName) throw new Error("Informe o nome da família");
-    const nameNormalized = normalizeText(familyName);
-    let family = await ctx.db
-      .query("materialFamilies")
-      .withIndex("by_name_normalized", (q) =>
-        q.eq("nameNormalized", nameNormalized)
-      )
-      .first();
-    const now = Date.now();
-    if (!family) {
-      const familyId = await ctx.db.insert("materialFamilies", {
-        name: familyName,
-        nameNormalized,
-        category: args.category?.trim() || undefined,
-        baseUnit: normalizeUnit(item.unit),
-        active: true,
-        createdAt: now,
-        updatedAt: now,
-      });
-      family = await ctx.db.get("materialFamilies", familyId);
-    }
-    if (!family) throw new Error("Falha ao criar família de material");
-
-    const dimensions = sanitizeDimensions(item.customDimensions);
-    const variantLabel = deriveVariantLabel({
-      variantLabel: item.customSpecification,
-      dimensions,
+    const promoted = await promoteTakeoffItem(ctx, ctx.user, item, {
+      familyName: args.familyName,
+      category: args.category,
     });
-    const unit = normalizeUnit(item.unit);
-    const identityKey = buildMaterialIdentityKey({
-      familyId: family._id,
-      unit,
-      variantLabel,
-      dimensions,
-    });
-    const existing = await findMaterialByIdentity(ctx, {
-      identityKey,
-    });
-    if (existing) {
-      await ctx.db.patch("takeoffItems", item._id, {
-        materialId: existing._id,
-        status: "matched",
-        updatedAt: now,
-      });
-      return { materialId: existing._id, created: false };
-    }
-
-    const sku = await allocateNextSku(ctx);
-    const materialId = await ctx.db.insert("materials", {
-      name: family.name,
-      familyId: family._id,
-      variantLabel,
-      dimensions,
-      identityKey,
-      sku,
-      category: args.category?.trim() || family.category,
-      unit,
-      spec: item.customSpecification,
-      searchText: buildMaterialSearchText({
-        name: family.name,
-        variantLabel,
-        sku,
-        category: args.category?.trim() || family.category,
-        spec: item.customSpecification,
-      }),
-      trackInventory: true,
-      active: true,
-      status: "active",
-      createdAt: now,
-      updatedAt: now,
-    });
-    await ctx.db.patch("takeoffItems", item._id, {
-      materialId,
-      status: "matched",
-      updatedAt: now,
-    });
-    await ctx.db.patch("takeoffs", item.takeoffId, { updatedAt: now });
-    await logAudit(ctx, ctx.user, {
-      action: "create",
-      tableName: "materials",
-      recordId: materialId,
-      details: `Promovido do takeoff: ${family.name}`,
-    });
-    return { materialId, created: true };
+    return { materialId: promoted.materialId, created: promoted.created };
   },
 });
 
@@ -530,8 +599,57 @@ export const applySuggestedPrice = engineeringMutation({
     if (!item) throw new Error("Item não encontrado");
     await ctx.db.patch("takeoffItems", args.itemId, {
       estimatedUnitPriceCents: args.unitPriceCents,
+      // o total publicado pelo desktop era do preço anterior, que pode ter
+      // frações de centavo mesmo quando arredonda para este mesmo valor
+      materialTotalCents: undefined,
       updatedAt: Date.now(),
     });
     return null;
+  },
+});
+
+/**
+ * Para o app desktop antes de enviar um orçamento aprovado: se o usuário pode
+ * enviar, as obras para escolher e onde este projeto já foi enviado.
+ *
+ * Qualquer usuário autenticado pode chamar: sem `engenharia.write` a resposta
+ * diz `canPublish: false` (sem obras), para o desktop explicar a falta de
+ * permissão — o erro do wrapper de permissão chega como "Server Error" em
+ * produção.
+ */
+export const desktopPublishOptions = authedQuery({
+  args: desktopPublishOptionsArgs,
+  returns: desktopPublishOptionsResult,
+  handler: async (ctx, args) => {
+    return await desktopPublishOptionsFor(ctx, ctx.user, args.externalId);
+  },
+});
+
+/**
+ * Publica (ou republica) o orçamento aprovado pelo cliente, enviado pelo app
+ * desktop de takeoff. Idempotente por `externalId`: cria o takeoff na primeira
+ * vez e depois atualiza linhas por `externalLineId`, apagando as que saíram do
+ * orçamento — menos as que a Compras já cotou ou levou adiante, que o desktop
+ * não altera nem apaga e voltam em `kept`. Só aceita orçamentos em reais (BRL).
+ * Falhas esperadas: `ConvexError` com os códigos de
+ * `DESKTOP_BUDGET_ERROR_CODES`.
+ */
+export const publishFromDesktop = engineeringMutation({
+  args: publishDesktopBudgetArgs,
+  returns: publishDesktopBudgetResult,
+  handler: async (ctx, args) => {
+    const result = await publishDesktopBudget(ctx, ctx.user, args);
+    await logAudit(ctx, ctx.user, {
+      action: result.created ? "create" : "update",
+      tableName: "takeoffs",
+      recordId: result.takeoffId,
+      entityLabel: args.name.trim(),
+      source: "desktop",
+      details:
+        `Orçamento desktop publicado: ${result.inserted} novas, ` +
+        `${result.updated} atualizadas, ${result.removed} removidas, ` +
+        `${result.kept.length} mantidas pela Compras`,
+    });
+    return result;
   },
 });

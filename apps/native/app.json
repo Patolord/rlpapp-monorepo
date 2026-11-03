@@ -11,15 +11,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.upcraft.rlpapp",
-      "buildNumber": "1",
       "infoPlist": {
-        "NSCameraUsageDescription": "O app usa a câmera para ler QR codes de equipamentos e registrar fotos de instalações e manutenções.",
+        "NSCameraUsageDescription": "O app usa a câmera para ler QR codes de equipamentos, registrar fotos de instalações e manutenções e a foto da marcação de ponto.",
+        "NSLocationWhenInUseUsageDescription": "O app usa sua localização para registrar em qual obra a marcação de ponto foi feita.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.upcraft.rlpapp",
-      "versionCode": 1,
       "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
@@ -30,14 +29,10 @@
       },
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
-      "blockedPermissions": [
-        "android.permission.RECORD_AUDIO",
-        "android.permission.RECORD_AUDIO"
-      ]
+      "blockedPermissions": ["android.permission.RECORD_AUDIO"]
     },
     "web": {
       "bundler": "metro",
@@ -54,9 +49,16 @@
       "expo-font",
       "expo-secure-store",
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "O app usa sua localização para registrar em qual obra a marcação de ponto foi feita.",
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      [
         "expo-camera",
         {
-          "cameraPermission": "O app usa a câmera para ler QR codes de equipamentos e registrar fotos de instalações e manutenções.",
+          "cameraPermission": "O app usa a câmera para ler QR codes de equipamentos, registrar fotos de instalações e manutenções e a foto da marcação de ponto.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }

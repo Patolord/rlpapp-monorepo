@@ -27,14 +27,15 @@ export default function CampoLayout() {
       <Stack.Screen name="index" options={{ title: "Minhas obras" }} />
       <Stack.Screen name="outras-obras" options={{ title: "Outras obras" }} />
       <Stack.Screen name="pendentes" options={{ title: "Registros pendentes" }} />
+      <Stack.Screen name="ponto" options={{ title: "Marcação de ponto" }} />
       <Stack.Screen name="obra/[projectId]/index" options={{ title: "Obra" }} />
       <Stack.Screen
         name="obra/[projectId]/scanner"
         options={{ headerShown: false, presentation: "fullScreenModal" }}
       />
-      <Stack.Screen name="obra/[projectId]/etiquetas" options={{ title: "Etiquetas QR" }} />
+      <Stack.Screen name="obra/[projectId]/etiquetas" options={{ title: "Equipamentos" }} />
       <Stack.Screen name="obra/[projectId]/documentos" options={{ title: "Documentos" }} />
-      <Stack.Screen name="obra/[projectId]/estoque" options={{ title: "Estoque da obra" }} />
+      <Stack.Screen name="obra/[projectId]/estoque" options={{ title: "Estoque" }} />
       <Stack.Screen name="obra/[projectId]/registros" options={{ title: "Meus registros" }} />
       <Stack.Screen
         name="obra/[projectId]/equipamento/[token]"

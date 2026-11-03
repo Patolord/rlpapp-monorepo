@@ -64,7 +64,7 @@ export function EquipmentDetail({
         </div>
       ) : (
         <Card className="mb-4">
-          <CardContent className="pt-4">
+          <CardContent>
             <div className="flex items-start justify-between">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
@@ -82,7 +82,7 @@ export function EquipmentDetail({
                   onClick={() => setEditing(true)}
                   aria-label="Editar equipamento"
                 >
-                  <Pencil className="h-4 w-4" />
+                  <Pencil />
                 </Button>
               </div>
             </div>

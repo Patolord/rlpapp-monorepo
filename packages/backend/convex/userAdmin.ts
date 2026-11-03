@@ -5,6 +5,7 @@ import { action, env } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { departments, userRoles } from "./schema";
+import { rejectReadOnlyAgentTokenInAction } from "./lib/agentTokens";
 
 type ClerkCreateUserResponse = {
   id: string;
@@ -70,6 +71,7 @@ export const adminCreateUser = action({
   handler: async (ctx, args): Promise<Id<"users">> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    rejectReadOnlyAgentTokenInAction(identity);
 
     const caller = await ctx.runQuery(internal.users.getCallerRole, {});
     if (!caller || !ADMIN_ROLES.includes(caller.role)) {

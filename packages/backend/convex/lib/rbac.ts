@@ -265,6 +265,25 @@ export const warehouseOrPurchasingMutation = customMutation(
   })
 );
 
+/**
+ * Engenharia ou Compras — propor material ao catálogo a partir do RLP Takeoff
+ * (vira rascunho que compras avalia; não altera material existente).
+ */
+export const engineeringOrPurchasingMutation = customMutation(
+  mutation,
+  customCtx(async (ctx) => {
+    const user = await requireUser(ctx);
+    assertStaff(user);
+    if (
+      !hasPermission(user, "engenharia.write") &&
+      !hasPermission(user, "compras.write")
+    ) {
+      throw new Error(PERMISSION_DENIED_MESSAGE["suprimentos.read"]);
+    }
+    return { user };
+  })
+);
+
 /** Director/admin — configuração das regras de compatibilidade. */
 export const inventoryRulesMutation = permissionMutation("estoque.rules");
 

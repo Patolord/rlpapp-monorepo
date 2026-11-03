@@ -152,12 +152,12 @@ export function QuickAddPanel({
         <h3 className="truncate text-sm font-semibold">Cadastro rápido</h3>
         <Button
           variant="ghost"
-          size="icon"
-          className="ml-auto size-7"
+          size="icon-xs"
+          className="ml-auto"
           onClick={onClose}
           aria-label="Fechar cadastro rápido"
         >
-          <X className="size-4" />
+          <X />
         </Button>
       </div>
 
@@ -168,7 +168,7 @@ export function QuickAddPanel({
           className="flex-1"
           onClick={() => setMode("add")}
         >
-          <Plus className="mr-1 size-3.5" />
+          <Plus />
           Adicionar
         </Button>
         <Button
@@ -177,7 +177,7 @@ export function QuickAddPanel({
           className="flex-1"
           onClick={() => setMode("link")}
         >
-          <ScanLine className="mr-1 size-3.5" />
+          <ScanLine />
           Vincular QRs
           {pendingLinkItems.length > 0 && (
             <span className="ml-1.5 rounded-full bg-muted px-1.5 text-[0.625rem] tabular-nums text-muted-foreground">
@@ -251,7 +251,7 @@ function SelectedEnvChips({
         <Button
           variant="ghost"
           size="xs"
-          className="h-6 px-1.5 text-xs text-muted-foreground"
+          className="text-muted-foreground"
           onClick={onClearSelection}
         >
           Limpar
@@ -560,14 +560,14 @@ function AddMode({
             {drafts.length > 1 && (
               <Button
                 variant="ghost"
-                size="icon"
-                className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                size="icon-xs"
+                className="shrink-0 text-muted-foreground hover:text-destructive"
                 onClick={() =>
                   setDrafts((prev) => prev.filter((d) => d.id !== draft.id))
                 }
                 aria-label={`Remover sistema ${idx + 1}`}
               >
-                <X className="size-3.5" />
+                <X />
               </Button>
             )}
           </div>
@@ -602,8 +602,7 @@ function AddMode({
                   <div className="flex items-center gap-0.5">
                     <Button
                       variant="outline"
-                      size="icon"
-                      className="size-7"
+                      size="icon-xs"
                       disabled={line.qty <= 0}
                       onClick={() =>
                         updateLine(draft.id, line.id, {
@@ -612,15 +611,14 @@ function AddMode({
                       }
                       aria-label="Diminuir quantidade"
                     >
-                      <Minus className="size-3" />
+                      <Minus />
                     </Button>
                     <span className="w-7 text-center text-sm font-semibold tabular-nums">
                       {line.qty}
                     </span>
                     <Button
                       variant="outline"
-                      size="icon"
-                      className="size-7"
+                      size="icon-xs"
                       disabled={line.qty >= 99}
                       onClick={() =>
                         updateLine(draft.id, line.id, {
@@ -629,13 +627,13 @@ function AddMode({
                       }
                       aria-label="Aumentar quantidade"
                     >
-                      <Plus className="size-3" />
+                      <Plus />
                     </Button>
                   </div>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="ml-auto size-6 shrink-0 text-muted-foreground hover:text-destructive"
+                    size="icon-xs"
+                    className="ml-auto shrink-0 text-muted-foreground hover:text-destructive"
                     disabled={draft.lines.length <= 1}
                     onClick={() =>
                       updateDraft(draft.id, {
@@ -644,7 +642,7 @@ function AddMode({
                     }
                     aria-label="Remover linha"
                   >
-                    <X className="size-3" />
+                    <X />
                   </Button>
                 </div>
                 {/* Ambiente da linha (condensadora pode ficar em outro, ex: cobertura). */}
@@ -716,7 +714,7 @@ function AddMode({
               updateDraft(draft.id, { lines: [...draft.lines, newLine()] })
             }
           >
-            <Plus className="mr-1 size-3" />
+            <Plus />
             Linha de equipamento
           </Button>
         </section>
@@ -738,7 +736,7 @@ function AddMode({
           ])
         }
       >
-        <Boxes className="mr-1 size-3.5" />
+        <Boxes />
         Adicionar sistema
       </Button>
 
@@ -758,9 +756,9 @@ function AddMode({
         }
       >
         {saving ? (
-          <Loader2 className="mr-1.5 size-4 animate-spin" />
+          <Loader2 className="animate-spin" />
         ) : (
-          <Plus className="mr-1.5 size-4" />
+          <Plus />
         )}
         {needsSelection
           ? "Selecione ambientes no prédio"

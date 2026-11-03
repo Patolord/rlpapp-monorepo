@@ -15,6 +15,7 @@ import {
   sanitizeDimensions,
   toMaterialCatalogRow,
   toMaterialListRow,
+  validateLaborPriceCents,
   validateUnitsPerPurchaseUnit,
 } from "./lib/compras/catalog";
 import {
@@ -25,7 +26,11 @@ import {
 } from "./lib/rbac";
 import { logAudit, diffFields } from "./lib/audit";
 import { materialDimensions, materialStatus, replenishmentState } from "./schema";
-import { normalizeText } from "./lib/compras/procurement";
+import { normalizeText, priceFreshness } from "./lib/compras/procurement";
+import {
+  buildPriceHistory,
+  priceChangeValidator,
+} from "./model/procurement/priceHistory";
 import {
   bulkImportResultValidator,
   emptyBulkImportResult,
@@ -101,12 +106,35 @@ export const materialCatalogValidator = v.object({
   ),
   imageId: v.union(v.id("_storage"), v.null()),
   imageUrl: v.union(v.string(), v.null()),
+  // Mão de obra por unidade, em centavos, exportada ao RLP Takeoff.
+  laborPriceCents: v.union(v.number(), v.null()),
+  laborPriceUpdatedAt: v.union(v.number(), v.null()),
   active: v.boolean(),
   status: v.union(materialStatus, v.null()),
   createdAt: v.number(),
   updatedAt: v.union(v.number(), v.null()),
   centralReplenishmentState: replenishmentState,
   centralQuantity: v.union(v.number(), v.null()),
+  // Resumo de fornecimento para a tabela do catálogo.
+  supplierCount: v.number(),
+  preferredSupplierName: v.union(v.string(), v.null()),
+  latestPrice: v.union(
+    v.object({
+      unitPriceCents: v.number(),
+      unit: v.union(v.string(), v.null()),
+      occurredAt: v.number(),
+      supplierName: v.string(),
+      freshness: v.union(
+        v.literal("fresh"),
+        v.literal("usable"),
+        v.literal("old"),
+        v.literal("stale")
+      ),
+      /** Variação vs. o preço anterior do mesmo fornecedor (mesma unidade). */
+      change: v.union(priceChangeValidator, v.null()),
+    }),
+    v.null()
+  ),
 });
 
 export const materialFamilyValidator = v.object({
@@ -251,10 +279,67 @@ function nameSimilarity(left: string, right: string): number {
   return intersection / new Set([...leftTokens, ...rightTokens]).size;
 }
 
+async function summarizeSuppliers(ctx: QueryCtx, materialId: Id<"materials">) {
+  const offerings = await ctx.db
+    .query("supplierMaterials")
+    .withIndex("by_material", (q) => q.eq("materialId", materialId))
+    .collect();
+  const active = offerings.filter((offering) => offering.active);
+  const preferred = active.find((offering) => offering.preferred) ?? active[0];
+  const supplier = preferred
+    ? await ctx.db.get("suppliers", preferred.supplierId)
+    : null;
+  return {
+    supplierCount: active.length,
+    preferredSupplierName: supplier?.name ?? null,
+  };
+}
+
+async function latestPriceFor(
+  ctx: QueryCtx,
+  material: Pick<Doc<"materials">, "_id" | "unit">,
+  now: number
+) {
+  // Todo o histórico do material: o índice ordena por criação, não por
+  // `occurredAt`, e a escolha segue o contrato de validade/revisão do repo.
+  // A mesma série do detalhe (unidade do material), para a tabela e a
+  // seção "Preços" nunca discordarem sobre o preço atual.
+  const events = await ctx.db
+    .query("priceEvents")
+    .withIndex("by_material", (q) => q.eq("materialId", material._id))
+    .collect();
+  const history = buildPriceHistory(events, now, { materialUnit: material.unit });
+  const event = history.current;
+  if (!event) return null;
+  let supplierName = event.supplierNameRaw ?? "Fornecedor";
+  if (event.supplierId) {
+    const supplier = await ctx.db.get("suppliers", event.supplierId);
+    if (supplier) supplierName = supplier.name;
+  }
+  return {
+    unitPriceCents: event.unitPriceCents,
+    unit: event.unit ?? null,
+    occurredAt: event.occurredAt,
+    supplierName,
+    freshness: priceFreshness(event.occurredAt, now),
+    change: history.summary?.changeFromPrevious ?? null,
+  };
+}
+
+/** Filtro de status do catálogo: ativo (sem rascunho), rascunho ou arquivado. */
+function matchesCatalogStatus(
+  material: Doc<"materials">,
+  status: "draft" | "active" | "archived" | undefined
+): boolean {
+  if (!status) return true;
+  const effective = material.status ?? (material.active ? "active" : "archived");
+  return effective === status;
+}
+
 async function buildCatalogRow(
   ctx: QueryCtx,
   material: Doc<"materials">,
-  options: { includeCentralStock: boolean }
+  options: { includeCentralStock: boolean; now?: number }
 ) {
   let centralQuantity: number | null = null;
   let centralReplenishmentState: "unconfigured" | "healthy" | "reorder" | "below_minimum" =
@@ -284,15 +369,19 @@ async function buildCatalogRow(
     }
   }
 
-  const imageUrl = material.imageId
-    ? await ctx.storage.getUrl(material.imageId)
-    : null;
+  const [imageUrl, suppliers, latestPrice] = await Promise.all([
+    material.imageId ? ctx.storage.getUrl(material.imageId) : null,
+    summarizeSuppliers(ctx, material._id),
+    latestPriceFor(ctx, material, options.now ?? Date.now()),
+  ]);
 
   return {
     ...toMaterialCatalogRow(material),
     imageUrl,
     centralReplenishmentState,
     centralQuantity,
+    ...suppliers,
+    latestPrice,
   };
 }
 
@@ -426,6 +515,10 @@ export const listCatalog = engineeringOrPurchasingQuery({
     search: v.optional(v.string()),
     category: v.optional(v.string()),
     activeOnly: v.optional(v.boolean()),
+    // Filtro por situação do cadastro; "active" exclui rascunhos e arquivados.
+    status: v.optional(materialStatus),
+    // Referência de tempo para a idade do último preço (padrão: agora).
+    now: v.optional(v.number()),
     paginationOpts: paginationOptsValidator,
   },
   returns: v.object({
@@ -439,49 +532,92 @@ export const listCatalog = engineeringOrPurchasingQuery({
     const includeCentralStock = canViewCentralInventory(ctx.user);
     const search = args.search?.trim();
     const category = args.category?.trim();
+    const status = args.status;
+    const activeOnly = Boolean(args.activeOnly) || status === "active";
+    const searchQuery = search ? normalizeText(search) || search : undefined;
+
+    /** Pagina em memória um conjunto já filtrado (cursor = deslocamento). */
+    const paginateInMemory = (items: Doc<"materials">[]) => {
+      const start = args.paginationOpts.cursor
+        ? Number.parseInt(args.paginationOpts.cursor, 10)
+        : 0;
+      const next = start + args.paginationOpts.numItems;
+      return {
+        page: items.slice(start, next),
+        isDone: next >= items.length,
+        continueCursor: String(next),
+      };
+    };
+    const matchesAll = (material: Doc<"materials">) =>
+      (!activeOnly || material.active) &&
+      matchesCatalogStatus(material, status) &&
+      (!search || materialMatchesSearch(material, search));
+
     let results;
-    if (search && !category) {
-      const searchQuery = normalizeText(search) || search;
+    if (status === "draft" || status === "archived") {
+      // Conjuntos pequenos sem índice combinável com busca/categoria: coleta
+      // os candidatos, filtra e só então pagina, para nenhuma página sair
+      // curta enquanto ainda há itens depois do cursor.
+      let candidates: Doc<"materials">[];
+      if (searchQuery) {
+        candidates = await ctx.db
+          .query("materials")
+          .withSearchIndex("search_text", (q) =>
+            q.search("searchText", searchQuery)
+          )
+          .collect();
+      } else if (category) {
+        candidates = await ctx.db
+          .query("materials")
+          .withIndex("by_category", (q) => q.eq("category", category))
+          .order("desc")
+          .collect();
+      } else {
+        const byStatus = await ctx.db
+          .query("materials")
+          .withIndex("by_status", (q) => q.eq("status", status))
+          .collect();
+        // Linhas antigas arquivadas só têm `active: false`, sem `status`.
+        const legacy =
+          status === "archived"
+            ? await ctx.db
+                .query("materials")
+                .withIndex("by_active", (q) => q.eq("active", false))
+                .collect()
+            : [];
+        const seen = new Set<string>();
+        candidates = [...byStatus, ...legacy]
+          .filter((m) => (seen.has(m._id) ? false : (seen.add(m._id), true)))
+          .sort((a, b) => b._creationTime - a._creationTime);
+      }
+      if (category) {
+        candidates = candidates.filter((m) => m.category === category);
+      }
+      results = paginateInMemory(candidates.filter(matchesAll));
+    } else if (searchQuery) {
       results = await ctx.db
         .query("materials")
         .withSearchIndex("search_text", (q) => {
           const queried = q.search("searchText", searchQuery);
-          return args.activeOnly ? queried.eq("active", true) : queried;
+          return activeOnly ? queried.eq("active", true) : queried;
         })
         .paginate(args.paginationOpts);
-      results = {
-        ...results,
-        page: results.page.filter((material) =>
-          materialMatchesSearch(material, search)
-        ),
-      };
+      // Só remove rascunhos marcados como ativos; nada fica além do cursor.
+      results = { ...results, page: results.page.filter(matchesAll) };
     } else if (category) {
       const all = await ctx.db
         .query("materials")
         .withIndex("by_category", (q) => q.eq("category", category))
         .order("desc")
         .collect();
-      const filtered = all.filter((material) => {
-        if (args.activeOnly && !material.active) return false;
-        if (search && !materialMatchesSearch(material, search)) return false;
-        return true;
-      });
-      const start = args.paginationOpts.cursor
-        ? Number.parseInt(args.paginationOpts.cursor, 10)
-        : 0;
-      const page = filtered.slice(start, start + args.paginationOpts.numItems);
-      const next = start + args.paginationOpts.numItems;
-      results = {
-        page,
-        isDone: next >= filtered.length,
-        continueCursor: String(next),
-      };
-    } else if (args.activeOnly) {
+      results = paginateInMemory(all.filter(matchesAll));
+    } else if (activeOnly) {
       results = await ctx.db
         .query("materials")
         .withIndex("by_active", (q) => q.eq("active", true))
         .order("desc")
         .paginate(args.paginationOpts);
+      results = { ...results, page: results.page.filter(matchesAll) };
     } else {
       results = await ctx.db
         .query("materials")
@@ -489,11 +625,12 @@ export const listCatalog = engineeringOrPurchasingQuery({
         .paginate(args.paginationOpts);
     }
 
+    const now = args.now ?? Date.now();
     return {
       ...results,
       page: await Promise.all(
         results.page.map(async (material) =>
-          buildCatalogRow(ctx, material, { includeCentralStock })
+          buildCatalogRow(ctx, material, { includeCentralStock, now })
         )
       ),
     };
@@ -659,6 +796,8 @@ export type CreateMaterialInput = {
   technicalAttributes?: Array<{ key: string; value: string }>;
   aliases?: string[];
   imageId?: Id<"_storage">;
+  /** Mão de obra por unidade, em centavos (orçamentos do RLP Takeoff). */
+  laborPriceCents?: number;
 };
 
 const ALLOWED_MATERIAL_IMAGE_TYPES = new Set([
@@ -711,6 +850,7 @@ export async function createMaterialInternal(
   if (!name) throw new Error("Informe o nome do material");
 
   validateUnitsPerPurchaseUnit(args.unitsPerPurchaseUnit);
+  validateLaborPriceCents(args.laborPriceCents);
   if (args.imageId) {
     await assertAllowedMaterialImage(ctx, args.imageId);
   }
@@ -789,6 +929,9 @@ export async function createMaterialInternal(
       spec,
     }),
     imageId: args.imageId,
+    laborPriceCents: args.laborPriceCents,
+    laborPriceUpdatedAt:
+      args.laborPriceCents !== undefined ? now : undefined,
     active: true,
     status: "active",
     createdAt: now,
@@ -837,6 +980,7 @@ export const create = purchasingMutation({
     technicalAttributes: v.optional(v.array(technicalAttributeValidator)),
     aliases: v.optional(v.array(v.string())),
     imageId: v.optional(v.id("_storage")),
+    laborPriceCents: v.optional(v.number()),
   },
   returns: v.id("materials"),
   handler: async (ctx, args) => {
@@ -1081,6 +1225,8 @@ export const update = purchasingMutation({
     active: v.optional(v.boolean()),
     status: v.optional(materialStatus),
     imageId: v.optional(v.union(v.id("_storage"), v.null())),
+    // Mão de obra por unidade, em centavos; `null` remove o preço.
+    laborPriceCents: v.optional(v.union(v.number(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1095,8 +1241,10 @@ export const update = purchasingMutation({
       brandPreference: material.brandPreference,
       active: material.active,
       status: material.status,
+      laborPriceCents: material.laborPriceCents,
     };
     validateUnitsPerPurchaseUnit(args.unitsPerPurchaseUnit);
+    validateLaborPriceCents(args.laborPriceCents);
 
     const updates: Record<string, unknown> = { updatedAt: Date.now() };
     let familyId = args.familyId ?? material.familyId;
@@ -1174,6 +1322,14 @@ export const update = purchasingMutation({
       }
     }
     if (args.status !== undefined) updates.status = args.status;
+    if (args.laborPriceCents !== undefined) {
+      const laborPriceCents = args.laborPriceCents ?? undefined;
+      if (laborPriceCents !== material.laborPriceCents) {
+        updates.laborPriceCents = laborPriceCents;
+        updates.laborPriceUpdatedAt =
+          laborPriceCents === undefined ? undefined : updates.updatedAt;
+      }
+    }
     if (args.imageId !== undefined) {
       updates.imageId = await replaceMaterialImage(
         ctx,
@@ -1222,6 +1378,7 @@ export const update = purchasingMutation({
           brandPreference: afterDoc.brandPreference,
           active: afterDoc.active,
           status: afterDoc.status,
+          laborPriceCents: afterDoc.laborPriceCents,
         }
       : before;
     await logAudit(ctx, ctx.user, {
@@ -1237,6 +1394,7 @@ export const update = purchasingMutation({
         "brandPreference",
         "active",
         "status",
+        "laborPriceCents",
       ]),
       snapshotBefore: before,
       snapshotAfter: after,

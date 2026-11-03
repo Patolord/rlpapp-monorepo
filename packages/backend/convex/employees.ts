@@ -40,6 +40,7 @@ export const employeeValidator = v.object({
   defaultTransportFoodDays: v.number(),
   createdAt: v.number(),
   updatedAt: v.union(v.number(), v.null()),
+  userId: v.union(v.id("users"), v.null()),
 });
 
 export type EmployeeRow = {
@@ -63,6 +64,7 @@ export type EmployeeRow = {
   defaultTransportFoodDays: number;
   createdAt: number;
   updatedAt: number | null;
+  userId: Id<"users"> | null;
 };
 
 function toEmployeeRow(employee: Doc<"employees">): EmployeeRow {
@@ -87,6 +89,7 @@ function toEmployeeRow(employee: Doc<"employees">): EmployeeRow {
     defaultTransportFoodDays: employee.defaultTransportFoodDays,
     createdAt: employee.createdAt,
     updatedAt: employee.updatedAt ?? null,
+    userId: employee.userId ?? null,
   };
 }
 
@@ -477,6 +480,54 @@ export const restore = hrMutation({
       entityLabel: employee.name,
       snapshotBefore: before,
       snapshotAfter: { ...before, status: "active", archivedAt: undefined },
+    });
+    return null;
+  },
+});
+
+/**
+ * Vincula (ou desvincula, com `userId: null`) o usuário do app que bate ponto
+ * como este funcionário. Um usuário só pode estar em um funcionário ativo.
+ */
+export const linkUser = hrMutation({
+  args: {
+    employeeId: v.id("employees"),
+    userId: v.union(v.id("users"), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const employee = await ctx.db.get("employees", args.employeeId);
+    if (!employee) {
+      throw new Error("Funcionário não encontrado");
+    }
+    if (args.userId) {
+      const user = await ctx.db.get("users", args.userId);
+      if (!user) {
+        throw new Error("Usuário não encontrado");
+      }
+      const taken = await ctx.db
+        .query("employees")
+        .withIndex("by_user", (q) => q.eq("userId", args.userId!))
+        .take(5);
+      const conflict = taken.find(
+        (row) => row._id !== employee._id && !row.archivedAt
+      );
+      if (conflict) {
+        throw new Error(`Este usuário já está vinculado a ${conflict.name}`);
+      }
+    }
+    await ctx.db.patch("employees", employee._id, {
+      userId: args.userId ?? undefined,
+      updatedAt: Date.now(),
+      updatedByUserId: ctx.user._id,
+    });
+    await logAudit(ctx, ctx.user, {
+      action: "update",
+      tableName: "employees",
+      recordId: employee._id,
+      entityLabel: employee.name,
+      snapshotBefore: { userId: employee.userId ?? null },
+      snapshotAfter: { userId: args.userId },
     });
     return null;
   },

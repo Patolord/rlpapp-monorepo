@@ -85,7 +85,7 @@ export function PlannedEquipmentPanel({ token }: { token: string }) {
 
   return (
     <Card className="mb-4 border-primary/30">
-      <CardContent className="space-y-4 pt-4">
+      <CardContent className="space-y-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Building2 className="size-4 text-primary" />
@@ -172,9 +172,9 @@ export function PlannedEquipmentPanel({ token }: { token: string }) {
               onClick={() => runAction("install")}
             >
               {pending === "install" ? (
-                <Loader2 className="mr-1 size-4 animate-spin" />
+                <Loader2 className="animate-spin" />
               ) : (
-                <Wrench className="mr-1 size-4" />
+                <Wrench />
               )}
               Instalar
             </Button>
@@ -185,9 +185,9 @@ export function PlannedEquipmentPanel({ token }: { token: string }) {
               onClick={() => runAction("test")}
             >
               {pending === "test" ? (
-                <Loader2 className="mr-1 size-4 animate-spin" />
+                <Loader2 className="animate-spin" />
               ) : (
-                <FlaskConical className="mr-1 size-4" />
+                <FlaskConical />
               )}
               Testar
             </Button>
@@ -197,9 +197,9 @@ export function PlannedEquipmentPanel({ token }: { token: string }) {
               onClick={() => runAction("finalize")}
             >
               {pending === "finalize" ? (
-                <Loader2 className="mr-1 size-4 animate-spin" />
+                <Loader2 className="animate-spin" />
               ) : (
-                <CheckCheck className="mr-1 size-4" />
+                <CheckCheck />
               )}
               Finalizar
             </Button>
