@@ -87,6 +87,7 @@ describe("pensão alimentícia", () => {
       employeeId: francisco,
       beneficiaryName: "Dulcineia",
       amountCents: 93_411,
+      notes: "pagar até dia 10",
     });
     await hr.mutation(api.payroll.createRun, { year: 2026, paymentMonth: 3 });
     const march = await hr.query(api.payroll.getWorkspace, {
@@ -94,6 +95,8 @@ describe("pensão alimentícia", () => {
       paymentMonth: 3,
     });
     const marchLine = march.alimonyLines[0]!;
+    // Sem mês anterior, as observações do cadastro vão para a linha.
+    expect(marchLine.notes).toBe("pagar até dia 10");
     await hr.mutation(api.alimonies.updateLine, {
       lineId: marchLine._id,
       amountCents: 109_132,

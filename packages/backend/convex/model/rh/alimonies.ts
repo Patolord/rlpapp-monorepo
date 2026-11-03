@@ -125,8 +125,8 @@ export async function findAlimonyLine(
 }
 
 /**
- * Insere a linha de pensão de um mês. O valor vem da linha do mês anterior
- * quando existe (`source`), senão do valor padrão do cadastro.
+ * Insere a linha de pensão de um mês. Valor e observações vêm da linha do mês
+ * anterior quando existe (`source`), senão do cadastro.
  */
 export async function insertAlimonyLine(
   ctx: MutationCtx,
@@ -145,7 +145,7 @@ export async function insertAlimonyLine(
     amountCents: source?.amountCents ?? alimony.amountCents,
     paymentMethod: alimony.paymentMethod,
     pixKey: alimony.pixKey,
-    notes: source?.notes,
+    notes: source ? source.notes : alimony.notes,
     paid: false,
     createdAt: now,
     updatedAt: now,
