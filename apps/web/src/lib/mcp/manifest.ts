@@ -941,6 +941,35 @@ export const TOOLS: readonly ToolSpec[] = [
     idempotent: true,
   },
   {
+    name: "list_employee_alimonies",
+    function: "alimonies:listForEmployee",
+    title: "List employee alimonies",
+    description:
+      "Pensões alimentícias (alimony) paid on behalf of an employee: beneficiary, default monthly amount, payment method. Separate from the employee's own payroll line.",
+  },
+  {
+    name: "create_employee_alimony",
+    function: "alimonies:create",
+    title: "Create employee alimony",
+    description:
+      "Register an alimony for an employee (beneficiary name, amount in BRL cents, payment method, PIX key). It joins open draft payrolls the employee is in. Returns the alimony id.",
+  },
+  {
+    name: "update_employee_alimony",
+    function: "alimonies:update",
+    title: "Update employee alimony",
+    description:
+      "Change an alimony's beneficiary, default amount, payment method, PIX key or notes. Name, method and PIX key propagate to unpaid draft lines; the amount only applies to new months.",
+    idempotent: true,
+  },
+  {
+    name: "archive_employee_alimony",
+    function: "alimonies:archive",
+    title: "End employee alimony",
+    description: "End an alimony: removed from unpaid draft payrolls and no longer added to new months.",
+    destructive: true,
+  },
+  {
     name: "archive_employee",
     function: "employees:archive",
     title: "Archive employee",

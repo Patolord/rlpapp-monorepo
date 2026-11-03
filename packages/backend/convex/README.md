@@ -63,7 +63,8 @@ Domain terminology is defined in the repository-level `CONTEXT.md`.
 - `inventory`: locations, movement documents, balances, requests, and stock
   policies.
 - `identity`: users and authentication integration.
-- `hr`: employees, payroll runs, and loans.
+- `hr`: employees, payroll runs, loans, and alimonies (pensão alimentícia, paid to a
+  beneficiary in its own payroll line).
 - `ai`: chat, interpretation, and application of engineering intents.
 
 ## Access control
