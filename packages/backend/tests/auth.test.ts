@@ -40,7 +40,7 @@ describe("controle de acesso", () => {
       asOperator.mutation(api.users.create, {
         name: "Novo",
         email: "novo@rlp.com",
-        role: "operator",
+        roles: ["compras"],
       })
     ).rejects.toThrow("Insufficient permissions");
 
@@ -51,7 +51,7 @@ describe("controle de acesso", () => {
     const id = await asDirector.mutation(api.users.create, {
       name: "Novo",
       email: "novo@rlp.com",
-      role: "operator",
+      roles: ["compras"],
     });
     expect(id).toBeDefined();
   });

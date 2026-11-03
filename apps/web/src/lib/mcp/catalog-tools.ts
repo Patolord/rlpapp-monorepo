@@ -162,7 +162,7 @@ export function buildInstructions(
   allowRawCalls: boolean
 ): string {
   const who = principal.user
-    ? `${principal.user.name} (${principal.user.email ?? principal.user.username ?? principal.userId}, role ${principal.user.role}${principal.user.department ? `, department ${principal.user.department}` : ""})`
+    ? `${principal.user.name} (${principal.user.email ?? principal.user.username ?? principal.userId}, roles: ${principal.user.roles.join(", ") || "none"})`
     : principal.userId;
   const token = principal.agentToken
     ? ` via agent token "${principal.agentToken.name}" with ${principal.agentToken.permission === "read_only" ? "READ-ONLY" : "full-access"} permission`
@@ -174,7 +174,7 @@ export function buildInstructions(
     "- Every record has a Convex document id (an opaque string). Resolve names to ids with list_*/get_*/suggest_* tools before calling update/delete tools.",
     "- Dates and times are Unix epoch milliseconds unless a field says YYYY-MM-DD. Money is in BRL cents (integer).",
     "- Projects are called obras; measurements are medições. Hierarchy: project → tower → floor → environment → planned equipment (projectEquipment); physical equipment registered in the field links to a planned item.",
-    "- Tools act as the connected user with their role; the backend enforces department permissions and the app's audit log records writes.",
+    "- Tools act as the connected user with their access roles; the backend enforces permissions and the app's audit log records writes.",
     "- Tools marked destructive (delete_*, archive_*) cannot be undone from here; confirm with the user before calling them.",
   ];
   if (isReadOnlyPrincipal(principal)) {
@@ -213,7 +213,7 @@ export function registerCatalogTools(
     {
       title: "Who am I",
       description:
-        "Identity behind this connection: user, role, department and (when applicable) the agent token and its permission level.",
+        "Identity behind this connection: user, access roles and (when applicable) the agent token and its permission level.",
       inputSchema: z.object({}),
       annotations: readOnlyAnnotations,
     },

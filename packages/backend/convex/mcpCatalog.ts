@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import type { Doc, TableNames } from "./_generated/dataModel";
 import { internalQuery } from "./_generated/server";
-import { STAFF_ROLES, hasPermission, type Permission } from "./lib/rbac";
+import { hasPermission, isStaff, type Permission } from "./lib/rbac";
 import { staffQuery } from "./lib/rbac";
 import schema from "./schema";
 import {
@@ -235,7 +235,7 @@ export const listForUser = internalQuery({
   returns: v.union(v.array(catalogEntryValidator), v.null()),
   handler: async (ctx, { userId }) => {
     const user = await ctx.db.get("users", userId);
-    if (!user || !user.isActive || !STAFF_ROLES.includes(user.role)) return null;
+    if (!user || !user.isActive || !isStaff(user)) return null;
     return buildCatalog(user);
   },
 });

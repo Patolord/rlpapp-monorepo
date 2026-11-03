@@ -15,7 +15,8 @@
     "./takeoff/kits": "./src/takeoff/kits.ts",
     "./takeoff/weights": "./src/takeoff/weights.ts",
     "./takeoff/vrfBrands": "./src/takeoff/vrfBrands.ts",
-    "./takeoff/labor": "./src/takeoff/labor.ts"
+    "./takeoff/labor": "./src/takeoff/labor.ts",
+    "./auth/permissions": "./src/auth/permissions.ts"
   },
   "devDependencies": {
     "@rlpapp/config": "workspace:*",

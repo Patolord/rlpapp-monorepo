@@ -1,6 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { env } from "@rlpapp/env/web";
 import { formatUsername } from "@rlpapp/shared";
+import { can } from "@rlpapp/shared/auth/permissions";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -74,9 +75,6 @@ const EXPIRY_OPTIONS = [
 type ExpiryOption = (typeof EXPIRY_OPTIONS)[number]["value"];
 
 const cardCls = "rounded-2xl border border-slate-100 bg-white shadow-sm";
-
-// Espelho de STAFF_ROLES em packages/backend/convex/lib/rbac.ts.
-const STAFF_ROLES = ["director", "admin", "manager", "operator", "engenheiro"];
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("pt-BR", {
@@ -241,13 +239,12 @@ function AgentesContent() {
   } | null>(null);
   const mcpUrl = useMcpUrl();
 
-  const isAdmin =
-    currentUser?.role === "director" || currentUser?.role === "admin";
+  const isAdmin = can(currentUser, "admin.manage");
   const activeCount = tokens?.filter((t) => tokenStatus(t) === "active").length ?? 0;
 
   // Tokens são só para a equipe interna (mesma regra de `staffQuery`):
   // qr_operator e cliente do portal veem um aviso em vez de erros.
-  if (currentUser && !STAFF_ROLES.includes(currentUser.role)) {
+  if (currentUser && !currentUser.isStaff) {
     return (
       <div className="mx-auto max-w-2xl py-12 text-center">
         <Bot className="mx-auto size-8 text-slate-400" />

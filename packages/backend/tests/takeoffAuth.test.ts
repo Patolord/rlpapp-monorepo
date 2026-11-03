@@ -325,7 +325,8 @@ describe("catálogo e propostas como o usuário logado", () => {
     expect(catalog.generatedAt).toBeGreaterThan(0);
 
     const other = setup();
-    const asOperator = await withUser(other, { clerkId: "op_1", role: "operator" });
+    // Equipe sem leitura de suprimentos (RH) não lê o catálogo.
+    const asOperator = await withUser(other, { clerkId: "op_1", roles: ["rh"] });
     await expect(asOperator.query(api.takeoffCatalog.current, {})).rejects.toThrow(
       /engenharia ou compras/
     );
@@ -401,7 +402,7 @@ describe("catálogo e propostas como o usuário logado", () => {
 
   test("só engenharia ou compras propõem", async () => {
     const t = setup();
-    const asOperator = await withUser(t, { clerkId: "op_1", role: "operator" });
+    const asOperator = await withUser(t, { clerkId: "op_1", roles: ["rh"] });
     await expect(
       asOperator.mutation(api.takeoffMaterials.proposeAsUser, { clientId: "c", name: "X" })
     ).rejects.toThrow(/engenharia ou compras/);

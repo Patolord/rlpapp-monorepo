@@ -7,7 +7,7 @@ import {
   type MutationCtx,
 } from "./_generated/server";
 import { rejectAgentTokenIdentity } from "./lib/agentTokens";
-import { assertStaff, requireUser } from "./lib/rbac";
+import { requirePermission, requireUser } from "./lib/rbac";
 import { insertToken } from "./model/identity/agentTokens";
 import {
   TAKEOFF_AUTH_CODE_TTL_MS,
@@ -52,7 +52,8 @@ async function requireHumanStaff(ctx: MutationCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
   if (identity) rejectAgentTokenIdentity(identity);
   const user = await requireUser(ctx);
-  assertStaff(user);
+  // Acesso "App Takeoff" (takeoff.use); publicar orçamento ainda exige engenharia.write.
+  requirePermission(user, "takeoff.use");
   if (!user.clerkId) {
     throw new Error(
       "Este usuário ainda não está vinculado a uma conta de login; entre no app antes de conectar o Takeoff"

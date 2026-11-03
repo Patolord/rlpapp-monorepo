@@ -1,9 +1,22 @@
+import {
+  PERMISSIONS,
+  getPermissions,
+  hasRole,
+  isStaff,
+  resolveHomeArea,
+} from "@rlpapp/shared/auth/permissions";
 import { capitalizeFirst } from "@rlpapp/shared/usernames";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { departments, userRoles } from "./schema";
-import { adminMutation, staffQuery } from "./lib/rbac";
+import { accessRoles, departments } from "./schema";
+import {
+  adminMutation,
+  requirePermission,
+  requireUser,
+  staffQuery,
+} from "./lib/rbac";
+import { accessFields, toUserView } from "./lib/users";
 import { enforceAgentTokenPolicy } from "./lib/agentTokens";
 
 /** Remove campos undefined — padrão dos updates parciais (ctx.db.patch). */
@@ -20,17 +33,36 @@ export const userValidator = v.object({
   email: v.optional(v.string()),
   username: v.optional(v.string()),
   clerkId: v.optional(v.string()),
-  role: userRoles,
-  department: v.optional(departments),
+  /** Acessos (ver ROLES no shared); documentos antigos chegam traduzidos. */
+  roles: v.array(accessRoles),
   phone: v.optional(v.string()),
   isActive: v.boolean(),
   createdAt: v.number(),
   lastLoginAt: v.optional(v.number()),
 });
 
+/** Lista de acessos recebida dos formulários (ver ROLES no shared). */
+export const rolesArg = v.array(accessRoles);
+
+export const permissionValidator = v.union(
+  ...PERMISSIONS.map((permission) => v.literal(permission))
+);
+
+/**
+ * Usuário atual com o acesso já resolvido pela política
+ * (@rlpapp/shared/auth/permissions). Os apps decidem navegação e ações a
+ * partir de `permissions`, `roles`, `isStaff` e `homeArea`.
+ */
+export const currentUserValidator = v.object({
+  ...userValidator.fields,
+  permissions: v.array(permissionValidator),
+  isStaff: v.boolean(),
+  homeArea: v.union(departments, v.literal("qr-operador"), v.null()),
+});
+
 export const getCurrentUser = query({
   args: {},
-  returns: v.union(userValidator, v.null()),
+  returns: v.union(currentUserValidator, v.null()),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
@@ -40,14 +72,22 @@ export const getCurrentUser = query({
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
       .first();
-    if (byClerkId) return byClerkId;
-
     // Fallback para usuários criados antes do vínculo por clerkId
-    if (!identity.email) return null;
-    return await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", identity.email!))
-      .first();
+    const user =
+      byClerkId ??
+      (identity.email
+        ? await ctx.db
+            .query("users")
+            .withIndex("by_email", (q) => q.eq("email", identity.email!))
+            .first()
+        : null);
+    if (!user) return null;
+    return {
+      ...toUserView(user),
+      permissions: getPermissions(user),
+      isStaff: isStaff(user),
+      homeArea: resolveHomeArea(user),
+    };
   },
 });
 
@@ -100,12 +140,14 @@ export const ensureUser = mutation({
       identity.email?.split("@")[0] ??
       "Usuário";
 
+    // Quem entra pelo QR é técnico de campo; os demais ficam sem acesso até
+    // um administrador atribuir os acessos em Configurações → Usuários.
     const userId = await ctx.db.insert("users", {
       name,
       email: identity.email,
       username,
       clerkId,
-      role: args.origin === "qr" ? "qr_operator" : "operator",
+      ...accessFields(args.origin === "qr" ? ["qr_operator"] : []),
       isActive: true,
       createdAt: Date.now(),
       lastLoginAt: Date.now(),
@@ -161,7 +203,7 @@ export const upsertFromClerk = internalMutation({
       name: args.name,
       email: args.email,
       username: args.username,
-      role: "operator",
+      ...accessFields([]),
       isActive: true,
       createdAt: Date.now(),
     });
@@ -193,30 +235,21 @@ export const deactivateFromClerk = internalMutation({
 export const list = staffQuery({
   args: {
     onlyActive: v.optional(v.boolean()),
-    role: v.optional(userRoles),
+    /** Só quem tem este acesso (ex.: técnicos de campo para atribuir a obras). */
+    role: v.optional(accessRoles),
   },
   returns: v.array(userValidator),
   handler: async (ctx, args) => {
-    if (args.role) {
-      const users = await ctx.db
-        .query("users")
-        .withIndex("by_role", (q) => q.eq("role", args.role!))
-        .collect();
-      
-      if (args.onlyActive) {
-        return users.filter((u) => u.isActive);
-      }
-      return users;
-    }
-    
-    if (args.onlyActive) {
-      return await ctx.db
-        .query("users")
-        .withIndex("by_active", (q) => q.eq("isActive", true))
-        .collect();
-    }
-    
-    return await ctx.db.query("users").collect();
+    const users = args.onlyActive
+      ? await ctx.db
+          .query("users")
+          .withIndex("by_active", (q) => q.eq("isActive", true))
+          .collect()
+      : await ctx.db.query("users").collect();
+    const role = args.role;
+    // Acessos se combinam (um técnico pode ser também da equipe), então o
+    // filtro olha o conjunto inteiro.
+    return (role ? users.filter((user) => hasRole(user, role)) : users).map(toUserView);
   },
 });
 
@@ -225,7 +258,8 @@ export const get = staffQuery({
   args: { id: v.id("users") },
   returns: v.union(userValidator, v.null()),
   handler: async (ctx, args) => {
-    return await ctx.db.get("users", args.id);
+    const user = await ctx.db.get("users", args.id);
+    return user ? toUserView(user) : null;
   },
 });
 
@@ -234,10 +268,11 @@ export const getByEmail = staffQuery({
   args: { email: v.string() },
   returns: v.union(userValidator, v.null()),
   handler: async (ctx, args) => {
-    return await ctx.db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email))
       .first();
+    return user ? toUserView(user) : null;
   },
 });
 
@@ -246,8 +281,7 @@ export const create = adminMutation({
   args: {
     name: v.string(),
     email: v.string(),
-    role: userRoles,
-    department: v.optional(departments),
+    roles: rolesArg,
     phone: v.optional(v.string()),
   },
   returns: v.id("users"),
@@ -264,8 +298,7 @@ export const create = adminMutation({
     const userId = await ctx.db.insert("users", {
       name: args.name,
       email: args.email,
-      role: args.role,
-      department: args.department,
+      ...accessFields(args.roles),
       phone: args.phone,
       isActive: true,
       createdAt: Date.now(),
@@ -282,14 +315,13 @@ export const update = adminMutation({
     name: v.optional(v.string()),
     // null limpa o campo; undefined (omitido) mantém o valor atual.
     email: v.optional(v.union(v.string(), v.null())),
-    role: v.optional(userRoles),
-    department: v.optional(v.union(departments, v.null())),
+    roles: v.optional(rolesArg),
     phone: v.optional(v.union(v.string(), v.null())),
     isActive: v.optional(v.boolean()),
   },
   returns: v.id("users"),
   handler: async (ctx, args) => {
-    const { id, email, phone, department, ...updates } = args;
+    const { id, email, phone, roles, ...updates } = args;
     const existing = await ctx.db.get("users", id);
     
     if (!existing) {
@@ -310,7 +342,12 @@ export const update = adminMutation({
     const patch: Partial<Doc<"users">> = filterDefined(updates);
     if (email !== undefined) patch.email = email ?? undefined;
     if (phone !== undefined) patch.phone = phone ?? undefined;
-    if (department !== undefined) patch.department = department ?? undefined;
+    if (roles !== undefined) {
+      if (existing._id === ctx.user._id && !hasRole({ roles }, "admin") && !hasRole({ roles }, "director")) {
+        throw new Error("Você não pode remover o próprio acesso de administração");
+      }
+      Object.assign(patch, accessFields(roles));
+    }
 
     await ctx.db.patch("users", id, patch);
     return id;
@@ -368,33 +405,19 @@ export const reactivate = adminMutation({
   },
 });
 
-// --- Internal functions for userAdmin action ---
+// --- Funções internas para actions ---
 
-export const getCallerRole = internalQuery({
-  args: {},
-  returns: v.union(
-    v.object({ role: v.string() }),
-    v.null()
-  ),
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
-      .first();
-
-    if (user) return { role: user.role };
-
-    if (identity.email) {
-      const byEmail = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", identity.email!))
-        .first();
-      if (byEmail) return { role: byEmail.role };
-    }
-
+/**
+ * Gate de permissão para actions (que não têm `ctx.db`): mesma verificação
+ * dos wrappers de lib/rbac.ts, sob a identidade de quem chamou a action.
+ * Lança UNAUTHENTICATED/FORBIDDEN; use via `requireActionPermission`.
+ */
+export const assertPermission = internalQuery({
+  args: { permission: permissionValidator },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    requirePermission(user, args.permission);
     return null;
   },
 });
@@ -405,8 +428,7 @@ export const createWithClerkId = internalMutation({
     name: v.string(),
     email: v.optional(v.string()),
     username: v.optional(v.string()),
-    role: userRoles,
-    department: v.optional(departments),
+    roles: rolesArg,
     phone: v.optional(v.string()),
   },
   returns: v.id("users"),
@@ -434,8 +456,7 @@ export const createWithClerkId = internalMutation({
       name: args.name,
       email: args.email,
       username: args.username,
-      role: args.role,
-      department: args.department,
+      ...accessFields(args.roles),
       phone: args.phone,
       isActive: true,
       createdAt: Date.now(),

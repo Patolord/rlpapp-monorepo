@@ -1,6 +1,6 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
-import { STAFF_ROLES, authedQuery } from "./lib/rbac";
+import { authedQuery, isStaff } from "./lib/rbac";
 import {
   assertTechnicianProjectAccess,
   isProjectArchived,
@@ -15,10 +15,6 @@ export { assertTechnicianProjectAccess };
 
 // Portal do técnico em campo: lista obras atribuídas (technicianIds) e os
 // QRs/equipamentos de cada obra. Staff enxerga todas as obras.
-
-function isStaff(user: Doc<"users">): boolean {
-  return STAFF_ROLES.includes(user.role);
-}
 
 const myProjectValidator = v.object({
   _id: v.id("projects"),

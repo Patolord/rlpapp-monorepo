@@ -7,6 +7,7 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import {
+  hasRole,
   authedMutation,
   engineeringMutation,
   engineeringQuery,
@@ -772,7 +773,7 @@ export const removeMany = staffMutation({
 
 // Cliente do portal é somente leitura: não pode mover uma etiqueta de obra.
 function assertCanSetFieldProject(user: Doc<"users">) {
-  if (user.role === "client") {
+  if (hasRole(user, "client")) {
     throw new Error("Sem permissão para vincular a etiqueta a uma obra");
   }
 }

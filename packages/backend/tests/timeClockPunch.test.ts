@@ -83,18 +83,17 @@ async function seed() {
     clerkId: "worker-1",
     name: "Edilson Bispo",
     email: "edilson@rlp.com.br",
-    role: "qr_operator",
+    roles: ["qr_operator"],
   });
   const stranger = await withUser(t, {
     clerkId: "stranger-1",
     name: "Sem Vínculo",
-    role: "operator",
+    roles: [],
   });
   const hr = await withUser(t, {
     clerkId: "hr-1",
     name: "RH",
-    role: "operator",
-    department: "rh",
+    roles: ["rh"],
   });
   const { employeeId, userId } = await t.run(async (ctx) => {
     const user = await ctx.db
@@ -353,7 +352,7 @@ describe("timeClockPunch: registro pelo app", () => {
       ctx.db.insert("users", {
         name: "Outro Usuário",
         clerkId: "other-1",
-        role: "qr_operator",
+        roles: ["qr_operator"],
         isActive: true,
         createdAt: Date.now(),
       })

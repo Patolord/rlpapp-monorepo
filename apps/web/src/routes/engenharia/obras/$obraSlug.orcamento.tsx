@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { Plus, Receipt, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatCurrency } from "@rlpapp/shared";
+import { can } from "@rlpapp/shared/auth/permissions";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
@@ -154,16 +155,9 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
     const price = item.estimatedUnitPriceCents ?? 0;
     return sum + qty * price;
   }, 0);
-  const canPromoteMaterial =
-    currentUser?.role === "director" ||
-    currentUser?.role === "admin" ||
-    currentUser?.department === "compras";
+  const canPromoteMaterial = can(currentUser, "compras.write");
   // quem publica (engenharia.write) também remove um orçamento do desktop
-  const canRemoveDesktopBudget =
-    currentUser?.role === "director" ||
-    currentUser?.role === "admin" ||
-    currentUser?.role === "engenheiro" ||
-    currentUser?.department === "engenharia";
+  const canRemoveDesktopBudget = can(currentUser, "engenharia.write");
   const activeSummary = takeoffs?.find((t) => t._id === activeTakeoffId);
   // Orçamentos do desktop são editados lá e republicados: sem entrada manual.
   const isDesktop = activeSummary?.source === "desktop";

@@ -1,6 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { formatDisplayName, formatUsername } from "@rlpapp/shared";
+import { ROLE_LABELS, can } from "@rlpapp/shared/auth/permissions";
 import { useAuth } from "@clerk/expo";
 import type { DrawerContentComponentProps } from "@react-navigation/drawer";
 import { DrawerContentScrollView, DrawerItemList } from "@react-navigation/drawer";
@@ -27,16 +28,6 @@ import { colors, radius, space, type } from "@/lib/theme";
 
 const ITEM_STYLE = { borderRadius: radius.sm, marginHorizontal: space.md } as const;
 const HIDDEN = { display: "none" } as const;
-
-const ROLE_LABEL: Record<string, string> = {
-  director: "Diretor",
-  admin: "Administrador",
-  manager: "Gerente",
-  operator: "Operador",
-  engenheiro: "Engenheiro",
-  qr_operator: "Operador QR",
-  client: "Cliente",
-};
 
 function DrawerLayout() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -69,22 +60,22 @@ function RoleAwareDrawer({
     api.users.getCurrentUser,
     isSignedIn ? undefined : "skip"
   );
-  const isDirector = currentUser?.role === "director";
-  const isEngenheiro = currentUser?.role === "engenheiro";
-  const userDept = currentUser?.department ?? "engenharia";
+  // Diretor fica na página inicial do app (homeArea null) e vê o portal.
+  const isDirector = currentUser != null && currentUser.homeArea === null;
 
-  const showRh = isDirector || (!isEngenheiro && userDept === "rh");
-  const showEngenharia = isDirector || isEngenheiro || userDept === "engenharia";
-  const showCompras = isDirector || userDept === "compras";
-  const showEstoque = isDirector || userDept === "estoque" || userDept === "compras" || isEngenheiro;
-  const showPortal = isDirector || currentUser?.role === "client";
+  // Mesmas permissões que o backend exige em cada módulo.
+  const showRh = can(currentUser, "rh.read");
+  const showEngenharia = can(currentUser, "engenharia.read");
+  const showCompras = can(currentUser, "compras.read");
+  const showEstoque = can(currentUser, "estoque.read");
+  const showPortal = isDirector || (currentUser?.roles.includes("client") ?? false);
 
   const userName = currentUser?.name
     ? formatDisplayName(currentUser.name)
     : currentUser?.username
       ? formatUsername(currentUser.username)
       : "";
-  const roleLabel = currentUser?.role ? ROLE_LABEL[currentUser.role] ?? currentUser.role : "";
+  const roleLabel = currentUser ? currentUser.roles.map((role) => ROLE_LABELS[role]).join(", ") : "";
 
   const drawerContent = useCallback(
     (props: DrawerContentComponentProps) => (
@@ -115,8 +106,9 @@ function RoleAwareDrawer({
     [bg, insets.top, insets.bottom, userName, roleLabel]
   );
 
-  // Técnico de campo: o app dele começa (e fica) na lista de obras.
-  if (currentUser?.role === "qr_operator") {
+  // Técnico de campo (sem acesso de escritório): o app dele começa (e fica)
+  // na lista de obras.
+  if (currentUser?.homeArea === "qr-operador") {
     return <Redirect href={"/campo" as Href} />;
   }
 

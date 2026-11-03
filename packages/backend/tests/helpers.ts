@@ -1,4 +1,5 @@
 import { convexTest } from "convex-test";
+import { rolesFromLegacy } from "@rlpapp/shared/auth/permissions";
 import type { Doc } from "../convex/_generated/dataModel";
 import schema from "../convex/schema";
 
@@ -20,12 +21,15 @@ export async function withUser(
   overrides: Partial<Doc<"users">> & { clerkId: string }
 ) {
   await t.run(async (ctx) => {
+    // Fixtures informam `roles`, ou role + department (atalho legado, traduzido
+    // na hora; o documento gravado só tem `roles`).
     await ctx.db.insert("users", {
       name: overrides.name ?? "Usuário Teste",
       email: overrides.email,
       clerkId: overrides.clerkId,
-      role: overrides.role ?? "operator",
-      department: overrides.department,
+      roles:
+        overrides.roles ??
+        rolesFromLegacy(overrides.role ?? "operator", overrides.department),
       isActive: overrides.isActive ?? true,
       createdAt: Date.now(),
     });

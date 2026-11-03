@@ -2,6 +2,8 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import { UserButton } from "@clerk/tanstack-react-start";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { formatDisplayName } from "@rlpapp/shared";
+import { ROLE_LABELS, can, type Role } from "@rlpapp/shared/auth/permissions";
+import { AREA_PERMISSIONS, type DepartmentArea } from "@/components/role-area-gate";
 import { useQuery } from "convex/react";
 import {
   Building2,
@@ -140,17 +142,15 @@ function getNavGroups(): NavGroup[] {
   ];
 }
 
-const roleLabels: Record<string, string> = {
-  director: "Diretor",
-  admin: "Administrador",
-  manager: "Gerente",
-  operator: "Operador",
-  engenheiro: "Engenheiro",
-  qr_operator: "Operador QR",
-  client: "Cliente",
-};
+/** "Compras, Estoque" ou "Compras +2": acessos do usuário em uma linha. */
+function describeRoles(roles: readonly Role[] | undefined): string {
+  if (!roles || roles.length === 0) return "";
+  const labels = roles.map((role) => ROLE_LABELS[role]);
+  if (labels.length <= 2) return labels.join(", ");
+  return `${labels[0]} +${labels.length - 1}`;
+}
 
-function NavUser({ name, role }: { name?: string; role?: string }) {
+function NavUser({ name, roles }: { name?: string; roles?: readonly Role[] }) {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -167,8 +167,8 @@ function NavUser({ name, role }: { name?: string; role?: string }) {
             <span className="truncate text-sm font-semibold text-slate-800">
               {name ?? "Conta"}
             </span>
-            <span className="truncate text-xs text-slate-500">
-              {role ? roleLabels[role] ?? role : ""}
+            <span className="truncate text-xs text-slate-500" title={roles?.map((r) => ROLE_LABELS[r]).join(", ")}>
+              {describeRoles(roles)}
             </span>
           </div>
           <ChevronsUpDown className="size-4 shrink-0 text-slate-400 group-data-[collapsible=icon]:hidden" />
@@ -182,53 +182,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
   const currentUser = useQuery(api.users.getCurrentUser);
-  const isDirector = currentUser?.role === "director";
-  const isAdmin = currentUser?.role === "admin";
-  const isEngenheiro = currentUser?.role === "engenheiro";
+  // Diretor fica na página inicial do app; os demais têm uma área inicial.
+  const staysOnHome = currentUser != null && currentUser.homeArea === null;
 
   function isActive(to: string, exact?: boolean) {
     if (exact) return currentPath === to;
     return currentPath === to || currentPath.startsWith(to + "/");
   }
 
-  const hasEngineeringAccess =
-    isDirector || isEngenheiro || currentUser?.department === "engenharia";
-  const hasPurchasingAccess =
-    isDirector || isAdmin || currentUser?.department === "compras";
-  const hasInventoryAccess =
-    isDirector ||
-    isAdmin ||
-    isEngenheiro ||
-    currentUser?.department === "engenharia" ||
-    currentUser?.department === "compras" ||
-    currentUser?.department === "estoque";
-  const hasRhAccess =
-    isDirector || isAdmin || currentUser?.department === "rh";
-
-  const navGroups = isDirector || isAdmin
-    ? getNavGroups()
-    : getNavGroups().filter((group) => {
-        if (group.key === "engenharia") return hasEngineeringAccess;
-        if (group.key === "compras") return hasPurchasingAccess;
-        if (group.key === "estoque") return hasInventoryAccess;
-        if (group.key === "rh") return hasRhAccess;
-        // Cadastros de clientes/empreiteiros são funções de engenharia no
-        // backend (engenharia.read); o grupo segue a mesma regra.
-        if (group.key === "backoffice") return hasEngineeringAccess;
-        if (group.key === "configuracoes" || group.key === "takeoff") {
-          return hasEngineeringAccess || hasPurchasingAccess;
-        }
-        // Tokens de agente são pessoais: todo usuário interno pode criar os seus.
-        if (group.key === "conta") return true;
-        return false;
-      });
+  // Cada grupo abre com as mesmas permissões que o RoleAreaGate da área exige.
+  const navGroups = getNavGroups().filter((group) => {
+    // Tokens de agente são pessoais: todo usuário interno pode criar os seus.
+    if (group.key === "conta") return true;
+    const permissions = AREA_PERMISSIONS[group.key as DepartmentArea];
+    return permissions ? can(currentUser, ...permissions) : false;
+  });
 
   return (
     <Sidebar collapsible="icon" variant="floating" {...props}>
       <SidebarHeader className="py-3">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link to={isDirector ? "/app" : currentPath} />}>
+            <SidebarMenuButton size="lg" render={<Link to={staysOnHome ? "/app" : currentPath} />}>
               <img
                 src="/logo.jpg"
                 alt="RLP Engenharia"
@@ -247,7 +222,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        {isDirector && (
+        {staysOnHome && (
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -292,7 +267,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter className="border-t border-slate-100">
         <NavUser
           name={currentUser?.name ? formatDisplayName(currentUser.name) : undefined}
-          role={currentUser?.role}
+          roles={currentUser?.roles}
         />
       </SidebarFooter>
       <SidebarRail />

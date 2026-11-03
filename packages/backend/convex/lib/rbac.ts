@@ -3,102 +3,64 @@ import {
   customMutation,
   customQuery,
 } from "convex-helpers/server/customFunctions";
+import {
+  ADMIN_ROLES,
+  PERMISSION_DENIED_MESSAGES,
+  STAFF_ROLES,
+  getPermissions,
+  hasPermission,
+  hasRole,
+  isAdmin,
+  isStaff,
+  resolveRoles,
+  type Department,
+  type LegacyUserRole,
+  type Permission,
+  type Role,
+} from "@rlpapp/shared/auth/permissions";
 import { mutation, query } from "../_generated/server";
-import type { MutationCtx, QueryCtx } from "../_generated/server";
+import type { ActionCtx, MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
+import { internal } from "../_generated/api";
 import { getUserByIdentity } from "./auth";
+import { forbidden, unauthenticated } from "./accessErrors";
 
 // ---------------------------------------------------------------------------
-// Política de acesso (fonte única de verdade)
+// Política de acesso
 // ---------------------------------------------------------------------------
+//
+// A política (quem tem qual permissão) mora em @rlpapp/shared/auth/permissions
+// e é compartilhada com os apps, que só a usam para esconder navegação; quem
+// aplica é este módulo, nos wrappers abaixo. Este arquivo reexporta o que o
+// restante do backend precisa para não depender do caminho do shared.
 
-// Roles internas (qr_operator só acessa o fluxo público /q/$token e
-// funções explicitamente liberadas via authedQuery/authedMutation).
-export const STAFF_ROLES = [
-  "director",
-  "admin",
-  "manager",
-  "operator",
-  "engenheiro",
-];
-export const ADMIN_ROLES = ["director", "admin"];
-
-export type Permission =
-  | "engenharia.read"
-  | "engenharia.write"
-  | "compras.read"
-  | "compras.write"
-  // Leitura compartilhada entre engenharia e compras (materiais,
-  // fornecedores, preços, takeoffs).
-  | "suprimentos.read"
-  | "estoque.read"
-  | "estoque.write"
-  | "estoque.rules"
-  | "rh.read"
-  | "rh.write"
-  | "admin.manage";
-
-/**
- * Decide se o usuário possui a permissão. Regras:
- * - director/admin: tudo
- * - engenheiro: engenharia.* + suprimentos.read (independente de departamento)
- * - staff do departamento engenharia: engenharia.* + suprimentos.read
- * - staff do departamento compras: compras.* + suprimentos.read
- * - staff do departamento rh: rh.*
- * - qr_operator: nenhuma permissão (usa apenas endpoints authed*)
- */
-export function hasPermission(
-  user: Doc<"users">,
-  permission: Permission
-): boolean {
-  if (!STAFF_ROLES.includes(user.role)) return false;
-  if (ADMIN_ROLES.includes(user.role)) return true;
-
-  switch (permission) {
-    case "engenharia.read":
-    case "engenharia.write":
-      return user.role === "engenheiro" || user.department === "engenharia";
-    case "compras.read":
-    case "compras.write":
-      return user.department === "compras";
-    case "suprimentos.read":
-      return (
-        user.role === "engenheiro" ||
-        user.department === "engenharia" ||
-        user.department === "compras"
-      );
-    case "estoque.read":
-      return (
-        user.role === "engenheiro" ||
-        user.department === "engenharia" ||
-        user.department === "compras" ||
-        user.department === "estoque"
-      );
-    case "estoque.write":
-      return user.department === "estoque";
-    case "estoque.rules":
-      return false;
-    case "rh.read":
-    case "rh.write":
-      return user.department === "rh";
-    case "admin.manage":
-      return false;
-  }
-}
-
-const PERMISSION_DENIED_MESSAGE: Record<Permission, string> = {
-  "engenharia.read": "Acesso restrito à área de engenharia",
-  "engenharia.write": "Acesso restrito à área de engenharia",
-  "compras.read": "Acesso restrito à área de compras",
-  "compras.write": "Acesso restrito à área de compras",
-  "suprimentos.read": "Acesso restrito à engenharia ou compras",
-  "estoque.read": "Acesso restrito às áreas de estoque, compras ou engenharia",
-  "estoque.write": "Acesso restrito à equipe de estoque",
-  "estoque.rules": "Apenas administradores podem configurar regras de estoque",
-  "rh.read": "Acesso restrito à área de recursos humanos",
-  "rh.write": "Acesso restrito à área de recursos humanos",
-  "admin.manage": "Insufficient permissions",
+export {
+  ADMIN_ROLES,
+  STAFF_ROLES,
+  getPermissions,
+  hasPermission,
+  hasRole,
+  isAdmin,
+  isStaff,
+  resolveRoles,
 };
+export type { Permission, Role };
+
+// Falha de compilação se os validadores de schema.ts e a política do shared
+// divergirem (um acesso, cargo ou departamento criado só de um lado).
+type Equals<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
+export const SCHEMA_ACCESS_ROLES_MATCH_POLICY: Equals<
+  NonNullable<Doc<"users">["roles"]>[number],
+  Role
+> = true;
+export const SCHEMA_LEGACY_ROLES_MATCH_POLICY: Equals<
+  NonNullable<Doc<"users">["role"]>,
+  LegacyUserRole
+> = true;
+export const SCHEMA_DEPARTMENTS_MATCH_POLICY: Equals<
+  NonNullable<Doc<"users">["department"]>,
+  Department
+> = true;
 
 // ---------------------------------------------------------------------------
 // Gates (verificações que lançam erro)
@@ -110,23 +72,23 @@ export async function requireUser(
 ): Promise<Doc<"users">> {
   const user = await getUserByIdentity(ctx);
   if (!user) {
-    throw new Error("Not authenticated");
+    throw unauthenticated();
   }
   if (!user.isActive) {
-    throw new Error("Usuário desativado");
+    throw forbidden("Usuário desativado");
   }
   return user;
 }
 
 export function assertStaff(user: Doc<"users">) {
-  if (!STAFF_ROLES.includes(user.role)) {
-    throw new Error("Insufficient permissions");
+  if (!isStaff(user)) {
+    throw forbidden();
   }
 }
 
 export function assertAdmin(user: Doc<"users">) {
-  if (!ADMIN_ROLES.includes(user.role)) {
-    throw new Error("Insufficient permissions");
+  if (!isAdmin(user)) {
+    throw forbidden();
   }
 }
 
@@ -136,21 +98,21 @@ export function requirePermission(
 ): void {
   assertStaff(user);
   if (!hasPermission(user, permission)) {
-    throw new Error(PERMISSION_DENIED_MESSAGE[permission]);
+    throw forbidden(PERMISSION_DENIED_MESSAGES[permission], permission);
   }
 }
 
-/** Gate baseado em ctx (uso manual em handlers, ex.: qrCodes). */
+/** Gate baseado em ctx: exige que o usuário tenha algum dos acessos. */
 export async function requireRole(
   ctx: QueryCtx | MutationCtx,
-  allowedRoles: string[]
+  allowedRoles: readonly Role[]
 ) {
   const user = await getUserByIdentity(ctx);
   if (!user) {
-    throw new Error("User not found in database");
+    throw unauthenticated("User not found in database");
   }
-  if (!allowedRoles.includes(user.role)) {
-    throw new Error("Insufficient permissions");
+  if (!resolveRoles(user).some((role) => allowedRoles.includes(role))) {
+    throw forbidden();
   }
   return user;
 }
@@ -158,6 +120,18 @@ export async function requireRole(
 /** Qualquer role interna (exclui qr_operator, que só acessa /q/$token). */
 export async function requireStaff(ctx: QueryCtx | MutationCtx) {
   return await requireRole(ctx, STAFF_ROLES);
+}
+
+/**
+ * Gate para actions, que não têm `ctx.db`: roda `requireUser` +
+ * `requirePermission` numa query interna sob a mesma identidade. Use no
+ * início do handler, antes de qualquer efeito externo (OpenAI, Clerk...).
+ */
+export async function requireActionPermission(
+  ctx: ActionCtx,
+  permission: Permission
+): Promise<void> {
+  await ctx.runQuery(internal.users.assertPermission, { permission });
 }
 
 // ---------------------------------------------------------------------------
@@ -259,7 +233,7 @@ export const warehouseOrPurchasingMutation = customMutation(
       !hasPermission(user, "estoque.write") &&
       !hasPermission(user, "compras.write")
     ) {
-      throw new Error("Acesso restrito à equipe de estoque ou compras");
+      throw forbidden("Acesso restrito à equipe de estoque ou compras");
     }
     return { user };
   })
@@ -278,7 +252,7 @@ export const engineeringOrPurchasingMutation = customMutation(
       !hasPermission(user, "engenharia.write") &&
       !hasPermission(user, "compras.write")
     ) {
-      throw new Error(PERMISSION_DENIED_MESSAGE["suprimentos.read"]);
+      throw forbidden(PERMISSION_DENIED_MESSAGES["suprimentos.read"]);
     }
     return { user };
   })

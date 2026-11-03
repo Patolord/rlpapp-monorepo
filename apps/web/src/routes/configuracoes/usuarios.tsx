@@ -1,5 +1,12 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import {
+  ROLES,
+  ROLE_DESCRIPTIONS,
+  ROLE_LABELS,
+  can,
+  type Role,
+} from "@rlpapp/shared/auth/permissions";
+import {
   formatDate,
   formatDisplayName,
   formatUsername,
@@ -27,6 +34,7 @@ import { AuthShell } from "@/components/auth-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -56,38 +64,13 @@ import {
 import { runWithToast } from "@/lib/errors";
 
 type User = FunctionReturnType<typeof api.users.list>[number];
-type Role = User["role"];
-type Department = NonNullable<User["department"]>;
 
 export const Route = createFileRoute("/configuracoes/usuarios")({
   component: UsuariosPage,
 });
 
-const ROLE_LABELS: Record<Role, string> = {
-  director: "Diretor",
-  admin: "Administrador",
-  manager: "Gerente",
-  operator: "Operador",
-  engenheiro: "Engenheiro",
-  qr_operator: "Operador QR",
-  client: "Cliente",
-};
-
-const DEPARTMENT_LABELS: Record<Department, string> = {
-  rh: "Recursos Humanos",
-  engenharia: "Engenharia",
-  compras: "Compras",
-  estoque: "Estoque",
-};
-
-const ROLE_OPTIONS = Object.entries(ROLE_LABELS) as [Role, string][];
-const DEPARTMENT_OPTIONS = Object.entries(DEPARTMENT_LABELS) as [
-  Department,
-  string,
-][];
-
-const NO_DEPARTMENT = "__none__";
 const MIN_PASSWORD_LENGTH = 8;
+
 
 /** "João Silva" → "joao.silva" (sem acentos, só caracteres aceitos pelo Clerk). */
 function suggestUsername(firstName: string, lastName: string): string {
@@ -121,8 +104,7 @@ function UsuariosContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
 
-  const isAdmin =
-    currentUser?.role === "director" || currentUser?.role === "admin";
+  const isAdmin = can(currentUser, "admin.manage");
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];
@@ -170,7 +152,8 @@ function UsuariosContent() {
         <div className="space-y-1">
           <h1 className="text-2xl font-bold">Usuários</h1>
           <p className="text-sm text-muted-foreground">
-            Quem acessa o sistema, com qual cargo e em qual departamento.
+            Quem acessa o sistema e com quais acessos. Os acessos se somam: uma
+            pessoa pode ter vários.
           </p>
         </div>
         <CreateUserDialog
@@ -262,8 +245,7 @@ function UsuariosContent() {
                   <TableRow>
                     <TableHead>Nome</TableHead>
                     <TableHead>Login</TableHead>
-                    <TableHead>Cargo</TableHead>
-                    <TableHead>Departamento</TableHead>
+                    <TableHead>Acessos</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Último acesso</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
@@ -296,14 +278,7 @@ function UsuariosContent() {
                           {user.username ? formatUsername(user.username) : "—"}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">
-                            {ROLE_LABELS[user.role] ?? user.role}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {user.department
-                            ? (DEPARTMENT_LABELS[user.department] ?? user.department)
-                            : "—"}
+                          <RoleBadges roles={user.roles} />
                         </TableCell>
                         <TableCell>
                           <Badge variant={user.isActive ? "success" : "muted"}>
@@ -436,59 +411,58 @@ function Field({
   );
 }
 
-function RoleAndDepartmentFields({
+function RoleBadges({ roles }: { roles: Role[] }) {
+  if (roles.length === 0) {
+    return <span className="text-sm text-muted-foreground">Sem acessos</span>;
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {roles.map((role) => (
+        <Badge key={role} variant="outline">
+          {ROLE_LABELS[role]}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+/** Lista de acessos com uma caixa por item; a ordem é a de `ROLES`. */
+function AccessFields({
   idPrefix,
-  role,
-  department,
-  onRoleChange,
-  onDepartmentChange,
+  roles,
+  onChange,
 }: {
   idPrefix: string;
-  role: Role | "";
-  department: Department | "";
-  onRoleChange: (role: Role) => void;
-  onDepartmentChange: (department: Department | "") => void;
+  roles: Role[];
+  onChange: (roles: Role[]) => void;
 }) {
+  const toggle = (role: Role, checked: boolean) => {
+    const next = checked ? [...roles, role] : roles.filter((r) => r !== role);
+    onChange(ROLES.filter((r) => next.includes(r)));
+  };
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <Field id={`${idPrefix}-role`} label="Cargo">
-        <Select
-          value={role || undefined}
-          onValueChange={(v) => onRoleChange(v as Role)}
-          required
-        >
-          <SelectTrigger id={`${idPrefix}-role`}>
-            <SelectValue placeholder="Selecione o cargo" />
-          </SelectTrigger>
-          <SelectContent>
-            {ROLE_OPTIONS.map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-      <Field id={`${idPrefix}-department`} label="Departamento">
-        <Select
-          value={department || NO_DEPARTMENT}
-          onValueChange={(v) =>
-            onDepartmentChange(v === NO_DEPARTMENT ? "" : (v as Department))
-          }
-        >
-          <SelectTrigger id={`${idPrefix}-department`}>
-            <SelectValue placeholder="Nenhum" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_DEPARTMENT}>Nenhum</SelectItem>
-            {DEPARTMENT_OPTIONS.map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
+    <div className="grid gap-2 sm:grid-cols-2">
+      {ROLES.map((role) => {
+        const id = `${idPrefix}-role-${role}`;
+        return (
+          <label
+            key={role}
+            htmlFor={id}
+            className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 p-3 has-data-checked:border-primary/40 has-data-checked:bg-primary/5"
+          >
+            <Checkbox
+              id={id}
+              checked={roles.includes(role)}
+              onCheckedChange={(checked) => toggle(role, checked === true)}
+              className="mt-0.5"
+            />
+            <span className="grid gap-0.5">
+              <span className="text-sm font-medium leading-none">{ROLE_LABELS[role]}</span>
+              <span className="text-xs text-muted-foreground">{ROLE_DESCRIPTIONS[role]}</span>
+            </span>
+          </label>
+        );
+      })}
     </div>
   );
 }
@@ -502,8 +476,7 @@ type CreateFormData = {
   password: string;
   email: string;
   phone: string;
-  role: Role | "";
-  department: Department | "";
+  roles: Role[];
 };
 
 const emptyCreateForm: CreateFormData = {
@@ -513,8 +486,7 @@ const emptyCreateForm: CreateFormData = {
   password: "",
   email: "",
   phone: "",
-  role: "",
-  department: "",
+  roles: [],
 };
 
 function CreateUserDialog({ trigger }: { trigger: ReactNode }) {
@@ -548,11 +520,11 @@ function CreateUserDialog({ trigger }: { trigger: ReactNode }) {
     form.lastName.trim() !== "" &&
     form.username !== "" &&
     form.password.length >= MIN_PASSWORD_LENGTH &&
-    form.role !== "";
+    form.roles.length > 0;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!canSubmit || saving || form.role === "") return;
+    if (!canSubmit || saving) return;
     setSaving(true);
     const ok = await runWithToast(
       () =>
@@ -562,8 +534,7 @@ function CreateUserDialog({ trigger }: { trigger: ReactNode }) {
           password: form.password,
           email: form.email.trim() || undefined,
           phone: form.phone.trim() || undefined,
-          role: form.role as Role,
-          department: form.department || undefined,
+          roles: form.roles,
         }),
       "Usuário criado",
       "Erro ao criar usuário"
@@ -698,13 +669,11 @@ function CreateUserDialog({ trigger }: { trigger: ReactNode }) {
             </Field>
           </FormSection>
 
-          <FormSection title="Função">
-            <RoleAndDepartmentFields
+          <FormSection title="Acessos" hint="Marque pelo menos um">
+            <AccessFields
               idPrefix="create"
-              role={form.role}
-              department={form.department}
-              onRoleChange={(role) => update({ role })}
-              onDepartmentChange={(department) => update({ department })}
+              roles={form.roles}
+              onChange={(roles) => update({ roles })}
             />
           </FormSection>
 
@@ -729,8 +698,7 @@ type EditFormData = {
   name: string;
   email: string;
   phone: string;
-  role: Role;
-  department: Department | "";
+  roles: Role[];
 };
 
 function EditUserDialog({
@@ -755,8 +723,7 @@ function EditUserForm({ user, onClose }: { user: User; onClose: () => void }) {
     name: user.name,
     email: user.email ?? "",
     phone: user.phone ?? "",
-    role: user.role,
-    department: user.department ?? "",
+    roles: user.roles,
   });
   const [saving, setSaving] = useState(false);
 
@@ -776,8 +743,7 @@ function EditUserForm({ user, onClose }: { user: User; onClose: () => void }) {
           name: form.name.trim(),
           email: form.email.trim() || null,
           phone: form.phone.trim() || null,
-          role: form.role,
-          department: form.department || null,
+          roles: form.roles,
         }),
       "Alterações salvas",
       "Erro ao salvar alterações"
@@ -835,13 +801,14 @@ function EditUserForm({ user, onClose }: { user: User; onClose: () => void }) {
           </div>
         </FormSection>
 
-        <FormSection title="Função">
-          <RoleAndDepartmentFields
+        <FormSection
+          title="Acessos"
+          hint={form.roles.length === 0 ? "Sem acessos, o usuário não entra em nenhuma área" : undefined}
+        >
+          <AccessFields
             idPrefix="edit"
-            role={form.role}
-            department={form.department}
-            onRoleChange={(role) => update({ role })}
-            onDepartmentChange={(department) => update({ department })}
+            roles={form.roles}
+            onChange={(roles) => update({ roles })}
           />
         </FormSection>
 

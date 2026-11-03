@@ -69,12 +69,48 @@ Domain terminology is defined in the repository-level `CONTEXT.md`.
 
 ## Access control
 
-Authorization policy lives in `lib/rbac.ts`:
+Each user holds a set of combinable **access roles** (`users.roles`: `director`,
+`admin`, `engenheiro`, `engenharia`, `compras`, `estoque`, `rh`, `takeoff`,
+`qr_operator`, `client`). Every role grants a fixed set of permissions
+(`ROLE_PERMISSIONS`) and the user's permissions are the union. The policy lives
+in `@rlpapp/shared/auth/permissions` (`packages/shared/src/auth/permissions.ts`),
+with a matrix test in `packages/shared/tests`. It is shared with the apps, which
+only use it to hide navigation and actions; enforcement happens here, in
+`lib/rbac.ts`:
 
-1. `Permission` defines supported permissions.
-2. `hasPermission` is the central role and department policy.
-3. Gate functions perform manual authorization checks when needed.
-4. Named wrappers authenticate the caller and add `ctx.user`.
+1. `hasPermission` / `hasRole` / `isStaff` / `isAdmin` are re-exported from the
+   shared policy.
+2. Gate functions (`requireUser`, `requirePermission`, `assertStaff`, ...)
+   perform manual authorization checks when needed. They throw
+   `ConvexError({ code: "UNAUTHENTICATED" | "FORBIDDEN", message, permission? })`
+   (`lib/accessErrors.ts`), so the message reaches clients in production and the
+   gateway maps the code to 401/403.
+3. Named wrappers authenticate the caller and add `ctx.user`.
+4. Actions have no `ctx.db`: call `requireActionPermission(ctx, permission)`
+   (runs `internal.users.assertPermission` under the caller's identity) before
+   any external side effect.
+5. `users.getCurrentUser` returns `roles`, `permissions`, `isStaff` and
+   `homeArea` computed by the policy. Clients check
+   `can(currentUser, "compras.write")` instead of comparing `role`/`department`.
+
+Migration from the legacy `role` (job title) + `department` pair:
+
+- Nothing reads or writes `role`/`department` any more, except the migration.
+  A user document that still lacks `roles` is read through `rolesFromLegacy`
+  (same effective permissions); every write of access (`lib/users.ts`
+  `accessFields`) stores `roles` and clears the two legacy fields.
+- After deploying, run `npx convex run migrations:migrateUserAccess` once
+  (idempotent): it fills `roles` where missing and removes `role`/`department`
+  from every user.
+- Final step, in a later deploy once the migration has run (Convex validates
+  existing documents against the schema at deploy time, so this cannot ship
+  together): make `roles` required, delete `role`, `department` and the
+  `userRoles` validator from `schema.ts`, and drop `rolesFromLegacy`,
+  `LEGACY_USER_ROLES` and the `role`/`department` fields of `AccessSubject`
+  from the shared policy.
+- Legacy users with only `manager`/`operator` and no department had no
+  permissions and now have no roles, so they are no longer staff until an admin
+  assigns access in Configurações → Usuários.
 
 Public functions that access user data use the appropriate wrapper rather than
 raw `query` or `mutation`:
@@ -88,7 +124,10 @@ raw `query` or `mutation`:
 - `hrQuery` / `hrMutation`: HR access.
 
 New access rules belong in the central permission policy rather than ad hoc
-wrappers.
+wrappers or inline `user.role` / `user.department` comparisons. The only
+inline role checks left are per-resource rules (e.g. the responsible engineer
+deciding an inventory exception) and routing by principal type (`qr_operator`,
+`client`).
 
 ## Verification
 

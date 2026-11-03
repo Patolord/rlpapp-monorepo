@@ -19,7 +19,9 @@ import {
 import {
   adminMutation,
   adminQuery,
+  isAdmin,
   requireUser,
+  resolveRoles,
   staffMutation,
   staffQuery,
 } from "./lib/rbac";
@@ -29,7 +31,8 @@ import {
   MAX_TOKENS_PER_USER,
   normalizeName,
 } from "./model/identity/agentTokens";
-import { agentTokenKind, agentTokenPermission } from "./schema";
+import {
+  accessRoles, agentTokenKind, agentTokenPermission } from "./schema";
 
 /**
  * Tokens de agente: credenciais pessoais para agentes de IA (Claude, Cursor,
@@ -98,8 +101,7 @@ async function getManageableToken(
   await requireHumanSession(ctx);
   const token = await ctx.db.get("agentTokens", id);
   if (!token) throw new Error("Token não encontrado");
-  const isAdmin = user.role === "director" || user.role === "admin";
-  if (token.userId !== user._id && !isAdmin) {
+  if (token.userId !== user._id && !isAdmin(user)) {
     throw new Error("Você só pode gerenciar os seus próprios tokens");
   }
   return token;
@@ -119,7 +121,7 @@ async function ownerSummary(ctx: QueryCtx, userId: Id<"users">) {
     name: user.name,
     email: user.email ?? null,
     username: user.username ?? null,
-    role: user.role,
+    roles: resolveRoles(user),
     isActive: user.isActive,
   };
 }
@@ -320,7 +322,7 @@ export const listAll = adminQuery({
           name: v.string(),
           email: v.union(v.string(), v.null()),
           username: v.union(v.string(), v.null()),
-          role: v.string(),
+          roles: v.array(accessRoles),
           isActive: v.boolean(),
         }),
         v.null()
@@ -526,8 +528,7 @@ export const verify = internalQuery({
         name: v.string(),
         email: v.union(v.string(), v.null()),
         username: v.union(v.string(), v.null()),
-        role: v.string(),
-        department: v.union(v.string(), v.null()),
+        roles: v.array(accessRoles),
       }),
     }),
     v.null()
@@ -556,8 +557,7 @@ export const verify = internalQuery({
         name: user.name,
         email: user.email ?? null,
         username: user.username ?? null,
-        role: user.role,
-        department: user.department ?? null,
+        roles: resolveRoles(user),
       },
     };
   },

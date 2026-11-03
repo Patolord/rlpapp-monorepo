@@ -1,8 +1,12 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
-import { engineeringMutation, engineeringQuery } from "./lib/rbac";
+import {
+  resolveRoles,
+  type Role,
+  hasRole, engineeringMutation, engineeringQuery } from "./lib/rbac";
 import { equipmentStatusValidator } from "./equipment";
-import { projectStatus } from "./schema";
+import {
+  accessRoles, projectStatus } from "./schema";
 import { logAudit, diffFields } from "./lib/audit";
 import {
   assertValidParentContract,
@@ -832,8 +836,8 @@ export const setTechnicians = engineeringMutation({
     for (const userId of args.technicianIds) {
       const user = await ctx.db.get("users", userId);
       if (!user || !user.isActive) continue;
-      // Aceita qr_operator e staff (técnicos internos também atuam em campo).
-      if (user.role === "client") continue;
+      // Aceita técnicos de campo e equipe (técnicos internos também atuam em campo).
+      if (hasRole(user, "client")) continue;
       valid.push(user._id);
     }
 
@@ -858,18 +862,18 @@ export const getAssignedTechnicians = engineeringQuery({
     v.object({
       _id: v.id("users"),
       name: v.string(),
-      role: v.string(),
+      roles: v.array(accessRoles),
     })
   ),
   handler: async (ctx, args) => {
     const project = await ctx.db.get("projects", args.projectId);
     if (!project) return [];
 
-    const out: Array<{ _id: Id<"users">; name: string; role: string }> = [];
+    const out: Array<{ _id: Id<"users">; name: string; roles: Role[] }> = [];
     for (const userId of project.technicianIds ?? []) {
       const user = await ctx.db.get("users", userId);
       if (!user) continue;
-      out.push({ _id: user._id, name: user.name, role: user.role });
+      out.push({ _id: user._id, name: user.name, roles: resolveRoles(user) });
     }
     out.sort((a, b) => a.name.localeCompare(b.name));
     return out;

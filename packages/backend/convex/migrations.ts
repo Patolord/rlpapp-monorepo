@@ -9,6 +9,7 @@ import { getLegacyClientLabel, getPortalUserIds } from "./lib/projects/helpers";
 import { normalizeCustomerName } from "./lib/customers/helpers";
 import type { Id } from "./_generated/dataModel";
 import { planSeedLaborPrices } from "./model/procurement/seedLaborPrices";
+import { rolesFromLegacy } from "@rlpapp/shared/auth/permissions";
 
 /**
  * Backfill idempotente: cria, para cada obra que ainda não tem torres, uma
@@ -981,5 +982,40 @@ export const backfillCapitalizeUserNames = internalMutation({
       }
     }
     return { scanned: users.length, updated: names.length, names };
+  },
+});
+
+/**
+ * Migra o acesso dos usuários para `roles`: preenche a partir do par legado
+ * cargo + departamento (rolesFromLegacy, mesmas permissões efetivas) em quem
+ * ainda não tem, e apaga `role`/`department` de todos. Idempotente. Rodar uma
+ * vez após o deploy:
+ *
+ *   npx convex run migrations:migrateUserAccess
+ *
+ * Depois disso `roles` pode virar obrigatório e `role`/`department` saem do
+ * schema (passo final).
+ */
+export const migrateUserAccess = internalMutation({
+  args: {},
+  returns: v.object({ updated: v.number(), skipped: v.number() }),
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    let updated = 0;
+    let skipped = 0;
+    for (const user of users) {
+      const clean = user.roles !== undefined && user.role === undefined && user.department === undefined;
+      if (clean) {
+        skipped += 1;
+        continue;
+      }
+      await ctx.db.patch("users", user._id, {
+        roles: user.roles ?? rolesFromLegacy(user.role ?? "operator", user.department),
+        role: undefined,
+        department: undefined,
+      });
+      updated += 1;
+    }
+    return { updated, skipped };
   },
 });

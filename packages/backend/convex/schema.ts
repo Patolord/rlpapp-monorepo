@@ -1,7 +1,10 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-// User roles
+// Cargo legado (`users.role`), lido só pela migração `migrations:migrateUserAccess`.
+// O acesso vem de `users.roles`. Passo final (depois da migração rodar em
+// produção): tornar `roles` obrigatório e remover `role`, `department` e
+// este validador.
 export const userRoles = v.union(
   v.literal("director"),
   v.literal("admin"),
@@ -32,6 +35,20 @@ export const projectDocumentTechnicianAccess = v.union(
   v.literal("none"),
   v.literal("all"),
   v.literal("selected")
+);
+
+// Acessos combináveis do usuário (ver @rlpapp/shared/auth/permissions).
+export const accessRoles = v.union(
+  v.literal("director"),
+  v.literal("admin"),
+  v.literal("engenheiro"),
+  v.literal("engenharia"),
+  v.literal("compras"),
+  v.literal("estoque"),
+  v.literal("rh"),
+  v.literal("takeoff"),
+  v.literal("qr_operator"),
+  v.literal("client")
 );
 
 // Department types
@@ -337,7 +354,13 @@ export default defineSchema({
     username: v.optional(v.string()),
     // Clerk user ID (subject do JWT). Optional para usuários criados antes do webhook.
     clerkId: v.optional(v.string()),
-    role: userRoles,
+    // Acessos do usuário (fonte de verdade da autorização). Opcional só até a
+    // migração `migrations:migrateUserAccess` rodar em produção; um documento
+    // sem `roles` é lido pela tradução de role + department (rolesFromLegacy).
+    roles: v.optional(v.array(accessRoles)),
+    // Descontinuados: cargo e departamento. Nada grava nem lê estes campos
+    // fora da migração, que também os apaga. Remover do schema no passo final.
+    role: v.optional(userRoles),
     department: v.optional(departments),
     phone: v.optional(v.string()),
     isActive: v.boolean(),
@@ -346,7 +369,6 @@ export default defineSchema({
   })
     .index("by_email", ["email"])
     .index("by_clerkId", ["clerkId"])
-    .index("by_role", ["role"])
     .index("by_active", ["isActive"]),
 
   // --- Tokens de agente (MCP / acesso programático) ---

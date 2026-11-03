@@ -1,4 +1,5 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import { can } from "@rlpapp/shared/auth/permissions";
 import { useQuery } from "convex/react";
 import { Tabs, useNavigation } from "expo-router";
 import { History, Inbox, ShieldAlert, Warehouse } from "lucide-react-native";
@@ -13,10 +14,8 @@ export default function EstoqueTabsLayout() {
   const navigation = useNavigation<{ openDrawer: () => void }>();
 
   const currentUser = useQuery(api.users.getCurrentUser);
-  const isEngineer =
-    currentUser?.role === "director" ||
-    currentUser?.role === "engenheiro" ||
-    currentUser?.role === "admin";
+  // Aprovações de exceções de estoque são decididas pela engenharia.
+  const isEngineer = can(currentUser, "engenharia.write");
 
   const bg = colors.bg;
   const inactive = colors.icon;
