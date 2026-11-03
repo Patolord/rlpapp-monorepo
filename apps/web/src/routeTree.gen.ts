@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as BackofficeRouteRouteImport } from './routes/backoffice/route'
 import { Route as ComprasRouteRouteImport } from './routes/compras/route'
+import { Route as ConfiguracoesRouteRouteImport } from './routes/configuracoes/route'
 import { Route as ContaRouteRouteImport } from './routes/conta/route'
 import { Route as EngenhariaRouteRouteImport } from './routes/engenharia/route'
 import { Route as EstoqueRouteRouteImport } from './routes/estoque/route'
@@ -30,6 +31,9 @@ import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './rout
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as BackofficeIndexRouteImport } from './routes/backoffice/index'
 import { Route as ComprasIndexRouteImport } from './routes/compras/index'
+import { Route as ConfiguracoesIndexRouteImport } from './routes/configuracoes/index'
+import { Route as ConfiguracoesPoliticaPrivacidadeRouteImport } from './routes/configuracoes/politica-privacidade'
+import { Route as ConfiguracoesUsuariosRouteImport } from './routes/configuracoes/usuarios'
 import { Route as ContaAgentesRouteImport } from './routes/conta/agentes'
 import { Route as EngenhariaIndexRouteImport } from './routes/engenharia/index'
 import { Route as EngenhariaClientesRouteImport } from './routes/engenharia/clientes'
@@ -120,6 +124,11 @@ const ComprasRouteRoute = ComprasRouteRouteImport.update({
   path: '/compras',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConfiguracoesRouteRoute = ConfiguracoesRouteRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContaRouteRoute = ContaRouteRouteImport.update({
   id: '/conta',
   path: '/conta',
@@ -205,6 +214,22 @@ const ComprasIndexRoute = ComprasIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => ComprasRouteRoute,
+} as any)
+const ConfiguracoesIndexRoute = ConfiguracoesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ConfiguracoesRouteRoute,
+} as any)
+const ConfiguracoesPoliticaPrivacidadeRoute =
+  ConfiguracoesPoliticaPrivacidadeRouteImport.update({
+    id: '/politica-privacidade',
+    path: '/politica-privacidade',
+    getParentRoute: () => ConfiguracoesRouteRoute,
+  } as any)
+const ConfiguracoesUsuariosRoute = ConfiguracoesUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
+  getParentRoute: () => ConfiguracoesRouteRoute,
 } as any)
 const ContaAgentesRoute = ContaAgentesRouteImport.update({
   id: '/agentes',
@@ -592,6 +617,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteRouteWithChildren
   '/backoffice': typeof BackofficeRouteRouteWithChildren
   '/compras': typeof ComprasRouteRouteWithChildren
+  '/configuracoes': typeof ConfiguracoesRouteRouteWithChildren
   '/conta': typeof ContaRouteRouteWithChildren
   '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/estoque': typeof EstoqueRouteRouteWithChildren
@@ -609,6 +635,8 @@ export interface FileRoutesByFullPath {
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
   '/rh/ponto': typeof RhPontoRouteRouteWithChildren
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/configuracoes/politica-privacidade': typeof ConfiguracoesPoliticaPrivacidadeRoute
+  '/configuracoes/usuarios': typeof ConfiguracoesUsuariosRoute
   '/conta/agentes': typeof ContaAgentesRoute
   '/engenharia/clientes': typeof EngenhariaClientesRoute
   '/engenharia/contratos': typeof EngenhariaContratosRoute
@@ -625,6 +653,7 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AppIndexRoute
   '/backoffice/': typeof BackofficeIndexRoute
   '/compras/': typeof ComprasIndexRoute
+  '/configuracoes/': typeof ConfiguracoesIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
   '/estoque/': typeof EstoqueIndexRoute
   '/portal/': typeof PortalIndexRoute
@@ -692,6 +721,8 @@ export interface FileRoutesByTo {
   '/sign-up': typeof SignUpRoute
   '/suporte': typeof SuporteRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/configuracoes/politica-privacidade': typeof ConfiguracoesPoliticaPrivacidadeRoute
+  '/configuracoes/usuarios': typeof ConfiguracoesUsuariosRoute
   '/conta/agentes': typeof ContaAgentesRoute
   '/engenharia/clientes': typeof EngenhariaClientesRoute
   '/engenharia/contratos': typeof EngenhariaContratosRoute
@@ -708,6 +739,7 @@ export interface FileRoutesByTo {
   '/app': typeof AppIndexRoute
   '/backoffice': typeof BackofficeIndexRoute
   '/compras': typeof ComprasIndexRoute
+  '/configuracoes': typeof ConfiguracoesIndexRoute
   '/engenharia': typeof EngenhariaIndexRoute
   '/estoque': typeof EstoqueIndexRoute
   '/portal': typeof PortalIndexRoute
@@ -765,6 +797,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteRouteWithChildren
   '/backoffice': typeof BackofficeRouteRouteWithChildren
   '/compras': typeof ComprasRouteRouteWithChildren
+  '/configuracoes': typeof ConfiguracoesRouteRouteWithChildren
   '/conta': typeof ContaRouteRouteWithChildren
   '/engenharia': typeof EngenhariaRouteRouteWithChildren
   '/estoque': typeof EstoqueRouteRouteWithChildren
@@ -782,6 +815,8 @@ export interface FileRoutesById {
   '/engenharia/relatorios': typeof EngenhariaRelatoriosRouteRouteWithChildren
   '/rh/ponto': typeof RhPontoRouteRouteWithChildren
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/configuracoes/politica-privacidade': typeof ConfiguracoesPoliticaPrivacidadeRoute
+  '/configuracoes/usuarios': typeof ConfiguracoesUsuariosRoute
   '/conta/agentes': typeof ContaAgentesRoute
   '/engenharia/clientes': typeof EngenhariaClientesRoute
   '/engenharia/contratos': typeof EngenhariaContratosRoute
@@ -798,6 +833,7 @@ export interface FileRoutesById {
   '/app/': typeof AppIndexRoute
   '/backoffice/': typeof BackofficeIndexRoute
   '/compras/': typeof ComprasIndexRoute
+  '/configuracoes/': typeof ConfiguracoesIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
   '/estoque/': typeof EstoqueIndexRoute
   '/portal/': typeof PortalIndexRoute
@@ -859,6 +895,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/backoffice'
     | '/compras'
+    | '/configuracoes'
     | '/conta'
     | '/engenharia'
     | '/estoque'
@@ -876,6 +913,8 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios'
     | '/rh/ponto'
     | '/.well-known/oauth-authorization-server'
+    | '/configuracoes/politica-privacidade'
+    | '/configuracoes/usuarios'
     | '/conta/agentes'
     | '/engenharia/clientes'
     | '/engenharia/contratos'
@@ -892,6 +931,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/backoffice/'
     | '/compras/'
+    | '/configuracoes/'
     | '/engenharia/'
     | '/estoque/'
     | '/portal/'
@@ -959,6 +999,8 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/suporte'
     | '/.well-known/oauth-authorization-server'
+    | '/configuracoes/politica-privacidade'
+    | '/configuracoes/usuarios'
     | '/conta/agentes'
     | '/engenharia/clientes'
     | '/engenharia/contratos'
@@ -975,6 +1017,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/backoffice'
     | '/compras'
+    | '/configuracoes'
     | '/engenharia'
     | '/estoque'
     | '/portal'
@@ -1031,6 +1074,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/backoffice'
     | '/compras'
+    | '/configuracoes'
     | '/conta'
     | '/engenharia'
     | '/estoque'
@@ -1048,6 +1092,8 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios'
     | '/rh/ponto'
     | '/.well-known/oauth-authorization-server'
+    | '/configuracoes/politica-privacidade'
+    | '/configuracoes/usuarios'
     | '/conta/agentes'
     | '/engenharia/clientes'
     | '/engenharia/contratos'
@@ -1064,6 +1110,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/backoffice/'
     | '/compras/'
+    | '/configuracoes/'
     | '/engenharia/'
     | '/estoque/'
     | '/portal/'
@@ -1124,6 +1171,7 @@ export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
   BackofficeRouteRoute: typeof BackofficeRouteRouteWithChildren
   ComprasRouteRoute: typeof ComprasRouteRouteWithChildren
+  ConfiguracoesRouteRoute: typeof ConfiguracoesRouteRouteWithChildren
   ContaRouteRoute: typeof ContaRouteRouteWithChildren
   EngenhariaRouteRoute: typeof EngenhariaRouteRouteWithChildren
   EstoqueRouteRoute: typeof EstoqueRouteRouteWithChildren
@@ -1178,6 +1226,13 @@ declare module '@tanstack/react-router' {
       path: '/compras'
       fullPath: '/compras'
       preLoaderRoute: typeof ComprasRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configuracoes': {
+      id: '/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof ConfiguracoesRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/conta': {
@@ -1298,6 +1353,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/compras/'
       preLoaderRoute: typeof ComprasIndexRouteImport
       parentRoute: typeof ComprasRouteRoute
+    }
+    '/configuracoes/': {
+      id: '/configuracoes/'
+      path: '/'
+      fullPath: '/configuracoes/'
+      preLoaderRoute: typeof ConfiguracoesIndexRouteImport
+      parentRoute: typeof ConfiguracoesRouteRoute
+    }
+    '/configuracoes/politica-privacidade': {
+      id: '/configuracoes/politica-privacidade'
+      path: '/politica-privacidade'
+      fullPath: '/configuracoes/politica-privacidade'
+      preLoaderRoute: typeof ConfiguracoesPoliticaPrivacidadeRouteImport
+      parentRoute: typeof ConfiguracoesRouteRoute
+    }
+    '/configuracoes/usuarios': {
+      id: '/configuracoes/usuarios'
+      path: '/usuarios'
+      fullPath: '/configuracoes/usuarios'
+      preLoaderRoute: typeof ConfiguracoesUsuariosRouteImport
+      parentRoute: typeof ConfiguracoesRouteRoute
     }
     '/conta/agentes': {
       id: '/conta/agentes'
@@ -1835,6 +1911,21 @@ const ComprasRouteRouteWithChildren = ComprasRouteRoute._addFileChildren(
   ComprasRouteRouteChildren,
 )
 
+interface ConfiguracoesRouteRouteChildren {
+  ConfiguracoesPoliticaPrivacidadeRoute: typeof ConfiguracoesPoliticaPrivacidadeRoute
+  ConfiguracoesUsuariosRoute: typeof ConfiguracoesUsuariosRoute
+  ConfiguracoesIndexRoute: typeof ConfiguracoesIndexRoute
+}
+
+const ConfiguracoesRouteRouteChildren: ConfiguracoesRouteRouteChildren = {
+  ConfiguracoesPoliticaPrivacidadeRoute: ConfiguracoesPoliticaPrivacidadeRoute,
+  ConfiguracoesUsuariosRoute: ConfiguracoesUsuariosRoute,
+  ConfiguracoesIndexRoute: ConfiguracoesIndexRoute,
+}
+
+const ConfiguracoesRouteRouteWithChildren =
+  ConfiguracoesRouteRoute._addFileChildren(ConfiguracoesRouteRouteChildren)
+
 interface ContaRouteRouteChildren {
   ContaAgentesRoute: typeof ContaAgentesRoute
 }
@@ -2066,6 +2157,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
   BackofficeRouteRoute: BackofficeRouteRouteWithChildren,
   ComprasRouteRoute: ComprasRouteRouteWithChildren,
+  ConfiguracoesRouteRoute: ConfiguracoesRouteRouteWithChildren,
   ContaRouteRoute: ContaRouteRouteWithChildren,
   EngenhariaRouteRoute: EngenhariaRouteRouteWithChildren,
   EstoqueRouteRoute: EstoqueRouteRouteWithChildren,

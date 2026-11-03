@@ -105,9 +105,9 @@ function getNavGroups(): NavGroup[] {
       key: "configuracoes",
       label: "Configurações",
       items: [
-        { to: "/engenharia/usuarios", label: "Usuários", icon: UserPlus },
+        { to: "/configuracoes/usuarios", label: "Usuários", icon: UserPlus },
         {
-          to: "/engenharia/politica-privacidade",
+          to: "/configuracoes/politica-privacidade",
           label: "Política de Privacidade",
           icon: Shield,
         },
