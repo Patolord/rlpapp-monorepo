@@ -35,9 +35,10 @@ export const AREA_PERMISSIONS: Record<DepartmentArea, Permission[]> = {
   estoque: ["estoque.read"],
   // Backoffice: clientes e empreiteiros.
   backoffice: ["cadastros.read"],
-  // Configurações segue o grupo na sidebar (engenharia ou compras); a página
-  // de usuários ainda exige admin para editar.
-  configuracoes: ["obras.read", "compras.read"],
+  // Configurações: engenharia ou compras (política de privacidade, lista de
+  // usuários) e quem administra usuários, mesmo que por ajuste individual; a
+  // página de usuários ainda exige admin.manage para editar.
+  configuracoes: ["obras.read", "compras.read", "admin.manage"],
   // App Takeoff: kits, pesos, marcas VRF e parâmetros.
   takeoff: ["takeoff.config"],
 };

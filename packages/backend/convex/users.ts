@@ -255,8 +255,9 @@ export const deactivateFromClerk = internalMutation({
   },
 });
 
-// Listar todos os usuários. Equipe interna, ou quem atribui técnicos às obras
-// (um técnico líder com obras.gestao também escolhe a equipe da obra).
+// Listar todos os usuários. Equipe interna, quem administra usuários, ou quem
+// atribui técnicos às obras (um técnico líder com obras.gestao também escolhe
+// a equipe da obra).
 export const list = authedQuery({
   args: {
     onlyActive: v.optional(v.boolean()),
@@ -265,7 +266,11 @@ export const list = authedQuery({
   },
   returns: v.array(userValidator),
   handler: async (ctx, args) => {
-    if (!isStaff(ctx.user) && !hasPermission(ctx.user, "obras.gestao")) {
+    if (
+      !isStaff(ctx.user) &&
+      !hasPermission(ctx.user, "obras.gestao") &&
+      !hasPermission(ctx.user, "admin.manage")
+    ) {
       throw forbidden();
     }
     const users = args.onlyActive
