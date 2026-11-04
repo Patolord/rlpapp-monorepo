@@ -11,16 +11,16 @@ import { capitalizeFirst } from "@rlpapp/shared/usernames";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
 import { accessRoles, departments } from "./schema";
 import {
   adminMutation,
-  authedQuery,
+  adminQuery,
+  anyPermissionQuery,
   hasRole,
   requirePermission,
   requireUser,
-  staffQuery,
 } from "./lib/rbac";
-import { forbidden } from "./lib/accessErrors";
 import { accessFields, normalizeEmail, toUserView } from "./lib/users";
 import { enforceAgentTokenPolicy } from "./lib/agentTokens";
 
@@ -255,30 +255,18 @@ export const deactivateFromClerk = internalMutation({
   },
 });
 
-// Listar todos os usuários. Equipe interna, quem administra usuários, ou quem
-// atribui técnicos às obras (um técnico líder com obras.gestao também escolhe
-// a equipe da obra).
-export const list = authedQuery({
+// Lista completa de usuários (email, telefone, acessos, ajustes): só para
+// quem administra usuários (Configurações → Usuários). Telas que só precisam
+// escolher uma pessoa usam `listForPicker`.
+export const list = adminQuery({
   args: {
     onlyActive: v.optional(v.boolean()),
-    /** Só quem tem este acesso (ex.: técnicos de campo para atribuir a obras). */
+    /** Só quem tem este acesso (ex.: técnicos de campo). */
     role: v.optional(accessRoles),
   },
   returns: v.array(userValidator),
   handler: async (ctx, args) => {
-    if (
-      !isStaff(ctx.user) &&
-      !hasPermission(ctx.user, "obras.gestao") &&
-      !hasPermission(ctx.user, "admin.manage")
-    ) {
-      throw forbidden();
-    }
-    const users = args.onlyActive
-      ? await ctx.db
-          .query("users")
-          .withIndex("by_active", (q) => q.eq("isActive", true))
-          .collect()
-      : await ctx.db.query("users").collect();
+    const users = await collectUsers(ctx, args.onlyActive);
     const role = args.role;
     // Acessos se combinam (um técnico pode ser também da equipe), então o
     // filtro olha o conjunto inteiro.
@@ -286,8 +274,55 @@ export const list = authedQuery({
   },
 });
 
+export const userPickerValidator = v.object({
+  _id: v.id("users"),
+  name: v.string(),
+  username: v.optional(v.string()),
+  isActive: v.boolean(),
+});
+
+/**
+ * Pessoas para escolher num seletor (técnicos de uma obra, usuário do app de
+ * um funcionário): só nome e login, sem email, telefone nem acessos.
+ */
+export const listForPicker = anyPermissionQuery(
+  "obras.gestao",
+  "rh.funcionarios.write"
+)({
+  args: {
+    onlyActive: v.optional(v.boolean()),
+    /** Só quem tem este acesso (ex.: técnicos de campo para atribuir a obras). */
+    role: v.optional(accessRoles),
+  },
+  returns: v.array(userPickerValidator),
+  handler: async (ctx, args) => {
+    const users = await collectUsers(ctx, args.onlyActive);
+    const role = args.role;
+    return (role ? users.filter((user) => hasRole(user, role)) : users).map(
+      (user) => ({
+        _id: user._id,
+        name: user.name,
+        username: user.username,
+        isActive: user.isActive,
+      })
+    );
+  },
+});
+
+async function collectUsers(
+  ctx: QueryCtx,
+  onlyActive: boolean | undefined
+): Promise<Doc<"users">[]> {
+  return onlyActive
+    ? await ctx.db
+        .query("users")
+        .withIndex("by_active", (q) => q.eq("isActive", true))
+        .collect()
+    : await ctx.db.query("users").collect();
+}
+
 // Buscar usuário por ID
-export const get = staffQuery({
+export const get = adminQuery({
   args: { id: v.id("users") },
   returns: v.union(userValidator, v.null()),
   handler: async (ctx, args) => {
@@ -297,7 +332,7 @@ export const get = staffQuery({
 });
 
 // Buscar usuário por email
-export const getByEmail = staffQuery({
+export const getByEmail = adminQuery({
   args: { email: v.string() },
   returns: v.union(userValidator, v.null()),
   handler: async (ctx, args) => {

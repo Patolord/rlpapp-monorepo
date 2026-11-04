@@ -45,6 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getErrorMessage } from "@/lib/errors";
+import { useCan } from "@/hooks/use-can";
 import { formatMonthLabel } from "@/lib/rh/labels";
 import { formatCentsInput, parsePayrollAmountToCents } from "@/lib/rh/money";
 
@@ -812,7 +813,12 @@ const NO_USER = "__none__";
  * É um vínculo próprio, salvo na hora, independente do formulário de edição.
  */
 function AppUserSection({ employee }: { employee: EmployeeSummary }) {
-  const users = useQuery(api.users.list, { onlyActive: true });
+  // Só nome e login: a lista completa de usuários é da administração.
+  const canLink = useCan("rh.funcionarios.write");
+  const users = useQuery(
+    api.users.listForPicker,
+    canLink ? { onlyActive: true } : "skip"
+  );
   const linkUser = useMutation(api.employees.linkUser);
   const [selected, setSelected] = useState<string>(employee.userId ?? NO_USER);
   const [saving, setSaving] = useState(false);
@@ -835,6 +841,9 @@ function AppUserSection({ employee }: { employee: EmployeeSummary }) {
       setSaving(false);
     }
   }
+
+  // Vincular é edição de funcionário (employees.linkUser).
+  if (!canLink) return null;
 
   return (
     <div className="grid gap-2 rounded-md border p-3">
@@ -863,7 +872,7 @@ function AppUserSection({ employee }: { employee: EmployeeSummary }) {
             {sorted.map((user) => (
               <SelectItem key={user._id} value={user._id}>
                 {formatDisplayName(user.name)}
-                {user.username ? ` (@${formatUsername(user.username)})` : user.email ? ` (${user.email})` : ""}
+                {user.username ? ` (@${formatUsername(user.username)})` : ""}
               </SelectItem>
             ))}
           </SelectContent>

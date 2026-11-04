@@ -60,7 +60,7 @@ describe("catálogo de funções para o MCP", () => {
     });
 
     // Wrappers de staff/autenticado são sempre permitidos para quem lê o catálogo.
-    expect(byPath.get("users:get")).toMatchObject({
+    expect(byPath.get("agentTokens:list")).toMatchObject({
       access: { kind: "staff" },
       allowed: true,
     });

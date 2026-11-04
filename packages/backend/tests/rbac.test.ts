@@ -46,7 +46,7 @@ describe("erros de acesso tipados", () => {
   test("usuário externo em query de staff: FORBIDDEN genérico", async () => {
     const t = setup();
     const asQr = await withUser(t, { clerkId: "qr1", role: "qr_operator" });
-    const error = await rejection(asQr.query(api.users.list, {}));
+    const error = await rejection(asQr.query(api.agentTokens.list, {}));
     expect((error as ConvexError<{ code: string }>).data).toEqual({
       code: "FORBIDDEN",
       message: "Insufficient permissions",

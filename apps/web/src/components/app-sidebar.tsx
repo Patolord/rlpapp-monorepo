@@ -148,7 +148,12 @@ function getNavGroups(): NavGroup[] {
       key: "configuracoes",
       label: "Configurações",
       items: [
-        { to: "/configuracoes/usuarios", label: "Usuários", icon: UserPlus },
+        {
+          to: "/configuracoes/usuarios",
+          label: "Usuários",
+          icon: UserPlus,
+          permission: "admin.manage",
+        },
         {
           to: "/configuracoes/politica-privacidade",
           label: "Política de Privacidade",

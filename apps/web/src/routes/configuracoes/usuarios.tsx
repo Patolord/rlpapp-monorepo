@@ -113,15 +113,15 @@ function UsuariosPage() {
 
 function UsuariosContent() {
   const currentUser = useQuery(api.users.getCurrentUser);
-  const users = useQuery(api.users.list, {});
+  const isAdmin = can(currentUser, "admin.manage");
+  // A lista completa (email, telefone, acessos) é só da administração.
+  const users = useQuery(api.users.list, isAdmin ? {} : "skip");
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deactivatingUser, setDeactivatingUser] = useState<User | null>(null);
   const [revokingUser, setRevokingUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-
-  const isAdmin = can(currentUser, "admin.manage");
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];

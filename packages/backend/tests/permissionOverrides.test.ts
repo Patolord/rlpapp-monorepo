@@ -181,6 +181,39 @@ describe("ajustes individuais de permissão", () => {
     ).rejects.toThrow("Insufficient permissions");
   });
 
+  test("lista completa de usuários só para administração; seletor só com nome", async () => {
+    const t = setup();
+    await withUser(t, { clerkId: "tec-x", name: "Técnico X", email: "x@rlp.com", roles: ["qr_operator"] });
+    const asEng = await withUser(t, { clerkId: "eng-x", roles: ["engenheiro"] });
+    const asRh = await withUser(t, { clerkId: "rh-x", roles: ["rh"] });
+    const asLeader = await withUser(t, {
+      clerkId: "lider-x",
+      roles: ["qr_operator"],
+      permissionGrants: ["obras.gestao"],
+    });
+    const asAdmin = await withUser(t, { clerkId: "adm-x", roles: ["admin"] });
+
+    for (const asUser of [asEng, asRh, asLeader]) {
+      await expect(asUser.query(api.users.list, {})).rejects.toThrow("admin.manage");
+    }
+    const full = await asAdmin.query(api.users.list, { role: "qr_operator" });
+    expect(full.find((u) => u.name === "Técnico X")?.email).toBe("x@rlp.com");
+
+    // Quem atribui técnicos (obras.gestao) ou vincula funcionários (RH) vê só
+    // nome e login.
+    for (const asUser of [asEng, asLeader, asRh]) {
+      const picker = await asUser.query(api.users.listForPicker, {
+        onlyActive: true,
+        role: "qr_operator",
+      });
+      const tech = picker.find((u) => u.name === "Técnico X");
+      expect(tech).toBeDefined();
+      expect(Object.keys(tech!).sort()).toEqual(["_id", "isActive", "name"]);
+    }
+    const asQr = t.withIdentity({ subject: "tec-x" });
+    await expect(asQr.query(api.users.listForPicker, {})).rejects.toThrow("obras.gestao");
+  });
+
   test("valores fora do catálogo gravados no documento são ignorados", async () => {
     const t = setup();
     const asOld = await withUser(t, {
