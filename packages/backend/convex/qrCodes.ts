@@ -7,12 +7,10 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import {
-  hasRole,
   authedMutation,
-  engineeringMutation,
-  engineeringQuery,
-  staffMutation,
-  staffQuery,
+  hasRole,
+  obrasMutation,
+  obrasQuery,
 } from "./lib/rbac";
 import { logAudit, logEquipmentHistory } from "./lib/audit";
 import { isProjectArchived } from "./lib/projects/helpers";
@@ -167,7 +165,7 @@ export const getByToken = query({
   },
 });
 
-export const stats = staffQuery({
+export const stats = obrasQuery({
   args: {},
   returns: v.object({
     total: v.number(),
@@ -189,7 +187,7 @@ export const stats = staffQuery({
   },
 });
 
-export const search = staffQuery({
+export const search = obrasQuery({
   args: { term: v.string() },
   returns: v.object({
     batches: v.array(batchSummaryValidator),
@@ -318,7 +316,7 @@ export const search = staffQuery({
   },
 });
 
-export const getByEquipmentId = staffQuery({
+export const getByEquipmentId = obrasQuery({
   args: { equipmentId: v.id("equipment") },
   returns: v.union(qrCodeValidator, v.null()),
   handler: async (ctx, args) => {
@@ -357,7 +355,7 @@ export const listUnassignedForAi = internalQuery({
   },
 });
 
-export const create = staffMutation({
+export const create = obrasMutation({
   args: {
     token: v.string(),
   },
@@ -380,7 +378,7 @@ export const create = staffMutation({
   },
 });
 
-export const batchCreate = staffMutation({
+export const batchCreate = obrasMutation({
   args: {
     tokens: v.array(v.string()),
     batchName: v.optional(v.string()),
@@ -444,7 +442,7 @@ export const batchCreate = staffMutation({
 
 // Lotes recentes de toda a base (todas as obras). Exposto ao MCP
 // (`list_qr_batches`); no dashboard os lotes são vistos por obra.
-export const listBatches = staffQuery({
+export const listBatches = obrasQuery({
   args: {
     limit: v.optional(v.number()),
   },
@@ -501,7 +499,7 @@ export const listBatches = staffQuery({
 // Lotes de QR codes que ainda têm etiquetas disponíveis (ativas e sem
 // equipamento vinculado), com os tokens livres de cada lote. Usado pelo painel
 // de cadastro rápido para vincular etiquetas impressas escolhendo pelo lote.
-export const listAvailableBatches = engineeringQuery({
+export const listAvailableBatches = obrasQuery({
   args: {},
   returns: v.array(
     v.object({
@@ -574,7 +572,7 @@ export const listAvailableBatches = engineeringQuery({
 // Lotes cujas etiquetas não pertencem a nenhuma obra (lotes antigos, criados
 // antes da obra de destino ser obrigatória). Etiquetas cadastradas desses lotes
 // não aparecem em nenhuma obra até o lote receber uma obra.
-export const listBatchesWithoutProject = engineeringQuery({
+export const listBatchesWithoutProject = obrasQuery({
   args: {},
   returns: v.array(
     v.object({
@@ -639,7 +637,7 @@ export const listBatchesWithoutProject = engineeringQuery({
 // Define (ou troca) a obra de destino de um lote e grava a obra nas etiquetas
 // do lote. Etiquetas cujo equipamento já está num item planejado mantêm a obra
 // do item planejado, que é a fonte de verdade.
-export const setBatchProject = engineeringMutation({
+export const setBatchProject = obrasMutation({
   args: {
     batchId: v.string(),
     projectId: v.id("projects"),
@@ -706,7 +704,7 @@ export const setBatchProject = engineeringMutation({
   },
 });
 
-export const remove = staffMutation({
+export const remove = obrasMutation({
   args: {
     token: v.string(),
   },
@@ -730,7 +728,7 @@ export const remove = staffMutation({
   },
 });
 
-export const removeMany = staffMutation({
+export const removeMany = obrasMutation({
   args: {
     tokens: v.array(v.string()),
   },
@@ -1126,7 +1124,7 @@ export async function generateQrForItem(
 // Gera um QR único para um item planejado da obra, criando o equipamento real
 // e vinculando-o (sem alterar o status do planejamento). Idempotente: se o item
 // já tem equipamento vinculado com QR, retorna o token existente.
-export const generateForProjectEquipment = engineeringMutation({
+export const generateForProjectEquipment = obrasMutation({
   args: { itemId: v.id("projectEquipment") },
   returns: v.object({ token: v.string(), created: v.boolean() }),
   handler: async (ctx, args) => {
@@ -1142,7 +1140,7 @@ export const generateForProjectEquipment = engineeringMutation({
 //   - QR já cadastrado pelo técnico (equipment sem item planejado): reaproveita
 //     o cadastro existente (descrição/fotos preservadas) e apenas vincula.
 // Não altera o status do planejamento (etiqueta colada não significa instalado).
-export const linkTokenToProjectEquipment = engineeringMutation({
+export const linkTokenToProjectEquipment = obrasMutation({
   args: {
     token: v.string(),
     itemId: v.id("projectEquipment"),
@@ -1226,7 +1224,7 @@ export const linkTokenToProjectEquipment = engineeringMutation({
 // Fila de atribuição do operador: equipamentos já cadastrados pelo técnico
 // (QR com equipment) destinados a esta obra, mas ainda sem item planejado.
 // Fontes: QRs com projectId herdado do lote e QRs de lotes destinados à obra.
-export const listRegisteredForProject = engineeringQuery({
+export const listRegisteredForProject = obrasQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(
     v.object({
@@ -1326,7 +1324,7 @@ const projectQrRowValidator = v.object({
 // Lista todos os QR codes atribuídos a uma obra, com a localização
 // (torre/andar/ambiente) e os dados do item planejado vinculado.
 // Usa o campo denormalizado qrCodes.projectId (índice by_project).
-export const listByProject = staffQuery({
+export const listByProject = obrasQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(projectQrRowValidator),
   handler: async (ctx, args) => {

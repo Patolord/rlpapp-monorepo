@@ -3,9 +3,14 @@ import { CalendarDays, CalendarRange, Link2, Radio } from "lucide-react";
 
 import { AuthShell } from "@/components/auth-shell";
 import { cn } from "@/lib/utils";
+import { PermissionGate } from "@/components/role-area-gate";
 
 export const Route = createFileRoute("/rh/ponto")({
-  component: PontoLayout,
+  component: () => (
+    <PermissionGate permissions={["rh.ponto.read"]}>
+      <PontoLayout />
+    </PermissionGate>
+  ),
 });
 
 const TABS = [

@@ -26,7 +26,7 @@ export function AssignTechniciansDialog({
   trigger?: ReactNode;
 }) {
   const assigned = useQuery(api.projects.getAssignedTechnicians, { projectId });
-  const candidates = useQuery(api.users.list, {
+  const candidates = useQuery(api.users.listForPicker, {
     onlyActive: true,
     role: "qr_operator",
   });

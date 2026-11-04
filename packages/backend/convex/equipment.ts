@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import {
   authedMutation,
   authedQuery,
-  engineeringQuery,
+  obrasQuery,
   staffQuery,
 } from "./lib/rbac";
 
@@ -32,7 +32,7 @@ const engineeringEquipmentReturn = v.object({
   notes: v.union(v.string(), v.null()),
 });
 
-export const getForEngineering = engineeringQuery({
+export const getForEngineering = obrasQuery({
   args: { id: v.id("equipment") },
   returns: v.union(engineeringEquipmentReturn, v.null()),
   handler: async (ctx, args) => {
@@ -131,7 +131,7 @@ export const update = authedMutation({
 });
 
 // Equipamentos que ainda não foram alocados a nenhum item de obra.
-export const listAssignable = engineeringQuery({
+export const listAssignable = obrasQuery({
   args: {},
   handler: async (ctx) => {
     const equipment = await ctx.db

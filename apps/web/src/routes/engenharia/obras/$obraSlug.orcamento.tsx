@@ -38,9 +38,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { getErrorMessage } from "@/lib/errors";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
+import { PermissionGate } from "@/components/role-area-gate";
 
 export const Route = createFileRoute("/engenharia/obras/$obraSlug/orcamento")({
-  component: OrcamentoPage,
+  component: () => (
+    <PermissionGate permissions={["suprimentos.read"]}>
+      <OrcamentoPage />
+    </PermissionGate>
+  ),
 });
 
 function OrcamentoPage() {
@@ -155,9 +160,12 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
     const price = item.estimatedUnitPriceCents ?? 0;
     return sum + qty * price;
   }, 0);
-  const canPromoteMaterial = can(currentUser, "compras.write");
-  // quem publica (engenharia.write) também remove um orçamento do desktop
-  const canRemoveDesktopBudget = can(currentUser, "engenharia.write");
+  // Cada ação segue a permissão da mutation que ela chama.
+  const canPromoteMaterial = can(currentUser, "materiais.write");
+  const canQuote = can(currentUser, "precos.write");
+  const canEdit = can(currentUser, "orcamentos.write");
+  // quem publica (orcamentos.write) também remove um orçamento do desktop
+  const canRemoveDesktopBudget = can(currentUser, "orcamentos.write");
   const activeSummary = takeoffs?.find((t) => t._id === activeTakeoffId);
   // Orçamentos do desktop são editados lá e republicados: sem entrada manual.
   const isDesktop = activeSummary?.source === "desktop";
@@ -174,6 +182,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
             Entrada livre — preços da Compras são opcionais e servem apenas como referência.
           </p>
         </div>
+        {canEdit && (
         <Button
           variant="outline"
           onClick={async () => {
@@ -188,6 +197,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
           <Plus />
           Novo takeoff
         </Button>
+        )}
       </div>
 
       {showSelector && (
@@ -211,6 +221,8 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
         <DesktopBudgetView
           detail={takeoffDetail}
           canPromoteMaterial={canPromoteMaterial}
+          canQuote={canQuote}
+          canEdit={canEdit}
           canRemove={canRemoveDesktopBudget}
           onQuote={setQuoteTarget}
           // o efeito acima escolhe o primeiro orçamento que sobrou
@@ -220,6 +232,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
 
       {!isDesktop && (
         <>
+        {canEdit && (
         <Card>
           <CardHeader>
             <CardTitle>Adicionar item</CardTitle>
@@ -362,6 +375,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
             </Button>
           </CardContent>
         </Card>
+        )}
 
         <Card>
           <CardHeader>
@@ -421,14 +435,17 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                             materialId={item.materialId}
                             familyName={item.rawDescription}
                             dimensions={item.customDimensions}
-                            onApply={(unitPriceCents) =>
-                              void applyPrice({
-                                itemId: item._id,
-                                unitPriceCents,
-                              }).then(
-                                () => toast.success("Estimativa aplicada"),
-                                (e) => toast.error(getErrorMessage(e, "Erro"))
-                              )
+                            onApply={
+                              canEdit
+                                ? (unitPriceCents) =>
+                                    void applyPrice({
+                                      itemId: item._id,
+                                      unitPriceCents,
+                                    }).then(
+                                      () => toast.success("Estimativa aplicada"),
+                                      (e) => toast.error(getErrorMessage(e, "Erro"))
+                                    )
+                                : undefined
                             }
                           />
                         ) : null}
@@ -443,7 +460,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                               {p.supplierName}: {formatCurrency(p.unitPriceCents)}
                             </span>
                             <PriceFreshnessBadge freshness={p.freshness} />
-                            {p.suggestedUnitPriceCents != null && (
+                            {canEdit && p.suggestedUnitPriceCents != null && (
                               <Button
                                 size="xs"
                                 variant="ghost"
@@ -478,7 +495,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
-                        {canPromoteMaterial ? (
+                        {canQuote ? (
                           <Button
                             variant="outline"
                             size="sm"
@@ -513,6 +530,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                             Criar SKU
                           </Button>
                         ) : null}
+                        {canEdit && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -526,6 +544,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                         >
                           <Trash2 />
                         </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

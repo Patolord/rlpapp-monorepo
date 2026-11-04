@@ -51,7 +51,9 @@ const STATUS_FILTERS = [
 
 export default function UsuariosScreen() {
   const currentUser = useQuery(api.users.getCurrentUser);
-  const users = useQuery(api.users.list, {});
+  const isAdmin = can(currentUser, "admin.manage");
+  // A lista completa (email, telefone, acessos) é só da administração.
+  const users = useQuery(api.users.list, isAdmin ? {} : "skip");
   const createUser = useAction(api.userAdmin.adminCreateUser);
   const updateUser = useMutation(api.users.update);
   const removeUser = useMutation(api.users.remove);
@@ -80,8 +82,6 @@ export default function UsuariosScreen() {
     phone: "",
     roles: [] as Role[],
   });
-
-  const isAdmin = can(currentUser, "admin.manage");
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];

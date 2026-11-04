@@ -1,7 +1,10 @@
 import { v } from "convex/values";
-import { engineeringQuery, engineeringMutation } from "./lib/rbac";
+import {
+  assistenteMutation,
+  assistenteQuery,
+} from "./lib/rbac";
 
-export const listSessions = engineeringQuery({
+export const listSessions = assistenteQuery({
   args: {
     projectId: v.id("projects"),
   },
@@ -27,7 +30,7 @@ export const listSessions = engineeringQuery({
   },
 });
 
-export const getMessages = engineeringQuery({
+export const getMessages = assistenteQuery({
   args: {
     sessionId: v.id("aiChatSessions"),
   },
@@ -55,7 +58,7 @@ export const getMessages = engineeringQuery({
   },
 });
 
-export const createSession = engineeringMutation({
+export const createSession = assistenteMutation({
   args: {
     projectId: v.id("projects"),
     title: v.optional(v.string()),
@@ -73,7 +76,7 @@ export const createSession = engineeringMutation({
   },
 });
 
-export const addMessage = engineeringMutation({
+export const addMessage = assistenteMutation({
   args: {
     sessionId: v.id("aiChatSessions"),
     role: v.union(v.literal("user"), v.literal("assistant")),
@@ -99,7 +102,7 @@ export const addMessage = engineeringMutation({
   },
 });
 
-export const updateSessionTitle = engineeringMutation({
+export const updateSessionTitle = assistenteMutation({
   args: {
     sessionId: v.id("aiChatSessions"),
     title: v.string(),
@@ -118,7 +121,7 @@ export const updateSessionTitle = engineeringMutation({
   },
 });
 
-export const deleteSession = engineeringMutation({
+export const deleteSession = assistenteMutation({
   args: {
     sessionId: v.id("aiChatSessions"),
   },

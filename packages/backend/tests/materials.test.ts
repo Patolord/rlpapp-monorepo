@@ -215,7 +215,7 @@ describe("materials catalog", () => {
         materialId,
         laborPriceCents: 100,
       })
-    ).rejects.toThrow("compras");
+    ).rejects.toThrow("materiais.write");
   });
 
   test("listCatalog supports search by SKU", async () => {
@@ -240,7 +240,7 @@ describe("materials catalog", () => {
 
     await expect(
       warehouse.mutation(api.materials.generateUploadUrl, {})
-    ).rejects.toThrow("compras");
+    ).rejects.toThrow("materiais.write");
 
     const uploadUrl = await purchasing.mutation(
       api.materials.generateUploadUrl,
@@ -736,7 +736,7 @@ describe("materials catalog", () => {
       })
     ).rejects.toThrow("Estoque mínimo");
 
-    // Estoque não tem compras.write — precisa de upsertFromWarehouse.
+    // Estoque não tem materiais.write — precisa de upsertFromWarehouse.
     await expect(
       warehouse.mutation(api.inventoryStockPolicies.upsert, {
         locationId,
@@ -745,7 +745,7 @@ describe("materials catalog", () => {
         reorderPoint: 5,
         targetQuantity: 20,
       })
-    ).rejects.toThrow("compras");
+    ).rejects.toThrow("materiais.write");
 
     const policyId = await warehouse.mutation(
       api.inventoryStockPolicies.upsertFromWarehouse,
@@ -860,7 +860,7 @@ describe("materials catalog", () => {
         name: "Tubo de Cobre",
         unit: "m",
       })
-    ).rejects.toThrow("estoque ou compras");
+    ).rejects.toThrow("estoque.entrada");
 
     const suggestions = await warehouse.query(api.materials.suggest, {
       term: "isolamento",

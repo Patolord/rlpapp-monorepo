@@ -64,8 +64,10 @@ function RoleAwareDrawer({
   const isDirector = currentUser != null && currentUser.homeArea === null;
 
   // Mesmas permissões que o backend exige em cada módulo.
-  const showRh = can(currentUser, "rh.read");
-  const showEngenharia = can(currentUser, "engenharia.read");
+  // Folha e ponto dependem de rh.funcionarios.read; obras.read é a base de
+  // toda a engenharia (PERMISSION_DEPENDENCIES no shared).
+  const showRh = can(currentUser, "rh.funcionarios.read");
+  const showEngenharia = can(currentUser, "obras.read");
   const showCompras = can(currentUser, "compras.read");
   const showEstoque = can(currentUser, "estoque.read");
   const showPortal = isDirector || (currentUser?.roles.includes("client") ?? false);

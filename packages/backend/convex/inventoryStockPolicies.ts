@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import {
   inventoryMutation,
   inventoryQuery,
-  purchasingMutation,
+  materiaisMutation,
   staffMutation,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
@@ -141,7 +141,7 @@ export const getForLocation = inventoryQuery({
   },
 });
 
-export const upsert = purchasingMutation({
+export const upsert = materiaisMutation({
   args: {
     locationId: v.id("inventoryLocations"),
     materialId: v.id("materials"),

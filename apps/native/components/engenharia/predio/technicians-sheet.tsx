@@ -14,7 +14,7 @@ import { colors, space, type } from "@/lib/theme";
 export function TechniciansSheet({ open, onClose, projectId }: { open: boolean; onClose: () => void; projectId: Id<"projects"> }) {
   const toast = useToast();
   const assigned = useQuery(api.projects.getAssignedTechnicians, open ? { projectId } : "skip");
-  const candidates = useQuery(api.users.list, open ? { onlyActive: true, role: "qr_operator" } : "skip");
+  const candidates = useQuery(api.users.listForPicker, open ? { onlyActive: true, role: "qr_operator" } : "skip");
   const setTechnicians = useMutation(api.projects.setTechnicians);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dirty, setDirty] = useState(false);

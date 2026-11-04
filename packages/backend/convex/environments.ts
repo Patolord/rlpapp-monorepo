@@ -1,5 +1,8 @@
 import { v } from "convex/values";
-import { engineeringMutation, engineeringQuery } from "./lib/rbac";
+import {
+  obrasMutation,
+  obrasQuery,
+} from "./lib/rbac";
 import { logAudit } from "./lib/audit";
 import { deleteSystemsIfOrphaned } from "./systems";
 import type { Id } from "./_generated/dataModel";
@@ -20,7 +23,7 @@ const segmentValidator = v.object({
 });
 
 // Lista os ambientes de um andar (ordenados).
-export const listByFloor = engineeringQuery({
+export const listByFloor = obrasQuery({
   args: { floorId: v.id("floors") },
   returns: v.array(
     v.object({
@@ -105,7 +108,7 @@ function validateSegments(
   });
 }
 
-export const create = engineeringMutation({
+export const create = obrasMutation({
   args: {
     floorId: v.id("floors"),
     name: v.string(),
@@ -155,7 +158,7 @@ export const create = engineeringMutation({
   },
 });
 
-export const update = engineeringMutation({
+export const update = obrasMutation({
   args: {
     environmentId: v.id("environments"),
     name: v.optional(v.string()),
@@ -216,7 +219,7 @@ export const update = engineeringMutation({
   },
 });
 
-export const remove = engineeringMutation({
+export const remove = obrasMutation({
   args: { environmentId: v.id("environments") },
   returns: v.null(),
   handler: async (ctx, args) => {

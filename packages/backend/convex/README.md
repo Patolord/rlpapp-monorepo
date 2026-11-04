@@ -71,8 +71,9 @@ Domain terminology is defined in the repository-level `CONTEXT.md`.
 
 Each user holds a set of combinable **access roles** (`users.roles`: `director`,
 `admin`, `engenheiro`, `engenharia`, `compras`, `estoque`, `rh`, `takeoff`,
-`qr_operator`, `client`). Every role grants a fixed set of permissions
-(`ROLE_PERMISSIONS`) and the user's permissions are the union. The policy lives
+`qr_operator`, `client`). Every role grants a set of per-feature permissions
+(`ROLE_PERMISSIONS`); the user's permissions are the union, adjusted by their
+individual overrides (see below). The policy lives
 in `@rlpapp/shared/auth/permissions` (`packages/shared/src/auth/permissions.ts`),
 with a matrix test in `packages/shared/tests`. It is shared with the apps, which
 only use it to hide navigation and actions; enforcement happens here, in
@@ -91,7 +92,8 @@ only use it to hide navigation and actions; enforcement happens here, in
    any external side effect.
 5. `users.getCurrentUser` returns `roles`, `permissions`, `isStaff` and
    `homeArea` computed by the policy. Clients check
-   `can(currentUser, "compras.write")` instead of comparing `role`/`department`.
+   `can(currentUser, "materiais.write")` instead of comparing `role`/`department`.
+   `permissions` already includes the user's individual overrides.
 
 Migration from the legacy `role` (job title) + `department` pair:
 
@@ -117,11 +119,36 @@ raw `query` or `mutation`:
 
 - `authedQuery` / `authedMutation`: any active user.
 - `staffQuery` / `staffMutation`: internal roles.
-- `adminQuery` / `adminMutation`: directors and administrators.
-- `engineeringQuery` / `engineeringMutation`: engineering access.
-- `purchasingQuery` / `purchasingMutation`: procurement access.
-- `inventoryQuery` / `inventoryMutation`: inventory access.
-- `hrQuery` / `hrMutation`: HR access.
+- One named wrapper per feature permission, declared in `lib/rbac.ts` as
+  `export const x = permissionQuery("perm");` (or `anyPermission*`):
+  `obrasQuery`/`obrasMutation`/`obrasGestaoMutation`, `contratos*`,
+  `medicoes*` (+ `medicoesAprovarMutation`), `documentos*`,
+  `orcamentosMutation`, `assistente*`, `cadastros*`, `materiaisMutation`,
+  `fornecedoresMutation`, `precosMutation`, `takeoffConfigMutation`,
+  `inventory*`, `materialRequestsMutation`, `funcionarios*`, `folha*`,
+  `ponto*`, `adminQuery`/`adminMutation`. The MCP catalog generator reads
+  those declarations, so keep that exact shape.
+
+### Per-feature permissions and individual overrides
+
+Permissions are per feature (`obras.read`, `contratos.write`,
+`medicoes.aprovar`, `rh.folha.read`, `campo.todas_obras`...; full list, labels
+and prerequisites in `PERMISSIONS` / `PERMISSION_DEPENDENCIES` of the shared
+policy). Roles only provide the starting set (`ROLE_PERMISSIONS`). Each user
+can also carry `permissionGrants` (extra permissions) and `permissionDenials`
+(permissions removed from what their roles give), edited in Configurações →
+Usuários. Effective permissions = (roles ∪ grants, plus prerequisites) −
+denials, and anything whose prerequisite was removed drops too.
+
+- `requirePermission` no longer requires staff: a field technician
+  (`qr_operator`) granted `medicoes.read` really gets that feature.
+  `staffQuery`/`isStaff` still mean "member of the RLP team".
+- Field-app visibility: `seesAllFieldProjects(user)` (staff or
+  `campo.todas_obras`) replaces plain `isStaff` checks for "sees every obra".
+- `users.update` stores only what differs from the roles
+  (`normalizePermissionOverrides`) and re-evaluates the overrides when roles
+  change. Unknown values in stored documents are ignored, so renaming or
+  removing a permission from the catalog never breaks existing users.
 
 New access rules belong in the central permission policy rather than ad hoc
 wrappers or inline `user.role` / `user.department` comparisons. The only

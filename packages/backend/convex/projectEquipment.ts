@@ -2,8 +2,8 @@ import { v } from "convex/values";
 import {
   authedMutation,
   authedQuery,
-  engineeringMutation,
-  engineeringQuery,
+  obrasMutation,
+  obrasQuery,
 } from "./lib/rbac";
 import { equipmentStatusValidator } from "./equipment";
 import { generateQrForItem, getBatchDestination } from "./qrCodes";
@@ -105,7 +105,7 @@ const equipKindValidator = v.union(
 // denormalizado no campo `system`. O sistema é opcional: itens sem sistema são
 // permitidos (exibem alerta na UI até serem atribuídos a um sistema).
 // Diferente de `upsert`, que opera sobre o caminho legado de apartamentos.
-export const upsertInEnvironment = engineeringMutation({
+export const upsertInEnvironment = obrasMutation({
   args: {
     itemId: v.optional(v.id("projectEquipment")),
     environmentId: v.id("environments"),
@@ -183,7 +183,7 @@ export const upsertInEnvironment = engineeringMutation({
 // (painel de cadastro rápido). Para cada ambiente × item × qty insere um
 // registro com os mesmos defaults de `upsertInEnvironment`. Opcionalmente gera
 // um QR novo para cada item criado.
-export const bulkAddToEnvironments = engineeringMutation({
+export const bulkAddToEnvironments = obrasMutation({
   args: {
     environmentIds: v.array(v.id("environments")),
     systemId: v.optional(v.id("systems")),
@@ -313,7 +313,7 @@ const unassignedItemValidator = v.object({
 // Lista itens planejados da obra que ainda não estão em nenhum ambiente
 // (pool de "não atribuídos" do painel lateral). Itens legados de apartamentos
 // (unitId) ficam fora do pool.
-export const listUnassigned = engineeringQuery({
+export const listUnassigned = obrasQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(unassignedItemValidator),
   handler: async (ctx, args) => {
@@ -345,7 +345,7 @@ export const listUnassigned = engineeringQuery({
 
 // Cria um item planejado sem ambiente (vai para o pool de não atribuídos).
 // Sistema é opcional: itens sem sistema exibem alerta na UI.
-export const createUnassigned = engineeringMutation({
+export const createUnassigned = obrasMutation({
   args: {
     projectId: v.id("projects"),
     systemId: v.optional(v.id("systems")),
@@ -394,7 +394,7 @@ export const createUnassigned = engineeringMutation({
 // Atribui um item do pool de não atribuídos a um ambiente. Pode opcionalmente
 // definir/alterar o sistema no mesmo passo; itens sem sistema continuam
 // permitidos (alerta na UI).
-export const assignToEnvironment = engineeringMutation({
+export const assignToEnvironment = obrasMutation({
   args: {
     itemId: v.id("projectEquipment"),
     environmentId: v.id("environments"),
@@ -439,7 +439,7 @@ export const assignToEnvironment = engineeringMutation({
   },
 });
 
-export const upsert = engineeringMutation({
+export const upsert = obrasMutation({
   args: {
     itemId: v.optional(v.id("projectEquipment")),
     projectId: v.id("projects"),
@@ -487,7 +487,7 @@ export const upsert = engineeringMutation({
   },
 });
 
-export const setStatus = engineeringMutation({
+export const setStatus = obrasMutation({
   args: {
     itemId: v.id("projectEquipment"),
     status: equipmentStatusValidator,
@@ -524,7 +524,7 @@ export const setStatus = engineeringMutation({
   },
 });
 
-export const remove = engineeringMutation({
+export const remove = obrasMutation({
   args: { itemId: v.id("projectEquipment") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -576,7 +576,7 @@ export const addMedia = authedMutation({
 });
 
 // Vincula um equipamento real (QR) a um item planejado → verde/instalado.
-export const linkEquipment = engineeringMutation({
+export const linkEquipment = obrasMutation({
   args: {
     itemId: v.id("projectEquipment"),
     equipmentId: v.id("equipment"),
@@ -621,7 +621,7 @@ export const linkEquipment = engineeringMutation({
 // o projectEquipment no ambiente/sistema e vincula o equipamento existente,
 // preservando descrição/fotos do cadastro de campo. Não força "operational"
 // (atribuir à obra não significa instalado).
-export const createFromRegisteredEquipment = engineeringMutation({
+export const createFromRegisteredEquipment = obrasMutation({
   args: {
     environmentId: v.id("environments"),
     systemId: v.optional(v.id("systems")),
@@ -873,7 +873,7 @@ export const claimSlot = authedMutation({
   },
 });
 
-export const unlinkEquipment = engineeringMutation({
+export const unlinkEquipment = obrasMutation({
   args: { itemId: v.id("projectEquipment") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -896,7 +896,7 @@ export const unlinkEquipment = engineeringMutation({
 
 // Criação em lote (usada pelo assistente de IA após aprovação do usuário).
 // Cria apartamentos e seus itens em uma única transação.
-export const bulkCreate = engineeringMutation({
+export const bulkCreate = obrasMutation({
   args: {
     projectId: v.id("projects"),
     units: v.array(

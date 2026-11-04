@@ -37,13 +37,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { runWithToast } from "@/lib/errors";
+import { useCan } from "@/hooks/use-can";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
 import { obraLinkSlug } from "@/lib/engenharia/obra-paths";
+import { PermissionGate } from "@/components/role-area-gate";
 
 export const Route = createFileRoute(
   "/engenharia/obras/$obraSlug/medicoes"
 )({
-  component: MedicoesPage,
+  component: () => (
+    <PermissionGate permissions={["medicoes.read"]}>
+      <MedicoesPage />
+    </PermissionGate>
+  ),
 });
 
 function MedicoesPage() {
@@ -98,6 +104,8 @@ function MedicoesContent({
 }) {
   const contracts = useQuery(api.medicoes.listContracts, { projectId });
   const medicoes = useQuery(api.medicoes.listMedicoes, { projectId });
+  const canSeeContracts = useCan("contratos.read");
+  const canWrite = useCan("medicoes.write");
 
   const contractOptions: ContractOption[] = (contracts ?? []).map((c) => ({
     _id: c._id,
@@ -125,10 +133,12 @@ function MedicoesContent({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" render={<Link to="/engenharia/obras/$obraSlug/contratos" params={{ obraSlug }} />}>
-            Gerenciar contratos
-          </Button>
-          {contractOptions.length > 0 && (
+          {canSeeContracts && (
+            <Button variant="outline" render={<Link to="/engenharia/obras/$obraSlug/contratos" params={{ obraSlug }} />}>
+              Gerenciar contratos
+            </Button>
+          )}
+          {canWrite && contractOptions.length > 0 && (
             <MedicaoFormDialog
               projectId={projectId}
               contracts={contractOptions}
@@ -197,6 +207,7 @@ function TotalStat({
 }
 
 function EmptyState({ obraSlug }: { obraSlug: string }) {
+  const canSeeContracts = useCan("contratos.read");
   return (
     <Card>
       <EmptyStateBlock
@@ -204,17 +215,19 @@ function EmptyState({ obraSlug }: { obraSlug: string }) {
         title="Nenhum contrato elegível para medições"
         description="Cadastre um contrato de venda ao cliente nesta obra para começar a registrar medições."
         action={
-          <Button
-            render={
-              <Link
-                to="/engenharia/obras/$obraSlug/contratos"
-                params={{ obraSlug }}
-              />
-            }
-          >
-            <Plus />
-            Ir para contratos
-          </Button>
+          canSeeContracts ? (
+            <Button
+              render={
+                <Link
+                  to="/engenharia/obras/$obraSlug/contratos"
+                  params={{ obraSlug }}
+                />
+              }
+            >
+              <Plus />
+              Ir para contratos
+            </Button>
+          ) : undefined
         }
       />
     </Card>
@@ -232,6 +245,7 @@ function ContractCard({
   contractOptions: ContractOption[];
   medicoes: Medicao[];
 }) {
+  const canWrite = useCan("medicoes.write");
   const pctMedido =
     contract.valueCents > 0
       ? Math.round((contract.medidoCents / contract.valueCents) * 100)
@@ -254,17 +268,19 @@ function ContractCard({
               {contract.notes ? ` · ${contract.notes}` : ""}
             </p>
           </div>
-          <MedicaoFormDialog
-            projectId={projectId}
-            contracts={contractOptions}
-            defaultContractId={contract._id}
-            trigger={
-              <Button size="sm">
-                <Plus />
-                Nova medição
-              </Button>
-            }
-          />
+          {canWrite && (
+            <MedicaoFormDialog
+              projectId={projectId}
+              contracts={contractOptions}
+              defaultContractId={contract._id}
+              trigger={
+                <Button size="sm">
+                  <Plus />
+                  Nova medição
+                </Button>
+              }
+            />
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -354,6 +370,8 @@ function MedicaoRow({
 }) {
   const setStatus = useMutation(api.medicoes.setMedicaoStatus);
   const removeMedicao = useMutation(api.medicoes.removeMedicao);
+  const canWrite = useCan("medicoes.write");
+  const canApprove = useCan("medicoes.aprovar");
 
   async function handleStatus(status: MedicaoStatus, successMessage: string) {
     await runWithToast(
@@ -397,16 +415,18 @@ function MedicaoRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center justify-end gap-1">
-          {medicao.status === "rascunho" && (
+          {medicao.status === "rascunho" && canApprove && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void handleStatus("aprovada", "Medição aprovada")}
+            >
+              <Check />
+              Aprovar
+            </Button>
+          )}
+          {medicao.status === "rascunho" && canWrite && (
             <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => void handleStatus("aprovada", "Medição aprovada")}
-              >
-                <Check />
-                Aprovar
-              </Button>
               <MedicaoFormDialog
                 projectId={projectId}
                 contracts={contractOptions}
@@ -428,7 +448,7 @@ function MedicaoRow({
               </Button>
             </>
           )}
-          {medicao.status === "aprovada" && (
+          {medicao.status === "aprovada" && canApprove && (
             <>
               <Button
                 size="sm"
@@ -452,7 +472,7 @@ function MedicaoRow({
               </Button>
             </>
           )}
-          {medicao.status === "paga" && (
+          {medicao.status === "paga" && canApprove && (
             <Button
               variant="ghost"
               size="icon"

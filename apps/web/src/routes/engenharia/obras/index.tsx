@@ -7,6 +7,7 @@ import { EmptyState as EmptyStateBlock } from "@rlpapp/ui/web";
 import { AuthShell } from "@/components/auth-shell";
 import { BatchesWithoutProjectCard } from "@/components/engenharia/batches-without-project-card";
 import { ProjectFormDialog } from "@/components/engenharia/project-form-dialog";
+import { useCan } from "@/hooks/use-can";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { obraLinkSlug } from "@/lib/engenharia/obra-paths";
@@ -33,6 +34,7 @@ type ProjectSummary = {
 };
 
 function ObrasPage() {
+  const canCreate = useCan("obras.gestao");
   const projects = useQuery(api.projects.list, {});
 
   return (
@@ -44,14 +46,16 @@ function ObrasPage() {
             Acompanhe o avanço das instalações prédio por prédio.
           </p>
         </div>
-        <ProjectFormDialog
-          trigger={
-            <Button>
-              <Plus />
-              Nova obra
-            </Button>
-          }
-        />
+        {canCreate && (
+          <ProjectFormDialog
+            trigger={
+              <Button>
+                <Plus />
+                Nova obra
+              </Button>
+            }
+          />
+        )}
       </div>
 
       {projects === undefined ? (
@@ -77,6 +81,7 @@ function ObrasPage() {
 }
 
 function EmptyState() {
+  const canCreate = useCan("obras.gestao");
   return (
     <Card>
       <EmptyStateBlock
@@ -84,14 +89,16 @@ function EmptyState() {
         title="Nenhuma obra cadastrada"
         description="Crie a primeira obra para montar o prédio e acompanhar o que já foi instalado em cada andar."
         action={
-          <ProjectFormDialog
-            trigger={
-              <Button>
-                <Plus />
-                Criar primeira obra
-              </Button>
-            }
-          />
+          canCreate ? (
+            <ProjectFormDialog
+              trigger={
+                <Button>
+                  <Plus />
+                  Criar primeira obra
+                </Button>
+              }
+            />
+          ) : undefined
         }
       />
     </Card>

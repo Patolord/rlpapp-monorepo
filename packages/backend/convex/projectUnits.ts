@@ -1,5 +1,7 @@
 import { v } from "convex/values";
-import { engineeringMutation } from "./lib/rbac";
+import {
+  obrasMutation,
+} from "./lib/rbac";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
 
@@ -7,7 +9,7 @@ function autoUnitLabel(floor: number, final: number): string {
   return `${floor}${String(final).padStart(2, "0")}`;
 }
 
-export const upsert = engineeringMutation({
+export const upsert = obrasMutation({
   args: {
     // Quando ausente, cria; quando presente, atualiza.
     unitId: v.optional(v.id("projectUnits")),
@@ -56,7 +58,7 @@ export const upsert = engineeringMutation({
   },
 });
 
-export const setDeadline = engineeringMutation({
+export const setDeadline = obrasMutation({
   args: {
     unitId: v.id("projectUnits"),
     deadline: v.union(v.number(), v.null()),
@@ -72,7 +74,7 @@ export const setDeadline = engineeringMutation({
   },
 });
 
-export const remove = engineeringMutation({
+export const remove = obrasMutation({
   args: { unitId: v.id("projectUnits") },
   returns: v.null(),
   handler: async (ctx, args) => {

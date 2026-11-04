@@ -11,8 +11,8 @@ import { logAudit } from "./lib/audit";
 import { getUserByIdentity } from "./lib/auth";
 import {
   hasPermission,
-  hrMutation,
-  hrQuery,
+  pontoMutation,
+  pontoQuery,
   requirePermission,
   requireUser,
 } from "./lib/rbac";
@@ -280,7 +280,7 @@ export const assertHrWriteAccess = internalQuery({
   returns: v.null(),
   handler: async (ctx) => {
     const user = await requireUser(ctx);
-    requirePermission(user, "rh.write");
+    requirePermission(user, "rh.ponto.write");
     return null;
   },
 });
@@ -305,7 +305,7 @@ export const resolvePhoto = internalQuery({
     if (!(await ctx.auth.getUserIdentity())) return { status: "unauthenticated" as const };
     const user = await getUserByIdentity(ctx);
     if (!user) return { status: "unauthenticated" as const };
-    if (!user.isActive || !hasPermission(user, "rh.read")) {
+    if (!user.isActive || !hasPermission(user, "rh.ponto.read")) {
       return { status: "forbidden" as const };
     }
     const punchId = ctx.db.normalizeId("timeClockPunches", args.punchId);
@@ -438,7 +438,7 @@ export const replaceDay = internalMutation({
 // Públicas (RH)
 // ---------------------------------------------------------------------------
 
-export const getSyncStatus = hrQuery({
+export const getSyncStatus = pontoQuery({
   args: {},
   returns: syncStateValidator,
   handler: async (ctx) => {
@@ -458,7 +458,7 @@ export const getSyncStatus = hrQuery({
   },
 });
 
-export const getDay = hrQuery({
+export const getDay = pontoQuery({
   args: { date: v.string() },
   returns: v.object({
     date: v.string(),
@@ -635,7 +635,7 @@ export const getDay = hrQuery({
  * "Agora": onde está cada pessoa e quem está em cada obra, a partir da última
  * marcação do dia. O cliente informa a data civil (Brasília) de hoje.
  */
-export const getLiveStatus = hrQuery({
+export const getLiveStatus = pontoQuery({
   args: { date: v.string() },
   returns: v.object({
     date: v.string(),
@@ -785,7 +785,7 @@ export const getLiveStatus = hrQuery({
   },
 });
 
-export const getMonthStats = hrQuery({
+export const getMonthStats = pontoQuery({
   args: { year: v.number(), month: v.number() },
   returns: v.object({
     from: v.string(),
@@ -894,7 +894,7 @@ export const getMonthStats = hrQuery({
   },
 });
 
-export const listRhidPeople = hrQuery({
+export const listRhidPeople = pontoQuery({
   args: {},
   returns: v.array(personValidator),
   handler: async (ctx) => {
@@ -921,7 +921,7 @@ export const listRhidPeople = hrQuery({
   },
 });
 
-export const linkPerson = hrMutation({
+export const linkPerson = pontoMutation({
   args: {
     rhidPersonId: v.number(),
     employeeId: v.union(v.id("employees"), v.null()),
@@ -963,7 +963,7 @@ export const linkPerson = hrMutation({
   },
 });
 
-export const listRhidWorksites = hrQuery({
+export const listRhidWorksites = pontoQuery({
   args: {},
   returns: v.array(worksiteValidator),
   handler: async (ctx) => {
@@ -986,7 +986,7 @@ export const listRhidWorksites = hrQuery({
   },
 });
 
-export const linkWorksite = hrMutation({
+export const linkWorksite = pontoMutation({
   args: {
     rhidGeofenceId: v.number(),
     projectId: v.union(v.id("projects"), v.null()),
@@ -1019,7 +1019,7 @@ export const linkWorksite = hrMutation({
 });
 
 /** Obras do sistema para o seletor de vínculo (RH não acessa `projects.list`). */
-export const listProjectOptions = hrQuery({
+export const listProjectOptions = pontoQuery({
   args: {},
   returns: v.array(
     v.object({
@@ -1040,13 +1040,13 @@ export const listProjectOptions = hrQuery({
   },
 });
 
-export const getTimeClockSettings = hrQuery({
+export const getTimeClockSettings = pontoQuery({
   args: {},
   returns: settingsValidator,
   handler: async (ctx) => await getSettings(ctx),
 });
 
-export const updateTimeClockSettings = hrMutation({
+export const updateTimeClockSettings = pontoMutation({
   args: {
     manDayCostCents: v.optional(v.number()),
     trackedDepartments: v.optional(v.array(v.string())),

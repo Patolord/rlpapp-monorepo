@@ -1,7 +1,7 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { looksLikeConvexId } from "../engenharia/slug";
-import { isStaff } from "../rbac";
+import { seesAllFieldProjects } from "../rbac";
 
 /** Resolve uma obra por slug (preferido) ou por id (fallback legado). */
 export async function resolveProjectByIdentifier(
@@ -30,7 +30,7 @@ export async function assertTechnicianProjectAccess(
 ): Promise<Doc<"projects">> {
   const project = await ctx.db.get("projects", projectId);
   if (!project) throw new Error("Obra não encontrada");
-  if (isStaff(user)) return project;
+  if (seesAllFieldProjects(user)) return project;
   const allowed = (project.technicianIds ?? []).includes(user._id);
   if (!allowed) throw new Error("Acesso negado a esta obra");
   return project;

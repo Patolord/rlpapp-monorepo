@@ -19,9 +19,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
+import { PermissionGate } from "@/components/role-area-gate";
 
 export const Route = createFileRoute("/engenharia/obras/$obraSlug/estoque")({
-  component: ObraEstoquePage,
+  component: () => (
+    <PermissionGate permissions={["estoque.read"]}>
+      <ObraEstoquePage />
+    </PermissionGate>
+  ),
 });
 
 type Section = "saldos" | "movimentacoes" | "solicitacoes";

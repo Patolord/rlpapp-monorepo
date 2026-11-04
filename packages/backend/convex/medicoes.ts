@@ -1,5 +1,9 @@
 import { v } from "convex/values";
-import { engineeringMutation, engineeringQuery } from "./lib/rbac";
+import {
+  medicoesAprovarMutation,
+  medicoesMutation,
+  medicoesQuery,
+} from "./lib/rbac";
 import { medicaoBasis, medicaoStatus, projectStatus } from "./schema";
 import { logAudit } from "./lib/audit";
 import { resolveCustomerLabel } from "./lib/projects/helpers";
@@ -81,7 +85,7 @@ const medicaoValidator = v.object({
  * Lista contratos elegíveis para medições nesta obra (venda ao cliente).
  * Criação/edição de contratos passa a ser feita em `api.contracts`.
  */
-export const listContracts = engineeringQuery({
+export const listContracts = medicoesQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(contractSummaryValidator),
   handler: async (ctx, args) => {
@@ -119,7 +123,7 @@ export const listContracts = engineeringQuery({
 // Medições
 // ---------------------------------------------------------------------------
 
-export const listMedicoes = engineeringQuery({
+export const listMedicoes = medicoesQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(medicaoValidator),
   handler: async (ctx, args) => {
@@ -167,7 +171,7 @@ export const listMedicoes = engineeringQuery({
 });
 
 /** Progresso de instalação da obra — sugestão de % para medições por progresso. */
-export const getProgress = engineeringQuery({
+export const getProgress = medicoesQuery({
   args: { projectId: v.id("projects") },
   returns: v.object({
     totalItems: v.number(),
@@ -190,7 +194,7 @@ export const getProgress = engineeringQuery({
   },
 });
 
-export const createMedicao = engineeringMutation({
+export const createMedicao = medicoesMutation({
   args: {
     contractId: v.id("contracts"),
     description: v.optional(v.string()),
@@ -253,7 +257,7 @@ export const createMedicao = engineeringMutation({
   },
 });
 
-export const updateMedicao = engineeringMutation({
+export const updateMedicao = medicoesMutation({
   args: {
     medicaoId: v.id("medicoes"),
     description: v.optional(v.string()),
@@ -314,7 +318,7 @@ const STATUS_ORDER: Record<Doc<"medicoes">["status"], number> = {
   paga: 2,
 };
 
-export const setMedicaoStatus = engineeringMutation({
+export const setMedicaoStatus = medicoesAprovarMutation({
   args: {
     medicaoId: v.id("medicoes"),
     status: medicaoStatus,
@@ -354,7 +358,7 @@ export const setMedicaoStatus = engineeringMutation({
   },
 });
 
-export const removeMedicao = engineeringMutation({
+export const removeMedicao = medicoesMutation({
   args: { medicaoId: v.id("medicoes") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -381,7 +385,7 @@ export const removeMedicao = engineeringMutation({
 // Visão global (todas as obras)
 // ---------------------------------------------------------------------------
 
-export const getOverview = engineeringQuery({
+export const getOverview = medicoesQuery({
   args: {},
   returns: v.array(
     v.object({

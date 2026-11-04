@@ -358,6 +358,13 @@ export default defineSchema({
     // migração `migrations:migrateUserAccess` rodar em produção; um documento
     // sem `roles` é lido pela tradução de role + department (rolesFromLegacy).
     roles: v.optional(v.array(accessRoles)),
+    // Ajustes individuais por cima dos acessos (Configurações → Usuários):
+    // permissões concedidas a mais e permissões do acesso retiradas. Valores
+    // de PERMISSIONS no shared; guardados como string para que renomear ou
+    // remover uma permissão do catálogo não invalide documentos (valores
+    // desconhecidos são ignorados pela política).
+    permissionGrants: v.optional(v.array(v.string())),
+    permissionDenials: v.optional(v.array(v.string())),
     // Descontinuados: cargo e departamento. Nada grava nem lê estes campos
     // fora da migração, que também os apaga. Remover do schema no passo final.
     role: v.optional(userRoles),

@@ -1,5 +1,7 @@
 import { v } from "convex/values";
-import { engineeringMutation } from "./lib/rbac";
+import {
+  assistenteMutation,
+} from "./lib/rbac";
 import { logAudit, logEquipmentHistory } from "./lib/audit";
 import { projectStatus } from "./schema";
 import { findOrCreateSystemInProject } from "./systems";
@@ -195,7 +197,7 @@ function gridValue(value: number | undefined): number | undefined {
   return n;
 }
 
-export const applyIntents = engineeringMutation({
+export const applyIntents = assistenteMutation({
   args: {
     projectId: v.id("projects"),
     intents: v.array(aiIntentValidator),

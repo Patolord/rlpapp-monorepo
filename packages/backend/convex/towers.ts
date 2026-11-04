@@ -1,12 +1,15 @@
 import { v } from "convex/values";
-import { engineeringMutation, engineeringQuery } from "./lib/rbac";
+import {
+  obrasMutation,
+  obrasQuery,
+} from "./lib/rbac";
 import { logAudit } from "./lib/audit";
 import { deleteSystemsIfOrphaned } from "./systems";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 
 // Lista as torres de uma obra, ordenadas.
-export const list = engineeringQuery({
+export const list = obrasQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(
     v.object({
@@ -47,7 +50,7 @@ export const list = engineeringQuery({
   },
 });
 
-export const create = engineeringMutation({
+export const create = obrasMutation({
   args: {
     projectId: v.id("projects"),
     name: v.string(),
@@ -85,7 +88,7 @@ export const create = engineeringMutation({
   },
 });
 
-export const update = engineeringMutation({
+export const update = obrasMutation({
   args: {
     towerId: v.id("towers"),
     name: v.optional(v.string()),
@@ -115,7 +118,7 @@ export const update = engineeringMutation({
 });
 
 // Remove uma torre em cascata: andares, ambientes e equipamentos vinculados.
-export const remove = engineeringMutation({
+export const remove = obrasMutation({
   args: { towerId: v.id("towers") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -137,7 +140,7 @@ export const remove = engineeringMutation({
 });
 
 // Duplica uma torre com todos os andares, ambientes e equipamentos planejados.
-export const duplicate = engineeringMutation({
+export const duplicate = obrasMutation({
   args: {
     towerId: v.id("towers"),
     name: v.optional(v.string()),

@@ -95,11 +95,16 @@ com secrets. Vercel, Convex Dashboard e EAS têm cópias próprias.
 
 - Textos de UI em português do Brasil (pt-BR), em todos os apps.
 - Controle de acesso: cada usuário tem acessos combináveis (`users.roles`: engenharia, compras,
-  estoque, rh, takeoff, admin...), e cada acesso concede permissões. A política mora em
-  `packages/shared/src/auth/permissions.ts` e é aplicada pelos wrappers de
-  `packages/backend/convex/lib/rbac.ts`. Nos apps, use `can(currentUser, "área.verbo")` ou
-  `currentUser.roles` a partir do que `users.getCurrentUser` devolve; não compare os campos
-  legados `role`/`department` à mão.
+  estoque, rh, takeoff, admin...), e cada acesso concede permissões por funcionalidade
+  (`obras.read`, `contratos.write`, `medicoes.aprovar`, `rh.folha.read`, `campo.todas_obras`...).
+  Por cima dos acessos, cada usuário pode ter ajustes individuais (`users.permissionGrants` e
+  `users.permissionDenials`, editados em Configurações → Usuários): é assim que um técnico líder
+  ou um engenheiro com acesso limitado se diferencia dos demais. A política (catálogo, rótulos,
+  pré-requisitos) mora em `packages/shared/src/auth/permissions.ts` e é aplicada pelos wrappers
+  por funcionalidade de `packages/backend/convex/lib/rbac.ts`. Funcionalidade nova ganha uma
+  permissão no catálogo (com grupo, rótulo, descrição e pré-requisitos) e um wrapper nomeado. Nos
+  apps, use `can(currentUser, "funcionalidade.verbo")` (ou o hook `useCan` no web) a partir do que
+  `users.getCurrentUser` devolve; não compare os campos legados `role`/`department` à mão.
 - Mensagens de commit em português, no formato `Área: descrição` (ex.: `Materiais: tabela com
   filtro de status`). Tudo entra no `master` por PR.
 - Testes ao lado do código (`*.test.ts` em `apps/web/src`, `apps/takeoff/src`), exceto backend

@@ -2,8 +2,8 @@ import { v } from "convex/values";
 import { projectDocumentTechnicianAccess } from "./schema";
 import {
   authedQuery,
-  engineeringMutation,
-  engineeringQuery,
+  documentosMutation,
+  documentosQuery,
   requireUser,
 } from "./lib/rbac";
 import { internalQuery } from "./_generated/server";
@@ -137,7 +137,7 @@ async function requireDocument(
 // Escritório (engenharia)
 // ---------------------------------------------------------------------------
 
-export const generateUploadUrl = engineeringMutation({
+export const generateUploadUrl = documentosMutation({
   args: {},
   returns: v.string(),
   handler: async (ctx) => {
@@ -150,7 +150,7 @@ export const generateUploadUrl = engineeringMutation({
  * arquivada…). Só remove arquivos ainda não vinculados a um documento, para
  * nunca apagar o PDF de um documento existente.
  */
-export const discardUpload = engineeringMutation({
+export const discardUpload = documentosMutation({
   args: { storageId: v.id("_storage") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -168,7 +168,7 @@ export const discardUpload = engineeringMutation({
   },
 });
 
-export const create = engineeringMutation({
+export const create = documentosMutation({
   args: {
     projectId: v.id("projects"),
     storageId: v.id("_storage"),
@@ -220,7 +220,7 @@ export const create = engineeringMutation({
   },
 });
 
-export const update = engineeringMutation({
+export const update = documentosMutation({
   args: {
     documentId: v.id("projectDocuments"),
     name: v.optional(v.string()),
@@ -278,7 +278,7 @@ export const update = engineeringMutation({
   },
 });
 
-export const remove = engineeringMutation({
+export const remove = documentosMutation({
   args: { documentId: v.id("projectDocuments") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -304,7 +304,7 @@ export const remove = engineeringMutation({
   },
 });
 
-export const listByProject = engineeringQuery({
+export const listByProject = documentosQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(officeDocumentValidator),
   handler: async (ctx, args) => {

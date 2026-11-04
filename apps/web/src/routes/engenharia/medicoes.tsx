@@ -17,12 +17,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { obraLinkSlug } from "@/lib/engenharia/obra-paths";
+import { PermissionGate } from "@/components/role-area-gate";
 
 export const Route = createFileRoute("/engenharia/medicoes")({
   component: () => (
-    <AuthShell>
-      <MedicoesOverviewPage />
-    </AuthShell>
+    <PermissionGate permissions={["medicoes.read"]}>
+      <AuthShell>
+        <MedicoesOverviewPage />
+      </AuthShell>
+    </PermissionGate>
   ),
 });
 

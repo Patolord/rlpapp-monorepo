@@ -92,14 +92,37 @@ export function assertAdmin(user: Doc<"users">) {
   }
 }
 
+/**
+ * A permissão decide sozinha, inclusive para técnicos de campo e clientes:
+ * por padrão esses acessos não têm nenhuma, mas um administrador pode
+ * conceder uma funcionalidade avulsa a um técnico (ver `permissionGrants`).
+ */
 export function requirePermission(
   user: Doc<"users">,
   permission: Permission
 ): void {
-  assertStaff(user);
   if (!hasPermission(user, permission)) {
     throw forbidden(PERMISSION_DENIED_MESSAGES[permission], permission);
   }
+}
+
+/** Exige qualquer uma das permissões; a mensagem é a da primeira. */
+export function requireAnyPermission(
+  user: Doc<"users">,
+  permissions: readonly [Permission, ...Permission[]]
+): void {
+  if (!permissions.some((permission) => hasPermission(user, permission))) {
+    throw forbidden(PERMISSION_DENIED_MESSAGES[permissions[0]], permissions[0]);
+  }
+}
+
+/**
+ * Enxerga e opera todas as obras no app de campo: equipe do escritório ou
+ * técnico com `campo.todas_obras` (técnico líder). Os demais só veem as obras
+ * em que estão atribuídos (projects.technicianIds).
+ */
+export function seesAllFieldProjects(user: Doc<"users">): boolean {
+  return isStaff(user) || hasPermission(user, "campo.todas_obras");
 }
 
 /** Gate baseado em ctx: exige que o usuário tenha algum dos acessos. */
@@ -160,9 +183,38 @@ export function permissionMutation(permission: Permission) {
   );
 }
 
+export function anyPermissionQuery(...permissions: [Permission, ...Permission[]]) {
+  return customQuery(
+    query,
+    customCtx(async (ctx) => {
+      const user = await requireUser(ctx);
+      requireAnyPermission(user, permissions);
+      return { user };
+    })
+  );
+}
+
+export function anyPermissionMutation(
+  ...permissions: [Permission, ...Permission[]]
+) {
+  return customMutation(
+    mutation,
+    customCtx(async (ctx) => {
+      const user = await requireUser(ctx);
+      requireAnyPermission(user, permissions);
+      return { user };
+    })
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Wrappers nomeados (usar nas funções públicas em vez de query/mutation puros)
 // ---------------------------------------------------------------------------
+//
+// Um wrapper por funcionalidade. O gerador do catálogo MCP
+// (scripts/generate-mcp-catalog.mjs) lê as declarações abaixo para saber a
+// permissão de cada função, então mantenha a forma
+// `export const nome = permissionQuery("x");` (ou anyPermission*).
 
 /** Qualquer usuário autenticado e ativo (inclui qr_operator). */
 export const authedQuery = customQuery(
@@ -196,73 +248,71 @@ export const staffMutation = customMutation(
   })
 );
 
-/** Apenas director/admin (gestão de usuários e operações sensíveis). */
+// Administração
 export const adminQuery = permissionQuery("admin.manage");
-
-/** Apenas director/admin (gestão de usuários e operações sensíveis). */
 export const adminMutation = permissionMutation("admin.manage");
 
-/** Director/admin, engenheiro, ou staff do departamento engenharia. */
-export const engineeringQuery = permissionQuery("engenharia.read");
+// Engenharia: obras (prédio, sistemas, equipamentos, QR codes, relatórios)
+export const obrasQuery = permissionQuery("obras.read");
+export const obrasMutation = permissionMutation("obras.write");
+/** Criar, arquivar e excluir obras; técnicos e clientes do portal. */
+export const obrasGestaoMutation = permissionMutation("obras.gestao");
 
-/** Director/admin, engenheiro, ou staff do departamento engenharia. */
-export const engineeringMutation = permissionMutation("engenharia.write");
+// Engenharia: contratos, medições, documentos, orçamentos e assistente IA
+export const contratosQuery = permissionQuery("contratos.read");
+export const contratosMutation = permissionMutation("contratos.write");
+export const medicoesQuery = permissionQuery("medicoes.read");
+export const medicoesMutation = permissionMutation("medicoes.write");
+/** Aprovar, marcar como paga e reabrir (mudança de status). */
+export const medicoesAprovarMutation = permissionMutation("medicoes.aprovar");
+export const documentosQuery = permissionQuery("documentos.read");
+export const documentosMutation = permissionMutation("documentos.write");
+export const orcamentosMutation = permissionMutation("orcamentos.write");
+export const assistenteQuery = permissionQuery("assistente.use");
+export const assistenteMutation = permissionMutation("assistente.use");
 
-/** Director/admin ou staff do departamento compras. */
-export const purchasingQuery = permissionQuery("compras.read");
+// Cadastros compartilhados (clientes e empreiteiros)
+export const cadastrosQuery = permissionQuery("cadastros.read");
+export const cadastrosMutation = permissionMutation("cadastros.write");
+/** Listas para escolher cliente/empreiteiro: Backoffice ou quem vê obras. */
+export const cadastrosLookupQuery = anyPermissionQuery("cadastros.read", "obras.read");
 
-/** Director/admin ou staff do departamento compras. */
-export const purchasingMutation = permissionMutation("compras.write");
-
-/** Engenharia ou Compras — consultas compartilhadas (preços, takeoffs). */
+// Compras e suprimentos
+/** Leitura compartilhada: materiais, fornecedores, preços, takeoffs. */
 export const engineeringOrPurchasingQuery = permissionQuery("suprimentos.read");
-
-/** Estoque, Engenharia ou Compras — consultas de saldo e movimentações. */
-export const inventoryQuery = permissionQuery("estoque.read");
-
-/** Equipe de Estoque — conclusão, transferência, ajuste e estorno. */
-export const inventoryMutation = permissionMutation("estoque.write");
-
-/** Estoque ou Compras — cadastro rápido de material a partir da movimentação. */
-export const warehouseOrPurchasingMutation = customMutation(
-  mutation,
-  customCtx(async (ctx) => {
-    const user = await requireUser(ctx);
-    assertStaff(user);
-    if (
-      !hasPermission(user, "estoque.write") &&
-      !hasPermission(user, "compras.write")
-    ) {
-      throw forbidden("Acesso restrito à equipe de estoque ou compras");
-    }
-    return { user };
-  })
-);
-
+export const purchasingQuery = permissionQuery("compras.read");
+export const materiaisMutation = permissionMutation("materiais.write");
+export const fornecedoresMutation = permissionMutation("fornecedores.write");
+export const precosMutation = permissionMutation("precos.write");
+/** Kits, pesos, preços base, marcas VRF e mão de obra do App Takeoff. */
+export const takeoffConfigMutation = permissionMutation("takeoff.config");
 /**
- * Engenharia ou Compras — propor material ao catálogo a partir do RLP Takeoff
- * (vira rascunho que compras avalia; não altera material existente).
+ * Propor material ao catálogo a partir do RLP Takeoff (vira rascunho que
+ * compras avalia; não altera material existente).
  */
-export const engineeringOrPurchasingMutation = customMutation(
-  mutation,
-  customCtx(async (ctx) => {
-    const user = await requireUser(ctx);
-    assertStaff(user);
-    if (
-      !hasPermission(user, "engenharia.write") &&
-      !hasPermission(user, "compras.write")
-    ) {
-      throw forbidden(PERMISSION_DENIED_MESSAGES["suprimentos.read"]);
-    }
-    return { user };
-  })
+export const engineeringOrPurchasingMutation = anyPermissionMutation(
+  "orcamentos.write",
+  "materiais.write"
 );
 
-/** Director/admin — configuração das regras de compatibilidade. */
+// Estoque
+export const inventoryQuery = permissionQuery("estoque.read");
+/** Movimentação do estoque central: transferência, ajuste, estorno. */
+export const inventoryMutation = permissionMutation("estoque.write");
+/** Cadastro rápido de material a partir da movimentação. */
+export const warehouseOrPurchasingMutation = anyPermissionMutation(
+  "estoque.entrada",
+  "materiais.write"
+);
+/** Aprovar ou recusar pedidos de material dos técnicos. */
+export const materialRequestsMutation = permissionMutation("estoque.solicitacoes");
+/** Regras de compatibilidade. */
 export const inventoryRulesMutation = permissionMutation("estoque.rules");
 
-/** Director/admin ou staff do departamento RH. */
-export const hrQuery = permissionQuery("rh.read");
-
-/** Director/admin ou staff do departamento RH. */
-export const hrMutation = permissionMutation("rh.write");
+// Recursos humanos
+export const funcionariosQuery = permissionQuery("rh.funcionarios.read");
+export const funcionariosMutation = permissionMutation("rh.funcionarios.write");
+export const folhaQuery = permissionQuery("rh.folha.read");
+export const folhaMutation = permissionMutation("rh.folha.write");
+export const pontoQuery = permissionQuery("rh.ponto.read");
+export const pontoMutation = permissionMutation("rh.ponto.write");

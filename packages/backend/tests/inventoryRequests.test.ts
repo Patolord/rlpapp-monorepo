@@ -337,14 +337,14 @@ describe("pedidos de material da obra", () => {
         decision: "approve",
         reason: "Não deveria",
       })
-    ).rejects.toThrow("Apenas engenharia ou administradores validam pedidos");
+    ).rejects.toThrow("estoque.solicitacoes");
     await expect(
       purchasing.mutation(api.inventoryRequests.reviewRequest, {
         requestId,
         decision: "approve",
         reason: "Não deveria",
       })
-    ).rejects.toThrow("Apenas engenharia ou administradores validam pedidos");
+    ).rejects.toThrow("estoque.solicitacoes");
   });
 
   test("recusa exige justificativa não vazia", async () => {

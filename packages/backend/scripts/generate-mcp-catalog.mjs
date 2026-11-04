@@ -62,7 +62,9 @@ function usesNodeRuntime(source) {
   return false;
 }
 
-// Wrapper RBAC → permissão exigida (lib/rbac.ts).
+// Wrapper RBAC → permissão exigida. Os wrappers base ficam aqui; os nomeados
+// por funcionalidade são lidos de lib/rbac.ts
+// (`export const nome = permissionQuery("x");` ou anyPermission*).
 const WRAPPER_HINTS = {
   query: { kind: "public" },
   mutation: { kind: "public" },
@@ -71,42 +73,46 @@ const WRAPPER_HINTS = {
   authedMutation: { kind: "authenticated" },
   staffQuery: { kind: "staff" },
   staffMutation: { kind: "staff" },
-  adminQuery: { kind: "permission", permission: "admin.manage" },
-  adminMutation: { kind: "permission", permission: "admin.manage" },
-  engineeringQuery: { kind: "permission", permission: "engenharia.read" },
-  engineeringMutation: { kind: "permission", permission: "engenharia.write" },
-  purchasingQuery: { kind: "permission", permission: "compras.read" },
-  purchasingMutation: { kind: "permission", permission: "compras.write" },
-  engineeringOrPurchasingQuery: { kind: "permission", permission: "suprimentos.read" },
-  inventoryQuery: { kind: "permission", permission: "estoque.read" },
-  inventoryMutation: { kind: "permission", permission: "estoque.write" },
-  inventoryRulesMutation: { kind: "permission", permission: "estoque.rules" },
-  hrQuery: { kind: "permission", permission: "rh.read" },
-  hrMutation: { kind: "permission", permission: "rh.write" },
-  warehouseOrPurchasingMutation: {
-    kind: "anyPermission",
-    permissions: ["estoque.write", "compras.write"],
-  },
-  engineeringOrPurchasingMutation: {
-    kind: "anyPermission",
-    permissions: ["engenharia.write", "compras.write"],
-  },
 };
 
+/** Lista de permissões entre aspas: `"a", "b"` → ["a", "b"]. */
+function parsePermissionArgs(raw) {
+  return [...(raw ?? "").matchAll(/["']([\w.]+)["']/g)].map((m) => m[1]);
+}
+
+function hintFromFactory(factory, rawArgs) {
+  const permissions = parsePermissionArgs(rawArgs);
+  if (permissions.length === 0) return { kind: "unknown" };
+  if (/^permission(Query|Mutation)$/.test(factory)) {
+    return { kind: "permission", permission: permissions[0] };
+  }
+  return { kind: "anyPermission", permissions };
+}
+
+const FACTORY_RE = /^(permission|anyPermission)(Query|Mutation)$/;
+const NAMED_WRAPPER_RE =
+  /^export const (\w+)\s*=\s*((?:any)?[pP]ermission(?:Query|Mutation))\(([^)]*)\)\s*;/gm;
+{
+  const rbacSource = readFileSync(join(convexDir, "lib/rbac.ts"), "utf8");
+  let named;
+  while ((named = NAMED_WRAPPER_RE.exec(rbacSource)) !== null) {
+    const [, name, factory, rawArgs] = named;
+    if (!FACTORY_RE.test(factory)) continue;
+    WRAPPER_HINTS[name] = hintFromFactory(factory, rawArgs);
+  }
+}
+
 /**
- * `export const nome = wrapper(` ou `export const nome = permissionQuery("x")(`.
- * A formatação é consistente (uma exportação por declaração no início da
- * linha), então uma regex por linha basta.
+ * `export const nome = wrapper(` ou `export const nome = permissionQuery("x")(`
+ * (também anyPermissionQuery("a", "b")). A formatação é consistente (uma
+ * exportação por declaração no início da linha), então uma regex por linha
+ * basta.
  */
 const EXPORT_RE =
-  /^export const (\w+)\s*(?::[^=]+?)?=\s*(\w+)(?:\(\s*["']([\w.]+)["']\s*\))?\s*(?:<[^>]*>)?\s*\(/gm;
+  /^export const (\w+)\s*(?::[^=]+?)?=\s*(\w+)(?:\(((?:\s*["'][\w.]+["']\s*,?)+)\))?\s*(?:<[^>]*>)?\s*\(/gm;
 
-function hintFor(wrapper, permissionArg) {
-  if (wrapper === "permissionQuery" || wrapper === "permissionMutation") {
-    return permissionArg
-      ? { kind: "permission", permission: permissionArg }
-      : { kind: "unknown" };
-  }
+function hintFor(wrapper, rawArgs) {
+  if (FACTORY_RE.test(wrapper)) return hintFromFactory(wrapper, rawArgs);
   return WRAPPER_HINTS[wrapper] ?? { kind: "unknown" };
 }
 
@@ -122,16 +128,16 @@ for (const file of listModules()) {
   EXPORT_RE.lastIndex = 0;
   let match;
   while ((match = EXPORT_RE.exec(source)) !== null) {
-    const [, name, wrapper, permissionArg] = match;
+    const [, name, wrapper, rawArgs] = match;
     // internal* nunca entra no catálogo; validadores (v.object(...)) e
     // helpers não são wrappers de função.
     if (wrapper.startsWith("internal")) continue;
-    if (!(wrapper in WRAPPER_HINTS) && !/^permission(Query|Mutation)$/.test(wrapper)) {
+    if (!(wrapper in WRAPPER_HINTS) && !FACTORY_RE.test(wrapper)) {
       continue;
     }
     hasExports = true;
     const path = `${modulePath}:${name}`;
-    accessHints[path] = hintFor(wrapper, permissionArg);
+    accessHints[path] = hintFor(wrapper, rawArgs);
     if (isNode && /action/i.test(wrapper)) nodeActions.push(path);
   }
   if (!hasExports) continue;

@@ -4,7 +4,7 @@ import {
   ROLE_DESCRIPTIONS,
   ROLE_LABELS,
   can,
-  hasRole,
+  getPermissions,
   type Role,
 } from "@rlpapp/shared/auth/permissions";
 import {
@@ -37,6 +37,7 @@ import {
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 
 import { AuthShell } from "@/components/auth-shell";
+import { PermissionOverridesFields } from "@/components/configuracoes/permission-overrides-fields";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,11 @@ import {
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { runWithToast } from "@/lib/errors";
+import {
+  overridesCount,
+  sameOverrides,
+  type PermissionOverrides,
+} from "@/lib/permission-overrides";
 import { cn } from "@/lib/utils";
 
 type User = FunctionReturnType<typeof api.users.list>[number];
@@ -107,15 +113,15 @@ function UsuariosPage() {
 
 function UsuariosContent() {
   const currentUser = useQuery(api.users.getCurrentUser);
-  const users = useQuery(api.users.list, {});
+  const isAdmin = can(currentUser, "admin.manage");
+  // A lista completa (email, telefone, acessos) é só da administração.
+  const users = useQuery(api.users.list, isAdmin ? {} : "skip");
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deactivatingUser, setDeactivatingUser] = useState<User | null>(null);
   const [revokingUser, setRevokingUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-
-  const isAdmin = can(currentUser, "admin.manage");
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];
@@ -302,7 +308,10 @@ function UsuariosContent() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <RoleBadges roles={user.roles} />
+                          <RoleBadges
+                            roles={user.roles}
+                            adjustments={overridesCount(user)}
+                          />
                         </TableCell>
                         <TableCell>
                           <UserStatusBadge user={user} />
@@ -561,8 +570,8 @@ function PasswordInput({
   );
 }
 
-function RoleBadges({ roles }: { roles: Role[] }) {
-  if (roles.length === 0) {
+function RoleBadges({ roles, adjustments }: { roles: Role[]; adjustments: number }) {
+  if (roles.length === 0 && adjustments === 0) {
     return <span className="text-sm text-muted-foreground">Sem acessos</span>;
   }
   return (
@@ -572,6 +581,11 @@ function RoleBadges({ roles }: { roles: Role[] }) {
           {ROLE_LABELS[role]}
         </Badge>
       ))}
+      {adjustments > 0 && (
+        <Badge variant="info" title="Permissões individuais ajustadas">
+          {adjustments} ajuste{adjustments === 1 ? "" : "s"}
+        </Badge>
+      )}
     </div>
   );
 }
@@ -1016,6 +1030,7 @@ type EditFormData = {
   email: string;
   phone: string;
   roles: Role[];
+  overrides: PermissionOverrides;
 };
 
 function EditUserDialog({
@@ -1064,6 +1079,10 @@ function EditUserForm({
     email: user.email ?? "",
     phone: user.phone ?? "",
     roles: user.roles,
+    overrides: {
+      permissionGrants: user.permissionGrants,
+      permissionDenials: user.permissionDenials,
+    },
   });
   const [saving, setSaving] = useState(false);
   const [resending, setResending] = useState(false);
@@ -1075,12 +1094,17 @@ function EditUserForm({
     form.name.trim() !== user.name ||
     form.email.trim() !== (user.email ?? "") ||
     form.phone.trim() !== (user.phone ?? "") ||
-    !sameRoles(form.roles, user.roles);
+    !sameRoles(form.roles, user.roles) ||
+    !sameOverrides(form.overrides, {
+      permissionGrants: user.permissionGrants,
+      permissionDenials: user.permissionDenials,
+    });
 
-  // Mesma regra do backend (users.update): quem edita a si mesmo mantém
-  // administração ou diretoria.
+  // Mesma regra do backend (users.update): quem edita a si mesmo mantém a
+  // gestão de usuários (acesso de administração/diretoria e sem retirá-la).
   const removesOwnAdmin =
-    isSelf && !hasRole({ roles: form.roles }, "admin") && !hasRole({ roles: form.roles }, "director");
+    isSelf &&
+    !getPermissions({ roles: form.roles, ...form.overrides }).includes("admin.manage");
 
   const canSubmit = form.name.trim() !== "" && isDirty && !removesOwnAdmin;
 
@@ -1097,6 +1121,8 @@ function EditUserForm({
           email: pending ? undefined : form.email.trim() || null,
           phone: form.phone.trim() || null,
           roles: form.roles,
+          permissionGrants: form.overrides.permissionGrants,
+          permissionDenials: form.overrides.permissionDenials,
         }),
       "Alterações salvas",
       "Erro ao salvar alterações"
@@ -1217,6 +1243,18 @@ function EditUserForm({
               Você não pode remover o próprio acesso de administração.
             </p>
           )}
+        </FormSection>
+
+        <FormSection
+          title="Permissões individuais"
+          hint="Ajuste fino por cima dos acessos: libere uma funcionalidade a mais ou retire uma do acesso só para esta pessoa."
+        >
+          <PermissionOverridesFields
+            idPrefix="edit"
+            roles={form.roles}
+            overrides={form.overrides}
+            onChange={(overrides) => update({ overrides })}
+          />
         </FormSection>
       </DialogBody>
 

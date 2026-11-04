@@ -21,8 +21,8 @@ import {
 import {
   engineeringOrPurchasingQuery,
   inventoryQuery,
-  purchasingMutation,
-  purchasingQuery,
+  materiaisMutation,
+  permissionQuery,
 } from "./lib/rbac";
 import { logAudit, diffFields } from "./lib/audit";
 import { materialDimensions, materialStatus, replenishmentState } from "./schema";
@@ -960,7 +960,7 @@ export async function createMaterialInternal(
   };
 }
 
-export const create = purchasingMutation({
+export const create = materiaisMutation({
   args: {
     name: v.string(),
     familyId: v.optional(v.id("materialFamilies")),
@@ -989,7 +989,7 @@ export const create = purchasingMutation({
   },
 });
 
-export const generateUploadUrl = purchasingMutation({
+export const generateUploadUrl = materiaisMutation({
   args: {},
   returns: v.string(),
   handler: async (ctx) => {
@@ -1014,7 +1014,7 @@ const bulkMaterialItemValidator = v.object({
   aliases: v.optional(v.array(v.string())),
 });
 
-export const bulkCreate = purchasingMutation({
+export const bulkCreate = materiaisMutation({
   args: {
     items: v.array(bulkMaterialItemValidator),
     source: v.optional(v.string()),
@@ -1203,7 +1203,7 @@ export const bulkCreate = purchasingMutation({
   },
 });
 
-export const update = purchasingMutation({
+export const update = materiaisMutation({
   args: {
     materialId: v.id("materials"),
     name: v.optional(v.string()),
@@ -1403,7 +1403,7 @@ export const update = purchasingMutation({
   },
 });
 
-export const addAlias = purchasingMutation({
+export const addAlias = materiaisMutation({
   args: {
     materialId: v.id("materials"),
     alias: v.string(),
@@ -1454,7 +1454,7 @@ const mergeMaterialSummaryValidator = v.object({
   active: v.boolean(),
 });
 
-export const mergePreview = purchasingQuery({
+export const mergePreview = permissionQuery("materiais.write")({
   args: {
     sourceId: v.id("materials"),
     targetId: v.id("materials"),
@@ -1488,7 +1488,7 @@ export const mergePreview = purchasingQuery({
   },
 });
 
-export const merge = purchasingMutation({
+export const merge = materiaisMutation({
   args: {
     sourceId: v.id("materials"),
     targetId: v.id("materials"),

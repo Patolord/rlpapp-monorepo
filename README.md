@@ -99,7 +99,7 @@ Pessoas do RHID são vinculadas aos `employees` por CPF ou nome (ajuste manual e
 cercas (geofences) podem ser vinculadas a obras.
 
 Privacidade: as fotos das marcações nunca são expostas por URL. O app abre cada foto sob demanda pelo
-endpoint autenticado `/time-clock/photo/<punchId>` (exige `rh.read`, resposta `no-store`), e o service
+endpoint autenticado `/time-clock/photo/<punchId>` (exige `rh.ponto.read`, resposta `no-store`), e o service
 worker do PWA trata `/rh/ponto` e as fotos como somente rede (nada fica em cache offline).
 
 ### 5. Rodar em desenvolvimento

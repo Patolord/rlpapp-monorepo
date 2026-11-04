@@ -2,7 +2,12 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import { UserButton } from "@clerk/tanstack-react-start";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { formatDisplayName } from "@rlpapp/shared";
-import { ROLE_LABELS, can, type Role } from "@rlpapp/shared/auth/permissions";
+import {
+  ROLE_LABELS,
+  can,
+  type Permission,
+  type Role,
+} from "@rlpapp/shared/auth/permissions";
 import { AREA_PERMISSIONS, type DepartmentArea } from "@/components/role-area-gate";
 import { useQuery } from "convex/react";
 import {
@@ -50,6 +55,8 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   exact?: boolean;
+  /** Funcionalidade específica dentro da área (além da permissão do grupo). */
+  permission?: Permission;
 }
 
 interface NavGroup {
@@ -69,7 +76,12 @@ function getNavGroups(): NavGroup[] {
       label: "Engenharia",
       items: [
         { to: "/engenharia/obras", label: "Obras", icon: Building2 },
-        { to: "/engenharia/contratos", label: "Contratos", icon: FileText },
+        {
+          to: "/engenharia/contratos",
+          label: "Contratos",
+          icon: FileText,
+          permission: "contratos.read",
+        },
       ],
     },
     {
@@ -96,9 +108,19 @@ function getNavGroups(): NavGroup[] {
       key: "rh",
       label: "Recursos Humanos",
       items: [
-        { to: "/rh/folha", label: "Folha de pagamento", icon: Banknote },
+        {
+          to: "/rh/folha",
+          label: "Folha de pagamento",
+          icon: Banknote,
+          permission: "rh.folha.read",
+        },
         { to: "/rh/funcionarios", label: "Funcionários", icon: Users },
-        { to: "/rh/ponto", label: "Ponto (RHID)", icon: Clock },
+        {
+          to: "/rh/ponto",
+          label: "Ponto (RHID)",
+          icon: Clock,
+          permission: "rh.ponto.read",
+        },
       ],
     },
     {
@@ -126,7 +148,12 @@ function getNavGroups(): NavGroup[] {
       key: "configuracoes",
       label: "Configurações",
       items: [
-        { to: "/configuracoes/usuarios", label: "Usuários", icon: UserPlus },
+        {
+          to: "/configuracoes/usuarios",
+          label: "Usuários",
+          icon: UserPlus,
+          permission: "admin.manage",
+        },
         {
           to: "/configuracoes/politica-privacidade",
           label: "Política de Privacidade",
@@ -191,12 +218,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   // Cada grupo abre com as mesmas permissões que o RoleAreaGate da área exige.
-  const navGroups = getNavGroups().filter((group) => {
-    // Tokens de agente são pessoais: todo usuário interno pode criar os seus.
-    if (group.key === "conta") return true;
-    const permissions = AREA_PERMISSIONS[group.key as DepartmentArea];
-    return permissions ? can(currentUser, ...permissions) : false;
-  });
+  // Itens de uma funcionalidade específica somem para quem não a tem.
+  const navGroups = getNavGroups()
+    .filter((group) => {
+      // Tokens de agente são pessoais: todo usuário interno pode criar os seus.
+      if (group.key === "conta") return currentUser?.isStaff ?? false;
+      const permissions = AREA_PERMISSIONS[group.key as DepartmentArea];
+      return permissions ? can(currentUser, ...permissions) : false;
+    })
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) => !item.permission || can(currentUser, item.permission)
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <Sidebar collapsible="icon" variant="floating" {...props}>
