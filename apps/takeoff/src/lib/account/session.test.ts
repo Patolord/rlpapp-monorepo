@@ -65,7 +65,6 @@ vi.mock("@tauri-apps/api/core", () => ({
   }),
 }));
 vi.mock("../catalogRemote", () => ({
-  CATALOG_URL: "https://rosy-crow-250.convex.site/takeoff/catalog",
   httpRequest: vi.fn(async (req: { url: string; token?: string }) => {
     if (req.url.endsWith("/takeoff/auth/exchange")) {
       calls.push("exchange");

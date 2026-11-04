@@ -1,7 +1,6 @@
 import { CircleUserRound, LogIn, RefreshCw, Send } from "lucide-react";
 import { useEffect, useState } from "react";
 import { canSignIn } from "../lib/account/session";
-import { CATALOG_URL } from "../lib/catalog";
 import { BASE_MATERIALS } from "../lib/weights";
 import { useStore } from "../store";
 import { Dialog } from "./Dialog";
@@ -11,7 +10,8 @@ const input =
   "h-8 w-full rounded bg-neutral-800 px-2 text-xs text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400";
 
 /**
- * "Catálogo e preços": where the reference materials come from (company catalog, token) and how
+ * "Catálogo e preços": where the reference materials come from (company catalog, through the
+ * company account; the last one received stays cached for offline use) and how
  * prices are derived (R$/kg of base materials, weight table). Kept out of the Ctrl+K palette so
  * the palette stays a quick search.
  */
@@ -22,26 +22,21 @@ export function CatalogSettingsDialog() {
   const {
     signIn,
     setCatalogSettingsOpen,
-    setCatalogToken,
     refreshCatalog,
     flushProposals,
     setBasePrice,
     setWeightsEditorOpen,
   } = useStore.getState();
-  const [token, setToken] = useState(catalog.remoteToken);
   const [busy, setBusy] = useState<string | null>(null);
   useEffect(() => {
-    if (open) {
-      setToken(catalog.remoteToken);
-      setBusy(null);
-    }
-  }, [open, catalog.remoteToken]);
+    if (open) setBusy(null);
+  }, [open]);
   if (!open) return null;
 
+  const signedIn = account.status === "signedIn";
   const refresh = async () => {
     setBusy("Buscando…");
     try {
-      if (account.status !== "signedIn") setCatalogToken(token);
       const n = await refreshCatalog();
       setBusy(`${n} materiais carregados`);
     } catch (e) {
@@ -83,20 +78,20 @@ export function CatalogSettingsDialog() {
           "Catálogo da empresa",
           "De onde vêm os materiais e os preços de referência do Ctrl+K. Nada é enviado de volta sem você pedir.",
           <div className="space-y-1.5">
-            {account.status === "signedIn" ? (
+            {signedIn ? (
               <p className="flex items-center gap-1.5 rounded bg-neutral-800/60 px-2 py-1.5 text-neutral-300">
                 <CircleUserRound size={14} className="shrink-0 text-orange-400" />
                 <span className="min-w-0 flex-1">
                   Conta da empresa
                   {account.user ? `: ${account.user.name}` : ""}. Catálogo e propostas usam a sua
-                  conta; o token abaixo não é necessário.
+                  conta.
                 </span>
               </p>
             ) : (
               <div className="flex items-center gap-2 rounded bg-neutral-800/60 px-2 py-1.5 text-neutral-300">
                 <span className="min-w-0 flex-1">
                   Entre com a conta da empresa para baixar o catálogo e enviar propostas em seu
-                  nome, sem token compartilhado.
+                  nome. O último catálogo baixado continua valendo sem internet.
                 </span>
                 <Button
                   disabled={!canSignIn() || account.status === "signingIn"}
@@ -106,24 +101,8 @@ export function CatalogSettingsDialog() {
                 </Button>
               </div>
             )}
-            <p className="truncate font-mono text-[11px] text-neutral-500" title={CATALOG_URL}>
-              {CATALOG_URL}
-            </p>
-            {account.status !== "signedIn" && (
-              <label className="block text-neutral-400">
-                Token de acesso (alternativa ao login)
-                <input
-                  type="password"
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
-                  autoComplete="off"
-                  placeholder="fornecido pela RLP; fica só neste computador"
-                  className={`${input} mt-0.5 font-mono`}
-                />
-              </label>
-            )}
             <div className="flex items-center gap-2 pt-0.5">
-              <Button onClick={() => void refresh()}>
+              <Button disabled={!signedIn} onClick={() => void refresh()}>
                 <RefreshCw size={14} /> Atualizar catálogo
               </Button>
               <span className="min-w-0 flex-1 truncate text-neutral-500">{busy ?? status}</span>

@@ -60,9 +60,9 @@ export function CatalogPalette() {
         catalog.remoteGeneratedAt ?? catalog.fetchedAt,
       ).toLocaleDateString("pt-BR")}`
     : `${entries.length} materiais (seu catálogo e tabela de pesos; entre para carregar o da empresa)`;
-  /** Fetch the company prices now; signed out and without a token the settings open to ask. */
+  /** Fetch the company prices now; signed out, the settings open to ask for the sign-in. */
   const refresh = async () => {
-    if (!signedIn && !catalog.remoteToken) {
+    if (!signedIn) {
       openSettings();
       return;
     }

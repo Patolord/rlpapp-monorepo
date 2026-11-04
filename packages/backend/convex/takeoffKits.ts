@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import { internalQuery } from "./_generated/server";
 import { logAudit } from "./lib/audit";
 import {
   engineeringOrPurchasingMutation,
@@ -9,19 +8,17 @@ import {
   insertTakeoffKit,
   isFactoryKey,
   listActiveTakeoffKits,
-  listPublishedTakeoffKits,
   missingFactoryTakeoffKits,
   sanitizeTakeoffKitInput,
   seedFactoryTakeoffKits,
   takeoffKitInputValidator,
   takeoffKitRowValidator,
-  takeoffKitValidator,
 } from "./model/procurement/takeoffKits";
 
 /**
  * Kits (presets) do RLP Takeoff: os padrões da empresa, editados no dashboard
  * em App Takeoff → Kits por engenharia ou compras e publicados ao app desktop
- * junto com o catálogo (`takeoffCatalog.current` e `GET /takeoff/catalog`).
+ * junto com o catálogo (`takeoffCatalog.current`).
  * Cada usuário do app pode sobrescrever um kit localmente; o padrão daqui
  * vale para quem não mexeu nele.
  */
@@ -58,13 +55,6 @@ export const list = engineeringOrPurchasingQuery({
     }
     return rows;
   },
-});
-
-/** O que o app desktop recebe no campo `kits` do catálogo (rota HTTP). */
-export const listPublished = internalQuery({
-  args: {},
-  returns: v.array(takeoffKitValidator),
-  handler: async (ctx) => await listPublishedTakeoffKits(ctx),
 });
 
 /** Cria (sem `id`) ou substitui (com `id`) um kit padrão da empresa. */

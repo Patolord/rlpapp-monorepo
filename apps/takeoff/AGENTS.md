@@ -78,9 +78,10 @@ Full tree in the README's "Layout" section. Where to start:
 - `src/lib/pdf/`: page rendering, vector snap index (Web Worker), magic area, text, symbol search.
 - `src-tauri/src/lib.rs`: Rust commands for file IO, autosave and catalog paths, HTTP to the
   company app (no CORS) and the Excel export (rust_xlsxwriter).
-- The company catalog comes from the backend (`/takeoff/catalog`, see `src/lib/catalogRemote.ts`).
-  Signed in (`src/lib/account/`), the app also sends the client-approved budget to the dashboard
-  (`account/publish.ts`, `appLink.ts`, `components/SendBudgetDialog.tsx`; README "Orçamento
+- The company catalog comes from the backend only as the signed-in user (`src/lib/account/`:
+  `takeoffCatalog.current`, proposals through `takeoffMaterials.proposeAsUser`), cached locally for
+  offline use; there is no shared catalog token any more. Signed in, the app also sends the
+  client-approved budget to the dashboard (`account/publish.ts`, `appLink.ts`, `components/SendBudgetDialog.tsx`; README "Orçamento
   aprovado → app da empresa"). Check the current code before relying on details.
 
 ## Project file format

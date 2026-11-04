@@ -2,8 +2,9 @@ import { describe, expect, test } from "vitest";
 import { DEFAULT_DUCT_NORMAS } from "@rlpapp/shared/engenharia/ducts";
 import { SEED_BRANDS } from "@rlpapp/shared/takeoff/vrfBrands";
 import { SEED_WEIGHTS } from "@rlpapp/shared/takeoff/weights";
-import { api, internal } from "../convex/_generated/api";
+import { api } from "../convex/_generated/api";
 import {
+  listPublishedTakeoffSettings,
   sanitizeTakeoffBasePrices,
   sanitizeTakeoffVrfBrands,
   sanitizeTakeoffWeights,
@@ -93,7 +94,7 @@ describe("takeoffSettings", () => {
       ductNormas: null,
       meta: { weights: null, basePrices: null, vrfBrands: null, labor: null, ductNormas: null },
     });
-    const published = await t.query(internal.takeoffSettings.listPublished, {});
+    const published = await t.run((ctx) => listPublishedTakeoffSettings(ctx));
     expect(published).toEqual({
       weights: null,
       basePrices: null,
@@ -121,7 +122,7 @@ describe("takeoffSettings", () => {
 
     // a second save replaces, it does not append
     await engineering.mutation(api.takeoffSettings.saveBasePrices, { prices: { chapa: 9 } });
-    const again = await t.query(internal.takeoffSettings.listPublished, {});
+    const again = await t.run((ctx) => listPublishedTakeoffSettings(ctx));
     expect(again.basePrices).toEqual({ chapa: 9 });
     const catalog = await engineering.query(api.takeoffCatalog.current, {});
     expect(catalog.basePrices).toEqual({ chapa: 9 });
@@ -152,7 +153,7 @@ describe("takeoffSettings", () => {
     await engineering.mutation(api.takeoffSettings.saveDuctNormas, {
       normas: [{ ...abnt, insulThickness: 38, gaugeLimits: [50, 80, 140, 210] }],
     });
-    const published = await t.query(internal.takeoffSettings.listPublished, {});
+    const published = await t.run((ctx) => listPublishedTakeoffSettings(ctx));
     expect(published.ductNormas).toEqual([
       { ...abnt, insulThickness: 38, gaugeLimits: [50, 80, 140, 210] },
     ]);

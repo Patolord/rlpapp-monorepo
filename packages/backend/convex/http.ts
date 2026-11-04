@@ -4,14 +4,6 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { env, httpAction } from "./_generated/server";
 import { MAX_LOOKUP_QUERY_LENGTH } from "./lib/compras/materialLookup";
-import type { TakeoffCatalogItem } from "./model/procurement/takeoffCatalog";
-import type { TakeoffKit } from "./model/procurement/takeoffKits";
-import type { TakeoffSettings } from "./model/procurement/takeoffSettings";
-import {
-  MATERIAL_NOT_FOUND,
-  parseTakeoffMaterialProposal,
-  type TakeoffMaterialProposalResult,
-} from "./model/procurement/takeoffProposals";
 import {
   PHOTO_FETCH_TIMEOUT_MS,
   isAllowedPhotoUrl,
@@ -227,92 +219,6 @@ const handleAgentTokenVerify = httpAction(async (ctx, request) => {
 });
 
 // ---------------------------------------------------------------------------
-// Catálogo para o RLP Takeoff (app desktop)
-// ---------------------------------------------------------------------------
-//
-// Exporta todo o catálogo ativo com o preço vigente de cada material, mais os
-// kits padrão da empresa (`takeoffKits`) e as demais configurações do app
-// (`takeoffSettings`: pesos, preços por kg, marcas de VRF, mão de obra,
-// parâmetros de dutos por norma). O app desktop lê
-// isto ao abrir e cai no seed embutido quando o endpoint falha, por isso a
-// resposta é um JSON único e não paginado.
-
-const handleTakeoffCatalog = httpAction(async (ctx, request) => {
-  const token = env.TAKEOFF_CATALOG_TOKEN;
-  if (!token) return json({ error: "Takeoff catalog is not configured" }, 503);
-  if (request.headers.get("Authorization") !== `Bearer ${token}`) {
-    return json({ error: "Unauthorized" }, 401);
-  }
-
-  const startedAt = Date.now();
-  const items: TakeoffCatalogItem[] = await ctx.runQuery(
-    internal.takeoffCatalog.list,
-    { now: startedAt }
-  );
-  const kits: TakeoffKit[] = await ctx.runQuery(
-    internal.takeoffKits.listPublished,
-    {}
-  );
-  const settings: TakeoffSettings = await ctx.runQuery(
-    internal.takeoffSettings.listPublished,
-    {}
-  );
-  console.log(
-    JSON.stringify({
-      event: "takeoff_catalog",
-      items: items.length,
-      kits: kits.length,
-      ms: Date.now() - startedAt,
-    })
-  );
-  return json({ generatedAt: startedAt, items, kits, ...settings });
-});
-
-// Proposta de material vinda do takeoff. Cadastrar material é tarefa de
-// compras: aqui só nasce um rascunho (ou o vínculo com o material idêntico
-// já existente) e, se veio preço, uma estimativa na fila de revisão.
-// Idempotente por clientId para o app poder reenviar sem medo.
-const handleTakeoffMaterialProposal = httpAction(async (ctx, request) => {
-  const token = env.TAKEOFF_CATALOG_TOKEN;
-  if (!token) return json({ error: "Takeoff catalog is not configured" }, 503);
-  if (request.headers.get("Authorization") !== `Bearer ${token}`) {
-    return json({ error: "Unauthorized" }, 401);
-  }
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return json({ error: "Body must be JSON" }, 400);
-  }
-  const parsed = parseTakeoffMaterialProposal(body);
-  if (!parsed.ok) return json({ error: parsed.error }, 400);
-
-  let result: TakeoffMaterialProposalResult;
-  try {
-    result = await ctx.runMutation(
-      internal.takeoffMaterials.propose,
-      parsed.value
-    );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (message.includes(MATERIAL_NOT_FOUND)) {
-      return json({ error: "Material not found" }, 404);
-    }
-    throw error;
-  }
-  console.log(
-    JSON.stringify({
-      event: "takeoff_material_proposal",
-      outcome: result.outcome,
-      materialId: result.materialId,
-      priceEventId: result.priceEventId,
-    })
-  );
-  return json(result);
-});
-
-// ---------------------------------------------------------------------------
 // Download autenticado de documentos (PDF) da obra
 // ---------------------------------------------------------------------------
 //
@@ -503,18 +409,6 @@ http.route({
   path: "/materials/lookup",
   method: "GET",
   handler: handleMaterialLookup,
-});
-
-http.route({
-  path: "/takeoff/catalog",
-  method: "GET",
-  handler: handleTakeoffCatalog,
-});
-
-http.route({
-  path: "/takeoff/materials",
-  method: "POST",
-  handler: handleTakeoffMaterialProposal,
 });
 
 export default http;

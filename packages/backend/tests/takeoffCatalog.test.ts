@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { internal } from "../convex/_generated/api";
+import { describe, expect, test } from "vitest";
+import { api } from "../convex/_generated/api";
 import type { Doc, Id } from "../convex/_generated/dataModel";
 import {
   centsToReais,
@@ -7,10 +7,11 @@ import {
 } from "../convex/model/procurement/priceSelection";
 import {
   DEFAULT_TAKEOFF_GROUP,
+  listTakeoffCatalog,
   takeoffUnit,
   toTakeoffCatalogItem,
 } from "../convex/model/procurement/takeoffCatalog";
-import { setup } from "./helpers";
+import { setup, withUser } from "./helpers";
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.UTC(2026, 9, 22);
@@ -191,10 +192,10 @@ describe("takeoff catalog group", () => {
   });
 });
 
-describe("takeoffCatalog.list", () => {
+describe("listTakeoffCatalog", () => {
   test("exports active materials with the current price in reais", async () => {
     const t = await seedCatalog();
-    const items = await t.query(internal.takeoffCatalog.list, { now: NOW });
+    const items = await t.run((ctx) => listTakeoffCatalog(ctx, NOW));
 
     expect(items.map((item) => item.sku)).toEqual(["MAT-000101", "MAT-000102"]);
 
@@ -243,48 +244,11 @@ describe("takeoffCatalog.list", () => {
   });
 });
 
-describe("GET /takeoff/catalog", () => {
-  const originalToken = process.env.TAKEOFF_CATALOG_TOKEN;
-  beforeEach(() => {
-    delete process.env.TAKEOFF_CATALOG_TOKEN;
-  });
-  afterEach(() => {
-    if (originalToken === undefined) delete process.env.TAKEOFF_CATALOG_TOKEN;
-    else process.env.TAKEOFF_CATALOG_TOKEN = originalToken;
-  });
-
-  test("is disabled until a token is configured", async () => {
+describe("takeoffCatalog.current", () => {
+  test("returns the whole catalog to a signed-in engineer", async () => {
     const t = await seedCatalog();
-    const response = await t.fetch("/takeoff/catalog");
-    expect(response.status).toBe(503);
-  });
-
-  test("rejects a missing or wrong token", async () => {
-    process.env.TAKEOFF_CATALOG_TOKEN = "secret";
-    const t = await seedCatalog();
-    expect((await t.fetch("/takeoff/catalog")).status).toBe(401);
-    expect(
-      (
-        await t.fetch("/takeoff/catalog", {
-          headers: { Authorization: "Bearer wrong" },
-        })
-      ).status
-    ).toBe(401);
-  });
-
-  test("returns the whole catalog as JSON", async () => {
-    process.env.TAKEOFF_CATALOG_TOKEN = "secret";
-    const t = await seedCatalog();
-    const response = await t.fetch("/takeoff/catalog", {
-      headers: { Authorization: "Bearer secret" },
-    });
-    expect(response.status).toBe(200);
-    expect(response.headers.get("Content-Type")).toContain("application/json");
-
-    const body = (await response.json()) as {
-      generatedAt: number;
-      items: Array<Record<string, unknown>>;
-    };
+    const asEngineer = await withUser(t, { clerkId: "eng_1", roles: ["engenharia"] });
+    const body = await asEngineer.query(api.takeoffCatalog.current, {});
     expect(body.generatedAt).toBeGreaterThan(0);
     expect(body.items).toHaveLength(2);
     expect(body.items.map((item) => item.name)).toEqual([

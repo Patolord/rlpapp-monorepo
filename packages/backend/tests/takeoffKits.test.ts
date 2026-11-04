@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { SEED_KITS } from "@rlpapp/shared/takeoff/kits";
-import { api, internal } from "../convex/_generated/api";
-import { sanitizeTakeoffKitInput } from "../convex/model/procurement/takeoffKits";
+import { api } from "../convex/_generated/api";
+import {
+  listPublishedTakeoffKits,
+  sanitizeTakeoffKitInput,
+} from "../convex/model/procurement/takeoffKits";
 import { setup, withUser } from "./helpers";
 
 async function seedUsers() {
@@ -99,7 +102,7 @@ describe("takeoffKits", () => {
     const gone = await engineering.mutation(api.takeoffKits.save, { ...lineSet, name: "Antigo" });
     await engineering.mutation(api.takeoffKits.remove, { id: gone });
 
-    const published = await t.query(internal.takeoffKits.listPublished, {});
+    const published = await t.run((ctx) => listPublishedTakeoffKits(ctx));
     expect(published).toEqual([
       {
         id: "kit-linha-frigorigena-9-000",

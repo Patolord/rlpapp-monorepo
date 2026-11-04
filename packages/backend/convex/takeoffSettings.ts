@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import { internalQuery } from "./_generated/server";
 import { logAudit } from "./lib/audit";
 import {
   engineeringOrPurchasingMutation,
@@ -27,7 +26,7 @@ import { takeoffDuctNorma, takeoffVrfBrand, takeoffWeightRow } from "./schema";
  * as regras das marcas de VRF, a mão de obra global (dutos por kg, VRF por
  * evaporadora) e os parâmetros de dutos por norma. Padrões da empresa, editados no dashboard em
  * App Takeoff por engenharia ou compras e publicados ao app desktop junto com
- * o catálogo (`takeoffCatalog.current` e `GET /takeoff/catalog`). Cada
+ * o catálogo (`takeoffCatalog.current`). Cada
  * usuário do app pode sobrescrever localmente; o padrão daqui vale para quem
  * não mexeu.
  */
@@ -73,13 +72,6 @@ export const get = engineeringOrPurchasingQuery({
       },
     };
   },
-});
-
-/** O que o app desktop recebe no catálogo (rota HTTP). */
-export const listPublished = internalQuery({
-  args: {},
-  returns: takeoffSettingsValidator,
-  handler: async (ctx) => await listPublishedTakeoffSettings(ctx),
 });
 
 /** Substitui a tabela de materiais por peso e o kg/m² por bitola de chapa. */

@@ -1174,7 +1174,7 @@ export default defineSchema({
     .index("by_needs_review", ["needsReview"])
     .index("by_review_status", ["reviewStatus"]),
 
-  // Proposals sent by the RLP Takeoff desktop app (POST /takeoff/materials).
+  // Proposals sent by the RLP Takeoff desktop app (`takeoffMaterials.proposeAsUser`).
   // One row per clientId so the app can retry the call safely.
   takeoffMaterialProposals: defineTable({
     clientId: v.string(),
@@ -1184,7 +1184,7 @@ export default defineSchema({
     requestedName: v.optional(v.string()),
     requestedUnit: v.optional(v.string()),
     requestedBy: v.optional(v.string()),
-    /** Usuário logado no takeoff que enviou a proposta (ausente no caminho por token). */
+    /** Usuário logado no takeoff que enviou a proposta (ausente nas do antigo caminho por token). */
     requestedByUserId: v.optional(v.id("users")),
     takeoffName: v.optional(v.string()),
     createdAt: v.number(),

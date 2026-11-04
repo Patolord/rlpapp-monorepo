@@ -7,36 +7,21 @@ import { itemUnit } from "./quantities";
 import type { Item, Project } from "./types";
 
 /**
- * The company app (app.rlpeng.com.br, Convex backend) publishes the material catalog for this
- * app at `GET /takeoff/catalog` and receives material proposals at `POST /takeoff/materials`,
- * both behind the same bearer token (`TAKEOFF_CATALOG_TOKEN` on the deployment). The address
- * is fixed: users only hold the token. A build with `VITE_CATALOG_URL` set points at another
- * deployment (the dev mirror, https://dusty-ferret-162.convex.site/takeoff/catalog).
- *
- * This shared-token path is the fallback: signed in with the company account (lib/account), the
- * app calls the typed Convex functions as the user instead (lib/account/convex.ts).
+ * The company catalog and material proposals reach the company app (app.rlpeng.com.br, Convex
+ * backend) only as the signed-in user: typed Convex functions called with the account's JWT
+ * (lib/account/convex.ts). Both work offline: the last catalog received is cached on disk and a
+ * proposal waits in the local outbox until the next refresh while signed in.
  */
-export const CATALOG_URL: string =
-  (import.meta.env.VITE_CATALOG_URL as string | undefined)?.trim() ||
-  "https://rosy-crow-250.convex.site/takeoff/catalog";
-
-const CATALOG_PATH = "/takeoff/catalog";
-const PROPOSALS_PATH = "/takeoff/materials";
-
-/** The proposals route lives next to the catalog route on the same deployment. */
-export const proposalsUrl = (catalogUrl: string): string =>
-  catalogUrl.endsWith(CATALOG_PATH)
-    ? catalogUrl.slice(0, -CATALOG_PATH.length) + PROPOSALS_PATH
-    : new URL(PROPOSALS_PATH, catalogUrl).toString();
-
-export const PROPOSALS_URL: string = proposalsUrl(CATALOG_URL);
 
 export interface HttpResponse {
   status: number;
   body: string;
 }
 
-/** HTTP through Rust inside Tauri (no CORS); plain fetch in the browser dev build. */
+/**
+ * HTTP through Rust inside Tauri (no CORS); plain fetch in the browser dev build. Used by the
+ * sign-in routes (code exchange, JWT renewal, revocation: lib/account/session.ts).
+ */
 export async function httpRequest(req: {
   method: "GET" | "POST";
   url: string;
@@ -58,20 +43,6 @@ export async function httpRequest(req: {
   return { status: res.status, body: await res.text() };
 }
 
-/** Human message for a failed catalog call; the token hint matters most in practice. */
-export function describeHttpFailure(status: number, body: string): string {
-  if (status === 401)
-    return "Token recusado: confira o token do catálogo (rodapé do Ctrl+K) ou entre com a conta da empresa";
-  if (status === 503) return "Catálogo desligado no servidor (token não configurado lá)";
-  if (status === 404) return "Rota não encontrada: confira a URL do catálogo";
-  let detail = "";
-  try {
-    const parsed = JSON.parse(body) as { error?: unknown };
-    if (typeof parsed.error === "string") detail = `: ${parsed.error}`;
-  } catch {}
-  return `HTTP ${status}${detail}`;
-}
-
 // ---------------------------------------------------------------------------
 // Material proposals (an item the user chooses to send to purchasing)
 // ---------------------------------------------------------------------------
@@ -80,10 +51,11 @@ export function describeHttpFailure(status: number, body: string): string {
 export type SignedInProposal = FunctionArgs<typeof api.takeoffMaterials.proposeAsUser>;
 
 /**
- * A queued proposal: the signed-in mutation's arguments, plus the free-text requester the
- * shared-token route (`POST /takeoff/materials`) needs. Signed in, the server records the user.
+ * A queued proposal: the signed-in mutation's arguments (the server records the user as the
+ * requester). Bodies queued by earlier versions may carry more fields, such as a free-text
+ * `requestedBy`; `signedInProposalArgs` drops them before sending.
  */
-export type ProposalBody = SignedInProposal & { requestedBy?: string };
+export type ProposalBody = SignedInProposal;
 
 /** What the server answers to a proposal (the backend's own type). */
 export type ProposalResult = FunctionReturnType<typeof api.takeoffMaterials.proposeAsUser>;
@@ -113,7 +85,6 @@ export function buildProposal(item: Item, project: Project, clientId: string): P
   const body: ProposalBody = {
     clientId,
     takeoffName: project.name || undefined,
-    requestedBy: project.estimator || undefined,
   };
   if (item.catalogId) body.materialId = item.catalogId;
   else {
@@ -138,27 +109,6 @@ export type SendOutcome =
   | { kind: "sent"; result: ProposalResult }
   | { kind: "rejected"; message: string }
   | { kind: "retry"; message: string };
-
-/** 4xx other than auth is a bad request that retrying will not fix; everything else is retried. */
-export async function sendProposal(token: string, body: ProposalBody): Promise<SendOutcome> {
-  let res: HttpResponse;
-  try {
-    res = await httpRequest({
-      method: "POST",
-      url: PROPOSALS_URL,
-      token,
-      body: JSON.stringify(body),
-    });
-  } catch (e) {
-    return { kind: "retry", message: e instanceof Error ? e.message : String(e) };
-  }
-  if (res.status >= 200 && res.status < 300) {
-    return { kind: "sent", result: JSON.parse(res.body) as ProposalResult };
-  }
-  const message = describeHttpFailure(res.status, res.body);
-  if (res.status === 400 || res.status === 404) return { kind: "rejected", message };
-  return { kind: "retry", message };
-}
 
 /**
  * Follow catalog redirects (materials purchasing merged into another) on the budget lines,
