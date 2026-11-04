@@ -23,12 +23,7 @@ import {
   weightKey,
 } from "@rlpapp/shared/takeoff/weights";
 import { invoke } from "@tauri-apps/api/core";
-import {
-  CATALOG_URL,
-  describeHttpFailure,
-  httpRequest,
-  type QueuedProposal,
-} from "./catalogRemote";
+import type { QueuedProposal } from "./catalogRemote";
 import {
   effectiveKits,
   type Kit,
@@ -53,8 +48,6 @@ import { foldName } from "./text";
 import { DEFAULT_GROUP } from "./types";
 import type { Kind } from "./units";
 import { sheetCatalogEntries, weightCatalogEntries } from "./weights";
-
-export { CATALOG_URL } from "./catalogRemote";
 
 /** A reusable material: what an item is created from. */
 export interface CatalogEntry {
@@ -103,8 +96,6 @@ export type LaborSource = "seed" | "default";
 export interface CatalogStore {
   saved: CatalogEntry[];
   remote: CatalogEntry[];
-  /** Bearer token for the company catalog (kept in app data, never in a project file). */
-  remoteToken: string;
   fetchedAt: string | null;
   /** `generatedAt` of the last company catalog received (ms epoch). */
   remoteGeneratedAt: number | null;
@@ -255,7 +246,6 @@ export function withAirTerminalLabor(e: CatalogEntry): CatalogEntry {
 export const emptyCatalogStore = (): CatalogStore => ({
   saved: [],
   remote: [],
-  remoteToken: "",
   fetchedAt: null,
   remoteGeneratedAt: null,
   redirects: {},
@@ -580,7 +570,8 @@ export const upgradeRemoteEntry = (e: CatalogEntry): CatalogEntry =>
   e.variant ? e : { ...e, ...productName(e.name, e.description) };
 
 /**
- * Accepts the JSON the company app publishes (`GET /takeoff/catalog`: `{ generatedAt, items }`).
+ * Accepts the snapshot the company app publishes (`takeoffCatalog.current`:
+ * `{ generatedAt, items }`).
  * Still tolerates a bare array, other list keys and Portuguese field names, so a hand-made
  * JSON file works too. Archived materials are not entries: they only carry the redirect.
  */
@@ -812,11 +803,13 @@ export async function loadCatalogStore(): Promise<CatalogStore> {
     }
     if (!text) return emptyCatalogStore();
     const parsed = JSON.parse(text) as
-      | (Partial<CatalogStore> & { remoteUrl?: string })
+      | (Partial<CatalogStore> & { remoteUrl?: string; remoteToken?: string })
       | CatalogEntry[];
     if (Array.isArray(parsed)) return { ...emptyCatalogStore(), saved: parsed };
-    // remoteUrl: a setting of earlier versions; the address is fixed now
-    const { remoteUrl: _legacy, ...rest } = parsed;
+    // settings of earlier versions: remoteUrl (the address is fixed now) and remoteToken (the
+    // shared catalog token, replaced by the company account); dropped so the next save forgets
+    // them
+    const { remoteUrl: _legacyUrl, remoteToken: _legacyToken, ...rest } = parsed;
     const store = { ...emptyCatalogStore(), ...rest };
     // a catalog fetched by an earlier version named entries after the family only
     store.remote = store.remote.map(upgradeRemoteEntry);
@@ -865,15 +858,6 @@ export const CATALOG_STALE_DAYS = 7;
 /** Never fetched, or fetched more than CATALOG_STALE_DAYS ago. */
 export const isCatalogStale = (fetchedAt: string | null, now = Date.now()): boolean =>
   !fetchedAt || now - new Date(fetchedAt).getTime() > CATALOG_STALE_DAYS * 86_400_000;
-
-/** Fetch the company catalog (through Rust inside Tauri, so CORS does not apply). */
-export async function fetchRemoteCatalog(token: string): Promise<RemoteCatalog> {
-  const res = await httpRequest({ method: "GET", url: CATALOG_URL, token });
-  if (res.status < 200 || res.status >= 300) {
-    throw new Error(describeHttpFailure(res.status, res.body));
-  }
-  return parseRemoteCatalogResponse(JSON.parse(res.body));
-}
 
 /**
  * The words every name in a result list starts with ("Damper de Regulagem Manual Reforçado

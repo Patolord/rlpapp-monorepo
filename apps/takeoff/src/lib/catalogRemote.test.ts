@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  applyRedirects,
-  buildProposal,
-  CATALOG_URL,
-  describeHttpFailure,
-  PROPOSALS_URL,
-  proposalsUrl,
-} from "./catalogRemote";
+import { applyRedirects, buildProposal } from "./catalogRemote";
 import { emptyProject, type Item } from "./types";
 
 const item = (over: Partial<Item> = {}): Item => ({
@@ -21,31 +14,6 @@ const item = (over: Partial<Item> = {}): Item => ({
   ...over,
 });
 
-describe("company catalog URLs", () => {
-  it("is fixed to the company deployment, HTTP routes on the .convex.site host", () => {
-    expect(CATALOG_URL).toBe("https://rosy-crow-250.convex.site/takeoff/catalog");
-    expect(PROPOSALS_URL).toBe("https://rosy-crow-250.convex.site/takeoff/materials");
-  });
-
-  it("derives the proposals route from the catalog route", () => {
-    expect(proposalsUrl("https://x.convex.site/takeoff/catalog")).toBe(
-      "https://x.convex.site/takeoff/materials",
-    );
-    expect(proposalsUrl("https://x.example/custom/catalog.json")).toBe(
-      "https://x.example/takeoff/materials",
-    );
-  });
-
-  it("explains the common failures in the user's terms", () => {
-    expect(describeHttpFailure(401, "")).toMatch(/token/i);
-    expect(describeHttpFailure(503, "")).toMatch(/servidor/i);
-    expect(describeHttpFailure(400, '{"error":"\\"name\\" is required"}')).toBe(
-      'HTTP 400: "name" is required',
-    );
-    expect(describeHttpFailure(500, "<html>")).toBe("HTTP 500");
-  });
-});
-
 describe("material proposals", () => {
   const project = { ...emptyProject(), name: "Hospital", estimator: "Fernanda" };
 
@@ -54,7 +22,6 @@ describe("material proposals", () => {
     expect(body).toEqual({
       clientId: "c1",
       takeoffName: "Hospital",
-      requestedBy: "Fernanda",
       // family + size, so purchasing matches it to the existing material
       name: "Grelha de Insuflamento",
       dimensions: { widthMm: 400, heightMm: 400 },
@@ -106,9 +73,9 @@ describe("material proposals", () => {
     });
   });
 
-  it("omits empty header fields", () => {
+  it("leaves the requester to the server (the signed-in user)", () => {
     const body = buildProposal(item(), emptyProject(), "c6");
-    expect(body.requestedBy).toBeUndefined();
+    expect(body).not.toHaveProperty("requestedBy");
     expect(body.takeoffName).toBe("Takeoff sem nome");
   });
 });

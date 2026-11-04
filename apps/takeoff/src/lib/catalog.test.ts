@@ -370,6 +370,16 @@ describe("loading the saved catalog", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
+  it("forgets the shared catalog token and address of earlier versions", async () => {
+    storage.set(
+      "takeoff.catalog",
+      JSON.stringify({ saved: [], remoteToken: "secret", remoteUrl: "https://x.example" }),
+    );
+    const store = await loadCatalogStore();
+    expect(store).not.toHaveProperty("remoteToken");
+    expect(store).not.toHaveProperty("remoteUrl");
+  });
+
   it("gives seed kits saved before drawing labels their seed's label, keeps a cleared one", async () => {
     const [a, b] = SEED_KITS;
     const { label: _drop, ...noLabel } = a;

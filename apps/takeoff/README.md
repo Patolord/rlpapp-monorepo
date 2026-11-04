@@ -138,11 +138,10 @@ takes over from the kit's. The label order is duct/VRF tag · label · quantity
 
 Items can be saved to the catalog (star). The catalog is the company app's (there is no bundled
 catalog any more: without the company's, the user has their own saved entries and the weight
-table): signed in with the company account
-(see below) or, as before, with the shared access token set in "Catálogo e preços"
-(`CATALOG_URL` in `src/lib/catalogRemote.ts`; `VITE_CATALOG_URL` at build time points a dev
-build elsewhere), it is fetched on start and by "Atualizar preços" in the Ctrl+K footer, cached
-locally. Each line's material price shows where it came from (cloud, saved catalog, the app's
+table): signed in with the company account (see below; the only way, the shared access token of
+earlier versions is gone), it is fetched on start, on signing in and by "Atualizar preços" in the
+Ctrl+K footer, and cached locally, so the app keeps working offline or signed out with the last
+catalog received. Each line's material price shows where it came from (cloud, saved catalog, the app's
 tables, typed, by weight) next to the price box. The company catalog carries a labour price per
 material (`laborPrice`, set by purchasing in Compras → Materiais). An air terminal (the "Bocas
 de Ar" group, or a grelha, difusor or veneziana by name) without labour gets the usual R$ 45 a
@@ -213,7 +212,7 @@ in `public/fonts/`), `src/lib/reportPreview.ts` and `components/ReportPreview.ts
 
 **Entrar** in the top bar connects this computer to the user's own account on the company app
 (app.rlpeng.com.br, Clerk), so the catalog and the material proposals go out *as that person*,
-with their permissions, instead of with one token shared by everybody:
+with their permissions:
 
 1. the app opens a one-shot listener on `127.0.0.1:<random port>` (Rust, `src-tauri/src/auth.rs`),
    generates a `state` and a PKCE pair (S256, `src/lib/account/pkce.ts`) and opens the system
@@ -240,7 +239,11 @@ token already issued to that attempt is revoked). Each installation has a random
 (`installation-id` in the app data folder, `src-tauri/src/installation.rs`): signing in again
 replaces only that installation's previous token, so two computers with the same name never
 revoke each other. A token revoked in the dashboard signs the app out on its next call.
-Signed out, the shared token path keeps working exactly as before.
+The app does not need to stay online: signed in once, it renews its access whenever it reaches
+the server and otherwise works from the cached catalog. Signed out, the cached catalog stays in
+use, nothing new is fetched and proposals wait in the outbox until the user signs in again. (The
+shared catalog token of earlier versions is no longer accepted by the server; a token left in an
+old catalog file is dropped on load.)
 
 Proposals of unlinked lines now carry the family, variant and dimensions parsed from the line's
 name (`src/lib/proposalMaterial.ts`: `Tubo de cobre 1/2"` → family "Tubo de cobre", variant
@@ -249,7 +252,7 @@ material instead of creating one family per size.
 
 Addresses default to production (`https://rosy-crow-250.convex.cloud`, web
 `https://app.rlpeng.com.br`). A dev build sets `VITE_TAKEOFF_CONVEX_URL` (deployment
-`.convex.cloud` URL; without it the deployment follows `VITE_CATALOG_URL`) and
+`.convex.cloud` URL) and
 `VITE_TAKEOFF_WEB_URL` (e.g. `http://localhost:3001` for `pnpm dev:web`). The deployment needs
 `API_JWT_PRIVATE_KEY` (the same key as the `/api/v1` gateway); without it the exchange answers 503.
 Signing in only works in the native window (`pnpm dev:takeoff`), not in the browser-only dev mode.

@@ -1,5 +1,4 @@
 import { ConvexError } from "convex/values";
-import { internalMutation } from "./_generated/server";
 import { engineeringOrPurchasingMutation } from "./lib/rbac";
 import {
   MATERIAL_NOT_FOUND,
@@ -9,25 +8,12 @@ import {
   takeoffMaterialProposalResultValidator,
 } from "./model/procurement/takeoffProposals";
 
-/**
- * Material proposal from the RLP Takeoff desktop app, reached through
- * `POST /takeoff/materials` (see `http.ts`). Internal: the route checks the
- * token and validates the body.
- */
-export const propose = internalMutation({
-  args: takeoffMaterialProposalArgs,
-  returns: takeoffMaterialProposalResultValidator,
-  handler: async (ctx, args) => {
-    return await proposeTakeoffMaterial(ctx, args);
-  },
-});
-
 const { requestedBy: _requestedBy, ...signedInProposalArgs } =
   takeoffMaterialProposalArgs;
 
 /**
- * Same proposal from a desktop app signed in with the company account (see
- * `takeoffAuth.ts`): the requester is the signed-in user, not free text.
+ * Material proposal from the RLP Takeoff desktop app, signed in with the
+ * company account (see `takeoffAuth.ts`): the requester is the signed-in user.
  *
  * Expected failures throw `ConvexError({ code })` so the app can tell a bad
  * proposal (dropped from its outbox) from a transient one (retried):
@@ -38,7 +24,7 @@ export const proposeAsUser = engineeringOrPurchasingMutation({
   args: signedInProposalArgs,
   returns: takeoffMaterialProposalResultValidator,
   handler: async (ctx, args) => {
-    // Same limits as the HTTP route (lengths, dimensions, prices >= 0).
+    // Lengths, dimensions, prices >= 0.
     const parsed = parseTakeoffMaterialProposal(args);
     if (!parsed.ok) {
       throw new ConvexError({ code: "INVALID_PROPOSAL", message: parsed.error });

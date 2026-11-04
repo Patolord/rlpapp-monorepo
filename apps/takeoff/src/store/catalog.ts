@@ -7,7 +7,6 @@ import {
   diffGaugeWeights,
   diffWeights,
   emptyCatalogStore,
-  fetchRemoteCatalog,
   loadCatalogStore,
   mergeCatalog,
   saveCatalogStore,
@@ -19,13 +18,15 @@ import {
   buildProposal,
   newClientId,
   type QueuedProposal,
-  sendProposal,
 } from "../lib/catalogRemote";
 import { syncDuctItems } from "../lib/ductItems";
 import { diffKits, type Kit, kitDefaults, refreshKitLabels } from "../lib/kits";
 import type { Project } from "../lib/types";
 import { syncWeightItems, type WeightRow } from "../lib/weights";
 import { errorMessage, type Slice } from "./shared";
+
+const SIGN_IN_FOR_CATALOG =
+  "Entre com a conta da empresa (Entrar, no topo) para atualizar o catálogo";
 
 /** Derived prices that follow the catalog settings: duct networks (kg/m², R$/kg), weight lines. */
 const syncDerived = (project: Project, catalog: CatalogStore): Project =>
@@ -47,10 +48,9 @@ export interface CatalogSlice {
   catalog: CatalogStore;
 
   loadCatalog(): Promise<void>;
-  setCatalogToken(token: string): void;
   /**
-   * Fetch the company catalog, as the signed-in user when there is one (else with the shared
-   * token); returns how many entries arrived.
+   * Fetch the company catalog as the signed-in user; returns how many entries arrived. Signed
+   * out, it fails with a message asking to sign in (the cached catalog stays in use).
    */
   refreshCatalog(): Promise<number>;
   saveItemToCatalog(itemId: string): Promise<void>;
@@ -122,25 +122,16 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
       set({ catalog, ...(synced !== project ? { project: synced, dirty: true } : {}) });
     },
 
-    setCatalogToken: (remoteToken) => {
-      const next = { ...get().catalog, remoteToken: remoteToken.trim() };
-      set({ catalog: next });
-      void saveCatalogStore(next);
-    },
-
     refreshCatalog: async () => {
+      if (!isSignedIn()) throw new Error(SIGN_IN_FOR_CATALOG);
       const { catalog } = get();
-      let remote: Awaited<ReturnType<typeof fetchRemoteCatalog>>;
-      if (isSignedIn()) {
-        try {
-          remote = await fetchCatalogAsUser();
-        } catch (e) {
-          // revoked in the dashboard: signed out now, the shared token (if any) takes over
-          if (!(await get().handleSignedOut(e)) || !catalog.remoteToken) throw e;
-          remote = await fetchRemoteCatalog(catalog.remoteToken);
-        }
-      } else {
-        remote = await fetchRemoteCatalog(catalog.remoteToken);
+      let remote: Awaited<ReturnType<typeof fetchCatalogAsUser>>;
+      try {
+        remote = await fetchCatalogAsUser();
+      } catch (e) {
+        // revoked in the dashboard: signed out now, the cached catalog stays in use
+        if (await get().handleSignedOut(e)) throw new Error(SIGN_IN_FOR_CATALOG);
+        throw e;
       }
       // the company's defaults (kits, weight table, gauges, prices per kg, VRF brands) come
       // with the catalog; what a server from before them leaves out stays as it is
@@ -233,7 +224,7 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
     flushProposals: async () => {
       const { catalog } = get();
       if (catalog.outbox.length === 0) return 0;
-      if (!isSignedIn() && !catalog.remoteToken) {
+      if (!isSignedIn()) {
         set({
           status:
             "Proposta guardada: entre com a conta da empresa (Entrar, no topo) para enviar a compras",
@@ -243,7 +234,7 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
       let accepted = 0;
       const remaining: QueuedProposal[] = [];
       let lastStatus: string | null = null;
-      // signed in, proposals go out as the user; otherwise with the shared token
+      // proposals go out as the signed-in user; signed out meanwhile, they stay queued
       const send = async (q: QueuedProposal) => {
         if (isSignedIn()) {
           try {
@@ -252,10 +243,7 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
             if (!(await get().handleSignedOut(e))) throw e;
           }
         }
-        const token = get().catalog.remoteToken;
-        return token
-          ? await sendProposal(token, q.body)
-          : { kind: "retry" as const, message: "sem conta conectada" };
+        return { kind: "retry" as const, message: "sem conta conectada" };
       };
       for (const q of catalog.outbox) {
         const outcome = await send(q).catch((e: unknown) => ({
