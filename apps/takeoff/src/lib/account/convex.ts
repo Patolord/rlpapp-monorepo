@@ -60,10 +60,43 @@ export function signedInProposalArgs(body: ProposalBody): SignedInProposal {
   };
 }
 
+export const PROPOSAL_FORBIDDEN_MESSAGE =
+  "sua conta não tem permissão para enviar materiais a compras (é preciso engenharia ou " +
+  "compras); peça o acesso a um administrador";
+
 /**
- * `takeoffMaterials.proposeAsUser`: the requester is the signed-in user. Domain refusals
- * (ConvexError: invalid proposal, unknown material) are final; anything else is retried later.
- * SignedOutError propagates: the caller drops the session and keeps the proposal queued.
+ * What a failed `proposeAsUser` call means for the queued proposal. Domain refusals (ConvexError:
+ * invalid proposal, unknown material) are final. Access refusals (FORBIDDEN: an account with
+ * only the takeoff access, or deactivated; UNAUTHENTICATED) are about the account, not the
+ * proposal: it stays queued for when the account gets the access or another one signs in.
+ * Anything else is retried later too.
+ */
+export function proposalFailure(e: unknown): Exclude<SendOutcome, { kind: "sent" }> {
+  if (e instanceof ConvexError) {
+    const data = e.data as { code?: unknown; message?: unknown } | string;
+    if (typeof data === "string") return { kind: "rejected", message: data };
+    if (data?.code === "FORBIDDEN") {
+      return {
+        kind: "retry",
+        message: /desativado/i.test(String(data.message ?? ""))
+          ? "sua conta está desativada no app da empresa"
+          : PROPOSAL_FORBIDDEN_MESSAGE,
+      };
+    }
+    if (data?.code === "UNAUTHENTICATED") {
+      return { kind: "retry", message: "entre de novo com a conta da empresa" };
+    }
+    const message =
+      typeof data?.message === "string" ? data.message : String(data?.code ?? "recusado");
+    return { kind: "rejected", message };
+  }
+  return { kind: "retry", message: e instanceof Error ? e.message : String(e) };
+}
+
+/**
+ * `takeoffMaterials.proposeAsUser`: the requester is the signed-in user. Failures are classified
+ * by `proposalFailure`. SignedOutError propagates: the caller drops the session and keeps the
+ * proposal queued.
  */
 export async function sendProposalAsUser(body: ProposalBody): Promise<SendOutcome> {
   try {
@@ -73,17 +106,7 @@ export async function sendProposalAsUser(body: ProposalBody): Promise<SendOutcom
     return { kind: "sent", result };
   } catch (e) {
     if (e instanceof SignedOutError) throw e;
-    if (e instanceof ConvexError) {
-      const data = e.data as { code?: unknown; message?: unknown } | string;
-      const message =
-        typeof data === "string"
-          ? data
-          : typeof data?.message === "string"
-            ? data.message
-            : String(data?.code ?? "recusado");
-      return { kind: "rejected", message };
-    }
-    return { kind: "retry", message: e instanceof Error ? e.message : String(e) };
+    return proposalFailure(e);
   }
 }
 
