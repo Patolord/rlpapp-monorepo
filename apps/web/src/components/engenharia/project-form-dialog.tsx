@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
+import { useCan } from "@/hooks/use-can";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { formatCurrency } from "@rlpapp/shared";
@@ -71,9 +72,11 @@ export function ProjectFormDialog({
   const [contractId, setContractId] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
+  // Vincular contrato existente exige contratos.write (o backend confere).
+  const canLinkContract = useCan("contratos.write");
   const unassignedContracts = useQuery(
     api.contracts.listUnassignedOptions,
-    open && !isEdit ? {} : "skip"
+    open && !isEdit && canLinkContract ? {} : "skip"
   );
 
   const customerItems = Object.fromEntries([

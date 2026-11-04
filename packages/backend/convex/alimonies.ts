@@ -1,5 +1,8 @@
 import { v } from "convex/values";
-import { hrMutation, hrQuery } from "./lib/rbac";
+import {
+  folhaMutation,
+  folhaQuery,
+} from "./lib/rbac";
 import { logAudit } from "./lib/audit";
 import { assertNonNegativeCents } from "./lib/rh/payroll";
 import {
@@ -47,7 +50,7 @@ async function listDraftRuns(ctx: MutationCtx) {
   return runs.filter((run) => run.status === "draft");
 }
 
-export const listForEmployee = hrQuery({
+export const listForEmployee = folhaQuery({
   args: {
     employeeId: v.id("employees"),
     includeArchived: v.optional(v.boolean()),
@@ -69,7 +72,7 @@ export const listForEmployee = hrQuery({
  * Cadastra a pensão e já a inclui nas folhas em rascunho em que o funcionário
  * está, para o mês corrente não ficar sem a linha.
  */
-export const create = hrMutation({
+export const create = folhaMutation({
   args: {
     employeeId: v.id("employees"),
     beneficiaryName: v.string(),
@@ -129,7 +132,7 @@ export const create = hrMutation({
  * vão para as linhas de folhas em rascunho ainda não pagas; o valor padrão só
  * vale para meses novos (cada mês tem o seu valor).
  */
-export const update = hrMutation({
+export const update = folhaMutation({
   args: {
     alimonyId: v.id("employeeAlimonies"),
     beneficiaryName: v.optional(v.string()),
@@ -211,7 +214,7 @@ export const update = hrMutation({
  * Encerra a pensão: sai das folhas em rascunho onde ainda não foi paga e
  * deixa de entrar nos meses seguintes. Meses fechados ficam como estão.
  */
-export const archive = hrMutation({
+export const archive = folhaMutation({
   args: { alimonyId: v.id("employeeAlimonies") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -248,7 +251,7 @@ export const archive = hrMutation({
 
 // --- Linhas mensais na folha ---
 
-export const listLinesForRun = hrQuery({
+export const listLinesForRun = folhaQuery({
   args: { runId: v.id("payrollRuns") },
   returns: v.array(alimonyLineValidator),
   handler: async (ctx, args) => {
@@ -263,7 +266,7 @@ export const listLinesForRun = hrQuery({
 });
 
 /** Inclui na folha uma pensão ativa que ficou de fora (ex.: funcionário adicionado depois). */
-export const addToRun = hrMutation({
+export const addToRun = folhaMutation({
   args: {
     runId: v.id("payrollRuns"),
     alimonyId: v.id("employeeAlimonies"),
@@ -293,7 +296,7 @@ export const addToRun = hrMutation({
   },
 });
 
-export const updateLine = hrMutation({
+export const updateLine = folhaMutation({
   args: {
     lineId: v.id("payrollAlimonyLines"),
     amountCents: v.optional(v.number()),
@@ -332,7 +335,7 @@ export const updateLine = hrMutation({
   },
 });
 
-export const toggleLinePaid = hrMutation({
+export const toggleLinePaid = folhaMutation({
   args: {
     lineId: v.id("payrollAlimonyLines"),
     paid: v.boolean(),
@@ -360,7 +363,7 @@ export const toggleLinePaid = hrMutation({
 });
 
 /** Tira a pensão só deste mês; o cadastro continua para os próximos. */
-export const removeLine = hrMutation({
+export const removeLine = folhaMutation({
   args: { lineId: v.id("payrollAlimonyLines") },
   returns: v.null(),
   handler: async (ctx, args) => {

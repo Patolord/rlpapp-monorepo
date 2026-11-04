@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { runWithToast } from "@/lib/errors";
+import { useCan } from "@/hooks/use-can";
 import { obraLinkSlug } from "@/lib/engenharia/obra-paths";
 
 const DIRECTION_LABELS: Record<ContractDirection, string> = {
@@ -66,6 +67,7 @@ export function ContractsPage({
     "all" | ContractDirection
   >("all");
   const [createOpen, setCreateOpen] = useState(false);
+  const canWrite = useCan("contratos.write");
 
   useEffect(() => {
     if (!autoOpenCreate) return;
@@ -109,19 +111,21 @@ export function ContractsPage({
           <h2 className="text-xl font-bold">{title}</h2>
           <p className="text-sm text-muted-foreground">{description}</p>
         </div>
-        <ContractFormDialog
-          lockedProjectId={lockedProjectId}
-          defaultCustomerId={defaultCustomerId}
-          defaultCustomerName={defaultCustomerName}
-          open={createOpen}
-          onOpenChange={setCreateOpen}
-          trigger={
-            <Button>
-              <Plus />
-              Novo contrato
-            </Button>
-          }
-        />
+        {canWrite && (
+          <ContractFormDialog
+            lockedProjectId={lockedProjectId}
+            defaultCustomerId={defaultCustomerId}
+            defaultCustomerName={defaultCustomerName}
+            open={createOpen}
+            onOpenChange={setCreateOpen}
+            trigger={
+              <Button>
+                <Plus />
+                Novo contrato
+              </Button>
+            }
+          />
+        )}
       </div>
 
       {contracts !== undefined && contracts.length > 0 && (
@@ -254,6 +258,7 @@ export function ContractsPage({
                         {formatCurrency(contract.valueCents)}
                       </TableCell>
                       <TableCell className="text-right">
+                        {canWrite && (
                         <div className="flex justify-end gap-1">
                           <ContractFormDialog
                             contractId={contract._id}
@@ -282,6 +287,7 @@ export function ContractsPage({
                             <Trash2 />
                           </Button>
                         </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
@@ -315,23 +321,26 @@ function EmptyState({
   defaultCustomerId?: Id<"customers"> | null;
   defaultCustomerName?: string | null;
 }) {
+  const canWrite = useCan("contratos.write");
   return (
     <EmptyStateBlock
       icon={<FileText />}
       title="Nenhum contrato cadastrado"
       description="Cadastre contratos de venda ao cliente ou contratação de empreiteiros com os serviços e valores acordados."
       action={
-        <ContractFormDialog
-          lockedProjectId={lockedProjectId}
-          defaultCustomerId={defaultCustomerId}
-          defaultCustomerName={defaultCustomerName}
-          trigger={
-            <Button>
-              <Plus />
-              Criar primeiro contrato
-            </Button>
-          }
-        />
+        canWrite ? (
+          <ContractFormDialog
+            lockedProjectId={lockedProjectId}
+            defaultCustomerId={defaultCustomerId}
+            defaultCustomerName={defaultCustomerName}
+            trigger={
+              <Button>
+                <Plus />
+                Criar primeiro contrato
+              </Button>
+            }
+          />
+        ) : undefined
       }
     />
   );

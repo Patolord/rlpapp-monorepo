@@ -1,4 +1,5 @@
 import {
+  normalizePermissions,
   normalizeRoles,
   resolveRoles,
   type Role,
@@ -17,16 +18,26 @@ export function accessFields(
   return { roles: normalized, role: undefined, department: undefined };
 }
 
-/** Usuário como os apps o veem: só `roles`, já resolvido para documentos antigos. */
+/**
+ * Usuário como os apps o veem: só `roles`, já resolvido para documentos
+ * antigos, e os ajustes individuais sem valores fora do catálogo atual.
+ */
 export function toUserView(user: Doc<"users">) {
   const {
     role: _role,
     department: _department,
     roles: _roles,
+    permissionGrants,
+    permissionDenials,
     clerkInvitationId: _clerkInvitationId,
     ...rest
   } = user;
-  return { ...rest, roles: resolveRoles(user) };
+  return {
+    ...rest,
+    roles: resolveRoles(user),
+    permissionGrants: normalizePermissions(permissionGrants),
+    permissionDenials: normalizePermissions(permissionDenials),
+  };
 }
 
 /** Email como chave de vínculo (índice by_email): minúsculas, sem espaços nas pontas. */

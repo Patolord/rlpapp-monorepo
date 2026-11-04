@@ -1,5 +1,9 @@
 import { v } from "convex/values";
-import { engineeringMutation, engineeringQuery } from "./lib/rbac";
+import {
+  contratosMutation,
+  contratosQuery,
+  medicoesQuery,
+} from "./lib/rbac";
 import { contractDirection, contractKind } from "./schema";
 import {
   createContract,
@@ -24,7 +28,7 @@ import {
   unassignedContractOptionValidator,
 } from "./model/contracts/validators";
 
-export const list = engineeringQuery({
+export const list = contratosQuery({
   args: {
     projectId: v.optional(v.id("projects")),
     direction: v.optional(contractDirection),
@@ -36,7 +40,7 @@ export const list = engineeringQuery({
   },
 });
 
-export const get = engineeringQuery({
+export const get = contratosQuery({
   args: { contractId: v.id("contracts") },
   returns: v.union(contractDetailValidator, v.null()),
   handler: async (ctx, args) => {
@@ -44,7 +48,7 @@ export const get = engineeringQuery({
   },
 });
 
-export const listBaseOptions = engineeringQuery({
+export const listBaseOptions = contratosQuery({
   args: {
     direction: contractDirection,
     projectId: v.optional(v.union(v.id("projects"), v.null())),
@@ -56,7 +60,7 @@ export const listBaseOptions = engineeringQuery({
   },
 });
 
-export const listUnassignedOptions = engineeringQuery({
+export const listUnassignedOptions = contratosQuery({
   args: {},
   returns: v.array(unassignedContractOptionValidator),
   handler: async (ctx) => {
@@ -64,7 +68,7 @@ export const listUnassignedOptions = engineeringQuery({
   },
 });
 
-export const listForMedicoes = engineeringQuery({
+export const listForMedicoes = medicoesQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(contractMeasurementSummaryValidator),
   handler: async (ctx, args) => {
@@ -72,7 +76,7 @@ export const listForMedicoes = engineeringQuery({
   },
 });
 
-export const create = engineeringMutation({
+export const create = contratosMutation({
   args: {
     title: v.string(),
     direction: contractDirection,
@@ -91,7 +95,7 @@ export const create = engineeringMutation({
   },
 });
 
-export const update = engineeringMutation({
+export const update = contratosMutation({
   args: {
     contractId: v.id("contracts"),
     title: v.optional(v.string()),
@@ -112,7 +116,7 @@ export const update = engineeringMutation({
   },
 });
 
-export const remove = engineeringMutation({
+export const remove = contratosMutation({
   args: { contractId: v.id("contracts") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -121,7 +125,7 @@ export const remove = engineeringMutation({
   },
 });
 
-export const getBillingOverview = engineeringQuery({
+export const getBillingOverview = contratosQuery({
   args: {},
   returns: v.array(contractBillingOverviewValidator),
   handler: async (ctx) => {

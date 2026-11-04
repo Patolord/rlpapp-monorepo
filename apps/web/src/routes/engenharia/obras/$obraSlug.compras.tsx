@@ -21,9 +21,14 @@ import {
 } from "@/components/ui/table";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
 import { obraLinkSlug } from "@/lib/engenharia/obra-paths";
+import { PermissionGate } from "@/components/role-area-gate";
 
 export const Route = createFileRoute("/engenharia/obras/$obraSlug/compras")({
-  component: ComprasPage,
+  component: () => (
+    <PermissionGate permissions={["suprimentos.read"]}>
+      <ComprasPage />
+    </PermissionGate>
+  ),
 });
 
 function ComprasPage() {

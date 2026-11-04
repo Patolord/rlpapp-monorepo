@@ -1,9 +1,9 @@
 import { v } from "convex/values";
 import {
   authedQuery,
-  engineeringMutation,
   engineeringOrPurchasingQuery,
-  purchasingMutation,
+  materiaisMutation,
+  orcamentosMutation,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
 import {
@@ -416,7 +416,7 @@ export const get = engineeringOrPurchasingQuery({
   },
 });
 
-export const create = engineeringMutation({
+export const create = orcamentosMutation({
   args: {
     projectId: v.optional(v.id("projects")),
     name: v.string(),
@@ -452,7 +452,7 @@ export const create = engineeringMutation({
   },
 });
 
-export const addItem = engineeringMutation({
+export const addItem = orcamentosMutation({
   args: {
     takeoffId: v.id("takeoffs"),
     rawDescription: v.string(),
@@ -495,7 +495,7 @@ export const addItem = engineeringMutation({
   },
 });
 
-export const updateItem = engineeringMutation({
+export const updateItem = orcamentosMutation({
   args: {
     itemId: v.id("takeoffItems"),
     rawDescription: v.optional(v.string()),
@@ -555,7 +555,7 @@ export const updateItem = engineeringMutation({
   },
 });
 
-export const promoteItemToMaterial = purchasingMutation({
+export const promoteItemToMaterial = materiaisMutation({
   args: {
     itemId: v.id("takeoffItems"),
     familyName: v.optional(v.string()),
@@ -580,7 +580,7 @@ export const promoteItemToMaterial = purchasingMutation({
   },
 });
 
-export const removeItem = engineeringMutation({
+export const removeItem = orcamentosMutation({
   args: { itemId: v.id("takeoffItems") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -592,7 +592,7 @@ export const removeItem = engineeringMutation({
   },
 });
 
-export const applySuggestedPrice = engineeringMutation({
+export const applySuggestedPrice = orcamentosMutation({
   args: {
     itemId: v.id("takeoffItems"),
     unitPriceCents: v.number(),
@@ -638,7 +638,7 @@ export const desktopPublishOptions = authedQuery({
  * Falhas esperadas: `ConvexError` com os códigos de
  * `DESKTOP_BUDGET_ERROR_CODES`.
  */
-export const publishFromDesktop = engineeringMutation({
+export const publishFromDesktop = orcamentosMutation({
   args: publishDesktopBudgetArgs,
   returns: publishDesktopBudgetResult,
   handler: async (ctx, args) => {
@@ -664,7 +664,7 @@ export const publishFromDesktop = engineeringMutation({
  * Compras já trabalhou nele (cotação, compra em andamento, linha adicionada
  * no app) e com `BUDGET_NOT_FOUND` se não há orçamento com este id.
  */
-export const removeFromDesktop = engineeringMutation({
+export const removeFromDesktop = orcamentosMutation({
   args: removeDesktopBudgetArgs,
   returns: removeDesktopBudgetResult,
   handler: async (ctx, args) => {
@@ -690,7 +690,7 @@ export const removeFromDesktop = engineeringMutation({
  * Compras já trabalhou nele, `BUDGET_NOT_FOUND` se não existe; e só takeoffs
  * de origem desktop (`INVALID_BUDGET` para os manuais).
  */
-export const remove = engineeringMutation({
+export const remove = orcamentosMutation({
   args: { takeoffId: v.id("takeoffs") },
   returns: removeDesktopBudgetResult,
   handler: async (ctx, args) => {

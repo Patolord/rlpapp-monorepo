@@ -1,6 +1,13 @@
 import { describe, expect, test } from "vitest";
 import {
   ADMIN_ROLES,
+  PERMISSION_DEPENDENCIES,
+  PERMISSION_DESCRIPTIONS,
+  PERMISSION_GROUPS,
+  PERMISSION_LABELS,
+  getRolePermissions,
+  normalizePermissionOverrides,
+  withDependencies,
   DEPARTMENTS,
   LEGACY_USER_ROLES,
   PERMISSIONS,
@@ -28,24 +35,53 @@ import {
 const ALL: Permission[] = [...PERMISSIONS];
 
 const ENGINEERING: Permission[] = [
-  "engenharia.read",
-  "engenharia.write",
+  "obras.read",
+  "obras.write",
+  "obras.gestao",
+  "contratos.read",
+  "contratos.write",
+  "medicoes.read",
+  "medicoes.write",
+  "medicoes.aprovar",
+  "documentos.read",
+  "documentos.write",
+  "orcamentos.write",
+  "assistente.use",
+  "cadastros.read",
+  "cadastros.write",
   "suprimentos.read",
+  "takeoff.config",
   "estoque.read",
+  "estoque.obras.write",
+  "estoque.solicitacoes",
+  "campo.equipe",
 ];
 const PURCHASING: Permission[] = [
-  "compras.read",
-  "compras.write",
   "suprimentos.read",
+  "compras.read",
+  "materiais.write",
+  "fornecedores.write",
+  "precos.write",
+  "takeoff.config",
   "estoque.read",
   "estoque.central.read",
+  "estoque.entrada",
 ];
 const WAREHOUSE: Permission[] = [
   "estoque.read",
-  "estoque.write",
   "estoque.central.read",
+  "estoque.write",
+  "estoque.entrada",
+  "estoque.obras.write",
 ];
-const HR: Permission[] = ["rh.read", "rh.write"];
+const HR: Permission[] = [
+  "rh.funcionarios.read",
+  "rh.funcionarios.write",
+  "rh.folha.read",
+  "rh.folha.write",
+  "rh.ponto.read",
+  "rh.ponto.write",
+];
 const TAKEOFF: Permission[] = ["takeoff.use", "suprimentos.read"];
 
 function sorted(list: readonly Permission[]) {
@@ -187,11 +223,11 @@ describe("hasRole, can e área inicial", () => {
 
   test("can() avalia qualquer uma das permissões e nega sem usuário", () => {
     const user = { permissions: getPermissions({ roles: ["compras"] }) };
-    expect(can(user, "compras.write")).toBe(true);
-    expect(can(user, "rh.read", "compras.read")).toBe(true);
-    expect(can(user, "rh.read")).toBe(false);
-    expect(can(null, "compras.write")).toBe(false);
-    expect(can(undefined, "compras.write")).toBe(false);
+    expect(can(user, "materiais.write")).toBe(true);
+    expect(can(user, "rh.folha.read", "compras.read")).toBe(true);
+    expect(can(user, "rh.folha.read")).toBe(false);
+    expect(can(null, "materiais.write")).toBe(false);
+    expect(can(undefined, "materiais.write")).toBe(false);
   });
 
   test("área inicial", () => {
@@ -211,10 +247,132 @@ describe("hasRole, can e área inicial", () => {
     expect(resolveHomeArea({ role: "qr_operator" })).toBe("qr-operador");
   });
 
+  test("área inicial sem acesso de departamento segue as permissões avulsas", () => {
+    expect(
+      resolveHomeArea({ roles: ["takeoff"], permissionGrants: ["rh.folha.read"] })
+    ).toBe("rh");
+    expect(
+      resolveHomeArea({ roles: [], permissionGrants: ["compras.read"] })
+    ).toBe("compras");
+    // Técnico com uma funcionalidade do escritório continua entrando pelo campo.
+    expect(
+      resolveHomeArea({ roles: ["qr_operator"], permissionGrants: ["medicoes.read"] })
+    ).toBe("qr-operador");
+  });
+
   test("todo acesso tem rótulo e descrição", () => {
     for (const role of ROLES) {
       expect(ROLE_LABELS[role]).toBeTruthy();
       expect(ROLE_DESCRIPTIONS[role]).toBeTruthy();
     }
+  });
+});
+
+describe("ajustes individuais", () => {
+  test("toda permissão tem rótulo, descrição e um grupo só", () => {
+    const grouped = PERMISSION_GROUPS.flatMap((group) => group.permissions);
+    expect(sorted(grouped)).toEqual(sorted(ALL));
+    expect(new Set(grouped).size).toBe(grouped.length);
+    for (const permission of PERMISSIONS) {
+      expect(PERMISSION_LABELS[permission]).toBeTruthy();
+      expect(PERMISSION_DESCRIPTIONS[permission]).toBeTruthy();
+    }
+  });
+
+  test("pré-requisitos não formam ciclo e os acessos já os incluem", () => {
+    for (const permission of PERMISSIONS) {
+      const deps = withDependencies(PERMISSION_DEPENDENCIES[permission] ?? []);
+      expect(deps.has(permission)).toBe(false);
+    }
+    for (const role of ROLES) {
+      expect(sorted(getRolePermissions([role]))).toEqual(sorted(ROLE_PERMISSIONS[role]));
+    }
+  });
+
+  test("técnico com uma funcionalidade de engenharia", () => {
+    const subject: AccessSubject = {
+      roles: ["qr_operator"],
+      permissionGrants: ["medicoes.write"],
+    };
+    expect(sorted(getPermissions(subject))).toEqual(
+      sorted(["medicoes.write", "medicoes.read", "obras.read"])
+    );
+    expect(hasPermission(subject, "contratos.read")).toBe(false);
+    expect(isStaff(subject)).toBe(false);
+  });
+
+  test("técnico líder enxerga todas as obras no campo", () => {
+    expect(
+      hasPermission(
+        { roles: ["qr_operator"], permissionGrants: ["campo.todas_obras"] },
+        "campo.todas_obras"
+      )
+    ).toBe(true);
+    expect(hasPermission({ roles: ["qr_operator"] }, "campo.todas_obras")).toBe(false);
+  });
+
+  test("engenheiro sem contratos nem gestão de obras", () => {
+    const subject: AccessSubject = {
+      roles: ["engenheiro"],
+      permissionDenials: ["contratos.read", "obras.gestao"],
+    };
+    const permissions = getPermissions(subject);
+    expect(permissions).not.toContain("contratos.read");
+    // Sem o pré-requisito, a escrita também sai.
+    expect(permissions).not.toContain("contratos.write");
+    expect(permissions).not.toContain("obras.gestao");
+    expect(permissions).toContain("obras.write");
+    expect(permissions).toContain("medicoes.write");
+  });
+
+  test("retirar um pré-requisito derruba o que depende dele", () => {
+    const permissions = getPermissions({
+      roles: ["engenharia"],
+      permissionDenials: ["obras.read"],
+    });
+    for (const permission of [
+      "obras.read",
+      "obras.write",
+      "obras.gestao",
+      "contratos.read",
+      "medicoes.write",
+      "documentos.read",
+      "orcamentos.write",
+      "assistente.use",
+    ] as const) {
+      expect(permissions).not.toContain(permission);
+    }
+    expect(permissions).toContain("cadastros.write");
+    expect(permissions).toContain("estoque.obras.write");
+  });
+
+  test("retirada vale também para administradores", () => {
+    expect(
+      hasPermission({ roles: ["admin"], permissionDenials: ["rh.folha.read"] }, "rh.folha.write")
+    ).toBe(false);
+    expect(hasPermission({ roles: ["admin"] }, "rh.folha.write")).toBe(true);
+  });
+
+  test("valores desconhecidos nos ajustes são ignorados", () => {
+    expect(getPermissions({ roles: [], permissionGrants: ["x.y", "engenharia.read"] })).toEqual(
+      []
+    );
+  });
+
+  test("normalizePermissionOverrides guarda só o que difere dos acessos", () => {
+    expect(
+      normalizePermissionOverrides(
+        ["engenharia"],
+        ["obras.read", "rh.ponto.read", "x", "rh.ponto.read"],
+        ["contratos.write", "rh.folha.read"]
+      )
+    ).toEqual({
+      permissionGrants: ["rh.ponto.read"],
+      permissionDenials: ["contratos.write"],
+    });
+    // Concedida e retirada ao mesmo tempo: fica só a retirada (se o acesso dá).
+    expect(
+      normalizePermissionOverrides(["rh"], ["obras.read"], ["obras.read"])
+    ).toEqual({ permissionGrants: [], permissionDenials: [] });
   });
 });

@@ -109,16 +109,17 @@ export const getAccess = inventoryQuery({
   handler: async (ctx) => {
     const can = (permission: Permission) => hasPermission(ctx.user, permission);
     const canWriteCentral = can("estoque.write");
-    const canCreateEntry = canWriteCentral || can("compras.write");
+    const canCreateEntry = can("estoque.entrada");
     return {
       canViewCentral: canViewCentralInventory(ctx.user),
       canWriteCentral,
       canCreateEntry,
-      canCreateProjectMovement: canWriteCentral || can("engenharia.write"),
+      canCreateProjectMovement: can("estoque.obras.write"),
       canConfigureRules: can("estoque.rules"),
-      canQuickCreateMaterial: canCreateEntry,
-      // Equipe de engenharia (não admin): vê a aba de aprovações de exceções.
-      isEngineer: can("engenharia.write") && !isAdmin(ctx.user),
+      canQuickCreateMaterial: canCreateEntry || can("materiais.write"),
+      // Engenheiro (não admin): vê a aba de aprovações de exceções, que só
+      // ele decide (canDecideInventoryException).
+      isEngineer: hasRole(ctx.user, "engenheiro") && !isAdmin(ctx.user),
       canReviewMaterialRequests: canReviewMaterialRequests(ctx.user),
       canFulfillMaterialRequests: canFulfillMaterialRequests(ctx.user),
     };

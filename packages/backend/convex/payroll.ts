@@ -1,5 +1,8 @@
 import { v } from "convex/values";
-import { hrMutation, hrQuery } from "./lib/rbac";
+import {
+  folhaMutation,
+  folhaQuery,
+} from "./lib/rbac";
 import { logAudit } from "./lib/audit";
 import { normalizeCustomerName } from "./lib/customers/helpers";
 import {
@@ -359,7 +362,7 @@ function toLoanRow(
   };
 }
 
-export const listRuns = hrQuery({
+export const listRuns = folhaQuery({
   args: { year: v.optional(v.number()) },
   returns: v.array(payrollRunValidator),
   handler: async (ctx, args) => {
@@ -376,7 +379,7 @@ export const listRuns = hrQuery({
   },
 });
 
-export const getWorkspace = hrQuery({
+export const getWorkspace = folhaQuery({
   args: {
     year: v.number(),
     paymentMonth: v.number(),
@@ -562,7 +565,7 @@ async function insertAlimonyLinesForRun(
   }
 }
 
-export const createRun = hrMutation({
+export const createRun = folhaMutation({
   args: {
     year: v.number(),
     paymentMonth: v.number(),
@@ -644,7 +647,7 @@ export const createRun = hrMutation({
   },
 });
 
-export const updateRunParameters = hrMutation({
+export const updateRunParameters = folhaMutation({
   args: {
     runId: v.id("payrollRuns"),
     mealVoucherPerDayCents: v.optional(v.number()),
@@ -704,7 +707,7 @@ export const updateRunParameters = hrMutation({
   },
 });
 
-export const addEmployeeToRun = hrMutation({
+export const addEmployeeToRun = folhaMutation({
   args: {
     runId: v.id("payrollRuns"),
     employeeId: v.optional(v.id("employees")),
@@ -776,7 +779,7 @@ export const addEmployeeToRun = hrMutation({
   },
 });
 
-export const removeLine = hrMutation({
+export const removeLine = folhaMutation({
   args: { lineId: v.id("payrollLines") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -795,7 +798,7 @@ export const removeLine = hrMutation({
   },
 });
 
-export const updateLine = hrMutation({
+export const updateLine = folhaMutation({
   args: {
     lineId: v.id("payrollLines"),
     code: v.optional(v.union(v.string(), v.null())),
@@ -927,7 +930,7 @@ export const updateLine = hrMutation({
   },
 });
 
-export const togglePaid = hrMutation({
+export const togglePaid = folhaMutation({
   args: {
     lineId: v.id("payrollLines"),
     paid: v.boolean(),
@@ -955,7 +958,7 @@ export const togglePaid = hrMutation({
   },
 });
 
-export const closeRun = hrMutation({
+export const closeRun = folhaMutation({
   args: { runId: v.id("payrollRuns") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -980,7 +983,7 @@ export const closeRun = hrMutation({
   },
 });
 
-export const reopenRun = hrMutation({
+export const reopenRun = folhaMutation({
   args: { runId: v.id("payrollRuns") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1013,7 +1016,7 @@ export const reopenRun = hrMutation({
   },
 });
 
-export const listLoans = hrQuery({
+export const listLoans = folhaQuery({
   args: {
     employeeId: v.id("employees"),
     year: v.number(),
@@ -1033,7 +1036,7 @@ export const listLoans = hrQuery({
   },
 });
 
-export const createLoan = hrMutation({
+export const createLoan = folhaMutation({
   args: {
     employeeId: v.id("employees"),
     totalCents: v.number(),
@@ -1080,7 +1083,7 @@ export const createLoan = hrMutation({
   },
 });
 
-export const updateLoan = hrMutation({
+export const updateLoan = folhaMutation({
   args: {
     loanId: v.id("employeeLoans"),
     totalCents: v.optional(v.number()),
@@ -1146,7 +1149,7 @@ export const updateLoan = hrMutation({
   },
 });
 
-export const archiveLoan = hrMutation({
+export const archiveLoan = folhaMutation({
   args: { loanId: v.id("employeeLoans") },
   returns: v.null(),
   handler: async (ctx, args) => {

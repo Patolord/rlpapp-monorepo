@@ -38,9 +38,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { getErrorMessage } from "@/lib/errors";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
+import { PermissionGate } from "@/components/role-area-gate";
 
 export const Route = createFileRoute("/engenharia/obras/$obraSlug/orcamento")({
-  component: OrcamentoPage,
+  component: () => (
+    <PermissionGate permissions={["suprimentos.read"]}>
+      <OrcamentoPage />
+    </PermissionGate>
+  ),
 });
 
 function OrcamentoPage() {
@@ -155,9 +160,9 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
     const price = item.estimatedUnitPriceCents ?? 0;
     return sum + qty * price;
   }, 0);
-  const canPromoteMaterial = can(currentUser, "compras.write");
-  // quem publica (engenharia.write) também remove um orçamento do desktop
-  const canRemoveDesktopBudget = can(currentUser, "engenharia.write");
+  const canPromoteMaterial = can(currentUser, "materiais.write");
+  // quem publica (orcamentos.write) também remove um orçamento do desktop
+  const canRemoveDesktopBudget = can(currentUser, "orcamentos.write");
   const activeSummary = takeoffs?.find((t) => t._id === activeTakeoffId);
   // Orçamentos do desktop são editados lá e republicados: sem entrada manual.
   const isDesktop = activeSummary?.source === "desktop";

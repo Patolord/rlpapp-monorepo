@@ -19,6 +19,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useCan } from "@/hooks/use-can";
+import { can, type Permission } from "@rlpapp/shared/auth/permissions";
 import { getUnitState, type GridFloor, type GridUnit } from "@/components/engenharia/building";
 import { AiChatPanel } from "@/components/engenharia/ai/ai-chat-panel";
 import { AssignTechniciansDialog } from "@/components/engenharia/assign-technicians-dialog";
@@ -189,6 +191,9 @@ function ProjectShellLayout({
   }
 
   const [metricsOpen, setMetricsOpen] = useState(false);
+  const canEdit = useCan("obras.write");
+  const canManage = useCan("obras.gestao");
+  const canUseAssistant = useCan("assistente.use");
 
   const pending = project.totalItems - project.installedItems;
   const pct =
@@ -204,7 +209,7 @@ function ProjectShellLayout({
     <div
       className={cn(
         "mx-auto max-w-7xl space-y-6",
-        aiOpen && "lg:pr-116"
+        canUseAssistant && aiOpen && "lg:pr-116"
       )}
     >
       <div>
@@ -256,7 +261,7 @@ function ProjectShellLayout({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            {project.status !== "archived" && (
+            {canEdit && project.status !== "archived" && (
               <ProjectFormDialog
                 project={{
                   _id: project._id,
@@ -281,7 +286,7 @@ function ProjectShellLayout({
             >
               <BarChart3 />
             </Button>
-            <AssignTechniciansDialog projectId={project._id} />
+            {canManage && <AssignTechniciansDialog projectId={project._id} />}
             <Button
               variant="outline"
               size="sm"
@@ -326,7 +331,7 @@ function ProjectShellLayout({
 
       {children(project, now)}
 
-      {!aiOpen && (
+      {canUseAssistant && !aiOpen && (
         <Button
           size="lg"
           className="fixed bottom-6 right-6 z-40 rounded-full shadow-lg"
@@ -336,17 +341,35 @@ function ProjectShellLayout({
           Assistente IA
         </Button>
       )}
-      <AiChatPanel
-        projectId={project._id}
-        context={aiContext}
-        open={aiOpen}
-        onOpenChange={setAiOpenPersist}
-      />
+      {canUseAssistant && (
+        <AiChatPanel
+          projectId={project._id}
+          context={aiContext}
+          open={aiOpen}
+          onOpenChange={setAiOpenPersist}
+        />
+      )}
     </div>
   );
 }
 
-const OBRA_MODULES = [
+// Cada aba aparece para quem tem a permissão da funcionalidade (a página
+// usaria queries que o backend negaria).
+const OBRA_MODULES: {
+  key: string;
+  label: string;
+  to:
+    | "/engenharia/obras/$obraSlug"
+    | "/engenharia/obras/$obraSlug/predio"
+    | "/engenharia/obras/$obraSlug/orcamento"
+    | "/engenharia/obras/$obraSlug/contratos"
+    | "/engenharia/obras/$obraSlug/medicoes"
+    | "/engenharia/obras/$obraSlug/compras"
+    | "/engenharia/obras/$obraSlug/estoque"
+    | "/engenharia/obras/$obraSlug/documentos";
+  match: "exact" | "prefix";
+  permission?: Permission;
+}[] = [
   {
     key: "hub",
     label: "Hub",
@@ -364,44 +387,54 @@ const OBRA_MODULES = [
     label: "Orçamento",
     to: "/engenharia/obras/$obraSlug/orcamento" as const,
     match: "prefix" as const,
+    permission: "suprimentos.read",
   },
   {
     key: "contratos",
     label: "Contratos",
     to: "/engenharia/obras/$obraSlug/contratos" as const,
     match: "prefix" as const,
+    permission: "contratos.read",
   },
   {
     key: "medicoes",
     label: "Medições",
     to: "/engenharia/obras/$obraSlug/medicoes" as const,
     match: "prefix" as const,
+    permission: "medicoes.read",
   },
   {
     key: "compras",
     label: "Compras",
     to: "/engenharia/obras/$obraSlug/compras" as const,
     match: "prefix" as const,
+    permission: "suprimentos.read",
   },
   {
     key: "estoque",
     label: "Estoque",
     to: "/engenharia/obras/$obraSlug/estoque" as const,
     match: "prefix" as const,
+    permission: "estoque.read",
   },
   {
     key: "documentos",
     label: "Documentos",
     to: "/engenharia/obras/$obraSlug/documentos" as const,
     match: "prefix" as const,
+    permission: "documentos.read",
   },
 ];
 
 function ObraModuleNav({ obraSlug }: { obraSlug: string }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const currentUser = useQuery(api.users.getCurrentUser);
   const base = `/engenharia/obras/${obraSlug}`;
+  const modules = OBRA_MODULES.filter(
+    (mod) => !mod.permission || can(currentUser, mod.permission)
+  );
 
-  function isActive(mod: (typeof OBRA_MODULES)[number]) {
+  function isActive(mod: (typeof modules)[number]) {
     if (mod.match === "exact") {
       return pathname === base || pathname === `${base}/`;
     }
@@ -413,7 +446,7 @@ function ObraModuleNav({ obraSlug }: { obraSlug: string }) {
       aria-label="Módulos da obra"
       className="mt-4 flex flex-wrap gap-x-1 gap-y-1 border-b"
     >
-      {OBRA_MODULES.map((mod) => {
+      {modules.map((mod) => {
         const active = isActive(mod);
         return (
           <Link

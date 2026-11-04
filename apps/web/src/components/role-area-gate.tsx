@@ -21,26 +21,43 @@ export type DepartmentArea =
 /**
  * Permissões (qualquer uma) que abrem cada área do dashboard. Espelha o que
  * as funções do backend de cada módulo exigem; quem nega continua sendo o
- * backend. Também usada pela sidebar para montar a navegação.
+ * backend. Também usada pela sidebar para montar a navegação. Dentro de cada
+ * área, as páginas de uma funcionalidade específica usam `PermissionGate`.
  */
 export const AREA_PERMISSIONS: Record<DepartmentArea, Permission[]> = {
-  rh: ["rh.read"],
-  engenharia: ["engenharia.read"],
+  // Folha e ponto dependem de rh.funcionarios.read (PERMISSION_DEPENDENCIES).
+  rh: ["rh.funcionarios.read"],
+  // Toda funcionalidade de engenharia depende de obras.read.
+  engenharia: ["obras.read"],
   compras: ["compras.read"],
   // Estoque permite leitura compartilhada com Compras e Engenharia; as ações
   // continuam protegidas por permissões específicas no backend.
   estoque: ["estoque.read"],
-  // Backoffice (clientes, empreiteiros) segue o acesso de engenharia, que é a
-  // permissão exigida pelo backend (engenharia.read).
-  backoffice: ["engenharia.read"],
-  // Configurações e App Takeoff seguem a mesma regra do grupo na sidebar
-  // (engenharia ou compras); a página de usuários ainda exige admin para editar.
-  configuracoes: ["engenharia.read", "compras.read"],
-  takeoff: ["engenharia.read", "compras.read"],
+  // Backoffice: clientes e empreiteiros.
+  backoffice: ["cadastros.read"],
+  // Configurações segue o grupo na sidebar (engenharia ou compras); a página
+  // de usuários ainda exige admin para editar.
+  configuracoes: ["obras.read", "compras.read"],
+  // App Takeoff: kits, pesos, marcas VRF e parâmetros.
+  takeoff: ["takeoff.config"],
 };
 
+const OFFICE_AREAS = ["engenharia", "estoque", "compras", "rh", "backoffice"] as const;
+
+/**
+ * Primeira área do escritório que o usuário abre, para quem entra pelo app de
+ * campo mas recebeu alguma funcionalidade do escritório (ex.: técnico com
+ * medições). `null` se não abre nenhuma.
+ */
+export function firstOfficeArea(
+  user: { permissions: readonly Permission[] } | null | undefined
+): (typeof OFFICE_AREAS)[number] | null {
+  return OFFICE_AREAS.find((area) => can(user, ...AREA_PERMISSIONS[area])) ?? null;
+}
+
 // Bloqueia áreas internas (departamentos):
-// - qr_operator só pode acessar páginas /q/$token → vai para /qr-operador
+// - técnico de campo (qr_operator) vai para /qr-operador, exceto nas áreas
+//   que um ajuste individual liberou para ele (ex.: medições)
 // - quem não tem permissão na área vai para a própria área inicial
 //   (`homeArea`, calculada pelo backend) ou vê um aviso, se for a mesma.
 export function RoleAreaGate({
@@ -53,12 +70,10 @@ export function RoleAreaGate({
   const currentUser = useQuery(api.users.getCurrentUser);
   const navigate = useNavigate();
 
-  const isQrOperator = currentUser?.homeArea === "qr-operador";
-  const denied =
-    !!currentUser &&
-    !!area &&
-    !isQrOperator &&
-    !can(currentUser, ...AREA_PERMISSIONS[area]);
+  const areaAllowed = !!area && can(currentUser, ...AREA_PERMISSIONS[area]);
+  const isQrOperator =
+    currentUser?.homeArea === "qr-operador" && !areaAllowed;
+  const denied = !!currentUser && !!area && !isQrOperator && !areaAllowed;
   const fallbackArea =
     denied && currentUser?.homeArea && currentUser.homeArea !== area
       ? currentUser.homeArea
@@ -91,5 +106,35 @@ export function RoleAreaGate({
     );
   }
 
+  return <>{children}</>;
+}
+
+/**
+ * Página de uma funcionalidade dentro de uma área (contratos, medições,
+ * folha...): mostra um aviso em vez de montar a página quando o usuário não
+ * tem nenhuma das permissões, para que as queries dela não falhem.
+ */
+export function PermissionGate({
+  permissions,
+  children,
+}: {
+  permissions: Permission[];
+  children: React.ReactNode;
+}) {
+  const currentUser = useQuery(api.users.getCurrentUser);
+  if (currentUser === undefined) return null;
+  // Sem sessão: a página (AuthShell) cuida do redirecionamento para o login.
+  if (currentUser === null) return <>{children}</>;
+  if (!can(currentUser, ...permissions)) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 px-6 text-center">
+        <h1 className="text-xl font-semibold">Acesso restrito</h1>
+        <p className="text-muted-foreground">
+          Seu usuário não tem acesso a esta funcionalidade. Fale com um
+          administrador.
+        </p>
+      </div>
+    );
+  }
   return <>{children}</>;
 }

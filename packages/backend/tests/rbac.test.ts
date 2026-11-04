@@ -31,13 +31,15 @@ describe("erros de acesso tipados", () => {
       department: "compras",
     });
     const error = await rejection(
-      asCompras.query(internal.users.assertPermission, { permission: "rh.read" })
+      asCompras.query(internal.users.assertPermission, {
+        permission: "rh.funcionarios.read",
+      })
     );
     expect(error).toBeInstanceOf(ConvexError);
     expect((error as ConvexError<{ code: string }>).data).toEqual({
       code: "FORBIDDEN",
       message: "Acesso restrito à área de recursos humanos",
-      permission: "rh.read",
+      permission: "rh.funcionarios.read",
     });
   });
 
@@ -69,12 +71,17 @@ describe("acessos combináveis (roles)", () => {
     const me = await asMixed.query(api.users.getCurrentUser, {});
     expect(me?.roles).toEqual(["compras", "estoque"]);
     expect(me?.permissions).toEqual([
-      "compras.read",
-      "compras.write",
       "suprimentos.read",
+      "compras.read",
+      "materiais.write",
+      "fornecedores.write",
+      "precos.write",
+      "takeoff.config",
       "estoque.read",
-      "estoque.write",
       "estoque.central.read",
+      "estoque.write",
+      "estoque.entrada",
+      "estoque.obras.write",
     ]);
     expect(me?.homeArea).toBe("compras");
     await expect(
@@ -97,7 +104,7 @@ describe("acessos combináveis (roles)", () => {
     const asLegacy = t.withIdentity({ subject: "leg1" });
     const me = await asLegacy.query(api.users.getCurrentUser, {});
     expect(me?.roles).toEqual(["engenheiro", "rh", "takeoff"]);
-    expect(me?.permissions).toContain("rh.write");
+    expect(me?.permissions).toContain("rh.folha.write");
     expect(me?.permissions).toContain("takeoff.use");
   });
 
@@ -192,12 +199,16 @@ describe("users.getCurrentUser", () => {
     expect(me?.homeArea).toBe("compras");
     // Cadastro legado de compras: ganha também o app Takeoff (já entrava nele).
     expect(me?.permissions).toEqual([
-      "compras.read",
-      "compras.write",
       "suprimentos.read",
+      "compras.read",
+      "materiais.write",
+      "fornecedores.write",
+      "precos.write",
+      "takeoff.use",
+      "takeoff.config",
       "estoque.read",
       "estoque.central.read",
-      "takeoff.use",
+      "estoque.entrada",
     ]);
 
     const asDirector = await withUser(t, { clerkId: "dir1", role: "director" });
@@ -223,7 +234,7 @@ describe("gate de permissão para actions", () => {
     const t = setup();
     const asRh = await withUser(t, { clerkId: "rh1", role: "manager", department: "rh" });
     await expect(
-      asRh.query(internal.users.assertPermission, { permission: "rh.write" })
+      asRh.query(internal.users.assertPermission, { permission: "rh.folha.write" })
     ).resolves.toBeNull();
   });
 
@@ -240,7 +251,7 @@ describe("gate de permissão para actions", () => {
     ).rejects.toThrow("Insufficient permissions");
   });
 
-  test("actions de IA exigem engenharia.write", async () => {
+  test("actions de IA exigem assistente.use", async () => {
     const t = setup();
     const projectId = await t.run(async (ctx) =>
       ctx.db.insert("projects", {
@@ -253,11 +264,11 @@ describe("gate de permissão para actions", () => {
     const asQr = await withUser(t, { clerkId: "qr1", role: "qr_operator" });
     await expect(
       asQr.action(api.ai.interpret, { projectId, message: "oi" })
-    ).rejects.toThrow("Insufficient permissions");
+    ).rejects.toThrow("assistente.use");
 
     const asRh = await withUser(t, { clerkId: "rh1", role: "operator", department: "rh" });
     await expect(
       asRh.action(api.ai.interpret, { projectId, message: "oi" })
-    ).rejects.toThrow("Acesso restrito à área de engenharia");
+    ).rejects.toThrow("Seu usuário não tem acesso ao assistente IA");
   });
 });

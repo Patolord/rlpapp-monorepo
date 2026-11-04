@@ -23,7 +23,18 @@ describe("catálogo MCP", () => {
       (m) => m[1]!
     );
     expect(wrappers).toContain("engineeringOrPurchasingMutation");
-    const missing = wrappers.filter((w) => !new RegExp(`\\b${w}:`).test(hintsBlock));
+    // Os nomeados por funcionalidade (`export const x = permissionQuery("p");`)
+    // são lidos de lib/rbac.ts pelo próprio gerador.
+    const declaredByFactory = new Set(
+      [
+        ...rbac.matchAll(
+          /^export const (\w+)\s*=\s*(?:any)?[pP]ermission(?:Query|Mutation)\([^)]*\)\s*;/gm
+        ),
+      ].map((m) => m[1]!)
+    );
+    const missing = wrappers.filter(
+      (w) => !declaredByFactory.has(w) && !new RegExp(`\\b${w}:`).test(hintsBlock)
+    );
     expect(missing).toEqual([]);
   });
 });

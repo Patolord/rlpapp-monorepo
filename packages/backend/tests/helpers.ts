@@ -30,6 +30,8 @@ export async function withUser(
       roles:
         overrides.roles ??
         rolesFromLegacy(overrides.role ?? "operator", overrides.department),
+      permissionGrants: overrides.permissionGrants,
+      permissionDenials: overrides.permissionDenials,
       isActive: overrides.isActive ?? true,
       createdAt: Date.now(),
     });

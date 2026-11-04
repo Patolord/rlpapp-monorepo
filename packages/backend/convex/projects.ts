@@ -1,9 +1,14 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import {
-  resolveRoles,
   type Role,
-  hasRole, engineeringMutation, engineeringQuery } from "./lib/rbac";
+  hasRole,
+  obrasGestaoMutation,
+  obrasMutation,
+  obrasQuery,
+  requirePermission,
+  resolveRoles,
+} from "./lib/rbac";
 import { equipmentStatusValidator } from "./equipment";
 import {
   accessRoles, projectStatus } from "./schema";
@@ -85,7 +90,7 @@ function projectSnapshot(project: import("./_generated/dataModel").Doc<"projects
 
 // --- Listagem de obras (com progresso por ACs) ---
 
-export const list = engineeringQuery({
+export const list = obrasQuery({
   args: {
     includeArchived: v.optional(v.boolean()),
   },
@@ -185,7 +190,7 @@ export const list = engineeringQuery({
 
 // --- Resolução de obra por slug ou ID legado ---
 
-export const resolve = engineeringQuery({
+export const resolve = obrasQuery({
   args: { identifier: v.string() },
   returns: v.union(
     v.object({
@@ -243,7 +248,7 @@ export const backfillSlugs = internalMutation({
 
 // --- Visão completa de uma obra (árvore andares → aptos → itens) ---
 
-export const getOverview = engineeringQuery({
+export const getOverview = obrasQuery({
   args: { projectId: v.id("projects") },
   returns: v.union(
     v.object({
@@ -506,7 +511,7 @@ async function attachUnassignedContract(
   return args.contractId;
 }
 
-export const create = engineeringMutation({
+export const create = obrasGestaoMutation({
   args: {
     name: v.string(),
     // Andares opcionais: obras novas podem começar vazias e usar torres.
@@ -527,7 +532,7 @@ export const create = engineeringMutation({
 });
 
 /** Cria a obra e, se informado, vincula um contrato ainda sem obra — numa única transação. */
-export const createWithOptionalContract = engineeringMutation({
+export const createWithOptionalContract = obrasGestaoMutation({
   args: {
     name: v.string(),
     customerId: v.id("customers"),
@@ -539,6 +544,8 @@ export const createWithOptionalContract = engineeringMutation({
     linkedContractId: v.union(v.id("contracts"), v.null()),
   }),
   handler: async (ctx, args) => {
+    // Vincular um contrato existente à obra nova é edição de contrato.
+    if (args.contractId) requirePermission(ctx.user, "contratos.write");
     const projectId = await insertProject(ctx, {
       name: args.name,
       customerId: args.customerId,
@@ -548,7 +555,6 @@ export const createWithOptionalContract = engineeringMutation({
     if (!args.contractId) {
       return { projectId, linkedContractId: null };
     }
-
     const linkedContractId = await attachUnassignedContract(ctx, {
       contractId: args.contractId,
       projectId,
@@ -557,7 +563,7 @@ export const createWithOptionalContract = engineeringMutation({
   },
 });
 
-export const update = engineeringMutation({
+export const update = obrasMutation({
   args: {
     projectId: v.id("projects"),
     name: v.optional(v.string()),
@@ -656,7 +662,7 @@ export const update = engineeringMutation({
 });
 
 // Define quais usuários do portal podem ver a obra.
-export const setPortalUsers = engineeringMutation({
+export const setPortalUsers = obrasGestaoMutation({
   args: {
     projectId: v.id("projects"),
     portalUserIds: v.array(v.id("users")),
@@ -701,7 +707,7 @@ export const setPortalUsers = engineeringMutation({
 });
 
 /** @deprecated Use setPortalUsers */
-export const setClients = engineeringMutation({
+export const setClients = obrasGestaoMutation({
   args: {
     projectId: v.id("projects"),
     clientIds: v.array(v.id("users")),
@@ -744,7 +750,7 @@ export const setClients = engineeringMutation({
   },
 });
 
-export const archive = engineeringMutation({
+export const archive = obrasGestaoMutation({
   args: { projectId: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -776,7 +782,7 @@ export const archive = engineeringMutation({
   },
 });
 
-export const restore = engineeringMutation({
+export const restore = obrasGestaoMutation({
   args: {
     projectId: v.id("projects"),
     status: v.optional(
@@ -819,7 +825,7 @@ export const restore = engineeringMutation({
 });
 
 // Define quais técnicos podem listar QRs/equipamentos desta obra em campo.
-export const setTechnicians = engineeringMutation({
+export const setTechnicians = obrasGestaoMutation({
   args: {
     projectId: v.id("projects"),
     technicianIds: v.array(v.id("users")),
@@ -856,7 +862,7 @@ export const setTechnicians = engineeringMutation({
 });
 
 // Técnicos atribuídos à obra (para UI de edição).
-export const getAssignedTechnicians = engineeringQuery({
+export const getAssignedTechnicians = obrasQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(
     v.object({
@@ -881,7 +887,7 @@ export const getAssignedTechnicians = engineeringQuery({
 });
 
 /** Compatibilidade: arquiva em vez de excluir permanentemente. */
-export const remove = engineeringMutation({
+export const remove = obrasGestaoMutation({
   args: { projectId: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -935,7 +941,7 @@ const finalTemplateValidator = v.object({
   systems: v.array(systemTemplateValidator),
 });
 
-export const generateLayout = engineeringMutation({
+export const generateLayout = obrasMutation({
   args: {
     projectId: v.id("projects"),
     // Andares onde aplicar o padrão (devem existir em project.floors).
@@ -1112,7 +1118,7 @@ export const hierarchyReturnValidator = v.union(
   v.null()
 );
 
-export const getHierarchy = engineeringQuery({
+export const getHierarchy = obrasQuery({
   args: { projectId: v.id("projects") },
   returns: hierarchyReturnValidator,
   handler: async (ctx, args) => {

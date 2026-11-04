@@ -2,8 +2,8 @@ import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 import { logAudit } from "./lib/audit";
 import {
-  engineeringOrPurchasingMutation,
   engineeringOrPurchasingQuery,
+  takeoffConfigMutation,
 } from "./lib/rbac";
 import {
   insertTakeoffKit,
@@ -68,7 +68,7 @@ export const listPublished = internalQuery({
 });
 
 /** Cria (sem `id`) ou substitui (com `id`) um kit padrão da empresa. */
-export const save = engineeringOrPurchasingMutation({
+export const save = takeoffConfigMutation({
   args: { id: v.optional(v.id("takeoffKits")), ...takeoffKitInputValidator.fields },
   returns: v.id("takeoffKits"),
   handler: async (ctx, { id, ...input }) => {
@@ -116,7 +116,7 @@ export const save = engineeringOrPurchasingMutation({
  * do catálogo (quem o tinha alterado localmente continua com a sua versão);
  * a chave fica reservada, por isso é desativado e não apagado.
  */
-export const remove = engineeringOrPurchasingMutation({
+export const remove = takeoffConfigMutation({
   args: { id: v.id("takeoffKits") },
   returns: v.null(),
   handler: async (ctx, { id }) => {
@@ -151,7 +151,7 @@ export const missingFactory = engineeringOrPurchasingQuery({
  * Carrega os kits de fábrica do app (os que a empresa ainda não tem, pela
  * chave). Retorna quantos entraram.
  */
-export const seedDefaults = engineeringOrPurchasingMutation({
+export const seedDefaults = takeoffConfigMutation({
   args: {},
   returns: v.number(),
   handler: async (ctx) => {

@@ -769,7 +769,7 @@ export async function desktopPublishOptions(
   user: Doc<"users">,
   externalId: string | undefined
 ): Promise<DesktopPublishOptions> {
-  if (!hasPermission(user, "engenharia.write")) {
+  if (!hasPermission(user, "orcamentos.write")) {
     return { canPublish: false, projects: [], current: null };
   }
   const all = await ctx.db

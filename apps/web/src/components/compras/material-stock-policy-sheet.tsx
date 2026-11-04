@@ -42,12 +42,12 @@ type MaterialStockPolicySheetProps = {
   existingPolicy?: ExistingPolicy | null;
 };
 
-/** Compras (e admin/diretor) usam `upsert`; Estoque usa `upsertFromWarehouse`. */
+/** Quem edita materiais (Compras, admin) usa `upsert`; Estoque usa `upsertFromWarehouse`. */
 function usesPurchasingPolicyUpsert(
   user: { permissions: readonly Permission[] } | null | undefined
 ): boolean {
   if (!user) return true;
-  return can(user, "compras.write");
+  return can(user, "materiais.write");
 }
 
 export function MaterialStockPolicySheet({

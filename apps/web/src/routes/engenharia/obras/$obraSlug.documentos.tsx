@@ -4,9 +4,14 @@ import { AuthShell } from "@/components/auth-shell";
 import { ProjectDocumentsPanel } from "@/components/engenharia/documents/project-documents-panel";
 import { ProjectShell } from "@/components/engenharia/project-shell";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
+import { PermissionGate } from "@/components/role-area-gate";
 
 export const Route = createFileRoute("/engenharia/obras/$obraSlug/documentos")({
-  component: ObraDocumentosPage,
+  component: () => (
+    <PermissionGate permissions={["documentos.read"]}>
+      <ObraDocumentosPage />
+    </PermissionGate>
+  ),
 });
 
 function ObraDocumentosPage() {

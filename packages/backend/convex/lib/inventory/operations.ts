@@ -44,6 +44,7 @@ function isAssignedTechnician(
   project: Doc<"projects"> | null
 ): boolean {
   if (!project) return false;
+  if (hasPermission(user, "campo.todas_obras")) return true;
   return (project.technicianIds ?? []).includes(user._id);
 }
 
@@ -53,12 +54,11 @@ async function assertCanCreate(
   type: InventoryMovementType,
   projectId?: Id<"projects">
 ): Promise<void> {
-  if (hasPermission(user, "estoque.write")) return;
-  if (type === "entry" && hasPermission(user, "compras.write")) return;
-  if (
-    (type === "consumption" || type === "return") &&
-    hasPermission(user, "engenharia.write")
-  ) {
+  if (type === "entry") {
+    if (hasPermission(user, "estoque.entrada")) return;
+  } else if (type === "consumption" || type === "return") {
+    if (hasPermission(user, "estoque.obras.write")) return;
+  } else if (hasPermission(user, "estoque.write")) {
     return;
   }
   if (type === "consumption" && projectId) {
@@ -74,9 +74,13 @@ async function assertCanPost(
   type: InventoryMovementType | "reversal",
   projectId?: Id<"projects">
 ): Promise<void> {
-  if (hasPermission(user, "estoque.write")) return;
-  if (type === "entry" && hasPermission(user, "compras.write")) return;
-  if (type === "consumption" && hasPermission(user, "engenharia.write")) return;
+  if (type === "entry") {
+    if (hasPermission(user, "estoque.entrada")) return;
+  } else if (type === "consumption") {
+    if (hasPermission(user, "estoque.obras.write")) return;
+  } else if (hasPermission(user, "estoque.write")) {
+    return;
+  }
   if (type === "consumption" && projectId) {
     const project = await ctx.db.get("projects", projectId);
     if (isAssignedTechnician(user, project)) return;

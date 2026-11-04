@@ -129,7 +129,7 @@ describe("takeoffAuth.createCode", () => {
     const asQr = await withUser(qr, { clerkId: "qr_1", role: "qr_operator" });
     await expect(
       asQr.action(api.takeoffAuth.createCode, { challenge: RFC_CHALLENGE, device: "PC" })
-    ).rejects.toThrow("Insufficient permissions");
+    ).rejects.toThrow("takeoff.use");
   });
 
   test("um token de agente não emite códigos", async () => {
@@ -392,7 +392,7 @@ describe("catálogo e propostas como o usuário logado", () => {
   test("proposeAsUser está no catálogo MCP / API com a permissão certa", () => {
     expect(ACCESS_HINTS["takeoffMaterials:proposeAsUser"]).toEqual({
       kind: "anyPermission",
-      permissions: ["engenharia.write", "compras.write"],
+      permissions: ["orcamentos.write", "materiais.write"],
     });
     expect(ACCESS_HINTS["takeoffCatalog:current"]).toEqual({
       kind: "permission",
@@ -405,6 +405,6 @@ describe("catálogo e propostas como o usuário logado", () => {
     const asOperator = await withUser(t, { clerkId: "op_1", roles: ["rh"] });
     await expect(
       asOperator.mutation(api.takeoffMaterials.proposeAsUser, { clientId: "c", name: "X" })
-    ).rejects.toThrow(/engenharia ou compras/);
+    ).rejects.toThrow("orcamentos.write");
   });
 });

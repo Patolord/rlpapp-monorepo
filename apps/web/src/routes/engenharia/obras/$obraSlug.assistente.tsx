@@ -34,14 +34,17 @@ import {
 } from "@/components/ui/select";
 import { runWithToast } from "@/lib/errors";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
+import { PermissionGate } from "@/components/role-area-gate";
 
 export const Route = createFileRoute(
   "/engenharia/obras/$obraSlug/assistente"
 )({
   component: () => (
-    <AuthShell>
-      <AssistantPage />
-    </AuthShell>
+    <PermissionGate permissions={["assistente.use"]}>
+      <AuthShell>
+        <AssistantPage />
+      </AuthShell>
+    </PermissionGate>
   ),
 });
 

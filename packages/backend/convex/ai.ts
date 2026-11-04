@@ -157,7 +157,7 @@ export const proposeLayout = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
     rejectReadOnlyAgentTokenInAction(identity);
-    await requireActionPermission(ctx, "engenharia.write");
+    await requireActionPermission(ctx, "assistente.use");
 
     const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
@@ -389,7 +389,7 @@ export const interpret = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
     rejectReadOnlyAgentTokenInAction(identity);
-    await requireActionPermission(ctx, "engenharia.write");
+    await requireActionPermission(ctx, "assistente.use");
 
     const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 

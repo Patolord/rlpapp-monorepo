@@ -232,7 +232,7 @@ describe("API HTTP /api/v1", () => {
     );
     expect(byPath.get("projects:list")).toMatchObject({
       type: "query",
-      access: { kind: "permission", permission: "engenharia.read" },
+      access: { kind: "permission", permission: "obras.read" },
       allowed: true,
       allowedForToken: true,
       signature: "{ includeArchived?: boolean }",
@@ -362,13 +362,13 @@ describe("API HTTP /api/v1", () => {
     expect(unknownModule.status).toBe(404);
     expect((await unknownModule.json()).error.message).toContain("GET /api/v1/functions");
 
-    // Engenheiro não tem rh.read.
+    // Engenheiro não tem rh.funcionarios.read.
     const forbidden = await post("employees:list");
     expect(forbidden.status).toBe(403);
     expect((await forbidden.json()).error).toMatchObject({
       code: "FORBIDDEN",
       details: {
-        access: { kind: "permission", permission: "rh.read" },
+        access: { kind: "permission", permission: "rh.funcionarios.read" },
         roles: ["engenheiro", "takeoff"],
       },
     });

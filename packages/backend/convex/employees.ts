@@ -1,5 +1,8 @@
 import { v } from "convex/values";
-import { hrMutation, hrQuery } from "./lib/rbac";
+import {
+  funcionariosMutation,
+  funcionariosQuery,
+} from "./lib/rbac";
 import { logAudit, diffFields } from "./lib/audit";
 import {
   formatTaxId,
@@ -186,7 +189,7 @@ async function assertUniqueEmployeeIdentity(
   }
 }
 
-export const list = hrQuery({
+export const list = funcionariosQuery({
   args: {
     search: v.optional(v.string()),
     includeArchived: v.optional(v.boolean()),
@@ -227,7 +230,7 @@ export const list = hrQuery({
   },
 });
 
-export const get = hrQuery({
+export const get = funcionariosQuery({
   args: { employeeId: v.id("employees") },
   returns: v.union(employeeValidator, v.null()),
   handler: async (ctx, args) => {
@@ -236,7 +239,7 @@ export const get = hrQuery({
   },
 });
 
-export const create = hrMutation({
+export const create = funcionariosMutation({
   args: {
     code: v.optional(v.string()),
     name: v.string(),
@@ -318,7 +321,7 @@ export const create = hrMutation({
   },
 });
 
-export const update = hrMutation({
+export const update = funcionariosMutation({
   args: {
     employeeId: v.id("employees"),
     code: v.optional(v.union(v.string(), v.null())),
@@ -457,7 +460,7 @@ export const update = hrMutation({
   },
 });
 
-export const archive = hrMutation({
+export const archive = funcionariosMutation({
   args: { employeeId: v.id("employees") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -486,7 +489,7 @@ export const archive = hrMutation({
   },
 });
 
-export const restore = hrMutation({
+export const restore = funcionariosMutation({
   args: { employeeId: v.id("employees") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -519,7 +522,7 @@ export const restore = hrMutation({
  * Vincula (ou desvincula, com `userId: null`) o usuário do app que bate ponto
  * como este funcionário. Um usuário só pode estar em um funcionário ativo.
  */
-export const linkUser = hrMutation({
+export const linkUser = funcionariosMutation({
   args: {
     employeeId: v.id("employees"),
     userId: v.union(v.id("users"), v.null()),

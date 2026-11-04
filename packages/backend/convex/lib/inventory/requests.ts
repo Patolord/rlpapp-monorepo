@@ -13,7 +13,7 @@ export { resolveProjectByIdentifier };
 export const MAX_INVENTORY_REQUEST_LINES = 20;
 
 export function canReviewMaterialRequests(user: Doc<"users">): boolean {
-  return hasPermission(user, "engenharia.write");
+  return hasPermission(user, "estoque.solicitacoes");
 }
 
 export function canFulfillMaterialRequests(user: Doc<"users">): boolean {

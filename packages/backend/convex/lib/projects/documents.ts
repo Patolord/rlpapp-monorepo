@@ -1,6 +1,6 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { isStaff } from "../rbac";
+import { hasPermission, isStaff } from "../rbac";
 import { isProjectArchived } from "./helpers";
 
 /** Limite por arquivo (PDF). Convex aceita arquivos maiores, mas em campo
@@ -27,7 +27,14 @@ export function canUserViewDocument(
   if (isStaff(user)) return true;
   // Obra arquivada some do campo (mesma regra de listMyProjects/getMyProject).
   if (isProjectArchived(project)) return false;
-  if (!(project.technicianIds ?? []).includes(user._id)) return false;
+  // Técnico líder (campo.todas_obras) conta como atribuído a toda obra, mas
+  // a regra de acesso de cada documento continua valendo.
+  if (
+    !hasPermission(user, "campo.todas_obras") &&
+    !(project.technicianIds ?? []).includes(user._id)
+  ) {
+    return false;
+  }
   switch (document.technicianAccess) {
     case "all":
       return true;

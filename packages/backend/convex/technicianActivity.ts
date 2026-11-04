@@ -367,13 +367,13 @@ async function resolveProjects(
 }
 
 // Sem userId, o histórico é do próprio usuário. Consultar o histórico de outro
-// técnico exige engenharia.read.
+// técnico exige campo.equipe.
 function resolveTargetUserId(
   user: Doc<"users">,
   userId: Id<"users"> | undefined
 ): Id<"users"> {
   if (!userId || userId === user._id) return user._id;
-  if (!hasPermission(user, "engenharia.read")) {
+  if (!hasPermission(user, "campo.equipe")) {
     throw new Error("Sem permissão para ver o histórico de outros usuários");
   }
   return userId;
@@ -395,7 +395,7 @@ export const listActivityUsers = authedQuery({
     v.null()
   ),
   handler: async (ctx) => {
-    if (!hasPermission(ctx.user, "engenharia.read")) return null;
+    if (!hasPermission(ctx.user, "campo.equipe")) return null;
     const users = await ctx.db.query("users").collect();
     return users
       .map((user) => ({
@@ -538,7 +538,7 @@ export const listProjectActivity = authedQuery({
     continueCursor: v.string(),
   }),
   handler: async (ctx, args) => {
-    if (!hasPermission(ctx.user, "engenharia.read")) {
+    if (!hasPermission(ctx.user, "obras.read")) {
       throw new Error("Sem permissão para ver os serviços da obra");
     }
 

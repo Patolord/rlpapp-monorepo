@@ -2,8 +2,8 @@ import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 import { logAudit } from "./lib/audit";
 import {
-  engineeringOrPurchasingMutation,
   engineeringOrPurchasingQuery,
+  takeoffConfigMutation,
 } from "./lib/rbac";
 import {
   factoryTakeoffDuctNormas,
@@ -83,7 +83,7 @@ export const listPublished = internalQuery({
 });
 
 /** Substitui a tabela de materiais por peso e o kg/m² por bitola de chapa. */
-export const saveWeights = engineeringOrPurchasingMutation({
+export const saveWeights = takeoffConfigMutation({
   args: {
     rows: v.array(takeoffWeightRow),
     gaugeWeights: v.record(v.string(), v.number()),
@@ -106,7 +106,7 @@ export const saveWeights = engineeringOrPurchasingMutation({
 });
 
 /** Substitui os preços por kg dos insumos (uma chave ausente = sem preço). */
-export const saveBasePrices = engineeringOrPurchasingMutation({
+export const saveBasePrices = takeoffConfigMutation({
   args: { prices: v.record(v.string(), v.number()) },
   returns: v.null(),
   handler: async (ctx, { prices }) => {
@@ -125,7 +125,7 @@ export const saveBasePrices = engineeringOrPurchasingMutation({
 });
 
 /** Substitui as regras das marcas de VRF. */
-export const saveVrfBrands = engineeringOrPurchasingMutation({
+export const saveVrfBrands = takeoffConfigMutation({
   args: { brands: v.array(takeoffVrfBrand) },
   returns: v.null(),
   handler: async (ctx, { brands }) => {
@@ -145,7 +145,7 @@ export const saveVrfBrands = engineeringOrPurchasingMutation({
 });
 
 /** Substitui a mão de obra global (uma chave ausente = padrão da planilha). */
-export const saveLabor = engineeringOrPurchasingMutation({
+export const saveLabor = takeoffConfigMutation({
   args: { ductPerKg: v.optional(v.number()), vrfPerEvap: v.optional(v.number()) },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -164,7 +164,7 @@ export const saveLabor = engineeringOrPurchasingMutation({
 });
 
 /** Substitui os parâmetros de dutos por norma. */
-export const saveDuctNormas = engineeringOrPurchasingMutation({
+export const saveDuctNormas = takeoffConfigMutation({
   args: { normas: v.array(takeoffDuctNorma) },
   returns: v.null(),
   handler: async (ctx, { normas }) => {
@@ -188,7 +188,7 @@ export const saveDuctNormas = engineeringOrPurchasingMutation({
  * publicado"); uma tabela com conteúdo nunca é sobrescrita, e o kg/m² das
  * chapas já publicado fica. Retorna se entrou.
  */
-export const seedDefaults = engineeringOrPurchasingMutation({
+export const seedDefaults = takeoffConfigMutation({
   args: {
     kind: v.union(v.literal("weights"), v.literal("vrfBrands"), v.literal("ductNormas")),
   },

@@ -638,7 +638,7 @@ describe("takeoffs.publishFromDesktop", () => {
     const { t, engineer, purchasing } = await seed();
     await expect(
       purchasing.mutation(api.takeoffs.publishFromDesktop, budget([line("a")]))
-    ).rejects.toThrow("engenharia");
+    ).rejects.toThrow("orcamentos.write");
     await expect(
       t.mutation(api.takeoffs.publishFromDesktop, budget([line("a")]))
     ).rejects.toThrow();
@@ -929,7 +929,7 @@ describe("takeoffs.removeFromDesktop", () => {
     await engineer.mutation(api.takeoffs.publishFromDesktop, budget([line("a")]));
     await expect(
       purchasing.mutation(api.takeoffs.removeFromDesktop, { externalId: "desk-project-1" })
-    ).rejects.toThrow(/Acesso restrito/);
+    ).rejects.toThrow("orcamentos.write");
     await expect(
       t.mutation(api.takeoffs.removeFromDesktop, { externalId: "desk-project-1" })
     ).rejects.toThrow();
@@ -991,6 +991,6 @@ describe("takeoffs.remove", () => {
     const published = await engineer.mutation(api.takeoffs.publishFromDesktop, budget([line("a")]));
     await expect(
       purchasing.mutation(api.takeoffs.remove, { takeoffId: published.takeoffId })
-    ).rejects.toThrow(/Acesso restrito/);
+    ).rejects.toThrow("orcamentos.write");
   });
 });

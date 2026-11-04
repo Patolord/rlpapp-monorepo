@@ -31,12 +31,12 @@ describe("MCP engineering equipment query", () => {
     const asQr = await withUser(t, { clerkId: "qr1", role: "qr_operator" });
     await expect(
       asQr.query(api.equipment.getForEngineering, { id: equipmentId })
-    ).rejects.toThrow("Insufficient permissions");
+    ).rejects.toThrow("obras.read");
 
     const asClient = await withUser(t, { clerkId: "cli1", role: "client" });
     await expect(
       asClient.query(api.equipment.getForEngineering, { id: equipmentId })
-    ).rejects.toThrow("Insufficient permissions");
+    ).rejects.toThrow("obras.read");
   });
 
   test("engenheiro lê o recorte sem IDs de storage", async () => {

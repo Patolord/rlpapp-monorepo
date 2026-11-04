@@ -1,9 +1,11 @@
 import {
   PERMISSIONS,
   getPermissions,
-  hasRole,
+  hasPermission,
   isStaff,
+  normalizePermissionOverrides,
   resolveHomeArea,
+  resolveRoles,
 } from "@rlpapp/shared/auth/permissions";
 import { capitalizeFirst } from "@rlpapp/shared/usernames";
 import { v } from "convex/values";
@@ -12,10 +14,13 @@ import { internalMutation, internalQuery, mutation, query } from "./_generated/s
 import { accessRoles, departments } from "./schema";
 import {
   adminMutation,
+  authedQuery,
+  hasRole,
   requirePermission,
   requireUser,
   staffQuery,
 } from "./lib/rbac";
+import { forbidden } from "./lib/accessErrors";
 import { accessFields, normalizeEmail, toUserView } from "./lib/users";
 import { enforceAgentTokenPolicy } from "./lib/agentTokens";
 
@@ -26,6 +31,10 @@ function filterDefined<T extends object>(fields: T): Partial<T> {
   ) as Partial<T>;
 }
 
+export const permissionValidator = v.union(
+  ...PERMISSIONS.map((permission) => v.literal(permission))
+);
+
 export const userValidator = v.object({
   _id: v.id("users"),
   _creationTime: v.number(),
@@ -35,6 +44,10 @@ export const userValidator = v.object({
   clerkId: v.optional(v.string()),
   /** Acessos (ver ROLES no shared); documentos antigos chegam traduzidos. */
   roles: v.array(accessRoles),
+  /** Ajustes individuais: permissões concedidas além das do acesso. */
+  permissionGrants: v.array(permissionValidator),
+  /** Ajustes individuais: permissões do acesso retiradas. */
+  permissionDenials: v.array(permissionValidator),
   phone: v.optional(v.string()),
   isActive: v.boolean(),
   createdAt: v.number(),
@@ -46,9 +59,6 @@ export const userValidator = v.object({
 /** Lista de acessos recebida dos formulários (ver ROLES no shared). */
 export const rolesArg = v.array(accessRoles);
 
-export const permissionValidator = v.union(
-  ...PERMISSIONS.map((permission) => v.literal(permission))
-);
 
 /**
  * Usuário atual com o acesso já resolvido pela política
@@ -245,8 +255,9 @@ export const deactivateFromClerk = internalMutation({
   },
 });
 
-// Listar todos os usuários
-export const list = staffQuery({
+// Listar todos os usuários. Equipe interna, ou quem atribui técnicos às obras
+// (um técnico líder com obras.gestao também escolhe a equipe da obra).
+export const list = authedQuery({
   args: {
     onlyActive: v.optional(v.boolean()),
     /** Só quem tem este acesso (ex.: técnicos de campo para atribuir a obras). */
@@ -254,6 +265,9 @@ export const list = staffQuery({
   },
   returns: v.array(userValidator),
   handler: async (ctx, args) => {
+    if (!isStaff(ctx.user) && !hasPermission(ctx.user, "obras.gestao")) {
+      throw forbidden();
+    }
     const users = args.onlyActive
       ? await ctx.db
           .query("users")
@@ -330,12 +344,26 @@ export const update = adminMutation({
     // null limpa o campo; undefined (omitido) mantém o valor atual.
     email: v.optional(v.union(v.string(), v.null())),
     roles: v.optional(rolesArg),
+    /**
+     * Ajustes individuais (lista completa, substitui a atual). Só o que difere
+     * dos acessos é gravado (normalizePermissionOverrides).
+     */
+    permissionGrants: v.optional(v.array(permissionValidator)),
+    permissionDenials: v.optional(v.array(permissionValidator)),
     phone: v.optional(v.union(v.string(), v.null())),
     isActive: v.optional(v.boolean()),
   },
   returns: v.id("users"),
   handler: async (ctx, args) => {
-    const { id, email, phone, roles, ...updates } = args;
+    const {
+      id,
+      email,
+      phone,
+      roles,
+      permissionGrants,
+      permissionDenials,
+      ...updates
+    } = args;
     const existing = await ctx.db.get("users", id);
     
     if (!existing) {
@@ -372,6 +400,32 @@ export const update = adminMutation({
         throw new Error("Você não pode remover o próprio acesso de administração");
       }
       Object.assign(patch, accessFields(roles));
+    }
+    if (
+      roles !== undefined ||
+      permissionGrants !== undefined ||
+      permissionDenials !== undefined
+    ) {
+      // Reavalia os ajustes contra os acessos finais: um acesso novo pode
+      // tornar uma concessão redundante ou uma retirada sem efeito.
+      const overrides = normalizePermissionOverrides(
+        roles ?? resolveRoles(existing),
+        permissionGrants ?? existing.permissionGrants ?? [],
+        permissionDenials ?? existing.permissionDenials ?? []
+      );
+      patch.permissionGrants =
+        overrides.permissionGrants.length > 0 ? overrides.permissionGrants : undefined;
+      patch.permissionDenials =
+        overrides.permissionDenials.length > 0 ? overrides.permissionDenials : undefined;
+      if (
+        existing._id === ctx.user._id &&
+        !hasPermission(
+          { roles: roles ?? resolveRoles(existing), ...overrides },
+          "admin.manage"
+        )
+      ) {
+        throw new Error("Você não pode remover o próprio acesso de administração");
+      }
     }
 
     await ctx.db.patch("users", id, patch);

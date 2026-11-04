@@ -1,5 +1,8 @@
 import { v } from "convex/values";
-import { engineeringMutation, engineeringQuery } from "./lib/rbac";
+import {
+  cadastrosLookupQuery,
+  cadastrosMutation,
+} from "./lib/rbac";
 import { logAudit, diffFields } from "./lib/audit";
 import {
   formatTaxId,
@@ -131,7 +134,7 @@ async function assertUniqueCustomerIdentity(
   }
 }
 
-export const list = engineeringQuery({
+export const list = cadastrosLookupQuery({
   args: {
     search: v.optional(v.string()),
     activeOnly: v.optional(v.boolean()),
@@ -159,7 +162,7 @@ export const list = engineeringQuery({
   },
 });
 
-export const get = engineeringQuery({
+export const get = cadastrosLookupQuery({
   args: {
     customerId: v.id("customers"),
     includeInactiveContacts: v.optional(v.boolean()),
@@ -199,7 +202,7 @@ export const get = engineeringQuery({
   },
 });
 
-export const create = engineeringMutation({
+export const create = cadastrosMutation({
   args: {
     name: v.string(),
     personType: v.optional(v.union(v.literal("pf"), v.literal("pj"))),
@@ -394,7 +397,7 @@ async function bulkCreateCustomers(
   return result;
 }
 
-export const bulkCreate = engineeringMutation({
+export const bulkCreate = cadastrosMutation({
   args: {
     items: v.array(bulkCustomerItemValidator),
   },
@@ -407,7 +410,7 @@ export const bulkCreate = engineeringMutation({
   },
 });
 
-export const update = engineeringMutation({
+export const update = cadastrosMutation({
   args: {
     customerId: v.id("customers"),
     name: v.optional(v.string()),
@@ -503,7 +506,7 @@ export const update = engineeringMutation({
   },
 });
 
-export const archive = engineeringMutation({
+export const archive = cadastrosMutation({
   args: { customerId: v.id("customers") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -534,7 +537,7 @@ export const archive = engineeringMutation({
   },
 });
 
-export const restore = engineeringMutation({
+export const restore = cadastrosMutation({
   args: { customerId: v.id("customers") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -565,7 +568,7 @@ export const restore = engineeringMutation({
   },
 });
 
-export const addContact = engineeringMutation({
+export const addContact = cadastrosMutation({
   args: {
     customerId: v.id("customers"),
     name: v.string(),
@@ -614,7 +617,7 @@ export const addContact = engineeringMutation({
   },
 });
 
-export const updateContact = engineeringMutation({
+export const updateContact = cadastrosMutation({
   args: {
     contactId: v.id("customerContacts"),
     name: v.optional(v.string()),
@@ -674,7 +677,7 @@ export const updateContact = engineeringMutation({
   },
 });
 
-export const removeContact = engineeringMutation({
+export const removeContact = cadastrosMutation({
   args: { contactId: v.id("customerContacts") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -702,7 +705,7 @@ export const removeContact = engineeringMutation({
   },
 });
 
-export const restoreContact = engineeringMutation({
+export const restoreContact = cadastrosMutation({
   args: { contactId: v.id("customerContacts") },
   returns: v.null(),
   handler: async (ctx, args) => {

@@ -9,7 +9,7 @@ import {
   authedQuery,
   inventoryMutation,
   inventoryQuery,
-  staffMutation,
+  materialRequestsMutation,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
 import { findInventoryLocation } from "./lib/inventory/operations";
@@ -474,7 +474,7 @@ export const getRequest = inventoryQuery({
   },
 });
 
-export const reviewRequest = staffMutation({
+export const reviewRequest = materialRequestsMutation({
   args: {
     requestId: v.id("inventoryRequests"),
     decision: v.union(v.literal("approve"), v.literal("reject")),
