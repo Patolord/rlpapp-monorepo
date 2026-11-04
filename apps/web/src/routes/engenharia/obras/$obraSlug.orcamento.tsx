@@ -435,14 +435,17 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                             materialId={item.materialId}
                             familyName={item.rawDescription}
                             dimensions={item.customDimensions}
-                            onApply={(unitPriceCents) =>
-                              void applyPrice({
-                                itemId: item._id,
-                                unitPriceCents,
-                              }).then(
-                                () => toast.success("Estimativa aplicada"),
-                                (e) => toast.error(getErrorMessage(e, "Erro"))
-                              )
+                            onApply={
+                              canEdit
+                                ? (unitPriceCents) =>
+                                    void applyPrice({
+                                      itemId: item._id,
+                                      unitPriceCents,
+                                    }).then(
+                                      () => toast.success("Estimativa aplicada"),
+                                      (e) => toast.error(getErrorMessage(e, "Erro"))
+                                    )
+                                : undefined
                             }
                           />
                         ) : null}
