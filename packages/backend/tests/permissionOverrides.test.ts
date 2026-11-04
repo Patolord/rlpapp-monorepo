@@ -151,6 +151,27 @@ describe("ajustes individuais de permissão", () => {
     expect(me?.permissions).toContain("admin.manage");
   });
 
+  test("auto-proteção olha a permissão efetiva, não só o acesso", async () => {
+    const t = setup();
+    // Gestão de usuários por ajuste individual, sem acesso de administração.
+    const asLead = await withUser(t, {
+      clerkId: "lider-compras",
+      roles: ["compras"],
+      permissionGrants: ["admin.manage"],
+    });
+    const self = await userId(t, "lider-compras");
+    await asLead.mutation(api.users.update, { id: self, roles: ["compras", "rh"] });
+    const me = await asLead.query(api.users.getCurrentUser, {});
+    expect(me?.roles).toEqual(["compras", "rh"]);
+    expect(me?.permissions).toContain("admin.manage");
+
+    const asAdmin = await withUser(t, { clerkId: "adm2", roles: ["admin"] });
+    const admin = await userId(t, "adm2");
+    await expect(
+      asAdmin.mutation(api.users.update, { id: admin, roles: ["compras"] })
+    ).rejects.toThrow("Você não pode remover o próprio acesso de administração");
+  });
+
   test("só quem administra usuários edita ajustes", async () => {
     const t = setup();
     const asEng = await withUser(t, { clerkId: "eng", roles: ["engenheiro"] });

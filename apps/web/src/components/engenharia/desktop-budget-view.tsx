@@ -55,12 +55,19 @@ const COLUMNS = 9;
 export function DesktopBudgetView({
   detail,
   canPromoteMaterial,
+  canQuote,
+  canEdit,
   canRemove,
   onQuote,
   onRemoved,
 }: {
   detail: TakeoffDetail;
+  /** Criar SKU a partir da linha (materiais.write). */
   canPromoteMaterial: boolean;
+  /** Registrar cotação (precos.write). */
+  canQuote: boolean;
+  /** Aplicar preço de referência na linha (orcamentos.write). */
+  canEdit: boolean;
   /** Pode remover o orçamento (engenharia). */
   canRemove: boolean;
   onQuote: (item: TakeoffQuoteTarget) => void;
@@ -201,6 +208,8 @@ export function DesktopBudgetView({
                         key={item._id}
                         item={item}
                         canPromoteMaterial={canPromoteMaterial}
+                        canQuote={canQuote}
+                        canEdit={canEdit}
                         onQuote={onQuote}
                       />
                     ))}
@@ -284,10 +293,14 @@ function MoneyCell({ cents, strong }: { cents: number; strong?: boolean }) {
 function DesktopBudgetLine({
   item,
   canPromoteMaterial,
+  canQuote,
+  canEdit,
   onQuote,
 }: {
   item: TakeoffItem;
   canPromoteMaterial: boolean;
+  canQuote: boolean;
+  canEdit: boolean;
   onQuote: (item: TakeoffQuoteTarget) => void;
 }) {
   const applyPrice = useMutation(api.takeoffs.applySuggestedPrice);
@@ -347,7 +360,7 @@ function DesktopBudgetLine({
                 {p.supplierName}: {formatCurrency(p.unitPriceCents)}
               </span>
               <PriceFreshnessBadge freshness={p.freshness} />
-              {p.suggestedUnitPriceCents !== null ? (
+              {canEdit && p.suggestedUnitPriceCents !== null ? (
                 <Button
                   size="xs"
                   variant="ghost"
@@ -372,13 +385,15 @@ function DesktopBudgetLine({
         </div>
       </TableCell>
       <TableCell>
-        {canPromoteMaterial ? (
+        {canQuote || canPromoteMaterial ? (
           <div className="flex justify-end gap-1">
-            <Button variant="outline" size="sm" onClick={() => onQuote(item)}>
-              <Receipt />
-              Cotação
-            </Button>
-            {!item.materialId ? (
+            {canQuote ? (
+              <Button variant="outline" size="sm" onClick={() => onQuote(item)}>
+                <Receipt />
+                Cotação
+              </Button>
+            ) : null}
+            {!item.materialId && canPromoteMaterial ? (
               <Button
                 variant="outline"
                 size="sm"

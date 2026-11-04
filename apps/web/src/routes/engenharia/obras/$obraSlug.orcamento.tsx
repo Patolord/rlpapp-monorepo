@@ -160,7 +160,10 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
     const price = item.estimatedUnitPriceCents ?? 0;
     return sum + qty * price;
   }, 0);
+  // Cada ação segue a permissão da mutation que ela chama.
   const canPromoteMaterial = can(currentUser, "materiais.write");
+  const canQuote = can(currentUser, "precos.write");
+  const canEdit = can(currentUser, "orcamentos.write");
   // quem publica (orcamentos.write) também remove um orçamento do desktop
   const canRemoveDesktopBudget = can(currentUser, "orcamentos.write");
   const activeSummary = takeoffs?.find((t) => t._id === activeTakeoffId);
@@ -179,6 +182,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
             Entrada livre — preços da Compras são opcionais e servem apenas como referência.
           </p>
         </div>
+        {canEdit && (
         <Button
           variant="outline"
           onClick={async () => {
@@ -193,6 +197,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
           <Plus />
           Novo takeoff
         </Button>
+        )}
       </div>
 
       {showSelector && (
@@ -216,6 +221,8 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
         <DesktopBudgetView
           detail={takeoffDetail}
           canPromoteMaterial={canPromoteMaterial}
+          canQuote={canQuote}
+          canEdit={canEdit}
           canRemove={canRemoveDesktopBudget}
           onQuote={setQuoteTarget}
           // o efeito acima escolhe o primeiro orçamento que sobrou
@@ -225,6 +232,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
 
       {!isDesktop && (
         <>
+        {canEdit && (
         <Card>
           <CardHeader>
             <CardTitle>Adicionar item</CardTitle>
@@ -367,6 +375,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
             </Button>
           </CardContent>
         </Card>
+        )}
 
         <Card>
           <CardHeader>
@@ -448,7 +457,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                               {p.supplierName}: {formatCurrency(p.unitPriceCents)}
                             </span>
                             <PriceFreshnessBadge freshness={p.freshness} />
-                            {p.suggestedUnitPriceCents != null && (
+                            {canEdit && p.suggestedUnitPriceCents != null && (
                               <Button
                                 size="xs"
                                 variant="ghost"
@@ -483,7 +492,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
-                        {canPromoteMaterial ? (
+                        {canQuote ? (
                           <Button
                             variant="outline"
                             size="sm"
@@ -518,6 +527,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                             Criar SKU
                           </Button>
                         ) : null}
+                        {canEdit && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -531,6 +541,7 @@ function OrcamentoContent({ projectId }: { projectId: Id<"projects"> }) {
                         >
                           <Trash2 />
                         </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

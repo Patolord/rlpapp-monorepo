@@ -396,9 +396,6 @@ export const update = adminMutation({
     if (email !== undefined) patch.email = email ?? undefined;
     if (phone !== undefined) patch.phone = phone ?? undefined;
     if (roles !== undefined) {
-      if (existing._id === ctx.user._id && !hasRole({ roles }, "admin") && !hasRole({ roles }, "director")) {
-        throw new Error("Você não pode remover o próprio acesso de administração");
-      }
       Object.assign(patch, accessFields(roles));
     }
     if (
