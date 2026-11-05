@@ -129,7 +129,14 @@ overrides, so a kit the user never touched always follows the company's version 
 `@rlpapp/shared/takeoff/kits`). A component carrying a purchasing code (`sku`, MAT-000123) is
 that company material: the item is created from it, under its catalog name, with its price and
 quote date, even after purchasing renames it; a component without a code is a custom item,
-looked up by name (`kitComponentEntry` in `lib/catalog.ts`). The weight table, the kg/m² per duct gauge, the prices per kg
+looked up by name (`kitComponentEntry` in `lib/catalog.ts`). In the items list, an icon beside
+each name tells a line that follows the company catalog from the takeoff's own
+(`lib/catalogLink.ts`): a blue chain is linked and up to date, an amber one is linked but renamed,
+priced by hand or changed in the catalog since, a faded one is a draft, and a pen is a line with
+no link (name and price typed here). The VRF bill names its materials as the catalog does
+(`Tubulação de Cobre 1/4"`, `Isolamento Polipex 1/4" - 13 mm`, `Cabo PP 3x2,5 mm²`), in
+the order copper, insulation, cables; prices a takeoff saved under the older names still apply
+(`legacyVrfName`). The weight table, the kg/m² per duct gauge, the prices per kg
 (Ctrl+K footer) and the VRF brand rules follow the same model: company defaults from the
 dashboard's App Takeoff section (the supplier's and the workbook's tables until the company
 publishes any), each user's changes kept on their machine. Each kit has a **Rótulo no

@@ -4,6 +4,7 @@ import { type Item, newId } from "../lib/types";
 import {
   brandOf,
   DEFAULT_VRF_SPEC,
+  legacyVrfName,
   type VrfBrand,
   type VrfSettings,
   type VrfSpec,
@@ -177,7 +178,13 @@ export const createVrfSlice: Slice<VrfSlice> = (set, get) => ({
 
   setVrfSettings: (vrfSettings) => get().commit((p) => ({ ...p, vrfSettings })),
   setVrfPrice: (name, price) =>
-    get().commit((p) => ({ ...p, vrfPrices: { ...p.vrfPrices, [name]: price } })),
+    get().commit((p) => {
+      const vrfPrices = { ...p.vrfPrices, [name]: price };
+      // the price saved under the row's older name (see legacyVrfName) gives way to this one
+      const legacy = legacyVrfName(name);
+      if (legacy !== undefined) delete vrfPrices[legacy];
+      return { ...p, vrfPrices };
+    }),
 
   saveVrfBrands: async (brands) => {
     const before = get().catalog;

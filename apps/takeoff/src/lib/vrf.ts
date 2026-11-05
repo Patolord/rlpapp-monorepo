@@ -215,13 +215,36 @@ const INSULATION_PRICE: Record<Diameter, number> = {
   "1.7/8": 6.8,
 };
 
-export const copperName = (d: Diameter) => `Cobre de ${d}"`;
-export const elbowName = (d: Diameter) => `Joelho de Cobre de ${d}"`;
-export const insulationName = (d: Diameter, mm: number) =>
-  `Isolamento de ${d}" - Espessura ${String(mm).padStart(2, "0")} mm`;
+// names as the purchasing catalog spells them, so a bill row finds its material by name
+export const copperName = (d: Diameter) => `Tubulação de Cobre ${d}"`;
+export const elbowName = (d: Diameter) => `Joelho de Cobre ${d}"`;
+export const insulationName = (d: Diameter, mm: number) => `Isolamento Polipex ${d}" - ${mm} mm`;
 export const ykitName = (model: string) => `Kit de derivação (Y-kit) ${model}`;
-export const CABLE_PP = "Cabo PP 3 x 2,5mm²";
-export const CABLE_SHIELD = "Cabo Shield 2 x 1,5mm²";
+export const CABLE_PP = "Cabo PP 3x2,5 mm²";
+export const CABLE_SHIELD = "Cabo Shield 2x1,5 mm²";
+
+/** Row names before the catalog spelling, by current name (prices saved in older takeoffs). */
+const LEGACY_NAMES = new Map<string, string>([
+  ...DIAMETERS.flatMap((d): [string, string][] => [
+    [copperName(d), `Cobre de ${d}"`],
+    [elbowName(d), `Joelho de Cobre de ${d}"`],
+  ]),
+  [CABLE_PP, "Cabo PP 3 x 2,5mm²"],
+  [CABLE_SHIELD, "Cabo Shield 2 x 1,5mm²"],
+]);
+
+/**
+ * The name a bill row had before the catalog spelling (`Cobre de 1/4"`, `Isolamento de 1/4" -
+ * Espessura 13 mm`), under which an older takeoff saved its price; undefined if it had no other.
+ */
+export function legacyVrfName(name: string): string | undefined {
+  const known = LEGACY_NAMES.get(name);
+  if (known) return known;
+  const insul = /^Isolamento Polipex (.+)" - (\d+) mm$/.exec(name);
+  return insul
+    ? `Isolamento de ${insul[1]}" - Espessura ${insul[2].padStart(2, "0")} mm`
+    : undefined;
+}
 export const BOX_EVAP = "Caixa Polar de Evaporadora";
 export const SUPPORT_EVAP = "Suporte da Evaporadora";
 export const SUPPORT_COND = "Suporte da Condensadora VRF";
@@ -343,6 +366,8 @@ export function vrfBill(
     if (qty > 0) rows.push({ name, group, unit, qty, material, labor, diameter, copper });
   };
 
+  // budget order, as the kits: copper tube, insulation, cables, each by ascending size; then
+  // elbows, Y-kits, boxes, supports and labour
   let copperTotal = 0;
   for (const d of DIAMETERS) {
     const m = roundUp((length.get(d) ?? 0) * slack);
@@ -350,20 +375,20 @@ export function vrfBill(
     add(copperName(d), COPPER_GROUP, "m", m, 0, 0, d, true);
   }
   for (const d of DIAMETERS) {
-    if (diameterIndex(d) < diameterIndex(settings.elbowsFrom)) continue;
-    const n = roundUp((curves.get(d) ?? 0) * slack);
-    add(elbowName(d), COPPER_GROUP, "pç", n, ELBOW_PRICE[d] ?? 0, 0, d);
-  }
-  for (const d of DIAMETERS) {
     const m = roundUp((length.get(d) ?? 0) * slack);
     add(insulationName(d, settings.insulationMm), "Isolamento", "m", m, INSULATION_PRICE[d], 0, d);
   }
-  const ykits = fromTree ? ykitsFromTree(brand, tree) : ykitsOf(brand, systemHp, sized);
-  for (const k of ykits) add(ykitName(k.model), COPPER_GROUP, "pç", k.qty);
   // the cables follow the whole line: half the copper (two tubes per run), as the workbook
   const cable = roundUp(copperTotal / 2);
   add(CABLE_PP, "Elétrica", "m", cable, 3.2);
   add(CABLE_SHIELD, "Elétrica", "m", cable, 2);
+  for (const d of DIAMETERS) {
+    if (diameterIndex(d) < diameterIndex(settings.elbowsFrom)) continue;
+    const n = roundUp((curves.get(d) ?? 0) * slack);
+    add(elbowName(d), COPPER_GROUP, "pç", n, ELBOW_PRICE[d] ?? 0, 0, d);
+  }
+  const ykits = fromTree ? ykitsFromTree(brand, tree) : ykitsOf(brand, systemHp, sized);
+  for (const k of ykits) add(ykitName(k.model), COPPER_GROUP, "pç", k.qty);
   add(BOX_EVAP, "Equipamentos", "pç", evaporators, 26);
   add(SUPPORT_EVAP, "Equipamentos", "pç", evaporators, 50);
   const condensers = sized.length > 0 ? 1 : 0;

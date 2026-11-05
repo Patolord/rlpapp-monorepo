@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_VRF_SETTINGS,
   LABOR_ROW,
+  legacyVrfName,
   SEED_BRANDS,
   sizeRun,
   type VrfRun,
@@ -10,6 +11,7 @@ import {
   vrfTotals,
   ykitModel,
 } from "./vrf";
+import { vrfOwnPrice } from "./vrfItems";
 
 const daikin = SEED_BRANDS[0];
 const row = (rows: ReturnType<typeof vrfBill>["rows"], name: string) =>
@@ -50,22 +52,34 @@ describe("VRF take-off (Levantamento VRF Completo workbook)", () => {
     ];
     const { rows, summary } = vrfBill(runs, daikin, 22);
     // Cálculos F3:F16 — lengths with 10 % rounded up
-    expect(row(rows, 'Cobre de 1/4"')?.qty).toBe(13);
-    expect(row(rows, 'Cobre de 3/8"')?.qty).toBe(14);
-    expect(row(rows, 'Cobre de 1/2"')?.qty).toBe(13);
-    expect(row(rows, 'Cobre de 5/8"')?.qty).toBe(27);
-    expect(row(rows, 'Cobre de 1.1/8"')?.qty).toBe(13);
-    expect(row(rows, 'Cobre de 3/4"')).toBeUndefined();
+    expect(row(rows, 'Tubulação de Cobre 1/4"')?.qty).toBe(13);
+    expect(row(rows, 'Tubulação de Cobre 3/8"')?.qty).toBe(14);
+    expect(row(rows, 'Tubulação de Cobre 1/2"')?.qty).toBe(13);
+    expect(row(rows, 'Tubulação de Cobre 5/8"')?.qty).toBe(27);
+    expect(row(rows, 'Tubulação de Cobre 1.1/8"')?.qty).toBe(13);
+    expect(row(rows, 'Tubulação de Cobre 3/4"')).toBeUndefined();
     // Cálculos G4:G16 — elbows with 10 %, none for 1/4"
-    expect(row(rows, 'Joelho de Cobre de 1/4"')).toBeUndefined();
-    expect(row(rows, 'Joelho de Cobre de 3/8"')?.qty).toBe(3);
-    expect(row(rows, 'Joelho de Cobre de 1/2"')?.qty).toBe(2);
-    expect(row(rows, 'Joelho de Cobre de 5/8"')?.qty).toBe(5);
-    expect(row(rows, 'Joelho de Cobre de 1.1/8"')?.qty).toBe(3);
+    expect(row(rows, 'Joelho de Cobre 1/4"')).toBeUndefined();
+    expect(row(rows, 'Joelho de Cobre 3/8"')?.qty).toBe(3);
+    expect(row(rows, 'Joelho de Cobre 1/2"')?.qty).toBe(2);
+    expect(row(rows, 'Joelho de Cobre 5/8"')?.qty).toBe(5);
+    expect(row(rows, 'Joelho de Cobre 1.1/8"')?.qty).toBe(3);
     // insulation follows the copper; cable is half the copper (Resultados D47)
-    expect(row(rows, 'Isolamento de 5/8" - Espessura 13 mm')?.qty).toBe(27);
-    expect(row(rows, "Cabo PP 3 x 2,5mm²")?.qty).toBe(40);
-    expect(row(rows, "Cabo Shield 2 x 1,5mm²")?.qty).toBe(40);
+    expect(row(rows, 'Isolamento Polipex 5/8" - 13 mm')?.qty).toBe(27);
+    expect(row(rows, "Cabo PP 3x2,5 mm²")?.qty).toBe(40);
+    expect(row(rows, "Cabo Shield 2x1,5 mm²")?.qty).toBe(40);
+    // budget order: copper, insulation, cables (each by size), then elbows and the rest
+    const names = rows.map((r) => r.name);
+    expect(names.slice(0, 5)).toEqual([
+      'Tubulação de Cobre 1/4"',
+      'Tubulação de Cobre 3/8"',
+      'Tubulação de Cobre 1/2"',
+      'Tubulação de Cobre 5/8"',
+      'Tubulação de Cobre 1.1/8"',
+    ]);
+    expect(names[5]).toBe('Isolamento Polipex 1/4" - 13 mm');
+    expect(names.indexOf("Cabo PP 3x2,5 mm²")).toBe(10);
+    expect(names.indexOf('Joelho de Cobre 3/8"')).toBe(12);
     expect(summary.evaporators).toBe(6);
     expect(summary.condensers).toBe(1);
     expect(row(rows, "Caixa Polar de Evaporadora")?.qty).toBe(6);
@@ -93,9 +107,9 @@ describe("VRF take-off (Levantamento VRF Completo workbook)", () => {
       4,
       { ...DEFAULT_VRF_SETTINGS, slackPct: 0, elbowsFrom: "1/4" },
     );
-    expect(row(rows, 'Cobre de 1/2"')?.qty).toBe(10);
-    expect(row(rows, 'Joelho de Cobre de 1/4"')?.qty).toBe(2);
-    expect(row(rows, 'Joelho de Cobre de 1/2"')?.qty).toBe(2);
+    expect(row(rows, 'Tubulação de Cobre 1/2"')?.qty).toBe(10);
+    expect(row(rows, 'Joelho de Cobre 1/4"')?.qty).toBe(2);
+    expect(row(rows, 'Joelho de Cobre 1/2"')?.qty).toBe(2);
   });
 
   it("is empty without runs", () => {
@@ -173,5 +187,29 @@ describe("VRF bill from the system tree", () => {
     expect(summary.ykitsFromTree).toBe(false);
     expect(summary.ykits).toEqual([{ model: "KHRP26A72T", hp: 22, qty: 1 }]);
     expect(sized.every((r) => !r.derivedHp)).toBe(true);
+  });
+});
+
+describe("VRF row names before the catalog spelling", () => {
+  it("maps each row to the name older takeoffs saved its price under", () => {
+    expect(legacyVrfName('Tubulação de Cobre 1.1/8"')).toBe('Cobre de 1.1/8"');
+    expect(legacyVrfName('Joelho de Cobre 3/8"')).toBe('Joelho de Cobre de 3/8"');
+    expect(legacyVrfName('Isolamento Polipex 1/4" - 9 mm')).toBe(
+      'Isolamento de 1/4" - Espessura 09 mm',
+    );
+    expect(legacyVrfName("Cabo PP 3x2,5 mm²")).toBe("Cabo PP 3 x 2,5mm²");
+    expect(legacyVrfName("Suporte da Evaporadora")).toBeUndefined();
+  });
+
+  it("keeps a price saved under the old name", () => {
+    const project = { vrfPrices: { "Cabo PP 3 x 2,5mm²": 4.5, 'Cobre de 1/4"': 9 } };
+    expect(vrfOwnPrice(project, "Cabo PP 3x2,5 mm²")).toBe(4.5);
+    expect(
+      vrfOwnPrice(
+        { vrfPrices: { ...project.vrfPrices, 'Tubulação de Cobre 1/4"': 7 } },
+        'Tubulação de Cobre 1/4"',
+      ),
+    ).toBe(7);
+    expect(vrfOwnPrice(project, "Suporte da Evaporadora")).toBeUndefined();
   });
 });
