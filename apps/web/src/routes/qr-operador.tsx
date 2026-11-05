@@ -15,7 +15,7 @@ import { OfflineBanner } from "@/components/campo/field-page-shell";
 import { MyObrasList } from "@/components/campo/my-obras-list";
 import { PendingBanner } from "@/components/campo/pending-records";
 import { Button } from "@/components/ui/button";
-import { firstOfficeArea } from "@/components/role-area-gate";
+import { AREA_PATHS, firstOfficeArea, resolveHomePath } from "@/lib/areas";
 
 // Primeira tela do app de campo (e start_url do PWA): as obras do técnico.
 // Tudo o mais — escanear, digitar código, etiquetas, registros — acontece
@@ -29,25 +29,14 @@ export const Route = createFileRoute("/qr-operador")({
   component: QrOperadorPage,
 });
 
-const OFFICE_AREA_PATHS = {
-  engenharia: "/engenharia",
-  estoque: "/estoque",
-  compras: "/compras",
-  rh: "/rh",
-  backoffice: "/backoffice",
-} as const;
-
 function QrOperadorPage() {
   const currentUser = useQuery(api.users.getCurrentUser);
 
   // Equipe interna que abriu a página por engano volta para a própria área.
-  const backTo = !currentUser
-    ? null
-    : currentUser.homeArea === null
-      ? "/app"
-      : currentUser.homeArea !== "qr-operador"
-        ? `/${currentUser.homeArea}`
-        : null;
+  const backTo =
+    !currentUser || currentUser.homeArea === "qr-operador"
+      ? null
+      : resolveHomePath(currentUser);
   // Técnico com alguma funcionalidade do escritório liberada (ajuste
   // individual em Configurações → Usuários) ganha um atalho para ela.
   const officeArea =
@@ -111,7 +100,7 @@ function QrOperadorPage() {
 
           {officeArea && (
             <Link
-              to={OFFICE_AREA_PATHS[officeArea]}
+              to={AREA_PATHS[officeArea]}
               className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:border-primary/40 hover:bg-muted/40 active:bg-muted/60"
             >
               <div className="rounded-md bg-muted p-2">

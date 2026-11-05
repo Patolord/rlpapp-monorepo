@@ -1,7 +1,8 @@
 import { Outlet } from "@tanstack/react-router";
 
 import { AppSidebar } from "@/components/app-sidebar";
-import { RoleAreaGate, type DepartmentArea } from "@/components/role-area-gate";
+import { RoleAreaGate } from "@/components/role-area-gate";
+import type { DepartmentArea } from "@/lib/areas";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,

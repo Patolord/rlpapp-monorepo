@@ -11,6 +11,7 @@ import { Home } from "lucide-react";
 import { useEffect } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { resolveHomePath } from "@/lib/areas";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -33,16 +34,18 @@ function RoleGate({ children }: { children: React.ReactNode }) {
   const currentUser = useQuery(api.users.getCurrentUser);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!currentUser) return;
-    // Área inicial calculada pelo backend (qr_operator → /qr-operador,
-    // engenheiro → /engenharia, demais → departamento; diretor fica aqui).
-    if (currentUser.homeArea) {
-      void navigate({ to: `/${currentUser.homeArea}` });
-    }
-  }, [currentUser, navigate]);
+  // Página inicial (lib/areas): diretor fica aqui; os demais vão para a área
+  // inicial, se ela abrir, ou para o início pessoal (/conta), que sempre abre.
+  const home = currentUser ? resolveHomePath(currentUser) : null;
+  const redirecting = home !== null && home !== "/app";
 
-  if (currentUser === undefined) {
+  useEffect(() => {
+    if (home && redirecting) {
+      void navigate({ to: home, replace: true });
+    }
+  }, [home, redirecting, navigate]);
+
+  if (currentUser === undefined || redirecting) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-muted-foreground">Carregando...</p>
