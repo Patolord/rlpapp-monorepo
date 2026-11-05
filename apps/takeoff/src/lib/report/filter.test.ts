@@ -9,6 +9,7 @@ import {
   isEmptyFilter,
   itemDiscipline,
   matches,
+  matchesMarking,
   matchingItemIds,
   reportPresets,
   soDutos,
@@ -127,6 +128,35 @@ describe("report filter", () => {
     );
     expect(describeFilter(p, { groups: ["A", "B"], itemIds: ["grelha"] })).toBe(
       "Categorias: A, B · Item: grelha",
+    );
+  });
+
+  it("filters each marking by its own discipline, an item by any of its tabs", () => {
+    const p = project();
+    p.items.push(item("cobre", "Tubulações", "AC Leve", { kind: "linear" }));
+    const garage = {
+      id: "g",
+      itemId: "cobre",
+      drawingId: "d",
+      page: 0,
+      points: [{ x: 0, y: 0 }],
+      system: "AC Pesado",
+    };
+    const party = { ...garage, id: "s", system: undefined };
+    p.measurements.push(garage, party);
+    const cobre = p.items[p.items.length - 1];
+    expect(matchesMarking(p, cobre, garage, { systems: ["AC Pesado"] })).toBe(true);
+    expect(matchesMarking(p, cobre, party, { systems: ["AC Pesado"] })).toBe(false);
+    expect(matchesMarking(p, cobre, party, { systems: ["AC Leve"] })).toBe(true);
+    expect(matches(p, cobre, { systems: ["AC Pesado"] })).toBe(true);
+    expect(matches(p, cobre, { systems: ["AC Leve"] })).toBe(true);
+    expect(matches(p, cobre, { systems: ["Exaustão"] })).toBe(false);
+    // the item's own discipline is still the one it was given
+    expect(itemDiscipline(p, cobre)).toBe("AC Leve");
+    expect(filterOptions(p).systems).toEqual(expect.arrayContaining(["AC Leve", "AC Pesado"]));
+    // the other axes still apply per marking
+    expect(matchesMarking(p, cobre, garage, { systems: ["AC Pesado"], groups: ["Elétrica"] })).toBe(
+      false,
     );
   });
 });

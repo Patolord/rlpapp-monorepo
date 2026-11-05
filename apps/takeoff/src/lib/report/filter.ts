@@ -1,18 +1,18 @@
 /**
- * What a cutout report includes: a filter over items by discipline (the budget tab), category
- * (the item group) and specific items. Axes combine with AND; an empty or missing axis does not
+ * What a cutout report includes: a filter over markings by discipline (the budget tab, each
+ * marking's own: see `markingSheet`), category (the item group) and specific items. Axes combine with AND; an empty or missing axis does not
  * restrict. Duct runs and VRF runs are measurements of the derived "Rede de dutos" / "Sistema
  * VRF" items, which carry `DUCT_GROUP` / `VRF_GROUP`, so choosing the category brings their
  * runs with it. Pure: the same filter can drive the viewer later.
  */
 import { compareGroups, compareSystems, groupKey, groupLabels } from "../budgetOrder";
 import { DUCT_GROUP } from "../ductItems";
-import { sheetKey } from "../quantities";
-import type { Item, Project } from "../types";
+import { itemSheets, markingSheet, sheetKey } from "../quantities";
+import type { Item, Measurement, Project } from "../types";
 import { VRF_GROUP } from "../vrfItems";
 
 export interface ReportFilter {
-  /** Disciplines (budget tabs, `item.system || project.system`); empty = every one. */
+  /** Disciplines (budget tabs, each marking's own or its item's); empty = every one. */
   systems?: string[];
   /** Categories (`item.group`, compared ignoring case and accents); empty = every one. */
   groups?: string[];
@@ -20,23 +20,59 @@ export interface ReportFilter {
   itemIds?: string[];
 }
 
-/** The discipline an item is budgeted under: its own system, else the project's (a tab name). */
+/** The item's own discipline: its system, else the project's (a tab name). */
 export const itemDiscipline = (project: Project, item: Item): string => sheetKey(project, item);
+
+/** Tabs per item (see `itemSheets`), computed once per project state. */
+const sheetsCache = new WeakMap<Project, Map<string, string[]>>();
+const sheetsOf = (project: Project): Map<string, string[]> => {
+  let out = sheetsCache.get(project);
+  if (!out) {
+    out = itemSheets(project);
+    sheetsCache.set(project, out);
+  }
+  return out;
+};
+
+/** Every discipline an item is budgeted under: its own, and those its markings name. */
+export const itemDisciplines = (project: Project, item: Item): string[] =>
+  sheetsOf(project).get(item.id) ?? [itemDiscipline(project, item)];
+
+const inSystems = (systems: readonly string[], d: string): boolean =>
+  systems.some((s) => s.trim() === d.trim());
 
 const restricts = (axis: readonly string[] | undefined): axis is string[] =>
   axis !== undefined && axis.length > 0;
 
-/** True when the item passes every axis of the filter. */
-export function matches(project: Project, item: Item, filter: ReportFilter): boolean {
+/** The item and category axes, which do not depend on the marking. */
+function itemPasses(item: Item, filter: ReportFilter): boolean {
   if (restricts(filter.itemIds) && !filter.itemIds.includes(item.id)) return false;
   if (restricts(filter.groups)) {
     const key = groupKey(item.group);
     if (!filter.groups.some((g) => groupKey(g) === key)) return false;
   }
-  if (restricts(filter.systems)) {
-    const d = itemDiscipline(project, item).trim();
-    if (!filter.systems.some((s) => s.trim() === d)) return false;
+  return true;
+}
+
+/** True when the item passes every axis: on the discipline axis, some of its tabs does. */
+export function matches(project: Project, item: Item, filter: ReportFilter): boolean {
+  if (!itemPasses(item, filter)) return false;
+  const systems = filter.systems;
+  if (restricts(systems)) {
+    return itemDisciplines(project, item).some((d) => inSystems(systems, d));
   }
+  return true;
+}
+
+/** True when one marking of the item passes every axis, on its own discipline. */
+export function matchesMarking(
+  project: Project,
+  item: Item,
+  m: Measurement,
+  filter: ReportFilter,
+): boolean {
+  if (!itemPasses(item, filter)) return false;
+  if (restricts(filter.systems)) return inSystems(filter.systems, markingSheet(project, m, item));
   return true;
 }
 
@@ -80,7 +116,7 @@ export interface FilterOptions {
 
 /** The choices the dialog offers on each axis. */
 export function filterOptions(project: Project): FilterOptions {
-  const systems = new Set(project.items.map((i) => itemDiscipline(project, i)));
+  const systems = new Set(project.items.flatMap((i) => itemDisciplines(project, i)));
   const labels = groupLabels(project.items);
   return {
     systems: [...systems].sort(compareSystems),

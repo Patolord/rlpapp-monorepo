@@ -26,7 +26,7 @@ import { type SnapHit, snapPoint } from "../lib/pdf/vectors";
 import { crop } from "../lib/pdf/visual";
 import { ensureRaster, findVisual } from "../lib/pdf/visualClient";
 import { isEditableTarget } from "../lib/platform";
-import { pageScale, zoneOf } from "../lib/quantities";
+import { markingSheet, pageScale, zoneOf } from "../lib/quantities";
 import { type Joined, joinedAt, reshape } from "../lib/reshape";
 import { ensureText, session, useDoc } from "../lib/session";
 import { locationOf } from "../lib/types";
@@ -392,8 +392,7 @@ export function Viewer() {
         if (m.drawingId !== did || m.page !== p) continue;
         const item = items.get(m.itemId);
         if (!item) continue;
-        if (systemFilter !== null && (item.system || project.system || "") !== systemFilter)
-          continue;
+        if (systemFilter !== null && markingSheet(project, m, item) !== systemFilter) continue;
         if (item.kind === "count") {
           if (dist(raw, m.points[0]) <= tol * 1.6) return m.id;
         } else if (item.kind === "linear") {
@@ -436,8 +435,7 @@ export function Viewer() {
         const item = items.get(m.itemId);
         if (!item || item.kind === "count" || m.points.length < 2) continue;
         if (m.drawingId !== did || m.page !== p) continue;
-        if (systemFilter !== null && (item.system || project.system || "") !== systemFilter)
-          continue;
+        if (systemFilter !== null && markingSheet(project, m, item) !== systemFilter) continue;
         const closed = item.kind === "area";
         return { id: m.id, points: m.points, closed, min: closed ? 3 : 2 };
       }
@@ -681,7 +679,7 @@ export function Viewer() {
         if (m.drawingId !== did || m.page !== p) return false;
         const item = items.get(m.itemId);
         if (!item) return false;
-        return systemFilter === null || (item.system || project.system || "") === systemFilter;
+        return systemFilter === null || markingSheet(project, m, item) === systemFilter;
       });
       // one label per kit group (its members overlap exactly), painted after the group's lines
       const carriers = labelCarriers(onPage, (m) => items.get(m.itemId)?.kind);

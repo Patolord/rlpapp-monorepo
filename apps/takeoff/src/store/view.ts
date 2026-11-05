@@ -34,6 +34,11 @@ export interface ViewSlice {
   zoneFilter: string | null;
   /** Discipline the item list and the viewer show; null = all. */
   systemFilter: string | null;
+  /**
+   * Discipline new markings are budgeted under ("Marcar em": AC Pesado in the garage, AC Leve
+   * in the party room); null = each item's own. Every marking a kit draws takes it too.
+   */
+  drawSystem: string | null;
   /** Item list and locations limited to the planta in view. */
   drawingOnly: boolean;
   /** Draw locations on the plan at all. */
@@ -92,6 +97,7 @@ export interface ViewSlice {
   setSelection(ids: string[]): void;
   setZoneFilter(zoneId: string | null): void;
   setSystemFilter(system: string | null): void;
+  setDrawSystem(system: string | null): void;
   setDrawingOnly(on: boolean): void;
   setZonesVisible(visible: boolean): void;
   setZoneOpacity(opacity: number): void;
@@ -137,6 +143,7 @@ export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
   visibleItemIds: [],
   zoneFilter: null,
   systemFilter: null,
+  drawSystem: null,
   drawingOnly: false,
   zonesVisible: readPref("zonesVisible", true),
   zoneOpacity: readPref("zoneOpacity", 1),
@@ -234,6 +241,7 @@ export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
 
   setZoneFilter: (zoneFilter) => set({ zoneFilter }),
   setSystemFilter: (systemFilter) => set({ systemFilter }),
+  setDrawSystem: (system) => set({ drawSystem: system?.trim() || null }),
   setDrawingOnly: (drawingOnly) => set({ drawingOnly }),
   setZonesVisible: (zonesVisible) => {
     writePref("zonesVisible", zonesVisible);

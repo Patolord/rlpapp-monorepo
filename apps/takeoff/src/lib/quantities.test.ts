@@ -3,12 +3,15 @@ import { newDuctNetwork } from "./ductItems";
 import {
   buildQuote,
   disciplineTotals,
+  itemSheets,
   itemTotals,
   locationMatrix,
+  markingSheet,
   measurementQty,
   NO_LOCATION,
   pricedQty,
   round2,
+  sheetItemTotals,
   systemSheets,
   totalsByLocation,
   totalsByRegion,
@@ -328,5 +331,121 @@ describe("disciplines", () => {
     ]);
     // the room itself still shows both in the per-location totals
     expect(totalsByLocation(p).get("room")?.size).toBe(2);
+  });
+
+  /** One copper item drawn in the garage (AC Pesado) and in the party room (AC Leve). */
+  function copperSplit(): Project {
+    const p = project();
+    p.system = "";
+    p.items = [
+      {
+        ...p.items[1],
+        id: "cu",
+        name: "Cobre 3/8",
+        kind: "count",
+        system: "AC Leve",
+        wastePct: 10,
+      },
+      { ...p.items[1], id: "grill", name: "Grelha", system: "Exaustão" },
+    ];
+    p.measurements = [
+      {
+        id: "g1",
+        itemId: "cu",
+        drawingId: D1,
+        page: 0,
+        points: [{ x: 5, y: 5 }],
+        system: "AC Pesado",
+      },
+      {
+        id: "g2",
+        itemId: "cu",
+        drawingId: D1,
+        page: 0,
+        points: [{ x: 6, y: 6 }],
+        system: "AC Pesado",
+      },
+      { id: "g3", itemId: "grill", drawingId: D1, page: 0, points: [{ x: 7, y: 7 }] },
+      { id: "s1", itemId: "cu", drawingId: D1, page: 0, points: [{ x: 205, y: 5 }] },
+    ];
+    p.locations = [
+      { id: "gar", name: "Garagem", color: "#fff" },
+      { id: "sal", name: "Salão de festas", color: "#fff" },
+    ];
+    p.zones = [
+      { id: "zg", locationId: "gar", drawingId: D1, page: 0, points: square(100) },
+      {
+        id: "zs",
+        locationId: "sal",
+        drawingId: D1,
+        page: 0,
+        points: square(100).map((q) => ({ x: q.x + 200, y: q.y })),
+      },
+    ];
+    p.sectionsBy = "local";
+    return p;
+  }
+
+  it("budgets each marking under its own discipline, the item's when it has none", () => {
+    const p = copperSplit();
+    const [cu, grill] = p.items;
+    expect(markingSheet(p, p.measurements[0], cu)).toBe("AC Pesado");
+    expect(markingSheet(p, p.measurements[3], cu)).toBe("AC Leve");
+    expect(markingSheet(p, p.measurements[2], grill)).toBe("Exaustão");
+    const per = sheetItemTotals(p);
+    expect(per.get("AC Pesado")?.get("cu")?.qty).toBe(2);
+    expect(per.get("AC Leve")?.get("cu")?.qty).toBe(1);
+    expect(itemSheets(p).get("cu")).toEqual(["AC Leve", "AC Pesado"]);
+    // the item's own total is unchanged: 3 pieces wherever they are budgeted
+    expect(itemTotals(p).get("cu")?.qty).toBe(3);
+  });
+
+  it("splits one item over the tabs its markings are on, each priced on its own", () => {
+    const p = copperSplit();
+    const sheets = systemSheets(p);
+    const rows = (system: string) =>
+      sheets
+        .find((s) => s.system === system)
+        ?.sections.map((sec) => [sec.name, sec.rows.map((r) => [r.item.id, r.qty])]);
+    // the garage is on two tabs, each with only its own material; waste rounds up per tab
+    expect(rows("AC Pesado")).toEqual([["Garagem", [["cu", 3]]]]);
+    expect(rows("AC Leve")).toEqual([["Salão de festas", [["cu", 2]]]]);
+    expect(rows("Exaustão")).toEqual([["Garagem", [["grill", 1]]]]);
+    const tabs = disciplineTotals(p);
+    expect(tabs.find((t) => t.system === "AC Pesado")?.material).toBe(750);
+    expect(tabs.find((t) => t.system === "AC Leve")?.material).toBe(500);
+    // the quote adds up what the tabs price
+    const quote = buildQuote(p);
+    const line = quote.groups.flatMap((g) => g.lines).find((l) => l.item.id === "cu");
+    expect(line?.qty).toBe(5);
+    expect(line?.measured).toBe(3);
+    expect(quote.material).toBe(tabs.reduce((s, t) => s + t.material, 0));
+  });
+
+  it("keeps an unmeasured item on its own tab and item quantities there", () => {
+    const p = copperSplit();
+    p.measurements = p.measurements.filter((m) => m.itemId !== "cu" || m.system);
+    p.sectionsBy = "grupo";
+    // every copper marking is AC Pesado: the item no longer shows on AC Leve
+    const tabs = () =>
+      systemSheets(p)
+        .map((s) => s.system)
+        .sort();
+    expect(tabs()).toEqual(["AC Pesado", "Exaustão"]);
+    p.items[0] = { ...p.items[0], manualQty: 4 };
+    expect(sheetItemTotals(p).get("AC Leve")?.get("cu")?.qty).toBe(4);
+    expect(tabs()).toEqual(["AC Leve", "AC Pesado", "Exaustão"]);
+    p.measurements = [];
+    p.items[0] = { ...p.items[0], manualQty: undefined };
+    expect(itemSheets(p).get("cu")).toEqual(["AC Leve"]);
+    expect(systemSheets(p).find((s) => s.system === "AC Leve")?.sections[0].rows[0].qty).toBe(0);
+  });
+
+  it("ignores a discipline set on duct runs: they follow their network", () => {
+    const p = project();
+    const network = { ...newDuctNetwork(p), system: "Exaustão" };
+    p.items.push(network);
+    const run = { ...p.measurements[0], id: "run", itemId: network.id, system: "AC Pesado" };
+    expect(markingSheet(p, run, network)).toBe("Exaustão");
   });
 });

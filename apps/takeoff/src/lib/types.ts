@@ -124,6 +124,12 @@ export interface Measurement {
   vertical?: number;
   /** Times this measurement counts (10 identical floors measured once); undefined = 1. */
   repeat?: number;
+  /**
+   * Discipline (budget tab) this marking is budgeted under, when it differs by where it was
+   * drawn: the same copper goes to "AC Pesado" in the garage and to "AC Leve" in the party
+   * room. Undefined = its item's discipline. Ignored on duct / VRF runs (their item is the line).
+   */
+  system?: string;
   /** Rectangular duct run: section and finishes, feeding the duct take-off. */
   duct?: DuctSpec;
   /** VRF refrigerant run: role, capacity and elbows, feeding the VRF take-off. */

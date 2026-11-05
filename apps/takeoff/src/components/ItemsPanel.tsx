@@ -4,6 +4,7 @@ import {
   CircleDot,
   Cuboid,
   FileText,
+  Layers,
   Library,
   Pentagon,
   Plus,
@@ -22,10 +23,13 @@ import { describePriceSource } from "../lib/priceSource";
 import {
   formatItemQty,
   type ItemTotal,
+  itemSheets,
   itemTotals,
   NO_LOCATION,
   pricedQty,
   round2,
+  sheetItemTotals,
+  sheetKey,
   totalsByLocation,
 } from "../lib/quantities";
 import { foldName } from "../lib/text";
@@ -53,6 +57,7 @@ export function ItemsPanel() {
   const activeItemId = useStore((s) => s.activeItemId);
   const zoneFilter = useStore((s) => s.zoneFilter);
   const systemFilter = useStore((s) => s.systemFilter);
+  const drawSystem = useStore((s) => s.drawSystem);
   const drawingOnly = useStore((s) => s.drawingOnly);
   const savedEntries = useStore((s) => s.catalog.saved);
   const savedNames = useMemo(
@@ -82,30 +87,35 @@ export function ItemsPanel() {
     proposeItemToCompany,
     setZoneFilter,
     setSystemFilter,
+    setDrawSystem,
     setDrawingOnly,
     setVisibleItemIds,
   } = useStore.getState();
   const allTotals = useMemo(() => itemTotals(project), [project]);
-  const totals = useMemo(
-    () =>
-      drawingOnly ? itemTotals(project, (m) => m.drawingId === project.activeDrawingId) : allTotals,
-    [project, drawingOnly, allTotals],
-  );
+  /** The tabs each item is budgeted on: its own, and those its markings were put in. */
+  const sheetsOf = useMemo(() => itemSheets(project), [project]);
+  // with a discipline chosen, an item shows what that tab budgets of it, not its whole total
+  const totals = useMemo(() => {
+    const onDrawing = drawingOnly
+      ? (m: { drawingId: string }) => m.drawingId === project.activeDrawingId
+      : undefined;
+    if (systemFilter !== null) {
+      return sheetItemTotals(project, onDrawing).get(systemFilter) ?? new Map<string, ItemTotal>();
+    }
+    return onDrawing ? itemTotals(project, onDrawing) : allTotals;
+  }, [project, drawingOnly, systemFilter, allTotals]);
   /** A just-created item (no marking anywhere) stays visible while active, whatever the filters. */
   const freshActive = (id: string) => id === activeItemId && !allTotals.get(id)?.count;
-  const byZone = useMemo(() => totalsByLocation(project), [project]);
+  const byZone = useMemo(
+    () => totalsByLocation(project, systemFilter ?? undefined),
+    [project, systemFilter],
+  );
   const groups = useMemo(
     () => Array.from(new Set([...project.items.map((i) => i.group), ...GROUP_SUGGESTIONS])),
     [project.items],
   );
-  /** Disciplines in use (for filtering). */
-  const systems = useMemo(
-    () =>
-      Array.from(
-        new Set([project.system, ...project.items.map((i) => i.system ?? "")].filter(Boolean)),
-      ),
-    [project.items, project.system],
-  );
+  /** Disciplines in use (for filtering): every tab some item or marking is budgeted on. */
+  const systems = useMemo(() => Array.from(new Set([...sheetsOf.values()].flat())), [sheetsOf]);
   /** Disciplines offered when typing: the ones in use plus the usual RLP set. */
   const systemOptions = useMemo(
     () => Array.from(new Set([...systems, ...DISCIPLINE_SUGGESTIONS])),
@@ -136,7 +146,11 @@ export function ItemsPanel() {
   const q = foldName(query.trim());
   const visible = project.items.filter((item) => {
     if (q && !foldName(`${item.name} ${item.group} ${item.system ?? ""}`).includes(q)) return false;
-    if (systemFilter !== null && (item.system || project.system || "") !== systemFilter)
+    if (
+      systemFilter !== null &&
+      !sheetsOf.get(item.id)?.includes(systemFilter) &&
+      !freshActive(item.id)
+    )
       return false;
     // inside a location only items that have something there (the active one stays visible)
     if (scoped && !scoped.has(item.id) && !freshActive(item.id)) return false;
@@ -260,6 +274,7 @@ export function ItemsPanel() {
             </select>
           )}
         </div>
+        <DrawSystemField value={drawSystem} options={systemOptions} onChange={setDrawSystem} />
       </div>
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
@@ -290,7 +305,8 @@ export function ItemsPanel() {
               }
               unscaled={unscaledOf(item.id)}
               breakdown={breakdownFor(item)}
-              systemLabel={item.system || project.system || ""}
+              systemLabel={(sheetsOf.get(item.id) ?? []).join(" · ")}
+              systemTitle={systemTitleOf(sheetKey(project, item), sheetsOf.get(item.id) ?? [])}
               total={formatMoney(
                 round2(priced * (item.materialPrice + item.laborPrice)),
                 project.currency,
@@ -360,6 +376,77 @@ export function ItemsPanel() {
   );
 }
 
+/** Tooltip of an item's discipline tag: its own tab, and where its markings went otherwise. */
+function systemTitleOf(own: string, sheets: string[]): string {
+  const base = `Disciplina do item: ${own}, a aba da planilha das suas marcações (clique para alterar)`;
+  const others = sheets.filter((s) => s !== own);
+  if (others.length === 0) return base;
+  return `${base}. Marcações feitas em outra disciplina ("Marcar em"): ${others.join(", ")}`;
+}
+
+/**
+ * "Marcar em": the discipline the next markings go to, whatever item or kit draws them (the
+ * garage's copper on AC Pesado, the party room's on AC Leve). Typed text applies on Enter,
+ * leaving the field or picking a suggestion; blank returns to each item's own discipline.
+ */
+function DrawSystemField({
+  value,
+  options,
+  onChange,
+}: {
+  value: string | null;
+  options: string[];
+  onChange: (system: string | null) => void;
+}) {
+  const [draft, setDraft] = useState(value ?? "");
+  useEffect(() => setDraft(value ?? ""), [value]);
+  const apply = (v: string) => onChange(v.trim() || null);
+  return (
+    <div
+      className={clsx(
+        "flex h-7 min-w-0 items-center gap-1 rounded px-1.5 text-xs ring-1",
+        value
+          ? "bg-orange-500/15 text-orange-300 ring-orange-400"
+          : "bg-neutral-800 text-neutral-400 ring-neutral-700 focus-within:ring-orange-400",
+      )}
+      title="Disciplina (aba da planilha) das próximas marcações, de qualquer item ou kit: o mesmo cobre pode ir para AC Pesado na garagem e para AC Leve no salão. Vazio: cada marcação vai para a disciplina do seu item. Para mudar marcações já feitas, selecione-as no desenho."
+    >
+      <Layers size={14} className="shrink-0" />
+      <span className="shrink-0">Marcar em</span>
+      <input
+        list="item-systems"
+        value={draft}
+        placeholder="disciplina do item"
+        onChange={(e) => {
+          setDraft(e.target.value);
+          // picked from the suggestions: no need to leave the field
+          if (options.includes(e.target.value)) apply(e.target.value);
+        }}
+        onBlur={() => apply(draft)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") {
+            setDraft(value ?? "");
+            e.currentTarget.blur();
+          }
+          e.stopPropagation();
+        }}
+        className="min-w-0 flex-1 bg-transparent text-xs text-neutral-100 outline-none placeholder:text-neutral-500"
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          aria-label="Voltar à disciplina de cada item"
+          title="Voltar à disciplina de cada item"
+        >
+          <X size={14} className="text-orange-300 hover:text-neutral-100" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 interface RowProps {
   item: Item;
   active: boolean;
@@ -369,6 +456,7 @@ interface RowProps {
   unscaled: number;
   breakdown: string;
   systemLabel: string;
+  systemTitle: string;
   total: string;
   /** The item's name is already in the user's catalog. */
   saved: boolean;
@@ -405,6 +493,7 @@ function ItemRow({
   unscaled,
   breakdown,
   systemLabel,
+  systemTitle,
   total,
   saved,
   link,
@@ -576,11 +665,7 @@ function ItemRow({
               : tag("group", item.group, "Grupo da planilha (clique para alterar)")}
             {editing === "system"
               ? tagInput("system", item.system ?? "", "item-systems", "Disciplina (aba)")
-              : tag(
-                  "system",
-                  systemLabel || "disciplina",
-                  "Disciplina: aba da planilha (clique para alterar)",
-                )}
+              : tag("system", systemLabel || "disciplina", systemTitle)}
             <span className="ml-auto flex items-center gap-1">
               <button
                 type="button"

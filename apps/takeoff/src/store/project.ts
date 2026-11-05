@@ -112,6 +112,7 @@ export const createProjectSlice: Slice<ProjectSlice> = (set, get) => ({
       selection: [],
       zoneFilter: null,
       systemFilter: null,
+      drawSystem: null,
       similarPreview: null,
       calibration: null,
       pendingZone: null,

@@ -3,6 +3,7 @@ import {
   ArrowUpFromLine,
   Copy,
   CopyPlus,
+  Layers,
   Link2Off,
   Pencil,
   Plus,
@@ -12,7 +13,8 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { runLabel } from "../lib/kits";
-import type { Measurement } from "../lib/types";
+import { itemSheets, markingSheet } from "../lib/quantities";
+import { DISCIPLINE_SUGGESTIONS, type Measurement } from "../lib/types";
 import { vrfTag } from "../lib/vrf";
 import { useStore } from "../store";
 import { duplicateOffset } from "../viewport";
@@ -20,7 +22,8 @@ import { Button } from "./ui";
 
 /**
  * Shown while measurements are selected: the vertical length of linear runs (risers and drops
- * the plan does not show), the drawing label of one marking or kit group and, for a kit group,
+ * the plan does not show), the discipline (budget tab) the markings go to, the drawing label of
+ * one marking or kit group and, for a kit group,
  * its members, add an item, ungroup. Copy and duplicate are here too, for whoever does not know
  * Ctrl+C / Ctrl+D.
  */
@@ -51,10 +54,21 @@ export function SelectionBar() {
         : null;
     const verticals = new Set(linear.map((m) => m.vertical ?? 0));
     const repeats = new Set(selected.map((m) => m.repeat ?? 1));
-    return { items, selected, linear, group, verticals, repeats };
+    // duct and VRF runs follow their network / system: their discipline is set on the item
+    const budgeted = selected.filter((m) => {
+      const item = items.get(m.itemId);
+      return item && !item.derived;
+    });
+    const sheets = new Set(
+      budgeted.map((m) => {
+        const item = items.get(m.itemId);
+        return item ? markingSheet(project, m, item) : "";
+      }),
+    );
+    return { items, selected, linear, group, verticals, repeats, budgeted, sheets };
   }, [selection, project]);
   if (info.selected.length === 0) return null;
-  const { items, selected, linear, group, verticals, repeats } = info;
+  const { items, selected, linear, group, verticals, repeats, budgeted, sheets } = info;
   const repeat = repeats.size === 1 ? [...repeats][0] : null;
   const inGroup = new Set(group?.members.map((m) => m.itemId));
   const candidates = project.items.filter((i) => !inGroup.has(i.id) && i.kind !== "area");
@@ -92,6 +106,14 @@ export function SelectionBar() {
           className="num-input w-14"
         />
       </label>
+      {budgeted.length > 0 && (
+        <SystemField
+          key={`${budgeted.map((m) => m.id).join(",")}:${[...sheets].join(",")}`}
+          members={budgeted}
+          current={sheets.size === 1 ? [...sheets][0] : null}
+          overridden={budgeted.some((m) => m.system)}
+        />
+      )}
       {selection.length === selected.length && (group || selected.length === 1) && (
         <LabelField
           key={`${selected.map((m) => m.id).join(",")}:${selected[0].label ?? ""}`}
@@ -228,6 +250,91 @@ export function SelectionBar() {
         <CopyPlus size={14} /> Duplicar
       </Button>
     </div>
+  );
+}
+
+/**
+ * The discipline (budget tab) of the selected markings, with their kit groups: the same item can
+ * be AC Pesado here and AC Leve elsewhere. Applies on Enter, leaving the field or picking a
+ * suggestion; the reset button returns them to their items' own discipline.
+ */
+function SystemField({
+  members,
+  current,
+  overridden,
+}: {
+  members: Measurement[];
+  /** The tab all of them are on, or null when they differ. */
+  current: string | null;
+  /** Some of them carry their own discipline (not their item's). */
+  overridden: boolean;
+}) {
+  const project = useStore((s) => s.project);
+  const options = useMemo(
+    () =>
+      Array.from(new Set([...[...itemSheets(project).values()].flat(), ...DISCIPLINE_SUGGESTIONS])),
+    [project],
+  );
+  const [draft, setDraft] = useState(current ?? "");
+  const cancelled = useRef(false);
+  const ids = members.map((m) => m.id);
+  const apply = (v: string) => {
+    if (cancelled.current) {
+      cancelled.current = false;
+      setDraft(current ?? "");
+      return;
+    }
+    const text = v.trim();
+    if (!text || text === current) {
+      setDraft(current ?? "");
+      return;
+    }
+    useStore.getState().setMarkingSystem(ids, text);
+  };
+  return (
+    <label
+      className="flex items-center gap-1 text-neutral-400"
+      title="Disciplina (aba da planilha) destas marcações e dos kits delas; as outras marcações do mesmo item não mudam"
+    >
+      <Layers size={13} /> Disciplina
+      <datalist id="marking-systems">
+        {options.map((o) => (
+          <option key={o} value={o} />
+        ))}
+      </datalist>
+      <input
+        list="marking-systems"
+        value={draft}
+        placeholder={current === null ? "várias" : "disciplina"}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          if (options.includes(e.target.value) && e.target.value !== current) {
+            apply(e.target.value);
+          }
+        }}
+        onBlur={() => apply(draft)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") {
+            cancelled.current = true;
+            e.currentTarget.blur();
+          }
+          e.stopPropagation();
+        }}
+        className="h-6 w-36 rounded bg-neutral-800 px-1.5 text-xs text-neutral-100 outline-none ring-1 ring-neutral-700 placeholder:text-neutral-500 focus:ring-orange-400"
+      />
+      {overridden && (
+        <button
+          type="button"
+          onClick={() => useStore.getState().setMarkingSystem(ids, "")}
+          title="Voltar à disciplina de cada item"
+          aria-label="Voltar à disciplina de cada item"
+          className="rounded text-neutral-500 hover:text-neutral-100"
+        >
+          <X size={12} />
+        </button>
+      )}
+    </label>
   );
 }
 

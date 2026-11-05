@@ -59,7 +59,7 @@ import {
   vrfBill,
 } from "../vrf";
 import { DEFAULT_SYSTEM_HP, vrfRunsBySystem } from "../vrfItems";
-import { describeFilter, matches, type ReportFilter } from "./filter";
+import { describeFilter, matches, matchesMarking, type ReportFilter } from "./filter";
 
 // ---------------------------------------------------------------------------------------------
 // Paper and page layout
@@ -873,7 +873,7 @@ function collectMarkings(project: Project, filter: ReportFilter): Marking[] {
   const out: Marking[] = [];
   for (const m of project.measurements) {
     const item = items.get(m.itemId);
-    if (!item || m.points.length === 0 || !matches(project, item, filter)) continue;
+    if (!item || m.points.length === 0 || !matchesMarking(project, item, m, filter)) continue;
     out.push({
       m,
       item,
