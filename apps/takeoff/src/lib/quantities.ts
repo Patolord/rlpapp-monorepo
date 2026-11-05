@@ -108,6 +108,84 @@ export function itemTotals(
   return totals;
 }
 
+/** What an item counts by itself, outside its markings: typed by hand plus vertical length. */
+function ownQty(item: Item): number {
+  const vertical = item.kind === "linear" && item.vertical ? item.vertical * (item.factor ?? 1) : 0;
+  return (item.manualQty ?? 0) + vertical;
+}
+
+/**
+ * Item totals per discipline tab. Each marking counts on its own tab (see `markingSheet`), so
+ * one item can be split over several tabs; what the item counts by itself (typed by hand,
+ * vertical length) goes to the item's own tab, and only when nothing filters by marking.
+ * Only tabs and items with something on them are present.
+ */
+export function sheetItemTotals(
+  project: Project,
+  include?: (m: Measurement, kind: Kind) => boolean,
+): Map<string, Map<string, ItemTotal>> {
+  const items = new Map(project.items.map((i) => [i.id, i]));
+  const out = new Map<string, Map<string, ItemTotal>>();
+  const slot = (sheet: string, itemId: string): ItemTotal => {
+    let totals = out.get(sheet);
+    if (!totals) {
+      totals = new Map();
+      out.set(sheet, totals);
+    }
+    let t = totals.get(itemId);
+    if (!t) {
+      t = { qty: 0, count: 0, unscaled: 0 };
+      totals.set(itemId, t);
+    }
+    return t;
+  };
+  for (const m of project.measurements) {
+    const item = items.get(m.itemId);
+    if (!item || item.derived) continue;
+    if (include && !include(m, item.kind)) continue;
+    const t = slot(markingSheet(project, m, item), item.id);
+    const q = measurementQty(m, item.kind, pageScale(project, m.drawingId, m.page));
+    t.count++;
+    if (q === null) t.unscaled++;
+    else
+      t.qty +=
+        (q + (item.kind === "linear" ? (m.vertical ?? 0) : 0)) *
+        (item.factor ?? 1) *
+        repeatOf(project, m, item.kind);
+  }
+  if (!include) {
+    for (const item of project.items) {
+      const qty = ownQty(item);
+      if (qty) slot(sheetKey(project, item), item.id).qty += qty;
+    }
+  }
+  return out;
+}
+
+/**
+ * The tabs each item is printed on, in tab order: every tab where it has markings or a
+ * quantity, and its own tab when it has none anywhere (an unmeasured line the estimator may
+ * fill by hand stays where it was put).
+ */
+export function itemSheets(
+  project: Project,
+  perSheet: Map<string, Map<string, ItemTotal>> = sheetItemTotals(project),
+): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const [sheet, totals] of perSheet) {
+    for (const [itemId, t] of totals) {
+      if (t.count === 0 && t.qty === 0) continue;
+      out.set(itemId, [...(out.get(itemId) ?? []), sheet]);
+    }
+  }
+  for (const item of project.items) {
+    const sheets = out.get(item.id);
+    if (sheets) sheets.sort(compareSystems);
+    else out.set(item.id, [sheetKey(project, item)]);
+  }
+  return out;
+}
+
 /** Key used for measurements outside every location. */
 export const NO_LOCATION = "";
 
@@ -116,22 +194,27 @@ export const NO_LOCATION = "";
  * together whatever drawing it is on. Only keys with measurements are present (NO_LOCATION also
  * when an item has a quantity of its own: typed by hand or vertical length).
  */
-export const totalsByLocation = (project: Project): Map<string, Map<string, ItemTotal>> =>
-  totalsBy(project, (z) => z.locationId);
+export const totalsByLocation = (
+  project: Project,
+  sheet?: string,
+): Map<string, Map<string, ItemTotal>> => totalsBy(project, (z) => z.locationId, sheet);
 
 /** Item totals per region (zone) id: what one polygon on one sheet holds. */
 export const totalsByRegion = (project: Project): Map<string, Map<string, ItemTotal>> =>
   totalsBy(project, (z) => z.id);
 
+/** `sheet` keeps only what that discipline tab budgets (see `markingSheet`); undefined = all. */
 function totalsBy(
   project: Project,
   keyOf: (zone: Zone) => string,
+  sheet?: string,
 ): Map<string, Map<string, ItemTotal>> {
   const items = new Map(project.items.map((i) => [i.id, i]));
   const out = new Map<string, Map<string, ItemTotal>>();
   for (const m of project.measurements) {
     const item = items.get(m.itemId);
     if (!item || item.derived) continue;
+    if (sheet !== undefined && markingSheet(project, m, item) !== sheet) continue;
     const zone = zoneOf(project, m, item.kind);
     const key = zone ? keyOf(zone) : NO_LOCATION;
     let totals = out.get(key);
@@ -156,9 +239,8 @@ function totalsBy(
   // item-level quantities belong to no location: the quantity typed by hand (duct networks,
   // VRF systems…) and the vertical length, as `itemTotals` counts them
   for (const item of project.items) {
-    const vertical =
-      item.kind === "linear" && item.vertical ? item.vertical * (item.factor ?? 1) : 0;
-    const qty = (item.manualQty ?? 0) + vertical;
+    if (sheet !== undefined && sheetKey(project, item) !== sheet) continue;
+    const qty = ownQty(item);
     if (!qty) continue;
     let totals = out.get(NO_LOCATION);
     if (!totals) {
@@ -188,10 +270,22 @@ export interface SystemSheet {
   sections: SheetSection[];
 }
 
-/** Name of the workbook tab (discipline) an item is printed on. */
+/**
+ * The item's own workbook tab (discipline): where its markings go unless they say otherwise
+ * (see `markingSheet`), and where what it counts by itself goes.
+ */
 export function sheetKey(project: Project, item: Item): string {
   const fallback = project.system || "Orçamento";
   return (item.system || fallback).trim() || fallback;
+}
+
+/**
+ * The tab one marking is budgeted under: its own discipline, else its item's. Duct and VRF runs
+ * only feed their item's bill, so they always follow the item.
+ */
+export function markingSheet(project: Project, m: Measurement, item: Item): string {
+  const own = item.derived ? "" : (m.system?.trim() ?? "");
+  return own || sheetKey(project, item);
 }
 
 /** Money totals of one discipline tab, the way its sheet computes them. */
@@ -210,15 +304,17 @@ export interface DisciplineTotals {
 
 /** Totals per discipline tab, in tab order; each with its own extras and BDI. */
 export function disciplineTotals(project: Project): DisciplineTotals[] {
-  const totals = itemTotals(project);
+  const perSheet = sheetItemTotals(project);
+  const sheets = itemSheets(project, perSheet);
   const sums = new Map<string, { material: number; labor: number }>();
   for (const item of project.items) {
-    const key = sheetKey(project, item);
-    const qty = pricedQty(item, totals.get(item.id)?.qty ?? 0);
-    const s = sums.get(key) ?? { material: 0, labor: 0 };
-    s.material += round2(item.materialPrice * qty);
-    s.labor += round2(item.laborPrice * qty);
-    sums.set(key, s);
+    for (const key of sheets.get(item.id) ?? []) {
+      const qty = pricedQty(item, perSheet.get(key)?.get(item.id)?.qty ?? 0);
+      const s = sums.get(key) ?? { material: 0, labor: 0 };
+      s.material += round2(item.materialPrice * qty);
+      s.labor += round2(item.laborPrice * qty);
+      sums.set(key, s);
+    }
   }
   return [...sums.keys()].sort(compareSystems).map((system) => {
     const { material, labor } = sums.get(system) ?? { material: 0, labor: 0 };
@@ -245,19 +341,22 @@ export function disciplineTotals(project: Project): DisciplineTotals[] {
  * (the estimator may fill them by hand) but skipped per location.
  */
 export function systemSheets(project: Project): SystemSheet[] {
+  const perSheet = sheetItemTotals(project);
+  const tabsOf = itemSheets(project, perSheet);
   const bySystem = new Map<string, Item[]>();
   const labels = groupLabels(project.items);
   for (const item of sortItemsForBudget(project.items)) {
-    const key = sheetKey(project, item);
-    bySystem.set(key, [...(bySystem.get(key) ?? []), item]);
+    for (const key of tabsOf.get(item.id) ?? []) {
+      bySystem.set(key, [...(bySystem.get(key) ?? []), item]);
+    }
   }
   const byLocation = project.sectionsBy === "local" && project.locations.length > 0;
-  const byLoc = byLocation ? totalsByLocation(project) : null;
-  const totals = itemTotals(project);
   const unit = (item: Item) => itemUnit(item, project.unit);
   const sheets: SystemSheet[] = [];
   for (const system of [...bySystem.keys()].sort(compareSystems)) {
     const items = bySystem.get(system) ?? [];
+    const totals = perSheet.get(system);
+    const byLoc = byLocation ? totalsByLocation(project, system) : null;
     const sections: SheetSection[] = [];
     if (byLoc) {
       const columns = [
@@ -280,7 +379,11 @@ export function systemSheets(project: Project): SystemSheet[] {
       // one section per group however its name was spelt; shown under the usual spelling
       const groups = new Map<string, SheetSection>();
       for (const item of items) {
-        const row = { item, unit: unit(item), qty: pricedQty(item, totals.get(item.id)?.qty ?? 0) };
+        const row = {
+          item,
+          unit: unit(item),
+          qty: pricedQty(item, totals?.get(item.id)?.qty ?? 0),
+        };
         const key = groupKey(item.group);
         const g = groups.get(key);
         if (g) g.rows.push(row);
@@ -362,14 +465,26 @@ export interface Quote {
 
 export function buildQuote(project: Project): Quote {
   const totals = itemTotals(project);
+  const perSheet = sheetItemTotals(project);
+  const tabsOf = itemSheets(project, perSheet);
   const groups = new Map<string, QuoteGroup>();
   const labels = groupLabels(project.items);
   // tier → group → name: the groups come out in budget order as they are first seen
   for (const item of sortItemsForBudget(project.items)) {
     const t = totals.get(item.id) ?? { qty: 0, count: 0, unscaled: 0 };
-    const qty = pricedQty(item, t.qty);
-    const material = round2(item.materialPrice * qty);
-    const labor = round2(item.laborPrice * qty);
+    // an item split over tabs is priced per tab (waste and rounding up there), as the sheets do
+    let qty = 0;
+    let material = 0;
+    let labor = 0;
+    for (const key of tabsOf.get(item.id) ?? []) {
+      const q = pricedQty(item, perSheet.get(key)?.get(item.id)?.qty ?? 0);
+      qty += q;
+      material += round2(item.materialPrice * q);
+      labor += round2(item.laborPrice * q);
+    }
+    qty = round2(qty);
+    material = round2(material);
+    labor = round2(labor);
     const line: QuoteLine = {
       item,
       measured: t.qty,

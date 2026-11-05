@@ -82,6 +82,15 @@ more regions; each region lies on one page of one drawing, and the markings
 inside a region are grouped under the location in the budget. The product
 interface calls it a “local” or “ambiente.”
 
+## Discipline
+
+A tab of a takeoff desktop budget workbook (Exaustão, Infra AC, AC Pesado…),
+with its own extras and BDI. The product interface calls it a “disciplina” or
+“aba.” It is a sales grouping chosen by the estimator, not a property of the
+material: each item has its own discipline, and a marking may name another
+(“Marcar em” while drawing, or the selection's “Disciplina”), so one item can be
+split over several tabs, each with the quantity of its markings.
+
 ## Kit
 
 A preset that creates one linked marking per material from a single run or

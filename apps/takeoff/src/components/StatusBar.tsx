@@ -132,6 +132,7 @@ export function StatusBar() {
         : (s.project.locations.find((l) => l.id === s.zoneFilter)?.name ?? null),
   );
   const setZoneFilter = useStore((s) => s.setZoneFilter);
+  const drawSystem = useStore((s) => s.drawSystem);
   const fillOpacity = useStore((s) => s.fillOpacity);
   const fillsVisible = useStore((s) => s.fillsVisible);
   const { setFillOpacity, setFillsVisible } = useStore.getState();
@@ -302,6 +303,16 @@ export function StatusBar() {
           className="rounded bg-orange-500/15 px-1.5 py-0.5 text-orange-300 ring-1 ring-orange-400/60"
         >
           local: {zoneFilterName} ×
+        </button>
+      )}
+      {drawSystem && (
+        <button
+          type="button"
+          onClick={() => useStore.getState().setDrawSystem(null)}
+          title={`Novas marcações vão para a disciplina ${drawSystem}, de qualquer item ou kit (escolha em Itens → Marcar em). Clique para voltar à disciplina de cada item`}
+          className="rounded bg-orange-500/15 px-1.5 py-0.5 text-orange-300 ring-1 ring-orange-400/60"
+        >
+          marcando em: {drawSystem} ×
         </button>
       )}
       {tool === "kit" && (

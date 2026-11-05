@@ -50,6 +50,7 @@ export {
   isEmptyFilter,
   itemDiscipline,
   matches,
+  matchesMarking,
   matchingItemIds,
   type ReportFilter,
   type ReportPreset,

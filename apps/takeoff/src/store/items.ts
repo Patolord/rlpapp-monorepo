@@ -29,6 +29,13 @@ import {
 import type { Kind } from "../lib/units";
 import { KIND_OF_TOOL, type Slice } from "./shared";
 
+/**
+ * The discipline a new marking of `item` is stamped with: the "Marcar em" one while set, none
+ * otherwise (it then follows its item). Duct and VRF runs always follow their item.
+ */
+const stamp = (drawSystem: string | null, item: Item | undefined): Pick<Measurement, "system"> =>
+  drawSystem && item && !item.derived ? { system: drawSystem } : {};
+
 /** Link and dated price a line takes from the catalog entry it is created from. */
 const priceSnapshot = (
   entry: CatalogEntry | undefined,
@@ -95,6 +102,11 @@ export interface ItemsSlice {
   addKitRun(kitId: string, page: number, points: Pt[]): number;
   /** Make linked measurements independent again. */
   unlinkMeasurements(ids: string[]): void;
+  /**
+   * Discipline (budget tab) of these markings and of every member of their kit groups, in one
+   * undo step; blank returns them to their item's. Duct and VRF runs are left alone.
+   */
+  setMarkingSystem(ids: string[], system: string): void;
   /** Add an item to a kit group with the group's geometry. */
   addToGroup(linkId: string, itemId: string): void;
 
@@ -283,22 +295,39 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
 
   addMeasurement: (itemId, page, points) => {
     const id = newId();
-    const drawingId = get().project.activeDrawingId ?? "";
+    const { project, drawSystem } = get();
+    const drawingId = project.activeDrawingId ?? "";
+    const system = stamp(
+      drawSystem,
+      project.items.find((i) => i.id === itemId),
+    );
     get().commit((p) => ({
       ...p,
-      measurements: [...p.measurements, { id, itemId, drawingId, page, points }],
+      measurements: [...p.measurements, { id, itemId, drawingId, page, points, ...system }],
     }));
     return id;
   },
 
   addMeasurements: (itemId, page, pointsList) => {
     if (pointsList.length === 0) return 0;
-    const drawingId = get().project.activeDrawingId ?? "";
+    const { project, drawSystem } = get();
+    const drawingId = project.activeDrawingId ?? "";
+    const system = stamp(
+      drawSystem,
+      project.items.find((i) => i.id === itemId),
+    );
     get().commit((p) => ({
       ...p,
       measurements: [
         ...p.measurements,
-        ...pointsList.map((points) => ({ id: newId(), itemId, drawingId, page, points })),
+        ...pointsList.map((points) => ({
+          id: newId(),
+          itemId,
+          drawingId,
+          page,
+          points,
+          ...system,
+        })),
       ],
     }));
     return pointsList.length;
@@ -401,7 +430,7 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
   },
 
   addKitRun: (kitId, page, points) => {
-    const { project, catalog } = get();
+    const { project, catalog, drawSystem } = get();
     const kit = catalog.kits.find((k) => k.id === kitId);
     if (!kit || kit.components.length === 0 || points.length === 0) return 0;
     const drawingId = project.activeDrawingId ?? "";
@@ -445,12 +474,40 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
           kitId: kit.id,
           ...(kitLabel !== undefined ? { kitLabel } : {}),
           vertical: byClick && c.kind === "linear" && c.factor > 0 ? c.factor : undefined,
+          // "Marcar em" takes over every component's discipline: the same kit is AC Pesado in
+          // the garage and AC Leve in the party room
+          ...stamp(drawSystem, item),
         });
       }
       return { ...p, items, measurements };
     });
     set({ status: `Kit ${kit.name}: ${kit.components.length} itens medidos de uma vez` });
     return kit.components.length;
+  },
+
+  setMarkingSystem: (ids, system) => {
+    const text = system.trim() || undefined;
+    get().commit((p) => {
+      const want = new Set(ids);
+      const links = new Set<string>();
+      for (const m of p.measurements) if (m.linkId && want.has(m.id)) links.add(m.linkId);
+      const items = new Map(p.items.map((i) => [i.id, i]));
+      let changed = false;
+      const measurements = p.measurements.map((m) => {
+        if (!want.has(m.id) && !(m.linkId && links.has(m.linkId))) return m;
+        if (items.get(m.itemId)?.derived || m.system === text) return m;
+        changed = true;
+        const next = { ...m, system: text };
+        if (text === undefined) delete next.system;
+        return next;
+      });
+      return changed ? { ...p, measurements } : p;
+    });
+    set({
+      status: text
+        ? `Marcações orçadas em ${text}`
+        : "Marcações de volta à disciplina dos seus itens",
+    });
   },
 
   unlinkMeasurements: (ids) => {
@@ -485,6 +542,7 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
           ...(sample.kitId !== undefined ? { kitId: sample.kitId } : {}),
           ...(sample.kitLabel !== undefined ? { kitLabel: sample.kitLabel } : {}),
           ...(sample.label !== undefined ? { label: sample.label } : {}),
+          ...(sample.system !== undefined && !item.derived ? { system: sample.system } : {}),
         },
       ],
     }));
