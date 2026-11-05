@@ -35,6 +35,7 @@ import { Route as ComprasIndexRouteImport } from './routes/compras/index'
 import { Route as ConfiguracoesIndexRouteImport } from './routes/configuracoes/index'
 import { Route as ConfiguracoesPoliticaPrivacidadeRouteImport } from './routes/configuracoes/politica-privacidade'
 import { Route as ConfiguracoesUsuariosRouteImport } from './routes/configuracoes/usuarios'
+import { Route as ContaIndexRouteImport } from './routes/conta/index'
 import { Route as ContaAgentesRouteImport } from './routes/conta/agentes'
 import { Route as EngenhariaIndexRouteImport } from './routes/engenharia/index'
 import { Route as EngenhariaClientesRouteImport } from './routes/engenharia/clientes'
@@ -241,6 +242,11 @@ const ConfiguracoesUsuariosRoute = ConfiguracoesUsuariosRouteImport.update({
   id: '/usuarios',
   path: '/usuarios',
   getParentRoute: () => ConfiguracoesRouteRoute,
+} as any)
+const ContaIndexRoute = ContaIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ContaRouteRoute,
 } as any)
 const ContaAgentesRoute = ContaAgentesRouteImport.update({
   id: '/agentes',
@@ -692,6 +698,7 @@ export interface FileRoutesByFullPath {
   '/backoffice/': typeof BackofficeIndexRoute
   '/compras/': typeof ComprasIndexRoute
   '/configuracoes/': typeof ConfiguracoesIndexRoute
+  '/conta/': typeof ContaIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
   '/estoque/': typeof EstoqueIndexRoute
   '/portal/': typeof PortalIndexRoute
@@ -752,7 +759,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/conta': typeof ContaRouteRouteWithChildren
   '/convite': typeof ConviteRoute
   '/excluir-conta': typeof ExcluirContaRoute
   '/login': typeof LoginRoute
@@ -784,6 +790,7 @@ export interface FileRoutesByTo {
   '/backoffice': typeof BackofficeIndexRoute
   '/compras': typeof ComprasIndexRoute
   '/configuracoes': typeof ConfiguracoesIndexRoute
+  '/conta': typeof ContaIndexRoute
   '/engenharia': typeof EngenhariaIndexRoute
   '/estoque': typeof EstoqueIndexRoute
   '/portal': typeof PortalIndexRoute
@@ -884,6 +891,7 @@ export interface FileRoutesById {
   '/backoffice/': typeof BackofficeIndexRoute
   '/compras/': typeof ComprasIndexRoute
   '/configuracoes/': typeof ConfiguracoesIndexRoute
+  '/conta/': typeof ContaIndexRoute
   '/engenharia/': typeof EngenhariaIndexRoute
   '/estoque/': typeof EstoqueIndexRoute
   '/portal/': typeof PortalIndexRoute
@@ -988,6 +996,7 @@ export interface FileRouteTypes {
     | '/backoffice/'
     | '/compras/'
     | '/configuracoes/'
+    | '/conta/'
     | '/engenharia/'
     | '/estoque/'
     | '/portal/'
@@ -1048,7 +1057,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/conta'
     | '/convite'
     | '/excluir-conta'
     | '/login'
@@ -1080,6 +1088,7 @@ export interface FileRouteTypes {
     | '/backoffice'
     | '/compras'
     | '/configuracoes'
+    | '/conta'
     | '/engenharia'
     | '/estoque'
     | '/portal'
@@ -1179,6 +1188,7 @@ export interface FileRouteTypes {
     | '/backoffice/'
     | '/compras/'
     | '/configuracoes/'
+    | '/conta/'
     | '/engenharia/'
     | '/estoque/'
     | '/portal/'
@@ -1455,6 +1465,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/configuracoes/usuarios'
       preLoaderRoute: typeof ConfiguracoesUsuariosRouteImport
       parentRoute: typeof ConfiguracoesRouteRoute
+    }
+    '/conta/': {
+      id: '/conta/'
+      path: '/'
+      fullPath: '/conta/'
+      preLoaderRoute: typeof ContaIndexRouteImport
+      parentRoute: typeof ContaRouteRoute
     }
     '/conta/agentes': {
       id: '/conta/agentes'
@@ -2044,10 +2061,12 @@ const ConfiguracoesRouteRouteWithChildren =
 
 interface ContaRouteRouteChildren {
   ContaAgentesRoute: typeof ContaAgentesRoute
+  ContaIndexRoute: typeof ContaIndexRoute
 }
 
 const ContaRouteRouteChildren: ContaRouteRouteChildren = {
   ContaAgentesRoute: ContaAgentesRoute,
+  ContaIndexRoute: ContaIndexRoute,
 }
 
 const ContaRouteRouteWithChildren = ContaRouteRoute._addFileChildren(
@@ -2324,3 +2343,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

@@ -8,7 +8,12 @@ import {
   type Permission,
   type Role,
 } from "@rlpapp/shared/auth/permissions";
-import { AREA_PERMISSIONS, type DepartmentArea } from "@/components/role-area-gate";
+import {
+  AREA_PERMISSIONS,
+  UNIVERSAL_HOME_PATH,
+  resolveHomePath,
+  type DepartmentArea,
+} from "@/lib/areas";
 import { useQuery } from "convex/react";
 import {
   Building2,
@@ -29,6 +34,7 @@ import {
   Banknote,
   Bot,
   Clock,
+  House,
   Layers,
   Scale,
   SlidersHorizontal,
@@ -57,6 +63,8 @@ interface NavItem {
   exact?: boolean;
   /** Funcionalidade específica dentro da área (além da permissão do grupo). */
   permission?: Permission;
+  /** Só para a equipe interna (não aparece para técnicos e clientes). */
+  staffOnly?: boolean;
 }
 
 interface NavGroup {
@@ -164,7 +172,11 @@ function getNavGroups(): NavGroup[] {
     {
       key: "conta",
       label: "Minha conta",
-      items: [{ to: "/conta/agentes", label: "Agentes (MCP)", icon: Bot }],
+      items: [
+        // Início pessoal: abre para todo usuário, qualquer que seja o acesso.
+        { to: UNIVERSAL_HOME_PATH, label: "Início", icon: House, exact: true },
+        { to: "/conta/agentes", label: "Agentes (MCP)", icon: Bot, staffOnly: true },
+      ],
     },
   ];
 }
@@ -221,15 +233,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   // Itens de uma funcionalidade específica somem para quem não a tem.
   const navGroups = getNavGroups()
     .filter((group) => {
-      // Tokens de agente são pessoais: todo usuário interno pode criar os seus.
-      if (group.key === "conta") return currentUser?.isStaff ?? false;
+      // Área pessoal: todo usuário logado (tokens de agente só para a equipe).
+      if (group.key === "conta") return currentUser != null;
       const permissions = AREA_PERMISSIONS[group.key as DepartmentArea];
       return permissions ? can(currentUser, ...permissions) : false;
     })
     .map((group) => ({
       ...group,
       items: group.items.filter(
-        (item) => !item.permission || can(currentUser, item.permission)
+        (item) =>
+          (!item.permission || can(currentUser, item.permission)) &&
+          (!item.staffOnly || (currentUser?.isStaff ?? false))
       ),
     }))
     .filter((group) => group.items.length > 0);
@@ -239,7 +253,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader className="py-3">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link to={staysOnHome ? "/app" : currentPath} />}>
+            <SidebarMenuButton size="lg" render={
+                <Link to={currentUser ? resolveHomePath(currentUser) : currentPath} />
+              }>
               <img
                 src="/logo.jpg"
                 alt="RLP Engenharia"
