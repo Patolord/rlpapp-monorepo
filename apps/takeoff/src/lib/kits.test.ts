@@ -23,12 +23,13 @@ describe("kit presets", () => {
     expect(names).toContain("9.000 Convencional");
     expect(names).toContain("60.000 Convencional");
     const k18c = SEED_KITS.find((k) => k.name === "18.000 Convencional");
+    // copper, insulation, cable, each by ascending size
     expect(k18c?.components.map((c) => c.name)).toEqual([
-      'Cobre de 1/4"',
-      'Cobre de 5/8"',
-      'Isolamento de 1/4" - Espessura 09 mm',
-      'Isolamento de 5/8" - Espessura 09 mm',
-      "Cabo PP 5 x 1,5 mm²",
+      'Tubulação de Cobre 1/4"',
+      'Tubulação de Cobre 5/8"',
+      'Isolamento Polipex 1/4"',
+      'Isolamento Polipex 5/8"',
+      "Cabo PP 5x1,5 mm²",
     ]);
   });
 
@@ -69,7 +70,8 @@ describe("kit labels", () => {
     for (const k of SEED_KITS) {
       if (k.mode === "count") expect(k.label, k.name).toBeUndefined();
       // the label names the same diameters as the copper components
-      else expect(k.components[0].name, k.name).toBe(`Cobre de ${k.label?.split(" · ")[0]}`);
+      else
+        expect(k.components[0].name, k.name).toBe(`Tubulação de Cobre ${k.label?.split(" · ")[0]}`);
     }
   });
 

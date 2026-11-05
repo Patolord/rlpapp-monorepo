@@ -126,7 +126,10 @@ version ("modificado aqui"), a default removed here stays hidden, a kit created 
 "Restaurar padrão" drops a local edit. Every catalog refresh replaces the defaults and keeps the
 overrides, so a kit the user never touched always follows the company's version (the model is in
 `lib/overrides.ts` and `lib/kits.ts`, the shared types and factory presets in
-`@rlpapp/shared/takeoff/kits`). The weight table, the kg/m² per duct gauge, the prices per kg
+`@rlpapp/shared/takeoff/kits`). A component carrying a purchasing code (`sku`, MAT-000123) is
+that company material: the item is created from it, under its catalog name, with its price and
+quote date, even after purchasing renames it; a component without a code is a custom item,
+looked up by name (`kitComponentEntry` in `lib/catalog.ts`). The weight table, the kg/m² per duct gauge, the prices per kg
 (Ctrl+K footer) and the VRF brand rules follow the same model: company defaults from the
 dashboard's App Takeoff section (the supplier's and the workbook's tables until the company
 publishes any), each user's changes kept on their machine. Each kit has a **Rótulo no

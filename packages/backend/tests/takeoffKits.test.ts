@@ -53,6 +53,14 @@ describe("sanitizeTakeoffKitInput", () => {
     });
   });
 
+  test("keeps a component's catalog code, upper case", () => {
+    const clean = sanitizeTakeoffKitInput({
+      ...lineSet,
+      components: [{ ...lineSet.components[0], sku: " mat-000010 " }, lineSet.components[1]],
+    });
+    expect(clean.components.map((c) => c.sku)).toEqual(["MAT-000010", undefined]);
+  });
+
   test("refuses an empty kit, a blank name and a non-positive factor", () => {
     expect(() => sanitizeTakeoffKitInput({ ...lineSet, name: " " })).toThrow(/nome/);
     expect(() => sanitizeTakeoffKitInput({ ...lineSet, components: [] })).toThrow(/componente/);
@@ -110,8 +118,8 @@ describe("takeoffKits", () => {
         mode: "linear",
         label: '1/4" · 3/8"',
         components: [
-          { name: 'Cobre de 1/4"', group: "Tubulações", system: "Infra AC", kind: "linear", factor: 1 },
-          { name: "Cabo PP 5 x 1,5 mm²", group: "Elétrica", system: null, kind: "linear", factor: 2 },
+          { name: 'Cobre de 1/4"', sku: null, group: "Tubulações", system: "Infra AC", kind: "linear", factor: 1 },
+          { name: "Cabo PP 5 x 1,5 mm²", sku: null, group: "Elétrica", system: null, kind: "linear", factor: 2 },
         ],
       },
     ]);
@@ -149,5 +157,97 @@ describe("takeoffKits", () => {
     const after = await engineering.query(api.takeoffKits.list, {});
     expect(after).toHaveLength(SEED_KITS.length - 1);
     expect(after.find((k) => k.key === "kit-9-000-inverter")?.name).toBe("9.000 Inverter (RLP)");
+  });
+});
+
+describe("takeoffKits catalog link", () => {
+  async function withCatalog() {
+    const users = await seedUsers();
+    await users.t.run(async (ctx) => {
+      const now = Date.now();
+      const add = (sku: string | undefined, name: string, variantLabel: string, status: "active" | "draft" = "active") =>
+        ctx.db.insert("materials", {
+          name,
+          variantLabel,
+          ...(sku ? { sku } : {}),
+          unit: "m",
+          active: true,
+          status,
+          createdAt: now,
+        });
+      await add("MAT-000010", "Tubulação de Cobre", '1/4"');
+      await add("MAT-000011", "Tubulação de Cobre", '3/8"');
+      await add("MAT-000020", "Isolamento Polipex", '1/4"');
+      await add("MAT-000021", "Isolamento Polipex", '3/8"');
+      await add("MAT-000030", "Cabo PP", "5x1,5 mm²");
+      await add(undefined, "Tubulação de Cobre", '1/2"');
+    });
+    return users;
+  }
+
+  const generic = {
+    name: "9.000 Inverter",
+    mode: "linear" as const,
+    label: '1/4" · 3/8"',
+    components: [
+      { name: "Cabo PP 5 x 1,5 mm²", group: "Elétrica", kind: "linear" as const, factor: 2 },
+      { name: 'Isolamento de 3/8" - Espessura 09 mm', group: "Isolamento", kind: "linear" as const, factor: 1 },
+      { name: 'Cobre de 3/8"', group: "Tubulações", kind: "linear" as const, factor: 1 },
+      { name: 'Cobre de 1/4"', group: "Tubulações", kind: "linear" as const, factor: 1 },
+      { name: 'Isolamento de 1/4" - Espessura 09 mm', group: "Isolamento", kind: "linear" as const, factor: 1 },
+      { name: "Dreno próprio", group: "Acessórios", kind: "linear" as const, factor: 1 },
+    ],
+  };
+
+  test("previews and applies the codes, catalog names and budget order", async () => {
+    const { engineering, hr } = await withCatalog();
+    const id = await engineering.mutation(api.takeoffKits.save, generic);
+
+    const [plan] = await engineering.query(api.takeoffKits.catalogLinkPlan, {});
+    expect(plan).toMatchObject({ _id: id, reordered: true });
+    expect(plan.changes.map((c) => [c.fromName, c.toSku])).toEqual([
+      ["Cabo PP 5 x 1,5 mm²", "MAT-000030"],
+      ['Isolamento de 3/8" - Espessura 09 mm', "MAT-000021"],
+      ['Cobre de 3/8"', "MAT-000011"],
+      ['Cobre de 1/4"', "MAT-000010"],
+      ['Isolamento de 1/4" - Espessura 09 mm', "MAT-000020"],
+    ]);
+    expect(plan.unlinked).toEqual([{ name: "Dreno próprio", candidates: [] }]);
+    // the preview writes nothing
+    expect((await engineering.query(api.takeoffKits.list, {}))[0].components).toEqual(
+      generic.components
+    );
+
+    await expect(hr.mutation(api.takeoffKits.applyCatalogLinks, {})).rejects.toThrow();
+    expect(await engineering.mutation(api.takeoffKits.applyCatalogLinks, {})).toEqual({
+      kits: 1,
+      components: 5,
+    });
+    const [row] = await engineering.query(api.takeoffKits.list, {});
+    expect(row.components.map((c) => [c.name, c.sku ?? null, c.factor])).toEqual([
+      ['Tubulação de Cobre — 1/4"', "MAT-000010", 1],
+      ['Tubulação de Cobre — 3/8"', "MAT-000011", 1],
+      ['Isolamento Polipex — 1/4"', "MAT-000020", 1],
+      ['Isolamento Polipex — 3/8"', "MAT-000021", 1],
+      ["Cabo PP — 5x1,5 mm²", "MAT-000030", 2],
+      ["Dreno próprio", null, 1],
+    ]);
+    // nothing left to do: a second run changes nothing
+    expect(await engineering.mutation(api.takeoffKits.applyCatalogLinks, {})).toEqual({
+      kits: 0,
+      components: 0,
+    });
+  });
+
+  test("follows a renamed material by its code", async () => {
+    const { t, engineering } = await withCatalog();
+    await engineering.mutation(api.takeoffKits.save, {
+      ...generic,
+      components: [{ ...generic.components[3], name: "Nome antigo", sku: "MAT-000010" }],
+    });
+    const [plan] = await engineering.query(api.takeoffKits.catalogLinkPlan, {});
+    expect(plan.changes).toMatchObject([{ toName: 'Tubulação de Cobre — 1/4"', by: "sku" }]);
+    const published = await t.run((ctx) => listPublishedTakeoffKits(ctx));
+    expect(published[0].components[0].sku).toBe("MAT-000010");
   });
 });

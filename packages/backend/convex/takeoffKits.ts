@@ -9,9 +9,11 @@ import {
   isFactoryKey,
   listActiveTakeoffKits,
   missingFactoryTakeoffKits,
+  planTakeoffKitLinks,
   sanitizeTakeoffKitInput,
   seedFactoryTakeoffKits,
   takeoffKitInputValidator,
+  takeoffKitLinkPlanValidator,
   takeoffKitRowValidator,
 } from "./model/procurement/takeoffKits";
 
@@ -155,5 +157,54 @@ export const seedDefaults = takeoffConfigMutation({
       });
     }
     return added;
+  },
+});
+
+/**
+ * Prévia de "Vincular ao catálogo": para cada kit ativo, os componentes que
+ * ganham o código MAT do material de compras (pelo código que já têm, pelo
+ * nome exato ou pela família e bitola: cobre, isolamento, cabo), os que ficam
+ * sem código e se a ordem muda (cobre, isolamento, cabo, por bitola).
+ */
+export const catalogLinkPlan = engineeringOrPurchasingQuery({
+  args: {},
+  returns: v.array(takeoffKitLinkPlanValidator),
+  handler: async (ctx) => await planTakeoffKitLinks(ctx),
+});
+
+/**
+ * Aplica a prévia de `catalogLinkPlan` aos kits ativos (recalculada aqui, com
+ * o catálogo do momento): grava código e nome do catálogo nos componentes
+ * encontrados e ordena cobre, isolamento e cabo por bitola. Componentes sem
+ * correspondência ficam como estão. Retorna quantos kits e componentes mudaram.
+ */
+export const applyCatalogLinks = takeoffConfigMutation({
+  args: {},
+  returns: v.object({ kits: v.number(), components: v.number() }),
+  handler: async (ctx) => {
+    let kits = 0;
+    let components = 0;
+    for (const plan of await planTakeoffKitLinks(ctx)) {
+      if (plan.changes.length === 0 && !plan.reordered) continue;
+      const existing = await ctx.db.get("takeoffKits", plan._id);
+      if (!existing) continue;
+      await ctx.db.patch("takeoffKits", plan._id, {
+        components: plan.components,
+        updatedAt: Date.now(),
+        updatedByUserId: ctx.user._id,
+      });
+      await logAudit(ctx, ctx.user, {
+        action: "update",
+        tableName: "takeoffKits",
+        recordId: plan._id,
+        entityLabel: plan.name,
+        details: "Vinculado ao catálogo de compras",
+        snapshotBefore: { components: existing.components },
+        snapshotAfter: { components: plan.components },
+      });
+      kits++;
+      components += plan.changes.length;
+    }
+    return { kits, components };
   },
 });

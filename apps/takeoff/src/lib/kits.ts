@@ -22,11 +22,12 @@ export {
   type KitComponent,
   type KitMode,
   kitMode,
+  normalizeKitSku,
   SEED_KITS,
   sameKit,
 } from "@rlpapp/shared/takeoff/kits";
 
-/** Short description of a kit for lists: "Cobre de 1/4" · Cobre de 3/8" · Cabo PP 5 x 1,5 mm² ×2". */
+/** Short description of a kit for lists: "Tubulação de Cobre 1/4" · … · Cabo PP 5x1,5 mm² ×2". */
 export function kitSummary(kit: Kit, unit: Unit = "m"): string {
   return kit.components
     .map((c) =>

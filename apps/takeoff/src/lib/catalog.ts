@@ -6,6 +6,7 @@ import {
   type GaugeLimits,
   type GaugeWeights,
 } from "@rlpapp/shared/engenharia/ducts";
+import { normalizeKitSku } from "@rlpapp/shared/takeoff/kits";
 import { isLaborPriceKey, type LaborPrices, laborPricesOf } from "@rlpapp/shared/takeoff/labor";
 import {
   isDiameter,
@@ -326,6 +327,24 @@ export function mergeCatalog(store: CatalogStore): CatalogEntry[] {
   return out;
 }
 
+/**
+ * The catalog entry a kit component stands for: the company material with its code (whatever
+ * its name is now), else the entry of the same name. Undefined when neither exists (a custom
+ * item, created without a price).
+ */
+export function kitComponentEntry(
+  entries: readonly CatalogEntry[],
+  component: { name: string; sku?: string },
+): CatalogEntry | undefined {
+  const sku = normalizeKitSku(component.sku);
+  if (sku) {
+    const bySku = entries.find((e) => e.source === "remote" && normalizeKitSku(e.sku) === sku);
+    if (bySku) return bySku;
+  }
+  const name = foldName(component.name);
+  return entries.find((e) => foldName(e.name) === name);
+}
+
 /** Every query token must appear in the name or group; earlier/shorter matches rank first. */
 export function searchCatalog(entries: readonly CatalogEntry[], query: string, limit = 40) {
   const tokens = foldName(query).split(/\s+/).filter(Boolean);
@@ -513,9 +532,11 @@ export function parseRemoteKits(json: unknown): Kit[] | null {
       if (!cname || !KIT_KINDS.has(kind)) return [];
       const factor = typeof comp.factor === "number" && comp.factor > 0 ? comp.factor : 1;
       const system = str(comp.system);
+      const sku = normalizeKitSku(str(comp.sku));
       return [
         {
           name: cname,
+          ...(sku ? { sku } : {}),
           group: str(comp.group) || DEFAULT_GROUP,
           ...(system ? { system } : {}),
           kind: kind as Kit["components"][number]["kind"],

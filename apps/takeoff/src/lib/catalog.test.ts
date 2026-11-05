@@ -633,12 +633,13 @@ describe("loading the saved catalog", () => {
           components: [
             {
               name: 'Cobre de 1/4"',
+              sku: "mat-000010",
               group: "Tubulações",
               system: "Infra AC",
               kind: "linear",
               factor: 1,
             },
-            { name: "Cabo PP", group: "", system: null, kind: "linear", factor: 2 },
+            { name: "Cabo PP", sku: null, group: "", system: null, kind: "linear", factor: 2 },
             { name: "", group: "x", system: null, kind: "linear", factor: 1 },
             { name: "Bad kind", group: "x", system: null, kind: "weird", factor: 1 },
           ],
@@ -665,6 +666,7 @@ describe("loading the saved catalog", () => {
         components: [
           {
             name: 'Cobre de 1/4"',
+            sku: "MAT-000010",
             group: "Tubulações",
             system: "Infra AC",
             kind: "linear",

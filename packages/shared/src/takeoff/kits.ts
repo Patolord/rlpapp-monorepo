@@ -20,6 +20,12 @@ export const KIT_MODES: readonly KitMode[] = ["linear", "count"];
 export interface KitComponent {
   /** Catalog name; prices and discipline are pulled from the catalog when the item is created. */
   name: string;
+  /**
+   * Code of the material in the purchasing catalog ("MAT-000123"). When set, the app links the
+   * item to that material (price, quote date, proposals) whatever its name; unset for a custom
+   * item the catalog does not carry, which is then looked up by name.
+   */
+  sku?: string;
   group: string;
   system?: string;
   /**
@@ -118,14 +124,19 @@ const COUNT_KITS: Kit[] = [
   },
 ];
 
-/** Copper line set of a split: liquid and gas tubes, their insulation and the interconnect cable (both ways). */
+/**
+ * Copper line set of a split: liquid and gas tubes, their insulation and the interconnect cable
+ * (both ways), in the order of the budget: copper, insulation, cable, each by ascending size.
+ * The names follow the purchasing catalog; the company kits link them to its codes
+ * ("Vincular ao catálogo" in the dashboard).
+ */
 function lineSet(liquid: string, gas: string): KitComponent[] {
   return [
-    linear(`Cobre de ${liquid}"`, "Tubulações"),
-    linear(`Cobre de ${gas}"`, "Tubulações"),
-    linear(`Isolamento de ${liquid}" - Espessura 09 mm`, "Isolamento"),
-    linear(`Isolamento de ${gas}" - Espessura 09 mm`, "Isolamento"),
-    linear("Cabo PP 5 x 1,5 mm²", "Elétrica", 2),
+    linear(`Tubulação de Cobre ${liquid}"`, "Tubulações"),
+    linear(`Tubulação de Cobre ${gas}"`, "Tubulações"),
+    linear(`Isolamento Polipex ${liquid}"`, "Isolamento"),
+    linear(`Isolamento Polipex ${gas}"`, "Isolamento"),
+    linear("Cabo PP 5x1,5 mm²", "Elétrica", 2),
   ];
 }
 
@@ -194,8 +205,10 @@ export function normalizeKit(kit: Kit): Kit {
     ...(label ? { label } : {}),
     components: kit.components.map((c) => {
       const system = c.system?.trim();
+      const sku = normalizeKitSku(c.sku);
       return {
         name: c.name.trim(),
+        ...(sku ? { sku } : {}),
         group: c.group.trim(),
         ...(system ? { system } : {}),
         kind: c.kind,
@@ -203,6 +216,12 @@ export function normalizeKit(kit: Kit): Kit {
       };
     }),
   };
+}
+
+/** A material code as stored: trimmed and upper case ("mat-000123 " → "MAT-000123"); blank = none. */
+export function normalizeKitSku(sku: string | null | undefined): string | undefined {
+  const s = sku?.trim().toUpperCase();
+  return s || undefined;
 }
 
 /** Same preset, ignoring whitespace and the spelling of defaults. */
