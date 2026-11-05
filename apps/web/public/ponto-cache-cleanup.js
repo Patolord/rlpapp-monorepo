@@ -1,5 +1,5 @@
-/* Remove páginas do ponto e fotos de marcação que versões anteriores do
- * service worker possam ter guardado nos caches genéricos ("pages"/"media"). */
+/* Remove páginas do ponto que versões anteriores do service worker possam
+ * ter guardado no cache genérico de páginas ("pages"). */
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
@@ -7,11 +7,7 @@ self.addEventListener("activate", (event) => {
         const cache = await caches.open(name);
         for (const request of await cache.keys()) {
           const url = new URL(request.url);
-          if (
-            /^\/rh\/ponto(?:\/|$)/.test(url.pathname) ||
-            url.pathname.startsWith("/time-clock/photo/") ||
-            /(^|\.)rhid\.com\.br$/.test(url.hostname)
-          ) {
+          if (/^\/rh\/ponto(?:\/|$)/.test(url.pathname)) {
             await cache.delete(request);
           }
         }

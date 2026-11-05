@@ -70,6 +70,9 @@ function RoleAwareDrawer({
   const showEngenharia = can(currentUser, "obras.read");
   const showCompras = can(currentUser, "compras.read");
   const showEstoque = can(currentUser, "estoque.read");
+  // Marcação de ponto: quem tem ponto.registrar. Enquanto o usuário não
+  // carregou (ex.: sem rede) o item fica, porque a marcação entra na fila offline.
+  const showPonto = currentUser === undefined || can(currentUser, "ponto.registrar");
   const showPortal = isDirector || (currentUser?.roles.includes("client") ?? false);
 
   const userName = currentUser?.name
@@ -146,6 +149,7 @@ function RoleAwareDrawer({
           headerTintColor: fg,
           drawerLabel: "Ponto",
           drawerIcon: ({ size, color }) => <Clock size={size} color={color} />,
+          drawerItemStyle: showPonto ? ITEM_STYLE : HIDDEN,
         }}
       />
       <Drawer.Screen

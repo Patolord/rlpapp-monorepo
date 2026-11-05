@@ -22,7 +22,7 @@ async function signIn(page: Page) {
 async function openPonto(page: Page) {
   await page.goto("/rh/ponto");
   const allowed = await page
-    .getByRole("heading", { name: "Ponto (RHID)" })
+    .getByRole("heading", { name: "Ponto", exact: true })
     .waitFor({ timeout: 15_000 })
     .then(() => true)
     .catch(() => false);
@@ -38,7 +38,7 @@ test.describe("Ponto", () => {
   test("sem login, /rh/ponto pede autenticação", async ({ page }) => {
     await page.goto("/rh/ponto");
     await expect(page.getByText("Acesse sua conta para continuar")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Ponto (RHID)" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Ponto", exact: true })).toHaveCount(0);
   });
 
   test("service worker de produção não guarda o ponto em cache", async ({ page }) => {
@@ -55,7 +55,7 @@ test.describe("Ponto", () => {
         const cache = await caches.open(name);
         for (const request of await cache.keys()) {
           const url = new URL(request.url);
-          if (regex.test(url.pathname) || url.pathname.startsWith("/time-clock/photo/")) {
+          if (regex.test(url.pathname)) {
             return request.url;
           }
         }
@@ -72,14 +72,13 @@ test.describe("Ponto autenticado", () => {
     "E2E_CLERK_USER_USERNAME / E2E_CLERK_USER_PASSWORD não configurados",
   );
 
-  test("navega por Agora, Dia, Mensal e Vínculos", async ({ page }) => {
+  test("navega por Agora, Dia, Mensal e Configurações", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await signIn(page);
     await openPonto(page);
 
     const tabs = page.getByRole("navigation", { name: "Seções do ponto" });
 
-    await expect(page.getByRole("button", { name: "Atualizar agora" })).toBeVisible();
     await expect(metric(page, "Na obra agora")).toBeVisible();
     await expect(metric(page, "Sem marcação")).toBeVisible();
     await expect(page.getByLabel("Onde está", { exact: true })).toBeVisible();
@@ -88,17 +87,18 @@ test.describe("Ponto autenticado", () => {
     await expect(page).toHaveURL(/\/rh\/ponto\/dia/);
     await expect(metric(page, "Presentes")).toBeVisible();
     await expect(metric(page, "Ausentes")).toBeVisible();
-    await expect(page.getByPlaceholder("Buscar pessoa, departamento ou obra…")).toBeVisible();
+    await expect(page.getByPlaceholder("Buscar pessoa, login ou obra…")).toBeVisible();
 
     await tabs.getByRole("link", { name: "Mensal" }).click();
     await expect(page).toHaveURL(/\/rh\/ponto\/mensal/);
     await expect(metric(page, "Homem-dia")).toBeVisible();
     await expect(metric(page, "Custo estimado")).toBeVisible();
 
-    await tabs.getByRole("link", { name: "Vínculos" }).click();
-    await expect(page).toHaveURL(/\/rh\/ponto\/vinculos/);
-    await expect(metric(page, "Pessoas do RHID × funcionários")).toBeVisible();
-    await expect(metric(page, "Cercas do RHID × obras")).toBeVisible();
+    await tabs.getByRole("link", { name: "Configurações" }).click();
+    await expect(page).toHaveURL(/\/rh\/ponto\/configuracoes/);
+    await expect(metric(page, "Quem bate ponto")).toBeVisible();
+    await expect(metric(page, "Cercas das obras")).toBeVisible();
+    await expect(metric(page, "Marcação pelo app")).toBeVisible();
   });
 
   test("foto de marcação abre num diálogo, sob demanda", async ({ page }) => {

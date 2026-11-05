@@ -11,6 +11,7 @@ import {
   TileLayer,
   Tooltip,
   useMap,
+  useMapEvents,
 } from "react-leaflet";
 
 import { PunchPhotoButton } from "./punch-photo";
@@ -18,26 +19,26 @@ import { PunchPhotoButton } from "./punch-photo";
 /** Ponto no mapa (uma marcação ou a posição atual de uma pessoa). */
 export type MapMarker = {
   id: string;
-  /** Agrupa marcadores da mesma pessoa para destaque. */
-  groupId: number;
+  /** Agrupa marcadores da mesma pessoa (usuário) para destaque. */
+  groupId: string;
   latitude: number;
   longitude: number;
   color: string;
   title: string;
   lines: string[];
-  /** Marcação com foto (aberta sob demanda pelo proxy autenticado). */
-  photoPunchId?: Id<"timeClockPunches"> | null;
+  /** Marcação com foto (aberta sob demanda). */
+  photoPunchId?: Id<"clockPunches"> | null;
 };
 
+/** Cerca do ponto de uma obra. */
 export type MapWorksite = {
-  rhidGeofenceId: number;
+  projectId: string;
   name: string;
   latitude: number;
   longitude: number;
-  radius: number;
+  radiusMeters: number;
   /** Texto curto exibido no tooltip (ex.: "3 pessoas hoje"). */
   caption: string;
-  projectName: string | null;
   /** Realça a cerca (ex.: obra selecionada). */
   highlighted?: boolean;
 };
@@ -46,9 +47,11 @@ export type TimeClockMapProps = {
   markers: MapMarker[];
   worksites: MapWorksite[];
   /** Grupo (pessoa) em destaque: os demais pontos ficam esmaecidos. */
-  highlightGroupId?: number | null;
+  highlightGroupId?: string | null;
   /** Cerca em foco: o mapa centraliza nela. */
-  focusWorksiteId?: number | null;
+  focusWorksiteId?: string | null;
+  /** Clique no mapa (ex.: escolher o centro de uma cerca). */
+  onPick?: (position: { latitude: number; longitude: number }) => void;
   className?: string;
 };
 
@@ -78,15 +81,29 @@ function FitBounds({
   return null;
 }
 
+function PickHandler({
+  onPick,
+}: {
+  onPick: (position: { latitude: number; longitude: number }) => void;
+}) {
+  useMapEvents({
+    click(event) {
+      onPick({ latitude: event.latlng.lat, longitude: event.latlng.lng });
+    },
+  });
+  return null;
+}
+
 /**
- * Mapa compartilhado do ponto: cercas (obras) do RHID como círculos e
- * marcadores coloridos. Só renderiza no cliente (Leaflet depende de `window`).
+ * Mapa compartilhado do ponto: cercas das obras como círculos e marcadores
+ * coloridos. Só renderiza no cliente (Leaflet depende de `window`).
  */
 export default function TimeClockMap({
   markers,
   worksites,
   highlightGroupId,
   focusWorksiteId,
+  onPick,
   className,
 }: TimeClockMapProps) {
   const bounds = useMemo<LatLngBoundsExpression | null>(() => {
@@ -107,9 +124,9 @@ export default function TimeClockMap({
 
   const focus = useMemo(() => {
     if (focusWorksiteId === null || focusWorksiteId === undefined) return null;
-    const worksite = worksites.find((w) => w.rhidGeofenceId === focusWorksiteId);
+    const worksite = worksites.find((w) => w.projectId === focusWorksiteId);
     return worksite
-      ? { latitude: worksite.latitude, longitude: worksite.longitude, radius: worksite.radius }
+      ? { latitude: worksite.latitude, longitude: worksite.longitude, radius: worksite.radiusMeters }
       : null;
   }, [focusWorksiteId, worksites]);
 
@@ -125,12 +142,13 @@ export default function TimeClockMap({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <FitBounds bounds={bounds} focus={focus} />
+      {onPick ? <PickHandler onPick={onPick} /> : null}
 
       {worksites.map((worksite) => (
         <Circle
-          key={worksite.rhidGeofenceId}
+          key={worksite.projectId}
           center={[worksite.latitude, worksite.longitude]}
-          radius={Math.max(worksite.radius, 20)}
+          radius={Math.max(worksite.radiusMeters, 20)}
           pathOptions={{
             color: "#0f766e",
             weight: worksite.highlighted ? 3 : 1.5,
@@ -140,9 +158,8 @@ export default function TimeClockMap({
         >
           <Tooltip direction="top" sticky>
             <strong>{worksite.name}</strong>
-            {worksite.projectName ? <div>Obra: {worksite.projectName}</div> : null}
             <div>
-              {worksite.caption} · raio {Math.round(worksite.radius)} m
+              {worksite.caption} · raio {Math.round(worksite.radiusMeters)} m
             </div>
           </Tooltip>
         </Circle>

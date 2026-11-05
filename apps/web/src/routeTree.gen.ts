@@ -76,9 +76,9 @@ import { Route as QrOperadorObrasObraSlugRouteImport } from './routes/qr-operado
 import { Route as RhFolhaIndexRouteImport } from './routes/rh/folha/index'
 import { Route as RhFuncionariosIndexRouteImport } from './routes/rh/funcionarios/index'
 import { Route as RhPontoIndexRouteImport } from './routes/rh/ponto/index'
+import { Route as RhPontoConfiguracoesRouteImport } from './routes/rh/ponto/configuracoes'
 import { Route as RhPontoDiaRouteImport } from './routes/rh/ponto/dia'
 import { Route as RhPontoMensalRouteImport } from './routes/rh/ponto/mensal'
-import { Route as RhPontoVinculosRouteImport } from './routes/rh/ponto/vinculos'
 import { Route as TakeoffPainelKitsRouteImport } from './routes/takeoff/_painel/kits'
 import { Route as TakeoffPainelParametrosRouteImport } from './routes/takeoff/_painel/parametros'
 import { Route as TakeoffPainelPesosRouteImport } from './routes/takeoff/_painel/pesos'
@@ -456,6 +456,11 @@ const RhPontoIndexRoute = RhPontoIndexRouteImport.update({
   path: '/',
   getParentRoute: () => RhPontoRouteRoute,
 } as any)
+const RhPontoConfiguracoesRoute = RhPontoConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
+  getParentRoute: () => RhPontoRouteRoute,
+} as any)
 const RhPontoDiaRoute = RhPontoDiaRouteImport.update({
   id: '/dia',
   path: '/dia',
@@ -464,11 +469,6 @@ const RhPontoDiaRoute = RhPontoDiaRouteImport.update({
 const RhPontoMensalRoute = RhPontoMensalRouteImport.update({
   id: '/mensal',
   path: '/mensal',
-  getParentRoute: () => RhPontoRouteRoute,
-} as any)
-const RhPontoVinculosRoute = RhPontoVinculosRouteImport.update({
-  id: '/vinculos',
-  path: '/vinculos',
   getParentRoute: () => RhPontoRouteRoute,
 } as any)
 const TakeoffPainelKitsRoute = TakeoffPainelKitsRouteImport.update({
@@ -703,9 +703,9 @@ export interface FileRoutesByFullPath {
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdRouteWithChildren
   '/qr-operador/estoque/$obraSlug': typeof QrOperadorEstoqueObraSlugRoute
   '/qr-operador/obras/$obraSlug': typeof QrOperadorObrasObraSlugRouteWithChildren
+  '/rh/ponto/configuracoes': typeof RhPontoConfiguracoesRoute
   '/rh/ponto/dia': typeof RhPontoDiaRoute
   '/rh/ponto/mensal': typeof RhPontoMensalRoute
-  '/rh/ponto/vinculos': typeof RhPontoVinculosRoute
   '/takeoff/kits': typeof TakeoffPainelKitsRoute
   '/takeoff/parametros': typeof TakeoffPainelParametrosRoute
   '/takeoff/pesos': typeof TakeoffPainelPesosRoute
@@ -792,9 +792,9 @@ export interface FileRoutesByTo {
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
   '/qr-operador/estoque/$obraSlug': typeof QrOperadorEstoqueObraSlugRoute
+  '/rh/ponto/configuracoes': typeof RhPontoConfiguracoesRoute
   '/rh/ponto/dia': typeof RhPontoDiaRoute
   '/rh/ponto/mensal': typeof RhPontoMensalRoute
-  '/rh/ponto/vinculos': typeof RhPontoVinculosRoute
   '/takeoff/kits': typeof TakeoffPainelKitsRoute
   '/takeoff/parametros': typeof TakeoffPainelParametrosRoute
   '/takeoff/pesos': typeof TakeoffPainelPesosRoute
@@ -895,9 +895,9 @@ export interface FileRoutesById {
   '/engenharia/relatorios/$projectId': typeof EngenhariaRelatoriosProjectIdRouteWithChildren
   '/qr-operador_/estoque/$obraSlug': typeof QrOperadorEstoqueObraSlugRoute
   '/qr-operador_/obras/$obraSlug': typeof QrOperadorObrasObraSlugRouteWithChildren
+  '/rh/ponto/configuracoes': typeof RhPontoConfiguracoesRoute
   '/rh/ponto/dia': typeof RhPontoDiaRoute
   '/rh/ponto/mensal': typeof RhPontoMensalRoute
-  '/rh/ponto/vinculos': typeof RhPontoVinculosRoute
   '/takeoff/_painel/kits': typeof TakeoffPainelKitsRoute
   '/takeoff/_painel/parametros': typeof TakeoffPainelParametrosRoute
   '/takeoff/_painel/pesos': typeof TakeoffPainelPesosRoute
@@ -999,9 +999,9 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId'
     | '/qr-operador/estoque/$obraSlug'
     | '/qr-operador/obras/$obraSlug'
+    | '/rh/ponto/configuracoes'
     | '/rh/ponto/dia'
     | '/rh/ponto/mensal'
-    | '/rh/ponto/vinculos'
     | '/takeoff/kits'
     | '/takeoff/parametros'
     | '/takeoff/pesos'
@@ -1088,9 +1088,9 @@ export interface FileRouteTypes {
     | '/engenharia/equipamento/$id'
     | '/engenharia/qr/$token'
     | '/qr-operador/estoque/$obraSlug'
+    | '/rh/ponto/configuracoes'
     | '/rh/ponto/dia'
     | '/rh/ponto/mensal'
-    | '/rh/ponto/vinculos'
     | '/takeoff/kits'
     | '/takeoff/parametros'
     | '/takeoff/pesos'
@@ -1190,9 +1190,9 @@ export interface FileRouteTypes {
     | '/engenharia/relatorios/$projectId'
     | '/qr-operador_/estoque/$obraSlug'
     | '/qr-operador_/obras/$obraSlug'
+    | '/rh/ponto/configuracoes'
     | '/rh/ponto/dia'
     | '/rh/ponto/mensal'
-    | '/rh/ponto/vinculos'
     | '/takeoff/_painel/kits'
     | '/takeoff/_painel/parametros'
     | '/takeoff/_painel/pesos'
@@ -1743,6 +1743,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RhPontoIndexRouteImport
       parentRoute: typeof RhPontoRouteRoute
     }
+    '/rh/ponto/configuracoes': {
+      id: '/rh/ponto/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/rh/ponto/configuracoes'
+      preLoaderRoute: typeof RhPontoConfiguracoesRouteImport
+      parentRoute: typeof RhPontoRouteRoute
+    }
     '/rh/ponto/dia': {
       id: '/rh/ponto/dia'
       path: '/dia'
@@ -1755,13 +1762,6 @@ declare module '@tanstack/react-router' {
       path: '/mensal'
       fullPath: '/rh/ponto/mensal'
       preLoaderRoute: typeof RhPontoMensalRouteImport
-      parentRoute: typeof RhPontoRouteRoute
-    }
-    '/rh/ponto/vinculos': {
-      id: '/rh/ponto/vinculos'
-      path: '/vinculos'
-      fullPath: '/rh/ponto/vinculos'
-      preLoaderRoute: typeof RhPontoVinculosRouteImport
       parentRoute: typeof RhPontoRouteRoute
     }
     '/takeoff/_painel/kits': {
@@ -2204,16 +2204,16 @@ const EstoqueRouteRouteWithChildren = EstoqueRouteRoute._addFileChildren(
 )
 
 interface RhPontoRouteRouteChildren {
+  RhPontoConfiguracoesRoute: typeof RhPontoConfiguracoesRoute
   RhPontoDiaRoute: typeof RhPontoDiaRoute
   RhPontoMensalRoute: typeof RhPontoMensalRoute
-  RhPontoVinculosRoute: typeof RhPontoVinculosRoute
   RhPontoIndexRoute: typeof RhPontoIndexRoute
 }
 
 const RhPontoRouteRouteChildren: RhPontoRouteRouteChildren = {
+  RhPontoConfiguracoesRoute: RhPontoConfiguracoesRoute,
   RhPontoDiaRoute: RhPontoDiaRoute,
   RhPontoMensalRoute: RhPontoMensalRoute,
-  RhPontoVinculosRoute: RhPontoVinculosRoute,
   RhPontoIndexRoute: RhPontoIndexRoute,
 }
 
@@ -2324,3 +2324,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

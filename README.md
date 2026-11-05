@@ -79,28 +79,25 @@ Guia oficial: [Convex + Clerk](https://docs.convex.dev/auth/clerk)
 - Se o instance limitar URLs de redirecionamento, libere `https://app.rlpeng.com.br/convite` (e as origens de preview que usar). O app envia a própria origem como `redirect_url`.
 - Quem não tem email continua podendo ser cadastrado pelo modo "Login e senha" do mesmo modal.
 
-### 4.1 Ponto (RHID) — opcional
+### 4.1 Ponto
 
-O módulo **RH > Ponto (RHID)** espelha o controle de acesso [RHID](https://rhid.com.br) no Convex
-(marcações, presença do dia, homem-dia por obra). A coleta roda no backend com uma credencial de
-integração, então nenhum usuário precisa logar no RHID pelo app.
+O ponto é marcado pelo app RLP (mobile): a própria pessoa, logada com o seu usuário, registra a
+marcação com foto e/ou localização, inclusive sem internet (a fila offline envia depois). Não há
+integração externa nem variável de ambiente para configurar.
 
-No **Convex Dashboard** (ou via `npx convex env set`), defina:
+- **Quem bate ponto**: usuários com a permissão `ponto.registrar` ("Bater ponto pelo app"). Nenhum
+  acesso a concede, nem diretoria e administração: o RH libera por usuário em **RH > Ponto >
+  Configurações** (ou a administração em Configurações → Usuários). O cadastro de funcionários
+  (`employees`) é só da folha e não tem vínculo com o ponto.
+- **Onde**: as obras cadastradas. Cada obra pode ter uma cerca do ponto (`projects.geofence`, centro e
+  raio), definida em **RH > Ponto > Configurações**; a marcação dentro da cerca conta para a obra.
+- **Painel** (`rh.ponto.read`): Agora (onde está cada pessoa), Dia, Mensal (homem-dia por obra e
+  pessoa, com custo estimado) e Configurações (`rh.ponto.write`: regras da marcação, cercas e quem
+  bate ponto).
 
-- `RHID_EMAIL` / `RHID_PASSWORD` — credencial de um usuário do RHID com acesso às marcações
-- `RHID_COMPANY_ID` — opcional; id da empresa no RHID (padrão `1`)
-- `RHID_MEDIA_ALLOWED_HOSTS` — opcional; hosts extras (separados por vírgula) de onde as fotos das
-  marcações podem ser buscadas, além de `rhid.com.br` e subdomínios
-
-Sem essas variáveis a tela funciona em modo somente leitura e os crons (`convex/crons.ts`) não fazem
-nada. Com elas, o RH pode sincronizar um dia ou um mês pela tela, um cron atualiza o dia de hoje a cada
-5 min e outro, às 03:00 (Brasília), refaz os últimos 7 dias para pegar envios atrasados e correções.
-Pessoas do RHID são vinculadas aos `employees` por CPF ou nome (ajuste manual em **Ponto > Vínculos**);
-cercas (geofences) podem ser vinculadas a obras.
-
-Privacidade: as fotos das marcações nunca são expostas por URL. O app abre cada foto sob demanda pelo
-endpoint autenticado `/time-clock/photo/<punchId>` (exige `rh.ponto.read`, resposta `no-store`), e o service
-worker do PWA trata `/rh/ponto` e as fotos como somente rede (nada fica em cache offline).
+Privacidade: as fotos das marcações ficam no storage do Convex e só são entregues sob demanda a quem
+tem `rh.ponto.read` (o painel baixa a imagem sem cache), e o service worker do PWA trata `/rh/ponto`
+como somente rede (nada fica em cache offline).
 
 ### 5. Rodar em desenvolvimento
 

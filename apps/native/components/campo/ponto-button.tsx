@@ -17,13 +17,13 @@ const KIND_LABEL = {
   saida: "Saída",
 } as const;
 
-/** Atalho do ponto na tela inicial. Some para quem não é funcionário. */
+/** Atalho do ponto na tela inicial. Some para quem não marca ponto pelo app. */
 export function PontoButton({ onPress }: { onPress: () => void }) {
   const online = useOnline();
   const context = useQuery(api.timeClockPunch.getContext, { date: toBrtDateKey(Date.now()) });
-  // Com rede, só aparece depois de confirmar o funcionário. Sem rede a query
-  // não responde; o atalho fica (a marcação entra na fila offline).
-  if (context ? !context.employee : online) return null;
+  // Com rede, só aparece depois de confirmar que o usuário marca ponto. Sem
+  // rede a query não responde; o atalho fica (a marcação entra na fila offline).
+  if (context ? !context.allowed : online) return null;
 
   const punches = context?.punches ?? [];
   const last = punches[punches.length - 1];

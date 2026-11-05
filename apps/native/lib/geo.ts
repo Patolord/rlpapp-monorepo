@@ -21,7 +21,7 @@ export type NearbyWorksite<W> = {
 };
 
 /** Obra mais próxima da posição (prévia na tela; a decisão oficial é do servidor). */
-export function nearestWorksite<W extends { latitude: number; longitude: number; radius: number }>(
+export function nearestWorksite<W extends { latitude: number; longitude: number; radiusMeters: number }>(
   position: { latitude: number; longitude: number },
   worksites: W[]
 ): NearbyWorksite<W> | null {
@@ -33,7 +33,7 @@ export function nearestWorksite<W extends { latitude: number; longitude: number;
       worksite.latitude,
       worksite.longitude
     );
-    const inside = distance <= worksite.radius;
+    const inside = distance <= worksite.radiusMeters;
     if (!best || (inside && !best.inside) || (inside === best.inside && distance < best.distanceMeters)) {
       best = { worksite, distanceMeters: Math.round(distance), inside };
     }

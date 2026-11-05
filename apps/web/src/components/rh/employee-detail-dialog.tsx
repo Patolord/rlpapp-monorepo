@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import { formatCurrency, formatDisplayName, formatUsername } from "@rlpapp/shared";
+import { formatCurrency } from "@rlpapp/shared";
 import {
   STAFF_GROUPS,
   STAFF_GROUP_DESCRIPTIONS,
@@ -13,8 +13,6 @@ import { useMutation, useQuery } from "convex/react";
 import {
   Archive,
   HandCoins,
-  Link2,
-  Link2Off,
   Pencil,
   Plus,
   RotateCcw,
@@ -45,7 +43,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getErrorMessage } from "@/lib/errors";
-import { useCan } from "@/hooks/use-can";
 import { formatMonthLabel } from "@/lib/rh/labels";
 import { formatCentsInput, parsePayrollAmountToCents } from "@/lib/rh/money";
 
@@ -69,8 +66,6 @@ export type EmployeeSummary = {
   receivesFoodBasket: boolean;
   dailyTransitCents: number;
   defaultTransportFoodDays: number;
-  /** Usuário do app que bate ponto como este funcionário. */
-  userId: Id<"users"> | null;
 };
 
 type EmployeeForm = {
@@ -806,103 +801,6 @@ function AlimonySection({ employee }: { employee: EmployeeSummary }) {
   );
 }
 
-const NO_USER = "__none__";
-
-/**
- * Vínculo com o usuário do app (quem bate ponto como este funcionário).
- * É um vínculo próprio, salvo na hora, independente do formulário de edição.
- */
-function AppUserSection({ employee }: { employee: EmployeeSummary }) {
-  // Só nome e login: a lista completa de usuários é da administração.
-  const canLink = useCan("rh.funcionarios.write");
-  const users = useQuery(
-    api.users.listForPicker,
-    canLink ? { onlyActive: true } : "skip"
-  );
-  const linkUser = useMutation(api.employees.linkUser);
-  const [selected, setSelected] = useState<string>(employee.userId ?? NO_USER);
-  const [saving, setSaving] = useState(false);
-
-  const current = users?.find((user) => user._id === employee.userId) ?? null;
-  const sorted = [...(users ?? [])].sort((a, b) =>
-    a.name.localeCompare(b.name, "pt-BR")
-  );
-  const dirty = selected !== (employee.userId ?? NO_USER);
-
-  async function save(userId: Id<"users"> | null) {
-    setSaving(true);
-    try {
-      await linkUser({ employeeId: employee._id, userId });
-      setSelected(userId ?? NO_USER);
-      toast.success(userId ? "Usuário vinculado" : "Usuário desvinculado");
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Erro ao vincular usuário"));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  // Vincular é edição de funcionário (employees.linkUser).
-  if (!canLink) return null;
-
-  return (
-    <div className="grid gap-2 rounded-md border p-3">
-      <p className="text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-        Usuário do app (ponto)
-      </p>
-      <p className="text-xs text-muted-foreground">
-        {current
-          ? `Vinculado a ${formatDisplayName(current.name)}${current.username ? ` (@${formatUsername(current.username)})` : ""}. `
-          : employee.userId
-            ? "Vinculado a um usuário inativo. "
-            : "Sem usuário vinculado: este funcionário ainda não consegue bater ponto pelo app. "}
-        O vínculo também é feito sozinho quando o e-mail do funcionário é igual ao do usuário.
-      </p>
-      <div className="flex flex-wrap items-center gap-2">
-        <Select
-          value={selected}
-          onValueChange={(value) => setSelected(value ?? NO_USER)}
-          disabled={saving || users === undefined}
-        >
-          <SelectTrigger className="min-w-56 flex-1" aria-label="Usuário do app">
-            <SelectValue placeholder="Escolher usuário" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_USER}>Nenhum</SelectItem>
-            {sorted.map((user) => (
-              <SelectItem key={user._id} value={user._id}>
-                {formatDisplayName(user.name)}
-                {user.username ? ` (@${formatUsername(user.username)})` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          size="sm"
-          disabled={!dirty || saving}
-          onClick={() =>
-            void save(selected === NO_USER ? null : (selected as Id<"users">))
-          }
-        >
-          <Link2 />
-          Vincular
-        </Button>
-        {employee.userId ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={saving}
-            onClick={() => void save(null)}
-          >
-            <Link2Off />
-            Desvincular
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 export function EmployeeCreateDialog({
   open,
   onOpenChange,
@@ -1052,7 +950,6 @@ export function EmployeeDetailDialog({
               <>
                 <LoansSection employee={employee} />
                 <AlimonySection employee={employee} />
-                <AppUserSection employee={employee} />
               </>
             ) : null}
           </div>

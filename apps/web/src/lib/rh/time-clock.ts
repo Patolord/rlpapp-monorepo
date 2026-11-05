@@ -1,4 +1,4 @@
-/** Helpers de apresentação do módulo de ponto (RHID). Horários sempre em Brasília. */
+/** Helpers de apresentação do módulo de ponto. Horários sempre em Brasília. */
 
 export const BRT_TIME_ZONE = "America/Sao_Paulo";
 

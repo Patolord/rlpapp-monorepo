@@ -1005,7 +1005,7 @@ export const TOOLS: readonly ToolSpec[] = [
     name: "get_time_clock_day",
     function: "timeClock:getDay",
     title: "Time clock: day",
-    description: "Punches, presence and per-worksite summary for one day (mirror of the RHID access control).",
+    description: "Punches made in the RLP app, presence of each user who clocks in and per-project (geofence) summary for one day.",
     fieldDescriptions: { date: "Day as YYYY-MM-DD." },
   },
   {
@@ -1020,12 +1020,6 @@ export const TOOLS: readonly ToolSpec[] = [
     function: "timeClock:getMonthStats",
     title: "Time clock: month stats",
     description: "Man-days per person and per worksite for a month, with cost.",
-  },
-  {
-    name: "get_time_clock_sync_status",
-    function: "timeClock:getSyncStatus",
-    title: "Time clock: sync status",
-    description: "When the RHID mirror last synced and whether it is configured.",
   },
 
   // --------------------------------------------------------------------------
