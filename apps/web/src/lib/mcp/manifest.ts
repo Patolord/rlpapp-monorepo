@@ -586,18 +586,6 @@ export const TOOLS: readonly ToolSpec[] = [
     description: "Paginated feed of field activity (registrations, maintenances, status changes) in a project, optionally for one technician.",
     fieldDescriptions: { paginationOpts: PAGINATION_HINT },
   },
-  {
-    name: "list_duct_estimates",
-    function: "ductEstimates:list",
-    title: "List duct estimates",
-    description: "Saved duct sizing estimates of a project.",
-  },
-  {
-    name: "get_duct_estimate",
-    function: "ductEstimates:get",
-    title: "Get duct estimate",
-    description: "One duct sizing estimate with its inputs and results.",
-  },
 
   // --------------------------------------------------------------------------
   // Team and audit
@@ -796,13 +784,15 @@ export const TOOLS: readonly ToolSpec[] = [
     name: "list_takeoffs",
     function: "takeoffs:list",
     title: "List takeoffs",
-    description: "Material takeoffs (quantity lists), optionally for one project.",
+    description:
+      "Material takeoffs (quantity lists), optionally for one project. source \"desktop\" marks budgets published by the desktop takeoff app (budget holds BDI, extras % and totals per sheet in BRL cents; publishedAt/publishedByName say when and by whom).",
   },
   {
     name: "get_takeoff",
     function: "takeoffs:get",
     title: "Get takeoff",
-    description: "A takeoff with its items, matched materials and current price suggestions.",
+    description:
+      "A takeoff with its items, matched materials and current price suggestions. Desktop budget lines also carry sheet (discipline/system), section (location or group), laborUnitPriceCents and externalRemovedAt (line dropped from the desktop budget but kept because purchasing already worked on it).",
     serverArgs: nowArg,
   },
   {
@@ -927,7 +917,8 @@ export const TOOLS: readonly ToolSpec[] = [
     name: "list_employees",
     function: "employees:list",
     title: "List employees",
-    description: "Employees (funcionários) with job title, status and payroll parameters.",
+    description:
+      "Employees (funcionários) with staff group (obra, escritorio, diretoria), job title, status and payroll parameters. Filter by staffGroup.",
   },
   {
     name: "get_employee",
@@ -939,7 +930,8 @@ export const TOOLS: readonly ToolSpec[] = [
     name: "create_employee",
     function: "employees:create",
     title: "Create employee",
-    description: "Create an employee. Salary and allowance fields are in BRL cents. Returns the employee id.",
+    description:
+      "Create an employee. staffGroup (obra, escritorio or diretoria; default obra) sets the default food basket, daily transit and voucher days when they are omitted. Salary and allowance fields are in BRL cents. Returns the employee id.",
   },
   {
     name: "update_employee",
@@ -947,6 +939,35 @@ export const TOOLS: readonly ToolSpec[] = [
     title: "Update employee",
     description: "Change employee fields. Pass null to clear nullable fields.",
     idempotent: true,
+  },
+  {
+    name: "list_employee_alimonies",
+    function: "alimonies:listForEmployee",
+    title: "List employee alimonies",
+    description:
+      "Pensões alimentícias (alimony) paid on behalf of an employee: beneficiary, default monthly amount, payment method. Separate from the employee's own payroll line.",
+  },
+  {
+    name: "create_employee_alimony",
+    function: "alimonies:create",
+    title: "Create employee alimony",
+    description:
+      "Register an alimony for an employee (beneficiary name, amount in BRL cents, payment method, PIX key). It joins open draft payrolls the employee is in. Returns the alimony id.",
+  },
+  {
+    name: "update_employee_alimony",
+    function: "alimonies:update",
+    title: "Update employee alimony",
+    description:
+      "Change an alimony's beneficiary, default amount, payment method, PIX key or notes. Name, method and PIX key propagate to unpaid draft lines; the amount only applies to new months.",
+    idempotent: true,
+  },
+  {
+    name: "archive_employee_alimony",
+    function: "alimonies:archive",
+    title: "End employee alimony",
+    description: "End an alimony: removed from unpaid draft payrolls and no longer added to new months.",
+    destructive: true,
   },
   {
     name: "archive_employee",
@@ -984,7 +1005,7 @@ export const TOOLS: readonly ToolSpec[] = [
     name: "get_time_clock_day",
     function: "timeClock:getDay",
     title: "Time clock: day",
-    description: "Punches, presence and per-worksite summary for one day (mirror of the RHID access control).",
+    description: "Punches made in the RLP app, presence of each user who clocks in and per-project (geofence) summary for one day.",
     fieldDescriptions: { date: "Day as YYYY-MM-DD." },
   },
   {
@@ -999,12 +1020,6 @@ export const TOOLS: readonly ToolSpec[] = [
     function: "timeClock:getMonthStats",
     title: "Time clock: month stats",
     description: "Man-days per person and per worksite for a month, with cost.",
-  },
-  {
-    name: "get_time_clock_sync_status",
-    function: "timeClock:getSyncStatus",
-    title: "Time clock: sync status",
-    description: "When the RHID mirror last synced and whether it is configured.",
   },
 
   // --------------------------------------------------------------------------
@@ -1286,20 +1301,6 @@ export const TOOLS: readonly ToolSpec[] = [
     function: "checklists:removeTemplate",
     title: "Delete checklist template",
     description: "Delete a checklist template. Items already applied to equipment are kept.",
-    destructive: true,
-  },
-  {
-    name: "rename_duct_estimate",
-    function: "ductEstimates:rename",
-    title: "Rename duct estimate",
-    description: "Rename a saved duct sizing estimate.",
-    idempotent: true,
-  },
-  {
-    name: "delete_duct_estimate",
-    function: "ductEstimates:remove",
-    title: "Delete duct estimate",
-    description: "Delete a saved duct sizing estimate. Cannot be undone.",
     destructive: true,
   },
   {

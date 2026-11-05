@@ -125,7 +125,7 @@ function EventosPrecoContent() {
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger render={<Button><Plus className="mr-2 size-4" />Registrar preço</Button>} />
+          <DialogTrigger render={<Button><Plus />Registrar preço</Button>} />
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Registrar preço manual</DialogTitle>

@@ -1,5 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
+import { can, type Permission } from "@rlpapp/shared/auth/permissions";
 import { useMutation, useQuery } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -41,14 +42,12 @@ type MaterialStockPolicySheetProps = {
   existingPolicy?: ExistingPolicy | null;
 };
 
-/** Compras (e admin/diretor) usam `upsert`; Estoque usa `upsertFromWarehouse`. */
-function usesPurchasingPolicyUpsert(user: {
-  role: string;
-  department?: string;
-} | null | undefined): boolean {
+/** Quem edita materiais (Compras, admin) usa `upsert`; Estoque usa `upsertFromWarehouse`. */
+function usesPurchasingPolicyUpsert(
+  user: { permissions: readonly Permission[] } | null | undefined
+): boolean {
   if (!user) return true;
-  if (user.role === "director" || user.role === "admin") return true;
-  return user.department === "compras";
+  return can(user, "materiais.write");
 }
 
 export function MaterialStockPolicySheet({

@@ -10,6 +10,7 @@ Monorepo com [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-
 - **TanStack Start** — app web com SSR e TanStack Router
 - **Expo / React Native** — app mobile
 - **Next.js** — landing page institucional
+- **Tauri 2 (Rust) + React** — app desktop de takeoff e orçamento a partir de PDF (Windows e macOS)
 - **TailwindCSS + shadcn/ui** — UI
 - **Convex** — backend reativo (banco de dados + funções serverless + crons)
 - **Clerk** — autenticação (sync via webhook para a tabela `users` do Convex)
@@ -22,10 +23,12 @@ rlpapp/
 ├── apps/
 │   ├── web/           # App web (React + TanStack Start) — porta 3001
 │   ├── native/        # App mobile (React Native + Expo)
+│   ├── takeoff/       # App desktop de takeoff (Tauri + React; ver apps/takeoff/README.md)
 │   └── landing-page/  # Site institucional (Next.js)
 ├── packages/
 │   ├── backend/       # Backend Convex (schema, funções, crons, webhook Clerk)
 │   ├── env/           # Validação de variáveis de ambiente (zod)
+│   ├── shared/        # Código puro compartilhado; inclui o cálculo de dutos NBR 16401 (único, usado pelo takeoff)
 │   └── config/        # Configurações compartilhadas (tsconfig)
 ```
 
@@ -66,31 +69,36 @@ Guia oficial: [Convex + Clerk](https://docs.convex.dev/auth/clerk)
 3. No **Convex Dashboard** (Settings > Environment Variables), defina:
    - `CLERK_JWT_ISSUER_DOMAIN` — domínio do issuer do Clerk
    - `CLERK_WEBHOOK_SECRET` — secret do webhook (Clerk Dashboard > Webhooks, endpoint `https://<deployment>.convex.site/clerk-users-webhook`, eventos `user.created`, `user.updated`, `user.deleted`)
+   - `CLERK_SECRET_KEY` — chave secreta do Clerk; usada por Configurações → Usuários para criar contas e enviar convites pela Backend API.
    - `MATERIAL_LOOKUP_TOKEN` — opcional; habilita `GET https://<deployment>.convex.site/materials/lookup?q=<texto>` (header `Authorization: Bearer <token>`) para agentes externos consultarem a descrição canônica de um material. Sem ele o endpoint responde 503. Gere com `npx convex env set MATERIAL_LOOKUP_TOKEN "$(openssl rand -hex 24)"`
-   - `TAKEOFF_CATALOG_TOKEN` — opcional; habilita `GET https://<deployment>.convex.site/takeoff/catalog` (header `Authorization: Bearer <token>`), o catálogo completo de materiais ativos com preço vigente que o app desktop **RLP Takeoff** consome. Sem ele o endpoint responde 503. Gere com `npx convex env set TAKEOFF_CATALOG_TOKEN "$(openssl rand -hex 24)"`. O mesmo token protege `POST /takeoff/materials`, por onde o app propõe um material novo (nasce como rascunho para compras ativar) ou uma estimativa de preço (entra na fila de revisão de preços).
+   - App desktop **RLP Takeoff**: catálogo e propostas de material só pela **conta da empresa** (botão "Entrar" no topo do app → página `/takeoff/conectar` do app web → token de dispositivo listado e revogável em Minha conta › Agentes). O app chama como o próprio usuário as funções Convex tipadas `takeoffCatalog.current` (materiais ativos com preço vigente, `materialPrice` e `laborPrice` em reais por unidade, mais os kits e as demais configurações de App Takeoff) e `takeoffMaterials.proposeAsUser` (material novo, que nasce como rascunho para compras ativar, ou estimativa de preço, que entra na fila de revisão de preços). Requer `API_JWT_PRIVATE_KEY` (a mesma chave da API `/api/v1`). O antigo token compartilhado (`TAKEOFF_CATALOG_TOKEN`, rotas `GET /takeoff/catalog` e `POST /takeoff/materials`) foi removido; a variável pode ser apagada dos deployments. Ver `apps/takeoff/README.md` → "Conta da empresa (login)".
 
-### 4.1 Ponto (RHID) — opcional
+**Convites por email** (Configurações → Usuários → Convidar usuário): o administrador informa só o email e os acessos; o backend cria uma *invitation* no Clerk (`userAdmin.adminInviteUser`) e o cadastro já aparece na lista como "Convite pendente". O link do email leva à página `/convite` do app web, onde a pessoa escolhe nome, login, senha e telefone; o `user.created` do webhook (ou o `ensureUser` do primeiro login) vincula a conta ao cadastro pelo email. Para isso, no Clerk Dashboard:
+- **User & Authentication**: `Username` e `Password` habilitados para cadastro (o login do app é usuário + senha), `Name` habilitado (a página de convite pede nome e sobrenome) e `Email address` como identificador (o convite já chega verificado).
+- **Restrictions → Sign-up mode**: `Restricted` (só quem tem convite cria conta); invitations funcionam nesse modo.
+- Se o instance limitar URLs de redirecionamento, libere `https://app.rlpeng.com.br/convite` (e as origens de preview que usar). O app envia a própria origem como `redirect_url`.
+- Quem não tem email continua podendo ser cadastrado pelo modo "Login e senha" do mesmo modal.
 
-O módulo **RH > Ponto (RHID)** espelha o controle de acesso [RHID](https://rhid.com.br) no Convex
-(marcações, presença do dia, homem-dia por obra). A coleta roda no backend com uma credencial de
-integração, então nenhum usuário precisa logar no RHID pelo app.
+### 4.1 Ponto
 
-No **Convex Dashboard** (ou via `npx convex env set`), defina:
+O ponto é marcado pelo app RLP (mobile): a própria pessoa, logada com o seu usuário, registra a
+marcação com foto e/ou localização, inclusive sem internet (a fila offline envia depois). Não há
+integração externa nem variável de ambiente para configurar.
 
-- `RHID_EMAIL` / `RHID_PASSWORD` — credencial de um usuário do RHID com acesso às marcações
-- `RHID_COMPANY_ID` — opcional; id da empresa no RHID (padrão `1`)
-- `RHID_MEDIA_ALLOWED_HOSTS` — opcional; hosts extras (separados por vírgula) de onde as fotos das
-  marcações podem ser buscadas, além de `rhid.com.br` e subdomínios
+- **Quem bate ponto**: usuários com a permissão `ponto.registrar` ("Bater ponto pelo app"). Nenhum
+  acesso a concede, nem diretoria e administração: o RH libera por usuário em **RH > Ponto >
+  Configurações** (ou a administração em Configurações → Usuários). O cadastro de funcionários
+  (`employees`) é só da folha e não tem vínculo com o ponto.
+- **Onde**: as obras cadastradas. Cada obra pode ter uma cerca do ponto (`projects.geofence`, centro e
+  raio), definida em **RH > Ponto > Configurações**; a marcação dentro da cerca conta para a obra.
+- **Painel** (`rh.ponto.read`): Agora (onde está cada pessoa), Dia, Mensal (homem-dia por obra e
+  pessoa, com custo estimado) e Configurações (`rh.ponto.write`: regras da marcação, cercas e quem
+  bate ponto).
 
-Sem essas variáveis a tela funciona em modo somente leitura e os crons (`convex/crons.ts`) não fazem
-nada. Com elas, o RH pode sincronizar um dia ou um mês pela tela, um cron atualiza o dia de hoje a cada
-5 min e outro, às 03:00 (Brasília), refaz os últimos 7 dias para pegar envios atrasados e correções.
-Pessoas do RHID são vinculadas aos `employees` por CPF ou nome (ajuste manual em **Ponto > Vínculos**);
-cercas (geofences) podem ser vinculadas a obras.
-
-Privacidade: as fotos das marcações nunca são expostas por URL. O app abre cada foto sob demanda pelo
-endpoint autenticado `/time-clock/photo/<punchId>` (exige `rh.read`, resposta `no-store`), e o service
-worker do PWA trata `/rh/ponto` e as fotos como somente rede (nada fica em cache offline).
+Privacidade: as fotos das marcações ficam no storage do Convex e nunca são expostas por URL. O painel
+abre cada foto sob demanda pelo endpoint autenticado `/time-clock/photo/<punchId>` (exige
+`rh.ponto.read` a cada pedido, resposta `no-store`), e o service worker do PWA trata `/rh/ponto` e as
+fotos como somente rede (nada fica em cache offline).
 
 ### 5. Rodar em desenvolvimento
 
@@ -107,11 +115,33 @@ pnpm run dev
 - `pnpm run dev` — todos os apps em modo dev
 - `pnpm run dev:web` — apenas o web
 - `pnpm run dev:native` — apenas o mobile (Expo)
+- `pnpm run dev:takeoff` — app desktop de takeoff numa janela nativa (precisa de Rust; ver `apps/takeoff/README.md`)
 - `pnpm run dev:server` — apenas o backend Convex
 - `pnpm run dev:setup` — configura o projeto Convex
 - `pnpm run build` — build de todos os apps
 - `pnpm run lint` — ESLint em todos os pacotes
 - `pnpm run check-types` — typecheck (`tsc --noEmit`) em todos os pacotes
+
+## Orçamentos do app desktop no dashboard
+
+O app desktop de takeoff (`apps/takeoff`) publica o orçamento de um projeto no dashboard pela mutation `takeoffs.publishFromDesktop` (permissão de engenharia, auditada):
+
+- **Payload**: montado por `buildPublishBudget(project, { externalId, projectId })` em `apps/takeoff/src/lib/publishBudget.ts`, a partir das mesmas abas → seções → linhas da planilha orçamentária. O tipo do argumento fica em `@rlpapp/shared/takeoff/desktopBudget` (sem Convex); o backend confere em tempo de compilação que o validador descreve o mesmo formato.
+- **Linhas**: uma por item × aba (disciplina / sistema) × seção (local ou grupo), com `externalLineId` estável, quantidade com perdas, preços unitários de material e mão de obra em centavos e `materialId` vindo do `catalogId` do item (ids que não existem no catálogo ficam sem vínculo e voltam em `unknownMaterialIds`). O cabeçalho (proposta, orçamentista, cliente, obra) e o resumo por aba (BDI, extras %, totais) vão em `budget`.
+- **Republicar é idempotente**: o takeoff é achado por `source: "desktop"` + `externalId` (o id do projeto no desktop); linhas novas entram, as existentes são atualizadas e as que saíram são apagadas. Linhas em que a Compras já trabalhou — cotação registrada ou status `sent_to_supplier` / `quoted` / `selected` / `purchased` — nunca são apagadas nem alteradas: ficam marcadas (`externalRemovedAt`) e voltam em `kept`. Um material vinculado pela Compras é mantido quando o desktop não manda outro; já o preço estimado das demais linhas volta ao do desktop a cada publicação.
+- **Dashboard**: na obra, **Orçamento** mostra o takeoff com o selo "Takeoff desktop", quem publicou e quando, as linhas agrupadas por aba e seção, subtotais, extras, TOTAL GERAL e preço com BDI por aba, e as ações de sempre por linha (usar preço de referência, cotação, criar SKU). **Compras → Takeoffs** e **Compras da obra** mostram a origem de cada takeoff.
+
+O botão "Publicar no app" do desktop (login Clerk + cliente Convex) chama essa mutation; o desktop precisa guardar no projeto um id estável para usar como `externalId`.
+
+## Configuração do app desktop no dashboard (App Takeoff)
+
+A seção **App Takeoff** da sidebar (engenharia e compras) reúne o que é editado no dashboard e reflete no RLP Takeoff de todos os usuários, para ninguém mexer nela achando que é um cadastro de Compras ou de Engenharia. Ela tem os **Kits (presets)** (`/takeoff/kits`), **Pesos e insumos** (`/takeoff/pesos`: preço por kg dos insumos, kg/m² das chapas dos dutos e a tabela de materiais por peso), **Marcas VRF** (`/takeoff/vrf`) e **Parâmetros** (`/takeoff/parametros`: mão de obra global, dutos por kg e VRF por evaporadora, e os parâmetros de dutos de cada norma). Todas seguem o mesmo modelo: o que está publicado é o padrão de todos; cada usuário do app pode sobrescrever no próprio computador (kits, pesos, marcas, chapas, preços por kg) ou no takeoff (mão de obra e parâmetros da norma), e o padrão atualizado substitui só o que ele não mexeu. O app não traz mais um catálogo de materiais embutido: sem o catálogo da empresa, ele só tem as entradas salvas pelo usuário e a tabela de pesos.
+
+- **Tabela `takeoffKits`** (`packages/backend/convex/takeoffKits.ts`): os padrões da empresa, no mesmo formato de `Kit` em `@rlpapp/shared/takeoff/kits`. `key` é o id que o app usa; os kits de fábrica do app têm chaves fixas (`kit-9-000-inverter`), e "Carregar kits de fábrica" (`seedDefaults`) cadastra os que faltam sem tocar nos existentes. Remover desativa (a chave fica reservada).
+- **Publicação**: os kits ativos vão no campo `kits` de `takeoffCatalog.current`, ao lado dos materiais. O app os recebe a cada atualização do catálogo (ao abrir, ao entrar com a conta, em "Atualizar catálogo").
+- **No app**: os kits da empresa são o padrão; cada usuário pode editar, remover ou criar kits no próprio computador, e essas alterações ficam como *override* local: o padrão atualizado substitui só o que o usuário não mexeu ("Restaurar padrão" volta à versão da empresa). Enquanto a empresa não publica nenhum kit, o app usa os de fábrica embutidos nele.
+- **Tabela `takeoffSettings`** (`packages/backend/convex/takeoffSettings.ts`): um documento por tipo, `weights` (linhas da tabela de materiais por peso + kg/m² por bitola), `basePrices` (R$/kg por insumo), `vrfBrands` (regras das marcas), `labor` (R$/kg de chapa e R$ por evaporadora, `@rlpapp/shared/takeoff/labor`) e `ductNormas` (limites de bitola, espessuras e folgas por norma, `DuctNormaDefaults` em `@rlpapp/shared/engenharia/ducts`), nas formas de `@rlpapp/shared/takeoff/weights` e `vrfBrands`. `saveWeights`, `saveBasePrices`, `saveVrfBrands`, `saveLabor` e `saveDuctNormas` substituem o documento inteiro; `seedDefaults` carrega a tabela de fábrica de um tipo ainda não publicado (ou publicado vazio). Publicados no catálogo como `weights`, `basePrices`, `vrfBrands`, `labor` e `ductNormas` (null = nunca publicado: o app mantém a tabela do fornecedor ou da planilha embutida nele).
+- **No app**, o mesmo modelo dos kits: tabela de pesos e marcas por chave (nome dobrado, id da marca), chapas e preços por kg chave a chave (`lib/overrides.ts`, campos `remote*`, `*Overrides` e `*Removed` do catálogo local); os diálogos marcam "modificado aqui" / "só aqui" e têm "Restaurar padrão".
 
 ## API HTTP para agentes (`/api/v1`)
 
@@ -141,7 +171,7 @@ Contrato completo (endpoints, erros, descoberta de funções, exemplo para agent
 
 O app web expõe um servidor MCP **2026-07-28** em `/mcp` (Streamable HTTP, stateless, com fallback para clientes de 2025). Claude Code, Claude Desktop, Cursor ou qualquer cliente MCP se conectam a ele de duas formas:
 
-1. **Token de agente (recomendado).** Cada usuário interno cria os seus em **Minha conta → Agentes (MCP)** (`/conta/agentes`) e configura o cliente com `Authorization: Bearer rlp_…`. O token age em nome do dono, com a mesma role e o mesmo departamento, e pode ser `read_only` (só consultas) ou `full_access` (também grava). Revogar vale na hora.
+1. **Token de agente (recomendado).** Cada usuário interno cria os seus em **Minha conta → Agentes (MCP)** (`/conta/agentes`) e configura o cliente com `Authorization: Bearer rlp_…`. O token age em nome do dono, com os mesmos acessos e permissões, e pode ser `read_only` (só consultas) ou `full_access` (também grava). Revogar vale na hora.
 2. **OAuth do Clerk** com o scope `rlp:engineering:read` (fluxo original; ver "Clerk: scope e clientes OAuth"). Conexões OAuth são sempre somente-leitura: só existe o escopo de leitura.
 
 Tokens não gerenciam tokens: criar, renomear e revogar exigem uma sessão humana no app (um token vazado não consegue se perpetuar criando outro). A verificação no Convex tem timeout de 5 s; se o backend não responder, o `/mcp` devolve 503 em vez de 401.
@@ -246,9 +276,44 @@ GitHub Actions (`.github/workflows/ci.yml`) roda lint, typecheck e testes em PRs
 
 As runs no `master` são as que alimentam os caches das PRs (pnpm store e Turbo), por isso não são canceladas por `concurrency`.
 
+O app desktop (`apps/takeoff`) tem mais dois workflows: `takeoff-rust.yml` (`cargo fmt` e `clippy`, só quando `apps/takeoff/src-tauri` muda) e `takeoff-release.yml` (instaladores Windows/macOS assinados, publicados em `Patolord/takeoff-releases` a cada tag `takeoff-vX.Y.Z`).
+
+### Previews do Convex
+
+O build de preview da Vercel (`apps/web/vercel.json`) roda `npx convex deploy` com a chave de preview, que cria um deployment de preview no Convex com o nome do branch. O time tem um limite de deployments (40 no plano atual); quando ele estoura, o build de preview falha com `DeploymentQuotaReached`.
+
+`convex-preview-cleanup.yml` apaga esses previews pela [Management API do Convex](https://docs.convex.dev/management-api):
+
+- quando um PR fecha (com merge ou não), apaga o preview do branch dele;
+- todo dia (e pelo `workflow_dispatch`, que por padrão só lista), apaga os previews cujo branch não tem PR aberto.
+
+Só deployments do tipo `preview` são tocados. Para funcionar, o repositório precisa:
+
+do secret **`CONVEX_MANAGEMENT_TOKEN`**: um token de acesso do time no Convex (Team Settings › Access Tokens, https://dashboard.convex.dev/team/settings/access-tokens).
+
+O projeto é descoberto a partir do deployment de produção (`rosy-crow-250`). Se ele mudar, defina a variável `CONVEX_DEPLOYMENT_NAME` (ou `CONVEX_PROJECT_ID`) no repositório.
+
+Sem o secret, o workflow só avisa e não apaga nada.
+
 ## Deploy
 
 - **Backend (produção):** `npx convex deploy` — somente via pipeline/manual consciente, nunca durante desenvolvimento.
 - **Web:** build com `pnpm run build` (saída do TanStack Start) — requer as env vars `VITE_*` no ambiente de build.
 - **Landing page:** Next.js (`apps/landing-page`).
 - **Mobile:** Expo (EAS config pendente — ver roadmap Sprint 4).
+- **Desktop (takeoff):** `pnpm release X.Y.Z` em `apps/takeoff` e push da tag `takeoff-vX.Y.Z`; os apps instalados se atualizam sozinhos.
+
+### Vercel: quando cada app builda
+
+Três projetos da Vercel apontam para este repositório: `rlpapp-web` (`apps/web`), `rlpapp-site` (`apps/landing-page`) e `rlpapp-internal-agent` (`apps/internal-agent`). O build do web também roda `npx convex deploy`, então é ele que publica o backend do Convex (preview por branch, produção no `master`). O time está no plano grátis, com **100 deployments por dia** somando todos os projetos.
+
+A cada push, dois filtros decidem se um projeto builda:
+
+1. **"Skip deployment" da Vercel** (Settings → Build and Deployment → Root Directory, ligado nos três). Usa o grafo do workspace pnpm (dependências `workspace:*` declaradas nos `package.json`) e pula o projeto antes de criar o deployment; esses pulos **não contam** no limite diário. Só que qualquer arquivo fora de `apps/*` e `packages/*` (`README.md`, `AGENTS.md`, `docs/`, `.github/`, `scripts/`…) conta como mudança global e libera os três.
+2. **Ignored Build Step** (`ignoreCommand` em cada `vercel.json`): [`scripts/vercel-ignore-build.sh`](scripts/vercel-ignore-build.sh), que roda `turbo query affected` para o app. O app builda se mudou algo nele, num pacote de que ele depende (para o web: `packages/backend`, `shared`, `ui`, `env`, `config`), nas dependências dele no `pnpm-lock.yaml`, no `turbo.json`, no `package.json` ou no `pnpm-workspace.yaml` da raiz. A base é o último deployment com sucesso do projeto no branch (`VERCEL_GIT_PREVIOUS_SHA`); em preview, se o branch saiu do `master` depois desse deployment (branch reaproveitado depois de um merge), a base passa a ser esse ponto do `master`, porque o que já está no `master` não pede preview. Sem base, produção builda sempre e preview compara com o ponto em que o branch saiu do `master` (ou builda, se não der para descobrir). Um build cancelado aqui **conta** no limite (mas não gasta minutos de build nem cria preview no Convex).
+
+**Previews só do web.** O site e o internal-agent não fazem deployment de preview: os `vercel.json` deles têm `"git": {"deploymentEnabled": {"**": false, "master": true}}`, então só o `master` cria deployment nesses dois (quando um branch casa com mais de uma regra, vale a que for `true`). Antes, cada push de qualquer PR com arquivo fora de `apps/*`/`packages/*` criava um deployment em cada um, quase sempre cancelado, e todos contavam no limite. Para ver um preview do site num branch: no projeto `rlpapp-site`, Create Deployment com o branch, ou `vercel deploy` em `apps/landing-page`.
+
+**Pushes custam deployments.** Cada push num branch que mexe no web (ou no backend, shared, ui, env) é um build de preview do web e um deployment de preview no Convex. Junte os commits e faça push quando o trabalho estiver pronto para revisão, não a cada commit (vale para agentes também: ver `AGENTS.md`).
+
+Para forçar um build que o script pularia: Redeploy no dashboard desmarcando "Use project's Ignore Build Step". Para testar o script localmente: `cd apps/web && VERCEL_ENV=preview VERCEL_GIT_PREVIOUS_SHA=<sha> bash ../../scripts/vercel-ignore-build.sh; echo $?` (0 = pula, 1 = builda).

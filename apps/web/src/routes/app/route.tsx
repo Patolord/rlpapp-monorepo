@@ -11,6 +11,7 @@ import { Home } from "lucide-react";
 import { useEffect } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { resolveHomePath } from "@/lib/areas";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -33,27 +34,18 @@ function RoleGate({ children }: { children: React.ReactNode }) {
   const currentUser = useQuery(api.users.getCurrentUser);
   const navigate = useNavigate();
 
+  // Página inicial (lib/areas): diretor fica aqui; os demais vão para a área
+  // inicial, se ela abrir, ou para o início pessoal (/conta), que sempre abre.
+  const home = currentUser ? resolveHomePath(currentUser) : null;
+  const redirecting = home !== null && home !== "/app";
+
   useEffect(() => {
-    if (currentUser === undefined) return;
-    if (currentUser === null) return;
-
-    if (currentUser.role === "qr_operator") {
-      void navigate({ to: "/qr-operador" });
-      return;
+    if (home && redirecting) {
+      void navigate({ to: home, replace: true });
     }
+  }, [home, redirecting, navigate]);
 
-    if (currentUser.role === "engenheiro") {
-      void navigate({ to: "/engenharia" });
-      return;
-    }
-
-    if (currentUser.role !== "director") {
-      const dept = currentUser.department ?? "engenharia";
-      void navigate({ to: `/${dept}` });
-    }
-  }, [currentUser, navigate]);
-
-  if (currentUser === undefined) {
+  if (currentUser === undefined || redirecting) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-muted-foreground">Carregando...</p>
@@ -68,7 +60,7 @@ function RoleGate({ children }: { children: React.ReactNode }) {
           Usuário não encontrado no sistema.
         </p>
         <Button render={<Link to="/" />}>
-          <Home className="mr-2 size-4" />
+          <Home />
           Voltar à tela inicial
         </Button>
       </div>
@@ -85,7 +77,7 @@ function AppLayout() {
         <SidebarProvider className="bg-[#f7f8fc]">
           <AppSidebar />
           <SidebarInset className="bg-[#f7f8fc]">
-            <header className="flex h-14 shrink-0 items-center gap-2 border-b border-slate-100 bg-[#f7f8fc] transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+            <header className="flex h-14 shrink-0 items-center gap-2 border-b border-slate-100 bg-[#f7f8fc] transition-[height] duration-200 ease-snappy group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
               <div className="flex items-center gap-2 px-4">
                 <SidebarTrigger className="-ml-1" />
                 <Separator orientation="vertical" className="mr-2 h-4" />

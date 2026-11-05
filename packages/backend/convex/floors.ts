@@ -1,5 +1,8 @@
 import { v } from "convex/values";
-import { engineeringMutation, engineeringQuery } from "./lib/rbac";
+import {
+  obrasMutation,
+  obrasQuery,
+} from "./lib/rbac";
 import { logAudit, logEquipmentHistory } from "./lib/audit";
 import { deleteSystemsIfOrphaned } from "./systems";
 import type { MutationCtx } from "./_generated/server";
@@ -10,7 +13,7 @@ function defaultFloorLabel(n: number): string {
 }
 
 // Lista os andares de uma torre (ordenados do mais alto para o mais baixo).
-export const listByTower = engineeringQuery({
+export const listByTower = obrasQuery({
   args: { towerId: v.id("towers") },
   returns: v.array(
     v.object({
@@ -41,7 +44,7 @@ export const listByTower = engineeringQuery({
 });
 
 // Cria um ou mais andares numa torre.
-export const create = engineeringMutation({
+export const create = obrasMutation({
   args: {
     towerId: v.id("towers"),
     floors: v.array(
@@ -87,7 +90,7 @@ export const create = engineeringMutation({
   },
 });
 
-export const update = engineeringMutation({
+export const update = obrasMutation({
   args: {
     floorId: v.id("floors"),
     label: v.optional(v.string()),
@@ -116,7 +119,7 @@ export const update = engineeringMutation({
 // Os nomes dos ambientes vêm do mapa `renames` confirmado pelo usuário
 // (ex: "201" → "301"); nomes de sistema que contêm o nome da unidade de
 // origem são renumerados da mesma forma.
-export const replicate = engineeringMutation({
+export const replicate = obrasMutation({
   args: {
     sourceFloorId: v.id("floors"),
     targetFloorIds: v.array(v.id("floors")),
@@ -337,7 +340,7 @@ export const replicate = engineeringMutation({
   },
 });
 
-export const remove = engineeringMutation({
+export const remove = obrasMutation({
   args: { floorId: v.id("floors") },
   returns: v.null(),
   handler: async (ctx, args) => {

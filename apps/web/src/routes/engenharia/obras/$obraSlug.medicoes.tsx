@@ -12,6 +12,7 @@ import {
   Trash2,
   Undo2,
 } from "lucide-react";
+import { EmptyState as EmptyStateBlock } from "@rlpapp/ui/web";
 
 import { AuthShell } from "@/components/auth-shell";
 import { ProjectShell } from "@/components/engenharia/project-shell";
@@ -36,13 +37,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { runWithToast } from "@/lib/errors";
+import { useCan } from "@/hooks/use-can";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
 import { obraLinkSlug } from "@/lib/engenharia/obra-paths";
+import { PermissionGate } from "@/components/role-area-gate";
 
 export const Route = createFileRoute(
   "/engenharia/obras/$obraSlug/medicoes"
 )({
-  component: MedicoesPage,
+  component: () => (
+    <PermissionGate permissions={["medicoes.read"]}>
+      <MedicoesPage />
+    </PermissionGate>
+  ),
 });
 
 function MedicoesPage() {
@@ -97,6 +104,8 @@ function MedicoesContent({
 }) {
   const contracts = useQuery(api.medicoes.listContracts, { projectId });
   const medicoes = useQuery(api.medicoes.listMedicoes, { projectId });
+  const canSeeContracts = useCan("contratos.read");
+  const canWrite = useCan("medicoes.write");
 
   const contractOptions: ContractOption[] = (contracts ?? []).map((c) => ({
     _id: c._id,
@@ -124,16 +133,18 @@ function MedicoesContent({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" render={<Link to="/engenharia/obras/$obraSlug/contratos" params={{ obraSlug }} />}>
-            Gerenciar contratos
-          </Button>
-          {contractOptions.length > 0 && (
+          {canSeeContracts && (
+            <Button variant="outline" render={<Link to="/engenharia/obras/$obraSlug/contratos" params={{ obraSlug }} />}>
+              Gerenciar contratos
+            </Button>
+          )}
+          {canWrite && contractOptions.length > 0 && (
             <MedicaoFormDialog
               projectId={projectId}
               contracts={contractOptions}
               trigger={
                 <Button>
-                  <Plus className="mr-2 size-4" />
+                  <Plus />
                   Nova medição
                 </Button>
               }
@@ -196,33 +207,29 @@ function TotalStat({
 }
 
 function EmptyState({ obraSlug }: { obraSlug: string }) {
+  const canSeeContracts = useCan("contratos.read");
   return (
     <Card>
-      <CardContent className="flex flex-col items-center gap-4 py-14 text-center">
-        <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <CircleDollarSign className="size-7" />
-        </div>
-        <div className="space-y-1">
-          <h3 className="text-lg font-semibold">
-            Nenhum contrato elegível para medições
-          </h3>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Cadastre um contrato de venda ao cliente nesta obra para começar a
-            registrar medições.
-          </p>
-        </div>
-        <Button
-          render={
-            <Link
-              to="/engenharia/obras/$obraSlug/contratos"
-              params={{ obraSlug }}
-            />
-          }
-        >
-          <Plus className="mr-2 size-4" />
-          Ir para contratos
-        </Button>
-      </CardContent>
+      <EmptyStateBlock
+        icon={<CircleDollarSign />}
+        title="Nenhum contrato elegível para medições"
+        description="Cadastre um contrato de venda ao cliente nesta obra para começar a registrar medições."
+        action={
+          canSeeContracts ? (
+            <Button
+              render={
+                <Link
+                  to="/engenharia/obras/$obraSlug/contratos"
+                  params={{ obraSlug }}
+                />
+              }
+            >
+              <Plus />
+              Ir para contratos
+            </Button>
+          ) : undefined
+        }
+      />
     </Card>
   );
 }
@@ -238,6 +245,7 @@ function ContractCard({
   contractOptions: ContractOption[];
   medicoes: Medicao[];
 }) {
+  const canWrite = useCan("medicoes.write");
   const pctMedido =
     contract.valueCents > 0
       ? Math.round((contract.medidoCents / contract.valueCents) * 100)
@@ -260,17 +268,19 @@ function ContractCard({
               {contract.notes ? ` · ${contract.notes}` : ""}
             </p>
           </div>
-          <MedicaoFormDialog
-            projectId={projectId}
-            contracts={contractOptions}
-            defaultContractId={contract._id}
-            trigger={
-              <Button size="sm">
-                <Plus className="mr-1.5 size-4" />
-                Nova medição
-              </Button>
-            }
-          />
+          {canWrite && (
+            <MedicaoFormDialog
+              projectId={projectId}
+              contracts={contractOptions}
+              defaultContractId={contract._id}
+              trigger={
+                <Button size="sm">
+                  <Plus />
+                  Nova medição
+                </Button>
+              }
+            />
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -307,8 +317,8 @@ function ContractCard({
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-primary transition-all"
-              style={{ width: `${Math.min(pctMedido, 100)}%` }}
+              className="h-full w-full rounded-full bg-primary transition-transform duration-300 ease-snappy motion-reduce:transition-none"
+              style={{ transform: `translateX(${Math.min(pctMedido, 100) - 100}%)` }}
             />
           </div>
         </div>
@@ -360,6 +370,8 @@ function MedicaoRow({
 }) {
   const setStatus = useMutation(api.medicoes.setMedicaoStatus);
   const removeMedicao = useMutation(api.medicoes.removeMedicao);
+  const canWrite = useCan("medicoes.write");
+  const canApprove = useCan("medicoes.aprovar");
 
   async function handleStatus(status: MedicaoStatus, successMessage: string) {
     await runWithToast(
@@ -403,23 +415,25 @@ function MedicaoRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center justify-end gap-1">
-          {medicao.status === "rascunho" && (
+          {medicao.status === "rascunho" && canApprove && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void handleStatus("aprovada", "Medição aprovada")}
+            >
+              <Check />
+              Aprovar
+            </Button>
+          )}
+          {medicao.status === "rascunho" && canWrite && (
             <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => void handleStatus("aprovada", "Medição aprovada")}
-              >
-                <Check className="mr-1 size-3.5" />
-                Aprovar
-              </Button>
               <MedicaoFormDialog
                 projectId={projectId}
                 contracts={contractOptions}
                 medicao={medicao}
                 trigger={
                   <Button variant="ghost" size="icon" title="Editar medição">
-                    <Pencil className="size-4" />
+                    <Pencil />
                   </Button>
                 }
               />
@@ -430,11 +444,11 @@ function MedicaoRow({
                 className="text-muted-foreground hover:text-destructive"
                 onClick={() => void handleRemove()}
               >
-                <Trash2 className="size-4" />
+                <Trash2 />
               </Button>
             </>
           )}
-          {medicao.status === "aprovada" && (
+          {medicao.status === "aprovada" && canApprove && (
             <>
               <Button
                 size="sm"
@@ -443,7 +457,7 @@ function MedicaoRow({
                   void handleStatus("paga", "Medição marcada como paga")
                 }
               >
-                <CircleDollarSign className="mr-1 size-3.5" />
+                <CircleDollarSign />
                 Marcar paga
               </Button>
               <Button
@@ -454,11 +468,11 @@ function MedicaoRow({
                   void handleStatus("rascunho", "Medição voltou para rascunho")
                 }
               >
-                <Undo2 className="size-4" />
+                <Undo2 />
               </Button>
             </>
           )}
-          {medicao.status === "paga" && (
+          {medicao.status === "paga" && canApprove && (
             <Button
               variant="ghost"
               size="icon"
@@ -467,7 +481,7 @@ function MedicaoRow({
                 void handleStatus("aprovada", "Medição voltou para aprovada")
               }
             >
-              <Undo2 className="size-4" />
+              <Undo2 />
             </Button>
           )}
         </div>

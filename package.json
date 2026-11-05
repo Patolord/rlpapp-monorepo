@@ -13,6 +13,7 @@
     "lint": "turbo lint",
     "test": "turbo test",
     "dev:native": "turbo -F native dev",
+    "dev:takeoff": "pnpm -F takeoff tauri:dev",
     "dev:web": "turbo -F web dev",
     "dev:web:server": "turbo -F web -F @rlpapp/backend dev",
     "dev:server": "turbo -F @rlpapp/backend dev",

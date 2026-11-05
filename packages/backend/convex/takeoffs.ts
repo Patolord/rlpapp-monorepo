@@ -1,11 +1,18 @@
 import { v } from "convex/values";
 import {
-  engineeringMutation,
+  authedQuery,
   engineeringOrPurchasingQuery,
-  purchasingMutation,
+  materiaisMutation,
+  orcamentosMutation,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
-import { materialDimensions, takeoffItemStatus, takeoffStatus } from "./schema";
+import {
+  materialDimensions,
+  takeoffBudgetMeta,
+  takeoffItemStatus,
+  takeoffSource,
+  takeoffStatus,
+} from "./schema";
 import { sanitizeDimensions } from "./lib/compras/catalog";
 import {
   normalizeText,
@@ -15,6 +22,20 @@ import {
 import { promoteTakeoffItem } from "./model/procurement/takeoffPromotion";
 import { isUsablePriceEvent } from "./model/procurement/priceSelection";
 import { computePriceChange } from "./model/procurement/priceHistory";
+import {
+  desktopPublishOptions as desktopPublishOptionsFor,
+  desktopPublishOptionsArgs,
+  desktopPublishOptionsResult,
+  publishDesktopBudget,
+  publishDesktopBudgetArgs,
+  publishDesktopBudgetResult,
+  removeDesktopBudget,
+  removeDesktopBudgetArgs,
+  removeDesktopBudgetResult,
+  removeDesktopTakeoff,
+} from "./model/procurement/desktopBudget";
+import type { Doc } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
 
 export const takeoffValidator = v.object({
   _id: v.id("takeoffs"),
@@ -27,6 +48,13 @@ export const takeoffValidator = v.object({
   createdAt: v.number(),
   updatedAt: v.union(v.number(), v.null()),
   itemCount: v.number(),
+  /** "desktop" quando publicado pelo app desktop de takeoff. */
+  source: v.union(takeoffSource, v.null()),
+  externalId: v.union(v.string(), v.null()),
+  /** Cabeçalho e resumo por aba do orçamento publicado pelo desktop. */
+  budget: v.union(takeoffBudgetMeta, v.null()),
+  publishedAt: v.union(v.number(), v.null()),
+  publishedByName: v.union(v.string(), v.null()),
 });
 
 export const takeoffItemValidator = v.object({
@@ -46,6 +74,17 @@ export const takeoffItemValidator = v.object({
   status: v.union(takeoffItemStatus, v.null()),
   createdAt: v.number(),
   updatedAt: v.union(v.number(), v.null()),
+  /** Linhas do desktop: id estável, aba, seção, mão de obra e posição. */
+  externalLineId: v.union(v.string(), v.null()),
+  sheet: v.union(v.string(), v.null()),
+  section: v.union(v.string(), v.null()),
+  laborUnitPriceCents: v.union(v.number(), v.null()),
+  /** Totais da linha como o desktop calculou (null: quantidade × preço). */
+  materialTotalCents: v.union(v.number(), v.null()),
+  laborTotalCents: v.union(v.number(), v.null()),
+  sortOrder: v.union(v.number(), v.null()),
+  /** Saiu do orçamento desktop mas foi mantida pela Compras. */
+  externalRemovedAt: v.union(v.number(), v.null()),
   warnings: v.array(v.string()),
   latestPrices: v.array(
     v.object({
@@ -131,21 +170,36 @@ async function resolveItemQuotes(
   return out.sort((a, b) => b.occurredAt - a.occurredAt);
 }
 
+type PriceLookupCache = {
+  recent?: Doc<"priceEvents">[];
+  byMaterial?: Map<string, Doc<"priceEvents">[]>;
+};
+
 async function resolveLatestPrices(
   ctx: { db: import("./_generated/server").QueryCtx["db"] },
   params: {
     materialId?: import("./_generated/dataModel").Id<"materials">;
     rawDescription: string;
     now: number;
-  }
+  },
+  cache: PriceLookupCache = {}
 ) {
-  const events = params.materialId
-    ? await ctx.db
+  const materialId = params.materialId;
+  let events: Doc<"priceEvents">[] = [];
+  if (materialId) {
+    cache.byMaterial ??= new Map();
+    const cached = cache.byMaterial.get(materialId);
+    if (cached) {
+      events = cached;
+    } else {
+      events = await ctx.db
         .query("priceEvents")
-        .withIndex("by_material", (q) => q.eq("materialId", params.materialId))
+        .withIndex("by_material", (q) => q.eq("materialId", materialId))
         .order("desc")
-        .take(50)
-    : [];
+        .take(50);
+      cache.byMaterial.set(materialId, events);
+    }
+  }
 
   let filtered = events.filter(
     (e) => e.reviewStatus !== "ignored" && e.reviewStatus !== "duplicate"
@@ -153,7 +207,11 @@ async function resolveLatestPrices(
 
   if (filtered.length === 0 && params.rawDescription.trim()) {
     const term = normalizeText(params.rawDescription);
-    const all = await ctx.db.query("priceEvents").order("desc").take(200);
+    cache.recent ??= await ctx.db
+      .query("priceEvents")
+      .order("desc")
+      .take(200);
+    const all = cache.recent;
     filtered = all.filter(
       (e) =>
         e.reviewStatus !== "ignored" &&
@@ -209,13 +267,49 @@ function itemWarnings(item: {
   return warnings;
 }
 
+async function takeoffSummary(
+  ctx: { db: QueryCtx["db"] },
+  t: Doc<"takeoffs">,
+  itemCount: number
+) {
+  let projectName: string | null = null;
+  let projectSlug: string | null = null;
+  if (t.projectId) {
+    const project = await ctx.db.get("projects", t.projectId);
+    projectName = project?.name ?? null;
+    projectSlug = project ? (project.slug ?? project._id) : null;
+  }
+  let publishedByName: string | null = null;
+  if (t.publishedByUserId) {
+    const user = await ctx.db.get("users", t.publishedByUserId);
+    publishedByName = user?.name ?? null;
+  }
+  return {
+    _id: t._id,
+    _creationTime: t._creationTime,
+    projectId: t.projectId ?? null,
+    projectName,
+    projectSlug,
+    name: t.name,
+    status: t.status ?? null,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt ?? null,
+    itemCount,
+    source: t.source ?? null,
+    externalId: t.externalId ?? null,
+    budget: t.budget ?? null,
+    publishedAt: t.publishedAt ?? null,
+    publishedByName,
+  };
+}
+
 export const list = engineeringOrPurchasingQuery({
   args: {
     projectId: v.optional(v.id("projects")),
   },
   returns: v.array(takeoffValidator),
   handler: async (ctx, args) => {
-    let takeoffs = args.projectId
+    const takeoffs = args.projectId
       ? await ctx.db
           .query("takeoffs")
           .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
@@ -229,25 +323,7 @@ export const list = engineeringOrPurchasingQuery({
         .query("takeoffItems")
         .withIndex("by_takeoff", (q) => q.eq("takeoffId", t._id))
         .collect();
-      let projectName: string | null = null;
-      let projectSlug: string | null = null;
-      if (t.projectId) {
-        const project = await ctx.db.get("projects", t.projectId);
-        projectName = project?.name ?? null;
-        projectSlug = project ? (project.slug ?? project._id) : null;
-      }
-      out.push({
-        _id: t._id,
-        _creationTime: t._creationTime,
-        projectId: t.projectId ?? null,
-        projectName,
-        projectSlug,
-        name: t.name,
-        status: t.status ?? null,
-        createdAt: t.createdAt,
-        updatedAt: t.updatedAt ?? null,
-        itemCount: items.length,
-      });
+      out.push(await takeoffSummary(ctx, t, items.length));
     }
     return out;
   },
@@ -273,15 +349,16 @@ export const get = engineeringOrPurchasingQuery({
       .query("takeoffItems")
       .withIndex("by_takeoff", (q) => q.eq("takeoffId", args.takeoffId))
       .collect();
+    // Linhas do desktop na ordem da planilha; as manuais seguem pela criação.
+    items.sort(
+      (a, b) =>
+        (a.sortOrder ?? Number.MAX_SAFE_INTEGER) -
+        (b.sortOrder ?? Number.MAX_SAFE_INTEGER)
+    );
 
-    let projectName: string | null = null;
-    let projectSlug: string | null = null;
-    if (takeoff.projectId) {
-      const project = await ctx.db.get("projects", takeoff.projectId);
-      projectName = project?.name ?? null;
-      projectSlug = project ? (project.slug ?? project._id) : null;
-    }
-
+    // Orçamentos do desktop têm centenas de linhas: a busca por descrição
+    // (sem material) lê os eventos recentes uma vez só.
+    const priceCache: PriceLookupCache = {};
     const itemsOut = [];
     for (const item of items) {
       let materialName: string | null = null;
@@ -290,11 +367,15 @@ export const get = engineeringOrPurchasingQuery({
         materialName = material?.name ?? null;
       }
       const [latestPrices, quotes] = await Promise.all([
-        resolveLatestPrices(ctx, {
-          materialId: item.materialId,
-          rawDescription: item.rawDescription,
-          now: args.now,
-        }),
+        resolveLatestPrices(
+          ctx,
+          {
+            materialId: item.materialId,
+            rawDescription: item.rawDescription,
+            now: args.now,
+          },
+          priceCache
+        ),
         resolveItemQuotes(ctx, item),
       ]);
       itemsOut.push({
@@ -314,6 +395,14 @@ export const get = engineeringOrPurchasingQuery({
         status: item.status ?? null,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt ?? null,
+        externalLineId: item.externalLineId ?? null,
+        sheet: item.sheet ?? null,
+        section: item.section ?? null,
+        laborUnitPriceCents: item.laborUnitPriceCents ?? null,
+        materialTotalCents: item.materialTotalCents ?? null,
+        laborTotalCents: item.laborTotalCents ?? null,
+        sortOrder: item.sortOrder ?? null,
+        externalRemovedAt: item.externalRemovedAt ?? null,
         warnings: itemWarnings(item),
         latestPrices,
         quotes,
@@ -321,24 +410,13 @@ export const get = engineeringOrPurchasingQuery({
     }
 
     return {
-      takeoff: {
-        _id: takeoff._id,
-        _creationTime: takeoff._creationTime,
-        projectId: takeoff.projectId ?? null,
-        projectName,
-        projectSlug,
-        name: takeoff.name,
-        status: takeoff.status ?? null,
-        createdAt: takeoff.createdAt,
-        updatedAt: takeoff.updatedAt ?? null,
-        itemCount: itemsOut.length,
-      },
+      takeoff: await takeoffSummary(ctx, takeoff, itemsOut.length),
       items: itemsOut,
     };
   },
 });
 
-export const create = engineeringMutation({
+export const create = orcamentosMutation({
   args: {
     projectId: v.optional(v.id("projects")),
     name: v.string(),
@@ -374,7 +452,7 @@ export const create = engineeringMutation({
   },
 });
 
-export const addItem = engineeringMutation({
+export const addItem = orcamentosMutation({
   args: {
     takeoffId: v.id("takeoffs"),
     rawDescription: v.string(),
@@ -417,7 +495,7 @@ export const addItem = engineeringMutation({
   },
 });
 
-export const updateItem = engineeringMutation({
+export const updateItem = orcamentosMutation({
   args: {
     itemId: v.id("takeoffItems"),
     rawDescription: v.optional(v.string()),
@@ -442,6 +520,17 @@ export const updateItem = engineeringMutation({
       updates.rawDescription = desc;
     }
     if (args.quantity !== undefined) updates.quantity = args.quantity;
+    // Totais publicados pelo desktop deixam de valer quando a conta muda.
+    if (args.quantity !== undefined && args.quantity !== item.quantity) {
+      updates.materialTotalCents = undefined;
+      updates.laborTotalCents = undefined;
+    }
+    if (
+      args.estimatedUnitPriceCents !== undefined &&
+      args.estimatedUnitPriceCents !== item.estimatedUnitPriceCents
+    ) {
+      updates.materialTotalCents = undefined;
+    }
     if (args.unit !== undefined) updates.unit = args.unit.trim() || undefined;
     if (args.materialId !== undefined) {
       updates.materialId = args.materialId;
@@ -466,7 +555,7 @@ export const updateItem = engineeringMutation({
   },
 });
 
-export const promoteItemToMaterial = purchasingMutation({
+export const promoteItemToMaterial = materiaisMutation({
   args: {
     itemId: v.id("takeoffItems"),
     familyName: v.optional(v.string()),
@@ -491,7 +580,7 @@ export const promoteItemToMaterial = purchasingMutation({
   },
 });
 
-export const removeItem = engineeringMutation({
+export const removeItem = orcamentosMutation({
   args: { itemId: v.id("takeoffItems") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -503,7 +592,7 @@ export const removeItem = engineeringMutation({
   },
 });
 
-export const applySuggestedPrice = engineeringMutation({
+export const applySuggestedPrice = orcamentosMutation({
   args: {
     itemId: v.id("takeoffItems"),
     unitPriceCents: v.number(),
@@ -514,8 +603,108 @@ export const applySuggestedPrice = engineeringMutation({
     if (!item) throw new Error("Item não encontrado");
     await ctx.db.patch("takeoffItems", args.itemId, {
       estimatedUnitPriceCents: args.unitPriceCents,
+      // o total publicado pelo desktop era do preço anterior, que pode ter
+      // frações de centavo mesmo quando arredonda para este mesmo valor
+      materialTotalCents: undefined,
       updatedAt: Date.now(),
     });
     return null;
+  },
+});
+
+/**
+ * Para o app desktop antes de enviar um orçamento aprovado: se o usuário pode
+ * enviar, as obras para escolher e onde este projeto já foi enviado.
+ *
+ * Qualquer usuário autenticado pode chamar: sem `engenharia.write` a resposta
+ * diz `canPublish: false` (sem obras), para o desktop explicar a falta de
+ * permissão — o erro do wrapper de permissão chega como "Server Error" em
+ * produção.
+ */
+export const desktopPublishOptions = authedQuery({
+  args: desktopPublishOptionsArgs,
+  returns: desktopPublishOptionsResult,
+  handler: async (ctx, args) => {
+    return await desktopPublishOptionsFor(ctx, ctx.user, args.externalId);
+  },
+});
+
+/**
+ * Publica (ou republica) o orçamento aprovado pelo cliente, enviado pelo app
+ * desktop de takeoff. Idempotente por `externalId`: cria o takeoff na primeira
+ * vez e depois atualiza linhas por `externalLineId`, apagando as que saíram do
+ * orçamento — menos as que a Compras já cotou ou levou adiante, que o desktop
+ * não altera nem apaga e voltam em `kept`. Só aceita orçamentos em reais (BRL).
+ * Falhas esperadas: `ConvexError` com os códigos de
+ * `DESKTOP_BUDGET_ERROR_CODES`.
+ */
+export const publishFromDesktop = orcamentosMutation({
+  args: publishDesktopBudgetArgs,
+  returns: publishDesktopBudgetResult,
+  handler: async (ctx, args) => {
+    const result = await publishDesktopBudget(ctx, ctx.user, args);
+    await logAudit(ctx, ctx.user, {
+      action: result.created ? "create" : "update",
+      tableName: "takeoffs",
+      recordId: result.takeoffId,
+      entityLabel: args.name.trim(),
+      source: "desktop",
+      details:
+        `Orçamento desktop publicado: ${result.inserted} novas, ` +
+        `${result.updated} atualizadas, ${result.removed} removidas, ` +
+        `${result.kept.length} mantidas pela Compras`,
+    });
+    return result;
+  },
+});
+
+/**
+ * Remove o orçamento publicado pelo app desktop com este `externalId`, com
+ * suas linhas (o desktop desfaz um envio). Recusa com `BUDGET_IN_USE` se a
+ * Compras já trabalhou nele (cotação, compra em andamento, linha adicionada
+ * no app) e com `BUDGET_NOT_FOUND` se não há orçamento com este id.
+ */
+export const removeFromDesktop = orcamentosMutation({
+  args: removeDesktopBudgetArgs,
+  returns: removeDesktopBudgetResult,
+  handler: async (ctx, args) => {
+    const result = await removeDesktopBudget(ctx, args);
+    await logAudit(ctx, ctx.user, {
+      action: "delete",
+      tableName: "takeoffs",
+      recordId: result.takeoffId,
+      entityLabel: result.name,
+      source: "desktop",
+      details:
+        `Orçamento desktop removido pelo app desktop: ` +
+        `${result.removedLines} linhas apagadas` +
+        (result.projectName ? ` (obra ${result.projectName})` : ""),
+    });
+    return result;
+  },
+});
+
+/**
+ * Remove, pelo app, um orçamento publicado pelo app desktop (com suas
+ * linhas). Mesmas recusas de `removeFromDesktop`: `BUDGET_IN_USE` quando a
+ * Compras já trabalhou nele, `BUDGET_NOT_FOUND` se não existe; e só takeoffs
+ * de origem desktop (`INVALID_BUDGET` para os manuais).
+ */
+export const remove = orcamentosMutation({
+  args: { takeoffId: v.id("takeoffs") },
+  returns: removeDesktopBudgetResult,
+  handler: async (ctx, args) => {
+    const result = await removeDesktopTakeoff(ctx, args.takeoffId);
+    await logAudit(ctx, ctx.user, {
+      action: "delete",
+      tableName: "takeoffs",
+      recordId: result.takeoffId,
+      entityLabel: result.name,
+      details:
+        `Orçamento desktop removido no app: ` +
+        `${result.removedLines} linhas apagadas` +
+        (result.projectName ? ` (obra ${result.projectName})` : ""),
+    });
+    return result;
   },
 });

@@ -1,5 +1,8 @@
 import { v } from "convex/values";
-import { engineeringOrPurchasingQuery, purchasingMutation } from "./lib/rbac";
+import {
+  engineeringOrPurchasingQuery,
+  fornecedoresMutation,
+} from "./lib/rbac";
 import { logAudit, diffFields } from "./lib/audit";
 import { normalizeText } from "./lib/compras/procurement";
 import {
@@ -310,7 +313,7 @@ function prepareSupplierFields(input: SupplierFieldsInput) {
   };
 }
 
-export const create = purchasingMutation({
+export const create = fornecedoresMutation({
   args: {
     name: v.string(),
     ...supplierFieldsValidator.fields,
@@ -358,7 +361,7 @@ const bulkSupplierItemValidator = v.object({
   contact: v.optional(bulkSupplierContactValidator),
 });
 
-export const bulkCreate = purchasingMutation({
+export const bulkCreate = fornecedoresMutation({
   args: {
     items: v.array(bulkSupplierItemValidator),
   },
@@ -446,7 +449,7 @@ export const bulkCreate = purchasingMutation({
   },
 });
 
-export const update = purchasingMutation({
+export const update = fornecedoresMutation({
   args: {
     supplierId: v.id("suppliers"),
     name: v.optional(v.string()),
@@ -537,7 +540,7 @@ export const update = purchasingMutation({
   },
 });
 
-export const addContact = purchasingMutation({
+export const addContact = fornecedoresMutation({
   args: {
     supplierId: v.id("suppliers"),
     name: v.string(),
@@ -563,7 +566,7 @@ export const addContact = purchasingMutation({
   },
 });
 
-export const removeContact = purchasingMutation({
+export const removeContact = fornecedoresMutation({
   args: { contactId: v.id("supplierContacts") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -657,7 +660,7 @@ export const listMaterialOfferings = engineeringOrPurchasingQuery({
   },
 });
 
-export const upsertMaterialOffering = purchasingMutation({
+export const upsertMaterialOffering = fornecedoresMutation({
   args: {
     supplierId: v.id("suppliers"),
     materialId: v.id("materials"),
@@ -737,7 +740,7 @@ export const upsertMaterialOffering = purchasingMutation({
   },
 });
 
-export const removeMaterialOffering = purchasingMutation({
+export const removeMaterialOffering = fornecedoresMutation({
   args: { offeringId: v.id("supplierMaterials") },
   returns: v.null(),
   handler: async (ctx, args) => {

@@ -202,7 +202,7 @@ export function CustomerDetailDialog({
           aria-label="Gerenciar"
           title="Gerenciar"
         >
-          <Pencil className="size-4" />
+          <Pencil />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
@@ -332,7 +332,7 @@ export function CustomerDetailDialog({
         {!isArchived && (
           <div className="flex justify-end">
             <Button onClick={saveCustomer} disabled={saving || !form.name.trim()}>
-              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {saving && <Loader2 className="animate-spin" />}
               Salvar dados
             </Button>
           </div>
@@ -351,7 +351,7 @@ export function CustomerDetailDialog({
               size="sm"
               onClick={() => setShowHistory((current) => !current)}
             >
-              <History className="mr-1.5 size-4" />
+              <History />
               {showHistory ? "Mostrar ativos" : "Ver histórico"}
             </Button>
           </div>
@@ -393,7 +393,7 @@ export function CustomerDetailDialog({
                           })
                         }
                       >
-                        <Pencil className="mr-1.5 size-3.5" />
+                        <Pencil />
                         Editar
                       </Button>
                     )}
@@ -406,9 +406,9 @@ export function CustomerDetailDialog({
                         }
                       >
                         {contact.active ? (
-                          <Archive className="mr-1.5 size-3.5" />
+                          <Archive />
                         ) : (
-                          <RotateCcw className="mr-1.5 size-3.5" />
+                          <RotateCcw />
                         )}
                         {contact.active ? "Arquivar" : "Restaurar"}
                       </Button>
@@ -493,7 +493,7 @@ export function CustomerDetailDialog({
                   onClick={saveContact}
                   disabled={saving || !contactForm.name.trim()}
                 >
-                  <Plus className="mr-1.5 size-4" />
+                  <Plus />
                   {contactForm.contactId
                     ? "Salvar contato"
                     : "Adicionar contato"}

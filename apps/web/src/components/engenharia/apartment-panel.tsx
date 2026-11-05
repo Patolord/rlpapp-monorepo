@@ -54,14 +54,19 @@ function fromDateInput(value: string): number | null {
 
 export function ApartmentPanel({
   projectId,
-  unit,
+  unit: unitProp,
   onClose,
 }: {
   projectId: Id<"projects">;
   unit: GridUnit | null;
   onClose: () => void;
 }) {
-  // Mantém o último apto durante o fade-out.
+  const open = unitProp !== null;
+  // Mantém o último apto durante a animação de saída do painel.
+  const [lastUnit, setLastUnit] = useState(unitProp);
+  if (unitProp && unitProp !== lastUnit) setLastUnit(unitProp);
+  const unit = unitProp ?? lastUnit;
+
   const [linkItemId, setLinkItemId] = useState<Id<"projectEquipment"> | null>(
     null
   );
@@ -106,7 +111,7 @@ export function ApartmentPanel({
   }
 
   return (
-    <Sheet open={unit !== null} onOpenChange={(o) => !o && onClose()}>
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-md">
         {unit && (
           <>
@@ -172,7 +177,7 @@ export function ApartmentPanel({
                 className="w-full text-muted-foreground hover:text-destructive"
                 onClick={handleRemoveUnit}
               >
-                <Trash2 className="mr-1.5 size-4" />
+                <Trash2 />
                 Remover apartamento
               </Button>
             </div>
@@ -269,17 +274,16 @@ function ItemRow({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8"
                 render={<Link to="/q/$token" params={{ token: item.token }} />}
               >
-                <ExternalLink className="mr-1 size-3.5" />
+                <ExternalLink />
                 {item.token}
               </Button>
             )}
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 text-muted-foreground"
+              className="text-muted-foreground"
               disabled={busy}
               onClick={() =>
                 run(
@@ -289,18 +293,17 @@ function ItemRow({
                 )
               }
             >
-              <Unlink className="size-3.5" />
+              <Unlink />
             </Button>
           </div>
         ) : (
           <Button
             variant="outline"
             size="sm"
-            className="h-8"
             disabled={busy}
             onClick={onLink}
           >
-            <Link2 className="mr-1 size-3.5" />
+            <Link2 />
             Vincular QR
           </Button>
         )}
@@ -363,7 +366,7 @@ function AddItemForm({
         className="w-full"
         onClick={() => setOpen(true)}
       >
-        <Plus className="mr-1.5 size-4" />
+        <Plus />
         Adicionar equipamento
       </Button>
     );
@@ -445,7 +448,7 @@ function AddItemForm({
           disabled={saving || !ambiente.trim()}
           onClick={handleAdd}
         >
-          {saving && <Loader2 className="mr-1.5 size-4 animate-spin" />}
+          {saving && <Loader2 className="animate-spin" />}
           Adicionar
         </Button>
       </div>

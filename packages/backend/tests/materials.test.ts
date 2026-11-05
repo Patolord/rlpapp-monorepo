@@ -16,24 +16,21 @@ async function seedCatalogUsers() {
     await ctx.db.insert("users", {
       name: "Compras",
       clerkId: "purchasing",
-      role: "operator",
-      department: "compras",
+      roles: ["compras"],
       isActive: true,
       createdAt: now,
     });
     await ctx.db.insert("users", {
       name: "Estoque",
       clerkId: "warehouse",
-      role: "operator",
-      department: "estoque",
+      roles: ["estoque"],
       isActive: true,
       createdAt: now,
     });
     await ctx.db.insert("users", {
       name: "Engenheiro",
       clerkId: "engineer",
-      role: "engenheiro",
-      department: "engenharia",
+      roles: ["engenheiro"],
       isActive: true,
       createdAt: now,
     });
@@ -154,6 +151,73 @@ describe("materials catalog", () => {
     ).rejects.toThrow("SKU já cadastrado");
   });
 
+  test("sets, audits and clears the labour price", async () => {
+    const { t, purchasing, warehouse, engineer } = await seedCatalogUsers();
+
+    const materialId = await purchasing.mutation(api.materials.create, {
+      name: "Grelha de retorno",
+      unit: "un",
+      laborPriceCents: 4500,
+    });
+    const created = await engineer.query(api.materials.get, { materialId });
+    expect(created?.laborPriceCents).toBe(4500);
+    expect(created?.laborPriceUpdatedAt).toEqual(expect.any(Number));
+
+    await purchasing.mutation(api.materials.update, {
+      materialId,
+      laborPriceCents: 6250,
+    });
+    const updated = await purchasing.query(api.materials.get, { materialId });
+    expect(updated?.laborPriceCents).toBe(6250);
+
+    const audit = await t.run(async (ctx) =>
+      (await ctx.db.query("auditLogs").collect()).filter(
+        (log) => log.recordId === materialId && log.action === "update"
+      )
+    );
+    expect(audit.at(-1)?.changes).toEqual([
+      { field: "laborPriceCents", previousValue: "4500", newValue: "6250" },
+    ]);
+
+    // Updating other fields leaves the labour price and its date alone.
+    await purchasing.mutation(api.materials.update, {
+      materialId,
+      spec: "alumínio",
+    });
+    const untouched = await purchasing.query(api.materials.get, {
+      materialId,
+    });
+    expect(untouched?.laborPriceCents).toBe(6250);
+    expect(untouched?.laborPriceUpdatedAt).toBe(updated?.laborPriceUpdatedAt);
+
+    await purchasing.mutation(api.materials.update, {
+      materialId,
+      laborPriceCents: null,
+    });
+    const cleared = await purchasing.query(api.materials.get, { materialId });
+    expect(cleared?.laborPriceCents).toBeNull();
+    expect(cleared?.laborPriceUpdatedAt).toBeNull();
+
+    await expect(
+      purchasing.mutation(api.materials.update, {
+        materialId,
+        laborPriceCents: -1,
+      })
+    ).rejects.toThrow("mão de obra");
+    await expect(
+      purchasing.mutation(api.materials.update, {
+        materialId,
+        laborPriceCents: 12.5,
+      })
+    ).rejects.toThrow("mão de obra");
+    await expect(
+      warehouse.mutation(api.materials.update, {
+        materialId,
+        laborPriceCents: 100,
+      })
+    ).rejects.toThrow("materiais.write");
+  });
+
   test("listCatalog supports search by SKU", async () => {
     const { purchasing } = await seedCatalogUsers();
     await purchasing.mutation(api.materials.create, {
@@ -176,7 +240,7 @@ describe("materials catalog", () => {
 
     await expect(
       warehouse.mutation(api.materials.generateUploadUrl, {})
-    ).rejects.toThrow("compras");
+    ).rejects.toThrow("materiais.write");
 
     const uploadUrl = await purchasing.mutation(
       api.materials.generateUploadUrl,
@@ -672,7 +736,7 @@ describe("materials catalog", () => {
       })
     ).rejects.toThrow("Estoque mínimo");
 
-    // Estoque não tem compras.write — precisa de upsertFromWarehouse.
+    // Estoque não tem materiais.write — precisa de upsertFromWarehouse.
     await expect(
       warehouse.mutation(api.inventoryStockPolicies.upsert, {
         locationId,
@@ -681,7 +745,7 @@ describe("materials catalog", () => {
         reorderPoint: 5,
         targetQuantity: 20,
       })
-    ).rejects.toThrow("compras");
+    ).rejects.toThrow("materiais.write");
 
     const policyId = await warehouse.mutation(
       api.inventoryStockPolicies.upsertFromWarehouse,
@@ -796,7 +860,7 @@ describe("materials catalog", () => {
         name: "Tubo de Cobre",
         unit: "m",
       })
-    ).rejects.toThrow("estoque ou compras");
+    ).rejects.toThrow("estoque.entrada");
 
     const suggestions = await warehouse.query(api.materials.suggest, {
       term: "isolamento",

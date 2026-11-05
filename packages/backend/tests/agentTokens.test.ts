@@ -84,7 +84,7 @@ describe("tokens de agente", () => {
     });
     expect(verified).toMatchObject({
       token: { _id: created.id, permission: "read_only", expiresAt: null },
-      user: { clerkId: "eng1", role: "engenheiro", email: "eng@rlp.test" },
+      user: { clerkId: "eng1", roles: ["engenheiro", "takeoff"], email: "eng@rlp.test" },
     });
 
     expect(
@@ -154,11 +154,43 @@ describe("tokens de agente", () => {
     const body = await ok.json();
     expect(body).toMatchObject({
       token: { _id: created.id, name: "HTTP", permission: "full_access" },
-      user: { clerkId: "eng1", role: "engenheiro" },
+      user: { clerkId: "eng1", roles: ["engenheiro", "takeoff"] },
     });
 
     const listed = await asEng.query(api.agentTokens.list, {});
     expect(listed[0]?.lastUsedAt).toBeTypeOf("number");
+  });
+
+  test("a lista sempre mostra os tokens ativos, mesmo com muitos revogados depois", async () => {
+    const t = setup();
+    const asEng = await withUser(t, { clerkId: "eng1", role: "engenheiro" });
+    const kept = await asEng.action(api.agentTokens.create, {
+      name: "agente antigo",
+      permission: "full_access",
+    });
+    // 60 logins do Takeoff na mesma instalação: cada um revoga o anterior
+    await t.run(async (ctx) => {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", "eng1"))
+        .unique();
+      for (let i = 0; i < 60; i++) {
+        await ctx.db.insert("agentTokens", {
+          userId: user!._id,
+          name: "Takeoff · PC",
+          tokenHash: `revoked-${i}`,
+          tokenPrefix: "rlp_xxxxxxxx",
+          permission: "full_access",
+          createdAt: Date.now(),
+          revokedAt: Date.now(),
+          kind: "device",
+        });
+      }
+    });
+
+    const listed = await asEng.query(api.agentTokens.list, {});
+    expect(listed.map((x) => x._id)).toContain(kept.id);
+    expect(listed.filter((x) => x.revokedAt !== undefined).length).toBeLessThanOrEqual(25);
   });
 
   test("política central: somente-leitura não grava e revogado não lê", async () => {
@@ -315,7 +347,7 @@ describe("tokens de agente", () => {
     expect(all).toHaveLength(1);
     expect(all[0]).toMatchObject({
       name: "renomeado",
-      owner: { role: "engenheiro" },
+      owner: { roles: ["engenheiro", "takeoff"] },
     });
 
     const revoked = await asAdmin.mutation(api.agentTokens.revoke, {

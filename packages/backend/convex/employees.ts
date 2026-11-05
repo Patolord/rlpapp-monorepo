@@ -1,5 +1,8 @@
 import { v } from "convex/values";
-import { hrMutation, hrQuery } from "./lib/rbac";
+import {
+  funcionariosMutation,
+  funcionariosQuery,
+} from "./lib/rbac";
 import { logAudit, diffFields } from "./lib/audit";
 import {
   formatTaxId,
@@ -7,15 +10,17 @@ import {
   normalizeTaxId,
   validateTaxIdForPersonType,
 } from "./lib/customers/helpers";
-import {
-  DEFAULT_DAILY_TRANSIT_CENTS,
-  DEFAULT_TRANSPORT_FOOD_DAYS,
-  assertNonNegativeCents,
-} from "./lib/rh/payroll";
+import { assertNonNegativeCents } from "./lib/rh/payroll";
 import {
   employeePaymentMethod,
+  employeeStaffGroup,
   employeeStatus,
 } from "./schema";
+import {
+  DEFAULT_STAFF_GROUP,
+  STAFF_GROUP_PAYROLL_DEFAULTS,
+  type StaffGroup,
+} from "@rlpapp/shared/rh/staffGroups";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 
@@ -25,6 +30,7 @@ export const employeeValidator = v.object({
   code: v.union(v.string(), v.null()),
   name: v.string(),
   cpf: v.union(v.string(), v.null()),
+  staffGroup: employeeStaffGroup,
   jobTitle: v.union(v.string(), v.null()),
   email: v.union(v.string(), v.null()),
   phone: v.union(v.string(), v.null()),
@@ -40,7 +46,6 @@ export const employeeValidator = v.object({
   defaultTransportFoodDays: v.number(),
   createdAt: v.number(),
   updatedAt: v.union(v.number(), v.null()),
-  userId: v.union(v.id("users"), v.null()),
 });
 
 export type EmployeeRow = {
@@ -49,6 +54,7 @@ export type EmployeeRow = {
   code: string | null;
   name: string;
   cpf: string | null;
+  staffGroup: StaffGroup;
   jobTitle: string | null;
   email: string | null;
   phone: string | null;
@@ -64,8 +70,14 @@ export type EmployeeRow = {
   defaultTransportFoodDays: number;
   createdAt: number;
   updatedAt: number | null;
-  userId: Id<"users"> | null;
 };
+
+/** Cadastros anteriores à equipe não têm o campo: eram todos de obra. */
+export function employeeStaffGroupOf(
+  employee: Pick<Doc<"employees">, "staffGroup">
+): StaffGroup {
+  return employee.staffGroup ?? DEFAULT_STAFF_GROUP;
+}
 
 function toEmployeeRow(employee: Doc<"employees">): EmployeeRow {
   return {
@@ -74,6 +86,7 @@ function toEmployeeRow(employee: Doc<"employees">): EmployeeRow {
     code: employee.code ?? null,
     name: employee.name,
     cpf: employee.cpf ?? null,
+    staffGroup: employeeStaffGroupOf(employee),
     jobTitle: employee.jobTitle ?? null,
     email: employee.email ?? null,
     phone: employee.phone ?? null,
@@ -89,7 +102,6 @@ function toEmployeeRow(employee: Doc<"employees">): EmployeeRow {
     defaultTransportFoodDays: employee.defaultTransportFoodDays,
     createdAt: employee.createdAt,
     updatedAt: employee.updatedAt ?? null,
-    userId: employee.userId ?? null,
   };
 }
 
@@ -98,6 +110,7 @@ function employeeSnapshot(employee: Doc<"employees">) {
     code: employee.code,
     name: employee.name,
     cpf: employee.cpf,
+    staffGroup: employeeStaffGroupOf(employee),
     jobTitle: employee.jobTitle,
     email: employee.email,
     phone: employee.phone,
@@ -173,11 +186,12 @@ async function assertUniqueEmployeeIdentity(
   }
 }
 
-export const list = hrQuery({
+export const list = funcionariosQuery({
   args: {
     search: v.optional(v.string()),
     includeArchived: v.optional(v.boolean()),
     status: v.optional(employeeStatus),
+    staffGroup: v.optional(employeeStaffGroup),
   },
   returns: v.array(employeeValidator),
   handler: async (ctx, args) => {
@@ -190,6 +204,11 @@ export const list = hrQuery({
 
     if (!args.includeArchived) {
       employees = employees.filter((row) => !row.archivedAt);
+    }
+    if (args.staffGroup) {
+      employees = employees.filter(
+        (row) => employeeStaffGroupOf(row) === args.staffGroup
+      );
     }
     if (args.search?.trim()) {
       const term = normalizeCustomerName(args.search);
@@ -208,7 +227,7 @@ export const list = hrQuery({
   },
 });
 
-export const get = hrQuery({
+export const get = funcionariosQuery({
   args: { employeeId: v.id("employees") },
   returns: v.union(employeeValidator, v.null()),
   handler: async (ctx, args) => {
@@ -217,11 +236,13 @@ export const get = hrQuery({
   },
 });
 
-export const create = hrMutation({
+export const create = funcionariosMutation({
   args: {
     code: v.optional(v.string()),
     name: v.string(),
     cpf: v.optional(v.string()),
+    // Padrão: obra. Define os padrões de cesta, passagem e dias quando omitidos.
+    staffGroup: v.optional(employeeStaffGroup),
     jobTitle: v.optional(v.string()),
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
@@ -245,6 +266,8 @@ export const create = hrMutation({
     if (cpf) validateTaxIdForPersonType(cpf, "pf");
     await assertUniqueEmployeeIdentity(ctx, { name, code, cpf });
 
+    const staffGroup = args.staffGroup ?? DEFAULT_STAFF_GROUP;
+    const defaults = STAFF_GROUP_PAYROLL_DEFAULTS[staffGroup];
     const now = Date.now();
     const employeeId = await ctx.db.insert("employees", {
       code,
@@ -252,6 +275,7 @@ export const create = hrMutation({
       nameNormalized: normalizeCustomerName(name),
       cpf,
       cpfNormalized: cpf ? normalizeTaxId(cpf) : undefined,
+      staffGroup,
       jobTitle: args.jobTitle?.trim() || undefined,
       email: args.email?.trim() || undefined,
       phone: args.phone?.trim() || undefined,
@@ -264,14 +288,17 @@ export const create = hrMutation({
         args.baseSalaryCents ?? 0,
         "Salário base"
       ),
-      receivesFoodBasket: args.receivesFoodBasket ?? true,
+      receivesFoodBasket:
+        args.receivesFoodBasket ?? defaults.receivesFoodBasket,
       dailyTransitCents: assertNonNegativeCents(
-        args.dailyTransitCents ?? DEFAULT_DAILY_TRANSIT_CENTS,
+        args.dailyTransitCents ?? defaults.dailyTransitCents,
         "Passagem diária"
       ),
       defaultTransportFoodDays: Math.max(
         0,
-        Math.round(args.defaultTransportFoodDays ?? DEFAULT_TRANSPORT_FOOD_DAYS)
+        Math.round(
+          args.defaultTransportFoodDays ?? defaults.defaultTransportFoodDays
+        )
       ),
       createdAt: now,
       updatedAt: now,
@@ -284,19 +311,20 @@ export const create = hrMutation({
       tableName: "employees",
       recordId: employeeId,
       entityLabel: name,
-      snapshotAfter: { name, code, cpf },
+      snapshotAfter: { name, code, cpf, staffGroup },
     });
 
     return employeeId;
   },
 });
 
-export const update = hrMutation({
+export const update = funcionariosMutation({
   args: {
     employeeId: v.id("employees"),
     code: v.optional(v.union(v.string(), v.null())),
     name: v.optional(v.string()),
     cpf: v.optional(v.union(v.string(), v.null())),
+    staffGroup: v.optional(employeeStaffGroup),
     jobTitle: v.optional(v.union(v.string(), v.null())),
     email: v.optional(v.union(v.string(), v.null())),
     phone: v.optional(v.union(v.string(), v.null())),
@@ -342,6 +370,7 @@ export const update = hrMutation({
       updates.cpf = cpf;
       updates.cpfNormalized = cpf ? normalizeTaxId(cpf) : undefined;
     }
+    if (args.staffGroup !== undefined) updates.staffGroup = args.staffGroup;
     if (args.jobTitle !== undefined) {
       updates.jobTitle = args.jobTitle?.trim() || undefined;
     }
@@ -407,6 +436,7 @@ export const update = hrMutation({
         "code",
         "name",
         "cpf",
+        "staffGroup",
         "jobTitle",
         "email",
         "phone",
@@ -427,7 +457,7 @@ export const update = hrMutation({
   },
 });
 
-export const archive = hrMutation({
+export const archive = funcionariosMutation({
   args: { employeeId: v.id("employees") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -456,7 +486,7 @@ export const archive = hrMutation({
   },
 });
 
-export const restore = hrMutation({
+export const restore = funcionariosMutation({
   args: { employeeId: v.id("employees") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -480,54 +510,6 @@ export const restore = hrMutation({
       entityLabel: employee.name,
       snapshotBefore: before,
       snapshotAfter: { ...before, status: "active", archivedAt: undefined },
-    });
-    return null;
-  },
-});
-
-/**
- * Vincula (ou desvincula, com `userId: null`) o usuário do app que bate ponto
- * como este funcionário. Um usuário só pode estar em um funcionário ativo.
- */
-export const linkUser = hrMutation({
-  args: {
-    employeeId: v.id("employees"),
-    userId: v.union(v.id("users"), v.null()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const employee = await ctx.db.get("employees", args.employeeId);
-    if (!employee) {
-      throw new Error("Funcionário não encontrado");
-    }
-    if (args.userId) {
-      const user = await ctx.db.get("users", args.userId);
-      if (!user) {
-        throw new Error("Usuário não encontrado");
-      }
-      const taken = await ctx.db
-        .query("employees")
-        .withIndex("by_user", (q) => q.eq("userId", args.userId!))
-        .take(5);
-      const conflict = taken.find(
-        (row) => row._id !== employee._id && !row.archivedAt
-      );
-      if (conflict) {
-        throw new Error(`Este usuário já está vinculado a ${conflict.name}`);
-      }
-    }
-    await ctx.db.patch("employees", employee._id, {
-      userId: args.userId ?? undefined,
-      updatedAt: Date.now(),
-      updatedByUserId: ctx.user._id,
-    });
-    await logAudit(ctx, ctx.user, {
-      action: "update",
-      tableName: "employees",
-      recordId: employee._id,
-      entityLabel: employee.name,
-      snapshotBefore: { userId: employee.userId ?? null },
-      snapshotAfter: { userId: args.userId },
     });
     return null;
   },

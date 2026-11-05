@@ -27,6 +27,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ProjectDocumentDialog } from "@/components/engenharia/documents/project-document-dialog";
+import { useCan } from "@/hooks/use-can";
 import { getErrorMessage } from "@/lib/errors";
 import {
   TECHNICIAN_ACCESS_LABELS,
@@ -51,6 +52,7 @@ export function ProjectDocumentsPanel({
   archived?: boolean;
 }) {
   const documents = useQuery(api.projectDocuments.listByProject, { projectId });
+  const canWrite = useCan("documentos.write");
   const removeDocument = useMutation(api.projectDocuments.remove);
   const [removing, setRemoving] = useState<OfficeDocument | null>(null);
   const [busy, setBusy] = useState(false);
@@ -88,12 +90,12 @@ export function ProjectDocumentsPanel({
             )}
           </p>
         </div>
-        {!archived && (
+        {canWrite && !archived && (
           <ProjectDocumentDialog
             projectId={projectId}
             trigger={
               <Button>
-                <Upload className="mr-1.5 size-4" />
+                <Upload />
                 Enviar PDF
               </Button>
             }
@@ -123,12 +125,12 @@ export function ProjectDocumentsPanel({
               arquivo, quais técnicos podem ver e baixar.
             </p>
           </div>
-          {!archived && (
+          {canWrite && !archived && (
             <ProjectDocumentDialog
               projectId={projectId}
               trigger={
                 <Button variant="outline">
-                  <Upload className="mr-1.5 size-4" />
+                  <Upload />
                   Enviar o primeiro PDF
                 </Button>
               }
@@ -143,6 +145,7 @@ export function ProjectDocumentsPanel({
               projectId={projectId}
               document={document}
               archived={archived}
+              canWrite={canWrite}
               onRemove={() => setRemoving(document)}
             />
           ))}
@@ -176,7 +179,7 @@ export function ProjectDocumentsPanel({
               onClick={() => void confirmRemove()}
               disabled={busy}
             >
-              {busy && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {busy && <Loader2 className="animate-spin" />}
               Remover
             </Button>
           </DialogFooter>
@@ -190,11 +193,13 @@ function DocumentRow({
   projectId,
   document,
   archived,
+  canWrite,
   onRemove,
 }: {
   projectId: Id<"projects">;
   document: OfficeDocument;
   archived: boolean;
+  canWrite: boolean;
   onRemove: () => void;
 }) {
   const fetchBlob = useDocumentBlobFetcher();
@@ -277,9 +282,9 @@ function DocumentRow({
           onClick={() => void handleOpen()}
         >
           {busy === "open" ? (
-            <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+            <Loader2 className="animate-spin" />
           ) : (
-            <ExternalLink className="mr-1.5 size-3.5" />
+            <ExternalLink />
           )}
           Abrir
         </Button>
@@ -290,33 +295,35 @@ function DocumentRow({
           onClick={() => void handleDownload()}
         >
           {busy === "download" ? (
-            <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+            <Loader2 className="animate-spin" />
           ) : (
-            <Download className="mr-1.5 size-3.5" />
+            <Download />
           )}
           Baixar
         </Button>
-        {!archived && (
+        {canWrite && !archived && (
           <ProjectDocumentDialog
             projectId={projectId}
             document={document}
             trigger={
               <Button variant="outline" size="sm">
-                <Pencil className="mr-1.5 size-3.5" />
+                <Pencil />
                 Editar
               </Button>
             }
           />
         )}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Remover documento"
-          onClick={onRemove}
-          className="text-muted-foreground hover:text-destructive"
-        >
-          <Trash2 className="size-4" />
-        </Button>
+        {canWrite && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Remover documento"
+            onClick={onRemove}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 />
+          </Button>
+        )}
       </div>
     </li>
   );

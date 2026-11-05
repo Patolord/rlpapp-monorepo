@@ -10,39 +10,35 @@ async function seedInventoryFixture() {
     const warehouseUserId = await ctx.db.insert("users", {
       name: "Operador Estoque",
       clerkId: "warehouse",
-      role: "operator",
-      department: "estoque",
+      roles: ["estoque"],
       isActive: true,
       createdAt: now,
     });
     const purchasingUserId = await ctx.db.insert("users", {
       name: "Compras",
       clerkId: "purchasing",
-      role: "operator",
-      department: "compras",
+      roles: ["compras"],
       isActive: true,
       createdAt: now,
     });
     const engineerUserId = await ctx.db.insert("users", {
       name: "Engenheiro Responsável",
       clerkId: "engineer",
-      role: "engenheiro",
-      department: "engenharia",
+      roles: ["engenheiro"],
       isActive: true,
       createdAt: now,
     });
     const otherEngineerUserId = await ctx.db.insert("users", {
       name: "Outro Engenheiro",
       clerkId: "other-engineer",
-      role: "engenheiro",
-      department: "engenharia",
+      roles: ["engenheiro"],
       isActive: true,
       createdAt: now,
     });
     const adminUserId = await ctx.db.insert("users", {
       name: "Admin",
       clerkId: "admin",
-      role: "admin",
+      roles: ["admin"],
       isActive: true,
       createdAt: now,
     });

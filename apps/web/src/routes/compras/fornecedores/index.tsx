@@ -272,13 +272,13 @@ function FornecedoresContent() {
             onImportBatch={(items) => bulkCreateSuppliers({ items })}
             trigger={
               <Button variant="outline">
-                <FileUp className="mr-2 size-4" />
+                <FileUp />
                 Importar CSV
               </Button>
             }
           />
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger render={<Button><Plus className="mr-2 size-4" />Novo fornecedor</Button>} />
+            <DialogTrigger render={<Button><Plus />Novo fornecedor</Button>} />
             <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Novo fornecedor</DialogTitle>

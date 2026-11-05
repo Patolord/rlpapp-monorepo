@@ -1,9 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
+import { formatCurrency } from "@rlpapp/shared";
+import {
+  STAFF_GROUPS,
+  STAFF_GROUP_DESCRIPTIONS,
+  STAFF_GROUP_LABELS,
+  STAFF_GROUP_PAYROLL_DEFAULTS,
+  type StaffGroup,
+} from "@rlpapp/shared/rh/staffGroups";
 import { useMutation, useQuery } from "convex/react";
-import { Archive, Link2, Link2Off, Pencil, RotateCcw } from "lucide-react";
+import {
+  Archive,
+  HandCoins,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
+
+import { PayrollLoanDialog } from "@/components/rh/payroll-loan-dialog";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getErrorMessage } from "@/lib/errors";
+import { formatMonthLabel } from "@/lib/rh/labels";
 import { formatCentsInput, parsePayrollAmountToCents } from "@/lib/rh/money";
 
 export type EmployeeSummary = {
@@ -33,6 +51,8 @@ export type EmployeeSummary = {
   code: string | null;
   name: string;
   cpf: string | null;
+  /** Equipe: obra, escritório ou diretoria. Define os padrões da folha. */
+  staffGroup: StaffGroup;
   jobTitle: string | null;
   email: string | null;
   phone: string | null;
@@ -46,14 +66,13 @@ export type EmployeeSummary = {
   receivesFoodBasket: boolean;
   dailyTransitCents: number;
   defaultTransportFoodDays: number;
-  /** Usuário do app que bate ponto como este funcionário. */
-  userId: Id<"users"> | null;
 };
 
 type EmployeeForm = {
   code: string;
   name: string;
   cpf: string;
+  staffGroup: StaffGroup;
   jobTitle: string;
   email: string;
   phone: string;
@@ -94,6 +113,7 @@ function employeeToForm(employee: EmployeeSummary): EmployeeForm {
     code: employee.code ?? "",
     name: employee.name,
     cpf: employee.cpf ?? "",
+    staffGroup: employee.staffGroup,
     jobTitle: employee.jobTitle ?? "",
     email: employee.email ?? "",
     phone: employee.phone ?? "",
@@ -109,10 +129,31 @@ function employeeToForm(employee: EmployeeSummary): EmployeeForm {
   };
 }
 
+/** Campos da folha preenchidos pelo padrão da equipe. */
+function staffGroupDefaults(
+  group: StaffGroup
+): Pick<
+  EmployeeForm,
+  "receivesFoodBasket" | "dailyTransit" | "defaultTransportFoodDays"
+> {
+  const defaults = STAFF_GROUP_PAYROLL_DEFAULTS[group];
+  return {
+    receivesFoodBasket: defaults.receivesFoodBasket,
+    dailyTransit: formatCentsInput(defaults.dailyTransitCents),
+    defaultTransportFoodDays: String(defaults.defaultTransportFoodDays),
+  };
+}
+
+/** Troca a equipe e aplica os padrões dela aos campos de benefícios. */
+function withStaffGroup(form: EmployeeForm, group: StaffGroup): EmployeeForm {
+  return { ...form, staffGroup: group, ...staffGroupDefaults(group) };
+}
+
 const emptyEmployeeForm: EmployeeForm = {
   code: "",
   name: "",
   cpf: "",
+  staffGroup: "obra",
   jobTitle: "",
   email: "",
   phone: "",
@@ -122,9 +163,7 @@ const emptyEmployeeForm: EmployeeForm = {
   paymentMethod: "pix",
   pixKey: "",
   baseSalary: "0,00",
-  receivesFoodBasket: true,
-  dailyTransit: "21,40",
-  defaultTransportFoodDays: "22",
+  ...staffGroupDefaults("obra"),
 };
 
 function formPayload(form: EmployeeForm) {
@@ -132,6 +171,7 @@ function formPayload(form: EmployeeForm) {
     code: form.code || undefined,
     name: form.name,
     cpf: form.cpf || undefined,
+    staffGroup: form.staffGroup,
     jobTitle: form.jobTitle || undefined,
     email: form.email || undefined,
     phone: form.phone || undefined,
@@ -185,6 +225,26 @@ function EmployeeFields({
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
+              <Label htmlFor="employee-group">Equipe</Label>
+              <Select
+                value={form.staffGroup}
+                onValueChange={(value) =>
+                  setForm(withStaffGroup(form, value as StaffGroup))
+                }
+              >
+                <SelectTrigger id="employee-group">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STAFF_GROUPS.map((group) => (
+                    <SelectItem key={group} value={group}>
+                      {STAFF_GROUP_LABELS[group]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="employee-job">Cargo</Label>
               <Input
                 id="employee-job"
@@ -194,6 +254,8 @@ function EmployeeFields({
                 }
               />
             </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="employee-cpf">CPF</Label>
               <Input
@@ -204,8 +266,6 @@ function EmployeeFields({
                 }
               />
             </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="employee-phone">Telefone</Label>
               <Input
@@ -216,6 +276,8 @@ function EmployeeFields({
                 }
               />
             </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="employee-email">E-mail</Label>
               <Input
@@ -227,8 +289,6 @@ function EmployeeFields({
                 }
               />
             </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="employee-hired">Admissão</Label>
               <Input
@@ -240,6 +300,8 @@ function EmployeeFields({
                 }
               />
             </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="employee-status">Situação</Label>
               <Select
@@ -275,8 +337,13 @@ function EmployeeFields({
         </div>
       </div>
       <div>
-        <p className="mb-2 text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+        <p className="text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
           Padrões da folha
+        </p>
+        <p className="mt-1 mb-2 text-xs text-muted-foreground">
+          {STAFF_GROUP_LABELS[form.staffGroup]}:{" "}
+          {STAFF_GROUP_DESCRIPTIONS[form.staffGroup]} Ajuste abaixo se este
+          funcionário for exceção.
         </p>
         <div className="grid gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -365,91 +432,371 @@ function EmployeeFields({
   );
 }
 
-const NO_USER = "__none__";
+/** Resumo dos benefícios da folha para a visualização do funcionário. */
+function describeBenefits(employee: EmployeeSummary): string {
+  const parts: string[] = [];
+  if (employee.receivesFoodBasket) parts.push("cesta básica");
+  if (employee.defaultTransportFoodDays > 0) {
+    parts.push(`vale-alimentação (${employee.defaultTransportFoodDays} dias)`);
+    if (employee.dailyTransitCents > 0) {
+      parts.push(
+        `vale-transporte (R$ ${formatCentsInput(employee.dailyTransitCents)}/dia)`
+      );
+    }
+  }
+  return parts.length ? parts.join(", ") : "nenhum";
+}
+
+const PAYMENT_METHOD_LABEL: Record<EmployeeSummary["paymentMethod"], string> = {
+  pix: "PIX",
+  tbi: "TBI",
+  other: "Outro",
+};
+
+function currentMonth() {
+  const now = new Date();
+  return { year: now.getFullYear(), month: now.getMonth() + 1 };
+}
+
+/** Campo que salva ao sair (blur/Enter), acompanhando o valor vindo do servidor. */
+function CommitInput({
+  value,
+  onCommit,
+  className,
+  placeholder,
+  "aria-label": ariaLabel,
+}: {
+  value: string;
+  onCommit: (value: string) => void;
+  className?: string;
+  placeholder?: string;
+  "aria-label"?: string;
+}) {
+  const [text, setText] = useState(value);
+  useEffect(() => {
+    setText(value);
+  }, [value]);
+  return (
+    <Input
+      className={className}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      value={text}
+      onChange={(event) => setText(event.target.value)}
+      onBlur={() => {
+        if (text === value) return;
+        try {
+          onCommit(text);
+        } catch (error) {
+          // Valor que não dá para interpretar (ex.: "abc"): avisa e volta ao salvo.
+          toast.error(getErrorMessage(error, "Valor inválido"));
+          setText(value);
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") (event.target as HTMLInputElement).blur();
+      }}
+    />
+  );
+}
 
 /**
- * Vínculo com o usuário do app (quem bate ponto como este funcionário).
- * É um vínculo próprio, salvo na hora, independente do formulário de edição.
+ * Empréstimos do funcionário: resumo no cadastro e gestão completa no mesmo
+ * diálogo usado pela folha. As parcelas entram como desconto na folha de cada
+ * mês a partir do início escolhido.
  */
-function AppUserSection({ employee }: { employee: EmployeeSummary }) {
-  const users = useQuery(api.users.list, { onlyActive: true });
-  const linkUser = useMutation(api.employees.linkUser);
-  const [selected, setSelected] = useState<string>(employee.userId ?? NO_USER);
-  const [saving, setSaving] = useState(false);
+function LoansSection({ employee }: { employee: EmployeeSummary }) {
+  const { year, month } = currentMonth();
+  const loans = useQuery(api.payroll.listLoans, {
+    employeeId: employee._id,
+    year,
+    paymentMonth: month,
+  });
+  const [open, setOpen] = useState(false);
+  // `settled` já é verdadeiro no mês da última parcela; ela ainda está em
+  // desconto, então continua visível até o mês virar.
+  const active = (loans ?? []).filter((loan) => !loan.settled || loan.dueCents > 0);
+  const outstanding = active.reduce((sum, loan) => sum + loan.outstandingCents, 0);
 
-  const current = users?.find((user) => user._id === employee.userId) ?? null;
-  const sorted = [...(users ?? [])].sort((a, b) =>
-    a.name.localeCompare(b.name, "pt-BR")
+  return (
+    <div className="grid gap-2 rounded-md border p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+          Empréstimos
+        </p>
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+          <HandCoins />
+          {active.length ? "Gerenciar" : "Novo empréstimo"}
+        </Button>
+      </div>
+      {loans === undefined ? (
+        <p className="text-xs text-muted-foreground">Carregando...</p>
+      ) : active.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          Nenhum empréstimo em aberto. As parcelas são descontadas na folha de
+          cada mês, a partir do início escolhido.
+        </p>
+      ) : (
+        <ul className="grid gap-1.5 text-sm">
+          {active.map((loan) => (
+            <li key={loan._id} className="flex flex-wrap items-baseline gap-x-2">
+              <span className="font-medium tabular-nums">
+                {formatCurrency(loan.totalCents)}
+              </span>
+              <span className="text-muted-foreground">
+                em {loan.installmentCount}× de {formatCurrency(loan.installmentCents)}
+                {" · "}
+                {loan.paidCount} paga{loan.paidCount === 1 ? "" : "s"}
+                {" · "}
+                saldo {formatCurrency(loan.outstandingCents)}
+                {" · "}
+                {loan.dueCents > 0
+                  ? "em desconto"
+                  : `início ${formatMonthLabel(loan.startYear, loan.startMonth)}`}
+              </span>
+            </li>
+          ))}
+          {active.length > 1 ? (
+            <li className="text-xs text-muted-foreground">
+              Saldo total em aberto: {formatCurrency(outstanding)}
+            </li>
+          ) : null}
+        </ul>
+      )}
+      {open ? (
+        <PayrollLoanDialog
+          employeeId={employee._id}
+          employeeName={employee.name}
+          jobTitle={employee.jobTitle}
+          year={year}
+          paymentMonth={month}
+          closed={false}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
+    </div>
   );
-  const dirty = selected !== (employee.userId ?? NO_USER);
+}
 
-  async function save(userId: Id<"users"> | null) {
-    setSaving(true);
+const emptyAlimonyForm = {
+  beneficiaryName: "",
+  amount: "",
+  paymentMethod: "pix" as EmployeeSummary["paymentMethod"],
+  pixKey: "",
+};
+
+/**
+ * Pensão alimentícia: beneficiários pagos por conta deste funcionário. Cada
+ * pensão vira uma linha própria na folha, separada da linha do funcionário.
+ */
+function AlimonySection({ employee }: { employee: EmployeeSummary }) {
+  const alimonies = useQuery(api.alimonies.listForEmployee, {
+    employeeId: employee._id,
+  });
+  const createAlimony = useMutation(api.alimonies.create);
+  const updateAlimony = useMutation(api.alimonies.update);
+  const archiveAlimony = useMutation(api.alimonies.archive);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState(emptyAlimonyForm);
+  const [submitting, setSubmitting] = useState(false);
+
+  function commit(
+    alimonyId: Id<"employeeAlimonies">,
+    patch: Omit<Parameters<typeof updateAlimony>[0], "alimonyId">
+  ) {
+    void updateAlimony({ alimonyId, ...patch }).catch((error) =>
+      toast.error(getErrorMessage(error, "Erro ao atualizar pensão"))
+    );
+  }
+
+  async function handleCreate() {
+    if (!form.beneficiaryName.trim()) {
+      toast.error("Informe o nome do beneficiário");
+      return;
+    }
+    setSubmitting(true);
     try {
-      await linkUser({ employeeId: employee._id, userId });
-      setSelected(userId ?? NO_USER);
-      toast.success(userId ? "Usuário vinculado" : "Usuário desvinculado");
+      await createAlimony({
+        employeeId: employee._id,
+        beneficiaryName: form.beneficiaryName,
+        amountCents: parsePayrollAmountToCents(form.amount || "0"),
+        paymentMethod: form.paymentMethod,
+        pixKey: form.pixKey || undefined,
+      });
+      toast.success("Pensão cadastrada");
+      setForm(emptyAlimonyForm);
+      setAdding(false);
     } catch (error) {
-      toast.error(getErrorMessage(error, "Erro ao vincular usuário"));
+      toast.error(getErrorMessage(error, "Erro ao cadastrar pensão"));
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   }
 
   return (
     <div className="grid gap-2 rounded-md border p-3">
-      <p className="text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-        Usuário do app (ponto)
-      </p>
-      <p className="text-xs text-muted-foreground">
-        {current
-          ? `Vinculado a ${current.name}${current.username ? ` (@${current.username})` : ""}. `
-          : employee.userId
-            ? "Vinculado a um usuário inativo. "
-            : "Sem usuário vinculado: este funcionário ainda não consegue bater ponto pelo app. "}
-        O vínculo também é feito sozinho quando o e-mail do funcionário é igual ao do usuário.
-      </p>
-      <div className="flex flex-wrap items-center gap-2">
-        <Select
-          value={selected}
-          onValueChange={(value) => setSelected(value ?? NO_USER)}
-          disabled={saving || users === undefined}
-        >
-          <SelectTrigger className="min-w-56 flex-1" aria-label="Usuário do app">
-            <SelectValue placeholder="Escolher usuário" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_USER}>Nenhum</SelectItem>
-            {sorted.map((user) => (
-              <SelectItem key={user._id} value={user._id}>
-                {user.name}
-                {user.username ? ` (@${user.username})` : user.email ? ` (${user.email})` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          size="sm"
-          disabled={!dirty || saving}
-          onClick={() =>
-            void save(selected === NO_USER ? null : (selected as Id<"users">))
-          }
-        >
-          <Link2 className="mr-1 size-3.5" />
-          Vincular
-        </Button>
-        {employee.userId ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={saving}
-            onClick={() => void save(null)}
-          >
-            <Link2Off className="mr-1 size-3.5" />
-            Desvincular
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+          Pensão alimentícia
+        </p>
+        {!adding ? (
+          <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
+            <Plus />
+            Beneficiário
           </Button>
         ) : null}
       </div>
+      <p className="text-xs text-muted-foreground">
+        Paga direto ao beneficiário, em linha própria da folha. Não entra nos
+        descontos nem no total do funcionário. O valor aqui é o padrão; cada mês
+        pode ter o seu.
+      </p>
+      {alimonies === undefined ? (
+        <p className="text-xs text-muted-foreground">Carregando...</p>
+      ) : alimonies.length === 0 && !adding ? (
+        <p className="text-xs text-muted-foreground">Nenhuma pensão cadastrada.</p>
+      ) : (
+        <ul className="grid gap-2">
+          {alimonies.map((alimony) => (
+            <li
+              key={alimony._id}
+              className="grid gap-2 rounded-md bg-muted/40 p-2 sm:grid-cols-[1fr_110px_88px_auto]"
+            >
+              <CommitInput
+                aria-label="Beneficiário"
+                className="h-8"
+                value={alimony.beneficiaryName}
+                onCommit={(value) =>
+                  commit(alimony._id, { beneficiaryName: value })
+                }
+              />
+              <CommitInput
+                aria-label="Valor padrão (R$)"
+                className="h-8 text-right tabular-nums"
+                value={formatCentsInput(alimony.amountCents)}
+                onCommit={(value) =>
+                  commit(alimony._id, {
+                    amountCents: parsePayrollAmountToCents(value || "0"),
+                  })
+                }
+              />
+              <Select
+                value={alimony.paymentMethod}
+                onValueChange={(value) =>
+                  commit(alimony._id, {
+                    paymentMethod: value as EmployeeSummary["paymentMethod"],
+                  })
+                }
+              >
+                <SelectTrigger className="h-8" aria-label="Forma de pagamento">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(["pix", "tbi", "other"] as const).map((method) => (
+                    <SelectItem key={method} value={method}>
+                      {PAYMENT_METHOD_LABEL[method]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                className="text-muted-foreground hover:text-destructive"
+                title="Encerrar pensão"
+                aria-label="Encerrar pensão"
+                onClick={() => {
+                  if (
+                    !confirm(
+                      `Encerrar a pensão de ${alimony.beneficiaryName}? Ela sai das folhas em aberto e não entra nos próximos meses.`
+                    )
+                  ) {
+                    return;
+                  }
+                  void archiveAlimony({ alimonyId: alimony._id })
+                    .then(() => toast.success("Pensão encerrada"))
+                    .catch((error) =>
+                      toast.error(getErrorMessage(error, "Erro ao encerrar pensão"))
+                    );
+                }}
+              >
+                <Trash2 />
+              </Button>
+              <CommitInput
+                aria-label="Chave PIX"
+                placeholder="Chave PIX"
+                className="h-8 sm:col-span-4"
+                value={alimony.pixKey ?? ""}
+                onCommit={(value) => commit(alimony._id, { pixKey: value || null })}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+      {adding ? (
+        <div className="grid gap-2 rounded-md border border-dashed p-2">
+          <div className="grid gap-2 sm:grid-cols-[1fr_110px_88px]">
+            <Input
+              aria-label="Nome do beneficiário"
+              placeholder="Nome do beneficiário"
+              className="h-8"
+              value={form.beneficiaryName}
+              onChange={(event) =>
+                setForm({ ...form, beneficiaryName: event.target.value })
+              }
+            />
+            <Input
+              aria-label="Valor mensal (R$)"
+              placeholder="Valor (R$)"
+              className="h-8 text-right tabular-nums"
+              value={form.amount}
+              onChange={(event) => setForm({ ...form, amount: event.target.value })}
+            />
+            <Select
+              value={form.paymentMethod}
+              onValueChange={(value) =>
+                setForm({
+                  ...form,
+                  paymentMethod: value as EmployeeSummary["paymentMethod"],
+                })
+              }
+            >
+              <SelectTrigger className="h-8" aria-label="Forma de pagamento">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(["pix", "tbi", "other"] as const).map((method) => (
+                  <SelectItem key={method} value={method}>
+                    {PAYMENT_METHOD_LABEL[method]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Input
+            aria-label="Chave PIX do beneficiário"
+            placeholder="Chave PIX do beneficiário"
+            className="h-8"
+            value={form.pixKey}
+            onChange={(event) => setForm({ ...form, pixKey: event.target.value })}
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setAdding(false);
+                setForm(emptyAlimonyForm);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button size="sm" disabled={submitting} onClick={() => void handleCreate()}>
+              Cadastrar pensão
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -553,7 +900,7 @@ export function EmployeeDetailDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
       <DialogTrigger render={<Button variant="outline" size="sm" />}>
-        <Pencil className="size-3.5" />
+        <Pencil />
         Detalhe
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
@@ -576,6 +923,10 @@ export function EmployeeDetailDialog({
               {employee.code ?? "—"}
             </p>
             <p>
+              <span className="text-muted-foreground">Equipe:</span>{" "}
+              {STAFF_GROUP_LABELS[employee.staffGroup]}
+            </p>
+            <p>
               <span className="text-muted-foreground">Cargo:</span>{" "}
               {employee.jobTitle ?? "—"}
             </p>
@@ -585,13 +936,22 @@ export function EmployeeDetailDialog({
             </p>
             <p>
               <span className="text-muted-foreground">Pagamento:</span>{" "}
-              {employee.paymentMethod.toUpperCase()}
+              {PAYMENT_METHOD_LABEL[employee.paymentMethod]}
             </p>
             <p>
               <span className="text-muted-foreground">Salário base:</span>{" "}
               {formatCentsInput(employee.baseSalaryCents)}
             </p>
-            {!employee.archivedAt ? <AppUserSection employee={employee} /> : null}
+            <p>
+              <span className="text-muted-foreground">Benefícios:</span>{" "}
+              {describeBenefits(employee)}
+            </p>
+            {!employee.archivedAt ? (
+              <>
+                <LoansSection employee={employee} />
+                <AlimonySection employee={employee} />
+              </>
+            ) : null}
           </div>
         )}
         <DialogFooter className="gap-2 sm:justify-between">
@@ -610,7 +970,7 @@ export function EmployeeDetailDialog({
                     )
                 }
               >
-                <RotateCcw className="mr-1 size-3.5" />
+                <RotateCcw />
                 Restaurar
               </Button>
             ) : (
@@ -630,7 +990,7 @@ export function EmployeeDetailDialog({
                     )
                 }
               >
-                <Archive className="mr-1 size-3.5" />
+                <Archive />
                 Arquivar
               </Button>
             )}

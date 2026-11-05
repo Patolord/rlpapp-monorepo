@@ -225,7 +225,7 @@ function OfflineContent({
       {cached?.equipment ? (
         <>
           <Card>
-            <CardContent className="pt-4">
+            <CardContent>
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <Tag className="h-4 w-4 text-muted-foreground" />

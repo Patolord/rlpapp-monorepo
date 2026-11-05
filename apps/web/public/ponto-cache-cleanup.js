@@ -1,5 +1,7 @@
 /* Remove páginas do ponto e fotos de marcação que versões anteriores do
- * service worker possam ter guardado nos caches genéricos ("pages"/"media"). */
+ * service worker possam ter guardado nos caches genéricos ("pages"/"media").
+ * Até out/2026 o painel carregava as fotos direto do sistema de ponto antigo
+ * (rhid.com.br), que podem estar no cache de imagens de navegadores antigos. */
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {

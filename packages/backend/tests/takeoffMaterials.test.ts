@@ -1,13 +1,25 @@
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { api, internal } from "../convex/_generated/api";
+import { describe, expect, test } from "vitest";
+import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
+import { listTakeoffCatalog } from "../convex/model/procurement/takeoffCatalog";
 import {
   TAKEOFF_PRICE_SUPPLIER,
+  type TakeoffMaterialProposalInput,
   parseTakeoffMaterialProposal,
+  proposeTakeoffMaterial,
 } from "../convex/model/procurement/takeoffProposals";
 import { setup } from "./helpers";
 
 const NOW = Date.UTC(2026, 9, 23);
+
+type TestConvex = ReturnType<typeof setup>;
+
+/** The proposal logic behind `takeoffMaterials.proposeAsUser`, without the auth wrapper. */
+const propose = (t: TestConvex, input: TakeoffMaterialProposalInput) =>
+  t.run((ctx) => proposeTakeoffMaterial(ctx, input));
+
+/** The catalog behind `takeoffCatalog.current`, at a fixed instant. */
+const listCatalog = (t: TestConvex) => t.run((ctx) => listTakeoffCatalog(ctx, NOW));
 
 async function seedPurchasing() {
   const t = setup();
@@ -15,8 +27,7 @@ async function seedPurchasing() {
     await ctx.db.insert("users", {
       name: "Compras",
       clerkId: "purchasing",
-      role: "operator",
-      department: "compras",
+      roles: ["compras"],
       isActive: true,
       createdAt: Date.now(),
     });
@@ -55,6 +66,14 @@ describe("parseTakeoffMaterialProposal", () => {
         dimensions: { widthMm: "300" },
       })
     ).toMatchObject({ ok: false, error: expect.stringContaining("widthMm") });
+    // zero passaria pelo parser e só falharia em sanitizeDimensions (500)
+    expect(
+      parseTakeoffMaterialProposal({
+        clientId: "c1",
+        name: "Duto",
+        dimensions: { widthMm: 300, heightMm: 0 },
+      })
+    ).toMatchObject({ ok: false, error: expect.stringContaining("heightMm") });
   });
 
   test("trims text and drops empty strings", () => {
@@ -86,10 +105,10 @@ describe("parseTakeoffMaterialProposal", () => {
   });
 });
 
-describe("takeoffMaterials.propose", () => {
+describe("proposeTakeoffMaterial", () => {
   test("creates a draft with SKU and a queued estimate", async () => {
     const { t } = await seedPurchasing();
-    const result = await t.mutation(internal.takeoffMaterials.propose, {
+    const result = await propose(t, {
       clientId: "line-1",
       name: "Damper corta-fogo",
       variantLabel: "300x200mm",
@@ -151,8 +170,8 @@ describe("takeoffMaterials.propose", () => {
       unit: "un",
       unitPrice: 80,
     };
-    const first = await t.mutation(internal.takeoffMaterials.propose, args);
-    const second = await t.mutation(internal.takeoffMaterials.propose, args);
+    const first = await propose(t, args);
+    const second = await propose(t, args);
     expect(second).toMatchObject({
       outcome: "replayed",
       materialId: first.materialId,
@@ -176,7 +195,7 @@ describe("takeoffMaterials.propose", () => {
       unit: "m",
     });
 
-    const result = await t.mutation(internal.takeoffMaterials.propose, {
+    const result = await propose(t, {
       clientId: "line-3",
       name: "tubo de cobre",
       variantLabel: '1/2"',
@@ -201,7 +220,7 @@ describe("takeoffMaterials.propose", () => {
       variantLabel: '1/2"',
       unit: "m",
     });
-    const result = await t.mutation(internal.takeoffMaterials.propose, {
+    const result = await propose(t, {
       clientId: "line-4",
       name: "Tubo de Cobre",
       variantLabel: '3/4"',
@@ -223,7 +242,7 @@ describe("takeoffMaterials.propose", () => {
       name: "Isolamento térmico",
       unit: "m",
     });
-    const result = await t.mutation(internal.takeoffMaterials.propose, {
+    const result = await propose(t, {
       clientId: "line-5",
       materialId,
       unitPrice: 19.9,
@@ -232,7 +251,7 @@ describe("takeoffMaterials.propose", () => {
     expect(result.priceEventId).toBeTruthy();
 
     await expect(
-      t.mutation(internal.takeoffMaterials.propose, {
+      propose(t, {
         clientId: "line-6",
         materialId: "not-an-id",
       })
@@ -243,14 +262,14 @@ describe("takeoffMaterials.propose", () => {
 describe("catalog export with drafts and merges", () => {
   test("drafts are exported as such and an estimate prices them", async () => {
     const { t } = await seedPurchasing();
-    const proposal = await t.mutation(internal.takeoffMaterials.propose, {
+    const proposal = await propose(t, {
       clientId: "line-7",
       name: "Damper de regulagem",
       unit: "pç",
       unitPrice: 120,
       priceDate: NOW - 1000,
     });
-    const items = await t.query(internal.takeoffCatalog.list, { now: NOW });
+    const items = await listCatalog(t);
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
       id: proposal.materialId,
@@ -279,12 +298,12 @@ describe("catalog export with drafts and merges", () => {
       source: "quote",
       occurredAt: NOW - 10_000,
     });
-    await t.mutation(internal.takeoffMaterials.propose, {
+    await propose(t, {
       clientId: "line-8",
       materialId,
       unitPrice: 99,
     });
-    const items = await t.query(internal.takeoffCatalog.list, { now: NOW });
+    const items = await listCatalog(t);
     expect(items[0]).toMatchObject({ id: materialId, materialPrice: 15 });
   });
 
@@ -302,87 +321,10 @@ describe("catalog export with drafts and merges", () => {
     });
     await purchasing.mutation(api.materials.merge, { sourceId, targetId });
 
-    const items = await t.query(internal.takeoffCatalog.list, { now: NOW });
+    const items = await listCatalog(t);
     expect(items.map((item) => [item.id, item.status, item.mergedInto])).toEqual([
       [targetId, "active", null],
       [sourceId, "archived", targetId],
     ]);
-  });
-});
-
-describe("POST /takeoff/materials", () => {
-  const originalToken = process.env.TAKEOFF_CATALOG_TOKEN;
-  beforeEach(() => {
-    process.env.TAKEOFF_CATALOG_TOKEN = "secret";
-  });
-  afterEach(() => {
-    if (originalToken === undefined) delete process.env.TAKEOFF_CATALOG_TOKEN;
-    else process.env.TAKEOFF_CATALOG_TOKEN = originalToken;
-  });
-
-  const post = (t: ReturnType<typeof setup>, body: unknown, token = "secret") =>
-    t.fetch("/takeoff/materials", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: typeof body === "string" ? body : JSON.stringify(body),
-    });
-
-  test("is disabled until a token is configured", async () => {
-    delete process.env.TAKEOFF_CATALOG_TOKEN;
-    const { t } = await seedPurchasing();
-    expect((await post(t, { clientId: "c", name: "x" })).status).toBe(503);
-  });
-
-  test("rejects a wrong token, invalid JSON and invalid bodies", async () => {
-    const { t } = await seedPurchasing();
-    expect((await post(t, { clientId: "c", name: "x" }, "nope")).status).toBe(
-      401
-    );
-    expect((await post(t, "{not json")).status).toBe(400);
-    const invalid = await post(t, { clientId: "c" });
-    expect(invalid.status).toBe(400);
-    expect(await invalid.json()).toMatchObject({
-      error: expect.stringContaining("name"),
-    });
-  });
-
-  test("answers 404 for an unknown materialId", async () => {
-    const { t } = await seedPurchasing();
-    const response = await post(t, { clientId: "c", materialId: "missing" });
-    expect(response.status).toBe(404);
-  });
-
-  test("creates the draft and returns the proposal result", async () => {
-    const { t } = await seedPurchasing();
-    const response = await post(t, {
-      clientId: "line-9",
-      name: "Veneziana de sobrepressão",
-      unit: "pç",
-      unitPrice: 310,
-    });
-    expect(response.status).toBe(200);
-    const body = (await response.json()) as Record<string, unknown>;
-    expect(body).toMatchObject({
-      outcome: "created",
-      materialStatus: "draft",
-      mergedInto: null,
-    });
-    expect(body.sku).toMatch(/^MAT-\d{6}$/);
-    expect(typeof body.materialId).toBe("string");
-    expect(typeof body.priceEventId).toBe("string");
-
-    const replay = await post(t, {
-      clientId: "line-9",
-      name: "Veneziana de sobrepressão",
-      unit: "pç",
-      unitPrice: 310,
-    });
-    expect(await replay.json()).toMatchObject({
-      outcome: "replayed",
-      materialId: body.materialId as Id<"materials">,
-    });
   });
 });

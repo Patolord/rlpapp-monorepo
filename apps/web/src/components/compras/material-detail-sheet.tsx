@@ -1,5 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
+import { formatCurrency } from "@rlpapp/shared";
 import { useMutation, useQuery } from "convex/react";
 import { Plus, Star, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -201,6 +202,14 @@ export function MaterialDetailSheet({
                   label="Marca preferida"
                   value={material.brandPreference}
                 />
+                <DetailItem
+                  label="Mão de obra"
+                  value={
+                    material.laborPriceCents != null
+                      ? `${formatCurrency(material.laborPriceCents)}${material.unit ? ` / ${material.unit}` : ""}`
+                      : null
+                  }
+                />
               </dl>
               <MaterialReplenishmentBadge
                 state={material.centralReplenishmentState}
@@ -283,7 +292,7 @@ export function MaterialDetailSheet({
                             )
                           }
                         >
-                          <Trash2 className="size-4" />
+                          <Trash2 />
                         </Button>
                       </li>
                     );
@@ -379,7 +388,7 @@ export function MaterialDetailSheet({
                     onClick={() => void handleAddOffering()}
                     disabled={!supplierId || submittingOffering}
                   >
-                    <Plus className="mr-1.5 size-4" />
+                    <Plus />
                     Vincular fornecedor
                   </Button>
                 </div>
@@ -441,7 +450,7 @@ export function MaterialDetailSheet({
                     onClick={() => void handleAddAlias()}
                     disabled={submittingAlias}
                   >
-                    <Plus className="size-4" />
+                    <Plus />
                   </Button>
                 </div>
               </div>
@@ -463,7 +472,7 @@ export function MaterialDetailSheet({
                     setPolicySheetOpen(true);
                   }}
                 >
-                  <Plus className="mr-1 size-4" />
+                  <Plus />
                   Nova política
                 </Button>
               </div>

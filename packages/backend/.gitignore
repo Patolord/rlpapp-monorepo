@@ -1,2 +1,4 @@
 
 .env.local
+# Guia de IA do Convex (`npx convex ai-files install`), gerado localmente; ver AGENTS.md.
+convex/_generated/ai/

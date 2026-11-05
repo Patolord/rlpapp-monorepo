@@ -196,8 +196,7 @@ export function MaterialPriceHistory({
         {recent.length > RECENT_LIMIT ? (
           <Button
             variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs"
+            size="xs"
             onClick={() => setShowAll((value) => !value)}
           >
             {showAll

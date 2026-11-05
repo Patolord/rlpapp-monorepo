@@ -1,5 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { MetricCard } from "@rlpapp/ui/web";
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
+import { MetricCard, MetricStrip } from "@rlpapp/ui/web";
 import { Link } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
@@ -18,14 +19,14 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   formatDateKeyLong,
   formatDuration,
   formatTime,
   initials,
-  LIVE_STATUS_BADGE_CLASS,
+  LIVE_STATUS_BADGE_VARIANT,
   LIVE_STATUS_COLOR,
   LIVE_STATUS_LABEL,
   PUNCH_KIND_LABEL,
@@ -36,13 +37,14 @@ import { cn } from "@/lib/utils";
 
 import { KindBadge } from "./day-view";
 import { PunchPhotoButton } from "./punch-photo";
-import { SyncStatusBar } from "./sync-status-bar";
 
 const TimeClockMap = lazy(() => import("./time-clock-map"));
 
 type LiveData = FunctionReturnType<typeof api.timeClock.getLiveStatus>;
 type LivePerson = LiveData["people"][number];
 type LiveWorksite = LiveData["worksites"][number];
+type UserId = Id<"users">;
+type ProjectId = Id<"projects">;
 
 /** Entrada sem saída há mais que isto provavelmente é esquecimento de bater o ponto. */
 const STALE_ON_SITE_MS = 13 * 60 * 60 * 1000;
@@ -71,8 +73,8 @@ export function TimeClockLiveView() {
   const live = useQuery(api.timeClock.getLiveStatus, { date: today });
 
   const [search, setSearch] = useState("");
-  const [selectedPerson, setSelectedPerson] = useState<number | null>(null);
-  const [selectedWorksite, setSelectedWorksite] = useState<number | null>(null);
+  const [selectedPerson, setSelectedPerson] = useState<UserId | null>(null);
+  const [selectedWorksite, setSelectedWorksite] = useState<ProjectId | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -83,26 +85,26 @@ export function TimeClockLiveView() {
       .filter(
         (person) =>
           normalize(person.name).includes(term) ||
-          normalize(person.employee?.name ?? "").includes(term) ||
-          normalize(person.department ?? "").includes(term)
+          normalize(person.login ?? "").includes(term) ||
+          normalize(person.projectName ?? "").includes(term)
       )
       .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
   }, [live, term]);
 
   const peopleById = useMemo(
-    () => new Map((live?.people ?? []).map((p) => [p.rhidPersonId, p])),
+    () => new Map((live?.people ?? []).map((p) => [p.userId, p])),
     [live]
   );
   const selected = selectedPerson === null ? null : (peopleById.get(selectedPerson) ?? null);
   const focusedWorksite =
     selectedWorksite === null
       ? null
-      : (live?.worksites.find((w) => w.rhidGeofenceId === selectedWorksite) ?? null);
+      : (live?.worksites.find((w) => w.projectId === selectedWorksite) ?? null);
 
   const outsideFence = useMemo(
     () =>
       (live?.people ?? []).filter(
-        (p) => (p.status === "on_site" || p.status === "lunch") && p.worksiteId === null
+        (p) => (p.status === "on_site" || p.status === "lunch") && p.projectId === null
       ),
     [live]
   );
@@ -117,16 +119,16 @@ export function TimeClockLiveView() {
       (live?.people ?? [])
         .filter((p) => p.latitude !== null && p.longitude !== null && p.status !== "absent")
         .map((p) => ({
-          id: String(p.rhidPersonId),
-          groupId: p.rhidPersonId,
+          id: p.userId,
+          groupId: p.userId,
           latitude: p.latitude as number,
           longitude: p.longitude as number,
           color: LIVE_STATUS_COLOR[p.status],
           title: p.name,
           lines: [
             `${LIVE_STATUS_LABEL[p.status]} desde ${formatTime(p.since)}`,
-            p.worksiteName
-              ? `${p.locationExact ? "Em" : "Perto de"} ${p.worksiteName}`
+            p.projectName
+              ? `${p.locationExact ? "Em" : "Perto de"} ${p.projectName}`
               : "Fora de cerca",
           ],
           photoPunchId: p.photoPunchId,
@@ -137,23 +139,22 @@ export function TimeClockLiveView() {
   const mapWorksites = useMemo(
     () =>
       (live?.worksites ?? []).map((w) => ({
-        rhidGeofenceId: w.rhidGeofenceId,
+        projectId: w.projectId,
         name: w.name,
         latitude: w.latitude,
         longitude: w.longitude,
-        radius: w.radius,
+        radiusMeters: w.radiusMeters,
         caption: `${w.onSite} agora${w.lunch ? ` · ${w.lunch} em almoço` : ""}`,
-        projectName: w.projectName,
-        highlighted: w.rhidGeofenceId === selectedWorksite,
+        highlighted: w.projectId === selectedWorksite,
       })),
     [live, selectedWorksite]
   );
 
-  function pickPerson(id: number | null) {
+  function pickPerson(id: UserId | null) {
     setSelectedPerson(id);
     if (id !== null) setSelectedWorksite(null);
   }
-  function pickWorksite(id: number | null) {
+  function pickWorksite(id: ProjectId | null) {
     setSelectedWorksite((current) => (current === id ? null : id));
     setSelectedPerson(null);
   }
@@ -162,7 +163,7 @@ export function TimeClockLiveView() {
     <div className="space-y-6">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <p className="text-sm text-muted-foreground">
-          {formatDateKeyLong(today)} · atualiza automaticamente a cada sincronização
+          {formatDateKeyLong(today)} · atualiza sozinho a cada marcação
         </p>
         <Link
           to="/rh/ponto/dia"
@@ -173,11 +174,9 @@ export function TimeClockLiveView() {
         </Link>
       </div>
 
-      <SyncStatusBar range={{ from: today, to: today }} label="Atualizar agora" />
-
       {/* Onde está…? */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent>
           <div className="relative">
             <Search className="absolute top-3 left-3 size-5 text-muted-foreground" />
             <Input
@@ -216,14 +215,14 @@ export function TimeClockLiveView() {
               ) : (
                 <ul className="grid gap-3 md:grid-cols-2">
                   {matches.slice(0, 6).map((person) => (
-                    <li key={person.rhidPersonId}>
+                    <li key={person.userId}>
                       <PersonAnswer
                         person={person}
                         now={now}
-                        expanded={selectedPerson === person.rhidPersonId}
+                        expanded={selectedPerson === person.userId}
                         onToggle={() =>
                           pickPerson(
-                            selectedPerson === person.rhidPersonId ? null : person.rhidPersonId
+                            selectedPerson === person.userId ? null : person.userId
                           )
                         }
                       />
@@ -241,7 +240,7 @@ export function TimeClockLiveView() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricStrip>
         <MetricCard
           title="Na obra agora"
           value={live ? live.summary.onSite : "—"}
@@ -270,7 +269,7 @@ export function TimeClockLiveView() {
           }
           icon={<UserX className="size-4 text-rose-600" />}
         />
-      </div>
+      </MetricStrip>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         {/* Quem está em cada obra */}
@@ -284,17 +283,20 @@ export function TimeClockLiveView() {
                 <p className="text-muted-foreground">Carregando...</p>
               ) : live.worksites.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Nenhuma cerca conhecida ainda. Sincronize para carregar.
+                  Nenhuma obra com cerca do ponto.{" "}
+                  <Link to="/rh/ponto/configuracoes" className="text-primary hover:underline">
+                    Definir cercas
+                  </Link>
                 </p>
               ) : (
                 live.worksites.map((worksite) => (
                   <WorksiteBoard
-                    key={worksite.rhidGeofenceId}
+                    key={worksite.projectId}
                     worksite={worksite}
                     now={now}
-                    selected={selectedWorksite === worksite.rhidGeofenceId}
+                    selected={selectedWorksite === worksite.projectId}
                     selectedPerson={selectedPerson}
-                    onSelect={() => pickWorksite(worksite.rhidGeofenceId)}
+                    onSelect={() => pickWorksite(worksite.projectId)}
                     onSelectPerson={(id) => pickPerson(selectedPerson === id ? null : id)}
                   />
                 ))
@@ -340,14 +342,16 @@ export function TimeClockLiveView() {
         {/* Mapa + detalhe */}
         <div className="min-w-0 space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader>
               <CardTitle className="text-base">
                 {focusedWorksite ? `Mapa · ${focusedWorksite.name}` : "Mapa agora"}
               </CardTitle>
               {focusedWorksite ? (
-                <Button variant="ghost" size="xs" onClick={() => setSelectedWorksite(null)}>
-                  Ver tudo
-                </Button>
+                <CardAction>
+                  <Button variant="ghost" size="xs" onClick={() => setSelectedWorksite(null)}>
+                    Ver tudo
+                  </Button>
+                </CardAction>
               ) : null}
             </CardHeader>
             <CardContent className="space-y-3">
@@ -403,8 +407,8 @@ export function TimeClockLiveView() {
 function statusSentence(person: LivePerson, now: number): string {
   const since = person.since;
   const elapsed = since === null ? null : formatDuration(now - since);
-  const where = person.worksiteName
-    ? `${person.locationExact ? "em" : "perto de"} ${person.worksiteName}`
+  const where = person.projectName
+    ? `${person.locationExact ? "em" : "perto de"} ${person.projectName}`
     : person.latitude !== null
       ? "fora de cerca"
       : "em local sem GPS";
@@ -412,7 +416,7 @@ function statusSentence(person: LivePerson, now: number): string {
     case "on_site":
       return `Está ${where} desde ${formatTime(since)}${elapsed ? ` (${elapsed})` : ""}.`;
     case "lunch":
-      return `Saiu para almoço às ${formatTime(since)}${elapsed ? ` (há ${elapsed})` : ""}, ${person.worksiteName ? `em ${person.worksiteName}` : where}.`;
+      return `Saiu para almoço às ${formatTime(since)}${elapsed ? ` (há ${elapsed})` : ""}, ${person.projectName ? `em ${person.projectName}` : where}.`;
     case "left":
       return `Encerrou o dia às ${formatTime(since)} ${where}.`;
     default:
@@ -453,16 +457,14 @@ function PersonAnswer({
           <span className="truncate font-semibold">{person.name}</span>
           <StatusBadge status={person.status} />
           {stale ? (
-            <Badge variant="outline" className="border-amber-300 text-amber-700">
+            <Badge variant="warning">
               <AlertTriangle className="mr-1 size-3" /> sem saída há {formatDuration(now - person.since!)}
             </Badge>
           ) : null}
         </div>
         <p className="mt-1 text-sm">{statusSentence(person, now)}</p>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          {person.employee
-            ? `${person.employee.jobTitle ?? "Funcionário"}${person.employee.code ? ` · cód. ${person.employee.code}` : ""}`
-            : (person.department ?? "sem departamento")}
+          {person.login ?? "—"}
           {person.punches.length > 0
             ? ` · ${person.punches.length} ${person.punches.length === 1 ? "marcação" : "marcações"} hoje`
             : ""}
@@ -491,9 +493,9 @@ function WorksiteBoard({
   worksite: LiveWorksite;
   now: number;
   selected: boolean;
-  selectedPerson: number | null;
+  selectedPerson: UserId | null;
   onSelect: () => void;
-  onSelectPerson: (id: number) => void;
+  onSelectPerson: (id: UserId) => void;
 }) {
   const current = worksite.people.filter((p) => p.status !== "left");
   const leftCount = worksite.left;
@@ -516,7 +518,7 @@ function WorksiteBoard({
             <span className="truncate font-medium">{worksite.name}</span>
           </div>
           <div className="truncate text-xs text-muted-foreground">
-            {worksite.projectName ?? "sem obra vinculada"}
+            raio {Math.round(worksite.radiusMeters)} m
             {leftCount > 0 ? ` · ${leftCount} já ${leftCount === 1 ? "saiu" : "saíram"}` : ""}
           </div>
         </div>
@@ -542,15 +544,15 @@ function WorksiteBoard({
       {current.length > 0 ? (
         <ul className="flex flex-wrap gap-1.5 border-t border-border px-3 py-2">
           {current.map((person) => (
-            <li key={person.rhidPersonId}>
+            <li key={person.userId}>
               <PersonChip
                 name={person.name}
                 status={person.status}
                 since={person.since}
                 now={now}
                 exact={person.locationExact}
-                active={selectedPerson === person.rhidPersonId}
-                onClick={() => onSelectPerson(person.rhidPersonId)}
+                active={selectedPerson === person.userId}
+                onClick={() => onSelectPerson(person.userId)}
               />
             </li>
           ))}
@@ -579,8 +581,8 @@ function GroupBoard({
   subtitle?: string;
   people: LivePerson[];
   now: number;
-  selectedPerson: number | null;
-  onSelectPerson: (id: number) => void;
+  selectedPerson: UserId | null;
+  onSelectPerson: (id: UserId) => void;
   muted?: boolean;
 }) {
   return (
@@ -599,15 +601,15 @@ function GroupBoard({
       </div>
       <ul className="flex flex-wrap gap-1.5 border-t border-border px-3 py-2">
         {people.map((person) => (
-          <li key={person.rhidPersonId}>
+          <li key={person.userId}>
             <PersonChip
               name={person.name}
               status={person.status}
               since={person.since}
               now={now}
               exact={person.locationExact}
-              active={selectedPerson === person.rhidPersonId}
-              onClick={() => onSelectPerson(person.rhidPersonId)}
+              active={selectedPerson === person.userId}
+              onClick={() => onSelectPerson(person.userId)}
               hideTime={person.status === "absent"}
             />
           </li>
@@ -680,7 +682,7 @@ function PersonDetail({
 }) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-3">
+      <CardHeader>
         <div className="flex items-center gap-3">
           <Avatar person={person} size="lg" />
           <div>
@@ -688,9 +690,11 @@ function PersonDetail({
             <p className="text-sm">{statusSentence(person, now)}</p>
           </div>
         </div>
-        <Button variant="ghost" size="xs" onClick={onClose}>
-          Fechar
-        </Button>
+        <CardAction>
+          <Button variant="ghost" size="xs" onClick={onClose}>
+            Fechar
+          </Button>
+        </CardAction>
       </CardHeader>
       <CardContent>
         {person.punches.length === 0 ? (
@@ -705,7 +709,7 @@ function PersonDetail({
                 <span className="font-mono tabular-nums">{punch.timeLabel}</span>
                 <KindBadge kind={punch.kind} />
                 <span className="truncate text-muted-foreground">
-                  {punch.geofenceName ?? "fora de cerca"}
+                  {punch.projectName ?? "fora de cerca"}
                 </span>
               </li>
             ))}
@@ -726,7 +730,7 @@ function PersonDetail({
 
 function StatusBadge({ status }: { status: LiveStatus }) {
   return (
-    <Badge variant="outline" className={LIVE_STATUS_BADGE_CLASS[status]}>
+    <Badge variant={LIVE_STATUS_BADGE_VARIANT[status]}>
       {LIVE_STATUS_LABEL[status]}
     </Badge>
   );

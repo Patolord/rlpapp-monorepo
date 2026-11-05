@@ -1,7 +1,8 @@
 import { Outlet } from "@tanstack/react-router";
 
 import { AppSidebar } from "@/components/app-sidebar";
-import { RoleAreaGate, type DepartmentArea } from "@/components/role-area-gate";
+import { RoleAreaGate } from "@/components/role-area-gate";
+import type { DepartmentArea } from "@/lib/areas";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
@@ -11,7 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * Layout padrão das áreas de departamento (engenharia, rh):
+ * Layout padrão das áreas internas (engenharia, compras, estoque, rh, backoffice, configuracoes):
  * gate de acesso por departamento + sidebar + header.
  * `printable` esconde o chrome na impressão (usado pela engenharia).
  * Sem `area`, só bloqueia qr_operator (páginas pessoais como /conta).
@@ -30,7 +31,7 @@ export function DepartmentLayout({
         <SidebarInset className="bg-[#f7f8fc]">
           <header
             className={cn(
-              "flex h-16 shrink-0 items-center gap-2 border-b border-slate-100 bg-[#f7f8fc] transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12",
+              "flex h-16 shrink-0 items-center gap-2 border-b border-slate-100 bg-[#f7f8fc] transition-[height] duration-200 ease-snappy group-has-data-[collapsible=icon]/sidebar-wrapper:h-12",
               printable && "print:hidden"
             )}
           >

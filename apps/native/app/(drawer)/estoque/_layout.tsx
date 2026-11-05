@@ -13,10 +13,9 @@ export default function EstoqueTabsLayout() {
   const navigation = useNavigation<{ openDrawer: () => void }>();
 
   const currentUser = useQuery(api.users.getCurrentUser);
-  const isEngineer =
-    currentUser?.role === "director" ||
-    currentUser?.role === "engenheiro" ||
-    currentUser?.role === "admin";
+  // Aprovações de exceções de estoque são decididas pelo engenheiro
+  // responsável pela obra (regra por recurso no backend).
+  const isEngineer = currentUser?.roles.includes("engenheiro") ?? false;
 
   const bg = colors.bg;
   const inactive = colors.icon;

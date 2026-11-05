@@ -1,13 +1,14 @@
 import { ConvexError } from "convex/values";
 import { describe, expect, test } from "vitest";
-import { api, internal } from "../convex/_generated/api";
+import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
-import { toBrtDateKey } from "../convex/lib/rh/rhid";
+import { toBrtDateKey } from "../convex/lib/rh/timeClock";
 import {
   buildPunchHash,
   classifyGeofence,
   distanceMeters,
   isDuplicatePunch,
+  isPunchPhotoType,
   nextSequence,
   punchHashPayload,
   sha256Hex,
@@ -15,7 +16,7 @@ import {
 import { setup, withUser } from "./helpers";
 
 const POS = { latitude: -23.5290093, longitude: -46.6738077 };
-const OBRA = { ...POS, radius: 500 };
+const OBRA = { ...POS, radiusMeters: 500 };
 
 describe("timeClockPunch lib", () => {
   test("sha256 bate com os vetores conhecidos", () => {
@@ -35,11 +36,11 @@ describe("timeClockPunch lib", () => {
     const input = {
       nsr: 7,
       employerId: "RLP",
-      employeeId: "emp1",
+      personId: "user1",
       cpf: "12345678909",
       punchedAt: Date.UTC(2026, 0, 14, 10, 0, 0),
     };
-    expect(punchHashPayload(input)).toBe("7|RLP|emp1|12345678909|2026-01-14T10:00:00.000Z");
+    expect(punchHashPayload(input)).toBe("7|RLP|user1|12345678909|2026-01-14T10:00:00.000Z");
     expect(buildPunchHash(input)).toBe(buildPunchHash({ ...input }));
     expect(buildPunchHash(input)).not.toBe(buildPunchHash({ ...input, nsr: 8 }));
     expect(buildPunchHash(input)).toMatch(/^[0-9a-f]{64}$/);
@@ -55,7 +56,7 @@ describe("timeClockPunch lib", () => {
 
     const fences = [
       { id: "a", ...OBRA },
-      { id: "b", latitude: -23.6, longitude: -46.7, radius: 200 },
+      { id: "b", latitude: -23.6, longitude: -46.7, radiusMeters: 200 },
     ];
     expect(classifyGeofence(OBRA, fences)).toMatchObject({ status: "inside", worksite: { id: "a" } });
     expect(classifyGeofence(far, fences)).toMatchObject({
@@ -64,6 +65,13 @@ describe("timeClockPunch lib", () => {
     });
     expect(classifyGeofence(null, fences).status).toBe("not_controlled");
     expect(classifyGeofence(OBRA, []).status).toBe("not_controlled");
+  });
+
+  test("só formatos raster valem como foto da marcação", () => {
+    expect(isPunchPhotoType("image/jpeg")).toBe(true);
+    expect(isPunchPhotoType("image/png; charset=binary")).toBe(true);
+    expect(isPunchPhotoType("image/svg+xml")).toBe(false);
+    expect(isPunchPhotoType(undefined)).toBe(false);
   });
 
   test("janela de repetição e posição no dia", () => {
@@ -82,54 +90,40 @@ async function seed() {
   const worker = await withUser(t, {
     clerkId: "worker-1",
     name: "Edilson Bispo",
-    email: "edilson@rlp.com.br",
-    role: "qr_operator",
+    roles: ["qr_operator"],
+    permissionGrants: ["ponto.registrar"],
   });
   const stranger = await withUser(t, {
     clerkId: "stranger-1",
-    name: "Sem Vínculo",
-    role: "operator",
+    name: "Sem Ponto",
+    roles: ["qr_operator"],
   });
   const hr = await withUser(t, {
     clerkId: "hr-1",
     name: "RH",
-    role: "operator",
-    department: "rh",
+    roles: ["rh"],
   });
-  const { employeeId, userId } = await t.run(async (ctx) => {
+  const { userId, projectId } = await t.run(async (ctx) => {
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", "worker-1"))
       .unique();
-    const employeeId = await ctx.db.insert("employees", {
-      name: "Edilson Bispo",
-      nameNormalized: "edilson bispo",
-      cpf: "123.456.789-09",
-      cpfNormalized: "12345678909",
-      email: "edilson@rlp.com.br",
-      status: "active",
-      paymentMethod: "pix",
-      baseSalaryCents: 300_000,
-      receivesFoodBasket: false,
-      dailyTransitCents: 0,
-      defaultTransportFoodDays: 22,
-      createdAt: Date.now(),
-    });
-    await ctx.db.insert("rhidWorksites", {
-      rhidGeofenceId: 1,
+    const projectId = await ctx.db.insert("projects", {
       name: "Escritório RLP",
-      ...OBRA,
-      lastSeenAt: Date.now(),
-      updatedAt: Date.now(),
+      floors: [],
+      createdAt: Date.now(),
+      geofence: OBRA,
     });
-    return { employeeId, userId: user!._id };
+    // Obra sem cerca não entra na classificação.
+    await ctx.db.insert("projects", { name: "Obra sem cerca", floors: [], createdAt: Date.now() });
+    return { userId: user!._id, projectId };
   });
-  return { t, worker, stranger, hr, employeeId, userId };
+  return { t, worker, stranger, hr, userId, projectId };
 }
 
 describe("timeClockPunch: registro pelo app", () => {
-  test("vincula por email, registra dentro da cerca e emite comprovante", async () => {
-    const { t, worker, employeeId, userId } = await seed();
+  test("registra dentro da cerca da obra e emite comprovante no nome do usuário", async () => {
+    const { t, worker, userId, projectId } = await seed();
     const receipt = await worker.mutation(api.timeClockPunch.register, {
       clientPunchId: "c1",
       capturedAt: Date.now(),
@@ -138,7 +132,7 @@ describe("timeClockPunch: registro pelo app", () => {
       deviceModel: "Pixel 8",
     });
     expect(receipt).toMatchObject({
-      employeeName: "Edilson Bispo",
+      personName: "Edilson Bispo",
       sequence: 0,
       kind: "entrada",
       geofenceStatus: "inside",
@@ -149,25 +143,40 @@ describe("timeClockPunch: registro pelo app", () => {
     expect(receipt.hash).toMatch(/^[0-9a-f]{64}$/);
     expect(receipt.date).toBe(toBrtDateKey(receipt.punchedAt));
 
-    // Vínculo por email ficou gravado.
-    const employee = await t.run((ctx) => ctx.db.get("employees", employeeId));
-    expect(employee?.userId).toBe(userId);
+    const stored = await t.run((ctx) => ctx.db.get("clockPunches", receipt.punchId));
+    expect(stored).toMatchObject({ userId, projectId, geofenceStatus: "inside" });
+    const day = await t.run((ctx) =>
+      ctx.db
+        .query("clockDays")
+        .withIndex("by_user_and_date", (q) => q.eq("userId", userId).eq("date", receipt.date))
+        .unique()
+    );
+    expect(day).toMatchObject({ projectId, punchCount: 1, lastKind: "entrada" });
 
     const context = await worker.query(api.timeClockPunch.getContext, { date: receipt.date });
-    expect(context.employee?._id).toBe(employeeId);
+    expect(context.allowed).toBe(true);
+    expect(context.personName).toBe("Edilson Bispo");
     expect(context.rules).toEqual({
       photoRequired: false,
       locationRequired: true,
       duplicateWindowMinutes: 1,
     });
-    expect(context.worksites).toHaveLength(1);
+    expect(context.worksites).toEqual([
+      { projectId, name: "Escritório RLP", ...OBRA },
+    ]);
     expect(context.punches).toHaveLength(1);
     expect(context.punches[0]).toMatchObject({
-      source: "app",
       kind: "entrada",
       geofenceStatus: "inside",
+      worksiteName: "Escritório RLP",
       nsr: 1,
     });
+
+    const history = await worker.query(api.timeClockPunch.myPunches, {
+      from: receipt.date,
+      to: receipt.date,
+    });
+    expect(history.map((punch) => punch._id)).toEqual([receipt.punchId]);
   });
 
   test("reenvio com o mesmo clientPunchId devolve o mesmo comprovante", async () => {
@@ -250,12 +259,33 @@ describe("timeClockPunch: registro pelo app", () => {
     ).rejects.toThrow(/expirada/);
   });
 
-  test("usuário sem funcionário é recusado e o contexto volta vazio", async () => {
+  test("foto que não é JPEG/PNG/WebP (ex.: SVG) nunca é entregue ao painel", async () => {
+    const { t, worker, hr } = await seed();
+    const svgId = await t.run((ctx) =>
+      ctx.storage.store(
+        new Blob(["<svg xmlns='http://www.w3.org/2000/svg'/>"], { type: "image/svg+xml" })
+      )
+    );
+    // O convex-test não grava o tipo do upload; em produção o registro já
+    // recusa. A rota de entrega confere o arquivo de qualquer forma.
+    const receipt = await worker.mutation(api.timeClockPunch.register, {
+      clientPunchId: "svg",
+      capturedAt: Date.now(),
+      photoStorageId: svgId as Id<"_storage">,
+      photoCapturedAt: Date.now(),
+      ...POS,
+    });
+    const response = await hr.fetch(`/time-clock/photo/${receipt.punchId}`, { method: "GET" });
+    expect(response.status).toBe(404);
+  });
+
+  test("usuário sem a permissão de bater ponto é recusado e o contexto diz isso", async () => {
     const { stranger } = await seed();
     const context = await stranger.query(api.timeClockPunch.getContext, {
       date: toBrtDateKey(Date.now()),
     });
-    expect(context.employee).toBeNull();
+    expect(context.allowed).toBe(false);
+    expect(context.worksites).toEqual([]);
     expect(context.punches).toEqual([]);
     await expect(
       stranger.mutation(api.timeClockPunch.register, {
@@ -263,7 +293,10 @@ describe("timeClockPunch: registro pelo app", () => {
         capturedAt: Date.now(),
         ...POS,
       })
-    ).rejects.toThrow(ConvexError);
+    ).rejects.toThrow(/não bate ponto/);
+    await expect(
+      stranger.mutation(api.timeClockPunch.generatePhotoUploadUrl, {})
+    ).rejects.toThrow(/não bate ponto/);
   });
 
   test("marcações offline mantêm o horário do aparelho e ordenam o dia", async () => {
@@ -286,7 +319,7 @@ describe("timeClockPunch: registro pelo app", () => {
     if (offline.date === online.date) {
       expect(offline.sequence).toBe(0);
       expect(offline.kind).toBe("entrada");
-      const later = await t.run((ctx) => ctx.db.get("timeClockPunches", online.punchId));
+      const later = await t.run((ctx) => ctx.db.get("clockPunches", online.punchId));
       expect(later?.sequence).toBe(1);
       expect(later?.kind).toBe("almoco_saida");
     }
@@ -300,102 +333,25 @@ describe("timeClockPunch: registro pelo app", () => {
     ).rejects.toThrow(/7 dias/);
   });
 
-  test("funcionário vinculado ao RHID: app aparece no espelho e a sync não apaga", async () => {
-    const { t, worker, hr, employeeId } = await seed();
-    const syncedAt = Date.now();
-    await t.mutation(internal.timeClock.upsertPeopleBatch, {
-      people: [{ rhidPersonId: 42, name: "Edilson Bispo", cpf: "12345678909" }],
-      syncedAt,
-      fromRoster: true,
-    });
-    const linked = await t.run(async (ctx) =>
-      ctx.db
-        .query("rhidPeople")
-        .withIndex("by_rhid_person_id", (q) => q.eq("rhidPersonId", 42))
-        .unique()
-    );
-    expect(linked?.employeeId).toBe(employeeId);
-
-    const receipt = await worker.mutation(api.timeClockPunch.register, {
-      clientPunchId: "linked",
+  test("clientPunchId de outro usuário não é reaproveitado", async () => {
+    const { t, worker } = await seed();
+    await worker.mutation(api.timeClockPunch.register, {
+      clientPunchId: "shared",
       capturedAt: Date.now(),
       ...POS,
     });
-
-    const day = await hr.query(api.timeClock.getDay, { date: receipt.date });
-    const me = day.people.find((person) => person.rhidPersonId === 42);
-    expect(me?.present).toBe(true);
-    expect(me?.punchCount).toBe(1);
-    expect(day.punches.some((punch) => punch._id === receipt.punchId && punch.source === "app")).toBe(
-      true
-    );
-
-    // Sincronização do RHID sem marcações para o dia: a do app sobrevive.
-    await t.mutation(internal.timeClock.replaceDay, {
-      date: receipt.date,
-      punches: [],
-      syncedAt: Date.now(),
+    const other = await withUser(t, {
+      clerkId: "worker-2",
+      name: "Outro",
+      roles: [],
+      permissionGrants: ["ponto.registrar"],
     });
-    const stillThere = await t.run((ctx) => ctx.db.get("timeClockPunches", receipt.punchId));
-    expect(stillThere).not.toBeNull();
-    const summary = await t.run(async (ctx) =>
-      ctx.db
-        .query("timeClockDays")
-        .withIndex("by_person_and_date", (q) => q.eq("rhidPersonId", 42).eq("date", receipt.date))
-        .first()
-    );
-    expect(summary?.punchCount).toBe(1);
-  });
-
-  test("vínculo por e-mail não toma um funcionário já vinculado a outro usuário", async () => {
-    const { t, worker, hr, employeeId } = await seed();
-    const otherUserId = await t.run(async (ctx) =>
-      ctx.db.insert("users", {
-        name: "Outro Usuário",
-        clerkId: "other-1",
-        role: "qr_operator",
-        isActive: true,
-        createdAt: Date.now(),
-      })
-    );
-    await hr.mutation(api.employees.linkUser, { employeeId, userId: otherUserId });
-    // worker tem o mesmo e-mail do funcionário, mas o RH vinculou outro usuário.
     await expect(
-      worker.mutation(api.timeClockPunch.register, {
-        clientPunchId: "takeover",
+      other.mutation(api.timeClockPunch.register, {
+        clientPunchId: "shared",
         capturedAt: Date.now(),
         ...POS,
       })
-    ).rejects.toThrow(/não está vinculado/);
-    const employee = await t.run((ctx) => ctx.db.get("employees", employeeId));
-    expect(employee?.userId).toBe(otherUserId);
-  });
-
-  test("RH vincula e desvincula usuário ao funcionário", async () => {
-    const { t, hr, employeeId, userId } = await seed();
-    await hr.mutation(api.employees.linkUser, { employeeId, userId });
-    let employee = await t.run((ctx) => ctx.db.get("employees", employeeId));
-    expect(employee?.userId).toBe(userId);
-
-    const otherId = await t.run((ctx) =>
-      ctx.db.insert("employees", {
-        name: "Outro",
-        nameNormalized: "outro",
-        status: "active",
-        paymentMethod: "pix",
-        baseSalaryCents: 0,
-        receivesFoodBasket: false,
-        dailyTransitCents: 0,
-        defaultTransportFoodDays: 0,
-        createdAt: Date.now(),
-      })
-    );
-    await expect(
-      hr.mutation(api.employees.linkUser, { employeeId: otherId, userId })
-    ).rejects.toThrow(/já está vinculado/);
-
-    await hr.mutation(api.employees.linkUser, { employeeId, userId: null });
-    employee = await t.run((ctx) => ctx.db.get("employees", employeeId));
-    expect(employee?.userId).toBeUndefined();
+    ).rejects.toThrow(/já utilizado/);
   });
 });

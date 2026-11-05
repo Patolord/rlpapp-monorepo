@@ -104,7 +104,7 @@ export function NewTowerDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={saving || !name.trim()}>
-              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {saving && <Loader2 className="animate-spin" />}
               Criar torre
             </Button>
           </DialogFooter>
@@ -184,7 +184,7 @@ export function EditTowerDialog({
               className="text-destructive hover:text-destructive"
               onClick={handleRemove}
             >
-              <Trash2 className="mr-1.5 size-4" />
+              <Trash2 />
               Remover
             </Button>
             <div className="flex gap-2">
@@ -192,7 +192,7 @@ export function EditTowerDialog({
                 Cancelar
               </Button>
               <Button type="submit" disabled={saving || !name.trim()}>
-                {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                {saving && <Loader2 className="animate-spin" />}
                 Salvar
               </Button>
             </div>
@@ -276,9 +276,9 @@ export function AddFloorsDialog({
             </Button>
             <Button type="submit" disabled={saving}>
               {saving ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
+                <Loader2 className="animate-spin" />
               ) : (
-                <Wand2 className="mr-2 size-4" />
+                <Wand2 />
               )}
               Gerar andares
             </Button>
@@ -359,7 +359,7 @@ export function EditFloorDialog({
               className="text-destructive hover:text-destructive"
               onClick={handleRemove}
             >
-              <Trash2 className="mr-1.5 size-4" />
+              <Trash2 />
               Remover
             </Button>
             <div className="flex gap-2">
@@ -367,7 +367,7 @@ export function EditFloorDialog({
                 Cancelar
               </Button>
               <Button type="submit" disabled={saving || !label.trim()}>
-                {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                {saving && <Loader2 className="animate-spin" />}
                 Salvar
               </Button>
             </div>
@@ -610,13 +610,13 @@ function MatrixPositionFields({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="size-9 shrink-0 text-destructive hover:text-destructive"
+                className="shrink-0 text-destructive hover:text-destructive"
                 onClick={() =>
                   onSegmentsChange(segments.filter((_, i) => i !== idx))
                 }
                 aria-label={`Remover segmento ${idx + 1}`}
               >
-                <Trash2 className="size-3.5" />
+                <Trash2 />
               </Button>
             </div>
           ))}
@@ -628,7 +628,7 @@ function MatrixPositionFields({
         size="xs"
         onClick={() => onSegmentsChange([...segments, { ...EMPTY_SEGMENT }])}
       >
-        <Plus className="mr-1 size-3.5" />
+        <Plus />
         Segmento extra
       </Button>
     </fieldset>
@@ -729,7 +729,7 @@ export function AddEnvironmentDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={saving || !name.trim()}>
-              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {saving && <Loader2 className="animate-spin" />}
               Criar ambiente
             </Button>
           </DialogFooter>
@@ -864,7 +864,7 @@ export function EditEnvironmentDialog({
               className="text-destructive hover:text-destructive"
               onClick={handleRemove}
             >
-              <Trash2 className="mr-1.5 size-4" />
+              <Trash2 />
               Remover
             </Button>
             <div className="flex gap-2">
@@ -872,7 +872,7 @@ export function EditEnvironmentDialog({
                 Cancelar
               </Button>
               <Button type="submit" disabled={saving || !name.trim()}>
-                {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                {saving && <Loader2 className="animate-spin" />}
                 Salvar
               </Button>
             </div>
@@ -965,7 +965,7 @@ export function NewSystemDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={saving || !name.trim()}>
-              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {saving && <Loader2 className="animate-spin" />}
               Criar sistema
             </Button>
           </DialogFooter>
@@ -1065,7 +1065,7 @@ export function EditSystemDialog({
               className="text-destructive hover:text-destructive"
               onClick={handleRemove}
             >
-              <Trash2 className="mr-1.5 size-4" />
+              <Trash2 />
               Remover
             </Button>
             <div className="flex gap-2">
@@ -1073,7 +1073,7 @@ export function EditSystemDialog({
                 Cancelar
               </Button>
               <Button type="submit" disabled={saving || !name.trim()}>
-                {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                {saving && <Loader2 className="animate-spin" />}
                 Salvar
               </Button>
             </div>
@@ -1300,7 +1300,7 @@ export function EditEquipmentDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+              {saving && <Loader2 className="animate-spin" />}
               Salvar
             </Button>
           </DialogFooter>

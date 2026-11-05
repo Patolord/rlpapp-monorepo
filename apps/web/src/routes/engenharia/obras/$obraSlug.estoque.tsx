@@ -1,5 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
+import { can } from "@rlpapp/shared/auth/permissions";
 import { createFileRoute } from "@tanstack/react-router";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { History, ClipboardList, Package, Warehouse } from "lucide-react";
@@ -18,9 +19,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
+import { PermissionGate } from "@/components/role-area-gate";
 
 export const Route = createFileRoute("/engenharia/obras/$obraSlug/estoque")({
-  component: ObraEstoquePage,
+  component: () => (
+    <PermissionGate permissions={["estoque.read"]}>
+      <ObraEstoquePage />
+    </PermissionGate>
+  ),
 });
 
 type Section = "saldos" | "movimentacoes" | "solicitacoes";
@@ -41,20 +47,6 @@ function ObraEstoquePage() {
   );
 }
 
-function canReadEstoque(user: {
-  role: string;
-  department?: string | null;
-}): boolean {
-  return (
-    user.role === "director" ||
-    user.role === "admin" ||
-    user.role === "engenheiro" ||
-    user.department === "engenharia" ||
-    user.department === "compras" ||
-    user.department === "estoque"
-  );
-}
-
 function ObraEstoqueContent({
   project,
   projectId,
@@ -63,10 +55,7 @@ function ObraEstoqueContent({
   projectId: Id<"projects">;
 }) {
   const currentUser = useQuery(api.users.getCurrentUser, {});
-  const hasEstoqueRead =
-    currentUser !== undefined &&
-    currentUser !== null &&
-    canReadEstoque(currentUser);
+  const hasEstoqueRead = can(currentUser, "estoque.read");
   const inventoryArgs = hasEstoqueRead ? {} : "skip";
   const projectInventoryArgs = hasEstoqueRead ? { projectId } : "skip";
 
@@ -169,7 +158,7 @@ function ObraEstoqueContent({
             className="shrink-0"
             onClick={() => setSection(item.key)}
           >
-            <item.icon className="mr-1.5 size-4" />
+            <item.icon />
             {item.label}
             {item.key === "solicitacoes" && pendingRequestCount > 0 ? (
               <Badge variant="warning" className="ml-1.5">

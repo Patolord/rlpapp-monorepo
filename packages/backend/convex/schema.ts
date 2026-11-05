@@ -1,7 +1,10 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-// User roles
+// Cargo legado (`users.role`), lido só pela migração `migrations:migrateUserAccess`.
+// O acesso vem de `users.roles`. Passo final (depois da migração rodar em
+// produção): tornar `roles` obrigatório e remover `role`, `department` e
+// este validador.
 export const userRoles = v.union(
   v.literal("director"),
   v.literal("admin"),
@@ -34,6 +37,20 @@ export const projectDocumentTechnicianAccess = v.union(
   v.literal("selected")
 );
 
+// Acessos combináveis do usuário (ver @rlpapp/shared/auth/permissions).
+export const accessRoles = v.union(
+  v.literal("director"),
+  v.literal("admin"),
+  v.literal("engenheiro"),
+  v.literal("engenharia"),
+  v.literal("compras"),
+  v.literal("estoque"),
+  v.literal("rh"),
+  v.literal("takeoff"),
+  v.literal("qr_operator"),
+  v.literal("client")
+);
+
 // Department types
 export const departments = v.union(
   v.literal("rh"),
@@ -54,13 +71,21 @@ export const employeePaymentMethod = v.union(
   v.literal("other")
 );
 
+// Equipe do funcionário (ver @rlpapp/shared/rh/staffGroups). Cada equipe tem
+// padrões próprios de benefícios na folha; cadastros antigos sem equipe são obra.
+export const employeeStaffGroup = v.union(
+  v.literal("obra"),
+  v.literal("escritorio"),
+  v.literal("diretoria")
+);
+
 export const payrollRunStatus = v.union(
   v.literal("draft"),
   v.literal("closed")
 );
 
 // Tipo da marcação de ponto, derivado da posição no dia (1ª=entrada, 2ª=saída
-// almoço, 3ª=retorno almoço, 4ª em diante=saída) — mesma regra do RHID mobile.
+// almoço, 3ª=retorno almoço, 4ª em diante=saída).
 export const timeClockPunchKind = v.union(
   v.literal("entrada"),
   v.literal("almoco_saida"),
@@ -68,23 +93,19 @@ export const timeClockPunchKind = v.union(
   v.literal("saida")
 );
 
-export const rhidSyncStatus = v.union(
-  v.literal("running"),
-  v.literal("success"),
-  v.literal("error")
-);
-
-export const rhidLinkSource = v.union(v.literal("auto"), v.literal("manual"));
-
-// Origem de uma marcação: espelho do RHID ou registrada pelo app RLP.
-export const timeClockPunchSource = v.union(v.literal("rhid"), v.literal("app"));
-
-// Resultado da checagem de cerca (mesma semântica do RHID: 0/1/2).
+// Resultado da checagem da posição contra as cercas das obras.
 export const timeClockGeofenceStatus = v.union(
   v.literal("not_controlled"),
   v.literal("inside"),
   v.literal("outside")
 );
+
+// Cerca do ponto de uma obra: centro e raio em metros.
+export const projectGeofence = v.object({
+  latitude: v.number(),
+  longitude: v.number(),
+  radiusMeters: v.number(),
+});
 
 // --- Compras / Materiais / Preços ---
 
@@ -119,72 +140,93 @@ export const takeoffItemStatus = v.union(
   v.literal("purchased")
 );
 
-export const ductNorma = v.union(v.literal(1), v.literal(2), v.literal(3));
+/** Origem de um takeoff criado fora do app web. */
+export const takeoffSource = v.literal("desktop");
 
-export const ductExternalInsulation = v.union(
-  v.literal("none"),
-  v.literal("manta"),
-  v.literal("isopor"),
-  v.literal("placa"),
-  v.literal("pintura")
+// Kits (presets) do RLP Takeoff: um trecho desenhado (ou um clique) mede
+// vários materiais de uma vez. Mesma forma de `Kit` em
+// @rlpapp/shared/takeoff/kits, que o app desktop consome.
+export const takeoffKitMode = v.union(v.literal("linear"), v.literal("count"));
+export const takeoffKitComponentKind = v.union(
+  v.literal("count"),
+  v.literal("linear"),
+  v.literal("area")
 );
-
-export const ductInternalInsulation = v.union(
-  v.literal("none"),
-  v.literal("bidim"),
-  v.literal("flexiliner")
-);
-
-export const ductFlange = v.union(
-  v.literal("none"),
-  v.literal("powermatic"),
-  v.literal("cantoneira")
-);
-
-export const ductLine = v.object({
-  tag: v.optional(v.string()),
-  largerSideCm: v.number(),
-  smallerSideCm: v.number(),
-  lengthM: v.number(),
-  externalInsulation: ductExternalInsulation,
-  internalInsulation: ductInternalInsulation,
-  flange: ductFlange,
-  reclad: v.boolean(),
-  paintReclad: v.boolean(),
+/** Linha da tabela de materiais por peso do RLP Takeoff. */
+export const takeoffWeightRow = v.object({
+  name: v.string(),
+  group: v.string(),
+  /** kg por metro ("m") ou por peça ("pç"). */
+  unit: v.union(v.literal("m"), v.literal("pç")),
+  /** Chave do insumo (BASE_MATERIALS em @rlpapp/shared/takeoff/weights). */
+  material: v.string(),
+  kgPerUnit: v.number(),
 });
 
-export const ductPrices = v.object({
-  sheet26: v.number(),
-  sheet24: v.number(),
-  sheet22: v.number(),
-  sheet20: v.number(),
-  sheet18: v.number(),
-  sheet26Reclad: v.number(),
-  sheet26Angle: v.number(),
-  isopor: v.number(),
-  manta: v.number(),
-  placa: v.number(),
-  bidim: v.number(),
-  flexiliner: v.number(),
-  glue: v.number(),
-  coldAsphalt: v.number(),
-  nylonTape: v.number(),
-  nylonClip: v.number(),
-  alumTape: v.number(),
-  primerPaint: v.number(),
-  finishPaint: v.number(),
-  brush: v.number(),
-  thinner: v.number(),
-  supports: v.number(),
-  spliters: v.number(),
-  captors: v.number(),
-  pw2Light: v.number(),
-  pw2: v.number(),
-  pwCorners: v.number(),
-  pwClamps: v.number(),
-  rivets: v.number(),
-  pwTape: v.number(),
-  angleFlange: v.number(),
+/** Linha de uma tabela de bitolas de VRF: a partir de `hp`, este par gás/líquido. */
+export const takeoffVrfHpRow = v.object({
+  hp: v.number(),
+  gas: v.string(),
+  liquid: v.string(),
+});
+
+/** Regras de uma marca de VRF (mesma forma de VrfBrand em @rlpapp/shared). */
+export const takeoffVrfBrand = v.object({
+  id: v.string(),
+  name: v.string(),
+  main: v.array(takeoffVrfHpRow),
+  trunk: v.array(takeoffVrfHpRow),
+  branch: v.array(takeoffVrfHpRow),
+  ykit: v.array(v.object({ hp: v.number(), model: v.string() })),
+});
+
+/** Parâmetros de dutos de uma norma (DuctNormaDefaults em @rlpapp/shared/engenharia/ducts). */
+export const takeoffDuctNorma = v.object({
+  norma: v.union(v.literal(1), v.literal(2), v.literal(3)),
+  /** Maior lado (cm) coberto por # 26, # 24, # 22 e # 20; acima, # 18. */
+  gaugeLimits: v.array(v.number()),
+  insulThickness: v.number(),
+  flangeSpacing: v.number(),
+  rechapThickness: v.number(),
+  /** null = regra da planilha (20 %, 15 % acima de 10 000 kg). */
+  sheetSlackPct: v.union(v.number(), v.null()),
+  insulSlackPct: v.number(),
+  supportsPct: v.number(),
+});
+
+export const takeoffKitComponent = v.object({
+  /** Nome no catálogo do app (produto da empresa ou material das planilhas). */
+  name: v.string(),
+  /** Seção do orçamento (Tubulações, Equipamentos, ...). */
+  group: v.string(),
+  /** Disciplina (Infra AC, Detecção de Incêndio, ...). */
+  system: v.optional(v.string()),
+  kind: takeoffKitComponentKind,
+  /** Multiplicador da medida (kit linear) ou quantidade por clique (kit de contagem). */
+  factor: v.number(),
+});
+
+/** Resumo de uma aba da planilha orçamentária publicada pelo desktop. */
+export const takeoffBudgetSheet = v.object({
+  name: v.string(),
+  bdi: v.number(),
+  extrasPct: v.number(),
+  materialCents: v.number(),
+  laborCents: v.number(),
+  extrasEachCents: v.number(),
+  totalCents: v.number(),
+  proposalCents: v.number(),
+});
+
+/** Cabeçalho do orçamento publicado pelo desktop (ver @rlpapp/shared). */
+export const takeoffBudgetMeta = v.object({
+  proposalNumber: v.optional(v.string()),
+  estimator: v.optional(v.string()),
+  client: v.optional(v.string()),
+  site: v.optional(v.string()),
+  system: v.optional(v.string()),
+  currency: v.optional(v.string()),
+  sheets: v.array(takeoffBudgetSheet),
 });
 
 export const priceEventSource = v.union(
@@ -296,6 +338,10 @@ export const agentTokenPermission = v.union(
   v.literal("read_only")
 );
 
+// Origem de um token de agente: criado à mão em /conta/agentes ("agent") ou
+// emitido pelo login de um app desktop, o RLP Takeoff ("device").
+export const agentTokenKind = v.union(v.literal("agent"), v.literal("device"));
+
 export default defineSchema({
   users: defineTable({
     name: v.string(),
@@ -304,16 +350,35 @@ export default defineSchema({
     username: v.optional(v.string()),
     // Clerk user ID (subject do JWT). Optional para usuários criados antes do webhook.
     clerkId: v.optional(v.string()),
-    role: userRoles,
+    // Acessos do usuário (fonte de verdade da autorização). Opcional só até a
+    // migração `migrations:migrateUserAccess` rodar em produção; um documento
+    // sem `roles` é lido pela tradução de role + department (rolesFromLegacy).
+    roles: v.optional(v.array(accessRoles)),
+    // Ajustes individuais por cima dos acessos (Configurações → Usuários):
+    // permissões concedidas a mais e permissões do acesso retiradas. Valores
+    // de PERMISSIONS no shared; guardados como string para que renomear ou
+    // remover uma permissão do catálogo não invalide documentos (valores
+    // desconhecidos são ignorados pela política).
+    permissionGrants: v.optional(v.array(v.string())),
+    permissionDenials: v.optional(v.array(v.string())),
+    // Descontinuados: cargo e departamento. Nada grava nem lê estes campos
+    // fora da migração, que também os apaga. Remover do schema no passo final.
+    role: v.optional(userRoles),
     department: v.optional(departments),
     phone: v.optional(v.string()),
     isActive: v.boolean(),
     createdAt: v.number(),
     lastLoginAt: v.optional(v.number()),
+    // Convite por email (Configurações → Usuários): o cadastro nasce sem
+    // clerkId e é vinculado quando a pessoa aceita o convite e cria a conta
+    // (webhook user.created ou ensureUser, ambos pelo email). Enquanto não há
+    // clerkId, o convite está pendente.
+    invitedAt: v.optional(v.number()),
+    // Id da invitation no Clerk, para reenviar ou revogar.
+    clerkInvitationId: v.optional(v.string()),
   })
     .index("by_email", ["email"])
     .index("by_clerkId", ["clerkId"])
-    .index("by_role", ["role"])
     .index("by_active", ["isActive"]),
 
   // --- Tokens de agente (MCP / acesso programático) ---
@@ -338,9 +403,37 @@ export default defineSchema({
     lastUsedAt: v.optional(v.number()),
     expiresAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),
+    /** Ausente = "agent" (tokens anteriores ao login do desktop). */
+    kind: v.optional(agentTokenKind),
+    /**
+     * Só tokens de dispositivo: id aleatório da instalação do RLP Takeoff,
+     * gerado uma vez pelo app. Um novo login da mesma instalação revoga o
+     * token anterior dela (o nome do computador é só rótulo e pode repetir).
+     */
+    installationId: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
     .index("by_tokenHash", ["tokenHash"]),
+
+  // Códigos de uso único do login do RLP Takeoff (desktop). A página web
+  // /takeoff/conectar cria um código ligado ao usuário logado e ao desafio
+  // PKCE do app; o app troca o código (com o verificador) por um token de
+  // dispositivo em POST /takeoff/auth/exchange. Só o hash fica gravado.
+  takeoffAuthCodes: defineTable({
+    userId: v.id("users"),
+    /** SHA-256 (hex) do código em texto puro. */
+    codeHash: v.string(),
+    /** Desafio PKCE S256 (base64url do SHA-256 do verificador). */
+    codeChallenge: v.string(),
+    /** Nome do computador, mostrado no token criado ("Takeoff · <device>"). */
+    device: v.string(),
+    /** Id da instalação do app (ver agentTokens.installationId). */
+    installationId: v.optional(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_codeHash", ["codeHash"])
+    .index("by_user", ["userId"]),
 
   // Uma linha por chamada de ferramenta feita via MCP com um token de agente.
   // Alimenta "Atividade recente" na página Agentes. Expurgado pelo cron após
@@ -470,6 +563,8 @@ export default defineSchema({
     archivedByUserId: v.optional(v.id("users")),
     // Técnicos (qr_operator ou staff) atribuídos à obra para listar QRs/equipamentos.
     technicianIds: v.optional(v.array(v.id("users"))),
+    // Cerca do ponto: marcações dentro dela contam para esta obra.
+    geofence: v.optional(projectGeofence),
     floors: v.array(
       v.object({
         // 0 = térreo, 1 = 1º andar, etc.
@@ -820,6 +915,11 @@ export default defineSchema({
     // Texto denormalizado para busca (nome, sku, fabricante, etc.).
     searchText: v.optional(v.string()),
     imageId: v.optional(v.id("_storage")),
+    // Mão de obra por unidade (`unit`) usada nos orçamentos do RLP Takeoff,
+    // em centavos. Ausente = sem preço de mão de obra cadastrado.
+    laborPriceCents: v.optional(v.number()),
+    // Quando o preço de mão de obra foi definido pela última vez.
+    laborPriceUpdatedAt: v.optional(v.number()),
     active: v.boolean(),
     status: v.optional(materialStatus),
     // Set when this material was merged into another (status "archived");
@@ -916,6 +1016,77 @@ export default defineSchema({
     .index("by_supplier_material", ["supplierId", "materialId"])
     .index("by_supplier_code", ["supplierId", "supplierCode"]),
 
+  // Padrões da empresa dos kits do RLP Takeoff, editados em App Takeoff →
+  // Kits no dashboard e publicados com o catálogo (`takeoffCatalog`). `key` é
+  // o id que o app usa (os trechos salvos num projeto o guardam); os kits de
+  // fábrica do app têm chaves fixas (kit-9-000-inverter) para que a cópia
+  // local de cada usuário continue pareada com a da empresa. Remover
+  // desativa, nunca apaga: a chave fica reservada.
+  takeoffKits: defineTable({
+    key: v.string(),
+    name: v.string(),
+    mode: takeoffKitMode,
+    /** Prefixo do rótulo no desenho ('1/4" · 3/8"'); ausente = sem rótulo. */
+    label: v.optional(v.string()),
+    components: v.array(takeoffKitComponent),
+    sortOrder: v.number(),
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+  })
+    .index("by_key", ["key"])
+    .index("by_active_sortOrder", ["active", "sortOrder"]),
+
+  // Demais configurações do RLP Takeoff editadas em App Takeoff no dashboard e
+  // publicadas com o catálogo: um documento por `kind`. Mesmas formas de
+  // @rlpapp/shared/takeoff/weights e vrfBrands. O app aplica tudo como padrão
+  // sob as alterações locais de cada usuário.
+  takeoffSettings: defineTable(
+    v.union(
+      // Materiais por peso (kg por unidade × preço do insumo) e kg/m² por
+      // bitola de chapa dos dutos.
+      v.object({
+        kind: v.literal("weights"),
+        rows: v.array(takeoffWeightRow),
+        gaugeWeights: v.record(v.string(), v.number()),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.id("users")),
+      }),
+      // Preço por kg dos insumos (cobre, cobre_grosso, chapa).
+      v.object({
+        kind: v.literal("basePrices"),
+        prices: v.record(v.string(), v.number()),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.id("users")),
+      }),
+      // Regras das marcas de VRF: tabelas de bitola por HP e modelos de Y-kit.
+      v.object({
+        kind: v.literal("vrfBrands"),
+        brands: v.array(takeoffVrfBrand),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.id("users")),
+      }),
+      // Mão de obra global: R$/kg de chapa (dutos) e R$ por evaporadora (VRF).
+      // Um takeoff pode fixar o próprio valor; ausente aqui = padrão da planilha.
+      v.object({
+        kind: v.literal("labor"),
+        ductPerKg: v.optional(v.number()),
+        vrfPerEvap: v.optional(v.number()),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.id("users")),
+      }),
+      // Parâmetros de dutos por norma (bitola pelo lado maior, espessuras e
+      // folgas): o takeoff parte deles ao escolher a norma e pode ajustar.
+      v.object({
+        kind: v.literal("ductNormas"),
+        normas: v.array(takeoffDuctNorma),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.id("users")),
+      })
+    )
+  ).index("by_kind", ["kind"]),
+
   takeoffs: defineTable({
     projectId: v.optional(v.id("projects")),
     name: v.string(),
@@ -923,31 +1094,19 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
     createdByUserId: v.optional(v.id("users")),
+    // Orçamentos publicados pelo app desktop de takeoff: `externalId` é o id
+    // do projeto no desktop (único por origem); republicar atualiza o mesmo
+    // takeoff.
+    source: v.optional(takeoffSource),
+    externalId: v.optional(v.string()),
+    budget: v.optional(takeoffBudgetMeta),
+    publishedAt: v.optional(v.number()),
+    publishedByUserId: v.optional(v.id("users")),
   })
     .index("by_project", ["projectId"])
     .index("by_status", ["status"])
-    .index("by_created", ["createdAt"]),
-
-  ductEstimates: defineTable({
-    projectId: v.id("projects"),
-    name: v.string(),
-    system: v.string(),
-    budgetNumber: v.string(),
-    norma: ductNorma,
-    laborRatePerKg: v.number(),
-    insulationAllowancePct: v.number(),
-    supportAllowancePct: v.number(),
-    insulationThicknessMm: v.number(),
-    flangeSpacingM: v.number(),
-    recladThicknessMm: v.number(),
-    splitersQty: v.number(),
-    captorsQty: v.number(),
-    prices: ductPrices,
-    lines: v.array(ductLine),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    createdByUserId: v.optional(v.id("users")),
-  }).index("by_project", ["projectId"]),
+    .index("by_created", ["createdAt"])
+    .index("by_source_external", ["source", "externalId"]),
 
   takeoffItems: defineTable({
     takeoffId: v.id("takeoffs"),
@@ -963,8 +1122,25 @@ export default defineSchema({
     status: v.optional(takeoffItemStatus),
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
+    // Linhas vindas do desktop: id estável (item + aba + seção), aba
+    // (disciplina / sistema), seção (local ou grupo), preço de mão de obra e
+    // posição na planilha.
+    externalLineId: v.optional(v.string()),
+    sheet: v.optional(v.string()),
+    section: v.optional(v.string()),
+    laborUnitPriceCents: v.optional(v.number()),
+    sortOrder: v.optional(v.number()),
+    // Totais da linha (material / mão de obra) como o desktop calculou, com o
+    // preço sem arredondar; valem enquanto quantidade e preço não mudam aqui
+    // (updateItem / applySuggestedPrice os apagam).
+    materialTotalCents: v.optional(v.number()),
+    laborTotalCents: v.optional(v.number()),
+    // Linha que saiu do orçamento desktop mas foi mantida porque a Compras
+    // já trabalhou nela (cotação ou status avançado).
+    externalRemovedAt: v.optional(v.number()),
   })
     .index("by_takeoff", ["takeoffId"])
+    .index("by_takeoff_external_line", ["takeoffId", "externalLineId"])
     .index("by_project", ["projectId"])
     .index("by_material", ["materialId"])
     .index("by_status", ["status"]),
@@ -1003,7 +1179,7 @@ export default defineSchema({
     .index("by_needs_review", ["needsReview"])
     .index("by_review_status", ["reviewStatus"]),
 
-  // Proposals sent by the RLP Takeoff desktop app (POST /takeoff/materials).
+  // Proposals sent by the RLP Takeoff desktop app (`takeoffMaterials.proposeAsUser`).
   // One row per clientId so the app can retry the call safely.
   takeoffMaterialProposals: defineTable({
     clientId: v.string(),
@@ -1013,6 +1189,8 @@ export default defineSchema({
     requestedName: v.optional(v.string()),
     requestedUnit: v.optional(v.string()),
     requestedBy: v.optional(v.string()),
+    /** Usuário logado no takeoff que enviou a proposta (ausente nas do antigo caminho por token). */
+    requestedByUserId: v.optional(v.id("users")),
     takeoffName: v.optional(v.string()),
     createdAt: v.number(),
   })
@@ -1318,6 +1496,8 @@ export default defineSchema({
     nameNormalized: v.string(),
     cpf: v.optional(v.string()),
     cpfNormalized: v.optional(v.string()),
+    // Ausente nos cadastros anteriores à equipe: tratado como "obra".
+    staffGroup: v.optional(employeeStaffGroup),
     jobTitle: v.optional(v.string()),
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
@@ -1332,7 +1512,10 @@ export default defineSchema({
     receivesFoodBasket: v.boolean(),
     dailyTransitCents: v.number(),
     defaultTransportFoodDays: v.number(),
-    // Usuário do app que bate ponto como este funcionário.
+    // Descontinuado: vínculo antigo com o usuário que batia ponto. O ponto agora
+    // é do próprio usuário e nada lê este campo. A migração
+    // `migrations:clearEmployeeUserLinks` o apaga; remover do schema depois
+    // que ela rodar em produção.
     userId: v.optional(v.id("users")),
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
@@ -1343,7 +1526,6 @@ export default defineSchema({
     .index("by_code", ["code"])
     .index("by_cpf_normalized", ["cpfNormalized"])
     .index("by_status", ["status"])
-    .index("by_user", ["userId"])
     .index("by_email", ["email"]),
 
   payrollRuns: defineTable({
@@ -1415,101 +1597,84 @@ export default defineSchema({
     updatedByUserId: v.optional(v.id("users")),
   }).index("by_employee", ["employeeId"]),
 
-  // --- RH: Ponto (espelho do controle de acesso RHID) ---
-  //
-  // O RHID (rhid.com.br) é a fonte das marcações. Uma action autenticada com a
-  // credencial de integração (RHID_EMAIL / RHID_PASSWORD) puxa o cadastro e as
-  // marcações e grava aqui; o app só lê deste espelho (reativo e com histórico).
+  // Pensão alimentícia: pagamento mensal a um beneficiário (ex-cônjuge, filho)
+  // por conta de um funcionário. É uma linha própria da folha, paga direto ao
+  // beneficiário, com valor que pode mudar mês a mês. Não se mistura com a
+  // linha do funcionário: não entra nos descontos nem no total dele (a
+  // retenção oficial fica no holerite da contabilidade).
+  employeeAlimonies: defineTable({
+    employeeId: v.id("employees"),
+    beneficiaryName: v.string(),
+    // Valor padrão ao abrir um mês sem histórico; a folha ajusta por mês.
+    amountCents: v.number(),
+    paymentMethod: employeePaymentMethod,
+    pixKey: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    archivedAt: v.optional(v.number()),
+    archivedByUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    createdByUserId: v.optional(v.id("users")),
+    updatedByUserId: v.optional(v.id("users")),
+  }).index("by_employee", ["employeeId"]),
 
-  // Singleton (key = "default"): token de sessão RHID em cache + estado da
-  // última sincronização. Nunca retornado por funções públicas.
-  rhidSyncState: defineTable({
-    key: v.literal("default"),
-    accessToken: v.optional(v.string()),
-    tokenObtainedAt: v.optional(v.number()),
-    lastSyncStartedAt: v.optional(v.number()),
-    lastSyncFinishedAt: v.optional(v.number()),
-    lastSyncStatus: v.optional(rhidSyncStatus),
-    lastSyncError: v.optional(v.string()),
-    lastSyncFrom: v.optional(v.string()),
-    lastSyncTo: v.optional(v.string()),
-    lastSyncPunches: v.optional(v.number()),
-    lastSyncPeople: v.optional(v.number()),
-    lastSyncTrigger: v.optional(v.union(v.literal("manual"), v.literal("cron"))),
-  }).index("by_key", ["key"]),
+  payrollAlimonyLines: defineTable({
+    runId: v.id("payrollRuns"),
+    alimonyId: v.id("employeeAlimonies"),
+    employeeId: v.id("employees"),
+    // Snapshots do mês, como nas linhas de funcionário.
+    employeeName: v.string(),
+    beneficiaryName: v.string(),
+    amountCents: v.number(),
+    paymentMethod: employeePaymentMethod,
+    pixKey: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    paid: v.boolean(),
+    paidAt: v.optional(v.number()),
+    paidByUserId: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_run", ["runId"])
+    .index("by_alimony", ["alimonyId"])
+    .index("by_run_and_alimony", ["runId", "alimonyId"]),
+
+  // --- RH: Ponto ---
+  //
+  // Cada marcação é de um usuário do app com a permissão `ponto.registrar`,
+  // feita pelo app RLP com foto e/ou localização. A obra vem da cerca
+  // (`projects.geofence`) que contém a posição. O cadastro de funcionários
+  // (`employees`) é só da folha e não participa do ponto.
 
   // Singleton (key = "default"): preferências do módulo de ponto.
-  timeClockSettings: defineTable({
+  clockSettings: defineTable({
     key: v.literal("default"),
     // Custo estimado de um homem-dia (para o relatório mensal).
     manDayCostCents: v.number(),
-    // Departamentos do RHID considerados na presença. Vazio = todos.
-    trackedDepartments: v.array(v.string()),
-    // Regras da marcação pelo app RLP (mesmos controles do RHID).
-    photoRequired: v.optional(v.boolean()),
-    locationRequired: v.optional(v.boolean()),
-    // Janela (min) em que uma nova marcação do mesmo funcionário é ignorada.
-    duplicateWindowMinutes: v.optional(v.number()),
+    photoRequired: v.boolean(),
+    locationRequired: v.boolean(),
+    // Janela (min) em que uma nova marcação do mesmo usuário é recusada.
+    duplicateWindowMinutes: v.number(),
     updatedAt: v.number(),
     updatedByUserId: v.optional(v.id("users")),
   }).index("by_key", ["key"]),
 
-  // Contadores monotônicos do ponto (ex.: NSR das marcações do app).
+  // Contadores monotônicos do ponto (ex.: NSR das marcações).
   timeClockCounters: defineTable({
     key: v.string(),
     value: v.number(),
   }).index("by_key", ["key"]),
 
-  // Cadastro de pessoas do RHID. Não duplica `employees`: cada pessoa pode ser
-  // vinculada (automaticamente por CPF/nome ou manualmente) a um funcionário.
-  rhidPeople: defineTable({
-    rhidPersonId: v.number(),
-    name: v.string(),
-    nameNormalized: v.string(),
-    // Somente dígitos (11), quando informado pelo RHID.
-    cpf: v.optional(v.string()),
-    department: v.optional(v.string()),
-    // Presente no último cadastro de ativos do RHID.
-    active: v.boolean(),
-    employeeId: v.optional(v.id("employees")),
-    linkSource: v.optional(rhidLinkSource),
-    firstSeenAt: v.number(),
-    lastSeenAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_rhid_person_id", ["rhidPersonId"])
-    .index("by_employee", ["employeeId"])
-    .index("by_active", ["active"]),
-
-  // Cercas geográficas (obras) do RHID, extraídas das marcações. Podem ser
-  // vinculadas a uma obra do sistema.
-  rhidWorksites: defineTable({
-    rhidGeofenceId: v.number(),
-    name: v.string(),
-    latitude: v.number(),
-    longitude: v.number(),
-    radius: v.number(),
-    projectId: v.optional(v.id("projects")),
-    lastSeenAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_rhid_geofence_id", ["rhidGeofenceId"])
-    .index("by_project", ["projectId"]),
-
-  // Uma linha por marcação: registro AFD mobile do RHID (source = "rhid") ou
-  // marcação feita pelo app RLP (source = "app"). Marcações do app carregam
-  // `employeeId`; `rhidPersonId` é preenchido quando o funcionário tem vínculo
-  // com uma pessoa do RHID, para aparecer nas telas que ainda usam esse id.
-  timeClockPunches: defineTable({
-    rhidRecordId: v.optional(v.number()),
-    rhidPersonId: v.optional(v.number()),
-    source: v.optional(timeClockPunchSource),
-    employeeId: v.optional(v.id("employees")),
-    // Chave de idempotência gerada no aparelho (reenvio da fila offline).
-    clientPunchId: v.optional(v.string()),
+  // Uma linha por marcação.
+  clockPunches: defineTable({
+    userId: v.id("users"),
+    // Nome do usuário no momento da marcação (vai no comprovante).
     personName: v.string(),
+    // Chave de idempotência gerada no aparelho (reenvio da fila offline).
+    clientPunchId: v.string(),
     // Dia civil em Brasília ("YYYY-MM-DD").
     date: v.string(),
+    // Horário oficial, atribuído pelo servidor (offline: o do aparelho).
     punchedAt: v.number(),
     // "HH:MM" em Brasília.
     timeLabel: v.string(),
@@ -1518,47 +1683,41 @@ export default defineSchema({
     kind: timeClockPunchKind,
     latitude: v.optional(v.number()),
     longitude: v.optional(v.number()),
-    photoUrl: v.optional(v.string()),
-    photoStorageId: v.optional(v.id("_storage")),
-    rhidGeofenceId: v.optional(v.number()),
-    geofenceName: v.optional(v.string()),
-    worksiteId: v.optional(v.id("rhidWorksites")),
-    geofenceStatus: v.optional(timeClockGeofenceStatus),
-    // Relógio do aparelho no momento da marcação (o oficial é `punchedAt`,
-    // atribuído pelo servidor).
-    capturedAt: v.optional(v.number()),
     accuracyMeters: v.optional(v.number()),
-    offline: v.optional(v.boolean()),
+    photoStorageId: v.optional(v.id("_storage")),
+    // Obra da cerca que contém a posição ou, fora de todas, a mais próxima
+    // (`geofenceStatus` diz qual dos dois).
+    projectId: v.optional(v.id("projects")),
+    projectName: v.optional(v.string()),
+    geofenceStatus: timeClockGeofenceStatus,
+    // Relógio do aparelho no toque em "Registrar ponto".
+    capturedAt: v.number(),
+    offline: v.boolean(),
     deviceModel: v.optional(v.string()),
     appVersion: v.optional(v.string()),
     // Comprovante: número sequencial e hash SHA-256 da marcação.
-    nsr: v.optional(v.number()),
-    hash: v.optional(v.string()),
-    excluded: v.optional(v.boolean()),
-    excludedReason: v.optional(v.string()),
-    syncedAt: v.number(),
+    nsr: v.number(),
+    hash: v.string(),
   })
-    .index("by_rhid_record_id", ["rhidRecordId"])
     .index("by_date", ["date"])
-    .index("by_person_and_date", ["rhidPersonId", "date"])
-    .index("by_employee_and_date", ["employeeId", "date"])
+    .index("by_user_and_date", ["userId", "date"])
     .index("by_client_punch_id", ["clientPunchId"]),
 
-  // Resumo diário por pessoa (só dias com marcação). Derivado de
-  // `timeClockPunches` na mesma mutation de sincronização.
-  timeClockDays: defineTable({
+  // Resumo diário por usuário (só dias com marcação), recalculado a cada
+  // marcação. Base do relatório mensal de homem-dia.
+  clockDays: defineTable({
     date: v.string(),
-    rhidPersonId: v.number(),
+    userId: v.id("users"),
     personName: v.string(),
-    // Obra da primeira marcação do dia.
-    rhidGeofenceId: v.optional(v.number()),
-    worksiteName: v.optional(v.string()),
+    // Obra do dia: a da primeira marcação dentro de uma cerca.
+    projectId: v.optional(v.id("projects")),
+    projectName: v.optional(v.string()),
     firstPunchAt: v.number(),
     lastPunchAt: v.number(),
     lastKind: timeClockPunchKind,
     punchCount: v.number(),
-    syncedAt: v.number(),
+    updatedAt: v.number(),
   })
     .index("by_date", ["date"])
-    .index("by_person_and_date", ["rhidPersonId", "date"]),
+    .index("by_user_and_date", ["userId", "date"]),
 });

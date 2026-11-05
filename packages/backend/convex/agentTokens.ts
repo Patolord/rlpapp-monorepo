@@ -15,17 +15,24 @@ import {
   getAgentTokenClaims,
   hashAgentToken,
   rejectAgentTokenIdentity,
-  type AgentTokenPermission,
 } from "./lib/agentTokens";
 import {
   adminMutation,
   adminQuery,
-  assertStaff,
+  isAdmin,
   requireUser,
+  resolveRoles,
   staffMutation,
   staffQuery,
 } from "./lib/rbac";
-import { agentTokenPermission } from "./schema";
+import {
+  insertToken,
+  isActiveToken,
+  MAX_TOKENS_PER_USER,
+  normalizeName,
+} from "./model/identity/agentTokens";
+import {
+  accessRoles, agentTokenKind, agentTokenPermission } from "./schema";
 
 /**
  * Tokens de agente: credenciais pessoais para agentes de IA (Claude, Cursor,
@@ -33,9 +40,6 @@ import { agentTokenPermission } from "./schema";
  * "MCP" e lib/agentTokens.ts para a política central.
  */
 
-const MAX_TOKENS_PER_USER = 25;
-const MAX_NAME_LENGTH = 80;
-const MAX_EXPIRES_IN_DAYS = 3650;
 /** Intervalo mínimo entre gravações de `lastUsedAt`. */
 const LAST_USED_WRITE_INTERVAL_MS = 60_000;
 /** Linhas de `agentTokenCalls` mais antigas que isto são apagadas pelo cron. */
@@ -54,6 +58,8 @@ const publicTokenValidator = v.object({
   lastUsedAt: v.optional(v.number()),
   expiresAt: v.optional(v.number()),
   revokedAt: v.optional(v.number()),
+  /** "device" = emitido pelo login do RLP Takeoff; ausente = token de agente. */
+  kind: v.optional(agentTokenKind),
 });
 
 const callValidator = v.object({
@@ -79,40 +85,8 @@ function toPublicToken(token: Doc<"agentTokens">) {
     lastUsedAt: token.lastUsedAt,
     expiresAt: token.expiresAt,
     revokedAt: token.revokedAt,
+    kind: token.kind,
   };
-}
-
-function normalizeName(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) throw new Error("Informe um nome para o token");
-  if (trimmed.length > MAX_NAME_LENGTH) {
-    throw new Error(`O nome deve ter no máximo ${MAX_NAME_LENGTH} caracteres`);
-  }
-  return trimmed;
-}
-
-function computeExpiresAt(
-  expiresInDays: number | undefined,
-  now: number
-): number | undefined {
-  if (expiresInDays === undefined) return undefined;
-  if (
-    !Number.isFinite(expiresInDays) ||
-    expiresInDays <= 0 ||
-    expiresInDays > MAX_EXPIRES_IN_DAYS
-  ) {
-    throw new Error(
-      `A validade deve ser entre 1 e ${MAX_EXPIRES_IN_DAYS} dias`
-    );
-  }
-  return now + Math.round(expiresInDays * 24 * 60 * 60 * 1000);
-}
-
-function isActiveToken(token: Doc<"agentTokens">, now: number): boolean {
-  return (
-    token.revokedAt === undefined &&
-    (token.expiresAt === undefined || token.expiresAt > now)
-  );
 }
 
 /**
@@ -127,8 +101,7 @@ async function getManageableToken(
   await requireHumanSession(ctx);
   const token = await ctx.db.get("agentTokens", id);
   if (!token) throw new Error("Token não encontrado");
-  const isAdmin = user.role === "director" || user.role === "admin";
-  if (token.userId !== user._id && !isAdmin) {
+  if (token.userId !== user._id && !isAdmin(user)) {
     throw new Error("Você só pode gerenciar os seus próprios tokens");
   }
   return token;
@@ -140,53 +113,6 @@ async function requireHumanSession(ctx: QueryCtx | MutationCtx): Promise<void> {
   if (identity) rejectAgentTokenIdentity(identity);
 }
 
-async function insertToken(
-  ctx: MutationCtx,
-  user: Doc<"users">,
-  args: {
-    name: string;
-    permission: AgentTokenPermission;
-    expiresInDays?: number;
-    tokenHash: string;
-    tokenPrefix: string;
-  }
-) {
-  assertStaff(user);
-  if (!user.clerkId) {
-    throw new Error(
-      "Este usuário ainda não está vinculado a uma conta de login; entre no app antes de criar tokens"
-    );
-  }
-  const name = normalizeName(args.name);
-  const now = Date.now();
-  const expiresAt = computeExpiresAt(args.expiresInDays, now);
-
-  // Linhas revogadas nunca são apagadas, então percorre todas as do usuário
-  // em vez de uma janela fixa (a mutation é atômica; não há corrida).
-  let active = 0;
-  for await (const token of ctx.db
-    .query("agentTokens")
-    .withIndex("by_user", (q) => q.eq("userId", user._id))) {
-    if (isActiveToken(token, now)) active++;
-  }
-  if (active >= MAX_TOKENS_PER_USER) {
-    throw new Error(
-      `Limite de ${MAX_TOKENS_PER_USER} tokens ativos atingido. Revogue um token antes de criar outro`
-    );
-  }
-
-  const id = await ctx.db.insert("agentTokens", {
-    userId: user._id,
-    name,
-    tokenHash: args.tokenHash,
-    tokenPrefix: args.tokenPrefix,
-    permission: args.permission,
-    createdAt: now,
-    expiresAt,
-  });
-  return { id, name, expiresAt };
-}
-
 async function ownerSummary(ctx: QueryCtx, userId: Id<"users">) {
   const user = await ctx.db.get("users", userId);
   if (!user) return null;
@@ -195,7 +121,7 @@ async function ownerSummary(ctx: QueryCtx, userId: Id<"users">) {
     name: user.name,
     email: user.email ?? null,
     username: user.username ?? null,
-    role: user.role,
+    roles: resolveRoles(user),
     isActive: user.isActive,
   };
 }
@@ -204,17 +130,29 @@ async function ownerSummary(ctx: QueryCtx, userId: Id<"users">) {
 // PÚBLICO — gestão dos próprios tokens (página Agentes e o próprio MCP)
 // ===========================================================================
 
-/** Tokens do usuário atual, mais recentes primeiro. Nunca inclui o hash. */
+/**
+ * Tokens do usuário atual, mais recentes primeiro. Nunca inclui o hash. Todos os
+ * ativos aparecem sempre (para poderem ser revogados aqui); do histórico de
+ * revogados/vencidos, só os mais recentes. Cada novo login do Takeoff revoga o
+ * token anterior da instalação, então o histórico cresce bem mais que os ativos.
+ */
 export const list = staffQuery({
   args: {},
   returns: v.array(publicTokenValidator),
   handler: async (ctx) => {
+    const now = Date.now();
     const tokens = await ctx.db
       .query("agentTokens")
       .withIndex("by_user", (q) => q.eq("userId", ctx.user._id))
       .order("desc")
-      .take(MAX_TOKENS_PER_USER * 2);
-    return tokens.map(toPublicToken);
+      .collect();
+    const active = tokens.filter((t) => isActiveToken(t, now));
+    const inactive = tokens
+      .filter((t) => !isActiveToken(t, now))
+      .slice(0, MAX_TOKENS_PER_USER);
+    return [...active, ...inactive]
+      .sort((a, b) => b._creationTime - a._creationTime)
+      .map(toPublicToken);
   },
 });
 
@@ -384,7 +322,7 @@ export const listAll = adminQuery({
           name: v.string(),
           email: v.union(v.string(), v.null()),
           username: v.union(v.string(), v.null()),
-          role: v.string(),
+          roles: v.array(accessRoles),
           isActive: v.boolean(),
         }),
         v.null()
@@ -590,8 +528,7 @@ export const verify = internalQuery({
         name: v.string(),
         email: v.union(v.string(), v.null()),
         username: v.union(v.string(), v.null()),
-        role: v.string(),
-        department: v.union(v.string(), v.null()),
+        roles: v.array(accessRoles),
       }),
     }),
     v.null()
@@ -620,8 +557,7 @@ export const verify = internalQuery({
         name: user.name,
         email: user.email ?? null,
         username: user.username ?? null,
-        role: user.role,
-        department: user.department ?? null,
+        roles: resolveRoles(user),
       },
     };
   },

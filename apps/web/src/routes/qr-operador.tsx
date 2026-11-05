@@ -2,12 +2,20 @@ import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { UserButton } from "@clerk/tanstack-react-start";
 import { useQuery } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { ArrowLeft, ChevronRight, HardHat, History, Search } from "lucide-react";
+import {
+  ArrowLeft,
+  Briefcase,
+  ChevronRight,
+  HardHat,
+  History,
+  Search,
+} from "lucide-react";
 
 import { OfflineBanner } from "@/components/campo/field-page-shell";
 import { MyObrasList } from "@/components/campo/my-obras-list";
 import { PendingBanner } from "@/components/campo/pending-records";
 import { Button } from "@/components/ui/button";
+import { AREA_PATHS, firstOfficeArea, resolveHomePath } from "@/lib/areas";
 
 // Primeira tela do app de campo (e start_url do PWA): as obras do técnico.
 // Tudo o mais — escanear, digitar código, etiquetas, registros — acontece
@@ -24,12 +32,15 @@ export const Route = createFileRoute("/qr-operador")({
 function QrOperadorPage() {
   const currentUser = useQuery(api.users.getCurrentUser);
 
+  // Equipe interna que abriu a página por engano volta para a própria área.
   const backTo =
-    currentUser?.role === "director"
-      ? "/app"
-      : currentUser?.role !== "qr_operator" && currentUser?.department
-        ? `/${currentUser.department}`
-        : null;
+    !currentUser || currentUser.homeArea === "qr-operador"
+      ? null
+      : resolveHomePath(currentUser);
+  // Técnico com alguma funcionalidade do escritório liberada (ajuste
+  // individual em Configurações → Usuários) ganha um atalho para ela.
+  const officeArea =
+    currentUser?.homeArea === "qr-operador" ? firstOfficeArea(currentUser) : null;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -86,6 +97,24 @@ function QrOperadorPage() {
             </div>
             <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
           </Link>
+
+          {officeArea && (
+            <Link
+              to={AREA_PATHS[officeArea]}
+              className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:border-primary/40 hover:bg-muted/40 active:bg-muted/60"
+            >
+              <div className="rounded-md bg-muted p-2">
+                <Briefcase className="size-5 text-muted-foreground" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">Escritório</p>
+                <p className="text-xs text-muted-foreground">
+                  Funcionalidades do sistema liberadas para você.
+                </p>
+              </div>
+              <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+            </Link>
+          )}
 
           <Link
             to="/meus-registros"

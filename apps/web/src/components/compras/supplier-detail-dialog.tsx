@@ -154,7 +154,7 @@ export function SupplierDetailDialog({ supplier }: { supplier: SupplierSummary }
       <DialogTrigger
         render={
           <Button variant="outline" size="sm">
-            <Pencil className="mr-1.5 size-3.5" />
+            <Pencil />
             Gerenciar
           </Button>
         }
@@ -174,7 +174,7 @@ export function SupplierDetailDialog({ supplier }: { supplier: SupplierSummary }
 
         <div className="flex justify-end">
           <Button onClick={saveSupplier} disabled={saving || !form.name.trim()}>
-            {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+            {saving && <Loader2 className="animate-spin" />}
             Salvar dados
           </Button>
         </div>
@@ -209,7 +209,7 @@ export function SupplierDetailDialog({ supplier }: { supplier: SupplierSummary }
                     size="sm"
                     onClick={() => deleteContact(contact._id)}
                   >
-                    <Trash2 className="mr-1.5 size-3.5" />
+                    <Trash2 />
                     Remover
                   </Button>
                 </div>
@@ -271,7 +271,7 @@ export function SupplierDetailDialog({ supplier }: { supplier: SupplierSummary }
                 onClick={saveContact}
                 disabled={saving || !contactForm.name.trim()}
               >
-                <Plus className="mr-1.5 size-4" />
+                <Plus />
                 Adicionar contato
               </Button>
             </div>

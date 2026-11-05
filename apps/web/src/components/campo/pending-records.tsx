@@ -127,9 +127,10 @@ export function PendingRecordsList({
       <Button
         onClick={() => requestOfflineSync()}
         disabled={!online}
-        className="h-11 w-full"
+        size="xl"
+        className="w-full"
       >
-        <CloudUpload className="mr-2 size-4" />
+        <CloudUpload />
         {online ? "Enviar agora" : "Aguardando internet"}
       </Button>
     </>
@@ -199,7 +200,7 @@ function PendingRecordRow({ record }: { record: PendingRecord }) {
             aria-label={`Descartar registro ${record.qrToken}`}
             onClick={() => setConfirming(true)}
           >
-            <Trash2 className="size-4" />
+            <Trash2 />
           </Button>
         )}
       </div>

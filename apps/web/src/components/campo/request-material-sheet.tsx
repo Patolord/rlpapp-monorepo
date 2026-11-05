@@ -276,7 +276,8 @@ export function RequestMaterialSheet({
               <Button
                 type="button"
                 variant="outline"
-                className="h-12 w-full"
+                size="xl"
+                className="w-full"
                 onClick={addSelected}
               >
                 Adicionar ao pedido
@@ -322,7 +323,8 @@ export function RequestMaterialSheet({
         </div>
         <SheetFooter className="border-t pb-[max(1rem,env(safe-area-inset-bottom))]">
           <Button
-            className="h-12 w-full text-base"
+            size="xl"
+            className="w-full"
             disabled={submitting}
             onClick={() => void submit()}
           >

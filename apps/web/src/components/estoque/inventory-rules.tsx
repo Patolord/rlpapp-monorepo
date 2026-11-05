@@ -133,7 +133,7 @@ export function InventoryRules({
               <DialogTrigger
                 render={
                   <Button>
-                    <Plus className="mr-2 size-4" />
+                    <Plus />
                     Nova regra
                   </Button>
                 }

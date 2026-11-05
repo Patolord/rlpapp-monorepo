@@ -1,7 +1,9 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
+import { Link } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
-import { MetricCard } from "@rlpapp/ui/web";
+import { MetricCard, MetricStrip } from "@rlpapp/ui/web";
 import {
   ChevronLeft,
   ChevronRight,
@@ -32,6 +34,7 @@ import {
   initials,
   isDateKey,
   PUNCH_KIND_COLOR,
+  PUNCH_KIND_BADGE_VARIANT,
   PUNCH_KIND_LABEL,
   PUNCH_KIND_ORDER,
   shiftDateKey,
@@ -41,7 +44,6 @@ import {
 import { cn } from "@/lib/utils";
 
 import { PunchPhotoButton } from "./punch-photo";
-import { SyncStatusBar } from "./sync-status-bar";
 
 const TimeClockMap = lazy(() => import("./time-clock-map"));
 
@@ -49,16 +51,9 @@ type DayData = FunctionReturnType<typeof api.timeClock.getDay>;
 type DayPerson = DayData["people"][number];
 type PresenceFilter = "all" | "present" | "absent";
 
-const KIND_BADGE_CLASS: Record<PunchKind, string> = {
-  entrada: "border-transparent bg-emerald-100 text-emerald-800",
-  almoco_saida: "border-transparent bg-amber-100 text-amber-800",
-  almoco_retorno: "border-transparent bg-sky-100 text-sky-800",
-  saida: "border-transparent bg-rose-100 text-rose-800",
-};
-
 export function KindBadge({ kind }: { kind: PunchKind }) {
   return (
-    <Badge variant="outline" className={KIND_BADGE_CLASS[kind]}>
+    <Badge variant={PUNCH_KIND_BADGE_VARIANT[kind]}>
       {PUNCH_KIND_LABEL[kind]}
     </Badge>
   );
@@ -74,7 +69,7 @@ export function TimeClockDayView({
   const day = useQuery(api.timeClock.getDay, isDateKey(date) ? { date } : "skip");
   const [filter, setFilter] = useState<PresenceFilter>("all");
   const [search, setSearch] = useState("");
-  const [selectedPerson, setSelectedPerson] = useState<number | null>(null);
+  const [selectedPerson, setSelectedPerson] = useState<Id<"users"> | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -90,9 +85,8 @@ export function TimeClockDayView({
       if (!term) return true;
       return (
         person.name.toLowerCase().includes(term) ||
-        (person.department ?? "").toLowerCase().includes(term) ||
-        (person.worksiteName ?? "").toLowerCase().includes(term) ||
-        (person.employee?.name ?? "").toLowerCase().includes(term)
+        (person.login ?? "").toLowerCase().includes(term) ||
+        (person.projectName ?? "").toLowerCase().includes(term)
       );
     });
   }, [day, filter, search]);
@@ -103,14 +97,17 @@ export function TimeClockDayView({
         .filter((p) => p.latitude !== null && p.longitude !== null)
         .map((p) => ({
           id: p._id,
-          groupId: p.rhidPersonId,
+          groupId: p.userId,
           latitude: p.latitude as number,
           longitude: p.longitude as number,
           color: PUNCH_KIND_COLOR[p.kind],
           title: p.personName,
           lines: [
             `${PUNCH_KIND_LABEL[p.kind]} às ${p.timeLabel}`,
-            ...(p.geofenceName ? [`Local: ${p.geofenceName}`] : []),
+            p.projectName
+              ? `${p.geofenceStatus === "inside" ? "Em" : "Perto de"} ${p.projectName}`
+              : "Fora de cerca",
+            ...(p.offline ? ["Marcada sem internet"] : []),
           ],
           photoPunchId: p.hasPhoto ? p._id : null,
         })),
@@ -121,10 +118,10 @@ export function TimeClockDayView({
     () =>
       selectedPerson === null
         ? []
-        : (day?.punches ?? []).filter((p) => p.rhidPersonId === selectedPerson),
+        : (day?.punches ?? []).filter((p) => p.userId === selectedPerson),
     [day, selectedPerson]
   );
-  const selected = selectedPerson === null ? null : day?.people.find((p) => p.rhidPersonId === selectedPerson) ?? null;
+  const selected = selectedPerson === null ? null : day?.people.find((p) => p.userId === selectedPerson) ?? null;
 
   const withoutGps = (day?.punches.length ?? 0) - mapPunches.length;
 
@@ -168,13 +165,11 @@ export function TimeClockDayView({
         </div>
       </div>
 
-      <SyncStatusBar range={{ from: date, to: date }} label="Sincronizar dia" />
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricStrip>
         <MetricCard
           title="Presentes"
           value={day ? day.summary.present : "—"}
-          description={day ? `de ${day.summary.total} acompanhados` : undefined}
+          description={day ? `de ${day.summary.total} que batem ponto` : undefined}
           icon={<UserCheck className="size-4 text-emerald-600" />}
         />
         <MetricCard
@@ -196,10 +191,10 @@ export function TimeClockDayView({
         <MetricCard
           title="Obras com movimento"
           value={day ? day.worksites.filter((w) => w.peopleCount > 0).length : "—"}
-          description={day ? `${day.worksites.length} cercas conhecidas` : undefined}
+          description={day ? `de ${day.worksites.length} com cerca` : undefined}
           icon={<HardHat className="size-4 text-amber-600" />}
         />
-      </div>
+      </MetricStrip>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Card className="min-w-0">
@@ -229,7 +224,7 @@ export function TimeClockDayView({
               <Search className="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
               <Input
                 className="pl-8"
-                placeholder="Buscar pessoa, departamento ou obra…"
+                placeholder="Buscar pessoa, login ou obra…"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
@@ -241,7 +236,7 @@ export function TimeClockDayView({
             ) : people.length === 0 ? (
               <p className="py-8 text-center text-muted-foreground">
                 {day.people.length === 0
-                  ? "Nenhuma pessoa conhecida do RHID. Sincronize para carregar o cadastro."
+                  ? "Ninguém bate ponto pelo app ainda. Libere os usuários em Configurações."
                   : "Ninguém corresponde ao filtro."}
               </p>
             ) : (
@@ -259,12 +254,12 @@ export function TimeClockDayView({
                 <TableBody>
                   {people.map((person) => (
                     <PersonRow
-                      key={person.rhidPersonId}
+                      key={person.userId}
                       person={person}
-                      selected={selectedPerson === person.rhidPersonId}
+                      selected={selectedPerson === person.userId}
                       onSelect={() =>
                         setSelectedPerson((current) =>
-                          current === person.rhidPersonId ? null : person.rhidPersonId
+                          current === person.userId ? null : person.userId
                         )
                       }
                     />
@@ -292,13 +287,12 @@ export function TimeClockDayView({
                   <TimeClockMap
                     markers={mapPunches}
                     worksites={(day?.worksites ?? []).map((w) => ({
-                      rhidGeofenceId: w.rhidGeofenceId,
+                      projectId: w.projectId,
                       name: w.name,
                       latitude: w.latitude,
                       longitude: w.longitude,
-                      radius: w.radius,
+                      radiusMeters: w.radiusMeters,
                       caption: `${w.peopleCount} ${w.peopleCount === 1 ? "pessoa" : "pessoas"} no dia`,
-                      projectName: w.projectName,
                     }))}
                     highlightGroupId={selectedPerson}
                   />
@@ -348,7 +342,12 @@ export function TimeClockDayView({
                           <span className="font-mono tabular-nums">{punch.timeLabel}</span>
                           <KindBadge kind={punch.kind} />
                           <span className="text-muted-foreground">
-                            {punch.geofenceName ?? (punch.latitude === null ? "sem GPS" : "fora de cerca")}
+                            {punch.projectName
+                              ? `${punch.geofenceStatus === "inside" ? "" : "perto de "}${punch.projectName}`
+                              : punch.latitude === null
+                                ? "sem GPS"
+                                : "fora de cerca"}
+                            {punch.offline ? " · sem internet" : ""}
                           </span>
                         </div>
                         {punch.hasPhoto ? (
@@ -364,27 +363,29 @@ export function TimeClockDayView({
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Obras (cercas do RHID)</CardTitle>
+              <CardTitle className="text-base">Obras</CardTitle>
             </CardHeader>
             <CardContent>
               {day === undefined ? (
                 <p className="text-muted-foreground">Carregando...</p>
               ) : day.worksites.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Nenhuma cerca recebida ainda. Elas aparecem conforme as marcações chegam.
+                  Nenhuma obra com cerca do ponto.{" "}
+                  <Link to="/rh/ponto/configuracoes" className="text-primary hover:underline">
+                    Definir cercas
+                  </Link>
                 </p>
               ) : (
                 <ul className="divide-y divide-border">
                   {day.worksites.map((worksite) => (
                     <li
-                      key={worksite.rhidGeofenceId}
+                      key={worksite.projectId}
                       className="flex items-center justify-between gap-3 py-2 text-sm"
                     >
                       <div className="min-w-0">
                         <div className="truncate font-medium">{worksite.name}</div>
                         <div className="truncate text-xs text-muted-foreground">
-                          {worksite.projectName ?? "sem obra vinculada"} · raio{" "}
-                          {Math.round(worksite.radius)} m
+                          raio {Math.round(worksite.radiusMeters)} m
                         </div>
                       </div>
                       <div className="shrink-0 text-right tabular-nums">
@@ -426,14 +427,7 @@ function PersonRow({
           <div className="min-w-0">
             <div className="truncate font-medium">{person.name}</div>
             <div className="truncate text-xs text-muted-foreground">
-              {person.employee ? (
-                <>
-                  {person.employee.jobTitle ?? "Funcionário"}
-                  {person.employee.code ? ` · cód. ${person.employee.code}` : ""}
-                </>
-              ) : (
-                person.department ?? "sem departamento"
-              )}
+              {person.login ?? "—"}
             </div>
           </div>
         </div>
@@ -452,7 +446,7 @@ function PersonRow({
         )}
       </TableCell>
       <TableCell className="max-w-[180px] truncate text-muted-foreground">
-        {person.worksiteName ?? (person.present ? "fora de cerca" : "—")}
+        {person.projectName ?? (person.present ? "fora de cerca" : "—")}
       </TableCell>
       <TableCell className="text-right tabular-nums">{person.punchCount || "—"}</TableCell>
     </TableRow>

@@ -1,5 +1,7 @@
 import { v } from "convex/values";
-import { engineeringQuery } from "./lib/rbac";
+import {
+  obrasQuery,
+} from "./lib/rbac";
 import { projectStatus } from "./schema";
 import type { Doc, Id } from "./_generated/dataModel";
 
@@ -10,7 +12,7 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 // manutenções e QR codes) sem depender de tabelas novas.
 //
 // Recebe `now` como argumento para manter a query determinística/cacheável.
-export const getDirectorOverview = engineeringQuery({
+export const getDirectorOverview = obrasQuery({
   args: { now: v.number() },
   returns: v.object({
     kpis: v.object({

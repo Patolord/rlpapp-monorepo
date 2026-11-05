@@ -4,28 +4,28 @@ import { cva } from "class-variance-authority";
 
 import { cn } from "./lib/cn";
 
+// 6px status dot rendered before the label (padding-left tightens to 8px).
+const dot =
+  "pl-[8px] before:size-[6px] before:shrink-0 before:rounded-full before:content-['']";
+
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  // Shell: "Outline + dot" pill (2px x 9px, 12px/500, 6px gap). The status
+  // variants add a 6px dot before the label; colour lives only on the dot.
+  "inline-flex items-center gap-[6px] whitespace-nowrap rounded-full border border-control-border bg-card px-[9px] py-[2px] text-xs font-medium text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
     variants: {
       variant: {
         default: "border-transparent bg-primary text-primary-foreground",
-        secondary:
-          "border-transparent bg-secondary text-secondary-foreground",
-        destructive: "border-transparent bg-destructive/10 text-destructive",
-        outline: "text-foreground",
-        // Semantic status variants (soft background + readable foreground).
-        neutral:
-          "border-transparent bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-        info: "border-transparent bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
-        success:
-          "border-transparent bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300",
-        warning:
-          "border-transparent bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300",
-        danger:
-          "border-transparent bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
-        muted:
-          "border-transparent bg-zinc-50 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400",
+        secondary: "border-transparent bg-secondary text-secondary-foreground",
+        destructive: cn(dot, "before:bg-status-danger"),
+        outline: "",
+        // Semantic status variants: outline pill + coloured dot.
+        neutral: cn(dot, "before:bg-status-neutral"),
+        info: cn(dot, "before:bg-status-info"),
+        success: cn(dot, "before:bg-status-success"),
+        warning: cn(dot, "before:bg-status-warning"),
+        danger: cn(dot, "before:bg-status-danger"),
+        muted: cn(dot, "text-muted-foreground before:bg-status-muted"),
       },
     },
     defaultVariants: {

@@ -63,11 +63,11 @@ export function ObraSlugLayout({
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
           <Button render={<Link to="/app" />}>
-            <Home className="mr-2 size-4" />
+            <Home />
             Voltar à tela inicial
           </Button>
           <Button variant="outline" render={<Link to={OBRAS_LIST_PATH} />}>
-            <ArrowLeft className="mr-2 size-4" />
+            <ArrowLeft />
             Voltar para obras
           </Button>
         </div>

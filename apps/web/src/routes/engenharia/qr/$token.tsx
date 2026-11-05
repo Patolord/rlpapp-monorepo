@@ -14,6 +14,7 @@ import {
   Home,
 } from "lucide-react";
 import { AuthShell } from "@/components/auth-shell";
+import { OBRAS_LIST_PATH, obraLinkSlug } from "@/lib/engenharia/obra-paths";
 
 export const Route = createFileRoute("/engenharia/qr/$token")({
   component: QrDetailPage,
@@ -56,12 +57,12 @@ function QrDetailContent() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Button render={<Link to="/app" />}>
-              <Home className="mr-2 h-4 w-4" />
+              <Home />
               Voltar à tela inicial
             </Button>
-            <Button variant="outline" render={<Link to="/engenharia" />}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Voltar
+            <Button variant="outline" render={<Link to={OBRAS_LIST_PATH} />}>
+              <ArrowLeft />
+              Voltar às obras
             </Button>
           </div>
         </div>
@@ -69,19 +70,35 @@ function QrDetailContent() {
     );
   }
 
-  const { qrCode, equipment } = data;
+  const { qrCode, equipment, project } = data;
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
       <div className="mb-4">
-        <Button variant="ghost" size="sm" render={<Link to="/engenharia" />}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Voltar para códigos QR
-        </Button>
+        {project ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            render={
+              <Link
+                to="/engenharia/obras/$obraSlug/qr-codes"
+                params={{ obraSlug: obraLinkSlug({ slug: project.projectSlug, _id: project.projectId }) }}
+              />
+            }
+          >
+            <ArrowLeft />
+            Voltar para QR codes de {project.projectName}
+          </Button>
+        ) : (
+          <Button variant="ghost" size="sm" render={<Link to={OBRAS_LIST_PATH} />}>
+            <ArrowLeft />
+            Voltar às obras
+          </Button>
+        )}
       </div>
 
       <Card className="mb-4">
-        <CardContent className="flex flex-col items-center pt-4">
+        <CardContent className="flex flex-col items-center">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             RLP Engenharia
           </p>
@@ -93,17 +110,11 @@ function QrDetailContent() {
           />
           <div className="mt-3 flex items-center gap-2">
             {qrCode.equipmentId ? (
-              <Badge
-                variant="outline"
-                className="bg-blue-50 text-blue-700 border-blue-200"
-              >
+              <Badge variant="info">
                 Vinculado
               </Badge>
             ) : (
-              <Badge
-                variant="outline"
-                className="bg-gray-50 text-gray-500 border-gray-200"
-              >
+              <Badge variant="muted">
                 Livre
               </Badge>
             )}
@@ -126,7 +137,7 @@ function QrDetailContent() {
         />
       ) : (
         <Card className="mb-4">
-          <CardContent className="flex flex-col items-center gap-3 py-6 text-center">
+          <CardContent className="flex flex-col items-center gap-3 text-center">
             <QrCode className="h-10 w-10 text-muted-foreground" />
             <div>
               <h2 className="text-lg font-semibold">

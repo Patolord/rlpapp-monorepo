@@ -19,6 +19,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useCan } from "@/hooks/use-can";
+import { can, type Permission } from "@rlpapp/shared/auth/permissions";
 import { getUnitState, type GridFloor, type GridUnit } from "@/components/engenharia/building";
 import { AiChatPanel } from "@/components/engenharia/ai/ai-chat-panel";
 import { AssignTechniciansDialog } from "@/components/engenharia/assign-technicians-dialog";
@@ -140,11 +142,11 @@ export function ProjectShell({
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
           <Button render={<Link to="/app" />}>
-            <Home className="mr-2 size-4" />
+            <Home />
             Voltar à tela inicial
           </Button>
           <Button variant="outline" render={<Link to={OBRAS_LIST_PATH} />}>
-            <ArrowLeft className="mr-2 size-4" />
+            <ArrowLeft />
             Voltar para obras
           </Button>
         </div>
@@ -189,6 +191,9 @@ function ProjectShellLayout({
   }
 
   const [metricsOpen, setMetricsOpen] = useState(false);
+  const canEdit = useCan("obras.write");
+  const canManage = useCan("obras.gestao");
+  const canUseAssistant = useCan("assistente.use");
 
   const pending = project.totalItems - project.installedItems;
   const pct =
@@ -203,8 +208,8 @@ function ProjectShellLayout({
   return (
     <div
       className={cn(
-        "mx-auto max-w-7xl space-y-6 transition-[padding] duration-200",
-        aiOpen && "lg:pr-116"
+        "mx-auto max-w-7xl space-y-6",
+        canUseAssistant && aiOpen && "lg:pr-116"
       )}
     >
       <div>
@@ -214,7 +219,7 @@ function ProjectShellLayout({
           className="mb-2 -ml-2"
           render={<Link to={OBRAS_LIST_PATH} />}
         >
-          <ArrowLeft className="mr-1.5 size-4" />
+          <ArrowLeft />
           Obras
         </Button>
 
@@ -256,7 +261,7 @@ function ProjectShellLayout({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            {project.status !== "archived" && (
+            {canEdit && project.status !== "archived" && (
               <ProjectFormDialog
                 project={{
                   _id: project._id,
@@ -267,7 +272,7 @@ function ProjectShellLayout({
                 }}
                 trigger={
                   <Button variant="outline" size="sm">
-                    <Pencil className="mr-1.5 size-4" />
+                    <Pencil />
                     Editar
                   </Button>
                 }
@@ -278,11 +283,10 @@ function ProjectShellLayout({
               size="icon"
               onClick={() => setMetricsOpen((v) => !v)}
               title="Visualizar métricas"
-              className="size-9"
             >
-              <BarChart3 className="size-4" />
+              <BarChart3 />
             </Button>
-            <AssignTechniciansDialog projectId={project._id} />
+            {canManage && <AssignTechniciansDialog projectId={project._id} />}
             <Button
               variant="outline"
               size="sm"
@@ -293,7 +297,7 @@ function ProjectShellLayout({
                 />
               }
             >
-              <QrCode className="mr-1.5 size-4" />
+              <QrCode />
               QR Codes
             </Button>
             <Button
@@ -306,7 +310,7 @@ function ProjectShellLayout({
                 />
               }
             >
-              <Printer className="mr-1.5 size-4" />
+              <Printer />
               Imprimir
             </Button>
           </div>
@@ -327,27 +331,45 @@ function ProjectShellLayout({
 
       {children(project, now)}
 
-      {!aiOpen && (
+      {canUseAssistant && !aiOpen && (
         <Button
           size="lg"
           className="fixed bottom-6 right-6 z-40 rounded-full shadow-lg"
           onClick={() => setAiOpenPersist(true)}
         >
-          <Sparkles className="mr-2 size-4" />
+          <Sparkles />
           Assistente IA
         </Button>
       )}
-      <AiChatPanel
-        projectId={project._id}
-        context={aiContext}
-        open={aiOpen}
-        onOpenChange={setAiOpenPersist}
-      />
+      {canUseAssistant && (
+        <AiChatPanel
+          projectId={project._id}
+          context={aiContext}
+          open={aiOpen}
+          onOpenChange={setAiOpenPersist}
+        />
+      )}
     </div>
   );
 }
 
-const OBRA_MODULES = [
+// Cada aba aparece para quem tem a permissão da funcionalidade (a página
+// usaria queries que o backend negaria).
+const OBRA_MODULES: {
+  key: string;
+  label: string;
+  to:
+    | "/engenharia/obras/$obraSlug"
+    | "/engenharia/obras/$obraSlug/predio"
+    | "/engenharia/obras/$obraSlug/orcamento"
+    | "/engenharia/obras/$obraSlug/contratos"
+    | "/engenharia/obras/$obraSlug/medicoes"
+    | "/engenharia/obras/$obraSlug/compras"
+    | "/engenharia/obras/$obraSlug/estoque"
+    | "/engenharia/obras/$obraSlug/documentos";
+  match: "exact" | "prefix";
+  permission?: Permission;
+}[] = [
   {
     key: "hub",
     label: "Hub",
@@ -365,50 +387,54 @@ const OBRA_MODULES = [
     label: "Orçamento",
     to: "/engenharia/obras/$obraSlug/orcamento" as const,
     match: "prefix" as const,
-  },
-  {
-    key: "dutos",
-    label: "Dutos",
-    to: "/engenharia/obras/$obraSlug/dutos" as const,
-    match: "prefix" as const,
+    permission: "suprimentos.read",
   },
   {
     key: "contratos",
     label: "Contratos",
     to: "/engenharia/obras/$obraSlug/contratos" as const,
     match: "prefix" as const,
+    permission: "contratos.read",
   },
   {
     key: "medicoes",
     label: "Medições",
     to: "/engenharia/obras/$obraSlug/medicoes" as const,
     match: "prefix" as const,
+    permission: "medicoes.read",
   },
   {
     key: "compras",
     label: "Compras",
     to: "/engenharia/obras/$obraSlug/compras" as const,
     match: "prefix" as const,
+    permission: "suprimentos.read",
   },
   {
     key: "estoque",
     label: "Estoque",
     to: "/engenharia/obras/$obraSlug/estoque" as const,
     match: "prefix" as const,
+    permission: "estoque.read",
   },
   {
     key: "documentos",
     label: "Documentos",
     to: "/engenharia/obras/$obraSlug/documentos" as const,
     match: "prefix" as const,
+    permission: "documentos.read",
   },
 ];
 
 function ObraModuleNav({ obraSlug }: { obraSlug: string }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const currentUser = useQuery(api.users.getCurrentUser);
   const base = `/engenharia/obras/${obraSlug}`;
+  const modules = OBRA_MODULES.filter(
+    (mod) => !mod.permission || can(currentUser, mod.permission)
+  );
 
-  function isActive(mod: (typeof OBRA_MODULES)[number]) {
+  function isActive(mod: (typeof modules)[number]) {
     if (mod.match === "exact") {
       return pathname === base || pathname === `${base}/`;
     }
@@ -420,7 +446,7 @@ function ObraModuleNav({ obraSlug }: { obraSlug: string }) {
       aria-label="Módulos da obra"
       className="mt-4 flex flex-wrap gap-x-1 gap-y-1 border-b"
     >
-      {OBRA_MODULES.map((mod) => {
+      {modules.map((mod) => {
         const active = isActive(mod);
         return (
           <Link
@@ -468,8 +494,8 @@ function ProgressSummary({
         </span>
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
           <div
-            className="h-full rounded-full bg-primary transition-all"
-            style={{ width: `${pct}%` }}
+            className="h-full w-full rounded-full bg-primary transition-transform duration-300 ease-snappy motion-reduce:transition-none"
+            style={{ transform: `translateX(${pct - 100}%)` }}
           />
         </div>
       </div>

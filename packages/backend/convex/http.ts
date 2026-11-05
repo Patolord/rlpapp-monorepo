@@ -4,20 +4,10 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { env, httpAction } from "./_generated/server";
 import { MAX_LOOKUP_QUERY_LENGTH } from "./lib/compras/materialLookup";
-import type { TakeoffCatalogItem } from "./model/procurement/takeoffCatalog";
-import {
-  MATERIAL_NOT_FOUND,
-  parseTakeoffMaterialProposal,
-  type TakeoffMaterialProposalResult,
-} from "./model/procurement/takeoffProposals";
-import {
-  PHOTO_FETCH_TIMEOUT_MS,
-  isAllowedPhotoUrl,
-  photoMimeType,
-  readPhotoBody,
-} from "./lib/rh/photo";
+import { isPunchPhotoType } from "./lib/rh/timeClockPunch";
 import { hashAgentToken, looksLikeAgentToken } from "./lib/agentTokens";
 import { registerApiV1Routes } from "./gateway/v1";
+import { registerTakeoffAuthRoutes } from "./gateway/takeoffAuth";
 
 type ClerkEmailAddress = {
   id: string;
@@ -31,6 +21,8 @@ type ClerkUserData = {
   last_name: string | null;
   primary_email_address_id: string | null;
   email_addresses: ClerkEmailAddress[];
+  /** Preenchido pela página /convite do app web (telefone opcional). */
+  unsafe_metadata?: Record<string, unknown> | null;
 };
 
 type ClerkWebhookEvent = {
@@ -48,6 +40,11 @@ function primaryEmail(user: ClerkUserData): string | null {
 function fullName(user: ClerkUserData): string | null {
   const name = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
   return name.length > 0 ? name : null;
+}
+
+function invitedPhone(user: ClerkUserData): string | undefined {
+  const phone = user.unsafe_metadata?.phone;
+  return typeof phone === "string" && phone.trim() ? phone.trim() : undefined;
 }
 
 async function validateRequest(
@@ -98,6 +95,7 @@ const handleClerkWebhook = httpAction(async (ctx, request) => {
         username,
         name:
           fullName(user) ?? username ?? email?.split("@")[0] ?? "Usuário",
+        phone: invitedPhone(user),
       });
       break;
     }
@@ -216,80 +214,6 @@ const handleAgentTokenVerify = httpAction(async (ctx, request) => {
 });
 
 // ---------------------------------------------------------------------------
-// Catálogo para o RLP Takeoff (app desktop)
-// ---------------------------------------------------------------------------
-//
-// Exporta todo o catálogo ativo com o preço vigente de cada material. O app
-// desktop lê isto ao abrir e cai no seed embutido quando o endpoint falha, por
-// isso a resposta é um JSON único e não paginado.
-
-const handleTakeoffCatalog = httpAction(async (ctx, request) => {
-  const token = env.TAKEOFF_CATALOG_TOKEN;
-  if (!token) return json({ error: "Takeoff catalog is not configured" }, 503);
-  if (request.headers.get("Authorization") !== `Bearer ${token}`) {
-    return json({ error: "Unauthorized" }, 401);
-  }
-
-  const startedAt = Date.now();
-  const items: TakeoffCatalogItem[] = await ctx.runQuery(
-    internal.takeoffCatalog.list,
-    { now: startedAt }
-  );
-  console.log(
-    JSON.stringify({
-      event: "takeoff_catalog",
-      items: items.length,
-      ms: Date.now() - startedAt,
-    })
-  );
-  return json({ generatedAt: startedAt, items });
-});
-
-// Proposta de material vinda do takeoff. Cadastrar material é tarefa de
-// compras: aqui só nasce um rascunho (ou o vínculo com o material idêntico
-// já existente) e, se veio preço, uma estimativa na fila de revisão.
-// Idempotente por clientId para o app poder reenviar sem medo.
-const handleTakeoffMaterialProposal = httpAction(async (ctx, request) => {
-  const token = env.TAKEOFF_CATALOG_TOKEN;
-  if (!token) return json({ error: "Takeoff catalog is not configured" }, 503);
-  if (request.headers.get("Authorization") !== `Bearer ${token}`) {
-    return json({ error: "Unauthorized" }, 401);
-  }
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return json({ error: "Body must be JSON" }, 400);
-  }
-  const parsed = parseTakeoffMaterialProposal(body);
-  if (!parsed.ok) return json({ error: parsed.error }, 400);
-
-  let result: TakeoffMaterialProposalResult;
-  try {
-    result = await ctx.runMutation(
-      internal.takeoffMaterials.propose,
-      parsed.value
-    );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (message.includes(MATERIAL_NOT_FOUND)) {
-      return json({ error: "Material not found" }, 404);
-    }
-    throw error;
-  }
-  console.log(
-    JSON.stringify({
-      event: "takeoff_material_proposal",
-      outcome: result.outcome,
-      materialId: result.materialId,
-      priceEventId: result.priceEventId,
-    })
-  );
-  return json(result);
-});
-
-// ---------------------------------------------------------------------------
 // Download autenticado de documentos (PDF) da obra
 // ---------------------------------------------------------------------------
 //
@@ -378,12 +302,12 @@ const handleProjectDocumentDownload = httpAction(async (ctx, request) => {
 });
 
 // ---------------------------------------------------------------------------
-// Foto de marcação do ponto (RHID)
+// Foto de marcação do ponto
 // ---------------------------------------------------------------------------
 //
-// O app nunca recebe a URL do RHID: pede `/time-clock/photo/<punchId>` com o
-// JWT Clerk, a permissão `rh.read` é reavaliada a cada pedido e a imagem
-// volta com `no-store` (nada fica em cache do navegador/PWA).
+// O painel pede `/time-clock/photo/<punchId>` com o JWT Clerk; `rh.ponto.read`
+// é conferida a cada pedido e a imagem volta com `no-store` (nada fica em
+// cache do navegador/PWA). O storage nunca entrega uma URL reutilizável.
 
 const TIME_CLOCK_PHOTO_PATH_PREFIX = "/time-clock/photo/";
 
@@ -398,46 +322,31 @@ const handleTimeClockPhoto = httpAction(async (ctx, request) => {
   if (!punchId || punchId.includes("/")) {
     return new Response("Not found", { status: 404, headers });
   }
-
-  const resolved = await ctx.runQuery(internal.timeClock.resolvePhoto, { punchId });
+  const resolved = await ctx.runQuery(internal.timeClock.authorizePunchPhoto, { punchId });
   if (resolved.status === "unauthenticated") {
     return new Response("Unauthorized", { status: 401, headers });
   }
   if (resolved.status === "forbidden") {
     return new Response("Forbidden", { status: 403, headers });
   }
-  if (
-    resolved.status !== "ok" ||
-    !isAllowedPhotoUrl(resolved.url, env.RHID_MEDIA_ALLOWED_HOSTS)
-  ) {
+  if (resolved.status !== "ok") {
     return new Response("Not found", { status: 404, headers });
   }
-
-  try {
-    // Sem credenciais e sem seguir redirects: o host já foi validado acima.
-    const upstream = await fetch(resolved.url, {
-      redirect: "error",
-      signal: AbortSignal.timeout(PHOTO_FETCH_TIMEOUT_MS),
-    });
-    const mime = photoMimeType(upstream);
-    if (!upstream.ok || !mime) {
-      await upstream.body?.cancel().catch(() => undefined);
-      return new Response("Not found", { status: 404, headers });
-    }
-    const bytes = await readPhotoBody(upstream);
-    return new Response(bytes as BodyInit, {
-      status: 200,
-      headers: { ...headers, "Content-Type": mime },
-    });
-  } catch {
-    return new Response("Bad gateway", { status: 502, headers });
+  const blob = await ctx.storage.get(resolved.storageId);
+  if (!blob || !isPunchPhotoType(blob.type)) {
+    return new Response("Not found", { status: 404, headers });
   }
+  return new Response(blob, {
+    status: 200,
+    headers: { ...headers, "Content-Type": blob.type, "Content-Length": String(blob.size) },
+  });
 });
 
 const http = httpRouter();
 
 // API HTTP para agentes (`/api/v1/*` e `/.well-known/jwks.json`).
 registerApiV1Routes(http);
+registerTakeoffAuthRoutes(http);
 
 http.route({
   path: AGENT_TOKEN_VERIFY_PATH,
@@ -479,18 +388,6 @@ http.route({
   path: "/materials/lookup",
   method: "GET",
   handler: handleMaterialLookup,
-});
-
-http.route({
-  path: "/takeoff/catalog",
-  method: "GET",
-  handler: handleTakeoffCatalog,
-});
-
-http.route({
-  path: "/takeoff/materials",
-  method: "POST",
-  handler: handleTakeoffMaterialProposal,
 });
 
 export default http;

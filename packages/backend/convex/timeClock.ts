@@ -1,163 +1,51 @@
 /**
- * Ponto (RH): leitura do espelho RHID e vínculos com funcionários/obras.
- * A coleta em si fica em `rhidSync.ts`.
+ * Ponto (RH): painel de presença ("agora", dia e mês), cercas das obras, quem
+ * bate ponto pelo app e regras da marcação. A marcação em si fica em
+ * `timeClockPunch.ts`.
+ *
+ * Cada pessoa do ponto é um usuário do app com a permissão `ponto.registrar`;
+ * cada local é uma obra cadastrada com cerca (`projects.geofence`).
  */
 
-import { v } from "convex/values";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { ConvexError, v } from "convex/values";
+import { normalizePermissionOverrides, resolveRoles } from "@rlpapp/shared/auth/permissions";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { QueryCtx } from "./_generated/server";
+import { internalQuery, type QueryCtx } from "./_generated/server";
 import { logAudit } from "./lib/audit";
 import { getUserByIdentity } from "./lib/auth";
-import {
-  hasPermission,
-  hrMutation,
-  hrQuery,
-  requirePermission,
-  requireUser,
-} from "./lib/rbac";
+import { hasPermission, pontoMutation, pontoQuery } from "./lib/rbac";
 import {
   aggregateManDays,
   assertDateKey,
   derivePosition,
   monthRange,
+  type LiveStatus,
   type PunchKind,
-} from "./lib/rh/rhid";
+} from "./lib/rh/timeClock";
 import {
-  getPersonByRhidId,
   getSettings,
-  getSyncState,
-  getWorksiteByRhidId,
-  isTrackedDepartment,
+  listClockUsers,
   listDaysInRange,
-  listPeople,
-  listRhidPunchesForDate,
-  listWorksites,
-  patchSyncState,
-  peopleById,
-  replaceDayPunches,
+  listGeofencedProjects,
+  listPunchesForDate,
   saveSettings,
-  upsertPeople,
-  upsertWorksites,
+  type GeofencedProject,
 } from "./lib/rh/timeClockDb";
-import { rhidLinkSource, rhidSyncStatus, timeClockPunchKind } from "./schema";
+import {
+  MAX_GEOFENCE_RADIUS_METERS,
+  MIN_GEOFENCE_RADIUS_METERS,
+} from "./lib/rh/timeClockPunch";
+import { projectGeofence, timeClockGeofenceStatus, timeClockPunchKind } from "./schema";
 
 // ---------------------------------------------------------------------------
-// Validadores compartilhados
+// Validadores
 // ---------------------------------------------------------------------------
-
-const normalizedPunchValidator = v.object({
-  rhidRecordId: v.number(),
-  rhidPersonId: v.number(),
-  personName: v.string(),
-  date: v.string(),
-  punchedAt: v.number(),
-  timeLabel: v.string(),
-  sequence: v.number(),
-  kind: timeClockPunchKind,
-  latitude: v.optional(v.number()),
-  longitude: v.optional(v.number()),
-  photoUrl: v.optional(v.string()),
-  rhidGeofenceId: v.optional(v.number()),
-  geofenceName: v.optional(v.string()),
-});
-
-const normalizedPersonValidator = v.object({
-  rhidPersonId: v.number(),
-  name: v.string(),
-  cpf: v.optional(v.string()),
-  department: v.optional(v.string()),
-});
-
-const normalizedWorksiteValidator = v.object({
-  rhidGeofenceId: v.number(),
-  name: v.string(),
-  latitude: v.number(),
-  longitude: v.number(),
-  radius: v.number(),
-});
-
-const employeeRefValidator = v.object({
-  _id: v.id("employees"),
-  name: v.string(),
-  jobTitle: v.union(v.string(), v.null()),
-  code: v.union(v.string(), v.null()),
-});
-
-const personValidator = v.object({
-  rhidPersonId: v.number(),
-  name: v.string(),
-  cpf: v.union(v.string(), v.null()),
-  department: v.union(v.string(), v.null()),
-  active: v.boolean(),
-  tracked: v.boolean(),
-  employee: v.union(employeeRefValidator, v.null()),
-  linkSource: v.union(rhidLinkSource, v.null()),
-  lastSeenAt: v.number(),
-});
-
-const worksiteValidator = v.object({
-  rhidGeofenceId: v.number(),
-  name: v.string(),
-  latitude: v.number(),
-  longitude: v.number(),
-  radius: v.number(),
-  projectId: v.union(v.id("projects"), v.null()),
-  projectName: v.union(v.string(), v.null()),
-  lastSeenAt: v.number(),
-});
 
 const settingsValidator = v.object({
   manDayCostCents: v.number(),
-  trackedDepartments: v.array(v.string()),
   photoRequired: v.boolean(),
   locationRequired: v.boolean(),
   duplicateWindowMinutes: v.number(),
-});
-
-const syncStateValidator = v.object({
-  configured: v.boolean(),
-  lastSyncStartedAt: v.union(v.number(), v.null()),
-  lastSyncFinishedAt: v.union(v.number(), v.null()),
-  lastSyncStatus: v.union(rhidSyncStatus, v.null()),
-  lastSyncError: v.union(v.string(), v.null()),
-  lastSyncFrom: v.union(v.string(), v.null()),
-  lastSyncTo: v.union(v.string(), v.null()),
-  lastSyncPunches: v.union(v.number(), v.null()),
-  lastSyncPeople: v.union(v.number(), v.null()),
-  lastSyncTrigger: v.union(v.literal("manual"), v.literal("cron"), v.null()),
-});
-
-const dayPersonValidator = v.object({
-  rhidPersonId: v.number(),
-  name: v.string(),
-  department: v.union(v.string(), v.null()),
-  employee: v.union(employeeRefValidator, v.null()),
-  present: v.boolean(),
-  firstPunchAt: v.union(v.number(), v.null()),
-  lastPunchAt: v.union(v.number(), v.null()),
-  lastKind: v.union(timeClockPunchKind, v.null()),
-  punchCount: v.number(),
-  rhidGeofenceId: v.union(v.number(), v.null()),
-  worksiteName: v.union(v.string(), v.null()),
-  photoPunchId: v.union(v.id("timeClockPunches"), v.null()),
-});
-
-const dayPunchValidator = v.object({
-  _id: v.id("timeClockPunches"),
-  rhidRecordId: v.union(v.number(), v.null()),
-  rhidPersonId: v.number(),
-  source: v.union(v.literal("rhid"), v.literal("app")),
-  personName: v.string(),
-  punchedAt: v.number(),
-  timeLabel: v.string(),
-  sequence: v.number(),
-  kind: timeClockPunchKind,
-  latitude: v.union(v.number(), v.null()),
-  longitude: v.union(v.number(), v.null()),
-  hasPhoto: v.boolean(),
-  rhidGeofenceId: v.union(v.number(), v.null()),
-  geofenceName: v.union(v.string(), v.null()),
 });
 
 const liveStatusValidator = v.union(
@@ -167,45 +55,83 @@ const liveStatusValidator = v.union(
   v.literal("absent")
 );
 
-const livePersonValidator = v.object({
-  rhidPersonId: v.number(),
+const dayPersonValidator = v.object({
+  userId: v.id("users"),
   name: v.string(),
-  department: v.union(v.string(), v.null()),
-  employee: v.union(employeeRefValidator, v.null()),
+  login: v.union(v.string(), v.null()),
+  present: v.boolean(),
+  firstPunchAt: v.union(v.number(), v.null()),
+  lastPunchAt: v.union(v.number(), v.null()),
+  lastKind: v.union(timeClockPunchKind, v.null()),
+  punchCount: v.number(),
+  projectId: v.union(v.id("projects"), v.null()),
+  projectName: v.union(v.string(), v.null()),
+  photoPunchId: v.union(v.id("clockPunches"), v.null()),
+});
+
+const dayPunchValidator = v.object({
+  _id: v.id("clockPunches"),
+  userId: v.id("users"),
+  personName: v.string(),
+  punchedAt: v.number(),
+  timeLabel: v.string(),
+  sequence: v.number(),
+  kind: timeClockPunchKind,
+  latitude: v.union(v.number(), v.null()),
+  longitude: v.union(v.number(), v.null()),
+  hasPhoto: v.boolean(),
+  projectId: v.union(v.id("projects"), v.null()),
+  projectName: v.union(v.string(), v.null()),
+  geofenceStatus: timeClockGeofenceStatus,
+  offline: v.boolean(),
+});
+
+const dayWorksiteValidator = v.object({
+  projectId: v.id("projects"),
+  name: v.string(),
+  latitude: v.number(),
+  longitude: v.number(),
+  radiusMeters: v.number(),
+  peopleCount: v.number(),
+  punchCount: v.number(),
+});
+
+const livePersonValidator = v.object({
+  userId: v.id("users"),
+  name: v.string(),
+  login: v.union(v.string(), v.null()),
   status: liveStatusValidator,
   /** Instante da última marcação (desde quando está nessa situação). */
   since: v.union(v.number(), v.null()),
   lastKind: v.union(timeClockPunchKind, v.null()),
   lastTimeLabel: v.union(v.string(), v.null()),
-  worksiteId: v.union(v.number(), v.null()),
-  worksiteName: v.union(v.string(), v.null()),
+  projectId: v.union(v.id("projects"), v.null()),
+  projectName: v.union(v.string(), v.null()),
   locationExact: v.boolean(),
   latitude: v.union(v.number(), v.null()),
   longitude: v.union(v.number(), v.null()),
-  photoPunchId: v.union(v.id("timeClockPunches"), v.null()),
+  photoPunchId: v.union(v.id("clockPunches"), v.null()),
   punches: v.array(
     v.object({
       timeLabel: v.string(),
       kind: timeClockPunchKind,
-      geofenceName: v.union(v.string(), v.null()),
+      projectName: v.union(v.string(), v.null()),
     })
   ),
 });
 
 const liveWorksiteValidator = v.object({
-  rhidGeofenceId: v.number(),
+  projectId: v.id("projects"),
   name: v.string(),
   latitude: v.number(),
   longitude: v.number(),
-  radius: v.number(),
-  projectId: v.union(v.id("projects"), v.null()),
-  projectName: v.union(v.string(), v.null()),
+  radiusMeters: v.number(),
   onSite: v.number(),
   lunch: v.number(),
   left: v.number(),
   people: v.array(
     v.object({
-      rhidPersonId: v.number(),
+      userId: v.id("users"),
       name: v.string(),
       status: liveStatusValidator,
       since: v.union(v.number(), v.null()),
@@ -214,251 +140,57 @@ const liveWorksiteValidator = v.object({
   ),
 });
 
-const dayWorksiteValidator = v.object({
-  rhidGeofenceId: v.number(),
-  name: v.string(),
-  latitude: v.number(),
-  longitude: v.number(),
-  radius: v.number(),
-  projectId: v.union(v.id("projects"), v.null()),
-  projectName: v.union(v.string(), v.null()),
-  peopleCount: v.number(),
-  punchCount: v.number(),
-});
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function employeeRef(employee: Doc<"employees"> | null | undefined) {
-  if (!employee) return null;
-  return {
-    _id: employee._id,
-    name: employee.name,
-    jobTitle: employee.jobTitle ?? null,
-    code: employee.code ?? null,
-  };
+function loginOf(user: Doc<"users"> | null | undefined): string | null {
+  return user?.username ?? user?.email ?? null;
 }
-
-async function employeesByIdForPeople(
-  ctx: QueryCtx,
-  people: Iterable<Doc<"rhidPeople">>
-): Promise<Map<Id<"employees">, Doc<"employees">>> {
-  const map = new Map<Id<"employees">, Doc<"employees">>();
-  for (const person of people) {
-    if (!person.employeeId || map.has(person.employeeId)) continue;
-    const employee = await ctx.db.get("employees", person.employeeId);
-    if (employee) map.set(employee._id, employee);
-  }
-  return map;
-}
-
-async function projectNamesForWorksites(
-  ctx: QueryCtx,
-  worksites: Iterable<Doc<"rhidWorksites">>
-): Promise<Map<Id<"projects">, string>> {
-  const map = new Map<Id<"projects">, string>();
-  for (const worksite of worksites) {
-    if (!worksite.projectId || map.has(worksite.projectId)) continue;
-    const project = await ctx.db.get("projects", worksite.projectId);
-    if (project) map.set(project._id, project.name);
-  }
-  return map;
-}
-
-function isConfigured(): boolean {
-  return Boolean(process.env.RHID_EMAIL && process.env.RHID_PASSWORD);
-}
-
-// ---------------------------------------------------------------------------
-// Internas (usadas pela action de sincronização)
-// ---------------------------------------------------------------------------
-
-/** Lança se o chamador não puder disparar a sincronização. */
-export const assertHrWriteAccess = internalQuery({
-  args: {},
-  returns: v.null(),
-  handler: async (ctx) => {
-    const user = await requireUser(ctx);
-    requirePermission(user, "rh.write");
-    return null;
-  },
-});
 
 /**
- * Resolve a URL original da foto de uma marcação para o proxy HTTP
- * (`/time-clock/photo/:punchId`). A URL do RHID nunca vai para o cliente.
+ * Quem aparece no dia: usuários que batem ponto (ausentes inclusive) e
+ * qualquer um com marcação na data (ex.: permissão retirada depois).
  */
-export const resolvePhoto = internalQuery({
-  args: { punchId: v.string() },
-  returns: v.union(
-    v.object({ status: v.literal("ok"), url: v.string() }),
-    v.object({
-      status: v.union(
-        v.literal("unauthenticated"),
-        v.literal("forbidden"),
-        v.literal("not_found")
-      ),
-    })
-  ),
-  handler: async (ctx, args) => {
-    if (!(await ctx.auth.getUserIdentity())) return { status: "unauthenticated" as const };
-    const user = await getUserByIdentity(ctx);
-    if (!user) return { status: "unauthenticated" as const };
-    if (!user.isActive || !hasPermission(user, "rh.read")) {
-      return { status: "forbidden" as const };
-    }
-    const punchId = ctx.db.normalizeId("timeClockPunches", args.punchId);
-    const punch = punchId ? await ctx.db.get("timeClockPunches", punchId) : null;
-    if (!punch?.photoUrl) return { status: "not_found" as const };
-    return { status: "ok" as const, url: punch.photoUrl };
-  },
-});
+async function dayRoster(
+  ctx: QueryCtx,
+  punches: Doc<"clockPunches">[]
+): Promise<Map<Id<"users">, { name: string; login: string | null }>> {
+  const roster = new Map<Id<"users">, { name: string; login: string | null }>();
+  for (const user of await listClockUsers(ctx)) {
+    roster.set(user._id, { name: user.name, login: loginOf(user) });
+  }
+  for (const punch of punches) {
+    if (roster.has(punch.userId)) continue;
+    const user = await ctx.db.get("users", punch.userId);
+    roster.set(punch.userId, { name: user?.name ?? punch.personName, login: loginOf(user) });
+  }
+  return roster;
+}
 
-export const getSession = internalQuery({
-  args: {},
-  returns: v.object({
-    accessToken: v.union(v.string(), v.null()),
-    tokenObtainedAt: v.union(v.number(), v.null()),
-    running: v.boolean(),
-    lastSyncStartedAt: v.union(v.number(), v.null()),
-  }),
-  handler: async (ctx) => {
-    const state = await getSyncState(ctx);
-    return {
-      accessToken: state?.accessToken ?? null,
-      tokenObtainedAt: state?.tokenObtainedAt ?? null,
-      running: state?.lastSyncStatus === "running",
-      lastSyncStartedAt: state?.lastSyncStartedAt ?? null,
-    };
-  },
-});
+/** Nome atual da obra (as marcações guardam o nome do momento). */
+function projectNameResolver(projects: GeofencedProject[]) {
+  const names = new Map(projects.map((project) => [project._id, project.name]));
+  return (projectId: Id<"projects"> | undefined, fallback: string | undefined) =>
+    projectId ? (names.get(projectId) ?? fallback ?? null) : null;
+}
 
-export const storeToken = internalMutation({
-  args: { accessToken: v.union(v.string(), v.null()) },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await patchSyncState(ctx, {
-      accessToken: args.accessToken ?? undefined,
-      tokenObtainedAt: args.accessToken ? Date.now() : undefined,
-    });
-    return null;
-  },
-});
-
-export const markSyncStarted = internalMutation({
-  args: {
-    from: v.string(),
-    to: v.string(),
-    trigger: v.union(v.literal("manual"), v.literal("cron")),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await patchSyncState(ctx, {
-      lastSyncStartedAt: Date.now(),
-      lastSyncStatus: "running",
-      lastSyncError: undefined,
-      lastSyncFrom: args.from,
-      lastSyncTo: args.to,
-      lastSyncTrigger: args.trigger,
-    });
-    return null;
-  },
-});
-
-export const markSyncFinished = internalMutation({
-  args: {
-    status: v.union(v.literal("success"), v.literal("error")),
-    error: v.optional(v.string()),
-    punches: v.optional(v.number()),
-    people: v.optional(v.number()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await patchSyncState(ctx, {
-      lastSyncFinishedAt: Date.now(),
-      lastSyncStatus: args.status,
-      lastSyncError: args.error,
-      lastSyncPunches: args.punches,
-      lastSyncPeople: args.people,
-    });
-    return null;
-  },
-});
-
-export const upsertPeopleBatch = internalMutation({
-  args: {
-    people: v.array(normalizedPersonValidator),
-    syncedAt: v.number(),
-    fromRoster: v.boolean(),
-  },
-  returns: v.object({
-    inserted: v.number(),
-    updated: v.number(),
-    deactivated: v.number(),
-  }),
-  handler: async (ctx, args) => {
-    return await upsertPeople(ctx, args.people, {
-      syncedAt: args.syncedAt,
-      fromRoster: args.fromRoster,
-    });
-  },
-});
-
-export const upsertWorksitesBatch = internalMutation({
-  args: {
-    worksites: v.array(normalizedWorksiteValidator),
-    syncedAt: v.number(),
-  },
-  returns: v.object({ inserted: v.number(), updated: v.number() }),
-  handler: async (ctx, args) => {
-    return await upsertWorksites(ctx, args.worksites, args.syncedAt);
-  },
-});
-
-export const replaceDay = internalMutation({
-  args: {
-    date: v.string(),
-    punches: v.array(normalizedPunchValidator),
-    syncedAt: v.number(),
-  },
-  returns: v.object({
-    inserted: v.number(),
-    updated: v.number(),
-    deleted: v.number(),
-    people: v.number(),
-  }),
-  handler: async (ctx, args) => {
-    assertDateKey(args.date);
-    return await replaceDayPunches(ctx, args.date, args.punches, args.syncedAt);
-  },
-});
+function groupByUser(punches: Doc<"clockPunches">[]) {
+  const map = new Map<Id<"users">, Doc<"clockPunches">[]>();
+  for (const punch of punches) {
+    const list = map.get(punch.userId) ?? [];
+    list.push(punch);
+    map.set(punch.userId, list);
+  }
+  for (const list of map.values()) list.sort((a, b) => a.punchedAt - b.punchedAt);
+  return map;
+}
 
 // ---------------------------------------------------------------------------
-// Públicas (RH)
+// Presença
 // ---------------------------------------------------------------------------
 
-export const getSyncStatus = hrQuery({
-  args: {},
-  returns: syncStateValidator,
-  handler: async (ctx) => {
-    const state = await getSyncState(ctx);
-    return {
-      configured: isConfigured(),
-      lastSyncStartedAt: state?.lastSyncStartedAt ?? null,
-      lastSyncFinishedAt: state?.lastSyncFinishedAt ?? null,
-      lastSyncStatus: state?.lastSyncStatus ?? null,
-      lastSyncError: state?.lastSyncError ?? null,
-      lastSyncFrom: state?.lastSyncFrom ?? null,
-      lastSyncTo: state?.lastSyncTo ?? null,
-      lastSyncPunches: state?.lastSyncPunches ?? null,
-      lastSyncPeople: state?.lastSyncPeople ?? null,
-      lastSyncTrigger: state?.lastSyncTrigger ?? null,
-    };
-  },
-});
-
-export const getDay = hrQuery({
+export const getDay = pontoQuery({
   args: { date: v.string() },
   returns: v.object({
     date: v.string(),
@@ -480,150 +212,91 @@ export const getDay = hrQuery({
   }),
   handler: async (ctx, args) => {
     assertDateKey(args.date);
-    const [settings, people, punches, worksites] = await Promise.all([
-      getSettings(ctx),
-      listPeople(ctx),
-      listRhidPunchesForDate(ctx, args.date),
-      listWorksites(ctx),
+    const [punches, projects] = await Promise.all([
+      listPunchesForDate(ctx, args.date),
+      listGeofencedProjects(ctx),
     ]);
-    const employees = await employeesByIdForPeople(ctx, people);
-    const projectNames = await projectNamesForWorksites(ctx, worksites);
-
+    const roster = await dayRoster(ctx, punches);
+    const projectName = projectNameResolver(projects);
+    const byUser = groupByUser(punches);
     const sortedPunches = [...punches].sort(
       (a, b) => a.punchedAt - b.punchedAt || a.sequence - b.sequence
     );
 
-    type Presence = {
-      first: Doc<"timeClockPunches">;
-      last: Doc<"timeClockPunches">;
-      count: number;
-      worksite?: Doc<"timeClockPunches">;
-      photo?: Id<"timeClockPunches">;
-    };
-    const presence = new Map<number, Presence>();
     const byKind = { entrada: 0, almoco_saida: 0, almoco_retorno: 0, saida: 0 };
-    const worksiteStats = new Map<number, { people: Set<number>; punches: number }>();
-
+    const projectStats = new Map<Id<"projects">, { people: Set<Id<"users">>; punches: number }>();
     for (const punch of sortedPunches) {
       byKind[punch.kind as PunchKind] += 1;
-      const entry = presence.get(punch.rhidPersonId);
-      if (!entry) {
-        presence.set(punch.rhidPersonId, {
-          first: punch,
-          last: punch,
-          count: 1,
-          worksite: punch.rhidGeofenceId !== undefined ? punch : undefined,
-          photo: punch.photoUrl ? punch._id : undefined,
-        });
-      } else {
-        entry.last = punch;
-        entry.count += 1;
-        if (!entry.worksite && punch.rhidGeofenceId !== undefined) entry.worksite = punch;
-        if (!entry.photo && punch.photoUrl) entry.photo = punch._id;
-      }
-      if (punch.rhidGeofenceId !== undefined) {
-        const stats = worksiteStats.get(punch.rhidGeofenceId) ?? {
-          people: new Set<number>(),
-          punches: 0,
-        };
-        stats.people.add(punch.rhidPersonId);
+      if (punch.projectId && punch.geofenceStatus === "inside") {
+        const stats = projectStats.get(punch.projectId) ?? { people: new Set(), punches: 0 };
+        stats.people.add(punch.userId);
         stats.punches += 1;
-        worksiteStats.set(punch.rhidGeofenceId, stats);
+        projectStats.set(punch.projectId, stats);
       }
     }
 
-    const roster = new Map<number, Doc<"rhidPeople">>();
-    for (const person of people) {
-      const tracked =
-        person.active && isTrackedDepartment(settings.trackedDepartments, person.department);
-      if (tracked || presence.has(person.rhidPersonId)) {
-        roster.set(person.rhidPersonId, person);
-      }
-    }
-
-    const dayPeople = [];
-    for (const [rhidPersonId, entry] of presence) {
-      const person = roster.get(rhidPersonId);
-      dayPeople.push({
-        rhidPersonId,
-        name: person?.name ?? entry.first.personName,
-        department: person?.department ?? null,
-        employee: employeeRef(person?.employeeId ? employees.get(person.employeeId) : null),
-        present: true,
-        firstPunchAt: entry.first.punchedAt,
-        lastPunchAt: entry.last.punchedAt,
-        lastKind: entry.last.kind,
-        punchCount: entry.count,
-        rhidGeofenceId: entry.worksite?.rhidGeofenceId ?? null,
-        worksiteName: entry.worksite?.geofenceName ?? null,
-        photoPunchId: entry.photo ?? null,
-      });
-    }
-    for (const person of roster.values()) {
-      if (presence.has(person.rhidPersonId)) continue;
-      dayPeople.push({
-        rhidPersonId: person.rhidPersonId,
+    const people = Array.from(roster.entries()).map(([userId, person]) => {
+      const own = byUser.get(userId) ?? [];
+      const first = own[0];
+      const last = own[own.length - 1];
+      const onSite = own.find((punch) => punch.geofenceStatus === "inside" && punch.projectId);
+      const photo = own.find((punch) => punch.photoStorageId);
+      return {
+        userId,
         name: person.name,
-        department: person.department ?? null,
-        employee: employeeRef(person.employeeId ? employees.get(person.employeeId) : null),
-        present: false,
-        firstPunchAt: null,
-        lastPunchAt: null,
-        lastKind: null,
-        punchCount: 0,
-        rhidGeofenceId: null,
-        worksiteName: null,
-        photoPunchId: null,
-      });
-    }
-    dayPeople.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+        login: person.login,
+        present: own.length > 0,
+        firstPunchAt: first?.punchedAt ?? null,
+        lastPunchAt: last?.punchedAt ?? null,
+        lastKind: last?.kind ?? null,
+        punchCount: own.length,
+        projectId: onSite?.projectId ?? null,
+        projectName: onSite ? projectName(onSite.projectId, onSite.projectName) : null,
+        photoPunchId: photo?._id ?? null,
+      };
+    });
+    people.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
-    const dayWorksites = worksites
-      .map((worksite) => {
-        const stats = worksiteStats.get(worksite.rhidGeofenceId);
+    const worksites = projects
+      .map((project) => {
+        const stats = projectStats.get(project._id);
         return {
-          rhidGeofenceId: worksite.rhidGeofenceId,
-          name: worksite.name,
-          latitude: worksite.latitude,
-          longitude: worksite.longitude,
-          radius: worksite.radius,
-          projectId: worksite.projectId ?? null,
-          projectName: worksite.projectId
-            ? (projectNames.get(worksite.projectId) ?? null)
-            : null,
+          projectId: project._id,
+          name: project.name,
+          latitude: project.latitude,
+          longitude: project.longitude,
+          radiusMeters: project.radiusMeters,
           peopleCount: stats?.people.size ?? 0,
           punchCount: stats?.punches ?? 0,
         };
       })
-      .sort(
-        (a, b) => b.peopleCount - a.peopleCount || a.name.localeCompare(b.name, "pt-BR")
-      );
+      .sort((a, b) => b.peopleCount - a.peopleCount || a.name.localeCompare(b.name, "pt-BR"));
 
-    const present = presence.size;
+    const present = people.filter((person) => person.present).length;
     return {
       date: args.date,
-      people: dayPeople,
+      people,
       punches: sortedPunches.map((punch) => ({
         _id: punch._id,
-        rhidRecordId: punch.rhidRecordId ?? null,
-        rhidPersonId: punch.rhidPersonId,
-        source: punch.source ?? "rhid",
-        personName: punch.personName,
+        userId: punch.userId,
+        personName: roster.get(punch.userId)?.name ?? punch.personName,
         punchedAt: punch.punchedAt,
         timeLabel: punch.timeLabel,
         sequence: punch.sequence,
         kind: punch.kind,
         latitude: punch.latitude ?? null,
         longitude: punch.longitude ?? null,
-        hasPhoto: Boolean(punch.photoUrl),
-        rhidGeofenceId: punch.rhidGeofenceId ?? null,
-        geofenceName: punch.geofenceName ?? null,
+        hasPhoto: Boolean(punch.photoStorageId),
+        projectId: punch.projectId ?? null,
+        projectName: projectName(punch.projectId, punch.projectName),
+        geofenceStatus: punch.geofenceStatus,
+        offline: punch.offline,
       })),
-      worksites: dayWorksites,
+      worksites,
       summary: {
-        total: dayPeople.length,
+        total: people.length,
         present,
-        absent: dayPeople.length - present,
+        absent: people.length - present,
         punches: sortedPunches.length,
         byKind,
       },
@@ -635,7 +308,7 @@ export const getDay = hrQuery({
  * "Agora": onde está cada pessoa e quem está em cada obra, a partir da última
  * marcação do dia. O cliente informa a data civil (Brasília) de hoje.
  */
-export const getLiveStatus = hrQuery({
+export const getLiveStatus = pontoQuery({
   args: { date: v.string() },
   returns: v.object({
     date: v.string(),
@@ -652,63 +325,29 @@ export const getLiveStatus = hrQuery({
   }),
   handler: async (ctx, args) => {
     assertDateKey(args.date);
-    const [settings, people, punches, worksites] = await Promise.all([
-      getSettings(ctx),
-      listPeople(ctx),
-      listRhidPunchesForDate(ctx, args.date),
-      listWorksites(ctx),
+    const [punches, projects] = await Promise.all([
+      listPunchesForDate(ctx, args.date),
+      listGeofencedProjects(ctx),
     ]);
-    const employees = await employeesByIdForPeople(ctx, people);
-    const projectNames = await projectNamesForWorksites(ctx, worksites);
-    const worksiteById = new Map(worksites.map((w) => [w.rhidGeofenceId, w]));
-
-    const punchesByPerson = new Map<number, Doc<"timeClockPunches">[]>();
-    for (const punch of punches) {
-      const list = punchesByPerson.get(punch.rhidPersonId) ?? [];
-      list.push(punch);
-      punchesByPerson.set(punch.rhidPersonId, list);
-    }
-
-    const roster = new Map<number, Doc<"rhidPeople">>();
-    for (const person of people) {
-      const tracked =
-        person.active && isTrackedDepartment(settings.trackedDepartments, person.department);
-      if (tracked || punchesByPerson.has(person.rhidPersonId)) {
-        roster.set(person.rhidPersonId, person);
-      }
-    }
-    // Pessoas com marcação mas fora do cadastro (ex.: ainda não sincronizado).
-    for (const [rhidPersonId, list] of punchesByPerson) {
-      if (!roster.has(rhidPersonId)) {
-        const first = list[0]!;
-        roster.set(rhidPersonId, {
-          rhidPersonId,
-          name: first.personName,
-        } as Doc<"rhidPeople">);
-      }
-    }
+    const roster = await dayRoster(ctx, punches);
+    const projectName = projectNameResolver(projects);
+    const byUser = groupByUser(punches);
 
     const summary = { total: 0, onSite: 0, lunch: 0, left: 0, absent: 0, outsideFence: 0 };
-    const worksitePeople = new Map<
-      number,
-      Array<{
-        rhidPersonId: number;
-        name: string;
-        status: "on_site" | "lunch" | "left" | "absent";
-        since: number | null;
-        locationExact: boolean;
-      }>
-    >();
+    type BoardPerson = {
+      userId: Id<"users">;
+      name: string;
+      status: LiveStatus;
+      since: number | null;
+      locationExact: boolean;
+    };
+    const boards = new Map<Id<"projects">, BoardPerson[]>();
 
-    const livePeople = Array.from(roster.values()).map((person) => {
-      const own = [...(punchesByPerson.get(person.rhidPersonId) ?? [])].sort(
-        (a, b) => a.punchedAt - b.punchedAt
-      );
+    const people = Array.from(roster.entries()).map(([userId, person]) => {
+      const own = byUser.get(userId) ?? [];
       const position = derivePosition(own);
       const last = position.last;
-      const worksite =
-        position.worksiteId !== undefined ? worksiteById.get(position.worksiteId) : undefined;
-      const photo = [...own].reverse().find((p) => p.photoUrl)?._id;
+      const photo = [...own].reverse().find((punch) => punch.photoStorageId);
 
       summary.total += 1;
       if (position.status === "on_site") summary.onSite += 1;
@@ -717,75 +356,69 @@ export const getLiveStatus = hrQuery({
       else summary.absent += 1;
       if (position.status !== "absent" && !position.locationExact) summary.outsideFence += 1;
 
-      if (position.worksiteId !== undefined && position.status !== "absent") {
-        const list = worksitePeople.get(position.worksiteId) ?? [];
+      if (position.projectId && position.status !== "absent") {
+        const list = boards.get(position.projectId) ?? [];
         list.push({
-          rhidPersonId: person.rhidPersonId,
+          userId,
           name: person.name,
           status: position.status,
           since: last?.punchedAt ?? null,
           locationExact: position.locationExact,
         });
-        worksitePeople.set(position.worksiteId, list);
+        boards.set(position.projectId, list);
       }
 
       return {
-        rhidPersonId: person.rhidPersonId,
+        userId,
         name: person.name,
-        department: person.department ?? null,
-        employee: employeeRef(person.employeeId ? employees.get(person.employeeId) : null),
+        login: person.login,
         status: position.status,
         since: last?.punchedAt ?? null,
         lastKind: last?.kind ?? null,
         lastTimeLabel: last?.timeLabel ?? null,
-        worksiteId: position.worksiteId ?? null,
-        worksiteName: worksite?.name ?? position.worksiteName ?? null,
+        projectId: position.projectId ?? null,
+        projectName: projectName(position.projectId, position.projectName),
         locationExact: position.locationExact,
         latitude: last?.latitude ?? null,
         longitude: last?.longitude ?? null,
-        photoPunchId: photo ?? null,
-        punches: own.map((p) => ({
-          timeLabel: p.timeLabel,
-          kind: p.kind,
-          geofenceName: p.geofenceName ?? null,
+        photoPunchId: photo?._id ?? null,
+        punches: own.map((punch) => ({
+          timeLabel: punch.timeLabel,
+          kind: punch.kind,
+          projectName: projectName(punch.projectId, punch.projectName),
         })),
       };
     });
-    livePeople.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    people.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
     const statusRank = { on_site: 0, lunch: 1, left: 2, absent: 3 } as const;
-    const liveWorksites = worksites
-      .map((worksite) => {
-        const list = (worksitePeople.get(worksite.rhidGeofenceId) ?? []).sort(
+    const worksites = projects
+      .map((project) => {
+        const list = (boards.get(project._id) ?? []).sort(
           (a, b) =>
             statusRank[a.status] - statusRank[b.status] || a.name.localeCompare(b.name, "pt-BR")
         );
         return {
-          rhidGeofenceId: worksite.rhidGeofenceId,
-          name: worksite.name,
-          latitude: worksite.latitude,
-          longitude: worksite.longitude,
-          radius: worksite.radius,
-          projectId: worksite.projectId ?? null,
-          projectName: worksite.projectId
-            ? (projectNames.get(worksite.projectId) ?? null)
-            : null,
-          onSite: list.filter((p) => p.status === "on_site").length,
-          lunch: list.filter((p) => p.status === "lunch").length,
-          left: list.filter((p) => p.status === "left").length,
+          projectId: project._id,
+          name: project.name,
+          latitude: project.latitude,
+          longitude: project.longitude,
+          radiusMeters: project.radiusMeters,
+          onSite: list.filter((person) => person.status === "on_site").length,
+          lunch: list.filter((person) => person.status === "lunch").length,
+          left: list.filter((person) => person.status === "left").length,
           people: list,
         };
       })
       .sort(
-        (a, b) =>
-          b.onSite - a.onSite || b.lunch - a.lunch || a.name.localeCompare(b.name, "pt-BR")
+        (a, b) => b.onSite - a.onSite || b.lunch - a.lunch || a.name.localeCompare(b.name, "pt-BR")
       );
 
-    return { date: args.date, people: livePeople, worksites: liveWorksites, summary };
+    return { date: args.date, people, worksites, summary };
   },
 });
 
-export const getMonthStats = hrQuery({
+export const getMonthStats = pontoQuery({
   args: { year: v.number(), month: v.number() },
   returns: v.object({
     from: v.string(),
@@ -797,14 +430,13 @@ export const getMonthStats = hrQuery({
     byDate: v.array(v.object({ date: v.string(), presentCount: v.number() })),
     byPerson: v.array(
       v.object({
-        rhidPersonId: v.number(),
+        userId: v.id("users"),
         personName: v.string(),
-        employee: v.union(employeeRefValidator, v.null()),
         totalDays: v.number(),
         worksites: v.array(
           v.object({
-            rhidGeofenceId: v.union(v.number(), v.null()),
-            worksiteName: v.union(v.string(), v.null()),
+            projectId: v.union(v.id("projects"), v.null()),
+            projectName: v.union(v.string(), v.null()),
             days: v.number(),
           })
         ),
@@ -812,44 +444,44 @@ export const getMonthStats = hrQuery({
     ),
     byWorksite: v.array(
       v.object({
-        rhidGeofenceId: v.union(v.number(), v.null()),
-        worksiteName: v.union(v.string(), v.null()),
         projectId: v.union(v.id("projects"), v.null()),
         projectName: v.union(v.string(), v.null()),
         totalManDays: v.number(),
         uniquePeople: v.number(),
         people: v.array(
-          v.object({
-            rhidPersonId: v.number(),
-            personName: v.string(),
-            days: v.number(),
-          })
+          v.object({ userId: v.id("users"), personName: v.string(), days: v.number() })
         ),
       })
     ),
   }),
   handler: async (ctx, args) => {
     const range = monthRange(args.year, args.month);
-    const [settings, days, people, worksites] = await Promise.all([
+    const [settings, days] = await Promise.all([
       getSettings(ctx),
       listDaysInRange(ctx, range.from, range.to),
-      peopleById(ctx),
-      listWorksites(ctx),
     ]);
-    const employees = await employeesByIdForPeople(ctx, people.values());
-    const projectNames = await projectNamesForWorksites(ctx, worksites);
-    const worksiteById = new Map(worksites.map((w) => [w.rhidGeofenceId, w]));
+
+    // Nomes atuais de pessoas e obras (os resumos guardam os do momento).
+    const userNames = new Map<Id<"users">, string>();
+    const projectNames = new Map<Id<"projects">, string>();
+    for (const day of days) {
+      if (!userNames.has(day.userId)) {
+        const user = await ctx.db.get("users", day.userId);
+        userNames.set(day.userId, user?.name ?? day.personName);
+      }
+      if (day.projectId && !projectNames.has(day.projectId)) {
+        const project = await ctx.db.get("projects", day.projectId);
+        projectNames.set(day.projectId, project?.name ?? day.projectName ?? "Obra removida");
+      }
+    }
 
     const aggregate = aggregateManDays(
       days.map((day) => ({
         date: day.date,
-        rhidPersonId: day.rhidPersonId,
-        personName: people.get(day.rhidPersonId)?.name ?? day.personName,
-        rhidGeofenceId: day.rhidGeofenceId,
-        worksiteName:
-          day.rhidGeofenceId !== undefined
-            ? (worksiteById.get(day.rhidGeofenceId)?.name ?? day.worksiteName)
-            : day.worksiteName,
+        userId: day.userId,
+        personName: userNames.get(day.userId) ?? day.personName,
+        projectId: day.projectId,
+        projectName: day.projectId ? projectNames.get(day.projectId) : undefined,
       }))
     );
 
@@ -859,173 +491,74 @@ export const getMonthStats = hrQuery({
       manDayCostCents: settings.manDayCostCents,
       totalManDays: aggregate.totalManDays,
       uniquePeople: aggregate.uniquePeople,
-      uniqueWorksites: aggregate.uniqueWorksites,
+      uniqueWorksites: aggregate.uniqueProjects,
       byDate: aggregate.byDate,
-      byPerson: aggregate.byPerson.map((row) => {
-        const person = people.get(row.rhidPersonId);
-        return {
-          rhidPersonId: row.rhidPersonId,
-          personName: row.personName,
-          employee: employeeRef(person?.employeeId ? employees.get(person.employeeId) : null),
-          totalDays: row.totalDays,
-          worksites: row.worksites.map((ws) => ({
-            rhidGeofenceId: ws.rhidGeofenceId ?? null,
-            worksiteName: ws.worksiteName ?? null,
-            days: ws.days,
-          })),
-        };
-      }),
-      byWorksite: aggregate.byWorksite.map((row) => {
-        const worksite =
-          row.rhidGeofenceId !== undefined ? worksiteById.get(row.rhidGeofenceId) : undefined;
-        return {
-          rhidGeofenceId: row.rhidGeofenceId ?? null,
-          worksiteName: row.worksiteName ?? null,
-          projectId: worksite?.projectId ?? null,
-          projectName: worksite?.projectId
-            ? (projectNames.get(worksite.projectId) ?? null)
-            : null,
-          totalManDays: row.totalManDays,
-          uniquePeople: row.uniquePeople,
-          people: row.people,
-        };
-      }),
+      byPerson: aggregate.byPerson.map((row) => ({
+        userId: row.userId,
+        personName: row.personName,
+        totalDays: row.totalDays,
+        worksites: row.projects.map((item) => ({
+          projectId: item.projectId ?? null,
+          projectName: item.projectName ?? null,
+          days: item.days,
+        })),
+      })),
+      byWorksite: aggregate.byProject.map((row) => ({
+        projectId: row.projectId ?? null,
+        projectName: row.projectName ?? null,
+        totalManDays: row.totalManDays,
+        uniquePeople: row.uniquePeople,
+        people: row.people,
+      })),
     };
   },
 });
 
-export const listRhidPeople = hrQuery({
-  args: {},
-  returns: v.array(personValidator),
-  handler: async (ctx) => {
-    const [settings, people] = await Promise.all([getSettings(ctx), listPeople(ctx)]);
-    const employees = await employeesByIdForPeople(ctx, people);
-    return people
-      .map((person) => ({
-        rhidPersonId: person.rhidPersonId,
-        name: person.name,
-        cpf: person.cpf ?? null,
-        department: person.department ?? null,
-        active: person.active,
-        tracked:
-          person.active &&
-          isTrackedDepartment(settings.trackedDepartments, person.department),
-        employee: employeeRef(person.employeeId ? employees.get(person.employeeId) : null),
-        linkSource: person.linkSource ?? null,
-        lastSeenAt: person.lastSeenAt,
-      }))
-      .sort(
-        (a, b) =>
-          Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, "pt-BR")
-      );
-  },
-});
-
-export const linkPerson = hrMutation({
-  args: {
-    rhidPersonId: v.number(),
-    employeeId: v.union(v.id("employees"), v.null()),
-  },
-  returns: v.null(),
+/**
+ * Autoriza a foto de uma marcação para a rota HTTP `/time-clock/photo/:punchId`.
+ * A permissão é conferida a cada pedido; o storage nunca expõe uma URL ao
+ * cliente, então quem perde `rh.ponto.read` deixa de ver as fotos na hora.
+ */
+export const authorizePunchPhoto = internalQuery({
+  args: { punchId: v.string() },
+  returns: v.union(
+    v.object({ status: v.literal("ok"), storageId: v.id("_storage") }),
+    v.object({
+      status: v.union(
+        v.literal("unauthenticated"),
+        v.literal("forbidden"),
+        v.literal("not_found")
+      ),
+    })
+  ),
   handler: async (ctx, args) => {
-    const person = await getPersonByRhidId(ctx, args.rhidPersonId);
-    if (!person) throw new Error("Pessoa do RHID não encontrada");
-
-    let employeeName: string | undefined;
-    if (args.employeeId) {
-      const employee = await ctx.db.get("employees", args.employeeId);
-      if (!employee) throw new Error("Funcionário não encontrado");
-      if (employee.archivedAt) {
-        throw new Error("Funcionário arquivado — restaure antes de vincular");
-      }
-      employeeName = employee.name;
+    if (!(await ctx.auth.getUserIdentity())) return { status: "unauthenticated" as const };
+    const user = await getUserByIdentity(ctx);
+    if (!user) return { status: "unauthenticated" as const };
+    if (!user.isActive || !hasPermission(user, "rh.ponto.read")) {
+      return { status: "forbidden" as const };
     }
-
-    await ctx.db.patch("rhidPeople", person._id, {
-      employeeId: args.employeeId ?? undefined,
-      // Desvincular manualmente também é uma decisão manual: a sync não
-      // volta a casar automaticamente.
-      linkSource: "manual",
-      updatedAt: Date.now(),
-    });
-    await logAudit(ctx, ctx.user, {
-      action: args.employeeId ? "link" : "unlink",
-      tableName: "rhidPeople",
-      recordId: person._id,
-      entityLabel: person.name,
-      details: employeeName
-        ? `Vinculado ao funcionário ${employeeName}`
-        : "Vínculo com funcionário removido",
-      snapshotBefore: { employeeId: person.employeeId, linkSource: person.linkSource },
-      snapshotAfter: { employeeId: args.employeeId, linkSource: "manual" },
-    });
-    return null;
+    const punchId = ctx.db.normalizeId("clockPunches", args.punchId);
+    const punch = punchId ? await ctx.db.get("clockPunches", punchId) : null;
+    if (!punch?.photoStorageId) return { status: "not_found" as const };
+    return { status: "ok" as const, storageId: punch.photoStorageId };
   },
 });
 
-export const listRhidWorksites = hrQuery({
-  args: {},
-  returns: v.array(worksiteValidator),
-  handler: async (ctx) => {
-    const worksites = await listWorksites(ctx);
-    const projectNames = await projectNamesForWorksites(ctx, worksites);
-    return worksites
-      .map((worksite) => ({
-        rhidGeofenceId: worksite.rhidGeofenceId,
-        name: worksite.name,
-        latitude: worksite.latitude,
-        longitude: worksite.longitude,
-        radius: worksite.radius,
-        projectId: worksite.projectId ?? null,
-        projectName: worksite.projectId
-          ? (projectNames.get(worksite.projectId) ?? null)
-          : null,
-        lastSeenAt: worksite.lastSeenAt,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-  },
-});
+// ---------------------------------------------------------------------------
+// Cercas das obras
+// ---------------------------------------------------------------------------
 
-export const linkWorksite = hrMutation({
-  args: {
-    rhidGeofenceId: v.number(),
-    projectId: v.union(v.id("projects"), v.null()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const worksite = await getWorksiteByRhidId(ctx, args.rhidGeofenceId);
-    if (!worksite) throw new Error("Obra do RHID não encontrada");
-    let projectName: string | undefined;
-    if (args.projectId) {
-      const project = await ctx.db.get("projects", args.projectId);
-      if (!project) throw new Error("Obra não encontrada");
-      projectName = project.name;
-    }
-    await ctx.db.patch("rhidWorksites", worksite._id, {
-      projectId: args.projectId ?? undefined,
-      updatedAt: Date.now(),
-    });
-    await logAudit(ctx, ctx.user, {
-      action: args.projectId ? "link" : "unlink",
-      tableName: "rhidWorksites",
-      recordId: worksite._id,
-      entityLabel: worksite.name,
-      details: projectName ? `Vinculada à obra ${projectName}` : "Vínculo com obra removido",
-      snapshotBefore: { projectId: worksite.projectId },
-      snapshotAfter: { projectId: args.projectId },
-    });
-    return null;
-  },
-});
-
-/** Obras do sistema para o seletor de vínculo (RH não acessa `projects.list`). */
-export const listProjectOptions = hrQuery({
+/** Obras ativas e a cerca do ponto de cada uma (sem cerca: `geofence` nulo). */
+export const listWorksites = pontoQuery({
   args: {},
   returns: v.array(
     v.object({
-      _id: v.id("projects"),
+      projectId: v.id("projects"),
       name: v.string(),
+      address: v.union(v.string(), v.null()),
       status: v.union(v.string(), v.null()),
+      geofence: v.union(projectGeofence, v.null()),
     })
   ),
   handler: async (ctx) => {
@@ -1033,23 +566,145 @@ export const listProjectOptions = hrQuery({
     return projects
       .filter((project) => !project.archivedAt)
       .map((project) => ({
-        _id: project._id,
+        projectId: project._id,
         name: project.name,
+        address: project.address ?? null,
         status: project.status ?? null,
+        geofence: project.geofence ?? null,
       }));
   },
 });
 
-export const getTimeClockSettings = hrQuery({
+/** Define (ou remove, com `geofence: null`) a cerca do ponto de uma obra. */
+export const setProjectGeofence = pontoMutation({
+  args: {
+    projectId: v.id("projects"),
+    geofence: v.union(projectGeofence, v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get("projects", args.projectId);
+    if (!project) throw new ConvexError("Obra não encontrada");
+    if (project.archivedAt) throw new ConvexError("Obra arquivada");
+    let geofence: Doc<"projects">["geofence"];
+    if (args.geofence) {
+      const { latitude, longitude, radiusMeters } = args.geofence;
+      if (!Number.isFinite(latitude) || Math.abs(latitude) > 90) {
+        throw new ConvexError("Latitude inválida");
+      }
+      if (!Number.isFinite(longitude) || Math.abs(longitude) > 180) {
+        throw new ConvexError("Longitude inválida");
+      }
+      if (
+        !Number.isFinite(radiusMeters) ||
+        radiusMeters < MIN_GEOFENCE_RADIUS_METERS ||
+        radiusMeters > MAX_GEOFENCE_RADIUS_METERS
+      ) {
+        throw new ConvexError(
+          `Raio inválido (de ${MIN_GEOFENCE_RADIUS_METERS} a ${MAX_GEOFENCE_RADIUS_METERS} m)`
+        );
+      }
+      geofence = { latitude, longitude, radiusMeters: Math.round(radiusMeters) };
+    }
+    await ctx.db.patch("projects", project._id, { geofence });
+    await logAudit(ctx, ctx.user, {
+      action: "update",
+      tableName: "projects",
+      recordId: project._id,
+      entityLabel: project.name,
+      details: geofence ? "Cerca do ponto definida" : "Cerca do ponto removida",
+      snapshotBefore: { geofence: project.geofence },
+      snapshotAfter: { geofence },
+    });
+    return null;
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Quem bate ponto
+// ---------------------------------------------------------------------------
+
+/** Usuários ativos e se cada um bate ponto pelo app. */
+export const listClockPeople = pontoQuery({
+  args: {},
+  returns: v.array(
+    v.object({
+      userId: v.id("users"),
+      name: v.string(),
+      login: v.union(v.string(), v.null()),
+      clocksIn: v.boolean(),
+    })
+  ),
+  handler: async (ctx) => {
+    const users = await ctx.db
+      .query("users")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .take(2000);
+    return users
+      .filter((user) => !resolveRoles(user).includes("client"))
+      .map((user) => ({
+        userId: user._id,
+        name: user.name,
+        login: loginOf(user),
+        clocksIn: hasPermission(user, "ponto.registrar"),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  },
+});
+
+/**
+ * Libera ou retira a marcação de ponto de um usuário. Mexe só na permissão
+ * `ponto.registrar` dos ajustes individuais (os demais acessos do usuário são
+ * da administração, em Configurações → Usuários).
+ */
+export const setClocksIn = pontoMutation({
+  args: { userId: v.id("users"), enabled: v.boolean() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get("users", args.userId);
+    if (!user) throw new ConvexError("Usuário não encontrado");
+    if (!user.isActive && args.enabled) throw new ConvexError("Usuário inativo");
+    const before = hasPermission(user, "ponto.registrar");
+    if (before === args.enabled) return null;
+
+    const grants = (user.permissionGrants ?? []).filter((item) => item !== "ponto.registrar");
+    const denials = (user.permissionDenials ?? []).filter((item) => item !== "ponto.registrar");
+    if (args.enabled) grants.push("ponto.registrar");
+    else denials.push("ponto.registrar");
+    await ctx.db.patch(
+      "users",
+      user._id,
+      normalizePermissionOverrides(resolveRoles(user), grants, denials)
+    );
+    await logAudit(ctx, ctx.user, {
+      action: "update",
+      tableName: "users",
+      recordId: user._id,
+      entityLabel: user.name,
+      details: args.enabled ? "Marcação de ponto liberada" : "Marcação de ponto retirada",
+      snapshotBefore: {
+        permissionGrants: user.permissionGrants,
+        permissionDenials: user.permissionDenials,
+      },
+      snapshotAfter: { clocksIn: args.enabled },
+    });
+    return null;
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Regras
+// ---------------------------------------------------------------------------
+
+export const getTimeClockSettings = pontoQuery({
   args: {},
   returns: settingsValidator,
   handler: async (ctx) => await getSettings(ctx),
 });
 
-export const updateTimeClockSettings = hrMutation({
+export const updateTimeClockSettings = pontoMutation({
   args: {
     manDayCostCents: v.optional(v.number()),
-    trackedDepartments: v.optional(v.array(v.string())),
     photoRequired: v.optional(v.boolean()),
     locationRequired: v.optional(v.boolean()),
     duplicateWindowMinutes: v.optional(v.number()),
@@ -1060,35 +715,28 @@ export const updateTimeClockSettings = hrMutation({
     const next = { ...current };
     if (args.manDayCostCents !== undefined) {
       if (!Number.isFinite(args.manDayCostCents) || args.manDayCostCents < 0) {
-        throw new Error("Custo do homem-dia inválido");
+        throw new ConvexError("Custo do homem-dia inválido");
       }
       next.manDayCostCents = Math.round(args.manDayCostCents);
     }
-    if (args.trackedDepartments !== undefined) {
-      next.trackedDepartments = Array.from(
-        new Set(args.trackedDepartments.map((item) => item.trim()).filter(Boolean))
-      );
-    }
     if (args.photoRequired !== undefined) next.photoRequired = args.photoRequired;
-    if (args.locationRequired !== undefined) {
-      next.locationRequired = args.locationRequired;
-    }
+    if (args.locationRequired !== undefined) next.locationRequired = args.locationRequired;
     if (args.duplicateWindowMinutes !== undefined) {
       if (
         !Number.isFinite(args.duplicateWindowMinutes) ||
         args.duplicateWindowMinutes < 0 ||
         args.duplicateWindowMinutes > 60
       ) {
-        throw new Error("Janela de marcação repetida inválida (0 a 60 min)");
+        throw new ConvexError("Janela de marcação repetida inválida (0 a 60 min)");
       }
       next.duplicateWindowMinutes = args.duplicateWindowMinutes;
     }
     await saveSettings(ctx, next, ctx.user._id);
     await logAudit(ctx, ctx.user, {
       action: "update",
-      tableName: "timeClockSettings",
+      tableName: "clockSettings",
       recordId: "default",
-      entityLabel: "Ponto (RHID)",
+      entityLabel: "Ponto",
       snapshotBefore: current,
       snapshotAfter: next,
     });

@@ -1,12 +1,16 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { formatCurrency } from "@rlpapp/shared";
-import { MetricCard } from "@rlpapp/ui/web";
+import { MetricCard, MetricStrip } from "@rlpapp/ui/web";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  PayrollAlimonyPanel,
+  type AlimonyLine,
+} from "@/components/rh/payroll-alimony-panel";
 import { PayrollGrid, type PayrollLinePatch } from "@/components/rh/payroll-grid";
 import { PayrollLoanDialog } from "@/components/rh/payroll-loan-dialog";
 import { Button } from "@/components/ui/button";
@@ -56,7 +60,7 @@ function runOptions(centerYear: number) {
   );
 }
 
-function exportCsv(lines: Line[], key: string) {
+function exportCsv(lines: Line[], alimonyLines: AlimonyLine[], key: string) {
   const esc = (value: string) => {
     const neutralized = /^[=+\-@]/.test(value) ? `'${value}` : value;
     return `"${neutralized.replace(/"/g, '""')}"`;
@@ -108,7 +112,27 @@ function exportCsv(lines: Line[], key: string) {
       esc(line.notes ?? ""),
     ].join(";")
   );
-  const blob = new Blob(["\ufeff" + [head.join(";"), ...rows].join("\r\n")], {
+  // Pensões alimentícias em bloco próprio: pagamento a terceiros, fora da
+  // remuneração do funcionário.
+  const alimonyBlock =
+    alimonyLines.length === 0
+      ? []
+      : [
+          "",
+          ["Pensao alimenticia", "Por conta de", "Valor", "F. Pag.", "Chave PIX", "Pago", "Observacoes"].join(";"),
+          ...alimonyLines.map((line) =>
+            [
+              esc(line.beneficiaryName),
+              esc(line.employeeName),
+              num(line.amountCents),
+              line.paymentMethod.toUpperCase(),
+              esc(line.pixKey ?? ""),
+              line.paid ? "SIM" : "NAO",
+              esc(line.notes ?? ""),
+            ].join(";")
+          ),
+        ];
+  const blob = new Blob(["\ufeff" + [head.join(";"), ...rows, ...alimonyBlock].join("\r\n")], {
     type: "text/csv;charset=utf-8",
   });
   const anchor = document.createElement("a");
@@ -139,6 +163,10 @@ export function PayrollWorkspace() {
   const addEmployeeToRun = useMutation(api.payroll.addEmployeeToRun);
   const closeRun = useMutation(api.payroll.closeRun);
   const reopenRun = useMutation(api.payroll.reopenRun);
+  const updateAlimonyLine = useMutation(api.alimonies.updateLine);
+  const toggleAlimonyPaid = useMutation(api.alimonies.toggleLinePaid);
+  const removeAlimonyLine = useMutation(api.alimonies.removeLine);
+  const addAlimonyToRun = useMutation(api.alimonies.addToRun);
   const run = workspace?.run ?? null;
   const closed = run?.status === "closed";
   const lines = useMemo(() => workspace?.lines ?? [], [workspace?.lines]);
@@ -199,7 +227,13 @@ export function PayrollWorkspace() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => exportCsv(filtered, monthKey(year, paymentMonth))}
+            onClick={() =>
+              exportCsv(
+                filtered,
+                workspace?.alimonyLines ?? [],
+                monthKey(year, paymentMonth)
+              )
+            }
             disabled={lines.length === 0}
           >
             Exportar CSV
@@ -248,7 +282,7 @@ export function PayrollWorkspace() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricStrip>
         <MetricCard
           title="Total da folha"
           value={formatCurrency(workspace?.kpis.totalPaymentCents ?? 0)}
@@ -269,7 +303,12 @@ export function PayrollWorkspace() {
           value={`${workspace?.kpis.paidCount ?? 0} / ${workspace?.kpis.lineCount ?? 0}`}
           description={`${formatCurrency(workspace?.kpis.paidTotalCents ?? 0)} já confirmados`}
         />
-      </div>
+        <MetricCard
+          title="Pensões alimentícias"
+          value={formatCurrency(workspace?.alimonyTotals.totalCents ?? 0)}
+          description={`${workspace?.alimonyTotals.count ?? 0} beneficiário${(workspace?.alimonyTotals.count ?? 0) === 1 ? "" : "s"} · ${workspace?.alimonyTotals.paidCount ?? 0} pagas · fora do total da folha`}
+        />
+      </MetricStrip>
 
       <div className="flex flex-wrap items-center gap-5 rounded-[var(--radius)] border border-border bg-card px-4 py-3">
         <div className="flex min-w-[150px] flex-col gap-0.5">
@@ -358,6 +397,52 @@ export function PayrollWorkspace() {
         }}
         onOpenLoans={setLoanLine}
       />
+      {run &&
+        ((workspace?.alimonyLines.length ?? 0) > 0 ||
+          (workspace?.availableAlimonies.length ?? 0) > 0) && (
+          <PayrollAlimonyPanel
+            lines={workspace?.alimonyLines ?? []}
+            totals={
+              workspace?.alimonyTotals ?? {
+                count: 0,
+                totalCents: 0,
+                paidCount: 0,
+                paidTotalCents: 0,
+                pixTotalCents: 0,
+              }
+            }
+            available={workspace?.availableAlimonies ?? []}
+            closed={closed}
+            onCommit={(lineId, patch) =>
+              void updateAlimonyLine({ lineId, ...patch }).catch((error) =>
+                toast.error(getErrorMessage(error, "Erro ao salvar pensão"))
+              )
+            }
+            onTogglePaid={(line) =>
+              void toggleAlimonyPaid({ lineId: line._id, paid: !line.paid }).catch(
+                (error) =>
+                  toast.error(getErrorMessage(error, "Erro ao confirmar pensão"))
+              )
+            }
+            onRemove={(line) => {
+              if (
+                !confirm(
+                  `Tirar a pensão de ${line.beneficiaryName} deste mês? O cadastro continua para os próximos.`
+                )
+              ) {
+                return;
+              }
+              void removeAlimonyLine({ lineId: line._id }).catch((error) =>
+                toast.error(getErrorMessage(error, "Erro ao remover pensão"))
+              );
+            }}
+            onAdd={(alimonyId) =>
+              void addAlimonyToRun({ runId: run._id, alimonyId }).catch((error) =>
+                toast.error(getErrorMessage(error, "Erro ao incluir pensão"))
+              )
+            }
+          />
+        )}
       <div className="flex flex-wrap gap-3.5 text-[11.5px] text-muted-foreground">
         <span>
           Valores em R$ · ⚙ colunas calculadas: Vale alim. = dias × VA/dia ·

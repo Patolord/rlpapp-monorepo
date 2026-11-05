@@ -1,3 +1,4 @@
+import { capitalizeFirst } from "@rlpapp/shared/usernames";
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -7,6 +8,8 @@ import { findOrCreateCustomerByName } from "./customers";
 import { getLegacyClientLabel, getPortalUserIds } from "./lib/projects/helpers";
 import { normalizeCustomerName } from "./lib/customers/helpers";
 import type { Id } from "./_generated/dataModel";
+import { planSeedLaborPrices } from "./model/procurement/seedLaborPrices";
+import { rolesFromLegacy } from "@rlpapp/shared/auth/permissions";
 
 /**
  * Backfill idempotente: cria, para cada obra que ainda não tem torres, uma
@@ -878,5 +881,173 @@ export const backfillSuppliersCatalog = internalMutation({
       contactsCreated,
       skipped,
     };
+  },
+});
+
+/**
+ * Importação avulsa (nunca roda sozinha): preenche `laborPriceCents` dos
+ * materiais cujo nome normalizado (família, ou família + variante) é igual ao
+ * de uma entrada do catálogo embutido do RLP Takeoff com mão de obra > 0 na
+ * mesma unidade; nomes iguais em outra unidade só aparecem em
+ * `skippedUnitMismatch`.
+ * Materiais que já têm mão de obra ficam como estão, salvo `overwrite`.
+ * Por padrão só simula (`dryRun: true`); veja `convex/README.md` para rodar.
+ */
+export const importSeedLaborPrices = internalMutation({
+  args: {
+    entries: v.array(
+      v.object({ name: v.string(), unit: v.string(), laborPrice: v.number() })
+    ),
+    dryRun: v.optional(v.boolean()),
+    overwrite: v.optional(v.boolean()),
+  },
+  returns: v.object({
+    dryRun: v.boolean(),
+    updated: v.number(),
+    alreadySet: v.number(),
+    ambiguous: v.array(v.string()),
+    // Mesmo nome, unidade diferente: listados para revisão, nunca gravados.
+    skippedUnitMismatch: v.array(
+      v.object({
+        materialId: v.id("materials"),
+        materialName: v.string(),
+        materialUnit: v.string(),
+        seedName: v.string(),
+        seedUnits: v.array(v.string()),
+      })
+    ),
+    matches: v.array(
+      v.object({
+        materialId: v.id("materials"),
+        materialName: v.string(),
+        seedName: v.string(),
+        laborPriceCents: v.number(),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun ?? true;
+    // eslint-disable-next-line @convex-dev/no-collect-in-query -- catálogo limitado (centenas de materiais), lido uma vez numa migração manual
+    const materials = await ctx.db
+      .query("materials")
+      .withIndex("by_active", (q) => q.eq("active", true))
+      .collect();
+    const plan = planSeedLaborPrices(materials, args.entries, {
+      overwrite: args.overwrite,
+    });
+    if (!dryRun) {
+      const now = Date.now();
+      for (const match of plan.matches) {
+        await ctx.db.patch("materials", match.materialId, {
+          laborPriceCents: match.laborPriceCents,
+          laborPriceUpdatedAt: now,
+          updatedAt: now,
+        });
+      }
+    }
+    return {
+      dryRun,
+      updated: dryRun ? 0 : plan.matches.length,
+      alreadySet: plan.alreadySet,
+      ambiguous: plan.ambiguous,
+      skippedUnitMismatch: plan.skippedUnitMismatch,
+      matches: plan.matches,
+    };
+  },
+});
+
+/**
+ * Usuários criados a partir do username (sem nome no Clerk) ficaram com o nome
+ * todo em minúsculas. Põe a inicial em maiúscula. Idempotente; tabela pequena.
+ *
+ *   npx convex run --prod migrations:backfillCapitalizeUserNames '{"dryRun":true}'
+ *   npx convex run --prod migrations:backfillCapitalizeUserNames '{}'
+ */
+export const backfillCapitalizeUserNames = internalMutation({
+  args: { dryRun: v.optional(v.boolean()) },
+  returns: v.object({
+    scanned: v.number(),
+    updated: v.number(),
+    names: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const users = await ctx.db.query("users").collect();
+    const names: string[] = [];
+    for (const user of users) {
+      const name = capitalizeFirst(user.name);
+      if (name === user.name) continue;
+      names.push(`${user.name} → ${name}`);
+      if (!args.dryRun) {
+        await ctx.db.patch("users", user._id, { name });
+      }
+    }
+    return { scanned: users.length, updated: names.length, names };
+  },
+});
+
+/**
+ * Migra o acesso dos usuários para `roles`: preenche a partir do par legado
+ * cargo + departamento (rolesFromLegacy, mesmas permissões efetivas) em quem
+ * ainda não tem, e apaga `role`/`department` de todos. Idempotente. Rodar uma
+ * vez após o deploy:
+ *
+ *   npx convex run migrations:migrateUserAccess
+ *
+ * Depois disso `roles` pode virar obrigatório e `role`/`department` saem do
+ * schema (passo final).
+ */
+export const migrateUserAccess = internalMutation({
+  args: {},
+  returns: v.object({ updated: v.number(), skipped: v.number() }),
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    let updated = 0;
+    let skipped = 0;
+    for (const user of users) {
+      const clean = user.roles !== undefined && user.role === undefined && user.department === undefined;
+      if (clean) {
+        skipped += 1;
+        continue;
+      }
+      await ctx.db.patch("users", user._id, {
+        roles: user.roles ?? rolesFromLegacy(user.role ?? "operator", user.department),
+        role: undefined,
+        department: undefined,
+      });
+      updated += 1;
+    }
+    return { updated, skipped };
+  },
+});
+
+/**
+ * Apaga o vínculo antigo `employees.userId` (o ponto agora é do próprio
+ * usuário e nada lê esse campo). Idempotente e em lotes, continua sozinha até
+ * o fim. Rodar uma vez após o deploy:
+ *
+ *   npx convex run migrations:clearEmployeeUserLinks
+ *
+ * Depois disso `employees.userId` pode sair do schema.
+ */
+export const clearEmployeeUserLinks = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  returns: v.object({ cleared: v.number(), done: v.boolean() }),
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("employees")
+      .paginate({ numItems: 200, cursor: args.cursor ?? null });
+    let cleared = 0;
+    for (const employee of page.page) {
+      if (employee.userId === undefined) continue;
+      await ctx.db.patch("employees", employee._id, { userId: undefined });
+      cleared += 1;
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.clearEmployeeUserLinks, {
+        cursor: page.continueCursor,
+      });
+    }
+    console.log("clearEmployeeUserLinks", { cleared, done: page.isDone });
+    return { cleared, done: page.isDone };
   },
 });

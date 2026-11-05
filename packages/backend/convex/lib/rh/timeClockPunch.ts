@@ -1,14 +1,14 @@
 /**
- * Marcação de ponto pelo app RLP (clone do fluxo REP-P do RHID).
+ * Marcação de ponto pelo app RLP.
  *
  * Módulo puro: checagem de cerca (geofence), número sequencial/hash do
  * comprovante e regras de duplicidade. O registro em si fica em
  * `convex/timeClockPunch.ts`.
  */
 
-import { punchKindForSequence, type PunchKind } from "./rhid";
+import { punchKindForSequence, type GeofenceStatus, type PunchKind } from "./timeClock";
 
-export type GeofenceStatus = "not_controlled" | "inside" | "outside";
+export type { GeofenceStatus } from "./timeClock";
 
 export const GEOFENCE_STATUS_LABEL: Record<GeofenceStatus, string> = {
   not_controlled: "Não controla",
@@ -16,11 +16,22 @@ export const GEOFENCE_STATUS_LABEL: Record<GeofenceStatus, string> = {
   outside: "Fora da cerca",
 };
 
-/** Raio padrão de uma cerca nova (mesmo do editor do RHID). */
+/** Raio padrão de uma cerca nova. */
 export const DEFAULT_GEOFENCE_RADIUS_METERS = 200;
 /** Janela padrão para ignorar toques repetidos ("Batida repetida (min)"). */
 export const DEFAULT_DUPLICATE_WINDOW_MINUTES = 1;
-/** Foto capturada há mais tempo que isto não vale mais (regra do RHID web). */
+/**
+ * Formatos aceitos na foto da marcação (o app envia JPEG). Só imagens raster:
+ * SVG pode carregar script e é recusado no registro e na entrega.
+ */
+export const PUNCH_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+
+export function isPunchPhotoType(contentType: string | null | undefined): boolean {
+  const base = (contentType ?? "").split(";")[0]!.trim().toLowerCase();
+  return (PUNCH_PHOTO_TYPES as readonly string[]).includes(base);
+}
+
+/** Foto capturada há mais tempo que isto não vale mais. */
 export const PHOTO_MAX_AGE_MS = 5 * 60 * 1000;
 /** Tolerância entre o relógio do aparelho e o do servidor. */
 export const MAX_CLOCK_SKEW_MS = 24 * 60 * 60 * 1000;
@@ -28,8 +39,12 @@ export const MAX_CLOCK_SKEW_MS = 24 * 60 * 60 * 1000;
 export type GeofenceLike = {
   latitude: number;
   longitude: number;
-  radius: number;
+  radiusMeters: number;
 };
+
+/** Raio aceito numa cerca de obra (metros). */
+export const MIN_GEOFENCE_RADIUS_METERS = 20;
+export const MAX_GEOFENCE_RADIUS_METERS = 5000;
 
 const EARTH_RADIUS_METERS = 6_371_000;
 
@@ -76,13 +91,13 @@ export function classifyGeofence<G extends GeofenceLike>(
       geofence.latitude,
       geofence.longitude
     );
-    const inside = distance <= Math.max(0, geofence.radius);
+    const inside = distance <= Math.max(0, geofence.radiusMeters);
     if (
       !best ||
       (inside && !best.inside) ||
       (inside === best.inside &&
         (distance < best.distance ||
-          (distance === best.distance && geofence.radius < best.worksite.radius)))
+          (distance === best.distance && geofence.radiusMeters < best.worksite.radiusMeters)))
     ) {
       best = { worksite: geofence, distance, inside };
     }
@@ -97,7 +112,7 @@ export function classifyGeofence<G extends GeofenceLike>(
   };
 }
 
-/** Marcação dentro da janela de repetição do mesmo funcionário é ignorada. */
+/** Marcação dentro da janela de repetição do mesmo usuário é recusada. */
 export function isDuplicatePunch(
   lastPunchedAt: number | null | undefined,
   now: number,
@@ -124,7 +139,8 @@ export function nextSequence(existingCount: number): {
 export type PunchHashInput = {
   nsr: number;
   employerId: string;
-  employeeId: string;
+  /** Id de quem marcou (usuário do app). */
+  personId: string;
   cpf?: string | null;
   punchedAt: number;
 };
@@ -134,7 +150,7 @@ export function punchHashPayload(input: PunchHashInput): string {
   return [
     String(input.nsr),
     input.employerId,
-    input.employeeId,
+    input.personId,
     input.cpf ?? "",
     new Date(input.punchedAt).toISOString(),
   ].join("|");

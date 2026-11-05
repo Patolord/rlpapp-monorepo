@@ -1,4 +1,9 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import {
+  STAFF_GROUPS,
+  STAFF_GROUP_LABELS,
+  type StaffGroup,
+} from "@rlpapp/shared/rh/staffGroups";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { Plus, Search } from "lucide-react";
@@ -23,6 +28,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCentsInput } from "@/lib/rh/money";
+import { cn } from "@/lib/utils";
+
+type GroupFilter = StaffGroup | "all";
 
 export const Route = createFileRoute("/rh/funcionarios/")({
   component: FuncionariosPage,
@@ -40,10 +48,22 @@ function FuncionariosContent() {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [includeArchived, setIncludeArchived] = useState(false);
-  const employees = useQuery(api.employees.list, {
+  const [groupFilter, setGroupFilter] = useState<GroupFilter>("all");
+  const allEmployees = useQuery(api.employees.list, {
     includeArchived,
     search: search.trim() || undefined,
   });
+  const countByGroup = new Map<StaffGroup, number>();
+  for (const employee of allEmployees ?? []) {
+    countByGroup.set(
+      employee.staffGroup,
+      (countByGroup.get(employee.staffGroup) ?? 0) + 1
+    );
+  }
+  const employees =
+    groupFilter === "all"
+      ? allEmployees
+      : allEmployees?.filter((employee) => employee.staffGroup === groupFilter);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -51,11 +71,12 @@ function FuncionariosContent() {
         <div>
           <h1 className="text-2xl font-bold">Funcionários</h1>
           <p className="text-sm text-muted-foreground">
-            Cadastro de identidade e padrões usados na folha mensal.
+            Pessoal de obra, escritório e diretoria, com os padrões usados na
+            folha mensal.
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 size-4" />
+          <Plus />
           Novo funcionário
         </Button>
       </div>
@@ -87,6 +108,34 @@ function FuncionariosContent() {
               Mostrar arquivados
             </label>
           </div>
+          <div
+            className="flex flex-wrap gap-2"
+            role="group"
+            aria-label="Filtrar por equipe"
+          >
+            {(["all", ...STAFF_GROUPS] as const).map((group) => {
+              const count =
+                group === "all"
+                  ? (allEmployees?.length ?? 0)
+                  : (countByGroup.get(group) ?? 0);
+              const selected = groupFilter === group;
+              return (
+                <Button
+                  key={group}
+                  size="sm"
+                  variant={selected ? "secondary" : "outline"}
+                  aria-pressed={selected}
+                  onClick={() => setGroupFilter(group)}
+                  className={cn(selected && "border-transparent")}
+                >
+                  {group === "all" ? "Todos" : STAFF_GROUP_LABELS[group]}
+                  <span className="text-muted-foreground tabular-nums">
+                    {count}
+                  </span>
+                </Button>
+              );
+            })}
+          </div>
           {employees === undefined ? (
             <p className="text-muted-foreground">Carregando...</p>
           ) : (
@@ -95,6 +144,7 @@ function FuncionariosContent() {
                 <TableRow>
                   <TableHead>Cód.</TableHead>
                   <TableHead>Nome</TableHead>
+                  <TableHead>Equipe</TableHead>
                   <TableHead>Cargo</TableHead>
                   <TableHead className="text-right">Sal. base</TableHead>
                   <TableHead>Pagamento</TableHead>
@@ -106,12 +156,14 @@ function FuncionariosContent() {
                 {employees.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={8}
                       className="py-8 text-center text-muted-foreground"
                     >
                       {search.trim()
                         ? "Nenhum funcionário corresponde à busca."
-                        : "Nenhum funcionário cadastrado."}
+                        : groupFilter !== "all"
+                          ? `Nenhum funcionário de ${STAFF_GROUP_LABELS[groupFilter].toLowerCase()} cadastrado.`
+                          : "Nenhum funcionário cadastrado."}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -121,6 +173,9 @@ function FuncionariosContent() {
                       {employee.code ?? "—"}
                     </TableCell>
                     <TableCell className="font-medium">{employee.name}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {STAFF_GROUP_LABELS[employee.staffGroup]}
+                    </TableCell>
                     <TableCell>{employee.jobTitle ?? "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatCentsInput(employee.baseSalaryCents)}

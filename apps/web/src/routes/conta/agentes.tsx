@@ -1,5 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { env } from "@rlpapp/env/web";
+import { formatUsername } from "@rlpapp/shared";
+import { can } from "@rlpapp/shared/auth/permissions";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute } from "@tanstack/react-router";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -73,9 +75,6 @@ const EXPIRY_OPTIONS = [
 type ExpiryOption = (typeof EXPIRY_OPTIONS)[number]["value"];
 
 const cardCls = "rounded-2xl border border-slate-100 bg-white shadow-sm";
-
-// Espelho de STAFF_ROLES em packages/backend/convex/lib/rbac.ts.
-const STAFF_ROLES = ["director", "admin", "manager", "operator", "engenheiro"];
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("pt-BR", {
@@ -184,6 +183,16 @@ function PermissionBadge({ permission }: { permission: Permission }) {
   );
 }
 
+/** Token emitido pelo login do RLP Takeoff (app desktop), não criado à mão. */
+function DeviceBadge({ kind }: { kind?: "agent" | "device" }) {
+  if (kind !== "device") return null;
+  return (
+    <Badge variant="outline" className="px-2 py-0.5 text-xs">
+      App desktop
+    </Badge>
+  );
+}
+
 function StatusBadge({
   status,
 }: {
@@ -230,13 +239,12 @@ function AgentesContent() {
   } | null>(null);
   const mcpUrl = useMcpUrl();
 
-  const isAdmin =
-    currentUser?.role === "director" || currentUser?.role === "admin";
+  const isAdmin = can(currentUser, "admin.manage");
   const activeCount = tokens?.filter((t) => tokenStatus(t) === "active").length ?? 0;
 
   // Tokens são só para a equipe interna (mesma regra de `staffQuery`):
   // qr_operator e cliente do portal veem um aviso em vez de erros.
-  if (currentUser && !STAFF_ROLES.includes(currentUser.role)) {
+  if (currentUser && !currentUser.isStaff) {
     return (
       <div className="mx-auto max-w-2xl py-12 text-center">
         <Bot className="mx-auto size-8 text-slate-400" />
@@ -277,7 +285,9 @@ function AgentesContent() {
           </CardTitle>
           <CardDescription>
             Só o prefixo fica visível. O token completo aparece uma única vez,
-            na criação.
+            na criação. Os marcados &ldquo;App desktop&rdquo; foram criados ao
+            entrar no RLP Takeoff com esta conta; revogar desconecta aquele
+            computador.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -305,6 +315,7 @@ function AgentesContent() {
                     <div className="min-w-0 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="truncate font-medium">{token.name}</span>
+                        <DeviceBadge kind={token.kind} />
                         <PermissionBadge permission={token.permission} />
                         {inactive && <StatusBadge status={status} />}
                       </div>
@@ -577,7 +588,7 @@ function AdminTokensCard({
                           {token.owner?.name ?? "—"}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {token.owner?.email ?? token.owner?.username ?? ""}
+                          {token.owner?.email ?? (token.owner?.username ? formatUsername(token.owner.username) : "")}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -587,7 +598,10 @@ function AdminTokensCard({
                         </code>
                       </TableCell>
                       <TableCell>
-                        <PermissionBadge permission={token.permission} />
+                        <div className="flex flex-wrap gap-1">
+                          <PermissionBadge permission={token.permission} />
+                          <DeviceBadge kind={token.kind} />
+                        </div>
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={status} />

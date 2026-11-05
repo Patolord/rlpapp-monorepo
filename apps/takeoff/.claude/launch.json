@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vite",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
+      "port": 1420
+    },
+    {
+      "name": "vite-alt",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev", "--port", "1425"],
+      "port": 1425
+    }
+  ]
+}

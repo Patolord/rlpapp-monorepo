@@ -63,6 +63,8 @@ export type TakeoffMaterialProposalInput = {
   unitPrice?: number;
   priceDate?: number;
   requestedBy?: string;
+  /** Signed-in desktop user (takeoffMaterials.proposeAsUser); never from a body. */
+  requestedByUserId?: Id<"users">;
   takeoffName?: string;
 };
 
@@ -145,6 +147,9 @@ function readDimensions(
   const dimensions: MaterialDimensions = {};
   for (const key of DIMENSION_KEYS) {
     const read = readNumber(record, key, { min: 0 });
+    // sanitizeDimensions rejects 0 later with a plain error (a 500 / an
+    // endless retry in the app): refuse it here, as a bad request.
+    if (read === 0) throw new Error(`"dimensions.${key}" must be > 0`);
     if (read !== undefined) dimensions[key] = read;
   }
   return dimensions;
@@ -353,6 +358,7 @@ export async function proposeTakeoffMaterial(
     requestedName: input.name,
     requestedUnit: input.unit,
     requestedBy: input.requestedBy,
+    requestedByUserId: input.requestedByUserId,
     takeoffName: input.takeoffName,
     createdAt: now,
   });

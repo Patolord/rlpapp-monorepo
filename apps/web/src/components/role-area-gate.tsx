@@ -1,25 +1,23 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { useNavigate } from "@tanstack/react-router";
+import { can, type Permission } from "@rlpapp/shared/auth/permissions";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { useEffect } from "react";
 
-export type DepartmentArea = "rh" | "engenharia" | "compras" | "estoque";
-
-// Mesma regra da navegação: diretores acessam tudo; engenheiro só engenharia;
-// demais usuários só o próprio departamento (default "engenharia").
-function resolveAllowedArea(user: {
-  role: string;
-  department?: string;
-}): DepartmentArea {
-  if (user.role === "engenheiro") return "engenharia";
-  return (user.department as DepartmentArea | undefined) ?? "engenharia";
-}
+import { Button } from "@/components/ui/button";
+import {
+  AREA_PERMISSIONS,
+  UNIVERSAL_HOME_PATH,
+  resolveHomePath,
+  type DepartmentArea,
+} from "@/lib/areas";
 
 // Bloqueia áreas internas (departamentos):
-// - qr_operator só pode acessar páginas /q/$token → vai para /qr-operador
-// - não-diretores só acessam o próprio departamento
-// - Estoque permite leitura compartilhada com Compras e Engenharia; as ações
-//   continuam protegidas por permissões específicas no backend.
+// - técnico de campo (qr_operator) vai para /qr-operador, exceto nas áreas
+//   que um ajuste individual liberou para ele (ex.: medições)
+// - quem não tem permissão na área vai para a própria página inicial
+//   (`resolveHomePath`: a área inicial, se abrir, ou o início pessoal em
+//   /conta, que todo usuário abre), nunca para outra área sem acesso.
 export function RoleAreaGate({
   area,
   children,
@@ -30,32 +28,25 @@ export function RoleAreaGate({
   const currentUser = useQuery(api.users.getCurrentUser);
   const navigate = useNavigate();
 
-  const isQrOperator = currentUser?.role === "qr_operator";
-  const isAdmin =
-    currentUser?.role === "director" || currentUser?.role === "admin";
-  const hasInventoryAccess =
-    isAdmin ||
-    currentUser?.role === "engenheiro" ||
-    currentUser?.department === "engenharia" ||
-    currentUser?.department === "compras" ||
-    currentUser?.department === "estoque";
-  const wrongDepartment =
-    !!currentUser &&
-    !!area &&
-    !isAdmin &&
-    !isQrOperator &&
-    !(area === "estoque" && hasInventoryAccess) &&
-    resolveAllowedArea(currentUser) !== area;
+  const areaAllowed = !!area && can(currentUser, ...AREA_PERMISSIONS[area]);
+  const isQrOperator =
+    currentUser?.homeArea === "qr-operador" && !areaAllowed;
+  const denied = !!currentUser && !!area && !isQrOperator && !areaAllowed;
+  const home = denied && currentUser ? resolveHomePath(currentUser) : null;
+  // Só redireciona para fora da área; se a página inicial cair nela mesma
+  // (não deveria, ela só aponta para áreas que abrem), mostra o aviso.
+  const fallbackPath =
+    home && home !== `/${area}` && !home.startsWith(`/${area}/`) ? home : null;
 
   useEffect(() => {
     if (isQrOperator) {
       void navigate({ to: "/qr-operador" });
-    } else if (wrongDepartment && currentUser) {
-      void navigate({ to: `/${resolveAllowedArea(currentUser)}` });
+    } else if (fallbackPath) {
+      void navigate({ to: fallbackPath, replace: true });
     }
-  }, [isQrOperator, wrongDepartment, currentUser, navigate]);
+  }, [isQrOperator, fallbackPath, navigate]);
 
-  if (isQrOperator || wrongDepartment) {
+  if (isQrOperator || fallbackPath) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-muted-foreground">Redirecionando...</p>
@@ -63,5 +54,52 @@ export function RoleAreaGate({
     );
   }
 
+  if (denied) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 px-6 text-center">
+        <h1 className="text-xl font-semibold">Acesso restrito</h1>
+        <p className="text-muted-foreground">
+          Você não tem acesso a esta área. Fale com um administrador.
+        </p>
+        <Button className="mt-2" render={<Link to={UNIVERSAL_HOME_PATH} />}>
+          Ir para o início
+        </Button>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
+/**
+ * Página de uma funcionalidade dentro de uma área (contratos, medições,
+ * folha...): mostra um aviso em vez de montar a página quando o usuário não
+ * tem nenhuma das permissões, para que as queries dela não falhem.
+ */
+export function PermissionGate({
+  permissions,
+  children,
+}: {
+  permissions: Permission[];
+  children: React.ReactNode;
+}) {
+  const currentUser = useQuery(api.users.getCurrentUser);
+  if (currentUser === undefined) return null;
+  // Sem sessão: a página (AuthShell) cuida do redirecionamento para o login.
+  if (currentUser === null) return <>{children}</>;
+  if (!can(currentUser, ...permissions)) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 px-6 text-center">
+        <h1 className="text-xl font-semibold">Acesso restrito</h1>
+        <p className="text-muted-foreground">
+          Seu usuário não tem acesso a esta funcionalidade. Fale com um
+          administrador.
+        </p>
+        <Button className="mt-2" render={<Link to={resolveHomePath(currentUser)} />}>
+          Ir para o início
+        </Button>
+      </div>
+    );
+  }
   return <>{children}</>;
 }

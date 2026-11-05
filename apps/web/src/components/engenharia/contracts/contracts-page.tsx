@@ -5,6 +5,7 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { formatCurrency, formatDate } from "@rlpapp/shared";
 import { FileText, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { EmptyState as EmptyStateBlock } from "@rlpapp/ui/web";
 
 import {
   ContractFormDialog,
@@ -31,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { runWithToast } from "@/lib/errors";
+import { useCan } from "@/hooks/use-can";
 import { obraLinkSlug } from "@/lib/engenharia/obra-paths";
 
 const DIRECTION_LABELS: Record<ContractDirection, string> = {
@@ -65,6 +67,7 @@ export function ContractsPage({
     "all" | ContractDirection
   >("all");
   const [createOpen, setCreateOpen] = useState(false);
+  const canWrite = useCan("contratos.write");
 
   useEffect(() => {
     if (!autoOpenCreate) return;
@@ -108,19 +111,21 @@ export function ContractsPage({
           <h2 className="text-xl font-bold">{title}</h2>
           <p className="text-sm text-muted-foreground">{description}</p>
         </div>
-        <ContractFormDialog
-          lockedProjectId={lockedProjectId}
-          defaultCustomerId={defaultCustomerId}
-          defaultCustomerName={defaultCustomerName}
-          open={createOpen}
-          onOpenChange={setCreateOpen}
-          trigger={
-            <Button>
-              <Plus className="mr-2 size-4" />
-              Novo contrato
-            </Button>
-          }
-        />
+        {canWrite && (
+          <ContractFormDialog
+            lockedProjectId={lockedProjectId}
+            defaultCustomerId={defaultCustomerId}
+            defaultCustomerName={defaultCustomerName}
+            open={createOpen}
+            onOpenChange={setCreateOpen}
+            trigger={
+              <Button>
+                <Plus />
+                Novo contrato
+              </Button>
+            }
+          />
+        )}
       </div>
 
       {contracts !== undefined && contracts.length > 0 && (
@@ -138,7 +143,7 @@ export function ContractsPage({
       )}
 
       <Card>
-        <CardContent className="space-y-4 pt-6">
+        <CardContent className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative max-w-sm flex-1">
               <Search className="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
@@ -253,6 +258,7 @@ export function ContractsPage({
                         {formatCurrency(contract.valueCents)}
                       </TableCell>
                       <TableCell className="text-right">
+                        {canWrite && (
                         <div className="flex justify-end gap-1">
                           <ContractFormDialog
                             contractId={contract._id}
@@ -265,7 +271,7 @@ export function ContractsPage({
                                 size="icon"
                                 title="Editar"
                               >
-                                <Pencil className="size-4" />
+                                <Pencil />
                               </Button>
                             }
                           />
@@ -278,9 +284,10 @@ export function ContractsPage({
                               void handleRemove(contract._id, contract.title)
                             }
                           >
-                            <Trash2 className="size-4" />
+                            <Trash2 />
                           </Button>
                         </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
@@ -297,7 +304,7 @@ export function ContractsPage({
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
     <Card>
-      <CardContent className="space-y-1 py-4">
+      <CardContent className="space-y-1">
         <p className="text-sm text-muted-foreground">{label}</p>
         <p className="text-2xl font-bold tabular-nums">{value}</p>
       </CardContent>
@@ -314,29 +321,27 @@ function EmptyState({
   defaultCustomerId?: Id<"customers"> | null;
   defaultCustomerName?: string | null;
 }) {
+  const canWrite = useCan("contratos.write");
   return (
-    <div className="flex flex-col items-center gap-4 py-14 text-center">
-      <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-        <FileText className="size-7" />
-      </div>
-      <div className="space-y-1">
-        <h3 className="text-lg font-semibold">Nenhum contrato cadastrado</h3>
-        <p className="max-w-sm text-sm text-muted-foreground">
-          Cadastre contratos de venda ao cliente ou contratação de empreiteiros
-          com os serviços e valores acordados.
-        </p>
-      </div>
-      <ContractFormDialog
-        lockedProjectId={lockedProjectId}
-        defaultCustomerId={defaultCustomerId}
-        defaultCustomerName={defaultCustomerName}
-        trigger={
-          <Button>
-            <Plus className="mr-2 size-4" />
-            Criar primeiro contrato
-          </Button>
-        }
-      />
-    </div>
+    <EmptyStateBlock
+      icon={<FileText />}
+      title="Nenhum contrato cadastrado"
+      description="Cadastre contratos de venda ao cliente ou contratação de empreiteiros com os serviços e valores acordados."
+      action={
+        canWrite ? (
+          <ContractFormDialog
+            lockedProjectId={lockedProjectId}
+            defaultCustomerId={defaultCustomerId}
+            defaultCustomerName={defaultCustomerName}
+            trigger={
+              <Button>
+                <Plus />
+                Criar primeiro contrato
+              </Button>
+            }
+          />
+        ) : undefined
+      }
+    />
   );
 }

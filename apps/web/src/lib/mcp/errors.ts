@@ -9,6 +9,9 @@ const ALLOWED_MESSAGES = new Set([
 ]);
 
 export function sanitizeErrorMessage(error: unknown): string {
+  // ConvexError é feito para chegar ao cliente: negações de acesso de
+  // lib/rbac.ts ({ code: "FORBIDDEN", message }) e erros de negócio com código.
+  if (error instanceof ConvexError) return describeToolError(error);
   const message = error instanceof Error ? error.message : "Request failed";
   if (ALLOWED_MESSAGES.has(message)) return message;
   if (message.startsWith("ArgumentValidationError")) {

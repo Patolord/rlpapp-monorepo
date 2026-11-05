@@ -10,7 +10,8 @@ export const fontSize = {
   subtitle: 16,
   title: 18,
   heading: 20,
-  display: 24,
+  /** Page titles (22px/600 since the 2026-11 design review). */
+  display: 22,
 } as const;
 
 export const fontWeight = {

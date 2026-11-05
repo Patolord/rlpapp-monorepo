@@ -103,7 +103,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "border-input bg-transparent ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex h-10 w-full items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate",
+      "border-input bg-transparent ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex h-10 w-full items-center justify-between gap-2 rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:opacity-50 [&>span:not([aria-hidden])]:min-w-0 [&>span:not([aria-hidden])]:flex-1 [&>span:not([aria-hidden])]:truncate",
       className
     )}
     {...props}
@@ -129,7 +129,7 @@ const SelectContent = React.forwardRef<
       <SelectPrimitive.Popup
         ref={ref}
         className={cn(
-          "bg-popover text-popover-foreground relative z-[100] max-h-96 min-w-[var(--anchor-width)] overflow-hidden rounded-md border shadow-md data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
+          "bg-popover text-popover-foreground relative z-[100] max-h-96 min-w-[var(--anchor-width)] overflow-hidden rounded-md border shadow-md origin-(--transform-origin) transition-[opacity,scale] duration-150 ease-snappy data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.97] data-[starting-style]:scale-[0.97] motion-reduce:scale-100!",
           className
         )}
         {...props}

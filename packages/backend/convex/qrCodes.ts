@@ -1,4 +1,3 @@
-import { paginationOptsValidator } from "convex/server";
 import {
   internalMutation,
   internalQuery,
@@ -9,10 +8,9 @@ import {
 import { v } from "convex/values";
 import {
   authedMutation,
-  engineeringMutation,
-  engineeringQuery,
-  staffMutation,
-  staffQuery,
+  hasRole,
+  obrasMutation,
+  obrasQuery,
 } from "./lib/rbac";
 import { logAudit, logEquipmentHistory } from "./lib/audit";
 import { isProjectArchived } from "./lib/projects/helpers";
@@ -109,14 +107,6 @@ export async function getBatchDestination(
     archived: isProjectArchived(project),
   };
 }
-const paginatedQrCodesWithEquipmentValidator = v.object({
-  page: v.array(qrCodeWithEquipmentValidator),
-  isDone: v.boolean(),
-  continueCursor: v.string(),
-  pageStatus: v.optional(v.union(v.string(), v.null())),
-  splitCursor: v.optional(v.union(v.string(), v.null())),
-});
-
 export const getByToken = query({
   args: { token: v.string() },
   returns: v.union(
@@ -175,53 +165,7 @@ export const getByToken = query({
   },
 });
 
-export const list = staffQuery({
-  args: {},
-  returns: v.array(qrCodeValidator),
-  handler: async (ctx) => {
-    return await ctx.db.query("qrCodes").order("desc").collect();
-  },
-});
-
-export const listWithEquipment = staffQuery({
-  args: {
-    filter: v.optional(
-      v.union(
-        v.literal("linked"),
-        v.literal("free"),
-        v.literal("all"),
-        v.literal("latest_batch")
-      )
-    ),
-  },
-  returns: v.array(qrCodeWithEquipmentValidator),
-  handler: async (ctx, args) => {
-    let qrCodes = await ctx.db.query("qrCodes").order("desc").collect();
-
-    const filterMode = args.filter ?? "all";
-    if (filterMode === "linked") {
-      qrCodes = qrCodes.filter((q) => q.equipmentId);
-    } else if (filterMode === "free") {
-      qrCodes = qrCodes.filter((q) => !q.equipmentId);
-    } else if (filterMode === "latest_batch") {
-      const latestBatch = qrCodes.find((q) => q.batchId)?.batchId;
-      if (latestBatch) {
-        qrCodes = qrCodes.filter((q) => q.batchId === latestBatch);
-      } else {
-        qrCodes = [];
-      }
-    }
-
-    return Promise.all(
-      qrCodes.map(async (qr) => ({
-        ...qr,
-        equipment: qr.equipmentId ? await ctx.db.get("equipment", qr.equipmentId) : null,
-      }))
-    );
-  },
-});
-
-export const stats = staffQuery({
+export const stats = obrasQuery({
   args: {},
   returns: v.object({
     total: v.number(),
@@ -243,46 +187,7 @@ export const stats = staffQuery({
   },
 });
 
-export const listByBatch = staffQuery({
-  args: {
-    batchId: v.string(),
-    paginationOpts: paginationOptsValidator,
-  },
-  returns: paginatedQrCodesWithEquipmentValidator,
-  handler: async (ctx, args) => {
-    const results = await ctx.db
-      .query("qrCodes")
-      .withIndex("by_batchId", (q) => q.eq("batchId", args.batchId))
-      .order("desc")
-      .paginate(args.paginationOpts);
-
-    return {
-      ...results,
-      page: await Promise.all(
-        results.page.map(async (qr) => ({
-          ...qr,
-          equipment: qr.equipmentId ? await ctx.db.get("equipment", qr.equipmentId) : null,
-        }))
-      ),
-    };
-  },
-});
-
-export const getBatchTokens = staffQuery({
-  args: { batchId: v.string() },
-  returns: v.array(v.string()),
-  handler: async (ctx, args) => {
-    const qrCodes = await ctx.db
-      .query("qrCodes")
-      .withIndex("by_batchId", (q) => q.eq("batchId", args.batchId))
-      .order("desc")
-      .take(1000);
-
-    return qrCodes.map((qr) => qr.token);
-  },
-});
-
-export const search = staffQuery({
+export const search = obrasQuery({
   args: { term: v.string() },
   returns: v.object({
     batches: v.array(batchSummaryValidator),
@@ -411,7 +316,7 @@ export const search = staffQuery({
   },
 });
 
-export const getByEquipmentId = staffQuery({
+export const getByEquipmentId = obrasQuery({
   args: { equipmentId: v.id("equipment") },
   returns: v.union(qrCodeValidator, v.null()),
   handler: async (ctx, args) => {
@@ -450,7 +355,7 @@ export const listUnassignedForAi = internalQuery({
   },
 });
 
-export const create = staffMutation({
+export const create = obrasMutation({
   args: {
     token: v.string(),
   },
@@ -473,7 +378,7 @@ export const create = staffMutation({
   },
 });
 
-export const batchCreate = staffMutation({
+export const batchCreate = obrasMutation({
   args: {
     tokens: v.array(v.string()),
     batchName: v.optional(v.string()),
@@ -535,7 +440,9 @@ export const batchCreate = staffMutation({
   },
 });
 
-export const listBatches = staffQuery({
+// Lotes recentes de toda a base (todas as obras). Exposto ao MCP
+// (`list_qr_batches`); no dashboard os lotes são vistos por obra.
+export const listBatches = obrasQuery({
   args: {
     limit: v.optional(v.number()),
   },
@@ -592,7 +499,7 @@ export const listBatches = staffQuery({
 // Lotes de QR codes que ainda têm etiquetas disponíveis (ativas e sem
 // equipamento vinculado), com os tokens livres de cada lote. Usado pelo painel
 // de cadastro rápido para vincular etiquetas impressas escolhendo pelo lote.
-export const listAvailableBatches = engineeringQuery({
+export const listAvailableBatches = obrasQuery({
   args: {},
   returns: v.array(
     v.object({
@@ -665,7 +572,7 @@ export const listAvailableBatches = engineeringQuery({
 // Lotes cujas etiquetas não pertencem a nenhuma obra (lotes antigos, criados
 // antes da obra de destino ser obrigatória). Etiquetas cadastradas desses lotes
 // não aparecem em nenhuma obra até o lote receber uma obra.
-export const listBatchesWithoutProject = engineeringQuery({
+export const listBatchesWithoutProject = obrasQuery({
   args: {},
   returns: v.array(
     v.object({
@@ -730,7 +637,7 @@ export const listBatchesWithoutProject = engineeringQuery({
 // Define (ou troca) a obra de destino de um lote e grava a obra nas etiquetas
 // do lote. Etiquetas cujo equipamento já está num item planejado mantêm a obra
 // do item planejado, que é a fonte de verdade.
-export const setBatchProject = engineeringMutation({
+export const setBatchProject = obrasMutation({
   args: {
     batchId: v.string(),
     projectId: v.id("projects"),
@@ -797,7 +704,7 @@ export const setBatchProject = engineeringMutation({
   },
 });
 
-export const remove = staffMutation({
+export const remove = obrasMutation({
   args: {
     token: v.string(),
   },
@@ -821,7 +728,7 @@ export const remove = staffMutation({
   },
 });
 
-export const removeMany = staffMutation({
+export const removeMany = obrasMutation({
   args: {
     tokens: v.array(v.string()),
   },
@@ -864,7 +771,7 @@ export const removeMany = staffMutation({
 
 // Cliente do portal é somente leitura: não pode mover uma etiqueta de obra.
 function assertCanSetFieldProject(user: Doc<"users">) {
-  if (user.role === "client") {
+  if (hasRole(user, "client")) {
     throw new Error("Sem permissão para vincular a etiqueta a uma obra");
   }
 }
@@ -1217,7 +1124,7 @@ export async function generateQrForItem(
 // Gera um QR único para um item planejado da obra, criando o equipamento real
 // e vinculando-o (sem alterar o status do planejamento). Idempotente: se o item
 // já tem equipamento vinculado com QR, retorna o token existente.
-export const generateForProjectEquipment = engineeringMutation({
+export const generateForProjectEquipment = obrasMutation({
   args: { itemId: v.id("projectEquipment") },
   returns: v.object({ token: v.string(), created: v.boolean() }),
   handler: async (ctx, args) => {
@@ -1233,7 +1140,7 @@ export const generateForProjectEquipment = engineeringMutation({
 //   - QR já cadastrado pelo técnico (equipment sem item planejado): reaproveita
 //     o cadastro existente (descrição/fotos preservadas) e apenas vincula.
 // Não altera o status do planejamento (etiqueta colada não significa instalado).
-export const linkTokenToProjectEquipment = engineeringMutation({
+export const linkTokenToProjectEquipment = obrasMutation({
   args: {
     token: v.string(),
     itemId: v.id("projectEquipment"),
@@ -1317,7 +1224,7 @@ export const linkTokenToProjectEquipment = engineeringMutation({
 // Fila de atribuição do operador: equipamentos já cadastrados pelo técnico
 // (QR com equipment) destinados a esta obra, mas ainda sem item planejado.
 // Fontes: QRs com projectId herdado do lote e QRs de lotes destinados à obra.
-export const listRegisteredForProject = engineeringQuery({
+export const listRegisteredForProject = obrasQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(
     v.object({
@@ -1390,7 +1297,9 @@ const projectQrRowValidator = v.object({
   _id: v.id("qrCodes"),
   token: v.string(),
   qrStatus: qrCodeStatus,
+  batchId: v.union(v.string(), v.null()),
   batchName: v.union(v.string(), v.null()),
+  createdAt: v.number(),
   equipmentId: v.union(v.id("equipment"), v.null()),
   plannedItemId: v.union(v.id("projectEquipment"), v.null()),
   // Texto livre informado pelo técnico no cadastro em campo; é o único nome
@@ -1415,7 +1324,7 @@ const projectQrRowValidator = v.object({
 // Lista todos os QR codes atribuídos a uma obra, com a localização
 // (torre/andar/ambiente) e os dados do item planejado vinculado.
 // Usa o campo denormalizado qrCodes.projectId (índice by_project).
-export const listByProject = staffQuery({
+export const listByProject = obrasQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(projectQrRowValidator),
   handler: async (ctx, args) => {
@@ -1456,7 +1365,9 @@ export const listByProject = staffQuery({
           _id: qr._id,
           token: qr.token,
           qrStatus: qr.status,
+          batchId: qr.batchId ?? null,
           batchName: qr.batchName ?? null,
+          createdAt: qr.createdAt,
           equipmentId: qr.equipmentId ?? null,
           plannedItemId: planned?._id ?? null,
           description: equipment?.description ?? null,

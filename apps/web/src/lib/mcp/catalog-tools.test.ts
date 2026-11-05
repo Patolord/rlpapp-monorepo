@@ -132,8 +132,7 @@ function principalFor(permission: "full_access" | "read_only"): McpPrincipal {
       name: "Eng",
       email: "eng@rlp.test",
       username: null,
-      role: "engenheiro",
-      department: null,
+      roles: ["engenheiro", "takeoff"],
     },
   };
 }
@@ -251,7 +250,7 @@ describe("ferramentas derivadas do catálogo", () => {
     expect(JSON.parse((whoami.content as Array<{ text: string }>)[0]!.text)).toMatchObject({
       auth: "agent_token",
       agent_token: { permission: "full_access" },
-      user: { role: "engenheiro" },
+      user: { roles: ["engenheiro", "takeoff"] },
     });
   });
 

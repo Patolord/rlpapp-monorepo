@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import {
   engineeringOrPurchasingQuery,
-  purchasingMutation,
+  precosMutation,
   purchasingQuery,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
@@ -396,7 +396,7 @@ export const historyForMaterial = engineeringOrPurchasingQuery({
   },
 });
 
-export const add = purchasingMutation({
+export const add = precosMutation({
   args: {
     rawDescription: v.optional(v.string()),
     materialId: v.optional(v.id("materials")),
@@ -688,7 +688,7 @@ export const reviewQueue = purchasingQuery({
   },
 });
 
-export const updateReview = purchasingMutation({
+export const updateReview = precosMutation({
   args: {
     eventId: v.id("priceEvents"),
     reviewStatus: priceEventReviewStatus,

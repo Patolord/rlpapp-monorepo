@@ -1,6 +1,19 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { UserButton } from "@clerk/tanstack-react-start";
 import { Link, useRouterState } from "@tanstack/react-router";
+import { formatDisplayName } from "@rlpapp/shared";
+import {
+  ROLE_LABELS,
+  can,
+  type Permission,
+  type Role,
+} from "@rlpapp/shared/auth/permissions";
+import {
+  AREA_PERMISSIONS,
+  UNIVERSAL_HOME_PATH,
+  resolveHomePath,
+  type DepartmentArea,
+} from "@/lib/areas";
 import { useQuery } from "convex/react";
 import {
   Building2,
@@ -10,7 +23,6 @@ import {
   HardHat,
   LayoutDashboard,
   Package,
-  QrCode,
   Receipt,
   ShoppingCart,
   Truck,
@@ -22,6 +34,11 @@ import {
   Banknote,
   Bot,
   Clock,
+  House,
+  Layers,
+  Scale,
+  SlidersHorizontal,
+  Snowflake,
   type LucideIcon,
 } from "lucide-react";
 
@@ -44,6 +61,10 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   exact?: boolean;
+  /** Funcionalidade específica dentro da área (além da permissão do grupo). */
+  permission?: Permission;
+  /** Só para a equipe interna (não aparece para técnicos e clientes). */
+  staffOnly?: boolean;
 }
 
 interface NavGroup {
@@ -52,6 +73,10 @@ interface NavGroup {
   items: readonly NavItem[];
 }
 
+// Um grupo por departamento, mais os cadastros compartilhados (Backoffice),
+// a configuração do app desktop (App Takeoff), a administração
+// (Configurações) e a área pessoal. Códigos QR são gerenciados dentro de cada
+// obra, por isso não aparecem aqui.
 function getNavGroups(): NavGroup[] {
   return [
     {
@@ -59,10 +84,12 @@ function getNavGroups(): NavGroup[] {
       label: "Engenharia",
       items: [
         { to: "/engenharia/obras", label: "Obras", icon: Building2 },
-        { to: "/engenharia/clientes", label: "Clientes", icon: Users },
-        { to: "/engenharia/empreiteiros", label: "Empreiteiros", icon: HardHat },
-        { to: "/engenharia/contratos", label: "Contratos", icon: FileText },
-        { to: "/engenharia/qr-codes", label: "Códigos QR", icon: QrCode },
+        {
+          to: "/engenharia/contratos",
+          label: "Contratos",
+          icon: FileText,
+          permission: "contratos.read",
+        },
       ],
     },
     {
@@ -78,29 +105,65 @@ function getNavGroups(): NavGroup[] {
       ],
     },
     {
-      key: "rh",
-      label: "Recursos Humanos",
-      items: [
-        { to: "/rh/folha", label: "Folha de pagamento", icon: Banknote },
-        { to: "/rh/funcionarios", label: "Funcionários", icon: Users },
-        { to: "/rh/ponto", label: "Ponto (RHID)", icon: Clock },
-      ],
-    },
-    {
       key: "estoque",
       label: "Estoque",
       items: [
-        { to: "/estoque/movimentacao", label: "Nova movimentação", icon: ArrowLeftRight },
         { to: "/estoque", label: "Estoque central", icon: Warehouse, exact: true },
+        { to: "/estoque/movimentacao", label: "Nova movimentação", icon: ArrowLeftRight },
+      ],
+    },
+    {
+      key: "rh",
+      label: "Recursos Humanos",
+      items: [
+        {
+          to: "/rh/folha",
+          label: "Folha de pagamento",
+          icon: Banknote,
+          permission: "rh.folha.read",
+        },
+        { to: "/rh/funcionarios", label: "Funcionários", icon: Users },
+        {
+          to: "/rh/ponto",
+          label: "Ponto",
+          icon: Clock,
+          permission: "rh.ponto.read",
+        },
+      ],
+    },
+    {
+      key: "backoffice",
+      label: "Backoffice",
+      items: [
+        { to: "/backoffice/clientes", label: "Clientes", icon: Users },
+        { to: "/backoffice/empreiteiros", label: "Empreiteiros", icon: HardHat },
+      ],
+    },
+    {
+      // O que se edita aqui reflete no RLP Takeoff (desktop) de todos os
+      // usuários na próxima atualização do catálogo; fica separado de Compras
+      // e Engenharia justamente para deixar isso claro.
+      key: "takeoff",
+      label: "App Takeoff",
+      items: [
+        { to: "/takeoff/kits", label: "Kits (presets)", icon: Layers },
+        { to: "/takeoff/pesos", label: "Pesos e insumos", icon: Scale },
+        { to: "/takeoff/vrf", label: "Marcas VRF", icon: Snowflake },
+        { to: "/takeoff/parametros", label: "Parâmetros", icon: SlidersHorizontal },
       ],
     },
     {
       key: "configuracoes",
       label: "Configurações",
       items: [
-        { to: "/engenharia/usuarios", label: "Usuários", icon: UserPlus },
         {
-          to: "/engenharia/politica-privacidade",
+          to: "/configuracoes/usuarios",
+          label: "Usuários",
+          icon: UserPlus,
+          permission: "admin.manage",
+        },
+        {
+          to: "/configuracoes/politica-privacidade",
           label: "Política de Privacidade",
           icon: Shield,
         },
@@ -109,22 +172,24 @@ function getNavGroups(): NavGroup[] {
     {
       key: "conta",
       label: "Minha conta",
-      items: [{ to: "/conta/agentes", label: "Agentes (MCP)", icon: Bot }],
+      items: [
+        // Início pessoal: abre para todo usuário, qualquer que seja o acesso.
+        { to: UNIVERSAL_HOME_PATH, label: "Início", icon: House, exact: true },
+        { to: "/conta/agentes", label: "Agentes (MCP)", icon: Bot, staffOnly: true },
+      ],
     },
   ];
 }
 
-const roleLabels: Record<string, string> = {
-  director: "Diretora",
-  admin: "Administrador",
-  manager: "Gerente",
-  operator: "Operador",
-  engenheiro: "Engenheiro",
-  qr_operator: "Operador QR",
-  client: "Cliente",
-};
+/** "Compras, Estoque" ou "Compras +2": acessos do usuário em uma linha. */
+function describeRoles(roles: readonly Role[] | undefined): string {
+  if (!roles || roles.length === 0) return "";
+  const labels = roles.map((role) => ROLE_LABELS[role]);
+  if (labels.length <= 2) return labels.join(", ");
+  return `${labels[0]} +${labels.length - 1}`;
+}
 
-function NavUser({ name, role }: { name?: string; role?: string }) {
+function NavUser({ name, roles }: { name?: string; roles?: readonly Role[] }) {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -141,8 +206,8 @@ function NavUser({ name, role }: { name?: string; role?: string }) {
             <span className="truncate text-sm font-semibold text-slate-800">
               {name ?? "Conta"}
             </span>
-            <span className="truncate text-xs text-slate-500">
-              {role ? roleLabels[role] ?? role : ""}
+            <span className="truncate text-xs text-slate-500" title={roles?.map((r) => ROLE_LABELS[r]).join(", ")}>
+              {describeRoles(roles)}
             </span>
           </div>
           <ChevronsUpDown className="size-4 shrink-0 text-slate-400 group-data-[collapsible=icon]:hidden" />
@@ -156,50 +221,41 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
   const currentUser = useQuery(api.users.getCurrentUser);
-  const isDirector = currentUser?.role === "director";
-  const isAdmin = currentUser?.role === "admin";
-  const isEngenheiro = currentUser?.role === "engenheiro";
+  // Diretor fica na página inicial do app; os demais têm uma área inicial.
+  const staysOnHome = currentUser != null && currentUser.homeArea === null;
 
   function isActive(to: string, exact?: boolean) {
     if (exact) return currentPath === to;
     return currentPath === to || currentPath.startsWith(to + "/");
   }
 
-  const hasEngineeringAccess =
-    isDirector || isEngenheiro || currentUser?.department === "engenharia";
-  const hasPurchasingAccess =
-    isDirector || isAdmin || currentUser?.department === "compras";
-  const hasInventoryAccess =
-    isDirector ||
-    isAdmin ||
-    isEngenheiro ||
-    currentUser?.department === "engenharia" ||
-    currentUser?.department === "compras" ||
-    currentUser?.department === "estoque";
-  const hasRhAccess =
-    isDirector || isAdmin || currentUser?.department === "rh";
-
-  const navGroups = isDirector || isAdmin
-    ? getNavGroups()
-    : getNavGroups().filter((group) => {
-        if (group.key === "engenharia") return hasEngineeringAccess;
-        if (group.key === "compras") return hasPurchasingAccess;
-        if (group.key === "estoque") return hasInventoryAccess;
-        if (group.key === "rh") return hasRhAccess;
-        if (group.key === "configuracoes") {
-          return hasEngineeringAccess || hasPurchasingAccess;
-        }
-        // Tokens de agente são pessoais: todo usuário interno pode criar os seus.
-        if (group.key === "conta") return true;
-        return false;
-      });
+  // Cada grupo abre com as mesmas permissões que o RoleAreaGate da área exige.
+  // Itens de uma funcionalidade específica somem para quem não a tem.
+  const navGroups = getNavGroups()
+    .filter((group) => {
+      // Área pessoal: todo usuário logado (tokens de agente só para a equipe).
+      if (group.key === "conta") return currentUser != null;
+      const permissions = AREA_PERMISSIONS[group.key as DepartmentArea];
+      return permissions ? can(currentUser, ...permissions) : false;
+    })
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) =>
+          (!item.permission || can(currentUser, item.permission)) &&
+          (!item.staffOnly || (currentUser?.isStaff ?? false))
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <Sidebar collapsible="icon" variant="floating" {...props}>
       <SidebarHeader className="py-3">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link to={isDirector ? "/app" : currentPath} />}>
+            <SidebarMenuButton size="lg" render={
+                <Link to={currentUser ? resolveHomePath(currentUser) : currentPath} />
+              }>
               <img
                 src="/logo.jpg"
                 alt="RLP Engenharia"
@@ -209,7 +265,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <span className="truncate text-base font-bold tracking-tight group-hover/menu-button:text-sidebar-accent-foreground group-data-active/menu-button:text-sidebar-accent-foreground">
                   RLP Engenharia
                 </span>
-                <span className="truncate text-xs text-sidebar-foreground/70 group-hover/menu-button:text-sidebar-accent-foreground/80 group-data-active/menu-button:text-sidebar-accent-foreground/80">
+                <span className="truncate text-xs text-sidebar-foreground/70 group-hover/menu-button:text-sidebar-accent-foreground group-data-active/menu-button:text-sidebar-accent-foreground">
                   Sistema ERP
                 </span>
               </div>
@@ -218,7 +274,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        {isDirector && (
+        {staysOnHome && (
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -261,7 +317,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ))}
       </SidebarContent>
       <SidebarFooter className="border-t border-slate-100">
-        <NavUser name={currentUser?.name} role={currentUser?.role} />
+        <NavUser
+          name={currentUser?.name ? formatDisplayName(currentUser.name) : undefined}
+          roles={currentUser?.roles}
+        />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

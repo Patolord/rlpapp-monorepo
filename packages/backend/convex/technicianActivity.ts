@@ -1,8 +1,10 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
+import { accessRoles } from "./schema";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
-import { authedQuery, hasPermission } from "./lib/rbac";
+import {
+  resolveRoles, authedQuery, hasPermission } from "./lib/rbac";
 
 // Histórico unificado de serviços do técnico (qr_operator ou staff), agrupado
 // por obra: cadastro de equipamento, registros de instalação/manutenção
@@ -365,13 +367,13 @@ async function resolveProjects(
 }
 
 // Sem userId, o histórico é do próprio usuário. Consultar o histórico de outro
-// técnico exige engenharia.read.
+// técnico exige campo.equipe.
 function resolveTargetUserId(
   user: Doc<"users">,
   userId: Id<"users"> | undefined
 ): Id<"users"> {
   if (!userId || userId === user._id) return user._id;
-  if (!hasPermission(user, "engenharia.read")) {
+  if (!hasPermission(user, "campo.equipe")) {
     throw new Error("Sem permissão para ver o histórico de outros usuários");
   }
   return userId;
@@ -386,20 +388,20 @@ export const listActivityUsers = authedQuery({
       v.object({
         _id: v.id("users"),
         name: v.string(),
-        role: v.string(),
+        roles: v.array(accessRoles),
         isActive: v.boolean(),
       })
     ),
     v.null()
   ),
   handler: async (ctx) => {
-    if (!hasPermission(ctx.user, "engenharia.read")) return null;
+    if (!hasPermission(ctx.user, "campo.equipe")) return null;
     const users = await ctx.db.query("users").collect();
     return users
       .map((user) => ({
         _id: user._id,
         name: user.name,
-        role: user.role,
+        roles: resolveRoles(user),
         isActive: user.isActive,
       }))
       .sort(
@@ -536,7 +538,7 @@ export const listProjectActivity = authedQuery({
     continueCursor: v.string(),
   }),
   handler: async (ctx, args) => {
-    if (!hasPermission(ctx.user, "engenharia.read")) {
+    if (!hasPermission(ctx.user, "obras.read")) {
       throw new Error("Sem permissão para ver os serviços da obra");
     }
 

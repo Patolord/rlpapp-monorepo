@@ -1,6 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
+import { formatDisplayName, formatUsername } from "@rlpapp/shared";
 import { Check, HardHat } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -13,7 +14,7 @@ import { colors, space, type } from "@/lib/theme";
 export function TechniciansSheet({ open, onClose, projectId }: { open: boolean; onClose: () => void; projectId: Id<"projects"> }) {
   const toast = useToast();
   const assigned = useQuery(api.projects.getAssignedTechnicians, open ? { projectId } : "skip");
-  const candidates = useQuery(api.users.list, open ? { onlyActive: true, role: "qr_operator" } : "skip");
+  const candidates = useQuery(api.users.listForPicker, open ? { onlyActive: true, role: "qr_operator" } : "skip");
   const setTechnicians = useMutation(api.projects.setTechnicians);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dirty, setDirty] = useState(false);
@@ -84,10 +85,10 @@ export function TechniciansSheet({ open, onClose, projectId }: { open: boolean; 
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={[type.body, { color: colors.text }]} numberOfLines={1}>
-                    {user.name}
+                    {formatDisplayName(user.name)}
                   </Text>
                   {user.username ? (
-                    <Text style={[type.caption, { color: colors.textMuted }]}>@{user.username}</Text>
+                    <Text style={[type.caption, { color: colors.textMuted }]}>@{formatUsername(user.username)}</Text>
                   ) : null}
                 </View>
               </Pressable>

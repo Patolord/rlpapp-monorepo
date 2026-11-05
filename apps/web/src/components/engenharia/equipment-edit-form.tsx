@@ -88,17 +88,19 @@ export function EquipmentEditForm({
               type="button"
               variant="outline"
               onClick={onClose}
-              className="h-14 flex-1 text-base"
+              size="xl"
+              className="flex-1"
             >
               Cancelar
             </Button>
             <Button
               type="submit"
               disabled={submitting}
-              className="h-14 flex-1 text-base"
+              size="xl"
+              className="flex-1"
             >
               {submitting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="animate-spin" />
               ) : null}
               {submitting ? "Salvando..." : "Salvar"}
             </Button>

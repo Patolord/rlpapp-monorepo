@@ -6,6 +6,7 @@ import { useQuery } from "convex/react";
 import { ArrowRight, Calculator, ExternalLink, Package } from "lucide-react";
 
 import { AuthShell } from "@/components/auth-shell";
+import { TakeoffSourceBadge } from "@/components/compras/takeoff-source-badge";
 import { ProjectShell } from "@/components/engenharia/project-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,9 +21,14 @@ import {
 } from "@/components/ui/table";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
 import { obraLinkSlug } from "@/lib/engenharia/obra-paths";
+import { PermissionGate } from "@/components/role-area-gate";
 
 export const Route = createFileRoute("/engenharia/obras/$obraSlug/compras")({
-  component: ComprasPage,
+  component: () => (
+    <PermissionGate permissions={["suprimentos.read"]}>
+      <ComprasPage />
+    </PermissionGate>
+  ),
 });
 
 function ComprasPage() {
@@ -78,7 +84,7 @@ function ComprasContent({
               />
             }
           >
-            <Calculator className="mr-1.5 size-4" />
+            <Calculator />
             Abrir orçamento
           </Button>
           <Button
@@ -86,7 +92,7 @@ function ComprasContent({
             size="sm"
             render={<Link to="/compras/takeoffs" />}
           >
-            <ExternalLink className="mr-1.5 size-4" />
+            <ExternalLink />
             Takeoffs gerais
           </Button>
           <Button
@@ -94,14 +100,14 @@ function ComprasContent({
             size="sm"
             render={<Link to="/compras/materiais" />}
           >
-            <Package className="mr-1.5 size-4" />
+            <Package />
             Materiais
           </Button>
         </div>
       </div>
 
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader>
           <CardTitle className="text-base">Takeoffs do projeto</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -124,7 +130,7 @@ function ComprasContent({
                 }
               >
                 Ir para orçamento
-                <ArrowRight className="ml-1.5 size-4" />
+                <ArrowRight />
               </Button>
             </div>
           ) : (
@@ -141,7 +147,12 @@ function ComprasContent({
               <TableBody>
                 {takeoffs.map((t) => (
                   <TableRow key={t._id}>
-                    <TableCell className="font-medium">{t.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {t.name}
+                        <TakeoffSourceBadge takeoff={t} />
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {t.status ? (
                         <Badge variant="secondary">
@@ -169,7 +180,7 @@ function ComprasContent({
                         }
                       >
                         Abrir
-                        <ArrowRight className="ml-1 size-3.5" />
+                        <ArrowRight />
                       </Button>
                     </TableCell>
                   </TableRow>

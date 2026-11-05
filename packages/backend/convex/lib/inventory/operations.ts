@@ -1,7 +1,7 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../audit";
-import { hasPermission } from "../rbac";
+import { hasPermission, hasRole } from "../rbac";
 import { evaluateCompatibility } from "./compatibility";
 
 export const MAX_INVENTORY_DOCUMENT_LINES = 100;
@@ -27,16 +27,16 @@ type CreateDocumentInput = {
   lines: InventoryLineInput[];
 };
 
-function isAdmin(user: Doc<"users">): boolean {
-  return user.role === "director" || user.role === "admin";
-}
-
-function isEngineering(user: Doc<"users">): boolean {
-  return user.role === "engenheiro" || user.department === "engenharia";
-}
-
-function isPurchasing(user: Doc<"users">): boolean {
-  return user.department === "compras";
+/**
+ * Exceções de compatibilidade (movimentação pendente de aprovação) são
+ * decididas pelo engenheiro responsável pela obra: regra por recurso, não por
+ * área. Admin/diretor não entram, de propósito.
+ */
+export function canDecideInventoryException(
+  user: Doc<"users">,
+  project: Doc<"projects">
+): boolean {
+  return hasRole(user, "engenheiro") && project.responsibleId === user._id;
 }
 
 function isAssignedTechnician(
@@ -44,6 +44,7 @@ function isAssignedTechnician(
   project: Doc<"projects"> | null
 ): boolean {
   if (!project) return false;
+  if (hasPermission(user, "campo.todas_obras")) return true;
   return (project.technicianIds ?? []).includes(user._id);
 }
 
@@ -53,9 +54,11 @@ async function assertCanCreate(
   type: InventoryMovementType,
   projectId?: Id<"projects">
 ): Promise<void> {
-  if (isAdmin(user) || hasPermission(user, "estoque.write")) return;
-  if (type === "entry" && isPurchasing(user)) return;
-  if ((type === "consumption" || type === "return") && isEngineering(user)) {
+  if (type === "entry") {
+    if (hasPermission(user, "estoque.entrada")) return;
+  } else if (type === "consumption" || type === "return") {
+    if (hasPermission(user, "estoque.obras.write")) return;
+  } else if (hasPermission(user, "estoque.write")) {
     return;
   }
   if (type === "consumption" && projectId) {
@@ -71,9 +74,13 @@ async function assertCanPost(
   type: InventoryMovementType | "reversal",
   projectId?: Id<"projects">
 ): Promise<void> {
-  if (isAdmin(user) || hasPermission(user, "estoque.write")) return;
-  if (type === "entry" && isPurchasing(user)) return;
-  if (type === "consumption" && isEngineering(user)) return;
+  if (type === "entry") {
+    if (hasPermission(user, "estoque.entrada")) return;
+  } else if (type === "consumption") {
+    if (hasPermission(user, "estoque.obras.write")) return;
+  } else if (hasPermission(user, "estoque.write")) {
+    return;
+  }
   if (type === "consumption" && projectId) {
     const project = await ctx.db.get("projects", projectId);
     if (isAssignedTechnician(user, project)) return;
@@ -524,7 +531,7 @@ export async function reviewInventoryDocument(
 
   const project = await ctx.db.get("projects", document.projectId);
   if (!project) throw new Error("Obra não encontrada");
-  if (user.role !== "engenheiro" || project.responsibleId !== user._id) {
+  if (!canDecideInventoryException(user, project)) {
     throw new Error(
       "Somente o engenheiro responsável pela obra pode decidir esta exceção"
     );

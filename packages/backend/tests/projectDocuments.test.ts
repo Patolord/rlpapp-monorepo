@@ -252,7 +252,7 @@ describe("projectDocuments", () => {
 
     await expect(
       asTechA.mutation(api.projectDocuments.discardUpload, { storageId: linked })
-    ).rejects.toThrow("Insufficient permissions");
+    ).rejects.toThrow("documentos.write");
   });
 
   test("download HTTP reavalia o acesso a cada pedido", async () => {
@@ -397,13 +397,13 @@ describe("projectDocuments", () => {
 
     await expect(
       asTechA.mutation(api.projectDocuments.generateUploadUrl, {})
-    ).rejects.toThrow("Insufficient permissions");
+    ).rejects.toThrow("documentos.write");
     await expect(
       asTechA.mutation(api.projectDocuments.remove, { documentId })
-    ).rejects.toThrow("Insufficient permissions");
+    ).rejects.toThrow("documentos.write");
     await expect(
       asTechA.query(api.projectDocuments.listByProject, { projectId })
-    ).rejects.toThrow("Insufficient permissions");
+    ).rejects.toThrow("documentos.read");
   });
 
   test("obra arquivada bloqueia envio e some do hub do técnico", async () => {

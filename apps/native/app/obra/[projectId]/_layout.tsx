@@ -12,7 +12,6 @@ import {
   Ruler,
   ShoppingCart,
   Warehouse,
-  Wind,
 } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
 import { useRef } from "react";
@@ -35,7 +34,6 @@ const TABS: TabDef[] = [
   { segment: "medicoes", label: "Medições", icon: Ruler },
   { segment: "compras", label: "Compras", icon: ShoppingCart },
   { segment: "estoque", label: "Estoque", icon: Warehouse },
-  { segment: "dutos", label: "Dutos", icon: Wind },
   { segment: "contratos", label: "Contratos", icon: FileText },
   { segment: "qr-codes", label: "QR Codes", icon: QrCode },
 ];

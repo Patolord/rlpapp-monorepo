@@ -241,7 +241,7 @@ export function createMaterialsColumns(handlers: MaterialsColumnHandlers) {
                     className="text-muted-foreground"
                   >
                     <span className="sr-only">Abrir ações</span>
-                    <MoreHorizontal className="size-4" />
+                    <MoreHorizontal />
                   </Button>
                 }
               />

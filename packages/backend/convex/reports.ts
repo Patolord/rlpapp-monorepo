@@ -1,12 +1,14 @@
 import { v } from "convex/values";
-import { engineeringQuery } from "./lib/rbac";
+import {
+  obrasQuery,
+} from "./lib/rbac";
 import type { Doc, Id } from "./_generated/dataModel";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 // Relatório consolidado de uma obra: progresso, por torre, por status,
 // produtividade da equipe, tempo médio de instalação e atividade recente.
-export const getProjectReport = engineeringQuery({
+export const getProjectReport = obrasQuery({
   args: { projectId: v.id("projects"), now: v.number() },
   returns: v.union(
     v.object({

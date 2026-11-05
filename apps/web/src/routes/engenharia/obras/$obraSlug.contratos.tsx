@@ -6,6 +6,7 @@ import { AuthShell } from "@/components/auth-shell";
 import { ContractsPage } from "@/components/engenharia/contracts/contracts-page";
 import { ProjectShell } from "@/components/engenharia/project-shell";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
+import { PermissionGate } from "@/components/role-area-gate";
 
 export const Route = createFileRoute(
   "/engenharia/obras/$obraSlug/contratos"
@@ -22,7 +23,11 @@ export const Route = createFileRoute(
         novo === "1",
     };
   },
-  component: ObraContratosPage,
+  component: () => (
+    <PermissionGate permissions={["contratos.read"]}>
+      <ObraContratosPage />
+    </PermissionGate>
+  ),
 });
 
 function ObraContratosPage() {

@@ -180,7 +180,7 @@ export function InventoryDocumentsHistory({
                       setReversalReason("");
                     }}
                   >
-                    <RotateCcw className="mr-1 size-4" />
+                    <RotateCcw />
                     Estornar
                   </Button>
                 )}

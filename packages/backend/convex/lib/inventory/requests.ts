@@ -13,20 +13,11 @@ export { resolveProjectByIdentifier };
 export const MAX_INVENTORY_REQUEST_LINES = 20;
 
 export function canReviewMaterialRequests(user: Doc<"users">): boolean {
-  return (
-    user.role === "director" ||
-    user.role === "admin" ||
-    user.role === "engenheiro" ||
-    user.department === "engenharia"
-  );
+  return hasPermission(user, "estoque.solicitacoes");
 }
 
 export function canFulfillMaterialRequests(user: Doc<"users">): boolean {
-  return (
-    user.role === "director" ||
-    user.role === "admin" ||
-    hasPermission(user, "estoque.write")
-  );
+  return hasPermission(user, "estoque.write");
 }
 
 export async function requireAssignedProject(

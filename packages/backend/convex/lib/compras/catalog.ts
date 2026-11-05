@@ -358,11 +358,28 @@ export function toMaterialCatalogRow(m: MaterialDoc) {
     brandPreference: m.brandPreference ?? null,
     technicalAttributes: m.technicalAttributes ?? null,
     imageId: m.imageId ?? null,
+    laborPriceCents: m.laborPriceCents ?? null,
+    laborPriceUpdatedAt: m.laborPriceUpdatedAt ?? null,
     active: m.active,
     status: m.status ?? null,
     createdAt: m.createdAt,
     updatedAt: m.updatedAt ?? null,
   };
+}
+
+/**
+ * Valida um preço de mão de obra em centavos: inteiro não negativo.
+ * `null` limpa o preço; `undefined` não altera.
+ */
+export function validateLaborPriceCents(
+  value: number | null | undefined
+): void {
+  if (value === undefined || value === null) return;
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(
+      "Preço de mão de obra inválido: informe um valor em centavos maior ou igual a zero"
+    );
+  }
 }
 
 export function toMaterialListRow(m: MaterialDoc) {

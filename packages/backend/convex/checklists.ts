@@ -2,8 +2,8 @@ import { v } from "convex/values";
 import {
   authedMutation,
   authedQuery,
-  engineeringMutation,
-  engineeringQuery,
+  obrasMutation,
+  obrasQuery,
 } from "./lib/rbac";
 import { logEquipmentHistory } from "./lib/audit";
 
@@ -14,7 +14,7 @@ const checklistItemValidator = v.object({
 
 // --- Templates de checklist ---
 
-export const listTemplates = engineeringQuery({
+export const listTemplates = obrasQuery({
   args: { projectId: v.optional(v.id("projects")) },
   returns: v.array(
     v.object({
@@ -40,7 +40,7 @@ export const listTemplates = engineeringQuery({
   },
 });
 
-export const createTemplate = engineeringMutation({
+export const createTemplate = obrasMutation({
   args: {
     projectId: v.optional(v.id("projects")),
     name: v.string(),
@@ -61,7 +61,7 @@ export const createTemplate = engineeringMutation({
   },
 });
 
-export const removeTemplate = engineeringMutation({
+export const removeTemplate = obrasMutation({
   args: { templateId: v.id("checklistTemplates") },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -110,7 +110,7 @@ export const listForEquipment = authedQuery({
 });
 
 // Aplica um template de checklist a um equipamento (instancia os itens).
-export const applyTemplate = engineeringMutation({
+export const applyTemplate = obrasMutation({
   args: {
     equipmentId: v.id("projectEquipment"),
     templateId: v.id("checklistTemplates"),
@@ -151,7 +151,7 @@ export const applyTemplate = engineeringMutation({
 });
 
 // Adiciona um item avulso ao checklist de um equipamento.
-export const addItem = engineeringMutation({
+export const addItem = obrasMutation({
   args: {
     equipmentId: v.id("projectEquipment"),
     label: v.string(),
@@ -202,7 +202,7 @@ export const toggleItem = authedMutation({
   },
 });
 
-export const removeItem = engineeringMutation({
+export const removeItem = obrasMutation({
   args: { itemId: v.id("checklistItems") },
   returns: v.null(),
   handler: async (ctx, args) => {

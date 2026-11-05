@@ -1,5 +1,8 @@
 import { v } from "convex/values";
-import { engineeringMutation, engineeringQuery } from "./lib/rbac";
+import {
+  obrasMutation,
+  obrasQuery,
+} from "./lib/rbac";
 import { logAudit, logEquipmentHistory } from "./lib/audit";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -74,7 +77,7 @@ const systemValidator = v.object({
 });
 
 // Lista os sistemas de uma obra (ordenados por nome).
-export const listSystemsByProject = engineeringQuery({
+export const listSystemsByProject = obrasQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(systemValidator),
   handler: async (ctx, args) => {
@@ -97,7 +100,7 @@ export const listSystemsByProject = engineeringQuery({
 
 // Cria um sistema dentro de uma obra. Nomes são únicos por obra
 // (comparação case-insensitive) para evitar duplicatas como "VRF 1"/"vrf 1".
-export const createSystemInProject = engineeringMutation({
+export const createSystemInProject = obrasMutation({
   args: {
     projectId: v.id("projects"),
     name: v.string(),
@@ -141,7 +144,7 @@ export const createSystemInProject = engineeringMutation({
 // existem na obra (case-insensitive) não são recriados — retornam o sistema
 // existente com `created: false`. Nomes duplicados na própria lista são
 // deduplicados silenciosamente.
-export const bulkCreateSystems = engineeringMutation({
+export const bulkCreateSystems = obrasMutation({
   args: {
     projectId: v.id("projects"),
     names: v.array(v.string()),
@@ -209,7 +212,7 @@ export const bulkCreateSystems = engineeringMutation({
 //   - adicionar a um sistema existente (`systemId`);
 //   - criar itens sem sistema (nem `name` nem `systemId`) — exibem alerta.
 // Não gera QR: as etiquetas nascem livres e são vinculadas em campo.
-export const createSystemsWithEquipment = engineeringMutation({
+export const createSystemsWithEquipment = obrasMutation({
   args: {
     projectId: v.id("projects"),
     systems: v.array(
@@ -352,7 +355,7 @@ export const createSystemsWithEquipment = engineeringMutation({
 
 // Atualiza nome/tipo/obs de um sistema. Renomear também sincroniza o campo
 // denormalizado `system` (string) em todos os equipamentos do sistema.
-export const updateSystemDetails = engineeringMutation({
+export const updateSystemDetails = obrasMutation({
   args: {
     systemId: v.id("systems"),
     name: v.optional(v.string()),
@@ -417,7 +420,7 @@ export const updateSystemDetails = engineeringMutation({
 
 // Remove um sistema da obra. Recusa se ainda houver equipamentos vinculados,
 // para evitar exclusões em cascata acidentais.
-export const removeSystemFromProject = engineeringMutation({
+export const removeSystemFromProject = obrasMutation({
   args: { systemId: v.id("systems") },
   returns: v.null(),
   handler: async (ctx, args) => {

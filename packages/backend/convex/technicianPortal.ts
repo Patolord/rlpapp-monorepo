@@ -1,6 +1,6 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
-import { STAFF_ROLES, authedQuery } from "./lib/rbac";
+import { authedQuery, seesAllFieldProjects } from "./lib/rbac";
 import {
   assertTechnicianProjectAccess,
   isProjectArchived,
@@ -15,10 +15,6 @@ export { assertTechnicianProjectAccess };
 
 // Portal do técnico em campo: lista obras atribuídas (technicianIds) e os
 // QRs/equipamentos de cada obra. Staff enxerga todas as obras.
-
-function isStaff(user: Doc<"users">): boolean {
-  return STAFF_ROLES.includes(user.role);
-}
 
 const myProjectValidator = v.object({
   _id: v.id("projects"),
@@ -63,13 +59,13 @@ export const listMyProjects = authedQuery({
   args: {},
   returns: v.array(myProjectValidator),
   handler: async (ctx) => {
-    const staff = isStaff(ctx.user);
+    const seesAll = seesAllFieldProjects(ctx.user);
     const customerLabelCache = new Map<string, string | null>();
     const allProjects = await ctx.db.query("projects").collect();
     const visible = allProjects.filter((p) => {
       // Obras arquivadas somem do campo; o escritório ainda as vê na engenharia.
       if (isProjectArchived(p)) return false;
-      return staff || (p.technicianIds ?? []).includes(ctx.user._id);
+      return seesAll || (p.technicianIds ?? []).includes(ctx.user._id);
     });
 
     const out = [];
@@ -261,7 +257,7 @@ export const getFieldProject = authedQuery({
       registeredCount: activeQrs.filter((qr) => qr.equipmentId).length,
       documentCount: documents.length,
       assigned:
-        isStaff(ctx.user) ||
+        seesAllFieldProjects(ctx.user) ||
         (project.technicianIds ?? []).includes(ctx.user._id),
     };
   },

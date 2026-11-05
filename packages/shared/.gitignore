@@ -1,0 +1,3 @@
+
+# Saída compilada acidental do tsc ao lado dos .ts (os exports apontam para os .ts)
+src/**/*.js
