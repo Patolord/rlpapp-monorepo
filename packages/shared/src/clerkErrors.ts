@@ -12,6 +12,14 @@ const LOGIN_ERROR_MESSAGES: Record<string, string> = {
   form_param_format_invalid: "Usuário inválido.",
   too_many_attempts:
     "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+  session_exists:
+    "Já existe outra conta conectada neste dispositivo. Recarregue a página ou reabra o app.",
+};
+
+type ClerkClientLike = {
+  reload: () => Promise<{
+    sessions: { id: string; user?: { username?: string | null } | null }[];
+  }>;
 };
 
 const INVALID_IDENTIFIER_PATTERN = /identifier is invalid/i;
@@ -25,6 +33,31 @@ function getFirstClerkError(error: unknown): ClerkErrorLike | undefined {
     return undefined;
   }
   return errors[0] as ClerkErrorLike;
+}
+
+/**
+ * Clerk recusa um segundo login quando este navegador/app já tem sessão, mesmo
+ * que a tela ainda não saiba disso. Se a sessão é do usuário digitado, devolve
+ * o id para retomá-la. Nunca retoma a sessão de outra pessoa (computador
+ * compartilhado): nesse caso, ou se nada for encontrado, devolve null.
+ */
+export async function findExistingClerkSessionId(
+  error: unknown,
+  client: ClerkClientLike | null | undefined,
+  username: string
+): Promise<string | null> {
+  if (getFirstClerkError(error)?.code !== "session_exists" || !client) {
+    return null;
+  }
+  try {
+    const { sessions } = await client.reload();
+    return (
+      sessions.find((session) => session.user?.username === username)?.id ??
+      null
+    );
+  } catch {
+    return null;
+  }
 }
 
 /** Maps Clerk sign-in errors to Portuguese messages. */
