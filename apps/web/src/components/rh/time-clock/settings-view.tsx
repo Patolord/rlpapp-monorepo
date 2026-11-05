@@ -304,6 +304,10 @@ function GeofenceDialog({ worksite, onClose }: { worksite: Worksite; onClose: ()
   }));
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
+  // Muda quando o centro vem de fora do mapa (digitado ou "minha localização"):
+  // o mapa recentraliza. Cliques no próprio mapa não mexem na vista.
+  const [recenterKey, setRecenterKey] = useState(0);
+  const recenter = () => setRecenterKey((key) => key + 1);
 
   const latitude = parseCoordinate(draft.latitude, 90);
   const longitude = parseCoordinate(draft.longitude, 180);
@@ -326,6 +330,7 @@ function GeofenceDialog({ worksite, onClose }: { worksite: Worksite; onClose: ()
           latitude: position.coords.latitude.toFixed(6),
           longitude: position.coords.longitude.toFixed(6),
         }));
+        recenter();
       },
       () => {
         setLocating(false);
@@ -365,6 +370,7 @@ function GeofenceDialog({ worksite, onClose }: { worksite: Worksite; onClose: ()
           longitude={longitude}
           radius={radiusValid ? radius : DEFAULT_RADIUS_METERS}
           name={worksite.name}
+          recenterKey={recenterKey}
           onPick={(position) =>
             setDraft((current) => ({
               ...current,
@@ -381,6 +387,7 @@ function GeofenceDialog({ worksite, onClose }: { worksite: Worksite; onClose: ()
               inputMode="decimal"
               value={draft.latitude}
               onChange={(event) => setDraft({ ...draft, latitude: event.target.value })}
+              onBlur={recenter}
             />
           </div>
           <div className="space-y-1.5">
@@ -390,6 +397,7 @@ function GeofenceDialog({ worksite, onClose }: { worksite: Worksite; onClose: ()
               inputMode="decimal"
               value={draft.longitude}
               onChange={(event) => setDraft({ ...draft, longitude: event.target.value })}
+              onBlur={recenter}
             />
           </div>
           <div className="space-y-1.5">
@@ -402,6 +410,7 @@ function GeofenceDialog({ worksite, onClose }: { worksite: Worksite; onClose: ()
               step={10}
               value={draft.radius}
               onChange={(event) => setDraft({ ...draft, radius: event.target.value })}
+              onBlur={recenter}
             />
           </div>
         </div>
@@ -449,12 +458,14 @@ function GeofenceMap({
   longitude,
   radius,
   name,
+  recenterKey,
   onPick,
 }: {
   latitude: number | null;
   longitude: number | null;
   radius: number;
   name: string;
+  recenterKey: number;
   onPick: (position: { latitude: number; longitude: number }) => void;
 }) {
   const [mounted, setMounted] = useState(false);
@@ -489,6 +500,7 @@ function GeofenceMap({
         markers={NO_MARKERS}
         worksites={worksites}
         onPick={onPick}
+        recenterKey={recenterKey}
         className="h-[320px] w-full cursor-crosshair rounded-md"
       />
     </Suspense>

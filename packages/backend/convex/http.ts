@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { env, httpAction } from "./_generated/server";
 import { MAX_LOOKUP_QUERY_LENGTH } from "./lib/compras/materialLookup";
+import { isPunchPhotoType } from "./lib/rh/timeClockPunch";
 import { hashAgentToken, looksLikeAgentToken } from "./lib/agentTokens";
 import { registerApiV1Routes } from "./gateway/v1";
 import { registerTakeoffAuthRoutes } from "./gateway/takeoffAuth";
@@ -332,7 +333,7 @@ const handleTimeClockPhoto = httpAction(async (ctx, request) => {
     return new Response("Not found", { status: 404, headers });
   }
   const blob = await ctx.storage.get(resolved.storageId);
-  if (!blob || !blob.type.startsWith("image/")) {
+  if (!blob || !isPunchPhotoType(blob.type)) {
     return new Response("Not found", { status: 404, headers });
   }
   return new Response(blob, {

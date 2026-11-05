@@ -16,6 +16,13 @@ import { cn } from "@/lib/utils";
 
 type PunchId = Id<"clockPunches">;
 
+/** Mesmos formatos aceitos pelo backend (PUNCH_PHOTO_TYPES): nada de SVG. */
+const PUNCH_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+function isPunchPhotoType(contentType: string): boolean {
+  return PUNCH_PHOTO_TYPES.includes(contentType.split(";")[0]!.trim().toLowerCase());
+}
+
 export function timeClockPhotoUrl(convexUrl: string, punchId: PunchId): string {
   return new URL(`/time-clock/photo/${punchId}`, convexSiteUrl(convexUrl)).toString();
 }
@@ -51,7 +58,7 @@ export function PunchPhoto({ punchId, personName }: { punchId: PunchId; personNa
         });
         if (!response.ok) throw new Error(errorMessage(response.status));
         const blob = await response.blob();
-        if (!blob.type.startsWith("image/")) throw new Error(errorMessage(404));
+        if (!isPunchPhotoType(blob.type)) throw new Error(errorMessage(404));
         if (controller.signal.aborted) return;
         objectUrl = URL.createObjectURL(blob);
         setResult({ punchId, url: objectUrl });

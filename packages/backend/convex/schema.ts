@@ -1513,8 +1513,9 @@ export default defineSchema({
     dailyTransitCents: v.number(),
     defaultTransportFoodDays: v.number(),
     // Descontinuado: vínculo antigo com o usuário que batia ponto. O ponto agora
-    // é do próprio usuário e nada lê este campo; fica no schema só porque
-    // cadastros antigos ainda o têm.
+    // é do próprio usuário e nada lê este campo. A migração
+    // `migrations:clearEmployeeUserLinks` o apaga; remover do schema depois
+    // que ela rodar em produção.
     userId: v.optional(v.id("users")),
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),

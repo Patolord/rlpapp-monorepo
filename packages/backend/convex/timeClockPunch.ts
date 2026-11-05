@@ -27,6 +27,7 @@ import {
   buildPunchHash,
   classifyGeofence,
   isDuplicatePunch,
+  isPunchPhotoType,
   nextSequence,
 } from "./lib/rh/timeClockPunch";
 import { timeClockGeofenceStatus, timeClockPunchKind } from "./schema";
@@ -285,6 +286,11 @@ export const register = registrarPontoMutation({
     if (args.photoStorageId) {
       const file = await ctx.db.system.get("_storage", args.photoStorageId);
       if (!file) throw new ConvexError("Foto não encontrada. Tire uma nova foto.");
+      // Tipo informado no upload e diferente de JPEG/PNG/WebP (ex.: SVG) é
+      // recusado. Sem tipo, a rota de entrega confere o arquivo e não o serve.
+      if (file.contentType && !isPunchPhotoType(file.contentType)) {
+        throw new ConvexError("Formato de foto não suportado. Tire uma nova foto.");
+      }
       // A idade da foto conta do instante mais antigo conhecido: o upload
       // (autoritativo, do servidor) ou a captura informada pelo aparelho.
       const photoTakenAt = Math.min(file._creationTime, args.photoCapturedAt ?? Infinity);

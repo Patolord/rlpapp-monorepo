@@ -52,6 +52,8 @@ export type TimeClockMapProps = {
   focusWorksiteId?: string | null;
   /** Clique no mapa (ex.: escolher o centro de uma cerca). */
   onPick?: (position: { latitude: number; longitude: number }) => void;
+  /** Com `onPick`: mudar este valor recentraliza o mapa (centro digitado ou vindo do GPS). */
+  recenterKey?: number;
   className?: string;
 };
 
@@ -62,6 +64,7 @@ function FitBounds({
   bounds,
   focus,
   once,
+  recenterKey,
 }: {
   bounds: LatLngBoundsExpression | null;
   focus: { latitude: number; longitude: number; radius: number } | null;
@@ -70,11 +73,15 @@ function FitBounds({
    * cerca, o mapa não pula de volta a cada clique nem perde o zoom do usuário).
    */
   once: boolean;
+  recenterKey: number | undefined;
 }) {
   const map = useMap();
   const fitted = useRef(false);
+  const lastRecenterKey = useRef(recenterKey);
   useEffect(() => {
-    if (once && fitted.current) return;
+    const recentering = recenterKey !== lastRecenterKey.current;
+    lastRecenterKey.current = recenterKey;
+    if (once && fitted.current && !recentering) return;
     fitted.current = Boolean(focus || bounds);
     if (focus) {
       const zoom = focus.radius > 400 ? 15 : focus.radius > 150 ? 16 : 17;
@@ -86,7 +93,7 @@ function FitBounds({
     } else {
       map.setView(FALLBACK_CENTER, 11);
     }
-  }, [map, bounds, focus, once]);
+  }, [map, bounds, focus, once, recenterKey]);
   return null;
 }
 
@@ -113,6 +120,7 @@ export default function TimeClockMap({
   highlightGroupId,
   focusWorksiteId,
   onPick,
+  recenterKey,
   className,
 }: TimeClockMapProps) {
   const bounds = useMemo<LatLngBoundsExpression | null>(() => {
@@ -150,7 +158,7 @@ export default function TimeClockMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <FitBounds bounds={bounds} focus={focus} once={Boolean(onPick)} />
+      <FitBounds bounds={bounds} focus={focus} once={Boolean(onPick)} recenterKey={recenterKey} />
       {onPick ? <PickHandler onPick={onPick} /> : null}
 
       {worksites.map((worksite) => (

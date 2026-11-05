@@ -20,6 +20,17 @@ export const GEOFENCE_STATUS_LABEL: Record<GeofenceStatus, string> = {
 export const DEFAULT_GEOFENCE_RADIUS_METERS = 200;
 /** Janela padrão para ignorar toques repetidos ("Batida repetida (min)"). */
 export const DEFAULT_DUPLICATE_WINDOW_MINUTES = 1;
+/**
+ * Formatos aceitos na foto da marcação (o app envia JPEG). Só imagens raster:
+ * SVG pode carregar script e é recusado no registro e na entrega.
+ */
+export const PUNCH_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+
+export function isPunchPhotoType(contentType: string | null | undefined): boolean {
+  const base = (contentType ?? "").split(";")[0]!.trim().toLowerCase();
+  return (PUNCH_PHOTO_TYPES as readonly string[]).includes(base);
+}
+
 /** Foto capturada há mais tempo que isto não vale mais. */
 export const PHOTO_MAX_AGE_MS = 5 * 60 * 1000;
 /** Tolerância entre o relógio do aparelho e o do servidor. */

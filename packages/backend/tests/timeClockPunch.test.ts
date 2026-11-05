@@ -8,6 +8,7 @@ import {
   classifyGeofence,
   distanceMeters,
   isDuplicatePunch,
+  isPunchPhotoType,
   nextSequence,
   punchHashPayload,
   sha256Hex,
@@ -64,6 +65,13 @@ describe("timeClockPunch lib", () => {
     });
     expect(classifyGeofence(null, fences).status).toBe("not_controlled");
     expect(classifyGeofence(OBRA, []).status).toBe("not_controlled");
+  });
+
+  test("só formatos raster valem como foto da marcação", () => {
+    expect(isPunchPhotoType("image/jpeg")).toBe(true);
+    expect(isPunchPhotoType("image/png; charset=binary")).toBe(true);
+    expect(isPunchPhotoType("image/svg+xml")).toBe(false);
+    expect(isPunchPhotoType(undefined)).toBe(false);
   });
 
   test("janela de repetição e posição no dia", () => {
@@ -249,6 +257,26 @@ describe("timeClockPunch: registro pelo app", () => {
         ...POS,
       })
     ).rejects.toThrow(/expirada/);
+  });
+
+  test("foto que não é JPEG/PNG/WebP (ex.: SVG) nunca é entregue ao painel", async () => {
+    const { t, worker, hr } = await seed();
+    const svgId = await t.run((ctx) =>
+      ctx.storage.store(
+        new Blob(["<svg xmlns='http://www.w3.org/2000/svg'/>"], { type: "image/svg+xml" })
+      )
+    );
+    // O convex-test não grava o tipo do upload; em produção o registro já
+    // recusa. A rota de entrega confere o arquivo de qualquer forma.
+    const receipt = await worker.mutation(api.timeClockPunch.register, {
+      clientPunchId: "svg",
+      capturedAt: Date.now(),
+      photoStorageId: svgId as Id<"_storage">,
+      photoCapturedAt: Date.now(),
+      ...POS,
+    });
+    const response = await hr.fetch(`/time-clock/photo/${receipt.punchId}`, { method: "GET" });
+    expect(response.status).toBe(404);
   });
 
   test("usuário sem a permissão de bater ponto é recusado e o contexto diz isso", async () => {
