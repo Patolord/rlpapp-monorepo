@@ -142,6 +142,8 @@ export const PERMISSIONS = [
   "rh.folha.write",
   "rh.ponto.read",
   "rh.ponto.write",
+  // Ponto eletrônico (dever pessoal, não acesso a uma área)
+  "ponto.registrar",
   // App de campo
   "campo.todas_obras",
   "campo.equipe",
@@ -184,8 +186,9 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "rh.funcionarios.write": "Editar funcionários",
   "rh.folha.read": "Ver folha de pagamento",
   "rh.folha.write": "Editar folha de pagamento",
-  "rh.ponto.read": "Ver ponto (RHID)",
-  "rh.ponto.write": "Configurar ponto (RHID)",
+  "rh.ponto.read": "Ver ponto",
+  "rh.ponto.write": "Configurar ponto",
+  "ponto.registrar": "Bater ponto pelo app",
   "campo.todas_obras": "Todas as obras no campo",
   "campo.equipe": "Registros de campo da equipe",
   "admin.manage": "Administração do sistema",
@@ -230,8 +233,11 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   "rh.funcionarios.write": "Criar, editar e arquivar funcionários.",
   "rh.folha.read": "Folha de pagamento, empréstimos e pensões.",
   "rh.folha.write": "Editar, fechar e reabrir folhas; empréstimos e pensões.",
-  "rh.ponto.read": "Ponto do RHID: dia, mês e vínculos.",
-  "rh.ponto.write": "Vincular pessoas e locais do RHID e ajustar o ponto.",
+  "rh.ponto.read": "Controle de ponto: agora, dia e mês.",
+  "rh.ponto.write":
+    "Regras da marcação, cercas das obras e quem bate ponto pelo app.",
+  "ponto.registrar":
+    "Registra o próprio ponto no app (foto e localização) e aparece no controle de ponto do RH.",
   "campo.todas_obras":
     "No app de campo, enxerga e opera todas as obras, não só as atribuídas.",
   "campo.equipe": "Ver o histórico de campo de outros técnicos.",
@@ -261,6 +267,11 @@ export const PERMISSION_GROUPS: readonly {
       "orcamentos.write",
       "assistente.use",
     ],
+  },
+  {
+    key: "ponto",
+    label: "Ponto eletrônico",
+    permissions: ["ponto.registrar"],
   },
   {
     key: "campo",
@@ -382,9 +393,22 @@ const ENGINEERING: readonly Permission[] = [
   "campo.equipe",
 ];
 
+/**
+ * Permissões que são um dever pessoal e não acesso a uma funcionalidade: quem
+ * as tem passa a ser cobrado por elas (bater ponto põe a pessoa na lista de
+ * presença do RH). Nenhum acesso as concede, nem diretoria e administração;
+ * entram só como ajuste individual.
+ */
+export const PERSONAL_PERMISSIONS: readonly Permission[] = ["ponto.registrar"];
+
+/** Tudo o que diretoria e administração recebem: o catálogo menos os deveres pessoais. */
+const ALL_ACCESS: readonly Permission[] = PERMISSIONS.filter(
+  (permission) => !PERSONAL_PERMISSIONS.includes(permission)
+);
+
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
-  director: PERMISSIONS,
-  admin: PERMISSIONS,
+  director: ALL_ACCESS,
+  admin: ALL_ACCESS,
   engenheiro: ENGINEERING,
   engenharia: ENGINEERING,
   compras: [
@@ -453,6 +477,8 @@ export const PERMISSION_DENIED_MESSAGES: Record<Permission, string> = {
   "rh.folha.write": "Seu usuário não pode editar a folha de pagamento",
   "rh.ponto.read": "Seu usuário não tem acesso ao ponto",
   "rh.ponto.write": "Seu usuário não pode configurar o ponto",
+  "ponto.registrar":
+    "Seu usuário não bate ponto pelo app. Peça ao RH para liberar a marcação.",
   "campo.todas_obras": "Acesso negado a esta obra",
   "campo.equipe": "Sem permissão para ver o histórico de outros usuários",
   "admin.manage": "Insufficient permissions",

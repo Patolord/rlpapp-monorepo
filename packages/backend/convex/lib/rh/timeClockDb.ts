@@ -1,375 +1,154 @@
 /**
- * Acesso a dados do módulo de ponto (espelho RHID). Funções puras de banco,
- * usadas pelas queries/mutations em `convex/timeClock.ts` e pela action de
- * sincronização em `convex/rhidSync.ts`.
+ * Acesso a dados do módulo de ponto, usado pelas queries/mutations de
+ * `convex/timeClock.ts` (painel do RH) e `convex/timeClockPunch.ts` (marcação
+ * pelo app).
  */
 
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { normalizeText } from "../compras/procurement";
-import {
-  normalizePersonName,
-  summarizeDays,
-  type NormalizedPerson,
-  type NormalizedPunch,
-  type NormalizedWorksite,
-} from "./rhid";
+import { hasPermission } from "../rbac";
+import { summarizeDay } from "./timeClock";
 import { DEFAULT_DUPLICATE_WINDOW_MINUTES } from "./timeClockPunch";
 
 type Ctx = QueryCtx | MutationCtx;
 
 export const DEFAULT_MAN_DAY_COST_CENTS = 15_000;
 
-/** Marcação com pessoa do RHID conhecida (espelho ou app de funcionário vinculado). */
-export type RhidKeyedPunch = Doc<"timeClockPunches"> & { rhidPersonId: number };
-
-export function hasRhidPerson(punch: Doc<"timeClockPunches">): punch is RhidKeyedPunch {
-  return punch.rhidPersonId !== undefined;
-}
-
-export function isAppPunch(punch: Doc<"timeClockPunches">): boolean {
-  return punch.source === "app";
-}
+/** Limite de leitura por dia/período (bem acima do tamanho da equipe). */
+const MAX_PUNCHES_PER_DAY = 4000;
+const MAX_DAYS_PER_RANGE = 8000;
 
 // ---------------------------------------------------------------------------
-// Singletons
+// Configurações
 // ---------------------------------------------------------------------------
-
-export async function getSyncState(ctx: Ctx): Promise<Doc<"rhidSyncState"> | null> {
-  return await ctx.db
-    .query("rhidSyncState")
-    .withIndex("by_key", (q) => q.eq("key", "default"))
-    .unique();
-}
-
-export async function patchSyncState(
-  ctx: MutationCtx,
-  patch: Partial<Omit<Doc<"rhidSyncState">, "_id" | "_creationTime" | "key">>
-): Promise<void> {
-  const existing = await getSyncState(ctx);
-  if (existing) {
-    await ctx.db.patch("rhidSyncState", existing._id, patch);
-  } else {
-    await ctx.db.insert("rhidSyncState", { key: "default", ...patch });
-  }
-}
 
 export type TimeClockSettings = {
   manDayCostCents: number;
-  trackedDepartments: string[];
-  /** Marcação pelo app exige foto. */
   photoRequired: boolean;
-  /** Marcação pelo app exige localização (parâmetro 125 do RHID). */
   locationRequired: boolean;
-  /** Janela (min) em que uma marcação repetida do mesmo funcionário é recusada. */
   duplicateWindowMinutes: number;
 };
 
-export async function getSettings(ctx: Ctx): Promise<TimeClockSettings> {
-  const doc = await ctx.db
-    .query("timeClockSettings")
+export const DEFAULT_SETTINGS: TimeClockSettings = {
+  manDayCostCents: DEFAULT_MAN_DAY_COST_CENTS,
+  photoRequired: false,
+  locationRequired: true,
+  duplicateWindowMinutes: DEFAULT_DUPLICATE_WINDOW_MINUTES,
+};
+
+async function getSettingsDoc(ctx: Ctx): Promise<Doc<"clockSettings"> | null> {
+  return await ctx.db
+    .query("clockSettings")
     .withIndex("by_key", (q) => q.eq("key", "default"))
     .unique();
+}
+
+export async function getSettings(ctx: Ctx): Promise<TimeClockSettings> {
+  const doc = await getSettingsDoc(ctx);
+  if (!doc) return { ...DEFAULT_SETTINGS };
   return {
-    manDayCostCents: doc?.manDayCostCents ?? DEFAULT_MAN_DAY_COST_CENTS,
-    trackedDepartments: doc?.trackedDepartments ?? [],
-    photoRequired: doc?.photoRequired ?? false,
-    locationRequired: doc?.locationRequired ?? true,
-    duplicateWindowMinutes:
-      doc?.duplicateWindowMinutes ?? DEFAULT_DUPLICATE_WINDOW_MINUTES,
+    manDayCostCents: doc.manDayCostCents,
+    photoRequired: doc.photoRequired,
+    locationRequired: doc.locationRequired,
+    duplicateWindowMinutes: doc.duplicateWindowMinutes,
   };
 }
 
 export async function saveSettings(
   ctx: MutationCtx,
   settings: TimeClockSettings,
-  userId: Id<"users">
+  userId: Id<"users"> | undefined
 ): Promise<void> {
-  const doc = await ctx.db
-    .query("timeClockSettings")
-    .withIndex("by_key", (q) => q.eq("key", "default"))
-    .unique();
-  const payload = {
-    manDayCostCents: settings.manDayCostCents,
-    trackedDepartments: settings.trackedDepartments,
-    photoRequired: settings.photoRequired,
-    locationRequired: settings.locationRequired,
-    duplicateWindowMinutes: settings.duplicateWindowMinutes,
-    updatedAt: Date.now(),
-    updatedByUserId: userId,
-  };
+  const doc = await getSettingsDoc(ctx);
+  const payload = { ...settings, updatedAt: Date.now(), updatedByUserId: userId };
   if (doc) {
-    await ctx.db.patch("timeClockSettings", doc._id, payload);
+    await ctx.db.patch("clockSettings", doc._id, payload);
   } else {
-    await ctx.db.insert("timeClockSettings", { key: "default", ...payload });
+    await ctx.db.insert("clockSettings", { key: "default", ...payload });
   }
-}
-
-/** Departamento entra na presença quando a lista está vazia ou o contém. */
-export function isTrackedDepartment(
-  trackedDepartments: string[],
-  department: string | undefined
-): boolean {
-  if (trackedDepartments.length === 0) return true;
-  if (!department) return false;
-  const target = normalizeText(department);
-  return trackedDepartments.some((item) => normalizeText(item) === target);
 }
 
 // ---------------------------------------------------------------------------
-// Pessoas (cadastro RHID) e vínculo com funcionários
+// Obras com cerca
 // ---------------------------------------------------------------------------
 
-export async function getPersonByRhidId(
-  ctx: Ctx,
-  rhidPersonId: number
-): Promise<Doc<"rhidPeople"> | null> {
-  return await ctx.db
-    .query("rhidPeople")
-    .withIndex("by_rhid_person_id", (q) => q.eq("rhidPersonId", rhidPersonId))
-    .unique();
-}
+export type GeofencedProject = {
+  _id: Id<"projects">;
+  name: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+};
 
-/** Todas as pessoas conhecidas do RHID (cadastro pequeno: dezenas/centenas). */
-export async function listPeople(ctx: Ctx): Promise<Doc<"rhidPeople">[]> {
-  return await ctx.db.query("rhidPeople").take(2000);
-}
-
-export async function peopleById(
-  ctx: Ctx
-): Promise<Map<number, Doc<"rhidPeople">>> {
-  const people = await listPeople(ctx);
-  return new Map(people.map((person) => [person.rhidPersonId, person]));
-}
-
-/** Tenta casar uma pessoa do RHID com um funcionário ativo por CPF, depois por nome. */
-export async function findMatchingEmployee(
-  ctx: Ctx,
-  person: { cpf?: string; name: string }
-): Promise<Doc<"employees"> | null> {
-  if (person.cpf) {
-    const cpf = person.cpf;
-    const byCpf = await ctx.db
-      .query("employees")
-      .withIndex("by_cpf_normalized", (q) => q.eq("cpfNormalized", cpf))
-      .take(5);
-    const match = byCpf.find((row) => !row.archivedAt);
-    if (match) return match;
+/** Obras ativas (não arquivadas) com cerca do ponto definida. */
+export async function listGeofencedProjects(ctx: Ctx): Promise<GeofencedProject[]> {
+  const projects = await ctx.db.query("projects").withIndex("by_name").take(1000);
+  const result: GeofencedProject[] = [];
+  for (const project of projects) {
+    if (project.archivedAt || !project.geofence) continue;
+    result.push({
+      _id: project._id,
+      name: project.name,
+      latitude: project.geofence.latitude,
+      longitude: project.geofence.longitude,
+      radiusMeters: project.geofence.radiusMeters,
+    });
   }
-  const nameNormalized = normalizePersonName(person.name);
-  if (!nameNormalized) return null;
-  const byName = await ctx.db
-    .query("employees")
-    .withIndex("by_name_normalized", (q) => q.eq("nameNormalized", nameNormalized))
-    .take(5);
-  const candidates = byName.filter((row) => !row.archivedAt);
-  return candidates.length === 1 ? candidates[0]! : null;
-}
-
-export type UpsertPeopleResult = { inserted: number; updated: number; deactivated: number };
-
-/**
- * Grava o cadastro vindo do RHID. Com `fromRoster`, quem não aparece na lista
- * é marcado como inativo. Vínculos manuais nunca são sobrescritos; vínculos
- * automáticos são recalculados (CPF, depois nome exato).
- */
-export async function upsertPeople(
-  ctx: MutationCtx,
-  people: NormalizedPerson[],
-  options: { syncedAt: number; fromRoster: boolean }
-): Promise<UpsertPeopleResult> {
-  const result: UpsertPeopleResult = { inserted: 0, updated: 0, deactivated: 0 };
-  const seen = new Set<number>();
-
-  for (const person of people) {
-    seen.add(person.rhidPersonId);
-    const existing = await getPersonByRhidId(ctx, person.rhidPersonId);
-    const cpf = person.cpf ?? existing?.cpf;
-    const department = person.department ?? existing?.department;
-
-    let employeeId = existing?.employeeId;
-    let linkSource = existing?.linkSource;
-    if (linkSource !== "manual") {
-      const match = await findMatchingEmployee(ctx, { cpf, name: person.name });
-      employeeId = match?._id;
-      linkSource = match ? "auto" : undefined;
-    }
-
-    if (existing) {
-      await ctx.db.patch("rhidPeople", existing._id, {
-        name: person.name,
-        nameNormalized: normalizePersonName(person.name),
-        cpf,
-        department,
-        active: options.fromRoster ? true : existing.active,
-        employeeId,
-        linkSource,
-        lastSeenAt: options.syncedAt,
-        updatedAt: options.syncedAt,
-      });
-      result.updated += 1;
-    } else {
-      await ctx.db.insert("rhidPeople", {
-        rhidPersonId: person.rhidPersonId,
-        name: person.name,
-        nameNormalized: normalizePersonName(person.name),
-        cpf,
-        department,
-        active: options.fromRoster,
-        employeeId,
-        linkSource,
-        firstSeenAt: options.syncedAt,
-        lastSeenAt: options.syncedAt,
-        updatedAt: options.syncedAt,
-      });
-      result.inserted += 1;
-    }
-  }
-
-  if (options.fromRoster) {
-    const active = await ctx.db
-      .query("rhidPeople")
-      .withIndex("by_active", (q) => q.eq("active", true))
-      .take(2000);
-    for (const person of active) {
-      if (seen.has(person.rhidPersonId)) continue;
-      await ctx.db.patch("rhidPeople", person._id, {
-        active: false,
-        updatedAt: options.syncedAt,
-      });
-      result.deactivated += 1;
-    }
-  }
-
   return result;
 }
 
 // ---------------------------------------------------------------------------
-// Obras (cercas) e vínculo com projetos
+// Quem bate ponto
 // ---------------------------------------------------------------------------
 
-export async function getWorksiteByRhidId(
-  ctx: Ctx,
-  rhidGeofenceId: number
-): Promise<Doc<"rhidWorksites"> | null> {
-  return await ctx.db
-    .query("rhidWorksites")
-    .withIndex("by_rhid_geofence_id", (q) => q.eq("rhidGeofenceId", rhidGeofenceId))
-    .unique();
-}
-
-export async function listWorksites(ctx: Ctx): Promise<Doc<"rhidWorksites">[]> {
-  return await ctx.db.query("rhidWorksites").take(1000);
-}
-
-export async function upsertWorksites(
-  ctx: MutationCtx,
-  worksites: NormalizedWorksite[],
-  syncedAt: number
-): Promise<{ inserted: number; updated: number }> {
-  let inserted = 0;
-  let updated = 0;
-  for (const worksite of worksites) {
-    const existing = await getWorksiteByRhidId(ctx, worksite.rhidGeofenceId);
-    if (existing) {
-      await ctx.db.patch("rhidWorksites", existing._id, {
-        name: worksite.name,
-        latitude: worksite.latitude,
-        longitude: worksite.longitude,
-        radius: worksite.radius,
-        lastSeenAt: syncedAt,
-        updatedAt: syncedAt,
-      });
-      updated += 1;
-    } else {
-      await ctx.db.insert("rhidWorksites", {
-        ...worksite,
-        lastSeenAt: syncedAt,
-        updatedAt: syncedAt,
-      });
-      inserted += 1;
-    }
-  }
-  return { inserted, updated };
+/** Usuários ativos com a permissão de bater ponto pelo app. */
+export async function listClockUsers(ctx: Ctx): Promise<Doc<"users">[]> {
+  const users = await ctx.db
+    .query("users")
+    .withIndex("by_active", (q) => q.eq("isActive", true))
+    .take(2000);
+  return users
+    .filter((user) => hasPermission(user, "ponto.registrar"))
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
 
 // ---------------------------------------------------------------------------
-// Marcações e resumo diário
+// Marcações
 // ---------------------------------------------------------------------------
 
 export async function listPunchesForDate(
   ctx: Ctx,
   date: string
-): Promise<Doc<"timeClockPunches">[]> {
+): Promise<Doc<"clockPunches">[]> {
   return await ctx.db
-    .query("timeClockPunches")
+    .query("clockPunches")
     .withIndex("by_date", (q) => q.eq("date", date))
-    .take(5000);
+    .take(MAX_PUNCHES_PER_DAY);
 }
 
-/**
- * Marcações do dia que têm pessoa do RHID (as telas de presença ainda agrupam
- * por `rhidPersonId`). Marcações excluídas ficam de fora.
- */
-export async function listRhidPunchesForDate(
+/** Marcações do usuário no dia, em ordem cronológica. */
+export async function listUserDayPunches(
   ctx: Ctx,
+  userId: Id<"users">,
   date: string
-): Promise<RhidKeyedPunch[]> {
-  const punches = await listPunchesForDate(ctx, date);
-  return punches.filter(
-    (punch): punch is RhidKeyedPunch => hasRhidPerson(punch) && !punch.excluded
-  );
-}
-
-/** Marcações do app de um funcionário em um dia (inclui excluídas). */
-export async function listAppPunchesForEmployeeDate(
-  ctx: Ctx,
-  employeeId: Id<"employees">,
-  date: string
-): Promise<Doc<"timeClockPunches">[]> {
-  return await ctx.db
-    .query("timeClockPunches")
-    .withIndex("by_employee_and_date", (q) =>
-      q.eq("employeeId", employeeId).eq("date", date)
-    )
-    .take(500);
-}
-
-export async function listRhidPunchesForPersonDate(
-  ctx: Ctx,
-  rhidPersonId: number,
-  date: string
-): Promise<Doc<"timeClockPunches">[]> {
-  return await ctx.db
-    .query("timeClockPunches")
-    .withIndex("by_person_and_date", (q) =>
-      q.eq("rhidPersonId", rhidPersonId).eq("date", date)
-    )
-    .take(500);
+): Promise<Doc<"clockPunches">[]> {
+  const punches = await ctx.db
+    .query("clockPunches")
+    .withIndex("by_user_and_date", (q) => q.eq("userId", userId).eq("date", date))
+    .take(200);
+  return punches.sort((a, b) => a.punchedAt - b.punchedAt || a._creationTime - b._creationTime);
 }
 
 export async function getPunchByClientId(
   ctx: Ctx,
   clientPunchId: string
-): Promise<Doc<"timeClockPunches"> | null> {
+): Promise<Doc<"clockPunches"> | null> {
   return await ctx.db
-    .query("timeClockPunches")
+    .query("clockPunches")
     .withIndex("by_client_punch_id", (q) => q.eq("clientPunchId", clientPunchId))
     .first();
 }
 
-/** Pessoa do RHID vinculada a um funcionário (quando existe). */
-export async function getPersonByEmployee(
-  ctx: Ctx,
-  employeeId: Id<"employees">
-): Promise<Doc<"rhidPeople"> | null> {
-  return await ctx.db
-    .query("rhidPeople")
-    .withIndex("by_employee", (q) => q.eq("employeeId", employeeId))
-    .first();
-}
-
-/** Próximo NSR (número sequencial de registro) das marcações do app. */
 export async function nextNsr(ctx: MutationCtx): Promise<number> {
   const counter = await ctx.db
     .query("timeClockCounters")
@@ -384,37 +163,41 @@ export async function nextNsr(ctx: MutationCtx): Promise<number> {
   return value;
 }
 
+// ---------------------------------------------------------------------------
+// Resumo diário
+// ---------------------------------------------------------------------------
+
 /**
- * Recalcula o resumo diário de uma pessoa do RHID a partir de todas as suas
- * marcações do dia (espelho + app). Sem marcações, remove o resumo.
+ * Recalcula o resumo diário do usuário a partir das marcações do dia. Sem
+ * marcações, remove o resumo.
  */
 export async function recomputeDaySummary(
   ctx: MutationCtx,
-  date: string,
-  rhidPersonId: number,
-  syncedAt: number
+  userId: Id<"users">,
+  date: string
 ): Promise<void> {
-  const punches = (await listRhidPunchesForPersonDate(ctx, rhidPersonId, date)).filter(
-    (punch) => !punch.excluded
-  );
+  const punches = await listUserDayPunches(ctx, userId, date);
   const existing = await ctx.db
-    .query("timeClockDays")
-    .withIndex("by_person_and_date", (q) =>
-      q.eq("rhidPersonId", rhidPersonId).eq("date", date)
-    )
+    .query("clockDays")
+    .withIndex("by_user_and_date", (q) => q.eq("userId", userId).eq("date", date))
     .first();
-  const summary = summarizeDays(
-    punches.map((punch) => ({ ...punch, rhidPersonId }))
-  )[0];
+  const summary = summarizeDay(punches);
   if (!summary) {
-    if (existing) await ctx.db.delete("timeClockDays", existing._id);
+    if (existing) await ctx.db.delete("clockDays", existing._id);
     return;
   }
-  const payload = { ...summary, syncedAt };
+  const last = punches[punches.length - 1]!;
+  const payload = {
+    date,
+    userId,
+    personName: last.personName,
+    ...summary,
+    updatedAt: Date.now(),
+  };
   if (existing) {
-    await ctx.db.replace("timeClockDays", existing._id, payload);
+    await ctx.db.replace("clockDays", existing._id, payload);
   } else {
-    await ctx.db.insert("timeClockDays", payload);
+    await ctx.db.insert("clockDays", payload);
   }
 }
 
@@ -422,107 +205,9 @@ export async function listDaysInRange(
   ctx: Ctx,
   from: string,
   to: string
-): Promise<Doc<"timeClockDays">[]> {
+): Promise<Doc<"clockDays">[]> {
   return await ctx.db
-    .query("timeClockDays")
+    .query("clockDays")
     .withIndex("by_date", (q) => q.gte("date", from).lte("date", to))
-    .take(20_000);
-}
-
-export type UpsertDayResult = {
-  inserted: number;
-  updated: number;
-  deleted: number;
-  people: number;
-};
-
-/**
- * Faz do Convex um espelho fiel do RHID para um dia: insere/atualiza as
- * marcações recebidas, remove as que sumiram do RHID e recalcula o resumo
- * diário por pessoa — tudo na mesma transação.
- */
-export async function replaceDayPunches(
-  ctx: MutationCtx,
-  date: string,
-  punches: NormalizedPunch[],
-  syncedAt: number
-): Promise<UpsertDayResult> {
-  const result: UpsertDayResult = { inserted: 0, updated: 0, deleted: 0, people: 0 };
-  const incoming = punches.filter((punch) => punch.date === date);
-  const incomingIds = new Set(incoming.map((punch) => punch.rhidRecordId));
-
-  // Marcações feitas pelo app não pertencem ao espelho: nunca são apagadas
-  // nem substituídas pela sincronização, mas entram no resumo do dia.
-  const allForDate = await listPunchesForDate(ctx, date);
-  const current = allForDate.filter(
-    (punch) => !isAppPunch(punch) && punch.rhidRecordId !== undefined
-  );
-  const appPunches = allForDate.filter(
-    (punch) => isAppPunch(punch) && hasRhidPerson(punch) && !punch.excluded
-  );
-  const currentById = new Map(current.map((punch) => [punch.rhidRecordId!, punch]));
-
-  for (const punch of current) {
-    if (!incomingIds.has(punch.rhidRecordId!)) {
-      await ctx.db.delete("timeClockPunches", punch._id);
-      result.deleted += 1;
-    }
-  }
-
-  for (const punch of incoming) {
-    const existing = currentById.get(punch.rhidRecordId);
-    const payload = {
-      rhidRecordId: punch.rhidRecordId,
-      rhidPersonId: punch.rhidPersonId,
-      source: "rhid" as const,
-      personName: punch.personName,
-      date: punch.date,
-      punchedAt: punch.punchedAt,
-      timeLabel: punch.timeLabel,
-      sequence: punch.sequence,
-      kind: punch.kind,
-      latitude: punch.latitude,
-      longitude: punch.longitude,
-      photoUrl: punch.photoUrl,
-      rhidGeofenceId: punch.rhidGeofenceId,
-      geofenceName: punch.geofenceName,
-      syncedAt,
-    };
-    if (existing) {
-      await ctx.db.replace("timeClockPunches", existing._id, payload);
-      result.updated += 1;
-    } else {
-      await ctx.db.insert("timeClockPunches", payload);
-      result.inserted += 1;
-    }
-  }
-
-  // Resumo diário: substitui o conjunto do dia pelo recalculado.
-  const summaries = summarizeDays([
-    ...incoming,
-    ...appPunches.filter((punch) => punch.rhidPersonId !== undefined),
-  ] as Parameters<typeof summarizeDays>[0]);
-  const summaryByPerson = new Map(summaries.map((item) => [item.rhidPersonId, item]));
-  const existingDays = await ctx.db
-    .query("timeClockDays")
-    .withIndex("by_date", (q) => q.eq("date", date))
-    .take(5000);
-  const existingByPerson = new Map(existingDays.map((day) => [day.rhidPersonId, day]));
-
-  for (const day of existingDays) {
-    if (!summaryByPerson.has(day.rhidPersonId)) {
-      await ctx.db.delete("timeClockDays", day._id);
-    }
-  }
-  for (const summary of summaries) {
-    const payload = { ...summary, syncedAt };
-    const existing = existingByPerson.get(summary.rhidPersonId);
-    if (existing) {
-      await ctx.db.replace("timeClockDays", existing._id, payload);
-    } else {
-      await ctx.db.insert("timeClockDays", payload);
-    }
-  }
-  result.people = summaries.length;
-  return result;
+    .take(MAX_DAYS_PER_RANGE);
 }

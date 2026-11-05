@@ -32,10 +32,6 @@ type Env = {
   readonly MCP_JWT_ISSUER: string | undefined;
   readonly MCP_JWT_JWKS: string | undefined;
   readonly OPENAI_API_KEY: string | undefined;
-  readonly RHID_COMPANY_ID: string | undefined;
-  readonly RHID_EMAIL: string | undefined;
-  readonly RHID_MEDIA_ALLOWED_HOSTS: string | undefined;
-  readonly RHID_PASSWORD: string | undefined;
 };
 
 /**
