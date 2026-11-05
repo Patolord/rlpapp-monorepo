@@ -1019,3 +1019,35 @@ export const migrateUserAccess = internalMutation({
     return { updated, skipped };
   },
 });
+
+/**
+ * Apaga o vínculo antigo `employees.userId` (o ponto agora é do próprio
+ * usuário e nada lê esse campo). Idempotente e em lotes, continua sozinha até
+ * o fim. Rodar uma vez após o deploy:
+ *
+ *   npx convex run migrations:clearEmployeeUserLinks
+ *
+ * Depois disso `employees.userId` pode sair do schema.
+ */
+export const clearEmployeeUserLinks = internalMutation({
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  returns: v.object({ cleared: v.number(), done: v.boolean() }),
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("employees")
+      .paginate({ numItems: 200, cursor: args.cursor ?? null });
+    let cleared = 0;
+    for (const employee of page.page) {
+      if (employee.userId === undefined) continue;
+      await ctx.db.patch("employees", employee._id, { userId: undefined });
+      cleared += 1;
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.clearEmployeeUserLinks, {
+        cursor: page.continueCursor,
+      });
+    }
+    console.log("clearEmployeeUserLinks", { cleared, done: page.isDone });
+    return { cleared, done: page.isDone };
+  },
+});

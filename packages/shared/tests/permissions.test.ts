@@ -11,6 +11,7 @@ import {
   DEPARTMENTS,
   LEGACY_USER_ROLES,
   PERMISSIONS,
+  PERSONAL_PERMISSIONS,
   ROLES,
   ROLE_DESCRIPTIONS,
   ROLE_LABELS,
@@ -33,6 +34,10 @@ import {
 } from "../src/auth/permissions";
 
 const ALL: Permission[] = [...PERMISSIONS];
+/** O que diretoria e administração recebem: tudo menos os deveres pessoais. */
+const ALL_ACCESS: Permission[] = ALL.filter(
+  (permission) => !PERSONAL_PERMISSIONS.includes(permission)
+);
 
 const ENGINEERING: Permission[] = [
   "obras.read",
@@ -100,10 +105,22 @@ describe("acessos → permissões", () => {
     }
   });
 
-  test("diretoria e administração têm tudo", () => {
+  test("diretoria e administração têm tudo, menos os deveres pessoais", () => {
     for (const role of ADMIN_ROLES) {
-      expect(sorted(getPermissions({ roles: [role] }))).toEqual(sorted(ALL));
+      expect(sorted(getPermissions({ roles: [role] }))).toEqual(sorted(ALL_ACCESS));
     }
+  });
+
+  test("bater ponto não vem de nenhum acesso, só de ajuste individual", () => {
+    for (const role of ROLES) {
+      expect(getPermissions({ roles: [role] })).not.toContain("ponto.registrar");
+    }
+    expect(
+      hasPermission({ roles: ["qr_operator"], permissionGrants: ["ponto.registrar"] }, "ponto.registrar")
+    ).toBe(true);
+    expect(
+      hasPermission({ roles: ["admin"], permissionGrants: ["ponto.registrar"] }, "ponto.registrar")
+    ).toBe(true);
   });
 
   test("áreas do escritório", () => {
@@ -162,9 +179,9 @@ describe("legado: cargo + departamento", () => {
 
   test("admin e diretor têm todas as permissões, com ou sem departamento", () => {
     for (const role of ["director", "admin"] as const) {
-      expect(sorted(getPermissions({ role }))).toEqual(sorted(ALL));
+      expect(sorted(getPermissions({ role }))).toEqual(sorted(ALL_ACCESS));
       for (const department of DEPARTMENTS) {
-        expect(sorted(getPermissions({ role, department }))).toEqual(sorted(ALL));
+        expect(sorted(getPermissions({ role, department }))).toEqual(sorted(ALL_ACCESS));
       }
     }
   });

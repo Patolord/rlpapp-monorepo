@@ -1,13 +1,12 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { formatCurrency } from "@rlpapp/shared";
 import { useQuery } from "convex/react";
-import { Building2, ChevronLeft, ChevronRight, Clock, MapPinOff, RefreshCw } from "lucide-react-native";
+import { Building2, ChevronLeft, ChevronRight, Clock, MapPinOff } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { LIVE_STATUS, MONTH_NAMES, PUNCH_KIND } from "@/components/rh/labels";
-import { Banner, Chips, EmptyState, IconButton, LoadingState, Pill, SectionTitle, StatTile, Surface } from "@/components/ui";
-import { formatDateTime } from "@/lib/format";
+import { Chips, EmptyState, IconButton, LoadingState, Pill, SectionTitle, StatTile, Surface } from "@/components/ui";
 import { colors, space, type } from "@/lib/theme";
 
 type Tab = "hoje" | "mes";
@@ -21,7 +20,7 @@ function shiftMonth(year: number, month: number, delta: number) {
   return { year: d.getFullYear(), month: d.getMonth() + 1 };
 }
 
-/** Ponto eletrônico (RHID): situação ao vivo de hoje e resumo mensal. */
+/** Ponto eletrônico: situação ao vivo de hoje e resumo mensal. */
 export default function PontoScreen() {
   const [tab, setTab] = useState<Tab>("hoje");
   const [today, setToday] = useState(() => dateKey(new Date()));
@@ -34,18 +33,8 @@ export default function PontoScreen() {
     return () => clearInterval(id);
   }, []);
 
-  const sync = useQuery(api.timeClock.getSyncStatus, {});
   const live = useQuery(api.timeClock.getLiveStatus, tab === "hoje" ? { date: today } : "skip");
   const month = useQuery(api.timeClock.getMonthStats, tab === "mes" ? { year: period.year, month: period.month } : "skip");
-
-  const syncBanner =
-    sync && !sync.configured ? (
-      <Banner tone="warning" title="Integração com o RHID não configurada" detail="Configure no web em RH › Ponto para sincronizar as marcações." />
-    ) : sync?.lastSyncStatus === "error" ? (
-      <Banner tone="danger" title="Última sincronização falhou" detail={sync.lastSyncError ?? undefined} />
-    ) : sync?.lastSyncFinishedAt ? (
-      <Banner tone="neutral" icon={<RefreshCw size={16} color={colors.textSecondary} />} title={`Sincronizado ${formatDateTime(sync.lastSyncFinishedAt)}`} detail={sync.lastSyncPunches != null ? `${sync.lastSyncPunches} marcações · ${sync.lastSyncPeople ?? 0} pessoas` : undefined} />
-    ) : null;
 
   return (
     <View style={{ flex: 1 }}>
@@ -62,7 +51,6 @@ export default function PontoScreen() {
           <LoadingState />
         ) : (
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            {syncBanner}
             <View style={styles.stats}>
               <StatTile label="Na obra" value={live.summary.onSite} tone="success" hint={`de ${live.summary.total} pessoas`} />
               <StatTile label="Almoço" value={live.summary.lunch} tone="info" hint={`${live.summary.left} já saíram`} />
@@ -73,17 +61,14 @@ export default function PontoScreen() {
               <>
                 <SectionTitle title="Por obra" style={styles.section} />
                 {live.worksites.map((w) => (
-                  <Surface key={w.rhidGeofenceId} style={{ gap: space.sm }}>
+                  <Surface key={w.projectId} style={{ gap: space.sm }}>
                     <View style={styles.rowBetween}>
                       <View style={styles.wsIcon}>
                         <Building2 size={18} color={colors.primary} strokeWidth={1.8} />
                       </View>
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={[type.bodyStrong, { color: colors.text }]} numberOfLines={1}>
-                          {w.projectName ?? w.name}
-                        </Text>
-                        {w.projectName ? <Text style={[type.caption, { color: colors.textMuted }]} numberOfLines={1}>{w.name}</Text> : null}
-                      </View>
+                      <Text style={[type.bodyStrong, { color: colors.text, flex: 1 }]} numberOfLines={1}>
+                        {w.name}
+                      </Text>
                       <Pill label={`${w.onSite} na obra`} tone={w.onSite > 0 ? "success" : "neutral"} />
                       {w.lunch > 0 ? <Pill label={`${w.lunch} almoço`} tone="info" /> : null}
                     </View>
@@ -99,19 +84,19 @@ export default function PontoScreen() {
 
             <SectionTitle title="Pessoas" style={styles.section} />
             {live.people.length === 0 ? (
-              <EmptyState icon={<Clock size={30} color={colors.primary} strokeWidth={1.8} />} title="Sem marcações hoje" description="As marcações aparecem após a sincronização com o RHID." />
+              <EmptyState icon={<Clock size={30} color={colors.primary} strokeWidth={1.8} />} title="Sem marcações hoje" description="Ninguém marcou ponto hoje." />
             ) : (
               <Surface padded={false}>
                 {live.people.map((p, index) => {
                   const st = LIVE_STATUS[p.status] ?? { label: p.status, tone: "neutral" as const };
                   return (
-                    <View key={p.rhidPersonId} style={[styles.person, index > 0 && styles.personBorder]}>
+                    <View key={p.userId} style={[styles.person, index > 0 && styles.personBorder]}>
                       <View style={{ flex: 1, gap: 2 }}>
                         <Text style={[type.bodyStrong, { color: colors.text }]} numberOfLines={1}>
-                          {p.employee?.name ?? p.name}
+                          {p.name}
                         </Text>
                         <Text style={[type.caption, { color: colors.textMuted }]} numberOfLines={1}>
-                          {[p.worksiteName, p.lastKind ? `${PUNCH_KIND[p.lastKind] ?? p.lastKind} ${p.lastTimeLabel ?? ""}`.trim() : null, p.employee?.jobTitle].filter(Boolean).join(" · ") || "Sem marcação"}
+                          {[p.projectName, p.lastKind ? `${PUNCH_KIND[p.lastKind] ?? p.lastKind} ${p.lastTimeLabel ?? ""}`.trim() : null].filter(Boolean).join(" · ") || "Sem marcação"}
                         </Text>
                       </View>
                       {!p.locationExact && p.status !== "absent" ? <MapPinOff size={16} color={colors.warning} /> : null}
@@ -146,10 +131,10 @@ export default function PontoScreen() {
                 <EmptyState title="Sem presenças no mês" />
               ) : (
                 month.byWorksite.map((w) => (
-                  <Surface key={w.rhidGeofenceId ?? "none"} style={{ gap: space.sm }}>
+                  <Surface key={w.projectId ?? "none"} style={{ gap: space.sm }}>
                     <View style={styles.rowBetween}>
                       <Text style={[type.bodyStrong, { color: colors.text, flex: 1 }]} numberOfLines={1}>
-                        {w.projectName ?? w.worksiteName ?? "Fora de obra"}
+                        {w.projectName ?? "Fora de obra"}
                       </Text>
                       <Pill label={`${w.totalManDays} diária${w.totalManDays === 1 ? "" : "s"}`} tone="info" />
                     </View>
@@ -164,13 +149,13 @@ export default function PontoScreen() {
               {month.byPerson.length > 0 ? (
                 <Surface padded={false}>
                   {month.byPerson.map((p, index) => (
-                    <View key={p.rhidPersonId} style={[styles.person, index > 0 && styles.personBorder]}>
+                    <View key={p.userId} style={[styles.person, index > 0 && styles.personBorder]}>
                       <View style={{ flex: 1, gap: 2 }}>
                         <Text style={[type.bodyStrong, { color: colors.text }]} numberOfLines={1}>
-                          {p.employee?.name ?? p.personName}
+                          {p.personName}
                         </Text>
                         <Text style={[type.caption, { color: colors.textMuted }]} numberOfLines={2}>
-                          {p.worksites.map((w) => `${w.worksiteName ?? "Fora de obra"} ${w.days}`).join(" · ")}
+                          {p.worksites.map((w) => `${w.projectName ?? "Fora de obra"} ${w.days}`).join(" · ")}
                         </Text>
                       </View>
                       <Text style={[type.bodyStrong, { color: colors.text }]}>{p.totalDays}d</Text>

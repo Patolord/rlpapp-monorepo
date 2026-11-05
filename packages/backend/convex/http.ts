@@ -4,12 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { env, httpAction } from "./_generated/server";
 import { MAX_LOOKUP_QUERY_LENGTH } from "./lib/compras/materialLookup";
-import {
-  PHOTO_FETCH_TIMEOUT_MS,
-  isAllowedPhotoUrl,
-  photoMimeType,
-  readPhotoBody,
-} from "./lib/rh/photo";
+import { isPunchPhotoType } from "./lib/rh/timeClockPunch";
 import { hashAgentToken, looksLikeAgentToken } from "./lib/agentTokens";
 import { registerApiV1Routes } from "./gateway/v1";
 import { registerTakeoffAuthRoutes } from "./gateway/takeoffAuth";
@@ -307,12 +302,12 @@ const handleProjectDocumentDownload = httpAction(async (ctx, request) => {
 });
 
 // ---------------------------------------------------------------------------
-// Foto de marcação do ponto (RHID)
+// Foto de marcação do ponto
 // ---------------------------------------------------------------------------
 //
-// O app nunca recebe a URL do RHID: pede `/time-clock/photo/<punchId>` com o
-// JWT Clerk, a permissão `rh.read` é reavaliada a cada pedido e a imagem
-// volta com `no-store` (nada fica em cache do navegador/PWA).
+// O painel pede `/time-clock/photo/<punchId>` com o JWT Clerk; `rh.ponto.read`
+// é conferida a cada pedido e a imagem volta com `no-store` (nada fica em
+// cache do navegador/PWA). O storage nunca entrega uma URL reutilizável.
 
 const TIME_CLOCK_PHOTO_PATH_PREFIX = "/time-clock/photo/";
 
@@ -327,40 +322,24 @@ const handleTimeClockPhoto = httpAction(async (ctx, request) => {
   if (!punchId || punchId.includes("/")) {
     return new Response("Not found", { status: 404, headers });
   }
-
-  const resolved = await ctx.runQuery(internal.timeClock.resolvePhoto, { punchId });
+  const resolved = await ctx.runQuery(internal.timeClock.authorizePunchPhoto, { punchId });
   if (resolved.status === "unauthenticated") {
     return new Response("Unauthorized", { status: 401, headers });
   }
   if (resolved.status === "forbidden") {
     return new Response("Forbidden", { status: 403, headers });
   }
-  if (
-    resolved.status !== "ok" ||
-    !isAllowedPhotoUrl(resolved.url, env.RHID_MEDIA_ALLOWED_HOSTS)
-  ) {
+  if (resolved.status !== "ok") {
     return new Response("Not found", { status: 404, headers });
   }
-
-  try {
-    // Sem credenciais e sem seguir redirects: o host já foi validado acima.
-    const upstream = await fetch(resolved.url, {
-      redirect: "error",
-      signal: AbortSignal.timeout(PHOTO_FETCH_TIMEOUT_MS),
-    });
-    const mime = photoMimeType(upstream);
-    if (!upstream.ok || !mime) {
-      await upstream.body?.cancel().catch(() => undefined);
-      return new Response("Not found", { status: 404, headers });
-    }
-    const bytes = await readPhotoBody(upstream);
-    return new Response(bytes as BodyInit, {
-      status: 200,
-      headers: { ...headers, "Content-Type": mime },
-    });
-  } catch {
-    return new Response("Bad gateway", { status: 502, headers });
+  const blob = await ctx.storage.get(resolved.storageId);
+  if (!blob || !isPunchPhotoType(blob.type)) {
+    return new Response("Not found", { status: 404, headers });
   }
+  return new Response(blob, {
+    status: 200,
+    headers: { ...headers, "Content-Type": blob.type, "Content-Length": String(blob.size) },
+  });
 });
 
 const http = httpRouter();

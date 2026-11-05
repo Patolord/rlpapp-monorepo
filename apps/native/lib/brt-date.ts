@@ -1,6 +1,6 @@
 /**
  * Datas do ponto no relógio de Brasília (UTC-3, sem horário de verão),
- * iguais às do backend (`convex/lib/rh/rhid.ts`).
+ * iguais às do backend (`convex/lib/rh/timeClock.ts`).
  */
 const BRT_OFFSET_MS = -3 * 60 * 60 * 1000;
 

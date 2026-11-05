@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { api } from "../convex/_generated/api";
+import { api, internal } from "../convex/_generated/api";
 import { setup, withUser } from "./helpers";
 
 async function seedHr() {
@@ -165,5 +165,41 @@ describe("employees API", () => {
         cpf: "52998224725",
       })
     ).rejects.toThrow(/CPF/i);
+  });
+});
+
+describe("migrations.clearEmployeeUserLinks", () => {
+  test("apaga o vínculo antigo com o usuário e é idempotente", async () => {
+    const t = setup();
+    await withUser(t, { clerkId: "linked-user", name: "Ligado", roles: [] });
+    const { linkedId, plainId } = await t.run(async (ctx) => {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", "linked-user"))
+        .unique();
+      const base = {
+        nameNormalized: "x",
+        status: "active" as const,
+        paymentMethod: "pix" as const,
+        baseSalaryCents: 0,
+        receivesFoodBasket: false,
+        dailyTransitCents: 0,
+        defaultTransportFoodDays: 22,
+        createdAt: Date.now(),
+      };
+      return {
+        linkedId: await ctx.db.insert("employees", { ...base, name: "Ligado", userId: user!._id }),
+        plainId: await ctx.db.insert("employees", { ...base, name: "Sem vínculo" }),
+      };
+    });
+
+    const first = await t.mutation(internal.migrations.clearEmployeeUserLinks, {});
+    expect(first).toEqual({ cleared: 1, done: true });
+    await t.run(async (ctx) => {
+      expect((await ctx.db.get("employees", linkedId))?.userId).toBeUndefined();
+      expect((await ctx.db.get("employees", plainId))?.name).toBe("Sem vínculo");
+    });
+    const again = await t.mutation(internal.migrations.clearEmployeeUserLinks, {});
+    expect(again).toEqual({ cleared: 0, done: true });
   });
 });

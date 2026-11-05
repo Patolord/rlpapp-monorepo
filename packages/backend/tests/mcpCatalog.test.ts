@@ -70,11 +70,14 @@ describe("catálogo de funções para o MCP", () => {
     });
   });
 
-  test("director tem tudo permitido", async () => {
+  test("director tem tudo permitido, menos os deveres pessoais (bater ponto)", async () => {
     const t = setup();
     const asDirector = await withUser(t, { clerkId: "dir", role: "director" });
     const catalog = await asDirector.query(api.mcpCatalog.list, {});
     expect(catalog.length).toBeGreaterThan(200);
-    expect(catalog.every((entry) => entry.allowed)).toBe(true);
+    const personal = (entry: (typeof catalog)[number]) =>
+      entry.access.kind === "permission" && entry.access.permission === "ponto.registrar";
+    expect(catalog.filter((entry) => !entry.allowed).every(personal)).toBe(true);
+    expect(catalog.filter(personal).length).toBeGreaterThan(0);
   });
 });

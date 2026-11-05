@@ -13,8 +13,8 @@ export type PunchPhoto = {
 };
 
 /**
- * Câmera frontal em tela cheia para a foto da marcação (como no RHID: a foto
- * vale por 5 minutos). Sem edição nem galeria: só captura ao vivo.
+ * Câmera frontal em tela cheia para a foto da marcação (a foto vale por 5
+ * minutos). Sem edição nem galeria: só captura ao vivo.
  */
 export function PunchCamera({
   visible,

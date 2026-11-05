@@ -58,7 +58,7 @@ import { useOnline } from "@/lib/use-online";
 type Context = FunctionReturnType<typeof api.timeClockPunch.getContext>;
 type Receipt = FunctionReturnType<typeof api.timeClockPunch.register>;
 
-/** A foto vale 5 minutos (mesma regra do RHID). */
+/** A foto vale 5 minutos. */
 const PHOTO_MAX_AGE_MS = 5 * 60 * 1000;
 const LOCATION_TIMEOUT_MS = 15_000;
 /** Posição mais velha que isto é lida de novo na hora de registrar. */
@@ -124,7 +124,7 @@ function deviceInfo() {
 }
 
 /**
- * Tela de marcação de ponto (clone do REP-P do RHID): foto (opcional ou
+ * Tela de marcação de ponto (no modelo de um REP-P): foto (opcional ou
  * obrigatória), localização e o botão "Registrar ponto". Sem internet a
  * marcação entra na fila e sobe sozinha depois.
  */
@@ -199,13 +199,13 @@ export function PunchScreen() {
   const photoReady = Boolean(photo) && !photoExpired;
   const locationReady = location.status === "ok";
   const canRegister =
-    !!context?.employee &&
+    !!context?.allowed &&
     !sending &&
     (!rules?.photoRequired || photoReady) &&
     (!rules?.locationRequired || locationReady);
 
   async function handleRegister() {
-    if (!context?.employee || !rules || sending || !userId) return;
+    if (!context?.allowed || !rules || sending || !userId) return;
     if (rules.photoRequired && !photoReady) {
       toast.error(photoExpired ? "Foto expirada, tire uma nova foto." : "Tire uma foto para registrar o ponto.");
       return;
@@ -290,14 +290,14 @@ export function PunchScreen() {
     return <LoadingState message="Carregando…" />;
   }
 
-  if (!context.employee) {
+  if (!context.allowed) {
     return (
       <View style={styles.centered}>
         <EmptyState
           icon={<UserX size={28} color={colors.warning} />}
           tone="warning"
-          title="Usuário sem funcionário vinculado"
-          description="Peça ao RH para vincular seu usuário ao seu cadastro de funcionário. Depois disso a marcação de ponto fica liberada aqui."
+          title="Ponto pelo app não liberado"
+          description="Seu usuário não marca ponto pelo app. Peça ao RH para liberar a marcação de ponto para o seu usuário."
         />
       </View>
     );
@@ -315,8 +315,7 @@ export function PunchScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Surface style={styles.clockCard}>
           <Text style={[type.caption, { color: colors.textSecondary }]}>
-            {context.employee.name}
-            {context.employee.jobTitle ? ` · ${context.employee.jobTitle}` : ""}
+            {context.personName}
           </Text>
           <Text style={styles.clock}>{toBrtClockLabel(now)}</Text>
           <Text style={[type.bodySm, { color: colors.textSecondary }]}>
@@ -509,21 +508,19 @@ export function PunchScreen() {
                     <Text style={[type.caption, { color: colors.textSecondary }]}>
                       {punch.worksiteName ?? "Sem obra"}
                       {punch.offline ? " · offline" : ""}
-                      {punch.nsr ? ` · NSR ${punch.nsr}` : ""}
+                      {` · NSR ${punch.nsr}`}
                     </Text>
                   </View>
-                  {punch.geofenceStatus ? (
-                    <Pill
-                      label={GEOFENCE_LABEL[punch.geofenceStatus]}
-                      tone={
-                        punch.geofenceStatus === "inside"
-                          ? "success"
-                          : punch.geofenceStatus === "outside"
-                            ? "warning"
-                            : "neutral"
-                      }
-                    />
-                  ) : null}
+                  <Pill
+                    label={GEOFENCE_LABEL[punch.geofenceStatus]}
+                    tone={
+                      punch.geofenceStatus === "inside"
+                        ? "success"
+                        : punch.geofenceStatus === "outside"
+                          ? "warning"
+                          : "neutral"
+                    }
+                  />
                 </View>
               </View>
             ))}
@@ -565,7 +562,7 @@ function StepHeader({
   );
 }
 
-/** "Ponto registrado": nome, horário oficial, obra, NSR e hash (como no RHID). */
+/** "Ponto registrado": nome, horário oficial, obra, NSR e hash. */
 function ReceiptModal({ receipt, onClose }: { receipt: Receipt | null; onClose: () => void }) {
   return (
     <Modal visible={receipt !== null} transparent animationType="fade" onRequestClose={onClose}>
@@ -577,7 +574,7 @@ function ReceiptModal({ receipt, onClose }: { receipt: Receipt | null; onClose: 
           <Text style={[type.title, { color: colors.text, textAlign: "center" }]}>Ponto registrado</Text>
           {receipt ? (
             <View style={{ gap: space.xs, alignItems: "center" }}>
-              <Text style={[type.bodyStrong, { color: colors.text }]}>{receipt.employeeName}</Text>
+              <Text style={[type.bodyStrong, { color: colors.text }]}>{receipt.personName}</Text>
               <Text style={[type.body, { color: colors.text }]}>
                 {formatDateKey(receipt.date)} às {receipt.timeLabel} · {KIND_LABEL[receipt.kind]}
               </Text>

@@ -316,3 +316,5 @@ export const folhaQuery = permissionQuery("rh.folha.read");
 export const folhaMutation = permissionMutation("rh.folha.write");
 export const pontoQuery = permissionQuery("rh.ponto.read");
 export const pontoMutation = permissionMutation("rh.ponto.write");
+/** Bater o próprio ponto pelo app (dever pessoal, liberado por usuário). */
+export const registrarPontoMutation = permissionMutation("ponto.registrar");

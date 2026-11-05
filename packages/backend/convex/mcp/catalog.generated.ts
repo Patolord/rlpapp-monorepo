@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 47 módulos, 342 funções públicas.
+// 46 módulos, 338 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -35,21 +35,20 @@ import * as m28 from "../projectUnits";
 import * as m29 from "../projects";
 import * as m30 from "../qrCodes";
 import * as m31 from "../reports";
-import * as m32 from "../rhidSync";
-import * as m33 from "../suppliers";
-import * as m34 from "../systems";
-import * as m35 from "../takeoffAuth";
-import * as m36 from "../takeoffCatalog";
-import * as m37 from "../takeoffKits";
-import * as m38 from "../takeoffMaterials";
-import * as m39 from "../takeoffSettings";
-import * as m40 from "../takeoffs";
-import * as m41 from "../technicianActivity";
-import * as m42 from "../technicianPortal";
-import * as m43 from "../timeClock";
-import * as m44 from "../timeClockPunch";
-import * as m45 from "../towers";
-import * as m46 from "../users";
+import * as m32 from "../suppliers";
+import * as m33 from "../systems";
+import * as m34 from "../takeoffAuth";
+import * as m35 from "../takeoffCatalog";
+import * as m36 from "../takeoffKits";
+import * as m37 from "../takeoffMaterials";
+import * as m38 from "../takeoffSettings";
+import * as m39 from "../takeoffs";
+import * as m40 from "../technicianActivity";
+import * as m41 from "../technicianPortal";
+import * as m42 from "../timeClock";
+import * as m43 from "../timeClockPunch";
+import * as m44 from "../towers";
+import * as m45 from "../users";
 
 export type AccessHint =
   | { kind: "public" }
@@ -92,21 +91,20 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   projects: m29,
   qrCodes: m30,
   reports: m31,
-  rhidSync: m32,
-  suppliers: m33,
-  systems: m34,
-  takeoffAuth: m35,
-  takeoffCatalog: m36,
-  takeoffKits: m37,
-  takeoffMaterials: m38,
-  takeoffSettings: m39,
-  takeoffs: m40,
-  technicianActivity: m41,
-  technicianPortal: m42,
-  timeClock: m43,
-  timeClockPunch: m44,
-  towers: m45,
-  users: m46,
+  suppliers: m32,
+  systems: m33,
+  takeoffAuth: m34,
+  takeoffCatalog: m35,
+  takeoffKits: m36,
+  takeoffMaterials: m37,
+  takeoffSettings: m38,
+  takeoffs: m39,
+  technicianActivity: m40,
+  technicianPortal: m41,
+  timeClock: m42,
+  timeClockPunch: m43,
+  towers: m44,
+  users: m45,
 };
 
 export const ACCESS_HINTS: Record<string, AccessHint> = {
@@ -181,7 +179,6 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "employees:archive": { kind: "permission", permission: "rh.funcionarios.write" },
   "employees:create": { kind: "permission", permission: "rh.funcionarios.write" },
   "employees:get": { kind: "permission", permission: "rh.funcionarios.read" },
-  "employees:linkUser": { kind: "permission", permission: "rh.funcionarios.write" },
   "employees:list": { kind: "permission", permission: "rh.funcionarios.read" },
   "employees:restore": { kind: "permission", permission: "rh.funcionarios.write" },
   "employees:update": { kind: "permission", permission: "rh.funcionarios.write" },
@@ -363,7 +360,6 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "qrCodes:setBatchProject": { kind: "permission", permission: "obras.write" },
   "qrCodes:stats": { kind: "permission", permission: "obras.read" },
   "reports:getProjectReport": { kind: "permission", permission: "obras.read" },
-  "rhidSync:syncRange": { kind: "public" },
   "suppliers:addContact": { kind: "permission", permission: "fornecedores.write" },
   "suppliers:bulkCreate": { kind: "permission", permission: "fornecedores.write" },
   "suppliers:create": { kind: "permission", permission: "fornecedores.write" },
@@ -420,18 +416,16 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "timeClock:getDay": { kind: "permission", permission: "rh.ponto.read" },
   "timeClock:getLiveStatus": { kind: "permission", permission: "rh.ponto.read" },
   "timeClock:getMonthStats": { kind: "permission", permission: "rh.ponto.read" },
-  "timeClock:getSyncStatus": { kind: "permission", permission: "rh.ponto.read" },
   "timeClock:getTimeClockSettings": { kind: "permission", permission: "rh.ponto.read" },
-  "timeClock:linkPerson": { kind: "permission", permission: "rh.ponto.write" },
-  "timeClock:linkWorksite": { kind: "permission", permission: "rh.ponto.write" },
-  "timeClock:listProjectOptions": { kind: "permission", permission: "rh.ponto.read" },
-  "timeClock:listRhidPeople": { kind: "permission", permission: "rh.ponto.read" },
-  "timeClock:listRhidWorksites": { kind: "permission", permission: "rh.ponto.read" },
+  "timeClock:listClockPeople": { kind: "permission", permission: "rh.ponto.read" },
+  "timeClock:listWorksites": { kind: "permission", permission: "rh.ponto.read" },
+  "timeClock:setClocksIn": { kind: "permission", permission: "rh.ponto.write" },
+  "timeClock:setProjectGeofence": { kind: "permission", permission: "rh.ponto.write" },
   "timeClock:updateTimeClockSettings": { kind: "permission", permission: "rh.ponto.write" },
-  "timeClockPunch:generatePhotoUploadUrl": { kind: "authenticated" },
+  "timeClockPunch:generatePhotoUploadUrl": { kind: "permission", permission: "ponto.registrar" },
   "timeClockPunch:getContext": { kind: "authenticated" },
   "timeClockPunch:myPunches": { kind: "authenticated" },
-  "timeClockPunch:register": { kind: "authenticated" },
+  "timeClockPunch:register": { kind: "permission", permission: "ponto.registrar" },
   "towers:create": { kind: "permission", permission: "obras.write" },
   "towers:duplicate": { kind: "permission", permission: "obras.write" },
   "towers:list": { kind: "permission", permission: "obras.read" },

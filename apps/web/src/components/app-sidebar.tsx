@@ -125,7 +125,7 @@ function getNavGroups(): NavGroup[] {
         { to: "/rh/funcionarios", label: "Funcionários", icon: Users },
         {
           to: "/rh/ponto",
-          label: "Ponto (RHID)",
+          label: "Ponto",
           icon: Clock,
           permission: "rh.ponto.read",
         },

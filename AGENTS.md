@@ -120,7 +120,7 @@ com secrets. Vercel, Convex Dashboard e EAS têm cópias próprias.
 
 ## Documentação por pacote
 
-- [`README.md`](README.md): setup, Doppler, Clerk, RHID, API HTTP `/api/v1`, MCP, deploy
+- [`README.md`](README.md): setup, Doppler, Clerk, ponto, API HTTP `/api/v1`, MCP, deploy
 - [`apps/takeoff/AGENTS.md`](apps/takeoff/AGENTS.md) e [`apps/takeoff/README.md`](apps/takeoff/README.md)
 - [`packages/backend/AGENTS.md`](packages/backend/AGENTS.md) e [`packages/backend/convex/README.md`](packages/backend/convex/README.md)
 - [`apps/internal-agent/AGENTS.md`](apps/internal-agent/AGENTS.md)
