@@ -25,7 +25,7 @@ import { takeoffDuctNorma, takeoffVrfBrand, takeoffWeightRow } from "./schema";
  * de materiais por peso com o kg/m² das chapas, os preços por kg dos insumos,
  * as regras das marcas de VRF, a mão de obra global (dutos por kg, VRF por
  * evaporadora) e os parâmetros de dutos por norma. Padrões da empresa, editados no dashboard em
- * App Takeoff por engenharia ou compras e publicados ao app desktop junto com
+ * App Takeoff por engenharia, compras ou o acesso App Takeoff e publicados ao app desktop junto com
  * o catálogo (`takeoffCatalog.current`). Cada
  * usuário do app pode sobrescrever localmente; o padrão daqui vale para quem
  * não mexeu.

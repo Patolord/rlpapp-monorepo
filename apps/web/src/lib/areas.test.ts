@@ -30,15 +30,12 @@ describe("resolveHomePath", () => {
     expect(resolveHomePath(user(["qr_operator"]))).toBe("/qr-operador");
   });
 
-  test("só o app desktop: início pessoal, não a engenharia", () => {
+  test("só o app desktop: as configurações do App Takeoff, não a engenharia", () => {
     expect(user(["takeoff"]).homeArea).toBe("engenharia");
-    expect(resolveHomePath(user(["takeoff"]))).toBe(UNIVERSAL_HOME_PATH);
+    expect(resolveHomePath(user(["takeoff"]))).toBe("/takeoff/kits");
   });
 
   test("área inicial que não abre cai na primeira que abre", () => {
-    expect(resolveHomePath(user(["takeoff"], ["takeoff.config"]))).toBe(
-      "/takeoff/kits"
-    );
     expect(resolveHomePath(user(["takeoff"], ["cadastros.read"]))).toBe(
       "/backoffice"
     );

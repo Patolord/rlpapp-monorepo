@@ -3,8 +3,9 @@ import { can, type HomeArea, type Permission, type Role } from "@rlpapp/shared/a
 // "backoffice", "configuracoes" e "takeoff" não são departamentos de usuário:
 // backoffice é a área de cadastros compartilhados (clientes, empreiteiros),
 // liberada para quem tem engenharia; configuracoes é a administração
-// (usuários, política de privacidade) e takeoff é a configuração do app
-// desktop RLP Takeoff (kits), ambas liberadas para engenharia e compras.
+// (usuários, política de privacidade), liberada para engenharia e compras, e
+// takeoff é a configuração do app desktop RLP Takeoff (kits, pesos, preços,
+// VRF, parâmetros), liberada para engenharia, compras e o acesso App Takeoff.
 export type DepartmentArea =
   | "rh"
   | "engenharia"
@@ -66,7 +67,7 @@ export function firstOfficeArea(
 /**
  * Página que todo usuário logado abre, qualquer que seja o acesso: início
  * pessoal com as áreas liberadas para ele. É o destino quando nenhuma área
- * do dashboard abre (ex.: quem só tem o acesso ao app desktop RLP Takeoff).
+ * do dashboard abre (ex.: quem não tem nenhum acesso ainda).
  */
 export const UNIVERSAL_HOME_PATH = "/conta";
 

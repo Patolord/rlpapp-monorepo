@@ -87,7 +87,7 @@ const HR: Permission[] = [
   "rh.ponto.read",
   "rh.ponto.write",
 ];
-const TAKEOFF: Permission[] = ["takeoff.use", "suprimentos.read"];
+const TAKEOFF: Permission[] = ["takeoff.use", "takeoff.config", "suprimentos.read"];
 
 function sorted(list: readonly Permission[]) {
   return [...list].sort();

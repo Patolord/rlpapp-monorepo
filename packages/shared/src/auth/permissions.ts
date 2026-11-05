@@ -40,7 +40,8 @@ export const ROLES = [
   "compras",
   "estoque",
   "rh",
-  // App desktop RLP Takeoff (login no app e leitura do catálogo).
+  // App desktop RLP Takeoff (login no app, leitura do catálogo e os padrões
+  // de valores do app: kits, pesos, preços por kg, marcas VRF, mão de obra).
   "takeoff",
   // Técnico de campo: só o fluxo de etiquetas (/q/$token) e as obras em que
   // está atribuído (projects.technicianIds). Nome legado mantido nos dados.
@@ -73,7 +74,8 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   compras: "Materiais, fornecedores, preços, takeoffs e estoque central.",
   estoque: "Movimentações, saldos e estoque central.",
   rh: "Funcionários, folha e ponto.",
-  takeoff: "Login no app desktop RLP Takeoff e leitura do catálogo de materiais.",
+  takeoff:
+    "App desktop RLP Takeoff: login, catálogo de materiais e configurações de valores (kits, pesos, preços, VRF, mão de obra).",
   qr_operator: "App de campo: etiquetas e obras em que está atribuído.",
   client: "Portal do cliente: leitura das obras atribuídas.",
 };
@@ -437,7 +439,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "rh.ponto.read",
     "rh.ponto.write",
   ],
-  takeoff: ["takeoff.use", "suprimentos.read"],
+  takeoff: ["takeoff.use", "takeoff.config", "suprimentos.read"],
   qr_operator: [],
   client: [],
 };

@@ -17,7 +17,7 @@ import {
 
 /**
  * Kits (presets) do RLP Takeoff: os padrões da empresa, editados no dashboard
- * em App Takeoff → Kits por engenharia ou compras e publicados ao app desktop
+ * em App Takeoff → Kits por engenharia, compras ou o acesso App Takeoff e publicados ao app desktop
  * junto com o catálogo (`takeoffCatalog.current`).
  * Cada usuário do app pode sobrescrever um kit localmente; o padrão daqui
  * vale para quem não mexeu nele.
