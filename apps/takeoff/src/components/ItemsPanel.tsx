@@ -16,8 +16,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { canonicalGroup } from "../lib/budgetOrder";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { canonicalGroup, compareSystems } from "../lib/budgetOrder";
 import { MOD, mod } from "../lib/platform";
 import { describePriceSource } from "../lib/priceSource";
 import {
@@ -94,28 +94,40 @@ export function ItemsPanel() {
   const allTotals = useMemo(() => itemTotals(project), [project]);
   /** The tabs each item is budgeted on: its own, and those its markings were put in. */
   const sheetsOf = useMemo(() => itemSheets(project), [project]);
-  // with a discipline chosen, an item shows what that tab budgets of it, not its whole total
-  const totals = useMemo(() => {
+  /** Disciplines in use (for filtering): every tab some item or marking is budgeted on. */
+  const systems = useMemo(
+    () => Array.from(new Set([...sheetsOf.values()].flat())).sort(compareSystems),
+    [sheetsOf],
+  );
+  // the whole project, or what one discipline tab budgets: quantities and per-location split
+  const scopes = useMemo(() => {
     const onDrawing = drawingOnly
       ? (m: { drawingId: string }) => m.drawingId === project.activeDrawingId
       : undefined;
-    if (systemFilter !== null) {
-      return sheetItemTotals(project, onDrawing).get(systemFilter) ?? new Map<string, ItemTotal>();
-    }
-    return onDrawing ? itemTotals(project, onDrawing) : allTotals;
-  }, [project, drawingOnly, systemFilter, allTotals]);
+    const perSheet = sheetItemTotals(project, onDrawing);
+    const all: Scope = {
+      totals: onDrawing ? itemTotals(project, onDrawing) : allTotals,
+      byZone: totalsByLocation(project),
+    };
+    const bySheet = new Map<string, Scope>(
+      systems.map((sheet) => [
+        sheet,
+        {
+          totals: perSheet.get(sheet) ?? new Map<string, ItemTotal>(),
+          byZone: totalsByLocation(project, sheet),
+        },
+      ]),
+    );
+    return { all, bySheet };
+  }, [project, drawingOnly, allTotals, systems]);
+  const scopeOf = (sheet: string | null): Scope =>
+    sheet === null ? scopes.all : (scopes.bySheet.get(sheet) ?? EMPTY_SCOPE);
   /** A just-created item (no marking anywhere) stays visible while active, whatever the filters. */
   const freshActive = (id: string) => id === activeItemId && !allTotals.get(id)?.count;
-  const byZone = useMemo(
-    () => totalsByLocation(project, systemFilter ?? undefined),
-    [project, systemFilter],
-  );
   const groups = useMemo(
     () => Array.from(new Set([...project.items.map((i) => i.group), ...GROUP_SUGGESTIONS])),
     [project.items],
   );
-  /** Disciplines in use (for filtering): every tab some item or marking is budgeted on. */
-  const systems = useMemo(() => Array.from(new Set([...sheetsOf.values()].flat())), [sheetsOf]);
   /** Disciplines offered when typing: the ones in use plus the usual RLP set. */
   const systemOptions = useMemo(
     () => Array.from(new Set([...systems, ...DISCIPLINE_SUGGESTIONS])),
@@ -135,48 +147,77 @@ export function ItemsPanel() {
         ? "Sem local"
         : (project.locations.find((z) => z.id === zoneFilter)?.name ?? null);
   // a location with nothing measured yet still filters everything out
-  const scoped =
-    zoneFilter === null ? null : (byZone.get(zoneFilter) ?? new Map<string, ItemTotal>());
+  const scopedOf = (scope: Scope) =>
+    zoneFilter === null ? null : (scope.byZone.get(zoneFilter) ?? new Map<string, ItemTotal>());
 
-  /** Measured quantity of an item, within the location filter when one is set. */
-  const qtyOf = (id: string) => (scoped ? (scoped.get(id)?.qty ?? 0) : (totals.get(id)?.qty ?? 0));
-  const unscaledOf = (id: string) =>
-    scoped ? (scoped.get(id)?.unscaled ?? 0) : (totals.get(id)?.unscaled ?? 0);
+  /** Measured quantity of an item in a scope, within the location filter when one is set. */
+  const totalOf = (id: string, scope: Scope): ItemTotal | undefined =>
+    (scopedOf(scope) ?? scope.totals).get(id);
+  const qtyOf = (id: string, scope: Scope) => totalOf(id, scope)?.qty ?? 0;
 
   const q = foldName(query.trim());
-  const visible = project.items.filter((item) => {
+  /** The item passes the search, location and drawing filters within one scope. */
+  const shows = (item: Item, scope: Scope): boolean => {
     if (q && !foldName(`${item.name} ${item.group} ${item.system ?? ""}`).includes(q)) return false;
-    if (
-      systemFilter !== null &&
-      !sheetsOf.get(item.id)?.includes(systemFilter) &&
-      !freshActive(item.id)
-    )
-      return false;
+    const scoped = scopedOf(scope);
     // inside a location only items that have something there (the active one stays visible)
     if (scoped && !scoped.has(item.id) && !freshActive(item.id)) return false;
-    if (drawingOnly && !totals.get(item.id)?.count && !freshActive(item.id)) return false;
+    if (drawingOnly && !scope.totals.get(item.id)?.count && !freshActive(item.id)) return false;
     return true;
-  });
+  };
+  /**
+   * With every discipline shown and more than one in use, the list is sectioned like the
+   * budget: an item split over tabs gets a line in each, with that tab's quantity, not the sum.
+   */
+  const grouped = systemFilter === null && systems.length > 1;
+  const sections: Section[] = grouped
+    ? systems.map((sheet) => ({
+        sheet,
+        items: project.items.filter(
+          (item) => sheetsOf.get(item.id)?.includes(sheet) && shows(item, scopeOf(sheet)),
+        ),
+      }))
+    : [
+        {
+          sheet: systemFilter,
+          items: project.items.filter(
+            (item) =>
+              (systemFilter === null ||
+                sheetsOf.get(item.id)?.includes(systemFilter) ||
+                freshActive(item.id)) &&
+              shows(item, scopeOf(systemFilter)),
+          ),
+        },
+      ];
+  const rows = sections.flatMap((sec) => sec.items.map((item) => ({ item, sheet: sec.sheet })));
+  const visible = Array.from(new Set(rows.map((r) => r.item)));
   // arrow keys step through the items in this order (see hotkeys)
   const visibleKey = visible.map((i) => i.id).join("\u0000");
   useEffect(() => {
     setVisibleItemIds(visibleKey ? visibleKey.split("\u0000") : []);
   }, [visibleKey, setVisibleItemIds]);
-  const sumValue = visible.reduce(
-    (s, item) =>
-      s + round2(pricedQty(item, qtyOf(item.id)) * (item.materialPrice + item.laborPrice)),
-    0,
-  );
+  const lineValue = (item: Item, sheet: string | null) =>
+    round2(
+      pricedQty(item, qtyOf(item.id, scopeOf(sheet))) * (item.materialPrice + item.laborPrice),
+    );
+  const sumValue = rows.reduce((s, r) => s + lineValue(r.item, r.sheet), 0);
 
-  /** Quantity per location, with waste like the item total. */
-  const breakdownFor = (item: Item) => {
+  /** The line of the active item that opens: the one last clicked, else its first. */
+  const [activeSheet, setActiveSheet] = useState<string | null>(null);
+  const activeRows = rows.filter((r) => r.item.id === activeItemId);
+  const openSheet = activeRows.some((r) => r.sheet === activeSheet)
+    ? activeSheet
+    : (activeRows[0]?.sheet ?? null);
+
+  /** Quantity per location in a scope, with waste like the item total. */
+  const breakdownFor = (item: Item, scope: Scope) => {
     if (project.locations.length === 0) return "";
     const parts: string[] = [];
     for (const z of project.locations) {
-      const v = byZone.get(z.id)?.get(item.id)?.qty;
+      const v = scope.byZone.get(z.id)?.get(item.id)?.qty;
       if (v) parts.push(`${z.name}: ${formatItemQty(item, pricedQty(item, v), project.unit)}`);
     }
-    const rest = byZone.get(NO_LOCATION)?.get(item.id)?.qty;
+    const rest = scope.byZone.get(NO_LOCATION)?.get(item.id)?.qty;
     if (rest) parts.push(`sem local: ${formatItemQty(item, pricedQty(item, rest), project.unit)}`);
     return parts.join(" · ");
   };
@@ -289,39 +330,60 @@ export function ItemsPanel() {
             Nenhum item {zoneName ? `em ${zoneName}` : "corresponde ao filtro"}.
           </p>
         )}
-        {visible.map((item) => {
-          const measured = qtyOf(item.id);
-          const priced = pricedQty(item, measured);
+        {sections.map((sec) => {
+          if (sec.items.length === 0) return null;
+          const scope = scopeOf(sec.sheet);
           return (
-            <ItemRow
-              key={item.id}
-              item={item}
-              active={item.id === activeItemId}
-              qtyLabel={formatItemQty(item, priced, project.unit)}
-              qtyTitle={
-                item.wastePct
-                  ? `Medido ${formatItemQty(item, measured, project.unit)} + ${item.wastePct}% de perda`
-                  : undefined
-              }
-              unscaled={unscaledOf(item.id)}
-              breakdown={breakdownFor(item)}
-              systemLabel={(sheetsOf.get(item.id) ?? []).join(" · ")}
-              systemTitle={systemTitleOf(sheetKey(project, item), sheetsOf.get(item.id) ?? [])}
-              total={formatMoney(
-                round2(priced * (item.materialPrice + item.laborPrice)),
-                project.currency,
+            <Fragment key={sec.sheet ?? "*"}>
+              {grouped && sec.sheet !== null && (
+                <SectionHeader
+                  name={sec.sheet}
+                  total={formatMoney(
+                    sec.items.reduce((v, item) => v + lineValue(item, sec.sheet), 0),
+                    project.currency,
+                  )}
+                  onFilter={() => setSystemFilter(sec.sheet)}
+                />
               )}
-              onActivate={() => setActiveItem(item.id)}
-              onChange={(patch) => updateItem(item.id, patch)}
-              onRemove={() => removeItem(item.id)}
-              saved={savedNames.has(foldName(item.name))}
-              onSave={() => void saveItemToCatalog(item.id)}
-              link={linkOf(item)}
-              weightInfo={describeWeightPrice(item, basePrices, (v) =>
-                formatMoney(v, project.currency),
-              )}
-              onPropose={() => void proposeItemToCompany(item.id)}
-            />
+              {sec.items.map((item) => {
+                const measured = qtyOf(item.id, scope);
+                const priced = pricedQty(item, measured);
+                return (
+                  <ItemRow
+                    key={`${sec.sheet ?? "*"}:${item.id}`}
+                    item={item}
+                    active={item.id === activeItemId && sec.sheet === openSheet}
+                    qtyLabel={formatItemQty(item, priced, project.unit)}
+                    qtyTitle={
+                      item.wastePct
+                        ? `Medido ${formatItemQty(item, measured, project.unit)} + ${item.wastePct}% de perda`
+                        : undefined
+                    }
+                    unscaled={totalOf(item.id, scope)?.unscaled ?? 0}
+                    breakdown={breakdownFor(item, scope)}
+                    systemLabel={(sheetsOf.get(item.id) ?? []).join(" · ")}
+                    systemTitle={systemTitleOf(
+                      sheetKey(project, item),
+                      sheetsOf.get(item.id) ?? [],
+                    )}
+                    total={formatMoney(lineValue(item, sec.sheet), project.currency)}
+                    onActivate={() => {
+                      setActiveSheet(sec.sheet);
+                      setActiveItem(item.id);
+                    }}
+                    onChange={(patch) => updateItem(item.id, patch)}
+                    onRemove={() => removeItem(item.id)}
+                    saved={savedNames.has(foldName(item.name))}
+                    onSave={() => void saveItemToCatalog(item.id)}
+                    link={linkOf(item)}
+                    weightInfo={describeWeightPrice(item, basePrices, (v) =>
+                      formatMoney(v, project.currency),
+                    )}
+                    onPropose={() => void proposeItemToCompany(item.id)}
+                  />
+                );
+              })}
+            </Fragment>
           );
         })}
       </div>
@@ -373,6 +435,44 @@ export function ItemsPanel() {
         </Button>
       </form>
     </div>
+  );
+}
+
+/** Quantities of the whole project or of one discipline tab, as the item list shows them. */
+interface Scope {
+  totals: Map<string, ItemTotal>;
+  /** Per location id (NO_LOCATION for unassigned). */
+  byZone: Map<string, Map<string, ItemTotal>>;
+}
+
+const EMPTY_SCOPE: Scope = { totals: new Map(), byZone: new Map() };
+
+/** One block of the list: a discipline tab's items, or every item (sheet null). */
+interface Section {
+  sheet: string | null;
+  items: Item[];
+}
+
+/** Heading of a discipline in the sectioned list, as the budget names its tab. */
+function SectionHeader({
+  name,
+  total,
+  onFilter,
+}: {
+  name: string;
+  total: string;
+  onFilter: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onFilter}
+      title={`Mostrar só ${name}`}
+      className="sticky top-0 z-10 flex w-full items-center justify-between border-b border-neutral-800 bg-neutral-900 px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-400 hover:text-neutral-100"
+    >
+      <span className="truncate">{name}</span>
+      <span className="shrink-0 font-mono font-normal normal-case text-neutral-400">{total}</span>
+    </button>
   );
 }
 
