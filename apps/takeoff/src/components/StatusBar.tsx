@@ -2,6 +2,8 @@ import clsx from "clsx";
 import {
   ChevronLeft,
   ChevronRight,
+  Cloud,
+  CloudAlert,
   GitCompare,
   Grid3x3,
   Magnet,
@@ -12,6 +14,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { catalogSyncState } from "../lib/catalogSync";
 import { ALT, MOD } from "../lib/platform";
 import { pageScale } from "../lib/quantities";
 import { useDoc } from "../lib/session";
@@ -51,6 +54,56 @@ function Toggle({
     >
       <Icon size={13} />
       {label}
+    </button>
+  );
+}
+
+/**
+ * How current the company catalog is ("há 5 min"), in a warning tint when out of date (over a
+ * day old, never fetched, last refresh failed, signed out). Click refreshes it.
+ */
+function CatalogSyncChip() {
+  const fetchedAt = useStore((s) => s.catalog.fetchedAt);
+  const pending = useStore((s) => s.catalog.outbox.length);
+  const signedIn = useStore((s) => s.account.status === "signedIn");
+  const syncing = useStore((s) => s.catalogSyncing);
+  const error = useStore((s) => s.catalogSyncError);
+  // the "há N min" text ages on its own
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  // a catalog that arrived after the last tick reads "agora", not minutes in the future
+  const arrived = fetchedAt ? Date.parse(fetchedAt) : 0;
+  const sync = catalogSyncState({
+    fetchedAt,
+    signedIn,
+    error,
+    pending,
+    now: Math.max(now, Number.isFinite(arrived) ? arrived : 0),
+  });
+  const Icon = sync.stale ? CloudAlert : Cloud;
+  return (
+    <button
+      type="button"
+      disabled={syncing}
+      title={sync.title}
+      onClick={() => {
+        const { refreshCatalog, setStatus } = useStore.getState();
+        void refreshCatalog()
+          .then((n) => setStatus(`Catálogo atualizado: ${n} materiais`))
+          .catch((e) =>
+            setStatus(`Catálogo não atualizado: ${e instanceof Error ? e.message : e}`),
+          );
+      }}
+      className={clsx(
+        "flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-neutral-700 disabled:opacity-60",
+        sync.stale ? "text-amber-400/90" : "text-neutral-400",
+      )}
+    >
+      <Icon size={13} className={clsx(syncing && "animate-pulse")} />
+      {syncing ? "atualizando…" : sync.label}
     </button>
   );
 }
@@ -335,6 +388,7 @@ export function StatusBar() {
       >
         {status ?? HINTS[tool]}
       </span>
+      <CatalogSyncChip />
       {open && <ScalePicker onClose={() => setScalePickerOpen(false)} />}
     </div>
   );

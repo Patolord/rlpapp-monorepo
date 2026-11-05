@@ -133,7 +133,9 @@ looked up by name (`kitComponentEntry` in `lib/catalog.ts`). In the items list, 
 each name tells a line that follows the company catalog from the takeoff's own
 (`lib/catalogLink.ts`): a blue chain is linked and up to date, an amber one is linked but renamed,
 priced by hand or changed in the catalog since, a faded one is a draft, and a pen is a line with
-no link (name and price typed here). The VRF bill names its materials as the catalog does
+no link (name and price typed here). The status bar shows how current the company catalog is
+(`há 5 min`, `lib/catalogSync.ts`), tinted amber when it is over a day old, never arrived, the
+last refresh failed or the user is signed out; a click refreshes it. The VRF bill names its materials as the catalog does
 (`Tubulação de Cobre 1/4"`, `Isolamento Polipex 1/4" - 13 mm`, `Cabo PP 3x2,5 mm²`), in
 the order copper, insulation, cables; prices a takeoff saved under the older names still apply
 (`legacyVrfName`). The weight table, the kg/m² per duct gauge, the prices per kg
