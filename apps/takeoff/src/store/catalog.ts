@@ -116,6 +116,9 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
     });
   };
 
+  /** The refresh running now, if any: a second caller waits for it instead of starting another. */
+  let inFlight: Promise<number> | null = null;
+
   /** Fetch the company catalog and apply it with its defaults (see refreshCatalog). */
   const fetchAndApply = async (): Promise<number> => {
     if (!isSignedIn()) throw new Error(SIGN_IN_FOR_CATALOG);
@@ -182,18 +185,25 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
       set({ catalog, ...(synced !== project ? { project: synced, dirty: true } : {}) });
     },
 
-    refreshCatalog: async () => {
-      set({ catalogSyncing: true });
-      try {
-        const n = await fetchAndApply();
-        set({ catalogSyncError: null });
-        return n;
-      } catch (e) {
-        set({ catalogSyncError: errorMessage(e) });
-        throw e;
-      } finally {
-        set({ catalogSyncing: false });
+    refreshCatalog: () => {
+      // overlapping calls (launch, sign-in, a click) share the refresh already running
+      if (!inFlight) {
+        set({ catalogSyncing: true });
+        inFlight = fetchAndApply()
+          .then((n) => {
+            set({ catalogSyncError: null });
+            return n;
+          })
+          .catch((e) => {
+            set({ catalogSyncError: errorMessage(e) });
+            throw e;
+          })
+          .finally(() => {
+            inFlight = null;
+            set({ catalogSyncing: false });
+          });
       }
+      return inFlight;
     },
 
     saveItemToCatalog: async (itemId) => {

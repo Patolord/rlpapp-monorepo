@@ -459,6 +459,14 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
             ((cat?.catalogId && c.sku && i.catalogId === cat.catalogId) ||
               foldName(i.name) === foldName(name)),
         );
+        if (item && !item.catalogId && cat?.catalogId && c.sku) {
+          // a line of this name with no link (typed by hand, or from a kit without codes) is
+          // the coded material: link it, keeping the price this takeoff has (the items list
+          // shows when it differs from the catalog's)
+          const linked: Item = { ...item, catalogId: cat.catalogId };
+          items = items.map((i) => (i.id === linked.id ? linked : i));
+          item = linked;
+        }
         if (!item) {
           item = {
             id: newId(),

@@ -198,6 +198,9 @@ describe("VRF row names before the catalog spelling", () => {
       'Isolamento de 1/4" - Espessura 09 mm',
     );
     expect(legacyVrfName("Cabo PP 3x2,5 mm²")).toBe("Cabo PP 3 x 2,5mm²");
+    expect(legacyVrfName('Isolamento Polipex 1/2" - 12.5 mm')).toBe(
+      'Isolamento de 1/2" - Espessura 12.5 mm',
+    );
     expect(legacyVrfName("Suporte da Evaporadora")).toBeUndefined();
   });
 

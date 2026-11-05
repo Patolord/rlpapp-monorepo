@@ -125,6 +125,30 @@ describe("kit components linked to the company catalog by code", () => {
     });
   });
 
+  it("links a same-named line without a link, keeping its price", () => {
+    const { project } = useStore.getState();
+    useStore.getState().resetProject({
+      ...project,
+      items: [
+        {
+          id: "own",
+          name: 'Tubo de Cobre — 1/4"',
+          kind: "linear",
+          color: "#000",
+          group: "Tubulações",
+          materialPrice: 12,
+          laborPrice: 0,
+          wastePct: 0,
+          priceSource: "manual",
+        },
+      ],
+    });
+    useStore.getState().addKitRun("kit-ls", 0, run);
+    const items = useStore.getState().project.items;
+    expect(items.filter((i) => i.name === 'Tubo de Cobre — 1/4"')).toHaveLength(1);
+    expect(items[0]).toMatchObject({ id: "own", catalogId: "id-MAT-000010", materialPrice: 12 });
+  });
+
   it("reuses the linked item on the next run", () => {
     const s = useStore.getState();
     s.addKitRun("kit-ls", 0, run);

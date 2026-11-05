@@ -240,7 +240,8 @@ const LEGACY_NAMES = new Map<string, string>([
 export function legacyVrfName(name: string): string | undefined {
   const known = LEGACY_NAMES.get(name);
   if (known) return known;
-  const insul = /^Isolamento Polipex (.+)" - (\d+) mm$/.exec(name);
+  // a fractional thickness (12.5) was saved as typed, like a whole one
+  const insul = /^Isolamento Polipex (.+)" - (\d+(?:\.\d+)?) mm$/.exec(name);
   return insul
     ? `Isolamento de ${insul[1]}" - Espessura ${insul[2].padStart(2, "0")} mm`
     : undefined;
