@@ -16,7 +16,7 @@ export const DEFAULT_MAN_DAY_COST_CENTS = 15_000;
 
 /** Limite de leitura por dia/período (bem acima do tamanho da equipe). */
 const MAX_PUNCHES_PER_DAY = 4000;
-const MAX_DAYS_PER_RANGE = 8000;
+const MAX_DAYS_PER_RANGE = 20_000;
 
 // ---------------------------------------------------------------------------
 // Configurações

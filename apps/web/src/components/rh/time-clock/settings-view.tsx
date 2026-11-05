@@ -51,7 +51,7 @@ export function TimeClockSettingsView() {
       ) : null}
       <ClockPeopleCard canWrite={canWrite} />
       <WorksitesCard canWrite={canWrite} />
-      <PunchRulesCard />
+      <PunchRulesCard canWrite={canWrite} />
     </div>
   );
 }
@@ -442,6 +442,8 @@ function GeofenceDialog({ worksite, onClose }: { worksite: Worksite; onClose: ()
   );
 }
 
+const NO_MARKERS: [] = [];
+
 function GeofenceMap({
   latitude,
   longitude,
@@ -484,7 +486,7 @@ function GeofenceMap({
       }
     >
       <TimeClockMap
-        markers={[]}
+        markers={NO_MARKERS}
         worksites={worksites}
         onPick={onPick}
         className="h-[320px] w-full cursor-crosshair rounded-md"
@@ -503,7 +505,7 @@ type PunchRules = {
   duplicateWindowMinutes: string;
 };
 
-function PunchRulesCard() {
+function PunchRulesCard({ canWrite }: { canWrite: boolean }) {
   const settings = useQuery(api.timeClock.getTimeClockSettings, {});
   const update = useMutation(api.timeClock.updateTimeClockSettings);
   const [draft, setDraft] = useState<PunchRules | null>(null);
@@ -566,6 +568,7 @@ function PunchRulesCard() {
           <>
             <label className="flex items-center gap-2 text-sm">
               <Checkbox
+                disabled={!canWrite}
                 checked={draft.locationRequired}
                 onCheckedChange={(checked) =>
                   setDraft({ ...draft, locationRequired: checked === true })
@@ -575,6 +578,7 @@ function PunchRulesCard() {
             </label>
             <label className="flex items-center gap-2 text-sm">
               <Checkbox
+                disabled={!canWrite}
                 checked={draft.photoRequired}
                 onCheckedChange={(checked) =>
                   setDraft({ ...draft, photoRequired: checked === true })
@@ -586,6 +590,7 @@ function PunchRulesCard() {
               <Label htmlFor="punch-duplicate-window">Ignorar marcação repetida por</Label>
               <Input
                 id="punch-duplicate-window"
+                disabled={!canWrite}
                 type="number"
                 min={0}
                 max={60}
@@ -603,7 +608,7 @@ function PunchRulesCard() {
             ) : null}
             <Button
               size="sm"
-              disabled={!dirty || !minutesValid || saving}
+              disabled={!canWrite || !dirty || !minutesValid || saving}
               onClick={async () => {
                 setSaving(true);
                 try {

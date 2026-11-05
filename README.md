@@ -95,9 +95,10 @@ integração externa nem variável de ambiente para configurar.
   pessoa, com custo estimado) e Configurações (`rh.ponto.write`: regras da marcação, cercas e quem
   bate ponto).
 
-Privacidade: as fotos das marcações ficam no storage do Convex e só são entregues sob demanda a quem
-tem `rh.ponto.read` (o painel baixa a imagem sem cache), e o service worker do PWA trata `/rh/ponto`
-como somente rede (nada fica em cache offline).
+Privacidade: as fotos das marcações ficam no storage do Convex e nunca são expostas por URL. O painel
+abre cada foto sob demanda pelo endpoint autenticado `/time-clock/photo/<punchId>` (exige
+`rh.ponto.read` a cada pedido, resposta `no-store`), e o service worker do PWA trata `/rh/ponto` e as
+fotos como somente rede (nada fica em cache offline).
 
 ### 5. Rodar em desenvolvimento
 

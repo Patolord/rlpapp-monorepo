@@ -223,6 +223,34 @@ describe("timeClock: presença", () => {
   });
 });
 
+describe("timeClock: foto da marcação", () => {
+  test("a rota HTTP confere rh.ponto.read a cada pedido e não expõe URL do storage", async () => {
+    const { t, hr, ana } = await seed();
+    const photoId = await t.run((ctx) =>
+      ctx.storage.store(new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" }))
+    );
+    const receipt = await ana.mutation(api.timeClockPunch.register, {
+      clientPunchId: "ana-photo",
+      capturedAt: Date.now(),
+      latitude: OBRA_A.latitude,
+      longitude: OBRA_A.longitude,
+      photoStorageId: photoId as Id<"_storage">,
+      photoCapturedAt: Date.now(),
+    });
+    const path = `/time-clock/photo/${receipt.punchId}`;
+
+    const ok = await hr.fetch(path, { method: "GET" });
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get("Content-Type")).toBe("image/jpeg");
+    expect(ok.headers.get("Cache-Control")).toContain("no-store");
+    expect(new Uint8Array(await ok.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
+
+    expect((await ana.fetch(path, { method: "GET" })).status).toBe(403);
+    expect((await t.fetch(path, { method: "GET" })).status).toBe(401);
+    expect((await hr.fetch("/time-clock/photo/nope", { method: "GET" })).status).toBe(404);
+  });
+});
+
 describe("timeClock: configurações", () => {
   test("RH define e remove a cerca de uma obra", async () => {
     const { hr, projectA } = await seed();

@@ -1,6 +1,6 @@
-import { api } from "@rlpapp/backend/convex/_generated/api";
+import { useAuth } from "@clerk/tanstack-react-start";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { env } from "@rlpapp/env/web";
 import { Camera } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -11,61 +11,82 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { convexSiteUrl } from "@/lib/project-documents";
 import { cn } from "@/lib/utils";
 
 type PunchId = Id<"clockPunches">;
 
+export function timeClockPhotoUrl(convexUrl: string, punchId: PunchId): string {
+  return new URL(`/time-clock/photo/${punchId}`, convexSiteUrl(convexUrl)).toString();
+}
+
+function errorMessage(status: number): string {
+  if (status === 401) return "Sessão expirada. Entre novamente para ver a foto.";
+  if (status === 403) return "Você não tem acesso a esta foto.";
+  return "Foto indisponível no momento.";
+}
+
 /**
- * Foto da marcação, pedida só quando o diálogo abre. A imagem é baixada com
- * `fetch` sem cache e vive como blob em memória: um `<img>` apontando direto
- * para o storage cairia no cache de imagens do service worker.
+ * Busca a foto pela rota autenticada do backend (confere `rh.ponto.read` a
+ * cada pedido) só quando montado; a imagem vive como blob em memória e é
+ * descartada ao fechar (nada fica em cache).
  */
 export function PunchPhoto({ punchId, personName }: { punchId: PunchId; personName: string }) {
-  const url = useQuery(api.timeClock.getPunchPhotoUrl, { punchId });
+  const { getToken } = useAuth();
   const [result, setResult] = useState<
-    { source: string; objectUrl: string } | { source: string; error: true } | null
+    { punchId: PunchId; url: string } | { punchId: PunchId; error: string } | null
   >(null);
 
   useEffect(() => {
-    if (!url) return;
     const controller = new AbortController();
     let objectUrl: string | undefined;
-    async function load(source: string) {
+    async function load() {
       try {
-        const response = await fetch(source, { cache: "no-store", signal: controller.signal });
+        const token = await getToken({ template: "convex" });
+        if (!token) throw new Error(errorMessage(401));
+        const response = await fetch(timeClockPhotoUrl(env.VITE_CONVEX_URL, punchId), {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(errorMessage(response.status));
         const blob = await response.blob();
-        if (!response.ok || !blob.type.startsWith("image/")) throw new Error("not an image");
+        if (!blob.type.startsWith("image/")) throw new Error(errorMessage(404));
         if (controller.signal.aborted) return;
         objectUrl = URL.createObjectURL(blob);
-        setResult({ source, objectUrl });
-      } catch {
-        if (!controller.signal.aborted) setResult({ source, error: true });
+        setResult({ punchId, url: objectUrl });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setResult({
+          punchId,
+          error: error instanceof Error ? error.message : errorMessage(404),
+        });
       }
     }
-    void load(url);
+    void load();
     return () => {
       controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [url]);
+  }, [getToken, punchId]);
 
-  if (url === null || (result !== null && result.source === url && "error" in result)) {
-    return (
-      <p role="alert" className="py-8 text-center text-sm text-muted-foreground">
-        Foto indisponível.
-      </p>
-    );
-  }
-  if (url === undefined || !result || result.source !== url || !("objectUrl" in result)) {
+  if (result?.punchId !== punchId) {
     return (
       <p role="status" className="py-8 text-center text-sm text-muted-foreground">
         Carregando foto…
       </p>
     );
   }
+  if ("error" in result) {
+    return (
+      <p role="alert" className="py-8 text-center text-sm text-muted-foreground">
+        {result.error}
+      </p>
+    );
+  }
   return (
     <img
-      src={result.objectUrl}
+      src={result.url}
       alt={`Foto da marcação de ${personName}`}
       className="max-h-[70vh] w-full rounded-md object-contain"
     />

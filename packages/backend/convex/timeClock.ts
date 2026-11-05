@@ -10,8 +10,9 @@
 import { ConvexError, v } from "convex/values";
 import { normalizePermissionOverrides, resolveRoles } from "@rlpapp/shared/auth/permissions";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { QueryCtx } from "./_generated/server";
+import { internalQuery, type QueryCtx } from "./_generated/server";
 import { logAudit } from "./lib/audit";
+import { getUserByIdentity } from "./lib/auth";
 import { hasPermission, pontoMutation, pontoQuery } from "./lib/rbac";
 import {
   aggregateManDays,
@@ -513,14 +514,34 @@ export const getMonthStats = pontoQuery({
   },
 });
 
-/** URL da foto de uma marcação (sob demanda, ao abrir a foto no painel). */
-export const getPunchPhotoUrl = pontoQuery({
-  args: { punchId: v.id("clockPunches") },
-  returns: v.union(v.string(), v.null()),
+/**
+ * Autoriza a foto de uma marcação para a rota HTTP `/time-clock/photo/:punchId`.
+ * A permissão é conferida a cada pedido; o storage nunca expõe uma URL ao
+ * cliente, então quem perde `rh.ponto.read` deixa de ver as fotos na hora.
+ */
+export const authorizePunchPhoto = internalQuery({
+  args: { punchId: v.string() },
+  returns: v.union(
+    v.object({ status: v.literal("ok"), storageId: v.id("_storage") }),
+    v.object({
+      status: v.union(
+        v.literal("unauthenticated"),
+        v.literal("forbidden"),
+        v.literal("not_found")
+      ),
+    })
+  ),
   handler: async (ctx, args) => {
-    const punch = await ctx.db.get("clockPunches", args.punchId);
-    if (!punch?.photoStorageId) return null;
-    return await ctx.storage.getUrl(punch.photoStorageId);
+    if (!(await ctx.auth.getUserIdentity())) return { status: "unauthenticated" as const };
+    const user = await getUserByIdentity(ctx);
+    if (!user) return { status: "unauthenticated" as const };
+    if (!user.isActive || !hasPermission(user, "rh.ponto.read")) {
+      return { status: "forbidden" as const };
+    }
+    const punchId = ctx.db.normalizeId("clockPunches", args.punchId);
+    const punch = punchId ? await ctx.db.get("clockPunches", punchId) : null;
+    if (!punch?.photoStorageId) return { status: "not_found" as const };
+    return { status: "ok" as const, storageId: punch.photoStorageId };
   },
 });
 

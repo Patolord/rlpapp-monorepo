@@ -2,7 +2,7 @@ import "leaflet/dist/leaflet.css";
 
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import type { LatLngBoundsExpression } from "leaflet";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   Circle,
   CircleMarker,
@@ -61,12 +61,21 @@ const FALLBACK_CENTER: [number, number] = [-23.55052, -46.633308];
 function FitBounds({
   bounds,
   focus,
+  once,
 }: {
   bounds: LatLngBoundsExpression | null;
   focus: { latitude: number; longitude: number; radius: number } | null;
+  /**
+   * Ajusta só até haver algo para mostrar (ex.: ao escolher o centro de uma
+   * cerca, o mapa não pula de volta a cada clique nem perde o zoom do usuário).
+   */
+  once: boolean;
 }) {
   const map = useMap();
+  const fitted = useRef(false);
   useEffect(() => {
+    if (once && fitted.current) return;
+    fitted.current = Boolean(focus || bounds);
     if (focus) {
       const zoom = focus.radius > 400 ? 15 : focus.radius > 150 ? 16 : 17;
       map.flyTo([focus.latitude, focus.longitude], zoom, { duration: 0.6 });
@@ -77,7 +86,7 @@ function FitBounds({
     } else {
       map.setView(FALLBACK_CENTER, 11);
     }
-  }, [map, bounds, focus]);
+  }, [map, bounds, focus, once]);
   return null;
 }
 
@@ -141,7 +150,7 @@ export default function TimeClockMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <FitBounds bounds={bounds} focus={focus} />
+      <FitBounds bounds={bounds} focus={focus} once={Boolean(onPick)} />
       {onPick ? <PickHandler onPick={onPick} /> : null}
 
       {worksites.map((worksite) => (

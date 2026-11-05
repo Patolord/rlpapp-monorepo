@@ -56,7 +56,7 @@ export default defineConfig({
         urlPattern: ({
           url,
           request
-        }) => /^\/rh\/ponto(?:\/|$)/.test(url.pathname) || request.headers.has("authorization"),
+        }) => /^\/rh\/ponto(?:\/|$)/.test(url.pathname) || url.pathname.startsWith("/time-clock/photo/") || request.headers.has("authorization"),
         handler: "NetworkOnly"
       }, {
         // Páginas: rede primeiro, cache como fallback offline.

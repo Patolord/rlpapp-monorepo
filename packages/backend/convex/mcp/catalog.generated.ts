@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 46 módulos, 339 funções públicas.
+// 46 módulos, 338 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -416,7 +416,6 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "timeClock:getDay": { kind: "permission", permission: "rh.ponto.read" },
   "timeClock:getLiveStatus": { kind: "permission", permission: "rh.ponto.read" },
   "timeClock:getMonthStats": { kind: "permission", permission: "rh.ponto.read" },
-  "timeClock:getPunchPhotoUrl": { kind: "permission", permission: "rh.ponto.read" },
   "timeClock:getTimeClockSettings": { kind: "permission", permission: "rh.ponto.read" },
   "timeClock:listClockPeople": { kind: "permission", permission: "rh.ponto.read" },
   "timeClock:listWorksites": { kind: "permission", permission: "rh.ponto.read" },

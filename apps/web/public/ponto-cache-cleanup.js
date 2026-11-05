@@ -1,5 +1,7 @@
-/* Remove páginas do ponto que versões anteriores do service worker possam
- * ter guardado no cache genérico de páginas ("pages"). */
+/* Remove páginas do ponto e fotos de marcação que versões anteriores do
+ * service worker possam ter guardado nos caches genéricos ("pages"/"media").
+ * Até out/2026 o painel carregava as fotos direto do sistema de ponto antigo
+ * (rhid.com.br), que podem estar no cache de imagens de navegadores antigos. */
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
@@ -7,7 +9,11 @@ self.addEventListener("activate", (event) => {
         const cache = await caches.open(name);
         for (const request of await cache.keys()) {
           const url = new URL(request.url);
-          if (/^\/rh\/ponto(?:\/|$)/.test(url.pathname)) {
+          if (
+            /^\/rh\/ponto(?:\/|$)/.test(url.pathname) ||
+            url.pathname.startsWith("/time-clock/photo/") ||
+            /(^|\.)rhid\.com\.br$/.test(url.hostname)
+          ) {
             await cache.delete(request);
           }
         }

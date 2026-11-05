@@ -55,7 +55,7 @@ test.describe("Ponto", () => {
         const cache = await caches.open(name);
         for (const request of await cache.keys()) {
           const url = new URL(request.url);
-          if (regex.test(url.pathname)) {
+          if (regex.test(url.pathname) || url.pathname.startsWith("/time-clock/photo/")) {
             return request.url;
           }
         }

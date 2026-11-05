@@ -300,6 +300,47 @@ const handleProjectDocumentDownload = httpAction(async (ctx, request) => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Foto de marcação do ponto
+// ---------------------------------------------------------------------------
+//
+// O painel pede `/time-clock/photo/<punchId>` com o JWT Clerk; `rh.ponto.read`
+// é conferida a cada pedido e a imagem volta com `no-store` (nada fica em
+// cache do navegador/PWA). O storage nunca entrega uma URL reutilizável.
+
+const TIME_CLOCK_PHOTO_PATH_PREFIX = "/time-clock/photo/";
+
+const handleTimeClockPhoto = httpAction(async (ctx, request) => {
+  const headers: Record<string, string> = {
+    ...corsHeaders(request),
+    "Cache-Control": "private, no-store, max-age=0",
+    "X-Content-Type-Options": "nosniff",
+  };
+  const { pathname } = new URL(request.url);
+  const punchId = pathname.slice(TIME_CLOCK_PHOTO_PATH_PREFIX.length);
+  if (!punchId || punchId.includes("/")) {
+    return new Response("Not found", { status: 404, headers });
+  }
+  const resolved = await ctx.runQuery(internal.timeClock.authorizePunchPhoto, { punchId });
+  if (resolved.status === "unauthenticated") {
+    return new Response("Unauthorized", { status: 401, headers });
+  }
+  if (resolved.status === "forbidden") {
+    return new Response("Forbidden", { status: 403, headers });
+  }
+  if (resolved.status !== "ok") {
+    return new Response("Not found", { status: 404, headers });
+  }
+  const blob = await ctx.storage.get(resolved.storageId);
+  if (!blob || !blob.type.startsWith("image/")) {
+    return new Response("Not found", { status: 404, headers });
+  }
+  return new Response(blob, {
+    status: 200,
+    headers: { ...headers, "Content-Type": blob.type, "Content-Length": String(blob.size) },
+  });
+});
+
 const http = httpRouter();
 
 // API HTTP para agentes (`/api/v1/*` e `/.well-known/jwks.json`).
@@ -310,6 +351,18 @@ http.route({
   path: AGENT_TOKEN_VERIFY_PATH,
   method: "POST",
   handler: handleAgentTokenVerify,
+});
+
+http.route({
+  pathPrefix: TIME_CLOCK_PHOTO_PATH_PREFIX,
+  method: "GET",
+  handler: handleTimeClockPhoto,
+});
+
+http.route({
+  pathPrefix: TIME_CLOCK_PHOTO_PATH_PREFIX,
+  method: "OPTIONS",
+  handler: handleProjectDocumentPreflight,
 });
 
 http.route({
