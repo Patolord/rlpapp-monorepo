@@ -197,6 +197,12 @@ export const takeoffDuctNorma = v.object({
 export const takeoffKitComponent = v.object({
   /** Nome no catálogo do app (produto da empresa ou material das planilhas). */
   name: v.string(),
+  /**
+   * Código do material no catálogo de compras (MAT-000123). Com ele o app liga
+   * o item ao material (preço, cotação, propostas) qualquer que seja o nome;
+   * ausente num item próprio que o catálogo não tem.
+   */
+  sku: v.optional(v.string()),
   /** Seção do orçamento (Tubulações, Equipamentos, ...). */
   group: v.string(),
   /** Disciplina (Infra AC, Detecção de Incêndio, ...). */

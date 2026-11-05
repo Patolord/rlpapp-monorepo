@@ -6,6 +6,8 @@ import {
   FileText,
   Layers,
   Library,
+  Link2,
+  PenLine,
   Pentagon,
   Plus,
   RotateCcw,
@@ -18,6 +20,7 @@ import {
 } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { canonicalGroup, compareSystems } from "../lib/budgetOrder";
+import { type CatalogLinkInfo, catalogLinkOf } from "../lib/catalogLink";
 import { MOD, mod } from "../lib/platform";
 import { describePriceSource } from "../lib/priceSource";
 import {
@@ -65,6 +68,15 @@ export function ItemsPanel() {
     [savedEntries],
   );
   const remoteEntries = useStore((s) => s.catalog.remote);
+  const catalogReceived = useStore((s) => s.catalog.fetchedAt !== null);
+  /** The company catalog by material id; null until one was received. */
+  const remoteById = useMemo(
+    () =>
+      catalogReceived
+        ? new Map(remoteEntries.flatMap((e) => (e.catalogId ? [[e.catalogId, e] as const] : [])))
+        : null,
+    [remoteEntries, catalogReceived],
+  );
   const outbox = useStore((s) => s.catalog.outbox);
   const basePrices = useStore((s) => s.catalog.basePrices);
   const draftIds = useMemo(
@@ -376,6 +388,7 @@ export function ItemsPanel() {
                     saved={savedNames.has(foldName(item.name))}
                     onSave={() => void saveItemToCatalog(item.id)}
                     link={linkOf(item)}
+                    catalogLink={catalogLinkOf(item, remoteById)}
                     weightInfo={describeWeightPrice(item, basePrices, (v) =>
                       formatMoney(v, project.currency),
                     )}
@@ -562,6 +575,8 @@ interface RowProps {
   saved: boolean;
   /** Relation with the company catalog (see CompanyLink). */
   link: CompanyLink;
+  /** Whether the line follows the company catalog or is its own (see lib/catalogLink). */
+  catalogLink: CatalogLinkInfo | undefined;
   /** How a weight-derived price was reached, or null for a plain line. */
   weightInfo: string | null;
   onActivate: () => void;
@@ -597,6 +612,7 @@ function ItemRow({
   total,
   saved,
   link,
+  catalogLink,
   weightInfo,
   onActivate,
   onChange,
@@ -716,6 +732,7 @@ function ItemRow({
             {item.name}
           </span>
         )}
+        {catalogLink && <CatalogLinkIcon link={catalogLink} />}
         {item.derived === "duct" && (
           <button
             type="button"
@@ -914,5 +931,28 @@ function ItemRow({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Beside the name: a chain when the line follows a company material (blue: up to date, amber:
+ * renamed, priced here or changed in the catalog since, faded: draft), a pen when it is the
+ * takeoff's own (name and price typed here). The tooltip says which and why.
+ */
+function CatalogLinkIcon({ link }: { link: CatalogLinkInfo }) {
+  const Icon = link.state === "manual" ? PenLine : Link2;
+  return (
+    <span
+      title={link.title}
+      className={clsx(
+        "shrink-0",
+        link.state === "linked" && "text-sky-400",
+        (link.state === "edited" || link.state === "outdated") && "text-amber-400",
+        link.state === "draft" && "text-amber-400/60",
+        link.state === "manual" && "text-neutral-500",
+      )}
+    >
+      <Icon size={12} />
+    </span>
   );
 }

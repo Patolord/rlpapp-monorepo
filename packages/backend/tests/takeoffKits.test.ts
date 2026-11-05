@@ -53,6 +53,14 @@ describe("sanitizeTakeoffKitInput", () => {
     });
   });
 
+  test("keeps a component's catalog code, upper case", () => {
+    const clean = sanitizeTakeoffKitInput({
+      ...lineSet,
+      components: [{ ...lineSet.components[0], sku: " mat-000010 " }, lineSet.components[1]],
+    });
+    expect(clean.components.map((c) => c.sku)).toEqual(["MAT-000010", undefined]);
+  });
+
   test("refuses an empty kit, a blank name and a non-positive factor", () => {
     expect(() => sanitizeTakeoffKitInput({ ...lineSet, name: " " })).toThrow(/nome/);
     expect(() => sanitizeTakeoffKitInput({ ...lineSet, components: [] })).toThrow(/componente/);
@@ -110,8 +118,8 @@ describe("takeoffKits", () => {
         mode: "linear",
         label: '1/4" · 3/8"',
         components: [
-          { name: 'Cobre de 1/4"', group: "Tubulações", system: "Infra AC", kind: "linear", factor: 1 },
-          { name: "Cabo PP 5 x 1,5 mm²", group: "Elétrica", system: null, kind: "linear", factor: 2 },
+          { name: 'Cobre de 1/4"', sku: null, group: "Tubulações", system: "Infra AC", kind: "linear", factor: 1 },
+          { name: "Cabo PP 5 x 1,5 mm²", sku: null, group: "Elétrica", system: null, kind: "linear", factor: 2 },
         ],
       },
     ]);

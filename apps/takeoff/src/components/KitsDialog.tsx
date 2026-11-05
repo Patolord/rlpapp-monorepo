@@ -1,6 +1,6 @@
 import { Copy, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { kindForUnit, mergeCatalog, normalizeDiscipline } from "../lib/catalog";
+import { kindForUnit, mergeCatalog, normalizeDiscipline, remoteSkuOf } from "../lib/catalog";
 import {
   cloneKit,
   type Kit,
@@ -83,12 +83,18 @@ export function KitsDialog() {
     const components = kit.components.map((c, j) => (j === i ? { ...c, ...patch } : c));
     update({ components });
   };
-  /** When a catalog name is picked, take its group, discipline and unit kind. */
+  /**
+   * When a catalog name is picked, take its group, discipline and unit kind, and the code of a
+   * company material (so the kit keeps finding it if purchasing renames it).
+   */
   const fillFromCatalog = (i: number, name: string) => {
     const e = entries.find((x) => foldName(x.name) === foldName(name));
     if (!e || !kit) return;
     const c = kit.components[i];
+    // from the company list itself: a saved entry of the same name would hide its code
+    const sku = remoteSkuOf(catalog, name);
     updateComp(i, {
+      ...(sku ? { sku } : {}),
       group: c.group || e.group,
       system: c.system || normalizeDiscipline(e.system),
       kind: kindForUnit(e.unit),
@@ -312,10 +318,16 @@ export function KitsDialog() {
                         <input
                           list="kit-catalog-names"
                           value={c.name}
-                          onChange={(e) => updateComp(i, { name: e.target.value })}
+                          // a new name drops the code; picking a catalog material sets it again
+                          onChange={(e) => updateComp(i, { name: e.target.value, sku: undefined })}
                           onBlur={(e) => fillFromCatalog(i, e.target.value)}
+                          title={
+                            c.sku
+                              ? `Material ${c.sku} do catálogo da empresa`
+                              : "Item próprio: sem código do catálogo, buscado pelo nome"
+                          }
                           className={`${input} w-full`}
-                          placeholder='ex.: Cobre de 1/4"'
+                          placeholder='ex.: Tubulação de Cobre 1/4"'
                         />
                       </td>
                       <td className="py-0.5 pr-1">

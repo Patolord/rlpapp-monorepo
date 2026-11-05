@@ -5,6 +5,7 @@ import { drawingOf, ITEM_COLORS, type Item, locationOf, newId, type Project } fr
 import {
   brandOf,
   DEFAULT_VRF_SETTINGS,
+  legacyVrfName,
   type VrfBillResult,
   type VrfBillRow,
   type VrfBrand,
@@ -95,11 +96,22 @@ export interface VrfPricing {
 }
 
 /**
+ * The price this takeoff set for a bill row, under its name or the name it had before the
+ * catalog spelling (a takeoff saved by an older version).
+ */
+export function vrfOwnPrice(project: Pick<Project, "vrfPrices">, name: string): number | undefined {
+  const own = project.vrfPrices?.[name];
+  if (own !== undefined) return own;
+  const legacy = legacyVrfName(name);
+  return legacy === undefined ? undefined : project.vrfPrices?.[legacy];
+}
+
+/**
  * Unit price of a bill material: set in this takeoff, else copper by weight (the supplier's kg/m
  * × the global R$/kg), else the catalog entry of that name, else the workbook's price.
  */
 export function vrfPrice(project: Project, pricing: VrfPricing, row: VrfBillRow): number {
-  const own = project.vrfPrices?.[row.name];
+  const own = vrfOwnPrice(project, row.name);
   if (own !== undefined) return own;
   if (row.copper && row.diameter) {
     const w = pricing.weights.find(

@@ -46,6 +46,10 @@ const syncDerived = (project: Project, catalog: CatalogStore): Project =>
  */
 export interface CatalogSlice {
   catalog: CatalogStore;
+  /** A refresh of the company catalog is running. */
+  catalogSyncing: boolean;
+  /** Why the last refresh failed; null when it worked or none ran (status bar). */
+  catalogSyncError: string | null;
 
   loadCatalog(): Promise<void>;
   /**
@@ -112,8 +116,67 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
     });
   };
 
+  /** The refresh running now, if any: a second caller waits for it instead of starting another. */
+  let inFlight: Promise<number> | null = null;
+
+  /** Fetch the company catalog and apply it with its defaults (see refreshCatalog). */
+  const fetchAndApply = async (): Promise<number> => {
+    if (!isSignedIn()) throw new Error(SIGN_IN_FOR_CATALOG);
+    const { catalog } = get();
+    let remote: Awaited<ReturnType<typeof fetchCatalogAsUser>>;
+    try {
+      remote = await fetchCatalogAsUser();
+    } catch (e) {
+      // revoked in the dashboard: signed out now, the cached catalog stays in use
+      if (await get().handleSignedOut(e)) throw new Error(SIGN_IN_FOR_CATALOG);
+      throw e;
+    }
+    // the company's defaults (kits, weight table, gauges, prices per kg, VRF brands) come
+    // with the catalog; what a server from before them leaves out stays as it is
+    const next = withCompanyDefaults(
+      {
+        ...catalog,
+        remote: remote.entries,
+        redirects: remote.redirects,
+        remoteGeneratedAt: remote.generatedAt,
+        fetchedAt: new Date().toISOString(),
+      },
+      {
+        ...(remote.kits !== null ? { remoteKits: remote.kits } : {}),
+        ...(remote.weights !== null
+          ? {
+              remoteWeights: remote.weights.rows,
+              remoteGaugeWeights: remote.weights.gaugeWeights,
+            }
+          : {}),
+        ...(remote.basePrices !== null ? { remoteBasePrices: remote.basePrices } : {}),
+        ...(remote.vrfBrands !== null ? { remoteVrfBrands: remote.vrfBrands } : {}),
+        ...(remote.labor !== null ? { remoteLabor: remote.labor } : {}),
+        ...(remote.ductNormas !== null ? { remoteDuctNormas: remote.ductNormas } : {}),
+      },
+    );
+    const { project } = get();
+    // derived prices follow what arrived: weight lines and duct networks here, VRF systems
+    // (priced from the catalog entries, the weight table, the prices per kg and the brand
+    // rules) right after, each a no-op when nothing changed
+    const synced = syncDerived(project, next);
+    set({ catalog: next, ...(synced !== project ? { project: synced, dirty: true } : {}) });
+    get().resyncVrf();
+    relabelRuns(catalog.kits, next.kits);
+    await saveCatalogStore(next);
+    // lines linked to a material purchasing merged into another follow it, prices untouched
+    get().commit((p) => {
+      const items = applyRedirects(p.items, remote.redirects);
+      return items === p.items ? p : { ...p, items };
+    });
+    await get().flushProposals();
+    return remote.entries.length;
+  };
+
   return {
     catalog: emptyCatalogStore(),
+    catalogSyncing: false,
+    catalogSyncError: null,
 
     loadCatalog: async () => {
       const catalog = await loadCatalogStore();
@@ -122,57 +185,25 @@ export const createCatalogSlice: Slice<CatalogSlice> = (set, get) => {
       set({ catalog, ...(synced !== project ? { project: synced, dirty: true } : {}) });
     },
 
-    refreshCatalog: async () => {
-      if (!isSignedIn()) throw new Error(SIGN_IN_FOR_CATALOG);
-      const { catalog } = get();
-      let remote: Awaited<ReturnType<typeof fetchCatalogAsUser>>;
-      try {
-        remote = await fetchCatalogAsUser();
-      } catch (e) {
-        // revoked in the dashboard: signed out now, the cached catalog stays in use
-        if (await get().handleSignedOut(e)) throw new Error(SIGN_IN_FOR_CATALOG);
-        throw e;
+    refreshCatalog: () => {
+      // overlapping calls (launch, sign-in, a click) share the refresh already running
+      if (!inFlight) {
+        set({ catalogSyncing: true });
+        inFlight = fetchAndApply()
+          .then((n) => {
+            set({ catalogSyncError: null });
+            return n;
+          })
+          .catch((e) => {
+            set({ catalogSyncError: errorMessage(e) });
+            throw e;
+          })
+          .finally(() => {
+            inFlight = null;
+            set({ catalogSyncing: false });
+          });
       }
-      // the company's defaults (kits, weight table, gauges, prices per kg, VRF brands) come
-      // with the catalog; what a server from before them leaves out stays as it is
-      const next = withCompanyDefaults(
-        {
-          ...catalog,
-          remote: remote.entries,
-          redirects: remote.redirects,
-          remoteGeneratedAt: remote.generatedAt,
-          fetchedAt: new Date().toISOString(),
-        },
-        {
-          ...(remote.kits !== null ? { remoteKits: remote.kits } : {}),
-          ...(remote.weights !== null
-            ? {
-                remoteWeights: remote.weights.rows,
-                remoteGaugeWeights: remote.weights.gaugeWeights,
-              }
-            : {}),
-          ...(remote.basePrices !== null ? { remoteBasePrices: remote.basePrices } : {}),
-          ...(remote.vrfBrands !== null ? { remoteVrfBrands: remote.vrfBrands } : {}),
-          ...(remote.labor !== null ? { remoteLabor: remote.labor } : {}),
-          ...(remote.ductNormas !== null ? { remoteDuctNormas: remote.ductNormas } : {}),
-        },
-      );
-      const { project } = get();
-      // derived prices follow what arrived: weight lines and duct networks here, VRF systems
-      // (priced from the catalog entries, the weight table, the prices per kg and the brand
-      // rules) right after, each a no-op when nothing changed
-      const synced = syncDerived(project, next);
-      set({ catalog: next, ...(synced !== project ? { project: synced, dirty: true } : {}) });
-      get().resyncVrf();
-      relabelRuns(catalog.kits, next.kits);
-      await saveCatalogStore(next);
-      // lines linked to a material purchasing merged into another follow it, prices untouched
-      get().commit((p) => {
-        const items = applyRedirects(p.items, remote.redirects);
-        return items === p.items ? p : { ...p, items };
-      });
-      await get().flushProposals();
-      return remote.entries.length;
+      return inFlight;
     },
 
     saveItemToCatalog: async (itemId) => {

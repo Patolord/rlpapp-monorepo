@@ -4,6 +4,7 @@ import {
   type KitComponent,
   SEED_KITS,
   kitSlugId,
+  normalizeKitSku,
 } from "@rlpapp/shared/takeoff/kits";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
@@ -19,6 +20,7 @@ export const MAX_KIT_NAME = 120;
 export const MAX_KIT_LABEL = 60;
 export const MAX_KIT_COMPONENTS = 50;
 export const MAX_COMPONENT_TEXT = 200;
+export const MAX_COMPONENT_SKU = 40;
 
 /** A kit as the app receives it (the `kits` list of the catalog response). */
 export const takeoffKitValidator = v.object({
@@ -29,6 +31,8 @@ export const takeoffKitValidator = v.object({
   components: v.array(
     v.object({
       name: v.string(),
+      /** Purchasing catalog code (MAT-000123); null for a custom item. */
+      sku: v.union(v.string(), v.null()),
       group: v.string(),
       system: v.union(v.string(), v.null()),
       kind: takeoffKitComponent.fields.kind,
@@ -44,6 +48,7 @@ export type TakeoffKit = {
   label: string | null;
   components: Array<{
     name: string;
+    sku: string | null;
     group: string;
     system: string | null;
     kind: KitComponent["kind"];
@@ -92,6 +97,7 @@ export function toTakeoffKit(kit: Doc<"takeoffKits">): TakeoffKit {
     label: kit.label ?? null,
     components: kit.components.map((c) => ({
       name: c.name,
+      sku: c.sku ?? null,
       group: c.group,
       system: c.system ?? null,
       kind: c.kind,
@@ -149,8 +155,13 @@ export function sanitizeTakeoffKitInput(input: TakeoffKitInput): TakeoffKitInput
     if (!Number.isFinite(c.factor) || c.factor <= 0) {
       throw new Error(`${cname}: o fator deve ser maior que zero`);
     }
+    const sku = normalizeKitSku(c.sku);
+    if (sku && sku.length > MAX_COMPONENT_SKU) {
+      throw new Error(`${cname}: código com mais de ${MAX_COMPONENT_SKU} caracteres`);
+    }
     components.push({
       name: cname,
+      ...(sku ? { sku } : {}),
       group,
       ...(system ? { system } : {}),
       kind: c.kind,

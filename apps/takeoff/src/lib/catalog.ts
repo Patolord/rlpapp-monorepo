@@ -6,6 +6,7 @@ import {
   type GaugeLimits,
   type GaugeWeights,
 } from "@rlpapp/shared/engenharia/ducts";
+import { normalizeKitSku } from "@rlpapp/shared/takeoff/kits";
 import { isLaborPriceKey, type LaborPrices, laborPricesOf } from "@rlpapp/shared/takeoff/labor";
 import {
   isDiameter,
@@ -326,6 +327,35 @@ export function mergeCatalog(store: CatalogStore): CatalogEntry[] {
   return out;
 }
 
+/**
+ * The catalog entry a kit component stands for: the company material with its code (whatever
+ * its name is now), else the entry of the same name in the merged catalog. Undefined when
+ * neither exists (a custom item, created without a price). The code is looked up in the
+ * company list itself: in `entries` a saved entry of the same name hides the company material.
+ */
+export function kitComponentEntry(
+  store: Pick<CatalogStore, "remote">,
+  entries: readonly CatalogEntry[],
+  component: { name: string; sku?: string },
+): CatalogEntry | undefined {
+  const sku = normalizeKitSku(component.sku);
+  if (sku) {
+    const bySku = store.remote.find((e) => normalizeKitSku(e.sku) === sku);
+    if (bySku) return withAirTerminalLabor({ ...bySku, source: "remote" });
+  }
+  const name = foldName(component.name);
+  return entries.find((e) => foldName(e.name) === name);
+}
+
+/** The code of the company material of this name, if any (even when a saved entry shares it). */
+export const remoteSkuOf = (
+  store: Pick<CatalogStore, "remote">,
+  name: string,
+): string | undefined => {
+  const key = foldName(name);
+  return normalizeKitSku(store.remote.find((e) => foldName(e.name) === key)?.sku);
+};
+
 /** Every query token must appear in the name or group; earlier/shorter matches rank first. */
 export function searchCatalog(entries: readonly CatalogEntry[], query: string, limit = 40) {
   const tokens = foldName(query).split(/\s+/).filter(Boolean);
@@ -513,9 +543,11 @@ export function parseRemoteKits(json: unknown): Kit[] | null {
       if (!cname || !KIT_KINDS.has(kind)) return [];
       const factor = typeof comp.factor === "number" && comp.factor > 0 ? comp.factor : 1;
       const system = str(comp.system);
+      const sku = normalizeKitSku(str(comp.sku));
       return [
         {
           name: cname,
+          ...(sku ? { sku } : {}),
           group: str(comp.group) || DEFAULT_GROUP,
           ...(system ? { system } : {}),
           kind: kind as Kit["components"][number]["kind"],
