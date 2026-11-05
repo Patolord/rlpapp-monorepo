@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/tanstack-react-start";
+import { useAuth, useClerk } from "@clerk/tanstack-react-start";
 // Entry "legacy": mantém a API useSignIn com setActive/status usada neste fluxo
 // (a entry principal do Clerk v6 expõe a nova API de signals, incompatível).
 import { useSignIn } from "@clerk/tanstack-react-start/legacy";
@@ -6,7 +6,12 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
-import { getClerkLoginErrorMessage, normalizeUsername, sanitizeUsernameInput } from "@rlpapp/shared";
+import {
+  findExistingClerkSessionId,
+  getClerkLoginErrorMessage,
+  normalizeUsername,
+  sanitizeUsernameInput,
+} from "@rlpapp/shared";
 import { LoadingState } from "@rlpapp/ui/web";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +69,7 @@ function IndexPage() {
 
 function LoginForm() {
   const { signIn, setActive } = useSignIn();
+  const clerk = useClerk();
   const navigate = useNavigate();
   const destination = useLoginDestination();
   const [username, setUsername] = useState("");
@@ -78,11 +84,9 @@ function LoginForm() {
     setError("");
     setLoading(true);
 
+    const identifier = normalizeUsername(username);
     try {
-      const result = await signIn.create({
-        identifier: normalizeUsername(username),
-        password,
-      });
+      const result = await signIn.create({ identifier, password });
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
@@ -91,7 +95,14 @@ function LoginForm() {
         setError("Erro ao fazer login. Tente novamente.");
       }
     } catch (err: unknown) {
-      setError(getClerkLoginErrorMessage(err, "Erro inesperado. Tente novamente."));
+      const existingSession = await findExistingClerkSessionId(err, clerk.client, identifier);
+      try {
+        if (!existingSession) throw err;
+        await setActive({ session: existingSession });
+        await navigate({ to: destination });
+      } catch (finalErr: unknown) {
+        setError(getClerkLoginErrorMessage(finalErr, "Erro inesperado. Tente novamente."));
+      }
     } finally {
       setLoading(false);
     }
@@ -150,7 +161,7 @@ function LoginForm() {
 
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loading || !signIn}
               className="h-12 w-full text-base font-semibold"
             >
               {loading && <Loader2 className="mr-2 size-5 animate-spin" />}

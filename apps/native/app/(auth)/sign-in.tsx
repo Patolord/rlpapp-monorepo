@@ -1,5 +1,6 @@
 // Entry "legacy": keeps the useSignIn setActive/status API used by this flow
 // (the default @clerk/expo export uses the Core 3 signals API).
+import { useClerk } from "@clerk/expo";
 import { useSignIn } from "@clerk/expo/legacy";
 import { useRouter } from "expo-router";
 import { Eye, EyeOff, KeyRound, Lock, User } from "lucide-react-native";
@@ -12,13 +13,19 @@ import { Backdrop, BRAND } from "@/components/auth/brand";
 import { RlpLogo } from "@/components/auth/rlp-logo";
 import { AppButton, Field } from "@/components/ui";
 import { getClerkErrorMessage } from "@/lib/errors";
-import { getClerkLoginErrorMessage, normalizeUsername, sanitizeUsernameInput } from "@rlpapp/shared";
+import {
+  findExistingClerkSessionId,
+  getClerkLoginErrorMessage,
+  normalizeUsername,
+  sanitizeUsernameInput,
+} from "@rlpapp/shared";
 
 // ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
+  const clerk = useClerk();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -32,13 +39,12 @@ export default function SignInScreen() {
   const [code, setCode] = React.useState("");
 
   const onSignInPress = async () => {
-    if (!isLoaded) return;
+    // O "go" do teclado chama esta função direto, sem passar pelo botão desabilitado.
+    if (!isLoaded || loading) return;
     setLoading(true);
+    const identifier = normalizeUsername(username);
     try {
-      const signInAttempt = await signIn.create({
-        identifier: normalizeUsername(username),
-        password,
-      });
+      const signInAttempt = await signIn.create({ identifier, password });
       if (signInAttempt.status === "complete") {
         await setActive({ session: signInAttempt.createdSessionId });
         router.replace("/");
@@ -49,7 +55,14 @@ export default function SignInScreen() {
         Alert.alert("Erro", "Status inesperado. Tente novamente.");
       }
     } catch (err) {
-      Alert.alert("Erro", getClerkLoginErrorMessage(err, "Erro ao fazer login"));
+      const existingSession = await findExistingClerkSessionId(err, clerk.client, identifier);
+      try {
+        if (!existingSession) throw err;
+        await setActive({ session: existingSession });
+        router.replace("/");
+      } catch (finalErr) {
+        Alert.alert("Erro", getClerkLoginErrorMessage(finalErr, "Erro ao fazer login"));
+      }
     } finally {
       setLoading(false);
     }
