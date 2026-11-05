@@ -112,7 +112,7 @@ pnpm bench <pdf>       # vector extraction + indexing timings
 | `Ctrl+Z` `Ctrl+Y` | Undo / redo |
 | `F` `+` `-` wheel | Fit page / zoom |
 | `PgUp` `PgDn` | Previous / next page |
-| `Ctrl+S` `Ctrl+E` | Save project / export Planilha .xlsx |
+| `Ctrl+S` `Ctrl+E` | Save project / export Planilha .xlsx (dialog: which discipline tabs, sections by location or group, Resumo tab, zero-quantity items, prices; Enter exports) |
 | `Ctrl+Shift+E` | Relatório de recortes: marked-up PDF cutouts per location, with a live preview (reopens as it was left) |
 
 **Kits** (`T`, presets edited in "Presets de kit") create one linked measurement per material: a

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { exportXlsx, pickAndOpenPdf, saveProject } from "./lib/files";
+import { pickAndOpenPdf, saveProject } from "./lib/files";
 import { isEditableTarget } from "./lib/platform";
 import { useDoc } from "./lib/session";
 import { type Tool, useStore } from "./store";
@@ -55,7 +55,7 @@ export function useHotkeys() {
           case "e":
             e.preventDefault();
             if (e.shiftKey) s.setReportOpen(true);
-            else void exportXlsx();
+            else s.setXlsxExportOpen(true);
             return;
           case "a":
             e.preventDefault();

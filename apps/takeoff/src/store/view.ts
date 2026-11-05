@@ -72,6 +72,8 @@ export interface ViewSlice {
   reportOpen: boolean;
   /** "Enviar orçamento aprovado" dialog (approved budget → company app). */
   sendBudgetOpen: boolean;
+  /** "Exportar planilha (.xlsx)" dialog: which discipline tabs and options go into the workbook. */
+  xlsxExportOpen: boolean;
   /** Side panel (items, locais, orçamento): shown, and its width in CSS px (remembered). */
   sidebarOpen: boolean;
   sidebarWidth: number;
@@ -115,6 +117,7 @@ export interface ViewSlice {
   setCatalogSettingsOpen(open: boolean): void;
   setReportOpen(open: boolean): void;
   setSendBudgetOpen(open: boolean): void;
+  setXlsxExportOpen(open: boolean): void;
   setSidebarOpen(open: boolean): void;
   setSidebarWidth(px: number): void;
   /** Show a take-off view in the side panel. */
@@ -159,6 +162,7 @@ export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
   catalogSettingsOpen: false,
   reportOpen: false,
   sendBudgetOpen: false,
+  xlsxExportOpen: false,
   sidebarOpen: readPref("sidebarOpen", true),
   sidebarWidth: readPref("sidebarWidth", 580),
   panelTab: "items",
@@ -280,6 +284,7 @@ export const createViewSlice: Slice<ViewSlice> = (set, get) => ({
   setCatalogSettingsOpen: (catalogSettingsOpen) => set({ catalogSettingsOpen }),
   setReportOpen: (reportOpen) => set({ reportOpen }),
   setSendBudgetOpen: (sendBudgetOpen) => set({ sendBudgetOpen }),
+  setXlsxExportOpen: (xlsxExportOpen) => set({ xlsxExportOpen }),
   setSidebarOpen: (sidebarOpen) => {
     writePref("sidebarOpen", sidebarOpen);
     set({ sidebarOpen });

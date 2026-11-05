@@ -1,5 +1,5 @@
 import { FileSpreadsheet, FileText, Info } from "lucide-react";
-import { exportXlsx, pickAndOpenPdf } from "../lib/files";
+import { pickAndOpenPdf } from "../lib/files";
 import { mod } from "../lib/platform";
 import { basename } from "../lib/session";
 import { useStore } from "../store";
@@ -14,6 +14,7 @@ export function TopBar() {
   const setProjectMeta = useStore((s) => s.setProjectMeta);
   const setAboutOpen = useStore((s) => s.setAboutOpen);
   const filePath = useStore((s) => s.filePath);
+  const setXlsxExportOpen = useStore((s) => s.setXlsxExportOpen);
   return (
     <div className="flex h-11 items-center gap-2 border-b border-neutral-800 bg-neutral-900 px-3">
       <img src="/logo-rlp.png" alt="RLP Engenharia" className="h-7 w-auto" draggable={false} />
@@ -42,7 +43,11 @@ export function TopBar() {
         >
           <FileText size={16} /> Adicionar plantas
         </Button>
-        <Button variant="primary" onClick={() => void exportXlsx()} title={mod("E")}>
+        <Button
+          variant="primary"
+          onClick={() => setXlsxExportOpen(true)}
+          title={`${mod("E")}: exporta a planilha orçamentária (escolha as disciplinas e opções)`}
+        >
           <FileSpreadsheet size={16} /> Planilha .xlsx
         </Button>
         <AccountMenu />

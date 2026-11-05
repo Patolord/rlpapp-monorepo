@@ -7,6 +7,7 @@ import { CatalogPalette } from "./components/CatalogPalette";
 import { CatalogSettingsDialog } from "./components/CatalogSettingsDialog";
 import { DrawingTabs } from "./components/DrawingTabs";
 import { DuctDialog } from "./components/DuctDialog";
+import { ExportXlsxDialog } from "./components/ExportXlsxDialog";
 import { KitPicker } from "./components/KitPicker";
 import { KitsDialog } from "./components/KitsDialog";
 import { LegendDialog } from "./components/LegendDialog";
@@ -167,6 +168,7 @@ export default function App() {
       <WeightsDialog />
       <CatalogSettingsDialog />
       <SendBudgetDialog />
+      <ExportXlsxDialog />
       <DuctDialog />
       <VrfDialog />
       <VrfBrandsDialog />
