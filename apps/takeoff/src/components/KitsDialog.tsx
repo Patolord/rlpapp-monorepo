@@ -1,6 +1,6 @@
 import { Copy, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { kindForUnit, mergeCatalog, normalizeDiscipline } from "../lib/catalog";
+import { kindForUnit, mergeCatalog, normalizeDiscipline, remoteSkuOf } from "../lib/catalog";
 import {
   cloneKit,
   type Kit,
@@ -9,7 +9,6 @@ import {
   kitDefaults,
   kitMode,
   kitOrigin,
-  normalizeKitSku,
 } from "../lib/kits";
 import { foldName } from "../lib/text";
 import { DISCIPLINE_SUGGESTIONS, GROUP_SUGGESTIONS, newId } from "../lib/types";
@@ -92,7 +91,8 @@ export function KitsDialog() {
     const e = entries.find((x) => foldName(x.name) === foldName(name));
     if (!e || !kit) return;
     const c = kit.components[i];
-    const sku = e.source === "remote" ? normalizeKitSku(e.sku) : undefined;
+    // from the company list itself: a saved entry of the same name would hide its code
+    const sku = remoteSkuOf(catalog, name);
     updateComp(i, {
       ...(sku ? { sku } : {}),
       group: c.group || e.group,

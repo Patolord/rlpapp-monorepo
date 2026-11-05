@@ -1,3 +1,4 @@
+import { SEED_KITS_V1 } from "@rlpapp/shared/takeoff/kits";
 import { describe, expect, it } from "vitest";
 import {
   diffKits,
@@ -220,5 +221,14 @@ describe("company defaults and local overrides", () => {
     expect(over.kitOverrides.map((k) => k.id)).toEqual([a.id, "mine"]);
     expect(over.kitRemoved).toEqual([b.id]);
     expect(effectiveKits(SEED_KITS, over)).toEqual(legacy);
+  });
+
+  it("reads a preset saved as the factory version before the catalog names as untouched", () => {
+    const [old, oldB] = SEED_KITS_V1;
+    const changed = { ...oldB, label: "meu" };
+    const over = overridesFromLegacyKits([old, changed, ...SEED_KITS.slice(2)]);
+    // the untouched one follows the company's presets again; the edited one stays the user's
+    expect(over).toEqual({ kitOverrides: [changed], kitRemoved: [] });
+    expect(effectiveKits(SEED_KITS, over)[0]).toBe(SEED_KITS[0]);
   });
 });

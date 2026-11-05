@@ -100,6 +100,31 @@ describe("kit components linked to the company catalog by code", () => {
     expect(cable.catalogId).toBeUndefined();
   });
 
+  it("finds the code even when a saved entry has the company material's name", () => {
+    const { catalog } = useStore.getState();
+    useStore.setState({
+      catalog: {
+        ...catalog,
+        saved: [
+          ...catalog.saved,
+          {
+            name: 'Tubo de Cobre — 1/4"',
+            group: "Tubulações",
+            unit: "m",
+            materialPrice: 1,
+            laborPrice: 0,
+            source: "saved",
+          },
+        ],
+      },
+    });
+    useStore.getState().addKitRun("kit-ls", 0, run);
+    expect(useStore.getState().project.items[0]).toMatchObject({
+      catalogId: "id-MAT-000010",
+      materialPrice: 30,
+    });
+  });
+
   it("reuses the linked item on the next run", () => {
     const s = useStore.getState();
     s.addKitRun("kit-ls", 0, run);

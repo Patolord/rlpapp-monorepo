@@ -1,4 +1,4 @@
-import { type Kit, kitMode, SEED_KITS, sameKit } from "@rlpapp/shared/takeoff/kits";
+import { type Kit, kitMode, SEED_KITS, SEED_KITS_V1, sameKit } from "@rlpapp/shared/takeoff/kits";
 import {
   applyOverrides,
   defaultsOf,
@@ -22,7 +22,6 @@ export {
   type KitComponent,
   type KitMode,
   kitMode,
-  normalizeKitSku,
   SEED_KITS,
   sameKit,
 } from "@rlpapp/shared/takeoff/kits";
@@ -97,7 +96,20 @@ export const kitOrigin = (defaults: readonly Kit[], kit: Kit): KitOrigin =>
  * effectiveKits, and from now on a changed default reaches the machine.
  */
 export const overridesFromLegacyKits = (kits: readonly Kit[]): KitOverrides =>
-  diffKits(SEED_KITS, kits);
+  diffKits(SEED_KITS, kits.map(currentSeedOf));
+
+const SEEDS = new Map(SEED_KITS.map((k) => [k.id, k]));
+const SEEDS_V1 = new Map(SEED_KITS_V1.map((k) => [k.id, k]));
+
+/**
+ * A preset saved exactly as an earlier factory version (before the catalog names) reads as the
+ * current preset: untouched, it is no local edit and keeps following the company's version.
+ */
+function currentSeedOf(kit: Kit): Kit {
+  const old = SEEDS_V1.get(kit.id);
+  const now = SEEDS.get(kit.id);
+  return old && now && sameKit(kit, old) ? now : kit;
+}
 
 // ---------------------------------------------------------------------------
 // Labels on the drawing

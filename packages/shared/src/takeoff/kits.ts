@@ -163,12 +163,8 @@ const TABLE: {
   { btu: "60.000", type: "Inverter / Conv.", liquid: "3/8", gas: "7/8" },
 ];
 
-/**
- * Factory presets, one per capacity and type plus the count kits. The app ships them as the
- * fallback when the company has published no kits; the dashboard loads them into the company
- * defaults ("Carregar kits de fábrica").
- */
-export const SEED_KITS: Kit[] = [
+/** The line-set presets of the reference table, plus the count kits, with the given line set. */
+const seedKits = (set: (liquid: string, gas: string) => KitComponent[]): Kit[] => [
   ...TABLE.flatMap((row) => {
     const types = row.type === "Inverter / Conv." ? ["Inverter", "Convencional"] : [row.type];
     return types.map((t) => {
@@ -178,12 +174,32 @@ export const SEED_KITS: Kit[] = [
         name,
         mode: "linear" as const,
         label: `${row.liquid}" · ${row.gas}"`,
-        components: lineSet(row.liquid, row.gas),
+        components: set(row.liquid, row.gas),
       };
     });
   }),
   ...COUNT_KITS,
 ];
+
+/**
+ * Factory presets, one per capacity and type plus the count kits. The app ships them as the
+ * fallback when the company has published no kits; the dashboard loads them into the company
+ * defaults ("Carregar kits de fábrica").
+ */
+export const SEED_KITS: Kit[] = seedKits(lineSet);
+
+/**
+ * The factory presets before their components took the catalog names ("Cobre de 1/4"",
+ * "Isolamento de 1/4" - Espessura 09 mm", "Cabo PP 5 x 1,5 mm²"). Only to recognise an
+ * untouched preset saved by an older app, which is not a local edit.
+ */
+export const SEED_KITS_V1: Kit[] = seedKits((liquid, gas) => [
+  linear(`Cobre de ${liquid}"`, "Tubulações"),
+  linear(`Cobre de ${gas}"`, "Tubulações"),
+  linear(`Isolamento de ${liquid}" - Espessura 09 mm`, "Isolamento"),
+  linear(`Isolamento de ${gas}" - Espessura 09 mm`, "Isolamento"),
+  linear("Cabo PP 5 x 1,5 mm²", "Elétrica", 2),
+]);
 
 /** A deep copy, so a caller may edit it without touching the seed. */
 export const cloneKit = (kit: Kit): Kit => ({

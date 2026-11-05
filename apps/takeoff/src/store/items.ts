@@ -451,7 +451,7 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
       const measurements = [...p.measurements];
       for (const c of kit.components) {
         // a component with a catalog code is that material, under the name the catalog gives it
-        const cat = kitComponentEntry(entries, c);
+        const cat = kitComponentEntry(catalog, entries, c);
         const name = cat?.catalogId && c.sku ? cat.name : c.name;
         let item = items.find(
           (i) =>
