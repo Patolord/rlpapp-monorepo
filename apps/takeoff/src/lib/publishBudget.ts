@@ -10,7 +10,7 @@ import { type Project, UNTITLED } from "./types";
 
 /**
  * Builds the argument of the company app's `takeoffs.publishFromDesktop` mutation from a
- * project: the same sheets → sections → rows the budget workbook prints (see `sheetExport`),
+ * project: the same sheets → sections → rows the budget workbook prints (see `buildSheetExport`),
  * flattened into lines with ids that stay the same from one publication to the next, plus the
  * BDI, extras and totals of each discipline tab. Pure: no store, no network.
  *

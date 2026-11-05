@@ -276,6 +276,13 @@ struct SheetExport {
     extras_pct: f64,
     #[allow(dead_code)]
     bdi: f64,
+    /// Open the workbook with the "Resumo" tab (one line per system sheet); on by default.
+    #[serde(default = "yes")]
+    resumo: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 // Column indices (0-based) of the budget sheets.
@@ -1182,9 +1189,12 @@ fn write_resumo(
 fn export_xlsx(path: String, sheet: SheetExport) -> Result<(), String> {
     let st = Styles::new();
     let mut wb = Workbook::new();
-    let mut names: Vec<String> = vec!["Resumo".to_string()];
-    // Resumo first in the tab order; it is filled after the system sheets exist.
-    wb.add_worksheet().set_name("Resumo").map_err(xe)?;
+    let mut names: Vec<String> = Vec::new();
+    if sheet.resumo {
+        // Resumo first in the tab order; it is filled after the system sheets exist.
+        names.push("Resumo".to_string());
+        wb.add_worksheet().set_name("Resumo").map_err(xe)?;
+    }
     let mut totals = Vec::new();
     for sys in &sheet.sheets {
         let name = sheet_name(&sys.system, &names);
@@ -1194,8 +1204,10 @@ fn export_xlsx(path: String, sheet: SheetExport) -> Result<(), String> {
         let t = write_system_sheet(ws, &st, &sheet, sys)?;
         totals.push(SystemTotals { sheet: name, ..t });
     }
-    let resumo = wb.worksheet_from_index(0).map_err(xe)?;
-    write_resumo(resumo, &st, &sheet, &totals)?;
+    if sheet.resumo {
+        let resumo = wb.worksheet_from_index(0).map_err(xe)?;
+        write_resumo(resumo, &st, &sheet, &totals)?;
+    }
     wb.save(&path).map_err(xe)
 }
 
@@ -1325,6 +1337,7 @@ mod tests {
             ],
             extras_pct: 5.0,
             bdi: 1.42,
+            resumo: true,
         };
         let path = std::env::temp_dir().join("takeoff-test-export.xlsx");
         export_xlsx(path.to_string_lossy().into_owned(), sheet).expect("export");
@@ -1377,6 +1390,34 @@ mod tests {
         assert!(resumo.contains("<f>ROUND(H12*G12,2)</f>"));
         assert!(resumo.contains("<f>SUM(J12:J14)</f>"));
         assert!(resumo.contains("<f>ROUND(G16*F23,2)</f>"));
+    }
+
+    /// The dialog can leave Resumo out (a single discipline sent on its own); payloads from
+    /// older front ends, without the flag, still get it.
+    #[test]
+    fn exports_without_resumo_when_asked() {
+        let payload = |resumo: &str| {
+            format!(
+                r#"{{"title":"Planilha","system":"","client":"","site":"","proposalNumber":"",
+                "estimator":"","currency":"BRL","date":"22/10/2026","extrasPct":5,"bdi":1.3,
+                "sheets":[{{"system":"Exaustão","bdi":1.3,"extrasPct":5,"sections":[]}}]{resumo}}}"#
+            )
+        };
+        let with: SheetExport = serde_json::from_str(&payload("")).expect("payload");
+        assert!(with.resumo, "resumo is on by default");
+        let without: SheetExport =
+            serde_json::from_str(&payload(r#","resumo":false"#)).expect("payload");
+        assert!(!without.resumo);
+
+        let path = std::env::temp_dir().join("takeoff-test-export-sem-resumo.xlsx");
+        export_xlsx(path.to_string_lossy().into_owned(), without).expect("export");
+        let workbook = zip_entry(&path, "xl/workbook.xml");
+        assert!(!workbook.contains("Resumo"), "{workbook}");
+        assert!(workbook.contains("Exaustão"));
+        // the first (and only) worksheet is the discipline tab itself
+        let strings = zip_entry(&path, "xl/sharedStrings.xml");
+        assert!(strings.contains(">TOTAL GERAL<"));
+        assert!(!strings.contains(">Resumo Geral<"));
     }
 
     /// One file of the saved workbook (an .xlsx is a zip) as text.

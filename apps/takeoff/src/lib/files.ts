@@ -5,7 +5,6 @@ import { type RevisionChoice, useStore } from "../store";
 import { asksSameBudget, identityForSave, type SaveKind, withIdentityOf } from "./appLink";
 import { mergeCatalog } from "./catalog";
 import { chooseDialog, confirmDialog } from "./dialogs";
-import { type BdiLayout, resolveDiscipline } from "./discipline";
 import { DUCT_TEMPLATE_URL, ductSheetInput, fillDuctWorkbook } from "./ductSheet";
 import { isTauri, mod } from "./platform";
 import {
@@ -15,7 +14,6 @@ import {
   unportableDrawings,
   withRelativePaths,
 } from "./projectFile";
-import { systemSheets } from "./quantities";
 import {
   basename,
   closePdf,
@@ -30,15 +28,14 @@ import {
   session,
   useDoc,
 } from "./session";
-import {
-  drawingOf,
-  emptyProject,
-  type FooterLine,
-  migrateProject,
-  type Project,
-  UNTITLED,
-} from "./types";
+import { drawingOf, emptyProject, migrateProject, type Project, UNTITLED } from "./types";
 import { buildVrfWorkbook } from "./vrfSheet";
+import {
+  buildSheetExport,
+  defaultXlsxOptions,
+  type XlsxExportOptions,
+  xlsxFileName,
+} from "./xlsxExport";
 
 /** Ask before throwing away unsaved work. Returns true when it is fine to continue. */
 export async function confirmDiscard(): Promise<boolean> {
@@ -497,71 +494,6 @@ export async function pickAndOpenProject(): Promise<void> {
   if (typeof path === "string") await openProjectFile(path);
 }
 
-/** Payload for the Rust `export_xlsx` command (Planilha Orçamentária layout). */
-export interface SheetExport {
-  title: string;
-  system: string;
-  client: string;
-  site: string;
-  proposalNumber: string;
-  estimator: string;
-  currency: string;
-  date: string;
-  /** One worksheet per system, each with its sections (locations or groups) and its own BDI, extras, footer and BDI layout. */
-  sheets: {
-    system: string;
-    sections: { name: string; rows: SheetRow[] }[];
-    bdi: number;
-    extrasPct: number;
-    footer: FooterLine[];
-    bdiLayout: BdiLayout;
-  }[];
-  /** Project defaults (kept for older readers of the payload). */
-  extrasPct: number;
-  bdi: number;
-}
-
-export interface SheetRow {
-  name: string;
-  unit: string;
-  qty: number;
-  materialPrice: number;
-  laborPrice: number;
-}
-
-export function sheetExport(): SheetExport {
-  const { project } = useStore.getState();
-  return {
-    title: "Planilha Orçamentária - RLP ENGENHARIA e INSTALAÇÕES LTDA.",
-    system: project.system || project.name,
-    client: project.client,
-    site: project.site,
-    proposalNumber: project.proposalNumber,
-    estimator: project.estimator,
-    currency: project.currency,
-    date: new Date().toLocaleDateString("pt-BR"),
-    sheets: systemSheets(project).map((s) => ({
-      system: s.system,
-      ...resolveDiscipline(project, s.system),
-      sections: s.sections.map((sec) => ({
-        name: sec.name,
-        rows: sec.rows.map((r) => ({
-          name: r.item.name,
-          unit: unitLabel(r.unit),
-          qty: r.qty,
-          materialPrice: r.item.materialPrice,
-          laborPrice: r.item.laborPrice,
-        })),
-      })),
-    })),
-    extrasPct: project.extrasPct,
-    bdi: project.bdi,
-  };
-}
-
-/** Sheet unit abbreviations used on RLP budget sheets. */
-const unitLabel = (u: string): string => (u === "un" ? "pç" : u);
-
 /** Fill RLP's "Levantamento Dutos" workbook for one discipline and save it. */
 export async function exportDuctSheet(networkId: string): Promise<void> {
   const store = useStore.getState();
@@ -630,19 +562,26 @@ export async function exportVrfSheet(systemIds?: string[]): Promise<void> {
   }
 }
 
-export async function exportXlsx(): Promise<void> {
+/**
+ * Export the budget workbook with the options chosen in the "Exportar planilha" dialog (every
+ * tab, Resumo and prices when none are given). True once the file is written.
+ */
+export async function exportXlsx(options?: XlsxExportOptions): Promise<boolean> {
   const store = useStore.getState();
   const { project } = store;
+  const sheet = buildSheetExport(project, options ?? defaultXlsxOptions(project));
   const path = await save({
-    defaultPath: `Planilha Orçamentária - ${project.site || project.name || "Obra"}.xlsx`,
+    defaultPath: xlsxFileName(project, sheet),
     filters: [{ name: "Planilha Excel", extensions: ["xlsx"] }],
   });
-  if (!path) return;
+  if (!path) return false;
   try {
-    await invoke("export_xlsx", { path, sheet: sheetExport() });
+    await invoke("export_xlsx", { path, sheet });
     store.setStatus(`Exportado: ${basename(path)}`);
+    return true;
   } catch (e) {
     store.setStatus(`Falha na exportação: ${e instanceof Error ? e.message : String(e)}`);
+    return false;
   }
 }
 

@@ -1,6 +1,5 @@
 import { ChevronDown, ChevronUp, Copy, FileSpreadsheet } from "lucide-react";
 import { Fragment, useMemo } from "react";
-import { exportXlsx } from "../lib/files";
 import { mod } from "../lib/platform";
 import { describePriceSource } from "../lib/priceSource";
 import { buildQuote, disciplineTotals, quoteCsv, round2, systemSheets } from "../lib/quantities";
@@ -14,7 +13,8 @@ import { Button } from "./ui";
 /** Mirrors the workbook: one block per discipline (tab), locations or groups as inline headers. */
 export function QuotePanel() {
   const project = useStore((s) => s.project);
-  const { updateItem, setProjectMeta, setStatus, moveItemInBudget } = useStore.getState();
+  const { updateItem, setProjectMeta, setStatus, moveItemInBudget, setXlsxExportOpen } =
+    useStore.getState();
   const quote = useMemo(() => buildQuote(project), [project]);
   const sheets = useMemo(() => systemSheets(project), [project]);
   const tabs = useMemo(() => disciplineTotals(project), [project]);
@@ -278,7 +278,11 @@ export function QuotePanel() {
           strong
         />
         <div className="flex gap-2 pt-2">
-          <Button variant="primary" onClick={() => void exportXlsx()} title={mod("E")}>
+          <Button
+            variant="primary"
+            onClick={() => setXlsxExportOpen(true)}
+            title={`${mod("E")}: exporta a planilha orçamentária (escolha as disciplinas e opções)`}
+          >
             <FileSpreadsheet size={16} /> Planilha .xlsx
           </Button>
           <Button onClick={() => void copyCsv()}>
