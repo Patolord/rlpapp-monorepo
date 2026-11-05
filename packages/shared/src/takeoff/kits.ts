@@ -127,8 +127,7 @@ const COUNT_KITS: Kit[] = [
 /**
  * Copper line set of a split: liquid and gas tubes, their insulation and the interconnect cable
  * (both ways), in the order of the budget: copper, insulation, cable, each by ascending size.
- * The names follow the purchasing catalog; the company kits link them to its codes
- * ("Vincular ao catálogo" in the dashboard).
+ * The names follow the purchasing catalog; the company kits carry its codes (`sku`).
  */
 function lineSet(liquid: string, gas: string): KitComponent[] {
   return [

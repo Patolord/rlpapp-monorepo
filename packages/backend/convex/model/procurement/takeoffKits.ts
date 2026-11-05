@@ -1,11 +1,5 @@
 import { v } from "convex/values";
 import {
-  type KitCatalogMaterial,
-  linkKitComponent,
-  matchKitComponent,
-  sortKitComponents,
-} from "@rlpapp/shared/takeoff/kitCatalog";
-import {
   type Kit,
   type KitComponent,
   SEED_KITS,
@@ -14,9 +8,7 @@ import {
 } from "@rlpapp/shared/takeoff/kits";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { describeMaterial } from "../../lib/compras/materialLookup";
 import { takeoffKitComponent, takeoffKitMode } from "../../schema";
-import { catalogStatus } from "./takeoffCatalog";
 
 /**
  * Company defaults of the RLP Takeoff kit presets (`takeoffKits`), published to
@@ -270,128 +262,4 @@ export async function seedFactoryTakeoffKits(
     added++;
   }
   return added;
-}
-
-// ---------------------------------------------------------------------------
-// Linking the company kits to the purchasing catalog
-// ---------------------------------------------------------------------------
-
-/** A catalog material as the link sees it. */
-type LinkMaterial = KitCatalogMaterial & { id: Id<"materials"> };
-
-/** A component of a kit, before and after linking. */
-export const takeoffKitLinkChangeValidator = v.object({
-  index: v.number(),
-  fromName: v.string(),
-  fromSku: v.union(v.string(), v.null()),
-  toName: v.string(),
-  toSku: v.string(),
-  /** How the material was found: by its code, by the exact name or by family and size. */
-  by: v.union(v.literal("sku"), v.literal("name"), v.literal("size")),
-});
-
-export const takeoffKitLinkPlanValidator = v.object({
-  _id: v.id("takeoffKits"),
-  name: v.string(),
-  /** Components that get a code (or a new name for the code they have). */
-  changes: v.array(takeoffKitLinkChangeValidator),
-  /** True when the components change order (copper, insulation, cable, by size). */
-  reordered: v.boolean(),
-  /** Components left without a code: what someone has to pick in the kit form. */
-  unlinked: v.array(
-    v.object({
-      name: v.string(),
-      /** Same family and size, nothing to tell them apart. Empty = nothing in the catalog. */
-      candidates: v.array(v.object({ sku: v.string(), name: v.string() })),
-    })
-  ),
-  /** The components as they would be saved. */
-  components: v.array(takeoffKitComponent),
-});
-
-export type TakeoffKitLinkPlan = {
-  _id: Id<"takeoffKits">;
-  name: string;
-  changes: Array<{
-    index: number;
-    fromName: string;
-    fromSku: string | null;
-    toName: string;
-    toSku: string;
-    by: "sku" | "name" | "size";
-  }>;
-  reordered: boolean;
-  unlinked: Array<{ name: string; candidates: Array<{ sku: string; name: string }> }>;
-  components: KitComponent[];
-};
-
-/** Active and draft materials that have a code, in the shape the match reads. */
-async function linkableMaterials(ctx: QueryCtx): Promise<LinkMaterial[]> {
-  // eslint-disable-next-line @convex-dev/no-collect-in-query -- full read of a bounded catalog (hundreds of rows), as takeoffCatalog.current
-  const materials = await ctx.db
-    .query("materials")
-    .withIndex("by_active", (q) => q.eq("active", true))
-    .collect();
-  return materials
-    .filter((m) => m.sku?.trim())
-    .map((m) => ({
-      id: m._id,
-      sku: m.sku ?? null,
-      name: m.name,
-      variant: m.variantLabel?.trim() || null,
-      description: describeMaterial(m),
-      status: catalogStatus(m),
-    }));
-}
-
-/** What linking would do to one kit; pure, given the catalog. */
-export function planKitLink(
-  kit: Pick<Doc<"takeoffKits">, "_id" | "name" | "components">,
-  catalog: readonly LinkMaterial[]
-): TakeoffKitLinkPlan {
-  const changes: TakeoffKitLinkPlan["changes"] = [];
-  const unlinked: TakeoffKitLinkPlan["unlinked"] = [];
-  const linked = kit.components.map((c, index) => {
-    const match = matchKitComponent(c, catalog);
-    if (match.kind === "match") {
-      const next = linkKitComponent(c, match.material);
-      if (next.name !== c.name || next.sku !== normalizeKitSku(c.sku)) {
-        changes.push({
-          index,
-          fromName: c.name,
-          fromSku: c.sku ?? null,
-          toName: next.name,
-          toSku: next.sku ?? "",
-          by: match.by,
-        });
-      }
-      return next;
-    }
-    unlinked.push({
-      name: c.name,
-      candidates:
-        match.kind === "ambiguous"
-          ? match.candidates.map((m) => ({
-              sku: m.sku ?? "",
-              name: m.variant ? `${m.name} — ${m.variant}` : m.name,
-            }))
-          : [],
-    });
-    return c;
-  });
-  const components = sortKitComponents(linked);
-  return {
-    _id: kit._id,
-    name: kit.name,
-    changes,
-    reordered: components !== linked,
-    unlinked,
-    components,
-  };
-}
-
-/** The link plan of every active kit, in display order. */
-export async function planTakeoffKitLinks(ctx: QueryCtx): Promise<TakeoffKitLinkPlan[]> {
-  const catalog = await linkableMaterials(ctx);
-  return (await listActiveTakeoffKits(ctx)).map((kit) => planKitLink(kit, catalog));
 }

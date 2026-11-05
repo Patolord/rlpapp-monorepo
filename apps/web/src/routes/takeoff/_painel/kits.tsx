@@ -2,12 +2,11 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
-import { Copy, Download, Link2, Monitor, Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, Download, Monitor, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
-import { KitCatalogLinkDialog } from "@/components/takeoff/kit-catalog-link-dialog";
 import { type KitDraft, KitFormDialog, emptyKitDraft } from "@/components/takeoff/kit-form-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,7 +54,6 @@ function KitsPage() {
   // come back, so the count comes from the backend, not from the active list
   const missingFactory = useQuery(api.takeoffKits.missingFactory, {}) ?? 0;
   const [draft, setDraft] = useState<KitDraft | null>(null);
-  const [linking, setLinking] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const edit = (kit: KitRow) =>
@@ -119,15 +117,6 @@ function KitsPage() {
             <Button variant="outline" onClick={() => void loadFactory()} disabled={busy}>
               <Download className="size-4" />
               Carregar kits de fábrica ({missingFactory})
-            </Button>
-          )}
-          {kits && kits.length > 0 && (
-            <Button
-              variant="outline"
-              onClick={() => setLinking(true)}
-              title="Liga os componentes aos materiais de compras (código MAT) e ordena cobre, isolamento e cabo por bitola"
-            >
-              <Link2 className="size-4" /> Vincular ao catálogo
             </Button>
           )}
           <Button onClick={() => setDraft(emptyKitDraft())}>
@@ -229,7 +218,6 @@ function KitsPage() {
       </Card>
 
       <KitFormDialog draft={draft} onClose={() => setDraft(null)} />
-      <KitCatalogLinkDialog open={linking} onClose={() => setLinking(false)} />
     </div>
   );
 }
