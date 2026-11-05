@@ -101,7 +101,7 @@ pnpm bench <pdf>       # vector extraction + indexing timings
 | `Alt`+click a vertex / `Delete` over it | Remove the vertex (a run keeps 2 points, an area or location 3) |
 | `T` | Kit: one drawn run (or one click, for a count kit) measures every material of a preset at once |
 | Select a marking or a kit group, type in **Rótulo** | Its own label on the drawing and in the report, on every member of the group (one undo step); empty brings the kit's label back |
-| Items → **Marcar em** | Discipline (budget tab) of the next markings, from any item or kit: the same copper goes to AC Pesado in the garage and AC Leve in the party room. Blank: each marking follows its item's discipline. The status bar shows it while set |
+| Items → **Marcar em** | Discipline (budget tab) of the next markings, from any item or kit: the same copper goes to AC Pesado in the garage and AC Leve in the party room. Blank: each marking follows its item's discipline. The status bar shows it while set. With more than one discipline in use, the Items list is sectioned by discipline like the budget: an item split over tabs has a line in each, with that tab's quantity |
 | Select markings, type in **Disciplina** | Move them (with their kit groups) to another tab; the item's other markings stay. The reset button returns them to the item's discipline |
 | `K` | Calibrate: click two points of a known distance |
 | `S` `O` / `Shift` | Toggle snapping to drawing geometry / ortho (45°) lock |
