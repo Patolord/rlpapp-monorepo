@@ -37,7 +37,7 @@ describe("resolveHomePath", () => {
 
   test("área inicial que não abre cai na primeira que abre", () => {
     expect(resolveHomePath(user(["takeoff"], ["takeoff.config"]))).toBe(
-      "/takeoff/kits"
+      "/takeoff/dutos"
     );
     expect(resolveHomePath(user(["takeoff"], ["cadastros.read"]))).toBe(
       "/backoffice"

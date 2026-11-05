@@ -14,6 +14,7 @@ import {
   type VrfBrand,
 } from "@rlpapp/shared/takeoff/vrfBrands";
 import {
+  BASE_MATERIALS,
   type BasePrices,
   isBaseMaterialKey,
   normalizeWeightRow,
@@ -318,3 +319,31 @@ export const factoryTakeoffVrfBrands = (): VrfBrand[] => cloneBrands(SEED_BRANDS
 
 export const factoryTakeoffDuctNormas = (): DuctNormaDefaults[] =>
   DEFAULT_DUCT_NORMAS.map((n) => ({ ...n, gaugeLimits: [...n.gaugeLimits] as GaugeLimits }));
+
+/**
+ * Append a history point for every base material whose price per kg changed between two
+ * publications (`price: null` = the price was cleared). Keys outside BASE_MATERIALS never reach
+ * here: `sanitizeTakeoffBasePrices` refuses them.
+ */
+export async function recordTakeoffPriceChanges(
+  ctx: MutationCtx,
+  before: BasePrices | null,
+  after: BasePrices,
+  userId: Id<"users">,
+  recordedAt: number
+): Promise<number> {
+  let recorded = 0;
+  for (const { key } of BASE_MATERIALS) {
+    const previous = before?.[key] ?? null;
+    const next = after[key] ?? null;
+    if (previous === next) continue;
+    await ctx.db.insert("takeoffPriceHistory", {
+      material: key,
+      price: next,
+      recordedAt,
+      recordedByUserId: userId,
+    });
+    recorded++;
+  }
+  return recorded;
+}

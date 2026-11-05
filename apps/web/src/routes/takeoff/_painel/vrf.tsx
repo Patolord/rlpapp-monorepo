@@ -1,4 +1,5 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import { DEFAULT_LABOR_PRICES, LABOR_PRICE_LABELS } from "@rlpapp/shared/takeoff/labor";
 import {
   cloneBrand,
   isDiameter,
@@ -7,15 +8,23 @@ import {
 } from "@rlpapp/shared/takeoff/vrfBrands";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { Copy, Download, Loader2, Monitor, Plus, Trash2 } from "lucide-react";
+import { Copy, Download, Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
+import {
+  PublishBar,
+  publishedLine,
+  TakeoffPageHeader,
+  toNumber,
+  toText,
+  usePublisher,
+} from "@/components/takeoff/painel";
 import { VrfBrandEditor } from "@/components/takeoff/vrf-brand-editor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getErrorMessage } from "@/lib/errors";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/takeoff/_painel/vrf")({
   component: () => (
@@ -24,8 +33,6 @@ export const Route = createFileRoute("/takeoff/_painel/vrf")({
     </AuthShell>
   ),
 });
-
-const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
 const newId = () => `marca-${Math.random().toString(36).slice(2, 10)}`;
 
@@ -46,24 +53,29 @@ const fromStored = (b: {
 function VrfPage() {
   const settings = useQuery(api.takeoffSettings.get, {});
   const saveVrfBrands = useMutation(api.takeoffSettings.saveVrfBrands);
+  const saveLabor = useMutation(api.takeoffSettings.saveLabor);
   const seedDefaults = useMutation(api.takeoffSettings.seedDefaults);
+  const { busy, run } = usePublisher();
+  const [labor, setLabor] = useState("");
   const [brands, setBrands] = useState<VrfBrand[]>([]);
   const [sel, setSel] = useState<string | null>(null);
-  const [dirty, setDirty] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
-  // what is on screen right now: a save ends the edit only when nothing changed while it ran
-  const latest = useRef(brands);
-  latest.current = brands;
+  const [dirty, setDirty] = useState({ labor: false, brands: false });
+  // what is on screen right now: a publish ends the edit only when nothing changed while it ran
+  const latest = useRef({ labor, brands });
+  latest.current = { labor, brands };
   useEffect(() => {
-    if (!settings || dirty) return;
-    const list = (settings.vrfBrands ?? []).map(fromStored);
-    setBrands(list);
-    setSel((s) => (s && list.some((b) => b.id === s) ? s : (list[0]?.id ?? null)));
+    if (!settings) return;
+    if (!dirty.labor) setLabor(toText(settings.labor?.vrfPerEvap));
+    if (!dirty.brands) {
+      const list = (settings.vrfBrands ?? []).map(fromStored);
+      setBrands(list);
+      setSel((s) => (s && list.some((b) => b.id === s) ? s : (list[0]?.id ?? null)));
+    }
   }, [settings, dirty]);
 
   const brand = brands.find((b) => b.id === sel) ?? null;
   const edit = (next: VrfBrand[]) => {
-    setDirty(true);
+    setDirty((d) => ({ ...d, brands: true }));
     setBrands(next);
   };
   const addBrand = () => {
@@ -84,72 +96,62 @@ function VrfPage() {
     edit(rest);
     setSel(rest[0]?.id ?? null);
   };
-  const submit = async () => {
-    setBusy("save");
-    try {
-      const sent = JSON.stringify(brands);
-      await saveVrfBrands({ brands });
-      if (JSON.stringify(latest.current) === sent) setDirty(false);
-      toast.success("Marcas de VRF publicadas");
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Não foi possível salvar as marcas"));
-    } finally {
-      setBusy(null);
-    }
-  };
-  const loadFactory = async () => {
-    setBusy("seed");
-    try {
-      await seedDefaults({ kind: "vrfBrands" });
-      toast.success("Marcas da planilha carregadas");
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Não foi possível carregar as marcas"));
-    } finally {
-      setBusy(null);
-    }
-  };
-  const meta = settings?.meta.vrfBrands ?? null;
+  const publish = () =>
+    run(async () => {
+      const sent = JSON.stringify({ labor, brands });
+      // the duct labour lives on the Dutos page: it goes back as published
+      if (dirty.labor) {
+        await saveLabor({ ductPerKg: settings?.labor?.ductPerKg, vrfPerEvap: toNumber(labor) });
+      }
+      if (dirty.brands) await saveVrfBrands({ brands });
+      if (JSON.stringify(latest.current) === sent) setDirty({ labor: false, brands: false });
+    }, "Parâmetros de VRF publicados");
+  const loadFactory = () =>
+    run(() => seedDefaults({ kind: "vrfBrands" }), "Marcas da planilha carregadas");
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Marcas VRF</h1>
-          <p className="text-sm text-muted-foreground">
-            Regras de cada fabricante para a ferramenta VRF (Y) do RLP Takeoff: bitolas de gás e
-            líquido por HP, por papel do trecho, e modelos de Y-kit pela capacidade a jusante.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {settings && (settings.vrfBrands?.length ?? 0) === 0 && (
-            <Button variant="outline" onClick={() => void loadFactory()} disabled={busy !== null}>
-              <Download className="size-4" /> Carregar marcas da planilha
-            </Button>
-          )}
-          <Button onClick={() => void submit()} disabled={busy !== null || !settings || !dirty}>
-            {busy === "save" && <Loader2 className="size-4 animate-spin" />}
-            Publicar marcas
-          </Button>
-        </div>
-      </div>
+      <TakeoffPageHeader
+        title="VRF"
+        description="Mão de obra e as regras de cada fabricante para a ferramenta VRF (Y): bitolas de gás e líquido por HP e modelos de Y-kit pela capacidade a jusante."
+      />
 
-      <div className="flex gap-3 rounded-lg border border-status-info/30 bg-card px-4 py-3 text-sm">
-        <Monitor className="mt-0.5 size-4 shrink-0 text-status-info" />
-        <p>
-          <span className="font-medium">Reflete no app desktop de todos os usuários</span> na
-          próxima atualização do catálogo. Cada usuário pode editar, remover ou criar marcas no
-          próprio computador; o que ele alterou lá não é substituído por mudanças feitas aqui.
-          {meta
-            ? ` Atualizado em ${dateFormat.format(meta.updatedAt)}${meta.updatedBy ? ` por ${meta.updatedBy}` : ""}.`
-            : " Ainda não publicado: o app usa as marcas da planilha Levantamento VRF embutidas nele."}
-        </p>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Mão de obra</CardTitle>
+          <CardDescription>
+            Vale em todo takeoff que não fixou o próprio valor.{" "}
+            {publishedLine(settings?.meta.labor ?? null, "Ainda não publicada: o app usa o valor da planilha.")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="max-w-sm space-y-1.5">
+            <Label htmlFor="labor-vrfPerEvap">{LABOR_PRICE_LABELS.vrfPerEvap.label}</Label>
+            <Input
+              id="labor-vrfPerEvap"
+              type="number"
+              min={0}
+              step="0.01"
+              value={labor}
+              placeholder={`${DEFAULT_LABOR_PRICES.vrfPerEvap} (planilha)`}
+              onChange={(e) => {
+                setDirty((d) => ({ ...d, labor: true }));
+                setLabor(e.target.value);
+              }}
+              className="text-right font-mono"
+            />
+            <p className="text-xs text-muted-foreground">{LABOR_PRICE_LABELS.vrfPerEvap.unit}</p>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-[16rem_1fr]">
         <Card>
           <CardHeader>
             <CardTitle>Marcas</CardTitle>
-            <CardDescription>{brands.length} {brands.length === 1 ? "marca" : "marcas"}</CardDescription>
+            <CardDescription>
+              {publishedLine(settings?.meta.vrfBrands ?? null, "Ainda não publicadas: o app usa as da planilha.")}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <ul className="space-y-1">
@@ -181,6 +183,11 @@ function VrfPage() {
                 <Trash2 className="size-4" />
               </Button>
             </div>
+            {settings && (settings.vrfBrands?.length ?? 0) === 0 && (
+              <Button variant="outline" size="sm" className="w-full" onClick={() => void loadFactory()} disabled={busy}>
+                <Download className="size-4" /> Carregar da planilha
+              </Button>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -200,6 +207,14 @@ function VrfPage() {
           </CardContent>
         </Card>
       </div>
+
+      <PublishBar
+        dirty={dirty.labor || dirty.brands}
+        busy={busy}
+        disabled={!settings}
+        onPublish={() => void publish()}
+        onDiscard={() => setDirty({ labor: false, brands: false })}
+      />
     </div>
   );
 }

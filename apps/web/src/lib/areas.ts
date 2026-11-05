@@ -35,7 +35,7 @@ export const AREA_PERMISSIONS: Record<DepartmentArea, Permission[]> = {
   // usuários) e quem administra usuários, mesmo que por ajuste individual; a
   // página de usuários ainda exige admin.manage para editar.
   configuracoes: ["obras.read", "compras.read", "admin.manage"],
-  // App Takeoff: kits, pesos, marcas VRF e parâmetros.
+  // App Takeoff: dutos, VRF e gerais e presets.
   takeoff: ["takeoff.config"],
 };
 
@@ -47,7 +47,7 @@ export const AREA_PATHS: Record<DepartmentArea, string> = {
   rh: "/rh",
   backoffice: "/backoffice",
   configuracoes: "/configuracoes",
-  takeoff: "/takeoff/kits",
+  takeoff: "/takeoff/dutos",
 };
 
 const OFFICE_AREAS = ["engenharia", "estoque", "compras", "rh", "backoffice"] as const;

@@ -4,45 +4,35 @@ import {
   type DuctNormaDefaults,
   NORMA_LABELS,
 } from "@rlpapp/shared/engenharia/ducts";
-import {
-  DEFAULT_LABOR_PRICES,
-  LABOR_PRICE_KEYS,
-  LABOR_PRICE_LABELS,
-  type LaborPriceKey,
-} from "@rlpapp/shared/takeoff/labor";
-import { createFileRoute } from "@tanstack/react-router";
+import { DEFAULT_LABOR_PRICES, LABOR_PRICE_LABELS } from "@rlpapp/shared/takeoff/labor";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { Download, Loader2, Monitor } from "lucide-react";
+import { Download } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
+import {
+  PublishBar,
+  publishedLine,
+  TakeoffPageHeader,
+  toNumber,
+  toText,
+  usePublisher,
+} from "@/components/takeoff/painel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getErrorMessage } from "@/lib/errors";
 
-export const Route = createFileRoute("/takeoff/_painel/parametros")({
+export const Route = createFileRoute("/takeoff/_painel/dutos")({
   component: () => (
     <AuthShell>
-      <ParametrosPage />
+      <DutosPage />
     </AuthShell>
   ),
 });
 
-const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
-const updatedLine = (meta: { updatedAt: number; updatedBy: string | null } | null) =>
-  meta
-    ? ` Atualizado em ${dateFormat.format(meta.updatedAt)}${meta.updatedBy ? ` por ${meta.updatedBy}` : ""}.`
-    : "";
-
-type Texts = Record<string, string>;
-const toText = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n));
-const toNumber = (t: string): number | undefined => {
-  const n = Number(t.replace(",", "."));
-  return t.trim() !== "" && Number.isFinite(n) ? n : undefined;
-};
+const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 /** The norma table as edited: every number a text, the four limits apart. */
 type NormaForm = {
@@ -85,121 +75,94 @@ const NORMA_FIELDS: { key: keyof Omit<NormaForm, "norma" | "limits">; label: str
   { key: "supportsPct", label: "Suportes % do peso" },
 ];
 
-function ParametrosPage() {
+function DutosPage() {
   const settings = useQuery(api.takeoffSettings.get, {});
   const saveLabor = useMutation(api.takeoffSettings.saveLabor);
   const saveDuctNormas = useMutation(api.takeoffSettings.saveDuctNormas);
   const seedDefaults = useMutation(api.takeoffSettings.seedDefaults);
-  const [labor, setLabor] = useState<Texts>({});
+  const { busy, run } = usePublisher();
+  const [labor, setLabor] = useState("");
   const [normas, setNormas] = useState<NormaForm[]>([]);
   const [dirty, setDirty] = useState({ labor: false, normas: false });
-  const [busy, setBusy] = useState<string | null>(null);
   const latest = useRef({ labor, normas });
   latest.current = { labor, normas };
   useEffect(() => {
     if (!settings) return;
-    if (!dirty.labor) {
-      setLabor(Object.fromEntries(LABOR_PRICE_KEYS.map((k) => [k, toText(settings.labor?.[k])])));
-    }
+    if (!dirty.labor) setLabor(toText(settings.labor?.ductPerKg));
     if (!dirty.normas) {
-      const published = settings.ductNormas ?? [];
       setNormas(
-        published.length > 0
-          ? published.map((n) => toForm({ ...n, gaugeLimits: [n.gaugeLimits[0] ?? 0, n.gaugeLimits[1] ?? 0, n.gaugeLimits[2] ?? 0, n.gaugeLimits[3] ?? 0] }))
-          : [],
+        (settings.ductNormas ?? []).map((n) =>
+          toForm({ ...n, gaugeLimits: [n.gaugeLimits[0] ?? 0, n.gaugeLimits[1] ?? 0, n.gaugeLimits[2] ?? 0, n.gaugeLimits[3] ?? 0] }),
+        ),
       );
     }
   }, [settings, dirty]);
 
-  const run = async (label: string, action: () => Promise<unknown>, done: string) => {
-    setBusy(label);
-    try {
-      await action();
-      toast.success(done);
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Não foi possível salvar"));
-    } finally {
-      setBusy(null);
-    }
-  };
-  const submitLabor = () =>
-    run("labor", async () => {
-      const sent = JSON.stringify(labor);
-      await saveLabor({
-        ductPerKg: toNumber(labor.ductPerKg ?? ""),
-        vrfPerEvap: toNumber(labor.vrfPerEvap ?? ""),
-      });
-      if (JSON.stringify(latest.current.labor) === sent) setDirty((d) => ({ ...d, labor: false }));
-    }, "Mão de obra publicada");
-  const submitNormas = () =>
-    run("normas", async () => {
-      const sent = JSON.stringify(normas);
-      await saveDuctNormas({ normas: normas.map(fromForm) });
-      if (JSON.stringify(latest.current.normas) === sent) setDirty((d) => ({ ...d, normas: false }));
-    }, "Parâmetros das normas publicados");
+  const publish = () =>
+    run(async () => {
+      const sent = JSON.stringify({ labor, normas });
+      // the VRF labour lives on the VRF page: it goes back as published
+      if (dirty.labor) {
+        await saveLabor({ ductPerKg: toNumber(labor), vrfPerEvap: settings?.labor?.vrfPerEvap });
+      }
+      if (dirty.normas) await saveDuctNormas({ normas: normas.map(fromForm) });
+      if (JSON.stringify(latest.current) === sent) setDirty({ labor: false, normas: false });
+    }, "Parâmetros de dutos publicados");
   const loadFactory = () =>
-    run("seed", () => seedDefaults({ kind: "ductNormas" }), "Tabela da planilha carregada");
+    run(() => seedDefaults({ kind: "ductNormas" }), "Tabela da planilha carregada");
 
-  const editLabor = (key: LaborPriceKey, value: string) => {
-    setDirty((d) => ({ ...d, labor: true }));
-    setLabor((l) => ({ ...l, [key]: value }));
-  };
   const editNorma = (i: number, patch: Partial<NormaForm>) => {
     setDirty((d) => ({ ...d, normas: true }));
     setNormas((ns) => ns.map((n, j) => (j === i ? { ...n, ...patch } : n)));
   };
+  const sheetPrice = settings?.basePrices?.chapa;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Parâmetros</h1>
-        <p className="text-sm text-muted-foreground">
-          Mão de obra global e os parâmetros de dutos de cada norma, como o RLP Takeoff os recebe.
-        </p>
-      </div>
-
-      <div className="flex gap-3 rounded-lg border border-status-info/30 bg-card px-4 py-3 text-sm">
-        <Monitor className="mt-0.5 size-4 shrink-0 text-status-info" />
-        <p>
-          <span className="font-medium">Reflete no app desktop de todos os usuários</span> na
-          próxima atualização do catálogo. A mão de obra vale em todo takeoff que não fixou o
-          próprio valor; os parâmetros de uma norma entram no takeoff quando o usuário escolhe a
-          norma, e ele pode ajustá-los ali. Um campo vazio deixa valer o valor da planilha
-          embutida no app.
-        </p>
-      </div>
+      <TakeoffPageHeader
+        title="Dutos"
+        description="Mão de obra e parâmetros de cada norma usados no cálculo de dutos (planilha NBR 16401)."
+      />
 
       <Card>
         <CardHeader>
           <CardTitle>Mão de obra</CardTitle>
           <CardDescription>
-            Preços globais de instalação usados pelos cálculos de dutos e de VRF.
-            {updatedLine(settings?.meta.labor ?? null) || " Ainda não publicado: o app usa os valores da planilha."}
+            Vale em todo takeoff que não fixou o próprio valor.{" "}
+            {publishedLine(settings?.meta.labor ?? null, "Ainda não publicada: o app usa o valor da planilha.")}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           <div className="grid gap-4 sm:grid-cols-2">
-            {LABOR_PRICE_KEYS.map((key) => (
-              <div key={key} className="space-y-1.5">
-                <Label htmlFor={`labor-${key}`}>{LABOR_PRICE_LABELS[key].label}</Label>
-                <Input
-                  id={`labor-${key}`}
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={labor[key] ?? ""}
-                  placeholder={`${DEFAULT_LABOR_PRICES[key]} (planilha)`}
-                  onChange={(e) => editLabor(key, e.target.value)}
-                  className="text-right font-mono"
-                />
-                <p className="text-xs text-muted-foreground">{LABOR_PRICE_LABELS[key].unit}</p>
-              </div>
-            ))}
+            <div className="space-y-1.5">
+              <Label htmlFor="labor-ductPerKg">{LABOR_PRICE_LABELS.ductPerKg.label}</Label>
+              <Input
+                id="labor-ductPerKg"
+                type="number"
+                min={0}
+                step="0.01"
+                value={labor}
+                placeholder={`${DEFAULT_LABOR_PRICES.ductPerKg} (planilha)`}
+                onChange={(e) => {
+                  setDirty((d) => ({ ...d, labor: true }));
+                  setLabor(e.target.value);
+                }}
+                className="text-right font-mono"
+              />
+              <p className="text-xs text-muted-foreground">{LABOR_PRICE_LABELS.ductPerKg.unit}</p>
+            </div>
+            <div className="space-y-1.5 text-sm">
+              <span className="font-medium">Chapa galvanizada</span>
+              <p className="text-muted-foreground">
+                {sheetPrice !== undefined ? `${brl.format(sheetPrice)}/kg` : "Sem preço por kg publicado"}{" "}
+                · preço e peso por bitola ficam em{" "}
+                <Link to="/takeoff/gerais" className="text-primary underline-offset-2 hover:underline">
+                  Gerais e presets
+                </Link>
+                .
+              </p>
+            </div>
           </div>
-          <Button onClick={() => void submitLabor()} disabled={busy !== null || !settings}>
-            {busy === "labor" && <Loader2 className="size-4 animate-spin" />}
-            Publicar mão de obra
-          </Button>
         </CardContent>
       </Card>
 
@@ -207,21 +170,21 @@ function ParametrosPage() {
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <CardTitle>Dutos por norma</CardTitle>
+              <CardTitle>Parâmetros por norma</CardTitle>
               <CardDescription>
-                Para cada norma, o maior lado (cm) que cada bitola de chapa cobre e as espessuras e
-                folgas de partida. O cálculo segue a planilha NBR 16401.
-                {updatedLine(settings?.meta.ductNormas ?? null) || " Ainda não publicado: o app usa a tabela da planilha."}
+                O maior lado (cm) que cada bitola cobre e as espessuras e folgas de partida. O
+                takeoff recebe estes valores ao escolher a norma e pode ajustá-los ali.{" "}
+                {publishedLine(settings?.meta.ductNormas ?? null, "Ainda não publicados: o app usa a tabela da planilha.")}
               </CardDescription>
             </div>
             {settings && normas.length === 0 && (
-              <Button variant="outline" onClick={() => void loadFactory()} disabled={busy !== null}>
+              <Button variant="outline" onClick={() => void loadFactory()} disabled={busy}>
                 <Download className="size-4" /> Carregar tabela da planilha
               </Button>
             )}
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4">
           {normas.length === 0 && (
             <p className="text-sm text-muted-foreground">
               Nenhuma norma publicada. Carregue a tabela da planilha para editá-la (
@@ -242,6 +205,7 @@ function ParametrosPage() {
                         min={0}
                         step="1"
                         value={n.limits[g]}
+                        aria-label={`Lado maior máximo ${gauge}, ${NORMA_LABELS[n.norma]}`}
                         onChange={(e) => {
                           const limits = [...n.limits] as NormaForm["limits"];
                           limits[g] = e.target.value;
@@ -274,14 +238,16 @@ function ParametrosPage() {
               </div>
             </div>
           ))}
-          {normas.length > 0 && (
-            <Button onClick={() => void submitNormas()} disabled={busy !== null || !settings}>
-              {busy === "normas" && <Loader2 className="size-4 animate-spin" />}
-              Publicar parâmetros das normas
-            </Button>
-          )}
         </CardContent>
       </Card>
+
+      <PublishBar
+        dirty={dirty.labor || dirty.normas}
+        busy={busy}
+        disabled={!settings}
+        onPublish={() => void publish()}
+        onDiscard={() => setDirty({ labor: false, normas: false })}
+      />
     </div>
   );
 }
