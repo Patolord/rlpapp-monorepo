@@ -7,43 +7,14 @@ import {
 import { medicaoBasis, medicaoStatus } from "./schema/contracts";
 import { projectStatus } from "./schema/engineering";
 import { logAudit } from "./lib/audit";
-import { resolveCustomerLabel } from "./model/engineering/projects";
 import {
-  assertContractEligibleForMeasurement,
-  isContractEligibleForMeasurement,
-} from "./model/contracts/rules";
-import type { Doc, Id } from "./_generated/dataModel";
-import type { QueryCtx } from "./_generated/server";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function sumCents(medicoes: Doc<"medicoes">[]): {
-  medidoCents: number;
-  aprovadoCents: number;
-  pagoCents: number;
-} {
-  let medidoCents = 0;
-  let aprovadoCents = 0;
-  let pagoCents = 0;
-  for (const m of medicoes) {
-    medidoCents += m.amountCents;
-    if (m.status === "aprovada") aprovadoCents += m.amountCents;
-    if (m.status === "paga") pagoCents += m.amountCents;
-  }
-  return { medidoCents, aprovadoCents, pagoCents };
-}
-
-async function getMedicoesByContract(
-  ctx: QueryCtx,
-  contractId: Id<"contracts">
-): Promise<Doc<"medicoes">[]> {
-  return await ctx.db
-    .query("medicoes")
-    .withIndex("by_contract", (q) => q.eq("contractId", contractId))
-    .collect();
-}
+  changeMedicaoStatus,
+  createContractMedicao,
+  getMedicoesOverview,
+  listMeasurableContracts,
+  listProjectMedicoes,
+  updateDraftMedicao,
+} from "./model/contracts/medicoes";
 
 const contractSummaryValidator = v.object({
   _id: v.id("contracts"),
@@ -90,33 +61,7 @@ export const listContracts = medicoesQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(contractSummaryValidator),
   handler: async (ctx, args) => {
-    const contracts = await ctx.db
-      .query("contracts")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-
-    const eligible = contracts.filter(isContractEligibleForMeasurement);
-
-    return await Promise.all(
-      eligible.map(async (contract) => {
-        const medicoes = await getMedicoesByContract(ctx, contract._id);
-        const { medidoCents, aprovadoCents, pagoCents } = sumCents(medicoes);
-        return {
-          _id: contract._id,
-          projectId: args.projectId,
-          title: contract.title,
-          valueCents: contract.valueCents,
-          notes: contract.notes ?? null,
-          signedAt: contract.signedAt ?? null,
-          createdAt: contract.createdAt,
-          medicaoCount: medicoes.length,
-          medidoCents,
-          aprovadoCents,
-          pagoCents,
-          saldoCents: contract.valueCents - medidoCents,
-        };
-      })
-    );
+    return await listMeasurableContracts(ctx, args.projectId);
   },
 });
 
@@ -128,46 +73,7 @@ export const listMedicoes = medicoesQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(medicaoValidator),
   handler: async (ctx, args) => {
-    const medicoes = await ctx.db
-      .query("medicoes")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-
-    const contractTitles = new Map<Id<"contracts">, string>();
-    const userNames = new Map<Id<"users">, string | null>();
-
-    const result = await Promise.all(
-      medicoes.map(async (m) => {
-        if (!contractTitles.has(m.contractId)) {
-          const contract = await ctx.db.get("contracts", m.contractId);
-          contractTitles.set(m.contractId, contract?.title ?? "Contrato");
-        }
-        if (!userNames.has(m.createdBy)) {
-          const user = await ctx.db.get("users", m.createdBy);
-          userNames.set(m.createdBy, user?.name ?? null);
-        }
-        return {
-          _id: m._id,
-          projectId: m.projectId,
-          contractId: m.contractId,
-          contractTitle: contractTitles.get(m.contractId) ?? "Contrato",
-          sequence: m.sequence,
-          description: m.description ?? null,
-          basis: m.basis,
-          percent: m.percent ?? null,
-          amountCents: m.amountCents,
-          status: m.status,
-          referenceDate: m.referenceDate,
-          approvedAt: m.approvedAt ?? null,
-          paidAt: m.paidAt ?? null,
-          createdByName: userNames.get(m.createdBy) ?? null,
-          createdAt: m.createdAt,
-        };
-      })
-    );
-
-    result.sort((a, b) => b.sequence - a.sequence);
-    return result;
+    return await listProjectMedicoes(ctx, args.projectId);
   },
 });
 
@@ -206,55 +112,7 @@ export const createMedicao = medicoesMutation({
   },
   returns: v.id("medicoes"),
   handler: async (ctx, args) => {
-    const contract = await ctx.db.get("contracts", args.contractId);
-    if (!contract) throw new Error("Contrato não encontrado");
-    assertContractEligibleForMeasurement(contract);
-    const projectId = contract.projectId!;
-
-    let amountCents: number;
-    let percent: number | undefined;
-
-    if (args.basis === "valor_fixo") {
-      if (args.amountCents === undefined || args.amountCents <= 0) {
-        throw new Error("Informe o valor da medição");
-      }
-      amountCents = Math.round(args.amountCents);
-      percent = undefined;
-    } else {
-      // percentual ou progresso_equipamentos: valor derivado do % do contrato.
-      if (args.percent === undefined || args.percent <= 0) {
-        throw new Error("Informe o percentual da medição");
-      }
-      percent = args.percent;
-      amountCents = Math.round((contract.valueCents * args.percent) / 100);
-    }
-
-    const existing = await getMedicoesByContract(ctx, args.contractId);
-    const sequence =
-      existing.reduce((max, m) => Math.max(max, m.sequence), 0) + 1;
-
-    const medicaoId = await ctx.db.insert("medicoes", {
-      projectId,
-      contractId: args.contractId,
-      sequence,
-      description: args.description?.trim() || undefined,
-      basis: args.basis,
-      percent,
-      amountCents,
-      status: "rascunho",
-      referenceDate: args.referenceDate,
-      createdBy: ctx.user._id,
-      createdAt: Date.now(),
-    });
-
-    await logAudit(ctx, ctx.user, {
-      action: "create",
-      tableName: "medicoes",
-      recordId: medicaoId,
-      details: `Medição nº ${sequence} do contrato "${contract.title}"`,
-    });
-
-    return medicaoId;
+    return await createContractMedicao(ctx, ctx.user, args);
   },
 });
 
@@ -269,55 +127,10 @@ export const updateMedicao = medicoesMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const medicao = await ctx.db.get("medicoes", args.medicaoId);
-    if (!medicao) throw new Error("Medição não encontrada");
-    if (medicao.status !== "rascunho") {
-      throw new Error("Apenas medições em rascunho podem ser editadas");
-    }
-    const contract = await ctx.db.get("contracts", medicao.contractId);
-    if (!contract) throw new Error("Contrato não encontrado");
-
-    const basis = args.basis ?? medicao.basis;
-    const patch: Partial<Doc<"medicoes">> = { basis };
-
-    if (basis === "valor_fixo") {
-      const amountCents = args.amountCents ?? medicao.amountCents;
-      if (amountCents <= 0) throw new Error("Informe o valor da medição");
-      patch.amountCents = Math.round(amountCents);
-      patch.percent = undefined;
-    } else {
-      const percent = args.percent ?? medicao.percent;
-      if (percent === undefined || percent <= 0) {
-        throw new Error("Informe o percentual da medição");
-      }
-      patch.percent = percent;
-      patch.amountCents = Math.round((contract.valueCents * percent) / 100);
-    }
-
-    if (args.description !== undefined) {
-      patch.description = args.description.trim() || undefined;
-    }
-    if (args.referenceDate !== undefined) {
-      patch.referenceDate = args.referenceDate;
-    }
-
-    await ctx.db.patch("medicoes", args.medicaoId, patch);
-
-    await logAudit(ctx, ctx.user, {
-      action: "update",
-      tableName: "medicoes",
-      recordId: args.medicaoId,
-    });
-
+    await updateDraftMedicao(ctx, ctx.user, args);
     return null;
   },
 });
-
-const STATUS_ORDER: Record<Doc<"medicoes">["status"], number> = {
-  rascunho: 0,
-  aprovada: 1,
-  paga: 2,
-};
 
 export const setMedicaoStatus = medicoesAprovarMutation({
   args: {
@@ -326,35 +139,7 @@ export const setMedicaoStatus = medicoesAprovarMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const medicao = await ctx.db.get("medicoes", args.medicaoId);
-    if (!medicao) throw new Error("Medição não encontrada");
-    if (medicao.status === args.status) return null;
-
-    const from = STATUS_ORDER[medicao.status];
-    const to = STATUS_ORDER[args.status];
-    // Permite avançar/retroceder apenas um passo por vez (correções incluídas).
-    if (Math.abs(to - from) !== 1) {
-      throw new Error(
-        `Transição inválida: ${medicao.status} → ${args.status}`
-      );
-    }
-
-    const now = Date.now();
-    const patch: Partial<Doc<"medicoes">> = { status: args.status };
-    if (args.status === "aprovada" && to > from) patch.approvedAt = now;
-    if (args.status === "paga") patch.paidAt = now;
-    if (args.status === "rascunho") patch.approvedAt = undefined;
-    if (args.status === "aprovada" && to < from) patch.paidAt = undefined;
-
-    await ctx.db.patch("medicoes", args.medicaoId, patch);
-
-    await logAudit(ctx, ctx.user, {
-      action: "status_change",
-      tableName: "medicoes",
-      recordId: args.medicaoId,
-      details: `Medição nº ${medicao.sequence}: ${medicao.status} → ${args.status}`,
-    });
-
+    await changeMedicaoStatus(ctx, ctx.user, args);
     return null;
   },
 });
@@ -405,42 +190,6 @@ export const getOverview = medicoesQuery({
     })
   ),
   handler: async (ctx) => {
-    const projects = await ctx.db.query("projects").order("desc").collect();
-    const customerLabelCache = new Map<string, string | null>();
-
-    return await Promise.all(
-      projects.map(async (project) => {
-        const contracts = await ctx.db
-          .query("contracts")
-          .withIndex("by_project", (q) => q.eq("projectId", project._id))
-          .collect();
-        const eligible = contracts.filter(isContractEligibleForMeasurement);
-        const medicoes = await ctx.db
-          .query("medicoes")
-          .withIndex("by_project", (q) => q.eq("projectId", project._id))
-          .collect();
-
-        const contractTotalCents = eligible.reduce(
-          (sum, c) => sum + c.valueCents,
-          0
-        );
-        const { medidoCents, aprovadoCents, pagoCents } = sumCents(medicoes);
-
-        return {
-          projectId: project._id,
-          projectName: project.name,
-          projectSlug: project.slug ?? project._id,
-          legacyNumber: project.legacyNumber ?? null,
-          client: await resolveCustomerLabel(ctx, project, customerLabelCache),
-          status: project.status ?? null,
-          contractCount: eligible.length,
-          contractTotalCents,
-          medidoCents,
-          aprovadoCents,
-          pagoCents,
-          saldoCents: contractTotalCents - medidoCents,
-        };
-      })
-    );
+    return await getMedicoesOverview(ctx);
   },
 });

@@ -120,3 +120,77 @@ export async function bulkCreateUnitsWithEquipment(
 
   return { units: unitCount, items: itemCount };
 }
+
+function autoUnitLabel(floor: number, final: number): string {
+  return `${floor}${String(final).padStart(2, "0")}`;
+}
+
+export type UpsertProjectUnitInput = {
+  unitId?: Id<"projectUnits">;
+  projectId: Id<"projects">;
+  floor: number;
+  final: number;
+  label?: string;
+  type: Doc<"projectUnits">["type"];
+  floorSpan?: number;
+  deadline?: number | null;
+};
+
+/** Cria (sem `unitId`) ou atualiza um apartamento da obra. */
+export async function upsertProjectUnit(
+  ctx: MutationCtx,
+  input: UpsertProjectUnitInput
+): Promise<Id<"projectUnits">> {
+  const project = await ctx.db.get("projects", input.projectId);
+  if (!project) throw new Error("Obra não encontrada");
+
+  const floor = Math.floor(input.floor);
+  const final = Math.max(1, Math.floor(input.final));
+  const floorSpan = Math.max(1, Math.floor(input.floorSpan ?? 1));
+  const label = input.label?.trim() || autoUnitLabel(floor, final);
+
+  if (input.unitId) {
+    const unit = await ctx.db.get("projectUnits", input.unitId);
+    if (!unit) throw new Error("Apartamento não encontrado");
+    await ctx.db.patch("projectUnits", input.unitId, {
+      floor,
+      final,
+      label,
+      type: input.type,
+      floorSpan,
+      deadline:
+        input.deadline === null ? undefined : input.deadline ?? unit.deadline,
+    });
+    return input.unitId;
+  }
+
+  return await ctx.db.insert("projectUnits", {
+    projectId: input.projectId,
+    floor,
+    final,
+    label,
+    type: input.type,
+    floorSpan,
+    deadline: input.deadline ?? undefined,
+  });
+}
+
+/** Remove um apartamento e seus itens planejados, soltando os equipamentos. */
+export async function removeProjectUnit(
+  ctx: MutationCtx,
+  unitId: Id<"projectUnits">
+): Promise<void> {
+  const items = await ctx.db
+    .query("projectEquipment")
+    .withIndex("by_unit", (q) => q.eq("unitId", unitId))
+    .collect();
+  for (const item of items) {
+    if (item.linkedEquipmentId) {
+      await ctx.db.patch("equipment", item.linkedEquipmentId, {
+        projectEquipmentId: undefined,
+      });
+    }
+    await ctx.db.delete("projectEquipment", item._id);
+  }
+  await ctx.db.delete("projectUnits", unitId);
+}

@@ -3,7 +3,7 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { diffFields, logAudit } from "../../lib/audit";
 import {
-  formatTaxId,
+  optionalTaxIdDigits,
   normalizeCustomerName,
   normalizeTaxId,
   validateTaxIdForPersonType,
@@ -225,7 +225,7 @@ export async function createContractor(
   const name = input.name.trim();
   if (!name) throw new Error("Informe o nome do empreiteiro");
 
-  const taxId = input.taxId ? formatTaxId(input.taxId) : undefined;
+  const taxId = input.taxId ? optionalTaxIdDigits(input.taxId) : undefined;
   validateTaxIdForPersonType(taxId, input.personType);
   await assertUniqueContractorIdentity(ctx, { name, taxId });
 
@@ -291,7 +291,7 @@ export async function updateContractor(
   }
   if (input.taxId !== undefined) {
     const taxId =
-      input.taxId === null ? undefined : formatTaxId(input.taxId);
+      input.taxId === null ? undefined : optionalTaxIdDigits(input.taxId);
     updates.taxId = taxId;
     updates.taxIdNormalized = taxId ? normalizeTaxId(taxId) : undefined;
   }

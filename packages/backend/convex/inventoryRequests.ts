@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { inventoryRequestReason, inventoryRequestStatus } from "./schema/inventory";
-import { normalizeText } from "./model/procurement/pricing";
 import {
   authedMutation,
   authedQuery,
@@ -8,20 +7,22 @@ import {
   inventoryQuery,
   materialRequestsMutation,
 } from "./lib/rbac";
-import { logAudit } from "./lib/audit";
-import { findInventoryLocation } from "./model/inventory/locations";
 import {
-  MAX_INVENTORY_REQUEST_LINES,
-  canReviewMaterialRequests,
   consumeRemainingOnObra,
   enrichRequest,
   fulfillInventoryRequest,
+  listProjectMaterialBalances,
   listRequestsByFilter,
   requireAssignedProject,
   resolveProjectByIdentifier,
-  sentAndConsumedByMaterial,
 } from "./model/inventory/requests";
-import type { Doc, Id } from "./_generated/dataModel";
+import {
+  cancelInventoryRequest,
+  createInventoryRequest,
+  listMaterialPickerSuggestions,
+  reviewInventoryRequest,
+  searchActiveCatalog,
+} from "./model/inventory/requestWorkflow";
 
 const catalogMaterialValidator = v.object({
   materialId: v.id("materials"),
@@ -60,26 +61,6 @@ const requestRowValidator = v.object({
   items: v.array(requestItemValidator),
 });
 
-function mapCatalogMaterial(material: Doc<"materials">) {
-  return {
-    materialId: material._id,
-    name: material.name,
-    variantLabel: material.variantLabel ?? null,
-    unit: material.unit ?? null,
-    sku: material.sku ?? null,
-  };
-}
-
-function matchesCatalogSearch(material: Doc<"materials">, search: string): boolean {
-  const term = search.toLocaleLowerCase("pt-BR");
-  return (
-    material.name.toLocaleLowerCase("pt-BR").includes(term) ||
-    (material.variantLabel?.toLocaleLowerCase("pt-BR").includes(term) ?? false) ||
-    (material.sku?.toLocaleLowerCase("pt-BR").includes(term) ?? false) ||
-    (material.category?.toLocaleLowerCase("pt-BR").includes(term) ?? false)
-  );
-}
-
 export const resolveAssignedObra = authedQuery({
   args: { identifier: v.string() },
   returns: v.union(
@@ -116,38 +97,7 @@ export const listObraBalances = authedQuery({
     })
   ),
   handler: async (ctx, args) => {
-    await requireAssignedProject(ctx, ctx.user, args.projectId);
-    const location = await findInventoryLocation(ctx, args.projectId);
-    if (!location) return [];
-
-    const [balances, totals] = await Promise.all([
-      ctx.db
-        .query("inventoryBalances")
-        .withIndex("by_location", (q) => q.eq("locationId", location._id))
-        .take(200),
-      sentAndConsumedByMaterial(ctx, args.projectId),
-    ]);
-
-    const rows = await Promise.all(
-      balances.map(async (balance) => {
-        const material = await ctx.db.get("materials", balance.materialId);
-        return {
-          materialId: balance.materialId,
-          materialName: material?.name ?? "Material removido",
-          variantLabel: material?.variantLabel ?? null,
-          unit: material?.unit ?? null,
-          quantity: balance.quantity,
-          sentQuantity: totals.sent.get(balance.materialId) ?? 0,
-          consumedQuantity: totals.consumed.get(balance.materialId) ?? 0,
-        };
-      })
-    );
-
-    return rows.sort((a, b) => {
-      if (a.quantity === 0 && b.quantity !== 0) return -1;
-      if (a.quantity !== 0 && b.quantity === 0) return 1;
-      return a.materialName.localeCompare(b.materialName, "pt-BR");
-    });
+    return await listProjectMaterialBalances(ctx, ctx.user, args.projectId);
   },
 });
 
@@ -158,92 +108,7 @@ export const listPickerSuggestions = authedQuery({
     common: v.array(catalogMaterialValidator),
   }),
   handler: async (ctx, args) => {
-    await requireAssignedProject(ctx, ctx.user, args.projectId);
-
-    const recentIds: Id<"materials">[] = [];
-    const seenRecent = new Set<string>();
-    const addRecent = (materialId: Id<"materials">) => {
-      if (seenRecent.has(materialId)) return;
-      seenRecent.add(materialId);
-      recentIds.push(materialId);
-    };
-
-    const myRequests = await ctx.db
-      .query("inventoryRequests")
-      .withIndex("by_requested_by", (q) =>
-        q.eq("requestedByUserId", ctx.user._id)
-      )
-      .order("desc")
-      .take(30);
-    for (const request of myRequests) {
-      if (request.projectId !== args.projectId) continue;
-      const items = await ctx.db
-        .query("inventoryRequestItems")
-        .withIndex("by_request", (q) => q.eq("requestId", request._id))
-        .collect();
-      for (const item of items) addRecent(item.materialId);
-    }
-
-    const myDocuments = await ctx.db
-      .query("inventoryDocuments")
-      .withIndex("by_created_by", (q) =>
-        q.eq("createdByUserId", ctx.user._id)
-      )
-      .order("desc")
-      .take(40);
-    for (const document of myDocuments) {
-      if (
-        document.projectId !== args.projectId ||
-        document.type !== "consumption"
-      ) {
-        continue;
-      }
-      const items = await ctx.db
-        .query("inventoryDocumentItems")
-        .withIndex("by_document", (q) => q.eq("documentId", document._id))
-        .collect();
-      for (const item of items) addRecent(item.materialId);
-    }
-
-    const commonIds: Id<"materials">[] = [];
-    const seenCommon = new Set<string>();
-    const addCommon = (materialId: Id<"materials">) => {
-      if (seenCommon.has(materialId)) return;
-      seenCommon.add(materialId);
-      commonIds.push(materialId);
-    };
-
-    const location = await findInventoryLocation(ctx, args.projectId);
-    if (location) {
-      const balances = await ctx.db
-        .query("inventoryBalances")
-        .withIndex("by_location", (q) => q.eq("locationId", location._id))
-        .take(100);
-      for (const balance of balances) addCommon(balance.materialId);
-    }
-
-    const takeoffItems = await ctx.db
-      .query("takeoffItems")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .take(100);
-    for (const item of takeoffItems) {
-      if (item.materialId) addCommon(item.materialId);
-    }
-
-    const toCatalog = async (materialIds: Id<"materials">[]) => {
-      const rows = [];
-      for (const materialId of materialIds.slice(0, 12)) {
-        const material = await ctx.db.get("materials", materialId);
-        if (!material || !material.active) continue;
-        rows.push(mapCatalogMaterial(material));
-      }
-      return rows;
-    };
-
-    return {
-      recents: await toCatalog(recentIds),
-      common: await toCatalog(commonIds),
-    };
+    return await listMaterialPickerSuggestions(ctx, ctx.user, args.projectId);
   },
 });
 
@@ -251,38 +116,7 @@ export const searchCatalog = authedQuery({
   args: { search: v.string() },
   returns: v.array(catalogMaterialValidator),
   handler: async (ctx, args) => {
-    const search = args.search.trim();
-    if (search.length < 2) return [];
-
-    const searchQuery = normalizeText(search) || search;
-    let indexed: Doc<"materials">[] = [];
-    try {
-      indexed = await ctx.db
-        .query("materials")
-        .withSearchIndex("search_text", (q) =>
-          q.search("searchText", searchQuery).eq("active", true)
-        )
-        .take(20);
-    } catch (error) {
-      console.error("inventoryRequests.searchCatalog search index failed", {
-        search: searchQuery,
-        error,
-      });
-      indexed = [];
-    }
-    if (indexed.length > 0) {
-      return indexed.map(mapCatalogMaterial);
-    }
-
-    const materials = await ctx.db
-      .query("materials")
-      .withIndex("by_active", (q) => q.eq("active", true))
-      .take(300);
-
-    return materials
-      .filter((material) => matchesCatalogSearch(material, search))
-      .slice(0, 20)
-      .map(mapCatalogMaterial);
+    return await searchActiveCatalog(ctx, args.search);
   },
 });
 
@@ -336,84 +170,7 @@ export const createRequest = authedMutation({
   },
   returns: v.id("inventoryRequests"),
   handler: async (ctx, args) => {
-    await requireAssignedProject(ctx, ctx.user, args.projectId);
-    if (args.items.length === 0) {
-      throw new Error("Adicione pelo menos um material");
-    }
-    if (args.items.length > MAX_INVENTORY_REQUEST_LINES) {
-      throw new Error(
-        `Cada pedido aceita no máximo ${MAX_INVENTORY_REQUEST_LINES} materiais`
-      );
-    }
-
-    const seen = new Set<string>();
-    const materials = new Map<Id<"materials">, Doc<"materials">>();
-    for (const item of args.items) {
-      if (seen.has(item.materialId)) {
-        throw new Error("Há materiais repetidos no pedido");
-      }
-      seen.add(item.materialId);
-      if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
-        throw new Error("A quantidade deve ser maior que zero");
-      }
-      const material = await ctx.db.get("materials", item.materialId);
-      if (!material || !material.active) {
-        throw new Error("Use apenas materiais ativos do catálogo");
-      }
-      materials.set(item.materialId, material);
-    }
-
-    const location = await findInventoryLocation(ctx, args.projectId);
-    for (const item of args.items) {
-      if (!item.markedDepleted) continue;
-      if (!location) continue;
-      const balance = await ctx.db
-        .query("inventoryBalances")
-        .withIndex("by_location_material", (q) =>
-          q.eq("locationId", location._id).eq("materialId", item.materialId)
-        )
-        .unique();
-      if (balance && balance.quantity > 0) {
-        await consumeRemainingOnObra(ctx, ctx.user, {
-          projectId: args.projectId,
-          materialId: item.materialId,
-          notes: "Acabou (pedido de reposição)",
-        });
-      }
-    }
-
-    const now = Date.now();
-    const notes = args.notes?.trim();
-    const requestId = await ctx.db.insert("inventoryRequests", {
-      projectId: args.projectId,
-      status: "pending",
-      requestedByUserId: ctx.user._id,
-      notes: notes || undefined,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    for (const item of args.items) {
-      const material = materials.get(item.materialId);
-      await ctx.db.insert("inventoryRequestItems", {
-        requestId,
-        materialId: item.materialId,
-        quantity: item.quantity,
-        unit: material?.unit,
-        reason: item.reason,
-        markedDepleted: item.markedDepleted === true,
-        createdAt: now,
-      });
-    }
-
-    await logAudit(ctx, ctx.user, {
-      action: "create",
-      tableName: "inventoryRequests",
-      recordId: requestId,
-      details: `Pedido de ${args.items.length} material(is) para a obra`,
-    });
-
-    return requestId;
+    return await createInventoryRequest(ctx, ctx.user, args);
   },
 });
 
@@ -421,24 +178,7 @@ export const cancelRequest = authedMutation({
   args: { requestId: v.id("inventoryRequests") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const request = await ctx.db.get("inventoryRequests", args.requestId);
-    if (!request) throw new Error("Pedido não encontrado");
-    await requireAssignedProject(ctx, ctx.user, request.projectId);
-    if (request.requestedByUserId !== ctx.user._id) {
-      throw new Error("Só quem pediu pode cancelar");
-    }
-    if (request.status !== "pending") {
-      throw new Error("Somente pedidos pendentes podem ser cancelados");
-    }
-    await ctx.db.patch("inventoryRequests", args.requestId, {
-      status: "cancelled",
-      updatedAt: Date.now(),
-    });
-    await logAudit(ctx, ctx.user, {
-      action: "cancel",
-      tableName: "inventoryRequests",
-      recordId: args.requestId,
-    });
+    await cancelInventoryRequest(ctx, ctx.user, args.requestId);
     return null;
   },
 });
@@ -479,33 +219,7 @@ export const reviewRequest = materialRequestsMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    if (!canReviewMaterialRequests(ctx.user)) {
-      throw new Error("Apenas engenharia ou administradores validam pedidos");
-    }
-    const reason = args.reason.trim();
-    if (!reason) throw new Error("Informe a justificativa");
-
-    const request = await ctx.db.get("inventoryRequests", args.requestId);
-    if (!request) throw new Error("Pedido não encontrado");
-    if (request.status !== "pending") {
-      throw new Error("Este pedido não está pendente");
-    }
-
-    const now = Date.now();
-    const status = args.decision === "approve" ? "approved" : "rejected";
-    await ctx.db.patch("inventoryRequests", args.requestId, {
-      status,
-      reviewedByUserId: ctx.user._id,
-      reviewedAt: now,
-      reviewNotes: reason,
-      updatedAt: now,
-    });
-    await logAudit(ctx, ctx.user, {
-      action: args.decision,
-      tableName: "inventoryRequests",
-      recordId: args.requestId,
-      details: reason,
-    });
+    await reviewInventoryRequest(ctx, ctx.user, args);
     return null;
   },
 });

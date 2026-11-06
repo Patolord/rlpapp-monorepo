@@ -1,3 +1,4 @@
+import { formatPayrollRunLabel } from "@rlpapp/shared/rh/payrollLabels";
 import type { Doc } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
 import {
@@ -12,7 +13,6 @@ import {
   assertMonth,
   assertYear,
   emptyPayrollTotals,
-  formatPayrollRunLabel,
   loanStatus,
 } from "./payroll";
 import { findRun } from "./payrollRuns";

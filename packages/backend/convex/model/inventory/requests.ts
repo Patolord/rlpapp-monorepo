@@ -341,3 +341,43 @@ export async function sentAndConsumedByMaterial(
 
   return { sent, consumed };
 }
+
+/** Saldos da obra com o total enviado e consumido de cada material. */
+export async function listProjectMaterialBalances(
+  ctx: QueryCtx,
+  user: Doc<"users">,
+  projectId: Id<"projects">
+) {
+  await requireAssignedProject(ctx, user, projectId);
+  const location = await findInventoryLocation(ctx, projectId);
+  if (!location) return [];
+
+  const [balances, totals] = await Promise.all([
+    ctx.db
+      .query("inventoryBalances")
+      .withIndex("by_location", (q) => q.eq("locationId", location._id))
+      .take(200),
+    sentAndConsumedByMaterial(ctx, projectId),
+  ]);
+
+  const rows = await Promise.all(
+    balances.map(async (balance) => {
+      const material = await ctx.db.get("materials", balance.materialId);
+      return {
+        materialId: balance.materialId,
+        materialName: material?.name ?? "Material removido",
+        variantLabel: material?.variantLabel ?? null,
+        unit: material?.unit ?? null,
+        quantity: balance.quantity,
+        sentQuantity: totals.sent.get(balance.materialId) ?? 0,
+        consumedQuantity: totals.consumed.get(balance.materialId) ?? 0,
+      };
+    })
+  );
+
+  return rows.sort((a, b) => {
+    if (a.quantity === 0 && b.quantity !== 0) return -1;
+    if (a.quantity !== 0 && b.quantity === 0) return 1;
+    return a.materialName.localeCompare(b.materialName, "pt-BR");
+  });
+}

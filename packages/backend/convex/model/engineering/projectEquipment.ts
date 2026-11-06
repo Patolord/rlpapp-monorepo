@@ -3,7 +3,7 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logEquipmentHistory } from "../../lib/audit";
 import { generateQrForItem, syncQrProjectId } from "./qrProjectLinks";
-import { equipKindValidator, equipmentStatusValidator } from "./validators";
+import { equipKindValidator, equipmentStatusValidator } from "../../schema/engineering";
 
 // Planejamento de equipamentos da obra (projectEquipment) na hierarquia de
 // ambientes: criação, edição, pool de não atribuídos, status e remoção.
@@ -411,4 +411,47 @@ export async function deletePlannedEquipment(
     await syncQrProjectId(ctx, item.linkedEquipmentId, undefined);
   }
   await ctx.db.delete("projectEquipment", itemId);
+}
+
+/**
+ * Aplica um template de checklist a um equipamento planejado (opcionalmente
+ * substituindo os itens atuais) e devolve quantos itens foram criados.
+ */
+export async function applyChecklistTemplate(
+  ctx: MutationCtx,
+  args: {
+    equipmentId: Id<"projectEquipment">;
+    templateId: Id<"checklistTemplates">;
+    replace?: boolean;
+  }
+): Promise<number> {
+  const equipment = await ctx.db.get("projectEquipment", args.equipmentId);
+  if (!equipment) throw new Error("Equipamento não encontrado");
+  const template = await ctx.db.get("checklistTemplates", args.templateId);
+  if (!template) throw new Error("Template não encontrado");
+
+  if (args.replace) {
+    const existing = await ctx.db
+      .query("checklistItems")
+      .withIndex("by_equipment", (q) => q.eq("equipmentId", args.equipmentId))
+      .collect();
+    for (const item of existing) {
+      await ctx.db.delete("checklistItems", item._id);
+    }
+  }
+
+  let order = 0;
+  for (const item of template.items) {
+    await ctx.db.insert("checklistItems", {
+      equipmentId: args.equipmentId,
+      label: item.label,
+      required: item.required,
+      completed: false,
+      order: order++,
+    });
+  }
+  await ctx.db.patch("projectEquipment", args.equipmentId, {
+    checklistTemplateId: args.templateId,
+  });
+  return template.items.length;
 }

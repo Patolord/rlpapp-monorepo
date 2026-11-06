@@ -1,3 +1,4 @@
+import { formatPayrollRunLabel } from "@rlpapp/shared/rh/payrollLabels";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
@@ -16,7 +17,6 @@ import {
   assertNonNegativeCents,
   assertYear,
   computePayrollLine,
-  formatPayrollRunLabel,
   loanStatus,
   previousMonth,
 } from "./payroll";

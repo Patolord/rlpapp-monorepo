@@ -2,7 +2,7 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { diffFields, logAudit } from "../../lib/audit";
 import {
-  formatTaxId,
+  optionalTaxIdDigits,
   normalizeTaxId,
   validateTaxIdForPersonType,
 } from "../contracts/customers";
@@ -155,7 +155,7 @@ export type SupplierFieldsInput = {
 
 /** Normaliza e valida os campos opcionais de um fornecedor novo. */
 export function prepareSupplierFields(input: SupplierFieldsInput) {
-  const taxId = input.taxId ? formatTaxId(input.taxId) : undefined;
+  const taxId = input.taxId ? optionalTaxIdDigits(input.taxId) : undefined;
   validateTaxIdForPersonType(taxId, resolvePersonType(taxId, input.personType));
   validateLeadTimeDays(input.defaultLeadTimeDays);
   const email = cleanOptional(input.email);
@@ -299,7 +299,7 @@ export async function updateSupplier(
     updates.legalName = cleanOptional(input.legalName);
   }
   if (input.taxId !== undefined) {
-    const taxId = input.taxId === null ? undefined : formatTaxId(input.taxId);
+    const taxId = input.taxId === null ? undefined : optionalTaxIdDigits(input.taxId);
     updates.taxId = taxId;
     updates.taxIdNormalized = taxId ? normalizeTaxId(taxId) : undefined;
   }

@@ -1,7 +1,7 @@
 import type { QueryCtx } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
 import { v } from "convex/values";
-import { equipKindValidator, equipmentStatusValidator } from "./validators";
+import { equipKindValidator, equipmentStatusValidator } from "../../schema/engineering";
 
 /**
  * Constrói a árvore Torre → Andar → Ambiente → Equipamento de uma obra.

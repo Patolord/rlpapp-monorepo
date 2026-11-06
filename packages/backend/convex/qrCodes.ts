@@ -1,7 +1,7 @@
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
 import { authedMutation, obrasMutation, obrasQuery } from "./lib/rbac";
-import { equipmentStatusValidator } from "./model/engineering/validators";
+import { equipmentStatusValidator } from "./schema/engineering";
 import {
   createQrBatch,
   listAvailableQrBatches,

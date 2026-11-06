@@ -6,6 +6,7 @@ import {
   obrasQuery,
 } from "./lib/rbac";
 import { logEquipmentHistory } from "./lib/audit";
+import { applyChecklistTemplate } from "./model/engineering/projectEquipment";
 
 const checklistItemValidator = v.object({
   label: v.string(),
@@ -117,37 +118,7 @@ export const applyTemplate = obrasMutation({
     replace: v.optional(v.boolean()),
   },
   returns: v.number(),
-  handler: async (ctx, args) => {
-    const equipment = await ctx.db.get("projectEquipment", args.equipmentId);
-    if (!equipment) throw new Error("Equipamento não encontrado");
-    const template = await ctx.db.get("checklistTemplates", args.templateId);
-    if (!template) throw new Error("Template não encontrado");
-
-    if (args.replace) {
-      const existing = await ctx.db
-        .query("checklistItems")
-        .withIndex("by_equipment", (q) => q.eq("equipmentId", args.equipmentId))
-        .collect();
-      for (const item of existing) {
-        await ctx.db.delete("checklistItems", item._id);
-      }
-    }
-
-    let order = 0;
-    for (const item of template.items) {
-      await ctx.db.insert("checklistItems", {
-        equipmentId: args.equipmentId,
-        label: item.label,
-        required: item.required,
-        completed: false,
-        order: order++,
-      });
-    }
-    await ctx.db.patch("projectEquipment", args.equipmentId, {
-      checklistTemplateId: args.templateId,
-    });
-    return template.items.length;
-  },
+  handler: async (ctx, args) => await applyChecklistTemplate(ctx, args),
 });
 
 // Adiciona um item avulso ao checklist de um equipamento.

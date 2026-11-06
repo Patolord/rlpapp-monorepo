@@ -4,7 +4,7 @@ import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logEquipmentHistory } from "../../lib/audit";
 import { getBatchDestination } from "./qrBatches";
 import { syncQrProjectId } from "./qrProjectLinks";
-import { equipKindValidator } from "./validators";
+import { equipKindValidator } from "../../schema/engineering";
 
 // Equipamento real (cadastrado em campo via QR) ↔ item planejado da obra:
 // ações do técnico, mídia, vagas pendentes e vínculo/desvínculo.

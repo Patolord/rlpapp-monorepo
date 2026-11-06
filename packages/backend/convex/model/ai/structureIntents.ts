@@ -1,7 +1,7 @@
+import { copyTowerTree } from "../engineering/buildingStructure";
 import type { MutationCtx } from "../../_generated/server";
 import { defaultFloorLabel } from "../engineering/floors";
 import {
-  duplicateTowerDeep,
   gridValue,
   norm,
   resolveEnvironment,
@@ -71,7 +71,13 @@ export async function applyDuplicateTower(
 ) {
   const sourceId = await resolveTowerOrReport(ctx, state, intent.towerName);
   if (!sourceId) return;
-  const count = await duplicateTowerDeep(ctx, sourceId, intent.newName?.trim());
+  const source = await ctx.db.get("towers", sourceId);
+  if (!source) return;
+  const { floorCount: count } = await copyTowerTree(
+    ctx,
+    source,
+    intent.newName?.trim() || `${source.name} (cópia)`
+  );
   state.summary.push(`Torre "${intent.towerName}" duplicada (${count} andar(es))`);
   state.applied++;
 }

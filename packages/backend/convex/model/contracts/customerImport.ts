@@ -8,7 +8,7 @@ import {
   type BulkImportResult,
 } from "../procurement/bulkImport";
 import {
-  formatTaxId,
+  optionalTaxIdDigits,
   normalizeCustomerName,
   normalizeTaxId,
   validateTaxIdForPersonType,
@@ -45,7 +45,7 @@ export async function bulkCreateCustomers(
     }
 
     const nameNormalized = normalizeCustomerName(nameCheck.name);
-    const taxId = item.taxId ? formatTaxId(item.taxId) : undefined;
+    const taxId = item.taxId ? optionalTaxIdDigits(item.taxId) : undefined;
     try {
       validateTaxIdForPersonType(taxId, item.personType);
     } catch (error) {

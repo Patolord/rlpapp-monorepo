@@ -31,6 +31,20 @@ export const projectGeofence = v.object({
 
 // --- Compras / Materiais / Preços ---
 
+// Status de um equipamento instalado (igual a EquipmentStatus de @rlpapp/shared).
+export const equipmentStatusValidator = v.union(
+  v.literal("installing"),
+  v.literal("operational"),
+  v.literal("warning"),
+  v.literal("error")
+);
+
+// Tipo de unidade do equipamento planejado.
+export const equipKindValidator = v.union(
+  v.literal("condensadora"),
+  v.literal("evaporadora")
+);
+
 export const engineeringTables = {
   qrCodes: defineTable({
     token: v.string(),
@@ -233,15 +247,10 @@ export const engineeringTables = {
     systemId: v.optional(v.id("systems")),
     // Ambiente onde fica, ex: "Sala de Estar", "Suíte 1", "Área Técnica".
     ambiente: v.string(),
-    kind: v.union(v.literal("condensadora"), v.literal("evaporadora")),
+    kind: equipKindValidator,
     modelo: v.string(),
     capacidade: v.string(),
-    status: v.union(
-      v.literal("installing"),
-      v.literal("operational"),
-      v.literal("warning"),
-      v.literal("error")
-    ),
+    status: equipmentStatusValidator,
     obs: v.optional(v.string()),
     deadline: v.optional(v.number()),
     // Vínculo com o equipamento real (QR) instalado em campo.
@@ -318,12 +327,7 @@ export const engineeringTables = {
     // Cadastro simplificado em campo: descrição geral + foto da etiqueta.
     description: v.optional(v.string()),
     labelPhotoIds: v.optional(v.array(v.id("_storage"))),
-    status: v.union(
-      v.literal("installing"),
-      v.literal("operational"),
-      v.literal("warning"),
-      v.literal("error")
-    ),
+    status: equipmentStatusValidator,
     createdAt: v.number(),
     // Técnico que cadastrou o equipamento em campo (aparece em Meus Registros).
     createdByUserId: v.optional(v.id("users")),
@@ -355,12 +359,7 @@ export const engineeringTables = {
     notes: v.optional(v.string()),
     // Palavras prontas selecionadas (ex: Posicionada, Instalada, Travado...)
     tags: v.optional(v.array(v.string())),
-    status: v.union(
-      v.literal("installing"),
-      v.literal("operational"),
-      v.literal("warning"),
-      v.literal("error")
-    ),
+    status: equipmentStatusValidator,
     tests: v.optional(
       v.object({
         vacuum: v.boolean(),

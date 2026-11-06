@@ -11,7 +11,7 @@ export function normalizeCustomerName(value: string): string {
   return normalizeText(value);
 }
 
-export function formatTaxId(value: string): string | undefined {
+export function optionalTaxIdDigits(value: string): string | undefined {
   const digits = normalizeTaxId(value);
   if (!digits) return undefined;
   return digits;

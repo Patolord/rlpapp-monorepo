@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { projectStatus } from "../../schema/engineering";
 import { accessRoles } from "../../schema/identity";
-import { equipKindValidator, equipmentStatusValidator } from "./validators";
+import { equipKindValidator, equipmentStatusValidator } from "../../schema/engineering";
 
 export const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
 

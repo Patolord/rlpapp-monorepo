@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { equipKindValidator, equipmentStatusValidator } from "./validators";
+import { equipKindValidator, equipmentStatusValidator } from "../../schema/engineering";
 
 // Validadores de retorno das funções públicas de QR codes (qrCodes.ts).
 

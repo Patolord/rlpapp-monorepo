@@ -4,9 +4,11 @@ import {
   obrasQuery,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
-import { deleteSystemsIfOrphaned } from "./model/engineering/systems";
-import type { Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
+import {
+  duplicateTower,
+  listTowersWithFloorCounts,
+  removeTower,
+} from "./model/engineering/buildingStructure";
 
 // Lista as torres de uma obra, ordenadas.
 export const list = obrasQuery({
@@ -23,30 +25,7 @@ export const list = obrasQuery({
     })
   ),
   handler: async (ctx, args) => {
-    const towers = await ctx.db
-      .query("towers")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-
-    const withCounts = await Promise.all(
-      towers.map(async (tower) => {
-        const floors = await ctx.db
-          .query("floors")
-          .withIndex("by_tower", (q) => q.eq("towerId", tower._id))
-          .collect();
-        return {
-          _id: tower._id,
-          _creationTime: tower._creationTime,
-          projectId: tower.projectId,
-          name: tower.name,
-          order: tower.order,
-          createdAt: tower.createdAt,
-          floorCount: floors.length,
-        };
-      })
-    );
-
-    return withCounts.sort((a, b) => a.order - b.order);
+    return await listTowersWithFloorCounts(ctx, args.projectId);
   },
 });
 
@@ -122,19 +101,7 @@ export const remove = obrasMutation({
   args: { towerId: v.id("towers") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const tower = await ctx.db.get("towers", args.towerId);
-    if (!tower) return null;
-
-    const affectedSystemIds = await cascadeDeleteTower(ctx, args.towerId);
-    await ctx.db.delete("towers", args.towerId);
-    // Cascata: sistemas que ficaram sem equipamentos são removidos também.
-    await deleteSystemsIfOrphaned(ctx, ctx.user, affectedSystemIds);
-    await logAudit(ctx, ctx.user, {
-      action: "delete",
-      tableName: "towers",
-      recordId: args.towerId,
-      details: tower.name,
-    });
+    await removeTower(ctx, ctx.user, args.towerId);
     return null;
   },
 });
@@ -147,129 +114,6 @@ export const duplicate = obrasMutation({
   },
   returns: v.id("towers"),
   handler: async (ctx, args) => {
-    const tower = await ctx.db.get("towers", args.towerId);
-    if (!tower) throw new Error("Torre não encontrada");
-
-    const existing = await ctx.db
-      .query("towers")
-      .withIndex("by_project", (q) => q.eq("projectId", tower.projectId))
-      .collect();
-
-    const newTowerId = await ctx.db.insert("towers", {
-      projectId: tower.projectId,
-      name: args.name?.trim() || `${tower.name} (cópia)`,
-      order: existing.length,
-      createdAt: Date.now(),
-    });
-
-    const floors = await ctx.db
-      .query("floors")
-      .withIndex("by_tower", (q) => q.eq("towerId", args.towerId))
-      .collect();
-
-    for (const floor of floors) {
-      const newFloorId = await ctx.db.insert("floors", {
-        towerId: newTowerId,
-        projectId: floor.projectId,
-        number: floor.number,
-        label: floor.label,
-        createdAt: Date.now(),
-      });
-
-      const environments = await ctx.db
-        .query("environments")
-        .withIndex("by_floor", (q) => q.eq("floorId", floor._id))
-        .collect();
-
-      for (const env of environments) {
-        const newEnvId = await ctx.db.insert("environments", {
-          floorId: newFloorId,
-          towerId: newTowerId,
-          projectId: env.projectId,
-          name: env.name,
-          type: env.type,
-          order: env.order,
-          col: env.col,
-          colSpan: env.colSpan,
-          rowSpan: env.rowSpan,
-          segments: env.segments,
-          createdAt: Date.now(),
-        });
-
-        const items = await ctx.db
-          .query("projectEquipment")
-          .withIndex("by_environment", (q) => q.eq("environmentId", env._id))
-          .collect();
-
-        for (const item of items) {
-          // Equipamentos duplicados começam como planejados (sem vínculo de QR).
-          await ctx.db.insert("projectEquipment", {
-            projectId: item.projectId,
-            unitId: item.unitId,
-            environmentId: newEnvId,
-            towerId: newTowerId,
-            floorId: newFloorId,
-            system: item.system,
-            // Mesma obra: a cópia continua pertencendo ao mesmo sistema.
-            systemId: item.systemId,
-            ambiente: item.ambiente,
-            kind: item.kind,
-            modelo: item.modelo,
-            capacidade: item.capacidade,
-            status: "installing",
-            obs: item.obs,
-            deadline: item.deadline,
-            serialNumber: undefined,
-            checklistTemplateId: item.checklistTemplateId,
-          });
-        }
-      }
-    }
-
-    await logAudit(ctx, ctx.user, {
-      action: "duplicate",
-      tableName: "towers",
-      recordId: newTowerId,
-      details: `de ${tower.name}`,
-    });
-    return newTowerId;
+    return await duplicateTower(ctx, ctx.user, args);
   },
 });
-
-// Helper de cascata: apaga andares, ambientes e equipamentos de uma torre.
-// Retorna os sistemas afetados para checagem de órfãos pelo chamador.
-async function cascadeDeleteTower(
-  ctx: MutationCtx,
-  towerId: Id<"towers">
-): Promise<Set<Id<"systems">>> {
-  const affectedSystemIds = new Set<Id<"systems">>();
-  const floors = await ctx.db
-    .query("floors")
-    .withIndex("by_tower", (q) => q.eq("towerId", towerId))
-    .collect();
-
-  for (const floor of floors) {
-    const environments = await ctx.db
-      .query("environments")
-      .withIndex("by_floor", (q) => q.eq("floorId", floor._id))
-      .collect();
-    for (const env of environments) {
-      const items = await ctx.db
-        .query("projectEquipment")
-        .withIndex("by_environment", (q) => q.eq("environmentId", env._id))
-        .collect();
-      for (const item of items) {
-        if (item.systemId) affectedSystemIds.add(item.systemId);
-        if (item.linkedEquipmentId) {
-          await ctx.db.patch("equipment", item.linkedEquipmentId, {
-            projectEquipmentId: undefined,
-          });
-        }
-        await ctx.db.delete("projectEquipment", item._id);
-      }
-      await ctx.db.delete("environments", env._id);
-    }
-    await ctx.db.delete("floors", floor._id);
-  }
-  return affectedSystemIds;
-}

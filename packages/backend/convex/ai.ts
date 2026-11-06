@@ -1,6 +1,6 @@
 "use node";
 
-import { equipKindValidator } from "./model/engineering/validators";
+import { equipKindValidator } from "./schema/engineering";
 import { v } from "convex/values";
 import OpenAI from "openai";
 import { action, env } from "./_generated/server";

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { authedMutation, authedQuery, obrasQuery, staffQuery } from "./lib/rbac";
-import { equipmentStatusValidator } from "./model/engineering/validators";
+import { syncQrProjectId } from "./model/engineering/qrProjectLinks";
+import { equipmentStatusValidator } from "./schema/engineering";
 
 export const get = authedQuery({
   args: { id: v.id("equipment") },
@@ -102,17 +103,7 @@ export const update = authedMutation({
         "projectEquipment",
         args.projectEquipmentId
       );
-      const qrCodes = await ctx.db
-        .query("qrCodes")
-        .withIndex("by_equipment", (q) => q.eq("equipmentId", id))
-        .collect();
-      for (const qr of qrCodes) {
-        if (qr.projectId !== planned?.projectId) {
-          await ctx.db.patch("qrCodes", qr._id, {
-            projectId: planned?.projectId,
-          });
-        }
-      }
+      await syncQrProjectId(ctx, id, planned?.projectId);
     }
 
     return id;

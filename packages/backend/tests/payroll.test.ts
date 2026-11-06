@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { api } from "../convex/_generated/api";
 import { setup, withUser } from "./helpers";
+import { formatPayrollRunLabel } from "@rlpapp/shared/rh/payrollLabels";
 import {
   computePayrollLine,
-  formatPayrollRunLabel,
   loanStatus,
   previousMonth,
 } from "../convex/model/hr/payroll";

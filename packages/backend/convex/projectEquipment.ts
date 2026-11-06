@@ -8,7 +8,7 @@ import {
 import {
   equipKindValidator,
   equipmentStatusValidator,
-} from "./model/engineering/validators";
+} from "./schema/engineering";
 import {
   assignPlannedEquipmentToEnvironment,
   bulkAddPlannedEquipmentToEnvironments,

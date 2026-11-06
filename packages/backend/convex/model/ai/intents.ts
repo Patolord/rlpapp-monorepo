@@ -1,4 +1,4 @@
-import { equipKindValidator } from "../engineering/validators";
+import { equipKindValidator } from "../../schema/engineering";
 import { v, type Infer } from "convex/values";
 import { projectStatus } from "../../schema/engineering";
 import type { Id } from "../../_generated/dataModel";
@@ -209,87 +209,4 @@ export function gridValue(value: number | undefined): number | undefined {
   const n = Math.floor(value);
   if (!Number.isFinite(n) || n < 1) return undefined;
   return n;
-}
-
-// Duplica uma torre com toda a hierarquia. Reaproveitada pelo intent.
-export async function duplicateTowerDeep(
-  ctx: MutationCtx,
-  towerId: Id<"towers">,
-  newName?: string
-): Promise<number> {
-  const tower = await ctx.db.get("towers", towerId);
-  if (!tower) return 0;
-
-  const existing = await ctx.db
-    .query("towers")
-    .withIndex("by_project", (q) => q.eq("projectId", tower.projectId))
-    .collect();
-
-  const newTowerId = await ctx.db.insert("towers", {
-    projectId: tower.projectId,
-    name: newName || `${tower.name} (cópia)`,
-    order: existing.length,
-    createdAt: Date.now(),
-  });
-
-  const floors = await ctx.db
-    .query("floors")
-    .withIndex("by_tower", (q) => q.eq("towerId", towerId))
-    .collect();
-
-  let floorCount = 0;
-  for (const floor of floors) {
-    const newFloorId = await ctx.db.insert("floors", {
-      towerId: newTowerId,
-      projectId: floor.projectId,
-      number: floor.number,
-      label: floor.label,
-      createdAt: Date.now(),
-    });
-    floorCount++;
-
-    const environments = await ctx.db
-      .query("environments")
-      .withIndex("by_floor", (q) => q.eq("floorId", floor._id))
-      .collect();
-    for (const env of environments) {
-      const newEnvId = await ctx.db.insert("environments", {
-        floorId: newFloorId,
-        towerId: newTowerId,
-        projectId: env.projectId,
-        name: env.name,
-        type: env.type,
-        order: env.order,
-        col: env.col,
-        colSpan: env.colSpan,
-        rowSpan: env.rowSpan,
-        segments: env.segments,
-        createdAt: Date.now(),
-      });
-      const items = await ctx.db
-        .query("projectEquipment")
-        .withIndex("by_environment", (q) => q.eq("environmentId", env._id))
-        .collect();
-      for (const item of items) {
-        await ctx.db.insert("projectEquipment", {
-          projectId: item.projectId,
-          environmentId: newEnvId,
-          towerId: newTowerId,
-          floorId: newFloorId,
-          system: item.system,
-          // Mesma obra: a cópia continua pertencendo ao mesmo sistema.
-          systemId: item.systemId,
-          ambiente: item.ambiente,
-          kind: item.kind,
-          modelo: item.modelo,
-          capacidade: item.capacidade,
-          status: "installing",
-          obs: item.obs,
-          deadline: item.deadline,
-        });
-      }
-    }
-  }
-
-  return floorCount;
 }
