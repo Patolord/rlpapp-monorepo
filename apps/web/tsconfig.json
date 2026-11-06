@@ -1,4 +1,6 @@
 {
+  // Não estende @rlpapp/config/tsconfig.base.json: a base liga
+  // noUncheckedIndexedAccess, que o app ainda não adota.
   "include": ["**/*.ts", "**/*.tsx"],
   "compilerOptions": {
     "target": "ES2022",

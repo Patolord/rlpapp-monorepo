@@ -46,6 +46,9 @@ convex/
   shared validators live in `model/<domain>` or `schema/<domain>`. ESLint
   (`no-restricted-imports` in `eslint.config.mjs`) enforces this, and also
   stops `lib/`, `model/`, `schema/` and `gateway/` from importing root files.
+- A model domain may call another domain's functions (inventory uses
+  procurement materials, contracts use engineering projects); keep file
+  imports acyclic.
 - Do not create catch-all `helpers.ts`, `utils.ts`, or shared domain libraries.
 - Keep authentication, authorization, and auditing focused in `lib/`; keep
   business rules in their owning model domain.
@@ -160,13 +163,13 @@ deciding an inventory exception) and routing by principal type (`qr_operator`,
 
 ## Verification
 
-After migrating a domain:
+Before opening a PR that touches `convex/`:
 
 1. Regenerate Convex types with `npx convex dev --once` in an isolated
    development deployment (`CONVEX_AGENT_MODE=anonymous` for agents).
-2. Run `pnpm test`.
-3. Run `pnpm lint`.
-4. Run `pnpm check-types`.
+2. Run `pnpm -F @rlpapp/backend generate:catalog` if public functions or
+   their args changed.
+3. Run `pnpm exec turbo run lint check-types test -F @rlpapp/backend`.
 
 Production deployment is not part of this development workflow.
 

@@ -1,3 +1,6 @@
+// Rotas HTTP do login do RLP Takeoff (troca do código por um token de
+// dispositivo). O fluxo e a criptografia PKCE estão em lib/takeoffAuth.ts; as
+// funções públicas (createCode...) em convex/takeoffAuth.ts.
 import type { HttpRouter } from "convex/server";
 import { internal } from "../_generated/api";
 import { httpAction } from "../_generated/server";
