@@ -26,15 +26,14 @@ import {
 type HistoryRow = FunctionReturnType<typeof api.takeoffSettings.priceHistory>[number];
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const dateShort = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" });
+// records are dated at midnight in Brasília: dates read in that zone wherever the browser is
+const TIME_ZONE = "America/Sao_Paulo";
+const dateShort = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: TIME_ZONE });
+const isoFormat = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: TIME_ZONE });
 const RECENT_ROWS = 5;
 
-const pad = (n: number) => String(n).padStart(2, "0");
-/** Data local no formato do input de data (AAAA-MM-DD). */
-const isoDay = (t: number) => {
-  const d = new Date(t);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-};
+/** Dia em Brasília no formato do input de data (AAAA-MM-DD). */
+const isoDay = (t: number) => isoFormat.format(t);
 
 export function PriceRecords({
   series,

@@ -30,8 +30,9 @@ export const SERIES_COLORS = [
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const brlAxis = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-const dateShort = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" });
-const monthYear = new Intl.DateTimeFormat("pt-BR", { month: "short", year: "2-digit" });
+// prices are dated in Brasília: read the axis and tooltip there too
+const dateShort = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: "America/Sao_Paulo" });
+const monthYear = new Intl.DateTimeFormat("pt-BR", { month: "short", year: "2-digit", timeZone: "America/Sao_Paulo" });
 
 const HEIGHT = 200;
 const M = { top: 12, right: 16, bottom: 26, left: 64 };

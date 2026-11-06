@@ -178,7 +178,7 @@ describe("takeoffSettings", () => {
   });
 
   test("price records: dated, one per day, the latest is published", async () => {
-    const { engineering, hr } = await seedUsers();
+    const { t, engineering, hr } = await seedUsers();
     const record = (date: string, price: number, note?: string) =>
       engineering.mutation(api.takeoffSettings.savePriceRecord, { material: "cobre", date, price, note });
 
@@ -206,6 +206,21 @@ describe("takeoffSettings", () => {
     history = await engineering.query(api.takeoffSettings.priceHistory, {});
     await engineering.mutation(api.takeoffSettings.removePriceRecord, { id: history[0]!.id });
     expect((await engineering.query(api.takeoffSettings.get, {})).basePrices).toEqual({});
+
+    // a day with several points (publications timed by saveBasePrices) keeps only the correction
+    await t.run(async (ctx) => {
+      for (const hour of [13, 18]) {
+        await ctx.db.insert("takeoffPriceHistory", {
+          material: "chapa",
+          price: 9 + hour / 100,
+          recordedAt: Date.parse(`2026-04-02T${hour}:00:00Z`),
+        });
+      }
+    });
+    await engineering.mutation(api.takeoffSettings.savePriceRecord, { material: "chapa", date: "2026-04-02", price: 9.5 });
+    history = await engineering.query(api.takeoffSettings.priceHistory, {});
+    expect(history.filter((p) => p.material === "chapa").map((p) => p.price)).toEqual([9.5]);
+    expect((await engineering.query(api.takeoffSettings.get, {})).basePrices).toEqual({ chapa: 9.5 });
 
     await expect(record("2999-01-01", 100)).rejects.toThrow(/futuro/);
     await expect(record("2026-02-30", 100)).rejects.toThrow(/Data inválida/);

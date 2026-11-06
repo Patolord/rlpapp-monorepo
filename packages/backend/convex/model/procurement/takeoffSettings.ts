@@ -381,14 +381,15 @@ export function sanitizePriceNote(note: string | undefined): string | undefined 
 
 /**
  * Records the price of a base material on a day: one record per material and day, so a second
- * record on the same day corrects the first. Returns the record id.
+ * record on the same day corrects the first (and drops any other point of that day, such as
+ * publications timed by `saveBasePrices`). Returns the record id.
  */
 export async function upsertTakeoffPriceRecord(
   ctx: MutationCtx,
   record: { material: string; recordedAt: number; price: number; note?: string },
   userId: Id<"users">
 ): Promise<Id<"takeoffPriceHistory">> {
-  const sameDay = await ctx.db
+  const [sameDay, ...extra] = await ctx.db
     .query("takeoffPriceHistory")
     .withIndex("by_material_recordedAt", (q) =>
       q
@@ -396,7 +397,8 @@ export async function upsertTakeoffPriceRecord(
         .gte("recordedAt", record.recordedAt)
         .lt("recordedAt", record.recordedAt + DAY_MS)
     )
-    .first();
+    .take(50);
+  for (const row of extra) await ctx.db.delete("takeoffPriceHistory", row._id);
   const fields = {
     material: record.material,
     price: record.price,
