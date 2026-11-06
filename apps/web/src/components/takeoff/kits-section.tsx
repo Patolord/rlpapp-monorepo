@@ -1,12 +1,10 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { createFileRoute } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
-import { Copy, Download, Monitor, Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, Download, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { AuthShell } from "@/components/auth-shell";
 import { type KitDraft, KitFormDialog, emptyKitDraft } from "@/components/takeoff/kit-form-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,13 +21,6 @@ import { getErrorMessage } from "@/lib/errors";
 
 type KitRow = FunctionReturnType<typeof api.takeoffKits.list>[number];
 
-export const Route = createFileRoute("/takeoff/_painel/kits")({
-  component: () => (
-    <AuthShell>
-      <KitsPage />
-    </AuthShell>
-  ),
-});
 
 /** "Tubulação de Cobre 1/4" · … · Cabo PP 5x1,5 mm² ×2", como no app. */
 function summary(kit: KitRow): string {
@@ -46,7 +37,8 @@ function summary(kit: KitRow): string {
 
 const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
-function KitsPage() {
+/** Kits (presets) padrão da empresa para a ferramenta Kit (T) do app: lista, edição e kits de fábrica. */
+export function KitsSection() {
   const kits = useQuery(api.takeoffKits.list, {});
   const remove = useMutation(api.takeoffKits.remove);
   const seedDefaults = useMutation(api.takeoffKits.seedDefaults);
@@ -103,49 +95,34 @@ function KitsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Kits (presets)</h1>
-          <p className="text-sm text-muted-foreground">
-            Padrões da empresa para a ferramenta Kit (T) do RLP Takeoff: um trecho desenhado ou um
-            clique mede vários materiais de uma vez.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {missingFactory > 0 && (
-            <Button variant="outline" onClick={() => void loadFactory()} disabled={busy}>
-              <Download className="size-4" />
-              Carregar kits de fábrica ({missingFactory})
-            </Button>
-          )}
-          <Button onClick={() => setDraft(emptyKitDraft())}>
-            <Plus className="size-4" /> Novo kit
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex gap-3 rounded-lg border border-status-info/30 bg-card px-4 py-3 text-sm">
-        <Monitor className="mt-0.5 size-4 shrink-0 text-status-info" />
-        <p>
-          <span className="font-medium">Reflete no app desktop de todos os usuários.</span> O RLP
-          Takeoff recebe estes kits junto com o catálogo (ao abrir, ao entrar com a conta e em
-          &ldquo;Atualizar catálogo&rdquo;) e os usa como padrão. Cada usuário pode editar, remover
-          ou criar kits no próprio computador; o que ele alterou lá não é substituído por mudanças
-          feitas aqui, e um kit que ele não mexeu segue sempre esta versão.
-        </p>
-      </div>
-
+    <>
       <Card>
         <CardHeader>
-          <CardTitle>Kits padrão da empresa</CardTitle>
-          <CardDescription>
-            {kits === undefined
-              ? "Carregando…"
-              : kits.length === 0
-                ? "Nenhum kit publicado: o app usa os kits de fábrica embutidos nele. Carregue-os aqui para passar a editá-los."
-                : `${kits.length} ${kits.length === 1 ? "kit publicado" : "kits publicados"} ao app.`}
-          </CardDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle>Presets (kits)</CardTitle>
+              <CardDescription>
+                Ferramenta Kit (T): um trecho desenhado ou um clique mede vários materiais de uma
+                vez. Cada kit é salvo ao confirmar o formulário.{" "}
+                {kits === undefined
+                  ? "Carregando…"
+                  : kits.length === 0
+                    ? "Nenhum kit publicado: o app usa os kits de fábrica embutidos nele."
+                    : `${kits.length} ${kits.length === 1 ? "kit publicado" : "kits publicados"}.`}
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              {missingFactory > 0 && (
+                <Button variant="outline" onClick={() => void loadFactory()} disabled={busy}>
+                  <Download className="size-4" />
+                  Carregar kits de fábrica ({missingFactory})
+                </Button>
+              )}
+              <Button onClick={() => setDraft(emptyKitDraft())}>
+                <Plus className="size-4" /> Novo kit
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -218,7 +195,7 @@ function KitsPage() {
       </Card>
 
       <KitFormDialog draft={draft} onClose={() => setDraft(null)} />
-    </div>
+    </>
   );
 }
 

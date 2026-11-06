@@ -35,8 +35,7 @@ import {
   Bot,
   Clock,
   House,
-  Layers,
-  Scale,
+  Wind,
   SlidersHorizontal,
   Snowflake,
   type LucideIcon,
@@ -146,10 +145,9 @@ function getNavGroups(): NavGroup[] {
       key: "takeoff",
       label: "App Takeoff",
       items: [
-        { to: "/takeoff/kits", label: "Kits (presets)", icon: Layers },
-        { to: "/takeoff/pesos", label: "Pesos e insumos", icon: Scale },
-        { to: "/takeoff/vrf", label: "Marcas VRF", icon: Snowflake },
-        { to: "/takeoff/parametros", label: "Parâmetros", icon: SlidersHorizontal },
+        { to: "/takeoff/dutos", label: "Dutos", icon: Wind },
+        { to: "/takeoff/vrf", label: "VRF", icon: Snowflake },
+        { to: "/takeoff/gerais", label: "Gerais e presets", icon: SlidersHorizontal },
       ],
     },
     {

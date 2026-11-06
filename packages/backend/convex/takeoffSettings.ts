@@ -1,4 +1,7 @@
+import { BASE_MATERIALS, type BasePrices } from "@rlpapp/shared/takeoff/weights";
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
+import { internalMutation } from "./_generated/server";
 import { logAudit } from "./lib/audit";
 import {
   engineeringOrPurchasingQuery,
@@ -11,6 +14,7 @@ import {
   getTakeoffSetting,
   listPublishedTakeoffSettings,
   putTakeoffSetting,
+  recordTakeoffPriceChanges,
   sanitizeTakeoffBasePrices,
   sanitizeTakeoffDuctNormas,
   sanitizeTakeoffLabor,
@@ -104,6 +108,13 @@ export const saveBasePrices = takeoffConfigMutation({
   handler: async (ctx, { prices }) => {
     const clean = { prices: sanitizeTakeoffBasePrices(prices) };
     const { id, before } = await putTakeoffSetting(ctx, "basePrices", clean, ctx.user._id);
+    await recordTakeoffPriceChanges(
+      ctx,
+      before?.prices ?? null,
+      clean.prices,
+      ctx.user._id,
+      Date.now()
+    );
     await logAudit(ctx, ctx.user, {
       action: before ? "update" : "create",
       tableName: "takeoffSettings",
@@ -113,6 +124,99 @@ export const saveBasePrices = takeoffConfigMutation({
       snapshotAfter: clean,
     });
     return null;
+  },
+});
+
+/** Pontos devolvidos por insumo no histórico (os mais recentes). */
+const PRICE_HISTORY_LIMIT = 200;
+
+/**
+ * Histórico dos preços por kg publicados, por insumo e em ordem cronológica:
+ * cada ponto vale até o seguinte (`price` nulo = sem preço publicado, o app
+ * usa o padrão do fornecedor). Alimenta os gráficos de variação.
+ */
+export const priceHistory = engineeringOrPurchasingQuery({
+  args: {},
+  returns: v.array(
+    v.object({
+      material: v.string(),
+      price: v.union(v.number(), v.null()),
+      recordedAt: v.number(),
+      recordedBy: v.union(v.string(), v.null()),
+    })
+  ),
+  handler: async (ctx) => {
+    const names = new Map<Id<"users">, string | null>();
+    const nameOf = async (userId: Id<"users"> | undefined) => {
+      if (!userId) return null;
+      if (!names.has(userId)) {
+        names.set(userId, (await ctx.db.get("users", userId))?.name ?? null);
+      }
+      return names.get(userId) ?? null;
+    };
+    const out = [];
+    for (const { key } of BASE_MATERIALS) {
+      const rows = await ctx.db
+        .query("takeoffPriceHistory")
+        .withIndex("by_material_recordedAt", (q) => q.eq("material", key))
+        .order("desc")
+        .take(PRICE_HISTORY_LIMIT);
+      for (const row of rows.reverse()) {
+        out.push({
+          material: row.material,
+          price: row.price,
+          recordedAt: row.recordedAt,
+          recordedBy: await nameOf(row.recordedByUserId),
+        });
+      }
+    }
+    return out;
+  },
+});
+
+/**
+ * Backfill único do histórico de preços por kg a partir do log de auditoria
+ * das publicações anteriores à tabela `takeoffPriceHistory`. Não faz nada se
+ * o histórico já tem pontos. Rodar uma vez por deployment:
+ * `npx convex run takeoffSettings:backfillPriceHistory`.
+ */
+export const backfillPriceHistory = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    if (await ctx.db.query("takeoffPriceHistory").first()) return 0;
+    const setting = await getTakeoffSetting(ctx, "basePrices");
+    if (!setting) return 0;
+    const logs = await ctx.db
+      .query("auditLogs")
+      .withIndex("by_record", (q) =>
+        q.eq("tableName", "takeoffSettings").eq("recordId", setting._id)
+      )
+      .take(1000);
+    let previous: BasePrices | null = null;
+    let recorded = 0;
+    for (const log of logs) {
+      if (!log.snapshotAfter) continue;
+      let prices: BasePrices;
+      try {
+        prices = (JSON.parse(log.snapshotAfter) as { prices?: BasePrices }).prices ?? {};
+      } catch {
+        continue;
+      }
+      recorded += await recordTakeoffPriceChanges(ctx, previous, prices, log.userId, log.createdAt);
+      previous = prices;
+    }
+    // sem auditoria (ou incompleta): o preço em vigor entra na data da última publicação
+    if (setting.updatedByUserId) {
+      recorded += await recordTakeoffPriceChanges(
+        ctx,
+        previous,
+        setting.prices,
+        setting.updatedByUserId,
+        setting.updatedAt
+      );
+    }
+    return recorded;
   },
 });
 

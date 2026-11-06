@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { DEFAULT_DUCT_NORMAS } from "@rlpapp/shared/engenharia/ducts";
 import { SEED_BRANDS } from "@rlpapp/shared/takeoff/vrfBrands";
 import { SEED_WEIGHTS } from "@rlpapp/shared/takeoff/weights";
-import { api } from "../convex/_generated/api";
+import { api, internal } from "../convex/_generated/api";
 import {
   listPublishedTakeoffSettings,
   sanitizeTakeoffBasePrices,
@@ -132,6 +132,49 @@ describe("takeoffSettings", () => {
     await expect(
       hr.mutation(api.takeoffSettings.saveBasePrices, { prices: { cobre: 1 } })
     ).rejects.toThrow();
+  });
+
+  test("publishing prices per kg records one history point per changed material", async () => {
+    const { engineering, hr } = await seedUsers();
+    expect(await engineering.query(api.takeoffSettings.priceHistory, {})).toEqual([]);
+    await engineering.mutation(api.takeoffSettings.saveBasePrices, { prices: { cobre: 120, chapa: 9 } });
+    // same values again: nothing new
+    await engineering.mutation(api.takeoffSettings.saveBasePrices, { prices: { cobre: 120, chapa: 9 } });
+    await engineering.mutation(api.takeoffSettings.saveBasePrices, {
+      prices: { cobre: 128, cobre_grosso: 135 },
+    });
+    const history = await engineering.query(api.takeoffSettings.priceHistory, {});
+    expect(history.map((p) => [p.material, p.price])).toEqual([
+      ["cobre", 120],
+      ["cobre", 128],
+      ["cobre_grosso", 135],
+      ["chapa", 9],
+      ["chapa", null],
+    ]);
+    expect(history.every((p) => p.recordedBy === "Engenharia")).toBe(true);
+    const copper = history.filter((p) => p.material === "cobre");
+    expect(copper[0]!.recordedAt).toBeLessThanOrEqual(copper[1]!.recordedAt);
+    await expect(hr.query(api.takeoffSettings.priceHistory, {})).rejects.toThrow();
+  });
+
+  test("backfill rebuilds the price history from the audit log, once", async () => {
+    const { t, engineering } = await seedUsers();
+    await engineering.mutation(api.takeoffSettings.saveBasePrices, { prices: { cobre: 110 } });
+    await engineering.mutation(api.takeoffSettings.saveBasePrices, { prices: { cobre: 118, chapa: 8 } });
+    // as before the history table existed
+    await t.run(async (ctx) => {
+      for (const row of await ctx.db.query("takeoffPriceHistory").collect()) {
+        await ctx.db.delete("takeoffPriceHistory", row._id);
+      }
+    });
+    expect(await t.mutation(internal.takeoffSettings.backfillPriceHistory, {})).toBe(3);
+    const history = await engineering.query(api.takeoffSettings.priceHistory, {});
+    expect(history.map((p) => [p.material, p.price])).toEqual([
+      ["cobre", 110],
+      ["cobre", 118],
+      ["chapa", 8],
+    ]);
+    expect(await t.mutation(internal.takeoffSettings.backfillPriceHistory, {})).toBe(0);
   });
 
   test("labour and duct normas: saved whole, validated, seeded from the workbook", async () => {

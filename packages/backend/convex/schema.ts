@@ -1093,6 +1093,17 @@ export default defineSchema({
     )
   ).index("by_kind", ["kind"]),
 
+  // Histórico dos preços por kg publicados em `takeoffSettings` (basePrices):
+  // um ponto por insumo cada vez que o preço dele muda. `price` nulo = o preço
+  // foi apagado e o app voltou ao padrão do fornecedor. Alimenta os gráficos
+  // de variação em App Takeoff → Gerais.
+  takeoffPriceHistory: defineTable({
+    material: v.string(),
+    price: v.union(v.number(), v.null()),
+    recordedAt: v.number(),
+    recordedByUserId: v.optional(v.id("users")),
+  }).index("by_material_recordedAt", ["material", "recordedAt"]),
+
   takeoffs: defineTable({
     projectId: v.optional(v.id("projects")),
     name: v.string(),
