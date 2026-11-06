@@ -1,5 +1,5 @@
 import { equipKindValidator } from "../engineering/validators";
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { projectStatus } from "../../schema/engineering";
 import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
@@ -7,7 +7,7 @@ import type { MutationCtx } from "../../_generated/server";
 /**
  * Intents da IA. A IA NUNCA escreve no banco diretamente: ela apenas produz
  * estes intents (JSON estruturado). O usuário revisa o preview e, ao confirmar,
- * a mutation `applyIntents` os executa via as funções CRUD existentes.
+ * a mutation `applyIntents` os executa (`applyAiIntents`) via as funções CRUD existentes.
  *
  * Entidades são referenciadas por NOME dentro da obra (torre/andar/ambiente),
  * permitindo que a IA encadeie criação + povoamento numa única proposta.
@@ -124,6 +124,17 @@ export const aiIntentValidator = v.union(
   })
 );
 
+export type AiIntent = Infer<typeof aiIntentValidator>;
+export type AiIntentOf<T extends AiIntent["type"]> = Extract<AiIntent, { type: T }>;
+
+/** Estado compartilhado entre os intents de uma mesma batch. */
+export type ApplyIntentsState = {
+  projectId: Id<"projects">;
+  towerCache: Map<string, Id<"towers">>;
+  summary: string[];
+  applied: number;
+};
+
 export const norm = (s: string) => s.trim().toLowerCase();
 
 /** Resolve uma torre por nome (case-insensitive), com cache da batch. */
@@ -146,6 +157,22 @@ export async function resolveTower(
     return match._id;
   }
   return null;
+}
+
+/** Como `resolveTower`, mas registra "Torre não encontrada" no resumo. */
+export async function resolveTowerOrReport(
+  ctx: MutationCtx,
+  state: ApplyIntentsState,
+  towerName: string
+): Promise<Id<"towers"> | null> {
+  const towerId = await resolveTower(
+    ctx,
+    state.projectId,
+    state.towerCache,
+    towerName
+  );
+  if (!towerId) state.summary.push(`Torre "${towerName}" não encontrada`);
+  return towerId;
 }
 
 export async function resolveFloor(

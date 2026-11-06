@@ -6,9 +6,10 @@ import type { MutationCtx, QueryCtx } from "../../_generated/server";
 /**
  * Pensão alimentícia: cadastro por funcionário e linhas mensais da folha.
  *
- * Helpers compartilhados entre `alimonies.ts` (cadastro e linhas) e a folha
- * (`payrollRuns.ts`, `payrollLines.ts`, `payrollWorkspace.ts`: abertura da
- * competência, inclusão de funcionário e workspace). Nada aqui recalcula a
+ * Validadores, leituras e helpers compartilhados entre `alimonyMutations.ts`
+ * (cadastro e linhas) e a folha (`payrollRuns.ts`, `payrollLines.ts`,
+ * `payrollWorkspace.ts`: abertura da competência, inclusão de funcionário e
+ * workspace). Nada aqui recalcula a
  * linha do funcionário: a pensão é paga ao beneficiário em linha própria.
  */
 
@@ -160,4 +161,33 @@ export function alimonyLabel(
   return employee
     ? `${alimony.beneficiaryName} (pensão de ${employee.name})`
     : alimony.beneficiaryName;
+}
+
+/** Pensões do funcionário em ordem de beneficiário (encerradas só se pedidas). */
+export async function listEmployeeAlimonies(
+  ctx: QueryCtx,
+  input: { employeeId: Id<"employees">; includeArchived?: boolean }
+) {
+  const rows = await ctx.db
+    .query("employeeAlimonies")
+    .withIndex("by_employee", (q) => q.eq("employeeId", input.employeeId))
+    .collect();
+  return rows
+    .filter((row) => input.includeArchived || !row.archivedAt)
+    .sort((a, b) => a.beneficiaryName.localeCompare(b.beneficiaryName, "pt-BR"))
+    .map(toAlimonyRow);
+}
+
+/** Linhas de pensão de uma folha, em ordem de beneficiário. */
+export async function listRunAlimonyLines(
+  ctx: QueryCtx,
+  runId: Id<"payrollRuns">
+) {
+  const lines = await ctx.db
+    .query("payrollAlimonyLines")
+    .withIndex("by_run", (q) => q.eq("runId", runId))
+    .collect();
+  return lines
+    .sort((a, b) => a.beneficiaryName.localeCompare(b.beneficiaryName, "pt-BR"))
+    .map(toAlimonyLineRow);
 }
