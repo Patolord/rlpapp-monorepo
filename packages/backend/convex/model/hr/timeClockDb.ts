@@ -1,7 +1,7 @@
 /**
- * Acesso a dados do módulo de ponto, usado pelas queries/mutations de
- * `convex/timeClock.ts` (painel do RH) e `convex/timeClockPunch.ts` (marcação
- * pelo app).
+ * Acesso a dados do módulo de ponto, usado pelo painel do RH
+ * (`timeClockPresence.ts` e `timeClockSettings.ts`, por trás de
+ * `convex/timeClock.ts`) e por `convex/timeClockPunch.ts` (marcação pelo app).
  */
 
 import type { Doc, Id } from "../../_generated/dataModel";
@@ -110,6 +110,11 @@ export async function listClockUsers(ctx: Ctx): Promise<Doc<"users">[]> {
   return users
     .filter((user) => hasPermission(user, "ponto.registrar"))
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+}
+
+/** Login exibido no painel: usuário (app) ou, na falta, e-mail. */
+export function loginOf(user: Doc<"users"> | null | undefined): string | null {
+  return user?.username ?? user?.email ?? null;
 }
 
 // ---------------------------------------------------------------------------

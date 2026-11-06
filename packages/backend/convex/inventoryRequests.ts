@@ -9,7 +9,7 @@ import {
   materialRequestsMutation,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
-import { findInventoryLocation } from "./model/inventory/operations";
+import { findInventoryLocation } from "./model/inventory/locations";
 import {
   MAX_INVENTORY_REQUEST_LINES,
   canReviewMaterialRequests,

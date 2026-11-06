@@ -6,7 +6,8 @@ import {
   resolveProjectByIdentifier,
 } from "../engineering/projects";
 import { hasPermission } from "../../lib/rbac";
-import { createAndPostConsumption, findInventoryLocation } from "./operations";
+import { findInventoryLocation } from "./locations";
+import { createAndPostConsumption, postInventoryDocument } from "./posting";
 
 export { resolveProjectByIdentifier };
 
@@ -238,6 +239,37 @@ export async function fulfillInventoryRequest(
     tableName: "inventoryRequests",
     recordId: input.requestId,
   });
+}
+
+/**
+ * Conclui uma movimentação; com `requestId`, também marca o pedido de
+ * material como enviado por ela (idempotente se a movimentação já foi
+ * concluída).
+ */
+export async function postInventoryDocumentForRequest(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  input: {
+    documentId: Id<"inventoryDocuments">;
+    requestId?: Id<"inventoryRequests">;
+  }
+): Promise<void> {
+  if (input.requestId) {
+    const document = await ctx.db.get(
+      "inventoryDocuments",
+      input.documentId
+    );
+    if (!document) throw new Error("Movimentação não encontrada");
+    if (document.status !== "posted") {
+      await postInventoryDocument(ctx, user, input.documentId);
+    }
+    await fulfillInventoryRequest(ctx, user, {
+      requestId: input.requestId,
+      documentId: input.documentId,
+    });
+    return;
+  }
+  await postInventoryDocument(ctx, user, input.documentId);
 }
 
 export async function sentAndConsumedByMaterial(

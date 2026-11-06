@@ -1,6 +1,33 @@
+import type { Infer } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { logAudit } from "../../lib/audit";
+import type { inventoryCompatibilityRuleType } from "../../schema/inventory";
 import { normalizeText } from "../procurement/pricing";
+
+/**
+ * Regras de compatibilidade entre materiais (cadastro e avaliação). Uma
+ * transferência com incompatibilidade fica pendente de aprovação do
+ * engenheiro da obra (`documents.ts`).
+ */
+
+export type CompatibilityRuleType = Infer<typeof inventoryCompatibilityRuleType>;
+
+export type CreateCompatibilityRuleInput = {
+  type: CompatibilityRuleType;
+  name: string;
+  materialAId?: Id<"materials">;
+  materialBId?: Id<"materials">;
+  categoryA?: string;
+  categoryB?: string;
+  attributeKey?: string;
+  message: string;
+};
+
+export type SetCompatibilityRuleActiveInput = {
+  ruleId: Id<"inventoryCompatibilityRules">;
+  active: boolean;
+};
 
 export type CompatibilityIssue = {
   ruleId: Id<"inventoryCompatibilityRules">;
@@ -104,4 +131,103 @@ export async function evaluateCompatibility(
   }
 
   return issues;
+}
+
+export async function listCompatibilityRules(ctx: QueryCtx) {
+  const rules = await ctx.db
+    .query("inventoryCompatibilityRules")
+    .order("desc")
+    .take(500);
+  return await Promise.all(
+    rules.map(async (rule) => {
+      const [materialA, materialB] = await Promise.all([
+        rule.materialAId
+          ? ctx.db.get("materials", rule.materialAId)
+          : null,
+        rule.materialBId
+          ? ctx.db.get("materials", rule.materialBId)
+          : null,
+      ]);
+      return {
+        _id: rule._id,
+        type: rule.type,
+        name: rule.name,
+        materialAId: rule.materialAId ?? null,
+        materialAName: materialA?.name ?? null,
+        materialBId: rule.materialBId ?? null,
+        materialBName: materialB?.name ?? null,
+        categoryA: rule.categoryA ?? null,
+        categoryB: rule.categoryB ?? null,
+        attributeKey: rule.attributeKey ?? null,
+        message: rule.message,
+        active: rule.active,
+      };
+    })
+  );
+}
+
+export async function createCompatibilityRule(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  input: CreateCompatibilityRuleInput
+): Promise<Id<"inventoryCompatibilityRules">> {
+  const name = input.name.trim();
+  const message = input.message.trim();
+  const categoryA = input.categoryA?.trim();
+  const categoryB = input.categoryB?.trim();
+  const attributeKey = input.attributeKey?.trim().toLocaleLowerCase("pt-BR");
+  if (!name || !message) {
+    throw new Error("Informe o nome e a mensagem da regra");
+  }
+  if ((!input.materialAId && !categoryA) || (!input.materialBId && !categoryB)) {
+    throw new Error("Defina os dois lados da regra");
+  }
+  if (input.type === "attributes_must_match" && !attributeKey) {
+    throw new Error("Informe o atributo que deve coincidir");
+  }
+
+  const now = Date.now();
+  const ruleId = await ctx.db.insert("inventoryCompatibilityRules", {
+    type: input.type,
+    name,
+    materialAId: input.materialAId,
+    materialBId: input.materialBId,
+    categoryA: categoryA || undefined,
+    categoryB: categoryB || undefined,
+    attributeKey:
+      input.type === "attributes_must_match" ? attributeKey : undefined,
+    message,
+    active: true,
+    createdByUserId: user._id,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await logAudit(ctx, user, {
+    action: "create",
+    tableName: "inventoryCompatibilityRules",
+    recordId: ruleId,
+    details: name,
+  });
+  return ruleId;
+}
+
+export async function setCompatibilityRuleActive(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  input: SetCompatibilityRuleActiveInput
+): Promise<void> {
+  const rule = await ctx.db.get(
+    "inventoryCompatibilityRules",
+    input.ruleId
+  );
+  if (!rule) throw new Error("Regra não encontrada");
+  await ctx.db.patch("inventoryCompatibilityRules", input.ruleId, {
+    active: input.active,
+    updatedAt: Date.now(),
+  });
+  await logAudit(ctx, user, {
+    action: input.active ? "activate" : "deactivate",
+    tableName: "inventoryCompatibilityRules",
+    recordId: input.ruleId,
+  });
 }

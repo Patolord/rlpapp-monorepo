@@ -13,7 +13,7 @@ import {
   getStockPolicy,
   upsertStockPolicyInternal,
 } from "./model/inventory/stockPolicy";
-import { getOrCreateCentralLocation } from "./model/inventory/operations";
+import { getOrCreateCentralLocation } from "./model/inventory/locations";
 
 const stockPolicyRowValidator = v.object({
   _id: v.id("inventoryStockPolicies"),

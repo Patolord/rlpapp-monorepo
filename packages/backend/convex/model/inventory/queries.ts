@@ -1,5 +1,14 @@
+import type { PaginationOptions } from "convex/server";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
+import { hasRole } from "../../lib/rbac";
+import { canViewCentralInventory } from "./stockPolicy";
+
+export type ListInventoryDocumentsInput = {
+  status?: Doc<"inventoryDocuments">["status"];
+  projectId?: Id<"projects">;
+  paginationOpts: PaginationOptions;
+};
 
 async function materialName(
   ctx: QueryCtx,
@@ -289,6 +298,59 @@ export async function listProjectInventorySummaries(ctx: QueryCtx) {
         returnCount: posted.filter((document) => document.type === "return")
           .length,
       };
+    })
+  );
+}
+
+/**
+ * Movimentações paginadas da tela de estoque. Sem acesso ao central (ou com
+ * obra escolhida), só entram movimentações de obra.
+ */
+export async function listInventoryDocuments(
+  ctx: QueryCtx,
+  user: Doc<"users">,
+  input: ListInventoryDocumentsInput
+) {
+  const results = await paginateInventoryDocuments(ctx, {
+    status: input.status,
+    projectId: input.projectId,
+    numItems: input.paginationOpts.numItems,
+    cursor: input.paginationOpts.cursor,
+    projectOnly: input.projectId
+      ? true
+      : !canViewCentralInventory(user),
+  });
+  return {
+    ...results,
+    page: await Promise.all(
+      results.page.map(async (document) => {
+        return await enrichInventoryDocument(ctx, document);
+      })
+    ),
+  };
+}
+
+/** Exceções pendentes nas obras de que o usuário é o engenheiro responsável. */
+export async function listPendingInventoryApprovals(
+  ctx: QueryCtx,
+  user: Doc<"users">
+) {
+  // Só o engenheiro responsável decide (canDecideInventoryException).
+  if (!hasRole(user, "engenheiro")) return [];
+  const pending = await ctx.db
+    .query("inventoryDocuments")
+    .withIndex("by_status", (q) => q.eq("status", "pending_approval"))
+    .order("desc")
+    .take(100);
+  const mine: Doc<"inventoryDocuments">[] = [];
+  for (const document of pending) {
+    if (!document.projectId) continue;
+    const project = await ctx.db.get("projects", document.projectId);
+    if (project?.responsibleId === user._id) mine.push(document);
+  }
+  return await Promise.all(
+    mine.map(async (document) => {
+      return await enrichInventoryDocument(ctx, document);
     })
   );
 }

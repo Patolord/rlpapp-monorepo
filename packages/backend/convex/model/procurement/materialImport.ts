@@ -2,10 +2,8 @@ import type { Infer } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
-import {
-  createInventoryDocument,
-  postInventoryDocument,
-} from "../inventory/operations";
+import { createInventoryDocument } from "../inventory/documents";
+import { postInventoryDocument } from "../inventory/posting";
 import {
   emptyBulkImportResult,
   requireTrimmedName,
