@@ -1,5 +1,11 @@
 import { groupKey } from "../lib/budgetOrder";
-import { type CatalogEntry, kindForUnit, mergeCatalog, normalizeDiscipline } from "../lib/catalog";
+import {
+  type CatalogEntry,
+  kindForUnit,
+  kitComponentEntry,
+  mergeCatalog,
+  normalizeDiscipline,
+} from "../lib/catalog";
 import {
   type Clipboard,
   type CloneTarget,
@@ -444,12 +450,27 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
       let items = p.items;
       const measurements = [...p.measurements];
       for (const c of kit.components) {
-        let item = items.find((i) => i.kind === c.kind && foldName(i.name) === foldName(c.name));
+        // a component with a catalog code is that material, under the name the catalog gives it
+        const cat = kitComponentEntry(catalog, entries, c);
+        const name = cat?.catalogId && c.sku ? cat.name : c.name;
+        let item = items.find(
+          (i) =>
+            i.kind === c.kind &&
+            ((cat?.catalogId && c.sku && i.catalogId === cat.catalogId) ||
+              foldName(i.name) === foldName(name)),
+        );
+        if (item && !item.catalogId && cat?.catalogId && c.sku) {
+          // a line of this name with no link (typed by hand, or from a kit without codes) is
+          // the coded material: link it, keeping the price this takeoff has (the items list
+          // shows when it differs from the catalog's)
+          const linked: Item = { ...item, catalogId: cat.catalogId };
+          items = items.map((i) => (i.id === linked.id ? linked : i));
+          item = linked;
+        }
         if (!item) {
-          const cat = entries.find((e) => foldName(e.name) === foldName(c.name));
           item = {
             id: newId(),
-            name: c.name,
+            name,
             kind: c.kind,
             color: ITEM_COLORS[items.length % ITEM_COLORS.length],
             group: c.group || cat?.group || DEFAULT_GROUP,
@@ -458,7 +479,7 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
             wastePct: 0,
             ...priceSnapshot(cat),
             system: normalizeDiscipline(c.system || cat?.system) ?? p.system,
-            symbol: c.kind === "count" ? guessSymbol(c.name) : undefined,
+            symbol: c.kind === "count" ? guessSymbol(name) : undefined,
             // a click kit's linear factor is the length per click, kept on the measurement
             factor: c.factor !== 1 && !(byClick && c.kind === "linear") ? c.factor : undefined,
           };

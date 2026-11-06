@@ -22,7 +22,7 @@ import { getErrorMessage } from "@/lib/errors";
 type KitRow = FunctionReturnType<typeof api.takeoffKits.list>[number];
 
 
-/** "Cobre de 1/4" · Cobre de 3/8" · Cabo PP 5 x 1,5 mm² ×2", como no app. */
+/** "Tubulação de Cobre 1/4" · … · Cabo PP 5x1,5 mm² ×2", como no app. */
 function summary(kit: KitRow): string {
   return kit.components
     .map((c) =>
@@ -132,6 +132,7 @@ export function KitsSection() {
                 <TableHead>Tipo</TableHead>
                 <TableHead>Rótulo</TableHead>
                 <TableHead>Componentes</TableHead>
+                <TableHead title="Componentes com código MAT do catálogo de compras">Catálogo</TableHead>
                 <TableHead>Atualizado</TableHead>
                 <TableHead />
               </TableRow>
@@ -153,6 +154,9 @@ export function KitsSection() {
                   <TableCell className="font-mono text-xs">{kit.label ?? "—"}</TableCell>
                   <TableCell className="max-w-md truncate text-xs text-muted-foreground" title={summary(kit)}>
                     {summary(kit)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-xs">
+                    <LinkedCount kit={kit} />
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {dateFormat.format(kit.updatedAt)}
@@ -180,7 +184,7 @@ export function KitsSection() {
               ))}
               {kits && kits.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                     Nenhum kit cadastrado.
                   </TableCell>
                 </TableRow>
@@ -192,5 +196,19 @@ export function KitsSection() {
 
       <KitFormDialog draft={draft} onClose={() => setDraft(null)} />
     </>
+  );
+}
+
+/** Quantos componentes do kit têm código do catálogo de compras ("3/5"). */
+function LinkedCount({ kit }: { kit: KitRow }) {
+  const linked = kit.components.filter((c) => c.sku).length;
+  const total = kit.components.length;
+  const title = kit.components
+    .map((c) => `${c.sku ?? "próprio"} · ${c.name}`)
+    .join("\n");
+  return (
+    <Badge variant={linked === total ? "success" : linked === 0 ? "muted" : "warning"} title={title}>
+      {linked}/{total}
+    </Badge>
   );
 }

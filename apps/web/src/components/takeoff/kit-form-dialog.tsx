@@ -1,5 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
+import { catalogProductName, sortKitComponents } from "@rlpapp/shared/takeoff/kitCatalog";
 import type { KitComponent, KitMode } from "@rlpapp/shared/takeoff/kits";
 import { useMutation, useQuery } from "convex/react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
@@ -77,11 +78,22 @@ const KIND_LABEL: Record<KitMode, Record<KitComponent["kind"], string>> = {
   count: { count: "contagem (pç)", linear: "linear (m por clique)", area: "área (m²)" },
 };
 
+/** Chave de comparação de nomes: sem acentos, minúsculas, espaços simples. */
+const foldName = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
 /**
- * Cria ou edita um kit padrão da empresa. Os nomes dos componentes são os do
- * catálogo que o app desktop monta (produto da empresa "família — variante",
- * ou um material das planilhas antigas embutidas no app); o app busca preço,
- * grupo e disciplina pelo nome ao criar os itens.
+ * Cria ou edita um kit padrão da empresa. Escolher um material do catálogo de
+ * compras ("família — variante") grava o código MAT dele no componente: o app
+ * desktop liga o item àquele material (preço e cotação) mesmo que o nome mude
+ * depois. Um nome fora do catálogo é um item próprio, sem código, que o app
+ * busca pelo nome. Ao salvar, cobre, isolamento e cabo ficam nessa ordem, por
+ * bitola crescente.
  */
 export function KitFormDialog({
   draft,
@@ -102,15 +114,31 @@ export function KitFormDialog({
     }
   }, [draft]);
 
-  // nomes como o app desktop os vê: "família — variante" para materiais com variante
-  const names = useMemo(() => {
+  // nomes como o app desktop os vê: "família — variante" para materiais com variante,
+  // e o código de cada um (o primeiro, se dois materiais tiverem o mesmo nome)
+  const { names, skuByName, nameBySku } = useMemo(() => {
+    const skuByName = new Map<string, string>();
+    const nameBySku = new Map<string, string>();
     const out = new Set<string>();
     for (const item of catalog?.items ?? []) {
       if (item.status === "archived") continue;
-      out.add(item.variant ? `${item.name} — ${item.variant}` : item.name);
+      const name = catalogProductName(item);
+      out.add(name);
+      if (item.sku) {
+        const key = foldName(name);
+        if (!skuByName.has(key)) skuByName.set(key, item.sku);
+        nameBySku.set(item.sku.toUpperCase(), name);
+      }
     }
-    return [...out].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    return {
+      names: [...out].sort((a, b) => a.localeCompare(b, "pt-BR")),
+      skuByName,
+      nameBySku,
+    };
   }, [catalog]);
+  /** O nome escolhido decide o código: o do material do catálogo, nenhum num item próprio. */
+  const setComponentName = (i: number, name: string) =>
+    updateComp(i, { name, sku: skuByName.get(foldName(name)) });
 
   const update = (patch: Partial<KitDraft>) => setForm((f) => ({ ...f, ...patch }));
   const updateComp = (i: number, patch: Partial<KitComponent>) =>
@@ -136,15 +164,16 @@ export function KitFormDialog({
         name: form.name,
         mode: form.mode,
         label: form.label.trim() ? form.label.trim() : undefined,
-        components: form.components
-          .filter((c) => c.name.trim())
-          .map((c) => ({
+        components: sortKitComponents(form.components.filter((c) => c.name.trim())).map(
+          (c) => ({
             name: c.name,
+            sku: c.sku?.trim() ? c.sku : undefined,
             group: c.group,
             system: c.system?.trim() ? c.system : undefined,
             kind: c.kind,
             factor: c.factor,
-          })),
+          }),
+        ),
       });
       toast.success(form.id ? "Kit atualizado" : "Kit criado");
       onClose();
@@ -224,6 +253,12 @@ export function KitFormDialog({
               <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-2 py-1.5 text-left font-medium">Material (nome no app)</th>
+                  <th
+                    className="px-2 py-1.5 text-left font-medium"
+                    title="Código do material no catálogo de compras; vazio = item próprio"
+                  >
+                    Código
+                  </th>
                   <th className="px-2 py-1.5 text-left font-medium">Grupo</th>
                   <th className="px-2 py-1.5 text-left font-medium">Disciplina</th>
                   <th className="px-2 py-1.5 text-left font-medium">Medida</th>
@@ -247,10 +282,24 @@ export function KitFormDialog({
                       <Input
                         list="takeoff-kit-names"
                         value={c.name}
-                        onChange={(e) => updateComp(i, { name: e.target.value })}
-                        placeholder='ex.: Cobre de 1/4"'
+                        onChange={(e) => setComponentName(i, e.target.value)}
+                        placeholder='ex.: Tubulação de Cobre — 1/4"'
                         className="min-w-56"
                       />
+                    </td>
+                    <td className="whitespace-nowrap p-1 font-mono text-xs">
+                      {c.sku ? (
+                        <SkuCell
+                          sku={c.sku}
+                          catalogName={
+                            catalog ? (nameBySku.get(c.sku.toUpperCase()) ?? null) : undefined
+                          }
+                        />
+                      ) : (
+                        <span className="text-muted-foreground" title="Item próprio, fora do catálogo de compras">
+                          próprio
+                        </span>
+                      )}
                     </td>
                     <td className="p-1">
                       <Input
@@ -332,9 +381,11 @@ export function KitFormDialog({
             <Plus className="size-4" /> Componente
           </Button>
           <p className="text-xs text-muted-foreground">
-            O app busca preço, grupo e disciplina pelo nome do material no catálogo que ele monta
-            (materiais da empresa como &ldquo;família — variante&rdquo; ou as planilhas antigas
-            embutidas). Um nome que não existe lá vira um item sem preço.
+            Escolha o material na lista do catálogo de compras (&ldquo;família — variante&rdquo;)
+            para gravar o código dele: o app liga o item àquele material, com preço e cotação,
+            mesmo que o nome mude. Um nome fora do catálogo é um item próprio, buscado pelo nome
+            no catálogo do app (sem preço se não existir lá). Ao salvar, cobre, isolamento e cabo
+            ficam nessa ordem, por bitola crescente.
           </p>
         </div>
 
@@ -350,4 +401,20 @@ export function KitFormDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * O código de um componente; em destaque quando o catálogo de compras não o
+ * tem mais. `catalogName`: undefined enquanto o catálogo carrega, null se o
+ * código não está lá.
+ */
+function SkuCell({ sku, catalogName }: { sku: string; catalogName: string | null | undefined }) {
+  if (catalogName === null) {
+    return (
+      <span className="text-status-warning" title="Código que o catálogo de compras não tem mais">
+        {sku}
+      </span>
+    );
+  }
+  return <span title={catalogName ? `No catálogo: ${catalogName}` : undefined}>{sku}</span>;
 }

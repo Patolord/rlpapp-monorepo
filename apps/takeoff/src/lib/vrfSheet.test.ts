@@ -79,8 +79,8 @@ describe("VRF systems in a takeoff", () => {
     // Resultados: copper 1.1/8" = 10 m × 1.1 = 11 m
     const names: string[] = [];
     res.eachRow((row) => names.push(String(row.getCell(2).value ?? "")));
-    expect(names).toContain('Cobre de 1.1/8"');
-    const copperRow = res.findRow(names.indexOf('Cobre de 1.1/8"') + 1);
+    expect(names).toContain('Tubulação de Cobre 1.1/8"');
+    const copperRow = res.findRow(names.indexOf('Tubulação de Cobre 1.1/8"') + 1);
     expect(copperRow?.getCell(4).value).toBe(11);
   });
 });

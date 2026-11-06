@@ -13,7 +13,13 @@ import {
   type VrfRole,
   type VrfSettings,
 } from "../lib/vrf";
-import { vrfBillFor, vrfPricingOf, vrfRunsBySystem, vrfSystems } from "../lib/vrfItems";
+import {
+  vrfBillFor,
+  vrfOwnPrice,
+  vrfPricingOf,
+  vrfRunsBySystem,
+  vrfSystems,
+} from "../lib/vrfItems";
 import { useStore } from "../store";
 import { Button } from "./ui";
 import { VrfSchematic } from "./VrfSchematic";
@@ -481,7 +487,7 @@ export function VrfPanel() {
             <tbody>
               {materials.map((r) => {
                 const p = bill?.price(r) ?? 0;
-                const own = project.vrfPrices?.[r.name] !== undefined;
+                const own = vrfOwnPrice(project, r.name) !== undefined;
                 return (
                   <tr key={r.name} className="text-neutral-200">
                     <td className="truncate py-0.5 pr-1" title={r.name}>
