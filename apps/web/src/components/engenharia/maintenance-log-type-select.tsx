@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import {
   MAINTENANCE_LOG_TYPE_OPTIONS,
   type MaintenanceLogType,
-} from "@/lib/maintenance-log-type";
+} from "@rlpapp/shared/engenharia/equipment";
 
 interface MaintenanceLogTypeSelectProps {
   value: MaintenanceLogType | null;

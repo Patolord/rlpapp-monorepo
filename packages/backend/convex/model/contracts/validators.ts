@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { contractDirection, contractKind } from "../../schema";
+import { contractDirection, contractKind } from "../../schema/contracts";
 
 export const contractServiceItemInputValidator = v.object({
   description: v.string(),

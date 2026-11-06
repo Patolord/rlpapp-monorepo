@@ -10,15 +10,8 @@ export function formatQty(quantity: number, unit: string | null): string {
   return unit ? `${formatted} ${unit}` : formatted;
 }
 
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${kb.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} KB`;
-  const mb = kb / 1024;
-  return `${mb.toLocaleString("pt-BR", { maximumFractionDigits: mb < 10 ? 1 : 0 })} MB`;
-}
 
-export function formatDateTime(timestamp: number): string {
+export function formatShortDateTime(timestamp: number): string {
   return new Date(timestamp).toLocaleString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
@@ -76,11 +69,3 @@ export function maskDateInput(value: string): string {
   return parts.join("/");
 }
 
-/** Só dígitos no CPF/CNPJ, formatado para exibição. */
-export function formatTaxId(value: string | null): string | null {
-  if (!value) return null;
-  const digits = value.replace(/\D/g, "");
-  if (digits.length === 11) return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-  if (digits.length === 14) return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
-  return value;
-}

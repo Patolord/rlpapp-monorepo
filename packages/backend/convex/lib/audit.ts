@@ -1,5 +1,6 @@
 import type { Doc, Id } from "../_generated/dataModel";
-import type { MutationCtx } from "../_generated/server";
+import type { PaginationOptions, PaginationResult } from "convex/server";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 export const AUDIT_SCHEMA_VERSION = 1;
 
@@ -106,4 +107,76 @@ export async function logEquipmentHistory(
     location: params.location,
     createdAt: Date.now(),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Leitura do log (`convex/auditLogs.ts`, só administradores)
+// ---------------------------------------------------------------------------
+
+async function toAuditLogPage(
+  ctx: QueryCtx,
+  result: PaginationResult<Doc<"auditLogs">>
+) {
+  const page = await Promise.all(
+    result.page.map(async (log) => {
+      const user = await ctx.db.get("users", log.userId);
+      return {
+        _id: log._id,
+        userId: log.userId,
+        userName: user?.name ?? null,
+        action: log.action,
+        tableName: log.tableName,
+        recordId: log.recordId,
+        details: log.details ?? null,
+        entityLabel: log.entityLabel ?? null,
+        source: log.source ?? null,
+        schemaVersion: log.schemaVersion ?? null,
+        changes: log.changes
+          ? log.changes.map((c) => ({
+              field: c.field,
+              previousValue: c.previousValue ?? null,
+              newValue: c.newValue ?? null,
+            }))
+          : null,
+        snapshotBefore: log.snapshotBefore ?? null,
+        snapshotAfter: log.snapshotAfter ?? null,
+        createdAt: log.createdAt,
+      };
+    })
+  );
+
+  return {
+    page,
+    isDone: result.isDone,
+    continueCursor: result.continueCursor,
+    pageStatus: result.pageStatus ?? null,
+  };
+}
+
+/** Entradas de um registro, da mais nova à mais antiga, com o nome do autor. */
+export async function listAuditLogsByRecord(
+  ctx: QueryCtx,
+  input: { tableName: string; recordId: string; paginationOpts: PaginationOptions }
+) {
+  const result = await ctx.db
+    .query("auditLogs")
+    .withIndex("by_record", (q) =>
+      q.eq("tableName", input.tableName).eq("recordId", input.recordId)
+    )
+    .order("desc")
+    .paginate(input.paginationOpts);
+  return await toAuditLogPage(ctx, result);
+}
+
+/** Entradas de uma tabela, da mais nova à mais antiga, com o nome do autor. */
+export async function listAuditLogsByTable(
+  ctx: QueryCtx,
+  input: { tableName: string; paginationOpts: PaginationOptions }
+) {
+  const result = await ctx.db
+    .query("auditLogs")
+    .withIndex("by_table", (q) => q.eq("tableName", input.tableName))
+    .order("desc")
+    .paginate(input.paginationOpts);
+  return await toAuditLogPage(ctx, result);
 }

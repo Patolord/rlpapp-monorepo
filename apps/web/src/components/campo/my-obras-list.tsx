@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 
 import { ObraLinkRow } from "@/components/campo/obra-link-row";
 import { fieldCacheKeys } from "@/lib/field-cache";
-import { useOfflineQuery } from "@/lib/use-offline-query";
+import { useOfflineQuery } from "@/hooks/use-offline-query";
 
 export function MyObrasList() {
   const { data: projects, fromCache, cacheChecked } = useOfflineQuery(

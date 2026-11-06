@@ -1,34 +1,15 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
-import {
-  Archive,
-  ArchiveRestore,
-  FileUp,
-  Plus,
-  Search,
-  UserRoundCheck,
-  UserRoundX,
-} from "lucide-react";
+import { useQuery } from "convex/react";
+import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
-import { CsvImportDialog } from "@/components/compras/csv-import-dialog";
-import { CustomerDetailDialog } from "@/components/engenharia/customer-detail-dialog";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { CustomerCreateDialog } from "@/components/backoffice/clientes/customer-create-dialog";
+import { CustomerImportDialog } from "@/components/backoffice/clientes/customer-import-dialog";
+import { CustomersTable } from "@/components/backoffice/clientes/customers-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -36,50 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { getErrorMessage } from "@/lib/errors";
-
-const CUSTOMER_COLUMN_ALIASES = {
-  name: ["name", "nome", "cliente"],
-  personType: ["persontype", "person_type", "tipo", "pf/pj"],
-  legalName: ["legalname", "legal_name", "razao social", "razão social"],
-  taxId: ["taxid", "tax_id", "cnpj", "cpf", "cnpj/cpf"],
-  email: ["email", "e-mail"],
-  phone: ["phone", "telefone", "celular"],
-  address: ["address", "endereco", "endereço"],
-  notes: ["notes", "observacoes", "observações", "obs"],
-  contactName: ["contactname", "contact_name", "nome_contato", "contato"],
-  contactEmail: ["contactemail", "contact_email", "email_contato"],
-  contactPhone: [
-    "contactphone",
-    "contact_phone",
-    "telefone_contato",
-    "celular_contato",
-  ],
-  contactRole: ["contactrole", "contact_role", "cargo", "funcao", "função"],
-} as const;
-
-const CUSTOMER_TEMPLATE_HEADERS = [
-  "name",
-  "personType",
-  "legalName",
-  "taxId",
-  "email",
-  "phone",
-  "address",
-  "notes",
-  "contactName",
-  "contactEmail",
-  "contactPhone",
-  "contactRole",
-];
 
 type PersonTypeFilter = "all" | "pf" | "pj";
 type StatusFilter = "current" | "active" | "inactive" | "archived" | "all";
@@ -91,23 +28,6 @@ const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: "archived", label: "Arquivados" },
   { value: "all", label: "Todos" },
 ];
-
-type CustomerImportItem = {
-  name: string;
-  personType?: "pf" | "pj";
-  legalName?: string;
-  taxId?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  notes?: string;
-  contact?: {
-    name: string;
-    email?: string;
-    phone?: string;
-    role?: string;
-  };
-};
 
 export const Route = createFileRoute("/backoffice/clientes/")({
   component: ClientesPage,
@@ -126,28 +46,11 @@ function ClientesContent() {
     activeOnly: false,
     includeArchived: true,
   });
-  const createCustomer = useMutation(api.customers.create);
-  const bulkCreateCustomers = useMutation(api.customers.bulkCreate);
-  const updateCustomer = useMutation(api.customers.update);
-  const archiveCustomer = useMutation(api.customers.archive);
-  const restoreCustomer = useMutation(api.customers.restore);
 
   const [search, setSearch] = useState("");
   const [personTypeFilter, setPersonTypeFilter] =
     useState<PersonTypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("current");
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    personType: "" as "" | "pf" | "pj",
-    legalName: "",
-    taxId: "",
-    email: "",
-    phone: "",
-    address: "",
-    notes: "",
-  });
-  const [submitting, setSubmitting] = useState(false);
 
   const filtered = useMemo(() => {
     if (!customers) return [];
@@ -182,71 +85,6 @@ function ClientesContent() {
     });
   }, [customers, search, personTypeFilter, statusFilter]);
 
-  async function handleCreate() {
-    if (!form.name.trim()) {
-      toast.error("Informe o nome");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await createCustomer({
-        name: form.name,
-        personType: form.personType || undefined,
-        legalName: form.legalName || undefined,
-        taxId: form.taxId || undefined,
-        email: form.email || undefined,
-        phone: form.phone || undefined,
-        address: form.address || undefined,
-        notes: form.notes || undefined,
-      });
-      toast.success("Cliente criado");
-      setOpen(false);
-      setForm({
-        name: "",
-        personType: "",
-        legalName: "",
-        taxId: "",
-        email: "",
-        phone: "",
-        address: "",
-        notes: "",
-      });
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Erro ao criar cliente"));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function toggleArchive(
-    customerId: (typeof filtered)[number]["_id"],
-    archived: boolean
-  ) {
-    try {
-      if (archived) {
-        await restoreCustomer({ customerId });
-        toast.success("Cliente reativado");
-      } else {
-        await archiveCustomer({ customerId });
-        toast.success("Cliente arquivado");
-      }
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Erro ao atualizar cliente"));
-    }
-  }
-
-  async function toggleActive(
-    customerId: (typeof filtered)[number]["_id"],
-    active: boolean
-  ) {
-    try {
-      await updateCustomer({ customerId, active: !active });
-      toast.success(active ? "Cliente desativado" : "Cliente ativado");
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Erro ao atualizar cliente"));
-    }
-  }
-
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -257,206 +95,8 @@ function ClientesContent() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <CsvImportDialog<CustomerImportItem>
-            title="Importar clientes (CSV)"
-            templateFilename="clientes.csv"
-            templateHeaders={[...CUSTOMER_TEMPLATE_HEADERS]}
-            templateSampleRow={[
-              "Construtora Exemplo",
-              "pj",
-              "Construtora Exemplo Ltda.",
-              "12.345.678/0001-90",
-              "contato@construtora.com.br",
-              "11999999999",
-              "Av. Exemplo, 100",
-              "Cliente prioritário",
-              "Maria Silva",
-              "maria@construtora.com.br",
-              "11988888888",
-              "Engenharia",
-            ]}
-            requiredColumns={["name"]}
-            columnAliases={CUSTOMER_COLUMN_ALIASES}
-            previewColumns={[
-              "name",
-              "personType",
-              "legalName",
-              "taxId",
-              "email",
-              "phone",
-            ]}
-            mapRow={(row, rowNumber) => {
-              const name = row.name?.trim();
-              if (!name) {
-                return { ok: false, row: rowNumber, error: "Nome obrigatório" };
-              }
-
-              const contactName = row.contactName?.trim();
-              const personTypeRaw = row.personType?.trim().toLowerCase();
-              if (
-                personTypeRaw &&
-                personTypeRaw !== "pf" &&
-                personTypeRaw !== "pj"
-              ) {
-                return {
-                  ok: false,
-                  row: rowNumber,
-                  error: "Tipo deve ser PF ou PJ",
-                };
-              }
-              const contact = contactName
-                ? {
-                    name: contactName,
-                    email: row.contactEmail?.trim() || undefined,
-                    phone: row.contactPhone?.trim() || undefined,
-                    role: row.contactRole?.trim() || undefined,
-                  }
-                : undefined;
-
-              return {
-                ok: true,
-                row: rowNumber,
-                item: {
-                  name,
-                  personType:
-                    personTypeRaw === "pf" || personTypeRaw === "pj"
-                      ? personTypeRaw
-                      : undefined,
-                  legalName: row.legalName?.trim() || undefined,
-                  taxId: row.taxId?.trim() || undefined,
-                  email: row.email?.trim() || undefined,
-                  phone: row.phone?.trim() || undefined,
-                  address: row.address?.trim() || undefined,
-                  notes: row.notes?.trim() || undefined,
-                  contact,
-                },
-              };
-            }}
-            onImportBatch={(items) => bulkCreateCustomers({ items })}
-            trigger={
-              <Button variant="outline">
-                <FileUp />
-                Importar CSV
-              </Button>
-            }
-          />
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger render={<Button />}>
-              <Plus />
-              Novo cliente
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Novo cliente</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="customer-name">Nome</Label>
-                  <Input
-                    id="customer-name"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customer-legal">Razão social</Label>
-                  <Input
-                    id="customer-legal"
-                    value={form.legalName}
-                    onChange={(e) =>
-                      setForm({ ...form, legalName: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="customer-person-type">Tipo de pessoa</Label>
-                    <Select
-                      value={form.personType || "__none__"}
-                      onValueChange={(value) =>
-                        setForm({
-                          ...form,
-                          personType:
-                            value === "__none__"
-                              ? ""
-                              : (value as "pf" | "pj"),
-                        })
-                      }
-                    >
-                      <SelectTrigger id="customer-person-type">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Não informado</SelectItem>
-                        <SelectItem value="pf">Pessoa física</SelectItem>
-                        <SelectItem value="pj">Pessoa jurídica</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="customer-tax">
-                      {form.personType === "pf"
-                        ? "CPF"
-                        : form.personType === "pj"
-                          ? "CNPJ"
-                          : "CPF/CNPJ"}
-                    </Label>
-                    <Input
-                      id="customer-tax"
-                      value={form.taxId}
-                      onChange={(e) =>
-                        setForm({ ...form, taxId: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="customer-phone">Telefone</Label>
-                    <Input
-                      id="customer-phone"
-                      value={form.phone}
-                      onChange={(e) =>
-                        setForm({ ...form, phone: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customer-email">E-mail</Label>
-                  <Input
-                    id="customer-email"
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customer-address">Endereço</Label>
-                  <Input
-                    id="customer-address"
-                    value={form.address}
-                    onChange={(e) =>
-                      setForm({ ...form, address: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customer-notes">Observações</Label>
-                  <Input
-                    id="customer-notes"
-                    value={form.notes}
-                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleCreate} disabled={submitting}>
-                  Criar
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <CustomerImportDialog />
+          <CustomerCreateDialog />
         </div>
       </div>
 
@@ -507,105 +147,10 @@ function ClientesContent() {
             </Select>
           </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>CNPJ/CPF</TableHead>
-                <TableHead>Contato</TableHead>
-                <TableHead className="w-28" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="py-8 text-center text-muted-foreground"
-                  >
-                    {customers === undefined
-                      ? "Carregando..."
-                      : "Nenhum cliente corresponde aos filtros."}
-                  </TableCell>
-                </TableRow>
-              )}
-              {filtered.map((customer) => (
-                <TableRow
-                  key={customer._id}
-                  className={
-                    customer.archivedAt || !customer.active
-                      ? "text-muted-foreground"
-                      : undefined
-                  }
-                >
-                  <TableCell>
-                    <div className="flex items-center gap-2 font-medium">
-                      {customer.name}
-                      {customer.personType && (
-                        <Badge variant="outline">
-                          {customer.personType.toUpperCase()}
-                        </Badge>
-                      )}
-                      {customer.archivedAt ? (
-                        <Badge variant="secondary">Arquivado</Badge>
-                      ) : !customer.active ? (
-                        <Badge variant="outline">Inativo</Badge>
-                      ) : null}
-                    </div>
-                    {customer.legalName && (
-                      <div className="text-xs text-muted-foreground">
-                        {customer.legalName}
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell>{customer.taxId ?? "—"}</TableCell>
-                  <TableCell>
-                    <div className="text-sm">{customer.email ?? "—"}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {customer.phone ?? ""}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-0.5 text-muted-foreground">
-                      <CustomerDetailDialog customer={customer} />
-                      {!customer.archivedAt && (
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={customer.active ? "Desativar" : "Ativar"}
-                          title={customer.active ? "Desativar" : "Ativar"}
-                          onClick={() =>
-                            toggleActive(customer._id, customer.active)
-                          }
-                        >
-                          {customer.active ? (
-                            <UserRoundX />
-                          ) : (
-                            <UserRoundCheck />
-                          )}
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={customer.archivedAt ? "Restaurar" : "Arquivar"}
-                        title={customer.archivedAt ? "Restaurar" : "Arquivar"}
-                        onClick={() =>
-                          toggleArchive(customer._id, Boolean(customer.archivedAt))
-                        }
-                      >
-                        {customer.archivedAt ? (
-                          <ArchiveRestore />
-                        ) : (
-                          <Archive />
-                        )}
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <CustomersTable
+            customers={filtered}
+            loading={customers === undefined}
+          />
         </CardContent>
       </Card>
     </div>

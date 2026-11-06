@@ -1,3 +1,4 @@
+import { formatFileSize } from "@rlpapp/shared/formatters";
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
@@ -32,10 +33,9 @@ import { getErrorMessage } from "@/lib/errors";
 import {
   TECHNICIAN_ACCESS_LABELS,
   downloadBlob,
-  formatFileSize,
   openPdfInNewTab,
 } from "@/lib/project-documents";
-import { useDocumentBlobFetcher } from "@/lib/use-document-blob";
+import { useDocumentBlobFetcher } from "@/hooks/use-document-blob";
 
 type OfficeDocument = FunctionReturnType<
   typeof api.projectDocuments.listByProject

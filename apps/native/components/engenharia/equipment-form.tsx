@@ -14,7 +14,7 @@ import { PhotoPicker } from "@/components/engenharia/photo-picker";
 import {
   EQUIPMENT_STATUS_OPTIONS,
   type EquipmentStatus,
-} from "@/lib/equipment-status";
+} from "@rlpapp/shared/engenharia/equipment";
 import { addPendingRecord, newPendingId } from "@/lib/offline-queue";
 import { uploadPhotos } from "@/lib/upload-photos";
 import { useOnline } from "@/lib/use-online";

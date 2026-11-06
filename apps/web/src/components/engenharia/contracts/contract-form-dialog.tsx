@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import { formatCurrency, parseCurrencyToCents } from "@rlpapp/shared";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { parseCurrencyToCents } from "@rlpapp/shared";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -18,23 +18,24 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { runWithToast } from "@/lib/errors";
+
+import {
+  ContractContractorField,
+  ContractCustomerField,
+  ContractDirectionField,
+  ContractKindField,
+  ContractParentField,
+  ContractProjectField,
+} from "./contract-form-fields";
+import {
+  ContractServiceItems,
+  newServiceRow,
+  type ServiceRow,
+} from "./contract-service-items";
 
 export type ContractDirection = "client_sale" | "contractor_hire";
 export type ContractKind = "base" | "addendum";
-
-type ServiceRow = {
-  key: string;
-  description: string;
-  value: string;
-};
 
 function toDateInput(ts?: number | null): string {
   if (!ts) return "";
@@ -49,35 +50,6 @@ function fromDateInput(value: string): number | null {
   const ms = new Date(`${value}T00:00:00`).getTime();
   return Number.isFinite(ms) ? ms : null;
 }
-
-function toCurrencyInput(cents?: number | null): string {
-  if (cents == null) return "";
-  return new Intl.NumberFormat("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(cents / 100);
-}
-
-function newServiceRow(seed?: {
-  description?: string;
-  valueCents?: number;
-}): ServiceRow {
-  return {
-    key: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    description: seed?.description ?? "",
-    value: toCurrencyInput(seed?.valueCents),
-  };
-}
-
-const DIRECTION_LABELS: Record<ContractDirection, string> = {
-  client_sale: "Venda ao cliente",
-  contractor_hire: "Contratação de empreiteiro",
-};
-
-const KIND_LABELS: Record<ContractKind, string> = {
-  base: "Contrato base",
-  addendum: "Aditivo",
-};
 
 export function ContractFormDialog({
   contractId,
@@ -203,91 +175,6 @@ export function ContractFormDialog({
     defaultCustomerId,
   ]);
 
-  const totalPreview = useMemo(() => {
-    let total = 0;
-    for (const row of serviceRows) {
-      try {
-        total += parseCurrencyToCents(row.value || "0");
-      } catch {
-        // ignore invalid row while typing
-      }
-    }
-    return total;
-  }, [serviceRows]);
-
-  const currentCustomerMissing =
-    customers !== undefined &&
-    Boolean(customerId) &&
-    !customers.some((customer) => customer._id === customerId);
-  const currentContractorMissing =
-    contractors !== undefined &&
-    Boolean(contractorId) &&
-    !contractors.some((contractor) => contractor._id === contractorId);
-  const currentParentMissing =
-    baseOptions !== undefined &&
-    Boolean(parentContractId) &&
-    !baseOptions.some((option) => option._id === parentContractId);
-
-  const directionItems = DIRECTION_LABELS;
-  const kindItems = KIND_LABELS;
-
-  const projectItems = Object.fromEntries([
-    ["__none__", "Sem obra"] as const,
-    ...(projects ?? []).map((project) => {
-      const label = project.legacyNumber
-        ? `#${project.legacyNumber} · ${project.name}`
-        : project.name;
-      return [project._id, label] as const;
-    }),
-  ]);
-
-  const customerItems = Object.fromEntries([
-    ...(currentCustomerMissing && customerId
-      ? [
-          [
-            customerId,
-            `${detail?.customerName ?? "Cliente atual indisponível"} (inativo)`,
-          ] as const,
-        ]
-      : []),
-    ...(customers ?? []).map((customer) => [customer._id, customer.name] as const),
-  ]);
-
-  const contractorItems = Object.fromEntries([
-    ...(currentContractorMissing && contractorId
-      ? [
-          [
-            contractorId,
-            `${detail?.contractorName ?? "Empreiteiro atual indisponível"} (inativo)`,
-          ] as const,
-        ]
-      : []),
-    ...(contractors ?? []).map(
-      (contractor) => [contractor._id, contractor.name] as const
-    ),
-  ]);
-
-  const parentContractItems = Object.fromEntries([
-    ...(currentParentMissing && parentContractId
-      ? [
-          [
-            parentContractId,
-            detail?.parentTitle ?? "Contrato base atual indisponível",
-          ] as const,
-        ]
-      : []),
-    ...(baseOptions ?? []).map(
-      (option) =>
-        [
-          option._id,
-          `${option.title} · ${formatCurrency(option.valueCents)}`,
-        ] as const
-    ),
-  ]);
-
-  const selectTriggerClassName =
-    "w-full bg-transparent [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate";
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
@@ -412,96 +299,39 @@ export function ContractFormDialog({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Direção</Label>
-                <Select
-                  value={direction}
-                  items={directionItems}
-                  onValueChange={(value) => {
-                    const next = value as ContractDirection;
-                    setDirection(next);
-                    setParentContractId("");
-                    if (next === "client_sale") {
-                      setContractorId("");
-                      if (!isEdit && defaultCustomerId) {
-                        setCustomerId(defaultCustomerId);
-                      }
-                    } else {
-                      setCustomerId("");
+              <ContractDirectionField
+                value={direction}
+                onChange={(next) => {
+                  setDirection(next);
+                  setParentContractId("");
+                  if (next === "client_sale") {
+                    setContractorId("");
+                    if (!isEdit && defaultCustomerId) {
+                      setCustomerId(defaultCustomerId);
                     }
-                  }}
-                >
-                  <SelectTrigger className={selectTriggerClassName}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(
-                      Object.entries(DIRECTION_LABELS) as Array<
-                        [ContractDirection, string]
-                      >
-                    ).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Tipo</Label>
-                <Select
-                  value={kind}
-                  items={kindItems}
-                  onValueChange={(value) => {
-                    const next = value as ContractKind;
-                    setKind(next);
-                    if (next === "base") setParentContractId("");
-                  }}
-                >
-                  <SelectTrigger className={selectTriggerClassName}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(
-                      Object.entries(KIND_LABELS) as Array<
-                        [ContractKind, string]
-                      >
-                    ).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  } else {
+                    setCustomerId("");
+                  }
+                }}
+              />
+              <ContractKindField
+                value={kind}
+                onChange={(next) => {
+                  setKind(next);
+                  if (next === "base") setParentContractId("");
+                }}
+              />
             </div>
 
             {!lockedProjectId && (
-              <div className="space-y-2">
-                <Label>Obra (opcional)</Label>
-                <Select
-                  value={projectId || "__none__"}
-                  items={projectItems}
-                  onValueChange={(value) => {
-                    setProjectId(value === "__none__" ? "" : value);
-                    setParentContractId("");
-                  }}
-                >
-                  <SelectTrigger className={selectTriggerClassName}>
-                    <SelectValue placeholder="Sem obra" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Sem obra</SelectItem>
-                    {(projects ?? []).map((project) => (
-                      <SelectItem key={project._id} value={project._id}>
-                        {project.legacyNumber
-                          ? `#${project.legacyNumber} · ${project.name}`
-                          : project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <ContractProjectField
+                projectId={projectId}
+                projects={projects}
+                onChange={(next) => {
+                  setProjectId(next);
+                  setParentContractId("");
+                }}
+              />
             )}
 
             {direction === "client_sale" ? (
@@ -513,185 +343,35 @@ export function ContractFormDialog({
                   <p className="text-sm font-medium">{obraCustomerLabel}</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <Label>Cliente</Label>
-                  <Select
-                    value={customerId || undefined}
-                    items={customerItems}
-                    onValueChange={setCustomerId}
-                  >
-                    <SelectTrigger className={selectTriggerClassName}>
-                      <SelectValue placeholder="Selecione o cliente" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {currentCustomerMissing && customerId && (
-                        <SelectItem value={customerId} disabled>
-                          {detail?.customerName ?? "Cliente atual indisponível"}{" "}
-                          (inativo)
-                        </SelectItem>
-                      )}
-                      {(customers ?? []).map((customer) => (
-                        <SelectItem key={customer._id} value={customer._id}>
-                          {customer.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <ContractCustomerField
+                  customerId={customerId}
+                  customers={customers}
+                  currentCustomerName={detail?.customerName}
+                  onChange={setCustomerId}
+                />
               )
             ) : (
-              <div className="space-y-2">
-                <Label>Empreiteiro</Label>
-                <Select
-                  value={contractorId || undefined}
-                  items={contractorItems}
-                  onValueChange={setContractorId}
-                >
-                  <SelectTrigger className={selectTriggerClassName}>
-                    <SelectValue placeholder="Selecione o empreiteiro" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currentContractorMissing && contractorId && (
-                      <SelectItem value={contractorId} disabled>
-                        {detail?.contractorName ??
-                          "Empreiteiro atual indisponível"}{" "}
-                        (inativo)
-                      </SelectItem>
-                    )}
-                    {(contractors ?? []).map((contractor) => (
-                      <SelectItem key={contractor._id} value={contractor._id}>
-                        {contractor.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <ContractContractorField
+                contractorId={contractorId}
+                contractors={contractors}
+                currentContractorName={detail?.contractorName}
+                onChange={setContractorId}
+              />
             )}
 
             {kind === "addendum" && (
-              <div className="space-y-2">
-                <Label>Contrato base</Label>
-                <Select
-                  value={parentContractId || undefined}
-                  items={parentContractItems}
-                  onValueChange={setParentContractId}
-                >
-                  <SelectTrigger className={selectTriggerClassName}>
-                    <SelectValue placeholder="Selecione o contrato base" />
-                  </SelectTrigger>
-                  <SelectContent className="min-w-[var(--anchor-width)]">
-                    {currentParentMissing && parentContractId && (
-                      <SelectItem value={parentContractId} disabled>
-                        {detail?.parentTitle ??
-                          "Contrato base atual indisponível"}
-                      </SelectItem>
-                    )}
-                    {(baseOptions ?? []).map((option) => (
-                      <SelectItem
-                        key={option._id}
-                        value={option._id}
-                        className="items-start py-2"
-                      >
-                        <span className="flex min-w-0 flex-col gap-0.5">
-                          <span className="truncate font-medium leading-tight">
-                            {option.title}
-                          </span>
-                          <span className="text-muted-foreground truncate text-xs leading-tight">
-                            {formatCurrency(option.valueCents)}
-                          </span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <ContractParentField
+                parentContractId={parentContractId}
+                baseOptions={baseOptions}
+                currentParentTitle={detail?.parentTitle}
+                onChange={setParentContractId}
+              />
             )}
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <Label>Serviços</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setServiceRows((rows) => [...rows, newServiceRow()])
-                  }
-                >
-                  <Plus />
-                  Item
-                </Button>
-              </div>
-              <div className="space-y-2">
-                {serviceRows.map((row, index) => (
-                  <div
-                    key={row.key}
-                    className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_140px_auto]"
-                  >
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">
-                        Descrição
-                      </Label>
-                      <Input
-                        value={row.description}
-                        placeholder={`Serviço ${index + 1}`}
-                        onChange={(e) =>
-                          setServiceRows((rows) =>
-                            rows.map((r) =>
-                              r.key === row.key
-                                ? { ...r, description: e.target.value }
-                                : r
-                            )
-                          )
-                        }
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">
-                        Valor (R$)
-                      </Label>
-                      <Input
-                        value={row.value}
-                        placeholder="0,00"
-                        onChange={(e) =>
-                          setServiceRows((rows) =>
-                            rows.map((r) =>
-                              r.key === row.key
-                                ? { ...r, value: e.target.value }
-                                : r
-                            )
-                          )
-                        }
-                        required
-                      />
-                    </div>
-                    <div className="flex items-end">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        disabled={serviceRows.length === 1}
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() =>
-                          setServiceRows((rows) =>
-                            rows.filter((r) => r.key !== row.key)
-                          )
-                        }
-                      >
-                        <Trash2 />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="text-sm tabular-nums text-muted-foreground">
-                Total:{" "}
-                <span className="font-semibold text-foreground">
-                  {formatCurrency(totalPreview)}
-                </span>
-              </p>
-            </div>
+            <ContractServiceItems
+              serviceRows={serviceRows}
+              setServiceRows={setServiceRows}
+            />
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">

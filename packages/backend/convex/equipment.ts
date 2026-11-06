@@ -1,20 +1,16 @@
 import { v } from "convex/values";
+import { authedMutation, authedQuery, obrasQuery, staffQuery } from "./lib/rbac";
 import {
-  authedMutation,
-  authedQuery,
-  obrasQuery,
-  staffQuery,
-} from "./lib/rbac";
-
-export const equipmentStatusValidator = v.union(
-  v.literal("installing"),
-  v.literal("operational"),
-  v.literal("warning"),
-  v.literal("error")
-);
+  assignableEquipmentValidator,
+  equipmentDocValidator,
+  listAssignableEquipment,
+  updateEquipment,
+} from "./model/engineering/equipmentRecords";
+import { equipmentStatusValidator } from "./schema/engineering";
 
 export const get = authedQuery({
   args: { id: v.id("equipment") },
+  returns: v.union(equipmentDocValidator, v.null()),
   handler: async (ctx, args) => {
     return await ctx.db.get("equipment", args.id);
   },
@@ -54,6 +50,7 @@ export const getForEngineering = obrasQuery({
 
 export const list = staffQuery({
   args: {},
+  returns: v.array(equipmentDocValidator),
   handler: async (ctx) => {
     return await ctx.db.query("equipment").order("desc").collect();
   },
@@ -70,7 +67,6 @@ export const create = authedMutation({
   },
   returns: v.id("equipment"),
   handler: async (ctx, args) => {
-
     if (!args.description.trim()) {
       throw new Error("Descrição é obrigatória");
     }
@@ -95,67 +91,13 @@ export const update = authedMutation({
     status: v.optional(equipmentStatusValidator),
     projectEquipmentId: v.optional(v.id("projectEquipment")),
   },
-  handler: async (ctx, args) => {
-    const { id, ...updates } = args;
-    const equipment = await ctx.db.get("equipment", id);
-    if (!equipment) throw new Error("Equipment not found");
-
-    const filtered: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(updates)) {
-      if (value !== undefined) filtered[key] = value;
-    }
-
-    await ctx.db.patch("equipment", id, filtered);
-
-    // Mantém qrCodes.projectId (denormalizado) em sincronia com o vínculo.
-    if (args.projectEquipmentId !== undefined) {
-      const planned = await ctx.db.get(
-        "projectEquipment",
-        args.projectEquipmentId
-      );
-      const qrCodes = await ctx.db
-        .query("qrCodes")
-        .withIndex("by_equipment", (q) => q.eq("equipmentId", id))
-        .collect();
-      for (const qr of qrCodes) {
-        if (qr.projectId !== planned?.projectId) {
-          await ctx.db.patch("qrCodes", qr._id, {
-            projectId: planned?.projectId,
-          });
-        }
-      }
-    }
-
-    return id;
-  },
+  returns: v.id("equipment"),
+  handler: async (ctx, args) => await updateEquipment(ctx, args),
 });
 
 // Equipamentos que ainda não foram alocados a nenhum item de obra.
 export const listAssignable = obrasQuery({
   args: {},
-  handler: async (ctx) => {
-    const equipment = await ctx.db
-      .query("equipment")
-      .withIndex("by_projectEquipment", (q) =>
-        q.eq("projectEquipmentId", undefined)
-      )
-      .order("desc")
-      .collect();
-
-    return await Promise.all(
-      equipment.map(async (e) => {
-        const qrCode = await ctx.db
-          .query("qrCodes")
-          .withIndex("by_equipment", (q) => q.eq("equipmentId", e._id))
-          .order("desc")
-          .first();
-        return {
-          _id: e._id,
-          description: e.description,
-          status: e.status,
-          token: qrCode?.token ?? null,
-        };
-      })
-    );
-  },
+  returns: v.array(assignableEquipmentValidator),
+  handler: async (ctx) => await listAssignableEquipment(ctx),
 });

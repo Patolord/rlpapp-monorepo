@@ -8,7 +8,7 @@ import { FlatList, StyleSheet, TextInput, View } from "react-native";
 
 import { EmptyState, LoadingState } from "@rlpapp/ui/native";
 import { BigRow, StatusPill } from "@/components/campo/field-ui";
-import { EQUIPMENT_STATUS_LABELS, type EquipmentStatus } from "@/lib/equipment-status";
+import { EQUIPMENT_STATUS_LABELS, type EquipmentStatus } from "@rlpapp/shared/engenharia/equipment";
 import { colors, radius, space, type Tone } from "@/lib/theme";
 
 const STATUS_TONE: Record<EquipmentStatus, Tone> = {

@@ -3,6 +3,7 @@ import {
   assistenteMutation,
   assistenteQuery,
 } from "./lib/rbac";
+import { deleteChatSession, requireOwnSession } from "./model/ai/chatSessions";
 
 export const listSessions = assistenteQuery({
   args: {
@@ -46,11 +47,7 @@ export const getMessages = assistenteQuery({
     })
   ),
   handler: async (ctx, args) => {
-    const session = await ctx.db.get("aiChatSessions", args.sessionId);
-    if (!session) throw new Error("Sessão não encontrada");
-    if (session.userId !== ctx.user._id) {
-      throw new Error("Acesso negado");
-    }
+    await requireOwnSession(ctx, ctx.user, args.sessionId);
     return await ctx.db
       .query("aiChatMessages")
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
@@ -85,11 +82,7 @@ export const addMessage = assistenteMutation({
   },
   returns: v.id("aiChatMessages"),
   handler: async (ctx, args) => {
-    const session = await ctx.db.get("aiChatSessions", args.sessionId);
-    if (!session) throw new Error("Sessão não encontrada");
-    if (session.userId !== ctx.user._id) {
-      throw new Error("Acesso negado");
-    }
+    await requireOwnSession(ctx, ctx.user, args.sessionId);
     const now = Date.now();
     await ctx.db.patch("aiChatSessions", args.sessionId, { updatedAt: now });
     return await ctx.db.insert("aiChatMessages", {
@@ -109,11 +102,7 @@ export const updateSessionTitle = assistenteMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await ctx.db.get("aiChatSessions", args.sessionId);
-    if (!session) throw new Error("Sessão não encontrada");
-    if (session.userId !== ctx.user._id) {
-      throw new Error("Acesso negado");
-    }
+    await requireOwnSession(ctx, ctx.user, args.sessionId);
     await ctx.db.patch("aiChatSessions", args.sessionId, {
       title: args.title,
     });
@@ -127,19 +116,7 @@ export const deleteSession = assistenteMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await ctx.db.get("aiChatSessions", args.sessionId);
-    if (!session) throw new Error("Sessão não encontrada");
-    if (session.userId !== ctx.user._id) {
-      throw new Error("Acesso negado");
-    }
-    const messages = await ctx.db
-      .query("aiChatMessages")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
-      .collect();
-    for (const msg of messages) {
-      await ctx.db.delete("aiChatMessages", msg._id);
-    }
-    await ctx.db.delete("aiChatSessions", args.sessionId);
+    await deleteChatSession(ctx, ctx.user, args.sessionId);
     return null;
   },
 });

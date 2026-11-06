@@ -14,9 +14,9 @@ import { FieldObraProvider } from "@/components/campo/obra-context";
 import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/errors";
 import { fieldCacheKeys, forgetProject } from "@/lib/field-cache";
-import { useFieldCacheOwner } from "@/lib/use-field-cache-owner";
-import { useOfflineQuery } from "@/lib/use-offline-query";
-import { useOnline } from "@/lib/use-online";
+import { useFieldCacheOwner } from "@/hooks/use-field-cache-owner";
+import { useOfflineQuery } from "@/hooks/use-offline-query";
+import { useOnline } from "@/hooks/use-online";
 
 export const Route = createFileRoute("/qr-operador_/obras/$obraSlug")({
   beforeLoad: async ({ context }) => {

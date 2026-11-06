@@ -1,5 +1,5 @@
 import type { Id } from "../../_generated/dataModel";
-import type { MaterialDimensions } from "../../lib/compras/catalog";
+import type { MaterialDimensions } from "./catalog";
 import { DAY_MS } from "./priceHistory";
 
 /**

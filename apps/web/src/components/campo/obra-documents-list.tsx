@@ -27,11 +27,11 @@ import {
   type CachedDocumentMeta,
 } from "@/lib/field-cache";
 import { downloadBlob, openPdfInNewTab } from "@/lib/project-documents";
-import { formatFileSize } from "@/lib/project-documents";
-import { useDocumentBlobFetcher } from "@/lib/use-document-blob";
-import { useFieldCacheOwner } from "@/lib/use-field-cache-owner";
-import { useOfflineQuery } from "@/lib/use-offline-query";
-import { useOnline } from "@/lib/use-online";
+import { formatFileSize } from "@rlpapp/shared/formatters";
+import { useDocumentBlobFetcher } from "@/hooks/use-document-blob";
+import { useFieldCacheOwner } from "@/hooks/use-field-cache-owner";
+import { useOfflineQuery } from "@/hooks/use-offline-query";
+import { useOnline } from "@/hooks/use-online";
 
 type FieldDocument = FunctionReturnType<
   typeof api.projectDocuments.listForTechnician

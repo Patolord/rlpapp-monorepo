@@ -21,8 +21,8 @@ import { PhotoPicker } from "@/components/engenharia/photo-picker";
 import {
   getMaintenanceLogTypeLabel,
   type MaintenanceLogType,
-} from "@/lib/maintenance-log-type";
-import type { EquipmentStatus } from "@/lib/equipment-status";
+} from "@rlpapp/shared/engenharia/equipment";
+import type { EquipmentStatus } from "@rlpapp/shared/engenharia/equipment";
 import { uploadPhotos } from "@/lib/upload-photos";
 
 interface MaintenanceLogProps {

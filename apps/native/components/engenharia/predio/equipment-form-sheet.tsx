@@ -5,7 +5,7 @@ import { Calendar, Cpu, Hash, Layers, Tag } from "lucide-react-native";
 import { useEffect, useState } from "react";
 
 import { AppButton, Field, PickerField, SegmentedField, Sheet, useToast } from "@/components/ui";
-import { EQUIPMENT_STATUS_OPTIONS, type EquipmentStatus } from "@/lib/equipment-status";
+import { EQUIPMENT_STATUS_OPTIONS, type EquipmentStatus } from "@rlpapp/shared/engenharia/equipment";
 import { getErrorMessage } from "@/lib/errors";
 import { maskDateInput, parseDateInput, toDateInput } from "@/lib/format";
 import { colors } from "@/lib/theme";

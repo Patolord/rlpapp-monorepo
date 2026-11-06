@@ -21,8 +21,8 @@ import { Button, ButtonText } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/engenharia/status-badge";
-import type { EquipmentStatus } from "@/lib/equipment-status";
-import { getMaintenanceLogTypeLabel } from "@/lib/maintenance-log-type";
+import type { EquipmentStatus } from "@rlpapp/shared/engenharia/equipment";
+import { getMaintenanceLogTypeLabel } from "@rlpapp/shared/engenharia/equipment";
 import {
   listPendingRecords,
   removePendingRecord,

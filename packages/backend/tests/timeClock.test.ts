@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
-import { aggregateManDays, derivePosition, toBrtDateKey } from "../convex/lib/rh/timeClock";
+import { aggregateManDays, derivePosition, toBrtDateKey } from "../convex/model/hr/timeClock";
 import { setup, withUser } from "./helpers";
 
 const OBRA_A = { latitude: -23.5290093, longitude: -46.6738077, radiusMeters: 300 };

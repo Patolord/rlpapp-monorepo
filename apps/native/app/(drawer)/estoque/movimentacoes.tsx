@@ -9,7 +9,7 @@ import { DOCUMENT_STATUS, MOVEMENT_LABELS } from "@/components/estoque/labels";
 import { MovementFormSheet } from "@/components/estoque/movement-form-sheet";
 import { AppButton, Chips, EmptyState, Field, IconButton, LoadingState, Pill, ScreenHeader, Sheet, Surface, screenStyles, useToast } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
-import { formatDateTime, formatQty } from "@/lib/format";
+import { formatShortDateTime, formatQty } from "@/lib/format";
 import { colors, space, type } from "@/lib/theme";
 
 type Filter = "all" | "posted" | "pending_approval" | "reversed";
@@ -107,7 +107,7 @@ export default function MovimentacoesScreen() {
                 </View>
                 <View style={styles.bottom}>
                   <Text style={[type.caption, { color: colors.textMuted }]}>
-                    {formatDateTime(item.postedAt ?? item.createdAt)}
+                    {formatShortDateTime(item.postedAt ?? item.createdAt)}
                     {total > 0 ? ` · ${formatCurrency(total)}` : ""}
                   </Text>
                   {item.status === "posted" && item.type !== "reversal" && access?.canWriteCentral ? (

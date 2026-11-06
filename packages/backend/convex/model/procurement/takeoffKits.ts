@@ -8,7 +8,8 @@ import {
 } from "@rlpapp/shared/takeoff/kits";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { takeoffKitComponent, takeoffKitMode } from "../../schema";
+import { logAudit } from "../../lib/audit";
+import { takeoffKitComponent, takeoffKitMode } from "../../schema/procurement";
 
 /**
  * Company defaults of the RLP Takeoff kit presets (`takeoffKits`), published to
@@ -260,6 +261,98 @@ export async function seedFactoryTakeoffKits(
       seed.id
     );
     added++;
+  }
+  return added;
+}
+
+/** Active kits in display order, with who changed each one last (`takeoffKits.list`). */
+export async function listTakeoffKitRows(ctx: QueryCtx) {
+  const kits = await listActiveTakeoffKits(ctx);
+  const names = new Map<string, string | null>();
+  const rows = [];
+  for (const kit of kits) {
+    let updatedBy: string | null = null;
+    if (kit.updatedByUserId) {
+      if (!names.has(kit.updatedByUserId)) {
+        const user = await ctx.db.get("users", kit.updatedByUserId);
+        names.set(kit.updatedByUserId, user?.name ?? null);
+      }
+      updatedBy = names.get(kit.updatedByUserId) ?? null;
+    }
+    rows.push({
+      _id: kit._id,
+      key: kit.key,
+      name: kit.name,
+      mode: kit.mode,
+      label: kit.label ?? null,
+      components: kit.components,
+      sortOrder: kit.sortOrder,
+      updatedAt: kit.updatedAt,
+      updatedBy,
+      factory: isFactoryKey(kit.key),
+    });
+  }
+  return rows;
+}
+
+/** Creates (no `id`) or replaces (with `id`) a company kit, with its audit entry. */
+export async function saveTakeoffKit(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  id: Id<"takeoffKits"> | undefined,
+  input: TakeoffKitInput
+): Promise<Id<"takeoffKits">> {
+  const clean = sanitizeTakeoffKitInput(input);
+  if (id === undefined) {
+    const kitId = await insertTakeoffKit(ctx, clean, user._id);
+    await logAudit(ctx, user, {
+      action: "create",
+      tableName: "takeoffKits",
+      recordId: kitId,
+      entityLabel: clean.name,
+      snapshotAfter: clean,
+    });
+    return kitId;
+  }
+  const existing = await ctx.db.get("takeoffKits", id);
+  if (!existing || !existing.active) throw new Error("Kit não encontrado");
+  await ctx.db.patch("takeoffKits", id, {
+    name: clean.name,
+    mode: clean.mode,
+    label: clean.label,
+    components: clean.components,
+    updatedAt: Date.now(),
+    updatedByUserId: user._id,
+  });
+  await logAudit(ctx, user, {
+    action: "update",
+    tableName: "takeoffKits",
+    recordId: id,
+    entityLabel: clean.name,
+    snapshotBefore: {
+      name: existing.name,
+      mode: existing.mode,
+      label: existing.label,
+      components: existing.components,
+    },
+    snapshotAfter: clean,
+  });
+  return id;
+}
+
+/** Loads the factory kits the company lacks (by key), audited; returns how many were added. */
+export async function seedTakeoffKitDefaults(
+  ctx: MutationCtx,
+  user: Doc<"users">
+): Promise<number> {
+  const added = await seedFactoryTakeoffKits(ctx, user._id);
+  if (added > 0) {
+    await logAudit(ctx, user, {
+      action: "seed",
+      tableName: "takeoffKits",
+      recordId: "factory",
+      details: `${added} kits de fábrica carregados`,
+    });
   }
   return added;
 }

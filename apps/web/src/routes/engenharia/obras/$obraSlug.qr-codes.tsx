@@ -2,21 +2,9 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import type { FunctionReturnType } from "convex/server";
-import {
-  ClipboardList,
-  History,
-  Loader2,
-  Plus,
-  Printer,
-  QrCode,
-  Search,
-  Trash2,
-  X,
-} from "lucide-react";
+import { ClipboardList, History, Loader2, Plus, QrCode } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
-import type { EquipmentStatusKey } from "@rlpapp/ui/tokens";
 
 import { AuthShell } from "@/components/auth-shell";
 import { PendingBanner } from "@/components/campo/pending-records";
@@ -26,27 +14,17 @@ import {
 } from "@/components/engenharia/generate-qr-batch-dialog";
 import { ProjectServicesList } from "@/components/engenharia/project-services-list";
 import { ProjectShell, type ProjectOverview } from "@/components/engenharia/project-shell";
-import { StatusBadge } from "@/components/engenharia/status-badge";
-import { Badge } from "@/components/ui/badge";
+import {
+  ALL,
+  NO_BATCH,
+  type BatchSummary,
+  type QrRow,
+  type RegistrationFilter,
+} from "@/components/engenharia/qr-codes/qr-code-rows";
+import { QrBatchChips, QrCodesFilters } from "@/components/engenharia/qr-codes/qr-codes-filters";
+import { QrCodesTable } from "@/components/engenharia/qr-codes/qr-codes-table";
+import { QrSelectionBar } from "@/components/engenharia/qr-codes/qr-selection-bar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
 import { getErrorMessage } from "@/lib/errors";
 import { printQrCodes } from "@/lib/qr-print";
@@ -71,23 +49,7 @@ function QrCodesPage() {
   );
 }
 
-const ALL = "all";
-// Valor do filtro de lote para etiquetas legadas sem lote.
-const NO_BATCH = "__sem_lote__";
-
-// "Cadastrada" = etiqueta já vinculada a um equipamento (bipada em campo);
-// "Livre" = etiqueta do lote da obra ainda sem equipamento.
-type RegistrationFilter = "all" | "registered" | "free";
 type Tab = "labels" | "services";
-
-type QrRow = FunctionReturnType<typeof api.qrCodes.listByProject>[number];
-
-type BatchSummary = {
-  batchId: string;
-  batchName: string | null;
-  createdAt: number;
-  count: number;
-};
 
 function QrCodesContent({
   projectId,
@@ -417,326 +379,57 @@ function QrCodesContent({
         </div>
       ) : (
         <>
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <div className="relative sm:w-72">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="pl-9"
-                placeholder="Buscar token, lote, descrição, ambiente..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {registrationOptions.map((option) => (
-                <Button
-                  key={option.id}
-                  type="button"
-                  size="sm"
-                  variant={registration === option.id ? "default" : "outline"}
-                  aria-pressed={registration === option.id}
-                  onClick={() => changeRegistration(option.id)}
-                >
-                  {option.label}
-                  <span className="ml-1 tabular-nums opacity-80">
-                    ({option.count})
-                  </span>
-                </Button>
-              ))}
-            </div>
-            <Select value={status} onValueChange={changeStatus}>
-              <SelectTrigger className="sm:w-44">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Todos os status</SelectItem>
-                <SelectItem value="operational">Operacional</SelectItem>
-                <SelectItem value="installing">Em instalação</SelectItem>
-                <SelectItem value="warning">Alerta</SelectItem>
-                <SelectItem value="error">Erro</SelectItem>
-              </SelectContent>
-            </Select>
-            {(batches.length > 0 || hasRowsWithoutBatch) && (
-              <Select value={batchFilter} onValueChange={changeBatchFilter}>
-                <SelectTrigger className="sm:w-56">
-                  <SelectValue placeholder="Lote" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>Todos os lotes</SelectItem>
-                  {batches.map((batch) => (
-                    <SelectItem key={batch.batchId} value={batch.batchId}>
-                      {batch.batchName ?? batch.batchId} ({batch.count})
-                    </SelectItem>
-                  ))}
-                  {hasRowsWithoutBatch && (
-                    <SelectItem value={NO_BATCH}>Sem lote</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+          <QrCodesFilters
+            search={search}
+            onSearchChange={setSearch}
+            registrationOptions={registrationOptions}
+            registration={registration}
+            onRegistrationChange={changeRegistration}
+            status={status}
+            onStatusChange={changeStatus}
+            batches={batches}
+            hasRowsWithoutBatch={hasRowsWithoutBatch}
+            batchFilter={batchFilter}
+            onBatchFilterChange={changeBatchFilter}
+          />
 
           {/* Lotes recentes: reimpressão em um clique. */}
           {batches.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Lotes:</span>
-              {batches.slice(0, 6).map((batch) => (
-                <div
-                  key={batch.batchId}
-                  className="flex items-center overflow-hidden rounded-md border"
-                >
-                  <button
-                    type="button"
-                    className={`px-2.5 py-1 text-xs font-medium transition-colors hover:bg-accent ${
-                      batchFilter === batch.batchId ? "bg-muted" : ""
-                    }`}
-                    onClick={() =>
-                      changeBatchFilter(
-                        batchFilter === batch.batchId ? ALL : batch.batchId
-                      )
-                    }
-                    title={new Date(batch.createdAt).toLocaleString("pt-BR")}
-                  >
-                    {batch.batchName ?? batch.batchId}
-                    <span className="ml-1 tabular-nums text-muted-foreground">
-                      ({batch.count})
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="border-l px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                    title={`Imprimir lote ${batch.batchName ?? batch.batchId}`}
-                    aria-label={`Imprimir lote ${batch.batchName ?? batch.batchId}`}
-                    onClick={() => handlePrintBatch(batch)}
-                  >
-                    <Printer className="size-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
+            <QrBatchChips
+              batches={batches}
+              batchFilter={batchFilter}
+              onBatchFilterChange={changeBatchFilter}
+              onPrintBatch={handlePrintBatch}
+            />
           )}
 
           {selectedRows.length > 0 && (
-            <div className="flex flex-col gap-3 rounded-lg border bg-muted/50 p-3 sm:flex-row sm:items-center">
-              <span className="text-sm font-medium">
-                {selectedRows.length} selecionada
-                {selectedRows.length === 1 ? "" : "s"}
-              </span>
-              <div className="flex-1" />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelected(new Set())}
-              >
-                <X />
-                Limpar
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  printTokens(
-                    selectedRows.map((r) => r.token),
-                    "Códigos QR selecionados"
-                  )
-                }
-              >
-                <Printer />
-                Imprimir selecionadas
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={bulkDeleting}
-                onClick={handleBulkDelete}
-              >
-                {bulkDeleting ? <Loader2 className="animate-spin" /> : <Trash2 />}
-                Excluir livres
-              </Button>
-            </div>
+            <QrSelectionBar
+              count={selectedRows.length}
+              bulkDeleting={bulkDeleting}
+              onClear={() => setSelected(new Set())}
+              onPrint={() =>
+                printTokens(
+                  selectedRows.map((r) => r.token),
+                  "Códigos QR selecionados"
+                )
+              }
+              onBulkDelete={handleBulkDelete}
+            />
           )}
 
-          <Card>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10">
-                      <Checkbox
-                        aria-label={
-                          allFilteredSelected
-                            ? "Desmarcar etiquetas listadas"
-                            : "Selecionar etiquetas listadas"
-                        }
-                        checked={allFilteredSelected}
-                        disabled={filtered.length === 0}
-                        onCheckedChange={toggleAllFiltered}
-                      />
-                    </TableHead>
-                    <TableHead>Token</TableHead>
-                    <TableHead>Localização</TableHead>
-                    <TableHead>Equipamento</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Lote</TableHead>
-                    <TableHead className="w-24 text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={7}
-                        className="py-10 text-center text-muted-foreground"
-                      >
-                        Nenhum QR corresponde aos filtros.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filtered.map((r) => (
-                      <TableRow
-                        key={r._id}
-                        data-state={selected.has(r.token) ? "selected" : undefined}
-                      >
-                        <TableCell>
-                          <Checkbox
-                            aria-label={`Selecionar etiqueta ${r.token}`}
-                            checked={selected.has(r.token)}
-                            onCheckedChange={() => toggleToken(r.token)}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Link
-                            to="/engenharia/qr/$token"
-                            params={{ token: r.token }}
-                            className="font-mono font-medium text-primary hover:underline"
-                          >
-                            {r.token}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          <LocationCell
-                            towerName={r.towerName}
-                            floorLabel={r.floorLabel}
-                            environmentName={r.environmentName}
-                            ambiente={r.ambiente}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <EquipmentCell row={r} />
-                        </TableCell>
-                        <TableCell>
-                          {r.status ? (
-                            <StatusBadge
-                              status={r.status as EquipmentStatusKey}
-                            />
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {r.batchName ?? r.batchId ?? "—"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              title="Imprimir etiqueta"
-                              aria-label={`Imprimir etiqueta ${r.token}`}
-                              onClick={() =>
-                                printTokens([r.token], `Código QR ${r.token}`)
-                              }
-                            >
-                              <Printer />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              className="text-muted-foreground hover:text-destructive"
-                              disabled={!!r.equipmentId || deletingToken === r.token}
-                              title={
-                                r.equipmentId
-                                  ? "Etiqueta cadastrada em campo não pode ser excluída"
-                                  : "Excluir etiqueta"
-                              }
-                              aria-label={`Excluir etiqueta ${r.token}`}
-                              onClick={() => handleDelete(r)}
-                            >
-                              {deletingToken === r.token ? (
-                                <Loader2 className="animate-spin" />
-                              ) : (
-                                <Trash2 />
-                              )}
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <QrCodesTable
+            rows={filtered}
+            selected={selected}
+            allFilteredSelected={allFilteredSelected}
+            deletingToken={deletingToken}
+            onToggleAll={toggleAllFiltered}
+            onToggle={toggleToken}
+            onPrint={printTokens}
+            onDelete={handleDelete}
+          />
         </>
       )}
     </section>
   );
-}
-
-function EquipmentCell({ row }: { row: QrRow }) {
-  if (row.plannedItemId) {
-    return (
-      <div className="flex items-center gap-2">
-        <div className="min-w-0">
-          <p className="truncate font-medium">{row.system ?? "—"}</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {[row.modelo, row.capacidade].filter(Boolean).join(" · ") || "—"}
-          </p>
-        </div>
-        {row.kind && (
-          <Badge variant="outline" className="shrink-0">
-            {row.kind === "condensadora" ? "Condensadora" : "Evaporadora"}
-          </Badge>
-        )}
-      </div>
-    );
-  }
-  // Cadastrada em campo sem item planejado: a descrição do técnico é o nome.
-  if (row.equipmentId) {
-    return (
-      <div className="min-w-0">
-        <p className="truncate font-medium">
-          {row.description || "Cadastrado em campo"}
-        </p>
-        <p className="truncate text-xs text-muted-foreground">
-          Sem item planejado
-        </p>
-      </div>
-    );
-  }
-  return <span className="text-muted-foreground">Etiqueta livre</span>;
-}
-
-function LocationCell({
-  towerName,
-  floorLabel,
-  environmentName,
-  ambiente,
-}: {
-  towerName: string | null;
-  floorLabel: string | null;
-  environmentName: string | null;
-  ambiente: string | null;
-}) {
-  const parts = [towerName, floorLabel, environmentName].filter(
-    (p): p is string => Boolean(p)
-  );
-  if (parts.length > 0) {
-    return <span>{parts.join(" · ")}</span>;
-  }
-  // Itens legados sem hierarquia: mostra o texto livre do ambiente.
-  if (ambiente) {
-    return <span className="text-muted-foreground">{ambiente}</span>;
-  }
-  return <span className="text-muted-foreground">—</span>;
 }

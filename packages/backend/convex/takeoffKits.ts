@@ -5,12 +5,10 @@ import {
   takeoffConfigMutation,
 } from "./lib/rbac";
 import {
-  insertTakeoffKit,
-  isFactoryKey,
-  listActiveTakeoffKits,
+  listTakeoffKitRows,
   missingFactoryTakeoffKits,
-  sanitizeTakeoffKitInput,
-  seedFactoryTakeoffKits,
+  saveTakeoffKit,
+  seedTakeoffKitDefaults,
   takeoffKitInputValidator,
   takeoffKitRowValidator,
 } from "./model/procurement/takeoffKits";
@@ -27,78 +25,14 @@ import {
 export const list = engineeringOrPurchasingQuery({
   args: {},
   returns: v.array(takeoffKitRowValidator),
-  handler: async (ctx) => {
-    const kits = await listActiveTakeoffKits(ctx);
-    const names = new Map<string, string | null>();
-    const rows = [];
-    for (const kit of kits) {
-      let updatedBy: string | null = null;
-      if (kit.updatedByUserId) {
-        if (!names.has(kit.updatedByUserId)) {
-          const user = await ctx.db.get("users", kit.updatedByUserId);
-          names.set(kit.updatedByUserId, user?.name ?? null);
-        }
-        updatedBy = names.get(kit.updatedByUserId) ?? null;
-      }
-      rows.push({
-        _id: kit._id,
-        key: kit.key,
-        name: kit.name,
-        mode: kit.mode,
-        label: kit.label ?? null,
-        components: kit.components,
-        sortOrder: kit.sortOrder,
-        updatedAt: kit.updatedAt,
-        updatedBy,
-        factory: isFactoryKey(kit.key),
-      });
-    }
-    return rows;
-  },
+  handler: async (ctx) => await listTakeoffKitRows(ctx),
 });
 
 /** Cria (sem `id`) ou substitui (com `id`) um kit padrão da empresa. */
 export const save = takeoffConfigMutation({
   args: { id: v.optional(v.id("takeoffKits")), ...takeoffKitInputValidator.fields },
   returns: v.id("takeoffKits"),
-  handler: async (ctx, { id, ...input }) => {
-    const clean = sanitizeTakeoffKitInput(input);
-    if (id === undefined) {
-      const kitId = await insertTakeoffKit(ctx, clean, ctx.user._id);
-      await logAudit(ctx, ctx.user, {
-        action: "create",
-        tableName: "takeoffKits",
-        recordId: kitId,
-        entityLabel: clean.name,
-        snapshotAfter: clean,
-      });
-      return kitId;
-    }
-    const existing = await ctx.db.get("takeoffKits", id);
-    if (!existing || !existing.active) throw new Error("Kit não encontrado");
-    await ctx.db.patch("takeoffKits", id, {
-      name: clean.name,
-      mode: clean.mode,
-      label: clean.label,
-      components: clean.components,
-      updatedAt: Date.now(),
-      updatedByUserId: ctx.user._id,
-    });
-    await logAudit(ctx, ctx.user, {
-      action: "update",
-      tableName: "takeoffKits",
-      recordId: id,
-      entityLabel: clean.name,
-      snapshotBefore: {
-        name: existing.name,
-        mode: existing.mode,
-        label: existing.label,
-        components: existing.components,
-      },
-      snapshotAfter: clean,
-    });
-    return id;
-  },
+  handler: async (ctx, { id, ...input }) => await saveTakeoffKit(ctx, ctx.user, id, input),
 });
 
 /**
@@ -144,16 +78,5 @@ export const missingFactory = engineeringOrPurchasingQuery({
 export const seedDefaults = takeoffConfigMutation({
   args: {},
   returns: v.number(),
-  handler: async (ctx) => {
-    const added = await seedFactoryTakeoffKits(ctx, ctx.user._id);
-    if (added > 0) {
-      await logAudit(ctx, ctx.user, {
-        action: "seed",
-        tableName: "takeoffKits",
-        recordId: "factory",
-        details: `${added} kits de fábrica carregados`,
-      });
-    }
-    return added;
-  },
+  handler: async (ctx) => await seedTakeoffKitDefaults(ctx, ctx.user),
 });

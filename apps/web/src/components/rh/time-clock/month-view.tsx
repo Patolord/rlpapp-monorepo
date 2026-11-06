@@ -26,7 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getErrorMessage } from "@/lib/errors";
-import { MONTH_LABELS } from "@/lib/rh/labels";
+import { MONTH_LABELS } from "@rlpapp/shared/rh/payrollLabels";
 import { formatCentsInput, parsePayrollAmountToCents } from "@/lib/rh/money";
 import { downloadCsv, formatDateKeyShort } from "@/lib/rh/time-clock";
 

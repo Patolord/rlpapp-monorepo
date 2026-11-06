@@ -47,4 +47,44 @@ export default [
       ],
     },
   },
+  // Arquivos da raiz de convex/ são a API pública (o caminho vira `api.x.y`).
+  // Eles só importam de _generated, lib/, model/, schema/, mcp/ e gateway/ (rotas
+  // HTTP registradas em http.ts); nunca uns dos outros. Código reaproveitado
+  // mora em model/<domínio> (ver convex/README.md).
+  {
+    files: ["convex/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^\\./(?!_generated/|lib/|model/|schema(/|$)|mcp/|gateway/)",
+              message:
+                "Arquivo público não importa outro arquivo público: mova o código para model/<domínio>.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["convex/{lib,gateway,mcp,schema}/*.ts", "convex/model/*/*.ts"],
+    // O catálogo gerado indexa todos os módulos públicos de propósito.
+    ignores: ["convex/mcp/catalog.generated.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^(\\.\\./)+(?!_generated$|lib$|model$|schema$|mcp$)[A-Za-z]+(\\.js)?$",
+              message:
+                "lib/, model/, schema/ e gateway/ não importam arquivos públicos da raiz de convex/.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];

@@ -5,15 +5,14 @@ import {
   materiaisMutation,
   staffMutation,
 } from "./lib/rbac";
-import { logAudit } from "./lib/audit";
-import { inventoryLocationType } from "./schema";
+import { inventoryLocationType } from "./schema/inventory";
 import {
-  canManageStockPolicy,
-  canViewCentralInventory,
-  getStockPolicy,
-  upsertStockPolicyInternal,
-} from "./lib/inventory/stockPolicy";
-import { getOrCreateCentralLocation } from "./lib/inventory/operations";
+  ensureCentralStockLocation,
+  getStockPolicyRow,
+  listStockPoliciesForMaterial,
+  listVisibleStockLocations,
+  saveStockPolicy,
+} from "./model/inventory/stockPolicy";
 
 const stockPolicyRowValidator = v.object({
   _id: v.id("inventoryStockPolicies"),
@@ -37,73 +36,21 @@ export const listLocations = inventoryQuery({
       projectId: v.union(v.id("projects"), v.null()),
     })
   ),
-  handler: async (ctx) => {
-    const canViewCentral = canViewCentralInventory(ctx.user);
-    const locations = await ctx.db.query("inventoryLocations").collect();
-    return locations
-      .filter((location) => location.active)
-      .filter(
-        (location) =>
-          canViewCentral ||
-          location.type !== "central"
-      )
-      .map((location) => ({
-        _id: location._id,
-        name: location.name,
-        type: location.type,
-        projectId: location.projectId ?? null,
-      }));
-  },
+  handler: async (ctx) => await listVisibleStockLocations(ctx, ctx.user),
 });
 
 /** Garante que o estoque central exista antes de configurar políticas. */
 export const ensureCentralLocation = staffMutation({
   args: {},
   returns: v.id("inventoryLocations"),
-  handler: async (ctx) => {
-    if (!canManageStockPolicy(ctx.user)) {
-      throw new Error(
-        "Apenas Compras, Estoque ou administradores podem configurar políticas"
-      );
-    }
-    const location = await getOrCreateCentralLocation(ctx);
-    return location._id;
-  },
+  handler: async (ctx) => await ensureCentralStockLocation(ctx, ctx.user),
 });
 
 export const listForMaterial = inventoryQuery({
   args: { materialId: v.id("materials") },
   returns: v.array(stockPolicyRowValidator),
-  handler: async (ctx, args) => {
-    const canViewCentral = canViewCentralInventory(ctx.user);
-    const policies = await ctx.db
-      .query("inventoryStockPolicies")
-      .withIndex("by_material", (q) => q.eq("materialId", args.materialId))
-      .collect();
-
-    const rows = await Promise.all(
-      policies.map(async (policy) => {
-        const location = await ctx.db.get(
-          "inventoryLocations",
-          policy.locationId
-        );
-        if (!location) return null;
-        if (!canViewCentral && location.type === "central") return null;
-        return {
-          _id: policy._id,
-          locationId: policy.locationId,
-          locationName: location.name,
-          materialId: policy.materialId,
-          minimumQuantity: policy.minimumQuantity,
-          reorderPoint: policy.reorderPoint,
-          targetQuantity: policy.targetQuantity,
-          leadTimeDays: policy.leadTimeDays ?? null,
-          updatedAt: policy.updatedAt,
-        };
-      })
-    );
-    return rows.filter((row): row is NonNullable<typeof row> => row !== null);
-  },
+  handler: async (ctx, args) =>
+    await listStockPoliciesForMaterial(ctx, ctx.user, args.materialId),
 });
 
 export const getForLocation = inventoryQuery({
@@ -112,33 +59,11 @@ export const getForLocation = inventoryQuery({
     materialId: v.id("materials"),
   },
   returns: v.union(stockPolicyRowValidator, v.null()),
-  handler: async (ctx, args) => {
-    const location = await ctx.db.get("inventoryLocations", args.locationId);
-    if (!location) return null;
-    if (
-      location.type === "central" &&
-      !canViewCentralInventory(ctx.user)
-    ) {
-      throw new Error("A Engenharia só pode consultar estoques de obras");
-    }
-    const policy = await getStockPolicy(
-      ctx,
-      args.locationId,
-      args.materialId
-    );
-    if (!policy) return null;
-    return {
-      _id: policy._id,
-      locationId: policy.locationId,
-      locationName: location.name,
-      materialId: policy.materialId,
-      minimumQuantity: policy.minimumQuantity,
-      reorderPoint: policy.reorderPoint,
-      targetQuantity: policy.targetQuantity,
-      leadTimeDays: policy.leadTimeDays ?? null,
-      updatedAt: policy.updatedAt,
-    };
-  },
+  handler: async (ctx, args) =>
+    await getStockPolicyRow(ctx, ctx.user, {
+      locationId: args.locationId,
+      materialId: args.materialId,
+    }),
 });
 
 export const upsert = materiaisMutation({
@@ -151,18 +76,7 @@ export const upsert = materiaisMutation({
     leadTimeDays: v.optional(v.number()),
   },
   returns: v.id("inventoryStockPolicies"),
-  handler: async (ctx, args) => {
-    if (!canManageStockPolicy(ctx.user)) {
-      throw new Error("Apenas Compras, Estoque ou administradores podem configurar políticas");
-    }
-    const policyId = await upsertStockPolicyInternal(ctx, ctx.user, args);
-    await logAudit(ctx, ctx.user, {
-      action: "update",
-      tableName: "inventoryStockPolicies",
-      recordId: policyId,
-    });
-    return policyId;
-  },
+  handler: async (ctx, args) => await saveStockPolicy(ctx, ctx.user, args),
 });
 
 export const upsertFromWarehouse = inventoryMutation({
@@ -175,16 +89,5 @@ export const upsertFromWarehouse = inventoryMutation({
     leadTimeDays: v.optional(v.number()),
   },
   returns: v.id("inventoryStockPolicies"),
-  handler: async (ctx, args) => {
-    if (!canManageStockPolicy(ctx.user)) {
-      throw new Error("Apenas Compras, Estoque ou administradores podem configurar políticas");
-    }
-    const policyId = await upsertStockPolicyInternal(ctx, ctx.user, args);
-    await logAudit(ctx, ctx.user, {
-      action: "update",
-      tableName: "inventoryStockPolicies",
-      recordId: policyId,
-    });
-    return policyId;
-  },
+  handler: async (ctx, args) => await saveStockPolicy(ctx, ctx.user, args),
 });

@@ -1,3 +1,4 @@
+import { formatFileSize } from "@rlpapp/shared/formatters";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
@@ -24,7 +25,6 @@ import {
   INVALID_PDF_MESSAGE,
   MAX_PDF_BYTES,
   TECHNICIAN_ACCESS_OPTIONS,
-  formatFileSize,
   hasPdfSignature,
   isPdfFile,
   suggestDocumentName,

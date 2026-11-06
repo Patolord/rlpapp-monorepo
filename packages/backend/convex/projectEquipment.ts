@@ -5,34 +5,40 @@ import {
   obrasMutation,
   obrasQuery,
 } from "./lib/rbac";
-import { equipmentStatusValidator } from "./equipment";
-import { generateQrForItem, getBatchDestination } from "./qrCodes";
-import { logEquipmentHistory } from "./lib/audit";
-import type { MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import {
+  equipKindValidator,
+  equipmentStatusValidator,
+} from "./schema/engineering";
+import {
+  assignPlannedEquipmentToEnvironment,
+  bulkAddPlannedEquipmentToEnvironments,
+  bulkAddToEnvironmentsResultValidator,
+  createUnassignedPlannedEquipment,
+  deletePlannedEquipment,
+  listUnassignedPlannedEquipment,
+  setPlannedEquipmentStatus,
+  unassignedPlannedEquipmentValidator,
+  upsertPlannedEquipmentInEnvironment,
+} from "./model/engineering/projectEquipment";
+import {
+  bulkCreateUnitsWithEquipment,
+  upsertUnitEquipment,
+} from "./model/engineering/projectUnitEquipment";
+import {
+  addPlannedEquipmentMedia,
+  claimPendingSlot,
+  createPlannedItemFromRegisteredEquipment,
+  linkEquipmentToPlannedItem,
+  listPendingSlots as listPendingSlotsModel,
+  pendingSlotValidator,
+  recordFieldAction,
+  unlinkEquipmentFromPlannedItem,
+} from "./model/engineering/fieldEquipment";
 
 const locationValidator = v.object({
   latitude: v.number(),
   longitude: v.number(),
 });
-
-// Mantém qrCodes.projectId (denormalizado) em sincronia com o vínculo
-// equipamento ↔ item planejado. `projectId: undefined` limpa o campo.
-async function syncQrProjectId(
-  ctx: MutationCtx,
-  equipmentId: Id<"equipment">,
-  projectId: Id<"projects"> | undefined
-) {
-  const qrCodes = await ctx.db
-    .query("qrCodes")
-    .withIndex("by_equipment", (q) => q.eq("equipmentId", equipmentId))
-    .collect();
-  for (const qr of qrCodes) {
-    if (qr.projectId !== projectId) {
-      await ctx.db.patch("qrCodes", qr._id, { projectId });
-    }
-  }
-}
 
 // Ações de campo do técnico (via QR): Instalar, Testar, Finalizar.
 // Sempre registra usuário, data/hora, observação e GPS (estrutura pronta).
@@ -50,60 +56,13 @@ export const fieldAction = authedMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const item = await ctx.db.get("projectEquipment", args.itemId);
-    if (!item) throw new Error("Equipamento não encontrado");
-
-    const now = Date.now();
-    const previousStatus = item.status;
-    const patch: Record<string, unknown> = {};
-    let newStatus: typeof item.status = item.status;
-
-    if (args.action === "install") {
-      newStatus = "installing";
-      patch.installationDate = item.installationDate ?? now;
-      patch.installedAt = item.installedAt ?? now;
-    } else if (args.action === "test") {
-      newStatus = "warning";
-      patch.testDate = item.testDate ?? now;
-    } else {
-      newStatus = "operational";
-      patch.installationDate = item.installationDate ?? now;
-      patch.installedAt = item.installedAt ?? now;
-    }
-    patch.status = newStatus;
-
-    await ctx.db.patch("projectEquipment", args.itemId, patch);
-    if (item.linkedEquipmentId) {
-      await ctx.db.patch("equipment", item.linkedEquipmentId, {
-        status: newStatus,
-      });
-    }
-    await logEquipmentHistory(ctx, ctx.user, {
-      equipmentId: args.itemId,
-      action:
-        args.action === "install"
-          ? "installed"
-          : args.action === "test"
-            ? "tested"
-            : "finalized",
-      previousValue: previousStatus,
-      newValue: newStatus,
-      notes: args.notes?.trim() || undefined,
-      location: args.location,
-    });
+    await recordFieldAction(ctx, ctx.user, args);
     return null;
   },
 });
 
-const equipKindValidator = v.union(
-  v.literal("condensadora"),
-  v.literal("evaporadora")
-);
-
 // Cria/atualiza um equipamento planejado dentro de um AMBIENTE (hierarquia nova).
-// O equipamento pertence a um sistema da obra (systems); o nome do sistema é
-// denormalizado no campo `system`. O sistema é opcional: itens sem sistema são
-// permitidos (exibem alerta na UI até serem atribuídos a um sistema).
+// O sistema é opcional: itens sem sistema exibem alerta na UI.
 // Diferente de `upsert`, que opera sobre o caminho legado de apartamentos.
 export const upsertInEnvironment = obrasMutation({
   args: {
@@ -122,67 +81,12 @@ export const upsertInEnvironment = obrasMutation({
   },
   returns: v.id("projectEquipment"),
   handler: async (ctx, args) => {
-    const env = await ctx.db.get("environments", args.environmentId);
-    if (!env) throw new Error("Ambiente não encontrado");
-
-    let systemName = "";
-    if (args.systemId) {
-      const system = await ctx.db.get("systems", args.systemId);
-      if (!system) throw new Error("Sistema não encontrado");
-      if (system.projectId !== env.projectId) {
-        throw new Error("O sistema não pertence à mesma obra do ambiente");
-      }
-      systemName = system.name;
-    }
-
-    const base = {
-      system: systemName,
-      systemId: args.systemId,
-      ambiente: args.ambiente?.trim() || env.name,
-      kind: args.kind,
-      modelo: args.modelo?.trim() ?? "",
-      capacidade: args.capacidade?.trim() ?? "",
-      serialNumber: args.serialNumber?.trim() || undefined,
-      obs: args.obs === null ? undefined : args.obs?.trim() || undefined,
-      deadline: args.deadline === null ? undefined : args.deadline ?? undefined,
-      scheduledDate:
-        args.scheduledDate === null ? undefined : args.scheduledDate ?? undefined,
-    };
-
-    if (args.itemId) {
-      const item = await ctx.db.get("projectEquipment", args.itemId);
-      if (!item) throw new Error("Equipamento não encontrado");
-      await ctx.db.patch("projectEquipment", args.itemId, {
-        ...base,
-        environmentId: args.environmentId,
-        towerId: env.towerId,
-        floorId: env.floorId,
-        status: args.status ?? item.status,
-      });
-      return args.itemId;
-    }
-
-    const itemId = await ctx.db.insert("projectEquipment", {
-      projectId: env.projectId,
-      environmentId: args.environmentId,
-      towerId: env.towerId,
-      floorId: env.floorId,
-      ...base,
-      status: args.status ?? "installing",
-    });
-    await logEquipmentHistory(ctx, ctx.user, {
-      equipmentId: itemId,
-      action: "created",
-      newValue: base.system,
-    });
-    return itemId;
+    return await upsertPlannedEquipmentInEnvironment(ctx, ctx.user, args);
   },
 });
 
 // Criação em massa de equipamentos planejados em vários ambientes de uma vez
-// (painel de cadastro rápido). Para cada ambiente × item × qty insere um
-// registro com os mesmos defaults de `upsertInEnvironment`. Opcionalmente gera
-// um QR novo para cada item criado.
+// (painel de cadastro rápido). Opcionalmente gera um QR novo para cada item.
 export const bulkAddToEnvironments = obrasMutation({
   args: {
     environmentIds: v.array(v.id("environments")),
@@ -197,154 +101,25 @@ export const bulkAddToEnvironments = obrasMutation({
     ),
     generateQr: v.boolean(),
   },
-  returns: v.object({
-    created: v.number(),
-    items: v.array(
-      v.object({
-        itemId: v.id("projectEquipment"),
-        environmentId: v.id("environments"),
-        token: v.union(v.string(), v.null()),
-      })
-    ),
-  }),
+  returns: bulkAddToEnvironmentsResultValidator,
   handler: async (ctx, args) => {
-    if (args.environmentIds.length === 0) {
-      throw new Error("Selecione pelo menos um ambiente");
-    }
-
-    const totalPerEnv = args.items.reduce(
-      (sum, item) => sum + Math.max(0, Math.floor(item.qty)),
-      0
-    );
-    if (totalPerEnv === 0) {
-      throw new Error("Informe a quantidade de equipamentos");
-    }
-    const total = totalPerEnv * args.environmentIds.length;
-    if (total > 500) {
-      throw new Error(
-        `Limite de 500 equipamentos por operação excedido (${total})`
-      );
-    }
-
-    // Carrega e valida os ambientes (todos da mesma obra, sem duplicatas).
-    const envIds = Array.from(new Set(args.environmentIds));
-    const environments = [];
-    for (const envId of envIds) {
-      const env = await ctx.db.get("environments", envId);
-      if (!env) throw new Error("Ambiente não encontrado");
-      environments.push(env);
-    }
-    const projectId = environments[0].projectId;
-    if (environments.some((env) => env.projectId !== projectId)) {
-      throw new Error("Todos os ambientes devem pertencer à mesma obra");
-    }
-
-    let systemName = "";
-    if (args.systemId) {
-      const system = await ctx.db.get("systems", args.systemId);
-      if (!system) throw new Error("Sistema não encontrado");
-      if (system.projectId !== projectId) {
-        throw new Error("O sistema não pertence à mesma obra dos ambientes");
-      }
-      systemName = system.name;
-    }
-
-    const results: {
-      itemId: Id<"projectEquipment">;
-      environmentId: Id<"environments">;
-      token: string | null;
-    }[] = [];
-
-    for (const env of environments) {
-      for (const item of args.items) {
-        const qty = Math.max(0, Math.floor(item.qty));
-        for (let i = 0; i < qty; i++) {
-          const itemId = await ctx.db.insert("projectEquipment", {
-            projectId,
-            environmentId: env._id,
-            towerId: env.towerId,
-            floorId: env.floorId,
-            system: systemName,
-            systemId: args.systemId,
-            ambiente: env.name,
-            kind: item.kind,
-            modelo: item.modelo?.trim() ?? "",
-            capacidade: item.capacidade?.trim() ?? "",
-            status: "installing",
-          });
-          await logEquipmentHistory(ctx, ctx.user, {
-            equipmentId: itemId,
-            action: "created",
-            newValue: systemName || "(sem sistema)",
-          });
-
-          let token: string | null = null;
-          if (args.generateQr) {
-            const inserted = await ctx.db.get("projectEquipment", itemId);
-            if (inserted) {
-              const qr = await generateQrForItem(ctx, ctx.user, inserted);
-              token = qr.token;
-            }
-          }
-
-          results.push({ itemId, environmentId: env._id, token });
-        }
-      }
-    }
-
-    return { created: results.length, items: results };
+    return await bulkAddPlannedEquipmentToEnvironments(ctx, ctx.user, args);
   },
 });
 
 // --- Pool de equipamentos não atribuídos (sem ambiente) ---
 
-const unassignedItemValidator = v.object({
-  _id: v.id("projectEquipment"),
-  system: v.string(),
-  systemId: v.union(v.id("systems"), v.null()),
-  kind: equipKindValidator,
-  modelo: v.string(),
-  capacidade: v.string(),
-  serialNumber: v.union(v.string(), v.null()),
-  status: equipmentStatusValidator,
-  deadline: v.union(v.number(), v.null()),
-});
-
 // Lista itens planejados da obra que ainda não estão em nenhum ambiente
-// (pool de "não atribuídos" do painel lateral). Itens legados de apartamentos
-// (unitId) ficam fora do pool.
+// (pool de "não atribuídos" do painel lateral).
 export const listUnassigned = obrasQuery({
   args: { projectId: v.id("projects") },
-  returns: v.array(unassignedItemValidator),
+  returns: v.array(unassignedPlannedEquipmentValidator),
   handler: async (ctx, args) => {
-    const items = await ctx.db
-      .query("projectEquipment")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    return items
-      .filter((item) => !item.environmentId && !item.unitId)
-      .sort(
-        (a, b) =>
-          a.system.localeCompare(b.system) ||
-          a.modelo.localeCompare(b.modelo) ||
-          a._creationTime - b._creationTime
-      )
-      .map((item) => ({
-        _id: item._id,
-        system: item.system,
-        systemId: item.systemId ?? null,
-        kind: item.kind,
-        modelo: item.modelo,
-        capacidade: item.capacidade,
-        serialNumber: item.serialNumber ?? null,
-        status: item.status,
-        deadline: item.deadline ?? null,
-      }));
+    return await listUnassignedPlannedEquipment(ctx, args.projectId);
   },
 });
 
 // Cria um item planejado sem ambiente (vai para o pool de não atribuídos).
-// Sistema é opcional: itens sem sistema exibem alerta na UI.
 export const createUnassigned = obrasMutation({
   args: {
     projectId: v.id("projects"),
@@ -357,43 +132,12 @@ export const createUnassigned = obrasMutation({
   },
   returns: v.id("projectEquipment"),
   handler: async (ctx, args) => {
-    const project = await ctx.db.get("projects", args.projectId);
-    if (!project) throw new Error("Obra não encontrada");
-
-    let systemName = "";
-    if (args.systemId) {
-      const system = await ctx.db.get("systems", args.systemId);
-      if (!system) throw new Error("Sistema não encontrado");
-      if (system.projectId !== args.projectId) {
-        throw new Error("O sistema não pertence a esta obra");
-      }
-      systemName = system.name;
-    }
-
-    const itemId = await ctx.db.insert("projectEquipment", {
-      projectId: args.projectId,
-      system: systemName,
-      systemId: args.systemId,
-      ambiente: "",
-      kind: args.kind,
-      modelo: args.modelo?.trim() ?? "",
-      capacidade: args.capacidade?.trim() ?? "",
-      serialNumber: args.serialNumber?.trim() || undefined,
-      deadline: args.deadline === null ? undefined : args.deadline ?? undefined,
-      status: "installing",
-    });
-    await logEquipmentHistory(ctx, ctx.user, {
-      equipmentId: itemId,
-      action: "created",
-      newValue: systemName || "(sem sistema)",
-    });
-    return itemId;
+    return await createUnassignedPlannedEquipment(ctx, ctx.user, args);
   },
 });
 
-// Atribui um item do pool de não atribuídos a um ambiente. Pode opcionalmente
-// definir/alterar o sistema no mesmo passo; itens sem sistema continuam
-// permitidos (alerta na UI).
+// Atribui um item do pool de não atribuídos a um ambiente, podendo definir o
+// sistema no mesmo passo.
 export const assignToEnvironment = obrasMutation({
   args: {
     itemId: v.id("projectEquipment"),
@@ -402,39 +146,7 @@ export const assignToEnvironment = obrasMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const item = await ctx.db.get("projectEquipment", args.itemId);
-    if (!item) throw new Error("Equipamento não encontrado");
-
-    const env = await ctx.db.get("environments", args.environmentId);
-    if (!env) throw new Error("Ambiente não encontrado");
-    if (env.projectId !== item.projectId) {
-      throw new Error("O ambiente não pertence à mesma obra do equipamento");
-    }
-
-    const systemId = args.systemId ?? item.systemId;
-    let systemName = item.system;
-    if (args.systemId) {
-      const system = await ctx.db.get("systems", args.systemId);
-      if (!system) throw new Error("Sistema não encontrado");
-      if (system.projectId !== item.projectId) {
-        throw new Error("O sistema não pertence a esta obra");
-      }
-      systemName = system.name;
-    }
-
-    await ctx.db.patch("projectEquipment", args.itemId, {
-      environmentId: args.environmentId,
-      towerId: env.towerId,
-      floorId: env.floorId,
-      ambiente: item.ambiente.trim() || env.name,
-      system: systemName,
-      systemId,
-    });
-    await logEquipmentHistory(ctx, ctx.user, {
-      equipmentId: args.itemId,
-      action: "assigned",
-      newValue: env.name,
-    });
+    await assignPlannedEquipmentToEnvironment(ctx, ctx.user, args);
     return null;
   },
 });
@@ -455,35 +167,7 @@ export const upsert = obrasMutation({
   },
   returns: v.id("projectEquipment"),
   handler: async (ctx, args) => {
-    const unit = await ctx.db.get("projectUnits", args.unitId);
-    if (!unit) throw new Error("Apartamento não encontrado");
-
-    const base = {
-      system: args.system.trim() || "Split",
-      ambiente: args.ambiente.trim() || "Ambiente",
-      kind: args.kind,
-      modelo: args.modelo?.trim() ?? "",
-      capacidade: args.capacidade?.trim() ?? "",
-      obs: args.obs === null ? undefined : args.obs?.trim() || undefined,
-      deadline: args.deadline === null ? undefined : args.deadline ?? undefined,
-    };
-
-    if (args.itemId) {
-      const item = await ctx.db.get("projectEquipment", args.itemId);
-      if (!item) throw new Error("Equipamento não encontrado");
-      await ctx.db.patch("projectEquipment", args.itemId, {
-        ...base,
-        status: args.status ?? item.status,
-      });
-      return args.itemId;
-    }
-
-    return await ctx.db.insert("projectEquipment", {
-      projectId: args.projectId,
-      unitId: args.unitId,
-      ...base,
-      status: args.status ?? "installing",
-    });
+    return await upsertUnitEquipment(ctx, args);
   },
 });
 
@@ -494,32 +178,7 @@ export const setStatus = obrasMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const item = await ctx.db.get("projectEquipment", args.itemId);
-    if (!item) throw new Error("Equipamento não encontrado");
-    if (item.status === args.status) return null;
-
-    const now = Date.now();
-    await ctx.db.patch("projectEquipment", args.itemId, {
-      status: args.status,
-      installedAt:
-        args.status === "operational" ? item.installedAt ?? now : item.installedAt,
-      installationDate:
-        args.status === "operational"
-          ? item.installationDate ?? now
-          : item.installationDate,
-    });
-    // Reflete no equipamento real vinculado, se houver.
-    if (item.linkedEquipmentId) {
-      await ctx.db.patch("equipment", item.linkedEquipmentId, {
-        status: args.status,
-      });
-    }
-    await logEquipmentHistory(ctx, ctx.user, {
-      equipmentId: args.itemId,
-      action: "status_changed",
-      previousValue: item.status,
-      newValue: args.status,
-    });
+    await setPlannedEquipmentStatus(ctx, ctx.user, args);
     return null;
   },
 });
@@ -528,15 +187,7 @@ export const remove = obrasMutation({
   args: { itemId: v.id("projectEquipment") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const item = await ctx.db.get("projectEquipment", args.itemId);
-    if (!item) return null;
-    if (item.linkedEquipmentId) {
-      await ctx.db.patch("equipment", item.linkedEquipmentId, {
-        projectEquipmentId: undefined,
-      });
-      await syncQrProjectId(ctx, item.linkedEquipmentId, undefined);
-    }
-    await ctx.db.delete("projectEquipment", args.itemId);
+    await deletePlannedEquipment(ctx, args.itemId);
     return null;
   },
 });
@@ -551,26 +202,7 @@ export const addMedia = authedMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const item = await ctx.db.get("projectEquipment", args.itemId);
-    if (!item) throw new Error("Equipamento não encontrado");
-
-    const patch: Record<string, unknown> = {};
-    if (args.photoIds && args.photoIds.length > 0) {
-      patch.photoIds = [...(item.photoIds ?? []), ...args.photoIds];
-    }
-    if (args.videoIds && args.videoIds.length > 0) {
-      patch.videoIds = [...(item.videoIds ?? []), ...args.videoIds];
-    }
-    if (Object.keys(patch).length === 0) return null;
-
-    await ctx.db.patch("projectEquipment", args.itemId, patch);
-    await logEquipmentHistory(ctx, ctx.user, {
-      equipmentId: args.itemId,
-      action: "media_added",
-      newValue: `${args.photoIds?.length ?? 0} foto(s), ${
-        args.videoIds?.length ?? 0
-      } vídeo(s)`,
-    });
+    await addPlannedEquipmentMedia(ctx, ctx.user, args);
     return null;
   },
 });
@@ -583,44 +215,14 @@ export const linkEquipment = obrasMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const item = await ctx.db.get("projectEquipment", args.itemId);
-    if (!item) throw new Error("Equipamento planejado não encontrado");
-
-    const equipment = await ctx.db.get("equipment", args.equipmentId);
-    if (!equipment) throw new Error("Equipamento não encontrado");
-    if (
-      equipment.projectEquipmentId &&
-      equipment.projectEquipmentId !== args.itemId
-    ) {
-      throw new Error("Este equipamento já está vinculado a outro item");
-    }
-
-    // Desvincula o equipamento anterior, se houver.
-    if (item.linkedEquipmentId && item.linkedEquipmentId !== args.equipmentId) {
-      await ctx.db.patch("equipment", item.linkedEquipmentId, {
-        projectEquipmentId: undefined,
-      });
-      await syncQrProjectId(ctx, item.linkedEquipmentId, undefined);
-    }
-
-    await ctx.db.patch("projectEquipment", args.itemId, {
-      linkedEquipmentId: args.equipmentId,
-      status: "operational",
-      installedAt: item.installedAt ?? Date.now(),
-    });
-    await ctx.db.patch("equipment", args.equipmentId, {
-      projectEquipmentId: args.itemId,
-    });
-    await syncQrProjectId(ctx, args.equipmentId, item.projectId);
+    await linkEquipmentToPlannedItem(ctx, args);
     return null;
   },
 });
 
 // Cria um item planejado diretamente a partir de um equipamento já cadastrado
-// pelo técnico (QR + equipment sem item planejado), em um passo único: insere
-// o projectEquipment no ambiente/sistema e vincula o equipamento existente,
-// preservando descrição/fotos do cadastro de campo. Não força "operational"
-// (atribuir à obra não significa instalado).
+// pelo técnico (QR + equipment sem item planejado), em um passo único. Não
+// força "operational" (atribuir à obra não significa instalado).
 export const createFromRegisteredEquipment = obrasMutation({
   args: {
     environmentId: v.id("environments"),
@@ -636,100 +238,7 @@ export const createFromRegisteredEquipment = obrasMutation({
     token: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, args) => {
-    const env = await ctx.db.get("environments", args.environmentId);
-    if (!env) throw new Error("Ambiente não encontrado");
-
-    let systemName = "";
-    if (args.systemId) {
-      const system = await ctx.db.get("systems", args.systemId);
-      if (!system) throw new Error("Sistema não encontrado");
-      if (system.projectId !== env.projectId) {
-        throw new Error("O sistema não pertence à mesma obra do ambiente");
-      }
-      systemName = system.name;
-    }
-
-    // Resolve o equipamento cadastrado: por id direto ou pelo token bipado.
-    let equipment = null;
-    let qrCode = null;
-    if (args.token) {
-      const token = args.token.trim().toUpperCase();
-      if (!token) throw new Error("Informe o token do QR");
-      qrCode = await ctx.db
-        .query("qrCodes")
-        .withIndex("by_token", (q) => q.eq("token", token))
-        .unique();
-      if (!qrCode) throw new Error(`QR "${token}" não encontrado`);
-      if (qrCode.status !== "active") {
-        throw new Error(`QR "${token}" está inativo`);
-      }
-      if (!qrCode.equipmentId) {
-        throw new Error(
-          `QR "${token}" ainda não foi cadastrado pelo técnico`
-        );
-      }
-      equipment = await ctx.db.get("equipment", qrCode.equipmentId);
-    } else if (args.equipmentId) {
-      equipment = await ctx.db.get("equipment", args.equipmentId);
-      if (equipment) {
-        qrCode = await ctx.db
-          .query("qrCodes")
-          .withIndex("by_equipment", (q) => q.eq("equipmentId", equipment!._id))
-          .order("desc")
-          .first();
-      }
-    } else {
-      throw new Error("Informe o token do QR ou o equipamento");
-    }
-
-    if (!equipment) throw new Error("Equipamento não encontrado");
-    if (equipment.projectEquipmentId) {
-      throw new Error("Este equipamento já está vinculado a um item da obra");
-    }
-
-    // Se o lote da etiqueta tem obra de destino, valida contra a obra do ambiente.
-    if (qrCode) {
-      const destination = await getBatchDestination(ctx, qrCode.batchId);
-      if (destination && destination.projectId !== env.projectId) {
-        throw new Error(
-          `QR "${qrCode.token}" pertence ao lote destinado à obra "${destination.projectName}"`
-        );
-      }
-    }
-
-    const itemId = await ctx.db.insert("projectEquipment", {
-      projectId: env.projectId,
-      environmentId: args.environmentId,
-      towerId: env.towerId,
-      floorId: env.floorId,
-      system: systemName,
-      systemId: args.systemId,
-      ambiente: env.name,
-      kind: args.kind,
-      modelo: args.modelo?.trim() ?? "",
-      capacidade: args.capacidade?.trim() ?? "",
-      status: equipment.status,
-      linkedEquipmentId: equipment._id,
-    });
-    await ctx.db.patch("equipment", equipment._id, {
-      projectEquipmentId: itemId,
-    });
-    await syncQrProjectId(ctx, equipment._id, env.projectId);
-
-    await logEquipmentHistory(ctx, ctx.user, {
-      equipmentId: itemId,
-      action: "created",
-      newValue: systemName || "(sem sistema)",
-    });
-    if (qrCode) {
-      await logEquipmentHistory(ctx, ctx.user, {
-        equipmentId: itemId,
-        action: "qr_linked",
-        newValue: qrCode.token,
-      });
-    }
-
-    return { itemId, token: qrCode?.token ?? null };
+    return await createPlannedItemFromRegisteredEquipment(ctx, ctx.user, args);
   },
 });
 
@@ -741,83 +250,14 @@ export const createFromRegisteredEquipment = obrasMutation({
 // onde ele fica.
 export const listPendingSlots = authedQuery({
   args: { projectId: v.id("projects") },
-  returns: v.array(
-    v.object({
-      itemId: v.id("projectEquipment"),
-      kind: equipKindValidator,
-      system: v.string(),
-      modelo: v.string(),
-      capacidade: v.string(),
-      towerName: v.union(v.string(), v.null()),
-      floorLabel: v.union(v.string(), v.null()),
-      floorNumber: v.union(v.number(), v.null()),
-      environmentName: v.union(v.string(), v.null()),
-    })
-  ),
+  returns: v.array(pendingSlotValidator),
   handler: async (ctx, args) => {
-    const items = await ctx.db
-      .query("projectEquipment")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-
-    const pending = items.filter(
-      (item) => !item.linkedEquipmentId && item.environmentId && !item.unitId
-    );
-    if (pending.length === 0) return [];
-
-    // Nomes da hierarquia pré-carregados uma vez (evita N+1 por item).
-    const [towers, floors, environments] = await Promise.all([
-      ctx.db
-        .query("towers")
-        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-        .collect(),
-      ctx.db
-        .query("floors")
-        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-        .collect(),
-      ctx.db
-        .query("environments")
-        .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-        .collect(),
-    ]);
-    const towerName = new Map(towers.map((t) => [t._id, t.name]));
-    const floorById = new Map(floors.map((f) => [f._id, f]));
-    const envName = new Map(environments.map((e) => [e._id, e.name]));
-
-    return pending
-      .map((item) => {
-        const floor = item.floorId ? floorById.get(item.floorId) : undefined;
-        return {
-          itemId: item._id,
-          kind: item.kind,
-          system: item.system,
-          modelo: item.modelo,
-          capacidade: item.capacidade,
-          towerName: item.towerId
-            ? towerName.get(item.towerId) ?? null
-            : null,
-          floorLabel: floor?.label ?? null,
-          floorNumber: floor?.number ?? null,
-          environmentName: item.environmentId
-            ? envName.get(item.environmentId) ?? null
-            : null,
-        };
-      })
-      .sort(
-        (a, b) =>
-          (a.towerName ?? "").localeCompare(b.towerName ?? "") ||
-          (b.floorNumber ?? 0) - (a.floorNumber ?? 0) ||
-          (a.environmentName ?? "").localeCompare(b.environmentName ?? "") ||
-          a.system.localeCompare(b.system) ||
-          a.kind.localeCompare(b.kind)
-      );
+    return await listPendingSlotsModel(ctx, args.projectId);
   },
 });
 
 // Técnico atribui o equipamento que acabou de cadastrar a uma vaga planejada.
-// Diferente de `linkEquipment` (escritório), NÃO força "operational": atribuir
-// à vaga não significa instalado — o status vem do cadastro de campo e a
-// instalação segue via fieldAction.
+// Diferente de `linkEquipment` (escritório), NÃO força "operational".
 export const claimSlot = authedMutation({
   args: {
     itemId: v.id("projectEquipment"),
@@ -825,50 +265,7 @@ export const claimSlot = authedMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const item = await ctx.db.get("projectEquipment", args.itemId);
-    if (!item) throw new Error("Vaga planejada não encontrada");
-    if (item.linkedEquipmentId) {
-      throw new Error("Esta vaga já tem um equipamento vinculado");
-    }
-
-    const equipment = await ctx.db.get("equipment", args.equipmentId);
-    if (!equipment) throw new Error("Equipamento não encontrado");
-    if (
-      equipment.projectEquipmentId &&
-      equipment.projectEquipmentId !== args.itemId
-    ) {
-      throw new Error("Este equipamento já está vinculado a outra vaga");
-    }
-
-    // Se a etiqueta veio de um lote com obra de destino, valida contra a obra.
-    const qrCode = await ctx.db
-      .query("qrCodes")
-      .withIndex("by_equipment", (q) => q.eq("equipmentId", args.equipmentId))
-      .order("desc")
-      .first();
-    if (qrCode) {
-      const destination = await getBatchDestination(ctx, qrCode.batchId);
-      if (destination && destination.projectId !== item.projectId) {
-        throw new Error(
-          `A etiqueta pertence ao lote destinado à obra "${destination.projectName}"`
-        );
-      }
-    }
-
-    await ctx.db.patch("projectEquipment", args.itemId, {
-      linkedEquipmentId: args.equipmentId,
-      status: equipment.status,
-    });
-    await ctx.db.patch("equipment", args.equipmentId, {
-      projectEquipmentId: args.itemId,
-    });
-    await syncQrProjectId(ctx, args.equipmentId, item.projectId);
-
-    await logEquipmentHistory(ctx, ctx.user, {
-      equipmentId: args.itemId,
-      action: "qr_linked",
-      newValue: qrCode?.token,
-    });
+    await claimPendingSlot(ctx, ctx.user, args);
     return null;
   },
 });
@@ -877,19 +274,7 @@ export const unlinkEquipment = obrasMutation({
   args: { itemId: v.id("projectEquipment") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const item = await ctx.db.get("projectEquipment", args.itemId);
-    if (!item) throw new Error("Equipamento planejado não encontrado");
-    if (item.linkedEquipmentId) {
-      await ctx.db.patch("equipment", item.linkedEquipmentId, {
-        projectEquipmentId: undefined,
-      });
-      await syncQrProjectId(ctx, item.linkedEquipmentId, undefined);
-    }
-    await ctx.db.patch("projectEquipment", args.itemId, {
-      linkedEquipmentId: undefined,
-      status: "installing",
-      installedAt: undefined,
-    });
+    await unlinkEquipmentFromPlannedItem(ctx, args.itemId);
     return null;
   },
 });
@@ -922,42 +307,6 @@ export const bulkCreate = obrasMutation({
   },
   returns: v.object({ units: v.number(), items: v.number() }),
   handler: async (ctx, args) => {
-    const project = await ctx.db.get("projects", args.projectId);
-    if (!project) throw new Error("Obra não encontrada");
-
-    let unitCount = 0;
-    let itemCount = 0;
-
-    for (const u of args.units) {
-      const floor = Math.floor(u.floor);
-      const final = Math.max(1, Math.floor(u.final));
-      const unitId = await ctx.db.insert("projectUnits", {
-        projectId: args.projectId,
-        floor,
-        final,
-        label: u.label?.trim() || `${floor}${String(final).padStart(2, "0")}`,
-        type: u.type,
-        floorSpan: Math.max(1, Math.floor(u.floorSpan ?? 1)),
-        deadline: u.deadline ?? undefined,
-      });
-      unitCount++;
-
-      for (const e of u.equipment) {
-        await ctx.db.insert("projectEquipment", {
-          projectId: args.projectId,
-          unitId,
-          system: e.system.trim() || "Split",
-          ambiente: e.ambiente.trim() || "Ambiente",
-          kind: e.kind,
-          modelo: e.modelo?.trim() ?? "",
-          capacidade: e.capacidade?.trim() ?? "",
-          obs: e.obs?.trim() || undefined,
-          status: "installing",
-        });
-        itemCount++;
-      }
-    }
-
-    return { units: unitCount, items: itemCount };
+    return await bulkCreateUnitsWithEquipment(ctx, args);
   },
 });

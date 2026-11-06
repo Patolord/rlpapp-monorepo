@@ -4,7 +4,7 @@ import { ArrowLeft, WifiOff } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { useOnline } from "@/lib/use-online";
+import { useOnline } from "@/hooks/use-online";
 
 export function OfflineBanner({ detail }: { detail?: string }) {
   const online = useOnline();

@@ -4,27 +4,21 @@ import { formatCurrency } from "@rlpapp/shared";
 import { MetricCard, MetricStrip } from "@rlpapp/ui/web";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { PayrollAddEmployeeDialog } from "@/components/rh/payroll-add-employee-dialog";
 import {
   PayrollAlimonyPanel,
   type AlimonyLine,
 } from "@/components/rh/payroll-alimony-panel";
 import { PayrollGrid, type PayrollLinePatch } from "@/components/rh/payroll-grid";
 import { PayrollLoanDialog } from "@/components/rh/payroll-loan-dialog";
+import { PayrollRunParameters } from "@/components/rh/payroll-run-parameters";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { getErrorMessage } from "@/lib/errors";
-import { formatPayrollRunLabel } from "@/lib/rh/labels";
-import { formatCentsInput, parseDays, parsePayrollAmountToCents } from "@/lib/rh/money";
+import { formatPayrollRunLabel } from "@rlpapp/shared/rh/payrollLabels";
 
 type Workspace = FunctionReturnType<typeof api.payroll.getWorkspace>;
 type Line = Workspace["lines"][number];
@@ -156,7 +150,6 @@ export function PayrollWorkspace() {
     paymentMonth,
   });
   const createRun = useMutation(api.payroll.createRun);
-  const updateRunParameters = useMutation(api.payroll.updateRunParameters);
   const updateLine = useMutation(api.payroll.updateLine);
   const togglePaid = useMutation(api.payroll.togglePaid);
   const removeLine = useMutation(api.payroll.removeLine);
@@ -310,68 +303,7 @@ export function PayrollWorkspace() {
         />
       </MetricStrip>
 
-      <div className="flex flex-wrap items-center gap-5 rounded-[var(--radius)] border border-border bg-card px-4 py-3">
-        <div className="flex min-w-[150px] flex-col gap-0.5">
-          <span className="text-[11px] font-bold tracking-[0.06em] text-muted-foreground uppercase">
-            Parâmetros do mês
-          </span>
-          <span className="text-[11.5px] text-muted-foreground">
-            Aplicados a todos os cálculos deste mês
-          </span>
-        </div>
-        <ParamField
-          label="Vale alimentação (R$/dia)"
-          value={run ? formatCentsInput(run.mealVoucherPerDayCents) : ""}
-          disabled={!run || closed}
-          onCommit={(value) =>
-            run &&
-            void updateRunParameters({
-              runId: run._id,
-              mealVoucherPerDayCents: parsePayrollAmountToCents(value || "0"),
-            })
-          }
-        />
-        <ParamField
-          label="Cesta básica (R$)"
-          value={run ? formatCentsInput(run.foodBasketCents) : ""}
-          disabled={!run || closed}
-          onCommit={(value) =>
-            run &&
-            void updateRunParameters({
-              runId: run._id,
-              foodBasketCents: parsePayrollAmountToCents(value || "0"),
-            })
-          }
-        />
-        <ParamField
-          label="Passagem padrão (R$/dia)"
-          value={run ? formatCentsInput(run.defaultDailyTransitCents) : ""}
-          disabled={!run || closed}
-          onCommit={(value) =>
-            run &&
-            void updateRunParameters({
-              runId: run._id,
-              defaultDailyTransitCents: parsePayrollAmountToCents(value || "0"),
-            })
-          }
-        />
-        <ParamField
-          label="Dias padrão (transp./alim.)"
-          value={run ? String(run.defaultTransportFoodDays) : ""}
-          disabled={!run || closed}
-          onCommit={(value) =>
-            run &&
-            void updateRunParameters({
-              runId: run._id,
-              defaultTransportFoodDays: parseDays(value),
-            })
-          }
-        />
-        <span className="max-w-[320px] text-[11.5px] text-muted-foreground">
-          Passagem e dias padrão preenchem novos funcionários; cada linha ainda
-          pode ter valor individual.
-        </span>
-      </div>
+      <PayrollRunParameters run={run} closed={closed} />
 
       <PayrollGrid
         lines={filtered}
@@ -455,7 +387,7 @@ export function PayrollWorkspace() {
       </div>
 
       {addOpen && run && (
-        <AddEmployeeDialog
+        <PayrollAddEmployeeDialog
           available={workspace?.availableEmployees ?? []}
           onClose={() => setAddOpen(false)}
           onAdd={async (payload) => {
@@ -481,120 +413,3 @@ export function PayrollWorkspace() {
     </div>
   );
 }
-
-function ParamField({
-  label,
-  value,
-  disabled,
-  onCommit,
-}: {
-  label: string;
-  value: string;
-  disabled?: boolean;
-  onCommit: (value: string) => void;
-}) {
-  const [text, setText] = useState(value);
-  useEffect(() => {
-    setText(value);
-  }, [value]);
-  return (
-    <label className="flex flex-col gap-1 text-[10.5px] font-semibold tracking-[0.04em] text-muted-foreground uppercase">
-      {label}
-      <input
-        disabled={disabled}
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        onBlur={() => {
-          if (text !== value) onCommit(text);
-        }}
-        className="h-8 w-[110px] rounded-md border border-border bg-background px-2.5 text-right text-[13px] font-semibold tabular-nums text-foreground"
-      />
-    </label>
-  );
-}
-
-function AddEmployeeDialog({
-  available,
-  onClose,
-  onAdd,
-}: {
-  available: { _id: Id<"employees">; name: string; code: string | null; jobTitle: string | null }[];
-  onClose: () => void;
-  onAdd: (payload: { employeeId?: Id<"employees">; name?: string }) => Promise<void>;
-}) {
-  const [name, setName] = useState("");
-  const [employeeId, setEmployeeId] = useState<string>(available[0]?._id ?? "");
-  const [submitting, setSubmitting] = useState(false);
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="space-y-4 sm:max-w-[420px]">
-        <DialogHeader>
-          <div className="text-[11px] font-bold tracking-[0.06em] text-muted-foreground uppercase">
-            Folha
-          </div>
-          <DialogTitle className="text-base font-bold">
-            Adicionar funcionário
-          </DialogTitle>
-        </DialogHeader>
-        {available.length > 0 && (
-          <label className="flex flex-col gap-1 text-sm">
-            Cadastro existente
-            <select
-              className="h-9 rounded-md border border-border bg-background px-2 text-sm"
-              value={employeeId}
-              onChange={(event) => setEmployeeId(event.target.value)}
-            >
-              {available.map((employee) => (
-                <option key={employee._id} value={employee._id}>
-                  {employee.code ? `${employee.code} · ` : ""}
-                  {employee.name}
-                </option>
-              ))}
-            </select>
-            <Button
-              size="sm"
-              disabled={submitting || !employeeId}
-              onClick={() => {
-                setSubmitting(true);
-                void onAdd({ employeeId: employeeId as Id<"employees"> })
-                  .catch((error) =>
-                    toast.error(getErrorMessage(error, "Erro ao adicionar"))
-                  )
-                  .finally(() => setSubmitting(false));
-              }}
-            >
-              Adicionar selecionado
-            </Button>
-          </label>
-        )}
-        <label className="flex flex-col gap-1 text-sm">
-          Novo funcionário
-          <Input
-            value={name}
-            placeholder="Nome completo"
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button
-            disabled={submitting || !name.trim()}
-            onClick={() => {
-              setSubmitting(true);
-              void onAdd({ name })
-                .catch((error) =>
-                  toast.error(getErrorMessage(error, "Erro ao adicionar"))
-                )
-                .finally(() => setSubmitting(false));
-            }}
-          >
-            Criar e incluir
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-

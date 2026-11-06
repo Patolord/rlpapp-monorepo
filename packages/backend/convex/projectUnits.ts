@@ -2,12 +2,12 @@ import { v } from "convex/values";
 import {
   obrasMutation,
 } from "./lib/rbac";
+import {
+  removeProjectUnit,
+  upsertProjectUnit,
+} from "./model/engineering/projectUnitEquipment";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
-
-function autoUnitLabel(floor: number, final: number): string {
-  return `${floor}${String(final).padStart(2, "0")}`;
-}
 
 export const upsert = obrasMutation({
   args: {
@@ -23,38 +23,7 @@ export const upsert = obrasMutation({
   },
   returns: v.id("projectUnits"),
   handler: async (ctx, args) => {
-    const project = await ctx.db.get("projects", args.projectId);
-    if (!project) throw new Error("Obra não encontrada");
-
-    const floor = Math.floor(args.floor);
-    const final = Math.max(1, Math.floor(args.final));
-    const floorSpan = Math.max(1, Math.floor(args.floorSpan ?? 1));
-    const label = args.label?.trim() || autoUnitLabel(floor, final);
-
-    if (args.unitId) {
-      const unit = await ctx.db.get("projectUnits", args.unitId);
-      if (!unit) throw new Error("Apartamento não encontrado");
-      await ctx.db.patch("projectUnits", args.unitId, {
-        floor,
-        final,
-        label,
-        type: args.type,
-        floorSpan,
-        deadline:
-          args.deadline === null ? undefined : args.deadline ?? unit.deadline,
-      });
-      return args.unitId;
-    }
-
-    return await ctx.db.insert("projectUnits", {
-      projectId: args.projectId,
-      floor,
-      final,
-      label,
-      type: args.type,
-      floorSpan,
-      deadline: args.deadline ?? undefined,
-    });
+    return await upsertProjectUnit(ctx, args);
   },
 });
 
@@ -78,19 +47,7 @@ export const remove = obrasMutation({
   args: { unitId: v.id("projectUnits") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const items = await ctx.db
-      .query("projectEquipment")
-      .withIndex("by_unit", (q) => q.eq("unitId", args.unitId))
-      .collect();
-    for (const item of items) {
-      if (item.linkedEquipmentId) {
-        await ctx.db.patch("equipment", item.linkedEquipmentId, {
-          projectEquipmentId: undefined,
-        });
-      }
-      await ctx.db.delete("projectEquipment", item._id);
-    }
-    await ctx.db.delete("projectUnits", args.unitId);
+    await removeProjectUnit(ctx, args.unitId);
     return null;
   },
 });

@@ -6,7 +6,7 @@ import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { AppButton, ConfirmDialog, IconButton, Pill, Sheet, Surface, useToast } from "@/components/ui";
-import { EQUIPMENT_STATUS_LABELS } from "@/lib/equipment-status";
+import { EQUIPMENT_STATUS_LABELS } from "@rlpapp/shared/engenharia/equipment";
 import { getErrorMessage } from "@/lib/errors";
 import { colors, space, type } from "@/lib/theme";
 

@@ -1,3 +1,5 @@
+Organização do backend (camadas, convenções, controle de acesso): [`convex/README.md`](convex/README.md).
+
 <!-- convex-ai-start -->
 
 This project uses [Convex](https://convex.dev) as its backend.

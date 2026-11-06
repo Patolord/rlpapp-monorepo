@@ -1,4 +1,4 @@
-import { signatureOf, type ValidatorJson } from "../mcpCatalog";
+import { signatureOf, type ValidatorJson } from "../mcp/catalog";
 
 /**
  * Validação de argumentos no gateway (`/api/v1`), antes de chamar o deployment.

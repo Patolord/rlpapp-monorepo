@@ -1,383 +1,19 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
-import { accessRoles } from "./schema";
-import type { Doc, Id } from "./_generated/dataModel";
-import type { QueryCtx } from "./_generated/server";
+import { authedQuery } from "./lib/rbac";
 import {
-  resolveRoles, authedQuery, hasPermission } from "./lib/rbac";
+  activityItemValidator,
+  listProjectFieldActivity,
+  listTechnicianActivityForProject,
+  listTechnicianActivityProjects,
+  listTechnicianActivityUsers,
+} from "./model/engineering/technicianActivity";
+import { accessRoles } from "./schema/identity";
 
 // Histórico unificado de serviços do técnico (qr_operator ou staff), agrupado
 // por obra: cadastro de equipamento, registros de instalação/manutenção
 // (maintenanceLogs) + ações de campo instalar/testar/finalizar
 // (equipmentHistory via fieldAction).
-
-// Ações de equipmentHistory que contam como serviço realizado pelo técnico.
-// Outras ações (created, qr_linked, checklist...) são administrativas.
-const SERVICE_ACTIONS = new Set(["installed", "tested", "finalized"]);
-
-// Teto por fonte: o histórico de campo de um único técnico é naturalmente
-// limitado; o teto evita leitura ilimitada. Documentado nos testes.
-const MAX_PER_SOURCE = 400;
-
-const logStatusValidator = v.union(
-  v.literal("installing"),
-  v.literal("operational"),
-  v.literal("warning"),
-  v.literal("error")
-);
-
-const activityItemValidator = v.object({
-  kind: v.union(
-    v.literal("maintenanceLog"),
-    v.literal("fieldAction"),
-    v.literal("registration")
-  ),
-  id: v.string(),
-  createdAt: v.number(),
-  // Descrição do equipamento real ou modelo/ambiente do item planejado.
-  title: v.string(),
-  // "Cadastro" | "Instalação" | "Manutenção" | "Instalado" | "Testado" | "Finalizado"
-  label: v.string(),
-  // Presente apenas em maintenanceLogs / registration.
-  status: v.union(logStatusValidator, v.null()),
-  qrToken: v.union(v.string(), v.null()),
-  notes: v.union(v.string(), v.null()),
-});
-
-type ActivityItem = {
-  kind: "maintenanceLog" | "fieldAction" | "registration";
-  id: string;
-  createdAt: number;
-  title: string;
-  label: string;
-  status: "installing" | "operational" | "warning" | "error" | null;
-  qrToken: string | null;
-  notes: string | null;
-  projectId: Id<"projects"> | null;
-  authorId: Id<"users"> | null;
-  // Nome gravado no próprio registro (logs antigos não têm createdByUserId).
-  authorFallback: string | null;
-};
-
-const LOG_LABELS: Record<string, string> = {
-  installation: "Instalação",
-  maintenance: "Manutenção",
-};
-
-const ACTION_LABELS: Record<string, string> = {
-  installed: "Instalado",
-  tested: "Testado",
-  finalized: "Finalizado",
-};
-
-// Caches por request para evitar leituras repetidas dos mesmos documentos.
-type ResolveCaches = {
-  equipment: Map<string, Doc<"equipment"> | null>;
-  planned: Map<string, Doc<"projectEquipment"> | null>;
-  qrTokenByEquipment: Map<string, { token: string; projectId: Id<"projects"> | null } | null>;
-};
-
-function newCaches(): ResolveCaches {
-  return {
-    equipment: new Map(),
-    planned: new Map(),
-    qrTokenByEquipment: new Map(),
-  };
-}
-
-async function getEquipmentCached(
-  ctx: QueryCtx,
-  caches: ResolveCaches,
-  id: Id<"equipment">
-): Promise<Doc<"equipment"> | null> {
-  const cached = caches.equipment.get(id);
-  if (cached !== undefined) return cached;
-  const doc = await ctx.db.get("equipment", id);
-  caches.equipment.set(id, doc);
-  return doc;
-}
-
-async function getPlannedCached(
-  ctx: QueryCtx,
-  caches: ResolveCaches,
-  id: Id<"projectEquipment">
-): Promise<Doc<"projectEquipment"> | null> {
-  const cached = caches.planned.get(id);
-  if (cached !== undefined) return cached;
-  const doc = await ctx.db.get("projectEquipment", id);
-  caches.planned.set(id, doc);
-  return doc;
-}
-
-async function getQrForEquipmentCached(
-  ctx: QueryCtx,
-  caches: ResolveCaches,
-  equipmentId: Id<"equipment">
-): Promise<{ token: string; projectId: Id<"projects"> | null } | null> {
-  const cached = caches.qrTokenByEquipment.get(equipmentId);
-  if (cached !== undefined) return cached;
-  const qr = await ctx.db
-    .query("qrCodes")
-    .withIndex("by_equipment", (q) => q.eq("equipmentId", equipmentId))
-    .order("desc")
-    .first();
-  const value = qr ? { token: qr.token, projectId: qr.projectId ?? null } : null;
-  caches.qrTokenByEquipment.set(equipmentId, value);
-  return value;
-}
-
-// Resolve obra para um equipamento: planned → qrCodes.projectId → legado.
-async function resolveEquipmentProjectId(
-  ctx: QueryCtx,
-  caches: ResolveCaches,
-  equipment: Doc<"equipment"> | null,
-  qr: { token: string; projectId: Id<"projects"> | null } | null
-): Promise<Id<"projects"> | null> {
-  let projectId: Id<"projects"> | null = null;
-  if (equipment?.projectEquipmentId) {
-    const planned = await getPlannedCached(
-      ctx,
-      caches,
-      equipment.projectEquipmentId
-    );
-    projectId = planned?.projectId ?? null;
-  }
-  if (!projectId) projectId = qr?.projectId ?? null;
-  if (!projectId) projectId = equipment?.projectId ?? null;
-  return projectId;
-}
-
-// Converte um maintenanceLog em item de atividade, resolvendo a obra:
-// equipment → projectEquipment.projectId; senão qrCodes.projectId (lote com
-// obra de destino); senão equipment.projectId (legado).
-async function logToItem(
-  ctx: QueryCtx,
-  caches: ResolveCaches,
-  log: Doc<"maintenanceLogs">
-): Promise<ActivityItem> {
-  const equipment = await getEquipmentCached(ctx, caches, log.equipmentId);
-  const qr = await getQrForEquipmentCached(ctx, caches, log.equipmentId);
-  const projectId = await resolveEquipmentProjectId(ctx, caches, equipment, qr);
-
-  return {
-    kind: "maintenanceLog",
-    id: log._id,
-    createdAt: log.createdAt,
-    title: equipment?.description || qr?.token || "Equipamento",
-    label: LOG_LABELS[log.type ?? "maintenance"] ?? "Manutenção",
-    status: log.status,
-    qrToken: qr?.token ?? null,
-    notes: log.notes ?? null,
-    projectId,
-    authorId: log.createdByUserId ?? null,
-    authorFallback: log.technicianName || null,
-  };
-}
-
-// Cadastro de equipamento em campo (equipment.create).
-async function registrationToItem(
-  ctx: QueryCtx,
-  caches: ResolveCaches,
-  equipment: Doc<"equipment">
-): Promise<ActivityItem> {
-  const qr = await getQrForEquipmentCached(ctx, caches, equipment._id);
-  const projectId = await resolveEquipmentProjectId(ctx, caches, equipment, qr);
-
-  return {
-    kind: "registration",
-    id: equipment._id,
-    createdAt: equipment.createdAt,
-    title: equipment.description || qr?.token || "Equipamento",
-    label: "Cadastro",
-    status: equipment.status,
-    qrToken: qr?.token ?? null,
-    notes: null,
-    projectId,
-    authorId: equipment.createdByUserId ?? null,
-    authorFallback: null,
-  };
-}
-
-// Converte uma entrada de equipmentHistory (instalar/testar/finalizar) em
-// item de atividade. equipmentId aqui é o item PLANEJADO → obra direta.
-async function historyToItem(
-  ctx: QueryCtx,
-  caches: ResolveCaches,
-  entry: Doc<"equipmentHistory">
-): Promise<ActivityItem | null> {
-  const planned = await getPlannedCached(ctx, caches, entry.equipmentId);
-  if (!planned) return null;
-
-  let qrToken: string | null = null;
-  if (planned.linkedEquipmentId) {
-    const qr = await getQrForEquipmentCached(
-      ctx,
-      caches,
-      planned.linkedEquipmentId
-    );
-    qrToken = qr?.token ?? null;
-  }
-
-  const title = planned.ambiente
-    ? `${planned.modelo} · ${planned.ambiente}`
-    : planned.modelo;
-
-  return {
-    kind: "fieldAction",
-    id: entry._id,
-    createdAt: entry.createdAt,
-    title,
-    label: ACTION_LABELS[entry.action] ?? entry.action,
-    status: null,
-    qrToken,
-    notes: entry.notes ?? null,
-    projectId: planned.projectId,
-    authorId: entry.userId,
-    authorFallback: null,
-  };
-}
-
-// Coleta toda a atividade do usuário (limitada por MAX_PER_SOURCE por fonte),
-// já normalizada e ordenada por data desc.
-async function collectMyActivity(
-  ctx: QueryCtx,
-  userId: Id<"users">
-): Promise<ActivityItem[]> {
-  const caches = newCaches();
-
-  const logs = await ctx.db
-    .query("maintenanceLogs")
-    .withIndex("by_createdByUser", (q) => q.eq("createdByUserId", userId))
-    .order("desc")
-    .take(MAX_PER_SOURCE);
-
-  const history = await ctx.db
-    .query("equipmentHistory")
-    .withIndex("by_user_and_created", (q) => q.eq("userId", userId))
-    .order("desc")
-    .take(MAX_PER_SOURCE);
-
-  const registrations = await ctx.db
-    .query("equipment")
-    .withIndex("by_createdByUser", (q) => q.eq("createdByUserId", userId))
-    .order("desc")
-    .take(MAX_PER_SOURCE);
-
-  const items: ActivityItem[] = [];
-  for (const log of logs) {
-    items.push(await logToItem(ctx, caches, log));
-  }
-  for (const entry of history) {
-    if (!SERVICE_ACTIONS.has(entry.action)) continue;
-    const item = await historyToItem(ctx, caches, entry);
-    if (item) items.push(item);
-  }
-  for (const equipment of registrations) {
-    items.push(await registrationToItem(ctx, caches, equipment));
-  }
-
-  items.sort((a, b) => b.createdAt - a.createdAt);
-  return items;
-}
-
-// Toda a atividade de campo de uma obra, de todos os técnicos. Parte dos itens
-// planejados e das etiquetas da obra; só mantém itens cuja obra resolvida é a
-// mesma (mesmo critério do histórico por técnico).
-async function collectProjectActivity(
-  ctx: QueryCtx,
-  projectId: Id<"projects">
-): Promise<ActivityItem[]> {
-  const caches = newCaches();
-
-  const plannedItems = await ctx.db
-    .query("projectEquipment")
-    .withIndex("by_project", (q) => q.eq("projectId", projectId))
-    .collect();
-  const equipmentIds = new Set<Id<"equipment">>();
-  for (const planned of plannedItems) {
-    caches.planned.set(planned._id, planned);
-    if (planned.linkedEquipmentId) equipmentIds.add(planned.linkedEquipmentId);
-  }
-
-  const qrCodes = await ctx.db
-    .query("qrCodes")
-    .withIndex("by_project", (q) => q.eq("projectId", projectId))
-    .collect();
-  for (const qr of qrCodes) {
-    if (qr.equipmentId) equipmentIds.add(qr.equipmentId);
-  }
-
-  const items: ActivityItem[] = [];
-  for (const equipmentId of equipmentIds) {
-    const equipment = await getEquipmentCached(ctx, caches, equipmentId);
-    if (!equipment) continue;
-    if (equipment.createdByUserId) {
-      items.push(await registrationToItem(ctx, caches, equipment));
-    }
-    const logs = await ctx.db
-      .query("maintenanceLogs")
-      .withIndex("by_equipment", (q) => q.eq("equipmentId", equipmentId))
-      .collect();
-    for (const log of logs) {
-      items.push(await logToItem(ctx, caches, log));
-    }
-  }
-
-  for (const planned of plannedItems) {
-    const history = await ctx.db
-      .query("equipmentHistory")
-      .withIndex("by_equipment", (q) => q.eq("equipmentId", planned._id))
-      .collect();
-    for (const entry of history) {
-      if (!SERVICE_ACTIONS.has(entry.action)) continue;
-      const item = await historyToItem(ctx, caches, entry);
-      if (item) items.push(item);
-    }
-  }
-
-  const inProject = items.filter((item) => item.projectId === projectId);
-  inProject.sort((a, b) => b.createdAt - a.createdAt);
-  return inProject;
-}
-
-// Normaliza projectId (obras apagadas viram "Sem obra") e devolve o mapa de
-// nomes das obras existentes.
-async function resolveProjects(
-  ctx: QueryCtx,
-  items: ActivityItem[]
-): Promise<Map<string, string>> {
-  const names = new Map<string, string>();
-  const missing = new Set<string>();
-  for (const item of items) {
-    if (!item.projectId) continue;
-    if (names.has(item.projectId) || missing.has(item.projectId)) continue;
-    const project = await ctx.db.get("projects", item.projectId);
-    if (project) {
-      names.set(item.projectId, project.name);
-    } else {
-      missing.add(item.projectId);
-    }
-  }
-  for (const item of items) {
-    if (item.projectId && missing.has(item.projectId)) {
-      item.projectId = null;
-    }
-  }
-  return names;
-}
-
-// Sem userId, o histórico é do próprio usuário. Consultar o histórico de outro
-// técnico exige campo.equipe.
-function resolveTargetUserId(
-  user: Doc<"users">,
-  userId: Id<"users"> | undefined
-): Id<"users"> {
-  if (!userId || userId === user._id) return user._id;
-  if (!hasPermission(user, "campo.equipe")) {
-    throw new Error("Sem permissão para ver o histórico de outros usuários");
-  }
-  return userId;
-}
 
 // Usuários cujo histórico pode ser consultado no Registro de campo. Retorna
 // null para quem só pode ver o próprio histórico.
@@ -395,20 +31,7 @@ export const listActivityUsers = authedQuery({
     v.null()
   ),
   handler: async (ctx) => {
-    if (!hasPermission(ctx.user, "campo.equipe")) return null;
-    const users = await ctx.db.query("users").collect();
-    return users
-      .map((user) => ({
-        _id: user._id,
-        name: user.name,
-        roles: resolveRoles(user),
-        isActive: user.isActive,
-      }))
-      .sort(
-        (a, b) =>
-          Number(b.isActive) - Number(a.isActive) ||
-          a.name.localeCompare(b.name, "pt-BR")
-      );
+    return await listTechnicianActivityUsers(ctx, ctx.user);
   },
 });
 
@@ -425,54 +48,13 @@ export const listMineProjects = authedQuery({
     })
   ),
   handler: async (ctx, args) => {
-    const items = await collectMyActivity(
-      ctx,
-      resolveTargetUserId(ctx.user, args.userId)
-    );
-    const projectNames = await resolveProjects(ctx, items);
-
-    const groups = new Map<
-      string,
-      {
-        projectId: Id<"projects"> | null;
-        count: number;
-        lastActivityAt: number;
-      }
-    >();
-    for (const item of items) {
-      const key = item.projectId ?? "none";
-      const group = groups.get(key);
-      if (group) {
-        group.count += 1;
-        if (item.createdAt > group.lastActivityAt) {
-          group.lastActivityAt = item.createdAt;
-        }
-      } else {
-        groups.set(key, {
-          projectId: item.projectId,
-          count: 1,
-          lastActivityAt: item.createdAt,
-        });
-      }
-    }
-
-    const result = [...groups.values()].map((group) => ({
-      projectId: group.projectId,
-      projectName: group.projectId
-        ? (projectNames.get(group.projectId) ?? null)
-        : null,
-      count: group.count,
-      lastActivityAt: group.lastActivityAt,
-    }));
-
-    result.sort((a, b) => b.lastActivityAt - a.lastActivityAt);
-    return result;
+    return await listTechnicianActivityProjects(ctx, ctx.user, args);
   },
 });
 
 // Página de serviços do usuário logado em uma obra (ou sem obra, se null).
-// Paginação por offset sobre a lista mesclada (teto MAX_PER_SOURCE por fonte),
-// compatível com usePaginatedQuery.
+// Paginação por offset sobre a lista mesclada (teto por fonte), compatível com
+// usePaginatedQuery.
 export const listMineForProject = authedQuery({
   args: {
     projectId: v.union(v.id("projects"), v.null()),
@@ -485,37 +67,7 @@ export const listMineForProject = authedQuery({
     continueCursor: v.string(),
   }),
   handler: async (ctx, args) => {
-    const items = await collectMyActivity(
-      ctx,
-      resolveTargetUserId(ctx.user, args.userId)
-    );
-    // Normaliza obras apagadas para "Sem obra" (mesmo critério do
-    // listMineProjects).
-    await resolveProjects(ctx, items);
-
-    const filtered = items.filter(
-      (item) => item.projectId === (args.projectId ?? null)
-    );
-
-    const offset = args.paginationOpts.cursor
-      ? parseInt(args.paginationOpts.cursor, 10)
-      : 0;
-    const end = offset + args.paginationOpts.numItems;
-    const page = filtered.slice(offset, end).map((item) => {
-      const {
-        projectId: _projectId,
-        authorId: _authorId,
-        authorFallback: _authorFallback,
-        ...rest
-      } = item;
-      return rest;
-    });
-
-    return {
-      page,
-      isDone: end >= filtered.length,
-      continueCursor: String(end),
-    };
+    return await listTechnicianActivityForProject(ctx, ctx.user, args);
   },
 });
 
@@ -538,43 +90,6 @@ export const listProjectActivity = authedQuery({
     continueCursor: v.string(),
   }),
   handler: async (ctx, args) => {
-    if (!hasPermission(ctx.user, "obras.read")) {
-      throw new Error("Sem permissão para ver os serviços da obra");
-    }
-
-    const items = (await collectProjectActivity(ctx, args.projectId)).filter(
-      (item) => !args.userId || item.authorId === args.userId
-    );
-
-    const offset = args.paginationOpts.cursor
-      ? parseInt(args.paginationOpts.cursor, 10)
-      : 0;
-    const end = offset + args.paginationOpts.numItems;
-
-    const authorNames = new Map<Id<"users">, string | null>();
-    const page = [];
-    for (const item of items.slice(offset, end)) {
-      const {
-        projectId: _projectId,
-        authorId,
-        authorFallback,
-        ...rest
-      } = item;
-      let authorName = authorFallback;
-      if (authorId) {
-        if (!authorNames.has(authorId)) {
-          const author = await ctx.db.get("users", authorId);
-          authorNames.set(authorId, author?.name ?? null);
-        }
-        authorName = authorNames.get(authorId) ?? authorFallback;
-      }
-      page.push({ ...rest, authorName });
-    }
-
-    return {
-      page,
-      isDone: end >= items.length,
-      continueCursor: String(end),
-    };
+    return await listProjectFieldActivity(ctx, ctx.user, args);
   },
 });

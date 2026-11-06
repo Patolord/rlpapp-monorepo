@@ -1,18 +1,8 @@
 import { ConvexError, v, type Infer } from "convex/values";
-import {
-  DESKTOP_BUDGET_CURRENCY,
-  DESKTOP_BUDGET_MAX_LINES,
-  type DesktopBudgetErrorCode,
-  type DesktopBudgetErrorData,
-  type PublishDesktopBudgetArgs,
-  type RemoveDesktopBudgetArgs,
-  unsupportedCurrencyError,
-} from "@rlpapp/shared/takeoff/desktopBudget";
+import { DESKTOP_BUDGET_CURRENCY, DESKTOP_BUDGET_MAX_LINES, type DesktopBudgetErrorCode, type DesktopBudgetErrorData, type PublishDesktopBudgetArgs, unsupportedCurrencyError } from "@rlpapp/shared/takeoff/desktopBudget";
 import type { Doc, Id } from "../../_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { hasPermission } from "../../lib/rbac";
-import { isProjectArchived } from "../../lib/projects/helpers";
-import { projectStatus, takeoffBudgetMeta } from "../../schema";
+import type { MutationCtx } from "../../_generated/server";
+import { takeoffBudgetMeta } from "../../schema/procurement";
 
 /**
  * Publicação de orçamentos do app desktop de takeoff (apps/takeoff).
@@ -32,11 +22,11 @@ import { projectStatus, takeoffBudgetMeta } from "../../schema";
  * `Error` comum vira "Server Error" e o desktop não teria o que mostrar.
  */
 
-function budgetError(code: DesktopBudgetErrorCode, message: string) {
+export function budgetError(code: DesktopBudgetErrorCode, message: string) {
   return new ConvexError<DesktopBudgetErrorData>({ code, message });
 }
 
-const invalid = (message: string) => budgetError("INVALID_BUDGET", message);
+export const invalid = (message: string) => budgetError("INVALID_BUDGET", message);
 
 export const desktopBudgetLineValidator = v.object({
   externalLineId: v.string(),
@@ -67,7 +57,7 @@ type SharedArgs = PublishDesktopBudgetArgs<Id<"projects">>;
 
 // O tipo de @rlpapp/shared (usado pelo desktop) e o validador precisam
 // descrever o mesmo objeto: falha de compilação aqui se divergirem.
-type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+export type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 const _sameShape: Same<ValidatorArgs, SharedArgs> = true;
 void _sameShape;
 
@@ -332,7 +322,7 @@ async function hasQuotes(
  * Linha que a Compras já tocou: status avançado ou cotação registrada (cotar
  * não muda o status — a linha fica "matched"). O desktop não muda nem apaga.
  */
-async function isPreserved(
+export async function isPreserved(
   ctx: MutationCtx,
   item: Doc<"takeoffItems">
 ): Promise<boolean> {
@@ -559,255 +549,4 @@ async function moveLineQuotes(
     if (event.projectId !== previousProject.get(event.takeoffItemId)) continue;
     await ctx.db.patch("priceEvents", event._id, { projectId });
   }
-}
-
-// ---------------------------------------------------------------------------
-// Remoção do orçamento (o desktop desfaz um envio)
-// ---------------------------------------------------------------------------
-
-export const removeDesktopBudgetArgs = {
-  /** Id do projeto no desktop (o `externalId` do orçamento no app). */
-  externalId: v.string(),
-};
-
-const _removeArgsObject = v.object(removeDesktopBudgetArgs);
-const _sameRemoveShape: Same<
-  Infer<typeof _removeArgsObject>,
-  RemoveDesktopBudgetArgs
-> = true;
-void _sameRemoveShape;
-
-export const removeDesktopBudgetResult = v.object({
-  takeoffId: v.id("takeoffs"),
-  name: v.string(),
-  projectId: v.union(v.id("projects"), v.null()),
-  projectName: v.union(v.string(), v.null()),
-  /** Linhas apagadas junto com o orçamento. */
-  removedLines: v.number(),
-});
-
-export type RemoveDesktopBudgetResult = Infer<typeof removeDesktopBudgetResult>;
-
-const plural = (n: number, one: string, many: string) =>
-  `${n} ${n === 1 ? one : many}`;
-
-/**
- * Apaga um orçamento publicado pelo desktop com todas as suas linhas, seja a
- * pedido do desktop (desfazer um envio) ou do app (`takeoffs.remove`). Só
- * enquanto a Compras ainda não trabalhou nele: uma linha cotada ou levada
- * adiante (`isPreserved`), uma linha adicionada no app ou uma cotação lançada
- * no takeoff é trabalho de outra pessoa que a remoção descartaria —
- * `BUDGET_IN_USE`.
- */
-async function deleteDesktopTakeoff(
-  ctx: MutationCtx,
-  takeoff: Doc<"takeoffs">
-): Promise<RemoveDesktopBudgetResult> {
-  const items = await ctx.db
-    .query("takeoffItems")
-    .withIndex("by_takeoff", (q) => q.eq("takeoffId", takeoff._id))
-    .collect();
-  let worked = 0;
-  let manual = 0;
-  for (const item of items) {
-    if (!item.externalLineId) manual++;
-    else if (await isPreserved(ctx, item)) worked++;
-  }
-  const takeoffQuote = await ctx.db
-    .query("priceEvents")
-    .withIndex("by_takeoff", (q) => q.eq("takeoffId", takeoff._id))
-    .first();
-  if (worked > 0 || manual > 0 || takeoffQuote) {
-    const reasons: string[] = [];
-    if (worked > 0) {
-      reasons.push(
-        plural(worked, "linha já cotada ou comprada", "linhas já cotadas ou compradas")
-      );
-    }
-    if (manual > 0) {
-      reasons.push(plural(manual, "linha adicionada no app", "linhas adicionadas no app"));
-    }
-    if (worked === 0 && manual === 0) reasons.push("cotações registradas");
-    throw budgetError(
-      "BUDGET_IN_USE",
-      `A Compras já trabalhou neste orçamento (${reasons.join(", ")}): ` +
-        "ele não pode ser removido. Combine com a Compras o que fazer com ele."
-    );
-  }
-
-  for (const item of items) {
-    await ctx.db.delete("takeoffItems", item._id);
-  }
-  await ctx.db.delete("takeoffs", takeoff._id);
-
-  const project = takeoff.projectId
-    ? await ctx.db.get("projects", takeoff.projectId)
-    : null;
-  return {
-    takeoffId: takeoff._id,
-    name: takeoff.name,
-    projectId: project?._id ?? null,
-    projectName: project?.name ?? null,
-    removedLines: items.length,
-  };
-}
-
-/**
- * O desktop desfaz um envio: apaga o orçamento com este `externalId` (enviado
- * à obra errada, aprovação que caiu, teste). Sem orçamento com este id:
- * `BUDGET_NOT_FOUND` (já removido, ou nunca chegou). Recusas em
- * `deleteDesktopTakeoff`.
- */
-export async function removeDesktopBudget(
-  ctx: MutationCtx,
-  args: { externalId: string }
-): Promise<RemoveDesktopBudgetResult> {
-  const externalId = args.externalId.trim();
-  if (!externalId) throw invalid("Informe o id do projeto do desktop");
-  const takeoff = await ctx.db
-    .query("takeoffs")
-    .withIndex("by_source_external", (q) =>
-      q.eq("source", "desktop").eq("externalId", externalId)
-    )
-    .unique();
-  if (!takeoff) {
-    throw budgetError(
-      "BUDGET_NOT_FOUND",
-      "Este orçamento não está (mais) no app da empresa"
-    );
-  }
-  return await deleteDesktopTakeoff(ctx, takeoff);
-}
-
-/**
- * O app remove um orçamento publicado pelo desktop, pelo id do takeoff. Só os
- * do desktop: um takeoff manual tem as suas linhas apagadas uma a uma. O
- * arquivo no desktop continua achando que foi enviado; o próximo envio cria
- * outro orçamento, e "Remover do app" lá só tira o vínculo. Recusas em
- * `deleteDesktopTakeoff`.
- */
-export async function removeDesktopTakeoff(
-  ctx: MutationCtx,
-  takeoffId: Id<"takeoffs">
-): Promise<RemoveDesktopBudgetResult> {
-  const takeoff = await ctx.db.get("takeoffs", takeoffId);
-  if (!takeoff) {
-    throw budgetError("BUDGET_NOT_FOUND", "Orçamento não encontrado");
-  }
-  if (takeoff.source !== "desktop") {
-    throw invalid(
-      "Só orçamentos publicados pelo app desktop podem ser removidos por aqui"
-    );
-  }
-  return await deleteDesktopTakeoff(ctx, takeoff);
-}
-
-// ---------------------------------------------------------------------------
-// Opções do envio (seletor de obra do desktop)
-// ---------------------------------------------------------------------------
-
-/** Obras listadas no seletor do desktop (mais que isso: digite para filtrar no app). */
-const MAX_PUBLISH_PROJECTS = 1000;
-
-const publishProjectOption = v.object({
-  _id: v.id("projects"),
-  name: v.string(),
-  /** Slug da URL da obra no app (ou o id, em obras antigas sem slug). */
-  slug: v.string(),
-  legacyNumber: v.union(v.number(), v.null()),
-  status: v.union(projectStatus, v.null()),
-  archived: v.boolean(),
-});
-
-export const desktopPublishOptionsArgs = {
-  /** Id do projeto no desktop, para dizer se (e onde) ele já foi enviado. */
-  externalId: v.optional(v.string()),
-};
-
-export const desktopPublishOptionsResult = v.object({
-  /**
-   * Se o usuário pode enviar (`engenharia.write`, a mesma permissão de
-   * `publishFromDesktop`). Sem ela, `projects` vem vazio e `current` null: o
-   * desktop explica o motivo em vez de mostrar um erro genérico.
-   */
-  canPublish: v.boolean(),
-  /** Obras ativas por nome (mais a obra do envio anterior, mesmo arquivada). */
-  projects: v.array(publishProjectOption),
-  /** O orçamento já enviado com este `externalId`, se houver. */
-  current: v.union(
-    v.null(),
-    v.object({
-      takeoffId: v.id("takeoffs"),
-      projectId: v.union(v.id("projects"), v.null()),
-      projectName: v.union(v.string(), v.null()),
-      projectSlug: v.union(v.string(), v.null()),
-      publishedAt: v.union(v.number(), v.null()),
-      publishedByName: v.union(v.string(), v.null()),
-    })
-  ),
-});
-
-export type DesktopPublishOptions = Infer<typeof desktopPublishOptionsResult>;
-
-function projectOption(project: Doc<"projects">) {
-  return {
-    _id: project._id,
-    name: project.name,
-    slug: project.slug ?? project._id,
-    legacyNumber: project.legacyNumber ?? null,
-    status: project.status ?? null,
-    archived: isProjectArchived(project),
-  };
-}
-
-/**
- * O que o desktop precisa para enviar um orçamento aprovado: se o usuário
- * pode, as obras para escolher e o envio anterior do mesmo projeto.
- */
-export async function desktopPublishOptions(
-  ctx: QueryCtx,
-  user: Doc<"users">,
-  externalId: string | undefined
-): Promise<DesktopPublishOptions> {
-  if (!hasPermission(user, "orcamentos.write")) {
-    return { canPublish: false, projects: [], current: null };
-  }
-  const all = await ctx.db
-    .query("projects")
-    .withIndex("by_name")
-    .take(MAX_PUBLISH_PROJECTS);
-  const projects = all.filter((p) => !isProjectArchived(p)).map(projectOption);
-
-  const key = externalId?.trim();
-  const takeoff = key
-    ? await ctx.db
-        .query("takeoffs")
-        .withIndex("by_source_external", (q) =>
-          q.eq("source", "desktop").eq("externalId", key)
-        )
-        .unique()
-    : null;
-  if (!takeoff) return { canPublish: true, projects, current: null };
-
-  const project = takeoff.projectId
-    ? await ctx.db.get("projects", takeoff.projectId)
-    : null;
-  if (project && !projects.some((p) => p._id === project._id)) {
-    projects.push(projectOption(project));
-  }
-  const publisher = takeoff.publishedByUserId
-    ? await ctx.db.get("users", takeoff.publishedByUserId)
-    : null;
-  return {
-    canPublish: true,
-    projects,
-    current: {
-      takeoffId: takeoff._id,
-      projectId: project?._id ?? null,
-      projectName: project?.name ?? null,
-      projectSlug: project ? (project.slug ?? project._id) : null,
-      publishedAt: takeoff.publishedAt ?? null,
-      publishedByName: publisher?.name ?? null,
-    },
-  };
 }

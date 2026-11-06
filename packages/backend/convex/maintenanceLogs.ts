@@ -1,82 +1,30 @@
+import { equipmentStatusValidator } from "./schema/engineering";
 import { query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { authedMutation, authedQuery } from "./lib/rbac";
+import {
+  createMaintenanceLog,
+  equipmentLogValidator,
+  listEquipmentLogs,
+  listMyMaintenanceLogs,
+  myMaintenanceLogsValidator,
+} from "./model/engineering/equipmentRecords";
 
-const logStatusValidator = v.union(
-  v.literal("installing"),
-  v.literal("operational"),
-  v.literal("warning"),
-  v.literal("error")
-);
 
 export const listByEquipment = authedQuery({
   args: { equipmentId: v.id("equipment") },
-  handler: async (ctx, args) => {
-    const logs = await ctx.db
-      .query("maintenanceLogs")
-      .withIndex("by_equipment", (q) => q.eq("equipmentId", args.equipmentId))
-      .order("desc")
-      .collect();
-
-    const logsWithPhotos = await Promise.all(
-      logs.map(async (log) => {
-        const photoUrls = await Promise.all(
-          log.photoIds.map(async (id) => {
-            const url = await ctx.storage.getUrl(id);
-            return url;
-          })
-        );
-        return {
-          ...log,
-          photoUrls: photoUrls.filter((url): url is string => url !== null),
-        };
-      })
-    );
-
-    return logsWithPhotos;
-  },
+  returns: v.array(equipmentLogValidator),
+  handler: async (ctx, args) => await listEquipmentLogs(ctx, args.equipmentId),
 });
 
 // Registros (instalação/manutenção) criados pelo próprio usuário logado.
 // Acessível ao qr_operator para acompanhar seu histórico de campo.
 export const listMine = authedQuery({
   args: { paginationOpts: paginationOptsValidator },
-  handler: async (ctx, args) => {
-    const results = await ctx.db
-      .query("maintenanceLogs")
-      .withIndex("by_createdByUser", (q) =>
-        q.eq("createdByUserId", ctx.user._id)
-      )
-      .order("desc")
-      .paginate(args.paginationOpts);
-
-    const page = await Promise.all(
-      results.page.map(async (log) => {
-        const equipment = await ctx.db.get("equipment", log.equipmentId);
-        const qrCode = await ctx.db
-          .query("qrCodes")
-          .withIndex("by_equipment", (q) =>
-            q.eq("equipmentId", log.equipmentId)
-          )
-          .order("desc")
-          .first();
-        const photoUrls = await Promise.all(
-          log.photoIds.map((id) => ctx.storage.getUrl(id))
-        );
-        return {
-          ...log,
-          equipment: equipment
-            ? { description: equipment.description }
-            : null,
-          qrToken: qrCode?.token ?? null,
-          photoUrls: photoUrls.filter((url): url is string => url !== null),
-        };
-      })
-    );
-
-    return { ...results, page };
-  },
+  returns: myMaintenanceLogsValidator,
+  handler: async (ctx, args) =>
+    await listMyMaintenanceLogs(ctx, ctx.user, args.paginationOpts),
 });
 
 // PÚBLICO (intencional): a página /q/$token mostra a data do último registro
@@ -100,7 +48,7 @@ export const create = authedMutation({
     type: v.union(v.literal("installation"), v.literal("maintenance")),
     notes: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
-    status: logStatusValidator,
+    status: equipmentStatusValidator,
     tests: v.optional(
       v.object({
         vacuum: v.boolean(),
@@ -111,31 +59,8 @@ export const create = authedMutation({
     ),
     photoIds: v.array(v.id("_storage")),
   },
-  handler: async (ctx, args) => {
-    if (args.photoIds.length === 0) {
-      throw new Error("É obrigatório anexar pelo menos uma foto");
-    }
-
-    // Responsável vinculado ao usuário logado (não aceita texto livre).
-    const technicianName = ctx.user.name;
-
-    await ctx.db.patch("equipment", args.equipmentId, {
-      status: args.status,
-    });
-
-    return await ctx.db.insert("maintenanceLogs", {
-      equipmentId: args.equipmentId,
-      type: args.type,
-      technicianName,
-      createdByUserId: ctx.user._id,
-      notes: args.notes?.trim() || undefined,
-      tags: args.tags,
-      status: args.status,
-      tests: args.tests,
-      photoIds: args.photoIds,
-      createdAt: Date.now(),
-    });
-  },
+  returns: v.id("maintenanceLogs"),
+  handler: async (ctx, args) => await createMaintenanceLog(ctx, ctx.user, args),
 });
 
 export const addPhotos = authedMutation({
@@ -143,6 +68,7 @@ export const addPhotos = authedMutation({
     logId: v.id("maintenanceLogs"),
     photoIds: v.array(v.id("_storage")),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     if (args.photoIds.length === 0) {
       throw new Error("Nenhuma foto fornecida");
@@ -156,11 +82,13 @@ export const addPhotos = authedMutation({
     await ctx.db.patch("maintenanceLogs", args.logId, {
       photoIds: [...log.photoIds, ...args.photoIds],
     });
+    return null;
   },
 });
 
 export const generateUploadUrl = authedMutation({
   args: {},
+  returns: v.string(),
   handler: async (ctx) => {
     return await ctx.storage.generateUploadUrl();
   },

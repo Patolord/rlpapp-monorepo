@@ -15,11 +15,11 @@ import { PhotoPicker } from "@/components/engenharia/photo-picker";
 import {
   EQUIPMENT_STATUS_OPTIONS,
   type EquipmentStatus,
-} from "@/lib/equipment-status";
+} from "@rlpapp/shared/engenharia/equipment";
 import {
   MAINTENANCE_LOG_TYPE_OPTIONS,
   type MaintenanceLogType,
-} from "@/lib/maintenance-log-type";
+} from "@rlpapp/shared/engenharia/equipment";
 import {
   addPendingRecord,
   newPendingId,

@@ -4,7 +4,7 @@
  * envia tudo ao Convex quando a conexão volta.
  */
 
-export type EquipmentStatus = "installing" | "operational" | "warning" | "error";
+import type { EquipmentStatus } from "@rlpapp/shared/engenharia/equipment";
 
 export interface PendingEquipment {
   id: string;

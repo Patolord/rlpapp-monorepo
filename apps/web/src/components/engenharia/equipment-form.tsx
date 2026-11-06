@@ -8,12 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { PhotoPicker } from "@/components/engenharia/photo-picker";
 import { EquipmentStatusSelect } from "@/components/engenharia/equipment-status-select";
 import { uploadPhotos } from "@/lib/upload-photos";
-import { useOnline } from "@/lib/use-online";
-import {
-  addPendingRecord,
-  newPendingId,
-  type EquipmentStatus,
-} from "@/lib/offline-queue";
+import { useOnline } from "@/hooks/use-online";
+import { addPendingRecord, newPendingId } from "@/lib/offline-queue";
+import type { EquipmentStatus } from "@rlpapp/shared/engenharia/equipment";
 import { Loader2, CloudOff, CheckCircle2, Building2 } from "lucide-react";
 
 interface EquipmentFormProps {

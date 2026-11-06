@@ -1,5 +1,5 @@
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import type { EquipmentStatus } from "@/lib/equipment-status";
+import type { EquipmentStatus } from "@rlpapp/shared/engenharia/equipment";
 
 export type GridItem = {
   _id: Id<"projectEquipment">;

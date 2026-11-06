@@ -8,7 +8,7 @@ export type StatusVariant = StatusColorKey;
 
 /**
  * Maps equipment domain statuses to semantic variants.
- * Keep in sync with `lib/equipment-status` in web and native apps.
+ * Keep in sync with `@rlpapp/shared/engenharia/equipment`.
  */
 export const equipmentStatusVariants = {
   installing: "info",

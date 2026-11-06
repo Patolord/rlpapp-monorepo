@@ -4,7 +4,7 @@ import {
   contratosQuery,
   medicoesQuery,
 } from "./lib/rbac";
-import { contractDirection, contractKind } from "./schema";
+import { contractDirection, contractKind } from "./schema/contracts";
 import {
   createContract,
   deleteContractById,

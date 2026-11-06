@@ -99,7 +99,7 @@ export function SentHistoryByProject() {
   );
 }
 
-function formatDate(timestamp: number, withTime = false) {
+function formatSentAt(timestamp: number, withTime = false) {
   return new Date(timestamp).toLocaleString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
@@ -140,7 +140,7 @@ function ProjectGroup({
               {projectName ?? "Sem obra"}
             </p>
             <p className="text-xs text-muted-foreground">
-              Último serviço em {formatDate(lastActivityAt)}
+              Último serviço em {formatSentAt(lastActivityAt)}
             </p>
           </div>
         </div>
@@ -247,7 +247,7 @@ export function ActivityCard({ item }: { item: ActivityItem }) {
         )}
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Calendar className="h-3.5 w-3.5" />
-          {formatDate(item.createdAt, true)}
+          {formatSentAt(item.createdAt, true)}
         </p>
         {item.authorName && (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">

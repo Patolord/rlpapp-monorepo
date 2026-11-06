@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { authedMutation, authedQuery } from "./lib/rbac";
 import { logEquipmentHistory } from "./lib/audit";
+import { listPlannedEquipmentHistory } from "./model/engineering/projectEquipment";
 
 const locationValidator = v.object({
   latitude: v.number(),
@@ -22,35 +23,7 @@ export const listForEquipment = authedQuery({
       createdAt: v.number(),
     })
   ),
-  handler: async (ctx, args) => {
-    const entries = await ctx.db
-      .query("equipmentHistory")
-      .withIndex("by_equipment", (q) => q.eq("equipmentId", args.equipmentId))
-      .order("desc")
-      .collect();
-
-    const userCache = new Map<string, string>();
-    const result = [];
-    for (const e of entries) {
-      let userName = userCache.get(e.userId);
-      if (userName === undefined) {
-        const user = await ctx.db.get("users", e.userId);
-        userName = user?.name ?? "Desconhecido";
-        userCache.set(e.userId, userName);
-      }
-      result.push({
-        _id: e._id,
-        action: e.action,
-        userName,
-        previousValue: e.previousValue ?? null,
-        newValue: e.newValue ?? null,
-        notes: e.notes ?? null,
-        location: e.location ?? null,
-        createdAt: e.createdAt,
-      });
-    }
-    return result;
-  },
+  handler: async (ctx, args) => await listPlannedEquipmentHistory(ctx, args.equipmentId),
 });
 
 // Registra uma entrada de histórico manualmente (ex: técnico em campo via QR).

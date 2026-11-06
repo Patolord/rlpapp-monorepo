@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
-import { normalizeUnit } from "../../lib/compras/catalog";
+import { normalizeUnit } from "./catalog";
 import { isUsablePriceEvent, pickCurrentPriceEvent } from "./priceSelection";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;

@@ -1,6 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { formatCurrency, formatDate } from "@rlpapp/shared";
+import { formatPriceChange } from "@rlpapp/shared/formatters";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react-native";
@@ -19,12 +20,6 @@ type PriceChange = NonNullable<PricePoint["change"]>;
 
 const RECENT_LIMIT = 5;
 
-/** "+5,2%" ou, sem base percentual, "+R$ 0,50". */
-export function formatPriceChange(change: PriceChange): string {
-  const sign = change.deltaCents > 0 ? "+" : change.deltaCents < 0 ? "−" : "";
-  if (change.deltaPercent === null) return `${sign}${formatCurrency(Math.abs(change.deltaCents))}`;
-  return `${sign}${Math.abs(change.deltaPercent).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
-}
 
 function changeTone(change: PriceChange): Tone {
   if (change.deltaCents > 0) return "danger";

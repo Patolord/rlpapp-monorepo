@@ -1,105 +1,51 @@
-import {
-  PERMISSIONS,
-  getPermissions,
-  hasPermission,
-  isStaff,
-  normalizePermissionOverrides,
-  resolveHomeArea,
-  resolveRoles,
-} from "@rlpapp/shared/auth/permissions";
-import { capitalizeFirst } from "@rlpapp/shared/usernames";
 import { v } from "convex/values";
-import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import type { QueryCtx } from "./_generated/server";
-import { accessRoles, departments } from "./schema";
+import { accessRoles } from "./schema/identity";
 import {
   adminMutation,
   adminQuery,
   anyPermissionQuery,
-  hasRole,
   requirePermission,
   requireUser,
 } from "./lib/rbac";
-import { accessFields, normalizeEmail, toUserView } from "./lib/users";
-import { enforceAgentTokenPolicy } from "./lib/agentTokens";
-
-/** Remove campos undefined — padrão dos updates parciais (ctx.db.patch). */
-function filterDefined<T extends object>(fields: T): Partial<T> {
-  return Object.fromEntries(
-    Object.entries(fields).filter(([, value]) => value !== undefined)
-  ) as Partial<T>;
-}
-
-export const permissionValidator = v.union(
-  ...PERMISSIONS.map((permission) => v.literal(permission))
-);
-
-export const userValidator = v.object({
-  _id: v.id("users"),
-  _creationTime: v.number(),
-  name: v.string(),
-  email: v.optional(v.string()),
-  username: v.optional(v.string()),
-  clerkId: v.optional(v.string()),
-  /** Acessos (ver ROLES no shared); documentos antigos chegam traduzidos. */
-  roles: v.array(accessRoles),
-  /** Ajustes individuais: permissões concedidas além das do acesso. */
-  permissionGrants: v.array(permissionValidator),
-  /** Ajustes individuais: permissões do acesso retiradas. */
-  permissionDenials: v.array(permissionValidator),
-  phone: v.optional(v.string()),
-  isActive: v.boolean(),
-  createdAt: v.number(),
-  lastLoginAt: v.optional(v.number()),
-  /** Convite por email enviado; pendente enquanto não há `clerkId`. */
-  invitedAt: v.optional(v.number()),
-});
-
-/** Lista de acessos recebida dos formulários (ver ROLES no shared). */
-export const rolesArg = v.array(accessRoles);
-
-
-/**
- * Usuário atual com o acesso já resolvido pela política
- * (@rlpapp/shared/auth/permissions). Os apps decidem navegação e ações a
- * partir de `permissions`, `roles`, `isStaff` e `homeArea`.
- */
-export const currentUserValidator = v.object({
-  ...userValidator.fields,
-  permissions: v.array(permissionValidator),
-  isStaff: v.boolean(),
-  homeArea: v.union(departments, v.literal("qr-operador"), v.null()),
-});
+import {
+  createUser,
+  createUserWithClerkId,
+  deactivateUser,
+  getUserViewByEmail,
+  getUserViewById,
+  listUsers,
+  listUsersForPicker,
+  reactivateUser,
+  updateUser,
+  updateUserLastLogin,
+} from "./model/identity/userAdministration";
+import {
+  deleteInvitedUser,
+  getUserViewByNormalizedEmail,
+  getUserWithInvitation,
+  markUserInviteResent,
+  upsertInvitedUser,
+} from "./model/identity/userInvites";
+import {
+  deactivateUserFromClerk,
+  ensureUserForIdentity,
+  getCurrentUserView,
+  upsertUserFromClerk,
+} from "./model/identity/userSessions";
+import {
+  currentUserValidator,
+  permissionValidator,
+  rolesArg,
+  userPickerValidator,
+  userValidator,
+} from "./model/identity/userValidators";
 
 export const getCurrentUser = query({
   args: {},
   returns: v.union(currentUserValidator, v.null()),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-    await enforceAgentTokenPolicy(ctx, identity);
-
-    const byClerkId = await ctx.db
-      .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
-      .first();
-    // Fallback para usuários criados antes do vínculo por clerkId
-    const user =
-      byClerkId ??
-      (identity.email
-        ? await ctx.db
-            .query("users")
-            .withIndex("by_email", (q) => q.eq("email", identity.email!))
-            .first()
-        : null);
-    if (!user) return null;
-    return {
-      ...toUserView(user),
-      permissions: getPermissions(user),
-      isStaff: isStaff(user),
-      homeArea: resolveHomeArea(user),
-    };
+    return await getCurrentUserView(ctx);
   },
 });
 
@@ -110,67 +56,7 @@ export const ensureUser = mutation({
   },
   returns: v.id("users"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-    await enforceAgentTokenPolicy(ctx, identity);
-    const clerkId = identity.subject;
-    // No JWT template "convex" do Clerk, nickname = username
-    const username = identity.nickname ?? identity.preferredUsername;
-
-    const byClerkId = await ctx.db
-      .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
-      .first();
-
-    if (byClerkId) {
-      await ctx.db.patch("users", byClerkId._id, { lastLoginAt: Date.now() });
-      return byClerkId._id;
-    }
-
-    // Vincula usuários antigos (sem clerkId) pelo email
-    if (identity.email) {
-      const byEmail = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", identity.email!))
-        .first();
-
-      if (byEmail) {
-        // Convite aceito sem o webhook ter chegado antes: nome e login vêm do
-        // que a pessoa preencheu ao criar a conta.
-        const invited = byEmail.invitedAt !== undefined;
-        await ctx.db.patch("users", byEmail._id, {
-          clerkId,
-          lastLoginAt: Date.now(),
-          ...(invited && identity.name ? { name: identity.name } : {}),
-          ...(invited && username ? { username } : {}),
-        });
-        return byEmail._id;
-      }
-    }
-
-    const name =
-      identity.name ??
-      identity.givenName ??
-      (username ? capitalizeFirst(username) : undefined) ??
-      identity.email?.split("@")[0] ??
-      "Usuário";
-
-    // Quem entra pelo QR é técnico de campo; os demais ficam sem acesso até
-    // um administrador atribuir os acessos em Configurações → Usuários.
-    const userId = await ctx.db.insert("users", {
-      name,
-      email: identity.email,
-      username,
-      clerkId,
-      ...accessFields(args.origin === "qr" ? ["qr_operator"] : []),
-      isActive: true,
-      createdAt: Date.now(),
-      lastLoginAt: Date.now(),
-    });
-
-    return userId;
+    return await ensureUserForIdentity(ctx, args);
   },
 });
 
@@ -186,51 +72,7 @@ export const upsertFromClerk = internalMutation({
   },
   returns: v.id("users"),
   handler: async (ctx, args) => {
-    const byClerkId = await ctx.db
-      .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
-      .first();
-
-    if (byClerkId) {
-      // Telefone do convite: também quando ensureUser vinculou antes do webhook.
-      await ctx.db.patch("users", byClerkId._id, {
-        name: args.name,
-        email: args.email,
-        username: args.username,
-        ...(args.phone && !byClerkId.phone ? { phone: args.phone } : {}),
-      });
-      return byClerkId._id;
-    }
-
-    // Vincula usuários criados antes do webhook (sem clerkId) e convites
-    // pendentes pelo email
-    if (args.email) {
-      const byEmail = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", args.email))
-        .first();
-
-      if (byEmail) {
-        await ctx.db.patch("users", byEmail._id, {
-          clerkId: args.clerkId,
-          name: args.name,
-          username: args.username,
-          ...(args.phone && !byEmail.phone ? { phone: args.phone } : {}),
-        });
-        return byEmail._id;
-      }
-    }
-
-    return await ctx.db.insert("users", {
-      clerkId: args.clerkId,
-      name: args.name,
-      email: args.email,
-      username: args.username,
-      phone: args.phone,
-      ...accessFields([]),
-      isActive: true,
-      createdAt: Date.now(),
-    });
+    return await upsertUserFromClerk(ctx, args);
   },
 });
 
@@ -239,18 +81,7 @@ export const deactivateFromClerk = internalMutation({
   args: { clerkId: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
-      .first();
-
-    if (user) {
-      await ctx.db.patch("users", user._id, { isActive: false });
-    } else {
-      console.warn(
-        `Clerk webhook: user.deleted para clerkId ${args.clerkId} sem usuário correspondente`
-      );
-    }
+    await deactivateUserFromClerk(ctx, args.clerkId);
     return null;
   },
 });
@@ -266,19 +97,8 @@ export const list = adminQuery({
   },
   returns: v.array(userValidator),
   handler: async (ctx, args) => {
-    const users = await collectUsers(ctx, args.onlyActive);
-    const role = args.role;
-    // Acessos se combinam (um técnico pode ser também da equipe), então o
-    // filtro olha o conjunto inteiro.
-    return (role ? users.filter((user) => hasRole(user, role)) : users).map(toUserView);
+    return await listUsers(ctx, args);
   },
-});
-
-export const userPickerValidator = v.object({
-  _id: v.id("users"),
-  name: v.string(),
-  username: v.optional(v.string()),
-  isActive: v.boolean(),
 });
 
 /**
@@ -296,38 +116,16 @@ export const listForPicker = anyPermissionQuery(
   },
   returns: v.array(userPickerValidator),
   handler: async (ctx, args) => {
-    const users = await collectUsers(ctx, args.onlyActive);
-    const role = args.role;
-    return (role ? users.filter((user) => hasRole(user, role)) : users).map(
-      (user) => ({
-        _id: user._id,
-        name: user.name,
-        username: user.username,
-        isActive: user.isActive,
-      })
-    );
+    return await listUsersForPicker(ctx, args);
   },
 });
-
-async function collectUsers(
-  ctx: QueryCtx,
-  onlyActive: boolean | undefined
-): Promise<Doc<"users">[]> {
-  return onlyActive
-    ? await ctx.db
-        .query("users")
-        .withIndex("by_active", (q) => q.eq("isActive", true))
-        .collect()
-    : await ctx.db.query("users").collect();
-}
 
 // Buscar usuário por ID
 export const get = adminQuery({
   args: { id: v.id("users") },
   returns: v.union(userValidator, v.null()),
   handler: async (ctx, args) => {
-    const user = await ctx.db.get("users", args.id);
-    return user ? toUserView(user) : null;
+    return await getUserViewById(ctx, args.id);
   },
 });
 
@@ -336,11 +134,7 @@ export const getByEmail = adminQuery({
   args: { email: v.string() },
   returns: v.union(userValidator, v.null()),
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
-      .first();
-    return user ? toUserView(user) : null;
+    return await getUserViewByEmail(ctx, args.email);
   },
 });
 
@@ -354,25 +148,7 @@ export const create = adminMutation({
   },
   returns: v.id("users"),
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
-      .first();
-    
-    if (existing) {
-      throw new Error("Já existe um usuário com este email");
-    }
-    
-    const userId = await ctx.db.insert("users", {
-      name: args.name,
-      email: args.email,
-      ...accessFields(args.roles),
-      phone: args.phone,
-      isActive: true,
-      createdAt: Date.now(),
-    });
-    
-    return userId;
+    return await createUser(ctx, args);
   },
 });
 
@@ -395,78 +171,7 @@ export const update = adminMutation({
   },
   returns: v.id("users"),
   handler: async (ctx, args) => {
-    const {
-      id,
-      email,
-      phone,
-      roles,
-      permissionGrants,
-      permissionDenials,
-      ...updates
-    } = args;
-    const existing = await ctx.db.get("users", id);
-    
-    if (!existing) {
-      throw new Error("Usuário não encontrado");
-    }
-    
-    if (
-      email !== undefined &&
-      email !== existing.email &&
-      existing.clerkId === undefined &&
-      existing.invitedAt !== undefined
-    ) {
-      throw new Error(
-        "O email é a chave do convite pendente. Cancele o convite e envie outro para o email certo."
-      );
-    }
-
-    if (email && email !== existing.email) {
-      const emailExists = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", email))
-        .first();
-      
-      if (emailExists) {
-        throw new Error("Já existe um usuário com este email");
-      }
-    }
-    
-    const patch: Partial<Doc<"users">> = filterDefined(updates);
-    if (email !== undefined) patch.email = email ?? undefined;
-    if (phone !== undefined) patch.phone = phone ?? undefined;
-    if (roles !== undefined) {
-      Object.assign(patch, accessFields(roles));
-    }
-    if (
-      roles !== undefined ||
-      permissionGrants !== undefined ||
-      permissionDenials !== undefined
-    ) {
-      // Reavalia os ajustes contra os acessos finais: um acesso novo pode
-      // tornar uma concessão redundante ou uma retirada sem efeito.
-      const overrides = normalizePermissionOverrides(
-        roles ?? resolveRoles(existing),
-        permissionGrants ?? existing.permissionGrants ?? [],
-        permissionDenials ?? existing.permissionDenials ?? []
-      );
-      patch.permissionGrants =
-        overrides.permissionGrants.length > 0 ? overrides.permissionGrants : undefined;
-      patch.permissionDenials =
-        overrides.permissionDenials.length > 0 ? overrides.permissionDenials : undefined;
-      if (
-        existing._id === ctx.user._id &&
-        !hasPermission(
-          { roles: roles ?? resolveRoles(existing), ...overrides },
-          "admin.manage"
-        )
-      ) {
-        throw new Error("Você não pode remover o próprio acesso de administração");
-      }
-    }
-
-    await ctx.db.patch("users", id, patch);
-    return id;
+    return await updateUser(ctx, ctx.user, args);
   },
 });
 
@@ -475,14 +180,7 @@ export const updateLastLogin = adminMutation({
   args: { id: v.id("users") },
   returns: v.id("users"),
   handler: async (ctx, args) => {
-    const existing = await ctx.db.get("users", args.id);
-    
-    if (!existing) {
-      throw new Error("Usuário não encontrado");
-    }
-    
-    await ctx.db.patch("users", args.id, { lastLoginAt: Date.now() });
-    return args.id;
+    return await updateUserLastLogin(ctx, args.id);
   },
 });
 
@@ -491,17 +189,7 @@ export const remove = adminMutation({
   args: { id: v.id("users") },
   returns: v.id("users"),
   handler: async (ctx, args) => {
-    const existing = await ctx.db.get("users", args.id);
-    
-    if (!existing) {
-      throw new Error("Usuário não encontrado");
-    }
-    if (existing._id === ctx.user._id) {
-      throw new Error("Você não pode desativar o próprio acesso");
-    }
-    
-    await ctx.db.patch("users", args.id, { isActive: false });
-    return args.id;
+    return await deactivateUser(ctx, ctx.user, args.id);
   },
 });
 
@@ -510,14 +198,7 @@ export const reactivate = adminMutation({
   args: { id: v.id("users") },
   returns: v.id("users"),
   handler: async (ctx, args) => {
-    const existing = await ctx.db.get("users", args.id);
-    
-    if (!existing) {
-      throw new Error("Usuário não encontrado");
-    }
-    
-    await ctx.db.patch("users", args.id, { isActive: true });
-    return args.id;
+    return await reactivateUser(ctx, args.id);
   },
 });
 
@@ -549,34 +230,7 @@ export const createWithClerkId = internalMutation({
   },
   returns: v.id("users"),
   handler: async (ctx, args) => {
-    if (args.email) {
-      const existing = await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", args.email!))
-        .first();
-      if (existing) {
-        throw new Error("Já existe um usuário com este email");
-      }
-    }
-
-    const existingClerk = await ctx.db
-      .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
-      .first();
-    if (existingClerk) {
-      throw new Error("Usuário Clerk já vinculado");
-    }
-
-    return await ctx.db.insert("users", {
-      clerkId: args.clerkId,
-      name: args.name,
-      email: args.email,
-      username: args.username,
-      ...accessFields(args.roles),
-      phone: args.phone,
-      isActive: true,
-      createdAt: Date.now(),
-    });
+    return await createUserWithClerkId(ctx, args);
   },
 });
 
@@ -586,11 +240,7 @@ export const getByEmailInternal = internalQuery({
   args: { email: v.string() },
   returns: v.union(userValidator, v.null()),
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", normalizeEmail(args.email)))
-      .first();
-    return user ? toUserView(user) : null;
+    return await getUserViewByNormalizedEmail(ctx, args.email);
   },
 });
 
@@ -601,10 +251,7 @@ export const getInternal = internalQuery({
     v.null()
   ),
   handler: async (ctx, args) => {
-    const user = await ctx.db.get("users", args.id);
-    return user
-      ? { ...toUserView(user), clerkInvitationId: user.clerkInvitationId }
-      : null;
+    return await getUserWithInvitation(ctx, args.id);
   },
 });
 
@@ -624,39 +271,7 @@ export const upsertInvited = internalMutation({
   },
   returns: v.id("users"),
   handler: async (ctx, args) => {
-    const email = normalizeEmail(args.email);
-    const existing = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
-      .first();
-    // Reenvio sem nome mantém o nome que já aparecia na lista.
-    const name = args.name?.trim() || existing?.name || email.split("@")[0] || email;
-
-    if (existing) {
-      if (existing.clerkId || existing.invitedAt === undefined) {
-        throw new Error("Já existe um usuário com este email");
-      }
-      await ctx.db.patch("users", existing._id, {
-        name,
-        phone: args.phone ?? existing.phone,
-        ...accessFields(args.roles),
-        isActive: true,
-        invitedAt: Date.now(),
-        clerkInvitationId: args.clerkInvitationId,
-      });
-      return existing._id;
-    }
-
-    return await ctx.db.insert("users", {
-      name,
-      email,
-      phone: args.phone,
-      ...accessFields(args.roles),
-      isActive: true,
-      createdAt: Date.now(),
-      invitedAt: Date.now(),
-      clerkInvitationId: args.clerkInvitationId,
-    });
+    return await upsertInvitedUser(ctx, args);
   },
 });
 
@@ -665,13 +280,7 @@ export const markInviteResent = internalMutation({
   args: { id: v.id("users"), clerkInvitationId: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const user = await ctx.db.get("users", args.id);
-    if (!user) throw new Error("Usuário não encontrado");
-    if (user.clerkId) throw new Error("Este usuário já aceitou o convite");
-    await ctx.db.patch("users", args.id, {
-      invitedAt: Date.now(),
-      clerkInvitationId: args.clerkInvitationId,
-    });
+    await markUserInviteResent(ctx, args);
     return null;
   },
 });
@@ -684,12 +293,7 @@ export const deleteInvited = internalMutation({
   args: { id: v.id("users") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const user = await ctx.db.get("users", args.id);
-    if (!user) return null;
-    if (user.clerkId || user.invitedAt === undefined) {
-      throw new Error("Este usuário já aceitou o convite");
-    }
-    await ctx.db.delete("users", args.id);
+    await deleteInvitedUser(ctx, args.id);
     return null;
   },
 });

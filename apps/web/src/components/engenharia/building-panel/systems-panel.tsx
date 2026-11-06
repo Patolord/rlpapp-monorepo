@@ -18,11 +18,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import {
-  EquipmentRow,
-  type BuildingMatrixActions,
-} from "@/components/engenharia/building-panel/building-matrix";
-import { NewSystemDialog } from "@/components/engenharia/building-panel/edit-dialogs";
+import type { BuildingMatrixActions } from "@/components/engenharia/building-panel/building-matrix";
+import { NewSystemDialog } from "@/components/engenharia/building-panel/dialogs/system-dialogs";
+import { EquipmentRow } from "@/components/engenharia/building-panel/equipment-row";
 import type {
   HierarchyEnvironment,
   HierarchyItem,

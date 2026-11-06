@@ -19,7 +19,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "rea
 import { Button, ButtonText } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/engenharia/status-badge";
-import type { EquipmentStatus } from "@/lib/equipment-status";
+import type { EquipmentStatus } from "@rlpapp/shared/engenharia/equipment";
 import { listPendingRecords, subscribeQueue } from "@/lib/offline-queue";
 
 export default function EngenhariaDashboardScreen() {
