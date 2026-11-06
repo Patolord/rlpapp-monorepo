@@ -43,6 +43,8 @@ const equipmentFields = {
   labelPhotoIds: v.optional(v.array(v.id("_storage"))),
   status: equipmentStatus,
   createdAt: v.number(),
+  // Técnico que cadastrou em campo (registerForQr grava este campo).
+  createdByUserId: v.optional(v.id("users")),
   // Vínculo reverso com o item planejado da obra (relatórios).
   projectEquipmentId: v.optional(v.id("projectEquipment")),
   // Campos legados (dados antigos em produção antes da simplificação do schema).

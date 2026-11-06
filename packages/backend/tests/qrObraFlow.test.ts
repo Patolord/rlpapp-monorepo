@@ -641,4 +641,48 @@ describe("fluxo QR-Obra sem redundância", () => {
       false
     );
   });
+
+  test("regressão: equipamento cadastrado via registerForQr passa no validador de retorno", async () => {
+    const t = setup();
+    const asAdmin = await withUser(t, { clerkId: "adm-reg", role: "admin" });
+    const asTech = await withUser(t, {
+      clerkId: "tech-reg",
+      role: "qr_operator",
+    });
+    const obra = await seedObra(t, "Obra Cadastro");
+    await asAdmin.mutation(api.qrCodes.batchCreate, {
+      tokens: ["REGQR001"],
+      projectId: obra.projectId,
+    });
+    const storageId = await t.run(async (ctx) =>
+      ctx.storage.store(new Blob(["foto"]))
+    );
+
+    const equipmentId = await asTech.mutation(api.qrCodes.registerForQr, {
+      token: "REGQR001",
+      description: "Evaporadora sala 1",
+      labelPhotoIds: [storageId],
+    });
+    const techUserId = await t.run(async (ctx) => {
+      const user = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", "tech-reg"))
+        .unique();
+      return user?._id;
+    });
+
+    // O documento gravado tem createdByUserId; o validador de retorno precisa aceitá-lo.
+    const byToken = await asTech.query(api.qrCodes.getByToken, {
+      token: "REGQR001",
+    });
+    expect(byToken?.equipment?._id).toBe(equipmentId);
+    expect(byToken?.equipment?.createdByUserId).toBe(techUserId);
+
+    const context = await t.query(api.qrCodes.getFullContext, {
+      token: "REGQR001",
+    });
+    expect(context?.equipment?._id).toBe(equipmentId);
+    expect(context?.equipment?.createdByUserId).toBe(techUserId);
+    expect(context?.equipment?.description).toBe("Evaporadora sala 1");
+  });
 });
