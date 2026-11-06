@@ -46,7 +46,10 @@ convex/
 - Call ordinary TypeScript model functions directly from queries and mutations
   to keep work in one Convex transaction.
 - Root public-function files never import each other: reusable code and
-  shared validators live in `model/<domain>` or `schema/<domain>`. ESLint
+  shared validators live in `model/<domain>` or `schema/<domain>`. Table
+  fields and enums shared by several tables go in `schema/<domain>.ts`; the
+  args and return shapes of public functions go in
+  `model/<domain>/<resource>Validators.ts`. ESLint
   (`no-restricted-imports` in `eslint.config.mjs`) enforces this, and also
   stops `lib/`, `model/`, `schema/` and `gateway/` from importing root files.
 - A model domain may call another domain's functions (inventory uses

@@ -101,7 +101,6 @@ export async function removeTower(
   });
 }
 
-/** Duplica uma torre com todos os andares, ambientes e equipamentos planejados. */
 /**
  * Copia uma torre com andares, ambientes e equipamentos planejados (sem vínculo
  * de QR). Usada pela duplicação na tela e pelo assistente de IA.
