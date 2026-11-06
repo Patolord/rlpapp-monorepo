@@ -64,7 +64,14 @@ export const saveWeights = takeoffConfigMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const clean = sanitizeTakeoffWeights(args);
-    await saveTakeoffSetting(ctx, ctx.user, "weights", clean, "Materiais por peso", `${clean.rows.length} materiais`);
+    await saveTakeoffSetting(
+      ctx,
+      ctx.user,
+      "weights",
+      clean,
+      "Materiais por peso",
+      `${clean.rows.length} materiais`
+    );
     return null;
   },
 });
@@ -144,7 +151,14 @@ export const saveVrfBrands = takeoffConfigMutation({
   returns: v.null(),
   handler: async (ctx, { brands }) => {
     const clean = { brands: sanitizeTakeoffVrfBrands(brands) };
-    await saveTakeoffSetting(ctx, ctx.user, "vrfBrands", clean, "Marcas de VRF", `${clean.brands.length} marcas`);
+    await saveTakeoffSetting(
+      ctx,
+      ctx.user,
+      "vrfBrands",
+      clean,
+      "Marcas de VRF",
+      `${clean.brands.length} marcas`
+    );
     return null;
   },
 });

@@ -1,4 +1,5 @@
-// Respostas JSON e erros da API HTTP /api/v1 (ver v1.ts).
+// Respostas JSON dos endpoints HTTP de gateway/ e os códigos de erro da API
+// /api/v1 (ver v1.ts).
 
 export type ApiErrorCode =
   | "UNAUTHENTICATED"

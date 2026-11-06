@@ -2,14 +2,17 @@ import type { HttpRouter } from "convex/server";
 import { internal } from "../_generated/api";
 import { env, httpAction } from "../_generated/server";
 import { MAX_LOOKUP_QUERY_LENGTH } from "../model/procurement/materialLookup";
-import { hashAgentToken, looksLikeAgentToken } from "../lib/agentTokens";
+import {
+  AGENT_TOKEN_DISPLAY_PREFIX_LENGTH,
+  hashAgentToken,
+  looksLikeAgentToken,
+} from "../lib/agentTokens";
 import { json } from "./responses";
 import { readBearer } from "./callerAuth";
 
 // Endpoints chamados por serviços com token próprio: a busca de material do
 // assistente interno (MATERIAL_LOOKUP_TOKEN) e a verificação de tokens de
 // agente pelo servidor MCP do app web.
-
 
 const handleMaterialLookup = httpAction(async (ctx, request) => {
   const token = env.MATERIAL_LOOKUP_TOKEN;
@@ -55,18 +58,11 @@ const handleMaterialLookup = httpAction(async (ctx, request) => {
 
 const AGENT_TOKEN_VERIFY_PATH = "/agent-tokens/verify";
 
-
 const handleAgentTokenVerify = httpAction(async (ctx, request) => {
-  const headers = { "Cache-Control": "no-store" };
   const presented = readBearer(request);
   if (!presented || !looksLikeAgentToken(presented)) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: {
-        ...headers,
-        "Content-Type": "application/json; charset=utf-8",
-        "WWW-Authenticate": 'Bearer realm="agent-tokens"',
-      },
+    return json({ error: "Unauthorized" }, 401, {
+      "WWW-Authenticate": 'Bearer realm="agent-tokens"',
     });
   }
 
@@ -79,23 +75,17 @@ const handleAgentTokenVerify = httpAction(async (ctx, request) => {
     console.log(
       JSON.stringify({
         event: "agent_token_rejected",
-        prefix: presented.slice(0, 12),
+        prefix: presented.slice(0, AGENT_TOKEN_DISPLAY_PREFIX_LENGTH),
       })
     );
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...headers, "Content-Type": "application/json; charset=utf-8" },
-    });
+    return json({ error: "Unauthorized" }, 401);
   }
 
   await ctx.runMutation(internal.agentTokens.touch, {
     id: verified.token._id,
     now,
   });
-  return new Response(JSON.stringify(verified), {
-    status: 200,
-    headers: { ...headers, "Content-Type": "application/json; charset=utf-8" },
-  });
+  return json(verified);
 });
 
 export function registerServiceTokenRoutes(http: HttpRouter): void {

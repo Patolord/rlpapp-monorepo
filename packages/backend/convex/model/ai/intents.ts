@@ -1,6 +1,9 @@
-import { equipKindValidator, equipmentStatusValidator } from "../../schema/engineering";
 import { v, type Infer } from "convex/values";
-import { projectStatus } from "../../schema/engineering";
+import {
+  equipKindValidator,
+  equipmentStatusValidator,
+  projectStatus,
+} from "../../schema/engineering";
 import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 

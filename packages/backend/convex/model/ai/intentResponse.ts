@@ -327,3 +327,20 @@ export function normalizeIntentResponse(parsed: unknown): {
 
   return { reply, needsClarification, intents };
 }
+
+/**
+ * Lê o JSON devolvido pelo modelo, tirando cercas de código (```json ... ```)
+ * se houver. Usado pelas duas actions de ai.ts.
+ */
+export function parseModelJson(raw: string): unknown {
+  try {
+    const cleaned = raw
+      .trim()
+      .replace(/^```(?:json)?/i, "")
+      .replace(/```$/, "")
+      .trim();
+    return JSON.parse(cleaned);
+  } catch {
+    throw new Error("A IA não retornou um JSON válido. Tente reformular.");
+  }
+}

@@ -27,7 +27,8 @@ convex/
   lib/                  Cross-cutting infrastructure only: auth, rbac, audit,
                         accessErrors, apiCrypto, agentTokens, takeoffAuth,
                         clerkBackendApi
-  gateway/              HTTP API `/api/v1` and the desktop login endpoints
+  gateway/              All HTTP handlers (registered in http.ts): `/api/v1`,
+                        desktop login, Clerk webhook, service tokens, files
   mcp/                  Function catalog for the MCP server and `/api/v1`
 ```
 

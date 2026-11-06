@@ -1,7 +1,7 @@
 "use node";
 
-import { equipKindValidator } from "./schema/engineering";
 import { v } from "convex/values";
+import { equipKindValidator } from "./schema/engineering";
 import OpenAI from "openai";
 import { action, env } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -9,7 +9,11 @@ import { aiIntentValidator } from "./model/ai/intents";
 import { rejectReadOnlyAgentTokenInAction } from "./lib/agentTokens";
 import { requireActionPermission } from "./lib/rbac";
 import { SYSTEM_PROMPT, normalizeProposal } from "./model/ai/layoutProposal";
-import { INTENT_SYSTEM_PROMPT, normalizeIntentResponse } from "./model/ai/intentResponse";
+import {
+  INTENT_SYSTEM_PROMPT,
+  normalizeIntentResponse,
+  parseModelJson,
+} from "./model/ai/intentResponse";
 // A regra só olha o arquivo importado; ai.ts também é "use node".
 // eslint-disable-next-line @convex-dev/import-wrong-runtime
 import { readAttachments } from "./model/ai/attachments";
@@ -104,19 +108,7 @@ export const proposeLayout = action({
       ],
     });
 
-    const raw = response.output_text ?? "{}";
-    let parsed: unknown;
-    try {
-      // Remove cercas de código (```json ... ```), se houver.
-      const cleaned = raw
-        .trim()
-        .replace(/^```(?:json)?/i, "")
-        .replace(/```$/, "")
-        .trim();
-      parsed = JSON.parse(cleaned);
-    } catch {
-      throw new Error("A IA não retornou um JSON válido. Tente reformular.");
-    }
+    const parsed = parseModelJson(response.output_text ?? "{}");
 
     return normalizeProposal(parsed);
   },
@@ -200,18 +192,7 @@ export const interpret = action({
       ],
     });
 
-    const raw = response.output_text ?? "{}";
-    let parsed: unknown;
-    try {
-      const cleaned = raw
-        .trim()
-        .replace(/^```(?:json)?/i, "")
-        .replace(/```$/, "")
-        .trim();
-      parsed = JSON.parse(cleaned);
-    } catch {
-      throw new Error("A IA não retornou um JSON válido. Tente reformular.");
-    }
+    const parsed = parseModelJson(response.output_text ?? "{}");
 
     return normalizeIntentResponse(parsed);
   },

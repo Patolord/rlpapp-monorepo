@@ -3,12 +3,12 @@
 
 import { env } from "../_generated/server";
 
-export const CLERK_API = "https://api.clerk.com/v1";
+const CLERK_API = "https://api.clerk.com/v1";
 
 /** Validade do link de convite. O admin pode reenviar quando expira. */
-export const INVITATION_EXPIRES_IN_DAYS = 30;
+const INVITATION_EXPIRES_IN_DAYS = 30;
 
-export type ClerkCreateUserResponse = {
+type ClerkCreateUserResponse = {
   id: string;
   username: string | null;
   first_name: string | null;
@@ -16,17 +16,17 @@ export type ClerkCreateUserResponse = {
   email_addresses: Array<{ email_address: string }>;
 };
 
-export type ClerkInvitationResponse = {
+type ClerkInvitationResponse = {
   id: string;
   email_address: string;
   status: "pending" | "accepted" | "revoked" | "expired";
 };
 
-export type ClerkErrorResponse = {
+type ClerkErrorResponse = {
   errors: Array<{ message: string; long_message: string; code: string }>;
 };
 
-export const CLERK_ERROR_MESSAGES: Record<string, string> = {
+const CLERK_ERROR_MESSAGES: Record<string, string> = {
   form_identifier_exists: "Já existe uma conta com este email no Clerk.",
   duplicate_record: "Já existe um convite pendente para este email.",
 };
@@ -43,7 +43,7 @@ export class ClerkApiError extends Error {
   }
 }
 
-export async function clerkRequest<T>(
+async function clerkRequest<T>(
   path: string,
   body?: Record<string, unknown>,
   method: "GET" | "POST" = "POST"
@@ -116,7 +116,7 @@ export async function createClerkInvitation(args: {
  * Estado atual da invitation no Clerk, ou null se não existe (ou já foi
  * revogada: a listagem padrão não traz revogadas). `query` filtra por id.
  */
-export async function findClerkInvitation(invitationId: string): Promise<ClerkInvitationResponse | null> {
+async function findClerkInvitation(invitationId: string): Promise<ClerkInvitationResponse | null> {
   const result = await clerkRequest<
     ClerkInvitationResponse[] | { data: ClerkInvitationResponse[] }
   >(`/invitations?query=${encodeURIComponent(invitationId)}&limit=10`, undefined, "GET");

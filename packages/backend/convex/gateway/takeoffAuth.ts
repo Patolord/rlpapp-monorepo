@@ -1,7 +1,6 @@
 // Rotas HTTP do login do RLP Takeoff (troca do código por um token de
 // dispositivo). O fluxo e a criptografia PKCE estão em lib/takeoffAuth.ts; as
 // funções públicas (createCode...) em convex/takeoffAuth.ts.
-import { json } from "./responses";
 import type { HttpRouter } from "convex/server";
 import { internal } from "../_generated/api";
 import { httpAction } from "../_generated/server";
@@ -21,6 +20,8 @@ import {
   isValidVerifier,
   pkceChallengeFromVerifier,
 } from "../lib/takeoffAuth";
+import { readBearer } from "./callerAuth";
+import { json } from "./responses";
 
 /**
  * Rotas HTTP do login do RLP Takeoff (desktop). O app chama estas rotas pelo
@@ -35,7 +36,6 @@ import {
  * clerkId do dono); depois o app o renova em `POST /api/v1/auth/token` com o
  * token do dispositivo.
  */
-
 
 function oauthError(error: string, message: string, status = 400): Response {
   return json({ error, message }, status);
@@ -101,8 +101,7 @@ const exchange = httpAction(async (ctx, request) => {
 });
 
 const revoke = httpAction(async (ctx, request) => {
-  const match = /^Bearer\s+(.+)$/i.exec(request.headers.get("Authorization")?.trim() ?? "");
-  const presented = match?.[1]?.trim();
+  const presented = readBearer(request);
   if (!presented || !looksLikeAgentToken(presented)) {
     return oauthError("invalid_request", "Envie o token do dispositivo", 401);
   }
