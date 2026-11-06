@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { runWithToast } from "@/lib/errors";
-import type { SystemOption } from "@/components/engenharia/building-panel/edit-dialogs";
+import type { SystemOption } from "@/components/engenharia/building-panel/system-option";
 
 /** Ambiente selecionado na matriz como alvo da atribuição. */
 export type AssignTarget = {

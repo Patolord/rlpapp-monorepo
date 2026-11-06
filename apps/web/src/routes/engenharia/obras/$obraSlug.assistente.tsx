@@ -12,11 +12,11 @@ import {
   Send,
   Square,
   Trash2,
-  User,
   X,
 } from "lucide-react";
 
 import { AuthShell } from "@/components/auth-shell";
+import { ChatBubble } from "@/components/engenharia/ai/chat-bubble";
 import {
   ProjectShell,
   type ProjectOverview,
@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { runWithToast } from "@/lib/errors";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
+import { useAudioRecorder } from "@/lib/use-audio-recorder";
 import { PermissionGate } from "@/components/role-area-gate";
 
 export const Route = createFileRoute(
@@ -364,26 +365,6 @@ function AssistantContent({ project }: { project: ProjectOverview }) {
   );
 }
 
-function ChatBubble({ message }: { message: ChatMessage }) {
-  const isUser = message.role === "user";
-  return (
-    <div className={`flex gap-2 ${isUser ? "flex-row-reverse" : ""}`}>
-      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted">
-        {isUser ? <User className="size-4" /> : <Bot className="size-4" />}
-      </div>
-      <div
-        className={`max-w-[80%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm ${
-          isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-muted text-foreground"
-        }`}
-      >
-        {message.text}
-      </div>
-    </div>
-  );
-}
-
 function ProposalUnitCard({
   unit,
   onChange,
@@ -468,41 +449,4 @@ function ProposalUnitCard({
       </CardContent>
     </Card>
   );
-}
-
-function useAudioRecorder(onComplete: (file: File) => void) {
-  const [recording, setRecording] = useState(false);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-
-  async function toggleRecording() {
-    if (recording) {
-      recorderRef.current?.stop();
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      chunksRef.current = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const file = new File([blob], `gravacao-${Date.now()}.webm`, {
-          type: "audio/webm",
-        });
-        onComplete(file);
-        stream.getTracks().forEach((t) => t.stop());
-        setRecording(false);
-      };
-      recorder.start();
-      recorderRef.current = recorder;
-      setRecording(true);
-    } catch {
-      setRecording(false);
-    }
-  }
-
-  return { recording, toggleRecording };
 }
