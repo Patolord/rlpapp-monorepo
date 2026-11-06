@@ -1,7 +1,11 @@
-import { BASE_MATERIALS, type BasePrices } from "@rlpapp/shared/takeoff/weights";
+import {
+  BASE_MATERIALS,
+  type BasePrices,
+  baseMaterialLabel,
+} from "@rlpapp/shared/takeoff/weights";
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
-import { internalMutation } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internalMutation, type MutationCtx } from "./_generated/server";
 import { logAudit } from "./lib/audit";
 import {
   engineeringOrPurchasingQuery,
@@ -13,9 +17,13 @@ import {
   factoryTakeoffWeights,
   getTakeoffSetting,
   listPublishedTakeoffSettings,
+  priceDateToTimestamp,
   putTakeoffSetting,
   recordTakeoffPriceChanges,
+  sanitizePriceNote,
   sanitizeTakeoffBasePrices,
+  syncTakeoffBasePrice,
+  upsertTakeoffPriceRecord,
   sanitizeTakeoffDuctNormas,
   sanitizeTakeoffLabor,
   sanitizeTakeoffVrfBrands,
@@ -127,6 +135,81 @@ export const saveBasePrices = takeoffConfigMutation({
   },
 });
 
+/**
+ * Registra o preço por kg de um insumo numa data (cotação do dia, preço do
+ * fornecedor...). Um registro por insumo e dia: registrar de novo no mesmo dia
+ * corrige o valor. O preço publicado ao app é sempre o do registro mais recente.
+ */
+export const savePriceRecord = takeoffConfigMutation({
+  args: {
+    material: v.string(),
+    /** AAAA-MM-DD; hoje ou antes. */
+    date: v.string(),
+    price: v.number(),
+    note: v.optional(v.string()),
+  },
+  returns: v.id("takeoffPriceHistory"),
+  handler: async (ctx, args) => {
+    const price = sanitizeTakeoffBasePrices({ [args.material]: args.price })[args.material]!;
+    const recordedAt = priceDateToTimestamp(args.date);
+    const now = Date.now();
+    if (recordedAt > now) throw new Error("A data do preço não pode estar no futuro");
+    const note = sanitizePriceNote(args.note);
+    const id = await upsertTakeoffPriceRecord(
+      ctx,
+      { material: args.material, recordedAt, price, note },
+      ctx.user._id
+    );
+    await logAudit(ctx, ctx.user, {
+      action: "update",
+      tableName: "takeoffPriceHistory",
+      recordId: id,
+      entityLabel: `Preço por kg: ${baseMaterialLabel(args.material)}`,
+      details: `${args.date}: R$ ${price}/kg${note ? ` (${note})` : ""}`,
+    });
+    await publishCurrentPrice(ctx, args.material, now);
+    return id;
+  },
+});
+
+/** Remove um registro de preço; o preço publicado volta ao registro anterior. */
+export const removePriceRecord = takeoffConfigMutation({
+  args: { id: v.id("takeoffPriceHistory") },
+  returns: v.null(),
+  handler: async (ctx, { id }) => {
+    const record = await ctx.db.get("takeoffPriceHistory", id);
+    if (!record) throw new Error("Registro de preço não encontrado");
+    await ctx.db.delete("takeoffPriceHistory", id);
+    await logAudit(ctx, ctx.user, {
+      action: "delete",
+      tableName: "takeoffPriceHistory",
+      recordId: id,
+      entityLabel: `Preço por kg: ${baseMaterialLabel(record.material)}`,
+      snapshotBefore: record,
+    });
+    await publishCurrentPrice(ctx, record.material, Date.now());
+    return null;
+  },
+});
+
+/** Publica o preço em vigor de um insumo (o do último registro) se ele mudou. */
+async function publishCurrentPrice(
+  ctx: MutationCtx & { user: Doc<"users"> },
+  material: string,
+  now: number
+) {
+  const change = await syncTakeoffBasePrice(ctx, material, ctx.user._id, now);
+  if (!change) return;
+  await logAudit(ctx, ctx.user, {
+    action: change.before ? "update" : "create",
+    tableName: "takeoffSettings",
+    recordId: change.id,
+    entityLabel: "Preços por kg",
+    snapshotBefore: change.before ?? undefined,
+    snapshotAfter: change.after,
+  });
+}
+
 /** Pontos devolvidos por insumo no histórico (os mais recentes). */
 const PRICE_HISTORY_LIMIT = 200;
 
@@ -139,10 +222,12 @@ export const priceHistory = engineeringOrPurchasingQuery({
   args: {},
   returns: v.array(
     v.object({
+      id: v.id("takeoffPriceHistory"),
       material: v.string(),
       price: v.union(v.number(), v.null()),
       recordedAt: v.number(),
       recordedBy: v.union(v.string(), v.null()),
+      note: v.union(v.string(), v.null()),
     })
   ),
   handler: async (ctx) => {
@@ -163,10 +248,12 @@ export const priceHistory = engineeringOrPurchasingQuery({
         .take(PRICE_HISTORY_LIMIT);
       for (const row of rows.reverse()) {
         out.push({
+          id: row._id,
           material: row.material,
           price: row.price,
           recordedAt: row.recordedAt,
           recordedBy: await nameOf(row.recordedByUserId),
+          note: row.note ?? null,
         });
       }
     }

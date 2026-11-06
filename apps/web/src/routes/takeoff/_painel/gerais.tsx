@@ -10,13 +10,13 @@ import { AuthShell } from "@/components/auth-shell";
 import { KitsSection } from "@/components/takeoff/kits-section";
 import {
   PublishBar,
-  publishedLine,
   TakeoffPageHeader,
   toNumber,
   toText,
   usePublisher,
 } from "@/components/takeoff/painel";
-import { PricePerKgChart, SERIES_COLORS } from "@/components/takeoff/price-per-kg-chart";
+import { SERIES_COLORS } from "@/components/takeoff/price-per-kg-chart";
+import { PriceRecords } from "@/components/takeoff/price-records";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -62,96 +62,57 @@ function GeraisPage() {
   const settings = useQuery(api.takeoffSettings.get, {});
   const history = useQuery(api.takeoffSettings.priceHistory, {});
   const saveWeights = useMutation(api.takeoffSettings.saveWeights);
-  const saveBasePrices = useMutation(api.takeoffSettings.saveBasePrices);
   const seedDefaults = useMutation(api.takeoffSettings.seedDefaults);
   const { busy, run } = usePublisher();
-  const [prices, setPrices] = useState<Texts>({});
   const [gauges, setGauges] = useState<Texts>({});
   const [rows, setRows] = useState<WeightRow[]>([]);
-  // the forms follow the published values until edited; a publish ends the edit only when
-  // nothing was typed while it ran (latest holds what is on screen right now)
-  const [dirty, setDirty] = useState({ prices: false, weights: false });
-  const latest = useRef({ prices, gauges, rows });
-  latest.current = { prices, gauges, rows };
+  // the weights follow the published values until edited; a publish ends the edit only when
+  // nothing was typed while it ran (latest holds what is on screen right now). Prices are not
+  // part of it: each one is a dated record, saved on its own (PriceRecords).
+  const [dirty, setDirty] = useState(false);
+  const latest = useRef({ gauges, rows });
+  latest.current = { gauges, rows };
   useEffect(() => {
     if (!settings) return;
-    if (!dirty.prices) setPrices(toTexts(settings.basePrices));
-    if (!dirty.weights) {
+    if (!dirty) {
       setGauges(toTexts(settings.weights?.gaugeWeights));
       setRows((settings.weights?.rows ?? []).map((r) => ({ ...r })));
     }
   }, [settings, dirty]);
 
-  const editPrice = (key: string, value: string) => {
-    setDirty((d) => ({ ...d, prices: true }));
-    setPrices((p) => ({ ...p, [key]: value }));
-  };
   const editWeights = (next: { gauges?: Texts; rows?: WeightRow[] }) => {
-    setDirty((d) => ({ ...d, weights: true }));
+    setDirty(true);
     if (next.gauges) setGauges(next.gauges);
     if (next.rows) setRows(next.rows);
   };
 
   const publish = () =>
     run(async () => {
-      const sent = JSON.stringify({ prices, gauges, rows });
-      if (dirty.prices) await saveBasePrices({ prices: toNumbers(prices) });
-      if (dirty.weights) {
-        await saveWeights({ rows: rows.filter((r) => r.name.trim()), gaugeWeights: toNumbers(gauges) });
-      }
-      if (JSON.stringify(latest.current) === sent) setDirty({ prices: false, weights: false });
-    }, "Parâmetros gerais publicados");
+      const sent = JSON.stringify({ gauges, rows });
+      await saveWeights({ rows: rows.filter((r) => r.name.trim()), gaugeWeights: toNumbers(gauges) });
+      if (JSON.stringify(latest.current) === sent) setDirty(false);
+    }, "Pesos publicados");
   const loadFactoryWeights = () =>
     run(() => seedDefaults({ kind: "weights" }), "Pesos do fornecedor carregados");
-
-  const priceInput = (key: string) => {
-    const m = material(key);
-    return (
-      <div key={key} className="space-y-1.5">
-        <Label htmlFor={`price-${key}`}>{m.label} (R$/kg)</Label>
-        <Input
-          id={`price-${key}`}
-          type="number"
-          min={0}
-          step="0.01"
-          value={prices[key] ?? ""}
-          placeholder={m.defaultPrice !== undefined ? `${m.defaultPrice} (fornecedor)` : "sem preço"}
-          onChange={(e) => editPrice(key, e.target.value)}
-          className="text-right font-mono"
-        />
-      </div>
-    );
-  };
-  const pricesMeta = publishedLine(settings?.meta.basePrices ?? null, "Preço ainda não publicado: o app usa o do fornecedor.");
-  const weightsMeta = publishedLine(settings?.meta.weights ?? null, "Pesos ainda não publicados: o app usa a tabela do fornecedor.");
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <TakeoffPageHeader
         title="Gerais e presets"
-        description="Preço e peso do cobre e da chapa, que dão o preço dos materiais vendidos por kg, e os kits da ferramenta Kit (T)."
+        description="Preço e peso do cobre e da chapa, e os kits. Vale para o app de todos."
       />
 
       <Card>
         <CardHeader>
           <CardTitle>Cobre</CardTitle>
-          <CardDescription>
-            Preço por kg dos tubos nas duas faixas de parede e o peso de cada tubo. Preço do tubo =
-            kg por metro × R$/kg. {pricesMeta}
-          </CardDescription>
+          <CardDescription>Preço do tubo = kg/m × R$/kg. O app usa o preço mais recente.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2">{["cobre", "cobre_grosso"].map(priceInput)}</div>
-          <PricePerKgChart series={COPPER_SERIES} history={history} />
+          <PriceRecords series={COPPER_SERIES} history={history} />
 
           <div className="space-y-2">
             <div className="flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <h3 className="text-sm font-medium">Peso por unidade</h3>
-                <p className="text-xs text-muted-foreground">
-                  Cada linha vira um material do Ctrl+K do app. {weightsMeta}
-                </p>
-              </div>
+              <h3 className="text-sm font-medium">Peso dos tubos</h3>
               {settings && (settings.weights?.rows.length ?? 0) === 0 && (
                 <Button variant="outline" size="sm" onClick={() => void loadFactoryWeights()} disabled={busy}>
                   <Download className="size-4" /> Carregar tabela do fornecedor
@@ -169,14 +130,10 @@ function GeraisPage() {
       <Card>
         <CardHeader>
           <CardTitle>Chapa galvanizada</CardTitle>
-          <CardDescription>
-            Preço por kg e peso por m² de cada bitola, usados no peso e no preço dos dutos. Sem
-            preço por kg, o app mantém o preço por bitola da planilha. {pricesMeta}
-          </CardDescription>
+          <CardDescription>Peso e preço dos dutos. O app usa o preço mais recente.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2">{priceInput("chapa")}</div>
-          <PricePerKgChart series={SHEET_SERIES} history={history} />
+          <PriceRecords series={SHEET_SERIES} history={history} />
           <div className="space-y-2">
             <h3 className="text-sm font-medium">Peso por bitola (kg/m²)</h3>
             <div className="grid gap-3 sm:grid-cols-5">
@@ -191,7 +148,7 @@ function GeraisPage() {
                     min={0}
                     step="0.01"
                     value={gauges[g.name] ?? ""}
-                    placeholder={`${g.kgm2} (fornecedor)`}
+                    placeholder={String(g.kgm2)}
                     onChange={(e) => editWeights({ gauges: { ...gauges, [g.name]: e.target.value } })}
                     className="text-right font-mono"
                   />
@@ -205,11 +162,11 @@ function GeraisPage() {
       <KitsSection />
 
       <PublishBar
-        dirty={dirty.prices || dirty.weights}
+        dirty={dirty}
         busy={busy}
         disabled={!settings}
         onPublish={() => void publish()}
-        onDiscard={() => setDirty({ prices: false, weights: false })}
+        onDiscard={() => setDirty(false)}
       />
     </div>
   );
@@ -225,9 +182,8 @@ function WeightTable({ rows, onChange }: { rows: WeightRow[]; onChange: (rows: W
           <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-2 py-1.5 text-left font-medium">Material</th>
-              <th className="px-2 py-1.5 text-left font-medium">Grupo</th>
               <th className="px-2 py-1.5 text-left font-medium">Un.</th>
-              <th className="px-2 py-1.5 text-left font-medium">Preço por kg de</th>
+              <th className="px-2 py-1.5 text-left font-medium">Preço de</th>
               <th className="px-2 py-1.5 text-right font-medium">kg / un.</th>
               <th className="w-8" />
             </tr>
@@ -237,9 +193,6 @@ function WeightTable({ rows, onChange }: { rows: WeightRow[]; onChange: (rows: W
               <tr key={i} className="border-t border-control-border">
                 <td className="p-1">
                   <Input value={r.name} onChange={(e) => update(i, { name: e.target.value })} placeholder='Tubo de cobre 1/2"' className="min-w-56" aria-label="Material" />
-                </td>
-                <td className="p-1">
-                  <Input value={r.group} onChange={(e) => update(i, { group: e.target.value })} className="min-w-32" aria-label="Grupo" />
                 </td>
                 <td className="p-1">
                   <Select value={r.unit} onValueChange={(v) => update(i, { unit: v as WeightRow["unit"] })}>
@@ -272,8 +225,8 @@ function WeightTable({ rows, onChange }: { rows: WeightRow[]; onChange: (rows: W
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
-                  Nenhum material. Carregue a tabela do fornecedor ou acrescente linhas.
+                <td colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
+                  Nenhum tubo. Carregue a tabela do fornecedor ou acrescente linhas.
                 </td>
               </tr>
             )}

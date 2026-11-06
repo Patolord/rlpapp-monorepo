@@ -5,7 +5,7 @@ import {
   NORMA_LABELS,
 } from "@rlpapp/shared/engenharia/ducts";
 import { DEFAULT_LABOR_PRICES, LABOR_PRICE_LABELS } from "@rlpapp/shared/takeoff/labor";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { Download } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -13,7 +13,6 @@ import { useEffect, useRef, useState } from "react";
 import { AuthShell } from "@/components/auth-shell";
 import {
   PublishBar,
-  publishedLine,
   TakeoffPageHeader,
   toNumber,
   toText,
@@ -31,8 +30,6 @@ export const Route = createFileRoute("/takeoff/_painel/dutos")({
     </AuthShell>
   ),
 });
-
-const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 /** The norma table as edited: every number a text, the four limits apart. */
 type NormaForm = {
@@ -66,13 +63,14 @@ const fromForm = (f: NormaForm) => ({
   supportsPct: toNumber(f.supportsPct) ?? 0,
 });
 
+const GAUGE_COLUMNS = ["# 26", "# 24", "# 22", "# 20"] as const;
 const NORMA_FIELDS: { key: keyof Omit<NormaForm, "norma" | "limits">; label: string; hint?: string }[] = [
-  { key: "insulThickness", label: "Isolamento (mm)" },
-  { key: "flangeSpacing", label: "Flange a cada (m)" },
-  { key: "rechapThickness", label: "Rechapeado (mm)" },
+  { key: "insulThickness", label: "Isol. mm" },
+  { key: "flangeSpacing", label: "Flange m" },
+  { key: "rechapThickness", label: "Rechap. mm" },
   { key: "sheetSlackPct", label: "Folga chapa %", hint: "vazio = 20 %, ou 15 % acima de 10 000 kg (regra da planilha)" },
-  { key: "insulSlackPct", label: "Folga isolamento %" },
-  { key: "supportsPct", label: "Suportes % do peso" },
+  { key: "insulSlackPct", label: "Folga isol. %" },
+  { key: "supportsPct", label: "Suportes %" },
 ];
 
 function DutosPage() {
@@ -115,53 +113,32 @@ function DutosPage() {
     setDirty((d) => ({ ...d, normas: true }));
     setNormas((ns) => ns.map((n, j) => (j === i ? { ...n, ...patch } : n)));
   };
-  const sheetPrice = settings?.basePrices?.chapa;
+  const cell = "w-20 text-right font-mono";
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <TakeoffPageHeader
-        title="Dutos"
-        description="Mão de obra e parâmetros de cada norma usados no cálculo de dutos (planilha NBR 16401)."
-      />
+      <TakeoffPageHeader title="Dutos" description="Mão de obra e parâmetros por norma (NBR 16401). Vale para o app de todos." />
 
       <Card>
         <CardHeader>
           <CardTitle>Mão de obra</CardTitle>
-          <CardDescription>
-            Vale em todo takeoff que não fixou o próprio valor.{" "}
-            {publishedLine(settings?.meta.labor ?? null, "Ainda não publicada: o app usa o valor da planilha.")}
-          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="labor-ductPerKg">{LABOR_PRICE_LABELS.ductPerKg.label}</Label>
-              <Input
-                id="labor-ductPerKg"
-                type="number"
-                min={0}
-                step="0.01"
-                value={labor}
-                placeholder={`${DEFAULT_LABOR_PRICES.ductPerKg} (planilha)`}
-                onChange={(e) => {
-                  setDirty((d) => ({ ...d, labor: true }));
-                  setLabor(e.target.value);
-                }}
-                className="text-right font-mono"
-              />
-              <p className="text-xs text-muted-foreground">{LABOR_PRICE_LABELS.ductPerKg.unit}</p>
-            </div>
-            <div className="space-y-1.5 text-sm">
-              <span className="font-medium">Chapa galvanizada</span>
-              <p className="text-muted-foreground">
-                {sheetPrice !== undefined ? `${brl.format(sheetPrice)}/kg` : "Sem preço por kg publicado"}{" "}
-                · preço e peso por bitola ficam em{" "}
-                <Link to="/takeoff/gerais" className="text-primary underline-offset-2 hover:underline">
-                  Gerais e presets
-                </Link>
-                .
-              </p>
-            </div>
+          <div className="max-w-xs space-y-1.5">
+            <Label htmlFor="labor-ductPerKg">Por kg de chapa ({LABOR_PRICE_LABELS.ductPerKg.unit})</Label>
+            <Input
+              id="labor-ductPerKg"
+              type="number"
+              min={0}
+              step="0.01"
+              value={labor}
+              placeholder={String(DEFAULT_LABOR_PRICES.ductPerKg)}
+              onChange={(e) => {
+                setDirty((d) => ({ ...d, labor: true }));
+                setLabor(e.target.value);
+              }}
+              className="text-right font-mono"
+            />
           </div>
         </CardContent>
       </Card>
@@ -171,73 +148,81 @@ function DutosPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle>Parâmetros por norma</CardTitle>
-              <CardDescription>
-                O maior lado (cm) que cada bitola cobre e as espessuras e folgas de partida. O
-                takeoff recebe estes valores ao escolher a norma e pode ajustá-los ali.{" "}
-                {publishedLine(settings?.meta.ductNormas ?? null, "Ainda não publicados: o app usa a tabela da planilha.")}
-              </CardDescription>
+              <CardDescription>Lado maior máximo (cm) de cada bitola; acima do último, # 18.</CardDescription>
             </div>
             {settings && normas.length === 0 && (
               <Button variant="outline" onClick={() => void loadFactory()} disabled={busy}>
-                <Download className="size-4" /> Carregar tabela da planilha
+                <Download className="size-4" /> Carregar da planilha
               </Button>
             )}
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {normas.length === 0 && (
+        <CardContent>
+          {normas.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Nenhuma norma publicada. Carregue a tabela da planilha para editá-la (
+              Nenhuma norma publicada: o app usa a tabela da planilha (
               {DEFAULT_DUCT_NORMAS.map((n) => NORMA_LABELS[n.norma]).join(", ")}).
             </p>
-          )}
-          {normas.map((n, i) => (
-            <div key={n.norma} className="space-y-3 rounded-md border border-control-border p-4">
-              <div className="font-medium">{NORMA_LABELS[n.norma]}</div>
-              <div>
-                <Label className="mb-2 block">Lado maior máximo por bitola (cm)</Label>
-                <div className="grid gap-3 sm:grid-cols-4">
-                  {(["# 26", "# 24", "# 22", "# 20"] as const).map((gauge, g) => (
-                    <div key={gauge} className="space-y-1">
-                      <span className="font-mono text-xs text-muted-foreground">{gauge}</span>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="1"
-                        value={n.limits[g]}
-                        aria-label={`Lado maior máximo ${gauge}, ${NORMA_LABELS[n.norma]}`}
-                        onChange={(e) => {
-                          const limits = [...n.limits] as NormaForm["limits"];
-                          limits[g] = e.target.value;
-                          editNorma(i, { limits });
-                        }}
-                        className="text-right font-mono"
-                      />
-                    </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-xs text-muted-foreground">
+                  <tr>
+                    <th className="py-1.5 pr-2 text-left font-medium">Norma</th>
+                    {GAUGE_COLUMNS.map((g) => (
+                      <th key={g} className="px-1 py-1.5 text-right font-mono font-medium">
+                        {g}
+                      </th>
+                    ))}
+                    {NORMA_FIELDS.map((f) => (
+                      <th key={f.key} className="px-1 py-1.5 text-right font-medium" title={f.hint}>
+                        {f.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {normas.map((n, i) => (
+                    <tr key={n.norma} className="border-t border-control-border">
+                      <td className="whitespace-nowrap py-1 pr-2 font-medium">{NORMA_LABELS[n.norma]}</td>
+                      {GAUGE_COLUMNS.map((gauge, g) => (
+                        <td key={gauge} className="px-1 py-1">
+                          <Input
+                            type="number"
+                            min={0}
+                            step="1"
+                            value={n.limits[g]}
+                            aria-label={`Lado maior máximo ${gauge}, ${NORMA_LABELS[n.norma]}`}
+                            onChange={(e) => {
+                              const limits = [...n.limits] as NormaForm["limits"];
+                              limits[g] = e.target.value;
+                              editNorma(i, { limits });
+                            }}
+                            className={cell}
+                          />
+                        </td>
+                      ))}
+                      {NORMA_FIELDS.map((f) => (
+                        <td key={f.key} className="px-1 py-1">
+                          <Input
+                            type="number"
+                            min={0}
+                            step="any"
+                            value={n[f.key]}
+                            placeholder={f.key === "sheetSlackPct" ? "auto" : undefined}
+                            title={f.hint}
+                            aria-label={`${f.label}, ${NORMA_LABELS[n.norma]}`}
+                            onChange={(e) => editNorma(i, { [f.key]: e.target.value })}
+                            className={cell}
+                          />
+                        </td>
+                      ))}
+                    </tr>
                   ))}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">Acima do último limite, # 18.</p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {NORMA_FIELDS.map((f) => (
-                  <div key={f.key} className="space-y-1">
-                    <Label htmlFor={`norma-${n.norma}-${f.key}`}>{f.label}</Label>
-                    <Input
-                      id={`norma-${n.norma}-${f.key}`}
-                      type="number"
-                      min={0}
-                      step="any"
-                      value={n[f.key]}
-                      placeholder={f.key === "sheetSlackPct" ? "auto" : undefined}
-                      title={f.hint}
-                      onChange={(e) => editNorma(i, { [f.key]: e.target.value })}
-                      className="text-right font-mono"
-                    />
-                  </div>
-                ))}
-              </div>
+                </tbody>
+              </table>
             </div>
-          ))}
+          )}
         </CardContent>
       </Card>
 

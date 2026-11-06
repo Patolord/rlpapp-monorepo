@@ -14,7 +14,6 @@ import { useEffect, useRef, useState } from "react";
 import { AuthShell } from "@/components/auth-shell";
 import {
   PublishBar,
-  publishedLine,
   TakeoffPageHeader,
   toNumber,
   toText,
@@ -22,7 +21,7 @@ import {
 } from "@/components/takeoff/painel";
 import { VrfBrandEditor } from "@/components/takeoff/vrf-brand-editor";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -113,34 +112,29 @@ function VrfPage() {
     <div className="mx-auto max-w-6xl space-y-6">
       <TakeoffPageHeader
         title="VRF"
-        description="Mão de obra e as regras de cada fabricante para a ferramenta VRF (Y): bitolas de gás e líquido por HP e modelos de Y-kit pela capacidade a jusante."
+        description="Mão de obra e as regras de cada fabricante (bitolas por HP e Y-kits). Vale para o app de todos."
       />
 
       <Card>
         <CardHeader>
           <CardTitle>Mão de obra</CardTitle>
-          <CardDescription>
-            Vale em todo takeoff que não fixou o próprio valor.{" "}
-            {publishedLine(settings?.meta.labor ?? null, "Ainda não publicada: o app usa o valor da planilha.")}
-          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="max-w-sm space-y-1.5">
-            <Label htmlFor="labor-vrfPerEvap">{LABOR_PRICE_LABELS.vrfPerEvap.label}</Label>
+          <div className="max-w-xs space-y-1.5">
+            <Label htmlFor="labor-vrfPerEvap">Por evaporadora ({LABOR_PRICE_LABELS.vrfPerEvap.unit})</Label>
             <Input
               id="labor-vrfPerEvap"
               type="number"
               min={0}
               step="0.01"
               value={labor}
-              placeholder={`${DEFAULT_LABOR_PRICES.vrfPerEvap} (planilha)`}
+              placeholder={String(DEFAULT_LABOR_PRICES.vrfPerEvap)}
               onChange={(e) => {
                 setDirty((d) => ({ ...d, labor: true }));
                 setLabor(e.target.value);
               }}
               className="text-right font-mono"
             />
-            <p className="text-xs text-muted-foreground">{LABOR_PRICE_LABELS.vrfPerEvap.unit}</p>
           </div>
         </CardContent>
       </Card>
@@ -149,9 +143,6 @@ function VrfPage() {
         <Card>
           <CardHeader>
             <CardTitle>Marcas</CardTitle>
-            <CardDescription>
-              {publishedLine(settings?.meta.vrfBrands ?? null, "Ainda não publicadas: o app usa as da planilha.")}
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <ul className="space-y-1">

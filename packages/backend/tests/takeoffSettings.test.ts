@@ -177,6 +177,63 @@ describe("takeoffSettings", () => {
     expect(await t.mutation(internal.takeoffSettings.backfillPriceHistory, {})).toBe(0);
   });
 
+  test("price records: dated, one per day, the latest is published", async () => {
+    const { t, engineering, hr } = await seedUsers();
+    const record = (date: string, price: number, note?: string) =>
+      engineering.mutation(api.takeoffSettings.savePriceRecord, { material: "cobre", date, price, note });
+
+    // entered out of order: the newest date wins, not the last one typed
+    await record("2026-03-10", 118, "Cotação Eluma");
+    await record("2026-01-05", 110);
+    let settings = await engineering.query(api.takeoffSettings.get, {});
+    expect(settings.basePrices).toEqual({ cobre: 118 });
+
+    // same day again corrects the value instead of adding a record
+    const id = await record("2026-03-10", 121, "  corrigido  ");
+    let history = await engineering.query(api.takeoffSettings.priceHistory, {});
+    expect(history.map((p) => [p.price, p.note])).toEqual([
+      [110, null],
+      [121, "corrigido"],
+    ]);
+    // midnight in Brasília (03:00 UTC), so the day reads the same in the app
+    expect(new Date(history[1]!.recordedAt).toISOString()).toBe("2026-03-10T03:00:00.000Z");
+    expect((await engineering.query(api.takeoffSettings.get, {})).basePrices).toEqual({ cobre: 121 });
+
+    // removing the latest falls back to the previous record; removing all, to no price
+    await engineering.mutation(api.takeoffSettings.removePriceRecord, { id });
+    settings = await engineering.query(api.takeoffSettings.get, {});
+    expect(settings.basePrices).toEqual({ cobre: 110 });
+    history = await engineering.query(api.takeoffSettings.priceHistory, {});
+    await engineering.mutation(api.takeoffSettings.removePriceRecord, { id: history[0]!.id });
+    expect((await engineering.query(api.takeoffSettings.get, {})).basePrices).toEqual({});
+
+    // a day with several points (publications timed by saveBasePrices) keeps only the correction
+    await t.run(async (ctx) => {
+      for (const hour of [13, 18]) {
+        await ctx.db.insert("takeoffPriceHistory", {
+          material: "chapa",
+          price: 9 + hour / 100,
+          recordedAt: Date.parse(`2026-04-02T${hour}:00:00Z`),
+        });
+      }
+    });
+    await engineering.mutation(api.takeoffSettings.savePriceRecord, { material: "chapa", date: "2026-04-02", price: 9.5 });
+    history = await engineering.query(api.takeoffSettings.priceHistory, {});
+    expect(history.filter((p) => p.material === "chapa").map((p) => p.price)).toEqual([9.5]);
+    expect((await engineering.query(api.takeoffSettings.get, {})).basePrices).toEqual({ chapa: 9.5 });
+
+    await expect(record("2999-01-01", 100)).rejects.toThrow(/futuro/);
+    await expect(record("2026-02-30", 100)).rejects.toThrow(/Data inválida/);
+    await expect(record("10/03/2026", 100)).rejects.toThrow(/Data inválida/);
+    await expect(record("2026-03-10", 0)).rejects.toThrow(/maior que zero/);
+    await expect(
+      engineering.mutation(api.takeoffSettings.savePriceRecord, { material: "ouro", date: "2026-03-10", price: 1 })
+    ).rejects.toThrow(/desconhecido/);
+    await expect(
+      hr.mutation(api.takeoffSettings.savePriceRecord, { material: "cobre", date: "2026-03-10", price: 1 })
+    ).rejects.toThrow();
+  });
+
   test("labour and duct normas: saved whole, validated, seeded from the workbook", async () => {
     const { t, engineering } = await seedUsers();
     await engineering.mutation(api.takeoffSettings.saveLabor, { ductPerKg: 22 });

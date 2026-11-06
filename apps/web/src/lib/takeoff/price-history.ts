@@ -1,9 +1,6 @@
-import type { PriceChange } from "@/components/compras/price-change-badge";
-
 /**
- * Histórico dos preços por kg publicados em App Takeoff (`takeoffSettings.priceHistory`): cada
- * ponto é uma publicação que mudou o preço de um insumo e vale até a seguinte. Daqui saem os
- * degraus do gráfico e as variações dos resumos.
+ * Registros de preço por kg de App Takeoff (`takeoffSettings.priceHistory`): cada ponto é um
+ * preço com a data em que passou a valer, até o seguinte. Daqui saem os degraus do gráfico.
  */
 
 export type PricePoint = {
@@ -43,50 +40,6 @@ export function priceAt(points: readonly PricePoint[], at: number): number | nul
     current = p.price;
   }
   return current;
-}
-
-const change = (from: number, fromAt: number, to: number): PriceChange => {
-  const fromCents = Math.round(from * 100);
-  const deltaCents = Math.round(to * 100) - fromCents;
-  return {
-    deltaCents,
-    deltaPercent: fromCents === 0 ? null : (deltaCents / fromCents) * 100,
-    fromCents,
-    fromAt,
-  };
-};
-
-export type PriceSummary = {
-  current: { price: number; since: number } | null;
-  /** Contra o último preço diferente publicado antes do atual. */
-  vsPrevious: PriceChange | null;
-  /** Contra o preço em vigor 12 meses antes de `now` (se o histórico chega lá). */
-  vs12Months: PriceChange | null;
-  min: number | null;
-  max: number | null;
-};
-
-export function priceSummary(points: readonly PricePoint[], now: number): PriceSummary {
-  const last = points.at(-1);
-  const prices = points.flatMap((p) => (p.price === null ? [] : [p.price]));
-  const min = prices.length ? Math.min(...prices) : null;
-  const max = prices.length ? Math.max(...prices) : null;
-  if (!last || last.price === null) {
-    return { current: null, vsPrevious: null, vs12Months: null, min, max };
-  }
-  const previous = points
-    .slice(0, -1)
-    .reverse()
-    .find((p) => p.price !== null && p.price !== last.price);
-  const yearAgoAt = now - 365 * DAY;
-  const yearAgo = priceAt(points, yearAgoAt);
-  return {
-    current: { price: last.price, since: last.recordedAt },
-    vsPrevious: previous?.price != null ? change(previous.price, previous.recordedAt, last.price) : null,
-    vs12Months: typeof yearAgo === "number" ? change(yearAgo, yearAgoAt, last.price) : null,
-    min,
-    max,
-  };
 }
 
 /** Janela do eixo X: do primeiro ponto até hoje, com pelo menos 30 dias. */

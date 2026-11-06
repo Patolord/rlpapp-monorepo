@@ -21,7 +21,6 @@ import { getErrorMessage } from "@/lib/errors";
 
 type KitRow = FunctionReturnType<typeof api.takeoffKits.list>[number];
 
-
 /** "Tubulação de Cobre 1/4" · … · Cabo PP 5x1,5 mm² ×2", como no app. */
 function summary(kit: KitRow): string {
   return kit.components
@@ -34,8 +33,6 @@ function summary(kit: KitRow): string {
     )
     .join(" · ");
 }
-
-const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
 /** Kits (presets) padrão da empresa para a ferramenta Kit (T) do app: lista, edição e kits de fábrica. */
 export function KitsSection() {
@@ -101,15 +98,7 @@ export function KitsSection() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle>Presets (kits)</CardTitle>
-              <CardDescription>
-                Ferramenta Kit (T): um trecho desenhado ou um clique mede vários materiais de uma
-                vez. Cada kit é salvo ao confirmar o formulário.{" "}
-                {kits === undefined
-                  ? "Carregando…"
-                  : kits.length === 0
-                    ? "Nenhum kit publicado: o app usa os kits de fábrica embutidos nele."
-                    : `${kits.length} ${kits.length === 1 ? "kit publicado" : "kits publicados"}.`}
-              </CardDescription>
+              <CardDescription>Ferramenta Kit (T): vários materiais num trecho ou num clique.</CardDescription>
             </div>
             <div className="flex gap-2">
               {missingFactory > 0 && (
@@ -130,10 +119,8 @@ export function KitsSection() {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Tipo</TableHead>
-                <TableHead>Rótulo</TableHead>
                 <TableHead>Componentes</TableHead>
                 <TableHead title="Componentes com código MAT do catálogo de compras">Catálogo</TableHead>
-                <TableHead>Atualizado</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -150,17 +137,12 @@ export function KitsSection() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>{kit.mode === "count" ? "Contagem (clique)" : "Linear (trecho)"}</TableCell>
-                  <TableCell className="font-mono text-xs">{kit.label ?? "—"}</TableCell>
+                  <TableCell>{kit.mode === "count" ? "Clique" : "Trecho"}</TableCell>
                   <TableCell className="max-w-md truncate text-xs text-muted-foreground" title={summary(kit)}>
                     {summary(kit)}
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-xs">
                     <LinkedCount kit={kit} />
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {dateFormat.format(kit.updatedAt)}
-                    {kit.updatedBy ? ` · ${kit.updatedBy}` : ""}
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
@@ -184,7 +166,7 @@ export function KitsSection() {
               ))}
               {kits && kits.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
                     Nenhum kit cadastrado.
                   </TableCell>
                 </TableRow>

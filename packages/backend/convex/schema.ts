@@ -1100,8 +1100,11 @@ export default defineSchema({
   takeoffPriceHistory: defineTable({
     material: v.string(),
     price: v.union(v.number(), v.null()),
+    /** Data em que o preço passou a valer (registros manuais: meia-noite de Brasília). */
     recordedAt: v.number(),
     recordedByUserId: v.optional(v.id("users")),
+    /** Fonte ou observação do registro (cotação, fornecedor...). */
+    note: v.optional(v.string()),
   }).index("by_material_recordedAt", ["material", "recordedAt"]),
 
   takeoffs: defineTable({

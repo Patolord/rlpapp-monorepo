@@ -347,3 +347,99 @@ export async function recordTakeoffPriceChanges(
   }
   return recorded;
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** Brasília is UTC−3 all year (no daylight saving since 2019). */
+const BRT_OFFSET_HOURS = 3;
+const MAX_PRICE_NOTE = 200;
+
+/**
+ * A price date ("AAAA-MM-DD") as stored in `takeoffPriceHistory.recordedAt`: midnight in
+ * Brasília, so a price dated today is already in force and the day reads the same in the app.
+ */
+export function priceDateToTimestamp(date: string): number {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) throw new Error("Data inválida: use AAAA-MM-DD");
+  const [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const t = Date.UTC(y, m - 1, d, BRT_OFFSET_HOURS);
+  const check = new Date(t - BRT_OFFSET_HOURS * 60 * 60 * 1000);
+  if (check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d) {
+    throw new Error(`Data inválida: ${date}`);
+  }
+  return t;
+}
+
+/** Trimmed note, or undefined when empty; refuses notes longer than a short line. */
+export function sanitizePriceNote(note: string | undefined): string | undefined {
+  const clean = note?.trim();
+  if (!clean) return undefined;
+  if (clean.length > MAX_PRICE_NOTE) {
+    throw new Error(`Observação com mais de ${MAX_PRICE_NOTE} caracteres`);
+  }
+  return clean;
+}
+
+/**
+ * Records the price of a base material on a day: one record per material and day, so a second
+ * record on the same day corrects the first (and drops any other point of that day, such as
+ * publications timed by `saveBasePrices`). Returns the record id.
+ */
+export async function upsertTakeoffPriceRecord(
+  ctx: MutationCtx,
+  record: { material: string; recordedAt: number; price: number; note?: string },
+  userId: Id<"users">
+): Promise<Id<"takeoffPriceHistory">> {
+  const [sameDay, ...extra] = await ctx.db
+    .query("takeoffPriceHistory")
+    .withIndex("by_material_recordedAt", (q) =>
+      q
+        .eq("material", record.material)
+        .gte("recordedAt", record.recordedAt)
+        .lt("recordedAt", record.recordedAt + DAY_MS)
+    )
+    .take(50);
+  for (const row of extra) await ctx.db.delete("takeoffPriceHistory", row._id);
+  const fields = {
+    material: record.material,
+    price: record.price,
+    recordedAt: record.recordedAt,
+    recordedByUserId: userId,
+    note: record.note,
+  };
+  if (sameDay) {
+    await ctx.db.replace("takeoffPriceHistory", sameDay._id, fields);
+    return sameDay._id;
+  }
+  return await ctx.db.insert("takeoffPriceHistory", fields);
+}
+
+/**
+ * Brings the published price of a material in line with its records: the latest one dated up to
+ * `now` is the price in force; none (or a removal, `price: null`) leaves the material without a
+ * price, so the app uses the supplier's. Returns what changed in the setting, or null.
+ */
+export async function syncTakeoffBasePrice(
+  ctx: MutationCtx,
+  material: string,
+  userId: Id<"users">,
+  now: number
+): Promise<{
+  id: Id<"takeoffSettings">;
+  before: { prices: BasePrices } | null;
+  after: { prices: BasePrices };
+} | null> {
+  const latest = await ctx.db
+    .query("takeoffPriceHistory")
+    .withIndex("by_material_recordedAt", (q) => q.eq("material", material).lte("recordedAt", now))
+    .order("desc")
+    .first();
+  const setting = await getTakeoffSetting(ctx, "basePrices");
+  const prices: BasePrices = { ...(setting?.prices ?? {}) };
+  const next = latest?.price ?? null;
+  if ((prices[material] ?? null) === next) return null;
+  if (next === null) delete prices[material];
+  else prices[material] = next;
+  const after = { prices };
+  const { id, before } = await putTakeoffSetting(ctx, "basePrices", after, userId);
+  return { id, before, after };
+}

@@ -1,20 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 
-import { PriceChangeBadge } from "@/components/compras/price-change-badge";
 import {
   niceTicks,
   type PricePoint,
   priceAt,
   priceSteps,
-  priceSummary,
   pointsFor,
   timeDomain,
 } from "@/lib/takeoff/price-history";
 import { cn } from "@/lib/utils";
 
 /**
- * Variação do preço por kg publicado de um ou mais insumos (cobre nas duas faixas, chapa): um
- * degrau por publicação, vigente até a seguinte e a última até hoje. Um eixo só, em R$/kg.
+ * Variação do preço por kg de um ou mais insumos (cobre nas duas faixas, chapa): um degrau por
+ * registro, vigente até o seguinte e o último até hoje. Um eixo só, em R$/kg.
  */
 
 export type PriceSeries = {
@@ -32,8 +30,9 @@ export const SERIES_COLORS = [
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const brlAxis = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-const dateShort = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" });
-const monthYear = new Intl.DateTimeFormat("pt-BR", { month: "short", year: "2-digit" });
+// prices are dated in Brasília: read the axis and tooltip there too
+const dateShort = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: "America/Sao_Paulo" });
+const monthYear = new Intl.DateTimeFormat("pt-BR", { month: "short", year: "2-digit", timeZone: "America/Sao_Paulo" });
 
 const HEIGHT = 200;
 const M = { top: 12, right: 16, bottom: 26, left: 64 };
@@ -75,7 +74,6 @@ function ChartBody({
 }) {
   const [now] = useState(() => Date.now());
   const [hoverAt, setHoverAt] = useState<number | null>(null);
-  const [showTable, setShowTable] = useState(false);
 
   if (history === undefined) {
     return <p className="text-sm text-muted-foreground">Carregando histórico…</p>;
@@ -85,7 +83,7 @@ function ChartBody({
   if (all.length === 0) {
     return (
       <p className="rounded-md border border-dashed border-control-border px-4 py-6 text-center text-sm text-muted-foreground">
-        Sem histórico ainda. Cada publicação que muda o preço vira um ponto deste gráfico.
+        Sem registros ainda. Cada preço registrado com a sua data vira um ponto deste gráfico.
       </p>
     );
   }
@@ -125,12 +123,6 @@ function ChartBody({
 
   return (
     <div className="space-y-3">
-      <div className={cn("grid gap-2", lines.length > 1 ? "sm:grid-cols-2" : "sm:grid-cols-1")}>
-        {lines.map((l) => (
-          <SeriesSummary key={l.material} label={l.label} colorClass={l.colorClass} points={l.points} now={now} />
-        ))}
-      </div>
-
       <div className="relative">
         {width > 0 && (
           <svg width={width} height={HEIGHT} role="img" aria-label={`Preço por kg de ${series.map((s) => s.label).join(" e ")} ao longo do tempo`}>
@@ -199,96 +191,20 @@ function ChartBody({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        {lines.length > 1 &&
-          lines.map((l) => (
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+        {lines.map((l) => {
+          const current = priceAt(l.points, now);
+          return (
             <span key={l.material} className="flex items-center gap-1.5">
               <span className={cn("h-0.5 w-4 rounded-full bg-current", l.colorClass)} aria-hidden />
-              {l.label}
+              <span className="text-muted-foreground">{l.label}:</span>
+              <span className="font-medium tabular-nums">
+                {typeof current === "number" ? `${brl.format(current)}/kg` : "sem preço"}
+              </span>
             </span>
-          ))}
-        <span className="flex-1" />
-        <button type="button" className="underline-offset-2 hover:underline" onClick={() => setShowTable((v) => !v)}>
-          {showTable ? "Esconder publicações" : "Ver publicações"}
-        </button>
+          );
+        })}
       </div>
-
-      {showTable && (
-        <div className="overflow-x-auto rounded-md border border-control-border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-3 py-1.5 text-left font-medium">Data</th>
-                <th className="px-3 py-1.5 text-left font-medium">Insumo</th>
-                <th className="px-3 py-1.5 text-right font-medium">R$/kg</th>
-                <th className="px-3 py-1.5 text-left font-medium">Por</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...all]
-                .sort((a, b) => b.recordedAt - a.recordedAt)
-                .map((p) => (
-                  <tr key={`${p.material}-${p.recordedAt}`} className="border-t border-control-border">
-                    <td className="px-3 py-1.5 tabular-nums">{dateShort.format(p.recordedAt)}</td>
-                    <td className="px-3 py-1.5">{series.find((s) => s.material === p.material)?.label}</td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">
-                      {p.price === null ? "padrão do fornecedor" : brl.format(p.price)}
-                    </td>
-                    <td className="px-3 py-1.5 text-muted-foreground">{p.recordedBy ?? "—"}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SeriesSummary({
-  label,
-  colorClass,
-  points,
-  now,
-}: {
-  label: string;
-  colorClass: string;
-  points: PricePoint[];
-  now: number;
-}) {
-  const summary = priceSummary(points, now);
-  return (
-    <div className="space-y-1 rounded-md border border-control-border bg-muted/30 px-3 py-2">
-      <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-        <span className={cn("size-2 rounded-full bg-current", colorClass)} aria-hidden />
-        {label}
-      </p>
-      {summary.current ? (
-        <>
-          <p className="text-lg font-semibold tabular-nums">
-            {brl.format(summary.current.price)}
-            <span className="text-xs font-normal text-muted-foreground">/kg desde {dateShort.format(summary.current.since)}</span>
-          </p>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            {summary.vsPrevious ? (
-              <span className="flex items-center gap-1">
-                <PriceChangeBadge change={summary.vsPrevious} basis="preço publicado antes" />
-                vs. anterior
-              </span>
-            ) : (
-              <span>primeiro preço publicado</span>
-            )}
-            {summary.vs12Months && (
-              <span className="flex items-center gap-1">
-                <PriceChangeBadge change={summary.vs12Months} basis="preço de 12 meses atrás" />
-                em 12 meses
-              </span>
-            )}
-          </div>
-        </>
-      ) : (
-        <p className="text-sm text-muted-foreground">Sem preço publicado: o app usa o padrão do fornecedor.</p>
-      )}
     </div>
   );
 }
