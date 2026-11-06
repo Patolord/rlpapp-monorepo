@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import {
@@ -363,4 +363,42 @@ export async function proposeTakeoffMaterial(
     createdAt: now,
   });
   return toResult(outcome, material, priceEventId);
+}
+
+/**
+ * Proposal from the desktop app signed in with the company account
+ * (`takeoffMaterials.proposeAsUser`): the requester is the signed-in user.
+ * Expected failures throw `ConvexError({ code })` (`INVALID_PROPOSAL` or
+ * `MATERIAL_NOT_FOUND`) so the app drops them instead of retrying.
+ */
+export async function proposeTakeoffMaterialAsUser(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  body: unknown
+): Promise<TakeoffMaterialProposalResult> {
+  // Lengths, dimensions, prices >= 0.
+  const parsed = parseTakeoffMaterialProposal(body);
+  if (!parsed.ok) {
+    throw new ConvexError({ code: "INVALID_PROPOSAL", message: parsed.error });
+  }
+  try {
+    return await proposeTakeoffMaterial(ctx, {
+      ...parsed.value,
+      requestedBy: user.name,
+      requestedByUserId: user._id,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes(MATERIAL_NOT_FOUND)) {
+      throw new ConvexError({
+        code: "MATERIAL_NOT_FOUND",
+        message: MATERIAL_NOT_FOUND,
+      });
+    }
+    // Catalog validation (model/procurement/catalog.ts) the parser does not
+    // repeat: still a bad proposal, never worth retrying.
+    if (error instanceof Error && error.message.startsWith("Dimensão inválida")) {
+      throw new ConvexError({ code: "INVALID_PROPOSAL", message: error.message });
+    }
+    throw error;
+  }
 }

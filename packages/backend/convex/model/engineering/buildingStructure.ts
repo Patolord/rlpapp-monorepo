@@ -42,6 +42,66 @@ export async function listTowersWithFloorCounts(
   return withCounts.sort((a, b) => a.order - b.order);
 }
 
+/** Cria uma torre; sem `order`, ela entra no fim da lista da obra. */
+export async function createTower(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  input: { projectId: Id<"projects">; name: string; order?: number }
+): Promise<Id<"towers">> {
+  const project = await ctx.db.get("projects", input.projectId);
+  if (!project) throw new Error("Obra não encontrada");
+  const name = input.name.trim();
+  if (!name) throw new Error("O nome da torre é obrigatório");
+
+  let order = input.order;
+  if (order === undefined) {
+    const existing = await ctx.db
+      .query("towers")
+      .withIndex("by_project", (q) => q.eq("projectId", input.projectId))
+      .collect();
+    order = existing.length;
+  }
+
+  const towerId = await ctx.db.insert("towers", {
+    projectId: input.projectId,
+    name,
+    order,
+    createdAt: Date.now(),
+  });
+  await logAudit(ctx, user, {
+    action: "create",
+    tableName: "towers",
+    recordId: towerId,
+    details: name,
+  });
+  return towerId;
+}
+
+/** Renomeia e/ou reordena uma torre (só os campos informados). */
+export async function updateTower(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  input: { towerId: Id<"towers">; name?: string; order?: number }
+): Promise<void> {
+  const tower = await ctx.db.get("towers", input.towerId);
+  if (!tower) throw new Error("Torre não encontrada");
+
+  const updates: Partial<{ name: string; order: number }> = {};
+  if (input.name !== undefined) {
+    const name = input.name.trim();
+    if (!name) throw new Error("O nome da torre é obrigatório");
+    updates.name = name;
+  }
+  if (input.order !== undefined) updates.order = input.order;
+
+  await ctx.db.patch("towers", input.towerId, updates);
+  await logAudit(ctx, user, {
+    action: "update",
+    tableName: "towers",
+    recordId: input.towerId,
+  });
+}
+
 // Apaga andares, ambientes e equipamentos de uma torre. Retorna os sistemas
 // afetados para checagem de órfãos pelo chamador.
 async function cascadeDeleteTower(

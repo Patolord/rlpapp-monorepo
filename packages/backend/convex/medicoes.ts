@@ -11,6 +11,7 @@ import {
   changeMedicaoStatus,
   createContractMedicao,
   getMedicoesOverview,
+  getProjectInstallProgress,
   listMeasurableContracts,
   listProjectMedicoes,
   updateDraftMedicao,
@@ -85,20 +86,7 @@ export const getProgress = medicoesQuery({
     installedItems: v.number(),
     percent: v.number(),
   }),
-  handler: async (ctx, args) => {
-    const items = await ctx.db
-      .query("projectEquipment")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    const installedItems = items.filter(
-      (i) => i.status === "operational"
-    ).length;
-    const percent =
-      items.length > 0
-        ? Math.round((installedItems / items.length) * 1000) / 10
-        : 0;
-    return { totalItems: items.length, installedItems, percent };
-  },
+  handler: async (ctx, args) => await getProjectInstallProgress(ctx, args.projectId),
 });
 
 export const createMedicao = medicoesMutation({

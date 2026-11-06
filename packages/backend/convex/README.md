@@ -40,7 +40,9 @@ convex/
   `createContract`, `getContractById`, or `listContracts`. A handler that is a
   single-step CRUD (one get/patch/insert/delete plus its audit entry) may stay
   inline; anything with branching, loops, or local helper functions moves to
-  `model/`.
+  `model/`. Actions that only orchestrate runtime calls (`ctx.runQuery`,
+  `ctx.runMutation`, `ctx.scheduler`, an external HTTP API) also stay in the
+  public file, since model files do not import `_generated/api`.
 - Keep related behavior together. Split a file when it contains distinct
   capabilities, not once per function.
 - Call ordinary TypeScript model functions directly from queries and mutations

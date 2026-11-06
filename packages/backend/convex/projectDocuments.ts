@@ -7,14 +7,14 @@ import {
   requireUser,
 } from "./lib/rbac";
 import { internalQuery } from "./_generated/server";
-import { assertTechnicianProjectAccess } from "./model/engineering/projects";
 import {
   createProjectDocument,
+  discardDocumentUpload,
   listOfficeDocuments,
-  listVisibleDocuments,
+  listTechnicianDocuments,
   loadDocumentForUser,
   removeProjectDocument,
-  toDownloadFileName,
+  resolveDocumentDownload,
   toFieldDocument,
   updateProjectDocument,
 } from "./model/engineering/documents";
@@ -84,16 +84,7 @@ export const discardUpload = documentosMutation({
   args: { storageId: v.id("_storage") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const referenced = await ctx.db
-      .query("projectDocuments")
-      .withIndex("by_storage", (q) => q.eq("storageId", args.storageId))
-      .first();
-    if (referenced) throw new Error("Este arquivo pertence a um documento");
-    try {
-      await ctx.storage.delete(args.storageId);
-    } catch {
-      // Já removido (ou nunca existiu): nada a fazer.
-    }
+    await discardDocumentUpload(ctx, args.storageId);
     return null;
   },
 });
@@ -152,16 +143,8 @@ export const listByProject = documentosQuery({
 export const listForTechnician = authedQuery({
   args: { projectId: v.id("projects") },
   returns: v.array(fieldDocumentValidator),
-  handler: async (ctx, args) => {
-    const project = await assertTechnicianProjectAccess(
-      ctx,
-      ctx.user,
-      args.projectId
-    );
-    const documents = await listVisibleDocuments(ctx, ctx.user, project);
-    documents.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-    return documents.map(toFieldDocument);
-  },
+  handler: async (ctx, args) =>
+    await listTechnicianDocuments(ctx, ctx.user, args.projectId),
 });
 
 export const getForTechnician = authedQuery({
@@ -194,12 +177,6 @@ export const resolveDownload = internalQuery({
   ),
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    const document = await loadDocumentForUser(ctx, user, args.documentId);
-    if (!document) return null;
-    return {
-      storageId: document.storageId,
-      fileName: toDownloadFileName(document.name),
-      contentType: document.contentType,
-    };
+    return await resolveDocumentDownload(ctx, user, args.documentId);
   },
 });

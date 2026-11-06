@@ -24,6 +24,7 @@ import {
 } from "@rlpapp/shared/takeoff/weights";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { logAudit } from "../../lib/audit";
 import { takeoffDuctNorma, takeoffVrfBrand, takeoffWeightRow } from "../../schema/procurement";
 
 /**
@@ -442,4 +443,90 @@ export async function syncTakeoffBasePrice(
   const after = { prices };
   const { id, before } = await putTakeoffSetting(ctx, "basePrices", after, userId);
   return { id, before, after };
+}
+
+/** The published settings plus who changed each kind last (`takeoffSettings.get`). */
+export async function getTakeoffSettingsWithMeta(ctx: QueryCtx) {
+  const settings = await listPublishedTakeoffSettings(ctx);
+  const meta = async (
+    kind: "weights" | "basePrices" | "vrfBrands" | "labor" | "ductNormas"
+  ) => {
+    const doc = await getTakeoffSetting(ctx, kind);
+    if (!doc) return null;
+    const user = doc.updatedByUserId
+      ? await ctx.db.get("users", doc.updatedByUserId)
+      : null;
+    return { updatedAt: doc.updatedAt, updatedBy: user?.name ?? null };
+  };
+  return {
+    ...settings,
+    meta: {
+      weights: await meta("weights"),
+      basePrices: await meta("basePrices"),
+      vrfBrands: await meta("vrfBrands"),
+      labor: await meta("labor"),
+      ductNormas: await meta("ductNormas"),
+    },
+  };
+}
+
+/**
+ * Loads the app's factory table into a kind the company never published, or published empty
+ * (the app reads an empty list as "nothing published"); a table with content is never
+ * overwritten, and the published kg/m² per gauge stays. Returns whether it was loaded.
+ */
+export async function seedTakeoffDefaults(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  kind: "weights" | "vrfBrands" | "ductNormas"
+): Promise<boolean> {
+  const existing = await getTakeoffSetting(ctx, kind);
+  if (existing) {
+    const empty =
+      existing.kind === "weights"
+        ? existing.rows.length === 0
+        : existing.kind === "vrfBrands"
+          ? existing.brands.length === 0
+          : existing.kind === "ductNormas" && existing.normas.length === 0;
+    if (!empty) return false;
+  }
+  const { id } =
+    kind === "weights"
+      ? await putTakeoffSetting(
+          ctx,
+          "weights",
+          {
+            ...factoryTakeoffWeights(),
+            ...(existing?.kind === "weights"
+              ? { gaugeWeights: existing.gaugeWeights }
+              : {}),
+          },
+          user._id
+        )
+      : kind === "vrfBrands"
+        ? await putTakeoffSetting(
+            ctx,
+            "vrfBrands",
+            { brands: factoryTakeoffVrfBrands() },
+            user._id
+          )
+        : await putTakeoffSetting(
+            ctx,
+            "ductNormas",
+            { normas: factoryTakeoffDuctNormas() },
+            user._id
+          );
+  const labels = {
+    weights: "Materiais por peso",
+    vrfBrands: "Marcas de VRF",
+    ductNormas: "Parâmetros de dutos por norma",
+  } as const;
+  await logAudit(ctx, user, {
+    action: "seed",
+    tableName: "takeoffSettings",
+    recordId: id,
+    entityLabel: labels[kind],
+    details: "tabela de fábrica carregada",
+  });
+  return true;
 }

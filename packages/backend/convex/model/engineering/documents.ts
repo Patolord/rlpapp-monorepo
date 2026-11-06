@@ -2,7 +2,7 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
 import { hasPermission, isStaff } from "../../lib/rbac";
-import { isProjectArchived } from "./projects";
+import { assertTechnicianProjectAccess, isProjectArchived } from "./projects";
 
 /** Limite por arquivo (PDF). Convex aceita arquivos maiores, mas em campo
  * o download acontece em rede móvel — manter razoável. */
@@ -210,6 +210,33 @@ export async function loadDocumentForUser(
   return document;
 }
 
+/** Documentos da obra visíveis ao técnico (ou staff), em ordem alfabética. */
+export async function listTechnicianDocuments(
+  ctx: QueryCtx,
+  user: Doc<"users">,
+  projectId: Id<"projects">
+) {
+  const project = await assertTechnicianProjectAccess(ctx, user, projectId);
+  const documents = await listVisibleDocuments(ctx, user, project);
+  documents.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  return documents.map(toFieldDocument);
+}
+
+/** Arquivo a entregar no download autenticado; `null` se não existe. */
+export async function resolveDocumentDownload(
+  ctx: QueryCtx,
+  user: Doc<"users">,
+  documentId: Id<"projectDocuments">
+) {
+  const document = await loadDocumentForUser(ctx, user, documentId);
+  if (!document) return null;
+  return {
+    storageId: document.storageId,
+    fileName: toDownloadFileName(document.name),
+    contentType: document.contentType,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Escritório (engenharia)
 // ---------------------------------------------------------------------------
@@ -372,4 +399,24 @@ export async function listOfficeDocuments(
     ])
   );
   return documents.map((document) => toOfficeDocument(document, userNames));
+}
+
+/**
+ * Apaga um arquivo recém-enviado cujo cadastro falhou. Só remove arquivos
+ * ainda não vinculados a um documento.
+ */
+export async function discardDocumentUpload(
+  ctx: MutationCtx,
+  storageId: Id<"_storage">
+): Promise<void> {
+  const referenced = await ctx.db
+    .query("projectDocuments")
+    .withIndex("by_storage", (q) => q.eq("storageId", storageId))
+    .first();
+  if (referenced) throw new Error("Este arquivo pertence a um documento");
+  try {
+    await ctx.storage.delete(storageId);
+  } catch {
+    // Já removido (ou nunca existiu): nada a fazer.
+  }
 }

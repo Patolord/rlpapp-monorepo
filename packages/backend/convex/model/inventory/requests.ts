@@ -176,6 +176,15 @@ export async function listRequestsByFilter(
   return await ctx.db.query("inventoryRequests").order("desc").take(limit);
 }
 
+/** Pedidos do filtro, cada um com itens e nomes resolvidos (`enrichRequest`). */
+export async function listEnrichedRequests(
+  ctx: QueryCtx,
+  filter: Parameters<typeof listRequestsByFilter>[1]
+) {
+  const requests = await listRequestsByFilter(ctx, filter);
+  return await Promise.all(requests.map((request) => enrichRequest(ctx, request)));
+}
+
 export async function fulfillInventoryRequest(
   ctx: MutationCtx,
   user: Doc<"users">,

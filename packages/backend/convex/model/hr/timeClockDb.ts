@@ -8,11 +8,12 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { hasPermission } from "../../lib/rbac";
 import { summarizeDay } from "./timeClock";
-import { DEFAULT_DUPLICATE_WINDOW_MINUTES } from "./timeClockPunch";
 
 type Ctx = QueryCtx | MutationCtx;
 
 export const DEFAULT_MAN_DAY_COST_CENTS = 15_000;
+/** Janela padrão para ignorar toques repetidos ("Batida repetida (min)"). */
+export const DEFAULT_DUPLICATE_WINDOW_MINUTES = 1;
 
 /** Limite de leitura por dia/período (bem acima do tamanho da equipe). */
 const MAX_PUNCHES_PER_DAY = 4000;

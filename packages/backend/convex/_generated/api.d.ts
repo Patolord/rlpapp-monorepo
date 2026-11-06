@@ -75,11 +75,13 @@ import type * as model_contracts_validators from "../model/contracts/validators.
 import type * as model_engineering_buildingStructure from "../model/engineering/buildingStructure.js";
 import type * as model_engineering_dashboard from "../model/engineering/dashboard.js";
 import type * as model_engineering_documents from "../model/engineering/documents.js";
+import type * as model_engineering_equipmentRecords from "../model/engineering/equipmentRecords.js";
 import type * as model_engineering_fieldEquipment from "../model/engineering/fieldEquipment.js";
 import type * as model_engineering_fieldPortal from "../model/engineering/fieldPortal.js";
 import type * as model_engineering_floorReplication from "../model/engineering/floorReplication.js";
 import type * as model_engineering_floors from "../model/engineering/floors.js";
 import type * as model_engineering_hierarchy from "../model/engineering/hierarchy.js";
+import type * as model_engineering_portal from "../model/engineering/portal.js";
 import type * as model_engineering_projectEquipment from "../model/engineering/projectEquipment.js";
 import type * as model_engineering_projectLayout from "../model/engineering/projectLayout.js";
 import type * as model_engineering_projectMutations from "../model/engineering/projectMutations.js";
@@ -116,6 +118,7 @@ import type * as model_identity_agentTokenCalls from "../model/identity/agentTok
 import type * as model_identity_agentTokenManagement from "../model/identity/agentTokenManagement.js";
 import type * as model_identity_agentTokenValidators from "../model/identity/agentTokenValidators.js";
 import type * as model_identity_agentTokens from "../model/identity/agentTokens.js";
+import type * as model_identity_takeoffDeviceAuth from "../model/identity/takeoffDeviceAuth.js";
 import type * as model_identity_userAdministration from "../model/identity/userAdministration.js";
 import type * as model_identity_userInvites from "../model/identity/userInvites.js";
 import type * as model_identity_userSessions from "../model/identity/userSessions.js";
@@ -161,6 +164,7 @@ import type * as model_procurement_suppliers from "../model/procurement/supplier
 import type * as model_procurement_takeoffCatalog from "../model/procurement/takeoffCatalog.js";
 import type * as model_procurement_takeoffItems from "../model/procurement/takeoffItems.js";
 import type * as model_procurement_takeoffKits from "../model/procurement/takeoffKits.js";
+import type * as model_procurement_takeoffPriceHistory from "../model/procurement/takeoffPriceHistory.js";
 import type * as model_procurement_takeoffPromotion from "../model/procurement/takeoffPromotion.js";
 import type * as model_procurement_takeoffProposals from "../model/procurement/takeoffProposals.js";
 import type * as model_procurement_takeoffSettings from "../model/procurement/takeoffSettings.js";
@@ -271,11 +275,13 @@ declare const fullApi: ApiFromModules<{
   "model/engineering/buildingStructure": typeof model_engineering_buildingStructure;
   "model/engineering/dashboard": typeof model_engineering_dashboard;
   "model/engineering/documents": typeof model_engineering_documents;
+  "model/engineering/equipmentRecords": typeof model_engineering_equipmentRecords;
   "model/engineering/fieldEquipment": typeof model_engineering_fieldEquipment;
   "model/engineering/fieldPortal": typeof model_engineering_fieldPortal;
   "model/engineering/floorReplication": typeof model_engineering_floorReplication;
   "model/engineering/floors": typeof model_engineering_floors;
   "model/engineering/hierarchy": typeof model_engineering_hierarchy;
+  "model/engineering/portal": typeof model_engineering_portal;
   "model/engineering/projectEquipment": typeof model_engineering_projectEquipment;
   "model/engineering/projectLayout": typeof model_engineering_projectLayout;
   "model/engineering/projectMutations": typeof model_engineering_projectMutations;
@@ -312,6 +318,7 @@ declare const fullApi: ApiFromModules<{
   "model/identity/agentTokenManagement": typeof model_identity_agentTokenManagement;
   "model/identity/agentTokenValidators": typeof model_identity_agentTokenValidators;
   "model/identity/agentTokens": typeof model_identity_agentTokens;
+  "model/identity/takeoffDeviceAuth": typeof model_identity_takeoffDeviceAuth;
   "model/identity/userAdministration": typeof model_identity_userAdministration;
   "model/identity/userInvites": typeof model_identity_userInvites;
   "model/identity/userSessions": typeof model_identity_userSessions;
@@ -357,6 +364,7 @@ declare const fullApi: ApiFromModules<{
   "model/procurement/takeoffCatalog": typeof model_procurement_takeoffCatalog;
   "model/procurement/takeoffItems": typeof model_procurement_takeoffItems;
   "model/procurement/takeoffKits": typeof model_procurement_takeoffKits;
+  "model/procurement/takeoffPriceHistory": typeof model_procurement_takeoffPriceHistory;
   "model/procurement/takeoffPromotion": typeof model_procurement_takeoffPromotion;
   "model/procurement/takeoffProposals": typeof model_procurement_takeoffProposals;
   "model/procurement/takeoffSettings": typeof model_procurement_takeoffSettings;

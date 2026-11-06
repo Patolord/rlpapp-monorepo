@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
+import { listAuditLogsByRecord, listAuditLogsByTable } from "./lib/audit";
 import { adminQuery } from "./lib/rbac";
 
 export const auditLogValidator = v.object({
@@ -40,50 +41,7 @@ export const listByRecord = adminQuery({
     continueCursor: v.string(),
     pageStatus: v.optional(v.union(v.string(), v.null())),
   }),
-  handler: async (ctx, args) => {
-    const result = await ctx.db
-      .query("auditLogs")
-      .withIndex("by_record", (q) =>
-        q.eq("tableName", args.tableName).eq("recordId", args.recordId)
-      )
-      .order("desc")
-      .paginate(args.paginationOpts);
-
-    const page = await Promise.all(
-      result.page.map(async (log) => {
-        const user = await ctx.db.get("users", log.userId);
-        return {
-          _id: log._id,
-          userId: log.userId,
-          userName: user?.name ?? null,
-          action: log.action,
-          tableName: log.tableName,
-          recordId: log.recordId,
-          details: log.details ?? null,
-          entityLabel: log.entityLabel ?? null,
-          source: log.source ?? null,
-          schemaVersion: log.schemaVersion ?? null,
-          changes: log.changes
-            ? log.changes.map((c) => ({
-                field: c.field,
-                previousValue: c.previousValue ?? null,
-                newValue: c.newValue ?? null,
-              }))
-            : null,
-          snapshotBefore: log.snapshotBefore ?? null,
-          snapshotAfter: log.snapshotAfter ?? null,
-          createdAt: log.createdAt,
-        };
-      })
-    );
-
-    return {
-      page,
-      isDone: result.isDone,
-      continueCursor: result.continueCursor,
-      pageStatus: result.pageStatus ?? null,
-    };
-  },
+  handler: async (ctx, args) => await listAuditLogsByRecord(ctx, args),
 });
 
 export const listByTable = adminQuery({
@@ -97,46 +55,5 @@ export const listByTable = adminQuery({
     continueCursor: v.string(),
     pageStatus: v.optional(v.union(v.string(), v.null())),
   }),
-  handler: async (ctx, args) => {
-    const result = await ctx.db
-      .query("auditLogs")
-      .withIndex("by_table", (q) => q.eq("tableName", args.tableName))
-      .order("desc")
-      .paginate(args.paginationOpts);
-
-    const page = await Promise.all(
-      result.page.map(async (log) => {
-        const user = await ctx.db.get("users", log.userId);
-        return {
-          _id: log._id,
-          userId: log.userId,
-          userName: user?.name ?? null,
-          action: log.action,
-          tableName: log.tableName,
-          recordId: log.recordId,
-          details: log.details ?? null,
-          entityLabel: log.entityLabel ?? null,
-          source: log.source ?? null,
-          schemaVersion: log.schemaVersion ?? null,
-          changes: log.changes
-            ? log.changes.map((c) => ({
-                field: c.field,
-                previousValue: c.previousValue ?? null,
-                newValue: c.newValue ?? null,
-              }))
-            : null,
-          snapshotBefore: log.snapshotBefore ?? null,
-          snapshotAfter: log.snapshotAfter ?? null,
-          createdAt: log.createdAt,
-        };
-      })
-    );
-
-    return {
-      page,
-      isDone: result.isDone,
-      continueCursor: result.continueCursor,
-      pageStatus: result.pageStatus ?? null,
-    };
-  },
+  handler: async (ctx, args) => await listAuditLogsByTable(ctx, args),
 });

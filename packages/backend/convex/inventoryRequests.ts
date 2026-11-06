@@ -11,8 +11,8 @@ import {
   consumeRemainingOnObra,
   enrichRequest,
   fulfillInventoryRequest,
+  listEnrichedRequests,
   listProjectMaterialBalances,
-  listRequestsByFilter,
   requireAssignedProject,
   resolveProjectByIdentifier,
 } from "./model/inventory/requests";
@@ -125,13 +125,10 @@ export const listObraRequests = authedQuery({
   returns: v.array(requestRowValidator),
   handler: async (ctx, args) => {
     await requireAssignedProject(ctx, ctx.user, args.projectId);
-    const requests = await listRequestsByFilter(ctx, {
+    return await listEnrichedRequests(ctx, {
       projectId: args.projectId,
       limit: 50,
     });
-    return await Promise.all(
-      requests.map((request) => enrichRequest(ctx, request))
-    );
   },
 });
 
@@ -190,14 +187,11 @@ export const listOfficeRequests = inventoryQuery({
   },
   returns: v.array(requestRowValidator),
   handler: async (ctx, args) => {
-    const requests = await listRequestsByFilter(ctx, {
+    return await listEnrichedRequests(ctx, {
       projectId: args.projectId,
       status: args.status,
       limit: 100,
     });
-    return await Promise.all(
-      requests.map((request) => enrichRequest(ctx, request))
-    );
   },
 });
 

@@ -455,3 +455,37 @@ export async function applyChecklistTemplate(
   });
   return template.items.length;
 }
+
+/** Histórico de um item planejado, do mais novo ao mais antigo, com o nome de quem registrou. */
+export async function listPlannedEquipmentHistory(
+  ctx: QueryCtx,
+  equipmentId: Id<"projectEquipment">
+) {
+  const entries = await ctx.db
+    .query("equipmentHistory")
+    .withIndex("by_equipment", (q) => q.eq("equipmentId", equipmentId))
+    .order("desc")
+    .collect();
+
+  const userCache = new Map<string, string>();
+  const result = [];
+  for (const e of entries) {
+    let userName = userCache.get(e.userId);
+    if (userName === undefined) {
+      const user = await ctx.db.get("users", e.userId);
+      userName = user?.name ?? "Desconhecido";
+      userCache.set(e.userId, userName);
+    }
+    result.push({
+      _id: e._id,
+      action: e.action,
+      userName,
+      previousValue: e.previousValue ?? null,
+      newValue: e.newValue ?? null,
+      notes: e.notes ?? null,
+      location: e.location ?? null,
+      createdAt: e.createdAt,
+    });
+  }
+  return result;
+}

@@ -324,3 +324,18 @@ export async function getMedicoesOverview(ctx: QueryCtx) {
     })
   );
 }
+
+/** Itens planejados da obra instalados (status "operational"), em % com uma casa. */
+export async function getProjectInstallProgress(
+  ctx: QueryCtx,
+  projectId: Id<"projects">
+) {
+  const items = await ctx.db
+    .query("projectEquipment")
+    .withIndex("by_project", (q) => q.eq("projectId", projectId))
+    .collect();
+  const installedItems = items.filter((i) => i.status === "operational").length;
+  const percent =
+    items.length > 0 ? Math.round((installedItems / items.length) * 1000) / 10 : 0;
+  return { totalItems: items.length, installedItems, percent };
+}
