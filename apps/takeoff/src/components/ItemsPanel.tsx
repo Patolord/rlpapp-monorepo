@@ -942,6 +942,8 @@ function ItemRow({
  */
 function WasteControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const [open, setOpen] = useState(false);
+  /** Escape was pressed: the blur that follows must not save. */
+  const cancelled = useRef(false);
   if (open) {
     return (
       <label className="flex items-center gap-1 text-[12px] text-neutral-400">
@@ -955,12 +957,20 @@ function WasteControl({ value, onChange }: { value: number; onChange: (v: number
           aria-label="Perda (%)"
           onClick={(e) => e.stopPropagation()}
           onBlur={(e) => {
-            onChange(Math.max(0, Number(e.target.value) || 0));
+            const next = Math.max(0, Number(e.target.value) || 0);
+            // unchanged or cancelled: no dirty flag, no undo step
+            if (!cancelled.current && next !== value) onChange(next);
+            cancelled.current = false;
             setOpen(false);
           }}
           onKeyDown={(e) => {
+            // keep the app-wide hotkeys out of it (they would blur and clear the selection)
+            e.stopPropagation();
             if (e.key === "Enter") e.currentTarget.blur();
-            if (e.key === "Escape") setOpen(false);
+            if (e.key === "Escape") {
+              cancelled.current = true;
+              e.currentTarget.blur();
+            }
           }}
           className="price-field h-5 w-9 rounded bg-neutral-900 ring-1 ring-orange-400"
         />
