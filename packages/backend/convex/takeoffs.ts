@@ -7,14 +7,18 @@ import {
 } from "./lib/rbac";
 import { materialDimensions, takeoffItemStatus } from "./schema/procurement";
 import {
+  publishDesktopBudgetArgs,
+  publishDesktopBudgetResult,
+} from "./model/procurement/desktopBudget";
+import {
+  removeDesktopBudgetArgs,
+  removeDesktopBudgetResult,
+} from "./model/procurement/desktopBudgetRemoval";
+import {
   desktopPublishOptions as desktopPublishOptionsFor,
   desktopPublishOptionsArgs,
   desktopPublishOptionsResult,
-  publishDesktopBudgetArgs,
-  publishDesktopBudgetResult,
-  removeDesktopBudgetArgs,
-  removeDesktopBudgetResult,
-} from "./model/procurement/desktopBudget";
+} from "./model/procurement/desktopPublishOptions";
 import {
   addTakeoffItem,
   applySuggestedTakeoffItemPrice,

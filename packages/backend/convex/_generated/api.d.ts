@@ -52,7 +52,9 @@ import type * as mcp_catalog from "../mcp/catalog.js";
 import type * as mcpCatalog from "../mcpCatalog.js";
 import type * as medicoes from "../medicoes.js";
 import type * as migrations from "../migrations.js";
+import type * as model_ai_intentResponse from "../model/ai/intentResponse.js";
 import type * as model_ai_intents from "../model/ai/intents.js";
+import type * as model_ai_layoutProposal from "../model/ai/layoutProposal.js";
 import type * as model_contracts_contractorContacts from "../model/contracts/contractorContacts.js";
 import type * as model_contracts_contractors from "../model/contracts/contractors.js";
 import type * as model_contracts_customerContacts from "../model/contracts/customerContacts.js";
@@ -119,6 +121,8 @@ import type * as model_inventory_workspace from "../model/inventory/workspace.js
 import type * as model_procurement_bulkImport from "../model/procurement/bulkImport.js";
 import type * as model_procurement_catalog from "../model/procurement/catalog.js";
 import type * as model_procurement_desktopBudget from "../model/procurement/desktopBudget.js";
+import type * as model_procurement_desktopBudgetRemoval from "../model/procurement/desktopBudgetRemoval.js";
+import type * as model_procurement_desktopPublishOptions from "../model/procurement/desktopPublishOptions.js";
 import type * as model_procurement_estimateSuggestion from "../model/procurement/estimateSuggestion.js";
 import type * as model_procurement_materialCatalogRows from "../model/procurement/materialCatalogRows.js";
 import type * as model_procurement_materialIdentity from "../model/procurement/materialIdentity.js";
@@ -230,7 +234,9 @@ declare const fullApi: ApiFromModules<{
   mcpCatalog: typeof mcpCatalog;
   medicoes: typeof medicoes;
   migrations: typeof migrations;
+  "model/ai/intentResponse": typeof model_ai_intentResponse;
   "model/ai/intents": typeof model_ai_intents;
+  "model/ai/layoutProposal": typeof model_ai_layoutProposal;
   "model/contracts/contractorContacts": typeof model_contracts_contractorContacts;
   "model/contracts/contractors": typeof model_contracts_contractors;
   "model/contracts/customerContacts": typeof model_contracts_customerContacts;
@@ -297,6 +303,8 @@ declare const fullApi: ApiFromModules<{
   "model/procurement/bulkImport": typeof model_procurement_bulkImport;
   "model/procurement/catalog": typeof model_procurement_catalog;
   "model/procurement/desktopBudget": typeof model_procurement_desktopBudget;
+  "model/procurement/desktopBudgetRemoval": typeof model_procurement_desktopBudgetRemoval;
+  "model/procurement/desktopPublishOptions": typeof model_procurement_desktopPublishOptions;
   "model/procurement/estimateSuggestion": typeof model_procurement_estimateSuggestion;
   "model/procurement/materialCatalogRows": typeof model_procurement_materialCatalogRows;
   "model/procurement/materialIdentity": typeof model_procurement_materialIdentity;
