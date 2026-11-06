@@ -346,7 +346,6 @@ export const engineeringTables = {
     .index("by_projectEquipment", ["projectEquipmentId"])
     .index("by_createdByUser", ["createdByUserId", "createdAt"]),
 
-  // --- Histórico de conversas com a IA ---
   maintenanceLogs: defineTable({
     equipmentId: v.id("equipment"),
     // Registros antigos não têm o campo; tratar ausência como "maintenance".

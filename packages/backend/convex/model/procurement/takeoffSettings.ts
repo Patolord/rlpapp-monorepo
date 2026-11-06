@@ -309,6 +309,27 @@ export async function putTakeoffSetting<K extends SettingKind>(
   return { id: await ctx.db.insert("takeoffSettings", doc), before: null };
 }
 
+/** Grava uma configuração e registra a auditoria (criação ou alteração). */
+export async function saveTakeoffSetting<K extends SettingKind>(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  kind: K,
+  clean: SettingFields<K>,
+  entityLabel: string,
+  details?: string
+): Promise<void> {
+  const { id, before } = await putTakeoffSetting(ctx, kind, clean, user._id);
+  await logAudit(ctx, user, {
+    action: before ? "update" : "create",
+    tableName: "takeoffSettings",
+    recordId: id,
+    entityLabel,
+    details,
+    snapshotBefore: before ?? undefined,
+    snapshotAfter: clean,
+  });
+}
+
 /** The app's factory tables, for "Carregar tabela de fábrica" when a kind was never published. */
 export const factoryTakeoffWeights = (): TakeoffWeights => ({
   rows: SEED_WEIGHTS.map((r) => ({ ...r })),

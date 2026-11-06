@@ -1,3 +1,4 @@
+import { equipmentStatusValidator } from "./schema/engineering";
 import { query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
@@ -10,12 +11,6 @@ import {
   myMaintenanceLogsValidator,
 } from "./model/engineering/equipmentRecords";
 
-const logStatusValidator = v.union(
-  v.literal("installing"),
-  v.literal("operational"),
-  v.literal("warning"),
-  v.literal("error")
-);
 
 export const listByEquipment = authedQuery({
   args: { equipmentId: v.id("equipment") },
@@ -53,7 +48,7 @@ export const create = authedMutation({
     type: v.union(v.literal("installation"), v.literal("maintenance")),
     notes: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
-    status: logStatusValidator,
+    status: equipmentStatusValidator,
     tests: v.optional(
       v.object({
         vacuum: v.boolean(),

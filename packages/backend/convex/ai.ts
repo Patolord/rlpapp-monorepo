@@ -10,6 +10,9 @@ import { rejectReadOnlyAgentTokenInAction } from "./lib/agentTokens";
 import { requireActionPermission } from "./lib/rbac";
 import { SYSTEM_PROMPT, normalizeProposal } from "./model/ai/layoutProposal";
 import { INTENT_SYSTEM_PROMPT, normalizeIntentResponse } from "./model/ai/intentResponse";
+// A regra só olha o arquivo importado; ai.ts também é "use node".
+// eslint-disable-next-line @convex-dev/import-wrong-runtime
+import { readAttachments } from "./model/ai/attachments";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
 
@@ -38,74 +41,6 @@ const fileInputValidator = v.object({
   mimeType: v.string(),
 });
 
-function isPdf(name: string, mimeType: string): boolean {
-  return mimeType === "application/pdf" || name.toLowerCase().endsWith(".pdf");
-}
-
-/**
- * Lê um arquivo do storage e extrai texto conforme o tipo (Excel, Word, texto).
- * PDFs são enviados diretamente ao modelo (via input_file) e áudios são
- * transcritos via Whisper — ambos tratados fora desta função.
- */
-async function extractText(
-  buffer: Buffer,
-  name: string,
-  mimeType: string
-): Promise<string> {
-  const lower = name.toLowerCase();
-
-  if (
-    mimeType.includes("spreadsheet") ||
-    mimeType === "text/csv" ||
-    lower.endsWith(".xlsx") ||
-    lower.endsWith(".xls") ||
-    lower.endsWith(".csv")
-  ) {
-    const mod = await import("xlsx");
-    const XLSX = ("default" in mod ? (mod as Record<string, unknown>).default : mod) as typeof import("xlsx");
-    // `cellFormula: false` garante que lemos o valor calculado das células e
-    // nunca o texto da fórmula (ex: `=B10+100`).
-    const wb = XLSX.read(buffer, { type: "buffer", cellFormula: false });
-    const parts: string[] = [];
-    for (const sheetName of wb.SheetNames) {
-      const sheet = wb.Sheets[sheetName];
-      // `blankrows: false` + filtro removem linhas totalmente vazias, que em
-      // planilhas reais chegam às centenas e poluem o contexto da IA.
-      const csv = XLSX.utils
-        .sheet_to_csv(sheet, { blankrows: false })
-        .split("\n")
-        .filter((line) => line.replace(/[,;\s]/g, "").length > 0)
-        .join("\n");
-      if (csv.trim().length === 0) continue;
-      parts.push(`# Aba: ${sheetName}\n${csv}`);
-    }
-    return parts.join("\n\n");
-  }
-
-  if (
-    mimeType.includes("word") ||
-    mimeType.includes("officedocument.wordprocessingml") ||
-    lower.endsWith(".docx")
-  ) {
-    const mammoth = (await import("mammoth")).default;
-    const result = await mammoth.extractRawText({ buffer });
-    return result.value;
-  }
-
-  // Texto puro / fallback.
-  return buffer.toString("utf-8");
-}
-
-function isAudio(name: string, mimeType: string): boolean {
-  const lower = name.toLowerCase();
-  return (
-    mimeType.startsWith("audio/") ||
-    [".mp3", ".m4a", ".wav", ".webm", ".ogg", ".mp4"].some((ext) =>
-      lower.endsWith(ext)
-    )
-  );
-}
-
 export const proposeLayout = action({
   args: {
     projectId: v.id("projects"),
@@ -127,39 +62,11 @@ export const proposeLayout = action({
 
     const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
-    const extractedParts: string[] = [];
-    // Conteúdo multimodal do usuário para a Responses API (texto + PDFs).
-    const userParts: Array<
-      | { type: "input_text"; text: string }
-      | { type: "input_file"; filename: string; file_data: string }
-    > = [];
-
-    for (const file of args.files ?? []) {
-      const blob = await ctx.storage.get(file.storageId);
-      if (!blob) continue;
-      const buffer = Buffer.from(await blob.arrayBuffer());
-
-      if (isAudio(file.name, file.mimeType)) {
-        const audioFile = await OpenAI.toFile(buffer, file.name);
-        const transcription = await openai.audio.transcriptions.create({
-          file: audioFile,
-          model: "whisper-1",
-        });
-        extractedParts.push(
-          `Transcrição do áudio "${file.name}":\n${transcription.text}`
-        );
-      } else if (isPdf(file.name, file.mimeType)) {
-        // PDFs são entendidos nativamente pelo modelo via input_file.
-        userParts.push({
-          type: "input_file",
-          filename: file.name,
-          file_data: `data:application/pdf;base64,${buffer.toString("base64")}`,
-        });
-      } else {
-        const text = await extractText(buffer, file.name, file.mimeType);
-        extractedParts.push(`Conteúdo de "${file.name}":\n${text}`);
-      }
-    }
+    const { extractedParts, userParts } = await readAttachments(
+      ctx,
+      openai,
+      args.files ?? []
+    );
 
     const floorsContext =
       args.floorsContext && args.floorsContext.length > 0
@@ -235,37 +142,11 @@ export const interpret = action({
 
     const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
-    const extractedParts: string[] = [];
-    const userParts: Array<
-      | { type: "input_text"; text: string }
-      | { type: "input_file"; filename: string; file_data: string }
-    > = [];
-
-    for (const file of args.files ?? []) {
-      const blob = await ctx.storage.get(file.storageId);
-      if (!blob) continue;
-      const buffer = Buffer.from(await blob.arrayBuffer());
-
-      if (isAudio(file.name, file.mimeType)) {
-        const audioFile = await OpenAI.toFile(buffer, file.name);
-        const transcription = await openai.audio.transcriptions.create({
-          file: audioFile,
-          model: "whisper-1",
-        });
-        extractedParts.push(
-          `Transcrição do áudio "${file.name}":\n${transcription.text}`
-        );
-      } else if (isPdf(file.name, file.mimeType)) {
-        userParts.push({
-          type: "input_file",
-          filename: file.name,
-          file_data: `data:application/pdf;base64,${buffer.toString("base64")}`,
-        });
-      } else {
-        const text = await extractText(buffer, file.name, file.mimeType);
-        extractedParts.push(`Conteúdo de "${file.name}":\n${text}`);
-      }
-    }
+    const { extractedParts, userParts } = await readAttachments(
+      ctx,
+      openai,
+      args.files ?? []
+    );
 
     // QR codes ativos e ainda não vinculados, para a IA propor assign_qr com
     // tokens reais (agrupados por lote para facilitar pedidos como "lote X").

@@ -1,6 +1,7 @@
 // Rotas HTTP do login do RLP Takeoff (troca do código por um token de
 // dispositivo). O fluxo e a criptografia PKCE estão em lib/takeoffAuth.ts; as
 // funções públicas (createCode...) em convex/takeoffAuth.ts.
+import { json } from "./responses";
 import type { HttpRouter } from "convex/server";
 import { internal } from "../_generated/api";
 import { httpAction } from "../_generated/server";
@@ -35,14 +36,6 @@ import {
  * token do dispositivo.
  */
 
-const JSON_HEADERS = {
-  "Content-Type": "application/json; charset=utf-8",
-  "Cache-Control": "no-store",
-};
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
-}
 
 function oauthError(error: string, message: string, status = 400): Response {
   return json({ error, message }, status);

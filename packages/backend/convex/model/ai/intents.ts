@@ -1,4 +1,4 @@
-import { equipKindValidator } from "../../schema/engineering";
+import { equipKindValidator, equipmentStatusValidator } from "../../schema/engineering";
 import { v, type Infer } from "convex/values";
 import { projectStatus } from "../../schema/engineering";
 import type { Id } from "../../_generated/dataModel";
@@ -106,14 +106,7 @@ export const aiIntentValidator = v.union(
     deadline: v.optional(v.number()),
     modelo: v.optional(v.string()),
     capacidade: v.optional(v.string()),
-    status: v.optional(
-      v.union(
-        v.literal("installing"),
-        v.literal("operational"),
-        v.literal("warning"),
-        v.literal("error")
-      )
-    ),
+    status: v.optional(equipmentStatusValidator),
   }),
   v.object({
     type: v.literal("rename_environment"),

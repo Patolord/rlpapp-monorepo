@@ -25,7 +25,8 @@ convex/
     inventory/          Locations, movements, balances, requests, stock policies
     procurement/        Materials, suppliers, prices, takeoffs
   lib/                  Cross-cutting infrastructure only: auth, rbac, audit,
-                        accessErrors, apiCrypto, agentTokens, takeoffAuth
+                        accessErrors, apiCrypto, agentTokens, takeoffAuth,
+                        clerkBackendApi
   gateway/              HTTP API `/api/v1` and the desktop login endpoints
   mcp/                  Function catalog for the MCP server and `/api/v1`
 ```
@@ -49,9 +50,9 @@ convex/
   to keep work in one Convex transaction.
 - Root public-function files never import each other: reusable code and
   shared validators live in `model/<domain>` or `schema/<domain>`. Table
-  fields and enums shared by several tables go in `schema/<domain>.ts`; the
-  args and return shapes of public functions go in
-  `model/<domain>/<resource>Validators.ts`. ESLint
+  fields and enums shared by several tables go in `schema/<domain>.ts`; a
+  return shape lives next to the model function that builds it, and moves to
+  a `model/<domain>/*Validators.ts` file once several files share it. ESLint
   (`no-restricted-imports` in `eslint.config.mjs`) enforces this, and also
   stops `lib/`, `model/`, `schema/` and `gateway/` from importing root files.
 - A model domain may call another domain's functions (inventory uses
@@ -62,7 +63,11 @@ convex/
   business rules in their owning model domain.
 - A file past ~600 lines usually holds more than one capability; split it
   along those seams (see `model/procurement/material*.ts`, `model/hr/payroll*.ts`).
-- Files using `"use node"` contain actions and Node-runtime helpers only.
+- Files using `"use node"` contain actions and Node-runtime helpers only. A
+  model file that needs Node (e.g. `model/ai/attachments.ts`) is also
+  `"use node"` and is imported only by Node actions; the Convex lint rule
+  `import-wrong-runtime` does not see that the importer is Node too, so that
+  import carries a disable comment.
 
 Domain terminology is defined in the repository-level `CONTEXT.md`.
 

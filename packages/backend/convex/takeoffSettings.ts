@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
-import { logAudit } from "./lib/audit";
 import {
   engineeringOrPurchasingQuery,
   takeoffConfigMutation,
@@ -14,7 +13,7 @@ import {
 } from "./model/procurement/takeoffPriceHistory";
 import {
   getTakeoffSettingsWithMeta,
-  putTakeoffSetting,
+  saveTakeoffSetting,
   sanitizeTakeoffDuctNormas,
   sanitizeTakeoffLabor,
   sanitizeTakeoffVrfBrands,
@@ -65,16 +64,7 @@ export const saveWeights = takeoffConfigMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const clean = sanitizeTakeoffWeights(args);
-    const { id, before } = await putTakeoffSetting(ctx, "weights", clean, ctx.user._id);
-    await logAudit(ctx, ctx.user, {
-      action: before ? "update" : "create",
-      tableName: "takeoffSettings",
-      recordId: id,
-      entityLabel: "Materiais por peso",
-      details: `${clean.rows.length} materiais`,
-      snapshotBefore: before ?? undefined,
-      snapshotAfter: clean,
-    });
+    await saveTakeoffSetting(ctx, ctx.user, "weights", clean, "Materiais por peso", `${clean.rows.length} materiais`);
     return null;
   },
 });
@@ -154,16 +144,7 @@ export const saveVrfBrands = takeoffConfigMutation({
   returns: v.null(),
   handler: async (ctx, { brands }) => {
     const clean = { brands: sanitizeTakeoffVrfBrands(brands) };
-    const { id, before } = await putTakeoffSetting(ctx, "vrfBrands", clean, ctx.user._id);
-    await logAudit(ctx, ctx.user, {
-      action: before ? "update" : "create",
-      tableName: "takeoffSettings",
-      recordId: id,
-      entityLabel: "Marcas de VRF",
-      details: `${clean.brands.length} marcas`,
-      snapshotBefore: before ?? undefined,
-      snapshotAfter: clean,
-    });
+    await saveTakeoffSetting(ctx, ctx.user, "vrfBrands", clean, "Marcas de VRF", `${clean.brands.length} marcas`);
     return null;
   },
 });
@@ -174,15 +155,7 @@ export const saveLabor = takeoffConfigMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const clean = sanitizeTakeoffLabor(args);
-    const { id, before } = await putTakeoffSetting(ctx, "labor", clean, ctx.user._id);
-    await logAudit(ctx, ctx.user, {
-      action: before ? "update" : "create",
-      tableName: "takeoffSettings",
-      recordId: id,
-      entityLabel: "Mão de obra",
-      snapshotBefore: before ?? undefined,
-      snapshotAfter: clean,
-    });
+    await saveTakeoffSetting(ctx, ctx.user, "labor", clean, "Mão de obra");
     return null;
   },
 });
@@ -193,15 +166,7 @@ export const saveDuctNormas = takeoffConfigMutation({
   returns: v.null(),
   handler: async (ctx, { normas }) => {
     const clean = { normas: sanitizeTakeoffDuctNormas(normas) };
-    const { id, before } = await putTakeoffSetting(ctx, "ductNormas", clean, ctx.user._id);
-    await logAudit(ctx, ctx.user, {
-      action: before ? "update" : "create",
-      tableName: "takeoffSettings",
-      recordId: id,
-      entityLabel: "Parâmetros de dutos por norma",
-      snapshotBefore: before ?? undefined,
-      snapshotAfter: clean,
-    });
+    await saveTakeoffSetting(ctx, ctx.user, "ductNormas", clean, "Parâmetros de dutos por norma");
     return null;
   },
 });

@@ -1,3 +1,4 @@
+import { equipmentStatusValidator } from "./schema/engineering";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { authedQuery } from "./lib/rbac";
@@ -54,13 +55,7 @@ const qrRowValidator = v.object({
   qrStatus: v.union(v.literal("active"), v.literal("inactive")),
   equipmentId: v.union(v.id("equipment"), v.null()),
   description: v.union(v.string(), v.null()),
-  status: v.union(
-    v.literal("installing"),
-    v.literal("operational"),
-    v.literal("warning"),
-    v.literal("error"),
-    v.null()
-  ),
+  status: v.union(equipmentStatusValidator, v.null()),
   ambiente: v.union(v.string(), v.null()),
   modelo: v.union(v.string(), v.null()),
   batchName: v.union(v.string(), v.null()),

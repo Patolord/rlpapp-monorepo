@@ -1,3 +1,4 @@
+import { equipmentStatusValidator } from "../../schema/engineering";
 import type { PaginationOptions } from "convex/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
@@ -13,12 +14,6 @@ import {
 // campo de uma obra. As fontes e a normalização ficam em
 // `technicianActivitySources.ts`.
 
-const logStatusValidator = v.union(
-  v.literal("installing"),
-  v.literal("operational"),
-  v.literal("warning"),
-  v.literal("error")
-);
 
 export const activityItemValidator = v.object({
   kind: v.union(
@@ -33,7 +28,7 @@ export const activityItemValidator = v.object({
   // "Cadastro" | "Instalação" | "Manutenção" | "Instalado" | "Testado" | "Finalizado"
   label: v.string(),
   // Presente apenas em maintenanceLogs / registration.
-  status: v.union(logStatusValidator, v.null()),
+  status: v.union(equipmentStatusValidator, v.null()),
   qrToken: v.union(v.string(), v.null()),
   notes: v.union(v.string(), v.null()),
 });
