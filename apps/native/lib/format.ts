@@ -11,7 +11,7 @@ export function formatQty(quantity: number, unit: string | null): string {
 }
 
 
-export function formatDateTime(timestamp: number): string {
+export function formatShortDateTime(timestamp: number): string {
   return new Date(timestamp).toLocaleString("pt-BR", {
     day: "2-digit",
     month: "2-digit",

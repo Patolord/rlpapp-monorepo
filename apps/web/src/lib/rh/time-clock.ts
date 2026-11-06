@@ -87,13 +87,6 @@ const timeFormatter = new Intl.DateTimeFormat("pt-BR", {
   minute: "2-digit",
 });
 
-const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
-  timeZone: BRT_TIME_ZONE,
-  day: "2-digit",
-  month: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-});
 
 const longDateFormatter = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "UTC",
@@ -131,10 +124,6 @@ export function formatTime(ms: number | null | undefined): string {
   return timeFormatter.format(new Date(ms));
 }
 
-export function formatDateTime(ms: number | null | undefined): string {
-  if (ms === null || ms === undefined) return "—";
-  return dateTimeFormatter.format(new Date(ms));
-}
 
 export function formatDateKeyLong(dateKey: string): string {
   const label = longDateFormatter.format(new Date(`${dateKey}T00:00:00Z`));

@@ -19,7 +19,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
-import { formatDateTime, formatMaterialLabel, formatQty } from "@/lib/format";
+import { formatShortDateTime, formatMaterialLabel, formatQty } from "@/lib/format";
 import { colors, space, type, type Tone } from "@/lib/theme";
 import { useOnline } from "@/lib/use-online";
 
@@ -201,7 +201,7 @@ export default function CampoObraEstoqueScreen() {
               return (
                 <Surface key={request._id} style={{ gap: space.sm }}>
                   <View style={styles.balanceTop}>
-                    <Text style={[type.caption, { color: colors.textMuted }]}>{formatDateTime(request.createdAt)}</Text>
+                    <Text style={[type.caption, { color: colors.textMuted }]}>{formatShortDateTime(request.createdAt)}</Text>
                     <Pill label={status.label} tone={status.tone} />
                   </View>
                   {request.items.map((item) => (

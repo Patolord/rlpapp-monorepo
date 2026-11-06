@@ -9,7 +9,7 @@ import { REQUEST_STATUS } from "@/components/estoque/labels";
 import { MovementFormSheet, type PrefillLine } from "@/components/estoque/movement-form-sheet";
 import { AppButton, Chips, EmptyState, Field, LoadingState, Pill, ScreenHeader, Sheet, Surface, screenStyles, useToast } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
-import { formatDateTime, formatMaterialLabel, formatQty } from "@/lib/format";
+import { formatShortDateTime, formatMaterialLabel, formatQty } from "@/lib/format";
 import { colors, space, type } from "@/lib/theme";
 
 type Request = FunctionReturnType<typeof api.inventoryRequests.listOfficeRequests>[number];
@@ -78,7 +78,7 @@ export default function RequisicoesScreen() {
                       {item.projectName}
                     </Text>
                     <Text style={[type.caption, { color: colors.textMuted }]}>
-                      {item.requestedByName} · {formatDateTime(item.createdAt)}
+                      {item.requestedByName} · {formatShortDateTime(item.createdAt)}
                     </Text>
                   </View>
                   <Pill label={st.label} tone={st.tone} />
