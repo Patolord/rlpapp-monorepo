@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/select";
 import { runWithToast } from "@/lib/errors";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
-import { useAudioRecorder } from "@/lib/use-audio-recorder";
+import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { PermissionGate } from "@/components/role-area-gate";
 
 export const Route = createFileRoute(

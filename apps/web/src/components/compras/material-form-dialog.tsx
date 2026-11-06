@@ -1,10 +1,8 @@
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { formatDate } from "@rlpapp/shared";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
-import { ImagePlus, Package, X } from "lucide-react";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,9 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { getErrorMessage } from "@/lib/errors";
 import {
   centsToLaborPriceInput,
@@ -25,23 +20,17 @@ import {
 } from "@/lib/labor-price";
 import { uploadPhotos } from "@/lib/upload-photos";
 
+import {
+  MaterialBudgetSection,
+  MaterialIdentificationFields,
+  MaterialTechnicalSection,
+  MaterialUnitsSection,
+} from "./material-form-sections";
+import { MaterialImageField } from "./material-image-field";
+
 export type MaterialCatalogRow = FunctionReturnType<
   typeof api.materials.listCatalog
 >["page"][number];
-
-export const UNIT_SUGGESTIONS = ["un", "m", "kg", "cx", "pct", "rolo", "m²", "L"];
-
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_IMAGE_MIME_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-] as const;
-const ALLOWED_IMAGE_ACCEPT = ALLOWED_IMAGE_MIME_TYPES.join(",");
-
-function isAllowedImageMimeType(type: string): boolean {
-  return (ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(type);
-}
 
 export type MaterialFormValues = {
   name: string;
@@ -189,7 +178,6 @@ export function MaterialFormDialog({
   const [imageRemoved, setImageRemoved] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const isEdit = material != null;
   const dimensions = dimensionsFromForm(form);
   const selectedFamily = (families ?? []).find(
@@ -233,22 +221,6 @@ export function MaterialFormDialog({
     );
     return undefined;
   }, [imageFile, imageRemoved, material?.imageUrl]);
-
-  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    if (!isAllowedImageMimeType(file.type)) {
-      toast.error("Selecione uma imagem JPG, PNG ou WebP");
-      return;
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-      toast.error("A imagem deve ter no máximo 5 MB");
-      return;
-    }
-    setImageFile(file);
-    setImageRemoved(false);
-  }
 
   async function resolveImageId(): Promise<
     Id<"_storage"> | null | undefined
@@ -346,302 +318,35 @@ export function MaterialFormDialog({
         <div className="space-y-6">
           <section className="space-y-3">
             <h3 className="text-sm font-medium">Identificação</h3>
-            <div>
-              <Label>Família / nome-base</Label>
-              <Input
-                value={form.name}
-                onChange={(event) =>
-                  setForm({ ...form, name: event.target.value })
-                }
-                list="material-family-suggestions"
-              />
-              <datalist id="material-family-suggestions">
-                {(families ?? []).map((family) => (
-                  <option key={family._id} value={family.name} />
-                ))}
-              </datalist>
-            </div>
-            <div>
-              <Label>Detalhe da variante</Label>
-              <Input
-                value={form.variantLabel}
-                onChange={(event) =>
-                  setForm({ ...form, variantLabel: event.target.value })
-                }
-                placeholder="Ex.: Branca, MAXX 150, 3x2,5 mm²"
-              />
-            </div>
-            {(duplicateCandidates ?? []).length > 0 ? (
-              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">
-                <p className="font-medium">Materiais semelhantes encontrados</p>
-                <ul className="mt-1 space-y-1">
-                  {(duplicateCandidates ?? []).map((candidate) => (
-                    <li key={candidate.materialId}>
-                      {candidate.name}
-                      {candidate.variantLabel
-                        ? ` — ${candidate.variantLabel}`
-                        : ""}{" "}
-                      ({candidate.sku ?? "sem SKU"})
-                      {candidate.exact ? " · duplicata exata" : ""}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <Label>SKU</Label>
-                <Input
-                  value={form.sku}
-                  onChange={(event) =>
-                    setForm({ ...form, sku: event.target.value })
-                  }
-                  placeholder={isEdit ? undefined : "Gerado automaticamente"}
-                />
-              </div>
-              <div>
-                <Label>Código de barras</Label>
-                <Input
-                  value={form.barcode}
-                  onChange={(event) =>
-                    setForm({ ...form, barcode: event.target.value })
-                  }
-                />
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <Label>Fabricante</Label>
-                <Input
-                  value={form.manufacturer}
-                  onChange={(event) =>
-                    setForm({ ...form, manufacturer: event.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <Label>Código do fabricante</Label>
-                <Input
-                  value={form.manufacturerPartNumber}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      manufacturerPartNumber: event.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-            <div>
-              <Label>Categoria</Label>
-              <Input
-                value={form.category}
-                onChange={(event) =>
-                  setForm({ ...form, category: event.target.value })
-                }
-              />
-            </div>
-            <div>
-              <Label>Imagem</Label>
-              <div className="mt-1 flex items-start gap-3">
-                <span className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted">
-                  {imagePreviewUrl ? (
-                    <img
-                      src={imagePreviewUrl}
-                      alt="Pré-visualização do material"
-                      className="size-full object-cover"
-                    />
-                  ) : (
-                    <Package className="size-6 text-muted-foreground/70" />
-                  )}
-                </span>
-                <div className="min-w-0 space-y-2">
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => imageInputRef.current?.click()}
-                    >
-                      <ImagePlus className="size-4" />
-                      {imagePreviewUrl ? "Trocar imagem" : "Anexar imagem"}
-                    </Button>
-                    {imagePreviewUrl ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setImageFile(null);
-                          setImageRemoved(true);
-                        }}
-                      >
-                        <X className="size-4" />
-                        Remover
-                      </Button>
-                    ) : null}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    JPG, PNG ou WebP. Máximo 5 MB.
-                  </p>
-                </div>
-              </div>
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept={ALLOWED_IMAGE_ACCEPT}
-                className="hidden"
-                onChange={handleImageChange}
-              />
-            </div>
+            <MaterialIdentificationFields
+              form={form}
+              setForm={setForm}
+              families={families}
+              duplicateCandidates={duplicateCandidates}
+              isEdit={isEdit}
+            />
+            <MaterialImageField
+              imagePreviewUrl={imagePreviewUrl}
+              onSelect={(file) => {
+                setImageFile(file);
+                setImageRemoved(false);
+              }}
+              onRemove={() => {
+                setImageFile(null);
+                setImageRemoved(true);
+              }}
+            />
           </section>
 
-          <section className="space-y-3">
-            <h3 className="text-sm font-medium">Unidades e embalagem</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <Label>Unidade de estoque</Label>
-                <Input
-                  value={form.unit}
-                  onChange={(event) =>
-                    setForm({ ...form, unit: event.target.value })
-                  }
-                  placeholder="un, m, kg..."
-                  list="material-unit-suggestions"
-                />
-              </div>
-              <div>
-                <Label>Unidade de compra</Label>
-                <Input
-                  value={form.purchaseUnit}
-                  onChange={(event) =>
-                    setForm({ ...form, purchaseUnit: event.target.value })
-                  }
-                  placeholder="cx, rolo..."
-                  list="material-unit-suggestions"
-                />
-              </div>
-            </div>
-            <datalist id="material-unit-suggestions">
-              {UNIT_SUGGESTIONS.map((unit) => (
-                <option key={unit} value={unit} />
-              ))}
-            </datalist>
-            <div>
-              <Label>Unidades por embalagem</Label>
-              <Input
-                type="number"
-                min="0"
-                step="any"
-                value={form.unitsPerPurchaseUnit}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    unitsPerPurchaseUnit: event.target.value,
-                  })
-                }
-                placeholder="Ex.: 100"
-              />
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.trackInventory}
-                onChange={(event) =>
-                  setForm({ ...form, trackInventory: event.target.checked })
-                }
-              />
-              Controlar estoque deste material
-            </label>
-          </section>
+          <MaterialUnitsSection form={form} setForm={setForm} />
 
-          <section className="space-y-3">
-            <h3 className="text-sm font-medium">Orçamento</h3>
-            <div>
-              <Label htmlFor="material-labor-price">
-                Mão de obra (R$ por {form.unit.trim() || "unidade"})
-              </Label>
-              <Input
-                id="material-labor-price"
-                inputMode="decimal"
-                value={form.laborPrice}
-                onChange={(event) =>
-                  setForm({ ...form, laborPrice: event.target.value })
-                }
-                placeholder="Ex.: 45,50"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Enviado ao RLP Takeoff junto com o preço do material. Deixe em
-                branco quando não houver mão de obra.
-                {material?.laborPriceUpdatedAt
-                  ? ` Atualizado em ${formatDate(material.laborPriceUpdatedAt)}.`
-                  : ""}
-              </p>
-            </div>
-          </section>
+          <MaterialBudgetSection
+            form={form}
+            setForm={setForm}
+            laborPriceUpdatedAt={material?.laborPriceUpdatedAt}
+          />
 
-          <section className="space-y-3">
-            <h3 className="text-sm font-medium">Dados técnicos</h3>
-            <div>
-              <Label>Dimensões padronizadas (mm)</Label>
-              <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-5">
-                {[
-                  ["widthMm", "Largura"],
-                  ["heightMm", "Altura"],
-                  ["lengthMm", "Comprimento"],
-                  ["thicknessMm", "Espessura"],
-                  ["diameterMm", "Diâmetro"],
-                ].map(([field, label]) => (
-                  <Input
-                    key={field}
-                    type="number"
-                    min="0"
-                    step="any"
-                    aria-label={`${label} em milímetros`}
-                    placeholder={label}
-                    value={form[field as keyof MaterialFormValues] as string}
-                    onChange={(event) =>
-                      setForm({ ...form, [field]: event.target.value })
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-            <div>
-              <Label>Especificação</Label>
-              <Input
-                value={form.spec}
-                onChange={(event) =>
-                  setForm({ ...form, spec: event.target.value })
-                }
-              />
-            </div>
-            <div>
-              <Label>Marca preferida</Label>
-              <Input
-                value={form.brandPreference}
-                onChange={(event) =>
-                  setForm({ ...form, brandPreference: event.target.value })
-                }
-              />
-            </div>
-            <div>
-              <Label>Atributos técnicos</Label>
-              <Textarea
-                value={form.technicalAttributes}
-                onChange={(event) =>
-                  setForm({
-                    ...form,
-                    technicalAttributes: event.target.value,
-                  })
-                }
-                placeholder="tensao=220v; fase=trifasico"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Usados nas regras de compatibilidade do Estoque.
-              </p>
-            </div>
-          </section>
+          <MaterialTechnicalSection form={form} setForm={setForm} />
         </div>
 
         <DialogFooter>
