@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 
-import { PriceChangeBadge } from "@/components/compras/price-change-badge";
 import {
   niceTicks,
   type PricePoint,
   priceAt,
   priceSteps,
-  priceSummary,
   pointsFor,
   timeDomain,
 } from "@/lib/takeoff/price-history";
@@ -124,12 +122,6 @@ function ChartBody({
 
   return (
     <div className="space-y-3">
-      <div className={cn("grid gap-2", lines.length > 1 ? "sm:grid-cols-2" : "sm:grid-cols-1")}>
-        {lines.map((l) => (
-          <SeriesSummary key={l.material} label={l.label} colorClass={l.colorClass} points={l.points} now={now} />
-        ))}
-      </div>
-
       <div className="relative">
         {width > 0 && (
           <svg width={width} height={HEIGHT} role="img" aria-label={`Preço por kg de ${series.map((s) => s.label).join(" e ")} ao longo do tempo`}>
@@ -198,64 +190,20 @@ function ChartBody({
         )}
       </div>
 
-      {lines.length > 1 && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {lines.map((l) => (
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+        {lines.map((l) => {
+          const current = priceAt(l.points, now);
+          return (
             <span key={l.material} className="flex items-center gap-1.5">
               <span className={cn("h-0.5 w-4 rounded-full bg-current", l.colorClass)} aria-hidden />
-              {l.label}
+              <span className="text-muted-foreground">{l.label}:</span>
+              <span className="font-medium tabular-nums">
+                {typeof current === "number" ? `${brl.format(current)}/kg` : "sem preço"}
+              </span>
             </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SeriesSummary({
-  label,
-  colorClass,
-  points,
-  now,
-}: {
-  label: string;
-  colorClass: string;
-  points: PricePoint[];
-  now: number;
-}) {
-  const summary = priceSummary(points, now);
-  return (
-    <div className="space-y-1 rounded-md border border-control-border bg-muted/30 px-3 py-2">
-      <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-        <span className={cn("size-2 rounded-full bg-current", colorClass)} aria-hidden />
-        {label}
-      </p>
-      {summary.current ? (
-        <>
-          <p className="text-lg font-semibold tabular-nums">
-            {brl.format(summary.current.price)}
-            <span className="text-xs font-normal text-muted-foreground">/kg desde {dateShort.format(summary.current.since)}</span>
-          </p>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            {summary.vsPrevious ? (
-              <span className="flex items-center gap-1">
-                <PriceChangeBadge change={summary.vsPrevious} basis="preço publicado antes" />
-                vs. anterior
-              </span>
-            ) : (
-              <span>primeiro preço publicado</span>
-            )}
-            {summary.vs12Months && (
-              <span className="flex items-center gap-1">
-                <PriceChangeBadge change={summary.vs12Months} basis="preço de 12 meses atrás" />
-                em 12 meses
-              </span>
-            )}
-          </div>
-        </>
-      ) : (
-        <p className="text-sm text-muted-foreground">Sem preço publicado: o app usa o padrão do fornecedor.</p>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 }

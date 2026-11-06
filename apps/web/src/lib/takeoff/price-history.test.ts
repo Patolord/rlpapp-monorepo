@@ -5,7 +5,6 @@ import {
   type PricePoint,
   priceAt,
   priceSteps,
-  priceSummary,
   pointsFor,
   timeDomain,
 } from "./price-history";
@@ -45,25 +44,6 @@ describe("price history", () => {
     expect(priceAt(copper, at(500))).toBeUndefined();
     expect(priceAt(copper, at(300))).toBe(110);
     expect(priceAt(copper, at(10))).toBe(128);
-  });
-
-  test("summary: current, against the previous price and twelve months ago", () => {
-    const summary = priceSummary(pointsFor(history, "cobre"), NOW);
-    expect(summary.current).toEqual({ price: 128, since: at(10) });
-    expect(summary.vsPrevious).toMatchObject({ fromCents: 12000, deltaCents: 800 });
-    expect(summary.vsPrevious?.deltaPercent).toBeCloseTo(6.667, 2);
-    expect(summary.vs12Months).toMatchObject({ fromCents: 11000, deltaCents: 1800 });
-    expect([summary.min, summary.max]).toEqual([110, 128]);
-  });
-
-  test("summary without a year of history or with the price cleared", () => {
-    const sheet = priceSummary(pointsFor(history, "chapa"), NOW);
-    expect(sheet.current?.price).toBe(9);
-    expect(sheet.vsPrevious).toBeNull();
-    expect(sheet.vs12Months).toBeNull();
-    const cleared = priceSummary([point("chapa", 9, 50), point("chapa", null, 5)], NOW);
-    expect(cleared.current).toBeNull();
-    expect(cleared.max).toBe(9);
   });
 
   test("the time axis spans at least thirty days", () => {

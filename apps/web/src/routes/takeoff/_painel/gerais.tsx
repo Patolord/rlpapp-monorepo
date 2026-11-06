@@ -10,7 +10,6 @@ import { AuthShell } from "@/components/auth-shell";
 import { KitsSection } from "@/components/takeoff/kits-section";
 import {
   PublishBar,
-  publishedLine,
   TakeoffPageHeader,
   toNumber,
   toText,
@@ -96,35 +95,24 @@ function GeraisPage() {
   const loadFactoryWeights = () =>
     run(() => seedDefaults({ kind: "weights" }), "Pesos do fornecedor carregados");
 
-  const weightsMeta = publishedLine(settings?.meta.weights ?? null, "Pesos ainda não publicados: o app usa a tabela do fornecedor.");
-
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <TakeoffPageHeader
         title="Gerais e presets"
-        description="Preço e peso do cobre e da chapa, que dão o preço dos materiais vendidos por kg, e os kits da ferramenta Kit (T)."
+        description="Preço e peso do cobre e da chapa, e os kits. Vale para o app de todos."
       />
 
       <Card>
         <CardHeader>
           <CardTitle>Cobre</CardTitle>
-          <CardDescription>
-            Preço por kg dos tubos nas duas faixas de parede e o peso de cada tubo. Preço do tubo =
-            kg por metro × R$/kg. Cada preço é um registro com a data em que vale; o app usa o
-            mais recente e, sem registro, o preço do fornecedor.
-          </CardDescription>
+          <CardDescription>Preço do tubo = kg/m × R$/kg. O app usa o preço mais recente.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <PriceRecords series={COPPER_SERIES} history={history} />
 
           <div className="space-y-2">
             <div className="flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <h3 className="text-sm font-medium">Peso por unidade</h3>
-                <p className="text-xs text-muted-foreground">
-                  Cada linha vira um material do Ctrl+K do app. {weightsMeta}
-                </p>
-              </div>
+              <h3 className="text-sm font-medium">Peso dos tubos</h3>
               {settings && (settings.weights?.rows.length ?? 0) === 0 && (
                 <Button variant="outline" size="sm" onClick={() => void loadFactoryWeights()} disabled={busy}>
                   <Download className="size-4" /> Carregar tabela do fornecedor
@@ -142,11 +130,7 @@ function GeraisPage() {
       <Card>
         <CardHeader>
           <CardTitle>Chapa galvanizada</CardTitle>
-          <CardDescription>
-            Preço por kg e peso por m² de cada bitola, usados no peso e no preço dos dutos. Cada
-            preço é um registro datado e vale o mais recente; sem registro, o app mantém o preço
-            por bitola da planilha.
-          </CardDescription>
+          <CardDescription>Peso e preço dos dutos. O app usa o preço mais recente.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <PriceRecords series={SHEET_SERIES} history={history} />
@@ -164,7 +148,7 @@ function GeraisPage() {
                     min={0}
                     step="0.01"
                     value={gauges[g.name] ?? ""}
-                    placeholder={`${g.kgm2} (fornecedor)`}
+                    placeholder={String(g.kgm2)}
                     onChange={(e) => editWeights({ gauges: { ...gauges, [g.name]: e.target.value } })}
                     className="text-right font-mono"
                   />
@@ -198,9 +182,8 @@ function WeightTable({ rows, onChange }: { rows: WeightRow[]; onChange: (rows: W
           <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-2 py-1.5 text-left font-medium">Material</th>
-              <th className="px-2 py-1.5 text-left font-medium">Grupo</th>
               <th className="px-2 py-1.5 text-left font-medium">Un.</th>
-              <th className="px-2 py-1.5 text-left font-medium">Preço por kg de</th>
+              <th className="px-2 py-1.5 text-left font-medium">Preço de</th>
               <th className="px-2 py-1.5 text-right font-medium">kg / un.</th>
               <th className="w-8" />
             </tr>
@@ -210,9 +193,6 @@ function WeightTable({ rows, onChange }: { rows: WeightRow[]; onChange: (rows: W
               <tr key={i} className="border-t border-control-border">
                 <td className="p-1">
                   <Input value={r.name} onChange={(e) => update(i, { name: e.target.value })} placeholder='Tubo de cobre 1/2"' className="min-w-56" aria-label="Material" />
-                </td>
-                <td className="p-1">
-                  <Input value={r.group} onChange={(e) => update(i, { group: e.target.value })} className="min-w-32" aria-label="Grupo" />
                 </td>
                 <td className="p-1">
                   <Select value={r.unit} onValueChange={(v) => update(i, { unit: v as WeightRow["unit"] })}>
@@ -245,8 +225,8 @@ function WeightTable({ rows, onChange }: { rows: WeightRow[]; onChange: (rows: W
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
-                  Nenhum material. Carregue a tabela do fornecedor ou acrescente linhas.
+                <td colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
+                  Nenhum tubo. Carregue a tabela do fornecedor ou acrescente linhas.
                 </td>
               </tr>
             )}

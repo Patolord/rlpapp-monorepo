@@ -1,4 +1,4 @@
-import { Loader2, Monitor } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -6,19 +6,9 @@ import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/errors";
 
 /**
- * Peças comuns das páginas de App Takeoff (Dutos, VRF, Gerais e presets): o aviso de que tudo
- * reflete no app desktop, a barra única de publicação e a conversão dos campos numéricos.
+ * Peças comuns das páginas de App Takeoff (Dutos, VRF, Gerais e presets): o cabeçalho, a barra
+ * única de publicação e a conversão dos campos numéricos.
  */
-
-export type SettingMeta = { updatedAt: number; updatedBy: string | null } | null;
-
-const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
-
-/** "Publicado em 05/11/26 14:00 por Ana." ou o texto de ainda não publicado. */
-export function publishedLine(meta: SettingMeta, unpublished: string): string {
-  if (!meta) return unpublished;
-  return `Publicado em ${dateFormat.format(meta.updatedAt)}${meta.updatedBy ? ` por ${meta.updatedBy}` : ""}.`;
-}
 
 /** Campos numéricos guardam texto enquanto se digita; "" = sem valor. */
 export const toText = (n: number | null | undefined) =>
@@ -30,19 +20,9 @@ export const toNumber = (t: string): number | undefined => {
 
 export function TakeoffPageHeader({ title, description }: { title: string; description: string }) {
   return (
-    <div className="space-y-3">
-      <div>
-        <h1 className="text-2xl font-bold">{title}</h1>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
-      <div className="flex gap-3 rounded-lg border border-status-info/30 bg-card px-4 py-3 text-sm">
-        <Monitor className="mt-0.5 size-4 shrink-0 text-status-info" />
-        <p>
-          <span className="font-medium">Vale para o RLP Takeoff de todos os usuários</span> na
-          próxima atualização do catálogo. O que um usuário alterou no próprio computador continua
-          valendo para ele, e um campo vazio deixa valer o padrão embutido no app.
-        </p>
-      </div>
+    <div>
+      <h1 className="text-2xl font-bold">{title}</h1>
+      <p className="text-sm text-muted-foreground">{description}</p>
     </div>
   );
 }
