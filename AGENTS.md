@@ -90,6 +90,21 @@ com secrets. Vercel, Convex Dashboard e EAS têm cópias próprias.
   de funções públicas, rode `pnpm -F @rlpapp/backend generate:catalog`. O `check-types` do
   backend falha se o catálogo estiver desatualizado.
 - Testes do backend ficam em `packages/backend/tests` (vitest + convex-test).
+- Organização (detalhes em `packages/backend/convex/README.md`): os arquivos da raiz de `convex/`
+  são a API pública e ficam finos (args, returns, wrapper de permissão e uma chamada); a lógica
+  mora em `model/<domínio>`, as tabelas e validadores em `schema/<domínio>`, e `lib/` guarda só
+  infraestrutura (auth, rbac, auditoria, cripto). Arquivos públicos não importam uns aos outros
+  (o ESLint do backend barra).
+
+## Web (`apps/web`)
+
+- `src/routes/` só tem rotas: o arquivo da rota guarda `Route` e o componente da página. Dialogs,
+  tabelas e formulários ficam em `src/components/<área>/` (um arquivo por componente coeso).
+- Hooks em `src/hooks/`; código puro (formatação, cálculo, cache offline) em `src/lib/`. O que o
+  native ou o desktop também usam vai para `packages/shared`.
+- Dados do Convex pelos hooks de `convex/react` (`useQuery`, `useMutation`), que já são reativos;
+  não há loaders de rota buscando dados. O `ConvexQueryClient` do `router.tsx` existe para criar o
+  cliente Convex e autenticar o SSR no `__root.tsx`.
 
 ## Convenções
 
@@ -107,6 +122,9 @@ com secrets. Vercel, Convex Dashboard e EAS têm cópias próprias.
   `users.getCurrentUser` devolve; não compare os campos legados `role`/`department` à mão.
 - Mensagens de commit em português, no formato `Área: descrição` (ex.: `Materiais: tabela com
   filtro de status`). Tudo entra no `master` por PR.
+- Sem arquivos-deus: um arquivo que passa de ~600 linhas costuma juntar mais de uma
+  responsabilidade; divida pelas costuras reais (componente, capacidade), não uma função por
+  arquivo, e sem `helpers.ts`/`utils.ts` genéricos.
 - Testes ao lado do código (`*.test.ts` em `apps/web/src`, `apps/takeoff/src`), exceto backend
   (`packages/backend/tests`) e shared (`packages/shared/tests`). E2E do web: Playwright em
   `apps/web/e2e` (`pnpm -F web test:e2e`).

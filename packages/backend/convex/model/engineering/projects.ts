@@ -23,6 +23,16 @@ export async function resolveProjectByIdentifier(
   return null;
 }
 
+/** Resolve slug/ID legado para o `_id` e o slug canônico (ID quando sem slug). */
+export async function resolveProjectSlug(
+  ctx: QueryCtx | MutationCtx,
+  identifier: string
+): Promise<{ _id: Id<"projects">; slug: string } | null> {
+  const project = await resolveProjectByIdentifier(ctx, identifier);
+  if (!project) return null;
+  return { _id: project._id, slug: project.slug ?? project._id };
+}
+
 export async function assertTechnicianProjectAccess(
   ctx: QueryCtx | MutationCtx,
   user: Doc<"users">,

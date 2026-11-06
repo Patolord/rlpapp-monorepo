@@ -1,0 +1,122 @@
+import type { Doc, Id } from "../../_generated/dataModel";
+import type { MutationCtx } from "../../_generated/server";
+
+// Caminho legado de planejamento por apartamentos (projectUnits): itens
+// planejados presos a uma unidade em vez de a um ambiente da hierarquia.
+
+type EquipmentStatus = Doc<"projectEquipment">["status"];
+type EquipmentKind = Doc<"projectEquipment">["kind"];
+
+export type UpsertUnitEquipmentInput = {
+  itemId?: Id<"projectEquipment">;
+  projectId: Id<"projects">;
+  unitId: Id<"projectUnits">;
+  system: string;
+  ambiente: string;
+  kind: EquipmentKind;
+  modelo?: string;
+  capacidade?: string;
+  status?: EquipmentStatus;
+  obs?: string | null;
+  deadline?: number | null;
+};
+
+export type BulkCreateUnitsWithEquipmentInput = {
+  projectId: Id<"projects">;
+  units: {
+    floor: number;
+    final: number;
+    label?: string;
+    type: Doc<"projectUnits">["type"];
+    floorSpan?: number;
+    deadline?: number;
+    equipment: {
+      system: string;
+      ambiente: string;
+      kind: EquipmentKind;
+      modelo?: string;
+      capacidade?: string;
+      obs?: string;
+    }[];
+  }[];
+};
+
+export async function upsertUnitEquipment(
+  ctx: MutationCtx,
+  args: UpsertUnitEquipmentInput
+): Promise<Id<"projectEquipment">> {
+  const unit = await ctx.db.get("projectUnits", args.unitId);
+  if (!unit) throw new Error("Apartamento não encontrado");
+
+  const base = {
+    system: args.system.trim() || "Split",
+    ambiente: args.ambiente.trim() || "Ambiente",
+    kind: args.kind,
+    modelo: args.modelo?.trim() ?? "",
+    capacidade: args.capacidade?.trim() ?? "",
+    obs: args.obs === null ? undefined : args.obs?.trim() || undefined,
+    deadline: args.deadline === null ? undefined : args.deadline ?? undefined,
+  };
+
+  if (args.itemId) {
+    const item = await ctx.db.get("projectEquipment", args.itemId);
+    if (!item) throw new Error("Equipamento não encontrado");
+    await ctx.db.patch("projectEquipment", args.itemId, {
+      ...base,
+      status: args.status ?? item.status,
+    });
+    return args.itemId;
+  }
+
+  return await ctx.db.insert("projectEquipment", {
+    projectId: args.projectId,
+    unitId: args.unitId,
+    ...base,
+    status: args.status ?? "installing",
+  });
+}
+
+// Criação em lote (usada pelo assistente de IA após aprovação do usuário).
+// Cria apartamentos e seus itens em uma única transação.
+export async function bulkCreateUnitsWithEquipment(
+  ctx: MutationCtx,
+  args: BulkCreateUnitsWithEquipmentInput
+): Promise<{ units: number; items: number }> {
+  const project = await ctx.db.get("projects", args.projectId);
+  if (!project) throw new Error("Obra não encontrada");
+
+  let unitCount = 0;
+  let itemCount = 0;
+
+  for (const u of args.units) {
+    const floor = Math.floor(u.floor);
+    const final = Math.max(1, Math.floor(u.final));
+    const unitId = await ctx.db.insert("projectUnits", {
+      projectId: args.projectId,
+      floor,
+      final,
+      label: u.label?.trim() || `${floor}${String(final).padStart(2, "0")}`,
+      type: u.type,
+      floorSpan: Math.max(1, Math.floor(u.floorSpan ?? 1)),
+      deadline: u.deadline ?? undefined,
+    });
+    unitCount++;
+
+    for (const e of u.equipment) {
+      await ctx.db.insert("projectEquipment", {
+        projectId: args.projectId,
+        unitId,
+        system: e.system.trim() || "Split",
+        ambiente: e.ambiente.trim() || "Ambiente",
+        kind: e.kind,
+        modelo: e.modelo?.trim() ?? "",
+        capacidade: e.capacidade?.trim() ?? "",
+        obs: e.obs?.trim() || undefined,
+        status: "installing",
+      });
+      itemCount++;
+    }
+  }
+
+  return { units: unitCount, items: itemCount };
+}

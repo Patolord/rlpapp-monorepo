@@ -29,8 +29,11 @@ const convexDir = resolve(here, "../convex");
 const outFile = join(convexDir, "mcp/catalog.generated.ts");
 
 // Só módulos de nível superior exportam funções públicas neste backend;
-// lib/ e model/ são helpers e mcp/ é a saída deste script.
+// lib/, model/ e schema/ são helpers e mcp/ é a saída deste script.
+// migrations.ts fica de fora: backfills de uso único rodam pelo dashboard ou
+// `npx convex run`, nunca por um agente (MCP ou /api/v1).
 const EXCLUDED_FILES = new Set([
+  "migrations.ts",
   "schema.ts",
   "http.ts",
   "crons.ts",

@@ -9,29 +9,26 @@ capability.
 
 ```text
 convex/
-  contracts.ts          Public queries and mutations
-  materials.ts
-  materialLookup.ts     Internal natural-language material lookup
-  takeoffCatalog.ts     Internal catalog export for the RLP Takeoff desktop app
-  takeoffMaterials.ts   Internal material proposals from the RLP Takeoff desktop app
-  projects.ts
-  model/
-    contracts/          Contract rules, operations, and read models
-    engineering/
-    procurement/
-    inventory/
-    identity/
-    hr/
-    ai/
-  lib/
-    auth.ts             Authentication primitives
-    rbac.ts             Authorization policy and function wrappers
-    audit.ts            Audit recording
+  contracts.ts          Public functions (one file per resource; the path is the API:
+  materials.ts          `api.materials.update`). Thin: args, returns, wrapper, and a
+  projects.ts ...       call to a named model function.
+  schema.ts             Assembles the schema from schema/<domain>.ts
+  http.ts, crons.ts     HTTP routes and scheduled jobs
+  migrations.ts         One-off backfills, run by hand (not in the MCP/API catalog)
+  schema/               Tables and shared validators, one file per domain
+  model/                Business logic as plain TypeScript functions, by domain
+    ai/                 Assistant intents
+    contracts/          Customers, contractors, contracts, measurements
+    engineering/        Projects, hierarchy, systems, equipment, QR codes, documents
+    hr/                 Employees, payroll, loans, alimonies, time clock
+    identity/           Users and agent tokens
+    inventory/          Locations, movements, balances, requests, stock policies
+    procurement/        Materials, suppliers, prices, takeoffs
+  lib/                  Cross-cutting infrastructure only: auth, rbac, audit,
+                        accessErrors, apiCrypto, agentTokens, takeoffAuth
+  gateway/              HTTP API `/api/v1` and the desktop login endpoints
+  mcp/                  Function catalog for the MCP server and `/api/v1`
 ```
-
-Directories under `model/` are added as their domains are migrated. Existing
-domain code under `lib/` is moved incrementally rather than through a single
-repository-wide rewrite.
 
 ## Model conventions
 
@@ -45,10 +42,15 @@ repository-wide rewrite.
   capabilities, not once per function.
 - Call ordinary TypeScript model functions directly from queries and mutations
   to keep work in one Convex transaction.
-- Do not import reusable implementation from root public-function files.
+- Root public-function files never import each other: reusable code and
+  shared validators live in `model/<domain>` or `schema/<domain>`. ESLint
+  (`no-restricted-imports` in `eslint.config.mjs`) enforces this, and also
+  stops `lib/`, `model/`, `schema/` and `gateway/` from importing root files.
 - Do not create catch-all `helpers.ts`, `utils.ts`, or shared domain libraries.
 - Keep authentication, authorization, and auditing focused in `lib/`; keep
   business rules in their owning model domain.
+- A file past ~600 lines usually holds more than one capability; split it
+  along those seams (see `model/procurement/material*.ts`, `model/hr/payroll*.ts`).
 - Files using `"use node"` contain actions and Node-runtime helpers only.
 
 Domain terminology is defined in the repository-level `CONTEXT.md`.
@@ -63,8 +65,8 @@ Domain terminology is defined in the repository-level `CONTEXT.md`.
 - `inventory`: locations, movement documents, balances, requests, and stock
   policies.
 - `identity`: users and authentication integration.
-- `hr`: employees, payroll runs, loans, and alimonies (pensão alimentícia, paid to a
-  beneficiary in its own payroll line).
+- `hr`: employees, payroll runs, loans, alimonies (pensão alimentícia, paid to a
+  beneficiary in its own payroll line), and the time clock.
 - `ai`: chat, interpretation, and application of engineering intents.
 
 ## Access control
@@ -99,7 +101,7 @@ Migration from the legacy `role` (job title) + `department` pair:
 
 - Nothing reads or writes `role`/`department` any more, except the migration.
   A user document that still lacks `roles` is read through `rolesFromLegacy`
-  (same effective permissions); every write of access (`lib/users.ts`
+  (same effective permissions); every write of access (`model/identity/users.ts`
   `accessFields`) stores `roles` and clears the two legacy fields.
 - After deploying, run `npx convex run migrations:migrateUserAccess` once
   (idempotent): it fills `roles` where missing and removes `role`/`department`

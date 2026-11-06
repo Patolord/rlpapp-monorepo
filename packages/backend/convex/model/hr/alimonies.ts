@@ -6,8 +6,9 @@ import type { MutationCtx, QueryCtx } from "../../_generated/server";
 /**
  * Pensão alimentícia: cadastro por funcionário e linhas mensais da folha.
  *
- * Helpers compartilhados entre `alimonies.ts` (cadastro e linhas) e
- * `payroll.ts` (abertura da competência e workspace). Nada aqui recalcula a
+ * Helpers compartilhados entre `alimonies.ts` (cadastro e linhas) e a folha
+ * (`payrollRuns.ts`, `payrollLines.ts`, `payrollWorkspace.ts`: abertura da
+ * competência, inclusão de funcionário e workspace). Nada aqui recalcula a
  * linha do funcionário: a pensão é paga ao beneficiário em linha própria.
  */
 

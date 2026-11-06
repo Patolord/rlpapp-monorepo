@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 46 módulos, 341 funções públicas.
+// 45 módulos, 334 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -25,30 +25,29 @@ import * as m18 from "../inventoryStockPolicies";
 import * as m19 from "../maintenanceLogs";
 import * as m20 from "../materials";
 import * as m21 from "../medicoes";
-import * as m22 from "../migrations";
-import * as m23 from "../payroll";
-import * as m24 from "../portal";
-import * as m25 from "../priceEvents";
-import * as m26 from "../projectDocuments";
-import * as m27 from "../projectEquipment";
-import * as m28 from "../projectUnits";
-import * as m29 from "../projects";
-import * as m30 from "../qrCodes";
-import * as m31 from "../reports";
-import * as m32 from "../suppliers";
-import * as m33 from "../systems";
-import * as m34 from "../takeoffAuth";
-import * as m35 from "../takeoffCatalog";
-import * as m36 from "../takeoffKits";
-import * as m37 from "../takeoffMaterials";
-import * as m38 from "../takeoffSettings";
-import * as m39 from "../takeoffs";
-import * as m40 from "../technicianActivity";
-import * as m41 from "../technicianPortal";
-import * as m42 from "../timeClock";
-import * as m43 from "../timeClockPunch";
-import * as m44 from "../towers";
-import * as m45 from "../users";
+import * as m22 from "../payroll";
+import * as m23 from "../portal";
+import * as m24 from "../priceEvents";
+import * as m25 from "../projectDocuments";
+import * as m26 from "../projectEquipment";
+import * as m27 from "../projectUnits";
+import * as m28 from "../projects";
+import * as m29 from "../qrCodes";
+import * as m30 from "../reports";
+import * as m31 from "../suppliers";
+import * as m32 from "../systems";
+import * as m33 from "../takeoffAuth";
+import * as m34 from "../takeoffCatalog";
+import * as m35 from "../takeoffKits";
+import * as m36 from "../takeoffMaterials";
+import * as m37 from "../takeoffSettings";
+import * as m38 from "../takeoffs";
+import * as m39 from "../technicianActivity";
+import * as m40 from "../technicianPortal";
+import * as m41 from "../timeClock";
+import * as m42 from "../timeClockPunch";
+import * as m43 from "../towers";
+import * as m44 from "../users";
 
 export type AccessHint =
   | { kind: "public" }
@@ -81,30 +80,29 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   maintenanceLogs: m19,
   materials: m20,
   medicoes: m21,
-  migrations: m22,
-  payroll: m23,
-  portal: m24,
-  priceEvents: m25,
-  projectDocuments: m26,
-  projectEquipment: m27,
-  projectUnits: m28,
-  projects: m29,
-  qrCodes: m30,
-  reports: m31,
-  suppliers: m32,
-  systems: m33,
-  takeoffAuth: m34,
-  takeoffCatalog: m35,
-  takeoffKits: m36,
-  takeoffMaterials: m37,
-  takeoffSettings: m38,
-  takeoffs: m39,
-  technicianActivity: m40,
-  technicianPortal: m41,
-  timeClock: m42,
-  timeClockPunch: m43,
-  towers: m44,
-  users: m45,
+  payroll: m22,
+  portal: m23,
+  priceEvents: m24,
+  projectDocuments: m25,
+  projectEquipment: m26,
+  projectUnits: m27,
+  projects: m28,
+  qrCodes: m29,
+  reports: m30,
+  suppliers: m31,
+  systems: m32,
+  takeoffAuth: m33,
+  takeoffCatalog: m34,
+  takeoffKits: m35,
+  takeoffMaterials: m36,
+  takeoffSettings: m37,
+  takeoffs: m38,
+  technicianActivity: m39,
+  technicianPortal: m40,
+  timeClock: m41,
+  timeClockPunch: m42,
+  towers: m43,
+  users: m44,
 };
 
 export const ACCESS_HINTS: Record<string, AccessHint> = {
@@ -266,13 +264,6 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "medicoes:removeMedicao": { kind: "permission", permission: "medicoes.write" },
   "medicoes:setMedicaoStatus": { kind: "permission", permission: "medicoes.aprovar" },
   "medicoes:updateMedicao": { kind: "permission", permission: "medicoes.write" },
-  "migrations:backfillCustomerContactsActive": { kind: "permission", permission: "admin.manage" },
-  "migrations:backfillCustomersFromProjects": { kind: "permission", permission: "admin.manage" },
-  "migrations:backfillTowersAndFloors": { kind: "permission", permission: "admin.manage" },
-  "migrations:backfillUnifiedContracts": { kind: "permission", permission: "admin.manage" },
-  "migrations:verifyCustomerMigration": { kind: "permission", permission: "admin.manage" },
-  "migrations:verifyProjectCustomerAndNumbersPage": { kind: "permission", permission: "admin.manage" },
-  "migrations:verifyUnifiedContractsPage": { kind: "permission", permission: "admin.manage" },
   "payroll:addEmployeeToRun": { kind: "permission", permission: "rh.folha.write" },
   "payroll:archiveLoan": { kind: "permission", permission: "rh.folha.write" },
   "payroll:closeRun": { kind: "permission", permission: "rh.folha.write" },
