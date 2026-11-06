@@ -134,4 +134,14 @@ canvas {
   .num-input {
     @apply w-20 rounded bg-neutral-800 px-1.5 py-0.5 text-right font-mono text-xs text-neutral-100 outline-none ring-1 ring-neutral-700 focus:ring-orange-400;
   }
+  /* a borderless number inside a framed box (the item row's material / labour / waste): no spinner */
+  .price-field {
+    @apply bg-transparent px-1.5 text-right font-mono text-xs text-neutral-100 outline-none;
+    appearance: textfield;
+  }
+  .price-field::-webkit-inner-spin-button,
+  .price-field::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
 }

@@ -1,23 +1,31 @@
 import {
-  ChevronDown,
+  Ellipsis,
   FilePlus2,
   FileText,
   FolderOpen,
   FolderX,
-  Save,
+  Info,
   SaveAll,
-  Send,
   Settings2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { sentToAppLabel } from "../lib/appLink";
-import { closeProject, openProjectFile, pickAndOpenProject, saveProject } from "../lib/files";
+import {
+  closeProject,
+  openProjectFile,
+  pickAndOpenPdf,
+  pickAndOpenProject,
+  saveProject,
+} from "../lib/files";
 import { MOD } from "../lib/platform";
 import { basename } from "../lib/session";
 import { useStore } from "../store";
 import { Kbd } from "./ui";
 
-/** Project menu: new, open, recent, save, save as, close. */
+/**
+ * The "⋯" menu of the top bar: what is used now and then (new, open, recent, add drawings, save
+ * as, catalog and prices, about, close). Save, the cutout report, sending to the company app and
+ * the budget sheet are buttons of their own on the bar.
+ */
 export function ProjectMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -25,16 +33,26 @@ export function ProjectMenu() {
   const filePath = useStore((s) => s.filePath);
   const setNewProjectOpen = useStore((s) => s.setNewProjectOpen);
   const setCatalogSettingsOpen = useStore((s) => s.setCatalogSettingsOpen);
-  const setReportOpen = useStore((s) => s.setReportOpen);
-  const setSendBudgetOpen = useStore((s) => s.setSendBudgetOpen);
-  const sentToApp = useStore((s) => s.project.sentToApp);
+  const setAboutOpen = useStore((s) => s.setAboutOpen);
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
+    // capture phase + stopPropagation: Escape only closes the menu, the app-wide Escape
+    // (clear selection, cancel a draft, back to select) does not run
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setOpen(false);
+      }
+    };
     window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey, true);
+    };
   }, [open]);
 
   const item = (
@@ -46,6 +64,7 @@ export function ProjectMenu() {
   ) => (
     <button
       type="button"
+      role="menuitem"
       disabled={disabled}
       onClick={() => {
         setOpen(false);
@@ -64,12 +83,23 @@ export function ProjectMenu() {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="inline-flex h-8 items-center gap-1 rounded-md bg-neutral-800 px-2.5 text-xs font-medium text-neutral-200 ring-1 ring-neutral-700 hover:bg-neutral-700"
+        aria-label="Mais ações do takeoff"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Mais ações: novo, abrir, recentes, salvar como, catálogo…"
+        className={
+          open
+            ? "flex h-8 w-8 items-center justify-center rounded-md bg-neutral-700 text-neutral-100 ring-1 ring-neutral-700"
+            : "flex h-8 w-8 items-center justify-center rounded-md bg-neutral-800 text-neutral-200 ring-1 ring-neutral-700 hover:bg-neutral-700"
+        }
       >
-        Takeoff <ChevronDown size={15} />
+        <Ellipsis size={16} />
       </button>
       {open && (
-        <div className="enter-pop absolute left-0 top-9 z-40 origin-top-left w-72 rounded-md border border-neutral-700 bg-neutral-900 py-1 shadow-xl">
+        <div
+          role="menu"
+          className="enter-pop absolute top-9 right-0 z-40 w-72 origin-top-right rounded-md border border-neutral-700 bg-neutral-900 py-1 shadow-xl"
+        >
           {item(
             <FilePlus2 size={16} />,
             "Novo takeoff…",
@@ -88,6 +118,7 @@ export function ProjectMenu() {
                 <button
                   key={r.path}
                   type="button"
+                  role="menuitem"
                   title={r.path}
                   onClick={() => {
                     setOpen(false);
@@ -104,11 +135,11 @@ export function ProjectMenu() {
             </div>
           )}
           {item(
-            <Save size={16} />,
-            "Salvar",
-            () => void saveProject(false),
+            <FileText size={16} />,
+            "Adicionar plantas…",
+            () => void pickAndOpenPdf(),
             <>
-              <Kbd>{MOD}</Kbd>+<Kbd>S</Kbd>
+              <Kbd>{MOD}</Kbd>+<Kbd>O</Kbd>
             </>,
           )}
           {item(
@@ -120,26 +151,8 @@ export function ProjectMenu() {
             </>,
           )}
           <div className="my-1 border-t border-neutral-800" />
-          {item(
-            <FileText size={16} />,
-            "Relatório de recortes (PDF)…",
-            () => setReportOpen(true),
-            <>
-              <Kbd>{MOD}</Kbd>+<Kbd>Shift</Kbd>+<Kbd>E</Kbd>
-            </>,
-          )}
-          {item(
-            <Send size={16} />,
-            sentToApp ? "Atualizar orçamento aprovado no app…" : "Enviar orçamento aprovado…",
-            () => setSendBudgetOpen(true),
-          )}
-          {sentToApp && (
-            <p className="px-3 pb-1 pl-9 text-[11px] text-neutral-500">
-              {sentToAppLabel(sentToApp)}
-            </p>
-          )}
-          <div className="my-1 border-t border-neutral-800" />
           {item(<Settings2 size={16} />, "Catálogo e preços…", () => setCatalogSettingsOpen(true))}
+          {item(<Info size={16} />, "Sobre o RLP Takeoff", () => setAboutOpen(true), <Kbd>F1</Kbd>)}
           <div className="my-1 border-t border-neutral-800" />
           {item(<FolderX size={16} />, "Fechar takeoff", () => void closeProject())}
         </div>
