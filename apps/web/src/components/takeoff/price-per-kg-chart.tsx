@@ -13,8 +13,8 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * Variação do preço por kg publicado de um ou mais insumos (cobre nas duas faixas, chapa): um
- * degrau por publicação, vigente até a seguinte e a última até hoje. Um eixo só, em R$/kg.
+ * Variação do preço por kg de um ou mais insumos (cobre nas duas faixas, chapa): um degrau por
+ * registro, vigente até o seguinte e o último até hoje. Um eixo só, em R$/kg.
  */
 
 export type PriceSeries = {
@@ -75,7 +75,6 @@ function ChartBody({
 }) {
   const [now] = useState(() => Date.now());
   const [hoverAt, setHoverAt] = useState<number | null>(null);
-  const [showTable, setShowTable] = useState(false);
 
   if (history === undefined) {
     return <p className="text-sm text-muted-foreground">Carregando histórico…</p>;
@@ -85,7 +84,7 @@ function ChartBody({
   if (all.length === 0) {
     return (
       <p className="rounded-md border border-dashed border-control-border px-4 py-6 text-center text-sm text-muted-foreground">
-        Sem histórico ainda. Cada publicação que muda o preço vira um ponto deste gráfico.
+        Sem registros ainda. Cada preço registrado com a sua data vira um ponto deste gráfico.
       </p>
     );
   }
@@ -199,46 +198,14 @@ function ChartBody({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        {lines.length > 1 &&
-          lines.map((l) => (
+      {lines.length > 1 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {lines.map((l) => (
             <span key={l.material} className="flex items-center gap-1.5">
               <span className={cn("h-0.5 w-4 rounded-full bg-current", l.colorClass)} aria-hidden />
               {l.label}
             </span>
           ))}
-        <span className="flex-1" />
-        <button type="button" className="underline-offset-2 hover:underline" onClick={() => setShowTable((v) => !v)}>
-          {showTable ? "Esconder publicações" : "Ver publicações"}
-        </button>
-      </div>
-
-      {showTable && (
-        <div className="overflow-x-auto rounded-md border border-control-border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-3 py-1.5 text-left font-medium">Data</th>
-                <th className="px-3 py-1.5 text-left font-medium">Insumo</th>
-                <th className="px-3 py-1.5 text-right font-medium">R$/kg</th>
-                <th className="px-3 py-1.5 text-left font-medium">Por</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...all]
-                .sort((a, b) => b.recordedAt - a.recordedAt)
-                .map((p) => (
-                  <tr key={`${p.material}-${p.recordedAt}`} className="border-t border-control-border">
-                    <td className="px-3 py-1.5 tabular-nums">{dateShort.format(p.recordedAt)}</td>
-                    <td className="px-3 py-1.5">{series.find((s) => s.material === p.material)?.label}</td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">
-                      {p.price === null ? "padrão do fornecedor" : brl.format(p.price)}
-                    </td>
-                    <td className="px-3 py-1.5 text-muted-foreground">{p.recordedBy ?? "—"}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
         </div>
       )}
     </div>

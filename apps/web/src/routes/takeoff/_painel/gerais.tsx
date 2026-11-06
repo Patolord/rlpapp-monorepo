@@ -16,7 +16,8 @@ import {
   toText,
   usePublisher,
 } from "@/components/takeoff/painel";
-import { PricePerKgChart, SERIES_COLORS } from "@/components/takeoff/price-per-kg-chart";
+import { SERIES_COLORS } from "@/components/takeoff/price-per-kg-chart";
+import { PriceRecords } from "@/components/takeoff/price-records";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -62,67 +63,39 @@ function GeraisPage() {
   const settings = useQuery(api.takeoffSettings.get, {});
   const history = useQuery(api.takeoffSettings.priceHistory, {});
   const saveWeights = useMutation(api.takeoffSettings.saveWeights);
-  const saveBasePrices = useMutation(api.takeoffSettings.saveBasePrices);
   const seedDefaults = useMutation(api.takeoffSettings.seedDefaults);
   const { busy, run } = usePublisher();
-  const [prices, setPrices] = useState<Texts>({});
   const [gauges, setGauges] = useState<Texts>({});
   const [rows, setRows] = useState<WeightRow[]>([]);
-  // the forms follow the published values until edited; a publish ends the edit only when
-  // nothing was typed while it ran (latest holds what is on screen right now)
-  const [dirty, setDirty] = useState({ prices: false, weights: false });
-  const latest = useRef({ prices, gauges, rows });
-  latest.current = { prices, gauges, rows };
+  // the weights follow the published values until edited; a publish ends the edit only when
+  // nothing was typed while it ran (latest holds what is on screen right now). Prices are not
+  // part of it: each one is a dated record, saved on its own (PriceRecords).
+  const [dirty, setDirty] = useState(false);
+  const latest = useRef({ gauges, rows });
+  latest.current = { gauges, rows };
   useEffect(() => {
     if (!settings) return;
-    if (!dirty.prices) setPrices(toTexts(settings.basePrices));
-    if (!dirty.weights) {
+    if (!dirty) {
       setGauges(toTexts(settings.weights?.gaugeWeights));
       setRows((settings.weights?.rows ?? []).map((r) => ({ ...r })));
     }
   }, [settings, dirty]);
 
-  const editPrice = (key: string, value: string) => {
-    setDirty((d) => ({ ...d, prices: true }));
-    setPrices((p) => ({ ...p, [key]: value }));
-  };
   const editWeights = (next: { gauges?: Texts; rows?: WeightRow[] }) => {
-    setDirty((d) => ({ ...d, weights: true }));
+    setDirty(true);
     if (next.gauges) setGauges(next.gauges);
     if (next.rows) setRows(next.rows);
   };
 
   const publish = () =>
     run(async () => {
-      const sent = JSON.stringify({ prices, gauges, rows });
-      if (dirty.prices) await saveBasePrices({ prices: toNumbers(prices) });
-      if (dirty.weights) {
-        await saveWeights({ rows: rows.filter((r) => r.name.trim()), gaugeWeights: toNumbers(gauges) });
-      }
-      if (JSON.stringify(latest.current) === sent) setDirty({ prices: false, weights: false });
-    }, "Parâmetros gerais publicados");
+      const sent = JSON.stringify({ gauges, rows });
+      await saveWeights({ rows: rows.filter((r) => r.name.trim()), gaugeWeights: toNumbers(gauges) });
+      if (JSON.stringify(latest.current) === sent) setDirty(false);
+    }, "Pesos publicados");
   const loadFactoryWeights = () =>
     run(() => seedDefaults({ kind: "weights" }), "Pesos do fornecedor carregados");
 
-  const priceInput = (key: string) => {
-    const m = material(key);
-    return (
-      <div key={key} className="space-y-1.5">
-        <Label htmlFor={`price-${key}`}>{m.label} (R$/kg)</Label>
-        <Input
-          id={`price-${key}`}
-          type="number"
-          min={0}
-          step="0.01"
-          value={prices[key] ?? ""}
-          placeholder={m.defaultPrice !== undefined ? `${m.defaultPrice} (fornecedor)` : "sem preço"}
-          onChange={(e) => editPrice(key, e.target.value)}
-          className="text-right font-mono"
-        />
-      </div>
-    );
-  };
-  const pricesMeta = publishedLine(settings?.meta.basePrices ?? null, "Preço ainda não publicado: o app usa o do fornecedor.");
   const weightsMeta = publishedLine(settings?.meta.weights ?? null, "Pesos ainda não publicados: o app usa a tabela do fornecedor.");
 
   return (
@@ -137,12 +110,12 @@ function GeraisPage() {
           <CardTitle>Cobre</CardTitle>
           <CardDescription>
             Preço por kg dos tubos nas duas faixas de parede e o peso de cada tubo. Preço do tubo =
-            kg por metro × R$/kg. {pricesMeta}
+            kg por metro × R$/kg. Cada preço é um registro com a data em que vale; o app usa o
+            mais recente e, sem registro, o preço do fornecedor.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2">{["cobre", "cobre_grosso"].map(priceInput)}</div>
-          <PricePerKgChart series={COPPER_SERIES} history={history} />
+          <PriceRecords series={COPPER_SERIES} history={history} />
 
           <div className="space-y-2">
             <div className="flex flex-wrap items-end justify-between gap-2">
@@ -170,13 +143,13 @@ function GeraisPage() {
         <CardHeader>
           <CardTitle>Chapa galvanizada</CardTitle>
           <CardDescription>
-            Preço por kg e peso por m² de cada bitola, usados no peso e no preço dos dutos. Sem
-            preço por kg, o app mantém o preço por bitola da planilha. {pricesMeta}
+            Preço por kg e peso por m² de cada bitola, usados no peso e no preço dos dutos. Cada
+            preço é um registro datado e vale o mais recente; sem registro, o app mantém o preço
+            por bitola da planilha.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2">{priceInput("chapa")}</div>
-          <PricePerKgChart series={SHEET_SERIES} history={history} />
+          <PriceRecords series={SHEET_SERIES} history={history} />
           <div className="space-y-2">
             <h3 className="text-sm font-medium">Peso por bitola (kg/m²)</h3>
             <div className="grid gap-3 sm:grid-cols-5">
@@ -205,11 +178,11 @@ function GeraisPage() {
       <KitsSection />
 
       <PublishBar
-        dirty={dirty.prices || dirty.weights}
+        dirty={dirty}
         busy={busy}
         disabled={!settings}
         onPublish={() => void publish()}
-        onDiscard={() => setDirty({ prices: false, weights: false })}
+        onDiscard={() => setDirty(false)}
       />
     </div>
   );

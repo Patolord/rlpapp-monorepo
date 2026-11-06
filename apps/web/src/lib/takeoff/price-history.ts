@@ -45,7 +45,8 @@ export function priceAt(points: readonly PricePoint[], at: number): number | nul
   return current;
 }
 
-const change = (from: number, fromAt: number, to: number): PriceChange => {
+/** Variação de `from` (vigente desde `fromAt`) até `to`, em centavos e em %. */
+export const priceChange = (from: number, fromAt: number, to: number): PriceChange => {
   const fromCents = Math.round(from * 100);
   const deltaCents = Math.round(to * 100) - fromCents;
   return {
@@ -82,8 +83,8 @@ export function priceSummary(points: readonly PricePoint[], now: number): PriceS
   const yearAgo = priceAt(points, yearAgoAt);
   return {
     current: { price: last.price, since: last.recordedAt },
-    vsPrevious: previous?.price != null ? change(previous.price, previous.recordedAt, last.price) : null,
-    vs12Months: typeof yearAgo === "number" ? change(yearAgo, yearAgoAt, last.price) : null,
+    vsPrevious: previous?.price != null ? priceChange(previous.price, previous.recordedAt, last.price) : null,
+    vs12Months: typeof yearAgo === "number" ? priceChange(yearAgo, yearAgoAt, last.price) : null,
     min,
     max,
   };
