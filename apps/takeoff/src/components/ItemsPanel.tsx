@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import {
   AirVent,
+  ChevronDown,
   CircleDot,
   Cuboid,
   FileText,
@@ -666,9 +667,10 @@ function ItemRow({
         e.stopPropagation();
         setEditing(field);
       }}
-      className="truncate rounded bg-neutral-800 px-1.5 py-px text-[11px] text-neutral-400 hover:text-neutral-100"
+      className="flex h-[22px] min-w-0 max-w-[10rem] items-center gap-0.5 rounded-full bg-neutral-900 px-2 text-[12px] text-neutral-300 ring-1 ring-neutral-700 hover:text-neutral-100 hover:ring-neutral-600"
     >
-      {label}
+      <span className="truncate">{label}</span>
+      <ChevronDown size={11} className="shrink-0 text-neutral-500" />
     </button>
   );
 
@@ -775,15 +777,16 @@ function ItemRow({
         </span>
       </div>
       {active && (
-        <div className="mt-1 space-y-1 pl-5">
-          <div className="flex items-center gap-1.5 text-[11px] text-neutral-400">
+        <div className="mt-1 space-y-1.5 pl-5">
+          <div className="flex min-w-0 items-center gap-1 text-[12px] text-neutral-400">
             {editing === "group"
               ? tagInput("group", item.group, "item-groups", "Grupo")
-              : tag("group", item.group, "Grupo da planilha (clique para alterar)")}
+              : tag("group", item.group || "grupo", "Grupo da planilha (clique para alterar)")}
             {editing === "system"
               ? tagInput("system", item.system ?? "", "item-systems", "Disciplina (aba)")
               : tag("system", systemLabel || "disciplina", systemTitle)}
-            <span className="ml-auto flex items-center gap-1">
+            <span className="ml-auto flex shrink-0 items-center gap-1">
+              <WasteControl value={item.wastePct} onChange={(wastePct) => onChange({ wastePct })} />
               <button
                 type="button"
                 title={
@@ -834,72 +837,71 @@ function ItemRow({
               }
             </span>
           </div>
-          <div className="flex items-center gap-x-2 whitespace-nowrap text-[11px] text-neutral-400">
-            <label className="flex items-center gap-1 whitespace-nowrap">
-              Material
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={item.materialPrice}
-                onClick={stop}
-                onChange={(e) => onChange({ materialPrice: Number(e.target.value) || 0 })}
-                className={clsx(
-                  "num-input w-[3.9rem]",
-                  weightInfo && item.priceSource === "manual" && "ring-1 ring-amber-400/70",
-                )}
-                title={
-                  weightInfo && item.priceSource === "manual"
-                    ? `Preço digitado nesta linha; por peso seria ${weightInfo}. Clique em ↺ para voltar ao preço por peso.`
-                    : weightInfo
-                      ? `Preço por peso: ${weightInfo}. Digite outro valor para sobrescrever só nesta linha.`
-                      : item.priceSource
-                        ? `Preço unitário: material · ${describePriceSource(item.priceSource, item.priceDate)}`
-                        : "Preço unitário: material"
-                }
-              />
-              <PriceSourceBadge source={item.priceSource} priceDate={item.priceDate} />
-              {weightInfo && item.priceSource === "manual" && (
-                <button
-                  type="button"
-                  title="Voltar ao preço por peso (segue o R$/kg do insumo)"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onChange({ priceSource: "weight" });
-                  }}
-                  className="rounded p-0.5 text-amber-400 hover:text-amber-300"
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 whitespace-nowrap text-[12px] text-neutral-400">
+            {/* material on the left, labour on the right: always side by side */}
+            <span className="flex items-center gap-3">
+              <label className="flex items-center gap-1 whitespace-nowrap">
+                Material
+                <span
+                  className={clsx(
+                    "flex h-[22px] items-center gap-1 rounded bg-neutral-900 pr-1 ring-1 focus-within:ring-orange-400",
+                    weightInfo && item.priceSource === "manual"
+                      ? "ring-amber-400/70"
+                      : "ring-neutral-700",
+                  )}
                 >
-                  <RotateCcw size={13} />
-                </button>
-              )}
-            </label>
-            <label className="flex items-center gap-1 whitespace-nowrap">
-              M. obra
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={item.laborPrice}
-                onClick={stop}
-                onChange={(e) => onChange({ laborPrice: Number(e.target.value) || 0 })}
-                className="num-input w-[3.9rem]"
-                title="Preço unitário: mão de obra"
-              />
-            </label>
-            <label className="flex items-center gap-1 whitespace-nowrap">
-              Perda
-              <input
-                type="number"
-                min={0}
-                step="1"
-                value={item.wastePct}
-                onClick={stop}
-                onChange={(e) => onChange({ wastePct: Number(e.target.value) || 0 })}
-                className="num-input w-11"
-                title="Percentual de perda acrescido à quantidade"
-              />
-              %
-            </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={item.materialPrice}
+                    onClick={stop}
+                    onChange={(e) => onChange({ materialPrice: Number(e.target.value) || 0 })}
+                    aria-label="Preço unitário: material"
+                    className="price-field w-16"
+                    title={
+                      weightInfo && item.priceSource === "manual"
+                        ? `Preço digitado nesta linha; por peso seria ${weightInfo}. Clique em ↺ para voltar ao preço por peso.`
+                        : weightInfo
+                          ? `Preço por peso: ${weightInfo}. Digite outro valor para sobrescrever só nesta linha.`
+                          : item.priceSource
+                            ? `Preço unitário: material · ${describePriceSource(item.priceSource, item.priceDate)}`
+                            : "Preço unitário: material"
+                    }
+                  />
+                  <PriceSourceBadge source={item.priceSource} priceDate={item.priceDate} />
+                </span>
+                {weightInfo && item.priceSource === "manual" && (
+                  <button
+                    type="button"
+                    title="Voltar ao preço por peso (segue o R$/kg do insumo)"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onChange({ priceSource: "weight" });
+                    }}
+                    className="rounded p-0.5 text-amber-400 hover:text-amber-300"
+                  >
+                    <RotateCcw size={13} />
+                  </button>
+                )}
+              </label>
+              <label className="flex items-center gap-1 whitespace-nowrap">
+                M.O.
+                <span className="flex h-[22px] items-center rounded bg-neutral-900 ring-1 ring-neutral-700 focus-within:ring-orange-400">
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={item.laborPrice}
+                    onClick={stop}
+                    onChange={(e) => onChange({ laborPrice: Number(e.target.value) || 0 })}
+                    aria-label="Preço unitário: mão de obra"
+                    className="price-field w-16"
+                    title="Preço unitário: mão de obra"
+                  />
+                </span>
+              </label>
+            </span>
             {item.kind === "linear" && !item.derived && (
               <label
                 className="flex items-center gap-1 whitespace-nowrap"
@@ -931,6 +933,53 @@ function ItemRow({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Waste (perda) is an occasional adjustment, not a first-class field: a small dotted link in the
+ * item's tag line ("perda 10%", or "+ perda" when there is none) that turns into a tiny input.
+ */
+function WasteControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [open, setOpen] = useState(false);
+  if (open) {
+    return (
+      <label className="flex items-center gap-1 text-[12px] text-neutral-400">
+        perda
+        <input
+          autoFocus
+          type="number"
+          min={0}
+          step="1"
+          defaultValue={value || ""}
+          aria-label="Perda (%)"
+          onClick={(e) => e.stopPropagation()}
+          onBlur={(e) => {
+            onChange(Math.max(0, Number(e.target.value) || 0));
+            setOpen(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") setOpen(false);
+          }}
+          className="price-field h-5 w-9 rounded bg-neutral-900 ring-1 ring-orange-400"
+        />
+        %
+      </label>
+    );
+  }
+  return (
+    <button
+      type="button"
+      title="Percentual de perda acrescido à quantidade (clique para alterar)"
+      onClick={(e) => {
+        e.stopPropagation();
+        setOpen(true);
+      }}
+      className="rounded px-1 font-mono text-[12px] text-neutral-400 underline decoration-neutral-600 decoration-dotted underline-offset-[3px] hover:text-neutral-100"
+    >
+      {value ? `perda ${value}%` : "+ perda"}
+    </button>
   );
 }
 
