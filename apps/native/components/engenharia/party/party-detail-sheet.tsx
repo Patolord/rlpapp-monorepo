@@ -17,7 +17,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
-import { formatTaxId } from "@/lib/format";
+import { formatTaxId } from "@rlpapp/shared/formatters";
 import { colors, space, type } from "@/lib/theme";
 
 import { PERSON_TYPE_LABELS, type PartyAdapter, type PartyContact, type PartyRow } from "./adapter";

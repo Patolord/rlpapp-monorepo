@@ -3,7 +3,7 @@ import {
   equipmentStatusVariants,
   type EquipmentStatusKey,
 } from "@rlpapp/ui/tokens";
-import { EQUIPMENT_STATUS_LABELS } from "@/lib/equipment-status";
+import { EQUIPMENT_STATUS_LABELS } from "@rlpapp/shared/engenharia/equipment";
 
 export function StatusBadge({ status }: { status: EquipmentStatusKey }) {
   return (

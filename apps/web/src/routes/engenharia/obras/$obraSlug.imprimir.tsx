@@ -10,7 +10,7 @@ import {
   type GridUnit,
 } from "@/components/engenharia/building";
 import { Button } from "@/components/ui/button";
-import { EQUIPMENT_STATUS_LABELS } from "@/lib/equipment-status";
+import { EQUIPMENT_STATUS_LABELS } from "@rlpapp/shared/engenharia/equipment";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
 import { obraLinkSlug } from "@/lib/engenharia/obra-paths";
 

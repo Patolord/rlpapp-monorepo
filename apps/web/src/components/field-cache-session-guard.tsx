@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { useAuth } from "@clerk/tanstack-react-start";
 
-import { syncFieldCacheOwner } from "@/lib/use-field-cache-owner";
-import { useOnline } from "@/lib/use-online";
+import { syncFieldCacheOwner } from "@/hooks/use-field-cache-owner";
+import { useOnline } from "@/hooks/use-online";
 
 /**
  * Montado na raiz: garante que sair da conta (ou entrar com outra) apaga a

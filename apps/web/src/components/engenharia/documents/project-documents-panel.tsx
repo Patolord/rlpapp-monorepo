@@ -35,7 +35,7 @@ import {
   formatFileSize,
   openPdfInNewTab,
 } from "@/lib/project-documents";
-import { useDocumentBlobFetcher } from "@/lib/use-document-blob";
+import { useDocumentBlobFetcher } from "@/hooks/use-document-blob";
 
 type OfficeDocument = FunctionReturnType<
   typeof api.projectDocuments.listByProject

@@ -7,7 +7,7 @@ import type {
 } from "convex/server";
 
 import { readCachedValue, writeCachedValue } from "@/lib/field-cache";
-import { useFieldCacheOwner } from "@/lib/use-field-cache-owner";
+import { useFieldCacheOwner } from "@/hooks/use-field-cache-owner";
 
 export interface OfflineQueryResult<T> {
   /** Resultado ao vivo ou, sem rede, o último resultado salvo. */

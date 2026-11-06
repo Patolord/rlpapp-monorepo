@@ -8,7 +8,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { AppButton, ConfirmDialog, EmptyState, IconButton, KeyValueList, LoadingState, Pill, SectionTitle, Sheet, Surface, useToast } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
-import { formatTaxId } from "@/lib/format";
+import { formatTaxId } from "@rlpapp/shared/formatters";
 import { colors, radius, space, type } from "@/lib/theme";
 
 import { EMPLOYEE_STATUS, PAYMENT_METHOD, formatMonthLabel } from "./labels";

@@ -2,7 +2,7 @@ import { View, Text } from "react-native";
 import {
   EQUIPMENT_STATUS_LABELS,
   type EquipmentStatus,
-} from "@/lib/equipment-status";
+} from "@rlpapp/shared/engenharia/equipment";
 import { cn } from "@/lib/utils";
 
 const statusConfig: Record<

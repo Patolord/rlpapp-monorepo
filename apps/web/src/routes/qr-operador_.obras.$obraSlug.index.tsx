@@ -24,7 +24,7 @@ import { extractQrToken } from "@/components/engenharia/field-qr-scanner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useOnline } from "@/lib/use-online";
+import { useOnline } from "@/hooks/use-online";
 
 export const Route = createFileRoute("/qr-operador_/obras/$obraSlug/")({
   component: CampoObraHubPage,

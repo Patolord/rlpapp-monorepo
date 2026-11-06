@@ -24,7 +24,7 @@ import {
   removePendingRecord,
   type PendingRecord,
 } from "@/lib/offline-queue";
-import { useOnline } from "@/lib/use-online";
+import { useOnline } from "@/hooks/use-online";
 
 /** Registros da fila offline, atualizados sempre que a fila muda. */
 export function usePendingRecords() {

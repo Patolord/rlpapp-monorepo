@@ -16,7 +16,7 @@ import {
   getCachedEquipment,
   type CachedEquipment,
 } from "@/lib/offline-queue";
-import { useOnline } from "@/lib/use-online";
+import { useOnline } from "@/hooks/use-online";
 
 export interface FieldProjectRef {
   _id: Id<"projects">;

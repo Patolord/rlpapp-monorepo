@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
 import {
   EQUIPMENT_STATUS_OPTIONS,
-} from "@/lib/equipment-status";
-import type { EquipmentStatus } from "@/lib/offline-queue";
+} from "@rlpapp/shared/engenharia/equipment";
+import type { EquipmentStatus } from "@rlpapp/shared/engenharia/equipment";
 
 interface EquipmentStatusSelectProps {
   value: EquipmentStatus | null;

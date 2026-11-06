@@ -1,10 +1,6 @@
 {
   "name": "rlpapp",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "type": "module",
   "scripts": {
     "dev": "turbo dev",
@@ -20,13 +16,6 @@
     "dev:setup": "turbo -F @rlpapp/backend dev:setup",
     "dev:agent": "pnpm -F @rlpapp/internal-agent dev:tui",
     "secrets:setup": "doppler setup --no-interactive"
-  },
-  "dependencies": {
-    "@rlpapp/env": "workspace:*",
-    "@tanstack/react-start": "^1.168.60",
-    "react": "19.2.6",
-    "react-dom": "19.2.6",
-    "zod": "catalog:"
   },
   "devDependencies": {
     "@rlpapp/config": "workspace:*",

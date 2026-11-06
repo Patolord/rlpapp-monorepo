@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { getErrorMessage } from "@/lib/errors";
-import { formatTaxId } from "@/lib/format-tax-id";
+import { formatTaxId } from "@rlpapp/shared/formatters";
 import { splitList } from "@/lib/csv";
 
 const SUPPLIER_COLUMN_ALIASES = {

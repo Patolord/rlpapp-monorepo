@@ -20,7 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getErrorMessage } from "@/lib/errors";
-import { formatTaxId } from "@/lib/format-tax-id";
+import { formatTaxId } from "@rlpapp/shared/formatters";
 
 import {
   type SupplierForm,

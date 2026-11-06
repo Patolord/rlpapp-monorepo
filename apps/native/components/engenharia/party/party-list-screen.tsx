@@ -15,7 +15,7 @@ import {
   SearchField,
   screenStyles,
 } from "@/components/ui";
-import { formatTaxId } from "@/lib/format";
+import { formatTaxId } from "@rlpapp/shared/formatters";
 import { colors, space } from "@/lib/theme";
 
 import type { PartyAdapter, PartyRow } from "./adapter";

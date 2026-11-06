@@ -38,7 +38,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { EQUIPMENT_STATUS_OPTIONS } from "@/lib/equipment-status";
+import { EQUIPMENT_STATUS_OPTIONS } from "@rlpapp/shared/engenharia/equipment";
 import { runWithToast } from "@/lib/errors";
 
 function toDateInput(ms: number | null): string {

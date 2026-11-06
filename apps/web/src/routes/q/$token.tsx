@@ -2,7 +2,7 @@ import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
 import { useEffect } from "react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { useOnline } from "@/lib/use-online";
+import { useOnline } from "@/hooks/use-online";
 import { EquipmentTokenPage } from "@/components/campo/equipment-token-page";
 import { StatusBadge } from "@/components/engenharia/status-badge";
 import { Button } from "@/components/ui/button";

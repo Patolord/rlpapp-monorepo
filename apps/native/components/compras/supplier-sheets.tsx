@@ -8,7 +8,8 @@ import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppButton, ConfirmDialog, EmptyState, Field, IconButton, KeyValueList, LoadingState, Pill, SectionTitle, SegmentedField, Sheet, Surface, useToast } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
-import { formatMaterialLabel, formatTaxId } from "@/lib/format";
+import { formatMaterialLabel } from "@/lib/format";
+import { formatTaxId } from "@rlpapp/shared/formatters";
 import { colors, space, type } from "@/lib/theme";
 
 type Supplier = FunctionReturnType<typeof api.suppliers.list>[number];

@@ -1,7 +1,7 @@
 import type { api } from "@rlpapp/backend/convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
 
-import type { EquipmentStatus } from "@/lib/equipment-status";
+import type { EquipmentStatus } from "@rlpapp/shared/engenharia/equipment";
 import type { Tone } from "@/lib/theme";
 
 export type Hierarchy = NonNullable<FunctionReturnType<typeof api.projects.getHierarchy>>;

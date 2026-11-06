@@ -7,7 +7,7 @@ import {
   setStoredCacheOwner,
 } from "@/lib/field-cache";
 import { recallLastUserId } from "@/lib/last-user";
-import { useOnline } from "@/lib/use-online";
+import { useOnline } from "@/hooks/use-online";
 
 export interface FieldCacheOwner {
   /** Conta (id Clerk) dona da cache local, ou null sem sessão. */

@@ -33,7 +33,7 @@ export const ROLES = [
   // Administração: tudo, inclusive gestão de usuários.
   "admin",
   // Engenheiro: área de engenharia e, nas obras em que é o responsável,
-  // decide exceções (regra por recurso, ver lib/inventory/operations.ts).
+  // decide exceções (regra por recurso, ver packages/backend/convex/model/inventory/operations.ts).
   "engenheiro",
   // Áreas do escritório.
   "engenharia",

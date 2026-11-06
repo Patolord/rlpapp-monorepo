@@ -10,14 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PhotoPicker } from "@/components/engenharia/photo-picker";
 import { EquipmentStatusSelect } from "@/components/engenharia/equipment-status-select";
 import { MaintenanceLogTypeSelect } from "@/components/engenharia/maintenance-log-type-select";
-import type { MaintenanceLogType } from "@/lib/maintenance-log-type";
+import type { MaintenanceLogType } from "@rlpapp/shared/engenharia/equipment";
 import { uploadPhotos } from "@/lib/upload-photos";
-import { useOnline } from "@/lib/use-online";
-import {
-  addPendingRecord,
-  newPendingId,
-  type EquipmentStatus,
-} from "@/lib/offline-queue";
+import { useOnline } from "@/hooks/use-online";
+import { addPendingRecord, newPendingId } from "@/lib/offline-queue";
+import type { EquipmentStatus } from "@rlpapp/shared/engenharia/equipment";
 import { cn } from "@/lib/utils";
 import { Loader2, Plus, CloudOff, User } from "lucide-react";
 

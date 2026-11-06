@@ -13,7 +13,7 @@ import { Button, ButtonText } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/engenharia/status-badge";
 import { COLORS } from "@/lib/colors";
-import { getMaintenanceLogTypeLabel } from "@/lib/maintenance-log-type";
+import { getMaintenanceLogTypeLabel } from "@rlpapp/shared/engenharia/equipment";
 import {
   removePendingRecord,
   requestOfflineSync,

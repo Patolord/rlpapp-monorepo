@@ -19,7 +19,7 @@ import { MaintenanceForm } from "@/components/engenharia/maintenance-form";
 import { MaintenanceLogCard } from "@/components/engenharia/maintenance-log";
 import { StatusBadge } from "@/components/engenharia/status-badge";
 import { COLORS } from "@/lib/colors";
-import type { EquipmentStatus } from "@/lib/equipment-status";
+import type { EquipmentStatus } from "@rlpapp/shared/engenharia/equipment";
 import {
   cacheEquipment,
   getCachedEquipment,

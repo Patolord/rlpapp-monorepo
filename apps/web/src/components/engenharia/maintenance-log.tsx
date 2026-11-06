@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/engenharia/status-badge";
 import { PhotoPicker } from "@/components/engenharia/photo-picker";
-import { getMaintenanceLogTypeLabel, type MaintenanceLogType } from "@/lib/maintenance-log-type";
+import { getMaintenanceLogTypeLabel, type MaintenanceLogType } from "@rlpapp/shared/engenharia/equipment";
 import { uploadPhotos } from "@/lib/upload-photos";
 import { CheckCircle2, XCircle, User, Calendar, ImagePlus, Loader2 } from "lucide-react";
 
