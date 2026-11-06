@@ -144,7 +144,7 @@ export const identityTables = {
     .index("by_user", ["userId"]),
   // Uma linha por chamada de ferramenta feita via MCP com um token de agente.
   // Alimenta "Atividade recente" na página Agentes. Expurgado pelo cron após
-  // AGENT_TOKEN_CALL_RETENTION_DAYS.
+  // AGENT_TOKEN_CALL_RETENTION_DAYS (model/identity/agentTokenCalls.ts).
   agentTokenCalls: defineTable({
     tokenId: v.id("agentTokens"),
     userId: v.id("users"),

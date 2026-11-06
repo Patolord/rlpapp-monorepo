@@ -1,129 +1,56 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import {
   action,
   internalAction,
   internalMutation,
   internalQuery,
   mutation,
-  type MutationCtx,
-  type QueryCtx,
 } from "./_generated/server";
 import {
   generateAgentToken,
-  getAgentTokenClaims,
   hashAgentToken,
   rejectAgentTokenIdentity,
 } from "./lib/agentTokens";
 import {
   adminMutation,
   adminQuery,
-  isAdmin,
-  requireUser,
-  resolveRoles,
   staffMutation,
   staffQuery,
 } from "./lib/rbac";
 import {
-  insertToken,
-  isActiveToken,
-  MAX_TOKENS_PER_USER,
-  normalizeName,
-} from "./model/identity/agentTokens";
-import { accessRoles, agentTokenKind, agentTokenPermission } from "./schema/identity";
+  listAllAgentTokenCalls,
+  listMyAgentTokenCalls,
+  purgeAgentTokenCallsBatch,
+  recordAgentApiRequest,
+  recordAgentTokenCall,
+} from "./model/identity/agentTokenCalls";
+import {
+  findUserIdByLogin,
+  insertAgentTokenForCurrentUser,
+  insertAgentTokenForUser,
+  listAllAgentTokens,
+  listOwnAgentTokens,
+  renameAgentToken,
+  revokeAgentToken,
+  revokeAllAgentTokensForUser,
+  touchAgentToken,
+  verifyAgentTokenHash,
+} from "./model/identity/agentTokenManagement";
+import {
+  agentTokenOwnerValidator,
+  callValidator,
+  publicTokenValidator,
+  verifiedAgentTokenValidator,
+} from "./model/identity/agentTokenValidators";
+import { agentTokenPermission } from "./schema/identity";
 
 /**
  * Tokens de agente: credenciais pessoais para agentes de IA (Claude, Cursor,
  * scripts) usarem o servidor MCP do app como o usuário dono. Ver README →
  * "MCP" e lib/agentTokens.ts para a política central.
  */
-
-/** Intervalo mínimo entre gravações de `lastUsedAt`. */
-const LAST_USED_WRITE_INTERVAL_MS = 60_000;
-/** Linhas de `agentTokenCalls` mais antigas que isto são apagadas pelo cron. */
-export const AGENT_TOKEN_CALL_RETENTION_DAYS = 30;
-const PURGE_BATCH_SIZE = 500;
-const MAX_CALL_ERROR_LENGTH = 300;
-const DEFAULT_CALLS_LIMIT = 50;
-const MAX_CALLS_LIMIT = 200;
-
-const publicTokenValidator = v.object({
-  _id: v.id("agentTokens"),
-  name: v.string(),
-  tokenPrefix: v.string(),
-  permission: agentTokenPermission,
-  createdAt: v.number(),
-  lastUsedAt: v.optional(v.number()),
-  expiresAt: v.optional(v.number()),
-  revokedAt: v.optional(v.number()),
-  /** "device" = emitido pelo login do RLP Takeoff; ausente = token de agente. */
-  kind: v.optional(agentTokenKind),
-});
-
-const callValidator = v.object({
-  _id: v.id("agentTokenCalls"),
-  tokenId: v.id("agentTokens"),
-  tokenName: v.union(v.string(), v.null()),
-  tool: v.string(),
-  functionPath: v.union(v.string(), v.null()),
-  outcome: v.union(v.literal("success"), v.literal("error")),
-  errorMessage: v.union(v.string(), v.null()),
-  durationMs: v.number(),
-  createdAt: v.number(),
-});
-
-/** Nunca expõe o hash nem o dono. */
-function toPublicToken(token: Doc<"agentTokens">) {
-  return {
-    _id: token._id,
-    name: token.name,
-    tokenPrefix: token.tokenPrefix,
-    permission: token.permission,
-    createdAt: token.createdAt,
-    lastUsedAt: token.lastUsedAt,
-    expiresAt: token.expiresAt,
-    revokedAt: token.revokedAt,
-    kind: token.kind,
-  };
-}
-
-/**
- * O dono gerencia os próprios tokens; director/admin gerenciam qualquer um.
- * Sempre a partir de uma sessão do app: tokens não gerenciam tokens.
- */
-async function getManageableToken(
-  ctx: MutationCtx,
-  user: Doc<"users">,
-  id: Id<"agentTokens">
-) {
-  await requireHumanSession(ctx);
-  const token = await ctx.db.get("agentTokens", id);
-  if (!token) throw new Error("Token não encontrado");
-  if (token.userId !== user._id && !isAdmin(user)) {
-    throw new Error("Você só pode gerenciar os seus próprios tokens");
-  }
-  return token;
-}
-
-/** Rejeita identidades vindas de um JWT de delegação com token de agente. */
-async function requireHumanSession(ctx: QueryCtx | MutationCtx): Promise<void> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (identity) rejectAgentTokenIdentity(identity);
-}
-
-async function ownerSummary(ctx: QueryCtx, userId: Id<"users">) {
-  const user = await ctx.db.get("users", userId);
-  if (!user) return null;
-  return {
-    _id: user._id,
-    name: user.name,
-    email: user.email ?? null,
-    username: user.username ?? null,
-    roles: resolveRoles(user),
-    isActive: user.isActive,
-  };
-}
 
 // ===========================================================================
 // PÚBLICO — gestão dos próprios tokens (página Agentes e o próprio MCP)
@@ -139,19 +66,7 @@ export const list = staffQuery({
   args: {},
   returns: v.array(publicTokenValidator),
   handler: async (ctx) => {
-    const now = Date.now();
-    const tokens = await ctx.db
-      .query("agentTokens")
-      .withIndex("by_user", (q) => q.eq("userId", ctx.user._id))
-      .order("desc")
-      .collect();
-    const active = tokens.filter((t) => isActiveToken(t, now));
-    const inactive = tokens
-      .filter((t) => !isActiveToken(t, now))
-      .slice(0, MAX_TOKENS_PER_USER);
-    return [...active, ...inactive]
-      .sort((a, b) => b._creationTime - a._creationTime)
-      .map(toPublicToken);
+    return await listOwnAgentTokens(ctx, ctx.user);
   },
 });
 
@@ -209,10 +124,7 @@ export const rename = staffMutation({
   args: { id: v.id("agentTokens"), name: v.string() },
   returns: publicTokenValidator,
   handler: async (ctx, args) => {
-    const token = await getManageableToken(ctx, ctx.user, args.id);
-    const name = normalizeName(args.name);
-    await ctx.db.patch("agentTokens", token._id, { name });
-    return toPublicToken({ ...token, name });
+    return await renameAgentToken(ctx, ctx.user, args);
   },
 });
 
@@ -221,11 +133,7 @@ export const revoke = staffMutation({
   args: { id: v.id("agentTokens") },
   returns: publicTokenValidator,
   handler: async (ctx, args) => {
-    const token = await getManageableToken(ctx, ctx.user, args.id);
-    if (token.revokedAt !== undefined) return toPublicToken(token);
-    const revokedAt = Date.now();
-    await ctx.db.patch("agentTokens", token._id, { revokedAt });
-    return toPublicToken({ ...token, revokedAt });
+    return await revokeAgentToken(ctx, ctx.user, args.id);
   },
 });
 
@@ -234,35 +142,9 @@ export const listMyCalls = staffQuery({
   args: { limit: v.optional(v.number()) },
   returns: v.array(callValidator),
   handler: async (ctx, args) => {
-    const limit = Math.min(
-      Math.max(args.limit ?? DEFAULT_CALLS_LIMIT, 1),
-      MAX_CALLS_LIMIT
-    );
-    const calls = await ctx.db
-      .query("agentTokenCalls")
-      .withIndex("by_user", (q) => q.eq("userId", ctx.user._id))
-      .order("desc")
-      .take(limit);
-    return await withTokenNames(ctx, calls);
+    return await listMyAgentTokenCalls(ctx, ctx.user, args);
   },
 });
-
-async function withTokenNames(ctx: QueryCtx, calls: Doc<"agentTokenCalls">[]) {
-  const ids = [...new Set(calls.map((c) => c.tokenId))];
-  const docs = await Promise.all(ids.map((id) => ctx.db.get("agentTokens", id)));
-  const names = new Map(ids.map((id, i) => [id, docs[i]?.name ?? null]));
-  return calls.map((c) => ({
-    _id: c._id,
-    tokenId: c.tokenId,
-    tokenName: names.get(c.tokenId) ?? null,
-    tool: c.tool,
-    functionPath: c.functionPath ?? null,
-    outcome: c.outcome,
-    errorMessage: c.errorMessage ?? null,
-    durationMs: c.durationMs,
-    createdAt: c.createdAt,
-  }));
-}
 
 /**
  * Registra uma chamada de ferramenta feita pelo servidor MCP. Só identidades
@@ -281,26 +163,7 @@ export const recordCall = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-    const claims = getAgentTokenClaims(identity);
-    if (!claims) {
-      throw new Error("Somente conexões com token de agente registram chamadas");
-    }
-    const tokenId = ctx.db.normalizeId("agentTokens", claims.tokenId);
-    const token = tokenId ? await ctx.db.get("agentTokens", tokenId) : null;
-    if (!token) throw new Error("Token não encontrado");
-
-    await ctx.db.insert("agentTokenCalls", {
-      tokenId: token._id,
-      userId: token.userId,
-      tool: args.tool.slice(0, 80),
-      functionPath: args.functionPath?.slice(0, 160),
-      outcome: args.outcome,
-      errorMessage: args.errorMessage?.slice(0, MAX_CALL_ERROR_LENGTH),
-      durationMs: Math.max(0, Math.round(args.durationMs)),
-      createdAt: Date.now(),
-    });
+    await recordAgentTokenCall(ctx, args);
     return null;
   },
 });
@@ -315,34 +178,11 @@ export const listAll = adminQuery({
   returns: v.array(
     v.object({
       ...publicTokenValidator.fields,
-      owner: v.union(
-        v.object({
-          _id: v.id("users"),
-          name: v.string(),
-          email: v.union(v.string(), v.null()),
-          username: v.union(v.string(), v.null()),
-          roles: v.array(accessRoles),
-          isActive: v.boolean(),
-        }),
-        v.null()
-      ),
+      owner: v.union(agentTokenOwnerValidator, v.null()),
     })
   ),
   handler: async (ctx) => {
-    // Equipe pequena e no máximo 25 tokens ativos por pessoa; paginar se crescer.
-    const tokens = await ctx.db.query("agentTokens").order("desc").take(1000);
-    const ownerIds = [...new Set(tokens.map((t) => t.userId))];
-    const owners = new Map(
-      await Promise.all(
-        ownerIds.map(
-          async (id) => [id, await ownerSummary(ctx, id)] as const
-        )
-      )
-    );
-    return tokens.map((t) => ({
-      ...toPublicToken(t),
-      owner: owners.get(t.userId) ?? null,
-    }));
+    return await listAllAgentTokens(ctx);
   },
 });
 
@@ -354,24 +194,7 @@ export const listAllCalls = adminQuery({
   },
   returns: v.array(callValidator),
   handler: async (ctx, args) => {
-    const limit = Math.min(
-      Math.max(args.limit ?? DEFAULT_CALLS_LIMIT, 1),
-      MAX_CALLS_LIMIT
-    );
-    const tokenId = args.tokenId;
-    const calls =
-      tokenId !== undefined
-        ? await ctx.db
-            .query("agentTokenCalls")
-            .withIndex("by_token", (q) => q.eq("tokenId", tokenId))
-            .order("desc")
-            .take(limit)
-        : await ctx.db
-            .query("agentTokenCalls")
-            .withIndex("by_createdAt")
-            .order("desc")
-            .take(limit);
-    return await withTokenNames(ctx, calls);
+    return await listAllAgentTokenCalls(ctx, args);
   },
 });
 
@@ -380,22 +203,7 @@ export const revokeAllForUser = adminMutation({
   args: { userId: v.id("users") },
   returns: v.number(),
   handler: async (ctx, args) => {
-    await requireHumanSession(ctx);
-    const user = await ctx.db.get("users", args.userId);
-    if (!user) throw new Error("Usuário não encontrado");
-    const revokedAt = Date.now();
-    let count = 0;
-    // Todas as linhas do usuário: uma janela fixa deixaria tokens novos de
-    // fora depois de muitos ciclos de criar/revogar.
-    for await (const token of ctx.db
-      .query("agentTokens")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))) {
-      if (token.revokedAt === undefined) {
-        await ctx.db.patch("agentTokens", token._id, { revokedAt });
-        count++;
-      }
-    }
-    return count;
+    return await revokeAllAgentTokensForUser(ctx, args.userId);
   },
 });
 
@@ -418,11 +226,7 @@ export const insertForCurrentUser = internalMutation({
     expiresAt: v.optional(v.number()),
   }),
   handler: async (ctx, args) => {
-    // Herda a autenticação da action `create`; `requireUser` aplica a
-    // política de tokens e `requireHumanSession` repete a regra da action.
-    await requireHumanSession(ctx);
-    const user = await requireUser(ctx);
-    return await insertToken(ctx, user, args);
+    return await insertAgentTokenForCurrentUser(ctx, args);
   },
 });
 
@@ -441,9 +245,7 @@ export const insertForUser = internalMutation({
     expiresAt: v.optional(v.number()),
   }),
   handler: async (ctx, { userId, ...args }) => {
-    const user = await ctx.db.get("users", userId);
-    if (!user) throw new Error("Usuário não encontrado");
-    return await insertToken(ctx, user, args);
+    return await insertAgentTokenForUser(ctx, userId, args);
   },
 });
 
@@ -451,14 +253,7 @@ export const findUserByLogin = internalQuery({
   args: { login: v.string() },
   returns: v.union(v.id("users"), v.null()),
   handler: async (ctx, { login }) => {
-    const byEmail = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", login))
-      .first();
-    if (byEmail) return byEmail._id;
-    // Usuários só com username (sem email). Tabela pequena.
-    const users = await ctx.db.query("users").take(1000);
-    return users.find((u) => u.username === login)?._id ?? null;
+    return await findUserIdByLogin(ctx, login);
   },
 });
 
@@ -512,53 +307,9 @@ export const createForUser = internalAction({
  */
 export const verify = internalQuery({
   args: { tokenHash: v.string(), now: v.number() },
-  returns: v.union(
-    v.object({
-      token: v.object({
-        _id: v.id("agentTokens"),
-        name: v.string(),
-        tokenPrefix: v.string(),
-        permission: agentTokenPermission,
-        expiresAt: v.union(v.number(), v.null()),
-      }),
-      user: v.object({
-        _id: v.id("users"),
-        clerkId: v.string(),
-        name: v.string(),
-        email: v.union(v.string(), v.null()),
-        username: v.union(v.string(), v.null()),
-        roles: v.array(accessRoles),
-      }),
-    }),
-    v.null()
-  ),
-  handler: async (ctx, { tokenHash, now }) => {
-    const token = await ctx.db
-      .query("agentTokens")
-      .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
-      .unique();
-    if (!token || !isActiveToken(token, now)) return null;
-
-    const user = await ctx.db.get("users", token.userId);
-    if (!user || !user.isActive || !user.clerkId) return null;
-
-    return {
-      token: {
-        _id: token._id,
-        name: token.name,
-        tokenPrefix: token.tokenPrefix,
-        permission: token.permission,
-        expiresAt: token.expiresAt ?? null,
-      },
-      user: {
-        _id: user._id,
-        clerkId: user.clerkId,
-        name: user.name,
-        email: user.email ?? null,
-        username: user.username ?? null,
-        roles: resolveRoles(user),
-      },
-    };
+  returns: v.union(verifiedAgentTokenValidator, v.null()),
+  handler: async (ctx, args) => {
+    return await verifyAgentTokenHash(ctx, args);
   },
 });
 
@@ -581,16 +332,7 @@ export const recordApiRequest = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.db.insert("agentTokenCalls", {
-      tokenId: args.tokenId,
-      userId: args.userId,
-      tool: `api:${args.route}`.slice(0, 80),
-      functionPath: args.functionPath?.slice(0, 160),
-      outcome: args.outcome,
-      errorMessage: args.errorMessage?.slice(0, MAX_CALL_ERROR_LENGTH),
-      durationMs: Math.max(0, Math.round(args.durationMs)),
-      createdAt: args.createdAt,
-    });
+    await recordAgentApiRequest(ctx, args);
     return null;
   },
 });
@@ -599,40 +341,29 @@ export const recordApiRequest = internalMutation({
 export const touch = internalMutation({
   args: { id: v.id("agentTokens"), now: v.number() },
   returns: v.null(),
-  handler: async (ctx, { id, now }) => {
-    const token = await ctx.db.get("agentTokens", id);
-    if (!token) return null;
-    if (
-      token.lastUsedAt !== undefined &&
-      now - token.lastUsedAt < LAST_USED_WRITE_INTERVAL_MS
-    ) {
-      return null;
-    }
-    await ctx.db.patch("agentTokens", id, { lastUsedAt: now });
+  handler: async (ctx, args) => {
+    await touchAgentToken(ctx, args);
     return null;
   },
 });
 
-/** Cron: apaga chamadas antigas em lotes, reagendando até terminar. */
+/**
+ * Cron: apaga chamadas antigas em lotes (AGENT_TOKEN_CALL_RETENTION_DAYS em
+ * model/identity/agentTokenCalls.ts), reagendando até terminar.
+ */
 export const purgeCalls = internalMutation({
   args: { olderThan: v.optional(v.number()) },
   returns: v.number(),
   handler: async (ctx, args) => {
-    const cutoff =
-      args.olderThan ??
-      Date.now() - AGENT_TOKEN_CALL_RETENTION_DAYS * 24 * 60 * 60 * 1000;
-    const batch = await ctx.db
-      .query("agentTokenCalls")
-      .withIndex("by_createdAt", (q) => q.lt("createdAt", cutoff))
-      .take(PURGE_BATCH_SIZE);
-    for (const row of batch) {
-      await ctx.db.delete("agentTokenCalls", row._id);
-    }
-    if (batch.length === PURGE_BATCH_SIZE) {
+    const { deleted, cutoff, hasMore } = await purgeAgentTokenCallsBatch(
+      ctx,
+      args.olderThan
+    );
+    if (hasMore) {
       await ctx.scheduler.runAfter(0, internal.agentTokens.purgeCalls, {
         olderThan: cutoff,
       });
     }
-    return batch.length;
+    return deleted;
   },
 });
