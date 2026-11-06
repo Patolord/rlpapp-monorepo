@@ -6,7 +6,7 @@
 
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { hasPermission } from "../rbac";
+import { hasPermission } from "../../lib/rbac";
 import { summarizeDay } from "./timeClock";
 import { DEFAULT_DUPLICATE_WINDOW_MINUTES } from "./timeClockPunch";
 

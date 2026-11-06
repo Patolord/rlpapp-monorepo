@@ -8,7 +8,7 @@ import {
 } from "@rlpapp/shared/takeoff/kits";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { takeoffKitComponent, takeoffKitMode } from "../../schema";
+import { takeoffKitComponent, takeoffKitMode } from "../../schema/procurement";
 
 /**
  * Company defaults of the RLP Takeoff kit presets (`takeoffKits`), published to

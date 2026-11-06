@@ -30,7 +30,7 @@ import {
   sanitizeTakeoffWeights,
   takeoffSettingsValidator,
 } from "./model/procurement/takeoffSettings";
-import { takeoffDuctNorma, takeoffVrfBrand, takeoffWeightRow } from "./schema";
+import { takeoffDuctNorma, takeoffVrfBrand, takeoffWeightRow } from "./schema/procurement";
 
 /**
  * Configurações do RLP Takeoff além dos kits (ver `takeoffKits.ts`): a tabela

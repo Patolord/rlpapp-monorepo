@@ -1,70 +1,27 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
-import {
-  type Role,
-  hasRole,
-  obrasGestaoMutation,
-  obrasMutation,
-  obrasQuery,
-  requirePermission,
-  resolveRoles,
-} from "./lib/rbac";
-import { equipmentStatusValidator } from "./equipment";
-import {
-  accessRoles, projectStatus } from "./schema";
+import { type Role, hasRole, obrasGestaoMutation, obrasMutation, obrasQuery, requirePermission, resolveRoles } from "./lib/rbac";
+import { equipmentStatusValidator } from "./model/engineering/validators";
+import { projectStatus } from "./schema/engineering";
+import { accessRoles } from "./schema/identity";
 import { logAudit, diffFields } from "./lib/audit";
-import {
-  assertValidParentContract,
-  resolveContractDirection,
-  resolveContractKind,
-} from "./model/contracts/rules";
-import { buildProjectHierarchy } from "./lib/engenharia/hierarchy";
-import {
-  assertUniqueLegacyNumber,
-  isProjectArchived,
-  resolveCustomerLabel,
-} from "./lib/projects/helpers";
-import {
-  generateUniqueProjectSlug,
-  looksLikeConvexId,
-} from "./lib/engenharia/slug";
+import { assertValidParentContract, resolveContractDirection, resolveContractKind } from "./model/contracts/rules";
+import { buildProjectHierarchy } from "./model/engineering/hierarchy";
+import { assertUniqueLegacyNumber, isProjectArchived, resolveCustomerLabel } from "./model/engineering/projects";
+import { generateUniqueProjectSlug, looksLikeConvexId } from "./model/engineering/slug";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
+import { hierarchyReturnValidator } from "./model/engineering/hierarchy";
+import { equipKindValidator } from "./model/engineering/validators";
+import { normalizeFloors } from "./model/engineering/floors";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
-const equipKindValidator = v.union(
-  v.literal("condensadora"),
-  v.literal("evaporadora")
-);
 
 const floorValidator = v.object({
   number: v.number(),
   label: v.string(),
 });
 const floorsValidator = v.array(floorValidator);
-
-function defaultFloorLabel(n: number): string {
-  return n === 0 ? "Térreo" : `${n}º Andar`;
-}
-
-function normalizeFloors(floors: Array<{ number: number; label: string }>) {
-  if (floors.length === 0) {
-    throw new Error("A obra precisa de pelo menos um andar");
-  }
-  const seen = new Set<number>();
-  for (const f of floors) {
-    if (seen.has(f.number)) {
-      throw new Error(`Andar ${f.number} duplicado`);
-    }
-    seen.add(f.number);
-  }
-  return floors
-    .map((floor) => ({
-      number: Math.floor(floor.number),
-      label: floor.label.trim() || defaultFloorLabel(floor.number),
-    }))
-    .sort((a, b) => a.number - b.number);
-}
 
 /** Gera o rótulo padrão do apartamento: andar + final (ex: 2 + 1 = "201"). */
 function autoUnitLabel(floor: number, final: number): string {
@@ -1036,87 +993,6 @@ export const generateLayout = obrasMutation({
     return { units: unitCount, items: itemCount };
   },
 });
-
-// --- Hierarquia nova: árvore Torre → Andar → Ambiente → Equipamento ---
-//
-// Usada pelo painel visual da obra. Retorna a árvore completa com contagens
-// agregadas de status por andar/torre para colorir a grade.
-
-const hierarchyItemValidator = v.object({
-  _id: v.id("projectEquipment"),
-  system: v.string(),
-  systemId: v.union(v.id("systems"), v.null()),
-  ambiente: v.string(),
-  kind: equipKindValidator,
-  modelo: v.string(),
-  capacidade: v.string(),
-  status: equipmentStatusValidator,
-  serialNumber: v.union(v.string(), v.null()),
-  deadline: v.union(v.number(), v.null()),
-  linkedEquipmentId: v.union(v.id("equipment"), v.null()),
-  token: v.union(v.string(), v.null()),
-  installedAt: v.union(v.number(), v.null()),
-  installationDate: v.union(v.number(), v.null()),
-  testDate: v.union(v.number(), v.null()),
-});
-
-export const hierarchyReturnValidator = v.union(
-  v.object({
-    _id: v.id("projects"),
-    name: v.string(),
-    // Sistemas da obra (inclui sistemas ainda sem equipamentos).
-    systems: v.array(
-      v.object({
-        _id: v.id("systems"),
-        name: v.string(),
-        type: v.union(v.string(), v.null()),
-        totalItems: v.number(),
-        installedItems: v.number(),
-      })
-    ),
-    towers: v.array(
-      v.object({
-        _id: v.id("towers"),
-        name: v.string(),
-        order: v.number(),
-        floors: v.array(
-          v.object({
-            _id: v.id("floors"),
-            number: v.number(),
-            label: v.string(),
-            environments: v.array(
-              v.object({
-                _id: v.id("environments"),
-                name: v.string(),
-                type: v.union(v.string(), v.null()),
-                order: v.number(),
-                col: v.union(v.number(), v.null()),
-                colSpan: v.union(v.number(), v.null()),
-                rowSpan: v.union(v.number(), v.null()),
-                // Retângulos extras de regiões não-retangulares (forma em L).
-                segments: v.union(
-                  v.array(
-                    v.object({
-                      colOffset: v.number(),
-                      colSpan: v.union(v.number(), v.null()),
-                      rowOffset: v.union(v.number(), v.null()),
-                      rowSpan: v.union(v.number(), v.null()),
-                    })
-                  ),
-                  v.null()
-                ),
-                equipment: v.array(hierarchyItemValidator),
-              })
-            ),
-            totalItems: v.number(),
-            installedItems: v.number(),
-          })
-        ),
-      })
-    ),
-  }),
-  v.null()
-);
 
 export const getHierarchy = obrasQuery({
   args: { projectId: v.id("projects") },

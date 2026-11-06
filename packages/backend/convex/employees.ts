@@ -9,13 +9,9 @@ import {
   normalizeCustomerName,
   normalizeTaxId,
   validateTaxIdForPersonType,
-} from "./lib/customers/helpers";
-import { assertNonNegativeCents } from "./lib/rh/payroll";
-import {
-  employeePaymentMethod,
-  employeeStaffGroup,
-  employeeStatus,
-} from "./schema";
+} from "./model/contracts/customers";
+import { assertNonNegativeCents } from "./model/hr/payroll";
+import { employeePaymentMethod, employeeStaffGroup, employeeStatus } from "./schema/hr";
 import {
   DEFAULT_STAFF_GROUP,
   STAFF_GROUP_PAYROLL_DEFAULTS,

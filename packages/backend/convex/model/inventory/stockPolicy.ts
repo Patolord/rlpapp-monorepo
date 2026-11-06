@@ -1,10 +1,10 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { hasPermission } from "../rbac";
+import { hasPermission } from "../../lib/rbac";
 import {
   computeReplenishmentState,
   validateStockPolicyQuantities,
-} from "../compras/catalog";
+} from "../procurement/catalog";
 
 export { computeReplenishmentState, validateStockPolicyQuantities };
 

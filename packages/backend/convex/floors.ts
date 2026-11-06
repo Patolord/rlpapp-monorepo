@@ -1,16 +1,14 @@
+import { defaultFloorLabel } from "./model/engineering/floors";
 import { v } from "convex/values";
 import {
   obrasMutation,
   obrasQuery,
 } from "./lib/rbac";
 import { logAudit, logEquipmentHistory } from "./lib/audit";
-import { deleteSystemsIfOrphaned } from "./systems";
+import { deleteSystemsIfOrphaned } from "./model/engineering/systems";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 
-function defaultFloorLabel(n: number): string {
-  return n === 0 ? "Térreo" : `${n}º Andar`;
-}
 
 // Lista os andares de uma torre (ordenados do mais alto para o mais baixo).
 export const listByTower = obrasQuery({

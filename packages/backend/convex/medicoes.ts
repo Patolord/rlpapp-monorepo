@@ -4,9 +4,10 @@ import {
   medicoesMutation,
   medicoesQuery,
 } from "./lib/rbac";
-import { medicaoBasis, medicaoStatus, projectStatus } from "./schema";
+import { medicaoBasis, medicaoStatus } from "./schema/contracts";
+import { projectStatus } from "./schema/engineering";
 import { logAudit } from "./lib/audit";
-import { resolveCustomerLabel } from "./lib/projects/helpers";
+import { resolveCustomerLabel } from "./model/engineering/projects";
 import {
   assertContractEligibleForMeasurement,
   isContractEligibleForMeasurement,

@@ -6,7 +6,7 @@ import {
   formatPayrollRunLabel,
   loanStatus,
   previousMonth,
-} from "../convex/lib/rh/payroll";
+} from "../convex/model/hr/payroll";
 
 describe("payroll helpers", () => {
   test("computes total like the demo formula", () => {

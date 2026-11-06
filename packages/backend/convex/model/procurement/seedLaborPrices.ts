@@ -1,5 +1,5 @@
 import type { Doc, Id } from "../../_generated/dataModel";
-import { normalizeText } from "../../lib/compras/procurement";
+import { normalizeText } from "./pricing";
 import { takeoffUnit } from "./takeoffCatalog";
 
 /** One entry of the RLP Takeoff bundled catalog (`catalog.seed.json`). */

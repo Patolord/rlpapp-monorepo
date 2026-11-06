@@ -1,5 +1,7 @@
 import type { QueryCtx } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
+import { v } from "convex/values";
+import { equipKindValidator, equipmentStatusValidator } from "./validators";
 
 /**
  * Constrói a árvore Torre → Andar → Ambiente → Equipamento de uma obra.
@@ -175,3 +177,84 @@ export async function buildProjectHierarchy(
     towers: towersOut,
   };
 }
+
+// --- Hierarquia nova: árvore Torre → Andar → Ambiente → Equipamento ---
+//
+// Usada pelo painel visual da obra. Retorna a árvore completa com contagens
+// agregadas de status por andar/torre para colorir a grade.
+
+export const hierarchyItemValidator = v.object({
+  _id: v.id("projectEquipment"),
+  system: v.string(),
+  systemId: v.union(v.id("systems"), v.null()),
+  ambiente: v.string(),
+  kind: equipKindValidator,
+  modelo: v.string(),
+  capacidade: v.string(),
+  status: equipmentStatusValidator,
+  serialNumber: v.union(v.string(), v.null()),
+  deadline: v.union(v.number(), v.null()),
+  linkedEquipmentId: v.union(v.id("equipment"), v.null()),
+  token: v.union(v.string(), v.null()),
+  installedAt: v.union(v.number(), v.null()),
+  installationDate: v.union(v.number(), v.null()),
+  testDate: v.union(v.number(), v.null()),
+});
+
+export const hierarchyReturnValidator = v.union(
+  v.object({
+    _id: v.id("projects"),
+    name: v.string(),
+    // Sistemas da obra (inclui sistemas ainda sem equipamentos).
+    systems: v.array(
+      v.object({
+        _id: v.id("systems"),
+        name: v.string(),
+        type: v.union(v.string(), v.null()),
+        totalItems: v.number(),
+        installedItems: v.number(),
+      })
+    ),
+    towers: v.array(
+      v.object({
+        _id: v.id("towers"),
+        name: v.string(),
+        order: v.number(),
+        floors: v.array(
+          v.object({
+            _id: v.id("floors"),
+            number: v.number(),
+            label: v.string(),
+            environments: v.array(
+              v.object({
+                _id: v.id("environments"),
+                name: v.string(),
+                type: v.union(v.string(), v.null()),
+                order: v.number(),
+                col: v.union(v.number(), v.null()),
+                colSpan: v.union(v.number(), v.null()),
+                rowSpan: v.union(v.number(), v.null()),
+                // Retângulos extras de regiões não-retangulares (forma em L).
+                segments: v.union(
+                  v.array(
+                    v.object({
+                      colOffset: v.number(),
+                      colSpan: v.union(v.number(), v.null()),
+                      rowOffset: v.union(v.number(), v.null()),
+                      rowSpan: v.union(v.number(), v.null()),
+                    })
+                  ),
+                  v.null()
+                ),
+                equipment: v.array(hierarchyItemValidator),
+              })
+            ),
+            totalItems: v.number(),
+            installedItems: v.number(),
+          })
+        ),
+      })
+    ),
+  }),
+  v.null()
+);

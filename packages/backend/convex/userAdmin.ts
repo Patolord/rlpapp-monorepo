@@ -4,9 +4,9 @@ import { v } from "convex/values";
 import { action, env, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { accessRoles } from "./schema";
+import { accessRoles } from "./schema/identity";
 import { rejectReadOnlyAgentTokenInAction } from "./lib/agentTokens";
-import { normalizeEmail } from "./lib/users";
+import { normalizeEmail } from "./model/identity/users";
 import { requireActionPermission } from "./lib/rbac";
 
 const CLERK_API = "https://api.clerk.com/v1";

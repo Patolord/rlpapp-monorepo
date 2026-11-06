@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import {
   obrasQuery,
 } from "./lib/rbac";
-import { projectStatus } from "./schema";
+import { projectStatus } from "./schema/engineering";
 import type { Doc, Id } from "./_generated/dataModel";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;

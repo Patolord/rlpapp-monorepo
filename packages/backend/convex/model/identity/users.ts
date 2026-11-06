@@ -4,7 +4,7 @@ import {
   resolveRoles,
   type Role,
 } from "@rlpapp/shared/auth/permissions";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc } from "../../_generated/dataModel";
 
 /**
  * Campos de acesso a gravar num usuário: `roles` normalizado e os campos

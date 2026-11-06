@@ -7,7 +7,7 @@ import {
   formatSku,
   normalizeSku,
   validateStockPolicyQuantities,
-} from "../convex/lib/compras/catalog";
+} from "../convex/model/procurement/catalog";
 
 async function seedCatalogUsers() {
   const t = setup();

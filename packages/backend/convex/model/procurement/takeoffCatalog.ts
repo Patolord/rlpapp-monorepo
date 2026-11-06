@@ -1,9 +1,9 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
-import { normalizeUnit } from "../../lib/compras/catalog";
-import { describeMaterial } from "../../lib/compras/materialLookup";
-import { materialStatus } from "../../schema";
+import { normalizeUnit } from "./catalog";
+import { describeMaterial } from "./materialLookup";
+import { materialStatus } from "../../schema/procurement";
 import { centsToReais, pickCurrentPriceEvent } from "./priceSelection";
 
 /**

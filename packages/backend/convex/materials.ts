@@ -17,7 +17,7 @@ import {
   toMaterialListRow,
   validateLaborPriceCents,
   validateUnitsPerPurchaseUnit,
-} from "./lib/compras/catalog";
+} from "./model/procurement/catalog";
 import {
   engineeringOrPurchasingQuery,
   inventoryQuery,
@@ -25,8 +25,8 @@ import {
   permissionQuery,
 } from "./lib/rbac";
 import { logAudit, diffFields } from "./lib/audit";
-import { materialDimensions, materialStatus, replenishmentState } from "./schema";
-import { normalizeText, priceFreshness } from "./lib/compras/procurement";
+import { materialDimensions, materialStatus, replenishmentState } from "./schema/procurement";
+import { normalizeText, priceFreshness } from "./model/procurement/pricing";
 import {
   buildPriceHistory,
   priceChangeValidator,
@@ -35,21 +35,21 @@ import {
   bulkImportResultValidator,
   emptyBulkImportResult,
   requireTrimmedName,
-} from "./lib/compras/bulkImport";
+} from "./model/procurement/bulkImport";
 import {
   createInventoryDocument,
   findInventoryLocation,
   postInventoryDocument,
-} from "./lib/inventory/operations";
+} from "./model/inventory/operations";
 import {
   canViewCentralInventory,
   computeReplenishmentState,
   getStockPolicy,
-} from "./lib/inventory/stockPolicy";
+} from "./model/inventory/stockPolicy";
 import {
   executeMaterialMerge,
   previewMaterialMerge,
-} from "./lib/compras/mergeMaterials";
+} from "./model/procurement/mergeMaterials";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 

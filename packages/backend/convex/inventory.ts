@@ -1,11 +1,6 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
-import {
-  inventoryCompatibilityRuleType,
-  inventoryDocumentStatus,
-  inventoryEventType,
-  inventoryMovementType,
-} from "./schema";
+import { inventoryCompatibilityRuleType, inventoryDocumentStatus, inventoryEventType, inventoryMovementType } from "./schema/inventory";
 import {
   hasPermission,
   hasRole,
@@ -26,22 +21,22 @@ import {
   reviewInventoryDocument,
   reverseInventoryDocument,
   updateInventoryAddress,
-} from "./lib/inventory/operations";
+} from "./model/inventory/operations";
 import {
   enrichInventoryDocument,
   listProjectInventorySummaries,
   paginateInventoryDocuments,
-} from "./lib/inventory/queries";
+} from "./model/inventory/queries";
 import {
   canViewCentralInventory,
   enrichBalanceWithReplenishment,
-} from "./lib/inventory/stockPolicy";
+} from "./model/inventory/stockPolicy";
 import {
   canFulfillMaterialRequests,
   canReviewMaterialRequests,
   fulfillInventoryRequest,
-} from "./lib/inventory/requests";
-import { replenishmentState } from "./schema";
+} from "./model/inventory/requests";
+import { replenishmentState } from "./schema/procurement";
 import type { Doc } from "./_generated/dataModel";
 
 const movementInputType = v.union(

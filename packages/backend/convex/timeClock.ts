@@ -21,7 +21,7 @@ import {
   monthRange,
   type LiveStatus,
   type PunchKind,
-} from "./lib/rh/timeClock";
+} from "./model/hr/timeClock";
 import {
   getSettings,
   listClockUsers,
@@ -30,12 +30,13 @@ import {
   listPunchesForDate,
   saveSettings,
   type GeofencedProject,
-} from "./lib/rh/timeClockDb";
+} from "./model/hr/timeClockDb";
 import {
   MAX_GEOFENCE_RADIUS_METERS,
   MIN_GEOFENCE_RADIUS_METERS,
-} from "./lib/rh/timeClockPunch";
-import { projectGeofence, timeClockGeofenceStatus, timeClockPunchKind } from "./schema";
+} from "./model/hr/timeClockPunch";
+import { projectGeofence } from "./schema/engineering";
+import { timeClockGeofenceStatus, timeClockPunchKind } from "./schema/hr";
 
 // ---------------------------------------------------------------------------
 // Validadores

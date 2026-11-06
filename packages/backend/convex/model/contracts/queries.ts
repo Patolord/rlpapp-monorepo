@@ -1,6 +1,6 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
-import { resolveCustomerLabel } from "../../lib/projects/helpers";
+import { resolveCustomerLabel } from "../engineering/projects";
 import {
   isContractEligibleForMeasurement,
   resolveContractDirection,

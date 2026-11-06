@@ -6,19 +6,13 @@ import {
   orcamentosMutation,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
-import {
-  materialDimensions,
-  takeoffBudgetMeta,
-  takeoffItemStatus,
-  takeoffSource,
-  takeoffStatus,
-} from "./schema";
-import { sanitizeDimensions } from "./lib/compras/catalog";
+import { materialDimensions, takeoffBudgetMeta, takeoffItemStatus, takeoffSource, takeoffStatus } from "./schema/procurement";
+import { sanitizeDimensions } from "./model/procurement/catalog";
 import {
   normalizeText,
   priceFreshness,
   suggestedUnitPriceCents,
-} from "./lib/compras/procurement";
+} from "./model/procurement/pricing";
 import { promoteTakeoffItem } from "./model/procurement/takeoffPromotion";
 import { isUsablePriceEvent } from "./model/procurement/priceSelection";
 import { computePriceChange } from "./model/procurement/priceHistory";

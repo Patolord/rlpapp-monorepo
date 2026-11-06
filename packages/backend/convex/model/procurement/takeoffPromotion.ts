@@ -8,8 +8,8 @@ import {
   findMaterialByIdentity,
   normalizeUnit,
   sanitizeDimensions,
-} from "../../lib/compras/catalog";
-import { normalizeText } from "../../lib/compras/procurement";
+} from "./catalog";
+import { normalizeText } from "./pricing";
 import { logAudit } from "../../lib/audit";
 
 /**

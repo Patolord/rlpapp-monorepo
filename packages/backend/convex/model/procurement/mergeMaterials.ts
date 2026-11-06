@@ -1,8 +1,8 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { logAudit } from "../audit";
+import { logAudit } from "../../lib/audit";
 import { buildMaterialSearchText } from "./catalog";
-import { normalizeText } from "./procurement";
+import { normalizeText } from "./pricing";
 
 export type MergeMaterialSummary = {
   _id: Id<"materials">;

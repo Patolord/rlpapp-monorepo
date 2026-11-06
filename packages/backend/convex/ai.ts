@@ -1,18 +1,15 @@
 "use node";
 
+import { equipKindValidator } from "./model/engineering/validators";
 import { v, type Infer } from "convex/values";
 import OpenAI from "openai";
 import { action, env } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { aiIntentValidator } from "./aiIntents";
+import { aiIntentValidator } from "./model/ai/intents";
 import { rejectReadOnlyAgentTokenInAction } from "./lib/agentTokens";
 import { requireActionPermission } from "./lib/rbac";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
-const equipKindValidator = v.union(
-  v.literal("condensadora"),
-  v.literal("evaporadora")
-);
 
 const proposalUnitValidator = v.object({
   floor: v.number(),

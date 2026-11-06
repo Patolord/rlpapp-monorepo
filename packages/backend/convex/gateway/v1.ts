@@ -20,7 +20,7 @@ import {
   isApiTokenSigningConfigured,
   signApiToken,
 } from "../lib/apiCrypto";
-import type { CatalogEntry, FunctionType } from "../mcpCatalog";
+import type { CatalogEntry, FunctionType } from "../mcp/catalog";
 import {
   describeArgs,
   suggestPaths,

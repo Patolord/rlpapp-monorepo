@@ -1,7 +1,7 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { looksLikeConvexId } from "../engenharia/slug";
-import { seesAllFieldProjects } from "../rbac";
+import { looksLikeConvexId } from "./slug";
+import { seesAllFieldProjects } from "../../lib/rbac";
 
 /** Resolve uma obra por slug (preferido) ou por id (fallback legado). */
 export async function resolveProjectByIdentifier(

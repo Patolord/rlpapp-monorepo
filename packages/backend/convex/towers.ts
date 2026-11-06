@@ -4,7 +4,7 @@ import {
   obrasQuery,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
-import { deleteSystemsIfOrphaned } from "./systems";
+import { deleteSystemsIfOrphaned } from "./model/engineering/systems";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 

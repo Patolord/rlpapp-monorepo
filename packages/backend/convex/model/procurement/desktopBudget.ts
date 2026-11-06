@@ -11,8 +11,9 @@ import {
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { hasPermission } from "../../lib/rbac";
-import { isProjectArchived } from "../../lib/projects/helpers";
-import { projectStatus, takeoffBudgetMeta } from "../../schema";
+import { isProjectArchived } from "../engineering/projects";
+import { projectStatus } from "../../schema/engineering";
+import { takeoffBudgetMeta } from "../../schema/procurement";
 
 /**
  * Publicação de orçamentos do app desktop de takeoff (apps/takeoff).

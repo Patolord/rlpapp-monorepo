@@ -5,7 +5,7 @@ import {
   obrasMutation,
   obrasQuery,
 } from "./lib/rbac";
-import { equipmentStatusValidator } from "./equipment";
+import { equipmentStatusValidator } from "./model/engineering/validators";
 import { generateQrForItem, getBatchDestination } from "./qrCodes";
 import { logEquipmentHistory } from "./lib/audit";
 import type { MutationCtx } from "./_generated/server";

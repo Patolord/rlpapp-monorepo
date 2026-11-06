@@ -6,8 +6,8 @@ import {
   isProjectArchived,
   resolveCustomerLabel,
   resolveProjectByIdentifier,
-} from "./lib/projects/helpers";
-import { listVisibleDocuments } from "./lib/projects/documents";
+} from "./model/engineering/projects";
+import { listVisibleDocuments } from "./model/engineering/documents";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 

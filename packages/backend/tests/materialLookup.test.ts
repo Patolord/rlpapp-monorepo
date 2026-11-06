@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { internal } from "../convex/_generated/api";
-import { buildMaterialSearchText } from "../convex/lib/compras/catalog";
+import { buildMaterialSearchText } from "../convex/model/procurement/catalog";
 import {
   describeMaterial,
   extractSkuCandidates,
   normalizeLookupQuery,
   tokenCoverage,
-} from "../convex/lib/compras/materialLookup";
-import { normalizeText } from "../convex/lib/compras/procurement";
+} from "../convex/model/procurement/materialLookup";
+import { normalizeText } from "../convex/model/procurement/pricing";
 import { setup } from "./helpers";
 
 const CERAMIC_DESCRIPTION =

@@ -31,8 +31,7 @@ import {
   MAX_TOKENS_PER_USER,
   normalizeName,
 } from "./model/identity/agentTokens";
-import {
-  accessRoles, agentTokenKind, agentTokenPermission } from "./schema";
+import { accessRoles, agentTokenKind, agentTokenPermission } from "./schema/identity";
 
 /**
  * Tokens de agente: credenciais pessoais para agentes de IA (Claude, Cursor,

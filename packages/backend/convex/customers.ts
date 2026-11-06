@@ -1,21 +1,9 @@
 import { v } from "convex/values";
-import {
-  cadastrosLookupQuery,
-  cadastrosMutation,
-} from "./lib/rbac";
+import { cadastrosLookupQuery, cadastrosMutation } from "./lib/rbac";
 import { logAudit, diffFields } from "./lib/audit";
-import {
-  formatTaxId,
-  normalizeCustomerName,
-  normalizeTaxId,
-  validateTaxIdForPersonType,
-} from "./lib/customers/helpers";
-import {
-  bulkImportResultValidator,
-  emptyBulkImportResult,
-  requireTrimmedName,
-} from "./lib/compras/bulkImport";
-import type { BulkImportResult } from "./lib/compras/bulkImport";
+import { formatTaxId, normalizeCustomerName, normalizeTaxId, validateTaxIdForPersonType } from "./model/contracts/customers";
+import { bulkImportResultValidator, emptyBulkImportResult, requireTrimmedName } from "./model/procurement/bulkImport";
+import type { BulkImportResult } from "./model/procurement/bulkImport";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 
@@ -736,34 +724,3 @@ export const restoreContact = cadastrosMutation({
     return null;
   },
 });
-
-/** Busca ou cria cliente por nome normalizado (usado na migração). */
-export async function findOrCreateCustomerByName(
-  ctx: MutationCtx,
-  params: {
-    name: string;
-    createdByUserId?: Id<"users">;
-  }
-): Promise<{ customerId: Id<"customers">; created: boolean }> {
-  const name = params.name.trim();
-  const nameNormalized = normalizeCustomerName(name);
-  const existing = await ctx.db
-    .query("customers")
-    .withIndex("by_name_normalized", (q) =>
-      q.eq("nameNormalized", nameNormalized)
-    )
-    .first();
-  if (existing) return { customerId: existing._id, created: false };
-
-  const now = Date.now();
-  const customerId = await ctx.db.insert("customers", {
-    name,
-    nameNormalized,
-    active: true,
-    createdAt: now,
-    updatedAt: now,
-    createdByUserId: params.createdByUserId,
-    updatedByUserId: params.createdByUserId,
-  });
-  return { customerId, created: true };
-}

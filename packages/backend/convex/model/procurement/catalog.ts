@@ -1,6 +1,6 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { normalizeText } from "./procurement";
+import { normalizeText } from "./pricing";
 
 export const SKU_PREFIX = "MAT";
 export const SKU_COUNTER_KEY = "material" as const;

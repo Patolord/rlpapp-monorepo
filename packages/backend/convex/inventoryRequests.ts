@@ -1,9 +1,6 @@
 import { v } from "convex/values";
-import {
-  inventoryRequestReason,
-  inventoryRequestStatus,
-} from "./schema";
-import { normalizeText } from "./lib/compras/procurement";
+import { inventoryRequestReason, inventoryRequestStatus } from "./schema/inventory";
+import { normalizeText } from "./model/procurement/pricing";
 import {
   authedMutation,
   authedQuery,
@@ -12,7 +9,7 @@ import {
   materialRequestsMutation,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
-import { findInventoryLocation } from "./lib/inventory/operations";
+import { findInventoryLocation } from "./model/inventory/operations";
 import {
   MAX_INVENTORY_REQUEST_LINES,
   canReviewMaterialRequests,
@@ -23,7 +20,7 @@ import {
   requireAssignedProject,
   resolveProjectByIdentifier,
   sentAndConsumedByMaterial,
-} from "./lib/inventory/requests";
+} from "./model/inventory/requests";
 import type { Doc, Id } from "./_generated/dataModel";
 
 const catalogMaterialValidator = v.object({

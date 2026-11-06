@@ -1,12 +1,12 @@
 import { v } from "convex/values";
 import { authedQuery, isStaff } from "./lib/rbac";
-import { buildProjectHierarchy } from "./lib/engenharia/hierarchy";
+import { buildProjectHierarchy } from "./model/engineering/hierarchy";
 import {
   getPortalUserIds,
   isProjectArchived,
   resolveCustomerLabel,
-} from "./lib/projects/helpers";
-import { hierarchyReturnValidator } from "./projects";
+} from "./model/engineering/projects";
+import { hierarchyReturnValidator } from "./model/engineering/hierarchy";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 

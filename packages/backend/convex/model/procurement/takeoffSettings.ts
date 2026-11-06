@@ -24,7 +24,7 @@ import {
 } from "@rlpapp/shared/takeoff/weights";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { takeoffDuctNorma, takeoffVrfBrand, takeoffWeightRow } from "../../schema";
+import { takeoffDuctNorma, takeoffVrfBrand, takeoffWeightRow } from "../../schema/procurement";
 
 /**
  * Company defaults of the RLP Takeoff settings other than kits (`takeoffSettings`): the weight

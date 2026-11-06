@@ -6,14 +6,14 @@ import {
   staffMutation,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
-import { inventoryLocationType } from "./schema";
+import { inventoryLocationType } from "./schema/inventory";
 import {
   canManageStockPolicy,
   canViewCentralInventory,
   getStockPolicy,
   upsertStockPolicyInternal,
-} from "./lib/inventory/stockPolicy";
-import { getOrCreateCentralLocation } from "./lib/inventory/operations";
+} from "./model/inventory/stockPolicy";
+import { getOrCreateCentralLocation } from "./model/inventory/operations";
 
 const stockPolicyRowValidator = v.object({
   _id: v.id("inventoryStockPolicies"),

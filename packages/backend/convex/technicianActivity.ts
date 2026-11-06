@@ -1,6 +1,6 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
-import { accessRoles } from "./schema";
+import { accessRoles } from "./schema/identity";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import {

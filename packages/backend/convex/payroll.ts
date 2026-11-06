@@ -4,7 +4,7 @@ import {
   folhaQuery,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
-import { normalizeCustomerName } from "./lib/customers/helpers";
+import { normalizeCustomerName } from "./model/contracts/customers";
 import {
   DEFAULT_DAILY_TRANSIT_CENTS,
   DEFAULT_FOOD_BASKET_CENTS,
@@ -20,8 +20,8 @@ import {
   formatPayrollRunLabel,
   loanStatus,
   previousMonth,
-} from "./lib/rh/payroll";
-import { employeePaymentMethod } from "./schema";
+} from "./model/hr/payroll";
+import { employeePaymentMethod } from "./schema/hr";
 import {
   alimonyLineValidator,
   alimonyTotals,
@@ -33,7 +33,7 @@ import {
   listAlimonyLinesForRun,
   toAlimonyLineRow,
   toAlimonyRow,
-} from "./model/rh/alimonies";
+} from "./model/hr/alimonies";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 

@@ -9,7 +9,7 @@ import {
   normalizeCustomerName,
   normalizeTaxId,
   validateTaxIdForPersonType,
-} from "./lib/customers/helpers";
+} from "./model/contracts/customers";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 

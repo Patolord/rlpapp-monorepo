@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { projectDocumentTechnicianAccess } from "./schema";
+import { projectDocumentTechnicianAccess } from "./schema/engineering";
 import {
   authedQuery,
   documentosMutation,
@@ -11,7 +11,7 @@ import { logAudit } from "./lib/audit";
 import {
   assertTechnicianProjectAccess,
   isProjectArchived,
-} from "./lib/projects/helpers";
+} from "./model/engineering/projects";
 import {
   assertValidPdfUpload,
   canUserViewDocument,
@@ -19,7 +19,7 @@ import {
   normalizeAllowedTechnicians,
   normalizeDocumentName,
   toDownloadFileName,
-} from "./lib/projects/documents";
+} from "./model/engineering/documents";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 

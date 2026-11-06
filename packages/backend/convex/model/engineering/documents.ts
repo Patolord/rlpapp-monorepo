@@ -1,7 +1,7 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { hasPermission, isStaff } from "../rbac";
-import { isProjectArchived } from "./helpers";
+import { hasPermission, isStaff } from "../../lib/rbac";
+import { isProjectArchived } from "./projects";
 
 /** Limite por arquivo (PDF). Convex aceita arquivos maiores, mas em campo
  * o download acontece em rede móvel — manter razoável. */

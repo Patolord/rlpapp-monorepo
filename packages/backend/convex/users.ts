@@ -12,7 +12,7 @@ import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
-import { accessRoles, departments } from "./schema";
+import { accessRoles, departments } from "./schema/identity";
 import {
   adminMutation,
   adminQuery,
@@ -21,7 +21,7 @@ import {
   requirePermission,
   requireUser,
 } from "./lib/rbac";
-import { accessFields, normalizeEmail, toUserView } from "./lib/users";
+import { accessFields, normalizeEmail, toUserView } from "./model/identity/users";
 import { enforceAgentTokenPolicy } from "./lib/agentTokens";
 
 /** Remove campos undefined — padrão dos updates parciais (ctx.db.patch). */

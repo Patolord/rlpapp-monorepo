@@ -13,7 +13,7 @@ import {
   obrasQuery,
 } from "./lib/rbac";
 import { logAudit, logEquipmentHistory } from "./lib/audit";
-import { isProjectArchived } from "./lib/projects/helpers";
+import { isProjectArchived } from "./model/engineering/projects";
 import type { Doc, Id } from "./_generated/dataModel";
 
 const qrCodeStatus = v.union(v.literal("active"), v.literal("inactive"));

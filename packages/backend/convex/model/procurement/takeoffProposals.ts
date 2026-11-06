@@ -10,9 +10,9 @@ import {
   normalizeUnit,
   sanitizeDimensions,
   type MaterialDimensions,
-} from "../../lib/compras/catalog";
-import { normalizeText } from "../../lib/compras/procurement";
-import { materialDimensions, materialStatus } from "../../schema";
+} from "./catalog";
+import { normalizeText } from "./pricing";
+import { materialDimensions, materialStatus } from "../../schema/procurement";
 import { catalogStatus } from "./takeoffCatalog";
 
 // ---------------------------------------------------------------------------

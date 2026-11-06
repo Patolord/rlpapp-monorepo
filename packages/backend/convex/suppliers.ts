@@ -4,17 +4,17 @@ import {
   fornecedoresMutation,
 } from "./lib/rbac";
 import { logAudit, diffFields } from "./lib/audit";
-import { normalizeText } from "./lib/compras/procurement";
+import { normalizeText } from "./model/procurement/pricing";
 import {
   formatTaxId,
   normalizeTaxId,
   validateTaxIdForPersonType,
-} from "./lib/customers/helpers";
+} from "./model/contracts/customers";
 import {
   bulkImportResultValidator,
   emptyBulkImportResult,
   requireTrimmedName,
-} from "./lib/compras/bulkImport";
+} from "./model/procurement/bulkImport";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 

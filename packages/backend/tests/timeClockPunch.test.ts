@@ -2,7 +2,7 @@ import { ConvexError } from "convex/values";
 import { describe, expect, test } from "vitest";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
-import { toBrtDateKey } from "../convex/lib/rh/timeClock";
+import { toBrtDateKey } from "../convex/model/hr/timeClock";
 import {
   buildPunchHash,
   classifyGeofence,
@@ -12,7 +12,7 @@ import {
   nextSequence,
   punchHashPayload,
   sha256Hex,
-} from "../convex/lib/rh/timeClockPunch";
+} from "../convex/model/hr/timeClockPunch";
 import { setup, withUser } from "./helpers";
 
 const POS = { latitude: -23.5290093, longitude: -46.6738077 };

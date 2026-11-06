@@ -1,6 +1,6 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { normalizeText } from "../compras/procurement";
+import { normalizeText } from "../procurement/pricing";
 
 export type CompatibilityIssue = {
   ruleId: Id<"inventoryCompatibilityRules">;

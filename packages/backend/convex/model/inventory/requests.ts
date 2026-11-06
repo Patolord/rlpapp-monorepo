@@ -1,11 +1,11 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { logAudit } from "../audit";
+import { logAudit } from "../../lib/audit";
 import {
   assertTechnicianProjectAccess,
   resolveProjectByIdentifier,
-} from "../projects/helpers";
-import { hasPermission } from "../rbac";
+} from "../engineering/projects";
+import { hasPermission } from "../../lib/rbac";
 import { createAndPostConsumption, findInventoryLocation } from "./operations";
 
 export { resolveProjectByIdentifier };

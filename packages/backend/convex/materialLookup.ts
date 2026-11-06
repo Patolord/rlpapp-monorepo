@@ -6,7 +6,7 @@ import {
   extractSkuCandidates,
   normalizeLookupQuery,
   tokenCoverage,
-} from "./lib/compras/materialLookup";
+} from "./model/procurement/materialLookup";
 
 const MAX_CANDIDATES = 5;
 const SEARCH_LIMIT = 10;

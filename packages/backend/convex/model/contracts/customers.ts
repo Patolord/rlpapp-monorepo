@@ -1,4 +1,6 @@
-import { normalizeText } from "../compras/procurement";
+import { normalizeText } from "../procurement/pricing";
+import type { Id } from "../../_generated/dataModel";
+import type { MutationCtx } from "../../_generated/server";
 
 /** Normaliza CNPJ/CPF para comparação (somente dígitos). */
 export function normalizeTaxId(value: string): string {
@@ -74,4 +76,35 @@ export function validateTaxIdForPersonType(
   if (!valid) {
     throw new Error(personType === "pf" ? "CPF inválido" : "CNPJ inválido");
   }
+}
+
+/** Busca ou cria cliente por nome normalizado (usado na migração). */
+export async function findOrCreateCustomerByName(
+  ctx: MutationCtx,
+  params: {
+    name: string;
+    createdByUserId?: Id<"users">;
+  }
+): Promise<{ customerId: Id<"customers">; created: boolean }> {
+  const name = params.name.trim();
+  const nameNormalized = normalizeCustomerName(name);
+  const existing = await ctx.db
+    .query("customers")
+    .withIndex("by_name_normalized", (q) =>
+      q.eq("nameNormalized", nameNormalized)
+    )
+    .first();
+  if (existing) return { customerId: existing._id, created: false };
+
+  const now = Date.now();
+  const customerId = await ctx.db.insert("customers", {
+    name,
+    nameNormalized,
+    active: true,
+    createdAt: now,
+    updatedAt: now,
+    createdByUserId: params.createdByUserId,
+    updatedByUserId: params.createdByUserId,
+  });
+  return { customerId, created: true };
 }

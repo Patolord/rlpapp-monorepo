@@ -1,7 +1,7 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { logAudit } from "../audit";
-import { hasPermission, hasRole } from "../rbac";
+import { logAudit } from "../../lib/audit";
+import { hasPermission, hasRole } from "../../lib/rbac";
 import { evaluateCompatibility } from "./compatibility";
 
 export const MAX_INVENTORY_DOCUMENT_LINES = 100;

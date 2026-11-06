@@ -1,17 +1,6 @@
 import { v } from "convex/values";
-import {
-  authedMutation,
-  authedQuery,
-  obrasQuery,
-  staffQuery,
-} from "./lib/rbac";
-
-export const equipmentStatusValidator = v.union(
-  v.literal("installing"),
-  v.literal("operational"),
-  v.literal("warning"),
-  v.literal("error")
-);
+import { authedMutation, authedQuery, obrasQuery, staffQuery } from "./lib/rbac";
+import { equipmentStatusValidator } from "./model/engineering/validators";
 
 export const get = authedQuery({
   args: { id: v.id("equipment") },

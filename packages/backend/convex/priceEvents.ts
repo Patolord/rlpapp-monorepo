@@ -5,11 +5,7 @@ import {
   purchasingQuery,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
-import {
-  materialDimensions,
-  priceEventReviewStatus,
-  priceEventSource,
-} from "./schema";
+import { materialDimensions, priceEventReviewStatus, priceEventSource } from "./schema/procurement";
 import { isUsablePriceEvent } from "./model/procurement/priceSelection";
 import {
   buildPriceHistory,
@@ -21,14 +17,14 @@ import {
   type EstimateCandidate,
 } from "./model/procurement/estimateSuggestion";
 import { promoteTakeoffItem } from "./model/procurement/takeoffPromotion";
-import { sanitizeDimensions } from "./lib/compras/catalog";
+import { sanitizeDimensions } from "./model/procurement/catalog";
 import {
   computeNeedsReview,
   normalizeText,
   priceAgeDays,
   priceFreshness,
   suggestedUnitPriceCents,
-} from "./lib/compras/procurement";
+} from "./model/procurement/pricing";
 
 export const priceEventValidator = v.object({
   _id: v.id("priceEvents"),
@@ -81,7 +77,7 @@ async function enrichEvent(
     projectId?: import("./_generated/dataModel").Id<"projects">;
     takeoffId?: import("./_generated/dataModel").Id<"takeoffs">;
     takeoffItemId?: import("./_generated/dataModel").Id<"takeoffItems">;
-    dimensions?: import("./lib/compras/catalog").MaterialDimensions;
+    dimensions?: import("./model/procurement/catalog").MaterialDimensions;
     notes?: string;
     reviewStatus?: "unreviewed" | "reviewed" | "ignored" | "duplicate";
     needsReview: boolean;

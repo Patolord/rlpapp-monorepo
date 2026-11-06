@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { employeePaymentMethod } from "../../schema";
+import { employeePaymentMethod } from "../../schema/hr";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 

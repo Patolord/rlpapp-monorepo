@@ -4,7 +4,7 @@ import {
   folhaQuery,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
-import { assertNonNegativeCents } from "./lib/rh/payroll";
+import { assertNonNegativeCents } from "./model/hr/payroll";
 import {
   alimonyLabel,
   alimonyLineValidator,
@@ -13,8 +13,8 @@ import {
   insertAlimonyLine,
   toAlimonyLineRow,
   toAlimonyRow,
-} from "./model/rh/alimonies";
-import { employeePaymentMethod } from "./schema";
+} from "./model/hr/alimonies";
+import { employeePaymentMethod } from "./schema/hr";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 

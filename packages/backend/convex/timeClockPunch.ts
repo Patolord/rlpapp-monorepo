@@ -12,7 +12,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import { authedQuery, hasPermission, registrarPontoMutation } from "./lib/rbac";
-import { assertDateKey, toBrtDateKey, toBrtTimeLabel, type PunchKind } from "./lib/rh/timeClock";
+import { assertDateKey, toBrtDateKey, toBrtTimeLabel, type PunchKind } from "./model/hr/timeClock";
 import {
   getPunchByClientId,
   getSettings,
@@ -20,7 +20,7 @@ import {
   listUserDayPunches,
   nextNsr,
   recomputeDaySummary,
-} from "./lib/rh/timeClockDb";
+} from "./model/hr/timeClockDb";
 import {
   MAX_CLOCK_SKEW_MS,
   PHOTO_MAX_AGE_MS,
@@ -29,8 +29,8 @@ import {
   isDuplicatePunch,
   isPunchPhotoType,
   nextSequence,
-} from "./lib/rh/timeClockPunch";
-import { timeClockGeofenceStatus, timeClockPunchKind } from "./schema";
+} from "./model/hr/timeClockPunch";
+import { timeClockGeofenceStatus, timeClockPunchKind } from "./schema/hr";
 
 /** Identificador do empregador que entra no hash do comprovante. */
 const EMPLOYER_ID = "RLP ENGENHARIA";

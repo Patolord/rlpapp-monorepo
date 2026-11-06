@@ -1,4 +1,4 @@
-import { normalizeText } from "./procurement";
+import { normalizeText } from "./pricing";
 
 export const MAX_LOOKUP_QUERY_LENGTH = 200;
 
