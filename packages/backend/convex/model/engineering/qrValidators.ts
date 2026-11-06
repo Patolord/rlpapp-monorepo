@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Doc } from "../../_generated/dataModel";
 import { equipKindValidator, equipmentStatusValidator } from "../../schema/engineering";
 
 // Validadores de retorno das funções públicas de QR codes (qrCodes.ts).
@@ -27,6 +28,8 @@ const equipmentFields = {
   labelPhotoIds: v.optional(v.array(v.id("_storage"))),
   status: equipmentStatusValidator,
   createdAt: v.number(),
+  // Técnico que cadastrou em campo (registerForQr grava este campo).
+  createdByUserId: v.optional(v.id("users")),
   // Vínculo reverso com o item planejado da obra (relatórios).
   projectEquipmentId: v.optional(v.id("projectEquipment")),
   // Campos legados (dados antigos em produção antes da simplificação do schema).
@@ -193,3 +196,14 @@ export const projectQrRowValidator = v.object({
   environmentName: v.union(v.string(), v.null()),
   installedAt: v.union(v.number(), v.null()),
 });
+
+// getByToken e getFullContext são públicas (qualquer um com a etiqueta): não
+// expõem o id do técnico que cadastrou, para não permitir correlacionar os
+// cadastros de uma pessoa entre obras.
+export function withoutCreator(
+  equipment: Doc<"equipment"> | null
+): Omit<Doc<"equipment">, "createdByUserId"> | null {
+  if (!equipment) return null;
+  const { createdByUserId: _createdByUserId, ...rest } = equipment;
+  return rest;
+}

@@ -1,3 +1,4 @@
+import { withoutCreator } from "./qrValidators";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
 import { getBatchDestination } from "./qrBatches";
@@ -93,7 +94,7 @@ export async function getQrFullContext(ctx: QueryCtx, token: string) {
   return {
     token: qrCode.token,
     qrStatus: qrCode.status,
-    equipment,
+    equipment: withoutCreator(equipment),
     plannedEquipment,
     location,
     checklist,

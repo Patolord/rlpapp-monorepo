@@ -1,3 +1,4 @@
+import { withoutCreator } from "./qrValidators";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { hasRole } from "../../lib/rbac";
@@ -39,10 +40,9 @@ export async function getQrCodeLookup(
 
   if (!qrCode) return null;
 
-  let equipment = null;
-  if (qrCode.equipmentId) {
-    equipment = await ctx.db.get("equipment", qrCode.equipmentId);
-  }
+  const equipment = qrCode.equipmentId
+    ? withoutCreator(await ctx.db.get("equipment", qrCode.equipmentId))
+    : null;
 
   const batchProject = await getBatchDestination(ctx, qrCode.batchId);
 
