@@ -671,18 +671,26 @@ describe("fluxo QR-Obra sem redundância", () => {
       return user?._id;
     });
 
-    // O documento gravado tem createdByUserId; o validador de retorno precisa aceitá-lo.
-    const byToken = await asTech.query(api.qrCodes.getByToken, {
+    const stored = await t.run(async (ctx) => ctx.db.get("equipment", equipmentId));
+    expect(stored?.createdByUserId).toBe(techUserId);
+
+    // Queries públicas (qualquer um com a etiqueta): devolvem o equipamento sem
+    // o id de quem cadastrou.
+    const byToken = await t.query(api.qrCodes.getByToken, {
       token: "REGQR001",
     });
     expect(byToken?.equipment?._id).toBe(equipmentId);
-    expect(byToken?.equipment?.createdByUserId).toBe(techUserId);
+    expect(byToken?.equipment).not.toHaveProperty("createdByUserId");
 
     const context = await t.query(api.qrCodes.getFullContext, {
       token: "REGQR001",
     });
     expect(context?.equipment?._id).toBe(equipmentId);
-    expect(context?.equipment?.createdByUserId).toBe(techUserId);
     expect(context?.equipment?.description).toBe("Evaporadora sala 1");
+    expect(context?.equipment).not.toHaveProperty("createdByUserId");
+
+    // Busca interna (autenticada) usa o mesmo validador e mantém o campo.
+    const found = await asAdmin.query(api.qrCodes.search, { term: "REGQR001" });
+    expect(found.qrCodes[0]?.equipment?.createdByUserId).toBe(techUserId);
   });
 });

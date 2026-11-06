@@ -59,6 +59,17 @@ const equipmentFields = {
 
 const qrCodeValidator = v.object(qrCodeFields);
 const equipmentValidator = v.object(equipmentFields);
+
+// getByToken e getFullContext são públicas (qualquer um com a etiqueta): não
+// expõem o id do técnico que cadastrou, para não permitir correlacionar os
+// cadastros de uma pessoa entre obras.
+function withoutCreator(
+  equipment: Doc<"equipment"> | null
+): Omit<Doc<"equipment">, "createdByUserId"> | null {
+  if (!equipment) return null;
+  const { createdByUserId: _createdByUserId, ...rest } = equipment;
+  return rest;
+}
 const qrCodeWithEquipmentValidator = v.object({
   ...qrCodeFields,
   equipment: v.union(equipmentValidator, v.null()),
@@ -138,10 +149,9 @@ export const getByToken = query({
 
     if (!qrCode) return null;
 
-    let equipment = null;
-    if (qrCode.equipmentId) {
-      equipment = await ctx.db.get("equipment", qrCode.equipmentId);
-    }
+    const equipment = qrCode.equipmentId
+      ? withoutCreator(await ctx.db.get("equipment", qrCode.equipmentId))
+      : null;
 
     const batchProject = await getBatchDestination(ctx, qrCode.batchId);
 
@@ -1040,7 +1050,7 @@ export const getFullContext = query({
     return {
       token: qrCode.token,
       qrStatus: qrCode.status,
-      equipment,
+      equipment: withoutCreator(equipment),
       plannedEquipment,
       location,
       checklist,
