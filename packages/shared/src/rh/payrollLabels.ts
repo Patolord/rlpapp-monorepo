@@ -1,3 +1,4 @@
+/** Rótulos curtos de mês e da folha (web, native e backend). */
 export const MONTH_LABELS = [
   "JAN",
   "FEV",
@@ -13,10 +14,12 @@ export const MONTH_LABELS = [
   "DEZ",
 ] as const;
 
+/** "MAR/26" */
 export function formatMonthLabel(year: number, month: number): string {
   return `${MONTH_LABELS[month - 1]}/${String(year).slice(-2)}`;
 }
 
+/** "05 ABR · ref MAR" (ou "· ref DEZ/25" quando o ano de referência difere). */
 export function formatPayrollRunLabel(params: {
   paymentDay: number;
   paymentMonth: number;

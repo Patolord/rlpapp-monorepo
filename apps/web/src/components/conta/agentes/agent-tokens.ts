@@ -8,7 +8,7 @@ export type Permission = "full_access" | "read_only";
 
 export const cardCls = "rounded-2xl border border-slate-100 bg-white shadow-sm";
 
-export function formatDate(ts: number): string {
+export function formatShortMonthDate(ts: number): string {
   return new Date(ts).toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "short",
@@ -16,7 +16,7 @@ export function formatDate(ts: number): string {
   });
 }
 
-export function formatDateTime(ts: number): string {
+export function formatDayMonthTime(ts: number): string {
   return new Date(ts).toLocaleString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
@@ -33,7 +33,7 @@ export function formatRelative(ts: number): string {
   if (hours < 24) return `há ${hours} h`;
   const days = Math.round(hours / 24);
   if (days < 30) return `há ${days} d`;
-  return formatDate(ts);
+  return formatShortMonthDate(ts);
 }
 
 export function tokenStatus(token: {

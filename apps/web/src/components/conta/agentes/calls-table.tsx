@@ -1,6 +1,6 @@
 import { Loader2 } from "lucide-react";
 
-import { formatDateTime, type CallRow } from "@/components/conta/agentes/agent-tokens";
+import { formatDayMonthTime, type CallRow } from "@/components/conta/agentes/agent-tokens";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -44,7 +44,7 @@ export function CallsTable({ calls }: { calls: CallRow[] | undefined }) {
           {calls.map((call) => (
             <TableRow key={call._id}>
               <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                {formatDateTime(call.createdAt)}
+                {formatDayMonthTime(call.createdAt)}
               </TableCell>
               <TableCell className="text-sm">{call.tokenName ?? "—"}</TableCell>
               <TableCell className="font-mono text-xs">{call.tool}</TableCell>

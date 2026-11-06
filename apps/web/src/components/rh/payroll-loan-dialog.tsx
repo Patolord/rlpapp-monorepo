@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getErrorMessage } from "@/lib/errors";
-import { formatMonthLabel, MONTH_LABELS } from "@/lib/rh/labels";
+import { formatMonthLabel, MONTH_LABELS } from "@rlpapp/shared/rh/payrollLabels";
 import { formatCentsInput, parsePayrollAmountToCents } from "@/lib/rh/money";
 
 function monthOptions(fromYear: number, toYear: number) {

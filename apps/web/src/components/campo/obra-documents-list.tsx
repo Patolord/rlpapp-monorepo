@@ -27,7 +27,7 @@ import {
   type CachedDocumentMeta,
 } from "@/lib/field-cache";
 import { downloadBlob, openPdfInNewTab } from "@/lib/project-documents";
-import { formatFileSize } from "@/lib/project-documents";
+import { formatFileSize } from "@rlpapp/shared/formatters";
 import { useDocumentBlobFetcher } from "@/hooks/use-document-blob";
 import { useFieldCacheOwner } from "@/hooks/use-field-cache-owner";
 import { useOfflineQuery } from "@/hooks/use-offline-query";

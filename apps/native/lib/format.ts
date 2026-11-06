@@ -10,13 +10,6 @@ export function formatQty(quantity: number, unit: string | null): string {
   return unit ? `${formatted} ${unit}` : formatted;
 }
 
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${kb.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} KB`;
-  const mb = kb / 1024;
-  return `${mb.toLocaleString("pt-BR", { maximumFractionDigits: mb < 10 ? 1 : 0 })} MB`;
-}
 
 export function formatDateTime(timestamp: number): string {
   return new Date(timestamp).toLocaleString("pt-BR", {

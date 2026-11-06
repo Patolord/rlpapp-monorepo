@@ -18,7 +18,7 @@ import { PayrollRunParameters } from "@/components/rh/payroll-run-parameters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getErrorMessage } from "@/lib/errors";
-import { formatPayrollRunLabel } from "@/lib/rh/labels";
+import { formatPayrollRunLabel } from "@rlpapp/shared/rh/payrollLabels";
 
 type Workspace = FunctionReturnType<typeof api.payroll.getWorkspace>;
 type Line = Workspace["lines"][number];

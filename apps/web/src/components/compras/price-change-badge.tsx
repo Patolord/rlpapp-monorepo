@@ -1,4 +1,5 @@
 import { formatCurrency, formatDate } from "@rlpapp/shared";
+import { formatPriceChange } from "@rlpapp/shared/formatters";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -10,18 +11,6 @@ export type PriceChange = {
   fromAt: number;
 };
 
-/** "+5,2%" ou, sem base percentual, "+R$ 0,50". */
-export function formatPriceChange(change: PriceChange): string {
-  const sign = change.deltaCents > 0 ? "+" : change.deltaCents < 0 ? "−" : "";
-  if (change.deltaPercent === null) {
-    return `${sign}${formatCurrency(Math.abs(change.deltaCents))}`;
-  }
-  const percent = Math.abs(change.deltaPercent).toLocaleString("pt-BR", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 1,
-  });
-  return `${sign}${percent}%`;
-}
 
 export function priceChangeDirection(
   change: PriceChange

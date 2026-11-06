@@ -7,7 +7,7 @@ import { HandCoins } from "lucide-react";
 import { PayrollLoanDialog } from "@/components/rh/payroll-loan-dialog";
 
 import { Button } from "@/components/ui/button";
-import { formatMonthLabel } from "@/lib/rh/labels";
+import { formatMonthLabel } from "@rlpapp/shared/rh/payrollLabels";
 
 import type { EmployeeSummary } from "./employee-form";
 

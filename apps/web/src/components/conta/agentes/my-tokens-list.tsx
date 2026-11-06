@@ -2,7 +2,7 @@ import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { Loader2, Pencil, ShieldOff } from "lucide-react";
 
 import {
-  formatDate,
+  formatShortMonthDate,
   formatRelative,
   tokenStatus,
   type TokenRow,
@@ -56,7 +56,7 @@ export function MyTokensList({
                 <code className="rounded bg-muted px-1.5 py-0.5 font-mono">
                   {token.tokenPrefix}…
                 </code>
-                <span>Criado em {formatDate(token.createdAt)}</span>
+                <span>Criado em {formatShortMonthDate(token.createdAt)}</span>
                 <span>
                   {token.lastUsedAt !== undefined
                     ? `Último uso ${formatRelative(token.lastUsedAt)}`
@@ -65,7 +65,7 @@ export function MyTokensList({
                 {token.expiresAt !== undefined && status !== "revoked" && (
                   <span>
                     {status === "expired" ? "Expirou em" : "Expira em"}{" "}
-                    {formatDate(token.expiresAt)}
+                    {formatShortMonthDate(token.expiresAt)}
                   </span>
                 )}
               </div>

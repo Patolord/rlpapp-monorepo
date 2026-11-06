@@ -15,12 +15,7 @@ export const PAYMENT_METHOD: Record<PaymentMethod, string> = {
   other: "Outro",
 };
 
-export const MONTH_LABELS = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"] as const;
 export const MONTH_NAMES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"] as const;
-
-export function formatMonthLabel(year: number, month: number): string {
-  return `${MONTH_LABELS[month - 1]}/${String(year).slice(-2)}`;
-}
 
 export const PUNCH_KIND: Record<string, string> = {
   entrada: "Entrada",

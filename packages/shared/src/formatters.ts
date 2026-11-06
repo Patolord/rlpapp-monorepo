@@ -47,3 +47,27 @@ export function formatTaxId(value: string | null | undefined): string | null {
   }
   return value;
 }
+
+/** Tamanho de arquivo legível (B, KB, MB). */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} KB`;
+  const mb = kb / 1024;
+  return `${mb.toLocaleString("pt-BR", { maximumFractionDigits: mb < 10 ? 1 : 0 })} MB`;
+}
+
+/** Variação de preço: "+5,2%" ou, sem base percentual, "+R$ 0,50". */
+export function formatPriceChange(change: {
+  deltaCents: number;
+  deltaPercent: number | null;
+}): string {
+  const sign = change.deltaCents > 0 ? "+" : change.deltaCents < 0 ? "−" : "";
+  if (change.deltaPercent === null) {
+    return `${sign}${formatCurrency(Math.abs(change.deltaCents))}`;
+  }
+  const percent = Math.abs(change.deltaPercent).toLocaleString("pt-BR", {
+    maximumFractionDigits: 1,
+  });
+  return `${sign}${percent}%`;
+}

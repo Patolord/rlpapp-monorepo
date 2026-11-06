@@ -6,7 +6,8 @@ import { Check, ChevronLeft, ChevronRight, Lock, LockOpen, Plus, Wallet } from "
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { MONTH_LABELS, MONTH_NAMES, PAYMENT_METHOD } from "@/components/rh/labels";
+import { MONTH_LABELS } from "@rlpapp/shared/rh/payrollLabels";
+import { MONTH_NAMES, PAYMENT_METHOD } from "@/components/rh/labels";
 import { PayrollLineSheet, type PayrollLine } from "@/components/rh/payroll-line-sheet";
 import { AppButton, ConfirmDialog, EmptyState, IconButton, LoadingState, PickerField, Pill, SectionTitle, Sheet, StatTile, Surface, useToast } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";

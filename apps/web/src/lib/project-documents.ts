@@ -32,13 +32,6 @@ export const TECHNICIAN_ACCESS_LABELS: Record<TechnicianAccess, string> = {
 
 export const MAX_PDF_BYTES = 50 * 1024 * 1024;
 
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${kb.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} KB`;
-  const mb = kb / 1024;
-  return `${mb.toLocaleString("pt-BR", { maximumFractionDigits: mb < 10 ? 1 : 0 })} MB`;
-}
 
 export function isPdfFile(file: File): boolean {
   return (

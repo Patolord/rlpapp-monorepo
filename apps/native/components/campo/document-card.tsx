@@ -17,7 +17,7 @@ import {
   useDocumentDownloader,
   type CachedDocumentMeta,
 } from "@/lib/field-documents";
-import { formatFileSize } from "@/lib/format";
+import { formatFileSize } from "@rlpapp/shared/formatters";
 import { colors, space, type } from "@/lib/theme";
 
 export type FieldDocument = FunctionReturnType<typeof api.projectDocuments.listForTechnician>[number];

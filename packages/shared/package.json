@@ -12,6 +12,7 @@
     "./engenharia/ducts": "./src/engenharia/ducts.ts",
     "./engenharia/equipment": "./src/engenharia/equipment.ts",
     "./rh/staffGroups": "./src/rh/staffGroups.ts",
+    "./rh/payrollLabels": "./src/rh/payrollLabels.ts",
     "./takeoff/desktopBudget": "./src/takeoff/desktopBudget.ts",
     "./takeoff/kits": "./src/takeoff/kits.ts",
     "./takeoff/kitCatalog": "./src/takeoff/kitCatalog.ts",
