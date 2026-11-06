@@ -36,8 +36,11 @@ convex/
 - Keep public function names and paths stable during architectural refactors.
 - Public functions define argument validators, return validators, and the
   appropriate authentication or authorization wrapper.
-- Public handlers should primarily call explicitly named model functions such
-  as `createContract`, `getContractById`, or `listContracts`.
+- Public handlers call explicitly named model functions such as
+  `createContract`, `getContractById`, or `listContracts`. A handler that is a
+  single-step CRUD (one get/patch/insert/delete plus its audit entry) may stay
+  inline; anything with branching, loops, or local helper functions moves to
+  `model/`.
 - Keep related behavior together. Split a file when it contains distinct
   capabilities, not once per function.
 - Call ordinary TypeScript model functions directly from queries and mutations

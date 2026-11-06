@@ -132,6 +132,8 @@ com secrets. Vercel, Convex Dashboard e EAS têm cópias próprias.
   backend; Biome em `apps/takeoff`. `shared`, `ui` e `env` só têm typecheck.
 - Configurações de preview para agentes: `.claude/launch.json` (web, porta 3001) e
   `apps/takeoff/.claude/launch.json` (Vite do takeoff, porta 1420).
+  `.cursor/` tem os scripts de ambiente dos agentes do Cursor e `.design-sync/` a configuração
+  que publica os componentes de `packages/ui` como design system.
 - Guia de design visual para UI nova: [`docs/skill.md`](docs/skill.md).
 - O `.gitignore` ignora `*.md` (exceto `AGENTS.md`, `CLAUDE.md` e o internal-agent): um `.md`
   novo que deva ser versionado precisa de `git add -f`.
