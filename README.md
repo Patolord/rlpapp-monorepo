@@ -9,7 +9,6 @@ Monorepo com [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-
 - **TypeScript** — type safety em todo o monorepo
 - **TanStack Start** — app web com SSR e TanStack Router
 - **Expo / React Native** — app mobile
-- **Next.js** — landing page institucional
 - **Tauri 2 (Rust) + React** — app desktop de takeoff e orçamento a partir de PDF (Windows e macOS)
 - **TailwindCSS + shadcn/ui** — UI
 - **Convex** — backend reativo (banco de dados + funções serverless + crons)
@@ -23,8 +22,7 @@ rlpapp/
 ├── apps/
 │   ├── web/           # App web (React + TanStack Start) — porta 3001
 │   ├── native/        # App mobile (React Native + Expo)
-│   ├── takeoff/       # App desktop de takeoff (Tauri + React; ver apps/takeoff/README.md)
-│   └── landing-page/  # Site institucional (Next.js)
+│   └── takeoff/       # App desktop de takeoff (Tauri + React; ver apps/takeoff/README.md)
 ├── packages/
 │   ├── backend/       # Backend Convex (schema, funções, crons, webhook Clerk)
 │   ├── env/           # Validação de variáveis de ambiente (zod)
@@ -300,20 +298,20 @@ Sem o secret, o workflow só avisa e não apaga nada.
 
 - **Backend (produção):** `npx convex deploy` — somente via pipeline/manual consciente, nunca durante desenvolvimento.
 - **Web:** build com `pnpm run build` (saída do TanStack Start) — requer as env vars `VITE_*` no ambiente de build.
-- **Landing page:** Next.js (`apps/landing-page`).
+- **Site institucional (rlpeng.com.br):** fica fora do monorepo, no repositório [`Patolord/rlp-site`](https://github.com/Patolord/rlp-site) (Astro + EmDash no Cloudflare Workers).
 - **Mobile:** Expo (EAS config pendente — ver roadmap Sprint 4).
 - **Desktop (takeoff):** `pnpm release X.Y.Z` em `apps/takeoff` e push da tag `takeoff-vX.Y.Z`; os apps instalados se atualizam sozinhos.
 
 ### Vercel: quando cada app builda
 
-Três projetos da Vercel apontam para este repositório: `rlpapp-web` (`apps/web`), `rlpapp-site` (`apps/landing-page`) e `rlpapp-internal-agent` (`apps/internal-agent`). O build do web também roda `npx convex deploy`, então é ele que publica o backend do Convex (preview por branch, produção no `master`). O time está no plano grátis, com **100 deployments por dia** somando todos os projetos.
+Dois projetos da Vercel apontam para este repositório: `rlpapp-web` (`apps/web`) e `rlpapp-internal-agent` (`apps/internal-agent`). O build do web também roda `npx convex deploy`, então é ele que publica o backend do Convex (preview por branch, produção no `master`). O time está no plano grátis, com **100 deployments por dia** somando todos os projetos.
 
 A cada push, dois filtros decidem se um projeto builda:
 
-1. **"Skip deployment" da Vercel** (Settings → Build and Deployment → Root Directory, ligado nos três). Usa o grafo do workspace pnpm (dependências `workspace:*` declaradas nos `package.json`) e pula o projeto antes de criar o deployment; esses pulos **não contam** no limite diário. Só que qualquer arquivo fora de `apps/*` e `packages/*` (`README.md`, `AGENTS.md`, `docs/`, `.github/`, `scripts/`…) conta como mudança global e libera os três.
+1. **"Skip deployment" da Vercel** (Settings → Build and Deployment → Root Directory, ligado nos dois). Usa o grafo do workspace pnpm (dependências `workspace:*` declaradas nos `package.json`) e pula o projeto antes de criar o deployment; esses pulos **não contam** no limite diário. Só que qualquer arquivo fora de `apps/*` e `packages/*` (`README.md`, `AGENTS.md`, `docs/`, `.github/`, `scripts/`…) conta como mudança global e libera os dois.
 2. **Ignored Build Step** (`ignoreCommand` em cada `vercel.json`): [`scripts/vercel-ignore-build.sh`](scripts/vercel-ignore-build.sh), que roda `turbo query affected` para o app. O app builda se mudou algo nele, num pacote de que ele depende (para o web: `packages/backend`, `shared`, `ui`, `env`, `config`), nas dependências dele no `pnpm-lock.yaml`, no `turbo.json`, no `package.json` ou no `pnpm-workspace.yaml` da raiz. A base é o último deployment com sucesso do projeto no branch (`VERCEL_GIT_PREVIOUS_SHA`); em preview, se o branch saiu do `master` depois desse deployment (branch reaproveitado depois de um merge), a base passa a ser esse ponto do `master`, porque o que já está no `master` não pede preview. Sem base, produção builda sempre e preview compara com o ponto em que o branch saiu do `master` (ou builda, se não der para descobrir). Um build cancelado aqui **conta** no limite (mas não gasta minutos de build nem cria preview no Convex).
 
-**Previews só do web.** O site e o internal-agent não fazem deployment de preview: os `vercel.json` deles têm `"git": {"deploymentEnabled": {"**": false, "master": true}}`, então só o `master` cria deployment nesses dois (quando um branch casa com mais de uma regra, vale a que for `true`). Antes, cada push de qualquer PR com arquivo fora de `apps/*`/`packages/*` criava um deployment em cada um, quase sempre cancelado, e todos contavam no limite. Para ver um preview do site num branch: no projeto `rlpapp-site`, Create Deployment com o branch, ou `vercel deploy` em `apps/landing-page`.
+**Previews só do web.** O internal-agent não faz deployment de preview: o `vercel.json` dele tem `"git": {"deploymentEnabled": {"**": false, "master": true}}`, então só o `master` cria deployment nele (quando um branch casa com mais de uma regra, vale a que for `true`). Antes, cada push de qualquer PR com arquivo fora de `apps/*`/`packages/*` criava um deployment nele, quase sempre cancelado, e todos contavam no limite.
 
 **Pushes custam deployments.** Cada push num branch que mexe no web (ou no backend, shared, ui, env) é um build de preview do web e um deployment de preview no Convex. Junte os commits e faça push quando o trabalho estiver pronto para revisão, não a cada commit (vale para agentes também: ver `AGENTS.md`).
 

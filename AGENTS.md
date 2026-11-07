@@ -11,13 +11,15 @@ Glossário do domínio: [`CONTEXT.md`](CONTEXT.md).
 | `apps/web` | `web` | Dashboard (TanStack Start + Convex + Clerk), porta 3001; também serve o MCP em `/mcp` |
 | `apps/takeoff` | `takeoff` | App desktop RLP Takeoff (Tauri 2 + React, Rust em `src-tauri`): takeoff e orçamento a partir de PDF. Ver [`apps/takeoff/AGENTS.md`](apps/takeoff/AGENTS.md) |
 | `apps/native` | `native` | App mobile (Expo / React Native) |
-| `apps/landing-page` | `rlp` | Site institucional (Next.js) |
 | `apps/internal-agent` | `@rlpapp/internal-agent` | Assistente interno (framework eve, canal WhatsApp). Ver [`apps/internal-agent/AGENTS.md`](apps/internal-agent/AGENTS.md) |
 | `packages/backend` | `@rlpapp/backend` | Backend Convex (schema, funções, crons, HTTP). Ver [`packages/backend/AGENTS.md`](packages/backend/AGENTS.md) e [`packages/backend/convex/README.md`](packages/backend/convex/README.md) |
 | `packages/shared` | `@rlpapp/shared` | Código TS compartilhado entre apps (formatadores, rótulos, cálculos de engenharia como NBR 16401). Os `exports` apontam para `src/*.ts` |
 | `packages/ui` | `@rlpapp/ui` | Tokens e componentes de UI (web e native) |
 | `packages/env` | `@rlpapp/env` | Validação de variáveis de ambiente (zod) para web, native e MCP |
 | `packages/config` | `@rlpapp/config` | `tsconfig.base.json` compartilhado |
+
+O site institucional (rlpeng.com.br) não fica aqui: está no repositório
+[`Patolord/rlp-site`](https://github.com/Patolord/rlp-site) (Astro + EmDash no Cloudflare Workers).
 
 Direção em andamento: lógica usada pelo dashboard e pelo app desktop migra para `packages/shared`
 (o cálculo de dutos já mora em `packages/shared/src/engenharia/ducts.ts` e é o único; o dashboard
@@ -69,7 +71,7 @@ push num branch que mexe em `apps/web` ou nos pacotes dele (`packages/backend`, 
 `env`, `config`) gera um build de preview do web e um deployment de preview no Convex (limite de
 40). Por isso: faça commits locais à vontade, mas **push só quando o trabalho estiver pronto para
 o PR ou para responder a revisão**, num push só; não faça push de commit a commit nem de
-correções de docs separadas. Site e internal-agent só fazem deployment no `master`. Detalhes no
+correções de docs separadas. O internal-agent só faz deployment no `master`. Detalhes no
 README (Deploy → "Vercel: quando cada app builda").
 
 ## Secrets: Doppler
@@ -128,7 +130,7 @@ com secrets. Vercel, Convex Dashboard e EAS têm cópias próprias.
 - Testes ao lado do código (`*.test.ts` em `apps/web/src`, `apps/takeoff/src`), exceto backend
   (`packages/backend/tests`) e shared (`packages/shared/tests`). E2E do web: Playwright em
   `apps/web/e2e` (`pnpm -F web test:e2e`).
-- Lint: ESLint (`eslint.config.mjs` por pacote) em web, native, landing-page, internal-agent e
+- Lint: ESLint (`eslint.config.mjs` por pacote) em web, native, internal-agent e
   backend; Biome em `apps/takeoff`. `shared`, `ui` e `env` só têm typecheck.
 - Configurações de preview para agentes: `.claude/launch.json` (web, porta 3001) e
   `apps/takeoff/.claude/launch.json` (Vite do takeoff, porta 1420).

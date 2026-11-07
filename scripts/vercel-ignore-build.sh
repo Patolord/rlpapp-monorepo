@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ignored Build Step da Vercel para os apps do monorepo (web, landing-page, internal-agent).
+# Ignored Build Step da Vercel para os apps do monorepo (web, internal-agent).
 #
 # Uso, no vercel.json do app (a Vercel roda o comando dentro do Root Directory do projeto):
 #   "ignoreCommand": "bash ../../scripts/vercel-ignore-build.sh"
