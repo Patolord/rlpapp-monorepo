@@ -2,6 +2,7 @@ import { Redirect } from "expo-router";
 
 import { LoadingScreen } from "@/components/auth/loading-screen";
 import { homeFor } from "@/components/inicio/homes";
+import { BellButton } from "@/components/notifications/bell-button";
 import { Screen } from "@/components/ui";
 import { useProfile } from "@/lib/profile";
 
@@ -13,7 +14,7 @@ export default function InicioScreen() {
   const Home = homeFor(me.profile);
   return (
     <Screen>
-      <Home user={me.user} />
+      <Home user={me.user} right={<BellButton />} />
     </Screen>
   );
 }

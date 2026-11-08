@@ -56,6 +56,7 @@ function StackLayout() {
       <Stack.Screen name="scanner" options={{ presentation: "fullScreenModal" }} />
       <Stack.Screen name="equipamento/[token]" options={{ headerShown: true }} />
       <Stack.Screen name="pendentes" options={{ headerShown: true }} />
+      <Stack.Screen name="notificacoes" />
       <Stack.Screen name="obra/[projectId]" options={{ headerShown: false }} />
       <Stack.Screen name="portal-projeto/[projectId]" options={{ headerShown: true, title: "Projeto" }} />
     </Stack>

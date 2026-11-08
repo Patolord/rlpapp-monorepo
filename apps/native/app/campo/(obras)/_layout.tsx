@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 
+import { BellButton } from "@/components/notifications/bell-button";
 import { useNativeHeaderOptions } from "@/lib/native-header";
 
 /**
@@ -10,7 +11,7 @@ export default function CampoObrasLayout() {
   const header = useNativeHeaderOptions();
   return (
     <Stack screenOptions={header}>
-      <Stack.Screen name="index" options={{ title: "Minhas obras" }} />
+      <Stack.Screen name="index" options={{ title: "Minhas obras", headerRight: () => <BellButton tone="ghost" /> }} />
       <Stack.Screen name="outras-obras" options={{ title: "Outras obras" }} />
       <Stack.Screen name="meus-registros" options={{ title: "Meus registros" }} />
       <Stack.Screen name="obra/[projectId]/index" options={{ title: "Obra" }} />

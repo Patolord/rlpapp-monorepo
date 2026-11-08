@@ -20,6 +20,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { AppButton, ConfirmDialog, ScreenHeader, Surface, screenStyles } from "@/components/ui";
 import { LINKS, openUrl } from "@/lib/links";
+import { hasBell } from "@/lib/notifications";
 import { listPendingPunches } from "@/lib/punch-queue";
 import { PROFILE_LABEL, type Profile } from "@/lib/profile";
 import { colors, space, type } from "@/lib/theme";
@@ -130,6 +131,20 @@ export function MaisScreen({ user, profile }: { user: Doc<"users">; profile: Pro
       </Surface>
       {outras.length ? <Group title="Outras áreas" rows={outras} /> : null}
       {campo.length ? <Group title="Campo" rows={campo} /> : null}
+      {hasBell(profile) ? (
+        <Group
+          title="Notificações"
+          rows={[
+            {
+              key: "notificacoes",
+              title: "Notificações",
+              subtitle: "O que avisa no celular e horário silencioso",
+              icon: ic(Bell),
+              onPress: () => router.push("/notificacoes/preferencias" as Href),
+            },
+          ]}
+        />
+      ) : null}
       <Group
         title="Ajuda"
         rows={[
