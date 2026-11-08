@@ -65,7 +65,7 @@ function StackLayout() {
       <Stack.Screen name="equipamento-eng/[id]" />
       <Stack.Screen name="lote/[batchId]" />
       <Stack.Screen name="obra/[projectId]" options={{ headerShown: false }} />
-      <Stack.Screen name="portal-projeto/[projectId]" options={{ headerShown: true, title: "Projeto" }} />
+      <Stack.Screen name="portal-projeto/[projectId]" />
     </Stack>
   );
 }
