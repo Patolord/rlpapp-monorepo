@@ -8,8 +8,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
-import { computeReplenishmentState } from "./lib/compras/catalog";
-import { findInventoryLocation } from "./lib/inventory/operations";
+import { centralStockHealth } from "./lib/inventory/stockPolicy";
 import {
   activeUsersInDepartment,
   engineeringDeciders,
@@ -58,28 +57,9 @@ export const queueCounts = internalQuery({
         .take(REVIEW_COUNT_CAP)
     ).length;
 
-    let critical = 0;
-    let reorder = 0;
-    const central = await findInventoryLocation(ctx);
-    if (central) {
-      const policies = await ctx.db
-        .query("inventoryStockPolicies")
-        .withIndex("by_location", (q) => q.eq("locationId", central._id))
-        .take(5000);
-      for (const policy of policies) {
-        const material = await ctx.db.get("materials", policy.materialId);
-        if (!material?.active) continue;
-        const balance = await ctx.db
-          .query("inventoryBalances")
-          .withIndex("by_location_material", (q) =>
-            q.eq("locationId", central._id).eq("materialId", policy.materialId)
-          )
-          .unique();
-        const { state } = computeReplenishmentState(balance?.quantity ?? 0, policy);
-        if (state === "below_minimum") critical += 1;
-        else if (state === "reorder") reorder += 1;
-      }
-    }
+    const health = await centralStockHealth(ctx);
+    const critical = health.critical;
+    const reorder = health.reorder;
     return { review, critical, reorder };
   },
 });

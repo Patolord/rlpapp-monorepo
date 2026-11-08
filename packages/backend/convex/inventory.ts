@@ -30,6 +30,7 @@ import {
 } from "./lib/inventory/queries";
 import {
   canViewCentralInventory,
+  centralStockHealth,
   enrichBalanceWithReplenishment,
 } from "./lib/inventory/stockPolicy";
 import {
@@ -39,6 +40,8 @@ import {
 } from "./lib/inventory/requests";
 import { replenishmentState } from "./schema";
 import type { Doc } from "./_generated/dataModel";
+
+const BALANCE_SEARCH_LIMIT = 50;
 
 const movementInputType = v.union(
   v.literal("entry"),
@@ -222,6 +225,9 @@ export const listBalances = inventoryQuery({
   args: {
     projectId: v.optional(v.id("projects")),
     paginationOpts: paginationOptsValidator,
+    // Busca no estoque inteiro por nome, SKU ou variação (decisão 47). Com
+    // busca, a resposta vem numa página só (até 50 materiais).
+    search: v.optional(v.string()),
   },
   returns: v.object({
     page: v.array(
@@ -259,10 +265,36 @@ export const listBalances = inventoryQuery({
     if (!location) {
       return { page: [], isDone: true, continueCursor: "" };
     }
-    const results = await ctx.db
-      .query("inventoryBalances")
-      .withIndex("by_location", (q) => q.eq("locationId", location._id))
-      .paginate(args.paginationOpts);
+    const search = args.search?.trim();
+    let results: {
+      page: Doc<"inventoryBalances">[];
+      isDone: boolean;
+      continueCursor: string;
+      pageStatus?: string | null;
+      splitCursor?: string | null;
+    };
+    if (search) {
+      const materials = await ctx.db
+        .query("materials")
+        .withSearchIndex("search_text", (q) => q.search("searchText", search))
+        .take(BALANCE_SEARCH_LIMIT);
+      const page: Doc<"inventoryBalances">[] = [];
+      for (const material of materials) {
+        const balance = await ctx.db
+          .query("inventoryBalances")
+          .withIndex("by_location_material", (q) =>
+            q.eq("locationId", location._id).eq("materialId", material._id)
+          )
+          .unique();
+        if (balance) page.push(balance);
+      }
+      results = { page, isDone: true, continueCursor: "" };
+    } else {
+      results = await ctx.db
+        .query("inventoryBalances")
+        .withIndex("by_location", (q) => q.eq("locationId", location._id))
+        .paginate(args.paginationOpts);
+    }
     return {
       ...results,
       page: await Promise.all(
@@ -299,6 +331,23 @@ export const listBalances = inventoryQuery({
         })
       ),
     };
+  },
+});
+
+/** Contagens do topo do Estoque central: Crítico · Repor · OK · Sem política (decisão 22). */
+export const centralHealth = inventoryQuery({
+  args: {},
+  returns: v.object({
+    critical: v.number(),
+    reorder: v.number(),
+    healthy: v.number(),
+    unconfigured: v.number(),
+  }),
+  handler: async (ctx) => {
+    if (!canViewCentralInventory(ctx.user)) {
+      throw new Error("A Engenharia só pode consultar estoques de obras");
+    }
+    return await centralStockHealth(ctx);
   },
 });
 

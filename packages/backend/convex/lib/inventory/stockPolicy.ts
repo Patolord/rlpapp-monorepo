@@ -98,3 +98,53 @@ export async function upsertStockPolicyInternal(
     updatedByUserId: user._id,
   });
 }
+
+export type StockHealthCounts = {
+  critical: number;
+  reorder: number;
+  healthy: number;
+  unconfigured: number;
+};
+
+/**
+ * Saúde do estoque central (decisão 22): materiais ativos com política,
+ * contados por estado de reposição (rótulos do web: Crítico · Repor · OK),
+ * mais os saldos sem política. Usada no topo do Estoque central e no resumo
+ * diário (aviso N13).
+ */
+export async function centralStockHealth(ctx: QueryCtx): Promise<StockHealthCounts> {
+  const counts: StockHealthCounts = { critical: 0, reorder: 0, healthy: 0, unconfigured: 0 };
+  const central = await ctx.db
+    .query("inventoryLocations")
+    .withIndex("by_type", (q) => q.eq("type", "central"))
+    .first();
+  if (!central) return counts;
+
+  const policies = await ctx.db
+    .query("inventoryStockPolicies")
+    .withIndex("by_location", (q) => q.eq("locationId", central._id))
+    .take(5000);
+  const withPolicy = new Set<string>();
+  for (const policy of policies) {
+    const material = await ctx.db.get("materials", policy.materialId);
+    if (!material?.active) continue;
+    withPolicy.add(policy.materialId);
+    const balance = await ctx.db
+      .query("inventoryBalances")
+      .withIndex("by_location_material", (q) =>
+        q.eq("locationId", central._id).eq("materialId", policy.materialId)
+      )
+      .unique();
+    const { state } = computeReplenishmentState(balance?.quantity ?? 0, policy);
+    if (state === "below_minimum") counts.critical += 1;
+    else if (state === "reorder") counts.reorder += 1;
+    else counts.healthy += 1;
+  }
+  const balances = await ctx.db
+    .query("inventoryBalances")
+    .withIndex("by_location", (q) => q.eq("locationId", central._id))
+    .take(10000);
+  counts.unconfigured = balances.filter((b) => !withPolicy.has(b.materialId)).length;
+  return counts;
+}
+
