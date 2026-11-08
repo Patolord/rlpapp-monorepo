@@ -1,4 +1,4 @@
-import { paginationOptsValidator } from "convex/server";
+import { paginationOptsValidator, type PaginationResult } from "convex/server";
 import { v } from "convex/values";
 import {
   inventoryCompatibilityRuleType,
@@ -266,13 +266,7 @@ export const listBalances = inventoryQuery({
       return { page: [], isDone: true, continueCursor: "" };
     }
     const search = args.search?.trim();
-    let results: {
-      page: Doc<"inventoryBalances">[];
-      isDone: boolean;
-      continueCursor: string;
-      pageStatus?: string | null;
-      splitCursor?: string | null;
-    };
+    let results: PaginationResult<Doc<"inventoryBalances">>;
     if (search) {
       const materials = await ctx.db
         .query("materials")
