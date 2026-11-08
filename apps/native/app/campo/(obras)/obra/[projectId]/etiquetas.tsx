@@ -4,19 +4,12 @@ import { usePaginatedQuery } from "convex/react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { QrCode, Search } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { FlatList, StyleSheet, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, StyleSheet, TextInput, View } from "react-native";
 
-import { EmptyState, LoadingState } from "@rlpapp/ui/native";
+import { EmptyState, LoadingState } from "@/components/ui";
 import { BigRow, StatusPill } from "@/components/campo/field-ui";
-import { EQUIPMENT_STATUS_LABELS, type EquipmentStatus } from "@/lib/equipment-status";
-import { colors, radius, space, type Tone } from "@/lib/theme";
-
-const STATUS_TONE: Record<EquipmentStatus, Tone> = {
-  installing: "info",
-  operational: "success",
-  warning: "warning",
-  error: "danger",
-};
+import { EQUIPMENT_STATUS_LABELS, EQUIPMENT_STATUS_TONE as STATUS_TONE } from "@/lib/equipment-status";
+import { colors, radius, space } from "@/lib/theme";
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -97,12 +90,12 @@ export default function ObraEtiquetasScreen() {
           ListEmptyComponent={
             <EmptyState
               icon={<QrCode size={28} color={colors.primary} />}
-              title="Nada aqui"
-              description={debouncedSearch ? "Nenhum resultado." : "Sem etiquetas nesta obra."}
+              title={debouncedSearch ? "Nada com essa busca" : "Nenhuma etiqueta nesta obra"}
+              description={debouncedSearch ? "Confira o código ou o nome e tente de novo." : "Quando a engenharia enviar etiquetas para a obra, elas aparecem aqui."}
             />
           }
           ListFooterComponent={
-            status === "LoadingMore" ? <LoadingState size="small" className="py-4" /> : null
+            status === "LoadingMore" ? <ActivityIndicator color={colors.primary} style={{ paddingVertical: space.lg }} /> : null
           }
         />
       )}

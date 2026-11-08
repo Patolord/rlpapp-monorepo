@@ -94,7 +94,7 @@ export function MaisScreen({ user, profile }: { user: Doc<"users">; profile: Pro
       : [];
 
   async function askSignOut() {
-    const punches = await listPendingPunches(user._id).catch(() => []);
+    const punches = await listPendingPunches(user.clerkId).catch(() => []);
     setConfirm({ pending: pendingRecords + punches.length });
   }
 

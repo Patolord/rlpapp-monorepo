@@ -14,11 +14,10 @@ import {
 import { useEffect, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { EmptyState, LoadingState } from "@rlpapp/ui/native";
 import { BigAction, BigTile } from "@/components/campo/field-ui";
 import { obraSubtitle, obraTitle, useFieldObra } from "@/components/campo/obra";
 import { PendingBanner } from "@/components/campo/pending-banner";
-import { AppButton } from "@/components/ui";
+import { AppButton, EmptyState, LoadingState } from "@/components/ui";
 import { setLastFieldObra } from "@/lib/field-cache";
 import { normalizeTypedToken } from "@/lib/qr-token";
 import { colors, radius, space, type } from "@/lib/theme";

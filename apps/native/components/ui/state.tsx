@@ -16,6 +16,7 @@ export function EmptyState({
   description,
   actionLabel,
   onAction,
+  action,
   tone: t = "info",
   style,
 }: {
@@ -24,6 +25,8 @@ export function EmptyState({
   description?: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** Ação livre (ex.: botão principal), no lugar de actionLabel/onAction. */
+  action?: React.ReactNode;
   tone?: Tone;
   style?: StyleProp<ViewStyle>;
 }) {
@@ -40,6 +43,7 @@ export function EmptyState({
       {actionLabel && onAction ? (
         <AppButton label={actionLabel} onPress={onAction} variant="secondary" size="sm" style={{ marginTop: space.xs }} />
       ) : null}
+      {action ? <View style={{ marginTop: space.xs, alignSelf: "stretch", alignItems: "center" }}>{action}</View> : null}
     </Surface>
   );
 }
@@ -47,11 +51,21 @@ export function EmptyState({
 // ---------------------------------------------------------------------------
 // LoadingState: centered spinner with optional message.
 // ---------------------------------------------------------------------------
-export function LoadingState({ message, style }: { message?: string; style?: StyleProp<ViewStyle> }) {
+export function LoadingState({
+  message,
+  label,
+  style,
+}: {
+  message?: string;
+  /** Mesmo que `message` (nome do pacote antigo). */
+  label?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const text = message ?? label;
   return (
     <View style={[styles.loading, style]}>
       <ActivityIndicator size="large" color={colors.primary} />
-      {message ? <Text style={[type.bodySm, { color: colors.textSecondary }]}>{message}</Text> : null}
+      {text ? <Text style={[type.bodySm, { color: colors.textSecondary }]}>{text}</Text> : null}
     </View>
   );
 }

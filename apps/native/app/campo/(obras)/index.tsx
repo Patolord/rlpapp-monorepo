@@ -7,12 +7,10 @@ import { Building2, Search, WifiOff } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
 
-import { EmptyState, LoadingState } from "@rlpapp/ui/native";
 import { BigAction } from "@/components/campo/field-ui";
 import { ObraListItem } from "@/components/campo/obra-list-item";
 import { PendingBanner } from "@/components/campo/pending-banner";
-import { PontoButton } from "@/components/campo/ponto-button";
-import { SignOutButton } from "@/components/sign-out-button";
+import { Banner, EmptyState, LoadingState } from "@/components/ui";
 import {
   cacheFieldObra,
   cacheMyObras,
@@ -84,7 +82,7 @@ export default function MinhasObrasScreen() {
         <View style={styles.centered}>
           <PendingBanner onPress={() => router.push("/campo/pendentes" as Href)} />
           {online || cached === undefined ? (
-            <LoadingState label="Carregando suas obras…" />
+            <LoadingState message="Carregando suas obras…" />
           ) : (
             <View style={styles.offline}>
               <WifiOff size={40} color={colors.icon} />
@@ -100,9 +98,15 @@ export default function MinhasObrasScreen() {
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
             <View style={styles.header}>
+              {live === undefined ? (
+                <Banner
+                  tone="warning"
+                  icon={<WifiOff size={18} color={colors.warning} />}
+                  title="Sem conexão"
+                  detail="Mostrando a lista salva no aparelho."
+                />
+              ) : null}
               <PendingBanner onPress={() => router.push("/campo/pendentes" as Href)} />
-              <PontoButton onPress={() => router.push("/campo/ponto" as Href)} />
-              <Text style={styles.sectionTitle}>Minhas obras</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -115,8 +119,8 @@ export default function MinhasObrasScreen() {
           ListEmptyComponent={
             <EmptyState
               icon={<Building2 size={28} color={colors.primary} />}
-              title="Nenhuma obra"
-              description="Peça acesso à engenharia."
+              title="Nenhuma obra na sua lista"
+              description="Quando a engenharia incluir você numa obra, ela aparece aqui. Para uma obra fora da lista, use Outra obra."
             />
           }
           ListFooterComponent={
@@ -129,12 +133,6 @@ export default function MinhasObrasScreen() {
                 onPress={() => router.push("/campo/outras-obras" as Href)}
                 style={styles.otherObra}
               />
-              {live === undefined ? (
-                <Text style={styles.cachedNote}>Sem internet: lista salva no aparelho.</Text>
-              ) : null}
-              <View style={styles.signOut}>
-                <SignOutButton />
-              </View>
             </View>
           }
         />
@@ -149,10 +147,7 @@ const styles = StyleSheet.create({
   offline: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.md, paddingHorizontal: space.xl },
   offlineText: { ...type.body, textAlign: "center", color: colors.textSecondary },
   list: { padding: space.lg, paddingBottom: 48, gap: space.md },
-  header: { gap: space.lg, paddingBottom: space.xs },
-  sectionTitle: { fontSize: 20, lineHeight: 26, fontWeight: "700", color: colors.text, paddingTop: space.sm, paddingHorizontal: space.xs },
+  header: { gap: space.md },
   footer: { gap: space.lg, paddingTop: space.sm },
   otherObra: { borderStyle: "dashed", borderWidth: 2, borderColor: colors.borderStrong },
-  cachedNote: { ...type.label, textAlign: "center", color: colors.textSecondary },
-  signOut: { alignItems: "center", paddingTop: space.sm },
 });

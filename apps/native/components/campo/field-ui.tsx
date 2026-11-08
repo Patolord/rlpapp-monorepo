@@ -2,6 +2,7 @@ import { ChevronRight } from "lucide-react-native";
 import React from "react";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
+import { Pill } from "@/components/ui";
 import { colors, radius, space, tone as toneColors, type Tone } from "@/lib/theme";
 
 // ---------------------------------------------------------------------------
@@ -155,13 +156,9 @@ export function BigRow({
 }
 
 /** Estado em uma palavra, com cor (Ok / Atenção / Acabou). */
+/** Status em lista de campo: o StatusBadge do design system. */
 export function StatusPill({ label, tone }: { label: string; tone: Tone }) {
-  const t = toneColors[tone];
-  return (
-    <View style={[styles.pill, { backgroundColor: t.bg }]}>
-      <Text style={[styles.pillText, { color: t.fg }]}>{label}</Text>
-    </View>
-  );
+  return <Pill label={label} tone={tone} />;
 }
 
 const styles = StyleSheet.create({
@@ -223,6 +220,4 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, minWidth: 0, gap: 2 },
   rowTitle: { fontSize: 20, lineHeight: 26, fontWeight: "700" },
   rowSubtitle: { fontSize: 15, lineHeight: 20, fontWeight: "500" },
-  pill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill },
-  pillText: { fontSize: 15, lineHeight: 20, fontWeight: "700" },
 });

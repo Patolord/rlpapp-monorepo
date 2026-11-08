@@ -1,110 +1,120 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
+import type { FunctionReturnType } from "convex/server";
 import { usePaginatedQuery } from "convex/react";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { ChevronRight, Clock, History } from "lucide-react-native";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { ChevronRight, History } from "lucide-react-native";
+import { useMemo } from "react";
+import { ActivityIndicator, SectionList, StyleSheet, Text, View } from "react-native";
 
-import { Badge, EmptyState, LoadingState } from "@rlpapp/ui/native";
 import { PendingBanner } from "@/components/campo/pending-banner";
 import { StatusBadge } from "@/components/engenharia/status-badge";
-import { Card } from "@/components/ui/card";
+import { EmptyState, LoadingState, Pill, Surface } from "@/components/ui";
+import { colors, space, type } from "@/lib/theme";
 
-/** Serviços e cadastros do usuário logado nesta obra. */
+type Item = FunctionReturnType<typeof api.technicianActivity.listMineForProject>["page"][number];
+
+function dayTitle(ts: number): string {
+  const d = new Date(ts);
+  const today = new Date();
+  const start = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((start(today) - start(d)) / 86_400_000);
+  if (diff === 0) return "Hoje";
+  if (diff === 1) return "Ontem";
+  const label = d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit" });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+/** Meus registros nesta obra (ficha C8), agrupados por dia. */
 export default function ObraRegistrosScreen() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
   const router = useRouter();
-
   const { results, status, loadMore } = usePaginatedQuery(
     api.technicianActivity.listMineForProject,
     { projectId: projectId as Id<"projects"> },
     { initialNumItems: 20 }
   );
 
-  if (status === "LoadingFirstPage") {
-    return <LoadingState label="Carregando registros…" />;
-  }
+  const sections = useMemo(() => {
+    const map = new Map<string, Item[]>();
+    for (const item of results) {
+      const key = dayTitle(item.createdAt);
+      map.set(key, [...(map.get(key) ?? []), item]);
+    }
+    return [...map.entries()].map(([title, data]) => ({ title, data }));
+  }, [results]);
+
+  if (status === "LoadingFirstPage") return <LoadingState message="Carregando registros…" />;
 
   return (
-    <FlatList
-      data={results}
+    <SectionList
+      style={{ backgroundColor: colors.bg }}
+      sections={sections}
       keyExtractor={(item) => `${item.kind}:${item.id}`}
-      contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 8 }}
-      ListHeaderComponent={
-        <View className="pb-2">
-          <PendingBanner onPress={() => router.push("/campo/pendentes" as Href)} />
-        </View>
-      }
+      contentContainerStyle={styles.list}
+      stickySectionHeadersEnabled={false}
+      ListHeaderComponent={<PendingBanner onPress={() => router.push("/campo/pendentes" as Href)} />}
       onEndReached={() => {
         if (status === "CanLoadMore") loadMore(20);
       }}
       onEndReachedThreshold={0.5}
+      renderSectionHeader={({ section }) => <Text style={styles.section}>{section.title}</Text>}
       renderItem={({ item }) => {
-        const content = (
-          <Card className="gap-2 p-4">
-            <View className="flex-row items-start justify-between gap-2">
-              <View className="min-w-0 flex-1 gap-0.5">
-                <Text className="font-medium text-foreground" numberOfLines={1}>
-                  {item.title}
-                </Text>
-                <View className="flex-row flex-wrap items-center gap-2">
-                  <Badge variant="neutral">{item.label}</Badge>
-                  {item.qrToken ? (
-                    <Text className="font-mono text-xs text-muted-foreground">
-                      {item.qrToken}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-              {item.status ? <StatusBadge status={item.status} /> : null}
-            </View>
-            {item.notes ? (
-              <Text className="text-xs text-muted-foreground" numberOfLines={2}>
-                {item.notes}
-              </Text>
-            ) : null}
-            <View className="flex-row items-center gap-2">
-              <Clock size={12} color="#9ca3af" />
-              <Text className="flex-1 text-xs text-muted-foreground">
-                {new Date(item.createdAt).toLocaleString("pt-BR", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "2-digit",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </Text>
-              {item.qrToken ? <ChevronRight size={14} color="#9ca3af" /> : null}
-            </View>
-          </Card>
-        );
-
-        if (!item.qrToken) return content;
         const token = item.qrToken;
+        const time = new Date(item.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        const content = (
+          <View style={styles.row}>
+            <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+              <Text style={[type.bodyStrong, { color: colors.text }]} numberOfLines={1}>
+                {item.title}
+              </Text>
+              <View style={styles.meta}>
+                <Pill label={item.label} dot={false} />
+                <Text style={styles.metaText}>
+                  {time}
+                  {token ? ` · Etiqueta ${token}` : ""}
+                </Text>
+              </View>
+              {item.notes ? (
+                <Text style={styles.metaText} numberOfLines={2}>
+                  {item.notes}
+                </Text>
+              ) : null}
+            </View>
+            {item.status ? <StatusBadge status={item.status} /> : null}
+            {token ? <ChevronRight size={18} color={colors.icon} /> : null}
+          </View>
+        );
+        if (!token) return <Surface style={styles.card}>{content}</Surface>;
         return (
-          <Pressable
+          <Surface
+            style={styles.card}
+            accessibilityLabel={`${item.title}, ${item.label}, ${time}`}
             onPress={() =>
-              router.push({
-                pathname: "/campo/obra/[projectId]/equipamento/[token]",
-                params: { projectId: projectId!, token },
-              })
+              router.push({ pathname: "/campo/obra/[projectId]/equipamento/[token]", params: { projectId: projectId!, token } })
             }
-            accessibilityRole="button"
           >
             {content}
-          </Pressable>
+          </Surface>
         );
       }}
       ListEmptyComponent={
         <EmptyState
-          icon={<History size={28} color="#10b981" />}
-          title="Sem registros nesta obra"
-          description="Os serviços que você registrar aqui aparecem nesta lista."
+          icon={<History size={28} color={colors.primary} />}
+          title="Nada registrado nesta obra"
+          description="Os cadastros e serviços que você enviar aqui aparecem nesta lista."
         />
       }
-      ListFooterComponent={
-        status === "LoadingMore" ? <LoadingState size="small" className="py-4" /> : null
-      }
+      ListFooterComponent={status === "LoadingMore" ? <ActivityIndicator color={colors.primary} style={{ paddingVertical: space.lg }} /> : null}
     />
   );
 }
+
+const styles = StyleSheet.create({
+  list: { padding: space.screen, paddingBottom: 40, gap: space.sm },
+  section: { ...type.eyebrow, color: colors.textSecondaryOnBg, marginTop: space.md, marginBottom: space.xs },
+  card: { marginBottom: space.sm },
+  row: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  meta: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.sm },
+  metaText: { ...type.bodySm, color: colors.textSecondary },
+});

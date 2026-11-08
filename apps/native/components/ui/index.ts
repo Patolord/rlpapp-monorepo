@@ -15,3 +15,4 @@ export { KeyValueList } from "./key-value";
 export { PickerField, SegmentedField, type PickerOption } from "./picker-field";
 export { Toggle } from "./toggle";
 export { MetricStrip, type Metric } from "./metric-strip";
+export { ChoiceChips, ChoiceGroup, type ChoiceOption } from "./choice";
