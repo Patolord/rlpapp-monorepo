@@ -14,7 +14,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { OfflineSync } from "@/components/offline-sync";
 import { ToastProvider } from "@/components/ui";
-import { COLORS } from "@/lib/colors";
+import { colors } from "@/lib/theme";
 
 export const unstable_settings = {
   initialRouteName: "(tabs)",
@@ -40,7 +40,7 @@ function EnsureUser() {
 }
 
 function StackLayout() {
-  const bg = COLORS.background;
+  const bg = colors.bg;
 
   return (
     <Stack
@@ -89,7 +89,7 @@ export default function Layout() {
 }
 
 function InnerLayout() {
-  const bg = COLORS.background;
+  const bg = colors.bg;
 
   return (
     <View style={{ flex: 1, backgroundColor: bg }}>

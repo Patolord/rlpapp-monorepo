@@ -1,7 +1,7 @@
 import { useAuth } from "@clerk/expo";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import Constants from "expo-constants";
 import * as Location from "expo-location";
 import { useRouter, type Href } from "expo-router";
@@ -56,10 +56,9 @@ import {
 } from "@/lib/punch-queue";
 import { colors, radius, space, tone, type } from "@/lib/theme";
 import { uploadPhotos } from "@/lib/upload-photos";
-import { cacheTimeLabel, useCachedQuery } from "@/lib/query-cache";
+import { cacheTimeLabel, useCachedQuery } from "@/lib/use-cached-query";
 import { useOnline } from "@/lib/use-online";
 
-type Context = FunctionReturnType<typeof api.timeClockPunch.getContext>;
 type Receipt = FunctionReturnType<typeof api.timeClockPunch.register>;
 
 /** A foto vale 5 minutos (mesma regra do RHID). */
@@ -139,10 +138,9 @@ export function PunchScreen() {
   const { userId } = useAuth();
   const [now, setNow] = useState(() => Date.now());
   const today = toBrtDateKey(now);
-  const liveContext = useQuery(api.timeClockPunch.getContext, { date: today });
   // Sem sinal, a tela abre com o último contexto salvo (decisão 21).
-  const cachedContext = useCachedQuery<Context>(userId ? `punch-context:${userId}` : null, liveContext, online);
-  const context = cachedContext.value;
+  const cachedContext = useCachedQuery(userId ? `punch-context:${userId}` : null, api.timeClockPunch.getContext, { date: today });
+  const context = cachedContext.data;
   const register = useMutation(api.timeClockPunch.register);
   const generateUploadUrl = useMutation(api.timeClockPunch.generatePhotoUploadUrl);
 
@@ -333,11 +331,11 @@ export function PunchScreen() {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {cachedContext.fromCache && cachedContext.cachedAt ? (
+        {cachedContext.fromCache && !online ? (
           <Banner
             tone="warning"
             icon={<WifiOff size={18} color={colors.warning} />}
-            title={`Sem conexão · dados de ${cacheTimeLabel(cachedContext.cachedAt)}`}
+            title={cachedContext.cachedAt ? `Sem conexão · dados de ${cacheTimeLabel(cachedContext.cachedAt)}` : "Sem conexão · dados salvos no aparelho"}
             detail="A marcação fica salva no aparelho e sobe quando o sinal voltar."
           />
         ) : null}
