@@ -2,9 +2,9 @@ import type { Tone } from "@/lib/theme";
 
 export const REPLENISHMENT: Record<string, { label: string; tone: Tone }> = {
   unconfigured: { label: "Sem política", tone: "neutral" },
-  healthy: { label: "Saudável", tone: "success" },
+  healthy: { label: "OK", tone: "success" },
   reorder: { label: "Repor", tone: "warning" },
-  below_minimum: { label: "Abaixo do mínimo", tone: "danger" },
+  below_minimum: { label: "Crítico", tone: "danger" },
 };
 
 export const MATERIAL_STATUS: Record<string, { label: string; tone: Tone }> = {

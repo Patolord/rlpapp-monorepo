@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "convex/react";
 import { Barcode, Factory, FileText, Package, Ruler, Tag, Tags } from "lucide-react-native";
 import { useEffect, useState } from "react";
 
-import { AppButton, Field, PickerField, Sheet, useToast } from "@/components/ui";
+import { AppButton, Banner, Field, PickerField, Sheet, useToast } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
 import { colors } from "@/lib/theme";
 
@@ -41,6 +41,15 @@ export function MaterialFormSheet({
   const [brand, setBrand] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  // Novo material: confere parecidos no catálogo enquanto digita (ficha K4).
+  const [dupKey, setDupKey] = useState<{ name: string; variant: string } | null>(null);
+  useEffect(() => {
+    if (isEdit || !open) return;
+    const n = name.trim();
+    const t = setTimeout(() => setDupKey(n.length >= 3 ? { name: n, variant: variantLabel.trim() } : null), 400);
+    return () => clearTimeout(t);
+  }, [name, variantLabel, isEdit, open]);
+  const duplicates = useQuery(api.materials.findDuplicateCandidates, dupKey ? { name: dupKey.name, variantLabel: dupKey.variant || undefined } : "skip");
 
   useEffect(() => {
     if (!open) return;
@@ -106,6 +115,13 @@ export function MaterialFormSheet({
       footer={<AppButton label={isEdit ? "Salvar alterações" : "Criar material"} onPress={() => void submit()} loading={saving} />}
     >
       <Field label="Nome *" icon={<Package size={24} color={iconColor} strokeWidth={1.6} />} value={name} onChangeText={setName} error={errors.name} placeholder="Ex: Tubo de cobre" autoFocus={!isEdit} />
+      {!isEdit && duplicates && duplicates.length > 0 ? (
+        <Banner
+          tone="warning"
+          title="Já existe algo parecido no catálogo"
+          detail={duplicates.slice(0, 3).map((d) => [d.name, d.variantLabel].filter(Boolean).join(" — ") + (d.sku ? ` (${d.sku})` : "")).join("\n")}
+        />
+      ) : null}
       <Field label="Variante" icon={<Ruler size={24} color={iconColor} strokeWidth={1.6} />} value={variantLabel} onChangeText={setVariantLabel} placeholder='Ex: 3/8", 25 mm' helper="Tamanho, bitola ou especificação que diferencia este item." />
       <Field label="SKU / código" icon={<Barcode size={24} color={iconColor} strokeWidth={1.6} />} value={sku} onChangeText={setSku} autoCapitalize="characters" autoCorrect={false} helper={isEdit ? undefined : "Deixe vazio para gerar automaticamente."} />
       <PickerField label="Categoria" icon={<Tags size={24} color={iconColor} strokeWidth={1.6} />} value={category} onChange={setCategory} options={categoryOptions} searchable clearable loading={categories === undefined} />
