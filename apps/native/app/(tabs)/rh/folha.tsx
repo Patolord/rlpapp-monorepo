@@ -2,12 +2,13 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { formatCurrency } from "@rlpapp/shared";
 import { useMutation, useQuery } from "convex/react";
-import { Check, ChevronLeft, ChevronRight, Lock, LockOpen, Plus, Wallet } from "lucide-react-native";
+import { Check, ChevronLeft, ChevronRight, Lock, LockOpen, Plus, SlidersHorizontal, Wallet } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { MONTH_LABELS, MONTH_NAMES, PAYMENT_METHOD } from "@/components/rh/labels";
 import { PayrollLineSheet, type PayrollLine } from "@/components/rh/payroll-line-sheet";
+import { RunParametersSheet } from "@/components/rh/run-parameters-sheet";
 import { AppButton, ConfirmDialog, EmptyState, IconButton, LoadingState, PickerField, Pill, SectionTitle, Sheet, StatTile, Surface, useToast } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
 import { colors, radius, space, type } from "@/lib/theme";
@@ -33,6 +34,7 @@ export default function FolhaScreen() {
   const [adding, setAdding] = useState(false);
   const [employeeToAdd, setEmployeeToAdd] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<"close" | "reopen" | null>(null);
+  const [params, setParams] = useState(false);
   const [busy, setBusy] = useState(false);
   const [busyLine, setBusyLine] = useState<string | null>(null);
 
@@ -111,6 +113,7 @@ export default function FolhaScreen() {
             <StatTile label="Empréstimos no mês" value={formatCurrency(workspace.kpis.monthLoanDeductionCents)} tone="warning" hint={`${workspace.kpis.activeLoanCount} ativo${workspace.kpis.activeLoanCount === 1 ? "" : "s"} · saldo ${formatCurrency(workspace.kpis.outstandingLoanCents)}`} />
           </View>
 
+          <AppButton label="Parâmetros do mês" variant="ghost" size="sm" icon={<SlidersHorizontal size={18} color={colors.primary} />} onPress={() => setParams(true)} />
           <View style={styles.actions}>
             {editable ? (
               <>
@@ -166,6 +169,7 @@ export default function FolhaScreen() {
       )}
 
       <PayrollLineSheet line={liveLine} editable={editable} onClose={() => setLine(null)} />
+      <RunParametersSheet run={run} open={params} editable={editable} onClose={() => setParams(false)} />
 
       <Sheet open={adding} onClose={() => setAdding(false)} title="Adicionar à folha" maxHeight={0.6} footer={<AppButton label="Adicionar" disabled={!employeeToAdd} loading={busy} onPress={() => run && employeeToAdd && void act(() => addEmployee({ runId: run._id, employeeId: employeeToAdd as Id<"employees"> }), "Funcionário adicionado", "Não foi possível adicionar")} />}>
         <PickerField
@@ -180,8 +184,12 @@ export default function FolhaScreen() {
 
       <ConfirmDialog
         open={confirm === "close"}
-        title="Fechar folha?"
-        description="As linhas deixam de ser editáveis e as parcelas de empréstimo do mês ficam consolidadas. É possível reabrir depois."
+        title={`Fechar a folha de ${MONTH_NAMES[period.month - 1]}?`}
+        description={`${
+          workspace && workspace.kpis.lineCount - workspace.kpis.paidCount > 0
+            ? `${workspace.kpis.lineCount - workspace.kpis.paidCount} de ${workspace.kpis.lineCount} funcionários ainda não estão marcados como pagos. `
+            : "Todos os funcionários estão pagos. "
+        }As linhas deixam de ser editáveis e as parcelas de empréstimo do mês ficam consolidadas. Dá para reabrir depois.`}
         confirmLabel="Fechar"
         busy={busy}
         onCancel={() => setConfirm(null)}

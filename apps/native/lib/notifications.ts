@@ -119,7 +119,7 @@ export function hrefForNotification(
     case "estoque_repor":
       return "/(tabs)/estoque?filtro=repor" as Href;
     case "rh_sincronizar":
-      return "/(tabs)/rh/ponto" as Href;
+      return "/ponto-equipe/sincronizar" as Href;
     case "medicao":
       return projectId ? (`/obra/${projectId}/medicoes` as Href) : null;
     default:

@@ -1,23 +1,23 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
+import { useRouter, type Href } from "expo-router";
 import { Plus, User, Users } from "lucide-react-native";
 import { useState } from "react";
 import { FlatList, View } from "react-native";
 
-import { EmployeeDetailSheet } from "@/components/rh/employee-detail-sheet";
 import { EmployeeFormSheet } from "@/components/rh/employee-form-sheet";
 import { EMPLOYEE_STATUS, type EmployeeStatus } from "@/components/rh/labels";
-import { Chips, EmptyState, IconButton, ListRow, LoadingState, Pill, ScreenHeader, SearchField, screenStyles } from "@/components/ui";
+import { Banner, Chips, EmptyState, IconButton, ListRow, LoadingState, Pill, ScreenHeader, SearchField, screenStyles } from "@/components/ui";
 import { colors, space } from "@/lib/theme";
 
 type Filter = EmployeeStatus | "archived";
 
 export default function FuncionariosScreen() {
+  const router = useRouter();
+  const open = (id: string) => router.push(`/funcionario/${id}` as Href);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("active");
   const [creating, setCreating] = useState(false);
-  const [selectedId, setSelectedId] = useState<Id<"employees"> | null>(null);
 
   const employees = useQuery(api.employees.list, {
     search: search.trim() || undefined,
@@ -25,6 +25,7 @@ export default function FuncionariosScreen() {
     status: filter === "archived" ? undefined : filter,
   });
   const visible = employees?.filter((e) => (filter === "archived" ? Boolean(e.archivedAt) : !e.archivedAt));
+  const withoutUser = filter === "active" ? (visible ?? []).filter((e) => !e.userId).length : 0;
 
   return (
     <View style={{ flex: 1 }}>
@@ -51,6 +52,16 @@ export default function FuncionariosScreen() {
           data={visible}
           keyExtractor={(item) => item._id}
           contentContainerStyle={[screenStyles.content, { paddingTop: space.lg }]}
+          ListHeaderComponent={
+            withoutUser > 0 ? (
+              <Banner
+                tone="info"
+                title={`${withoutUser} ${withoutUser === 1 ? "funcionário sem usuário" : "funcionários sem usuário"} do app`}
+                detail="Sem usuário vinculado, a pessoa não marca o ponto pelo celular. Abra o funcionário para vincular."
+                style={{ marginBottom: space.md }}
+              />
+            ) : null
+          }
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={<EmptyState icon={<Users size={30} color={colors.primary} strokeWidth={1.8} />} title={search ? "Nada encontrado" : "Ninguém aqui"} description={search ? "Nenhum funcionário corresponde à busca." : filter === "active" ? "Toque em + para cadastrar o primeiro funcionário." : undefined} actionLabel={!search && filter === "active" ? "Novo funcionário" : undefined} onAction={() => setCreating(true)} />}
@@ -59,14 +70,19 @@ export default function FuncionariosScreen() {
               icon={<User size={22} color={colors.primary} strokeWidth={1.8} />}
               title={item.name}
               subtitle={[item.code ? `#${item.code}` : null, item.jobTitle, item.phone].filter(Boolean).join(" · ") || null}
-              trailing={item.status !== "active" || item.archivedAt ? <Pill label={item.archivedAt ? "Arquivado" : EMPLOYEE_STATUS[item.status].label} tone={item.archivedAt ? "neutral" : EMPLOYEE_STATUS[item.status].tone} /> : undefined}
-              onPress={() => setSelectedId(item._id)}
+              trailing={
+                item.status !== "active" || item.archivedAt ? (
+                  <Pill label={item.archivedAt ? "Arquivado" : EMPLOYEE_STATUS[item.status].label} tone={item.archivedAt ? "neutral" : EMPLOYEE_STATUS[item.status].tone} />
+                ) : !item.userId ? (
+                  <Pill label="Sem usuário" dot={false} />
+                ) : undefined
+              }
+              onPress={() => open(item._id)}
             />
           )}
         />
       )}
-      <EmployeeFormSheet open={creating} onClose={() => setCreating(false)} onSaved={(id) => setSelectedId(id)} />
-      <EmployeeDetailSheet employeeId={selectedId} onClose={() => setSelectedId(null)} />
+      <EmployeeFormSheet open={creating} onClose={() => setCreating(false)} onSaved={(id) => open(id)} />
     </View>
   );
 }

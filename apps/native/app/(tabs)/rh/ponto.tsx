@@ -1,16 +1,18 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { formatCurrency } from "@rlpapp/shared";
 import { useQuery } from "convex/react";
-import { Building2, ChevronLeft, ChevronRight, Clock, MapPinOff, RefreshCw } from "lucide-react-native";
+import { useRouter, type Href } from "expo-router";
+import { Building2, ChevronLeft, ChevronRight, Clock, MapPinOff, RefreshCw, Settings } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { LIVE_STATUS, MONTH_NAMES, PUNCH_KIND } from "@/components/rh/labels";
-import { Banner, Chips, EmptyState, IconButton, LoadingState, Pill, SectionTitle, StatTile, Surface } from "@/components/ui";
+import { PontoDia } from "@/components/rh/ponto-dia";
+import { AppButton, Banner, Chips, EmptyState, IconButton, LoadingState, Pill, SectionTitle, StatTile, Surface } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 import { colors, space, type } from "@/lib/theme";
 
-type Tab = "hoje" | "mes";
+type Tab = "hoje" | "dia" | "mes";
 
 function dateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -23,6 +25,7 @@ function shiftMonth(year: number, month: number, delta: number) {
 
 /** Ponto eletrônico (RHID): situação ao vivo de hoje e resumo mensal. */
 export default function PontoScreen() {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("hoje");
   const [today, setToday] = useState(() => dateKey(new Date()));
   const now = new Date();
@@ -40,9 +43,9 @@ export default function PontoScreen() {
 
   const syncBanner =
     sync && !sync.configured ? (
-      <Banner tone="warning" title="Integração com o RHID não configurada" detail="Configure no web em RH › Ponto para sincronizar as marcações." />
+      <Banner tone="warning" title="Integração com o RHID não configurada" detail="Sem a credencial do RHID no servidor, as marcações do relógio não chegam aqui. Fale com o administrador." />
     ) : sync?.lastSyncStatus === "error" ? (
-      <Banner tone="danger" title="Última sincronização falhou" detail={sync.lastSyncError ?? undefined} />
+      <Banner tone="danger" title="Última sincronização falhou" detail={sync.lastSyncError ?? undefined} actionLabel="Tentar de novo" onAction={() => router.push("/ponto-equipe/sincronizar" as Href)} />
     ) : sync?.lastSyncFinishedAt ? (
       <Banner tone="neutral" icon={<RefreshCw size={16} color={colors.textSecondary} />} title={`Sincronizado ${formatDateTime(sync.lastSyncFinishedAt)}`} detail={sync.lastSyncPunches != null ? `${sync.lastSyncPunches} marcações · ${sync.lastSyncPeople ?? 0} pessoas` : undefined} />
     ) : null;
@@ -53,16 +56,23 @@ export default function PontoScreen() {
         active={tab}
         onChange={setTab}
         items={[
-          { key: "hoje", label: "Hoje" },
+          { key: "hoje", label: "Agora" },
+          { key: "dia", label: "Dia" },
           { key: "mes", label: "Mês" },
         ]}
       />
-      {tab === "hoje" ? (
+      {tab === "dia" ? (
+        <PontoDia today={today} />
+      ) : tab === "hoje" ? (
         live === undefined ? (
           <LoadingState />
         ) : (
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             {syncBanner}
+            <View style={styles.actions}>
+              <AppButton label="Sincronizar" variant="secondary" size="sm" icon={<RefreshCw size={16} color={colors.text} />} onPress={() => router.push("/ponto-equipe/sincronizar" as Href)} style={{ flex: 1 }} />
+              <AppButton label="Configurar" variant="secondary" size="sm" icon={<Settings size={16} color={colors.text} />} onPress={() => router.push("/ponto-equipe/configurar" as Href)} style={{ flex: 1 }} />
+            </View>
             <View style={styles.stats}>
               <StatTile label="Na obra" value={live.summary.onSite} tone="success" hint={`de ${live.summary.total} pessoas`} />
               <StatTile label="Almoço" value={live.summary.lunch} tone="info" hint={`${live.summary.left} já saíram`} />
@@ -189,6 +199,7 @@ export default function PontoScreen() {
 const styles = StyleSheet.create({
   content: { paddingHorizontal: space.screen, paddingTop: space.lg, paddingBottom: space.xxl * 2, gap: space.md },
   stats: { flexDirection: "row", gap: space.md },
+  actions: { flexDirection: "row", gap: space.sm },
   section: { paddingHorizontal: 0, paddingTop: space.sm, paddingBottom: space.xs },
   rowBetween: { flexDirection: "row", alignItems: "center", gap: space.sm },
   wsIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },

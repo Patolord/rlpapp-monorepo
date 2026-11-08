@@ -2,25 +2,34 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { formatCurrency, formatDate } from "@rlpapp/shared";
 import { useMutation, useQuery } from "convex/react";
-import { Archive, ArchiveRestore, HandCoins, Pencil, Plus, Trash2 } from "lucide-react-native";
+import { Stack, useRouter } from "expo-router";
+import { Archive, ArchiveRestore, HandCoins, Link2, Pencil, Plus, Smartphone, Trash2 } from "lucide-react-native";
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppButton, ConfirmDialog, EmptyState, IconButton, KeyValueList, LoadingState, Pill, SectionTitle, Sheet, Surface, useToast } from "@/components/ui";
+import { AppButton, ConfirmDialog, EmptyState, IconButton, KeyValueList, LoadingState, Pill, PickerField, SectionTitle, Sheet, Surface, useToast } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
 import { formatTaxId } from "@/lib/format";
+import { useNativeHeaderOptions } from "@/lib/native-header";
 import { colors, radius, space, type } from "@/lib/theme";
 
 import { EMPLOYEE_STATUS, PAYMENT_METHOD, formatMonthLabel } from "./labels";
 import { EmployeeFormSheet } from "./employee-form-sheet";
 import { LoanFormSheet, type Loan } from "./loan-form-sheet";
 
-/** Detalhe do funcionário: dados, pagamento, empréstimos, arquivar/restaurar. */
-export function EmployeeDetailSheet({ employeeId, onClose }: { employeeId: Id<"employees"> | null; onClose: () => void }) {
+/**
+ * Funcionário (ficha R2) em tela cheia (decisão 18): dados, pagamento, usuário
+ * do app, empréstimos, arquivar e restaurar.
+ */
+export function EmployeeDetailScreen({ employeeId }: { employeeId: Id<"employees"> }) {
+  const router = useRouter();
+  const header = useNativeHeaderOptions();
+  const insets = useSafeAreaInsets();
   const toast = useToast();
   const now = new Date();
-  const employee = useQuery(api.employees.get, employeeId ? { employeeId } : "skip");
-  const loans = useQuery(api.payroll.listLoans, employeeId ? { employeeId, year: now.getFullYear(), paymentMonth: now.getMonth() + 1 } : "skip");
+  const employee = useQuery(api.employees.get, { employeeId });
+  const loans = useQuery(api.payroll.listLoans, { employeeId, year: now.getFullYear(), paymentMonth: now.getMonth() + 1 });
   const archive = useMutation(api.employees.archive);
   const restore = useMutation(api.employees.restore);
   const archiveLoan = useMutation(api.payroll.archiveLoan);
@@ -29,6 +38,7 @@ export function EmployeeDetailSheet({ employeeId, onClose }: { employeeId: Id<"e
   const [loanForm, setLoanForm] = useState<{ open: boolean; loan: Loan | null }>({ open: false, loan: null });
   const [confirm, setConfirm] = useState<{ kind: "archive" } | { kind: "loan"; loan: Loan } | null>(null);
   const [busy, setBusy] = useState(false);
+  const onClose = () => (router.canGoBack() ? router.back() : router.replace("/(tabs)/rh"));
 
   async function run(action: () => Promise<unknown>, ok: string, fail: string, close = false) {
     setBusy(true);
@@ -45,29 +55,13 @@ export function EmployeeDetailSheet({ employeeId, onClose }: { employeeId: Id<"e
   }
 
   const activeLoans = (loans ?? []).filter((l) => !l.archivedAt);
+  const subtitle = employee ? [employee.code ? `#${employee.code}` : null, employee.jobTitle].filter(Boolean).join(" · ") : "";
 
   return (
-    <>
-      <Sheet
-        open={employeeId !== null}
-        onClose={onClose}
-        title={employee?.name ?? "Funcionário"}
-        subtitle={employee ? [employee.code ? `#${employee.code}` : null, employee.jobTitle].filter(Boolean).join(" · ") || undefined : undefined}
-        footer={
-          employee ? (
-            <View style={styles.footer}>
-              {employee.archivedAt ? (
-                <AppButton label="Restaurar" icon={<ArchiveRestore size={20} color={colors.onPrimary} strokeWidth={2} />} trailing={null} loading={busy} onPress={() => void run(() => restore({ employeeId: employee._id }), "Funcionário restaurado", "Não foi possível restaurar")} style={{ flex: 1 }} />
-              ) : (
-                <>
-                  <AppButton label="Editar" variant="secondary" icon={<Pencil size={20} color={colors.text} strokeWidth={2} />} onPress={() => setEditing(true)} style={{ flex: 1 }} />
-                  <AppButton label="Arquivar" variant="secondary" icon={<Archive size={20} color={colors.danger} strokeWidth={2} />} onPress={() => setConfirm({ kind: "archive" })} style={{ flex: 1 }} />
-                </>
-              )}
-            </View>
-          ) : undefined
-        }
-      >
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <Stack.Screen options={{ ...header, title: employee?.name ?? "Funcionário" }} />
+      <ScrollView contentContainerStyle={styles.content}>
+        {subtitle ? <Text style={[type.bodySm, { color: colors.textSecondaryOnBg }]}>{subtitle}</Text> : null}
         {employee === undefined ? (
           <LoadingState style={{ flex: 0, paddingVertical: space.xxl }} />
         ) : employee === null ? (
@@ -91,6 +85,8 @@ export function EmployeeDetailSheet({ employeeId, onClose }: { employeeId: Id<"e
                 { label: "Observações", value: employee.notes },
               ]}
             />
+
+            <AppUserSection employeeId={employee._id} userId={employee.userId} archived={Boolean(employee.archivedAt)} />
 
             <View>
               <SectionTitle title="Empréstimos" style={styles.section} action={employee.archivedAt ? undefined : "Novo"} onAction={() => setLoanForm({ open: true, loan: null })} />
@@ -139,7 +135,21 @@ export function EmployeeDetailSheet({ employeeId, onClose }: { employeeId: Id<"e
             </View>
           </>
         )}
-      </Sheet>
+      </ScrollView>
+      {employee ? (
+        <View style={[styles.bottom, { paddingBottom: insets.bottom + space.md }]}>
+            <View style={styles.footer}>
+              {employee.archivedAt ? (
+                <AppButton label="Restaurar" icon={<ArchiveRestore size={20} color={colors.onPrimary} strokeWidth={2} />} trailing={null} loading={busy} onPress={() => void run(() => restore({ employeeId: employee._id }), "Funcionário restaurado", "Não foi possível restaurar")} style={{ flex: 1 }} />
+              ) : (
+                <>
+                  <AppButton label="Editar" variant="secondary" icon={<Pencil size={20} color={colors.text} strokeWidth={2} />} onPress={() => setEditing(true)} style={{ flex: 1 }} />
+                  <AppButton label="Arquivar" variant="secondary" icon={<Archive size={20} color={colors.danger} strokeWidth={2} />} onPress={() => setConfirm({ kind: "archive" })} style={{ flex: 1 }} />
+                </>
+              )}
+            </View>
+        </View>
+      ) : null}
 
       {employee ? (
         <>
@@ -168,11 +178,78 @@ export function EmployeeDetailSheet({ employeeId, onClose }: { employeeId: Id<"e
         onCancel={() => setConfirm(null)}
         onConfirm={() => confirm?.kind === "loan" && void run(() => archiveLoan({ loanId: confirm.loan._id }), "Empréstimo arquivado", "Não foi possível arquivar")}
       />
-    </>
+    </View>
+  );
+}
+
+/** Usuário do app que bate ponto por este funcionário (`employees.linkUser`). */
+function AppUserSection({ employeeId, userId, archived }: { employeeId: Id<"employees">; userId: Id<"users"> | null; archived: boolean }) {
+  const toast = useToast();
+  const users = useQuery(api.users.list, { onlyActive: true });
+  const linkUser = useMutation(api.employees.linkUser);
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<string | null>(userId);
+  const [saving, setSaving] = useState(false);
+  const linked = users?.find((u) => u._id === userId) ?? null;
+
+  async function save(value: string | null) {
+    setSaving(true);
+    try {
+      await linkUser({ employeeId, userId: value as Id<"users"> | null });
+      toast.success(value ? "Usuário vinculado" : "Vínculo removido");
+      setOpen(false);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Não deu para salvar. Tente de novo."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <View>
+      <SectionTitle title="Usuário do app" style={styles.section} action={archived ? undefined : userId ? "Trocar" : "Vincular"} onAction={() => { setSelected(userId); setOpen(true); }} />
+      <Surface style={styles.userRow}>
+        <View style={styles.loanIcon}>
+          <Smartphone size={20} color={colors.primary} strokeWidth={1.8} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={[type.bodyStrong, { color: colors.text }]}>{userId ? (linked?.name ?? "Usuário vinculado") : "Sem usuário"}</Text>
+          <Text style={[type.caption, { color: colors.textSecondary }]}>
+            {userId ? (linked?.email ?? linked?.username ?? "Marca o ponto pelo app como este funcionário") : "Sem usuário, este funcionário não marca o ponto pelo app."}
+          </Text>
+        </View>
+        {userId ? <Pill label="Vinculado" tone="success" /> : <Pill label="Sem usuário" tone="warning" />}
+      </Surface>
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Usuário do app"
+        subtitle="Quem entra com este usuário marca o ponto como este funcionário."
+        footer={
+          <View style={{ gap: space.sm }}>
+            <AppButton label="Salvar vínculo" block icon={<Link2 size={18} color={colors.onPrimary} />} disabled={!selected || selected === userId} loading={saving} onPress={() => void save(selected)} />
+            {userId ? <AppButton label="Remover vínculo" variant="danger" block disabled={saving} onPress={() => void save(null)} /> : null}
+          </View>
+        }
+      >
+        <PickerField
+          label="Usuário"
+          value={selected}
+          onChange={setSelected}
+          options={(users ?? []).filter((u) => u.role !== "client").map((u) => ({ value: u._id as string, label: u.name, description: u.email ?? u.username ?? null }))}
+          searchable
+          loading={users === undefined}
+          placeholder="Escolha o usuário"
+        />
+      </Sheet>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  content: { padding: space.screen, paddingBottom: 120, gap: space.lg },
+  bottom: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: space.screen, paddingTop: space.md, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.divider },
+  userRow: { flexDirection: "row", alignItems: "center", gap: space.md },
   footer: { flexDirection: "row", gap: space.md },
   pills: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   section: { paddingHorizontal: 4, paddingTop: 0 },
