@@ -1,267 +1,82 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import { useConvex, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { useRouter, type Href } from "expo-router";
-import {
-  AlertTriangle,
-  BarChart3,
-  ChevronRight,
-  CloudUpload,
-  FileText,
-  HardHat,
-  QrCode,
-  Users,
-  Wrench,
-} from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { Cpu, ScanLine } from "lucide-react-native";
+import { useMemo, useState } from "react";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 
-import { Button, ButtonText } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/engenharia/status-badge";
-import type { EquipmentStatus } from "@/lib/equipment-status";
-import { listPendingRecords, subscribeQueue } from "@/lib/offline-queue";
+import { AppButton, Chips, EmptyState, LoadingState, MetricStrip, SearchField, Surface } from "@/components/ui";
+import { EQUIPMENT_STATUS_LABELS, type EquipmentStatus } from "@/lib/equipment-status";
+import { formatDateTime } from "@/lib/format";
+import { colors, space, type } from "@/lib/theme";
 
-export default function EngenhariaDashboardScreen() {
+type Filter = "todos" | EquipmentStatus;
+
+/** Equipamentos cadastrados em campo (ficha G2), com status e busca. */
+export default function EquipamentosScreen() {
   const router = useRouter();
-  const convex = useConvex();
-  const equipmentList = useQuery(api.equipment.list);
-  const [openingId, setOpeningId] = useState<Id<"equipment"> | null>(null);
-  const [pendingCount, setPendingCount] = useState(0);
+  const list = useQuery(api.equipment.list);
+  const [filter, setFilter] = useState<Filter>("todos");
+  const [search, setSearch] = useState("");
 
-  const refreshPending = useCallback(() => {
-    void listPendingRecords().then((records) => setPendingCount(records.length));
-  }, []);
+  const visible = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase("pt-BR");
+    return (list ?? [])
+      .filter((e) => filter === "todos" || e.status === filter)
+      .filter((e) => !term || [e.description, e.tag, e.location].some((v) => v?.toLocaleLowerCase("pt-BR").includes(term)));
+  }, [list, filter, search]);
 
-  useEffect(() => {
-    refreshPending();
-    const unsubscribe = subscribeQueue(refreshPending);
-    return () => unsubscribe();
-  }, [refreshPending]);
+  if (list === undefined) return <LoadingState message="Carregando equipamentos…" />;
+  const count = (s: EquipmentStatus) => list.filter((e) => e.status === s).length;
 
-  const total = equipmentList?.length ?? 0;
-  const operational =
-    equipmentList?.filter((e) => e.status === "operational").length ?? 0;
-  const warnings =
-    equipmentList?.filter((e) => e.status === "warning").length ?? 0;
-  const errors = equipmentList?.filter((e) => e.status === "error").length ?? 0;
-
-  async function openEquipment(equipmentId: Id<"equipment">) {
-    setOpeningId(equipmentId);
-    try {
-      const qrCode = await convex.query(api.qrCodes.getByEquipmentId, {
-        equipmentId,
-      });
-      if (qrCode) {
-        router.push({
-          pathname: "/equipamento/[token]",
-          params: { token: qrCode.token },
-        });
-      } else {
-        Alert.alert(
-          "Sem QR vinculado",
-          "Não há um código QR vinculado a este equipamento."
-        );
+  return (
+    <FlatList
+      style={{ backgroundColor: colors.bg }}
+      data={visible}
+      keyExtractor={(e) => e._id}
+      contentContainerStyle={styles.list}
+      keyboardShouldPersistTaps="handled"
+      ListHeaderComponent={
+        <View style={styles.header}>
+          <MetricStrip
+            items={[
+              { label: "Cadastrados", value: list.length },
+              { label: "Operacionais", value: count("operational") },
+              { label: "Atenção", value: count("warning") },
+              { label: "Erro", value: count("error") },
+            ]}
+          />
+          <AppButton label="Escanear etiqueta" variant="secondary" block icon={<ScanLine size={18} color={colors.text} />} onPress={() => router.push("/scanner")} />
+          <SearchField value={search} onChangeText={setSearch} placeholder="Descrição ou local" />
+          <Chips<Filter>
+            active={filter}
+            onChange={setFilter}
+            style={{ paddingHorizontal: 0 }}
+            items={[{ key: "todos", label: "Todos" }, ...(Object.keys(EQUIPMENT_STATUS_LABELS) as EquipmentStatus[]).map((s) => ({ key: s, label: EQUIPMENT_STATUS_LABELS[s], count: count(s) }))]}
+          />
+        </View>
       }
-    } catch (err) {
-      console.error("Failed to resolve equipment token:", err);
-      Alert.alert("Erro", "Não foi possível abrir o equipamento.");
-    } finally {
-      setOpeningId(null);
-    }
-  }
-
-  return (
-    <ScrollView
-      contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 24 }}
-      showsVerticalScrollIndicator={false}
-    >
-      <View>
-        <Text className="text-2xl font-bold text-foreground">Painel</Text>
-        <Text className="mt-1 text-muted-foreground">
-          Escaneie um equipamento ou acesse a lista.
-        </Text>
-      </View>
-
-      <Button className="h-16 w-full" onPress={() => router.push("/scanner")}>
-        <QrCode size={24} color="#fafafa" />
-        <ButtonText className="ml-2 text-base">Escanear QR Code</ButtonText>
-      </Button>
-
-      {pendingCount > 0 && (
-        <Pressable onPress={() => router.push("/pendentes")}>
-          <Card className="flex-row items-center gap-3 border border-amber-300 bg-amber-50 p-4">
-            <CloudUpload size={20} color="#92400e" />
-            <Text className="flex-1 text-sm text-amber-800">
-              {pendingCount} registro{pendingCount > 1 ? "s" : ""} aguardando
-              envio
-            </Text>
-            <ChevronRight size={18} color="#92400e" />
-          </Card>
-        </Pressable>
-      )}
-
-      <View className="flex-row flex-wrap gap-3">
-        <StatTile label="Equipamentos" value={total} tone="default" />
-        <StatTile label="Operacionais" value={operational} tone="success" />
-        <StatTile label="Alertas" value={warnings} tone="warning" />
-        <StatTile label="Erros" value={errors} tone="error" />
-      </View>
-
-      <View className="gap-3">
-        <Text className="text-lg font-semibold text-foreground">
-          Equipamentos
-        </Text>
-
-        {equipmentList === undefined ? (
-          <View className="items-center justify-center py-12">
-            <ActivityIndicator size="large" />
-          </View>
-        ) : equipmentList.length === 0 ? (
-          <Card className="items-center gap-3 py-10">
-            <View className="h-14 w-14 items-center justify-center rounded-full bg-amber-500/10">
-              <HardHat size={28} color="#f59e0b" />
+      renderItem={({ item }) => (
+        <Surface onPress={() => router.push(`/equipamento-eng/${item._id}` as Href)} accessibilityLabel={item.description ?? "Equipamento"}>
+          <View style={styles.row}>
+            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+              <Text style={[type.bodyStrong, { color: colors.text }]} numberOfLines={2}>
+                {item.description || "Equipamento sem descrição"}
+              </Text>
+              <Text style={[type.caption, { color: colors.textSecondary }]}>Cadastrado {formatDateTime(item.createdAt)}</Text>
             </View>
-            <Text className="text-center text-base font-medium text-foreground">
-              Nenhum equipamento cadastrado
-            </Text>
-            <Text className="px-6 text-center text-sm text-muted-foreground">
-              Escaneie um QR code para cadastrar o primeiro equipamento.
-            </Text>
-          </Card>
-        ) : (
-          <View className="gap-2">
-            {equipmentList.map((equipment) => (
-              <Pressable
-                key={equipment._id}
-                onPress={() => openEquipment(equipment._id)}
-                disabled={openingId !== null}
-              >
-                <Card className="flex-row items-center gap-3 p-4">
-                  <View className="h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10">
-                    <Wrench size={20} color="#f59e0b" />
-                  </View>
-                  <View className="flex-1">
-                    <Text
-                      className="text-base font-semibold text-foreground"
-                      numberOfLines={1}
-                    >
-                      {equipment.description ?? "Equipamento"}
-                    </Text>
-                    <View className="mt-1 flex-row">
-                      <StatusBadge status={equipment.status as EquipmentStatus} />
-                    </View>
-                  </View>
-                  {openingId === equipment._id ? (
-                    <ActivityIndicator />
-                  ) : (
-                    <ChevronRight size={20} color="#9ca3af" />
-                  )}
-                </Card>
-              </Pressable>
-            ))}
+            <StatusBadge status={item.status} />
           </View>
-        )}
-      </View>
-      <View className="gap-3">
-        <Text className="text-lg font-semibold text-foreground">
-          Acesso rápido
-        </Text>
-        <View className="gap-2">
-          <QuickAccessCard
-            icon={<BarChart3 size={20} color="#f59e0b" />}
-            label="Medições"
-            description="Visão geral de medições"
-            onPress={() => router.navigate("/(tabs)/engenharia/medicoes" as Href)}
-          />
-          <QuickAccessCard
-            icon={<FileText size={20} color="#f59e0b" />}
-            label="Contratos"
-            description="Gestão de contratos"
-            onPress={() => router.navigate("/(tabs)/engenharia/contratos" as Href)}
-          />
-          <QuickAccessCard
-            icon={<HardHat size={20} color="#f59e0b" />}
-            label="Empreiteiros"
-            description="Empreiteiros e subempreiteiros"
-            onPress={() => router.navigate("/(tabs)/engenharia/empreiteiros" as Href)}
-          />
-          <QuickAccessCard
-            icon={<Users size={20} color="#f59e0b" />}
-            label="Clientes"
-            description="Gestão de clientes"
-            onPress={() => router.navigate("/(tabs)/engenharia/clientes" as Href)}
-          />
-          <QuickAccessCard
-            icon={<QrCode size={20} color="#f59e0b" />}
-            label="QR Codes"
-            description="Gerenciar códigos QR"
-            onPress={() => router.navigate("/(tabs)/engenharia/qr-codes" as Href)}
-          />
-        </View>
-      </View>
-    </ScrollView>
+        </Surface>
+      )}
+      ListEmptyComponent={<EmptyState icon={<Cpu size={28} color={colors.primary} />} title={search || filter !== "todos" ? "Nada com estes filtros" : "Nenhum equipamento cadastrado"} description={search || filter !== "todos" ? undefined : "Os equipamentos cadastrados pelos técnicos em campo aparecem aqui."} />}
+    />
   );
 }
 
-function QuickAccessCard({
-  icon,
-  label,
-  description,
-  onPress,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  description: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress}>
-      <Card className="flex-row items-center gap-3 p-4">
-        <View className="h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10">
-          {icon}
-        </View>
-        <View className="flex-1">
-          <Text className="text-base font-semibold text-foreground">
-            {label}
-          </Text>
-          <Text className="text-sm text-muted-foreground">{description}</Text>
-        </View>
-        <ChevronRight size={20} color="#9ca3af" />
-      </Card>
-    </Pressable>
-  );
-}
-
-function StatTile({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: "default" | "success" | "warning" | "error";
-}) {
-  const toneColor =
-    tone === "success"
-      ? "#16a34a"
-      : tone === "warning"
-        ? "#d97706"
-        : tone === "error"
-          ? "#ef4444"
-          : "#1a1a2e";
-
-  return (
-    <Card className="min-w-[45%] flex-1 p-4">
-      <View className="flex-row items-center gap-2">
-        {tone === "error" || tone === "warning" ? (
-          <AlertTriangle size={16} color={toneColor} />
-        ) : null}
-        <Text className="text-2xl font-bold" style={{ color: toneColor }}>
-          {value}
-        </Text>
-      </View>
-      <Text className="mt-0.5 text-xs text-muted-foreground">{label}</Text>
-    </Card>
-  );
-}
+const styles = StyleSheet.create({
+  list: { padding: space.screen, paddingBottom: 48, gap: space.sm },
+  header: { gap: space.md, marginBottom: space.xs },
+  row: { flexDirection: "row", alignItems: "center", gap: space.md },
+});

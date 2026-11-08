@@ -1,578 +1,286 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import { normalizeUsername, sanitizeUsernameInput } from "@rlpapp/shared";
 import type { FunctionReturnType } from "convex/server";
 import { useAction, useMutation, useQuery } from "convex/react";
-import {
-  Eye,
-  EyeOff,
-  Pencil,
-  Plus,
-  Search,
-  UserCheck,
-  UserX,
-} from "lucide-react-native";
-import { useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { Eye, EyeOff, Lock, Plus, UserRound, Users } from "lucide-react-native";
+import { useEffect, useMemo, useState } from "react";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 
-import { Badge } from "@/components/ui/badge";
-import { Button, ButtonText } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
-import { normalizeUsername, sanitizeUsernameInput } from "@rlpapp/shared";
+import { DEPARTMENT_LABELS, ROLE_HINT, ROLE_LABELS, type Department, type UserRole } from "@/components/engenharia/user-labels";
+import { AppButton, Banner, Chips, ConfirmDialog, EmptyState, Field, IconButton, ListRow, LoadingState, Pill, PickerField, SearchField, Sheet, useToast } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
+import { isAdmin } from "@/lib/profile";
+import { colors, space, type } from "@/lib/theme";
 
 type User = FunctionReturnType<typeof api.users.list>[number];
-type UserRole =
-  | "director"
-  | "admin"
-  | "manager"
-  | "operator"
-  | "engenheiro"
-  | "qr_operator";
-type Department = "rh" | "engenharia";
+type Filter = "active" | "inactive" | "all";
 
-const ROLE_LABELS: Record<string, string> = {
-  director: "Diretor",
-  admin: "Administrador",
-  manager: "Gerente",
-  operator: "Operador",
-  engenheiro: "Engenheiro",
-  qr_operator: "Operador QR",
-};
+const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as UserRole[]).map((r) => ({ value: r, label: ROLE_LABELS[r], description: ROLE_HINT[r] }));
+const DEPARTMENT_OPTIONS = (Object.keys(DEPARTMENT_LABELS) as Department[]).map((d) => ({ value: d, label: DEPARTMENT_LABELS[d] }));
+const needsDepartment = (role: UserRole | null) => role === "manager" || role === "operator";
 
-const DEPARTMENT_LABELS: Record<string, string> = {
-  rh: "Recursos Humanos",
-  engenharia: "Engenharia",
-};
-
-const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({
-  value,
-  label,
-}));
-const DEPARTMENT_OPTIONS = Object.entries(DEPARTMENT_LABELS).map(
-  ([value, label]) => ({ value, label })
-);
-const STATUS_FILTERS = [
-  { value: "all", label: "Todos" },
-  { value: "active", label: "Ativos" },
-  { value: "inactive", label: "Inativos" },
-];
-
+/** Usuários (ficha G12): só diretoria e administradores. */
 export default function UsuariosScreen() {
-  const currentUser = useQuery(api.users.getCurrentUser);
-  const users = useQuery(api.users.list, {});
-  const createUser = useAction(api.userAdmin.adminCreateUser);
-  const updateUser = useMutation(api.users.update);
-  const removeUser = useMutation(api.users.remove);
-  const reactivateUser = useMutation(api.users.reactivate);
+  const me = useQuery(api.users.getCurrentUser);
+  const admin = isAdmin(me);
+  const users = useQuery(api.users.list, admin ? {} : "skip");
+  const [filter, setFilter] = useState<Filter>("active");
+  const [search, setSearch] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<User | null>(null);
 
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const list = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase("pt-BR");
+    return (users ?? [])
+      .filter((u) => filter === "all" || (filter === "active" ? u.isActive : !u.isActive))
+      .filter((u) => !term || [u.name, u.email, u.username].some((v) => v?.toLocaleLowerCase("pt-BR").includes(term)))
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  }, [users, filter, search]);
 
-  const emptyCreate = {
-    firstName: "",
-    lastName: "",
-    username: "",
-    password: "",
-    email: "",
-    phone: "",
-    role: "",
-    department: "",
-  };
-  const [createForm, setCreateForm] = useState({ ...emptyCreate });
-  const [editForm, setEditForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    role: "",
-    department: "",
-  });
-
-  const isAdmin =
-    currentUser?.role === "director" || currentUser?.role === "admin";
-
-  const filteredUsers = useMemo(() => {
-    if (!users) return [];
-    let result = [...users];
-    if (filterStatus === "active") result = result.filter((u) => u.isActive);
-    else if (filterStatus === "inactive")
-      result = result.filter((u) => !u.isActive);
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(
-        (u) =>
-          u.name.toLowerCase().includes(term) ||
-          u.email?.toLowerCase().includes(term) ||
-          u.username?.toLowerCase().includes(term)
-      );
-    }
-    return result;
-  }, [users, filterStatus, searchTerm]);
-
-  async function handleCreate() {
-    if (!createForm.firstName.trim()) return Alert.alert("Informe o nome");
-    if (!createForm.lastName.trim()) return Alert.alert("Informe o sobrenome");
-    if (!createForm.username.trim()) return Alert.alert("Informe o username");
-    if (createForm.password.length < 8)
-      return Alert.alert("A senha deve ter pelo menos 8 caracteres");
-    if (!createForm.role) return Alert.alert("Selecione o cargo");
-
-    setIsSubmitting(true);
-    try {
-      const fullName = `${createForm.firstName.trim()} ${createForm.lastName.trim()}`;
-      await createUser({
-        name: fullName,
-        username: normalizeUsername(createForm.username),
-        password: createForm.password,
-        email: createForm.email.trim() || undefined,
-        phone: createForm.phone.trim() || undefined,
-        role: createForm.role as UserRole,
-        department: createForm.department
-          ? (createForm.department as Department)
-          : undefined,
-      });
-      setIsCreateOpen(false);
-      setCreateForm({ ...emptyCreate });
-      setShowPassword(false);
-    } catch (error) {
-      Alert.alert("Erro", getErrorMessage(error, "Erro ao criar usuário"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  async function handleUpdate() {
-    if (!editingUser) return;
-    setIsSubmitting(true);
-    try {
-      await updateUser({
-        id: editingUser._id,
-        name: editForm.name.trim() || undefined,
-        email: editForm.email.trim() || undefined,
-        phone: editForm.phone.trim() || undefined,
-        role: editForm.role ? (editForm.role as UserRole) : undefined,
-        department: editForm.department
-          ? (editForm.department as Department)
-          : undefined,
-      });
-      setEditingUser(null);
-    } catch (error) {
-      Alert.alert("Erro", getErrorMessage(error, "Erro ao atualizar usuário"));
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  function handleToggleActive(user: User) {
-    const deactivate = user.isActive;
-    Alert.alert(
-      deactivate ? "Desativar usuário" : "Reativar usuário",
-      `${deactivate ? "Desativar" : "Reativar"} ${user.name}?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: deactivate ? "Desativar" : "Reativar",
-          style: deactivate ? "destructive" : "default",
-          onPress: async () => {
-            try {
-              if (deactivate) await removeUser({ id: user._id });
-              else await reactivateUser({ id: user._id });
-            } catch (error) {
-              Alert.alert(
-                "Erro",
-                getErrorMessage(error, "Erro ao alterar status")
-              );
-            }
-          },
-        },
-      ]
-    );
-  }
-
-  function openEdit(user: User) {
-    setEditForm({
-      name: user.name,
-      email: user.email ?? "",
-      phone: user.phone ?? "",
-      role: user.role,
-      department: user.department ?? "",
-    });
-    setEditingUser(user);
-  }
-
-  if (currentUser === undefined) {
+  if (me === undefined) return <LoadingState />;
+  if (!admin) {
     return (
-      <View className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <View className="flex-1 items-center justify-center gap-2 p-8">
-        <Text className="text-xl font-bold text-foreground">
-          Acesso restrito
-        </Text>
-        <Text className="text-center text-muted-foreground">
-          Somente administradores podem gerenciar usuários.
-        </Text>
+      <View style={{ padding: space.screen, backgroundColor: colors.bg, flex: 1 }}>
+        <EmptyState icon={<Lock size={28} color={colors.primary} />} title="Você não tem acesso a esta área" description="Só a diretoria e os administradores gerenciam usuários. Fale com um administrador se precisar." />
       </View>
     );
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 16 }}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View className="flex-row items-end justify-between gap-3">
-        <View className="flex-1">
-          <Text className="text-2xl font-bold text-foreground">Usuários</Text>
-          <Text className="mt-1 text-muted-foreground">
-            Gerencie os usuários do sistema.
-          </Text>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <View style={styles.top}>
+        <View style={styles.searchRow}>
+          <SearchField value={search} onChangeText={setSearch} placeholder="Nome, e-mail ou usuário" containerStyle={{ flex: 1 }} autoCapitalize="none" />
+          <IconButton label="Novo usuário" tone="primary" icon={<Plus size={22} color={colors.onPrimary} />} onPress={() => setCreating(true)} />
         </View>
-        <Button size="sm" onPress={() => setIsCreateOpen(true)}>
-          <Plus size={16} color="#fafafa" />
-          <ButtonText className="ml-1.5">Novo</ButtonText>
-        </Button>
-      </View>
-
-      <View className="flex-row items-center rounded-md border border-input bg-card px-3">
-        <Search size={16} color="#9ca3af" />
-        <Input
-          placeholder="Buscar por nome, email ou username..."
-          value={searchTerm}
-          onChangeText={setSearchTerm}
-          className="h-12 flex-1 border-0 bg-transparent"
+        <Chips<Filter>
+          active={filter}
+          onChange={setFilter}
+          style={{ paddingHorizontal: 0 }}
+          items={[
+            { key: "active", label: "Ativos", count: users?.filter((u) => u.isActive).length },
+            { key: "inactive", label: "Desativados", count: users?.filter((u) => !u.isActive).length },
+            { key: "all", label: "Todos" },
+          ]}
         />
       </View>
-
-      <View className="flex-row gap-2">
-        {STATUS_FILTERS.map((f) => {
-          const active = filterStatus === f.value;
-          return (
-            <Pressable
-              key={f.value}
-              onPress={() => setFilterStatus(f.value)}
-              className={`rounded-full px-4 py-2 ${active ? "bg-primary" : "bg-card border border-border"}`}
-            >
-              <Text
-                className={
-                  active
-                    ? "text-sm font-medium text-primary-foreground"
-                    : "text-sm font-medium text-foreground"
-                }
-              >
-                {f.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <Text className="text-sm text-muted-foreground">
-        {filteredUsers.length} usuário{filteredUsers.length === 1 ? "" : "s"}
-      </Text>
-
-      {!users ? (
-        <View className="items-center justify-center py-12">
-          <ActivityIndicator size="large" />
-        </View>
-      ) : filteredUsers.length === 0 ? (
-        <Card>
-          <CardContent className="py-10">
-            <Text className="text-center text-muted-foreground">
-              Nenhum usuário encontrado
-            </Text>
-          </CardContent>
-        </Card>
+      {users === undefined ? (
+        <LoadingState />
       ) : (
-        <View className="gap-2">
-          {filteredUsers.map((user) => (
-            <UserCard
-              key={user._id}
-              user={user}
-              onEdit={() => openEdit(user)}
-              onToggle={() => handleToggleActive(user)}
+        <FlatList
+          data={list}
+          keyExtractor={(u) => u._id}
+          contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item }) => (
+            <ListRow
+              icon={<UserRound size={20} color={colors.primary} />}
+              title={item.name}
+              subtitle={[ROLE_LABELS[item.role as UserRole] ?? item.role, item.department ? DEPARTMENT_LABELS[item.department as Department] : null, item.username ? `@${item.username}` : item.email].filter(Boolean).join(" · ")}
+              trailing={!item.isActive ? <Pill label="Desativado" dot={false} /> : !item.lastLoginAt ? <Pill label="Nunca entrou" tone="warning" /> : undefined}
+              onPress={() => setEditing(item)}
             />
-          ))}
-        </View>
+          )}
+          ListEmptyComponent={<EmptyState icon={<Users size={28} color={colors.primary} />} title={search ? "Nada com essa busca" : "Nenhum usuário aqui"} />}
+        />
       )}
-
-      {/* Create dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={(o) => setIsCreateOpen(o)}>
-        <DialogHeader>
-          <DialogTitle>Criar Usuário</DialogTitle>
-        </DialogHeader>
-        <View className="gap-3">
-          <View className="flex-row gap-3">
-            <View className="flex-1 gap-1.5">
-              <Label>Nome *</Label>
-              <Input
-                placeholder="João"
-                value={createForm.firstName}
-                onChangeText={(v) =>
-                  setCreateForm((f) => ({ ...f, firstName: v }))
-                }
-                className="h-12"
-              />
-            </View>
-            <View className="flex-1 gap-1.5">
-              <Label>Sobrenome *</Label>
-              <Input
-                placeholder="Silva"
-                value={createForm.lastName}
-                onChangeText={(v) =>
-                  setCreateForm((f) => ({ ...f, lastName: v }))
-                }
-                className="h-12"
-              />
-            </View>
-          </View>
-          <View className="gap-1.5">
-            <Label>Username (login) *</Label>
-            <Input
-              placeholder="joao.silva"
-              value={createForm.username}
-              onChangeText={(v) =>
-                setCreateForm((f) => ({
-                  ...f,
-                  username: sanitizeUsernameInput(v),
-                }))
-              }
-              autoCapitalize="none"
-              autoCorrect={false}
-              className="h-12"
-            />
-          </View>
-          <View className="gap-1.5">
-            <Label>Senha *</Label>
-            <View className="flex-row items-center rounded-md border border-input bg-card px-3">
-              <Input
-                placeholder="Mínimo 8 caracteres"
-                value={createForm.password}
-                onChangeText={(v) =>
-                  setCreateForm((f) => ({ ...f, password: v }))
-                }
-                secureTextEntry={!showPassword}
-                className="h-12 flex-1 border-0 bg-transparent"
-              />
-              <Pressable onPress={() => setShowPassword((s) => !s)} hitSlop={8}>
-                {showPassword ? (
-                  <EyeOff size={18} color="#9ca3af" />
-                ) : (
-                  <Eye size={18} color="#9ca3af" />
-                )}
-              </Pressable>
-            </View>
-          </View>
-          <View className="gap-1.5">
-            <Label>Email</Label>
-            <Input
-              placeholder="joao@empresa.com"
-              value={createForm.email}
-              onChangeText={(v) => setCreateForm((f) => ({ ...f, email: v }))}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              className="h-12"
-            />
-          </View>
-          <View className="gap-1.5">
-            <Label>Telefone</Label>
-            <Input
-              placeholder="(11) 99999-9999"
-              value={createForm.phone}
-              onChangeText={(v) => setCreateForm((f) => ({ ...f, phone: v }))}
-              keyboardType="phone-pad"
-              className="h-12"
-            />
-          </View>
-          <View className="gap-1.5">
-            <Label>Cargo *</Label>
-            <Select
-              value={createForm.role}
-              onValueChange={(v) => setCreateForm((f) => ({ ...f, role: v }))}
-              options={ROLE_OPTIONS}
-              placeholder="Selecione o cargo"
-              className="h-12"
-            />
-          </View>
-          <View className="gap-1.5">
-            <Label>Departamento</Label>
-            <Select
-              value={createForm.department}
-              onValueChange={(v) =>
-                setCreateForm((f) => ({ ...f, department: v }))
-              }
-              options={DEPARTMENT_OPTIONS}
-              placeholder="Selecione o departamento"
-              className="h-12"
-            />
-          </View>
-        </View>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onPress={() => {
-              setIsCreateOpen(false);
-              setCreateForm({ ...emptyCreate });
-              setShowPassword(false);
-            }}
-          >
-            <ButtonText variant="outline">Cancelar</ButtonText>
-          </Button>
-          <Button disabled={isSubmitting} onPress={handleCreate}>
-            <ButtonText>{isSubmitting ? "Criando..." : "Criar"}</ButtonText>
-          </Button>
-        </DialogFooter>
-      </Dialog>
-
-      {/* Edit dialog */}
-      <Dialog
-        open={!!editingUser}
-        onOpenChange={(o) => !o && setEditingUser(null)}
-      >
-        <DialogHeader>
-          <DialogTitle>Editar Usuário</DialogTitle>
-        </DialogHeader>
-        <View className="gap-3">
-          <View className="gap-1.5">
-            <Label>Nome completo</Label>
-            <Input
-              value={editForm.name}
-              onChangeText={(v) => setEditForm((f) => ({ ...f, name: v }))}
-              className="h-12"
-            />
-          </View>
-          <View className="gap-1.5">
-            <Label>Email</Label>
-            <Input
-              value={editForm.email}
-              onChangeText={(v) => setEditForm((f) => ({ ...f, email: v }))}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              className="h-12"
-            />
-          </View>
-          <View className="gap-1.5">
-            <Label>Telefone</Label>
-            <Input
-              value={editForm.phone}
-              onChangeText={(v) => setEditForm((f) => ({ ...f, phone: v }))}
-              keyboardType="phone-pad"
-              className="h-12"
-            />
-          </View>
-          <View className="gap-1.5">
-            <Label>Cargo</Label>
-            <Select
-              value={editForm.role}
-              onValueChange={(v) => setEditForm((f) => ({ ...f, role: v }))}
-              options={ROLE_OPTIONS}
-              placeholder="Selecione o cargo"
-              className="h-12"
-            />
-          </View>
-          <View className="gap-1.5">
-            <Label>Departamento</Label>
-            <Select
-              value={editForm.department}
-              onValueChange={(v) =>
-                setEditForm((f) => ({ ...f, department: v }))
-              }
-              options={DEPARTMENT_OPTIONS}
-              placeholder="Nenhum"
-              className="h-12"
-            />
-          </View>
-        </View>
-        <DialogFooter>
-          <Button variant="outline" onPress={() => setEditingUser(null)}>
-            <ButtonText variant="outline">Cancelar</ButtonText>
-          </Button>
-          <Button disabled={isSubmitting} onPress={handleUpdate}>
-            <ButtonText>{isSubmitting ? "Salvando..." : "Salvar"}</ButtonText>
-          </Button>
-        </DialogFooter>
-      </Dialog>
-    </ScrollView>
+      <CreateUserSheet open={creating} onClose={() => setCreating(false)} />
+      <EditUserSheet user={editing} onClose={() => setEditing(null)} />
+    </View>
   );
 }
 
-function UserCard({
-  user,
-  onEdit,
-  onToggle,
-}: {
-  user: User;
-  onEdit: () => void;
-  onToggle: () => void;
-}) {
+function CreateUserSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const toast = useToast();
+  const create = useAction(api.userAdmin.adminCreateUser);
+  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [department, setDepartment] = useState<Department | null>(null);
+  const [tried, setTried] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setName("");
+    setUsername("");
+    setPassword("");
+    setEmail("");
+    setPhone("");
+    setRole(null);
+    setDepartment(null);
+    setTried(false);
+    setError(null);
+  }, [open]);
+
+  const errors = {
+    name: name.trim().split(/\s+/).length >= 2 ? undefined : "Informe nome e sobrenome",
+    username: normalizeUsername(username) ? undefined : "Informe o usuário de acesso",
+    password: password.length >= 8 ? undefined : "No mínimo 8 caracteres",
+    role: role ? undefined : "Escolha o cargo",
+    department: needsDepartment(role) && !department ? "Escolha o departamento" : undefined,
+  };
+  const valid = !Object.values(errors).some(Boolean);
+
+  async function submit() {
+    setTried(true);
+    if (!valid || !role) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await create({
+        name: name.trim(),
+        username: normalizeUsername(username),
+        password,
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        role,
+        department: department ?? undefined,
+      });
+      toast.success("Usuário criado");
+      onClose();
+    } catch (err) {
+      setError(getErrorMessage(err, "Não deu para criar o usuário. Tente de novo."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
-    <Card className="gap-3 p-4">
-      <View className="flex-row items-start justify-between gap-2">
-        <View className="min-w-0 flex-1">
-          <Text className="text-base font-semibold text-foreground" numberOfLines={1}>
-            {user.name}
-          </Text>
-          {user.email ? (
-            <Text className="text-sm text-muted-foreground" numberOfLines={1}>
-              {user.email}
-            </Text>
-          ) : null}
-          {user.username ? (
-            <Text className="font-mono text-xs text-muted-foreground">
-              @{user.username}
-            </Text>
-          ) : null}
-        </View>
-        <View className="flex-row gap-1">
-          <Pressable
-            onPress={onEdit}
-            hitSlop={6}
-            className="h-9 w-9 items-center justify-center rounded-md bg-muted/50"
-          >
-            <Pencil size={16} color="#52525b" />
-          </Pressable>
-          <Pressable
-            onPress={onToggle}
-            hitSlop={6}
-            className="h-9 w-9 items-center justify-center rounded-md bg-muted/50"
-          >
-            {user.isActive ? (
-              <UserX size={16} color="#ef4444" />
-            ) : (
-              <UserCheck size={16} color="#16a34a" />
-            )}
-          </Pressable>
-        </View>
-      </View>
-
-      <View className="flex-row flex-wrap items-center gap-2">
-        <Badge variant="outline">{ROLE_LABELS[user.role] ?? user.role}</Badge>
-        {user.department ? (
-          <Badge variant="secondary">
-            {DEPARTMENT_LABELS[user.department] ?? user.department}
-          </Badge>
+    <Sheet open={open} onClose={onClose} title="Novo usuário" footer={<AppButton label="Criar usuário" block loading={saving} loadingLabel="Criando…" onPress={() => void submit()} />}>
+      <View style={{ gap: space.lg }}>
+        <Field label="Nome completo" value={name} onChangeText={setName} error={tried ? errors.name : undefined} />
+        <Field label="Usuário de acesso" value={username} onChangeText={(v) => setUsername(sanitizeUsernameInput(v))} autoCapitalize="none" autoCorrect={false} helper="É o que a pessoa digita para entrar no app." error={tried ? errors.username : undefined} />
+        <Field
+          label="Senha inicial"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={!showPassword}
+          autoCapitalize="none"
+          autoCorrect={false}
+          error={tried ? errors.password : undefined}
+          trailing={<IconButton tone="ghost" size={36} label={showPassword ? "Esconder senha" : "Mostrar senha"} icon={showPassword ? <EyeOff size={18} color={colors.icon} /> : <Eye size={18} color={colors.icon} />} onPress={() => setShowPassword((v) => !v)} />}
+        />
+        <Field label="E-mail (opcional)" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" helper="Se a pessoa entrar com este e-mail, a conta dela se liga a este usuário sozinha." />
+        <Field label="Telefone (opcional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+        <PickerField<UserRole> label="Cargo" value={role} options={ROLE_OPTIONS} onChange={setRole} error={tried ? errors.role : undefined} />
+        {role && role !== "client" && role !== "qr_operator" ? (
+          <PickerField<Department> label={needsDepartment(role) ? "Departamento" : "Departamento (opcional)"} value={department} options={DEPARTMENT_OPTIONS} onChange={setDepartment} clearable error={tried ? errors.department : undefined} />
         ) : null}
-        <Badge variant={user.isActive ? "success" : "secondary"}>
-          {user.isActive ? "Ativo" : "Inativo"}
-        </Badge>
+        {error ? <Banner tone="danger" title={error} /> : null}
       </View>
-    </Card>
+    </Sheet>
   );
 }
+
+function EditUserSheet({ user, onClose }: { user: User | null; onClose: () => void }) {
+  const toast = useToast();
+  const update = useMutation(api.users.update);
+  const remove = useMutation(api.users.remove);
+  const reactivate = useMutation(api.users.reactivate);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [department, setDepartment] = useState<Department | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    setName(user.name);
+    setEmail(user.email ?? "");
+    setPhone(user.phone ?? "");
+    setRole(user.role as UserRole);
+    setDepartment((user.department as Department | undefined) ?? null);
+    setError(null);
+  }, [user]);
+
+  if (!user) return <Sheet open={false} onClose={onClose} title=""><View /></Sheet>;
+
+  async function save() {
+    if (!user || !role) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await update({ id: user._id, name: name.trim() || undefined, email: email.trim() || undefined, phone: phone.trim() || undefined, role, department: department ?? undefined });
+      toast.success("Usuário salvo");
+      onClose();
+    } catch (err) {
+      setError(getErrorMessage(err, "Não deu para salvar. Tente de novo."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleActive() {
+    if (!user) return;
+    setSaving(true);
+    try {
+      if (user.isActive) await remove({ id: user._id });
+      else await reactivate({ id: user._id });
+      toast.success(user.isActive ? "Usuário desativado" : "Usuário reativado");
+      setConfirm(false);
+      onClose();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Não deu para mudar o acesso"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <Sheet
+        open
+        onClose={onClose}
+        title={user.name}
+        subtitle={user.username ? `@${user.username}` : user.email}
+        footer={
+          <View style={{ gap: space.sm }}>
+            <AppButton label="Salvar" block loading={saving} onPress={() => void save()} />
+            <AppButton label={user.isActive ? "Desativar acesso" : "Reativar acesso"} variant={user.isActive ? "danger" : "secondary"} block disabled={saving} onPress={() => setConfirm(true)} />
+          </View>
+        }
+      >
+        <View style={{ gap: space.lg }}>
+          {user.lastLoginAt ? (
+            <Text style={[type.caption, { color: colors.textSecondary }]}>Último acesso em {new Date(user.lastLoginAt).toLocaleString("pt-BR")}</Text>
+          ) : (
+            <Text style={[type.caption, { color: colors.warning }]}>Ainda não entrou no app.</Text>
+          )}
+          <Field label="Nome" value={name} onChangeText={setName} />
+          <Field label="E-mail" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+          <Field label="Telefone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+          <PickerField<UserRole> label="Cargo" value={role} options={ROLE_OPTIONS} onChange={setRole} />
+          {role && role !== "client" && role !== "qr_operator" ? (
+            <PickerField<Department> label="Departamento" value={department} options={DEPARTMENT_OPTIONS} onChange={setDepartment} clearable />
+          ) : null}
+          {error ? <Banner tone="danger" title={error} /> : null}
+        </View>
+      </Sheet>
+      <ConfirmDialog
+        open={confirm}
+        title={user.isActive ? `Desativar o acesso de ${user.name}?` : `Reativar o acesso de ${user.name}?`}
+        description={user.isActive ? "A pessoa deixa de entrar no app e no web. O histórico continua. Dá para reativar depois." : "A pessoa volta a entrar com o mesmo usuário."}
+        confirmLabel={user.isActive ? "Desativar" : "Reativar"}
+        destructive={user.isActive}
+        busy={saving}
+        onConfirm={() => void toggleActive()}
+        onCancel={() => setConfirm(false)}
+      />
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  top: { gap: space.sm, paddingHorizontal: space.screen, paddingTop: space.lg },
+  searchRow: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  list: { padding: space.screen, paddingBottom: 48, gap: space.sm },
+});

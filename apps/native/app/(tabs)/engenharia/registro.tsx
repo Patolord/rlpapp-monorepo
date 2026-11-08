@@ -1,327 +1,124 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import { usePaginatedQuery } from "convex/react";
-import { useRouter } from "expo-router";
-import {
-  AlertTriangle,
-  Calendar,
-  Camera,
-  ChevronRight,
-  CloudOff,
-  CloudUpload,
-  History,
-  QrCode,
-  Search,
-  Trash2,
-} from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
+import type { FunctionReturnType } from "convex/server";
+import { usePaginatedQuery, useQuery } from "convex/react";
+import { useRouter, type Href } from "expo-router";
+import { Building2, ChevronRight, History } from "lucide-react-native";
+import { useState } from "react";
+import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { Badge } from "@/components/ui/badge";
-import { Button, ButtonText } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { PendingBanner } from "@/components/campo/pending-banner";
 import { StatusBadge } from "@/components/engenharia/status-badge";
-import type { EquipmentStatus } from "@/lib/equipment-status";
-import { getMaintenanceLogTypeLabel } from "@/lib/maintenance-log-type";
-import {
-  listPendingRecords,
-  removePendingRecord,
-  requestOfflineSync,
-  subscribeQueue,
-  type PendingRecord,
-} from "@/lib/offline-queue";
-import { useOnline } from "@/lib/use-online";
+import { EmptyState, LoadingState, Pill, PickerField, Sheet, Surface } from "@/components/ui";
+import { formatDateTime } from "@/lib/format";
+import { colors, radius, space, type } from "@/lib/theme";
 
-export default function RegistroDeCampoScreen() {
+type ProjectRow = FunctionReturnType<typeof api.technicianActivity.listMineProjects>[number];
+
+/**
+ * Meus registros (ficha G8): o que a pessoa enviou do campo, agrupado por obra.
+ * Quem pode ver os outros escolhe o técnico. Também abre em Mais › Meus registros
+ * para o técnico.
+ */
+export default function MeusRegistrosScreen() {
   const router = useRouter();
-  const online = useOnline();
-  const [code, setCode] = useState("");
-  const [pending, setPending] = useState<PendingRecord[]>([]);
-
-  const refresh = useCallback(() => {
-    void listPendingRecords().then(setPending);
-  }, []);
-
-  useEffect(() => {
-    refresh();
-    const unsubscribe = subscribeQueue(refresh);
-    return () => unsubscribe();
-  }, [refresh]);
-
-  function handleOpen() {
-    const token = code.trim().toUpperCase().replace(/\s+/g, "");
-    if (!token) return;
-    router.push({ pathname: "/equipamento/[token]", params: { token } });
-  }
+  const users = useQuery(api.technicianActivity.listActivityUsers, {});
+  const [userId, setUserId] = useState<string | null>(null);
+  const projects = useQuery(api.technicianActivity.listMineProjects, { userId: (userId as Id<"users"> | null) ?? undefined });
+  const [open, setOpen] = useState<ProjectRow | null>(null);
 
   return (
-    <ScrollView
-      contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 16 }}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View>
-        <Text className="text-2xl font-bold text-foreground">
-          Registro de Campo
-        </Text>
-        <Text className="mt-1 text-muted-foreground">
-          Abra um equipamento pelo código da etiqueta.
-        </Text>
-      </View>
-
-      {!online && (
-        <View className="flex-row items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
-          <CloudOff size={20} color="#92400e" />
-          <Text className="flex-1 text-sm text-amber-800">
-            Sem internet. Você pode registrar mesmo assim — tudo fica salvo no
-            aparelho e é enviado quando a conexão voltar.
-          </Text>
-        </View>
-      )}
-
-      <Card>
-        <CardHeader>
-          <View className="flex-row items-center gap-2">
-            <QrCode size={18} color="#737373" />
-            <CardTitle>Registrar por código</CardTitle>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <FlatList
+        data={projects ?? []}
+        keyExtractor={(p) => p.projectId ?? "sem-obra"}
+        contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <PendingBanner onPress={() => router.push("/pendentes" as Href)} />
+            {users ? (
+              <PickerField
+                label="Técnico"
+                value={userId}
+                onChange={setUserId}
+                options={users.map((u) => ({ value: u._id as string, label: u.name, description: u.isActive ? null : "desativado" }))}
+                searchable
+                clearable
+                placeholder="Meus registros"
+              />
+            ) : null}
           </View>
-        </CardHeader>
-        <CardContent className="gap-3">
-          <Text className="text-sm text-muted-foreground">
-            Digite o código impresso na etiqueta do QR (ex: LORENAH4FC29) para
-            abrir o equipamento sem escanear.
-          </Text>
-          <Input
-            placeholder="Ex: LORENAH4FC29"
-            value={code}
-            onChangeText={(v) => setCode(v.toUpperCase())}
-            autoCapitalize="characters"
-            autoCorrect={false}
-            className="h-14 font-mono text-lg"
-            onSubmitEditing={handleOpen}
-            returnKeyType="go"
-          />
-          <Button
-            className="h-14 w-full"
-            disabled={!code.trim()}
-            onPress={handleOpen}
-          >
-            <Search size={20} color="#fafafa" />
-            <ButtonText className="ml-2 text-base">Abrir equipamento</ButtonText>
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-2">
-              <CloudUpload size={18} color="#737373" />
-              <CardTitle>Registros pendentes</CardTitle>
+        }
+        renderItem={({ item }) => (
+          <Surface onPress={() => setOpen(item)} accessibilityLabel={`${item.projectName ?? "Sem obra"}, ${item.count} registros`}>
+            <View style={styles.row}>
+              <View style={styles.tile}>
+                <Building2 size={20} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={[type.bodyStrong, { color: colors.text }]} numberOfLines={1}>
+                  {item.projectName ?? "Sem obra"}
+                </Text>
+                <Text style={[type.caption, { color: colors.textSecondary }]}>
+                  {item.count} {item.count === 1 ? "registro" : "registros"} · último {formatDateTime(item.lastActivityAt)}
+                </Text>
+              </View>
+              <ChevronRight size={18} color={colors.icon} />
             </View>
-            {pending.length > 0 && (
-              <Badge variant="secondary">{String(pending.length)}</Badge>
-            )}
-          </View>
-        </CardHeader>
-        <CardContent className="gap-3">
-          {pending.length === 0 ? (
-            <Text className="text-sm text-muted-foreground">
-              Nenhum registro aguardando envio.
-            </Text>
+          </Surface>
+        )}
+        ListEmptyComponent={
+          projects === undefined ? (
+            <LoadingState />
           ) : (
-            <>
-              {pending.map((record) => (
-                <PendingRecordCard key={record.id} record={record} />
-              ))}
-              <Button
-                className="h-12 w-full"
-                disabled={!online}
-                onPress={() => requestOfflineSync()}
-              >
-                <CloudUpload size={18} color="#fafafa" />
-                <ButtonText className="ml-2 text-base">
-                  {online ? "Enviar agora" : "Sem internet para enviar"}
-                </ButtonText>
-              </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            <EmptyState icon={<History size={28} color={colors.primary} />} title="Nada registrado ainda" description="Cadastros, instalações e manutenções enviados pelo app aparecem aqui, separados por obra." />
+          )
+        }
+      />
+      <Sheet open={open !== null} onClose={() => setOpen(null)} title={open?.projectName ?? "Sem obra"} subtitle={open ? `${open.count} ${open.count === 1 ? "registro" : "registros"}` : undefined}>
+        {open ? <ProjectActivity projectId={open.projectId} userId={(userId as Id<"users"> | null) ?? undefined} onOpen={(token) => { setOpen(null); router.push(`/equipamento/${token}` as Href); }} /> : null}
+      </Sheet>
+    </View>
+  );
+}
 
-      <SentHistory />
+function ProjectActivity({ projectId, userId, onOpen }: { projectId: Id<"projects"> | null; userId?: Id<"users">; onOpen: (token: string) => void }) {
+  const { results, status, loadMore } = usePaginatedQuery(api.technicianActivity.listMineForProject, { projectId, userId }, { initialNumItems: 30 });
+  if (status === "LoadingFirstPage") return <LoadingState />;
+  return (
+    <ScrollView style={{ maxHeight: 520 }} contentContainerStyle={{ gap: space.sm }} onMomentumScrollEnd={() => status === "CanLoadMore" && loadMore(30)}>
+      {results.map((item) => {
+        const body = (
+          <View style={styles.row}>
+            <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+              <Text style={[type.bodyStrong, { color: colors.text }]} numberOfLines={1}>
+                {item.title}
+              </Text>
+              <View style={styles.meta}>
+                <Pill label={item.label} dot={false} />
+                <Text style={[type.caption, { color: colors.textSecondary }]}>{formatDateTime(item.createdAt)}</Text>
+              </View>
+              {item.notes ? <Text style={[type.bodySm, { color: colors.textSecondary }]} numberOfLines={2}>{item.notes}</Text> : null}
+            </View>
+            {item.status ? <StatusBadge status={item.status} /> : null}
+          </View>
+        );
+        return item.qrToken ? (
+          <Surface key={`${item.kind}:${item.id}`} onPress={() => onOpen(item.qrToken!)}>{body}</Surface>
+        ) : (
+          <Surface key={`${item.kind}:${item.id}`}>{body}</Surface>
+        );
+      })}
+      {status === "LoadingMore" ? <ActivityIndicator color={colors.primary} /> : null}
+      {status === "CanLoadMore" ? <Text style={[type.label, { color: colors.primary, textAlign: "center", paddingVertical: space.sm }]} onPress={() => loadMore(30)}>Carregar mais</Text> : null}
     </ScrollView>
   );
 }
 
-function SentHistory() {
-  const { results, status, loadMore } = usePaginatedQuery(
-    api.maintenanceLogs.listMine,
-    {},
-    { initialNumItems: 10 }
-  );
-
-  return (
-    <Card>
-      <CardHeader>
-        <View className="flex-row items-center gap-2">
-          <History size={18} color="#737373" />
-          <CardTitle>Histórico enviado</CardTitle>
-        </View>
-      </CardHeader>
-      <CardContent className="gap-3">
-        {status === "LoadingFirstPage" ? (
-          <Text className="text-sm text-muted-foreground">Carregando...</Text>
-        ) : results.length === 0 ? (
-          <Text className="text-sm text-muted-foreground">
-            Nenhum registro enviado ainda.
-          </Text>
-        ) : (
-          <>
-            {results.map((log) => (
-              <SentLogCard key={log._id} log={log} />
-            ))}
-            {status === "CanLoadMore" && (
-              <Button
-                variant="outline"
-                className="h-11 w-full"
-                onPress={() => loadMore(10)}
-              >
-                <ButtonText variant="outline" className="text-base">
-                  Carregar mais
-                </ButtonText>
-              </Button>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-type SentLog = {
-  _id: string;
-  type?: "installation" | "maintenance";
-  status: EquipmentStatus;
-  createdAt: number;
-  qrToken: string | null;
-  equipment: { description?: string } | null;
-};
-
-function SentLogCard({ log }: { log: SentLog }) {
-  const router = useRouter();
-  const date = new Date(log.createdAt).toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const title = log.equipment?.description || log.qrToken || "Equipamento";
-
-  const body = (
-    <View className="flex-row items-center justify-between gap-3 rounded-lg border border-border/60 p-3">
-      <View className="min-w-0 flex-1 gap-1.5">
-        <View className="flex-row flex-wrap items-center gap-2">
-          <Badge variant={log.type === "installation" ? "default" : "secondary"}>
-            {getMaintenanceLogTypeLabel(log.type ?? "maintenance")}
-          </Badge>
-          <StatusBadge status={log.status} />
-        </View>
-        <Text className="text-sm font-medium text-foreground" numberOfLines={1}>
-          {title}
-        </Text>
-        <View className="flex-row items-center gap-1.5">
-          <Calendar size={13} color="#9ca3af" />
-          <Text className="text-xs text-muted-foreground">{date}</Text>
-        </View>
-      </View>
-      {log.qrToken && <ChevronRight size={18} color="#9ca3af" />}
-    </View>
-  );
-
-  if (!log.qrToken) return body;
-
-  return (
-    <Pressable
-      onPress={() =>
-        router.push({
-          pathname: "/equipamento/[token]",
-          params: { token: log.qrToken as string },
-        })
-      }
-    >
-      {body}
-    </Pressable>
-  );
-}
-
-function PendingRecordCard({ record }: { record: PendingRecord }) {
-  const date = new Date(record.createdAt).toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  function handleDiscard() {
-    Alert.alert(
-      "Descartar registro",
-      "Descartar este registro pendente? Os dados serão perdidos.",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Descartar",
-          style: "destructive",
-          onPress: () => void removePendingRecord(record.id),
-        },
-      ]
-    );
-  }
-
-  return (
-    <View className="rounded-lg border border-border/60 p-3">
-      <View className="flex-row items-start justify-between gap-2">
-        <View className="min-w-0 flex-1 gap-1">
-          <View className="flex-row flex-wrap items-center gap-2">
-            <Badge
-              variant={record.kind === "equipment" ? "default" : "secondary"}
-            >
-              {record.kind === "equipment"
-                ? "Cadastro de equipamento"
-                : record.logType === "installation"
-                  ? "Instalação"
-                  : "Manutenção"}
-            </Badge>
-            <Text className="font-mono text-sm font-semibold text-foreground">
-              {record.qrToken}
-            </Text>
-          </View>
-          <View className="flex-row items-center gap-1.5">
-            <Camera size={12} color="#9ca3af" />
-            <Text className="text-xs text-muted-foreground">
-              {date} · {record.photos.length} foto
-              {record.photos.length === 1 ? "" : "s"}
-            </Text>
-          </View>
-          {record.kind === "equipment" && (
-            <Text className="text-sm text-foreground" numberOfLines={1}>
-              {record.description}
-            </Text>
-          )}
-          {record.error && (
-            <View className="flex-row items-start gap-1.5">
-              <AlertTriangle size={13} color="#ef4444" />
-              <Text className="flex-1 text-xs text-destructive">
-                {record.error}
-              </Text>
-            </View>
-          )}
-        </View>
-        <Pressable onPress={handleDiscard} hitSlop={8} className="p-1">
-          <Trash2 size={16} color="#ef4444" />
-        </Pressable>
-      </View>
-    </View>
-  );
-}
+const styles = StyleSheet.create({
+  list: { padding: space.screen, paddingBottom: 48, gap: space.sm },
+  header: { gap: space.md, marginBottom: space.xs },
+  row: { flexDirection: "row", alignItems: "center", gap: space.md },
+  tile: { width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
+  meta: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.sm },
+});
