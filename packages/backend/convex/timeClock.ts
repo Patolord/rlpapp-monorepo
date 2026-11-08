@@ -8,6 +8,7 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import { logAudit } from "./lib/audit";
+import { activeUsersInDepartment, notify } from "./lib/notifications";
 import { getUserByIdentity } from "./lib/auth";
 import {
   hasPermission,
@@ -375,13 +376,29 @@ export const markSyncFinished = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const previous = await getSyncState(ctx);
+    const finishedAt = Date.now();
     await patchSyncState(ctx, {
-      lastSyncFinishedAt: Date.now(),
+      lastSyncFinishedAt: finishedAt,
       lastSyncStatus: args.status,
       lastSyncError: args.error,
       lastSyncPunches: args.punches,
       lastSyncPeople: args.people,
     });
+
+    // N14: avisa o RH só na passagem de sucesso para erro, não a cada
+    // tentativa do cron de 5 min.
+    if (args.status === "error" && previous?.lastSyncStatus !== "error") {
+      const brt = new Date(finishedAt - 3 * 60 * 60 * 1000);
+      const hhmm = `${String(brt.getUTCHours()).padStart(2, "0")}:${String(brt.getUTCMinutes()).padStart(2, "0")}`;
+      await notify(ctx, await activeUsersInDepartment(ctx, "rh"), {
+        kind: "N14",
+        category: "ponto",
+        title: "Ponto RHID sem sincronizar",
+        body: `A última tentativa falhou às ${hhmm}. Toque para tentar de novo.`,
+        target: "rh_sincronizar",
+      });
+    }
     return null;
   },
 });

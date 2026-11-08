@@ -4,6 +4,7 @@ import { engineeringMutation, engineeringQuery } from "./lib/rbac";
 import { equipmentStatusValidator } from "./equipment";
 import { projectStatus } from "./schema";
 import { logAudit, diffFields } from "./lib/audit";
+import { notify } from "./lib/notifications";
 import {
   assertValidParentContract,
   resolveContractDirection,
@@ -847,6 +848,24 @@ export const setTechnicians = engineeringMutation({
       entityLabel: project.name,
       details: `${valid.length} técnico(s)`,
     });
+
+    // N7: só quem entrou na lista agora.
+    const before = new Set(project.technicianIds ?? []);
+    const added = valid.filter((id) => !before.has(id));
+    await notify(
+      ctx,
+      added,
+      {
+        kind: "N7",
+        category: "obras_documentos",
+        title: "Nova obra na sua lista",
+        body: `Você foi incluído na obra ${project.name}.`,
+        target: "obra",
+        params: { projectId: args.projectId },
+        projectId: args.projectId,
+      },
+      { actorId: ctx.user._id }
+    );
     return null;
   },
 });

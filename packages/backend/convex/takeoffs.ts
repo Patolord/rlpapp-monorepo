@@ -6,6 +6,7 @@ import {
   purchasingMutation,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
+import { activeUsersInDepartment, notify, plural } from "./lib/notifications";
 import {
   materialDimensions,
   takeoffBudgetMeta,
@@ -650,6 +651,33 @@ export const publishFromDesktop = engineeringMutation({
         `${result.updated} atualizadas, ${result.removed} removidas, ` +
         `${result.kept.length} mantidas pela Compras`,
     });
+
+    // N12: a Compras fica sabendo do orçamento novo (ou que mudou).
+    const changed = result.inserted + result.updated + result.removed;
+    if (result.created || changed > 0) {
+      const takeoff = await ctx.db.get("takeoffs", result.takeoffId);
+      const projectId = takeoff?.projectId ?? args.projectId;
+      const project = projectId ? await ctx.db.get("projects", projectId) : null;
+      const name = args.name.trim();
+      const params: Record<string, string> = { takeoffId: result.takeoffId };
+      if (project) params.projectId = project._id;
+      await notify(
+        ctx,
+        await activeUsersInDepartment(ctx, "compras"),
+        {
+          kind: "N12",
+          category: "compras_estoque",
+          title: `${result.created ? "Orçamento publicado" : "Orçamento atualizado"}${project ? ` · ${project.name}` : ""}`,
+          body: result.created
+            ? `"${name}" chegou do app Takeoff com ${plural(args.lines.length, "item", "itens")}.`
+            : `"${name}" mudou no app Takeoff: ${plural(changed, "linha alterada", "linhas alteradas")}.`,
+          target: "takeoff",
+          params,
+          projectId: project?._id,
+        },
+        { actorId: ctx.user._id }
+      );
+    }
     return result;
   },
 });

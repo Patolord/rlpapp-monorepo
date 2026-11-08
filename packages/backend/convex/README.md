@@ -15,6 +15,9 @@ convex/
   takeoffCatalog.ts     Internal catalog export for the RLP Takeoff desktop app
   takeoffMaterials.ts   Internal material proposals from the RLP Takeoff desktop app
   projects.ts
+  notifications.ts      Bell, push preferences and device tokens for the app
+  push.ts               Internal Expo push delivery, receipts and purge
+  notificationDigest.ts Internal daily summaries (overdue, price review, low stock)
   model/
     contracts/          Contract rules, operations, and read models
     engineering/
@@ -27,6 +30,8 @@ convex/
     auth.ts             Authentication primitives
     rbac.ts             Authorization policy and function wrappers
     audit.ts            Audit recording
+    notifications.ts    `notify()`: in-app notification + push scheduling,
+                        called inside the mutation that caused the event
 ```
 
 Directories under `model/` are added as their domains are migrated. Existing

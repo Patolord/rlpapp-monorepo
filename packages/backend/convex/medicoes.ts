@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { engineeringMutation, engineeringQuery } from "./lib/rbac";
 import { medicaoBasis, medicaoStatus, projectStatus } from "./schema";
 import { logAudit } from "./lib/audit";
+import { activeAdmins, notify } from "./lib/notifications";
 import { resolveCustomerLabel } from "./lib/projects/helpers";
 import {
   assertContractEligibleForMeasurement,
@@ -349,6 +350,28 @@ export const setMedicaoStatus = engineeringMutation({
       recordId: args.medicaoId,
       details: `Medição nº ${medicao.sequence}: ${medicao.status} → ${args.status}`,
     });
+
+    // N16: só no sino da diretoria, sem push (decisões 35 e 39).
+    if (to > from && (args.status === "aprovada" || args.status === "paga")) {
+      const project = await ctx.db.get("projects", medicao.projectId);
+      const projectName = project?.name ?? "obra";
+      const verb = args.status === "aprovada" ? "aprovada" : "marcada como paga";
+      await notify(
+        ctx,
+        await activeAdmins(ctx),
+        {
+          kind: "N16",
+          category: "medicoes",
+          title: `Medição ${verb}`,
+          body: `Medição ${medicao.sequence} da obra ${projectName} ${verb} por ${ctx.user.name}.`,
+          target: "medicao",
+          params: { medicaoId: args.medicaoId, projectId: medicao.projectId },
+          projectId: medicao.projectId,
+          push: false,
+        },
+        { actorId: ctx.user._id }
+      );
+    }
 
     return null;
   },

@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 44 módulos, 319 funções públicas.
+// 45 módulos, 327 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -25,28 +25,29 @@ import * as m18 from "../maintenanceLogs";
 import * as m19 from "../materials";
 import * as m20 from "../medicoes";
 import * as m21 from "../migrations";
-import * as m22 from "../payroll";
-import * as m23 from "../portal";
-import * as m24 from "../priceEvents";
-import * as m25 from "../projectDocuments";
-import * as m26 from "../projectEquipment";
-import * as m27 from "../projectUnits";
-import * as m28 from "../projects";
-import * as m29 from "../qrCodes";
-import * as m30 from "../reports";
-import * as m31 from "../rhidSync";
-import * as m32 from "../suppliers";
-import * as m33 from "../systems";
-import * as m34 from "../takeoffAuth";
-import * as m35 from "../takeoffCatalog";
-import * as m36 from "../takeoffMaterials";
-import * as m37 from "../takeoffs";
-import * as m38 from "../technicianActivity";
-import * as m39 from "../technicianPortal";
-import * as m40 from "../timeClock";
-import * as m41 from "../timeClockPunch";
-import * as m42 from "../towers";
-import * as m43 from "../users";
+import * as m22 from "../notifications";
+import * as m23 from "../payroll";
+import * as m24 from "../portal";
+import * as m25 from "../priceEvents";
+import * as m26 from "../projectDocuments";
+import * as m27 from "../projectEquipment";
+import * as m28 from "../projectUnits";
+import * as m29 from "../projects";
+import * as m30 from "../qrCodes";
+import * as m31 from "../reports";
+import * as m32 from "../rhidSync";
+import * as m33 from "../suppliers";
+import * as m34 from "../systems";
+import * as m35 from "../takeoffAuth";
+import * as m36 from "../takeoffCatalog";
+import * as m37 from "../takeoffMaterials";
+import * as m38 from "../takeoffs";
+import * as m39 from "../technicianActivity";
+import * as m40 from "../technicianPortal";
+import * as m41 from "../timeClock";
+import * as m42 from "../timeClockPunch";
+import * as m43 from "../towers";
+import * as m44 from "../users";
 
 export type AccessHint =
   | { kind: "public" }
@@ -79,28 +80,29 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   materials: m19,
   medicoes: m20,
   migrations: m21,
-  payroll: m22,
-  portal: m23,
-  priceEvents: m24,
-  projectDocuments: m25,
-  projectEquipment: m26,
-  projectUnits: m27,
-  projects: m28,
-  qrCodes: m29,
-  reports: m30,
-  rhidSync: m31,
-  suppliers: m32,
-  systems: m33,
-  takeoffAuth: m34,
-  takeoffCatalog: m35,
-  takeoffMaterials: m36,
-  takeoffs: m37,
-  technicianActivity: m38,
-  technicianPortal: m39,
-  timeClock: m40,
-  timeClockPunch: m41,
-  towers: m42,
-  users: m43,
+  notifications: m22,
+  payroll: m23,
+  portal: m24,
+  priceEvents: m25,
+  projectDocuments: m26,
+  projectEquipment: m27,
+  projectUnits: m28,
+  projects: m29,
+  qrCodes: m30,
+  reports: m31,
+  rhidSync: m32,
+  suppliers: m33,
+  systems: m34,
+  takeoffAuth: m35,
+  takeoffCatalog: m36,
+  takeoffMaterials: m37,
+  takeoffs: m38,
+  technicianActivity: m39,
+  technicianPortal: m40,
+  timeClock: m41,
+  timeClockPunch: m42,
+  towers: m43,
+  users: m44,
 };
 
 export const ACCESS_HINTS: Record<string, AccessHint> = {
@@ -261,6 +263,14 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "migrations:verifyCustomerMigration": { kind: "permission", permission: "admin.manage" },
   "migrations:verifyProjectCustomerAndNumbersPage": { kind: "permission", permission: "admin.manage" },
   "migrations:verifyUnifiedContractsPage": { kind: "permission", permission: "admin.manage" },
+  "notifications:getPreferences": { kind: "authenticated" },
+  "notifications:listMine": { kind: "authenticated" },
+  "notifications:markAllRead": { kind: "authenticated" },
+  "notifications:markRead": { kind: "authenticated" },
+  "notifications:registerPushToken": { kind: "authenticated" },
+  "notifications:unreadCount": { kind: "authenticated" },
+  "notifications:unregisterPushToken": { kind: "authenticated" },
+  "notifications:updatePreferences": { kind: "authenticated" },
   "payroll:addEmployeeToRun": { kind: "permission", permission: "rh.write" },
   "payroll:archiveLoan": { kind: "permission", permission: "rh.write" },
   "payroll:closeRun": { kind: "permission", permission: "rh.write" },

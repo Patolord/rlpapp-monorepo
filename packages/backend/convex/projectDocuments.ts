@@ -8,6 +8,7 @@ import {
 } from "./lib/rbac";
 import { internalQuery } from "./_generated/server";
 import { logAudit } from "./lib/audit";
+import { notify } from "./lib/notifications";
 import {
   assertTechnicianProjectAccess,
   isProjectArchived,
@@ -168,6 +169,17 @@ export const discardUpload = engineeringMutation({
   },
 });
 
+/** Técnicos da obra que passam a ver o documento em campo (N8). */
+function fieldViewers(
+  project: Doc<"projects">,
+  access: Doc<"projectDocuments">["technicianAccess"],
+  allowed: Id<"users">[] | undefined
+): Id<"users">[] {
+  if (access === "none") return [];
+  if (access === "all") return project.technicianIds ?? [];
+  return allowed ?? [];
+}
+
 export const create = engineeringMutation({
   args: {
     projectId: v.id("projects"),
@@ -216,6 +228,21 @@ export const create = engineeringMutation({
       entityLabel: name,
       details: `Obra ${project.name} · acesso técnicos: ${args.technicianAccess}`,
     });
+
+    await notify(
+      ctx,
+      fieldViewers(project, args.technicianAccess, allowedTechnicianIds),
+      {
+        kind: "N8",
+        category: "obras_documentos",
+        title: `Documento novo · ${project.name}`,
+        body: `${name} (PDF).`,
+        target: "documentos",
+        params: { projectId: args.projectId, documentId },
+        projectId: args.projectId,
+      },
+      { actorId: ctx.user._id }
+    );
     return documentId;
   },
 });
@@ -274,6 +301,28 @@ export const update = engineeringMutation({
           : []),
       ],
     });
+
+    // N8 também quando o acesso passa a incluir alguém.
+    const before = new Set(
+      fieldViewers(project, document.technicianAccess, document.allowedTechnicianIds)
+    );
+    const gained = fieldViewers(project, technicianAccess, allowedTechnicianIds).filter(
+      (id) => !before.has(id)
+    );
+    await notify(
+      ctx,
+      gained,
+      {
+        kind: "N8",
+        category: "obras_documentos",
+        title: `Documento novo · ${project.name}`,
+        body: `${name} (PDF).`,
+        target: "documentos",
+        params: { projectId: project._id, documentId: args.documentId },
+        projectId: project._id,
+      },
+      { actorId: ctx.user._id }
+    );
     return null;
   },
 });

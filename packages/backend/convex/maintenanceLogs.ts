@@ -2,6 +2,9 @@ import { query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { authedMutation, authedQuery } from "./lib/rbac";
+import { engineeringDeciders, notify } from "./lib/notifications";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { QueryCtx } from "./_generated/server";
 
 const logStatusValidator = v.union(
   v.literal("installing"),
@@ -94,6 +97,36 @@ export const getLastMaintenanceDate = query({
   },
 });
 
+/**
+ * Obra e rótulo do equipamento para o aviso N9: a obra vem do item planejado
+ * que ele ocupa, senão da etiqueta (QR), senão do campo legado.
+ */
+async function equipmentContext(
+  ctx: QueryCtx,
+  equipment: Doc<"equipment">
+): Promise<{ projectId: Id<"projects"> | undefined; label: string; token: string | undefined }> {
+  let planned = equipment.projectEquipmentId
+    ? await ctx.db.get("projectEquipment", equipment.projectEquipmentId)
+    : null;
+  if (!planned) {
+    planned = await ctx.db
+      .query("projectEquipment")
+      .withIndex("by_linkedEquipment", (q) => q.eq("linkedEquipmentId", equipment._id))
+      .first();
+  }
+  const qr = await ctx.db
+    .query("qrCodes")
+    .withIndex("by_equipment", (q) => q.eq("equipmentId", equipment._id))
+    .first();
+  const projectId = planned?.projectId ?? qr?.projectId ?? equipment.projectId;
+  let label = equipment.description?.trim() || "Equipamento";
+  if (planned) {
+    const kind = planned.kind === "condensadora" ? "Condensadora" : "Evaporadora";
+    label = [`${kind} ${planned.capacidade}`.trim(), planned.ambiente].filter(Boolean).join(", ");
+  }
+  return { projectId, label, token: qr?.token };
+}
+
 export const create = authedMutation({
   args: {
     equipmentId: v.id("equipment"),
@@ -123,7 +156,7 @@ export const create = authedMutation({
       status: args.status,
     });
 
-    return await ctx.db.insert("maintenanceLogs", {
+    const logId = await ctx.db.insert("maintenanceLogs", {
       equipmentId: args.equipmentId,
       type: args.type,
       technicianName,
@@ -135,6 +168,39 @@ export const create = authedMutation({
       photoIds: args.photoIds,
       createdAt: Date.now(),
     });
+
+    // N9 (erro, com push) e N9b (atenção, só no sino) para o engenheiro
+    // responsável. Equipamento sem obra não gera aviso.
+    if (args.status === "error" || args.status === "warning") {
+      const equipment = await ctx.db.get("equipment", args.equipmentId);
+      const info = equipment ? await equipmentContext(ctx, equipment) : null;
+      const project = info?.projectId ? await ctx.db.get("projects", info.projectId) : null;
+      if (info && project) {
+        const isError = args.status === "error";
+        const params: Record<string, string> = {
+          projectId: project._id,
+          equipmentId: args.equipmentId,
+        };
+        if (info.token) params.token = info.token;
+        await notify(
+          ctx,
+          await engineeringDeciders(ctx, project),
+          {
+            kind: isError ? "N9" : "N9b",
+            category: "equipamentos",
+            title: `${isError ? "Equipamento com erro" : "Equipamento em atenção"} · ${project.name}`,
+            body: isError ? `${info.label}. Registrado por ${technicianName}.` : `${info.label}.`,
+            target: "equipamento",
+            params,
+            projectId: project._id,
+            push: isError,
+          },
+          { actorId: ctx.user._id }
+        );
+      }
+    }
+
+    return logId;
   },
 });
 

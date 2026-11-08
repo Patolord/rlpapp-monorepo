@@ -6,6 +6,9 @@ const app = defineApp({
     CLERK_SECRET_KEY: v.string(),
     CLERK_WEBHOOK_SECRET: v.optional(v.string()),
     OPENAI_API_KEY: v.optional(v.string()),
+    // Token de acesso do Expo para o envio de push (só se o projeto EAS
+    // exigir "enhanced security for push"). Sem ele o envio funciona igual.
+    EXPO_ACCESS_TOKEN: v.optional(v.string()),
     MATERIAL_LOOKUP_TOKEN: v.optional(v.string()),
     // Bearer do app desktop RLP Takeoff para `GET /takeoff/catalog`.
     TAKEOFF_CATALOG_TOKEN: v.optional(v.string()),

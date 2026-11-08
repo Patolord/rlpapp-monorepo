@@ -28,6 +28,7 @@ type Env = {
   readonly API_JWT_PRIVATE_KEY: string | undefined;
   readonly CLERK_SECRET_KEY: string;
   readonly CLERK_WEBHOOK_SECRET: string | undefined;
+  readonly EXPO_ACCESS_TOKEN: string | undefined;
   readonly MATERIAL_LOOKUP_TOKEN: string | undefined;
   readonly MCP_JWT_ISSUER: string | undefined;
   readonly MCP_JWT_JWKS: string | undefined;

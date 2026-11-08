@@ -12,6 +12,12 @@ import {
   staffMutation,
 } from "./lib/rbac";
 import { logAudit } from "./lib/audit";
+import {
+  activeUsersInDepartment,
+  engineeringDeciders,
+  notify,
+  plural,
+} from "./lib/notifications";
 import { findInventoryLocation } from "./lib/inventory/operations";
 import {
   MAX_INVENTORY_REQUEST_LINES,
@@ -416,6 +422,25 @@ export const createRequest = authedMutation({
       details: `Pedido de ${args.items.length} material(is) para a obra`,
     });
 
+    // N1: quem decide pela engenharia na obra.
+    const project = await ctx.db.get("projects", args.projectId);
+    if (project) {
+      await notify(
+        ctx,
+        await engineeringDeciders(ctx, project),
+        {
+          kind: "N1",
+          category: "pedidos",
+          title: `Pedido de material · ${project.name}`,
+          body: `${ctx.user.name} pediu ${plural(args.items.length, "item", "itens")}. Toque para aprovar ou recusar.`,
+          target: "pedido",
+          params: { requestId, projectId: args.projectId },
+          projectId: args.projectId,
+        },
+        { actorId: ctx.user._id }
+      );
+    }
+
     return requestId;
   },
 });
@@ -509,6 +534,61 @@ export const reviewRequest = staffMutation({
       recordId: args.requestId,
       details: reason,
     });
+
+    // N2a/N3 para quem pediu; N2b para o Estoque atender.
+    const project = await ctx.db.get("projects", request.projectId);
+    const projectName = project?.name ?? "Obra";
+    const items = await ctx.db
+      .query("inventoryRequestItems")
+      .withIndex("by_request", (q) => q.eq("requestId", args.requestId))
+      .collect();
+    const itemsLabel = plural(items.length, "item", "itens");
+    const params = { requestId: args.requestId, projectId: request.projectId };
+    if (args.decision === "approve") {
+      await notify(
+        ctx,
+        [request.requestedByUserId],
+        {
+          kind: "N2a",
+          category: "pedidos",
+          title: `Pedido aprovado · ${projectName}`,
+          body: `${items.length === 1 ? "Seu item foi aprovado" : `Seus ${itemsLabel} foram aprovados`}. O estoque vai separar e enviar.`,
+          target: "estoque_obra",
+          params,
+          projectId: request.projectId,
+        },
+        { actorId: ctx.user._id }
+      );
+      await notify(
+        ctx,
+        await activeUsersInDepartment(ctx, "estoque"),
+        {
+          kind: "N2b",
+          category: "pedidos",
+          title: `Pedido para atender · ${projectName}`,
+          body: `${itemsLabel} ${items.length === 1 ? "aprovado" : "aprovados"} por ${ctx.user.name}. Toque para montar o envio.`,
+          target: "pedido",
+          params,
+          projectId: request.projectId,
+        },
+        { actorId: ctx.user._id }
+      );
+    } else {
+      await notify(
+        ctx,
+        [request.requestedByUserId],
+        {
+          kind: "N3",
+          category: "pedidos",
+          title: `Pedido recusado · ${projectName}`,
+          body: `Motivo: "${reason}"`,
+          target: "estoque_obra",
+          params,
+          projectId: request.projectId,
+        },
+        { actorId: ctx.user._id }
+      );
+    }
     return null;
   },
 });
