@@ -1,205 +1,258 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import {
-  Authenticated,
-  AuthLoading,
-  Unauthenticated,
-  usePaginatedQuery,
-  useQuery,
-} from "convex/react";
-import {
-  Lock,
-  Package,
-  ArrowUpDown,
-  ShieldCheck,
-  Search,
-} from "lucide-react-native";
-import { useState, useMemo } from "react";
-import { FlatList, Pressable, Text, View } from "react-native";
-import { Link } from "expo-router";
+import type { FunctionReturnType } from "convex/server";
+import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
+import { useLocalSearchParams } from "expo-router";
+import { ArrowDownToLine, MapPin, Package, Truck } from "lucide-react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from "react-native";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  EmptyState,
-  LoadingState,
-} from "@rlpapp/ui/native";
-import { Button, ButtonText } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { BalanceCard } from "@/components/estoque/balance-card";
+import { MovementFormSheet } from "@/components/estoque/movement-form-sheet";
+import { REPLENISHMENT, type MovementType, type ReplenishmentState } from "@/components/estoque/labels";
+import { AppButton, Banner, Chips, EmptyState, Field, KeyValueList, LoadingState, Pill, SearchField, Sheet, Surface, useToast } from "@/components/ui";
+import { getErrorMessage } from "@/lib/errors";
+import { formatMaterialLabel, formatQty } from "@/lib/format";
+import { colors, space, type } from "@/lib/theme";
 
-export default function EstoqueCentralScreen() {
-  return (
-    <View className="flex-1 px-5 pt-4 pb-4">
-      <Authenticated>
-        <CentralContent />
-      </Authenticated>
-      <Unauthenticated>
-        <Card className="p-6 items-center">
-          <Lock size={48} color="#888" />
-          <Text className="text-foreground font-medium mt-4">Acesso Restrito</Text>
-          <Text className="text-muted-foreground text-sm text-center mt-2">
-            Faça login para acessar
-          </Text>
-          <Link href="/(auth)/sign-in" asChild>
-            <Button className="mt-4">
-              <ButtonText>Entrar</ButtonText>
-            </Button>
-          </Link>
-        </Card>
-      </Unauthenticated>
-      <AuthLoading>
-        <LoadingState />
-      </AuthLoading>
-    </View>
-  );
+type Balance = FunctionReturnType<typeof api.inventory.listBalances>["page"][number];
+type Filter = "todos" | ReplenishmentState;
+
+function useDebounced<T>(value: T, ms: number): T {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(id);
+  }, [value, ms]);
+  return v;
 }
 
-function CentralContent() {
-  const [search, setSearch] = useState("");
-
+/** Estoque central (ficha E1): saúde do estoque, busca no estoque inteiro e saldos. */
+export default function EstoqueCentralScreen() {
+  const params = useLocalSearchParams<{ filtro?: string }>();
   const access = useQuery(api.inventory.getAccess, {});
-  const canViewCentral = access?.canViewCentral === true;
-  const { results: balances, status, loadMore } = usePaginatedQuery(
+  const canView = access?.canViewCentral === true;
+  const health = useQuery(api.inventory.centralHealth, canView ? {} : "skip");
+  const [filter, setFilter] = useState<Filter>(params.filtro === "repor" ? "reorder" : "todos");
+  const [search, setSearch] = useState("");
+  const term = useDebounced(search.trim(), 300);
+  const { results, status, loadMore } = usePaginatedQuery(
     api.inventory.listBalances,
-    canViewCentral ? {} : "skip",
-    { initialNumItems: 100 }
+    canView ? { search: term || undefined } : "skip",
+    { initialNumItems: 60 }
   );
-  const events = useQuery(
-    api.inventory.listEvents,
-    canViewCentral ? { limit: 50 } : "skip"
-  );
-  const pendingApprovals = useQuery(
-    api.inventory.listPendingApprovals,
-    access ? {} : "skip"
-  );
+  const [selected, setSelected] = useState<Balance | null>(null);
+  const [movement, setMovement] = useState<MovementType | null>(null);
 
-  const filteredBalances = useMemo(() => {
-    if (!search.trim()) return balances;
-    const term = search.toLowerCase();
-    return balances.filter(
-      (b) =>
-        b.materialName.toLowerCase().includes(term) ||
-        b.locationName.toLowerCase().includes(term)
-    );
-  }, [balances, search]);
+  useEffect(() => {
+    if (params.filtro === "repor") setFilter("reorder");
+  }, [params.filtro]);
 
-  if (!access) return <LoadingState />;
+  const visible = useMemo(() => {
+    if (filter === "todos") return results;
+    // "Repor" no aviso N13 inclui o crítico: os dois pedem compra.
+    if (filter === "reorder") return results.filter((b) => b.replenishmentState === "reorder" || b.replenishmentState === "below_minimum");
+    return results.filter((b) => b.replenishmentState === filter);
+  }, [results, filter]);
 
-  if (!access.canViewCentral) {
+  if (access === undefined) return <LoadingState />;
+  if (!canView) {
     return (
-      <EmptyState
-        variant="plain"
-        title="Acesso restrito"
-        description="A Engenharia só pode consultar estoques de obras."
-      />
+      <View style={styles.pad}>
+        <EmptyState
+          title="Estoque central só para Estoque e Compras"
+          description="A engenharia consulta o estoque de cada obra em Obras › obra › Estoque."
+        />
+      </View>
     );
   }
 
+  const loadingMore = status === "LoadingMore";
+
   return (
-    <View className="gap-4 flex-1">
-      <View>
-        <Text className="text-2xl font-bold text-foreground">Central de Estoque</Text>
-        <Text className="text-muted-foreground text-sm">
-          Visão geral do inventário
-        </Text>
-      </View>
-
-      {/* Metric cards */}
-      <View className="flex-row gap-3">
-        <View className="flex-1 rounded-lg border border-border bg-card p-3">
-          <View className="flex-row items-center gap-2 mb-1">
-            <Package size={16} color="#3478f6" />
-            <Text className="text-muted-foreground text-xs">Materiais</Text>
-          </View>
-          <Text className="text-foreground text-lg font-bold">
-            {balances.length}
-          </Text>
-        </View>
-        <View className="flex-1 rounded-lg border border-border bg-card p-3">
-          <View className="flex-row items-center gap-2 mb-1">
-            <ArrowUpDown size={16} color="#f59e0b" />
-            <Text className="text-muted-foreground text-xs">Movimentações</Text>
-          </View>
-          <Text className="text-foreground text-lg font-bold">
-            {events?.length ?? 0}
-          </Text>
-        </View>
-        <View className="flex-1 rounded-lg border border-border bg-card p-3">
-          <View className="flex-row items-center gap-2 mb-1">
-            <ShieldCheck size={16} color="#10b981" />
-            <Text className="text-muted-foreground text-xs">Pendentes</Text>
-          </View>
-          <Text className="text-foreground text-lg font-bold">
-            {pendingApprovals?.length ?? 0}
-          </Text>
-        </View>
-      </View>
-
-      {/* Search */}
-      <View className="flex-row items-center gap-2">
-        <View className="flex-1 flex-row items-center rounded-md border border-input bg-card px-3">
-          <Search size={16} color="#9ca3af" />
-          <Input
-            className="flex-1 border-0 bg-transparent"
-            placeholder="Buscar material ou local..."
-            value={search}
-            onChangeText={setSearch}
-          />
-        </View>
-      </View>
-
-      {/* Balances list */}
-      <Card className="flex-1">
-        <CardHeader>
-          <CardTitle>Saldos de Material</CardTitle>
-          <CardDescription>
-            {filteredBalances.length} materiais encontrados
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex-1">
-          {status === "LoadingFirstPage" ? (
-            <LoadingState size="small" />
-          ) : filteredBalances.length === 0 ? (
-            <EmptyState
-              variant="plain"
-              title={search ? "Nenhum resultado" : "Nenhum material cadastrado"}
+    <View style={{ flex: 1 }}>
+      <FlatList
+        data={visible}
+        keyExtractor={(item) => item._id}
+        contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
+        onEndReachedThreshold={0.4}
+        onEndReached={() => status === "CanLoadMore" && loadMore(60)}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            {access.canWriteCentral || access.canCreateEntry ? (
+              <View style={styles.actions}>
+                {access.canCreateEntry ? (
+                  <AppButton label="Entrada" variant="secondary" size="sm" icon={<ArrowDownToLine size={16} color={colors.text} />} onPress={() => setMovement("entry")} style={{ flex: 1 }} />
+                ) : null}
+                {access.canWriteCentral ? (
+                  <AppButton label="Enviar para obra" size="sm" icon={<Truck size={16} color={colors.onPrimary} />} onPress={() => setMovement("transfer")} style={{ flex: 1 }} />
+                ) : null}
+              </View>
+            ) : null}
+            <SearchField value={search} onChangeText={setSearch} placeholder="Material, SKU ou variação" autoCorrect={false} />
+            <Chips<Filter>
+              active={filter}
+              onChange={setFilter}
+              style={{ paddingHorizontal: 0 }}
+              items={[
+                { key: "todos", label: "Todos" },
+                { key: "below_minimum", label: "Crítico", count: health?.critical },
+                { key: "reorder", label: "Repor", count: health ? health.reorder + health.critical : undefined },
+                { key: "healthy", label: "OK", count: health?.healthy },
+                { key: "unconfigured", label: "Sem política", count: health?.unconfigured },
+              ]}
             />
+            {term ? (
+              <Text style={styles.hint}>
+                {results.length === 0 ? "" : `${results.length} ${results.length === 1 ? "material encontrado" : "materiais encontrados"} no estoque inteiro`}
+              </Text>
+            ) : null}
+          </View>
+        }
+        renderItem={({ item }) => <BalanceRow balance={item} onPress={() => setSelected(item)} />}
+        ListEmptyComponent={
+          status === "LoadingFirstPage" ? (
+            <LoadingState />
           ) : (
-            <FlatList
-              data={filteredBalances}
-              keyExtractor={(item) => item._id}
-              renderItem={({ item }) => (
-                <BalanceCard
-                  name={item.materialName}
-                  quantity={item.quantity}
-                  unit={item.unit ?? "un"}
-                  location={item.locationName}
-                />
-              )}
-              ItemSeparatorComponent={() => <View className="h-2" />}
-              scrollEnabled={false}
-              ListFooterComponent={
-                status === "CanLoadMore" || status === "LoadingMore" ? (
-                  <Pressable
-                    onPress={() => loadMore(100)}
-                    disabled={status === "LoadingMore"}
-                    className="items-center py-3"
-                  >
-                    <Text className="text-sm font-medium text-primary">
-                      {status === "LoadingMore"
-                        ? "Carregando…"
-                        : "Carregar mais"}
-                    </Text>
-                  </Pressable>
-                ) : null
-              }
+            <EmptyState
+              icon={<Package size={28} color={colors.primary} />}
+              title={term ? "Nada com essa busca" : filter !== "todos" ? "Nada nesta situação" : "Estoque vazio"}
+              description={term ? "Confira o nome ou o SKU." : filter !== "todos" ? undefined : "As entradas registradas aparecem aqui."}
+              actionLabel={filter !== "todos" ? "Ver todos" : undefined}
+              onAction={() => setFilter("todos")}
             />
-          )}
-        </CardContent>
-      </Card>
+          )
+        }
+        ListFooterComponent={loadingMore ? <ActivityIndicator color={colors.primary} style={{ paddingVertical: space.lg }} /> : null}
+      />
+
+      <BalanceSheet balance={selected} canEdit={access.canWriteCentral} onClose={() => setSelected(null)} onMove={(t) => { setSelected(null); setMovement(t); }} />
+      <MovementFormSheet open={movement !== null} onClose={() => setMovement(null)} lockType={movement ?? undefined} />
     </View>
   );
 }
+
+function BalanceRow({ balance, onPress }: { balance: Balance; onPress: () => void }) {
+  const state = REPLENISHMENT[balance.replenishmentState as ReplenishmentState] ?? REPLENISHMENT.unconfigured;
+  return (
+    <Surface onPress={onPress} accessibilityLabel={`${balance.materialName}, ${formatQty(balance.quantity, balance.unit)}, ${state.label}`}>
+      <View style={styles.row}>
+        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+          <Text style={[type.bodyStrong, { color: colors.text }]} numberOfLines={2}>
+            {formatMaterialLabel(balance.materialName, balance.variantLabel)}
+          </Text>
+          <Text style={[type.caption, { color: colors.textSecondary }]} numberOfLines={1}>
+            {[balance.materialSku, balance.physicalAddress ? `End. ${balance.physicalAddress}` : null].filter(Boolean).join(" · ") || "Sem endereço"}
+          </Text>
+        </View>
+        <View style={{ alignItems: "flex-end", gap: 4 }}>
+          <Text style={[type.heading, { color: colors.text }]}>{formatQty(balance.quantity, balance.unit)}</Text>
+          <Pill label={state.label} tone={state.tone} />
+        </View>
+      </View>
+    </Surface>
+  );
+}
+
+/** Material no estoque (E2) com o endereço físico editável (E3). */
+function BalanceSheet({
+  balance,
+  canEdit,
+  onClose,
+  onMove,
+}: {
+  balance: Balance | null;
+  canEdit: boolean;
+  onClose: () => void;
+  onMove: (type: MovementType) => void;
+}) {
+  const toast = useToast();
+  const updateAddress = useMutation(api.inventory.updatePhysicalAddress);
+  const [address, setAddress] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setAddress(balance?.physicalAddress ?? "");
+    setEditing(false);
+  }, [balance]);
+
+  async function save() {
+    if (!balance) return;
+    setSaving(true);
+    try {
+      await updateAddress({ balanceId: balance._id, physicalAddress: address.trim() });
+      toast.success("Endereço salvo");
+      setEditing(false);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Não deu para salvar o endereço"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const state = balance ? REPLENISHMENT[balance.replenishmentState as ReplenishmentState] ?? REPLENISHMENT.unconfigured : null;
+  const unit = balance?.unit ?? null;
+
+  return (
+    <Sheet open={balance !== null} onClose={onClose} title={balance ? formatMaterialLabel(balance.materialName, balance.variantLabel) : ""} subtitle={balance?.materialSku ?? undefined}>
+      {balance && state ? (
+        <View style={{ gap: space.lg }}>
+          <View style={styles.qty}>
+            <Text style={[type.display, { color: colors.text }]}>{formatQty(balance.quantity, unit)}</Text>
+            <Pill label={state.label} tone={state.tone} />
+          </View>
+          {balance.replenishmentState === "unconfigured" ? (
+            <Banner tone="neutral" title="Sem política de reposição" detail="Mínimo, ponto de reposição e alvo são definidos no web, em Compras." />
+          ) : (
+            <KeyValueList
+              items={[
+                { label: "Mínimo", value: balance.minimumQuantity !== null ? formatQty(balance.minimumQuantity, unit) : null },
+                { label: "Ponto de reposição", value: balance.reorderPoint !== null ? formatQty(balance.reorderPoint, unit) : null },
+                { label: "Alvo", value: balance.targetQuantity !== null ? formatQty(balance.targetQuantity, unit) : null },
+                { label: "Prazo de entrega", value: balance.leadTimeDays !== null ? `${balance.leadTimeDays} dias` : null },
+                { label: "Sugestão de compra", value: balance.suggestedOrderQuantity ? formatQty(balance.suggestedOrderQuantity, unit) : null },
+              ]}
+            />
+          )}
+
+          {editing ? (
+            <View style={{ gap: space.sm }}>
+              <Field label="Endereço físico" value={address} onChangeText={setAddress} placeholder="Ex.: Prateleira B3, caixa 12" autoFocus />
+              <View style={styles.actions}>
+                <AppButton label="Cancelar" variant="secondary" size="sm" disabled={saving} onPress={() => { setAddress(balance.physicalAddress ?? ""); setEditing(false); }} style={{ flex: 1 }} />
+                <AppButton label="Salvar" size="sm" loading={saving} onPress={() => void save()} style={{ flex: 1 }} />
+              </View>
+            </View>
+          ) : (
+            <Surface style={styles.address}>
+              <MapPin size={18} color={colors.icon} />
+              <View style={{ flex: 1 }}>
+                <Text style={[type.caption, { color: colors.textSecondary }]}>Endereço físico</Text>
+                <Text style={[type.body, { color: balance.physicalAddress ? colors.text : colors.textSecondary }]}>{balance.physicalAddress || "Não informado"}</Text>
+              </View>
+              {canEdit ? <AppButton label="Editar" variant="ghost" size="sm" onPress={() => setEditing(true)} /> : null}
+            </Surface>
+          )}
+
+          {canEdit ? (
+            <View style={styles.actions}>
+              <AppButton label="Ajustar saldo" variant="secondary" size="sm" onPress={() => onMove("adjustment")} style={{ flex: 1 }} />
+              <AppButton label="Enviar para obra" size="sm" onPress={() => onMove("transfer")} style={{ flex: 1 }} />
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+    </Sheet>
+  );
+}
+
+const styles = StyleSheet.create({
+  pad: { padding: space.screen },
+  list: { padding: space.screen, paddingBottom: 96, gap: space.sm },
+  header: { gap: space.md, marginBottom: space.xs },
+  actions: { flexDirection: "row", gap: space.sm },
+  hint: { ...type.caption, color: colors.textSecondaryOnBg },
+  row: { flexDirection: "row", alignItems: "center", gap: space.md },
+  qty: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  address: { flexDirection: "row", alignItems: "center", gap: space.md },
+});

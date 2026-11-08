@@ -35,3 +35,13 @@ export const NEEDS_PROJECT: Record<MovementType, boolean> = {
   return: true,
   adjustment: false,
 };
+
+/** Saúde do saldo com os rótulos do web (decisão 31). */
+export type ReplenishmentState = "below_minimum" | "reorder" | "healthy" | "unconfigured";
+
+export const REPLENISHMENT: Record<ReplenishmentState, { label: string; tone: Tone }> = {
+  below_minimum: { label: "Crítico", tone: "danger" },
+  reorder: { label: "Repor", tone: "warning" },
+  healthy: { label: "OK", tone: "success" },
+  unconfigured: { label: "Sem política", tone: "neutral" },
+};

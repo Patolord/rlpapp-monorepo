@@ -94,9 +94,9 @@ export function hrefForNotification(
       if (!projectId) return null;
       return (field ? `/campo/obra/${projectId}/estoque` : `/obra/${projectId}/estoque`) as Href;
     case "aprovacao":
-      return "/(tabs)/estoque/aprovacoes" as Href;
+      return (p.documentId ? `/aprovacoes?documentId=${p.documentId}` : "/aprovacoes") as Href;
     case "movimentacao":
-      return "/(tabs)/estoque/movimentacoes" as Href;
+      return (p.documentId ? `/(tabs)/estoque/movimentacoes?documentId=${p.documentId}` : "/(tabs)/estoque/movimentacoes") as Href;
     case "obra":
       if (!projectId) return null;
       return (field ? `/campo/obra/${projectId}` : `/obra/${projectId}`) as Href;

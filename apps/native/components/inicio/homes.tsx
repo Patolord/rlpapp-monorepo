@@ -1,6 +1,6 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Doc } from "@rlpapp/backend/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { usePaginatedQuery, useQuery } from "convex/react";
 import { useRouter, type Href } from "expo-router";
 import {
   AlertTriangle,
@@ -144,7 +144,7 @@ export function EngineeringHome({ user, right }: { user: User; right?: React.Rea
           title="Aprovações de estoque"
           subtitle="Envio com material incompatível"
           count={approvals?.length ?? 0}
-          onPress={() => router.push("/(tabs)/estoque/aprovacoes" as Href)}
+          onPress={() => router.push("/aprovacoes" as Href)}
         />
         <NeedRow
           icon={icon(Inbox)}
@@ -192,7 +192,8 @@ export function EngineeringHome({ user, right }: { user: User; right?: React.Rea
 export function StockHome({ user, right }: { user: User; right?: React.ReactNode }) {
   const router = useRouter();
   const approved = useQuery(api.inventoryRequests.listOfficeRequests, { status: "approved" });
-  const approvals = useQuery(api.inventory.listPendingApprovals);
+  const waiting = usePaginatedQuery(api.inventory.listDocuments, { status: "pending_approval" }, { initialNumItems: 50 });
+  const health = useQuery(api.inventory.centralHealth, {});
 
   return (
     <Scroll header={<HomeHeader name={user.name} area={PROFILE_LABEL.estoque} right={right} />}>
@@ -210,14 +211,15 @@ export function StockHome({ user, right }: { user: User; right?: React.ReactNode
           icon={icon(ShieldAlert, status.warning)}
           title="Esperando o engenheiro"
           subtitle="Envios com material incompatível"
-          count={approvals?.length ?? 0}
-          onPress={() => router.push("/(tabs)/estoque/aprovacoes" as Href)}
+          count={waiting.results.length}
+          onPress={() => router.push("/(tabs)/estoque/movimentacoes?filtro=aguardando" as Href)}
         />
         <NeedRow
-          icon={icon(Package)}
-          title="Estoque central"
-          subtitle="Saldos, saúde do material e endereço"
-          onPress={() => router.push("/(tabs)/estoque")}
+          icon={icon(Package, status.danger)}
+          title="Estoque baixo"
+          subtitle={health ? `${health.critical} críticos e ${health.reorder} para repor` : "Materiais abaixo do ponto de reposição"}
+          count={health ? health.critical + health.reorder : undefined}
+          onPress={() => router.push("/(tabs)/estoque?filtro=repor" as Href)}
         />
       </NeedList>
       <PontoHero onPress={() => router.push("/(tabs)/ponto")} />
@@ -230,6 +232,7 @@ export function PurchasingHome({ user, right }: { user: User; right?: React.Reac
   const router = useRouter();
   const [now] = useState(() => Date.now());
   const stats = useQuery(api.priceEvents.dashboardStats, { now });
+  const health = useQuery(api.inventory.centralHealth, {});
 
   return (
     <Scroll header={<HomeHeader name={user.name} area={PROFILE_LABEL.compras} right={right} />}>
@@ -256,6 +259,13 @@ export function PurchasingHome({ user, right }: { user: User; right?: React.Reac
           subtitle="Materiais com último preço antigo"
           count={stats?.stalePrices ?? 0}
           onPress={() => router.push("/(tabs)/compras/eventos-preco" as Href)}
+        />
+        <NeedRow
+          icon={icon(Package, status.danger)}
+          title="Materiais para repor"
+          subtitle={health ? `${health.critical} críticos e ${health.reorder} abaixo do ponto de reposição` : "Estoque central abaixo do ponto de reposição"}
+          count={health ? health.critical + health.reorder : undefined}
+          onPress={() => router.push("/(tabs)/estoque?filtro=repor" as Href)}
         />
       </NeedList>
       <SectionTitle title="Atalhos" style={styles.section} />

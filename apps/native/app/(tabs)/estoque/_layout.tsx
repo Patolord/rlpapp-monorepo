@@ -15,7 +15,6 @@ export default function EstoqueLayout() {
       <Tabs.Screen name="index" options={{ title: "Central" }} />
       <Tabs.Screen name="movimentacoes" options={{ title: "Movimentações" }} />
       <Tabs.Screen name="requisicoes" options={{ title: "Pedidos", tabBarBadge: toFulfill > 0 ? toFulfill : undefined }} />
-      <Tabs.Screen name="aprovacoes" options={{ title: "Aprovações", href: null }} />
     </AreaTabs>
   );
 }

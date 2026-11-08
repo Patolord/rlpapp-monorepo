@@ -1,13 +1,14 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { formatCurrency } from "@rlpapp/shared";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
+import { useLocalSearchParams } from "expo-router";
 import { ArrowDownToLine, ArrowUpFromLine, History, Plus, RotateCcw, Undo2 } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
 
 import { DOCUMENT_STATUS, MOVEMENT_LABELS } from "@/components/estoque/labels";
 import { MovementFormSheet } from "@/components/estoque/movement-form-sheet";
-import { AppButton, Chips, EmptyState, Field, IconButton, LoadingState, Pill, ScreenHeader, Sheet, Surface, screenStyles, useToast } from "@/components/ui";
+import { AppButton, Banner, Chips, EmptyState, Field, IconButton, KeyValueList, LoadingState, Pill, ScreenHeader, Sheet, Surface, screenStyles, useToast } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
 import { formatDateTime, formatQty } from "@/lib/format";
 import { colors, space, type } from "@/lib/theme";
@@ -18,7 +19,9 @@ type DocumentRow = ReturnType<typeof usePaginatedQuery<typeof api.inventory.list
 /** Histórico de movimentações (documentos) com estorno e nova movimentação. */
 export default function MovimentacoesScreen() {
   const toast = useToast();
-  const [filter, setFilter] = useState<Filter>("all");
+  const params = useLocalSearchParams<{ filtro?: string; documentId?: string }>();
+  const [filter, setFilter] = useState<Filter>(params.filtro === "aguardando" ? "pending_approval" : "all");
+  const [detail, setDetail] = useState<DocumentRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [reversing, setReversing] = useState<DocumentRow | null>(null);
   const [reason, setReason] = useState("");
@@ -31,6 +34,17 @@ export default function MovimentacoesScreen() {
     { status: filter === "all" ? undefined : filter },
     { initialNumItems: 30 }
   );
+
+  useEffect(() => {
+    if (params.filtro === "aguardando") setFilter("pending_approval");
+  }, [params.filtro]);
+
+  // Aviso N6 abre a movimentação: mostra o detalhe quando ela já está na lista.
+  useEffect(() => {
+    if (!params.documentId) return;
+    const doc = results.find((d) => d._id === params.documentId);
+    if (doc) setDetail(doc);
+  }, [params.documentId, results]);
 
   async function doReverse() {
     if (!reversing || reason.trim().length < 3) return;
@@ -82,7 +96,7 @@ export default function MovimentacoesScreen() {
             const Icon = item.type === "reversal" ? Undo2 : inbound ? ArrowDownToLine : ArrowUpFromLine;
             const total = item.items.reduce((s, i) => s + (i.unitCostCents ?? 0) * i.quantity, 0);
             return (
-              <Surface style={{ gap: space.sm }}>
+              <Surface style={{ gap: space.sm }} onPress={() => setDetail(item)} accessibilityLabel={`${MOVEMENT_LABELS[item.type] ?? item.type}, ${st.label}`}>
                 <View style={styles.top}>
                   <View style={[styles.icon, { backgroundColor: inbound ? colors.successSoft : colors.primarySoft }]}>
                     <Icon size={20} color={inbound ? colors.success : colors.primary} strokeWidth={1.8} />
@@ -124,6 +138,29 @@ export default function MovimentacoesScreen() {
       <MovementFormSheet open={creating} onClose={() => setCreating(false)} />
 
       <Sheet
+        open={detail !== null}
+        onClose={() => setDetail(null)}
+        title={detail ? (MOVEMENT_LABELS[detail.type] ?? detail.type) : ""}
+        subtitle={detail ? formatDateTime(detail.postedAt ?? detail.createdAt) : undefined}
+        footer={
+          detail && detail.status === "posted" && detail.type !== "reversal" && access?.canWriteCentral ? (
+            <AppButton
+              label="Estornar"
+              variant="danger"
+              block
+              icon={<RotateCcw size={18} color={colors.destructive} />}
+              onPress={() => {
+                setReversing(detail);
+                setDetail(null);
+              }}
+            />
+          ) : undefined
+        }
+      >
+        {detail ? <DocumentDetail doc={detail} /> : null}
+      </Sheet>
+
+      <Sheet
         open={reversing !== null}
         onClose={() => { setReversing(null); setReason(""); }}
         title="Estornar movimentação"
@@ -139,7 +176,52 @@ export default function MovimentacoesScreen() {
 }
 
 const styles = StyleSheet.create({
+  detailLine: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md },
+  detailBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
   top: { flexDirection: "row", alignItems: "center", gap: space.md },
   icon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   bottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.sm },
 });
+
+/** Movimentação (ficha E5): origem, destino, referência, itens, custo e aprovação. */
+function DocumentDetail({ doc }: { doc: DocumentRow }) {
+  const st = DOCUMENT_STATUS[doc.status] ?? { label: doc.status, tone: "neutral" as const };
+  const total = doc.items.reduce((s, i) => s + (i.unitCostCents ?? 0) * i.quantity, 0);
+  return (
+    <View style={{ gap: space.lg }}>
+      <Pill label={st.label} tone={st.tone} style={{ alignSelf: "flex-start" }} />
+      <KeyValueList
+        items={[
+          { label: "Origem", value: doc.sourceLocationName },
+          { label: "Destino", value: doc.destinationLocationName },
+          { label: "Obra", value: doc.projectName },
+          { label: "Referência", value: doc.reference },
+          { label: "Quem lançou", value: doc.createdByName },
+          { label: "Custo", value: total > 0 ? formatCurrency(total) : null },
+          { label: "Observações", value: doc.notes },
+          { label: doc.status === "rejected" ? "Motivo da recusa" : "Justificativa da aprovação", value: doc.approvalReason },
+        ]}
+      />
+      {doc.compatibilityIssues.length > 0 ? (
+        <View style={{ gap: space.sm }}>
+          {doc.compatibilityIssues.map((issue) => (
+            <Banner key={issue.ruleId} tone="warning" title={issue.message} detail={`${issue.materialAName} × ${issue.materialBName}`} />
+          ))}
+        </View>
+      ) : null}
+      <Surface padded={false}>
+        {doc.items.map((line, index) => (
+          <View key={line._id} style={[styles.detailLine, index > 0 && styles.detailBorder]}>
+            <Text style={[type.body, { color: colors.text, flex: 1 }]} numberOfLines={2}>
+              {line.materialName}
+            </Text>
+            <View style={{ alignItems: "flex-end" }}>
+              <Text style={[type.bodyStrong, { color: colors.text }]}>{formatQty(line.quantity, null)}</Text>
+              {line.unitCostCents ? <Text style={[type.caption, { color: colors.textSecondary }]}>{formatCurrency(line.unitCostCents)} cada</Text> : null}
+            </View>
+          </View>
+        ))}
+      </Surface>
+    </View>
+  );
+}

@@ -72,7 +72,8 @@ export function MaisScreen({ user, profile }: { user: Doc<"users">; profile: Pro
   const ic = (Icon: typeof Bell, color: string = colors.text) => <Icon size={20} color={color} strokeWidth={2} />;
 
   const outras: Row[] = [];
-  if (profile === "engenharia" || profile === "compras") {
+  // A engenharia consulta o estoque de cada obra (o central é do Estoque e da Compras).
+  if (profile === "compras") {
     outras.push({ key: "estoque", title: "Estoque", subtitle: "Saldos, movimentações e pedidos (consulta)", icon: ic(Warehouse), onPress: () => router.push("/(tabs)/estoque") });
   }
   if (profile === "engenharia") {
