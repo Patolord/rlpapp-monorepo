@@ -11,6 +11,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { colors, space, type } from "@/lib/theme";
 
 import { EquipmentFormSheet } from "./equipment-form-sheet";
+import { PlannedEquipmentSheet } from "./planned-equipment-sheet";
 import { SimpleFormSheet } from "./simple-form-sheet";
 import {
   STATUS_TONE,
@@ -40,6 +41,8 @@ export function EnvironmentSheet({
   const removeItem = useMutation(api.projectEquipment.remove);
 
   const [form, setForm] = useState<{ open: boolean; item: HierarchyItem | null }>({ open: false, item: null });
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const detail = environment?.equipment.find((e) => e._id === detailId) ?? null;
   const [renaming, setRenaming] = useState(false);
   const [confirm, setConfirm] = useState<{ kind: "env" } | { kind: "item"; item: HierarchyItem } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -104,7 +107,7 @@ export function EnvironmentSheet({
                 {environment.equipment.map((item) => {
                   const Icon = item.kind === "condensadora" ? Wind : Snowflake;
                   return (
-                    <Surface key={item._id} onPress={() => setForm({ open: true, item })} style={styles.item} padded={false}>
+                    <Surface key={item._id} onPress={() => setDetailId(item._id)} style={styles.item} padded={false}>
                       <View style={styles.itemIcon}>
                         <Icon size={20} color={colors.primary} strokeWidth={1.8} />
                       </View>
@@ -140,6 +143,15 @@ export function EnvironmentSheet({
 
       {environment ? (
         <>
+          <PlannedEquipmentSheet
+            item={detail}
+            environmentName={environment.name}
+            onClose={() => setDetailId(null)}
+            onEdit={(it) => {
+              setDetailId(null);
+              setForm({ open: true, item: it });
+            }}
+          />
           <EquipmentFormSheet
             open={form.open}
             onClose={() => setForm((f) => ({ ...f, open: false }))}

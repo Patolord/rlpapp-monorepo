@@ -61,6 +61,7 @@ function StackLayout() {
       <Stack.Screen name="ponto-equipe" />
       <Stack.Screen name="funcionario/[employeeId]" />
       <Stack.Screen name="aprovacoes" />
+      <Stack.Screen name="takeoff/[takeoffId]" />
       <Stack.Screen name="obra/[projectId]" options={{ headerShown: false }} />
       <Stack.Screen name="portal-projeto/[projectId]" options={{ headerShown: true, title: "Projeto" }} />
     </Stack>

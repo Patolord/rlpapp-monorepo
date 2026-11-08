@@ -6,7 +6,7 @@ import React, { useMemo, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 
 import { LoadingScreen } from "@/components/auth/loading-screen";
-import { ProjectFormDialog } from "@/components/engenharia/project-form-dialog";
+import { ProjectFormSheet } from "@/components/engenharia/project-form-sheet";
 import { ObraProgress } from "@/components/inicio/parts";
 import {
   Chips,
@@ -106,7 +106,7 @@ function EngineeringObras({ canCreate }: { canCreate: boolean }) {
           )}
         />
       )}
-      {canCreate ? <ProjectFormDialog open={creating} onClose={() => setCreating(false)} /> : null}
+      {canCreate ? <ProjectFormSheet open={creating} onClose={() => setCreating(false)} /> : null}
     </Screen>
   );
 }

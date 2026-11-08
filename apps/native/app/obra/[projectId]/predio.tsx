@@ -2,9 +2,9 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import { useLocalSearchParams } from "expo-router";
-import { Building2, HardHat, Layers, PackageOpen, Pencil, Plus, Trash2 } from "lucide-react-native";
+import { AlertTriangle, Building2, ChevronDown, ChevronUp, HardHat, Layers, PackageOpen, Pencil, Plus, Trash2 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { FloorSheet } from "@/components/engenharia/predio/floor-sheet";
 import { FloorsAddSheet } from "@/components/engenharia/predio/floors-add-sheet";
@@ -32,7 +32,7 @@ import { colors, radius, space, type } from "@/lib/theme";
 /** Prédio da obra: torres → andares → ambientes → equipamentos planejados. */
 export default function PredioScreen() {
   const toast = useToast();
-  const { projectId: raw } = useLocalSearchParams<{ projectId: string }>();
+  const { projectId: raw, filtro } = useLocalSearchParams<{ projectId: string; filtro?: string }>();
   const projectId = raw as Id<"projects">;
 
   const hierarchy = useQuery(api.projects.getHierarchy, { projectId });
@@ -68,6 +68,23 @@ export default function PredioScreen() {
       environments: all.reduce((s, f) => s + f.environments.length, 0),
     };
   }, [towers]);
+
+  // Prazos vencidos (aviso N10 abre aqui com ?filtro=atraso).
+  const [now] = useState(() => Date.now());
+  const overdue = useMemo(
+    () =>
+      towers.flatMap((t) =>
+        t.floors.flatMap((f) =>
+          f.environments.flatMap((env) =>
+            env.equipment
+              .filter((e) => e.deadline !== null && e.deadline < now && e.status !== "operational")
+              .map((e) => ({ item: e, towerId: t._id, towerName: t.name, floorId: f._id, floorLabel: f.label, envName: env.name }))
+          )
+        )
+      ),
+    [towers, now]
+  );
+  const [showOverdue, setShowOverdue] = useState(filtro === "atraso");
 
   async function doRemoveTower() {
     if (!tower) return;
@@ -109,6 +126,38 @@ export default function PredioScreen() {
             onPress={() => setSystemsOpen(true)}
           />
         </View>
+
+        {overdue.length > 0 ? (
+          <Surface padded={false} style={{ borderColor: colors.destructive }}>
+            <ListToggle
+              label={`${overdue.length} ${overdue.length === 1 ? "equipamento passou" : "equipamentos passaram"} do prazo`}
+              open={showOverdue}
+              onPress={() => setShowOverdue((v) => !v)}
+            />
+            {showOverdue
+              ? overdue.slice(0, 40).map((o) => (
+                  <Pressable
+                    key={o.item._id}
+                    onPress={() => {
+                      setTowerId(o.towerId);
+                      setFloorId(o.floorId);
+                    }}
+                    style={({ pressed }) => [styles.overdueRow, pressed && { backgroundColor: colors.surfacePressed }]}
+                  >
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={[type.body, { color: colors.text }]} numberOfLines={1}>
+                        {[o.item.modelo, o.item.capacidade].filter(Boolean).join(" · ") || (o.item.kind === "condensadora" ? "Condensadora" : "Evaporadora")}
+                      </Text>
+                      <Text style={[type.caption, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {o.towerName} · {o.floorLabel} · {o.envName}
+                      </Text>
+                    </View>
+                    <Text style={[type.caption, { color: colors.destructive }]}>{new Date(o.item.deadline!).toLocaleDateString("pt-BR")}</Text>
+                  </Pressable>
+                ))
+              : null}
+          </Surface>
+        ) : null}
 
         <View style={styles.actions}>
           <AppButton label="Sistemas" variant="secondary" size="sm" icon={<Layers size={18} color={colors.text} strokeWidth={2} />} onPress={() => setSystemsOpen(true)} style={{ flex: 1 }} />
@@ -241,6 +290,8 @@ export default function PredioScreen() {
 }
 
 const styles = StyleSheet.create({
+  overdueHead: { flexDirection: "row", alignItems: "center", gap: space.sm, paddingHorizontal: space.lg, paddingVertical: space.md },
+  overdueRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
   content: { paddingHorizontal: space.screen, paddingTop: space.lg, paddingBottom: space.xxl * 2, gap: space.md },
   stats: { flexDirection: "row", gap: space.md },
   actions: { flexDirection: "row", gap: space.sm },
@@ -253,3 +304,13 @@ const styles = StyleSheet.create({
   track: { height: 6, borderRadius: radius.pill, backgroundColor: colors.track, overflow: "hidden" },
   bar: { height: "100%", borderRadius: radius.pill, backgroundColor: colors.primary },
 });
+
+function ListToggle({ label, open, onPress }: { label: string; open: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ expanded: open }} style={styles.overdueHead}>
+      <AlertTriangle size={18} color={colors.destructive} />
+      <Text style={[type.bodyStrong, { color: colors.text, flex: 1 }]}>{label}</Text>
+      {open ? <ChevronUp size={18} color={colors.icon} /> : <ChevronDown size={18} color={colors.icon} />}
+    </Pressable>
+  );
+}

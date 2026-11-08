@@ -89,7 +89,7 @@ export function hrefForNotification(
   switch (target as NotificationTarget) {
     case "pedido":
       if (profile === "estoque" || profile === "diretoria") return "/(tabs)/estoque/requisicoes" as Href;
-      return projectId ? (`/obra/${projectId}/estoque` as Href) : ("/(tabs)/estoque/requisicoes" as Href);
+      return projectId ? (`/obra/${projectId}/estoque?aba=pedidos` as Href) : ("/(tabs)/estoque/requisicoes" as Href);
     case "estoque_obra":
       if (!projectId) return null;
       return (field ? `/campo/obra/${projectId}/estoque` : `/obra/${projectId}/estoque`) as Href;
@@ -115,7 +115,7 @@ export function hrefForNotification(
     case "revisao_precos":
       return "/(tabs)/compras/fila-revisao" as Href;
     case "takeoff":
-      return projectId ? (`/obra/${projectId}/orcamento` as Href) : ("/(tabs)/compras" as Href);
+      return p.takeoffId ? (`/takeoff/${p.takeoffId}` as Href) : projectId ? (`/obra/${projectId}/orcamento` as Href) : ("/(tabs)/compras" as Href);
     case "estoque_repor":
       return "/(tabs)/estoque?filtro=repor" as Href;
     case "rh_sincronizar":

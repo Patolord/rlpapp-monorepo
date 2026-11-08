@@ -1,170 +1,136 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import { LoadingState } from "@rlpapp/ui/native";
+import { formatDate } from "@rlpapp/shared";
 import { useQuery } from "convex/react";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-  Building2,
-  Calculator,
-  FileText,
-  QrCode,
-  Ruler,
-  ShoppingCart,
-  Warehouse,
-} from "lucide-react-native";
-import type { LucideIcon } from "lucide-react-native";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useRouter, useLocalSearchParams, type Href } from "expo-router";
+import { Building2, ExternalLink, MapPin, Pencil, UserRound, Users } from "lucide-react-native";
+import { useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { Card } from "@/components/ui/card";
-import { getUnitState, type GridUnit } from "@/lib/building";
+import { TechniciansSheet } from "@/components/engenharia/predio/technicians-sheet";
+import { ProjectFormSheet } from "@/components/engenharia/project-form-sheet";
+import { PROJECT_STATUS, type ProjectStatus } from "@/components/engenharia/project-labels";
+import { AppButton, EmptyState, ListRow, LoadingState, MetricStrip, Pill, SectionTitle, Surface } from "@/components/ui";
+import { EQUIPMENT_STATUS_LABELS, EQUIPMENT_STATUS_TONE, type EquipmentStatus } from "@/lib/equipment-status";
+import { WEB_URL, openUrl } from "@/lib/links";
+import { colors, radius, space, type } from "@/lib/theme";
 
-interface ModuleTile {
-  label: string;
-  segment: string;
-  icon: LucideIcon;
-  color: string;
-}
-
-const MODULES: ModuleTile[] = [
-  { label: "Prédio", segment: "predio", icon: Building2, color: "#3b82f6" },
-  { label: "Orçamento", segment: "orcamento", icon: Calculator, color: "#8b5cf6" },
-  { label: "Medições", segment: "medicoes", icon: Ruler, color: "#06b6d4" },
-  { label: "Compras", segment: "compras", icon: ShoppingCart, color: "#f97316" },
-  { label: "Estoque", segment: "estoque", icon: Warehouse, color: "#10b981" },
-  { label: "Contratos", segment: "contratos", icon: FileText, color: "#eab308" },
-  { label: "QR Codes", segment: "qr-codes", icon: QrCode, color: "#ec4899" },
-];
-
+/** Visão geral da obra (ficha O3): situação, andamento, responsável e técnicos. */
 export default function ProjectHubScreen() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
   const router = useRouter();
-  const now = Date.now();
+  const [now] = useState(() => Date.now());
+  const [editing, setEditing] = useState(false);
+  const [techOpen, setTechOpen] = useState(false);
+  const id = projectId as Id<"projects">;
+  const project = useQuery(api.projects.getOverview, { projectId: id });
+  const report = useQuery(api.reports.getProjectReport, { projectId: id, now });
+  const technicians = useQuery(api.projects.getAssignedTechnicians, { projectId: id });
 
-  const project = useQuery(api.projects.getOverview, {
-    projectId: projectId as Id<"projects">,
-  });
-
-  function navigate(segment: string) {
-    router.replace({
-      pathname: `/obra/[projectId]/${segment}` as const,
-      params: { projectId: projectId! },
-    } as any);
-  }
-
-  if (project === undefined) {
-    return <LoadingState label="Carregando obra…" />;
-  }
-
+  if (project === undefined) return <LoadingState message="Carregando obra…" />;
   if (project === null) {
-    return <NotFound />;
-  }
-
-  const pending = project.totalItems - project.installedItems;
-  const pct =
-    project.totalItems === 0
-      ? 0
-      : Math.round((project.installedItems / project.totalItems) * 100);
-  const overdue = project.units.filter(
-    (u: GridUnit) => getUnitState(u, now).overdue
-  ).length;
-
-  return (
-    <ScrollView
-      contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 20 }}
-      showsVerticalScrollIndicator={false}
-    >
-      <View>
-        <Text className="text-2xl font-bold text-foreground">
-          {project.name}
-        </Text>
-        <Text className="mt-1 text-sm text-muted-foreground">
-          {project.floors.length} andar
-          {project.floors.length === 1 ? "" : "es"} · {project.units.length}{" "}
-          apartamentos · {project.totalItems} equipamentos
-        </Text>
-      </View>
-
-      {/* Stats */}
-      <View className="flex-row flex-wrap gap-3">
-        <StatTile label="Instalados" value={project.installedItems} accent />
-        <StatTile label="Pendentes" value={pending} />
-        <StatTile label="Em atraso" value={overdue} danger={overdue > 0} />
-        <StatTile label="Progresso" value={`${pct}%`} />
-      </View>
-
-      {/* Progress bar */}
-      <View className="h-2.5 overflow-hidden rounded-full bg-muted">
-        <View
-          className="h-full rounded-full bg-primary"
-          style={{ width: `${pct}%` }}
+    return (
+      <View style={{ padding: space.screen }}>
+        <EmptyState
+          icon={<Building2 size={28} color={colors.primary} />}
+          title="Este item não está mais disponível"
+          description="A obra pode ter sido removida ou arquivada."
+          actionLabel="Voltar"
+          onAction={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/obras"))}
         />
       </View>
+    );
+  }
 
-      {/* Module grid */}
-      <View className="flex-row flex-wrap gap-3">
-        {MODULES.map((mod) => {
-          const Icon = mod.icon;
-          return (
-            <Pressable
-              key={mod.segment}
-              onPress={() => navigate(mod.segment)}
-              className="min-w-[45%] flex-1"
-            >
-              <Card className="items-center gap-3 p-5">
-                <View
-                  className="h-12 w-12 items-center justify-center rounded-xl"
-                  style={{ backgroundColor: `${mod.color}20` }}
-                >
-                  <Icon size={24} color={mod.color} />
-                </View>
-                <Text className="text-sm font-semibold text-foreground">
-                  {mod.label}
-                </Text>
-              </Card>
-            </Pressable>
-          );
-        })}
+  const progress = report?.progress;
+  const status = project.status ? PROJECT_STATUS[project.status as ProjectStatus] : null;
+  const dates = [project.startDate ? `Início ${formatDate(project.startDate)}` : null, project.endDate ? `Término ${formatDate(project.endDate)}` : null].filter(Boolean).join(" · ");
+
+  return (
+    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.badges}>
+        {status ? <Pill label={status.label} tone={status.tone} /> : null}
+        {project.legacyNumber != null ? <Pill label={`Obra ${project.legacyNumber}`} dot={false} /> : null}
       </View>
+
+      <MetricStrip
+        items={[
+          { label: "Instalados", value: progress ? progress.installed : project.installedItems, hint: progress ? `de ${progress.total}` : `de ${project.totalItems}` },
+          { label: "Pendentes", value: progress ? progress.pending : project.totalItems - project.installedItems },
+          { label: "Em atraso", value: progress ? progress.overdue : "—" },
+        ]}
+      />
+      {progress ? (
+        <View style={{ gap: space.xs }}>
+          <View style={styles.track} accessibilityLabel={`Andamento ${progress.pct}%`}>
+            <View style={[styles.bar, { width: `${Math.min(100, progress.pct)}%` }]} />
+          </View>
+          <Text style={[type.caption, { color: colors.textSecondaryOnBg }]}>{progress.pct}% instalado</Text>
+        </View>
+      ) : null}
+
+      {report ? (
+        <View style={styles.badges}>
+          {(Object.keys(EQUIPMENT_STATUS_LABELS) as EquipmentStatus[]).map((s) =>
+            report.byStatus[s] > 0 ? <Pill key={s} label={`${report.byStatus[s]} ${EQUIPMENT_STATUS_LABELS[s]}`} tone={EQUIPMENT_STATUS_TONE[s]} /> : null
+          )}
+        </View>
+      ) : null}
+
+      <View style={{ gap: space.sm }}>
+        <SectionTitle title="Obra" action="Editar" onAction={() => setEditing(true)} />
+        <ListRow icon={<UserRound size={20} color={colors.primary} />} title={project.responsibleName ?? "Sem engenheiro responsável"} subtitle="Responsável · recebe pedidos e decide exceções" chevron={false} onPress={() => setEditing(true)} />
+        <ListRow
+          icon={<Users size={20} color={colors.primary} />}
+          title={technicians === undefined ? "Técnicos" : technicians.length === 0 ? "Nenhum técnico" : `${technicians.length} ${technicians.length === 1 ? "técnico" : "técnicos"}`}
+          subtitle={technicians && technicians.length > 0 ? technicians.map((t) => t.name).join(", ") : "Quem vê a obra no app de campo"}
+          onPress={() => setTechOpen(true)}
+        />
+        {project.address || dates ? (
+          <Surface style={styles.info}>
+            {project.address ? (
+              <View style={styles.infoRow}>
+                <MapPin size={16} color={colors.icon} />
+                <Text style={[type.bodySm, { color: colors.text, flex: 1 }]}>{project.address}</Text>
+              </View>
+            ) : null}
+            {dates ? <Text style={[type.bodySm, { color: colors.textSecondary }]}>{dates}</Text> : null}
+          </Surface>
+        ) : null}
+      </View>
+
+      <View style={styles.actions}>
+        <AppButton label="Editar obra" variant="secondary" size="sm" icon={<Pencil size={16} color={colors.text} />} onPress={() => setEditing(true)} style={{ flex: 1 }} />
+        <AppButton label="Relatório (web)" variant="secondary" size="sm" icon={<ExternalLink size={16} color={colors.text} />} onPress={() => openUrl(`${WEB_URL}/engenharia/obras/${project.slug}/imprimir`)} style={{ flex: 1 }} />
+      </View>
+      <AppButton label="Abrir o prédio" variant="ghost" block onPress={() => router.replace(`/obra/${projectId}/predio` as Href)} />
+
+      <ProjectFormSheet
+        open={editing}
+        onClose={() => setEditing(false)}
+        project={{
+          _id: project._id,
+          name: project.name,
+          legacyNumber: project.legacyNumber,
+          customerId: project.customerId,
+          address: project.address,
+          status: project.status as ProjectStatus | null,
+          responsibleId: project.responsibleId,
+          startDate: project.startDate,
+          endDate: project.endDate,
+        }}
+      />
+      <TechniciansSheet open={techOpen} onClose={() => setTechOpen(false)} projectId={id} />
     </ScrollView>
   );
 }
 
-function StatTile({
-  label,
-  value,
-  accent = false,
-  danger = false,
-}: {
-  label: string;
-  value: string | number;
-  accent?: boolean;
-  danger?: boolean;
-}) {
-  const color = danger ? "#ef4444" : accent ? "#f59e0b" : "#1a1a2e";
-  return (
-    <Card className="min-w-[45%] flex-1 p-4">
-      <Text className="text-xs text-muted-foreground">{label}</Text>
-      <Text className="mt-1 text-2xl font-bold" style={{ color }}>
-        {value}
-      </Text>
-    </Card>
-  );
-}
-
-function NotFound() {
-  const router = useRouter();
-  return (
-    <View className="flex-1 items-center justify-center gap-4 p-8">
-      <Building2 size={48} color="#9ca3af" />
-      <Text className="text-xl font-bold text-foreground">
-        Obra não encontrada
-      </Text>
-      <Text className="text-center text-sm text-muted-foreground">
-        Esta obra pode ter sido removida.
-      </Text>
-      <Pressable onPress={() => router.back()}>
-        <Text className="text-sm font-medium text-primary">Voltar</Text>
-      </Pressable>
-    </View>
-  );
-}
+const styles = StyleSheet.create({
+  content: { padding: space.screen, paddingBottom: 48, gap: space.lg },
+  badges: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
+  track: { height: 8, borderRadius: radius.pill, backgroundColor: colors.track, overflow: "hidden" },
+  bar: { height: "100%", borderRadius: radius.pill, backgroundColor: colors.primary },
+  info: { gap: space.sm },
+  infoRow: { flexDirection: "row", alignItems: "flex-start", gap: space.sm },
+  actions: { flexDirection: "row", gap: space.sm },
+});
