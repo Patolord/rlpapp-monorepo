@@ -36,15 +36,13 @@ export function ConfirmDialog({
         <View style={styles.card}>
           <Text style={[type.heading, { color: colors.text }]}>{title}</Text>
           {description ? (
-            <Text style={[type.bodySm, { color: colors.textSecondary }]}>{description}</Text>
+            <Text style={[type.body, { color: colors.textSecondary }]}>{description}</Text>
           ) : null}
           <View style={styles.actions}>
-            <AppButton label={cancelLabel} variant="secondary" size="sm" onPress={onCancel} disabled={busy} style={{ flex: 1 }} />
+            <AppButton label={cancelLabel} variant="secondary" onPress={onCancel} disabled={busy} style={{ flex: 1 }} />
             <AppButton
               label={confirmLabel}
               variant={destructive ? "danger" : "primary"}
-              size="sm"
-              trailing={null}
               onPress={onConfirm}
               loading={busy}
               style={{ flex: 1 }}
@@ -71,7 +69,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 420,
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     padding: space.xxl,
     gap: space.md,
   },

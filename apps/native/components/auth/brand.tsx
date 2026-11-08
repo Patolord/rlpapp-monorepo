@@ -5,26 +5,27 @@ import Svg, { Defs, LinearGradient, Line, Rect, Stop } from "react-native-svg";
 // Brand palette for the auth / launch screens (pinned to the reference design)
 // ---------------------------------------------------------------------------
 export const BRAND = {
-  bg: "#F6F9FD",
-  bgTint: "#DCE8F7",
-  line: "#C7D7EE",
-  title: "#1B2A5E",
-  subtitle: "#4A5A8A",
-  label: "#3C4A6E",
+  // Valores do "RLP App Design System" (ver lib/theme.ts).
+  bg: "#F4F5F8",
+  bgTint: "#E6EBF3",
+  line: "#D5D7DB",
+  title: "#0A0A0A",
+  subtitle: "#5F6168",
+  label: "#0A0A0A",
   inputBg: "#FFFFFF",
-  inputBorder: "#D6DEEC",
+  inputBorder: "#D5D7DB",
   inputBorderFocus: "#2855AD",
-  inputText: "#1B2A5E",
-  placeholder: "#8A96B0",
-  icon: "#6B7A99",
-  // Brand blue: calm cobalt (oklch 0.47 0.15 262), shared with web and takeoff.
+  inputText: "#0A0A0A",
+  placeholder: "#737373",
+  icon: "#737373",
+  // Azul da marca, o mesmo do web e do Takeoff.
   button: "#2855AD",
-  buttonText: "#FFFFFF",
-  footer: "#4A5A8A",
-  track: "#E3EAF5",
-  logo: "#1E2A78",
-  logoLight: "#DCEBFA",
-  logoText: "#1B2461",
+  buttonText: "#FAFAFA",
+  footer: "#5F6168",
+  track: "#E5E5E5",
+  logo: "#2B3990",
+  logoLight: "#DCEEFA",
+  logoText: "#2B3990",
 };
 
 export type BrandPalette = typeof BRAND;

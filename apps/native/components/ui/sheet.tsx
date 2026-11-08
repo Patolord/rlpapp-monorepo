@@ -47,7 +47,7 @@ export function Sheet({
           <View style={styles.handle} />
           <View style={styles.header}>
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={[type.heading, { color: colors.text }]} numberOfLines={1}>
+              <Text style={[type.title, { color: colors.text }]} numberOfLines={1}>
                 {title}
               </Text>
               {subtitle ? (
@@ -89,8 +89,8 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: colors.bg,
-    borderTopLeftRadius: radius.lg + 6,
-    borderTopRightRadius: radius.lg + 6,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
     paddingTop: space.sm,
   },
   handle: {

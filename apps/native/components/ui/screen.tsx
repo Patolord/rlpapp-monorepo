@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { colors, radius, space, type } from "@/lib/theme";
+import { colors, control, radius, shadow, space, type } from "@/lib/theme";
 
 // ---------------------------------------------------------------------------
 // Screen: the canvas every screen sits on. Handles background + safe-area.
@@ -53,7 +53,7 @@ export function IconButton({
   onPress,
   label,
   tone = "surface",
-  size = 40,
+  size = control.icon,
   disabled,
   style,
 }: {
@@ -79,9 +79,10 @@ export function IconButton({
         {
           width: size,
           height: size,
-          borderRadius: size / 2,
+          borderRadius: radius.sm,
           backgroundColor: pressed && tone === "surface" ? colors.surfacePressed : bg,
           borderWidth: tone === "surface" ? 1 : 0,
+          ...(tone === "surface" ? shadow.xs : null),
           opacity: disabled ? 0.5 : pressed && tone !== "surface" ? 0.85 : 1,
         },
         style,
@@ -132,11 +133,15 @@ export function ScreenHeader({
     <View style={[styles.header, style]}>
       {leading ? <View style={styles.headerLeading}>{leading}</View> : null}
       <View style={styles.headerText}>
-        <Text style={[large ? type.title : type.heading, { color: colors.text }]} numberOfLines={1}>
+        <Text
+          style={[large ? type.display : type.title, { color: colors.text }]}
+          numberOfLines={1}
+          accessibilityRole="header"
+        >
           {title}
         </Text>
         {subtitle ? (
-          <Text style={[type.bodySm, { color: colors.textSecondary }]} numberOfLines={2}>
+          <Text style={[type.bodySm, { color: colors.textSecondaryOnBg }]} numberOfLines={2}>
             {subtitle}
           </Text>
         ) : null}
@@ -163,7 +168,9 @@ export function SectionTitle({
 }) {
   return (
     <View style={[styles.section, style]}>
-      <Text style={[type.eyebrow, { color: colors.textSecondary }]}>{title}</Text>
+      <Text style={[type.eyebrow, { color: colors.text }]} accessibilityRole="header">
+        {title}
+      </Text>
       {action ? (
         <Pressable onPress={onAction} hitSlop={8}>
           <Text style={[type.label, { color: colors.primary }]}>{action}</Text>
@@ -181,14 +188,14 @@ const styles = StyleSheet.create({
   iconButton: {
     alignItems: "center",
     justifyContent: "center",
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     gap: space.md,
     paddingHorizontal: space.screen,
-    paddingTop: space.lg,
+    paddingTop: space.sm,
     paddingBottom: space.lg,
   },
   headerLeading: {
@@ -208,7 +215,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: space.screen,
-    paddingTop: space.xl,
+    paddingTop: space.lg,
     paddingBottom: space.sm,
   },
 });

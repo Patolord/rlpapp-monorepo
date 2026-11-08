@@ -1,4 +1,3 @@
-import { ArrowRight } from "lucide-react-native";
 import React from "react";
 import {
   ActivityIndicator,
@@ -10,26 +9,33 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import { colors, control, radius, space } from "@/lib/theme";
+import { colors, control, radius, shadow, space } from "@/lib/theme";
 
 // ---------------------------------------------------------------------------
-// AppButton: the product's button. `primary` is the wide blue bar with the
-// label on the left and an arrow on the right (as on the login screen).
-// `secondary` is white with a border, `ghost` is text-only, `danger` is red.
+// AppButton: o botão do design system.
+// - primary: azul cheio. Um por tela.
+// - secondary: contorno branco (o "outline" do design system).
+// - ghost: só texto azul (o "link").
+// - danger: ação destrutiva em contorno, texto vermelho (nunca vermelho cheio).
+// Tamanhos: lg e md = 48 (padrão do celular), sm = 40 (dentro de cartão).
 // ---------------------------------------------------------------------------
 export type AppButtonProps = {
   label: string;
   onPress?: () => void;
   variant?: "primary" | "secondary" | "ghost" | "danger";
-  /** lg = 58 (forms / login); md = 52 (default); sm = 44 (inline actions). */
   size?: "lg" | "md" | "sm";
-  /** Leading icon. */
+  /** Ícone antes do texto. */
   icon?: React.ReactNode;
-  /** Trailing slot; defaults to an arrow on primary. Pass `null` to hide. */
+  /** Ícone depois do texto. */
   trailing?: React.ReactNode | null;
   loading?: boolean;
+  /** Texto enquanto carrega (padrão: o próprio rótulo). Ex.: "Enviando…". */
+  loadingLabel?: string;
   disabled?: boolean;
+  /** Ocupa a largura toda. */
+  block?: boolean;
   style?: StyleProp<ViewStyle>;
+  accessibilityLabel?: string;
 };
 
 export function AppButton({
@@ -40,73 +46,74 @@ export function AppButton({
   icon,
   trailing,
   loading,
+  loadingLabel,
   disabled,
+  block,
   style,
+  accessibilityLabel,
 }: AppButtonProps) {
   const isDisabled = disabled || loading;
-  const height = size === "lg" ? control.heightLg : size === "md" ? control.height : control.heightSm;
-  const fontSize = size === "lg" ? 22 : size === "md" ? 17 : 15;
-  const iconSize = size === "lg" ? 26 : size === "md" ? 22 : 18;
+  const height = size === "sm" ? control.heightSm : control.height;
+  const fontSize = size === "sm" ? 14 : 16;
 
   const palette = {
     primary: { bg: colors.primary, bgPressed: colors.primaryPressed, fg: colors.onPrimary, border: "transparent" },
-    secondary: { bg: colors.surface, bgPressed: colors.surfacePressed, fg: colors.text, border: colors.border },
+    secondary: { bg: colors.surface, bgPressed: colors.surfacePressed, fg: colors.text, border: colors.controlBorder },
     ghost: { bg: "transparent", bgPressed: colors.surfaceMuted, fg: colors.primary, border: "transparent" },
-    danger: { bg: colors.danger, bgPressed: "#B0362A", fg: colors.onPrimary, border: "transparent" },
+    danger: { bg: colors.surface, bgPressed: colors.dangerSoft, fg: colors.destructive, border: colors.controlBorder },
   }[variant];
 
-  const trailingNode =
-    trailing === undefined && variant === "primary" ? (
-      <ArrowRight size={iconSize} color={palette.fg} strokeWidth={2.2} />
-    ) : (
-      trailing
-    );
-
-  const spread = variant === "primary" && size !== "sm";
+  const disabledLook = disabled && !loading;
+  const fg = disabledLook ? colors.controlDisabledText : palette.fg;
 
   return (
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={{ disabled: !!isDisabled, busy: !!loading }}
       style={({ pressed }) => [
         styles.base,
+        variant !== "ghost" && !disabledLook ? shadow.xs : null,
         {
           height,
-          paddingHorizontal: size === "sm" ? space.lg : spread ? 28 : space.xl,
-          backgroundColor: pressed ? palette.bgPressed : palette.bg,
-          borderColor: palette.border,
-          borderWidth: variant === "secondary" ? 1 : 0,
-          opacity: isDisabled ? 0.6 : 1,
-          justifyContent: spread ? "space-between" : "center",
+          paddingHorizontal: size === "sm" ? 14 : 18,
+          backgroundColor: disabledLook ? colors.controlDisabled : pressed ? palette.bgPressed : palette.bg,
+          borderColor: disabledLook ? "transparent" : palette.border,
+          borderWidth: palette.border === "transparent" ? 0 : 1,
+          alignSelf: block ? "stretch" : undefined,
         },
         style,
       ]}
     >
-      <View style={styles.leading}>
-        {loading ? <ActivityIndicator color={palette.fg} /> : icon}
-        <Text style={[styles.label, { color: palette.fg, fontSize }]} numberOfLines={1}>
-          {label}
+      <View style={styles.content}>
+        {loading ? <ActivityIndicator size="small" color={fg} /> : icon}
+        <Text style={[styles.label, { color: fg, fontSize }]} numberOfLines={1}>
+          {loading && loadingLabel ? loadingLabel : label}
         </Text>
+        {!loading && trailing ? trailing : null}
       </View>
-      {trailingNode ? <View style={!spread && { marginLeft: space.sm }}>{trailingNode}</View> : null}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
   },
-  leading: {
+  content: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space.md,
+    justifyContent: "center",
+    gap: space.sm,
     flexShrink: 1,
   },
   label: {
     fontWeight: "500",
+    letterSpacing: -0.1,
   },
 });

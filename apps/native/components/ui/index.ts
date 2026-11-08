@@ -6,7 +6,7 @@ export { Field, SearchField, type FieldProps } from "./field";
 export { IconButton, Screen, ScreenHeader, SectionTitle, screenStyles } from "./screen";
 export { Sheet } from "./sheet";
 export { EmptyState, ErrorState, LoadingState } from "./state";
-export { Divider, ListRow, Pill, StatTile, Surface } from "./surface";
+export { Divider, ListRow, Pill, StatTile, StatusBadge, Surface } from "./surface";
 export { Banner } from "./banner";
 export { ConfirmDialog } from "./confirm-dialog";
 export { QuantityStepper } from "./stepper";

@@ -2,7 +2,7 @@ import { Check, ChevronDown } from "lucide-react-native";
 import React from "react";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
-import { colors, control, radius, space, type } from "@/lib/theme";
+import { colors, control, radius, shadow, space, type } from "@/lib/theme";
 
 import { SearchField } from "./field";
 import { Sheet } from "./sheet";
@@ -53,8 +53,7 @@ export function PickerField<V extends string>({
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const selected = options.find((option) => option.value === value) ?? null;
-  const borderColor = error ? colors.danger : colors.border;
-  const labelColor = error ? colors.danger : colors.label;
+  const borderColor = error ? colors.destructive : colors.controlBorder;
 
   const visible = React.useMemo(() => {
     const term = search.trim().toLocaleLowerCase("pt-BR");
@@ -67,7 +66,8 @@ export function PickerField<V extends string>({
   }, [options, search]);
 
   return (
-    <View style={containerStyle}>
+    <View style={[styles.wrap, containerStyle]}>
+      <Text style={styles.label}>{label}</Text>
       <Pressable
         onPress={() => {
           if (!disabled) setOpen(true);
@@ -77,14 +77,11 @@ export function PickerField<V extends string>({
         style={({ pressed }) => [
           styles.field,
           {
-            backgroundColor: disabled ? colors.surfaceMuted : pressed ? colors.surfacePressed : colors.surface,
+            backgroundColor: disabled ? colors.controlDisabled : pressed ? colors.surfacePressed : colors.surface,
             borderColor,
           },
         ]}
       >
-        <View style={[styles.labelWrap, { backgroundColor: disabled ? colors.surfaceMuted : colors.surface }]}>
-          <Text style={[styles.label, { color: labelColor }]}>{label}</Text>
-        </View>
         {icon ? <View style={styles.icon}>{icon}</View> : null}
         <Text
           style={[styles.value, { color: selected ? colors.text : colors.textMuted }]}
@@ -95,9 +92,7 @@ export function PickerField<V extends string>({
         <ChevronDown size={20} color={colors.icon} />
       </Pressable>
       {error || helper ? (
-        <Text style={[type.caption, styles.helper, { color: error ? colors.danger : colors.textSecondary }]}>
-          {error ?? helper}
-        </Text>
+        <Text style={[type.bodySm, { color: error ? colors.destructive : colors.textSecondary }]}>{error ?? helper}</Text>
       ) : null}
 
       <Sheet
@@ -211,20 +206,20 @@ export function SegmentedField<V extends string>({
 }
 
 const styles = StyleSheet.create({
+  wrap: { gap: 6 },
   field: {
     height: control.height,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: space.lg,
+    paddingHorizontal: 14,
     gap: space.sm,
+    ...shadow.xs,
   },
-  labelWrap: { position: "absolute", top: -10, left: 14, paddingHorizontal: 4 },
-  label: { fontSize: 14, lineHeight: 18 },
+  label: { fontSize: 14, lineHeight: 20, fontWeight: "500", color: colors.text },
   icon: { width: 32, alignItems: "flex-start", justifyContent: "center" },
   value: { flex: 1, fontSize: 16 },
-  helper: { marginTop: 6, marginLeft: space.lg },
   option: {
     flexDirection: "row",
     alignItems: "center",
@@ -236,14 +231,14 @@ const styles = StyleSheet.create({
   segmented: {
     flexDirection: "row",
     backgroundColor: colors.surfaceMuted,
-    borderRadius: radius.md,
+    borderRadius: radius.menu,
     padding: 4,
     gap: 4,
   },
   segment: {
     flex: 1,
     height: 40,
-    borderRadius: radius.md - 4,
+    borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: space.sm,
