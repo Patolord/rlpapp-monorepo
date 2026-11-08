@@ -14,3 +14,4 @@ export { ToastProvider, useToast } from "./toast";
 export { KeyValueList } from "./key-value";
 export { PickerField, SegmentedField, type PickerOption } from "./picker-field";
 export { Toggle } from "./toggle";
+export { MetricStrip, type Metric } from "./metric-strip";

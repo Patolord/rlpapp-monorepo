@@ -17,7 +17,7 @@ import { ToastProvider } from "@/components/ui";
 import { COLORS } from "@/lib/colors";
 
 export const unstable_settings = {
-  initialRouteName: "(drawer)",
+  initialRouteName: "(tabs)",
 };
 
 const convex = new ConvexReactClient(env.EXPO_PUBLIC_CONVEX_URL, {
@@ -49,7 +49,7 @@ function StackLayout() {
         contentStyle: { backgroundColor: bg },
       }}
     >
-      <Stack.Screen name="(drawer)" />
+      <Stack.Screen name="(tabs)" />
       <Stack.Screen name="(auth)" />
       {/* App de campo (técnico): tudo dentro de uma obra. */}
       <Stack.Screen name="campo" />

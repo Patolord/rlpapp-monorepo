@@ -172,31 +172,31 @@ export default function EngenhariaDashboardScreen() {
             icon={<BarChart3 size={20} color="#f59e0b" />}
             label="Medições"
             description="Visão geral de medições"
-            onPress={() => router.navigate("/(drawer)/engenharia/medicoes" as Href)}
+            onPress={() => router.navigate("/(tabs)/engenharia/medicoes" as Href)}
           />
           <QuickAccessCard
             icon={<FileText size={20} color="#f59e0b" />}
             label="Contratos"
             description="Gestão de contratos"
-            onPress={() => router.navigate("/(drawer)/engenharia/contratos" as Href)}
+            onPress={() => router.navigate("/(tabs)/engenharia/contratos" as Href)}
           />
           <QuickAccessCard
             icon={<HardHat size={20} color="#f59e0b" />}
             label="Empreiteiros"
             description="Empreiteiros e subempreiteiros"
-            onPress={() => router.navigate("/(drawer)/engenharia/empreiteiros" as Href)}
+            onPress={() => router.navigate("/(tabs)/engenharia/empreiteiros" as Href)}
           />
           <QuickAccessCard
             icon={<Users size={20} color="#f59e0b" />}
             label="Clientes"
             description="Gestão de clientes"
-            onPress={() => router.navigate("/(drawer)/engenharia/clientes" as Href)}
+            onPress={() => router.navigate("/(tabs)/engenharia/clientes" as Href)}
           />
           <QuickAccessCard
             icon={<QrCode size={20} color="#f59e0b" />}
             label="QR Codes"
             description="Gerenciar códigos QR"
-            onPress={() => router.navigate("/(drawer)/engenharia/qr-codes" as Href)}
+            onPress={() => router.navigate("/(tabs)/engenharia/qr-codes" as Href)}
           />
         </View>
       </View>

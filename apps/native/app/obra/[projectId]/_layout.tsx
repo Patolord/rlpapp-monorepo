@@ -78,7 +78,7 @@ export default function ProjectTabsLayout() {
       router.back();
       return;
     }
-    router.replace("/(drawer)");
+    router.replace("/(tabs)");
   }
 
   return (
