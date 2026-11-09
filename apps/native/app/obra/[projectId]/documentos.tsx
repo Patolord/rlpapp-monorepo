@@ -2,8 +2,9 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
+import * as DocumentPicker from "expo-document-picker";
 import { useLocalSearchParams } from "expo-router";
-import { ExternalLink, FileText, FolderOpen } from "lucide-react-native";
+import { FileText, FolderOpen, Upload } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
 
@@ -11,8 +12,14 @@ import { AppButton, Banner, ChoiceChips, ChoiceGroup, ConfirmDialog, EmptyState,
 import { getErrorMessage } from "@/lib/errors";
 import { openPdf, tempPdfFile, useDocumentDownloader } from "@/lib/field-documents";
 import { formatDateTime, formatFileSize } from "@/lib/format";
-import { WEB_URL, openUrl } from "@/lib/links";
 import { colors, radius, space, type } from "@/lib/theme";
+import {
+  INVALID_PDF_MESSAGE,
+  MAX_PDF_BYTES,
+  isPdfName,
+  suggestDocumentName,
+  uploadPdf,
+} from "@/lib/upload-pdf";
 
 type Doc = FunctionReturnType<typeof api.projectDocuments.listByProject>[number];
 type Access = "none" | "all" | "selected";
@@ -28,8 +35,8 @@ export default function ObraDocumentosScreen() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
   const id = projectId as Id<"projects">;
   const docs = useQuery(api.projectDocuments.listByProject, { projectId: id });
-  const project = useQuery(api.projects.getOverview, { projectId: id });
   const [selected, setSelected] = useState<Doc | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   if (docs === undefined) return <LoadingState message="Carregando documentos…" />;
 
@@ -40,13 +47,11 @@ export default function ObraDocumentosScreen() {
         keyExtractor={(d) => d._id}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
-          <Banner
-            tone="neutral"
-            icon={<ExternalLink size={18} color={colors.icon} />}
-            title="Enviar PDF pelo web"
-            detail="O envio de arquivos fica no sistema web por enquanto. Aqui você abre, muda o acesso e remove."
-            actionLabel="Abrir no web"
-            onAction={() => openUrl(project ? `${WEB_URL}/engenharia/obras/${project.slug}/documentos` : WEB_URL)}
+          <AppButton
+            label="Enviar PDF"
+            block
+            icon={<Upload size={18} color={colors.onPrimary} />}
+            onPress={() => setUploading(true)}
             style={{ marginBottom: space.sm }}
           />
         }
@@ -72,12 +77,144 @@ export default function ObraDocumentosScreen() {
           <EmptyState
             icon={<FolderOpen size={28} color={colors.primary} />}
             title="Nenhum documento nesta obra"
-            description="Plantas e projetos em PDF enviados pelo web aparecem aqui; os técnicos com acesso recebem um aviso."
+            description="Envie plantas e projetos em PDF. Os técnicos com acesso recebem um aviso."
           />
         }
       />
       <DocumentSheet doc={selected} projectId={id} onClose={() => setSelected(null)} />
+      <UploadSheet open={uploading} projectId={id} onClose={() => setUploading(false)} />
     </View>
+  );
+}
+
+type PickedPdf = { uri: string; name: string; size: number };
+
+function UploadSheet({ open, projectId, onClose }: { open: boolean; projectId: Id<"projects">; onClose: () => void }) {
+  const toast = useToast();
+  const technicians = useQuery(api.projects.getAssignedTechnicians, open ? { projectId } : "skip");
+  const generateUploadUrl = useMutation(api.projectDocuments.generateUploadUrl);
+  const discardUpload = useMutation(api.projectDocuments.discardUpload);
+  const createDocument = useMutation(api.projectDocuments.create);
+  const [file, setFile] = useState<PickedPdf | null>(null);
+  const [name, setName] = useState("");
+  const [access, setAccess] = useState<Access>("all");
+  const [allowed, setAllowed] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setFile(null);
+    setName("");
+    setAccess("all");
+    setAllowed([]);
+    setError(null);
+  }, [open]);
+
+  async function pick() {
+    setError(null);
+    const result = await DocumentPicker.getDocumentAsync({
+      type: "application/pdf",
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    if (!asset) return;
+    if (!isPdfName(asset.name, asset.mimeType)) {
+      setError("Apenas arquivos PDF são aceitos");
+      return;
+    }
+    if ((asset.size ?? 0) > MAX_PDF_BYTES) {
+      setError("O PDF deve ter no máximo 50 MB");
+      return;
+    }
+    setFile({ uri: asset.uri, name: asset.name, size: asset.size ?? 0 });
+    if (!name.trim()) setName(suggestDocumentName(asset.name));
+  }
+
+  async function submit() {
+    if (!file) {
+      setError("Escolha um arquivo PDF");
+      return;
+    }
+    if (access === "selected" && allowed.length === 0) {
+      setError("Marque ao menos um técnico");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    let storageId: Id<"_storage"> | null = null;
+    try {
+      storageId = await uploadPdf(generateUploadUrl, file.uri);
+      await createDocument({
+        projectId,
+        storageId,
+        name: name.trim(),
+        technicianAccess: access,
+        allowedTechnicianIds: access === "selected" ? (allowed as Id<"users">[]) : undefined,
+      });
+      toast.success("PDF enviado");
+      onClose();
+    } catch (err) {
+      if (storageId) await discardUpload({ storageId }).catch(() => undefined);
+      setError(getErrorMessage(err, INVALID_PDF_MESSAGE));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Enviar PDF"
+      subtitle="Os técnicos com acesso recebem um aviso no celular."
+      footer={
+        <AppButton
+          label="Enviar"
+          block
+          disabled={!file || !name.trim() || (access === "selected" && allowed.length === 0)}
+          loading={busy}
+          loadingLabel="Enviando…"
+          onPress={() => void submit()}
+        />
+      }
+    >
+      <View style={{ gap: space.lg }}>
+        <AppButton
+          label={file ? "Trocar arquivo" : "Escolher PDF"}
+          variant="secondary"
+          block
+          icon={<FileText size={18} color={colors.text} />}
+          onPress={() => void pick()}
+        />
+        {file ? (
+          <Text style={[type.bodySm, { color: colors.textSecondary }]}>
+            {file.name} · {formatFileSize(file.size)}
+          </Text>
+        ) : null}
+        <Field label="Nome" value={name} onChangeText={setName} />
+        <ChoiceGroup<Access>
+          label="Quem vê no campo"
+          value={access}
+          onChange={setAccess}
+          columns={1}
+          options={[
+            { value: "none", label: ACCESS_LABEL.none },
+            { value: "all", label: ACCESS_LABEL.all },
+            { value: "selected", label: ACCESS_LABEL.selected },
+          ]}
+        />
+        {access === "selected" ? (
+          technicians && technicians.length > 0 ? (
+            <ChoiceChips label="Técnicos" values={allowed} options={technicians.map((t) => ({ value: t._id as string, label: t.name }))} onChange={setAllowed} />
+          ) : (
+            <Text style={[type.bodySm, { color: colors.textSecondary }]}>Nenhum técnico na obra. Inclua técnicos na Visão geral.</Text>
+          )
+        ) : null}
+        {error ? <Banner tone="danger" title={error} /> : null}
+      </View>
+    </Sheet>
   );
 }
 

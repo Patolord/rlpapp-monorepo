@@ -28,8 +28,11 @@ especificação tela a tela ficam no projeto "RLP" do claude.ai
 - O backend grava os avisos em `notifications` e o app abre cada um pela chave `target`
   (`lib/notifications.ts` → `hrefForNotification`, por perfil). Destino novo: some a chave lá
   e em `packages/backend/convex/lib/notifications.ts`.
-- O push ainda depende de `expo-notifications` e `expo-device` (não instalados): até lá os
-  avisos ficam só no sino.
+- O app registra o token Expo depois do login (`components/push-registration.tsx`) e o
+  desliga no Sair. Push precisa de build nativo novo (EAS); atualização OTA não entrega
+  `expo-notifications` / `expo-device`. APNs está no EAS (chave `YL63MH497Z`). Android
+  ainda precisa do `google-services.json` (FCM) em `app.json` → `android.googleServicesFile`
+  e da chave de serviço FCM V1 no EAS; sem isso o aviso fica só no sino no Android.
 
 ## Sem sinal
 

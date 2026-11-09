@@ -9,7 +9,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import { colors, control, radius, shadow, space } from "@/lib/theme";
+import { colors, control, fonts, radius, shadow, space } from "@/lib/theme";
 
 // ---------------------------------------------------------------------------
 // AppButton: o botão do design system.
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   label: {
-    fontWeight: "500",
+    fontFamily: fonts.medium,
     letterSpacing: -0.1,
   },
 });

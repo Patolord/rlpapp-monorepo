@@ -1,11 +1,17 @@
-import "@/global.css";
 import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+} from "@expo-google-fonts/inter";
 import { env } from "@rlpapp/env/native";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { ConvexReactClient, useConvexAuth, useMutation } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
+import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useRef } from "react";
 import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -13,8 +19,11 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { OfflineSync } from "@/components/offline-sync";
+import { PushRegistration } from "@/components/push-registration";
 import { ToastProvider } from "@/components/ui";
 import { colors } from "@/lib/theme";
+
+void SplashScreen.preventAutoHideAsync();
 
 export const unstable_settings = {
   initialRouteName: "(tabs)",
@@ -34,6 +43,7 @@ function EnsureUser() {
       called.current = true;
       ensureUser({}).catch(console.error);
     }
+    if (!isAuthenticated) called.current = false;
   }, [isAuthenticated, ensureUser]);
 
   return null;
@@ -71,6 +81,18 @@ function StackLayout() {
 }
 
 export default function Layout() {
+  const [loaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+  });
+
+  useEffect(() => {
+    if (loaded) void SplashScreen.hideAsync();
+  }, [loaded]);
+
+  if (!loaded) return null;
+
   return (
     <ClerkProvider tokenCache={tokenCache} publishableKey={env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}>
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
@@ -94,6 +116,7 @@ function InnerLayout() {
   return (
     <View style={{ flex: 1, backgroundColor: bg }}>
       <EnsureUser />
+      <PushRegistration />
       <OfflineSync />
       <StackLayout />
     </View>

@@ -1,5 +1,4 @@
 const { getDefaultConfig } = require("expo/metro-config");
-const { withUniwindConfig } = require("uniwind/metro");
 const path = require("path");
 
 /** @type {import('expo/metro-config').MetroConfig} */
@@ -16,6 +15,4 @@ config.resolver.extraNodeModules = {
   "react-native": path.resolve(__dirname, "node_modules/react-native"),
 };
 
-module.exports = withUniwindConfig(config, {
-  cssEntryFile: "./global.css",
-});
+module.exports = config;

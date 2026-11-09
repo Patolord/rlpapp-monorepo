@@ -1,5 +1,7 @@
 import { useClerk } from "@clerk/expo";
+import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Doc } from "@rlpapp/backend/convex/_generated/dataModel";
+import { useMutation } from "convex/react";
 import Constants from "expo-constants";
 import { useRouter, type Href } from "expo-router";
 import {
@@ -21,6 +23,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AppButton, ConfirmDialog, ScreenHeader, Surface, screenStyles } from "@/components/ui";
 import { LINKS, openUrl } from "@/lib/links";
 import { hasBell } from "@/lib/notifications";
+import { unregisterStoredToken } from "@/lib/push";
 import { listPendingPunches } from "@/lib/punch-queue";
 import { PROFILE_LABEL, type Profile } from "@/lib/profile";
 import { colors, space, type } from "@/lib/theme";
@@ -66,6 +69,7 @@ function initials(name: string) {
 export function MaisScreen({ user, profile }: { user: Doc<"users">; profile: Profile }) {
   const router = useRouter();
   const { signOut } = useClerk();
+  const unregisterPush = useMutation(api.notifications.unregisterPushToken);
   const pendingRecords = usePendingCount();
   const [confirm, setConfirm] = useState<null | { pending: number }>(null);
   const [leaving, setLeaving] = useState(false);
@@ -102,6 +106,7 @@ export function MaisScreen({ user, profile }: { user: Doc<"users">; profile: Pro
   async function doSignOut() {
     setLeaving(true);
     try {
+      await unregisterStoredToken(unregisterPush);
       await signOut();
       router.replace("/");
     } finally {

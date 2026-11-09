@@ -101,22 +101,29 @@ export const control = {
   row: 56,
 } as const;
 
+/** Famílias do pacote `@expo-google-fonts/inter` (um arquivo por peso). */
+export const fonts = {
+  regular: "Inter_400Regular",
+  medium: "Inter_500Medium",
+  semibold: "Inter_600SemiBold",
+} as const;
+
 export const type = {
   /** Título das telas raiz e saudação do Início. */
-  display: { fontSize: 26, lineHeight: 32, fontWeight: "600", letterSpacing: -0.3 },
+  display: { fontSize: 26, lineHeight: 32, fontFamily: fonts.semibold, letterSpacing: -0.3 },
   /** Título de tela interna e de Sheet. */
-  title: { fontSize: 22, lineHeight: 28, fontWeight: "600", letterSpacing: -0.2 },
+  title: { fontSize: 22, lineHeight: 28, fontFamily: fonts.semibold, letterSpacing: -0.2 },
   /** Título de cartão e de seção grande. */
-  heading: { fontSize: 18, lineHeight: 24, fontWeight: "600", letterSpacing: -0.1 },
+  heading: { fontSize: 18, lineHeight: 24, fontFamily: fonts.semibold, letterSpacing: -0.1 },
   /** Título de linha de lista. */
-  subtitle: { fontSize: 17, lineHeight: 22, fontWeight: "600" },
-  body: { fontSize: 16, lineHeight: 22, fontWeight: "400" },
-  bodyStrong: { fontSize: 16, lineHeight: 22, fontWeight: "600" },
-  bodySm: { fontSize: 14, lineHeight: 20, fontWeight: "400" },
-  label: { fontSize: 14, lineHeight: 20, fontWeight: "500" },
-  caption: { fontSize: 12, lineHeight: 16, fontWeight: "500" },
+  subtitle: { fontSize: 17, lineHeight: 22, fontFamily: fonts.semibold },
+  body: { fontSize: 16, lineHeight: 22, fontFamily: fonts.regular },
+  bodyStrong: { fontSize: 16, lineHeight: 22, fontFamily: fonts.semibold },
+  bodySm: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular },
+  label: { fontSize: 14, lineHeight: 20, fontFamily: fonts.medium },
+  caption: { fontSize: 12, lineHeight: 16, fontFamily: fonts.medium },
   /** Rótulo de seção (antes era caixa alta; o design system usa frase normal). */
-  eyebrow: { fontSize: 14, lineHeight: 20, fontWeight: "600" },
+  eyebrow: { fontSize: 14, lineHeight: 20, fontFamily: fonts.semibold },
 } as const satisfies Record<string, TextStyle>;
 
 export const shadow = {
