@@ -36,6 +36,7 @@
     "production": {
       "ios": {
         "appleId": "upcraftcrew@gmail.com",
+        "ascAppId": "6768826578",
         "appleTeamId": "59M2JY4R7J"
       },
       "android": {
