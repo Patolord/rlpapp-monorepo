@@ -1,58 +1,80 @@
-import type { TextStyle } from "react-native";
-
-import { BRAND } from "@/components/auth/brand";
+import type { TextStyle, ViewStyle } from "react-native";
 
 // ---------------------------------------------------------------------------
-// Design tokens for the native app.
-//
-// The palette is derived from the auth/launch screens (`components/auth/brand`)
-// so every screen reads as one product: soft blue-white background, navy text,
-// white surfaces with a thin cool border, and a single electric-blue accent.
-// Use these tokens (not literal hex) in screens and components.
+// Tokens do app native, com os valores do "RLP App Design System" (o mesmo do
+// web: apps/web/src/index.css e packages/ui/src/tokens) em escala de celular.
+// Os nomes antigos continuam valendo para as telas que ainda não migraram.
+// Use estes tokens (nunca hex solto) em telas e componentes.
+// Referência: claude/rlpapp-native-redesign.md §8.
 // ---------------------------------------------------------------------------
+
+/** Cores de status do design system: só para o ponto do StatusBadge e ícones. */
+export const status = {
+  neutral: "#6E7279",
+  info: "#3E6DC8",
+  success: "#0E9254",
+  warning: "#D98B09",
+  danger: "#CC2827",
+  muted: "#ACAEB1",
+} as const;
 
 export const colors = {
-  // Canvas
-  bg: BRAND.bg,
-  bgTint: BRAND.bgTint,
-  // Surfaces
+  // Fundo
+  bg: "#F4F5F8",
+  bgTint: "#EEF0F4",
+  // Superfícies
   surface: "#FFFFFF",
-  surfaceMuted: "#EEF3FA",
-  surfacePressed: "#F3F7FC",
-  border: BRAND.inputBorder,
-  borderStrong: BRAND.line,
-  divider: "#E6EDF7",
-  // Text
-  text: BRAND.title,
-  textSecondary: BRAND.subtitle,
-  textMuted: BRAND.placeholder,
-  label: BRAND.label,
-  icon: BRAND.icon,
-  // Accent
-  primary: BRAND.button,
+  surfaceMuted: "#F5F5F5",
+  surfacePressed: "#F5F5F5",
+  border: "#E5E5E5",
+  borderStrong: "#D5D7DB",
+  controlBorder: "#D5D7DB",
+  controlDisabled: "#EEEEEE",
+  controlDisabledText: "#808080",
+  divider: "#E5E5E5",
+  // Texto
+  text: "#0A0A0A",
+  /** Secundário sobre cartão (4,7:1). */
+  textSecondary: "#737373",
+  /** Secundário direto sobre o fundo cinza (5,7:1); o #737373 dá 4,3:1 ali. */
+  textSecondaryOnBg: "#5F6168",
+  textMuted: "#737373",
+  label: "#0A0A0A",
+  icon: "#737373",
+  // Marca
+  primary: "#2855AD",
   primaryPressed: "#1A469D",
-  primarySoft: "#F0F5FF",
-  onPrimary: BRAND.buttonText,
-  navy: BRAND.logo,
-  // Semantic tones
-  success: "#1E8E5A",
-  successSoft: "#DDF4E8",
-  warning: "#B7791F",
-  warningSoft: "#FBF0D6",
-  danger: "#C8402E",
-  dangerSoft: "#FBE3DF",
-  info: BRAND.button,
-  infoSoft: "#F0F5FF",
-  // Misc
-  track: BRAND.track,
-  overlay: "rgba(27, 42, 94, 0.45)",
-  focus: BRAND.inputBorderFocus,
+  primarySoft: "#DFECFF",
+  onPrimary: "#FAFAFA",
+  /** Só a logo. */
+  navy: "#2B3990",
+  logoSky: "#DCEEFA",
+  destructive: "#B7191C",
+  // Tons semânticos para texto e ícone (passam 4,5:1 sobre branco)
+  success: "#00713E",
+  successSoft: "#E7F6EF",
+  warning: "#8F5B00",
+  warningSoft: "#FDF3E1",
+  danger: "#B7191C",
+  dangerSoft: "#FCE9E9",
+  info: "#2855AD",
+  infoSoft: "#DFECFF",
+  // Outros
+  track: "#E5E5E5",
+  overlay: "rgba(10, 10, 10, 0.45)",
+  focus: "#2855AD",
+  toast: "#0A0A0A",
 } as const;
 
 export const radius = {
-  sm: 10,
-  md: 16,
-  lg: 22,
+  /** Botão e campo. */
+  sm: 6,
+  /** Cartão. */
+  md: 12,
+  /** Topo do Sheet. */
+  lg: 18,
+  /** Menus e opções. */
+  menu: 8,
   pill: 999,
 } as const;
 
@@ -63,45 +85,77 @@ export const space = {
   lg: 16,
   xl: 20,
   xxl: 24,
-  /** Horizontal screen gutter (matches the login form). */
-  screen: 24,
+  /** Margem lateral da tela. */
+  screen: 16,
 } as const;
 
 export const control = {
-  /** Tall controls used on forms (login inputs/button). */
-  heightLg: 58,
-  /** Default control height on dense screens. */
-  height: 52,
-  heightSm: 44,
+  /** Campos e botões padrão (48, o "xl · campo" do design system). */
+  heightLg: 48,
+  height: 48,
+  /** Botão compacto dentro de cartão. */
+  heightSm: 40,
+  /** Botão só de ícone. */
+  icon: 44,
+  /** Altura mínima de linha de lista. */
+  row: 56,
+} as const;
+
+/** Famílias do pacote `@expo-google-fonts/inter` (um arquivo por peso). */
+export const fonts = {
+  regular: "Inter_400Regular",
+  medium: "Inter_500Medium",
+  semibold: "Inter_600SemiBold",
 } as const;
 
 export const type = {
-  display: { fontSize: 34, lineHeight: 40, fontWeight: "500", letterSpacing: -0.5 },
-  title: { fontSize: 26, lineHeight: 32, fontWeight: "600", letterSpacing: -0.4 },
-  heading: { fontSize: 19, lineHeight: 24, fontWeight: "600", letterSpacing: -0.2 },
-  body: { fontSize: 17, lineHeight: 22, fontWeight: "400" },
-  bodyStrong: { fontSize: 17, lineHeight: 22, fontWeight: "600" },
-  bodySm: { fontSize: 15, lineHeight: 20, fontWeight: "400" },
-  label: { fontSize: 14, lineHeight: 18, fontWeight: "500" },
-  caption: { fontSize: 12, lineHeight: 16, fontWeight: "500", letterSpacing: 0.2 },
-  eyebrow: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "600",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-  },
+  /** Título das telas raiz e saudação do Início. */
+  display: { fontSize: 26, lineHeight: 32, fontFamily: fonts.semibold, letterSpacing: -0.3 },
+  /** Título de tela interna e de Sheet. */
+  title: { fontSize: 22, lineHeight: 28, fontFamily: fonts.semibold, letterSpacing: -0.2 },
+  /** Título de cartão e de seção grande. */
+  heading: { fontSize: 18, lineHeight: 24, fontFamily: fonts.semibold, letterSpacing: -0.1 },
+  /** Título de linha de lista. */
+  subtitle: { fontSize: 17, lineHeight: 22, fontFamily: fonts.semibold },
+  body: { fontSize: 16, lineHeight: 22, fontFamily: fonts.regular },
+  bodyStrong: { fontSize: 16, lineHeight: 22, fontFamily: fonts.semibold },
+  bodySm: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular },
+  label: { fontSize: 14, lineHeight: 20, fontFamily: fonts.medium },
+  caption: { fontSize: 12, lineHeight: 16, fontFamily: fonts.medium },
+  /** Rótulo de seção (antes era caixa alta; o design system usa frase normal). */
+  eyebrow: { fontSize: 14, lineHeight: 20, fontFamily: fonts.semibold },
 } as const satisfies Record<string, TextStyle>;
+
+export const shadow = {
+  xs: {
+    shadowColor: "#101828",
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  md: {
+    shadowColor: "#101828",
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+} as const satisfies Record<string, ViewStyle>;
 
 export type Tone = "neutral" | "info" | "success" | "warning" | "danger";
 
-export const tone: Record<Tone, { bg: string; fg: string }> = {
-  neutral: { bg: colors.surfaceMuted, fg: colors.textSecondary },
-  info: { bg: colors.infoSoft, fg: colors.info },
-  success: { bg: colors.successSoft, fg: colors.success },
-  warning: { bg: colors.warningSoft, fg: colors.warning },
-  danger: { bg: colors.dangerSoft, fg: colors.danger },
+/**
+ * Por tom: `bg` (fundo suave de ícone), `fg` (texto e ícone que passam 4,5:1)
+ * e `dot` (cor de status do design system, só para ponto e ícone de estado).
+ */
+export const tone: Record<Tone, { bg: string; fg: string; dot: string }> = {
+  neutral: { bg: colors.surfaceMuted, fg: colors.textSecondary, dot: status.neutral },
+  info: { bg: colors.infoSoft, fg: colors.info, dot: status.info },
+  success: { bg: colors.successSoft, fg: colors.success, dot: status.success },
+  warning: { bg: colors.warningSoft, fg: colors.warning, dot: status.warning },
+  danger: { bg: colors.dangerSoft, fg: colors.danger, dot: status.danger },
 };
 
-export const theme = { colors, radius, space, control, type, tone } as const;
+export const theme = { colors, status, radius, space, control, type, shadow, tone } as const;
 export type Theme = typeof theme;

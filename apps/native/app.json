@@ -2,7 +2,7 @@
   "expo": {
     "name": "RLP Engenharia",
     "slug": "rlpapp",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "scheme": "rlpapp",
     "orientation": "default",
     "userInterfaceStyle": "light",
@@ -47,6 +47,14 @@
       ],
       "expo-router",
       "expo-font",
+      "expo-document-picker",
+      [
+        "expo-notifications",
+        {
+          "color": "#2855AD",
+          "defaultChannel": "default"
+        }
+      ],
       "expo-secure-store",
       [
         "expo-location",
