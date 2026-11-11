@@ -1,3 +1,4 @@
+import { activeAdmins, notify } from "../notifications/notify";
 import { logAudit } from "../../lib/audit";
 import { resolveCustomerLabel } from "../engineering/projects";
 import {
@@ -282,6 +283,28 @@ export async function changeMedicaoStatus(
     recordId: input.medicaoId,
     details: `Medição nº ${medicao.sequence}: ${medicao.status} → ${input.status}`,
   });
+
+  // N16: só no sino da diretoria, sem push.
+  if (to > from && (input.status === "aprovada" || input.status === "paga")) {
+    const project = await ctx.db.get("projects", medicao.projectId);
+    const projectName = project?.name ?? "obra";
+    const verb = input.status === "aprovada" ? "aprovada" : "marcada como paga";
+    await notify(
+      ctx,
+      await activeAdmins(ctx),
+      {
+        kind: "N16",
+        category: "medicoes",
+        title: `Medição ${verb}`,
+        body: `Medição ${medicao.sequence} da obra ${projectName} ${verb} por ${user.name}.`,
+        target: "medicao",
+        params: { medicaoId: input.medicaoId, projectId: medicao.projectId },
+        projectId: medicao.projectId,
+        push: false,
+      },
+      { actorId: user._id }
+    );
+  }
 }
 
 /** Totais de contratos e medições por obra (visão global). */

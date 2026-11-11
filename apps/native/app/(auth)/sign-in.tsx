@@ -3,9 +3,9 @@
 import { useClerk } from "@clerk/expo";
 import { useSignIn } from "@clerk/expo/legacy";
 import { useRouter } from "expo-router";
-import { Eye, EyeOff, KeyRound, Lock, User } from "lucide-react-native";
+import { ArrowRight, Eye, EyeOff, KeyRound, Lock, User } from "lucide-react-native";
 import React from "react";
-import { Alert, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -37,10 +37,16 @@ export default function SignInScreen() {
   const [loading, setLoading] = React.useState(false);
   const [needsSecondFactor, setNeedsSecondFactor] = React.useState(false);
   const [code, setCode] = React.useState("");
+  const [error, setError] = React.useState<string | null>(null);
 
   const onSignInPress = async () => {
     // O "go" do teclado chama esta função direto, sem passar pelo botão desabilitado.
     if (!isLoaded || loading) return;
+    setError(null);
+    if (!username.trim() || !password) {
+      setError("Preencha usuário e senha.");
+      return;
+    }
     setLoading(true);
     const identifier = normalizeUsername(username);
     try {
@@ -52,16 +58,17 @@ export default function SignInScreen() {
         await signIn.prepareSecondFactor({ strategy: "email_code" });
         setNeedsSecondFactor(true);
       } else {
-        Alert.alert("Erro", "Status inesperado. Tente novamente.");
+        setError("Não deu para entrar agora. Tente de novo.");
       }
     } catch (err) {
+      // "Already signed in": recupera a sessão que já existe em vez de falhar.
       const existingSession = await findExistingClerkSessionId(err, clerk.client, identifier);
       try {
         if (!existingSession) throw err;
         await setActive({ session: existingSession });
         router.replace("/");
       } catch (finalErr) {
-        Alert.alert("Erro", getClerkLoginErrorMessage(finalErr, "Erro ao fazer login"));
+        setError(getClerkLoginErrorMessage(finalErr, "Erro ao fazer login"));
       }
     } finally {
       setLoading(false);
@@ -70,6 +77,7 @@ export default function SignInScreen() {
 
   const onVerifyCode = async () => {
     if (!isLoaded) return;
+    setError(null);
     setLoading(true);
     try {
       const result = await signIn.attemptSecondFactor({ strategy: "email_code", code });
@@ -77,10 +85,10 @@ export default function SignInScreen() {
         await setActive({ session: result.createdSessionId });
         router.replace("/");
       } else {
-        Alert.alert("Erro", "Não foi possível verificar. Tente novamente.");
+        setError("Não foi possível verificar. Tente de novo.");
       }
     } catch (err) {
-      Alert.alert("Erro", getClerkErrorMessage(err, "Código inválido"));
+      setError(getClerkErrorMessage(err, "Código inválido"));
     } finally {
       setLoading(false);
     }
@@ -99,7 +107,7 @@ export default function SignInScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.logoWrap}>
-          <RlpLogo size={160} color={c.logo} lightColor={c.logoLight} textColor={c.logoText} />
+          <RlpLogo size={120} color={c.logo} lightColor={c.logoLight} textColor={c.logoText} />
         </View>
 
         {needsSecondFactor ? (
@@ -112,18 +120,24 @@ export default function SignInScreen() {
             <View style={styles.form}>
               <Field
                 label="Código"
-                icon={<KeyRound size={26} color={c.icon} strokeWidth={1.6} />}
+                icon={<KeyRound size={18} color={c.icon} strokeWidth={2} />}
                 placeholder="123456"
                 keyboardType="number-pad"
                 value={code}
-                onChangeText={setCode}
+                onChangeText={(v) => {
+                  setCode(v);
+                  setError(null);
+                }}
+                error={error ?? undefined}
                 autoFocus
               />
               <AppButton
                 size="lg"
-                label={loading ? "Verificando..." : "Verificar"}
+                label="Verificar"
+                loadingLabel="Verificando…"
                 onPress={onVerifyCode}
                 loading={loading}
+                block
                 style={styles.button}
               />
             </View>
@@ -132,6 +146,7 @@ export default function SignInScreen() {
               onPress={() => {
                 setNeedsSecondFactor(false);
                 setCode("");
+                setError(null);
               }}
               hitSlop={12}
             >
@@ -148,7 +163,7 @@ export default function SignInScreen() {
             <View style={styles.form}>
               <Field
                 label="Usuário"
-                icon={<User size={26} color={c.icon} strokeWidth={1.6} />}
+                icon={<User size={18} color={c.icon} strokeWidth={2} />}
                 placeholder="Nome"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -159,29 +174,36 @@ export default function SignInScreen() {
               />
               <Field
                 label="Senha"
-                icon={<Lock size={26} color={c.icon} strokeWidth={1.6} />}
+                icon={<Lock size={18} color={c.icon} strokeWidth={2} />}
                 placeholder="Senha"
                 secureTextEntry={!showPassword}
                 textContentType="password"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(v) => {
+                  setPassword(v);
+                  setError(null);
+                }}
+                error={error ?? undefined}
                 returnKeyType="go"
                 onSubmitEditing={onSignInPress}
                 trailing={
                   <Pressable onPress={() => setShowPassword((s) => !s)} hitSlop={12}>
                     {showPassword ? (
-                      <EyeOff size={26} color={c.icon} strokeWidth={1.6} />
+                      <EyeOff size={18} color={c.icon} strokeWidth={2} />
                     ) : (
-                      <Eye size={26} color={c.icon} strokeWidth={1.6} />
+                      <Eye size={18} color={c.icon} strokeWidth={2} />
                     )}
                   </Pressable>
                 }
               />
               <AppButton
                 size="lg"
-                label={loading ? "Entrando..." : "Entrar"}
+                label="Entrar"
+                loadingLabel="Entrando…"
+                trailing={<ArrowRight size={18} color={c.buttonText} strokeWidth={2} />}
                 onPress={onSignInPress}
                 loading={loading}
+                block
                 style={styles.button}
               />
             </View>
@@ -199,37 +221,48 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     alignItems: "stretch",
     justifyContent: "center",
   },
   logoWrap: {
     alignItems: "center",
-    marginBottom: 40,
+    marginBottom: 32,
   },
   title: {
-    fontSize: 34,
-    lineHeight: 40,
-    fontWeight: "500",
-    letterSpacing: -0.5,
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: "600",
+    letterSpacing: -0.3,
     textAlign: "center",
   },
   subtitle: {
-    marginTop: 8,
-    fontSize: 17,
+    marginTop: 6,
+    fontSize: 16,
     lineHeight: 22,
     textAlign: "center",
   },
   form: {
-    marginTop: 28,
-    gap: 20,
+    marginTop: 24,
+    gap: 16,
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E5E5",
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#101828",
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   button: {
-    marginTop: 10,
+    marginTop: 4,
   },
   footer: {
-    marginTop: 36,
-    fontSize: 15,
+    marginTop: 28,
+    fontSize: 14,
+    lineHeight: 20,
     textAlign: "center",
   },
 });

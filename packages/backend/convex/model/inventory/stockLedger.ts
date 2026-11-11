@@ -1,4 +1,4 @@
-import type { PaginationOptions } from "convex/server";
+import type { PaginationOptions, PaginationResult } from "convex/server";
 import type { Infer } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
@@ -19,6 +19,13 @@ export type ListInventoryLocationPageInput = {
   projectId?: Id<"projects">;
   paginationOpts: PaginationOptions;
 };
+
+export type ListInventoryBalancesInput = ListInventoryLocationPageInput & {
+  /** Busca no estoque inteiro por nome, SKU ou variação; vem numa página só. */
+  search?: string;
+};
+
+const BALANCE_SEARCH_LIMIT = 50;
 
 export type ListLegacyInventoryEventsInput = {
   type?: Infer<typeof legacyInventoryEventType>;
@@ -42,17 +49,37 @@ function assertCanViewLocation(
 export async function listInventoryBalances(
   ctx: QueryCtx,
   user: Doc<"users">,
-  input: ListInventoryLocationPageInput
+  input: ListInventoryBalancesInput
 ) {
   assertCanViewLocation(user, input.projectId);
   const location = await findInventoryLocation(ctx, input.projectId);
   if (!location) {
     return { page: [], isDone: true, continueCursor: "" };
   }
-  const results = await ctx.db
-    .query("inventoryBalances")
-    .withIndex("by_location", (q) => q.eq("locationId", location._id))
-    .paginate(input.paginationOpts);
+  const search = input.search?.trim();
+  let results: PaginationResult<Doc<"inventoryBalances">>;
+  if (search) {
+    const materials = await ctx.db
+      .query("materials")
+      .withSearchIndex("search_text", (q) => q.search("searchText", search))
+      .take(BALANCE_SEARCH_LIMIT);
+    const page: Doc<"inventoryBalances">[] = [];
+    for (const material of materials) {
+      const balance = await ctx.db
+        .query("inventoryBalances")
+        .withIndex("by_location_material", (q) =>
+          q.eq("locationId", location._id).eq("materialId", material._id)
+        )
+        .unique();
+      if (balance) page.push(balance);
+    }
+    results = { page, isDone: true, continueCursor: "" };
+  } else {
+    results = await ctx.db
+      .query("inventoryBalances")
+      .withIndex("by_location", (q) => q.eq("locationId", location._id))
+      .paginate(input.paginationOpts);
+  }
   return {
     ...results,
     page: await Promise.all(

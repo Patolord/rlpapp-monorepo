@@ -4,6 +4,7 @@ import { engineeringTables } from "./schema/engineering";
 import { hrTables } from "./schema/hr";
 import { identityTables } from "./schema/identity";
 import { inventoryTables } from "./schema/inventory";
+import { notificationsTables } from "./schema/notifications";
 import { procurementTables } from "./schema/procurement";
 
 // Tabelas e validadores ficam em `schema/<domínio>.ts`; aqui só se monta o schema.
@@ -14,4 +15,5 @@ export default defineSchema({
   ...procurementTables,
   ...inventoryTables,
   ...hrTables,
+  ...notificationsTables,
 });

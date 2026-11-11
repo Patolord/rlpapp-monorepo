@@ -6,6 +6,7 @@ import {
   resolveProjectByIdentifier,
 } from "../engineering/projects";
 import { hasPermission } from "../../lib/rbac";
+import { notify, plural } from "../notifications/notify";
 import { findInventoryLocation } from "./locations";
 import { createAndPostConsumption, postInventoryDocument } from "./posting";
 
@@ -248,6 +249,27 @@ export async function fulfillInventoryRequest(
     tableName: "inventoryRequests",
     recordId: input.requestId,
   });
+
+  // N4: material a caminho, para quem pediu.
+  const project = await ctx.db.get("projects", request.projectId);
+  const projectName = project?.name ?? "Obra";
+  await notify(
+    ctx,
+    [request.requestedByUserId],
+    {
+      kind: "N4",
+      category: "pedidos",
+      title: `Material a caminho · ${projectName}`,
+      body:
+        requestItems.length === 1
+          ? "O item do seu pedido saiu do estoque."
+          : `Os ${plural(requestItems.length, "item", "itens")} do seu pedido saíram do estoque.`,
+      target: "estoque_obra",
+      params: { requestId: input.requestId, projectId: request.projectId },
+      projectId: request.projectId,
+    },
+    { actorId: user._id }
+  );
 }
 
 /**

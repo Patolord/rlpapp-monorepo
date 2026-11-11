@@ -1,112 +1,154 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import { EmptyState, LoadingState } from "@rlpapp/ui/native";
-import { useQuery } from "convex/react";
-import { useLocalSearchParams } from "expo-router";
-import { Link2, QrCode, Unlink } from "lucide-react-native";
-import { ScrollView, Text, View } from "react-native";
+import { usePaginatedQuery, useQuery } from "convex/react";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { History, QrCode } from "lucide-react-native";
+import { useMemo, useState } from "react";
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from "react-native";
 
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { StatusBadge } from "@/components/engenharia/status-badge";
+import { Chips, EmptyState, LoadingState, Pill, PickerField, SearchField, Surface } from "@/components/ui";
+import { formatShortDateTime } from "@/lib/format";
+import { colors, space, type } from "@/lib/theme";
 
-export default function QrCodesScreen() {
+type Tab = "etiquetas" | "servicos";
+
+/** QR e serviços da obra (ficha O16): etiquetas e o que o campo registrou, por técnico. */
+export default function ObraQrScreen() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
-
-  const qrCodes = useQuery(api.qrCodes.listByProject, {
-    projectId: projectId as Id<"projects">,
-  });
-
-  if (qrCodes === undefined) {
-    return <LoadingState label="Carregando QR codes…" />;
-  }
-
-  if (!qrCodes || qrCodes.length === 0) {
-    return (
-      <EmptyState
-        icon={<QrCode size={24} color="#f59e0b" />}
-        title="Sem QR codes"
-        description="Nenhum QR code vinculado a esta obra."
-        variant="plain"
-        className="flex-1"
-      />
-    );
-  }
-
-  const linked = qrCodes.filter((qr) => qr.plannedItemId);
-  const unlinked = qrCodes.filter((qr) => !qr.plannedItemId);
-
+  const [tab, setTab] = useState<Tab>("etiquetas");
   return (
-    <ScrollView
-      contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 16 }}
-      showsVerticalScrollIndicator={false}
-    >
-      <Card className="gap-2 p-4">
-        <Text className="text-sm font-semibold text-foreground">
-          Resumo de QR Codes
-        </Text>
-        <View className="flex-row gap-4">
-          <View className="flex-1 items-center gap-1">
-            <Text className="text-2xl font-bold text-foreground">
-              {qrCodes.length}
-            </Text>
-            <Text className="text-xs text-muted-foreground">Total</Text>
-          </View>
-          <View className="flex-1 items-center gap-1">
-            <Text className="text-2xl font-bold text-green-600">
-              {linked.length}
-            </Text>
-            <Text className="text-xs text-muted-foreground">Vinculados</Text>
-          </View>
-          <View className="flex-1 items-center gap-1">
-            <Text className="text-2xl font-bold text-amber-500">
-              {unlinked.length}
-            </Text>
-            <Text className="text-xs text-muted-foreground">Livres</Text>
-          </View>
-        </View>
-      </Card>
-
-      {qrCodes.map((qr) => (
-        <Card key={qr._id} className="gap-2 p-3">
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-2">
-              {qr.plannedItemId ? (
-                <Link2 size={16} color="#10b981" />
-              ) : (
-                <Unlink size={16} color="#d97706" />
-              )}
-              <Text className="text-sm font-mono font-semibold text-foreground">
-                {qr.token}
-              </Text>
-            </View>
-            <Badge
-              variant={qr.plannedItemId ? "default" : "secondary"}
-            >
-              {qr.plannedItemId ? "Vinculado" : "Livre"}
-            </Badge>
-          </View>
-
-          {(qr.system ?? qr.ambiente) && (
-            <Text className="text-xs text-muted-foreground">
-              {[qr.system, qr.ambiente].filter(Boolean).join(" · ")}
-            </Text>
-          )}
-
-          {(qr.towerName ?? qr.floorLabel ?? qr.environmentName) && (
-            <Text className="text-xs text-muted-foreground">
-              {[qr.towerName, qr.floorLabel, qr.environmentName]
-                .filter(Boolean)
-                .join(" → ")}
-            </Text>
-          )}
-
-          {qr.batchName && (
-            <Text className="text-xs text-muted-foreground">
-              Lote: {qr.batchName}
-            </Text>
-          )}
-        </Card>
-      ))}
-    </ScrollView>
+    <View style={{ flex: 1 }}>
+      <Chips<Tab>
+        active={tab}
+        onChange={setTab}
+        style={{ paddingHorizontal: space.screen, paddingTop: space.lg }}
+        items={[
+          { key: "etiquetas", label: "Etiquetas" },
+          { key: "servicos", label: "Serviços do campo" },
+        ]}
+      />
+      {tab === "etiquetas" ? <Tags projectId={projectId as Id<"projects">} /> : <Activity projectId={projectId as Id<"projects">} />}
+    </View>
   );
 }
+
+function Tags({ projectId }: { projectId: Id<"projects"> }) {
+  const router = useRouter();
+  const qrCodes = useQuery(api.qrCodes.listByProject, { projectId });
+  const [search, setSearch] = useState("");
+  const list = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase("pt-BR");
+    return (qrCodes ?? []).filter(
+      (q) => !term || [q.token, q.description, q.ambiente, q.modelo, q.environmentName, q.batchName].some((v) => v?.toLocaleLowerCase("pt-BR").includes(term))
+    );
+  }, [qrCodes, search]);
+
+  if (qrCodes === undefined) return <LoadingState message="Carregando etiquetas…" />;
+  const linked = qrCodes.filter((q) => q.equipmentId).length;
+
+  return (
+    <FlatList
+      data={list}
+      keyExtractor={(q) => q._id}
+      contentContainerStyle={styles.list}
+      keyboardShouldPersistTaps="handled"
+      ListHeaderComponent={
+        <View style={{ gap: space.sm, marginBottom: space.xs }}>
+          <SearchField value={search} onChangeText={setSearch} placeholder="Código, ambiente ou modelo" autoCapitalize="characters" />
+          <Text style={[type.caption, { color: colors.textSecondaryOnBg }]}>
+            {qrCodes.length} {qrCodes.length === 1 ? "etiqueta" : "etiquetas"} · {linked} com equipamento cadastrado
+          </Text>
+        </View>
+      }
+      renderItem={({ item }) => {
+        const title = item.description ?? ([item.kind === "condensadora" ? "Condensadora" : item.kind === "evaporadora" ? "Evaporadora" : null, item.capacidade].filter(Boolean).join(" ") || "Etiqueta livre");
+        const where = [item.towerName, item.floorLabel, item.environmentName ?? item.ambiente].filter(Boolean).join(" · ");
+        return (
+          <Surface onPress={() => router.push(`/equipamento/${item.token}` as Href)} accessibilityLabel={`${title}, etiqueta ${item.token}`}>
+            <View style={styles.row}>
+              <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <Text style={[type.bodyStrong, { color: colors.text }]} numberOfLines={1}>
+                  {title}
+                </Text>
+                <Text style={[type.caption, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {[item.token, where || item.batchName].filter(Boolean).join(" · ")}
+                </Text>
+              </View>
+              {item.status ? <StatusBadge status={item.status} /> : item.equipmentId ? null : <Pill label="Livre" dot={false} />}
+            </View>
+          </Surface>
+        );
+      }}
+      ListEmptyComponent={<EmptyState icon={<QrCode size={28} color={colors.primary} />} title={search ? "Nada com essa busca" : "Nenhuma etiqueta nesta obra"} description={search ? undefined : "Vincule um lote de etiquetas à obra em Engenharia › QR codes."} />}
+    />
+  );
+}
+
+function Activity({ projectId }: { projectId: Id<"projects"> }) {
+  const router = useRouter();
+  const users = useQuery(api.technicianActivity.listActivityUsers, {});
+  const [userId, setUserId] = useState<string | null>(null);
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.technicianActivity.listProjectActivity,
+    { projectId, userId: (userId as Id<"users"> | null) ?? undefined },
+    { initialNumItems: 30 }
+  );
+
+  return (
+    <FlatList
+      data={results}
+      keyExtractor={(i) => `${i.kind}:${i.id}`}
+      contentContainerStyle={styles.list}
+      onEndReachedThreshold={0.4}
+      onEndReached={() => status === "CanLoadMore" && loadMore(30)}
+      ListHeaderComponent={
+        users ? (
+          <PickerField
+            label="Técnico"
+            value={userId}
+            onChange={setUserId}
+            options={users.map((u) => ({ value: u._id as string, label: u.name }))}
+            searchable
+            clearable
+            placeholder="Todos os técnicos"
+            containerStyle={{ marginBottom: space.sm }}
+          />
+        ) : null
+      }
+      renderItem={({ item }) => {
+        const token = item.qrToken;
+        const body = (
+          <View style={styles.row}>
+            <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+              <Text style={[type.bodyStrong, { color: colors.text }]} numberOfLines={1}>
+                {item.title}
+              </Text>
+              <View style={styles.meta}>
+                <Pill label={item.label} dot={false} />
+                <Text style={[type.caption, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {[item.authorName, formatShortDateTime(item.createdAt)].filter(Boolean).join(" · ")}
+                </Text>
+              </View>
+              {item.notes ? <Text style={[type.bodySm, { color: colors.textSecondary }]} numberOfLines={2}>{item.notes}</Text> : null}
+            </View>
+            {item.status ? <StatusBadge status={item.status} /> : null}
+          </View>
+        );
+        return token ? (
+          <Surface onPress={() => router.push(`/equipamento/${token}` as Href)}>{body}</Surface>
+        ) : (
+          <Surface>{body}</Surface>
+        );
+      }}
+      ListEmptyComponent={status === "LoadingFirstPage" ? <LoadingState /> : <EmptyState icon={<History size={28} color={colors.primary} />} title="Nenhum serviço registrado" description="Cadastros, instalações e manutenções feitos pelo app de campo aparecem aqui." />}
+      ListFooterComponent={status === "LoadingMore" ? <ActivityIndicator color={colors.primary} style={{ paddingVertical: space.lg }} /> : null}
+    />
+  );
+}
+
+const styles = StyleSheet.create({
+  list: { padding: space.screen, paddingBottom: 48, gap: space.sm },
+  row: { flexDirection: "row", alignItems: "center", gap: space.md },
+  meta: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.sm },
+});

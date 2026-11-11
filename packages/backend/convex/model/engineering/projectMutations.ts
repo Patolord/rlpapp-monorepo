@@ -1,3 +1,4 @@
+import { notify } from "../notifications/notify";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { diffFields, logAudit } from "../../lib/audit";
@@ -371,6 +372,24 @@ export async function setProjectTechnicians(
     entityLabel: project.name,
     details: `${valid.length} técnico(s)`,
   });
+
+  // N7: só quem entrou na lista agora.
+  const before = new Set(project.technicianIds ?? []);
+  const added = valid.filter((id) => !before.has(id));
+  await notify(
+    ctx,
+    added,
+    {
+      kind: "N7",
+      category: "obras_documentos",
+      title: "Nova obra na sua lista",
+      body: `Você foi incluído na obra ${project.name}.`,
+      target: "obra",
+      params: { projectId: args.projectId },
+      projectId: args.projectId,
+    },
+    { actorId: user._id }
+  );
 }
 
 // --- Arquivamento ---

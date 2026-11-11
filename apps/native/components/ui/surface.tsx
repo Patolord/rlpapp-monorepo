@@ -9,10 +9,11 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import { colors, radius, space, tone as toneColors, type, type Tone } from "@/lib/theme";
+import { colors, control, radius, shadow, space, tone as toneColors, type, type Tone } from "@/lib/theme";
 
 // ---------------------------------------------------------------------------
-// Surface: a white, rounded, thin-bordered panel. Pressable when `onPress`.
+// Surface: o cartão do design system (branco, borda, raio 12, shadow-xs).
+// Vira botão quando recebe `onPress`.
 // ---------------------------------------------------------------------------
 export function Surface({
   children,
@@ -48,8 +49,8 @@ export function Surface({
 }
 
 // ---------------------------------------------------------------------------
-// ListRow: icon in a soft circle, title, subtitle, optional meta + trailing.
-// The row is the unit of every list (clients, materials, movements...).
+// ListRow: ícone num círculo suave, título, subtítulo, meta e final opcional.
+// Altura mínima de 56. É a unidade de toda lista.
 // ---------------------------------------------------------------------------
 export function ListRow({
   icon,
@@ -95,7 +96,7 @@ export function ListRow({
       ) : (
         <View style={styles.rowEnd}>
           {meta ? (
-            <Text style={[type.caption, { color: colors.textMuted }]} numberOfLines={1}>
+            <Text style={[type.caption, { color: colors.textSecondary }]} numberOfLines={1}>
               {meta}
             </Text>
           ) : null}
@@ -107,7 +108,7 @@ export function ListRow({
 }
 
 // ---------------------------------------------------------------------------
-// StatTile: big number with a small label — for hub/dashboard summaries.
+// StatTile: número grande com rótulo pequeno (resumos do Início e do hub).
 // ---------------------------------------------------------------------------
 export function StatTile({
   label,
@@ -148,29 +149,36 @@ export function StatTile({
 }
 
 // ---------------------------------------------------------------------------
-// Pill: compact status chip.
+// Pill (StatusBadge do design system): pílula branca com contorno, ponto de
+// 6px na cor do status e rótulo em preto. Sem `tone` (ou `dot={false}`), só o
+// contorno. O sentido vem do rótulo, não da cor.
 // ---------------------------------------------------------------------------
 export function Pill({
   label,
   tone: t = "neutral",
   icon,
+  dot = true,
   style,
 }: {
   label: string;
   tone?: Tone;
   icon?: React.ReactNode;
+  dot?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const tc = toneColors[t];
   return (
-    <View style={[styles.pill, { backgroundColor: tc.bg }, style]}>
-      {icon}
-      <Text style={[type.caption, { color: tc.fg }]} numberOfLines={1}>
+    <View style={[styles.pill, style]} accessibilityLabel={label}>
+      {icon ? icon : dot ? <View style={[styles.pillDot, { backgroundColor: tc.dot }]} /> : null}
+      <Text style={[type.caption, { color: colors.text }]} numberOfLines={1}>
         {label}
       </Text>
     </View>
   );
 }
+
+/** Mesmo componente com o nome do design system. */
+export const StatusBadge = Pill;
 
 // ---------------------------------------------------------------------------
 // Divider: hairline between stacked rows inside one Surface.
@@ -185,6 +193,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
+    ...shadow.xs,
   },
   padded: {
     padding: space.lg,
@@ -193,13 +202,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: space.md,
-    paddingVertical: 14,
+    minHeight: control.row,
+    paddingVertical: 12,
     paddingHorizontal: space.lg,
   },
   rowIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -232,19 +242,28 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   statValue: {
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 24,
+    lineHeight: 28,
     fontWeight: "600",
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
   },
   pill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 6,
     alignSelf: "flex-start",
     borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: colors.controlBorder,
+    backgroundColor: colors.surface,
+    paddingLeft: 8,
+    paddingRight: 10,
+    paddingVertical: 3,
+  },
+  pillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   divider: {
     height: StyleSheet.hairlineWidth,

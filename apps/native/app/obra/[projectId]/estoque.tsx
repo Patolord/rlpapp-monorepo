@@ -1,107 +1,134 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import { EmptyState, LoadingState } from "@rlpapp/ui/native";
-import { usePaginatedQuery } from "convex/react";
+import { usePaginatedQuery, useQuery } from "convex/react";
 import { useLocalSearchParams } from "expo-router";
-import { MapPin, Warehouse } from "lucide-react-native";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ArrowDownToLine, ArrowUpFromLine, History, Undo2, Warehouse } from "lucide-react-native";
+import { useState } from "react";
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from "react-native";
 
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { DOCUMENT_STATUS, MOVEMENT_LABELS, REPLENISHMENT, type ReplenishmentState } from "@/components/estoque/labels";
+import { RequestsList } from "@/components/estoque/requests-list";
+import { Chips, EmptyState, LoadingState, MetricStrip, Pill, Surface } from "@/components/ui";
+import { formatShortDateTime, formatMaterialLabel, formatQty } from "@/lib/format";
+import { colors, radius, space, type } from "@/lib/theme";
 
-export default function EstoqueScreen() {
-  const { projectId } = useLocalSearchParams<{ projectId: string }>();
+type Tab = "saldos" | "movimentacoes" | "pedidos";
 
-  const { results, status, loadMore } = usePaginatedQuery(
-    api.inventory.listBalances,
-    { projectId: projectId as Id<"projects"> },
-    { initialNumItems: 30 }
-  );
-
-  if (status === "LoadingFirstPage") {
-    return <LoadingState label="Carregando estoque…" />;
-  }
-
-  if (!results || results.length === 0) {
-    return (
-      <EmptyState
-        icon={<Warehouse size={24} color="#f59e0b" />}
-        title="Estoque vazio"
-        description="Nenhum saldo de material registrado para esta obra."
-        variant="plain"
-        className="flex-1"
-      />
-    );
-  }
+/** Estoque da obra no escritório (ficha O14): saldos, movimentações e pedidos. */
+export default function ObraEstoqueScreen() {
+  const { projectId, aba } = useLocalSearchParams<{ projectId: string; aba?: string }>();
+  const id = projectId as Id<"projects">;
+  const [tab, setTab] = useState<Tab>(aba === "pedidos" ? "pedidos" : "saldos");
+  const summaries = useQuery(api.inventory.listProjectSummaries, {});
+  const summary = summaries?.find((s) => s.projectId === id);
 
   return (
-    <ScrollView
-      contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 12 }}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text className="text-lg font-bold text-foreground">
-        Saldos de Estoque
-      </Text>
-
-      {results.map((balance) => (
-        <Card key={balance._id} className="gap-2 p-3">
-          <View className="flex-row items-center justify-between">
-            <Text
-              className="flex-1 text-sm font-medium text-foreground"
-              numberOfLines={1}
-            >
-              {balance.materialName}
-            </Text>
-            <Text className="text-sm font-semibold text-foreground">
-              {balance.quantity} {balance.unit ?? "un"}
-            </Text>
-          </View>
-          {balance.variantLabel && (
-            <Text className="text-xs text-muted-foreground">
-              {balance.variantLabel}
-            </Text>
-          )}
-          <View className="flex-row items-center gap-2">
-            {balance.physicalAddress && (
-              <View className="flex-row items-center gap-1">
-                <MapPin size={12} color="#6b7280" />
-                <Badge variant="outline">{balance.physicalAddress}</Badge>
-              </View>
-            )}
-            {balance.replenishmentState !== "healthy" &&
-              balance.replenishmentState !== "unconfigured" && (
-              <Badge
-                variant={
-                  balance.replenishmentState === "below_minimum"
-                    ? "destructive"
-                    : "secondary"
-                }
-              >
-                {balance.replenishmentState === "below_minimum"
-                  ? "Crítico"
-                  : balance.replenishmentState === "reorder"
-                    ? "Baixo"
-                    : balance.replenishmentState}
-              </Badge>
-            )}
-          </View>
-        </Card>
-      ))}
-
-      {status === "CanLoadMore" && (
-        <Pressable
-          onPress={() => loadMore(30)}
-          className="items-center py-3"
-        >
-          <Text className="text-sm font-medium text-primary">
-            Carregar mais
-          </Text>
-        </Pressable>
-      )}
-
-      {status === "LoadingMore" && (
-        <LoadingState size="small" className="py-3" />
-      )}
-    </ScrollView>
+    <View style={{ flex: 1 }}>
+      <View style={styles.top}>
+        {summary ? (
+          <MetricStrip
+            items={[
+              { label: "Materiais", value: summary.materialCount },
+              { label: "Envios", value: summary.transferCount },
+              { label: "Consumos", value: summary.consumptionCount },
+              { label: "Devoluções", value: summary.returnCount },
+            ]}
+          />
+        ) : null}
+        <Chips<Tab>
+          active={tab}
+          onChange={setTab}
+          style={{ paddingHorizontal: 0 }}
+          items={[
+            { key: "saldos", label: "Saldos" },
+            { key: "movimentacoes", label: "Movimentações" },
+            { key: "pedidos", label: "Pedidos" },
+          ]}
+        />
+      </View>
+      {tab === "saldos" ? <Balances projectId={id} /> : tab === "movimentacoes" ? <Movements projectId={id} /> : <RequestsList projectId={id} />}
+    </View>
   );
 }
+
+function Balances({ projectId }: { projectId: Id<"projects"> }) {
+  const { results, status, loadMore } = usePaginatedQuery(api.inventory.listBalances, { projectId }, { initialNumItems: 50 });
+  if (status === "LoadingFirstPage") return <LoadingState message="Carregando estoque…" />;
+  return (
+    <FlatList
+      data={results}
+      keyExtractor={(b) => b._id}
+      contentContainerStyle={styles.list}
+      onEndReachedThreshold={0.4}
+      onEndReached={() => status === "CanLoadMore" && loadMore(50)}
+      renderItem={({ item }) => {
+        const state = REPLENISHMENT[item.replenishmentState as ReplenishmentState] ?? REPLENISHMENT.unconfigured;
+        return (
+          <Surface>
+            <View style={styles.row}>
+              <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                <Text style={[type.bodyStrong, { color: colors.text }]} numberOfLines={2}>
+                  {formatMaterialLabel(item.materialName, item.variantLabel)}
+                </Text>
+                {item.physicalAddress ? <Text style={[type.caption, { color: colors.textSecondary }]}>End. {item.physicalAddress}</Text> : null}
+              </View>
+              <View style={{ alignItems: "flex-end", gap: 4 }}>
+                <Text style={[type.heading, { color: item.quantity <= 0 ? colors.destructive : colors.text }]}>{formatQty(item.quantity, item.unit)}</Text>
+                {item.quantity <= 0 ? <Pill label="Zerado" tone="danger" /> : item.replenishmentState !== "unconfigured" ? <Pill label={state.label} tone={state.tone} /> : null}
+              </View>
+            </View>
+          </Surface>
+        );
+      }}
+      ListEmptyComponent={<EmptyState icon={<Warehouse size={28} color={colors.primary} />} title="Nenhum material na obra" description="Os envios do estoque central para esta obra aparecem aqui." />}
+      ListFooterComponent={status === "LoadingMore" ? <ActivityIndicator color={colors.primary} style={{ paddingVertical: space.lg }} /> : null}
+    />
+  );
+}
+
+function Movements({ projectId }: { projectId: Id<"projects"> }) {
+  const { results, status, loadMore } = usePaginatedQuery(api.inventory.listDocuments, { projectId }, { initialNumItems: 30 });
+  if (status === "LoadingFirstPage") return <LoadingState />;
+  return (
+    <FlatList
+      data={results}
+      keyExtractor={(d) => d._id}
+      contentContainerStyle={styles.list}
+      onEndReachedThreshold={0.4}
+      onEndReached={() => status === "CanLoadMore" && loadMore(30)}
+      renderItem={({ item }) => {
+        const st = DOCUMENT_STATUS[item.status] ?? { label: item.status, tone: "neutral" as const };
+        const inbound = item.type === "transfer";
+        const Icon = item.type === "reversal" ? Undo2 : inbound ? ArrowDownToLine : ArrowUpFromLine;
+        return (
+          <Surface style={{ gap: space.sm }}>
+            <View style={styles.row}>
+              <View style={[styles.icon, { backgroundColor: inbound ? colors.successSoft : colors.primarySoft }]}>
+                <Icon size={18} color={inbound ? colors.success : colors.primary} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={[type.bodyStrong, { color: colors.text }]}>{MOVEMENT_LABELS[item.type] ?? item.type}</Text>
+                <Text style={[type.caption, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {[item.createdByName, formatShortDateTime(item.postedAt ?? item.createdAt)].join(" · ")}
+                </Text>
+              </View>
+              <Pill label={st.label} tone={st.tone} />
+            </View>
+            <Text style={[type.bodySm, { color: colors.text }]} numberOfLines={3}>
+              {item.items.map((l) => `${formatQty(l.quantity, null)} × ${l.materialName}`).join("\n")}
+            </Text>
+          </Surface>
+        );
+      }}
+      ListEmptyComponent={<EmptyState icon={<History size={28} color={colors.primary} />} title="Nenhuma movimentação" description="Envios, consumos e devoluções desta obra aparecem aqui." />}
+      ListFooterComponent={status === "LoadingMore" ? <ActivityIndicator color={colors.primary} style={{ paddingVertical: space.lg }} /> : null}
+    />
+  );
+}
+
+const styles = StyleSheet.create({
+  top: { gap: space.md, paddingHorizontal: space.screen, paddingTop: space.lg },
+  list: { padding: space.screen, paddingBottom: 48, gap: space.sm },
+  row: { flexDirection: "row", alignItems: "center", gap: space.md },
+  icon: { width: 36, height: 36, borderRadius: radius.sm, alignItems: "center", justifyContent: "center" },
+});

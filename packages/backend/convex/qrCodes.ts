@@ -1,4 +1,5 @@
 import { internalMutation, internalQuery, query } from "./_generated/server";
+import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
 import { authedMutation, obrasMutation, obrasQuery } from "./lib/rbac";
 import { equipmentStatusValidator } from "./schema/engineering";
@@ -6,6 +7,7 @@ import {
   createQrBatch,
   listAvailableQrBatches,
   listQrBatchesWithoutProject,
+  listQrCodesByBatch,
   listRecentQrBatches,
   setQrBatchProject,
 } from "./model/engineering/qrBatches";
@@ -39,6 +41,7 @@ import {
   qrBatchWithoutProjectValidator,
   qrCodeLookupValidator,
   qrCodeValidator,
+  qrCodeWithEquipmentValidator,
   qrFullContextValidator,
   qrSearchResultValidator,
   registeredQrEquipmentValidator,
@@ -129,6 +132,18 @@ export const listBatches = obrasQuery({
   returns: v.array(qrBatchSummaryValidator),
   handler: async (ctx, args) => {
     return await listRecentQrBatches(ctx, args);
+  },
+});
+
+// Etiquetas de um lote (tela do lote no app: códigos e excluir as livres).
+export const listByBatch = obrasQuery({
+  args: {
+    batchId: v.string(),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(qrCodeWithEquipmentValidator),
+  handler: async (ctx, args) => {
+    return await listQrCodesByBatch(ctx, args);
   },
 });
 

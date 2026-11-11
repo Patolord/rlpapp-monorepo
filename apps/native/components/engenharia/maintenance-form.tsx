@@ -1,32 +1,19 @@
-import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
-import { useMutation } from "convex/react";
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
-import { CloudOff, Loader2, Plus, User } from "lucide-react-native";
+import { useMutation } from "convex/react";
+import * as Haptics from "expo-haptics";
+import { CloudOff, Plus, User } from "lucide-react-native";
+import { useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 
-import { Button, ButtonText } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { PhotoPicker } from "@/components/engenharia/photo-picker";
-import {
-  EQUIPMENT_STATUS_OPTIONS,
-  type EquipmentStatus,
-} from "@rlpapp/shared/engenharia/equipment";
-import {
-  MAINTENANCE_LOG_TYPE_OPTIONS,
-  type MaintenanceLogType,
-} from "@rlpapp/shared/engenharia/equipment";
-import {
-  addPendingRecord,
-  newPendingId,
-} from "@/lib/offline-queue";
+import { AppButton, Banner, ChoiceChips, ChoiceGroup, Field, Surface, useToast } from "@/components/ui";
+import { EQUIPMENT_STATUS_LABELS, EQUIPMENT_STATUS_TONE, type EquipmentStatus } from "@/lib/equipment-status";
+import { MAINTENANCE_LOG_TYPE_OPTIONS, type MaintenanceLogType } from "@rlpapp/shared/engenharia/equipment";
+import { addPendingRecord, newPendingId } from "@/lib/offline-queue";
+import { colors, space, type } from "@/lib/theme";
 import { uploadPhotos } from "@/lib/upload-photos";
 import { useOnline } from "@/lib/use-online";
-import { cn } from "@/lib/utils";
 
 export const OBSERVATION_TAGS = [
   "Posicionada",
@@ -39,13 +26,19 @@ export const OBSERVATION_TAGS = [
 ] as const;
 
 const TEST_OPTIONS = [
-  { key: "vacuum", label: "Vácuo conforme" },
-  { key: "pressure", label: "Pressão conforme" },
-  { key: "communication", label: "Comunicação conforme" },
-  { key: "gas", label: "Carga de gás conforme" },
+  { value: "vacuum", label: "Vácuo conforme" },
+  { value: "pressure", label: "Pressão conforme" },
+  { value: "communication", label: "Comunicação conforme" },
+  { value: "gas", label: "Carga de gás conforme" },
 ] as const;
 
-type TestKey = (typeof TEST_OPTIONS)[number]["key"];
+type TestKey = (typeof TEST_OPTIONS)[number]["value"];
+
+const STATUS_OPTIONS = (Object.keys(EQUIPMENT_STATUS_LABELS) as EquipmentStatus[]).map((value) => ({
+  value,
+  label: EQUIPMENT_STATUS_LABELS[value],
+  tone: EQUIPMENT_STATUS_TONE[value],
+}));
 
 interface MaintenanceFormProps {
   equipmentId?: Id<"equipment">;
@@ -54,47 +47,49 @@ interface MaintenanceFormProps {
   onQueued?: () => void;
 }
 
-export function MaintenanceForm({
-  equipmentId,
-  qrToken,
-  technicianName,
-  onQueued,
-}: MaintenanceFormProps) {
+/** Registrar instalação ou manutenção (ficha C7). Sem sinal, vai para a fila. */
+export function MaintenanceForm({ equipmentId, qrToken, technicianName, onQueued }: MaintenanceFormProps) {
   const createLog = useMutation(api.maintenanceLogs.create);
   const generateUploadUrl = useMutation(api.maintenanceLogs.generateUploadUrl);
   const online = useOnline();
+  const toast = useToast();
 
   const [open, setOpen] = useState(false);
-  const [type, setType] = useState<MaintenanceLogType | null>(null);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [logType, setLogType] = useState<MaintenanceLogType | null>(null);
+  const [tags, setTags] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<EquipmentStatus | null>(null);
-  const [tests, setTests] = useState<Record<TestKey, boolean>>({
-    vacuum: false,
-    pressure: false,
-    communication: false,
-    gas: false,
-  });
+  const [tests, setTests] = useState<TestKey[]>([]);
   const [photos, setPhotos] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [tried, setTried] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = photos.length > 0 && type !== null && status !== null;
+  const missing = {
+    photos: photos.length === 0 ? "Tire ou escolha pelo menos uma foto" : undefined,
+    type: logType === null ? "Escolha o tipo de registro" : undefined,
+    status: status === null ? "Escolha a situação do equipamento" : undefined,
+  };
+  const valid = !missing.photos && !missing.type && !missing.status;
 
-  function toggleTag(tag: string) {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
+  function testsRecord(): Record<TestKey, boolean> {
+    return {
+      vacuum: tests.includes("vacuum"),
+      pressure: tests.includes("pressure"),
+      communication: tests.includes("communication"),
+      gas: tests.includes("gas"),
+    };
   }
 
-  function resetForm() {
-    setType(null);
-    setSelectedTags([]);
+  function reset() {
+    setLogType(null);
+    setTags([]);
     setNotes("");
     setStatus(null);
-    setTests({ vacuum: false, pressure: false, communication: false, gas: false });
+    setTests([]);
     setPhotos([]);
     setError(null);
+    setTried(false);
   }
 
   async function queueOffline() {
@@ -102,21 +97,23 @@ export function MaintenanceForm({
       id: newPendingId(),
       kind: "log",
       qrToken,
-      logType: type!,
+      logType: logType!,
       status: status!,
-      tags: selectedTags,
+      tags,
       notes: notes.trim() || undefined,
-      tests,
+      tests: testsRecord(),
       photos,
       createdAt: Date.now(),
     });
-    resetForm();
+    reset();
     setOpen(false);
+    toast.offline();
     onQueued?.();
   }
 
-  async function handleSubmit() {
-    if (!canSubmit) return;
+  async function submit() {
+    setTried(true);
+    if (!valid) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -124,25 +121,26 @@ export function MaintenanceForm({
         await queueOffline();
         return;
       }
-
       const photoIds = await uploadPhotos(generateUploadUrl, photos);
       await createLog({
         equipmentId,
-        type: type!,
+        type: logType!,
         notes: notes.trim() || undefined,
-        tags: selectedTags.length > 0 ? selectedTags : undefined,
+        tags: tags.length > 0 ? tags : undefined,
         status: status!,
-        tests,
+        tests: testsRecord(),
         photoIds,
       });
-      resetForm();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+      reset();
       setOpen(false);
+      toast.success("Registro enviado");
     } catch (err) {
       console.error("Failed to create maintenance log:", err);
       if (!online) {
         await queueOffline();
       } else {
-        setError("Não foi possível salvar. Tente novamente.");
+        setError(err instanceof Error && err.message ? err.message : "Não deu para salvar. Tente de novo.");
       }
     } finally {
       setSubmitting(false);
@@ -151,177 +149,114 @@ export function MaintenanceForm({
 
   if (!open) {
     return (
-      <Button className="h-14 w-full" size="lg" onPress={() => setOpen(true)}>
-        <Plus size={20} color="#fafafa" />
-        <ButtonText className="ml-2 text-base">
-          Registrar Instalação ou Manutenção
-        </ButtonText>
-      </Button>
+      <AppButton
+        label="Registrar instalação ou manutenção"
+        block
+        icon={<Plus size={20} color={colors.onPrimary} />}
+        onPress={() => setOpen(true)}
+      />
     );
   }
 
+  const title = logType === "installation" ? "Nova instalação" : logType === "maintenance" ? "Nova manutenção" : "Novo registro";
+
   return (
-    <Card className="border border-primary/20">
-      <CardHeader>
-        <View className="flex-row items-center justify-between">
-          <CardTitle>
-            {type === "installation"
-              ? "Nova Instalação"
-              : type === "maintenance"
-                ? "Nova Manutenção"
-                : "Novo Registro"}
-          </CardTitle>
-          {!online && (
-            <View className="flex-row items-center gap-1.5">
-              <CloudOff size={16} color="#d97706" />
-              <Text className="text-sm text-amber-600">Sem internet</Text>
-            </View>
-          )}
-        </View>
-      </CardHeader>
-      <CardContent className="gap-5">
-        {technicianName && (
-          <View className="flex-row items-center gap-2 rounded-md border border-border/50 bg-muted/40 px-4 py-3">
-            <User size={16} color="#737373" />
-            <Text className="text-base text-foreground">
-              Responsável:{" "}
-              <Text className="font-semibold">{technicianName}</Text>
-            </Text>
+    <Surface style={styles.card}>
+      <View style={styles.head}>
+        <Text style={[type.heading, { color: colors.text, flex: 1 }]}>{title}</Text>
+        {!online ? (
+          <View style={styles.offline}>
+            <CloudOff size={16} color={colors.warning} />
+            <Text style={[type.label, { color: colors.warning }]}>Sem internet</Text>
           </View>
-        )}
+        ) : null}
+      </View>
 
-        <View className="gap-2">
-          <Label className="text-base">Fotos *</Label>
-          <Text className="text-sm text-muted-foreground">
-            Pelo menos uma foto é obrigatória.
+      {technicianName ? (
+        <View style={styles.responsible}>
+          <User size={16} color={colors.icon} />
+          <Text style={[type.bodySm, { color: colors.textSecondary }]}>
+            Responsável: <Text style={{ color: colors.text, fontWeight: "600" }}>{technicianName}</Text>
           </Text>
-          <PhotoPicker uris={photos} onUrisChange={setPhotos} />
         </View>
+      ) : null}
 
-        <View className="gap-2">
-          <Label className="text-base">Tipo de Registro *</Label>
-          <Select
-            value={type ?? ""}
-            onValueChange={(v) => setType(v as MaintenanceLogType)}
-            options={MAINTENANCE_LOG_TYPE_OPTIONS}
-            placeholder="Selecione o tipo"
-            className="h-14"
-          />
-        </View>
+      <View style={styles.block}>
+        <Text style={styles.label}>Fotos</Text>
+        <PhotoPicker uris={photos} onUrisChange={setPhotos} />
+        {tried && missing.photos ? <Text style={styles.error}>{missing.photos}</Text> : null}
+      </View>
 
-        <View className="gap-2">
-          <Label className="text-base">Situação do equipamento *</Label>
-          <Select
-            value={status ?? ""}
-            onValueChange={(v) => {
-              const next = v as EquipmentStatus;
-              setStatus(next);
-              if (next === "operational") setSelectedTags([]);
-            }}
-            options={EQUIPMENT_STATUS_OPTIONS}
-            placeholder="Selecione a situação"
-            className="h-14"
-          />
-        </View>
+      <ChoiceGroup
+        label="Tipo de registro"
+        value={logType}
+        options={MAINTENANCE_LOG_TYPE_OPTIONS}
+        onChange={setLogType}
+        error={tried ? missing.type : undefined}
+      />
 
-        {status !== null && status !== "operational" && (
-          <View className="gap-2">
-            <Label className="text-base">Situação</Label>
-            <View className="flex-row flex-wrap gap-2">
-              {OBSERVATION_TAGS.map((tag) => {
-                const selected = selectedTags.includes(tag);
-                return (
-                  <Pressable
-                    key={tag}
-                    onPress={() => toggleTag(tag)}
-                    className={cn(
-                      "rounded-full border px-4 py-2.5",
-                      selected
-                        ? "border-primary bg-primary"
-                        : "border-input bg-card"
-                    )}
-                  >
-                    <Text
-                      className={cn(
-                        "text-base",
-                        selected
-                          ? "text-primary-foreground"
-                          : "text-foreground"
-                      )}
-                    >
-                      {tag}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        )}
+      <ChoiceGroup
+        label="Situação do equipamento"
+        value={status}
+        options={STATUS_OPTIONS}
+        onChange={(next) => {
+          setStatus(next);
+          if (next === "operational") setTags([]);
+        }}
+        error={tried ? missing.status : undefined}
+      />
 
-        <View className="gap-3">
-          <Label className="text-base">Testes Realizados</Label>
-          <View className="gap-2.5">
-            {TEST_OPTIONS.map(({ key, label }) => (
-              <Pressable
-                key={key}
-                onPress={() =>
-                  setTests((prev) => ({ ...prev, [key]: !prev[key] }))
-                }
-                className="flex-row items-center gap-3"
-              >
-                <Checkbox
-                  checked={tests[key]}
-                  onCheckedChange={(v) =>
-                    setTests((prev) => ({ ...prev, [key]: v }))
-                  }
-                />
-                <Text className="text-base text-foreground">{label}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
+      {status !== null && status !== "operational" ? (
+        <ChoiceChips
+          label="O que está acontecendo"
+          values={tags}
+          options={OBSERVATION_TAGS.map((tag) => ({ value: tag, label: tag }))}
+          onChange={setTags}
+        />
+      ) : null}
 
-        <View className="gap-2">
-          <Label className="text-base">Observações adicionais</Label>
-          <Textarea
-            placeholder="Ex: detalhe do serviço realizado (opcional)"
-            value={notes}
-            onChangeText={setNotes}
-          />
-        </View>
+      <ChoiceChips label="Testes realizados" values={tests} options={[...TEST_OPTIONS]} onChange={setTests} />
 
-        {error && <Text className="text-sm text-destructive">{error}</Text>}
+      <Field
+        label="Observações (opcional)"
+        placeholder="Detalhe do serviço realizado"
+        value={notes}
+        onChangeText={setNotes}
+        multiline
+      />
 
-        <View className="flex-row gap-2">
-          <Button
-            variant="outline"
-            className="h-14 flex-1"
-            disabled={submitting}
-            onPress={() => {
-              resetForm();
-              setOpen(false);
-            }}
-          >
-            <ButtonText variant="outline" className="text-base">
-              Cancelar
-            </ButtonText>
-          </Button>
-          <Button
-            className="h-14 flex-1"
-            disabled={submitting || !canSubmit}
-            onPress={handleSubmit}
-          >
-            {submitting && <Loader2 size={16} color="#fafafa" />}
-            <ButtonText className="text-base">
-              {submitting
-                ? " Salvando..."
-                : online
-                  ? "Salvar"
-                  : "Salvar no aparelho"}
-            </ButtonText>
-          </Button>
-        </View>
-      </CardContent>
-    </Card>
+      {error ? <Banner tone="danger" title={error} actionLabel="Tentar de novo" onAction={() => void submit()} /> : null}
+
+      <View style={styles.actions}>
+        <AppButton
+          label="Cancelar"
+          variant="secondary"
+          disabled={submitting}
+          onPress={() => {
+            reset();
+            setOpen(false);
+          }}
+          style={{ flex: 1 }}
+        />
+        <AppButton
+          label={online ? "Enviar" : "Salvar no aparelho"}
+          loading={submitting}
+          loadingLabel="Enviando…"
+          onPress={() => void submit()}
+          style={{ flex: 1 }}
+        />
+      </View>
+    </Surface>
   );
 }
+
+const styles = StyleSheet.create({
+  card: { gap: space.xl, borderColor: colors.primary },
+  head: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  offline: { flexDirection: "row", alignItems: "center", gap: 6 },
+  responsible: { flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: -space.sm },
+  block: { gap: 6 },
+  label: { ...type.label, color: colors.text },
+  error: { ...type.bodySm, color: colors.destructive },
+  actions: { flexDirection: "row", gap: space.sm },
+});

@@ -1,3 +1,4 @@
+import { engineeringDeciders, notify } from "../notifications/notify";
 import type { PaginationOptions } from "convex/server";
 import { paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
@@ -190,7 +191,7 @@ export async function createMaintenanceLog(
     status: input.status,
   });
 
-  return await ctx.db.insert("maintenanceLogs", {
+  const logId = await ctx.db.insert("maintenanceLogs", {
     equipmentId: input.equipmentId,
     type: input.type,
     technicianName,
@@ -202,4 +203,67 @@ export async function createMaintenanceLog(
     photoIds: input.photoIds,
     createdAt: Date.now(),
   });
+
+  // N9 (erro, com push) e N9b (atenção, só no sino) para quem decide pela
+  // engenharia na obra. Equipamento sem obra não gera aviso.
+  if (input.status === "error" || input.status === "warning") {
+    const equipment = await ctx.db.get("equipment", input.equipmentId);
+    const info = equipment ? await equipmentNotificationContext(ctx, equipment) : null;
+    const project = info?.projectId ? await ctx.db.get("projects", info.projectId) : null;
+    if (info && project) {
+      const isError = input.status === "error";
+      const params: Record<string, string> = {
+        projectId: project._id,
+        equipmentId: input.equipmentId,
+      };
+      if (info.token) params.token = info.token;
+      await notify(
+        ctx,
+        await engineeringDeciders(ctx, project),
+        {
+          kind: isError ? "N9" : "N9b",
+          category: "equipamentos",
+          title: `${isError ? "Equipamento com erro" : "Equipamento em atenção"} · ${project.name}`,
+          body: isError ? `${info.label}. Registrado por ${technicianName}.` : `${info.label}.`,
+          target: "equipamento",
+          params,
+          projectId: project._id,
+          push: isError,
+        },
+        { actorId: user._id }
+      );
+    }
+  }
+
+  return logId;
+}
+
+/**
+ * Obra e rótulo do equipamento para o aviso N9: a obra vem do item planejado
+ * que ele ocupa, senão da etiqueta (QR), senão do campo legado.
+ */
+async function equipmentNotificationContext(
+  ctx: QueryCtx,
+  equipment: Doc<"equipment">
+): Promise<{ projectId: Id<"projects"> | undefined; label: string; token: string | undefined }> {
+  let planned = equipment.projectEquipmentId
+    ? await ctx.db.get("projectEquipment", equipment.projectEquipmentId)
+    : null;
+  if (!planned) {
+    planned = await ctx.db
+      .query("projectEquipment")
+      .withIndex("by_linkedEquipment", (q) => q.eq("linkedEquipmentId", equipment._id))
+      .first();
+  }
+  const qr = await ctx.db
+    .query("qrCodes")
+    .withIndex("by_equipment", (q) => q.eq("equipmentId", equipment._id))
+    .first();
+  const projectId = planned?.projectId ?? qr?.projectId ?? equipment.projectId;
+  let label = equipment.description?.trim() || "Equipamento";
+  if (planned) {
+    const kind = planned.kind === "condensadora" ? "Condensadora" : "Evaporadora";
+    label = [`${kind} ${planned.capacidade}`.trim(), planned.ambiente].filter(Boolean).join(", ");
+  }
+  return { projectId, label, token: qr?.token };
 }

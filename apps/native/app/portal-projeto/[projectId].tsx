@@ -1,225 +1,142 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
+import { formatDate } from "@rlpapp/shared";
+import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
-import { useLocalSearchParams, useNavigation } from "expo-router";
-import { Building2, ChevronDown, ChevronUp, MapPin } from "lucide-react-native";
-import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Stack, useLocalSearchParams } from "expo-router";
+import { Building2, ChevronRight, Layers } from "lucide-react-native";
+import { useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { Badge, EmptyState, LoadingState } from "@rlpapp/ui/native";
-import { Card } from "@/components/ui/card";
+import { Chips, EmptyState, LoadingState, MetricStrip, Pill, SectionTitle, Sheet, Surface } from "@/components/ui";
+import { CLIENT_STATUS, PROJECT_STATUS_CLIENT, clientStatusOf } from "@/lib/client-status";
+import { useNativeHeaderOptions } from "@/lib/native-header";
+import { colors, radius, space, type } from "@/lib/theme";
 
-const statusConfig: Record<string, { label: string; variant: "info" | "success" | "warning" | "neutral" }> = {
-  planning: { label: "Planejamento", variant: "neutral" },
-  in_progress: { label: "Em andamento", variant: "info" },
-  completed: { label: "Concluída", variant: "success" },
-  paused: { label: "Pausada", variant: "warning" },
-};
+type Hierarchy = NonNullable<FunctionReturnType<typeof api.portal.getProjectHierarchy>>;
+type Floor = Hierarchy["towers"][number]["floors"][number];
 
+/** Obra do cliente (fichas L2, L3 e L4): números, torres, andares e ambientes. */
 export default function PortalProjectScreen() {
+  const header = useNativeHeaderOptions();
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
-  const navigation = useNavigation();
+  const id = projectId as Id<"projects">;
   const [now] = useState(() => Date.now());
+  const summary = useQuery(api.portal.getProjectSummary, { projectId: id, now });
+  const hierarchy = useQuery(api.portal.getProjectHierarchy, { projectId: id });
+  const [towerId, setTowerId] = useState<string | null>(null);
+  const [floor, setFloor] = useState<Floor | null>(null);
 
-  const summary = useQuery(
-    api.portal.getProjectSummary,
-    projectId ? { projectId: projectId as Id<"projects">, now } : "skip"
-  );
+  const towers = useMemo(() => (hierarchy && "towers" in hierarchy ? hierarchy.towers : []), [hierarchy]);
+  const tower = towers.find((t) => t._id === towerId) ?? towers[0] ?? null;
+  const floors = useMemo(() => [...(tower?.floors ?? [])].sort((a, b) => b.number - a.number), [tower]);
 
-  const hierarchy = useQuery(
-    api.portal.getProjectHierarchy,
-    projectId ? { projectId: projectId as Id<"projects"> } : "skip"
-  );
+  if (summary === undefined) return <LoadingState />;
+  const st = summary.status ? PROJECT_STATUS_CLIENT[summary.status] : null;
 
-  useEffect(() => {
-    if (summary?.name) {
-      const prefix = summary.legacyNumber ? `${summary.legacyNumber} – ` : "";
-      navigation.setOptions({ title: `${prefix}${summary.name}` });
-    }
-  }, [summary, navigation]);
-
-  if (summary === undefined || hierarchy === undefined) {
-    return <LoadingState label="Carregando obra…" />;
-  }
-
-  if (summary === null) {
-    return (
-      <View className="flex-1 justify-center px-5">
-        <EmptyState
-          icon={<Building2 size={28} color="#6366f1" />}
-          title="Obra não encontrada"
-          description="A obra solicitada não existe ou você não tem acesso."
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <Stack.Screen options={{ ...header, title: summary.name }} />
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.badges}>
+          {st ? <Pill label={st.label} tone={st.tone} /> : null}
+          {summary.endDate ? <Pill label={`Entrega prevista ${formatDate(summary.endDate)}`} dot={false} /> : null}
+        </View>
+        {summary.address ? <Text style={[type.bodySm, { color: colors.textSecondaryOnBg }]}>{summary.address}</Text> : null}
+        <MetricStrip
+          items={[
+            { label: "Instalados", value: summary.installed, hint: `de ${summary.total}` },
+            { label: "Andamento", value: `${summary.pct}%` },
+            { label: "Em atraso", value: summary.overdue },
+          ]}
         />
-      </View>
-    );
-  }
-
-  const cfg = statusConfig[summary.status ?? ""] ?? statusConfig.planning;
-
-  return (
-    <ScrollView
-      contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 16 }}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Summary */}
-      <Card className="gap-3 p-5">
-        <View className="flex-row items-start justify-between">
-          <View className="min-w-0 flex-1 gap-1">
-            <Text className="text-lg font-bold text-foreground">
-              {summary.legacyNumber ? `${summary.legacyNumber} – ` : ""}
-              {summary.name}
-            </Text>
-            {summary.client ? (
-              <Text className="text-sm text-muted-foreground">{summary.client}</Text>
-            ) : null}
-            {summary.address ? (
-              <View className="mt-0.5 flex-row items-center gap-1">
-                <MapPin size={12} color="#9ca3af" />
-                <Text className="text-xs text-muted-foreground" numberOfLines={1}>
-                  {summary.address}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-          <Badge variant={cfg.variant}>{cfg.label}</Badge>
+        <View style={styles.track}>
+          <View style={[styles.bar, { width: `${Math.min(100, summary.pct)}%` }]} />
         </View>
 
-        <View className="gap-1.5">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-xs text-muted-foreground">
-              {summary.installed}/{summary.total} instalados
-            </Text>
-            <Text className="text-sm font-bold text-foreground">{summary.pct}%</Text>
-          </View>
-          <View className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-            <View
-              className="h-full rounded-full bg-primary"
-              style={{ width: `${summary.pct}%` }}
-            />
-          </View>
-        </View>
-
-        {summary.overdue > 0 ? (
-          <View className="mt-1 flex-row items-center gap-2">
-            <Badge variant="danger">{`${summary.overdue} em atraso`}</Badge>
-          </View>
-        ) : null}
-
-        {(summary.startDate || summary.endDate) ? (
-          <View className="mt-1 flex-row gap-4">
-            {summary.startDate ? (
-              <View>
-                <Text className="text-xs text-muted-foreground">Início</Text>
-                <Text className="text-sm font-medium text-foreground">
-                  {new Date(summary.startDate).toLocaleDateString("pt-BR")}
-                </Text>
-              </View>
-            ) : null}
-            {summary.endDate ? (
-              <View>
-                <Text className="text-xs text-muted-foreground">Previsão</Text>
-                <Text className="text-sm font-medium text-foreground">
-                  {new Date(summary.endDate).toLocaleDateString("pt-BR")}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-      </Card>
-
-      {/* Hierarchy */}
-      <View className="gap-3">
-        <Text className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Estrutura da Obra
-        </Text>
-
-        {hierarchy && "towers" in hierarchy && hierarchy.towers.length > 0 ? (
-          <View className="gap-2">
-            {hierarchy.towers.map((tower: HierarchyTower) => (
-              <TowerSection key={tower._id} tower={tower} />
-            ))}
-          </View>
+        {hierarchy === undefined ? (
+          <LoadingState />
+        ) : towers.length === 0 ? (
+          <EmptyState icon={<Building2 size={28} color={colors.primary} />} title="Estrutura ainda não cadastrada" description="Quando a engenharia montar as torres e os andares, o andamento por andar aparece aqui." />
         ) : (
-          <EmptyState
-            variant="plain"
-            title="Sem edificações"
-            description="Nenhuma edificação cadastrada para esta obra."
-          />
+          <>
+            <SectionTitle title="Torres" />
+            {towers.length > 1 ? (
+              <Chips active={tower?._id ?? ""} onChange={setTowerId} style={{ paddingHorizontal: 0 }} items={towers.map((t) => ({ key: t._id, label: t.name }))} />
+            ) : null}
+            <Surface padded={false}>
+              {floors.map((f, index) => {
+                const overdue = f.environments.flatMap((e) => e.equipment).filter((e) => e.deadline !== null && e.deadline < now && e.status !== "operational").length;
+                const pct = f.totalItems > 0 ? Math.round((f.installedItems / f.totalItems) * 100) : 0;
+                return (
+                  <Pressable key={f._id} onPress={() => setFloor(f)} accessibilityRole="button" style={({ pressed }) => [styles.floor, index > 0 && styles.border, pressed && { backgroundColor: colors.surfacePressed }]}>
+                    <View style={styles.floorTile}>
+                      <Text style={[type.bodyStrong, { color: colors.primary }]}>{f.label}</Text>
+                    </View>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text style={[type.bodySm, { color: colors.text }]}>
+                        {f.installedItems} de {f.totalItems} instalados
+                      </Text>
+                      <View style={styles.trackSm}>
+                        <View style={[styles.bar, { width: `${pct}%` }]} />
+                      </View>
+                    </View>
+                    {overdue > 0 ? <Pill label={`${overdue} em atraso`} tone="warning" /> : null}
+                    <ChevronRight size={18} color={colors.icon} />
+                  </Pressable>
+                );
+              })}
+            </Surface>
+          </>
         )}
-      </View>
-    </ScrollView>
+      </ScrollView>
+
+      <Sheet open={floor !== null} onClose={() => setFloor(null)} title={floor ? `${tower?.name ?? ""} · ${floor.label}` : ""} subtitle={floor ? `${floor.installedItems} de ${floor.totalItems} instalados` : undefined}>
+        {floor ? (
+          floor.environments.length === 0 ? (
+            <Text style={[type.bodySm, { color: colors.textSecondary }]}>Nenhum ambiente neste andar.</Text>
+          ) : (
+            <View style={{ gap: space.md }}>
+              {floor.environments.map((env) => (
+                <Surface key={env._id} style={{ gap: space.sm }}>
+                  <View style={styles.envHead}>
+                    <Layers size={16} color={colors.icon} />
+                    <Text style={[type.bodyStrong, { color: colors.text, flex: 1 }]}>{env.name}</Text>
+                  </View>
+                  {env.equipment.length === 0 ? (
+                    <Text style={[type.caption, { color: colors.textSecondary }]}>Sem equipamentos planejados.</Text>
+                  ) : (
+                    env.equipment.map((e) => {
+                      const cs = CLIENT_STATUS[clientStatusOf(e)];
+                      return (
+                        <View key={e._id} style={styles.equip}>
+                          <Text style={[type.bodySm, { color: colors.text, flex: 1 }]} numberOfLines={1}>
+                            {[e.kind === "condensadora" ? "Condensadora" : "Evaporadora", e.capacidade].filter(Boolean).join(" ")}
+                          </Text>
+                          <Pill label={cs.label} tone={cs.tone} />
+                        </View>
+                      );
+                    })
+                  )}
+                </Surface>
+              ))}
+            </View>
+          )
+        ) : null}
+      </Sheet>
+    </View>
   );
 }
 
-interface HierarchyFloor {
-  _id: string;
-  label: string;
-  number: number;
-  totalItems: number;
-  installedItems: number;
-  environments: { _id: string; name: string }[];
-}
-
-interface HierarchyTower {
-  _id: string;
-  name: string;
-  order: number;
-  floors: HierarchyFloor[];
-}
-
-function TowerSection({ tower }: { tower: HierarchyTower }) {
-  const [expanded, setExpanded] = useState(true);
-  const totalItems = tower.floors.reduce((sum, f) => sum + f.totalItems, 0);
-  const installedItems = tower.floors.reduce((sum, f) => sum + f.installedItems, 0);
-  const pct = totalItems === 0 ? 0 : Math.round((installedItems / totalItems) * 100);
-  const sortedFloors = tower.floors.slice().sort((a, b) => b.number - a.number);
-
-  return (
-    <Card className="p-4">
-      <Pressable
-        onPress={() => setExpanded((v) => !v)}
-        className="flex-row items-center justify-between"
-      >
-        <View className="min-w-0 flex-1 gap-0.5">
-          <Text className="font-semibold text-foreground">{tower.name}</Text>
-          <Text className="text-xs text-muted-foreground">
-            {installedItems}/{totalItems} itens · {pct}%
-          </Text>
-        </View>
-        {expanded ? (
-          <ChevronUp size={18} color="#9ca3af" />
-        ) : (
-          <ChevronDown size={18} color="#9ca3af" />
-        )}
-      </Pressable>
-
-      {expanded ? (
-        <View className="mt-3 gap-2">
-          {sortedFloors.map((floor) => {
-            const floorPct =
-              floor.totalItems === 0
-                ? 0
-                : Math.round((floor.installedItems / floor.totalItems) * 100);
-
-            return (
-              <View key={floor._id} className="gap-1">
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-sm text-foreground">{floor.label}</Text>
-                  <Text className="text-xs text-muted-foreground">
-                    {floor.installedItems}/{floor.totalItems} ({floorPct}%)
-                  </Text>
-                </View>
-                <View className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                  <View
-                    className="h-full rounded-full bg-primary"
-                    style={{ width: `${floorPct}%` }}
-                  />
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      ) : null}
-    </Card>
-  );
-}
+const styles = StyleSheet.create({
+  content: { padding: space.screen, paddingBottom: 48, gap: space.md },
+  badges: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
+  track: { height: 8, borderRadius: radius.pill, backgroundColor: colors.track, overflow: "hidden" },
+  trackSm: { height: 6, borderRadius: radius.pill, backgroundColor: colors.track, overflow: "hidden" },
+  bar: { height: "100%", borderRadius: radius.pill, backgroundColor: colors.primary },
+  floor: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md, minHeight: 60 },
+  border: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
+  floorTile: { minWidth: 48, height: 36, borderRadius: radius.sm, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center", paddingHorizontal: space.sm },
+  envHead: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  equip: { flexDirection: "row", alignItems: "center", gap: space.sm },
+});

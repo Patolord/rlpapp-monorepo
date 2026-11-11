@@ -11,7 +11,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import { colors, control, radius, space, type } from "@/lib/theme";
+import { colors, control, radius, shadow, space, type } from "@/lib/theme";
 
 // ---------------------------------------------------------------------------
 // Field: text input with the label floating on the border, a leading icon and
@@ -27,7 +27,7 @@ export type FieldProps = TextInputProps & {
   /** Helper text under the field when there is no error. */
   helper?: string;
   containerStyle?: StyleProp<ViewStyle>;
-  /** Tall (58) is the login size; "md" (52) suits dense forms. */
+  /** Os dois têm 48 no design system; mantido por compatibilidade. */
   size?: "lg" | "md";
 };
 
@@ -47,30 +47,32 @@ export function Field({
   ...props
 }: FieldProps) {
   const [focused, setFocused] = React.useState(false);
-  const borderColor = error ? colors.danger : focused ? colors.focus : colors.border;
-  const labelColor = error ? colors.danger : focused ? colors.focus : colors.label;
+  const borderColor = error ? colors.destructive : focused ? colors.focus : colors.controlBorder;
   const height = size === "lg" ? control.heightLg : control.height;
 
   return (
-    <View style={containerStyle}>
+    <View style={[styles.wrap, containerStyle]}>
+      <Text style={styles.label}>{label}</Text>
       <View
         style={[
           styles.field,
-          multiline ? { minHeight: height * 1.8, alignItems: "flex-start", paddingVertical: 14 } : { height },
-          { backgroundColor: editable ? colors.surface : colors.surfaceMuted, borderColor },
+          multiline ? { minHeight: height * 2, alignItems: "flex-start", paddingVertical: 12 } : { height },
+          {
+            backgroundColor: editable ? colors.surface : colors.controlDisabled,
+            borderColor,
+            borderWidth: focused || error ? 1.5 : 1,
+          },
         ]}
       >
-        <View style={[styles.labelWrap, { backgroundColor: editable ? colors.surface : colors.surfaceMuted }]}>
-          <Text style={[styles.label, { color: labelColor }]}>{label}</Text>
-        </View>
         {icon ? <View style={[styles.icon, multiline && { paddingTop: 2 }]}>{icon}</View> : null}
         <TextInput
           {...props}
+          accessibilityLabel={props.accessibilityLabel ?? label}
           editable={editable}
           multiline={multiline}
           style={[
             styles.input,
-            { color: colors.text, fontSize: size === "lg" ? 18 : 16 },
+            { color: editable ? colors.text : colors.controlDisabledText },
             multiline && { height: undefined, textAlignVertical: "top" },
             style,
           ]}
@@ -87,17 +89,12 @@ export function Field({
         {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
       </View>
       {error || helper ? (
-        <Text style={[type.caption, styles.helper, { color: error ? colors.danger : colors.textSecondary }]}>
-          {error ?? helper}
-        </Text>
+        <Text style={[type.bodySm, { color: error ? colors.destructive : colors.textSecondary }]}>{error ?? helper}</Text>
       ) : null}
     </View>
   );
 }
 
-// ---------------------------------------------------------------------------
-// SearchField: pill-shaped search input used at the top of lists.
-// ---------------------------------------------------------------------------
 export function SearchField({
   value,
   onChangeText,
@@ -110,11 +107,11 @@ export function SearchField({
     <View
       style={[
         styles.search,
-        { borderColor: focused ? colors.focus : colors.border },
+        { borderColor: focused ? colors.focus : colors.controlBorder },
         containerStyle,
       ]}
     >
-      <Search size={20} color={colors.icon} strokeWidth={1.8} />
+      <Search size={18} color={colors.icon} strokeWidth={2} />
       <TextInput
         {...props}
         value={value}
@@ -145,50 +142,46 @@ export function SearchField({
 }
 
 const styles = StyleSheet.create({
-  field: {
-    borderRadius: radius.md,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingLeft: space.lg,
-    paddingRight: space.lg,
-  },
-  labelWrap: {
-    position: "absolute",
-    top: -10,
-    left: 14,
-    paddingHorizontal: 4,
+  wrap: {
+    gap: 6,
   },
   label: {
     fontSize: 14,
-    lineHeight: 18,
+    lineHeight: 20,
+    fontWeight: "500",
+    color: colors.text,
+  },
+  field: {
+    borderRadius: radius.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    ...shadow.xs,
   },
   icon: {
-    width: 32,
+    width: 28,
     alignItems: "flex-start",
     justifyContent: "center",
   },
   input: {
     flex: 1,
     height: "100%",
+    fontSize: 16,
     paddingVertical: 0,
   },
   trailing: {
     marginLeft: space.sm,
   },
-  helper: {
-    marginTop: 6,
-    marginLeft: space.lg,
-  },
   search: {
     height: 48,
-    borderRadius: radius.pill,
+    borderRadius: radius.sm,
     borderWidth: 1,
     backgroundColor: colors.surface,
     flexDirection: "row",
     alignItems: "center",
-    gap: space.sm,
-    paddingHorizontal: space.lg,
+    gap: 10,
+    paddingHorizontal: 14,
+    ...shadow.xs,
   },
   searchInput: {
     flex: 1,

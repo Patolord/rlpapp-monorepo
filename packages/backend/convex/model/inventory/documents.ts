@@ -2,6 +2,7 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
 import { hasPermission, hasRole } from "../../lib/rbac";
+import { notify, plural } from "../notifications/notify";
 import { evaluateCompatibility } from "./compatibility";
 import {
   getOrCreateCentralLocation,
@@ -260,6 +261,28 @@ export async function createInventoryDocument(
     details: `Movimentação ${input.type} criada com ${input.lines.length} item(ns)`,
   });
 
+  // N5: exceção de compatibilidade espera o engenheiro responsável da obra
+  // (só ele decide, `reviewInventoryDocument`).
+  if (status === "pending_approval" && projectId) {
+    const project = await ctx.db.get("projects", projectId);
+    if (project?.responsibleId) {
+      await notify(
+        ctx,
+        [project.responsibleId],
+        {
+          kind: "N5",
+          category: "aprovacoes",
+          title: `Aprovação de estoque · ${project.name}`,
+          body: `Envio de ${plural(input.lines.length, "item", "itens")} quebra ${issues.length === 1 ? "uma regra" : `${issues.length} regras`} de compatibilidade. Decida para liberar.`,
+          target: "aprovacao",
+          params: { documentId, projectId },
+          projectId,
+        },
+        { actorId: user._id }
+      );
+    }
+  }
+
   return { documentId, status, issueCount: issues.length };
 }
 
@@ -314,4 +337,20 @@ export async function reviewInventoryDocument(
     recordId: input.documentId,
     details: reason,
   });
+
+  // N6: quem montou o envio fica sabendo da decisão.
+  await notify(
+    ctx,
+    [document.createdByUserId],
+    {
+      kind: "N6",
+      category: "aprovacoes",
+      title: `${input.decision === "approve" ? "Envio aprovado" : "Envio recusado"} · ${project.name}`,
+      body: `${user.name}: "${reason}"`,
+      target: "movimentacao",
+      params: { documentId: input.documentId, projectId: project._id },
+      projectId: project._id,
+    },
+    { actorId: user._id }
+  );
 }

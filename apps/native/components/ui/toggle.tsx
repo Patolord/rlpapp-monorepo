@@ -30,7 +30,7 @@ export function Toggle({
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={[type.body, { color: colors.text }]}>{label}</Text>
-        {description ? <Text style={[type.caption, { color: colors.textMuted }]}>{description}</Text> : null}
+        {description ? <Text style={[type.bodySm, { color: colors.textSecondary }]}>{description}</Text> : null}
       </View>
     </Pressable>
   );
@@ -38,6 +38,6 @@ export function Toggle({
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: 4 },
-  track: { width: 48, height: 28, borderRadius: radius.pill, backgroundColor: colors.borderStrong, padding: 3, justifyContent: "center" },
+  track: { width: 48, height: 28, borderRadius: radius.pill, backgroundColor: colors.controlBorder, padding: 3, justifyContent: "center" },
   thumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.surface, alignSelf: "flex-start" },
 });
