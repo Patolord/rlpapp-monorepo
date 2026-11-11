@@ -39,14 +39,16 @@ export function Chips<K extends string>({
               styles.chip,
               {
                 backgroundColor: isActive ? colors.primary : pressed ? colors.surfacePressed : colors.surface,
-                borderColor: isActive ? colors.primary : colors.border,
+                borderColor: isActive ? colors.primary : colors.controlBorder,
               },
             ]}
           >
             {Icon ? <Icon size={15} color={isActive ? colors.onPrimary : colors.icon} strokeWidth={2} /> : null}
-            <Text style={[styles.label, { color: isActive ? colors.onPrimary : colors.textSecondary }]}>
+            <Text style={[styles.label, { color: isActive ? colors.onPrimary : colors.text }]}>
               {item.label}
-              {item.count !== undefined ? ` · ${item.count}` : ""}
+              {item.count !== undefined ? (
+                <Text style={{ color: isActive ? colors.onPrimary : colors.textSecondary }}>{`  ${item.count}`}</Text>
+              ) : null}
             </Text>
           </Pressable>
         );
@@ -71,6 +73,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "500",
   },
 });

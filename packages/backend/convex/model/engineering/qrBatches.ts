@@ -1,3 +1,4 @@
+import type { PaginationOptions } from "convex/server";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
@@ -320,4 +321,27 @@ export async function setQrBatchProject(
   });
 
   return { updated, kept };
+}
+
+/** Etiquetas de um lote, mais novas primeiro, com o equipamento de cada uma. */
+export async function listQrCodesByBatch(
+  ctx: QueryCtx,
+  input: { batchId: string; paginationOpts: PaginationOptions }
+) {
+  const results = await ctx.db
+    .query("qrCodes")
+    .withIndex("by_batchId", (q) => q.eq("batchId", input.batchId))
+    .order("desc")
+    .paginate(input.paginationOpts);
+  return {
+    ...results,
+    page: await Promise.all(
+      results.page.map(async (qr) => ({
+        ...qr,
+        equipment: qr.equipmentId
+          ? await ctx.db.get("equipment", qr.equipmentId)
+          : null,
+      }))
+    ),
+  };
 }

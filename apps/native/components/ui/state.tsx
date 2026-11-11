@@ -1,3 +1,4 @@
+import { AlertCircle } from "lucide-react-native";
 import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
@@ -15,6 +16,7 @@ export function EmptyState({
   description,
   actionLabel,
   onAction,
+  action,
   tone: t = "info",
   style,
 }: {
@@ -23,6 +25,8 @@ export function EmptyState({
   description?: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** Ação livre (ex.: botão principal), no lugar de actionLabel/onAction. */
+  action?: React.ReactNode;
   tone?: Tone;
   style?: StyleProp<ViewStyle>;
 }) {
@@ -30,13 +34,16 @@ export function EmptyState({
   return (
     <Surface style={[styles.empty, style]}>
       {icon ? <View style={[styles.emptyIcon, { backgroundColor: tc.bg }]}>{icon}</View> : null}
-      <Text style={[type.heading, styles.center, { color: colors.text }]}>{title}</Text>
+      <Text style={[type.bodyStrong, styles.center, { color: colors.text }]} accessibilityRole="header">
+        {title}
+      </Text>
       {description ? (
         <Text style={[type.bodySm, styles.center, { color: colors.textSecondary }]}>{description}</Text>
       ) : null}
       {actionLabel && onAction ? (
-        <AppButton label={actionLabel} onPress={onAction} size="sm" style={{ marginTop: space.sm }} />
+        <AppButton label={actionLabel} onPress={onAction} variant="secondary" size="sm" style={{ marginTop: space.xs }} />
       ) : null}
+      {action ? <View style={{ marginTop: space.xs, alignSelf: "stretch", alignItems: "center" }}>{action}</View> : null}
     </Surface>
   );
 }
@@ -44,11 +51,21 @@ export function EmptyState({
 // ---------------------------------------------------------------------------
 // LoadingState: centered spinner with optional message.
 // ---------------------------------------------------------------------------
-export function LoadingState({ message, style }: { message?: string; style?: StyleProp<ViewStyle> }) {
+export function LoadingState({
+  message,
+  label,
+  style,
+}: {
+  message?: string;
+  /** Mesmo que `message` (nome do pacote antigo). */
+  label?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const text = message ?? label;
   return (
     <View style={[styles.loading, style]}>
       <ActivityIndicator size="large" color={colors.primary} />
-      {message ? <Text style={[type.bodySm, { color: colors.textSecondary }]}>{message}</Text> : null}
+      {text ? <Text style={[type.bodySm, { color: colors.textSecondary }]}>{text}</Text> : null}
     </View>
   );
 }
@@ -57,7 +74,7 @@ export function LoadingState({ message, style }: { message?: string; style?: Sty
 // ErrorState: compact inline error with retry.
 // ---------------------------------------------------------------------------
 export function ErrorState({
-  message = "Não foi possível carregar.",
+  message = "Não deu para carregar. Confira a internet e tente de novo.",
   onRetry,
   style,
 }: {
@@ -67,8 +84,12 @@ export function ErrorState({
 }) {
   return (
     <Surface style={[styles.empty, style]}>
-      <Text style={[type.bodyStrong, styles.center, { color: colors.danger }]}>{message}</Text>
-      {onRetry ? <AppButton label="Tentar novamente" variant="secondary" size="sm" onPress={onRetry} /> : null}
+      <View style={[styles.emptyIcon, { backgroundColor: colors.dangerSoft }]}>
+        <AlertCircle size={24} color={colors.danger} strokeWidth={2} />
+      </View>
+      <Text style={[type.bodyStrong, styles.center, { color: colors.text }]}>Não deu para carregar</Text>
+      <Text style={[type.bodySm, styles.center, { color: colors.textSecondary }]}>{message}</Text>
+      {onRetry ? <AppButton label="Tentar de novo" variant="secondary" size="sm" onPress={onRetry} /> : null}
     </Surface>
   );
 }
@@ -76,14 +97,14 @@ export function ErrorState({
 const styles = StyleSheet.create({
   empty: {
     alignItems: "center",
-    gap: space.md,
-    paddingVertical: 36,
-    paddingHorizontal: space.xxl,
+    gap: space.sm,
+    paddingVertical: space.xxl,
+    paddingHorizontal: space.xl,
   },
   emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 4,

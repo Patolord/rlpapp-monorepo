@@ -2,6 +2,7 @@ import type { ObjectType } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
+import { activeUsersWithRole, notify, plural } from "../notifications/notify";
 import {
   publishDesktopBudget,
   type publishDesktopBudgetArgs,
@@ -162,6 +163,33 @@ export async function publishTakeoffFromDesktop(
       `${result.updated} atualizadas, ${result.removed} removidas, ` +
       `${result.kept.length} mantidas pela Compras`,
   });
+
+  // N12: a Compras fica sabendo do orçamento novo (ou que mudou).
+  const changed = result.inserted + result.updated + result.removed;
+  if (result.created || changed > 0) {
+    const takeoff = await ctx.db.get("takeoffs", result.takeoffId);
+    const projectId = takeoff?.projectId ?? input.projectId;
+    const project = projectId ? await ctx.db.get("projects", projectId) : null;
+    const name = input.name.trim();
+    const params: Record<string, string> = { takeoffId: result.takeoffId };
+    if (project) params.projectId = project._id;
+    await notify(
+      ctx,
+      await activeUsersWithRole(ctx, "compras"),
+      {
+        kind: "N12",
+        category: "compras_estoque",
+        title: `${result.created ? "Orçamento publicado" : "Orçamento atualizado"}${project ? ` · ${project.name}` : ""}`,
+        body: result.created
+          ? `"${name}" chegou do app Takeoff com ${plural(input.lines.length, "item", "itens")}.`
+          : `"${name}" mudou no app Takeoff: ${plural(changed, "linha alterada", "linhas alteradas")}.`,
+        target: "takeoff",
+        params,
+        projectId: project?._id,
+      },
+      { actorId: user._id }
+    );
+  }
   return result;
 }
 

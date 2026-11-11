@@ -15,6 +15,9 @@ convex/
   schema.ts             Assembles the schema from schema/<domain>.ts
   http.ts, crons.ts     HTTP routes and scheduled jobs
   migrations.ts         One-off backfills, run by hand (not in the MCP/API catalog)
+  notifications.ts      Bell, push preferences and device tokens for the app
+  push.ts               Internal Expo push delivery, receipts and purge
+  notificationDigest.ts Internal daily summaries (overdue, price review, low stock)
   schema/               Tables and shared validators, one file per domain
   model/                Business logic as plain TypeScript functions, by domain
     ai/                 Assistant intents
@@ -23,6 +26,8 @@ convex/
     hr/                 Employees, payroll, loans, alimonies, time clock
     identity/           Users and agent tokens
     inventory/          Locations, movements, balances, requests, stock policies
+    notifications/      `notify()`: bell entry + push scheduling, called inside the
+                        mutation that caused the event, and who receives each one
     procurement/        Materials, suppliers, prices, takeoffs
   lib/                  Cross-cutting infrastructure only: auth, rbac, audit,
                         accessErrors, apiCrypto, agentTokens, takeoffAuth,

@@ -1,7 +1,10 @@
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
 import { Camera, ImagePlus, X } from "lucide-react-native";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { useState } from "react";
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+
+import { colors, control, radius, space, type } from "@/lib/theme";
 
 interface PhotoPickerProps {
   uris: string[];
@@ -9,91 +12,118 @@ interface PhotoPickerProps {
   label?: string;
 }
 
+/** Câmera ou galeria, com miniaturas removíveis. Permissão negada vira aviso no lugar. */
 export function PhotoPicker({ uris, onUrisChange, label }: PhotoPickerProps) {
+  const [denied, setDenied] = useState<null | "camera" | "library">(null);
+
   async function takePhoto() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(
-        "Permissão necessária",
-        "Conceda acesso à câmera para registrar fotos."
-      );
+      setDenied("camera");
       return;
     }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ["images"],
-      quality: 0.6,
-    });
-    if (!result.canceled) {
-      onUrisChange([...uris, ...result.assets.map((a) => a.uri)]);
-    }
+    setDenied(null);
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.6 });
+    if (!result.canceled) onUrisChange([...uris, ...result.assets.map((a) => a.uri)]);
   }
 
   async function pickFromLibrary() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(
-        "Permissão necessária",
-        "Conceda acesso às fotos para anexar imagens."
-      );
+      setDenied("library");
       return;
     }
+    setDenied(null);
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsMultipleSelection: true,
       quality: 0.6,
     });
-    if (!result.canceled) {
-      onUrisChange([...uris, ...result.assets.map((a) => a.uri)]);
-    }
-  }
-
-  function removePhoto(uri: string) {
-    onUrisChange(uris.filter((u) => u !== uri));
+    if (!result.canceled) onUrisChange([...uris, ...result.assets.map((a) => a.uri)]);
   }
 
   return (
-    <View className="gap-3">
-      <View className="flex-row gap-2">
+    <View style={styles.wrap}>
+      <View style={styles.buttons}>
         <Pressable
-          onPress={takePhoto}
-          className="h-14 flex-1 flex-row items-center justify-center gap-2 rounded-md border border-input bg-card"
+          onPress={() => void takePhoto()}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
         >
-          <Camera size={20} color="#1a1a2e" />
-          <Text className="text-base font-medium text-foreground">
-            {label ?? "Câmera"}
-          </Text>
+          <Camera size={20} color={colors.text} />
+          <Text style={styles.buttonText}>{label ?? "Câmera"}</Text>
         </Pressable>
         <Pressable
-          onPress={pickFromLibrary}
-          className="h-14 flex-1 flex-row items-center justify-center gap-2 rounded-md border border-input bg-card"
+          onPress={() => void pickFromLibrary()}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
         >
-          <ImagePlus size={20} color="#1a1a2e" />
-          <Text className="text-base font-medium text-foreground">Galeria</Text>
+          <ImagePlus size={20} color={colors.text} />
+          <Text style={styles.buttonText}>Galeria</Text>
         </Pressable>
       </View>
 
-      {uris.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View className="flex-row gap-2">
-            {uris.map((uri) => (
-              <View key={uri} className="relative">
-                <Image
-                  source={{ uri }}
-                  style={{ width: 88, height: 88, borderRadius: 8 }}
-                  contentFit="cover"
-                />
-                <Pressable
-                  onPress={() => removePhoto(uri)}
-                  hitSlop={8}
-                  className="absolute -right-2 -top-2 h-6 w-6 items-center justify-center rounded-full bg-destructive"
-                >
-                  <X size={14} color="#fafafa" />
-                </Pressable>
-              </View>
-            ))}
-          </View>
+      {denied ? (
+        <Pressable onPress={() => void Linking.openSettings()} accessibilityRole="button">
+          <Text style={styles.denied}>
+            {denied === "camera" ? "A câmera está bloqueada para o app." : "As fotos estão bloqueadas para o app."}{" "}
+            <Text style={styles.link}>Abrir ajustes do celular</Text>
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {uris.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbs}>
+          {uris.map((uri, index) => (
+            <View key={uri}>
+              <Image source={{ uri }} style={styles.thumb} contentFit="cover" />
+              <Pressable
+                onPress={() => onUrisChange(uris.filter((u) => u !== uri))}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`Remover foto ${index + 1}`}
+                style={styles.remove}
+              >
+                <X size={14} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          ))}
         </ScrollView>
-      )}
+      ) : null}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  wrap: { gap: space.md },
+  buttons: { flexDirection: "row", gap: space.sm },
+  button: {
+    flex: 1,
+    height: control.height,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.sm,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.controlBorder,
+    backgroundColor: colors.surface,
+  },
+  pressed: { backgroundColor: colors.surfacePressed },
+  buttonText: { ...type.label, color: colors.text, fontWeight: "600" },
+  denied: { ...type.bodySm, color: colors.destructive },
+  link: { color: colors.primary, fontWeight: "600" },
+  thumbs: { gap: space.sm, paddingTop: 6, paddingRight: 6 },
+  thumb: { width: 88, height: 88, borderRadius: radius.sm },
+  remove: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.destructive,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

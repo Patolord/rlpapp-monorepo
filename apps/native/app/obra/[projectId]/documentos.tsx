@@ -11,7 +11,8 @@ import { FlatList, StyleSheet, Text, View } from "react-native";
 import { AppButton, Banner, ChoiceChips, ChoiceGroup, ConfirmDialog, EmptyState, Field, LoadingState, Pill, Sheet, Surface, useToast } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
 import { openPdf, tempPdfFile, useDocumentDownloader } from "@/lib/field-documents";
-import { formatDateTime, formatFileSize } from "@/lib/format";
+import { formatShortDateTime } from "@/lib/format";
+import { formatFileSize } from "@rlpapp/shared/formatters";
 import { colors, radius, space, type } from "@/lib/theme";
 import {
   INVALID_PDF_MESSAGE,
@@ -66,7 +67,7 @@ export default function ObraDocumentosScreen() {
                   {item.name}
                 </Text>
                 <Text style={[type.caption, { color: colors.textSecondary }]} numberOfLines={1}>
-                  {formatFileSize(item.sizeBytes)} · {formatDateTime(item.createdAt)}
+                  {formatFileSize(item.sizeBytes)} · {formatShortDateTime(item.createdAt)}
                 </Text>
               </View>
               <Pill label={ACCESS_LABEL[item.technicianAccess as Access]} tone={item.technicianAccess === "none" ? "neutral" : "info"} />

@@ -140,6 +140,7 @@ import type * as model_inventory_stockLedger from "../model/inventory/stockLedge
 import type * as model_inventory_stockPolicy from "../model/inventory/stockPolicy.js";
 import type * as model_inventory_validators from "../model/inventory/validators.js";
 import type * as model_inventory_workspace from "../model/inventory/workspace.js";
+import type * as model_notifications_notify from "../model/notifications/notify.js";
 import type * as model_procurement_bulkImport from "../model/procurement/bulkImport.js";
 import type * as model_procurement_catalog from "../model/procurement/catalog.js";
 import type * as model_procurement_desktopBudget from "../model/procurement/desktopBudget.js";
@@ -175,6 +176,8 @@ import type * as model_procurement_takeoffProposals from "../model/procurement/t
 import type * as model_procurement_takeoffSettings from "../model/procurement/takeoffSettings.js";
 import type * as model_procurement_takeoffValidators from "../model/procurement/takeoffValidators.js";
 import type * as model_procurement_takeoffs from "../model/procurement/takeoffs.js";
+import type * as notificationDigest from "../notificationDigest.js";
+import type * as notifications from "../notifications.js";
 import type * as payroll from "../payroll.js";
 import type * as portal from "../portal.js";
 import type * as priceEvents from "../priceEvents.js";
@@ -182,6 +185,7 @@ import type * as projectDocuments from "../projectDocuments.js";
 import type * as projectEquipment from "../projectEquipment.js";
 import type * as projectUnits from "../projectUnits.js";
 import type * as projects from "../projects.js";
+import type * as push from "../push.js";
 import type * as qrCodes from "../qrCodes.js";
 import type * as reports from "../reports.js";
 import type * as schema_contracts from "../schema/contracts.js";
@@ -189,6 +193,7 @@ import type * as schema_engineering from "../schema/engineering.js";
 import type * as schema_hr from "../schema/hr.js";
 import type * as schema_identity from "../schema/identity.js";
 import type * as schema_inventory from "../schema/inventory.js";
+import type * as schema_notifications from "../schema/notifications.js";
 import type * as schema_procurement from "../schema/procurement.js";
 import type * as suppliers from "../suppliers.js";
 import type * as systems from "../systems.js";
@@ -345,6 +350,7 @@ declare const fullApi: ApiFromModules<{
   "model/inventory/stockPolicy": typeof model_inventory_stockPolicy;
   "model/inventory/validators": typeof model_inventory_validators;
   "model/inventory/workspace": typeof model_inventory_workspace;
+  "model/notifications/notify": typeof model_notifications_notify;
   "model/procurement/bulkImport": typeof model_procurement_bulkImport;
   "model/procurement/catalog": typeof model_procurement_catalog;
   "model/procurement/desktopBudget": typeof model_procurement_desktopBudget;
@@ -380,6 +386,8 @@ declare const fullApi: ApiFromModules<{
   "model/procurement/takeoffSettings": typeof model_procurement_takeoffSettings;
   "model/procurement/takeoffValidators": typeof model_procurement_takeoffValidators;
   "model/procurement/takeoffs": typeof model_procurement_takeoffs;
+  notificationDigest: typeof notificationDigest;
+  notifications: typeof notifications;
   payroll: typeof payroll;
   portal: typeof portal;
   priceEvents: typeof priceEvents;
@@ -387,6 +395,7 @@ declare const fullApi: ApiFromModules<{
   projectEquipment: typeof projectEquipment;
   projectUnits: typeof projectUnits;
   projects: typeof projects;
+  push: typeof push;
   qrCodes: typeof qrCodes;
   reports: typeof reports;
   "schema/contracts": typeof schema_contracts;
@@ -394,6 +403,7 @@ declare const fullApi: ApiFromModules<{
   "schema/hr": typeof schema_hr;
   "schema/identity": typeof schema_identity;
   "schema/inventory": typeof schema_inventory;
+  "schema/notifications": typeof schema_notifications;
   "schema/procurement": typeof schema_procurement;
   suppliers: typeof suppliers;
   systems: typeof systems;

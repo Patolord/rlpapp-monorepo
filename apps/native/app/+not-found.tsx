@@ -1,30 +1,27 @@
-import { Link, Stack } from "expo-router";
-import { Text, View } from "react-native";
+import { Stack, useRouter } from "expo-router";
+import { SearchX } from "lucide-react-native";
+import { StyleSheet, View } from "react-native";
 
-import { Container } from "@/components/container";
-import { Button, ButtonText } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui";
+import { colors, space } from "@/lib/theme";
 
+/** Endereço que não existe no app (link antigo ou aviso de item removido). */
 export default function NotFoundScreen() {
+  const router = useRouter();
   return (
-    <>
+    <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
-      <Container>
-        <View className="flex-1 justify-center items-center p-4">
-          <Card className="items-center p-6 max-w-sm">
-            <Text className="text-4xl mb-3">🤔</Text>
-            <Text className="text-foreground font-medium text-lg mb-1">Página não encontrada</Text>
-            <Text className="text-muted-foreground text-sm text-center mb-4">
-              A página que você procura não existe.
-            </Text>
-            <Link href="/" asChild>
-              <Button>
-                <ButtonText>Ir para o início</ButtonText>
-              </Button>
-            </Link>
-          </Card>
-        </View>
-      </Container>
-    </>
+      <EmptyState
+        icon={<SearchX size={28} color={colors.primary} />}
+        title="Esta página não existe"
+        description="O link pode estar antigo ou o item foi removido."
+        actionLabel="Ir para o início"
+        onAction={() => router.replace("/")}
+      />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.bg, justifyContent: "center", padding: space.screen },
+});

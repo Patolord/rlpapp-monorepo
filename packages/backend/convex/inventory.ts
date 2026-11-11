@@ -18,6 +18,7 @@ import {
   reviewInventoryDocument,
 } from "./model/inventory/documents";
 import { reverseInventoryDocument } from "./model/inventory/posting";
+import { getCentralStockHealth } from "./model/inventory/stockPolicy";
 import {
   listInventoryDocuments,
   listPendingInventoryApprovals,
@@ -120,6 +121,9 @@ export const listBalances = inventoryQuery({
   args: {
     projectId: v.optional(v.id("projects")),
     paginationOpts: paginationOptsValidator,
+    // Busca no estoque inteiro por nome, SKU ou variação. Com busca, a
+    // resposta vem numa página só (até 50 materiais).
+    search: v.optional(v.string()),
   },
   returns: v.object({
     page: v.array(inventoryBalanceRowValidator),
@@ -130,6 +134,20 @@ export const listBalances = inventoryQuery({
   }),
   handler: async (ctx, args) => {
     return await listInventoryBalances(ctx, ctx.user, args);
+  },
+});
+
+/** Contagens do topo do Estoque central: Crítico · Repor · OK · Sem política. */
+export const centralHealth = inventoryQuery({
+  args: {},
+  returns: v.object({
+    critical: v.number(),
+    reorder: v.number(),
+    healthy: v.number(),
+    unconfigured: v.number(),
+  }),
+  handler: async (ctx) => {
+    return await getCentralStockHealth(ctx, ctx.user);
   },
 });
 

@@ -1,3 +1,4 @@
+import { notify } from "../notifications/notify";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
@@ -241,6 +242,41 @@ export async function resolveDocumentDownload(
 // Escritório (engenharia)
 // ---------------------------------------------------------------------------
 
+/** Técnicos da obra que passam a ver o documento em campo (aviso N8). */
+function fieldViewers(
+  project: Doc<"projects">,
+  access: TechnicianAccess,
+  allowed: Id<"users">[] | undefined
+): Id<"users">[] {
+  if (access === "none") return [];
+  if (access === "all") return project.technicianIds ?? [];
+  return allowed ?? [];
+}
+
+async function notifyNewDocument(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+  recipients: Id<"users">[],
+  project: Doc<"projects">,
+  documentId: Id<"projectDocuments">,
+  name: string
+): Promise<void> {
+  await notify(
+    ctx,
+    recipients,
+    {
+      kind: "N8",
+      category: "obras_documentos",
+      title: `Documento novo · ${project.name}`,
+      body: `${name} (PDF).`,
+      target: "documentos",
+      params: { projectId: project._id, documentId },
+      projectId: project._id,
+    },
+    { actorId: user._id }
+  );
+}
+
 export type CreateProjectDocumentInput = {
   projectId: Id<"projects">;
   storageId: Id<"_storage">;
@@ -292,6 +328,15 @@ export async function createProjectDocument(
     entityLabel: name,
     details: `Obra ${project.name} · acesso técnicos: ${input.technicianAccess}`,
   });
+
+  await notifyNewDocument(
+    ctx,
+    user,
+    fieldViewers(project, input.technicianAccess, allowedTechnicianIds),
+    project,
+    documentId,
+    name
+  );
   return documentId;
 }
 
@@ -352,6 +397,15 @@ export async function updateProjectDocument(
         : []),
     ],
   });
+
+  // N8 também quando o acesso passa a incluir alguém.
+  const before = new Set(
+    fieldViewers(project, document.technicianAccess, document.allowedTechnicianIds)
+  );
+  const gained = fieldViewers(project, technicianAccess, allowedTechnicianIds).filter(
+    (id) => !before.has(id)
+  );
+  await notifyNewDocument(ctx, user, gained, project, input.documentId, name);
 }
 
 /** Remove o documento e, quando possível, o PDF do storage. */
