@@ -1,6 +1,7 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
-import { normalizeText } from "./pricing";
+import { alreadyExists, ruleViolation } from "../../lib/domainErrors";
+import { normalizeText } from "../kernel/text";
 
 export const SKU_PREFIX = "MAT";
 export const SKU_COUNTER_KEY = "material" as const;
@@ -65,7 +66,7 @@ export function sanitizeDimensions(
   if (entries.length === 0) return undefined;
   for (const [key, value] of entries) {
     if (!Number.isFinite(value) || (value as number) <= 0) {
-      throw new Error(`Dimensão inválida: ${key}`);
+      throw ruleViolation(`Dimensão inválida: ${key}`);
     }
   }
   return Object.fromEntries(entries) as MaterialDimensions;
@@ -249,7 +250,7 @@ export async function assertUniqueSku(
     .withIndex("by_sku", (q) => q.eq("sku", sku))
     .unique();
   if (hit && hit._id !== excludeMaterialId) {
-    throw new Error(`SKU já cadastrado: ${sku}`);
+    throw alreadyExists(`SKU já cadastrado: ${sku}`);
   }
 }
 
@@ -263,14 +264,14 @@ export async function assertUniqueBarcode(
     .withIndex("by_barcode", (q) => q.eq("barcode", barcode))
     .unique();
   if (hit && hit._id !== excludeMaterialId) {
-    throw new Error(`Código de barras já cadastrado: ${barcode}`);
+    throw alreadyExists(`Código de barras já cadastrado: ${barcode}`);
   }
 }
 
 export function validateUnitsPerPurchaseUnit(value: number | undefined): void {
   if (value === undefined) return;
   if (!Number.isFinite(value) || value <= 0) {
-    throw new Error("Informe uma conversão de embalagem maior que zero");
+    throw ruleViolation("Informe uma conversão de embalagem maior que zero");
   }
 }
 
@@ -285,26 +286,26 @@ export function validateStockPolicyQuantities(input: {
     !Number.isFinite(input.reorderPoint) ||
     !Number.isFinite(input.targetQuantity)
   ) {
-    throw new Error("Informe quantidades numéricas válidas");
+    throw ruleViolation("Informe quantidades numéricas válidas");
   }
   if (
     input.minimumQuantity < 0 ||
     input.reorderPoint < 0 ||
     input.targetQuantity < 0
   ) {
-    throw new Error("Quantidades não podem ser negativas");
+    throw ruleViolation("Quantidades não podem ser negativas");
   }
   if (input.minimumQuantity > input.reorderPoint) {
-    throw new Error("Estoque mínimo não pode ser maior que o ponto de reposição");
+    throw ruleViolation("Estoque mínimo não pode ser maior que o ponto de reposição");
   }
   if (input.reorderPoint >= input.targetQuantity) {
-    throw new Error("Ponto de reposição deve ser menor que a meta de estoque");
+    throw ruleViolation("Ponto de reposição deve ser menor que a meta de estoque");
   }
   if (
     input.leadTimeDays !== undefined &&
     (!Number.isInteger(input.leadTimeDays) || input.leadTimeDays < 0)
   ) {
-    throw new Error("Prazo de reposição deve ser um número inteiro não negativo");
+    throw ruleViolation("Prazo de reposição deve ser um número inteiro não negativo");
   }
 }
 
@@ -376,7 +377,7 @@ export function validateLaborPriceCents(
 ): void {
   if (value === undefined || value === null) return;
   if (!Number.isInteger(value) || value < 0) {
-    throw new Error(
+    throw ruleViolation(
       "Preço de mão de obra inválido: informe um valor em centavos maior ou igual a zero"
     );
   }

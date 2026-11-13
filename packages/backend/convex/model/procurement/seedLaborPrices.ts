@@ -1,6 +1,6 @@
 import type { Doc, Id } from "../../_generated/dataModel";
-import { normalizeText } from "./pricing";
 import { takeoffUnit } from "./takeoffCatalog";
+import { normalizeText } from "../kernel/text";
 
 /** One entry of the RLP Takeoff bundled catalog (`catalog.seed.json`). */
 export type SeedLaborEntry = { name: string; unit: string; laborPrice: number };

@@ -4,6 +4,7 @@ import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logEquipmentHistory } from "../../lib/audit";
 import { generateQrForItem, syncQrProjectId } from "./qrProjectLinks";
 import { equipKindValidator, equipmentStatusValidator } from "../../schema/engineering";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 // Planejamento de equipamentos da obra (projectEquipment) na hierarquia de
 // ambientes: criação, edição, pool de não atribuídos, status e remoção.
@@ -92,14 +93,14 @@ export async function upsertPlannedEquipmentInEnvironment(
   args: UpsertPlannedEquipmentInEnvironmentInput
 ): Promise<Id<"projectEquipment">> {
   const env = await ctx.db.get("environments", args.environmentId);
-  if (!env) throw new Error("Ambiente não encontrado");
+  if (!env) throw notFound("Ambiente não encontrado");
 
   let systemName = "";
   if (args.systemId) {
     const system = await ctx.db.get("systems", args.systemId);
-    if (!system) throw new Error("Sistema não encontrado");
+    if (!system) throw notFound("Sistema não encontrado");
     if (system.projectId !== env.projectId) {
-      throw new Error("O sistema não pertence à mesma obra do ambiente");
+      throw ruleViolation("O sistema não pertence à mesma obra do ambiente");
     }
     systemName = system.name;
   }
@@ -120,7 +121,7 @@ export async function upsertPlannedEquipmentInEnvironment(
 
   if (args.itemId) {
     const item = await ctx.db.get("projectEquipment", args.itemId);
-    if (!item) throw new Error("Equipamento não encontrado");
+    if (!item) throw notFound("Equipamento não encontrado");
     await ctx.db.patch("projectEquipment", args.itemId, {
       ...base,
       environmentId: args.environmentId,
@@ -164,7 +165,7 @@ export async function bulkAddPlannedEquipmentToEnvironments(
   }[];
 }> {
   if (args.environmentIds.length === 0) {
-    throw new Error("Selecione pelo menos um ambiente");
+    throw ruleViolation("Selecione pelo menos um ambiente");
   }
 
   const totalPerEnv = args.items.reduce(
@@ -172,11 +173,11 @@ export async function bulkAddPlannedEquipmentToEnvironments(
     0
   );
   if (totalPerEnv === 0) {
-    throw new Error("Informe a quantidade de equipamentos");
+    throw ruleViolation("Informe a quantidade de equipamentos");
   }
   const total = totalPerEnv * args.environmentIds.length;
   if (total > 500) {
-    throw new Error(
+    throw ruleViolation(
       `Limite de 500 equipamentos por operação excedido (${total})`
     );
   }
@@ -186,20 +187,20 @@ export async function bulkAddPlannedEquipmentToEnvironments(
   const environments = [];
   for (const envId of envIds) {
     const env = await ctx.db.get("environments", envId);
-    if (!env) throw new Error("Ambiente não encontrado");
+    if (!env) throw notFound("Ambiente não encontrado");
     environments.push(env);
   }
   const projectId = environments[0].projectId;
   if (environments.some((env) => env.projectId !== projectId)) {
-    throw new Error("Todos os ambientes devem pertencer à mesma obra");
+    throw ruleViolation("Todos os ambientes devem pertencer à mesma obra");
   }
 
   let systemName = "";
   if (args.systemId) {
     const system = await ctx.db.get("systems", args.systemId);
-    if (!system) throw new Error("Sistema não encontrado");
+    if (!system) throw notFound("Sistema não encontrado");
     if (system.projectId !== projectId) {
-      throw new Error("O sistema não pertence à mesma obra dos ambientes");
+      throw ruleViolation("O sistema não pertence à mesma obra dos ambientes");
     }
     systemName = system.name;
   }
@@ -290,14 +291,14 @@ export async function createUnassignedPlannedEquipment(
   args: CreateUnassignedPlannedEquipmentInput
 ): Promise<Id<"projectEquipment">> {
   const project = await ctx.db.get("projects", args.projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
 
   let systemName = "";
   if (args.systemId) {
     const system = await ctx.db.get("systems", args.systemId);
-    if (!system) throw new Error("Sistema não encontrado");
+    if (!system) throw notFound("Sistema não encontrado");
     if (system.projectId !== args.projectId) {
-      throw new Error("O sistema não pertence a esta obra");
+      throw ruleViolation("O sistema não pertence a esta obra");
     }
     systemName = system.name;
   }
@@ -331,21 +332,21 @@ export async function assignPlannedEquipmentToEnvironment(
   args: AssignPlannedEquipmentToEnvironmentInput
 ): Promise<void> {
   const item = await ctx.db.get("projectEquipment", args.itemId);
-  if (!item) throw new Error("Equipamento não encontrado");
+  if (!item) throw notFound("Equipamento não encontrado");
 
   const env = await ctx.db.get("environments", args.environmentId);
-  if (!env) throw new Error("Ambiente não encontrado");
+  if (!env) throw notFound("Ambiente não encontrado");
   if (env.projectId !== item.projectId) {
-    throw new Error("O ambiente não pertence à mesma obra do equipamento");
+    throw ruleViolation("O ambiente não pertence à mesma obra do equipamento");
   }
 
   const systemId = args.systemId ?? item.systemId;
   let systemName = item.system;
   if (args.systemId) {
     const system = await ctx.db.get("systems", args.systemId);
-    if (!system) throw new Error("Sistema não encontrado");
+    if (!system) throw notFound("Sistema não encontrado");
     if (system.projectId !== item.projectId) {
-      throw new Error("O sistema não pertence a esta obra");
+      throw ruleViolation("O sistema não pertence a esta obra");
     }
     systemName = system.name;
   }
@@ -371,7 +372,7 @@ export async function setPlannedEquipmentStatus(
   args: SetPlannedEquipmentStatusInput
 ): Promise<void> {
   const item = await ctx.db.get("projectEquipment", args.itemId);
-  if (!item) throw new Error("Equipamento não encontrado");
+  if (!item) throw notFound("Equipamento não encontrado");
   if (item.status === args.status) return;
 
   const now = Date.now();
@@ -411,49 +412,6 @@ export async function deletePlannedEquipment(
     await syncQrProjectId(ctx, item.linkedEquipmentId, undefined);
   }
   await ctx.db.delete("projectEquipment", itemId);
-}
-
-/**
- * Aplica um template de checklist a um equipamento planejado (opcionalmente
- * substituindo os itens atuais) e devolve quantos itens foram criados.
- */
-export async function applyChecklistTemplate(
-  ctx: MutationCtx,
-  args: {
-    equipmentId: Id<"projectEquipment">;
-    templateId: Id<"checklistTemplates">;
-    replace?: boolean;
-  }
-): Promise<number> {
-  const equipment = await ctx.db.get("projectEquipment", args.equipmentId);
-  if (!equipment) throw new Error("Equipamento não encontrado");
-  const template = await ctx.db.get("checklistTemplates", args.templateId);
-  if (!template) throw new Error("Template não encontrado");
-
-  if (args.replace) {
-    const existing = await ctx.db
-      .query("checklistItems")
-      .withIndex("by_equipment", (q) => q.eq("equipmentId", args.equipmentId))
-      .collect();
-    for (const item of existing) {
-      await ctx.db.delete("checklistItems", item._id);
-    }
-  }
-
-  let order = 0;
-  for (const item of template.items) {
-    await ctx.db.insert("checklistItems", {
-      equipmentId: args.equipmentId,
-      label: item.label,
-      required: item.required,
-      completed: false,
-      order: order++,
-    });
-  }
-  await ctx.db.patch("projectEquipment", args.equipmentId, {
-    checklistTemplateId: args.templateId,
-  });
-  return template.items.length;
 }
 
 /** Histórico de um item planejado, do mais novo ao mais antigo, com o nome de quem registrou. */

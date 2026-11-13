@@ -1,6 +1,7 @@
 import { logAudit, logEquipmentHistory } from "../../lib/audit";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import type { Doc, Id } from "../../_generated/dataModel";
+import { alreadyExists, notFound, ruleViolation } from "../../lib/domainErrors";
 
 // Sistemas de climatização escopados a UMA obra (ex: "VRF 1", "Split").
 // Um sistema agrupa equipamentos que podem estar em ambientes diferentes da
@@ -77,7 +78,7 @@ async function requireProject(
   projectId: Id<"projects">
 ): Promise<void> {
   const project = await ctx.db.get("projects", projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
 }
 
 /** Lista os sistemas de uma obra (ordenados por nome). */
@@ -115,11 +116,11 @@ export async function createProjectSystem(
   await requireProject(ctx, input.projectId);
 
   const name = input.name.trim();
-  if (!name) throw new Error("O nome do sistema é obrigatório");
+  if (!name) throw ruleViolation("O nome do sistema é obrigatório");
 
   const existing = await loadProjectSystems(ctx, input.projectId);
   if (existing.some((s) => s.name.toLowerCase() === name.toLowerCase())) {
-    throw new Error(`Já existe um sistema chamado "${name}" nesta obra`);
+    throw alreadyExists(`Já existe um sistema chamado "${name}" nesta obra`);
   }
 
   const systemId = await ctx.db.insert("systems", {
@@ -219,7 +220,7 @@ export async function createSystemsWithPlannedEquipment(
 ): Promise<{ systemsCreated: number; itemsCreated: number }> {
   await requireProject(ctx, input.projectId);
   if (input.systems.length === 0) {
-    throw new Error("Informe pelo menos um sistema");
+    throw ruleViolation("Informe pelo menos um sistema");
   }
 
   const totalItems = input.systems.reduce(
@@ -228,10 +229,10 @@ export async function createSystemsWithPlannedEquipment(
     0
   );
   if (totalItems === 0) {
-    throw new Error("Informe a quantidade de equipamentos");
+    throw ruleViolation("Informe a quantidade de equipamentos");
   }
   if (totalItems > 500) {
-    throw new Error(
+    throw ruleViolation(
       `Limite de 500 equipamentos por operação excedido (${totalItems})`
     );
   }
@@ -243,9 +244,9 @@ export async function createSystemsWithPlannedEquipment(
   const envById = new Map<Id<"environments">, Doc<"environments">>();
   for (const envId of envIds) {
     const env = await ctx.db.get("environments", envId);
-    if (!env) throw new Error("Ambiente não encontrado");
+    if (!env) throw notFound("Ambiente não encontrado");
     if (env.projectId !== input.projectId) {
-      throw new Error("Todos os ambientes devem pertencer à mesma obra");
+      throw ruleViolation("Todos os ambientes devem pertencer à mesma obra");
     }
     envById.set(envId, env);
   }
@@ -264,9 +265,9 @@ export async function createSystemsWithPlannedEquipment(
     if (spec.systemId) {
       // Sistema existente: só adiciona equipamentos.
       const system = await ctx.db.get("systems", spec.systemId);
-      if (!system) throw new Error("Sistema não encontrado");
+      if (!system) throw notFound("Sistema não encontrado");
       if (system.projectId !== input.projectId) {
-        throw new Error("O sistema não pertence a esta obra");
+        throw ruleViolation("O sistema não pertence a esta obra");
       }
       systemId = system._id;
       name = system.name;
@@ -338,7 +339,7 @@ export async function updateProjectSystem(
   }
 ): Promise<void> {
   const system = await ctx.db.get("systems", input.systemId);
-  if (!system) throw new Error("Sistema não encontrado");
+  if (!system) throw notFound("Sistema não encontrado");
 
   const updates: Partial<{
     name: string;
@@ -348,7 +349,7 @@ export async function updateProjectSystem(
 
   if (input.name !== undefined) {
     const name = input.name.trim();
-    if (!name) throw new Error("O nome do sistema é obrigatório");
+    if (!name) throw ruleViolation("O nome do sistema é obrigatório");
     if (name.toLowerCase() !== system.name.toLowerCase()) {
       const siblings = await loadProjectSystems(ctx, system.projectId);
       if (
@@ -358,7 +359,7 @@ export async function updateProjectSystem(
             s.name.toLowerCase() === name.toLowerCase()
         )
       ) {
-        throw new Error(`Já existe um sistema chamado "${name}" nesta obra`);
+        throw alreadyExists(`Já existe um sistema chamado "${name}" nesta obra`);
       }
     }
     updates.name = name;
@@ -404,7 +405,7 @@ export async function removeProjectSystem(
     .withIndex("by_system", (q) => q.eq("systemId", systemId))
     .first();
   if (item) {
-    throw new Error(
+    throw ruleViolation(
       `O sistema "${system.name}" ainda possui equipamentos. Remova ou mova os equipamentos antes de excluir o sistema.`
     );
   }

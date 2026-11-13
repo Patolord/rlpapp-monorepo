@@ -4,6 +4,8 @@ import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
 import { hasPermission, isStaff } from "../../lib/rbac";
 import { assertTechnicianProjectAccess, isProjectArchived } from "./projects";
+import { forbidden } from "../../lib/accessErrors";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /** Limite por arquivo (PDF). Convex aceita arquivos maiores, mas em campo
  * o download acontece em rede móvel — manter razoável. */
@@ -62,7 +64,7 @@ export function normalizeAllowedTechnicians(
     assigned.has(id)
   );
   if (unique.length === 0) {
-    throw new Error(
+    throw ruleViolation(
       "Selecione ao menos um técnico atribuído à obra para liberar o documento"
     );
   }
@@ -75,25 +77,25 @@ export async function assertValidPdfUpload(
 ): Promise<{ contentType: string; size: number }> {
   const metadata = await ctx.db.system.get("_storage", storageId);
   if (!metadata) {
-    throw new Error("Arquivo não encontrado. Envie o PDF novamente.");
+    throw notFound("Arquivo não encontrado. Envie o PDF novamente.");
   }
   // O storage grava contentType a partir do header Content-Type do upload.
   // Uploads sem tipo (ou com outro tipo) são recusados; o cliente ainda
   // confere a assinatura %PDF- antes de enviar.
   if (metadata.contentType !== PROJECT_DOCUMENT_CONTENT_TYPE) {
-    throw new Error("Apenas arquivos PDF são aceitos");
+    throw ruleViolation("Apenas arquivos PDF são aceitos");
   }
   if (metadata.size > MAX_PROJECT_DOCUMENT_BYTES) {
-    throw new Error("O PDF deve ter no máximo 50 MB");
+    throw ruleViolation("O PDF deve ter no máximo 50 MB");
   }
   return { contentType: PROJECT_DOCUMENT_CONTENT_TYPE, size: metadata.size };
 }
 
 export function normalizeDocumentName(raw: string): string {
   const trimmed = raw.trim().replace(/\s+/g, " ");
-  if (!trimmed) throw new Error("Informe um nome para o documento");
+  if (!trimmed) throw ruleViolation("Informe um nome para o documento");
   if (trimmed.length > 160) {
-    throw new Error("O nome do documento deve ter no máximo 160 caracteres");
+    throw ruleViolation("O nome do documento deve ter no máximo 160 caracteres");
   }
   return trimmed;
 }
@@ -176,9 +178,9 @@ async function requireActiveProject(
   projectId: Id<"projects">
 ): Promise<Doc<"projects">> {
   const project = await ctx.db.get("projects", projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
   if (isProjectArchived(project)) {
-    throw new Error("Obra arquivada — restaure antes de alterar documentos");
+    throw ruleViolation("Obra arquivada — restaure antes de alterar documentos");
   }
   return project;
 }
@@ -188,7 +190,7 @@ async function requireDocument(
   documentId: Id<"projectDocuments">
 ): Promise<Doc<"projectDocuments">> {
   const document = await ctx.db.get("projectDocuments", documentId);
-  if (!document) throw new Error("Documento não encontrado");
+  if (!document) throw notFound("Documento não encontrado");
   return document;
 }
 
@@ -206,7 +208,7 @@ export async function loadDocumentForUser(
   const project = await ctx.db.get("projects", document.projectId);
   if (!project) return null;
   if (!canUserViewDocument(user, project, document)) {
-    throw new Error("Acesso negado a este documento");
+    throw forbidden("Acesso negado a este documento");
   }
   return document;
 }
@@ -297,7 +299,7 @@ export async function createProjectDocument(
     .query("projectDocuments")
     .withIndex("by_storage", (q) => q.eq("storageId", input.storageId))
     .first();
-  if (existing) throw new Error("Este arquivo já foi cadastrado");
+  if (existing) throw ruleViolation("Este arquivo já foi cadastrado");
 
   const file = await assertValidPdfUpload(ctx, input.storageId);
   const name = normalizeDocumentName(input.name);
@@ -467,7 +469,7 @@ export async function discardDocumentUpload(
     .query("projectDocuments")
     .withIndex("by_storage", (q) => q.eq("storageId", storageId))
     .first();
-  if (referenced) throw new Error("Este arquivo pertence a um documento");
+  if (referenced) throw ruleViolation("Este arquivo pertence a um documento");
   try {
     await ctx.storage.delete(storageId);
   } catch {

@@ -3,6 +3,9 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
+// Nomes de cron só aceitam ASCII imprimível (sem acento): um nome inválido faz
+// o Convex recusar o deploy inteiro.
+
 // 04:00 UTC = 01:00 America/Sao_Paulo: apaga o registro de chamadas MCP mais
 // antigo que AGENT_TOKEN_CALL_RETENTION_DAYS (model/identity/agentTokenCalls.ts).
 crons.cron(
@@ -16,7 +19,7 @@ crons.cron(
 // revisão de preços e estoque baixo (avisos N10, N11 e N13). Só avisa quando
 // há algo a dizer.
 crons.cron(
-  "avisos: resumo diário",
+  "avisos: resumo diario",
   "30 10 * * *",
   internal.notificationDigest.daily,
   {},

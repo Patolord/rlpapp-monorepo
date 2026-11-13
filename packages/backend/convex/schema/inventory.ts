@@ -51,8 +51,6 @@ export const inventoryRequestReason = v.union(
   v.literal("new")
 );
 
-// --- Engenharia: Contratos e Medições ---
-
 export const inventoryTables = {
   inventoryLocations: defineTable({
     type: inventoryLocationType,
@@ -190,6 +188,4 @@ export const inventoryTables = {
   })
     .index("by_request", ["requestId"])
     .index("by_material", ["materialId"]),
-
-  // --- Engenharia: Empreiteiros (cadastro mestre) ---
 };

@@ -3,6 +3,7 @@ import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import type { accessRoles } from "../../schema/identity";
 import { accessFields, normalizeEmail, toUserView } from "./users";
+import { alreadyExists, notFound, ruleViolation } from "../../lib/domainErrors";
 
 /** Convites por email: gravações chamadas pelas actions de userAdmin.ts. */
 
@@ -53,7 +54,7 @@ export async function upsertInvitedUser(
 
   if (existing) {
     if (existing.clerkId || existing.invitedAt === undefined) {
-      throw new Error("Já existe um usuário com este email");
+      throw alreadyExists("Já existe um usuário com este email");
     }
     await ctx.db.patch("users", existing._id, {
       name,
@@ -84,8 +85,8 @@ export async function markUserInviteResent(
   input: { id: Id<"users">; clerkInvitationId: string }
 ): Promise<void> {
   const user = await ctx.db.get("users", input.id);
-  if (!user) throw new Error("Usuário não encontrado");
-  if (user.clerkId) throw new Error("Este usuário já aceitou o convite");
+  if (!user) throw notFound("Usuário não encontrado");
+  if (user.clerkId) throw ruleViolation("Este usuário já aceitou o convite");
   await ctx.db.patch("users", input.id, {
     invitedAt: Date.now(),
     clerkInvitationId: input.clerkInvitationId,
@@ -103,7 +104,7 @@ export async function deleteInvitedUser(
   const user = await ctx.db.get("users", id);
   if (!user) return;
   if (user.clerkId || user.invitedAt === undefined) {
-    throw new Error("Este usuário já aceitou o convite");
+    throw ruleViolation("Este usuário já aceitou o convite");
   }
   await ctx.db.delete("users", id);
 }

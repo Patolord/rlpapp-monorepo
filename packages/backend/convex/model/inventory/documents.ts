@@ -1,5 +1,6 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
+import { forbidden } from "../../lib/accessErrors";
 import { logAudit } from "../../lib/audit";
 import { hasPermission, hasRole } from "../../lib/rbac";
 import { notify, plural } from "../notifications/notify";
@@ -8,6 +9,7 @@ import {
   getOrCreateCentralLocation,
   getOrCreateProjectLocation,
 } from "./locations";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /**
  * Documentos de movimentação de estoque: quem pode registrar e concluir cada
@@ -83,7 +85,7 @@ async function assertCanCreate(
     const project = await ctx.db.get("projects", projectId);
     if (isAssignedTechnician(user, project)) return;
   }
-  throw new Error("Você não pode registrar este tipo de movimentação");
+  throw ruleViolation("Você não pode registrar este tipo de movimentação");
 }
 
 export async function assertCanPostInventoryDocument(
@@ -103,7 +105,7 @@ export async function assertCanPostInventoryDocument(
     const project = await ctx.db.get("projects", projectId);
     if (isAssignedTechnician(user, project)) return;
   }
-  throw new Error("Você não pode concluir este tipo de movimentação");
+  throw ruleViolation("Você não pode concluir este tipo de movimentação");
 }
 
 function validateLines(
@@ -111,26 +113,26 @@ function validateLines(
   lines: InventoryLineInput[]
 ): void {
   if (lines.length === 0) {
-    throw new Error("Adicione pelo menos um material");
+    throw ruleViolation("Adicione pelo menos um material");
   }
   if (lines.length > MAX_INVENTORY_DOCUMENT_LINES) {
-    throw new Error(
+    throw ruleViolation(
       `Cada movimentação aceita no máximo ${MAX_INVENTORY_DOCUMENT_LINES} materiais`
     );
   }
 
   for (const line of lines) {
     if (!Number.isFinite(line.quantity) || line.quantity === 0) {
-      throw new Error("As quantidades devem ser números diferentes de zero");
+      throw ruleViolation("As quantidades devem ser números diferentes de zero");
     }
     if (type !== "adjustment" && line.quantity < 0) {
-      throw new Error("A quantidade deve ser maior que zero");
+      throw ruleViolation("A quantidade deve ser maior que zero");
     }
     if (
       line.unitCostCents !== undefined &&
       (!Number.isInteger(line.unitCostCents) || line.unitCostCents < 0)
     ) {
-      throw new Error("O custo unitário deve ser informado em centavos");
+      throw ruleViolation("O custo unitário deve ser informado em centavos");
     }
   }
 }
@@ -146,10 +148,10 @@ async function validateMaterials(
     })
   );
   if (materials.some((material) => !material)) {
-    throw new Error("Um ou mais materiais não foram encontrados");
+    throw ruleViolation("Um ou mais materiais não foram encontrados");
   }
   if (materials.some((material) => material && !material.active)) {
-    throw new Error("Materiais inativos não podem ser movimentados");
+    throw ruleViolation("Materiais inativos não podem ser movimentados");
   }
 }
 
@@ -162,7 +164,7 @@ async function resolveDocumentLocations(
   destinationLocationId?: Id<"inventoryLocations">;
 }> {
   if (type !== "entry" && !projectId && type !== "adjustment") {
-    throw new Error("Selecione a obra");
+    throw ruleViolation("Selecione a obra");
   }
 
   if (type === "entry") {
@@ -177,7 +179,7 @@ async function resolveDocumentLocations(
     return { destinationLocationId: location._id };
   }
 
-  if (!projectId) throw new Error("Selecione a obra");
+  if (!projectId) throw ruleViolation("Selecione a obra");
   const project = await getOrCreateProjectLocation(ctx, projectId);
   if (type === "consumption") {
     return { sourceLocationId: project._id };
@@ -292,22 +294,22 @@ export async function reviewInventoryDocument(
   input: ReviewInventoryDocumentInput
 ): Promise<void> {
   const reason = input.reason.trim();
-  if (!reason) throw new Error("Informe a justificativa");
+  if (!reason) throw ruleViolation("Informe a justificativa");
 
   const document = await ctx.db.get(
     "inventoryDocuments",
     input.documentId
   );
-  if (!document) throw new Error("Movimentação não encontrada");
+  if (!document) throw notFound("Movimentação não encontrada");
   if (document.status !== "pending_approval") {
-    throw new Error("Esta movimentação não está pendente de aprovação");
+    throw ruleViolation("Esta movimentação não está pendente de aprovação");
   }
-  if (!document.projectId) throw new Error("Movimentação sem obra vinculada");
+  if (!document.projectId) throw ruleViolation("Movimentação sem obra vinculada");
 
   const project = await ctx.db.get("projects", document.projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
   if (!canDecideInventoryException(user, project)) {
-    throw new Error(
+    throw forbidden(
       "Somente o engenheiro responsável pela obra pode decidir esta exceção"
     );
   }

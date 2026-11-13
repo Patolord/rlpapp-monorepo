@@ -19,6 +19,7 @@ import {
   applyResizeEnvironment,
   applyUpdateProject,
 } from "./structureIntents";
+import { notFound } from "../../lib/domainErrors";
 
 /**
  * Aplica, em ordem, os intents revisados pelo usuário. Intents que não se
@@ -31,7 +32,7 @@ export async function applyAiIntents(
   input: { projectId: Id<"projects">; intents: AiIntent[] }
 ): Promise<{ applied: number; summary: string[] }> {
   const project = await ctx.db.get("projects", input.projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
 
   const state: ApplyIntentsState = {
     projectId: input.projectId,

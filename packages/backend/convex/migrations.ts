@@ -6,10 +6,11 @@ import { adminMutation, adminQuery } from "./lib/rbac";
 import { findOrCreateSystemInProject } from "./model/engineering/systems";
 import { findOrCreateCustomerByName } from "./model/contracts/customers";
 import { getLegacyClientLabel, getPortalUserIds } from "./model/engineering/projects";
-import { normalizeCustomerName } from "./model/contracts/customers";
+
 import type { Id } from "./_generated/dataModel";
 import { planSeedLaborPrices } from "./model/procurement/seedLaborPrices";
 import { rolesFromLegacy } from "@rlpapp/shared/auth/permissions";
+import { normalizeText } from "./model/kernel/text";
 
 /**
  * Backfill idempotente: cria, para cada obra que ainda não tem torres, uma
@@ -266,7 +267,7 @@ export const backfillCustomersFromProjects = adminMutation({
       } = {};
 
       if (needsCustomer && legacyLabel) {
-        const key = normalizeCustomerName(legacyLabel);
+        const key = normalizeText(legacyLabel);
         let customerId = customerIdByName.get(key);
         if (!customerId) {
           const existing = await ctx.db

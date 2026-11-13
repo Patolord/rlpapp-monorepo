@@ -6,6 +6,7 @@ import {
   removeProjectUnit,
   upsertProjectUnit,
 } from "./model/engineering/projectUnitEquipment";
+import { notFound } from "./lib/domainErrors";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
 
@@ -35,7 +36,7 @@ export const setDeadline = obrasMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const unit = await ctx.db.get("projectUnits", args.unitId);
-    if (!unit) throw new Error("Apartamento não encontrado");
+    if (!unit) throw notFound("Apartamento não encontrado");
     await ctx.db.patch("projectUnits", args.unitId, {
       deadline: args.deadline ?? undefined,
     });

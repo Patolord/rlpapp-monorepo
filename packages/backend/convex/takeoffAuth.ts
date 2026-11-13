@@ -9,6 +9,7 @@ import {
   redeemAuthCode,
   revokeDeviceToken,
 } from "./model/identity/takeoffDeviceAuth";
+import { unauthenticated } from "./lib/accessErrors";
 
 /**
  * Login do RLP Takeoff (desktop) com a conta da empresa. Ver lib/takeoffAuth.ts
@@ -63,7 +64,7 @@ export const createCode = action({
   returns: v.object({ code: v.string(), expiresAt: v.number() }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    if (!identity) throw unauthenticated();
     // Um token (inclusive de dispositivo) não pode emitir outro.
     rejectAgentTokenIdentity(identity);
     assertCodeRequest(args);

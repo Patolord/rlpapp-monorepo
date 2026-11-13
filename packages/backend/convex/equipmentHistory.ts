@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { authedMutation, authedQuery } from "./lib/rbac";
 import { logEquipmentHistory } from "./lib/audit";
 import { listPlannedEquipmentHistory } from "./model/engineering/projectEquipment";
+import { notFound } from "./lib/domainErrors";
 
 const locationValidator = v.object({
   latitude: v.number(),
@@ -38,7 +39,7 @@ export const record = authedMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const equipment = await ctx.db.get("projectEquipment", args.equipmentId);
-    if (!equipment) throw new Error("Equipamento não encontrado");
+    if (!equipment) throw notFound("Equipamento não encontrado");
     await logEquipmentHistory(ctx, ctx.user, {
       equipmentId: args.equipmentId,
       action: args.action,

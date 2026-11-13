@@ -1,14 +1,5 @@
+import { ruleViolation } from "../../lib/domainErrors";
 /** Normaliza texto para busca/alias, ignorando acentos e pontuação. */
-export function normalizeText(value: string): string {
-  return value
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
 export type PriceFreshness = "fresh" | "usable" | "old" | "stale";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -75,7 +66,7 @@ export function parseBrlToCents(value: string): number {
   const cleaned = value.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
   const num = Number.parseFloat(cleaned);
   if (!Number.isFinite(num) || num < 0) {
-    throw new Error("Preço inválido");
+    throw ruleViolation("Preço inválido");
   }
   return Math.round(num * 100);
 }

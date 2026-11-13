@@ -7,6 +7,7 @@ import {
 } from "./rules";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 // Medições de contratos de venda ao cliente: listagens por obra, criação,
 // edição em rascunho, fluxo de status (rascunho → aprovada → paga) e a visão
@@ -134,7 +135,7 @@ export async function createContractMedicao(
   input: CreateMedicaoInput
 ): Promise<Id<"medicoes">> {
   const contract = await ctx.db.get("contracts", input.contractId);
-  if (!contract) throw new Error("Contrato não encontrado");
+  if (!contract) throw notFound("Contrato não encontrado");
   assertContractEligibleForMeasurement(contract);
   const projectId = contract.projectId!;
 
@@ -143,14 +144,14 @@ export async function createContractMedicao(
 
   if (input.basis === "valor_fixo") {
     if (input.amountCents === undefined || input.amountCents <= 0) {
-      throw new Error("Informe o valor da medição");
+      throw ruleViolation("Informe o valor da medição");
     }
     amountCents = Math.round(input.amountCents);
     percent = undefined;
   } else {
     // percentual ou progresso_equipamentos: valor derivado do % do contrato.
     if (input.percent === undefined || input.percent <= 0) {
-      throw new Error("Informe o percentual da medição");
+      throw ruleViolation("Informe o percentual da medição");
     }
     percent = input.percent;
     amountCents = Math.round((contract.valueCents * input.percent) / 100);
@@ -200,25 +201,25 @@ export async function updateDraftMedicao(
   input: UpdateMedicaoInput
 ): Promise<void> {
   const medicao = await ctx.db.get("medicoes", input.medicaoId);
-  if (!medicao) throw new Error("Medição não encontrada");
+  if (!medicao) throw notFound("Medição não encontrada");
   if (medicao.status !== "rascunho") {
-    throw new Error("Apenas medições em rascunho podem ser editadas");
+    throw ruleViolation("Apenas medições em rascunho podem ser editadas");
   }
   const contract = await ctx.db.get("contracts", medicao.contractId);
-  if (!contract) throw new Error("Contrato não encontrado");
+  if (!contract) throw notFound("Contrato não encontrado");
 
   const basis = input.basis ?? medicao.basis;
   const patch: Partial<Doc<"medicoes">> = { basis };
 
   if (basis === "valor_fixo") {
     const amountCents = input.amountCents ?? medicao.amountCents;
-    if (amountCents <= 0) throw new Error("Informe o valor da medição");
+    if (amountCents <= 0) throw ruleViolation("Informe o valor da medição");
     patch.amountCents = Math.round(amountCents);
     patch.percent = undefined;
   } else {
     const percent = input.percent ?? medicao.percent;
     if (percent === undefined || percent <= 0) {
-      throw new Error("Informe o percentual da medição");
+      throw ruleViolation("Informe o percentual da medição");
     }
     patch.percent = percent;
     patch.amountCents = Math.round((contract.valueCents * percent) / 100);
@@ -256,14 +257,14 @@ export async function changeMedicaoStatus(
   input: { medicaoId: Id<"medicoes">; status: Doc<"medicoes">["status"] }
 ): Promise<void> {
   const medicao = await ctx.db.get("medicoes", input.medicaoId);
-  if (!medicao) throw new Error("Medição não encontrada");
+  if (!medicao) throw notFound("Medição não encontrada");
   if (medicao.status === input.status) return;
 
   const from = STATUS_ORDER[medicao.status];
   const to = STATUS_ORDER[input.status];
   // Permite avançar/retroceder apenas um passo por vez (correções incluídas).
   if (Math.abs(to - from) !== 1) {
-    throw new Error(
+    throw ruleViolation(
       `Transição inválida: ${medicao.status} → ${input.status}`
     );
   }

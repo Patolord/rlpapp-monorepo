@@ -7,7 +7,7 @@ import {
   permissionQuery,
 } from "./lib/rbac";
 import { materialStatus } from "./schema/procurement";
-import { bulkImportResultValidator } from "./model/procurement/bulkImport";
+import { bulkImportResultValidator } from "./model/kernel/bulkImport";
 import {
   executeMaterialMerge,
   previewMaterialMerge,
@@ -17,11 +17,11 @@ import {
   createMaterialInternal,
   updateMaterial,
 } from "./model/procurement/materials";
-import { bulkCreateMaterials } from "./model/procurement/materialImport";
+import { bulkCreateMaterials } from "./model/inventory/materialImport";
 import {
   getMaterialCatalogRow,
   listMaterialCatalog,
-} from "./model/procurement/materialCatalogRows";
+} from "./model/inventory/materialCatalogRows";
 import {
   findMaterialDuplicateCandidates,
   listMaterialAliases,

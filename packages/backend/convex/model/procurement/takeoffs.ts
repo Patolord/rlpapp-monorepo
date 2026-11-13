@@ -14,6 +14,7 @@ import {
   type RemoveDesktopBudgetResult,
 } from "./desktopBudgetRemoval";
 import { toTakeoffItemView, type PriceLookupCache } from "./takeoffItems";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /** Takeoffs: lista, detalhe com linhas, criação manual e envios do desktop. */
 
@@ -114,11 +115,11 @@ export async function createTakeoff(
   input: { projectId?: Id<"projects">; name: string }
 ): Promise<Id<"takeoffs">> {
   const name = input.name.trim();
-  if (!name) throw new Error("Informe o nome do takeoff");
+  if (!name) throw ruleViolation("Informe o nome do takeoff");
 
   if (input.projectId) {
     const project = await ctx.db.get("projects", input.projectId);
-    if (!project) throw new Error("Obra não encontrada");
+    if (!project) throw notFound("Obra não encontrada");
   }
 
   const now = Date.now();

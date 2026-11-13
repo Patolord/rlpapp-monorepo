@@ -1,5 +1,6 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
+import { notFound } from "../../lib/domainErrors";
 
 // Caminho legado de planejamento por apartamentos (projectUnits): itens
 // planejados presos a uma unidade em vez de a um ambiente da hierarquia.
@@ -46,7 +47,7 @@ export async function upsertUnitEquipment(
   args: UpsertUnitEquipmentInput
 ): Promise<Id<"projectEquipment">> {
   const unit = await ctx.db.get("projectUnits", args.unitId);
-  if (!unit) throw new Error("Apartamento não encontrado");
+  if (!unit) throw notFound("Apartamento não encontrado");
 
   const base = {
     system: args.system.trim() || "Split",
@@ -60,7 +61,7 @@ export async function upsertUnitEquipment(
 
   if (args.itemId) {
     const item = await ctx.db.get("projectEquipment", args.itemId);
-    if (!item) throw new Error("Equipamento não encontrado");
+    if (!item) throw notFound("Equipamento não encontrado");
     await ctx.db.patch("projectEquipment", args.itemId, {
       ...base,
       status: args.status ?? item.status,
@@ -83,7 +84,7 @@ export async function bulkCreateUnitsWithEquipment(
   args: BulkCreateUnitsWithEquipmentInput
 ): Promise<{ units: number; items: number }> {
   const project = await ctx.db.get("projects", args.projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
 
   let unitCount = 0;
   let itemCount = 0;
@@ -142,7 +143,7 @@ export async function upsertProjectUnit(
   input: UpsertProjectUnitInput
 ): Promise<Id<"projectUnits">> {
   const project = await ctx.db.get("projects", input.projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
 
   const floor = Math.floor(input.floor);
   const final = Math.max(1, Math.floor(input.final));
@@ -151,7 +152,7 @@ export async function upsertProjectUnit(
 
   if (input.unitId) {
     const unit = await ctx.db.get("projectUnits", input.unitId);
-    if (!unit) throw new Error("Apartamento não encontrado");
+    if (!unit) throw notFound("Apartamento não encontrado");
     await ctx.db.patch("projectUnits", input.unitId, {
       floor,
       final,

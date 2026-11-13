@@ -2,17 +2,14 @@ import type { Infer } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { diffFields, logAudit } from "../../lib/audit";
-import {
-  optionalTaxIdDigits,
-  normalizeCustomerName,
-  normalizeTaxId,
-  validateTaxIdForPersonType,
-  type CustomerPersonType,
-} from "./customers";
+
 import type {
   customerContactValidator,
   customerValidator,
 } from "./customerValidators";
+import { alreadyExists, notFound, ruleViolation } from "../../lib/domainErrors";
+import { type PersonType, normalizeTaxId, optionalTaxIdDigits, validateTaxIdForPersonType } from "../kernel/taxId";
+import { normalizeText } from "../kernel/text";
 
 /**
  * Cadastro de clientes (`convex/customers.ts`): listagem, detalhe com
@@ -36,7 +33,7 @@ export type GetCustomerInput = {
 
 export type CreateCustomerInput = {
   name: string;
-  personType?: CustomerPersonType;
+  personType?: PersonType;
   legalName?: string;
   taxId?: string;
   email?: string;
@@ -48,7 +45,7 @@ export type CreateCustomerInput = {
 export type UpdateCustomerInput = {
   customerId: Id<"customers">;
   name?: string;
-  personType?: CustomerPersonType | null;
+  personType?: PersonType | null;
   legalName?: string;
   taxId?: string | null;
   email?: string;
@@ -100,7 +97,7 @@ async function assertUniqueCustomerIdentity(
     excludeId?: Id<"customers">;
   }
 ) {
-  const nameNormalized = normalizeCustomerName(params.name);
+  const nameNormalized = normalizeText(params.name);
   const existingByName = await ctx.db
     .query("customers")
     .withIndex("by_name_normalized", (q) =>
@@ -109,7 +106,7 @@ async function assertUniqueCustomerIdentity(
     .collect();
   const nameConflict = existingByName.find((c) => c._id !== params.excludeId);
   if (nameConflict) {
-    throw new Error("Já existe um cliente com este nome");
+    throw alreadyExists("Já existe um cliente com este nome");
   }
 
   if (params.taxId) {
@@ -125,7 +122,7 @@ async function assertUniqueCustomerIdentity(
         (c) => c._id !== params.excludeId
       );
       if (taxConflict) {
-        throw new Error("Já existe um cliente com este CNPJ/CPF");
+        throw alreadyExists("Já existe um cliente com este CNPJ/CPF");
       }
     }
   }
@@ -143,11 +140,11 @@ export async function listCustomers(
     customers = customers.filter((c) => c.active);
   }
   if (input.search?.trim()) {
-    const term = normalizeCustomerName(input.search);
+    const term = normalizeText(input.search);
     customers = customers.filter(
       (c) =>
         c.nameNormalized.includes(term) ||
-        (c.legalName && normalizeCustomerName(c.legalName).includes(term)) ||
+        (c.legalName && normalizeText(c.legalName).includes(term)) ||
         (c.taxIdNormalized && c.taxIdNormalized.includes(term.replace(/\D/g, "")))
     );
   }
@@ -190,7 +187,7 @@ export async function createCustomer(
   input: CreateCustomerInput
 ): Promise<Id<"customers">> {
   const name = input.name.trim();
-  if (!name) throw new Error("Informe o nome do cliente");
+  if (!name) throw ruleViolation("Informe o nome do cliente");
 
   const taxId = input.taxId ? optionalTaxIdDigits(input.taxId) : undefined;
   validateTaxIdForPersonType(taxId, input.personType);
@@ -199,7 +196,7 @@ export async function createCustomer(
   const now = Date.now();
   const customerId = await ctx.db.insert("customers", {
     name,
-    nameNormalized: normalizeCustomerName(name),
+    nameNormalized: normalizeText(name),
     personType: input.personType,
     legalName: input.legalName?.trim() || undefined,
     taxId,
@@ -232,9 +229,9 @@ export async function updateCustomer(
   input: UpdateCustomerInput
 ): Promise<void> {
   const customer = await ctx.db.get("customers", input.customerId);
-  if (!customer) throw new Error("Cliente não encontrado");
+  if (!customer) throw notFound("Cliente não encontrado");
   if (customer.archivedAt) {
-    throw new Error("Cliente arquivado — restaure antes de editar");
+    throw ruleViolation("Cliente arquivado — restaure antes de editar");
   }
 
   const before = customerSnapshot(customer);
@@ -245,9 +242,9 @@ export async function updateCustomer(
 
   if (input.name !== undefined) {
     const name = input.name.trim();
-    if (!name) throw new Error("Informe o nome do cliente");
+    if (!name) throw ruleViolation("Informe o nome do cliente");
     updates.name = name;
-    updates.nameNormalized = normalizeCustomerName(name);
+    updates.nameNormalized = normalizeText(name);
   }
   if (input.personType !== undefined) {
     updates.personType =
@@ -313,7 +310,7 @@ export async function archiveCustomer(
   customerId: Id<"customers">
 ): Promise<void> {
   const customer = await ctx.db.get("customers", customerId);
-  if (!customer) throw new Error("Cliente não encontrado");
+  if (!customer) throw notFound("Cliente não encontrado");
   if (customer.archivedAt) return;
 
   const now = Date.now();
@@ -342,7 +339,7 @@ export async function restoreCustomer(
   customerId: Id<"customers">
 ): Promise<void> {
   const customer = await ctx.db.get("customers", customerId);
-  if (!customer) throw new Error("Cliente não encontrado");
+  if (!customer) throw notFound("Cliente não encontrado");
   if (!customer.archivedAt) return;
 
   const now = Date.now();

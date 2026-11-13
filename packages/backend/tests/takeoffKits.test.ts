@@ -129,7 +129,7 @@ describe("takeoffKits", () => {
     // the removed kit keeps its key: saving it again cannot reuse the id
     await expect(
       engineering.mutation(api.takeoffKits.save, { id: gone, ...lineSet })
-    ).rejects.toThrow(/não encontrado/);
+    ).rejects.toMatchObject({ data: { code: "NOT_FOUND", message: "Kit não encontrado" } });
     expect((await engineering.query(api.takeoffKits.list, {})).map((k) => k._id)).toEqual([keep]);
   });
 

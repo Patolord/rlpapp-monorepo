@@ -9,6 +9,7 @@ import {
 } from "./alimonies";
 import { assertNonNegativeCents } from "./payroll";
 import { assertDraft, requireRun } from "./payrollRuns";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 // Escritas da pensão alimentícia: cadastro e linhas mensais da folha. A pensão
 // é paga direto ao beneficiário, em linha própria, e nunca altera a linha do
@@ -21,7 +22,7 @@ async function requireAlimony(
   alimonyId: Id<"employeeAlimonies">
 ) {
   const alimony = await ctx.db.get("employeeAlimonies", alimonyId);
-  if (!alimony) throw new Error("Pensão não encontrada");
+  if (!alimony) throw notFound("Pensão não encontrada");
   return alimony;
 }
 
@@ -30,7 +31,7 @@ async function requireAlimonyLine(
   lineId: Id<"payrollAlimonyLines">
 ) {
   const line = await ctx.db.get("payrollAlimonyLines", lineId);
-  if (!line) throw new Error("Linha não encontrada");
+  if (!line) throw notFound("Linha não encontrada");
   return line;
 }
 
@@ -66,9 +67,9 @@ export async function createAlimony(
   }
 ): Promise<Id<"employeeAlimonies">> {
   const employee = await ctx.db.get("employees", input.employeeId);
-  if (!employee) throw new Error("Funcionário não encontrado");
+  if (!employee) throw notFound("Funcionário não encontrado");
   const beneficiaryName = input.beneficiaryName.trim();
-  if (!beneficiaryName) throw new Error("Informe o nome do beneficiário");
+  if (!beneficiaryName) throw ruleViolation("Informe o nome do beneficiário");
   const amountCents = assertNonNegativeCents(input.amountCents, "Valor da pensão");
 
   const now = Date.now();
@@ -85,7 +86,7 @@ export async function createAlimony(
     updatedByUserId: user._id,
   });
   const alimony = await ctx.db.get("employeeAlimonies", alimonyId);
-  if (!alimony) throw new Error("Pensão não encontrada");
+  if (!alimony) throw notFound("Pensão não encontrada");
 
   for (const run of await listDraftRuns(ctx)) {
     const employeeLine = await ctx.db
@@ -127,7 +128,7 @@ export async function updateAlimony(
 ) {
   const alimony = await requireAlimony(ctx, input.alimonyId);
   if (alimony.archivedAt) {
-    throw new Error("Pensão encerrada — não pode ser editada");
+    throw ruleViolation("Pensão encerrada — não pode ser editada");
   }
   const updates: Partial<Doc<"employeeAlimonies">> = {
     updatedAt: Date.now(),
@@ -135,7 +136,7 @@ export async function updateAlimony(
   };
   if (input.beneficiaryName !== undefined) {
     const name = input.beneficiaryName.trim();
-    if (!name) throw new Error("Informe o nome do beneficiário");
+    if (!name) throw ruleViolation("Informe o nome do beneficiário");
     updates.beneficiaryName = name;
   }
   if (input.amountCents !== undefined) {
@@ -239,11 +240,11 @@ export async function addAlimonyToRun(
   const run = await requireRun(ctx, input.runId);
   assertDraft(run);
   const alimony = await requireAlimony(ctx, input.alimonyId);
-  if (alimony.archivedAt) throw new Error("Pensão encerrada");
+  if (alimony.archivedAt) throw ruleViolation("Pensão encerrada");
   const employee = await ctx.db.get("employees", alimony.employeeId);
-  if (!employee) throw new Error("Funcionário não encontrado");
+  if (!employee) throw notFound("Funcionário não encontrado");
   if (await findAlimonyLine(ctx, run._id, alimony._id)) {
-    throw new Error("Esta pensão já está nesta folha");
+    throw ruleViolation("Esta pensão já está nesta folha");
   }
   const lineId = await insertAlimonyLine(ctx, run, alimony, employee);
   await logAudit(ctx, user, {

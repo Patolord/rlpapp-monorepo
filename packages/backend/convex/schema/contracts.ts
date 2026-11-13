@@ -106,7 +106,7 @@ export const contractsTables = {
     .index("by_contractor", ["contractorId"])
     .index("by_contractor_and_active", ["contractorId", "active"]),
 
-  // --- Engenharia: Contratos e Medições ---
+  // --- Contratos e medições ---
   // Registro unificado: venda ao cliente ou contratação de empreiteiro.
   // Pode ou não estar vinculado a uma obra. Valor total é a soma dos itens
   // de serviço (valueCents denormalizado).

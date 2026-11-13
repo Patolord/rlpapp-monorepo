@@ -6,14 +6,13 @@ import {
   emptyBulkImportResult,
   requireTrimmedName,
   type BulkImportResult,
-} from "../procurement/bulkImport";
-import {
-  optionalTaxIdDigits,
-  normalizeCustomerName,
-  normalizeTaxId,
-  validateTaxIdForPersonType,
-} from "./customers";
+} from "../kernel/bulkImport";
+
 import type { bulkCustomerItemValidator } from "./customerValidators";
+import { ruleViolation } from "../../lib/domainErrors";
+import { errorMessage } from "@rlpapp/shared/errors";
+import { normalizeTaxId, optionalTaxIdDigits, validateTaxIdForPersonType } from "../kernel/taxId";
+import { normalizeText } from "../kernel/text";
 
 /** Importação de clientes em lote (CSV), com um contato opcional por linha. */
 
@@ -27,7 +26,7 @@ export async function bulkCreateCustomers(
   items: BulkCustomerItem[]
 ): Promise<BulkImportResult> {
   if (items.length > MAX_CUSTOMERS_PER_IMPORT) {
-    throw new Error("Máximo de 200 clientes por importação");
+    throw ruleViolation("Máximo de 200 clientes por importação");
   }
   const result = emptyBulkImportResult();
   const now = Date.now();
@@ -44,14 +43,14 @@ export async function bulkCreateCustomers(
       continue;
     }
 
-    const nameNormalized = normalizeCustomerName(nameCheck.name);
+    const nameNormalized = normalizeText(nameCheck.name);
     const taxId = item.taxId ? optionalTaxIdDigits(item.taxId) : undefined;
     try {
       validateTaxIdForPersonType(taxId, item.personType);
     } catch (error) {
       result.errors.push({
         row,
-        message: error instanceof Error ? error.message : "CPF/CNPJ inválido",
+        message: errorMessage(error, "CPF/CNPJ inválido"),
       });
       continue;
     }

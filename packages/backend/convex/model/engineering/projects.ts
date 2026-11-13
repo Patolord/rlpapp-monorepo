@@ -2,6 +2,8 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { looksLikeConvexId } from "./slug";
 import { seesAllFieldProjects } from "../../lib/rbac";
+import { forbidden } from "../../lib/accessErrors";
+import { alreadyExists, notFound, ruleViolation } from "../../lib/domainErrors";
 
 /** Resolve uma obra por slug (preferido) ou por id (fallback legado). */
 export async function resolveProjectByIdentifier(
@@ -39,10 +41,10 @@ export async function assertTechnicianProjectAccess(
   projectId: Id<"projects">
 ): Promise<Doc<"projects">> {
   const project = await ctx.db.get("projects", projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
   if (seesAllFieldProjects(user)) return project;
   const allowed = (project.technicianIds ?? []).includes(user._id);
-  if (!allowed) throw new Error("Acesso negado a esta obra");
+  if (!allowed) throw forbidden("Acesso negado a esta obra");
   return project;
 }
 
@@ -81,7 +83,7 @@ export async function resolveCustomerLabel(
 
 export function assertValidLegacyNumber(legacyNumber: number): void {
   if (!Number.isSafeInteger(legacyNumber) || legacyNumber <= 0) {
-    throw new Error("O número da obra deve ser um número inteiro positivo");
+    throw ruleViolation("O número da obra deve ser um número inteiro positivo");
   }
 }
 
@@ -96,6 +98,6 @@ export async function assertUniqueLegacyNumber(
     .withIndex("by_legacy_number", (q) => q.eq("legacyNumber", legacyNumber))
     .take(2);
   if (matches.some((project) => project._id !== excludeId)) {
-    throw new Error(`Já existe uma obra com o número ${legacyNumber}`);
+    throw alreadyExists(`Já existe uma obra com o número ${legacyNumber}`);
   }
 }
