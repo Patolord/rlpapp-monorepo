@@ -7,6 +7,7 @@ import {
   updateEquipment,
 } from "./model/engineering/equipmentRecords";
 import { equipmentStatusValidator } from "./schema/engineering";
+import { ruleViolation } from "./lib/domainErrors";
 
 export const get = authedQuery({
   args: { id: v.id("equipment") },
@@ -68,10 +69,10 @@ export const create = authedMutation({
   returns: v.id("equipment"),
   handler: async (ctx, args) => {
     if (!args.description.trim()) {
-      throw new Error("Descrição é obrigatória");
+      throw ruleViolation("Descrição é obrigatória");
     }
     if (args.labelPhotoIds.length === 0) {
-      throw new Error("É obrigatório anexar pelo menos uma foto da etiqueta");
+      throw ruleViolation("É obrigatório anexar pelo menos uma foto da etiqueta");
     }
 
     return await ctx.db.insert("equipment", {

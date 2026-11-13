@@ -12,6 +12,7 @@ import {
   syncTakeoffBasePrice,
   upsertTakeoffPriceRecord,
 } from "./takeoffSettings";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /**
  * Prices per kg of the RLP Takeoff base materials (`takeoffSettings.ts`): publishing the whole
@@ -72,7 +73,7 @@ export async function saveTakeoffPriceRecord(
   const price = sanitizeTakeoffBasePrices({ [input.material]: input.price })[input.material]!;
   const recordedAt = priceDateToTimestamp(input.date);
   const now = Date.now();
-  if (recordedAt > now) throw new Error("A data do preço não pode estar no futuro");
+  if (recordedAt > now) throw ruleViolation("A data do preço não pode estar no futuro");
   const note = sanitizePriceNote(input.note);
   const id = await upsertTakeoffPriceRecord(
     ctx,
@@ -97,7 +98,7 @@ export async function removeTakeoffPriceRecord(
   id: Id<"takeoffPriceHistory">
 ): Promise<void> {
   const record = await ctx.db.get("takeoffPriceHistory", id);
-  if (!record) throw new Error("Registro de preço não encontrado");
+  if (!record) throw notFound("Registro de preço não encontrado");
   await ctx.db.delete("takeoffPriceHistory", id);
   await logAudit(ctx, user, {
     action: "delete",

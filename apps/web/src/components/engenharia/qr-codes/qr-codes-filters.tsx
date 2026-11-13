@@ -1,4 +1,5 @@
 import { Printer, Search } from "lucide-react";
+import { EQUIPMENT_STATUS_LABELS } from "@rlpapp/shared/engenharia/equipment";
 
 import {
   ALL,
@@ -80,10 +81,11 @@ export function QrCodesFilters({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>Todos os status</SelectItem>
-          <SelectItem value="operational">Operacional</SelectItem>
-          <SelectItem value="installing">Em instalação</SelectItem>
-          <SelectItem value="warning">Alerta</SelectItem>
-          <SelectItem value="error">Erro</SelectItem>
+          {(["operational", "installing", "warning", "error"] as const).map((value) => (
+            <SelectItem key={value} value={value}>
+              {EQUIPMENT_STATUS_LABELS[value]}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
       {(batches.length > 0 || hasRowsWithoutBatch) && (

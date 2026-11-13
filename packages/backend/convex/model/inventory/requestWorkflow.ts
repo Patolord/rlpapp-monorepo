@@ -7,7 +7,6 @@ import {
   notify,
   plural,
 } from "../notifications/notify";
-import { normalizeText } from "../procurement/pricing";
 import { findInventoryLocation } from "./locations";
 import {
   MAX_INVENTORY_REQUEST_LINES,
@@ -16,6 +15,9 @@ import {
   loadRequestItems,
   requireAssignedProject,
 } from "./requests";
+import { forbidden } from "../../lib/accessErrors";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
+import { normalizeText } from "../kernel/text";
 
 // Pedidos de material feitos pela obra: escolha de materiais do catálogo
 // (sugestões e busca), criação, cancelamento e validação pela engenharia.
@@ -201,10 +203,10 @@ export async function createInventoryRequest(
 ): Promise<Id<"inventoryRequests">> {
   await requireAssignedProject(ctx, user, input.projectId);
   if (input.items.length === 0) {
-    throw new Error("Adicione pelo menos um material");
+    throw ruleViolation("Adicione pelo menos um material");
   }
   if (input.items.length > MAX_INVENTORY_REQUEST_LINES) {
-    throw new Error(
+    throw ruleViolation(
       `Cada pedido aceita no máximo ${MAX_INVENTORY_REQUEST_LINES} materiais`
     );
   }
@@ -213,15 +215,15 @@ export async function createInventoryRequest(
   const materials = new Map<Id<"materials">, Doc<"materials">>();
   for (const item of input.items) {
     if (seen.has(item.materialId)) {
-      throw new Error("Há materiais repetidos no pedido");
+      throw ruleViolation("Há materiais repetidos no pedido");
     }
     seen.add(item.materialId);
     if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
-      throw new Error("A quantidade deve ser maior que zero");
+      throw ruleViolation("A quantidade deve ser maior que zero");
     }
     const material = await ctx.db.get("materials", item.materialId);
     if (!material || !material.active) {
-      throw new Error("Use apenas materiais ativos do catálogo");
+      throw ruleViolation("Use apenas materiais ativos do catálogo");
     }
     materials.set(item.materialId, material);
   }
@@ -305,13 +307,13 @@ export async function cancelInventoryRequest(
   requestId: Id<"inventoryRequests">
 ): Promise<void> {
   const request = await ctx.db.get("inventoryRequests", requestId);
-  if (!request) throw new Error("Pedido não encontrado");
+  if (!request) throw notFound("Pedido não encontrado");
   await requireAssignedProject(ctx, user, request.projectId);
   if (request.requestedByUserId !== user._id) {
-    throw new Error("Só quem pediu pode cancelar");
+    throw forbidden("Só quem pediu pode cancelar");
   }
   if (request.status !== "pending") {
-    throw new Error("Somente pedidos pendentes podem ser cancelados");
+    throw ruleViolation("Somente pedidos pendentes podem ser cancelados");
   }
   await ctx.db.patch("inventoryRequests", requestId, {
     status: "cancelled",
@@ -335,15 +337,15 @@ export async function reviewInventoryRequest(
   }
 ): Promise<void> {
   if (!canReviewMaterialRequests(user)) {
-    throw new Error("Apenas engenharia ou administradores validam pedidos");
+    throw forbidden("Apenas engenharia ou administradores validam pedidos");
   }
   const reason = input.reason.trim();
-  if (!reason) throw new Error("Informe a justificativa");
+  if (!reason) throw ruleViolation("Informe a justificativa");
 
   const request = await ctx.db.get("inventoryRequests", input.requestId);
-  if (!request) throw new Error("Pedido não encontrado");
+  if (!request) throw notFound("Pedido não encontrado");
   if (request.status !== "pending") {
-    throw new Error("Este pedido não está pendente");
+    throw ruleViolation("Este pedido não está pendente");
   }
 
   const now = Date.now();

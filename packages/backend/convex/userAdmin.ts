@@ -14,10 +14,12 @@ import {
   createClerkUser,
   revokeClerkInvitation,
 } from "./lib/clerkBackendApi";
+import { unauthenticated } from "./lib/accessErrors";
+import { alreadyExists, notFound, ruleViolation } from "./lib/domainErrors";
 
 async function requireAdmin(ctx: ActionCtx): Promise<void> {
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new Error("Not authenticated");
+  if (!identity) throw unauthenticated();
   rejectReadOnlyAgentTokenInAction(identity);
   await requireActionPermission(ctx, "admin.manage");
 }
@@ -84,7 +86,7 @@ export const adminInviteUser = action({
 
     const email = normalizeEmail(args.email);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      throw new Error("Email inválido");
+      throw ruleViolation("Email inválido");
     }
     const redirectUrl = assertRedirectUrl(args.redirectUrl);
 
@@ -93,7 +95,7 @@ export const adminInviteUser = action({
     // antigo sem convite, não é convidado por aqui (mesma regra de upsertInvited).
     const existing = await ctx.runQuery(internal.users.getByEmailInternal, { email });
     if (existing && (existing.clerkId || existing.invitedAt === undefined)) {
-      throw new Error("Já existe um usuário com este email");
+      throw alreadyExists("Já existe um usuário com este email");
     }
 
     const clerkInvitationId = await createClerkInvitation({ email, redirectUrl });
@@ -118,11 +120,11 @@ export const adminResendInvite = action({
     const redirectUrl = assertRedirectUrl(args.redirectUrl);
 
     const user = await ctx.runQuery(internal.users.getInternal, { id: args.id });
-    if (!user) throw new Error("Usuário não encontrado");
+    if (!user) throw notFound("Usuário não encontrado");
     if (user.clerkId || user.invitedAt === undefined) {
-      throw new Error("Este usuário já aceitou o convite");
+      throw ruleViolation("Este usuário já aceitou o convite");
     }
-    if (!user.email) throw new Error("Usuário sem email");
+    if (!user.email) throw ruleViolation("Usuário sem email");
 
     if (user.clerkInvitationId) {
       await revokeClerkInvitation(user.clerkInvitationId);
@@ -147,9 +149,9 @@ export const adminRevokeInvite = action({
     await requireAdmin(ctx);
 
     const user = await ctx.runQuery(internal.users.getInternal, { id: args.id });
-    if (!user) throw new Error("Usuário não encontrado");
+    if (!user) throw notFound("Usuário não encontrado");
     if (user.clerkId || user.invitedAt === undefined) {
-      throw new Error("Este usuário já aceitou o convite");
+      throw ruleViolation("Este usuário já aceitou o convite");
     }
 
     if (user.clerkInvitationId) {

@@ -129,7 +129,9 @@ function codeFromMessage(message: string): ApiErrorCode | null {
  *   FORBIDDEN         a função negou a role/permissão do dono
  *   UNAUTHORIZED      token somente leitura tentou gravar
  *   UNAUTHENTICATED   token revogado entre a verificação e a execução
- *   <código ConvexError> erros estruturados mantêm o próprio código
+ *   <código ConvexError> erros estruturados mantêm o próprio código: os de
+ *                     lib/domainErrors (NOT_FOUND 404, ALREADY_EXISTS 409,
+ *                     RULE_VIOLATION 422) e os de lib/accessErrors
  *   FUNCTION_ERROR    qualquer outra coisa lançada dentro da função
  */
 export async function translateFunctionError(

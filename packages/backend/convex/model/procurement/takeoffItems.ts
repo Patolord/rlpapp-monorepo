@@ -5,12 +5,10 @@ import type { takeoffItemStatus } from "../../schema/procurement";
 import { sanitizeDimensions, type MaterialDimensions } from "./catalog";
 import { computePriceChange } from "./priceHistory";
 import { isUsablePriceEvent } from "./priceSelection";
-import {
-  normalizeText,
-  priceFreshness,
-  suggestedUnitPriceCents,
-} from "./pricing";
+import { priceFreshness, suggestedUnitPriceCents } from "./pricing";
 import { promoteTakeoffItem } from "./takeoffPromotion";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
+import { normalizeText } from "../kernel/text";
 
 /** Linhas de um takeoff: visão com preços e cotações, e a edição manual. */
 
@@ -230,10 +228,10 @@ export async function addTakeoffItem(
   input: AddTakeoffItemInput
 ): Promise<Id<"takeoffItems">> {
   const takeoff = await ctx.db.get("takeoffs", input.takeoffId);
-  if (!takeoff) throw new Error("Takeoff não encontrado");
+  if (!takeoff) throw notFound("Takeoff não encontrado");
 
   const rawDescription = input.rawDescription.trim();
-  if (!rawDescription) throw new Error("Informe a descrição do item");
+  if (!rawDescription) throw ruleViolation("Informe a descrição do item");
 
   const now = Date.now();
   const customDimensions = sanitizeDimensions(input.customDimensions);
@@ -275,12 +273,12 @@ export async function updateTakeoffItem(
   input: UpdateTakeoffItemInput
 ): Promise<void> {
   const item = await ctx.db.get("takeoffItems", input.itemId);
-  if (!item) throw new Error("Item não encontrado");
+  if (!item) throw notFound("Item não encontrado");
 
   const updates: Record<string, unknown> = { updatedAt: Date.now() };
   if (input.rawDescription !== undefined) {
     const desc = input.rawDescription.trim();
-    if (!desc) throw new Error("Informe a descrição do item");
+    if (!desc) throw ruleViolation("Informe a descrição do item");
     updates.rawDescription = desc;
   }
   if (input.quantity !== undefined) updates.quantity = input.quantity;
@@ -324,7 +322,7 @@ export async function promoteTakeoffItemToMaterial(
   input: { itemId: Id<"takeoffItems">; familyName?: string; category?: string }
 ): Promise<{ materialId: Id<"materials">; created: boolean }> {
   const item = await ctx.db.get("takeoffItems", input.itemId);
-  if (!item) throw new Error("Item não encontrado");
+  if (!item) throw notFound("Item não encontrado");
   if (item.materialId) {
     return { materialId: item.materialId, created: false };
   }
@@ -341,7 +339,7 @@ export async function removeTakeoffItem(
   itemId: Id<"takeoffItems">
 ): Promise<void> {
   const item = await ctx.db.get("takeoffItems", itemId);
-  if (!item) throw new Error("Item não encontrado");
+  if (!item) throw notFound("Item não encontrado");
   await ctx.db.delete("takeoffItems", itemId);
   await ctx.db.patch("takeoffs", item.takeoffId, { updatedAt: Date.now() });
 }
@@ -351,7 +349,7 @@ export async function applySuggestedTakeoffItemPrice(
   input: { itemId: Id<"takeoffItems">; unitPriceCents: number }
 ): Promise<void> {
   const item = await ctx.db.get("takeoffItems", input.itemId);
-  if (!item) throw new Error("Item não encontrado");
+  if (!item) throw notFound("Item não encontrado");
   await ctx.db.patch("takeoffItems", input.itemId, {
     estimatedUnitPriceCents: input.unitPriceCents,
     // o total publicado pelo desktop era do preço anterior, que pode ter

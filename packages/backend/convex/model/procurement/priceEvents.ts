@@ -3,12 +3,8 @@ import type { QueryCtx } from "../../_generated/server";
 import type { MaterialDimensions } from "./catalog";
 import { buildPriceHistory, type PriceChange } from "./priceHistory";
 import { isUsablePriceEvent } from "./priceSelection";
-import {
-  normalizeText,
-  priceAgeDays,
-  priceFreshness,
-  suggestedUnitPriceCents,
-} from "./pricing";
+import { priceAgeDays, priceFreshness, suggestedUnitPriceCents } from "./pricing";
+import { normalizeText } from "../kernel/text";
 
 /** Leitura de eventos de preço: listas, último preço por fornecedor, histórico. */
 

@@ -1,5 +1,6 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /** Ofertas de material por fornecedor (código, embalagem, prazo, preferido). */
 
@@ -91,20 +92,20 @@ export async function upsertSupplierMaterialOffering(
     ctx.db.get("suppliers", input.supplierId),
     ctx.db.get("materials", input.materialId),
   ]);
-  if (!supplier) throw new Error("Fornecedor não encontrado");
-  if (!material) throw new Error("Material não encontrado");
+  if (!supplier) throw notFound("Fornecedor não encontrado");
+  if (!material) throw notFound("Material não encontrado");
   if (
     input.unitsPerPurchaseUnit !== undefined &&
     (!Number.isFinite(input.unitsPerPurchaseUnit) ||
       input.unitsPerPurchaseUnit <= 0)
   ) {
-    throw new Error("Unidades por embalagem deve ser maior que zero");
+    throw ruleViolation("Unidades por embalagem deve ser maior que zero");
   }
   if (
     input.leadTimeDays !== undefined &&
     (!Number.isInteger(input.leadTimeDays) || input.leadTimeDays < 0)
   ) {
-    throw new Error("Prazo deve ser um número inteiro não negativo");
+    throw ruleViolation("Prazo deve ser um número inteiro não negativo");
   }
   const supplierCode = input.supplierCode?.trim() || undefined;
   if (supplierCode) {
@@ -115,7 +116,7 @@ export async function upsertSupplierMaterialOffering(
       )
       .first();
     if (codeOwner && codeOwner.materialId !== input.materialId) {
-      throw new Error(
+      throw ruleViolation(
         `Código ${supplierCode} já está vinculado a outro material deste fornecedor`
       );
     }
@@ -155,6 +156,6 @@ export async function removeSupplierMaterialOffering(
   offeringId: Id<"supplierMaterials">
 ): Promise<void> {
   const offering = await ctx.db.get("supplierMaterials", offeringId);
-  if (!offering) throw new Error("Oferta do fornecedor não encontrada");
+  if (!offering) throw notFound("Oferta do fornecedor não encontrada");
   await ctx.db.delete("supplierMaterials", offeringId);
 }

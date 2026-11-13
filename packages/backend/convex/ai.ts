@@ -17,6 +17,8 @@ import {
 // A regra só olha o arquivo importado; ai.ts também é "use node".
 // eslint-disable-next-line @convex-dev/import-wrong-runtime
 import { readAttachments } from "./model/ai/attachments";
+import { unauthenticated } from "./lib/accessErrors";
+import { ruleViolation } from "./lib/domainErrors";
 
 const unitTypeValidator = v.union(v.literal("vrf"), v.literal("split"));
 
@@ -60,7 +62,7 @@ export const proposeLayout = action({
   }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    if (!identity) throw unauthenticated();
     rejectReadOnlyAgentTokenInAction(identity);
     await requireActionPermission(ctx, "assistente.use");
 
@@ -88,7 +90,7 @@ export const proposeLayout = action({
       .join("\n\n");
 
     if (!textContent.trim() && userParts.length === 0) {
-      throw new Error("Envie uma mensagem ou um arquivo para a IA analisar.");
+      throw ruleViolation("Envie uma mensagem ou um arquivo para a IA analisar.");
     }
 
     userParts.unshift({
@@ -128,7 +130,7 @@ export const interpret = action({
   }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    if (!identity) throw unauthenticated();
     rejectReadOnlyAgentTokenInAction(identity);
     await requireActionPermission(ctx, "assistente.use");
 
@@ -172,7 +174,7 @@ export const interpret = action({
       .join("\n\n");
 
     if (!textContent.trim() && userParts.length === 0) {
-      throw new Error("Envie uma mensagem ou um arquivo para a IA analisar.");
+      throw ruleViolation("Envie uma mensagem ou um arquivo para a IA analisar.");
     }
 
     userParts.unshift({

@@ -9,8 +9,9 @@ import {
   normalizeUnit,
   sanitizeDimensions,
 } from "./catalog";
-import { normalizeText } from "./pricing";
 import { logAudit } from "../../lib/audit";
+import { ruleViolation } from "../../lib/domainErrors";
+import { normalizeText } from "../kernel/text";
 
 /**
  * Vincula um item do takeoff a um material do catálogo: acha a família pelo
@@ -30,7 +31,7 @@ export async function promoteTakeoffItem(
   familyName: string;
 }> {
   const familyName = (options.familyName ?? item.rawDescription).trim();
-  if (!familyName) throw new Error("Informe o nome da família");
+  if (!familyName) throw ruleViolation("Informe o nome da família");
   const nameNormalized = normalizeText(familyName);
   let family = await ctx.db
     .query("materialFamilies")
@@ -51,6 +52,7 @@ export async function promoteTakeoffItem(
     });
     family = await ctx.db.get("materialFamilies", familyId);
   }
+  // eslint-disable-next-line no-restricted-syntax -- invariante: o registro acabou de ser gravado nesta transação
   if (!family) throw new Error("Falha ao criar família de material");
 
   const dimensions = sanitizeDimensions(item.customDimensions);

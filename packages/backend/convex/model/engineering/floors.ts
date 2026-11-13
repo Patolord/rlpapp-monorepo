@@ -2,6 +2,7 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
 import { deleteSystemsIfOrphaned } from "./systems";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 export function defaultFloorLabel(n: number): string {
   return n === 0 ? "Térreo" : `${n}º Andar`;
@@ -9,12 +10,12 @@ export function defaultFloorLabel(n: number): string {
 
 export function normalizeFloors(floors: Array<{ number: number; label: string }>) {
   if (floors.length === 0) {
-    throw new Error("A obra precisa de pelo menos um andar");
+    throw ruleViolation("A obra precisa de pelo menos um andar");
   }
   const seen = new Set<number>();
   for (const f of floors) {
     if (seen.has(f.number)) {
-      throw new Error(`Andar ${f.number} duplicado`);
+      throw ruleViolation(`Andar ${f.number} duplicado`);
     }
     seen.add(f.number);
   }
@@ -54,7 +55,7 @@ export async function createTowerFloors(
   }
 ): Promise<Id<"floors">[]> {
   const tower = await ctx.db.get("towers", input.towerId);
-  if (!tower) throw new Error("Torre não encontrada");
+  if (!tower) throw notFound("Torre não encontrada");
 
   const existing = await ctx.db
     .query("floors")
@@ -91,7 +92,7 @@ export async function updateFloor(
   input: { floorId: Id<"floors">; label?: string; number?: number }
 ) {
   const floor = await ctx.db.get("floors", input.floorId);
-  if (!floor) throw new Error("Andar não encontrado");
+  if (!floor) throw notFound("Andar não encontrado");
 
   const updates: Partial<{ label: string; number: number }> = {};
   if (input.label !== undefined) {

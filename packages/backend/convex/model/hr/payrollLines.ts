@@ -1,7 +1,7 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
-import { normalizeCustomerName } from "../contracts/customers";
+
 import {
   findAlimonyLine,
   insertAlimonyLine,
@@ -14,6 +14,8 @@ import {
   recomputeLine,
   requireRun,
 } from "./payrollRuns";
+import { alreadyExists, notFound, ruleViolation } from "../../lib/domainErrors";
+import { normalizeText } from "../kernel/text";
 
 /**
  * Edição das linhas de funcionário de uma folha em rascunho: incluir
@@ -66,11 +68,11 @@ export async function addEmployeeToPayrollRun(
   let employee: Doc<"employees"> | null = null;
   if (args.employeeId) {
     employee = await ctx.db.get("employees", args.employeeId);
-    if (!employee) throw new Error("Funcionário não encontrado");
+    if (!employee) throw notFound("Funcionário não encontrado");
   } else {
     const name = args.name?.trim();
-    if (!name) throw new Error("Informe o nome do funcionário");
-    const nameNormalized = normalizeCustomerName(name);
+    if (!name) throw ruleViolation("Informe o nome do funcionário");
+    const nameNormalized = normalizeText(name);
     const existingName = await ctx.db
       .query("employees")
       .withIndex("by_name_normalized", (q) =>
@@ -78,12 +80,12 @@ export async function addEmployeeToPayrollRun(
       )
       .first();
     if (existingName) {
-      throw new Error("Já existe um funcionário com este nome");
+      throw alreadyExists("Já existe um funcionário com este nome");
     }
     const now = Date.now();
     const employeeId = await ctx.db.insert("employees", {
       name,
-      nameNormalized: normalizeCustomerName(name),
+      nameNormalized: normalizeText(name),
       status: "active",
       paymentMethod: "pix",
       baseSalaryCents: 0,
@@ -97,7 +99,7 @@ export async function addEmployeeToPayrollRun(
     });
     employee = await ctx.db.get("employees", employeeId);
   }
-  if (!employee) throw new Error("Funcionário não encontrado");
+  if (!employee) throw notFound("Funcionário não encontrado");
 
   const existing = await ctx.db
     .query("payrollLines")
@@ -106,7 +108,7 @@ export async function addEmployeeToPayrollRun(
     )
     .unique();
   if (existing) {
-    throw new Error("Funcionário já está nesta folha");
+    throw ruleViolation("Funcionário já está nesta folha");
   }
 
   const lineId = await insertLineFromEmployee(ctx, run, employee);
@@ -147,7 +149,7 @@ export async function updatePayrollLine(
   args: UpdatePayrollLineInput
 ): Promise<void> {
   const line = await ctx.db.get("payrollLines", args.lineId);
-  if (!line) throw new Error("Linha não encontrada");
+  if (!line) throw notFound("Linha não encontrada");
   const run = await requireRun(ctx, line.runId);
   assertDraft(run);
 
@@ -155,7 +157,7 @@ export async function updatePayrollLine(
   if (args.code !== undefined) extra.code = args.code?.trim() || undefined;
   if (args.name !== undefined) {
     const name = args.name.trim();
-    if (!name) throw new Error("Informe o nome");
+    if (!name) throw ruleViolation("Informe o nome");
     extra.name = name;
   }
   if (args.jobTitle !== undefined) {
@@ -219,7 +221,7 @@ export async function updatePayrollLine(
   if (args.notes !== undefined) extra.notes = args.notes?.trim() || undefined;
 
   if (args.name !== undefined) {
-    const nameNormalized = normalizeCustomerName(extra.name!);
+    const nameNormalized = normalizeText(extra.name!);
     const existingByName = await ctx.db
       .query("employees")
       .withIndex("by_name_normalized", (q) =>
@@ -227,7 +229,7 @@ export async function updatePayrollLine(
       )
       .collect();
     if (existingByName.some((row) => row._id !== line.employeeId)) {
-      throw new Error("Já existe um funcionário com este nome");
+      throw alreadyExists("Já existe um funcionário com este nome");
     }
   }
 
@@ -237,7 +239,7 @@ export async function updatePayrollLine(
   if (args.name !== undefined) {
     const name = extra.name!;
     identityPatch.name = name;
-    identityPatch.nameNormalized = normalizeCustomerName(name);
+    identityPatch.nameNormalized = normalizeText(name);
   }
   if (args.code !== undefined) identityPatch.code = extra.code;
   if (args.jobTitle !== undefined) identityPatch.jobTitle = extra.jobTitle;
@@ -260,7 +262,7 @@ export async function setPayrollLinePaid(
   args: SetPayrollLinePaidInput
 ): Promise<void> {
   const line = await ctx.db.get("payrollLines", args.lineId);
-  if (!line) throw new Error("Linha não encontrada");
+  if (!line) throw notFound("Linha não encontrada");
   const run = await requireRun(ctx, line.runId);
   assertDraft(run);
   await ctx.db.patch("payrollLines", args.lineId, {

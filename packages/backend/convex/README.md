@@ -20,18 +20,26 @@ convex/
   notificationDigest.ts Internal daily summaries (overdue, price review, low stock)
   schema/               Tables and shared validators, one file per domain
   model/                Business logic as plain TypeScript functions, by domain
-    ai/                 Assistant intents
-    contracts/          Customers, contractors, contracts, measurements
-    engineering/        Projects, hierarchy, systems, equipment, QR codes, documents
+                        (dependencies between domains: CONTEXT.md, "Context map")
+    kernel/             Shared kernel: text normalization, CPF/CNPJ, bulk import
+                        results. Imports no domain; every domain may use it
+    ai/                 Assistant conversations and intents
+    contracts/          Customers, contractors, contracts, medições, and linking a
+                        contract to a new project
+    engineering/        Projects, building structure, systems, equipment, QR
+                        codes, checklists, documents
     hr/                 Employees, payroll, loans, alimonies, time clock
     identity/           Users and agent tokens
-    inventory/          Locations, movements, balances, requests, stock policies
+    inventory/          Locations, movements, balances, requests, stock policies,
+                        the catalog with stock, and imports with opening stock
     notifications/      `notify()`: bell entry + push scheduling, called inside the
-                        mutation that caused the event, and who receives each one
+                        mutation that caused the event, and who receives each one;
+                        the bell and devices (inbox.ts) and push delivery bookkeeping
+                        (delivery.ts)
     procurement/        Materials, suppliers, prices, takeoffs
   lib/                  Cross-cutting infrastructure only: auth, rbac, audit,
-                        accessErrors, apiCrypto, agentTokens, takeoffAuth,
-                        clerkBackendApi
+                        accessErrors, domainErrors, apiCrypto, agentTokens,
+                        takeoffAuth, clerkBackendApi
   gateway/              All HTTP handlers (registered in http.ts): `/api/v1`,
                         desktop login, Clerk webhook, service tokens, files
   mcp/                  Function catalog for the MCP server and `/api/v1`
@@ -61,14 +69,33 @@ convex/
   a `model/<domain>/*Validators.ts` file once several files share it. ESLint
   (`no-restricted-imports` in `eslint.config.mjs`) enforces this, and also
   stops `lib/`, `model/`, `schema/` and `gateway/` from importing root files.
-- A model domain may call another domain's functions (inventory uses
-  procurement materials, contracts use engineering projects); keep file
-  imports acyclic.
+- A model domain may call only the domains it depends on (`DOMAIN_DEPENDENCIES`
+  in `eslint.config.mjs`, mirrored in the context map of `CONTEXT.md`):
+  inventory uses procurement materials, contracts use engineering projects,
+  never the reverse. Work that spans two domains lives in the downstream one
+  (linking a contract to a new project is contracts; the catalog with stock is
+  inventory). Reading another domain's table for a lookup is fine; writing it
+  goes through that domain's model functions.
 - Do not create catch-all `helpers.ts`, `utils.ts`, or shared domain libraries.
+  The one shared kernel is `model/kernel/`: pure rules several domains need
+  (text normalization, CPF/CNPJ validation, bulk import results). It imports
+  no domain, and code enters it only when a second domain needs it.
+- Refusals the user can cause throw `notFound`, `alreadyExists` or
+  `ruleViolation` (`lib/domainErrors.ts`), or `unauthenticated` / `forbidden`
+  (`lib/accessErrors.ts`): `ConvexError({ code, message })` with the pt-BR
+  message, because Convex replaces a plain `Error` message with "Server Error"
+  in production. Apps read it with `errorMessage` from `@rlpapp/shared/errors`;
+  the gateway maps the code to the HTTP status. A plain `Error` is only for a
+  broken internal invariant, with an `eslint-disable-next-line` stating why
+  (ESLint `no-restricted-syntax`). Code that catches an error and reads its
+  text uses `errorMessage(error, fallback)`, not `error.message` (a
+  ConvexError's `message` is its JSON).
 - Keep authentication, authorization, and auditing focused in `lib/`; keep
   business rules in their owning model domain.
 - A file past ~600 lines usually holds more than one capability; split it
   along those seams (see `model/procurement/material*.ts`, `model/hr/payroll*.ts`).
+- Moving or adding a model file changes `_generated/api.d.ts`; run
+  `pnpm dev:server` (`convex dev`) so it is regenerated, and commit it.
 - Files using `"use node"` contain actions and Node-runtime helpers only. A
   model file that needs Node (e.g. `model/ai/attachments.ts`) is also
   `"use node"` and is imported only by Node actions; the Convex lint rule
@@ -79,17 +106,23 @@ Domain terminology is defined in the repository-level `CONTEXT.md`.
 
 ## Domain areas
 
-- `engineering`: projects, hierarchy, systems, equipment planning, field work,
-  QR tracking, and project reporting.
+Each area, its tables and its dependencies are in the context map of
+`CONTEXT.md`; in short:
+
+- `kernel`: shared kernel (see Model conventions).
+- `engineering`: projects, building structure, systems, equipment planning,
+  field work, QR tracking, checklists, and project reporting.
 - `contracts`: customers, contractors, agreements, service items, and
-  measurements.
+  medições.
 - `procurement`: material catalog, suppliers, takeoffs, and price events.
-- `inventory`: locations, movement documents, balances, requests, and stock
-  policies.
+- `inventory`: locations, movement documents, balances, requests, stock
+  policies, and the catalog seen with stock.
 - `identity`: users and authentication integration.
+- `notifications`: the bell, push devices and push delivery.
 - `hr`: employees, payroll runs, loans, alimonies (pensão alimentícia, paid to a
   beneficiary in its own payroll line), and the time clock.
-- `ai`: chat, interpretation, and application of engineering intents.
+- `ai`: assistant conversations, interpretation, and application of
+  engineering intents.
 
 ## Access control
 

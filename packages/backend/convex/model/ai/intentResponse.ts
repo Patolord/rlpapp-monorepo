@@ -1,6 +1,7 @@
 import { type Infer } from "convex/values";
 import { aiIntentValidator } from "./intents";
 import { asString, asNumber, asGridNumber } from "./layoutProposal";
+import { ruleViolation } from "../../lib/domainErrors";
 
 // ============================================================================
 // Sistema multi-intent (chat lateral). A IA interpreta comandos e devolve
@@ -341,6 +342,6 @@ export function parseModelJson(raw: string): unknown {
       .trim();
     return JSON.parse(cleaned);
   } catch {
-    throw new Error("A IA não retornou um JSON válido. Tente reformular.");
+    throw ruleViolation("A IA não retornou um JSON válido. Tente reformular.");
   }
 }

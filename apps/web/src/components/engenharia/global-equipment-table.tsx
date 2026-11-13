@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Download, Search } from "lucide-react";
+import { EQUIPMENT_STATUS_LABELS } from "@rlpapp/shared/engenharia/equipment";
 
 import { TYPE_LABELS, type GridUnit } from "@/components/engenharia/building";
 import type { ProjectOverview } from "@/components/engenharia/project-shell";
@@ -137,10 +138,10 @@ export function GlobalEquipmentTable({ project }: { project: ProjectOverview }) 
             placeholder="Status"
             options={[
               { value: ALL, label: "Todos os status" },
-              { value: "operational", label: "Operacional" },
-              { value: "installing", label: "Em instalação" },
-              { value: "warning", label: "Alerta" },
-              { value: "error", label: "Erro" },
+              ...(["operational", "installing", "warning", "error"] as const).map((value) => ({
+                value,
+                label: EQUIPMENT_STATUS_LABELS[value],
+              })),
             ]}
           />
         </div>
@@ -242,13 +243,6 @@ function FilterSelect({
   );
 }
 
-const STATUS_LABELS_CSV: Record<Row["status"], string> = {
-  installing: "Em instalação",
-  operational: "Operacional",
-  warning: "Alerta",
-  error: "Erro",
-};
-
 function exportCsv(rows: Row[], projectName: string) {
   const header = [
     "Unidade",
@@ -273,7 +267,7 @@ function exportCsv(rows: Row[], projectName: string) {
         TYPE_LABELS[r.type],
         r.modelo,
         r.capacidade,
-        STATUS_LABELS_CSV[r.status],
+        EQUIPMENT_STATUS_LABELS[r.status],
         r.obs,
       ]
         .map(esc)

@@ -1,5 +1,6 @@
 import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { ruleViolation } from "../../lib/domainErrors";
 
 export type ContractServiceItemInput = {
   description: string;
@@ -10,15 +11,15 @@ export function normalizeContractServiceItems(
   items: ContractServiceItemInput[]
 ): ContractServiceItemInput[] {
   if (items.length === 0) {
-    throw new Error("Informe ao menos um serviço no contrato");
+    throw ruleViolation("Informe ao menos um serviço no contrato");
   }
   return items.map((item, index) => {
     const description = item.description.trim();
     if (!description) {
-      throw new Error(`Informe a descrição do serviço #${index + 1}`);
+      throw ruleViolation(`Informe a descrição do serviço #${index + 1}`);
     }
     if (!Number.isFinite(item.valueCents) || item.valueCents <= 0) {
-      throw new Error(
+      throw ruleViolation(
         `O valor do serviço "${description}" deve ser maior que zero`
       );
     }

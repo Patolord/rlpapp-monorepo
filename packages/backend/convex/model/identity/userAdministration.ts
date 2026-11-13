@@ -10,6 +10,7 @@ import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { hasRole } from "../../lib/rbac";
 import type { accessRoles } from "../../schema/identity";
 import { accessFields, toUserView } from "./users";
+import { alreadyExists, notFound, ruleViolation } from "../../lib/domainErrors";
 
 /** Cadastro de usuários em Configurações → Usuários (e o bootstrap interno). */
 
@@ -88,7 +89,7 @@ export async function createUser(
     .first();
 
   if (existing) {
-    throw new Error("Já existe um usuário com este email");
+    throw alreadyExists("Já existe um usuário com este email");
   }
 
   const userId = await ctx.db.insert("users", {
@@ -137,7 +138,7 @@ export async function updateUser(
   const existing = await ctx.db.get("users", id);
 
   if (!existing) {
-    throw new Error("Usuário não encontrado");
+    throw notFound("Usuário não encontrado");
   }
 
   if (
@@ -146,7 +147,7 @@ export async function updateUser(
     existing.clerkId === undefined &&
     existing.invitedAt !== undefined
   ) {
-    throw new Error(
+    throw ruleViolation(
       "O email é a chave do convite pendente. Cancele o convite e envie outro para o email certo."
     );
   }
@@ -158,7 +159,7 @@ export async function updateUser(
       .first();
 
     if (emailExists) {
-      throw new Error("Já existe um usuário com este email");
+      throw alreadyExists("Já existe um usuário com este email");
     }
   }
 
@@ -191,7 +192,7 @@ export async function updateUser(
         "admin.manage"
       )
     ) {
-      throw new Error("Você não pode remover o próprio acesso de administração");
+      throw ruleViolation("Você não pode remover o próprio acesso de administração");
     }
   }
 
@@ -206,7 +207,7 @@ export async function updateUserLastLogin(
   const existing = await ctx.db.get("users", id);
 
   if (!existing) {
-    throw new Error("Usuário não encontrado");
+    throw notFound("Usuário não encontrado");
   }
 
   await ctx.db.patch("users", id, { lastLoginAt: Date.now() });
@@ -222,10 +223,10 @@ export async function deactivateUser(
   const existing = await ctx.db.get("users", id);
 
   if (!existing) {
-    throw new Error("Usuário não encontrado");
+    throw notFound("Usuário não encontrado");
   }
   if (existing._id === currentUser._id) {
-    throw new Error("Você não pode desativar o próprio acesso");
+    throw ruleViolation("Você não pode desativar o próprio acesso");
   }
 
   await ctx.db.patch("users", id, { isActive: false });
@@ -239,7 +240,7 @@ export async function reactivateUser(
   const existing = await ctx.db.get("users", id);
 
   if (!existing) {
-    throw new Error("Usuário não encontrado");
+    throw notFound("Usuário não encontrado");
   }
 
   await ctx.db.patch("users", id, { isActive: true });
@@ -265,7 +266,7 @@ export async function createUserWithClerkId(
       .withIndex("by_email", (q) => q.eq("email", input.email!))
       .first();
     if (existing) {
-      throw new Error("Já existe um usuário com este email");
+      throw alreadyExists("Já existe um usuário com este email");
     }
   }
 
@@ -274,7 +275,7 @@ export async function createUserWithClerkId(
     .withIndex("by_clerkId", (q) => q.eq("clerkId", input.clerkId))
     .first();
   if (existingClerk) {
-    throw new Error("Usuário Clerk já vinculado");
+    throw ruleViolation("Usuário Clerk já vinculado");
   }
 
   return await ctx.db.insert("users", {

@@ -7,7 +7,7 @@ import {
   toMaterialListRow,
 } from "./catalog";
 import { materialIdentityInput } from "./materialIdentity";
-import { normalizeText } from "./pricing";
+import { normalizeText } from "../kernel/text";
 
 export type FindMaterialDuplicateCandidatesInput = {
   name: string;

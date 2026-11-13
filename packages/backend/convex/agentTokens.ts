@@ -45,6 +45,8 @@ import {
   verifiedAgentTokenValidator,
 } from "./model/identity/agentTokenValidators";
 import { agentTokenPermission } from "./schema/identity";
+import { unauthenticated } from "./lib/accessErrors";
+import { notFound } from "./lib/domainErrors";
 
 /**
  * Tokens de agente: credenciais pessoais para agentes de IA (Claude, Cursor,
@@ -94,7 +96,7 @@ export const create = action({
   }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    if (!identity) throw unauthenticated();
     // Um token vazado não pode se perpetuar criando outro.
     rejectAgentTokenIdentity(identity);
 
@@ -281,7 +283,7 @@ export const createForUser = internalAction({
       internal.agentTokens.findUserByLogin,
       { login: args.login }
     );
-    if (!userId) throw new Error(`Usuário não encontrado: ${args.login}`);
+    if (!userId) throw notFound(`Usuário não encontrado: ${args.login}`);
 
     const { token, tokenPrefix } = generateAgentToken();
     const tokenHash = await hashAgentToken(token);

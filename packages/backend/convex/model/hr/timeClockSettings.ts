@@ -6,7 +6,6 @@
  * cada local é uma obra cadastrada com cerca (`projects.geofence`).
  */
 
-import { ConvexError } from "convex/values";
 import { normalizePermissionOverrides, resolveRoles } from "@rlpapp/shared/auth/permissions";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
@@ -17,6 +16,7 @@ import {
   MAX_GEOFENCE_RADIUS_METERS,
   MIN_GEOFENCE_RADIUS_METERS,
 } from "./timeClockPunch";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 type ProjectGeofence = NonNullable<Doc<"projects">["geofence"]>;
 
@@ -74,23 +74,23 @@ export async function setProjectTimeClockGeofence(
   input: SetProjectGeofenceInput
 ): Promise<void> {
   const project = await ctx.db.get("projects", input.projectId);
-  if (!project) throw new ConvexError("Obra não encontrada");
-  if (project.archivedAt) throw new ConvexError("Obra arquivada");
+  if (!project) throw notFound("Obra não encontrada");
+  if (project.archivedAt) throw ruleViolation("Obra arquivada");
   let geofence: Doc<"projects">["geofence"];
   if (input.geofence) {
     const { latitude, longitude, radiusMeters } = input.geofence;
     if (!Number.isFinite(latitude) || Math.abs(latitude) > 90) {
-      throw new ConvexError("Latitude inválida");
+      throw ruleViolation("Latitude inválida");
     }
     if (!Number.isFinite(longitude) || Math.abs(longitude) > 180) {
-      throw new ConvexError("Longitude inválida");
+      throw ruleViolation("Longitude inválida");
     }
     if (
       !Number.isFinite(radiusMeters) ||
       radiusMeters < MIN_GEOFENCE_RADIUS_METERS ||
       radiusMeters > MAX_GEOFENCE_RADIUS_METERS
     ) {
-      throw new ConvexError(
+      throw ruleViolation(
         `Raio inválido (de ${MIN_GEOFENCE_RADIUS_METERS} a ${MAX_GEOFENCE_RADIUS_METERS} m)`
       );
     }
@@ -140,8 +140,8 @@ export async function setUserClocksIn(
   input: SetClocksInInput
 ): Promise<void> {
   const user = await ctx.db.get("users", input.userId);
-  if (!user) throw new ConvexError("Usuário não encontrado");
-  if (!user.isActive && input.enabled) throw new ConvexError("Usuário inativo");
+  if (!user) throw notFound("Usuário não encontrado");
+  if (!user.isActive && input.enabled) throw ruleViolation("Usuário inativo");
   const before = hasPermission(user, "ponto.registrar");
   if (before === input.enabled) return;
 
@@ -181,7 +181,7 @@ export async function editTimeClockSettings(
   const next = { ...current };
   if (input.manDayCostCents !== undefined) {
     if (!Number.isFinite(input.manDayCostCents) || input.manDayCostCents < 0) {
-      throw new ConvexError("Custo do homem-dia inválido");
+      throw ruleViolation("Custo do homem-dia inválido");
     }
     next.manDayCostCents = Math.round(input.manDayCostCents);
   }
@@ -193,7 +193,7 @@ export async function editTimeClockSettings(
       input.duplicateWindowMinutes < 0 ||
       input.duplicateWindowMinutes > 60
     ) {
-      throw new ConvexError("Janela de marcação repetida inválida (0 a 60 min)");
+      throw ruleViolation("Janela de marcação repetida inválida (0 a 60 min)");
     }
     next.duplicateWindowMinutes = input.duplicateWindowMinutes;
   }

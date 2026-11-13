@@ -12,6 +12,8 @@ import {
 } from "./model/engineering/equipmentRecords";
 
 
+import { notFound, ruleViolation } from "./lib/domainErrors";
+
 export const listByEquipment = authedQuery({
   args: { equipmentId: v.id("equipment") },
   returns: v.array(equipmentLogValidator),
@@ -71,12 +73,12 @@ export const addPhotos = authedMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     if (args.photoIds.length === 0) {
-      throw new Error("Nenhuma foto fornecida");
+      throw ruleViolation("Nenhuma foto fornecida");
     }
 
     const log = await ctx.db.get("maintenanceLogs", args.logId);
     if (!log) {
-      throw new Error("Registro não encontrado");
+      throw notFound("Registro não encontrado");
     }
 
     await ctx.db.patch("maintenanceLogs", args.logId, {

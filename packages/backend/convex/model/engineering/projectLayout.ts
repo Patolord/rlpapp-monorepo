@@ -2,6 +2,7 @@ import type { Infer } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import type { finalTemplateValidator } from "./projectValidators";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 // Gerador por padrão (estilo aba "Aptos"): cria, para cada andar selecionado,
 // os apartamentos (finais) e a lista padrão de equipamentos por sistema.
@@ -56,9 +57,9 @@ export async function generateProjectLayout(
   args: GenerateProjectLayoutInput
 ): Promise<{ units: number; items: number }> {
   const project = await ctx.db.get("projects", args.projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
   if (args.finals.length === 0) {
-    throw new Error("Defina ao menos um apartamento (final) no padrão");
+    throw ruleViolation("Defina ao menos um apartamento (final) no padrão");
   }
 
   const targetFloors = Array.from(new Set(args.floors.map((n) => Math.floor(n))));

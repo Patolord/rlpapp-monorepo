@@ -161,7 +161,7 @@ export const identityTables = {
     .index("by_token", ["tokenId", "createdAt"])
     .index("by_user", ["userId", "createdAt"]),
 
-  // --- QR Code / Equipment tracking ---
+  // --- Auditoria ---
   // Log de auditoria do sistema (todas as escritas relevantes).
   auditLogs: defineTable({
     userId: v.id("users"),

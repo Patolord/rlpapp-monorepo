@@ -1,5 +1,6 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /**
  * Locais de estoque: o estoque central (um só) e um estoque por obra, criados
@@ -35,7 +36,7 @@ export async function getOrCreateCentralLocation(
     createdAt: Date.now(),
   });
   const location = await ctx.db.get("inventoryLocations", locationId);
-  if (!location) throw new Error("Não foi possível criar o estoque central");
+  if (!location) throw ruleViolation("Não foi possível criar o estoque central");
   return location;
 }
 
@@ -47,7 +48,7 @@ export async function getOrCreateProjectLocation(
   if (existing) return existing;
 
   const project = await ctx.db.get("projects", projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
   const locationId = await ctx.db.insert("inventoryLocations", {
     type: "project",
     name: `Obra: ${project.name}`,
@@ -56,6 +57,6 @@ export async function getOrCreateProjectLocation(
     createdAt: Date.now(),
   });
   const location = await ctx.db.get("inventoryLocations", locationId);
-  if (!location) throw new Error("Não foi possível criar o estoque da obra");
+  if (!location) throw ruleViolation("Não foi possível criar o estoque da obra");
   return location;
 }

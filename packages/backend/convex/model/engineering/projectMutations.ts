@@ -3,14 +3,10 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { diffFields, logAudit } from "../../lib/audit";
 import { hasRole } from "../../lib/rbac";
-import {
-  assertValidParentContract,
-  resolveContractDirection,
-  resolveContractKind,
-} from "../contracts/rules";
 import { normalizeFloors } from "./floors";
 import { assertUniqueLegacyNumber, isProjectArchived } from "./projects";
 import { generateUniqueProjectSlug } from "./slug";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 type ProjectStatus = NonNullable<Doc<"projects">["status"]>;
 type FloorInput = { number: number; label: string };
@@ -26,13 +22,6 @@ export type CreateProjectInput = {
   responsibleId?: Id<"users">;
   startDate?: number;
   endDate?: number;
-};
-
-export type CreateProjectWithOptionalContractInput = {
-  name: string;
-  customerId: Id<"customers">;
-  legacyNumber: number;
-  contractId?: Id<"contracts">;
 };
 
 export type UpdateProjectInput = {
@@ -76,9 +65,9 @@ async function assertActiveCustomer(
   customerId: Id<"customers">
 ): Promise<void> {
   const customer = await ctx.db.get("customers", customerId);
-  if (!customer) throw new Error("Cliente não encontrado");
+  if (!customer) throw notFound("Cliente não encontrado");
   if (customer.archivedAt || !customer.active) {
-    throw new Error("Cliente inativo — selecione outro ou restaure o cliente");
+    throw ruleViolation("Cliente inativo — selecione outro ou restaure o cliente");
   }
 }
 
@@ -90,7 +79,7 @@ export async function createProject(
   args: CreateProjectInput
 ): Promise<Id<"projects">> {
   const name = args.name.trim();
-  if (!name) throw new Error("O nome da obra é obrigatório");
+  if (!name) throw ruleViolation("O nome da obra é obrigatório");
 
   await assertActiveCustomer(ctx, args.customerId);
   await assertUniqueLegacyNumber(ctx, args.legacyNumber);
@@ -126,69 +115,6 @@ export async function createProject(
   return projectId;
 }
 
-async function attachUnassignedContract(
-  ctx: MutationCtx,
-  user: Doc<"users">,
-  args: {
-    contractId: Id<"contracts">;
-    projectId: Id<"projects">;
-  }
-): Promise<Id<"contracts">> {
-  const contract = await ctx.db.get("contracts", args.contractId);
-  if (!contract) throw new Error("Contrato não encontrado");
-  if (contract.projectId) {
-    throw new Error("Contrato já está vinculado a outra obra");
-  }
-
-  const direction = resolveContractDirection(contract);
-  const kind = resolveContractKind(contract);
-  await assertValidParentContract(ctx, {
-    kind,
-    parentContractId: contract.parentContractId,
-    projectId: args.projectId,
-    direction,
-    excludeId: args.contractId,
-  });
-
-  await ctx.db.patch("contracts", args.contractId, {
-    projectId: args.projectId,
-    updatedAt: Date.now(),
-    updatedByUserId: user._id,
-  });
-  await logAudit(ctx, user, {
-    action: "update",
-    tableName: "contracts",
-    recordId: args.contractId,
-    details: `Contrato vinculado à obra ${args.projectId}`,
-  });
-  return args.contractId;
-}
-
-/**
- * Cria a obra e, se informado, vincula um contrato ainda sem obra. Quem chama
- * confere `contratos.write` quando há `contractId`.
- */
-export async function createProjectWithOptionalContract(
-  ctx: MutationCtx,
-  user: Doc<"users">,
-  args: CreateProjectWithOptionalContractInput
-): Promise<{ projectId: Id<"projects">; linkedContractId: Id<"contracts"> | null }> {
-  const projectId = await createProject(ctx, user, {
-    name: args.name,
-    customerId: args.customerId,
-    legacyNumber: args.legacyNumber,
-  });
-
-  if (!args.contractId) {
-    return { projectId, linkedContractId: null };
-  }
-  const linkedContractId = await attachUnassignedContract(ctx, user, {
-    contractId: args.contractId,
-    projectId,
-  });
-  return { projectId, linkedContractId };
-}
-
 // --- Edição ---
 
 export async function updateProject(
@@ -197,16 +123,16 @@ export async function updateProject(
   args: UpdateProjectInput
 ): Promise<Id<"projects">> {
   const project = await ctx.db.get("projects", args.projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
   if (isProjectArchived(project)) {
-    throw new Error("Obra arquivada — restaure antes de editar");
+    throw ruleViolation("Obra arquivada — restaure antes de editar");
   }
 
   const before = projectSnapshot(project);
   const updates: Record<string, unknown> = {};
   if (args.name !== undefined) {
     const name = args.name.trim();
-    if (!name) throw new Error("O nome da obra é obrigatório");
+    if (!name) throw ruleViolation("O nome da obra é obrigatório");
     updates.name = name;
   }
   if (args.floors !== undefined) {
@@ -214,7 +140,7 @@ export async function updateProject(
   }
   if (args.customerId !== undefined) {
     if (args.customerId === null) {
-      throw new Error("A obra precisa estar vinculada a um cliente");
+      throw ruleViolation("A obra precisa estar vinculada a um cliente");
     }
     await assertActiveCustomer(ctx, args.customerId);
     updates.customerId = args.customerId;
@@ -232,7 +158,7 @@ export async function updateProject(
   }
   if (args.status !== undefined) {
     if (args.status === "archived") {
-      throw new Error("Use archive para arquivar a obra");
+      throw ruleViolation("Use archive para arquivar a obra");
     }
     updates.status = args.status;
   }
@@ -283,9 +209,9 @@ async function replacePortalUsers(
   audit: { action: string; describe: (count: number) => string }
 ): Promise<void> {
   const project = await ctx.db.get("projects", projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
   if (isProjectArchived(project)) {
-    throw new Error("Obra arquivada — restaure antes de alterar acessos");
+    throw ruleViolation("Obra arquivada — restaure antes de alterar acessos");
   }
 
   const before = projectSnapshot(project);
@@ -348,9 +274,9 @@ export async function setProjectTechnicians(
   args: { projectId: Id<"projects">; technicianIds: Id<"users">[] }
 ): Promise<void> {
   const project = await ctx.db.get("projects", args.projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
   if (isProjectArchived(project)) {
-    throw new Error("Obra arquivada — restaure antes de alterar técnicos");
+    throw ruleViolation("Obra arquivada — restaure antes de alterar técnicos");
   }
 
   const valid: Id<"users">[] = [];
@@ -402,7 +328,7 @@ export async function archiveProject(
   options: { details?: string } = {}
 ): Promise<void> {
   const project = await ctx.db.get("projects", projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
   if (isProjectArchived(project)) return;
 
   const now = Date.now();
@@ -434,7 +360,7 @@ export async function restoreProject(
   args: RestoreProjectInput
 ): Promise<void> {
   const project = await ctx.db.get("projects", args.projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
   if (!isProjectArchived(project)) return;
 
   const before = projectSnapshot(project);

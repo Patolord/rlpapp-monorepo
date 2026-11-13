@@ -1,12 +1,10 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { diffFields, logAudit } from "../../lib/audit";
-import {
-  optionalTaxIdDigits,
-  normalizeTaxId,
-  validateTaxIdForPersonType,
-} from "../contracts/customers";
-import { normalizeText } from "./pricing";
+
+import { alreadyExists, notFound, ruleViolation } from "../../lib/domainErrors";
+import { normalizeTaxId, optionalTaxIdDigits, validateTaxIdForPersonType } from "../kernel/taxId";
+import { normalizeText } from "../kernel/text";
 
 /** Cadastro de fornecedores e seus contatos. */
 
@@ -90,14 +88,14 @@ function cleanWebsite(value: string | undefined): string | undefined {
 function validateLeadTimeDays(value: number | undefined): void {
   if (value === undefined) return;
   if (!Number.isInteger(value) || value < 0) {
-    throw new Error("Prazo padrão deve ser um número inteiro não negativo");
+    throw ruleViolation("Prazo padrão deve ser um número inteiro não negativo");
   }
 }
 
 function validateEmail(value: string | undefined): void {
   if (!value) return;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-    throw new Error("E-mail inválido");
+    throw ruleViolation("E-mail inválido");
   }
 }
 
@@ -113,7 +111,7 @@ function resolvePersonType(
   const length = normalizeTaxId(taxId).length;
   if (length === 11) return "pf";
   if (length === 14) return "pj";
-  throw new Error("CNPJ/CPF deve conter 11 (CPF) ou 14 (CNPJ) dígitos");
+  throw ruleViolation("CNPJ/CPF deve conter 11 (CPF) ou 14 (CNPJ) dígitos");
 }
 
 async function assertUniqueSupplierTaxId(
@@ -132,7 +130,7 @@ async function assertUniqueSupplierTaxId(
     .collect();
   const conflict = existing.find((s) => s._id !== excludeId);
   if (conflict) {
-    throw new Error(
+    throw alreadyExists(
       `Já existe um fornecedor com este CNPJ/CPF (${conflict.name})`
     );
   }
@@ -231,7 +229,7 @@ export async function createSupplier(
   input: SupplierFieldsInput & { name: string }
 ): Promise<Id<"suppliers">> {
   const name = input.name.trim();
-  if (!name) throw new Error("Informe o nome do fornecedor");
+  if (!name) throw ruleViolation("Informe o nome do fornecedor");
   const fields = prepareSupplierFields(input);
   await assertUniqueSupplierTaxId(ctx, fields.taxId);
   const now = Date.now();
@@ -282,14 +280,14 @@ export async function updateSupplier(
   input: UpdateSupplierInput
 ): Promise<void> {
   const supplier = await ctx.db.get("suppliers", input.supplierId);
-  if (!supplier) throw new Error("Fornecedor não encontrado");
+  if (!supplier) throw notFound("Fornecedor não encontrado");
 
   const before = supplierSnapshot(supplier);
   const updates: Partial<Doc<"suppliers">> = { updatedAt: Date.now() };
 
   if (input.name !== undefined) {
     const name = input.name.trim();
-    if (!name) throw new Error("Informe o nome do fornecedor");
+    if (!name) throw ruleViolation("Informe o nome do fornecedor");
     updates.name = name;
   }
   if (input.personType !== undefined) {
@@ -362,9 +360,9 @@ export async function addSupplierContact(
   input: AddSupplierContactInput
 ): Promise<Id<"supplierContacts">> {
   const supplier = await ctx.db.get("suppliers", input.supplierId);
-  if (!supplier) throw new Error("Fornecedor não encontrado");
+  if (!supplier) throw notFound("Fornecedor não encontrado");
   const name = input.name.trim();
-  if (!name) throw new Error("Informe o nome do contato");
+  if (!name) throw ruleViolation("Informe o nome do contato");
 
   return await ctx.db.insert("supplierContacts", {
     supplierId: input.supplierId,
@@ -382,7 +380,7 @@ export async function removeSupplierContact(
   contactId: Id<"supplierContacts">
 ): Promise<void> {
   const contact = await ctx.db.get("supplierContacts", contactId);
-  if (!contact) throw new Error("Contato não encontrado");
+  if (!contact) throw notFound("Contato não encontrado");
 
   await logAudit(ctx, user, {
     action: "delete",

@@ -24,6 +24,7 @@ import {
   sanitizeTechnicalAttributes,
   type MaterialDimensionsInput,
 } from "./materialIdentity";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 type TechnicalAttributeInput = { key: string; value: string };
 
@@ -92,13 +93,13 @@ async function assertAllowedMaterialImage(
 ): Promise<void> {
   const metadata = await ctx.db.system.get("_storage", imageId);
   if (!metadata) {
-    throw new Error("Imagem não encontrada");
+    throw notFound("Imagem não encontrada");
   }
   if (
     !metadata.contentType ||
     !ALLOWED_MATERIAL_IMAGE_TYPES.has(metadata.contentType)
   ) {
-    throw new Error("A imagem deve ser JPG, PNG ou WebP");
+    throw ruleViolation("A imagem deve ser JPG, PNG ou WebP");
   }
 }
 
@@ -127,7 +128,7 @@ export async function createMaterialInternal(
   unit: string | undefined;
 }> {
   const name = args.name.trim();
-  if (!name) throw new Error("Informe o nome do material");
+  if (!name) throw ruleViolation("Informe o nome do material");
 
   validateUnitsPerPurchaseUnit(args.unitsPerPurchaseUnit);
   validateLaborPriceCents(args.laborPriceCents);
@@ -246,7 +247,7 @@ export async function updateMaterial(
   args: UpdateMaterialInput
 ): Promise<void> {
   const material = await ctx.db.get("materials", args.materialId);
-  if (!material) throw new Error("Material não encontrado");
+  if (!material) throw notFound("Material não encontrado");
 
   const before = {
     name: material.name,
@@ -265,7 +266,7 @@ export async function updateMaterial(
   let familyId = args.familyId ?? material.familyId;
   if (args.name !== undefined) {
     const name = args.name.trim();
-    if (!name) throw new Error("Informe o nome do material");
+    if (!name) throw ruleViolation("Informe o nome do material");
     const family = await findOrCreateFamily(ctx, {
       familyId: args.familyId,
       name,
@@ -277,13 +278,13 @@ export async function updateMaterial(
     updates.name = family.name;
   } else if (args.familyId !== undefined) {
     const family = await ctx.db.get("materialFamilies", args.familyId);
-    if (!family) throw new Error("Família de material não encontrada");
+    if (!family) throw notFound("Família de material não encontrada");
     updates.name = family.name;
     updates.familyId = family._id;
   }
   if (args.sku !== undefined) {
     const sku = normalizeSku(args.sku);
-    if (!sku) throw new Error("Informe o SKU");
+    if (!sku) throw ruleViolation("Informe o SKU");
     await assertUniqueSku(ctx, sku, args.materialId);
     updates.sku = sku;
   }
@@ -355,7 +356,7 @@ export async function updateMaterial(
 
   const next = { ...material, ...updates } as Doc<"materials">;
   if (!familyId) {
-    throw new Error(
+    throw ruleViolation(
       "Material sem família — defina a família antes de atualizar"
     );
   }
@@ -421,9 +422,9 @@ export async function addMaterialAlias(
   args: AddMaterialAliasInput
 ): Promise<Id<"materialAliases">> {
   const material = await ctx.db.get("materials", args.materialId);
-  if (!material) throw new Error("Material não encontrado");
+  if (!material) throw notFound("Material não encontrado");
   const alias = args.alias.trim();
-  if (!alias) throw new Error("Informe o alias");
+  if (!alias) throw ruleViolation("Informe o alias");
 
   return await insertUniqueAlias(
     ctx,

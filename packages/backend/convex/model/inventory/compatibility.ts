@@ -3,7 +3,8 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
 import type { inventoryCompatibilityRuleType } from "../../schema/inventory";
-import { normalizeText } from "../procurement/pricing";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
+import { normalizeText } from "../kernel/text";
 
 /**
  * Regras de compatibilidade entre materiais (cadastro e avaliação). Uma
@@ -177,13 +178,13 @@ export async function createCompatibilityRule(
   const categoryB = input.categoryB?.trim();
   const attributeKey = input.attributeKey?.trim().toLocaleLowerCase("pt-BR");
   if (!name || !message) {
-    throw new Error("Informe o nome e a mensagem da regra");
+    throw ruleViolation("Informe o nome e a mensagem da regra");
   }
   if ((!input.materialAId && !categoryA) || (!input.materialBId && !categoryB)) {
-    throw new Error("Defina os dois lados da regra");
+    throw ruleViolation("Defina os dois lados da regra");
   }
   if (input.type === "attributes_must_match" && !attributeKey) {
-    throw new Error("Informe o atributo que deve coincidir");
+    throw ruleViolation("Informe o atributo que deve coincidir");
   }
 
   const now = Date.now();
@@ -220,7 +221,7 @@ export async function setCompatibilityRuleActive(
     "inventoryCompatibilityRules",
     input.ruleId
   );
-  if (!rule) throw new Error("Regra não encontrada");
+  if (!rule) throw notFound("Regra não encontrada");
   await ctx.db.patch("inventoryCompatibilityRules", input.ruleId, {
     active: input.active,
     updatedAt: Date.now(),

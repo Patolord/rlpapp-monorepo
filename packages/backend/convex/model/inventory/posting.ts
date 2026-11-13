@@ -6,6 +6,7 @@ import {
   createInventoryDocument,
   type InventoryLineInput,
 } from "./documents";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /**
  * Conclusão de movimentações: aplica cada linha nos saldos
@@ -29,7 +30,7 @@ function buildDocumentDeltas(
   for (const item of items) {
     if (document.type === "entry") {
       if (!document.destinationLocationId) {
-        throw new Error("Entrada sem estoque de destino");
+        throw ruleViolation("Entrada sem estoque de destino");
       }
       deltas.push({
         itemId: item._id,
@@ -40,7 +41,7 @@ function buildDocumentDeltas(
       });
     } else if (document.type === "transfer") {
       if (!document.sourceLocationId || !document.destinationLocationId) {
-        throw new Error("Transferência sem origem ou destino");
+        throw ruleViolation("Transferência sem origem ou destino");
       }
       deltas.push(
         {
@@ -60,7 +61,7 @@ function buildDocumentDeltas(
       );
     } else if (document.type === "consumption") {
       if (!document.sourceLocationId) {
-        throw new Error("Consumo sem estoque de origem");
+        throw ruleViolation("Consumo sem estoque de origem");
       }
       deltas.push({
         itemId: item._id,
@@ -71,7 +72,7 @@ function buildDocumentDeltas(
       });
     } else if (document.type === "return") {
       if (!document.sourceLocationId || !document.destinationLocationId) {
-        throw new Error("Retorno sem origem ou destino");
+        throw ruleViolation("Retorno sem origem ou destino");
       }
       deltas.push(
         {
@@ -91,7 +92,7 @@ function buildDocumentDeltas(
       );
     } else if (document.type === "adjustment") {
       if (!document.destinationLocationId) {
-        throw new Error("Ajuste sem estoque");
+        throw ruleViolation("Ajuste sem estoque");
       }
       deltas.push({
         itemId: item._id,
@@ -119,7 +120,7 @@ async function applyBalanceDelta(
   const nextQuantity = (balance?.quantity ?? 0) + delta.quantityDelta;
   if (nextQuantity < -0.0000001) {
     const material = await ctx.db.get("materials", delta.materialId);
-    throw new Error(
+    throw ruleViolation(
       `Saldo insuficiente para ${material?.name ?? "o material selecionado"}`
     );
   }
@@ -146,9 +147,9 @@ export async function postInventoryDocument(
   documentId: Id<"inventoryDocuments">
 ): Promise<void> {
   const document = await ctx.db.get("inventoryDocuments", documentId);
-  if (!document) throw new Error("Movimentação não encontrada");
+  if (!document) throw notFound("Movimentação não encontrada");
   if (document.type === "reversal") {
-    throw new Error("Estornos são concluídos automaticamente");
+    throw ruleViolation("Estornos são concluídos automaticamente");
   }
   await assertCanPostInventoryDocument(
     ctx,
@@ -157,23 +158,23 @@ export async function postInventoryDocument(
     document.projectId
   );
   if (document.status === "pending_approval") {
-    throw new Error("A movimentação aguarda aprovação do engenheiro da obra");
+    throw ruleViolation("A movimentação aguarda aprovação do engenheiro da obra");
   }
   if (document.status !== "draft" && document.status !== "approved") {
-    throw new Error("Esta movimentação não pode ser concluída");
+    throw ruleViolation("Esta movimentação não pode ser concluída");
   }
   if (
     (document.compatibilityIssues?.length ?? 0) > 0 &&
     document.status !== "approved"
   ) {
-    throw new Error("As incompatibilidades precisam ser aprovadas");
+    throw ruleViolation("As incompatibilidades precisam ser aprovadas");
   }
 
   const items = await ctx.db
     .query("inventoryDocumentItems")
     .withIndex("by_document", (q) => q.eq("documentId", documentId))
     .collect();
-  if (items.length === 0) throw new Error("A movimentação não possui itens");
+  if (items.length === 0) throw ruleViolation("A movimentação não possui itens");
 
   const deltas = buildDocumentDeltas(document, items);
   const now = Date.now();
@@ -209,14 +210,14 @@ export async function reverseInventoryDocument(
   input: { documentId: Id<"inventoryDocuments">; reason: string }
 ): Promise<Id<"inventoryDocuments">> {
   const reason = input.reason.trim();
-  if (!reason) throw new Error("Informe o motivo do estorno");
+  if (!reason) throw ruleViolation("Informe o motivo do estorno");
   const original = await ctx.db.get("inventoryDocuments", input.documentId);
-  if (!original) throw new Error("Movimentação não encontrada");
+  if (!original) throw notFound("Movimentação não encontrada");
   if (original.status !== "posted") {
-    throw new Error("Somente movimentações concluídas podem ser estornadas");
+    throw ruleViolation("Somente movimentações concluídas podem ser estornadas");
   }
   if (original.reversedByDocumentId) {
-    throw new Error("Esta movimentação já foi estornada");
+    throw ruleViolation("Esta movimentação já foi estornada");
   }
 
   const originalItems = await ctx.db
@@ -262,7 +263,7 @@ export async function reverseInventoryDocument(
   for (const event of originalEvents) {
     const reversalItemId = reversalItemIds.get(event.documentItemId);
     if (!reversalItemId) {
-      throw new Error("Item original do estorno não encontrado");
+      throw notFound("Item original do estorno não encontrado");
     }
     const quantityDelta = -event.quantityDelta;
     await applyBalanceDelta(
@@ -316,7 +317,7 @@ export async function createAndPostConsumption(
     lines: input.lines,
   });
   if (created.status !== "draft") {
-    throw new Error("Consumo em campo não pode exigir aprovação");
+    throw ruleViolation("Consumo em campo não pode exigir aprovação");
   }
   await postInventoryDocument(ctx, user, created.documentId);
   return created.documentId;

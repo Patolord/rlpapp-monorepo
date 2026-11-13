@@ -2,7 +2,9 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
 import { buildMaterialSearchText } from "./catalog";
-import { normalizeText } from "./pricing";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
+import { errorMessage } from "@rlpapp/shared/errors";
+import { normalizeText } from "../kernel/text";
 
 export type MergeMaterialSummary = {
   _id: Id<"materials">;
@@ -52,26 +54,26 @@ export async function loadMergePair(
   targetId: Id<"materials">
 ): Promise<{ source: Doc<"materials">; target: Doc<"materials"> }> {
   if (sourceId === targetId) {
-    throw new Error("Escolha dois materiais diferentes para mesclar");
+    throw ruleViolation("Escolha dois materiais diferentes para mesclar");
   }
   const [source, target] = await Promise.all([
     ctx.db.get("materials", sourceId),
     ctx.db.get("materials", targetId),
   ]);
-  if (!source) throw new Error("Material de origem não encontrado");
-  if (!target) throw new Error("Material canônico não encontrado");
+  if (!source) throw notFound("Material de origem não encontrado");
+  if (!target) throw notFound("Material canônico não encontrado");
   if (!target.active || target.status === "archived") {
-    throw new Error("O material que permanece não pode estar arquivado");
+    throw ruleViolation("O material que permanece não pode estar arquivado");
   }
   if (!source.active || source.status === "archived") {
-    throw new Error("Material de origem já foi mesclado ou arquivado");
+    throw ruleViolation("Material de origem já foi mesclado ou arquivado");
   }
   if (
     source.unit !== target.unit ||
     source.purchaseUnit !== target.purchaseUnit ||
     source.unitsPerPurchaseUnit !== target.unitsPerPurchaseUnit
   ) {
-    throw new Error(
+    throw ruleViolation(
       "Os materiais precisam ter a mesma unidade, unidade de compra e quantidade por unidade de compra"
     );
   }
@@ -107,9 +109,7 @@ export async function previewMaterialMerge(
     return {
       ok: false,
       error:
-        error instanceof Error
-          ? error.message
-          : "Não foi possível mesclar os materiais",
+        errorMessage(error, "Não foi possível mesclar os materiais"),
     };
   }
   const sourceBalances = await ctx.db

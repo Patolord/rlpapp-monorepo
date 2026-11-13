@@ -6,7 +6,7 @@ import {
   type EstimateCandidate,
 } from "./estimateSuggestion";
 import { isUsablePriceEvent } from "./priceSelection";
-import { normalizeText } from "./pricing";
+import { normalizeText } from "../kernel/text";
 
 export type SuggestPriceEstimateInput = {
   materialId?: Id<"materials">;
