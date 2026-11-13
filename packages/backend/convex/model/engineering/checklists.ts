@@ -58,6 +58,11 @@ async function equipmentChecklist(ctx: QueryCtx, equipmentId: Id<"projectEquipme
     .collect();
 }
 
+/** Posição depois do último item; exclusões deixam buracos, então não é o total. */
+function nextOrder(items: { order: number }[]): number {
+  return items.reduce((max, item) => Math.max(max, item.order + 1), 0);
+}
+
 /** Itens do checklist de um equipamento planejado, na ordem de execução. */
 export async function listEquipmentChecklist(
   ctx: QueryCtx,
@@ -104,7 +109,7 @@ export async function applyChecklistTemplate(
     }
   }
 
-  let order = args.replace ? 0 : existing.length;
+  let order = args.replace ? 0 : nextOrder(existing);
   for (const item of template.items) {
     await ctx.db.insert("checklistItems", {
       equipmentId: args.equipmentId,
@@ -133,7 +138,7 @@ export async function addChecklistItem(
     label,
     required: input.required ?? false,
     completed: false,
-    order: existing.length,
+    order: nextOrder(existing),
   });
 }
 
