@@ -71,9 +71,21 @@ async function accessToken(creds: Credentials, forceRefresh: boolean): Promise<s
   if (!response.ok) {
     // A resposta do Entra pode citar o client id; não a repassa ao agente.
     console.error("SharePoint: falha ao obter token do Entra ID", response.status, await response.text());
+    if (response.status === 400 || response.status === 401) {
+      throw sharepointError(
+        "SHAREPOINT_NOT_CONFIGURED",
+        "O backend não conseguiu entrar no SharePoint (credenciais do app inválidas ou expiradas)."
+      );
+    }
+    if (response.status === 429 || response.status >= 500) {
+      throw sharepointError(
+        "SHAREPOINT_BUSY",
+        "O login da Microsoft está indisponível ou limitando chamadas agora; tente de novo em alguns segundos."
+      );
+    }
     throw sharepointError(
-      "SHAREPOINT_NOT_CONFIGURED",
-      "O backend não conseguiu entrar no SharePoint (credenciais do app inválidas ou expiradas)."
+      "SHAREPOINT_ERROR",
+      `Erro ao entrar no SharePoint (Entra ID respondeu ${response.status}).`
     );
   }
   const body = (await response.json()) as { access_token?: string; expires_in?: number };

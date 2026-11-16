@@ -405,6 +405,24 @@ describe("ferramentas derivadas do catálogo", () => {
     expect(parsed.matches.find((m) => m.function === "customers:create")).toMatchObject({
       callable: false,
     });
+
+    // A busca concorda com as ferramentas registradas: action de leitura sim, de escrita não.
+    const files = await client.callTool({
+      name: "search_functions",
+      arguments: { query: "sharepoint" },
+    });
+    const fileMatches = (
+      JSON.parse((files.content as Array<{ text: string }>)[0]!.text) as {
+        matches: Array<{ function: string; tool?: string; callable: boolean }>;
+      }
+    ).matches;
+    expect(fileMatches.find((m) => m.function === "sharepoint:readFileContents")).toMatchObject({
+      tool: "read_sharepoint_file",
+      callable: true,
+    });
+    expect(fileMatches.find((m) => m.function === "sharepoint:saveFile")).toMatchObject({
+      callable: false,
+    });
   });
 
   test("token full_access não gerencia tokens via call_function", async () => {

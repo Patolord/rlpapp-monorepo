@@ -84,12 +84,6 @@ export function listAllowedFolders(library: LibraryKey, access: Access): string[
   return [...allowedFolders(library, access)];
 }
 
-/** Se a pasta de primeiro nível (comparação sem caixa, Unicode NFC) está liberada. */
-export function isAllowedTopFolder(library: LibraryKey, name: string, access: Access): boolean {
-  const key = folderKey(name);
-  return allowedFolders(library, access).some((folder) => folderKey(folder) === key);
-}
-
 /** Divide e valida um caminho, sem checar as pastas liberadas. */
 export function splitPath(raw: string): string[] {
   const normalized = raw.normalize("NFC").replace(/\\/g, "/").trim();

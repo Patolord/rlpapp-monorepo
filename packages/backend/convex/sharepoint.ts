@@ -63,7 +63,7 @@ export const listFolderContents = arquivosReadAction({
 });
 
 export const readFileContents = arquivosReadAction({
-  args: { library: libraryValidator, path: v.string() },
+  args: { library: libraryValidator, path: v.string(), offset: v.optional(v.number()) },
   returns: readFileResultValidator,
   handler: async (_ctx, args) => {
     return await readFile(args);

@@ -2,7 +2,7 @@ import { ConvexError, v, type Infer } from "convex/values";
 import { graphFetch, graphJson, sharepointError } from "./graph";
 import {
   SHAREPOINT_LIBRARIES,
-  isAllowedTopFolder,
+  listAllowedFolders,
   resolvePath,
   type LibraryKey,
   type ResolvedPath,
@@ -17,8 +17,14 @@ import {
  * (responde 500); por isso a listagem aceita um filtro por nome.
  */
 
-/** Maior texto devolvido inline em `readFile`; acima disso vem só o link. */
-export const MAX_INLINE_TEXT_BYTES = 1024 * 1024;
+/** Maior arquivo de texto lido em `readFile`; acima disso vem só o link. */
+export const MAX_TEXT_FILE_BYTES = 5 * 1024 * 1024;
+/**
+ * Caracteres de texto por chamada de `readFile`. Mesmo com o escape do JSON
+ * (aspas e quebras de linha dobram), a resposta fica abaixo do limite de
+ * 120 mil caracteres do servidor MCP; o resto vem pedindo `offset`.
+ */
+export const TEXT_CHUNK_CHARS = 50_000;
 /** Upload simples do Graph aceita até 4 MB; fica uma folga. */
 export const MAX_UPLOAD_BYTES = 3.5 * 1024 * 1024;
 const PAGE_SIZE = 200;
@@ -117,13 +123,24 @@ function matchesName(name: string, nameContains: string | undefined): boolean {
   return fold(name).includes(fold(nameContains.trim()));
 }
 
+/** O Graph escreve `$skiptoken` ou `$skipToken` no nextLink; aceita os dois. */
 function skipTokenOf(nextLink: string | undefined): string | null {
   if (!nextLink) return null;
   try {
-    return new URL(nextLink).searchParams.get("$skiptoken");
+    for (const [key, value] of new URL(nextLink).searchParams) {
+      if (key.toLowerCase() === "$skiptoken") return value;
+    }
+    return null;
   } catch {
     return null;
   }
+}
+
+function isNotFound(error: unknown): boolean {
+  return (
+    error instanceof ConvexError &&
+    (error.data as { code?: string } | undefined)?.code === "NOT_FOUND"
+  );
 }
 
 export const listFolderResultValidator = v.object({
@@ -135,9 +152,38 @@ export const listFolderResultValidator = v.object({
 });
 
 /**
+ * As pastas liberadas para leitura, buscadas uma a uma pelo caminho: a raiz
+ * da biblioteca nunca é listada, então nomes de pastas fora da lista (pessoais,
+ * RH, financeiro) nem chegam ao backend, e não há paginação a perder. Pasta
+ * configurada que não existe mais é omitida.
+ */
+async function listAllowedTopFolders(
+  library: LibraryKey,
+  nameContains: string | undefined
+): Promise<SharepointItem[]> {
+  const folders = listAllowedFolders(library, "read").filter((folder) =>
+    matchesName(folder, nameContains)
+  );
+  const found = await Promise.all(
+    folders.map(async (folder) => {
+      try {
+        const item = await graphJson<GraphItem>({
+          path: `${driveRoot(library)}:/${encodeURIComponent(folder)}:?$select=${ITEM_FIELDS}`,
+        });
+        return item.folder ? toItem(item, folder) : null;
+      } catch (error) {
+        if (isNotFound(error)) return null;
+        throw error;
+      }
+    })
+  );
+  return found.filter((item): item is SharepointItem => item !== null);
+}
+
+/**
  * Conteúdo de uma pasta, uma página de até 200 itens. Na raiz da biblioteca
- * devolve só as pastas liberadas para leitura. `nameContains` filtra pelo nome
- * (sem acento nem caixa) dentro da página.
+ * devolve só as pastas liberadas para leitura (todas, sem paginação).
+ * `nameContains` filtra pelo nome (sem acento nem caixa) dentro da página.
  */
 export async function listFolder(args: {
   library: LibraryKey;
@@ -147,13 +193,7 @@ export async function listFolder(args: {
 }): Promise<Infer<typeof listFolderResultValidator>> {
   const resolved = resolvePath(args.library, args.path ?? "", "read");
   if (resolved.segments.length === 0) {
-    const page = await graphJson<GraphPage>({
-      path: `${driveRoot(args.library)}/children?$top=${PAGE_SIZE}&$select=${ITEM_FIELDS}`,
-    });
-    const items = page.value
-      .filter((item) => item.folder && isAllowedTopFolder(args.library, item.name, "read"))
-      .filter((item) => matchesName(item.name, args.nameContains))
-      .map((item) => toItem(item, item.name.normalize("NFC")));
+    const items = await listAllowedTopFolders(args.library, args.nameContains);
     return { library: args.library, path: "", items, nextCursor: null };
   }
 
@@ -195,11 +235,21 @@ function isText(name: string, mimeType: string | undefined): boolean {
 export const readFileResultValidator = v.object({
   library: v.string(),
   item: sharepointItemValidator,
-  /** Conteúdo de arquivos de texto até 1 MB (UTF-8); null nos demais. */
-  text: v.union(v.string(), v.null()),
   /**
-   * Para arquivos que não vêm como texto (PDF, planilhas, imagens): link
-   * pré-autenticado para baixar, válido por cerca de 1 hora. Não compartilhe.
+   * Arquivos de texto até 5 MB (UTF-8): um trecho de até 50 mil caracteres a
+   * partir de `offset`; null nos demais.
+   */
+  text: v.union(v.string(), v.null()),
+  /** Onde o trecho começa (caracteres). */
+  offset: v.number(),
+  /** Tamanho do texto inteiro em caracteres; null quando não vem texto. */
+  totalChars: v.union(v.number(), v.null()),
+  /** Passe em `offset` para o próximo trecho; null quando o texto acabou. */
+  nextOffset: v.union(v.number(), v.null()),
+  /**
+   * Para arquivos que não vêm como texto (PDF, planilhas, imagens, textos
+   * acima de 5 MB): link pré-autenticado para baixar, válido por cerca de
+   * 1 hora. Não compartilhe.
    */
   downloadUrl: v.union(v.string(), v.null()),
 });
@@ -207,7 +257,12 @@ export const readFileResultValidator = v.object({
 export async function readFile(args: {
   library: LibraryKey;
   path: string;
+  offset?: number;
 }): Promise<Infer<typeof readFileResultValidator>> {
+  const offset = args.offset ?? 0;
+  if (!Number.isInteger(offset) || offset < 0) {
+    throw new ConvexError({ code: "INVALID_OFFSET", message: "offset deve ser um inteiro ≥ 0." });
+  }
   const resolved = resolvePath(args.library, args.path, "read");
   if (resolved.segments.length === 0) {
     throw new ConvexError({ code: "INVALID_PATH", message: "Informe o caminho de um arquivo." });
@@ -221,16 +276,41 @@ export async function readFile(args: {
   }
   const item = toItem(graphItem, resolved.path);
   const downloadUrl = graphItem["@microsoft.graph.downloadUrl"] ?? null;
-  if (downloadUrl && item.size <= MAX_INLINE_TEXT_BYTES && isText(item.name, item.mimeType ?? undefined)) {
+  if (downloadUrl && item.size <= MAX_TEXT_FILE_BYTES && isText(item.name, item.mimeType ?? undefined)) {
     // O link já é pré-autenticado e aponta para o SharePoint, não para o Graph.
     const response = await fetch(downloadUrl);
     if (!response.ok) {
       throw sharepointError("SHAREPOINT_ERROR", `Erro ao baixar o arquivo (${response.status}).`);
     }
-    const text = new TextDecoder("utf-8").decode(await response.arrayBuffer()).replace(/^﻿/, "");
-    return { library: args.library, item, text, downloadUrl: null };
+    const full = new TextDecoder("utf-8").decode(await response.arrayBuffer()).replace(/^﻿/, "");
+    if (offset > full.length) {
+      throw new ConvexError({
+        code: "INVALID_OFFSET",
+        message: `offset além do fim do arquivo (${full.length} caracteres).`,
+      });
+    }
+    let end = Math.min(offset + TEXT_CHUNK_CHARS, full.length);
+    // Não corta um par substituto (emoji etc.) ao meio.
+    if (end < full.length && /[\uD800-\uDBFF]/.test(full.charAt(end - 1))) end -= 1;
+    return {
+      library: args.library,
+      item,
+      text: full.slice(offset, end),
+      offset,
+      totalChars: full.length,
+      nextOffset: end < full.length ? end : null,
+      downloadUrl: null,
+    };
   }
-  return { library: args.library, item, text: null, downloadUrl };
+  return {
+    library: args.library,
+    item,
+    text: null,
+    offset: 0,
+    totalChars: null,
+    nextOffset: null,
+    downloadUrl,
+  };
 }
 
 function decodeBase64(base64: string): Uint8Array<ArrayBuffer> {
@@ -242,6 +322,33 @@ function decodeBase64(base64: string): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
+}
+
+/**
+ * O eTag lido do arquivo (`"{GUID},N"`, entre aspas). Vazio, `*` ou qualquer
+ * outra coisa substituiria sem comparar a versão, então é recusado.
+ */
+function validETag(raw: string): string {
+  const etag = raw.trim();
+  if (etag === "*" || !/^(W\/)?"[^"\u0000-\u001f\u007f]+"$/.test(etag)) {
+    throw new ConvexError({
+      code: "INVALID_ETAG",
+      message:
+        'ifMatch precisa ser o eTag lido do arquivo, entre aspas (ex.: "{GUID},3"); leia o arquivo de novo.',
+    });
+  }
+  return etag;
+}
+
+function validContentType(raw: string): string {
+  const contentType = raw.trim();
+  if (!/^[\w.+-]+\/[\w.+-]+(\s*;\s*[\w.+-]+=[\w.+"-]+)*$/.test(contentType)) {
+    throw new ConvexError({
+      code: "INVALID_CONTENT",
+      message: `contentType inválido: use um tipo MIME como "application/json".`,
+    });
+  }
+  return contentType;
 }
 
 export const writeFileResultValidator = v.object({
@@ -280,12 +387,17 @@ export async function writeFile(args: {
       message: "Arquivo acima de 3,5 MB: envie arquivos grandes direto pelo SharePoint.",
     });
   }
-  const replacing = args.ifMatch !== undefined;
+  const ifMatch = args.ifMatch === undefined ? undefined : validETag(args.ifMatch);
+  const replacing = ifMatch !== undefined;
   const headers: Record<string, string> = {
     "Content-Type":
-      args.contentType ?? (args.text !== undefined ? "text/plain; charset=utf-8" : "application/octet-stream"),
+      args.contentType === undefined
+        ? args.text !== undefined
+          ? "text/plain; charset=utf-8"
+          : "application/octet-stream"
+        : validContentType(args.contentType),
   };
-  if (replacing) headers["If-Match"] = args.ifMatch!;
+  if (ifMatch) headers["If-Match"] = ifMatch;
   const conflict = replacing ? "replace" : "fail";
   const response = await graphFetch({
     method: "PUT",

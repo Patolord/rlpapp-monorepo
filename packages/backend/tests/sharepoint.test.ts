@@ -112,19 +112,16 @@ describe("ferramentas de arquivos", () => {
     expect(calls).toEqual([]);
   });
 
-  test("raiz da biblioteca mostra só as pastas liberadas", async () => {
+  test("raiz da biblioteca mostra as pastas liberadas sem listar a raiz", async () => {
     const t = setup();
     const calls = stubGraph((url) => {
-      if (url.startsWith(`${PROJETOS_ROOT}/children?`)) {
-        return json({
-          value: [
-            { id: "1", name: "Projetos Orçamento", folder: { childCount: 34 }, size: 10 },
-            { id: "2", name: "Meus documentos Waldemar Rede", folder: { childCount: 32 } },
-            { id: "3", name: "PROJETOS GERAL", folder: { childCount: 51 } },
-            { id: "4", name: "solto.pdf", file: { mimeType: "application/pdf" } },
-          ],
-        });
+      if (url.startsWith(`${PROJETOS_ROOT}:/Projetos%20Or%C3%A7amento:?`)) {
+        return json({ id: "1", name: "Projetos Orçamento", folder: { childCount: 34 }, size: 10 });
       }
+      if (url.startsWith(`${PROJETOS_ROOT}:/PROJETOS%20GERAL:?`)) {
+        return json({ id: "3", name: "PROJETOS GERAL", folder: { childCount: 51 } });
+      }
+      // As demais pastas configuradas "não existem" (404) e são omitidas.
       return undefined;
     });
     const asDirector = await withUser(t, { clerkId: "dir1", role: "director" });
@@ -136,7 +133,20 @@ describe("ferramentas de arquivos", () => {
       kind: "folder",
       childCount: 34,
     });
+    expect(root.nextCursor).toBeNull();
+    // Uma busca por pasta liberada; a raiz (com pastas pessoais) nunca é listada.
+    expect(graphCalls(calls)).toHaveLength(SHAREPOINT_LIBRARIES.projetos.readFolders.length);
+    expect(graphCalls(calls).some((c) => c.url.includes("/root/children"))).toBe(false);
     expect(graphCalls(calls)[0]!.headers.authorization).toBe("Bearer graph-token");
+
+    // nameContains na raiz filtra antes de chamar o Graph.
+    const before = graphCalls(calls).length;
+    const filtered = await asDirector.action(api.sharepoint.listFolderContents, {
+      library: "projetos",
+      nameContains: "projetos orcamento",
+    });
+    expect(filtered.items.map((item) => item.name)).toEqual(["Projetos Orçamento"]);
+    expect(graphCalls(calls).length - before).toBe(1);
 
     const libraries = await asDirector.query(api.sharepoint.listLibraries, {});
     expect(libraries.find((l) => l.library === "projetos")?.writeFolders).toEqual([
@@ -161,7 +171,8 @@ describe("ferramentas de arquivos", () => {
             },
             { id: "b", name: "memorial.docx", size: 10, file: {} },
           ],
-          "@odata.nextLink": `${PROJETOS_ROOT}:/x:/children?$top=200&$skiptoken=abc123`,
+          // O Graph às vezes escreve $skipToken (camelCase).
+          "@odata.nextLink": `${PROJETOS_ROOT}:/x:/children?$top=200&$skipToken=abc123`,
         });
       }
       return undefined;
@@ -247,6 +258,7 @@ describe("ferramentas de arquivos", () => {
       path: "Projetos Orçamento/Bios/Bios.takeoff.json",
     });
     expect(text.text).toBe('{"version":4,"name":"Bios"}');
+    expect(text).toMatchObject({ offset: 0, totalChars: 27, nextOffset: null });
     expect(text.downloadUrl).toBeNull();
     expect(text.item.eTag).toBe('"{J},3"');
     // O link pré-autenticado é baixado sem o token do Graph.
@@ -260,6 +272,92 @@ describe("ferramentas de arquivos", () => {
     expect(pdf.text).toBeNull();
     expect(pdf.downloadUrl).toBe("https://rlpengcombr.sharepoint.com/download?p");
     expect(calls.some((c) => c.url.endsWith("download?p"))).toBe(false);
+  });
+
+  test("texto grande vem em trechos de 50 mil caracteres, sem perder nada", async () => {
+    const t = setup();
+    // 120 mil caracteres com um emoji (par substituto) cruzando o limite do 1º trecho.
+    const big = `${"a".repeat(49_999)}😀${"b".repeat(70_000)}`;
+    const filePath = `${PROJETOS_ROOT}:/Projetos%20Or%C3%A7amento/Bios/grande.takeoff.json:`;
+    stubGraph((url) => {
+      if (url === filePath) {
+        return json({
+          id: "g",
+          name: "grande.takeoff.json",
+          size: big.length,
+          file: { mimeType: "application/json" },
+          "@microsoft.graph.downloadUrl": "https://rlpengcombr.sharepoint.com/download?g",
+        });
+      }
+      if (url === "https://rlpengcombr.sharepoint.com/download?g") return new Response(big);
+      return undefined;
+    });
+    const asDirector = await withUser(t, { clerkId: "dir1", role: "director" });
+    const read = (offset?: number) =>
+      asDirector.action(api.sharepoint.readFileContents, {
+        library: "projetos",
+        path: "Projetos Orçamento/Bios/grande.takeoff.json",
+        offset,
+      });
+
+    let joined = "";
+    let offset: number | null = 0;
+    const offsets: number[] = [];
+    while (offset !== null) {
+      const chunk = await read(offset);
+      offsets.push(chunk.offset);
+      expect(chunk.text!.length).toBeLessThanOrEqual(50_000);
+      expect(chunk.totalChars).toBe(big.length);
+      joined += chunk.text;
+      offset = chunk.nextOffset;
+    }
+    expect(joined).toBe(big);
+    // O 1º trecho para antes do emoji em vez de cortá-lo ao meio.
+    expect(offsets).toEqual([0, 49_999, 99_999]);
+
+    await expect(read(big.length + 1)).rejects.toThrow("offset além do fim do arquivo");
+    await expect(read(-1)).rejects.toThrow("offset deve ser um inteiro");
+  });
+
+  test("ifMatch e contentType inválidos são recusados antes do Graph", async () => {
+    const t = setup();
+    const calls = stubGraph(() => undefined);
+    const asDirector = await withUser(t, { clerkId: "dir1", role: "director" });
+    const path = "Projetos Orçamento/Bios/Bios.takeoff.json";
+    for (const ifMatch of ["*", "", "  ", "{J},3", '"{J},3"\nX: y']) {
+      await expect(
+        asDirector.action(api.sharepoint.saveFile, { library: "projetos", path, text: "{}", ifMatch })
+      ).rejects.toThrow("ifMatch precisa ser o eTag lido do arquivo");
+    }
+    await expect(
+      asDirector.action(api.sharepoint.saveFile, {
+        library: "projetos",
+        path,
+        text: "{}",
+        contentType: "application/json\r\nX-Evil: 1",
+      })
+    ).rejects.toThrow("contentType inválido");
+    expect(graphCalls(calls)).toEqual([]);
+  });
+
+  test("falha do Entra: credencial ruim vs. indisponibilidade", async () => {
+    const t = setup();
+    const asDirector = await withUser(t, { clerkId: "dir1", role: "director" });
+    const withTokenStatus = (status: number) =>
+      vi.stubGlobal("fetch", async () => json({ error: "x" }, status));
+
+    withTokenStatus(401);
+    await expect(
+      asDirector.action(api.sharepoint.listFolderContents, { library: "publico" })
+    ).rejects.toThrow("credenciais do app inválidas ou expiradas");
+
+    for (const status of [429, 503]) {
+      resetGraphTokenCache();
+      withTokenStatus(status);
+      await expect(
+        asDirector.action(api.sharepoint.listFolderContents, { library: "publico" })
+      ).rejects.toThrow("O login da Microsoft está indisponível");
+    }
   });
 
   test("salvar só cria, substitui com eTag e fica na auditoria", async () => {
@@ -388,10 +486,8 @@ describe("ferramentas de arquivos", () => {
 
   test("token somente-leitura lê mas não grava; arquivos.read sozinho também não grava", async () => {
     const t = setup();
-    const calls = stubGraph((url) => {
-      if (url.startsWith(`${PROJETOS_ROOT}/children?`)) return json({ value: [] });
-      return undefined;
-    });
+    // Leituras respondem 404 (pastas omitidas); só importa que nada grave.
+    const calls = stubGraph(() => undefined);
     const asDirector = await withUser(t, { clerkId: "dir1", role: "director" });
     const readOnly = await asDirector.action(api.agentTokens.create, {
       name: "Grok leitura",

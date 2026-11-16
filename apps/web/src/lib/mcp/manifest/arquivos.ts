@@ -41,9 +41,13 @@ export const ARQUIVOS_TOOLS: readonly ToolSpec[] = [
     function: "sharepoint:readFileContents",
     title: "Read SharePoint file",
     description:
-      "One SharePoint file. Text files up to 1 MB (.json including .takeoff.json, .txt, .csv, .md, .xml) come back as `text`; other files (PDF drawings, spreadsheets, images) come back as `downloadUrl`, a pre-authenticated link that expires in about an hour; never show or share that link. The returned `eTag` is what save_sharepoint_file needs to replace the file.",
+      "One SharePoint file. Text files up to 5 MB (.json including .takeoff.json, .txt, .csv, .md, .xml) come back as `text`, at most 50,000 characters per call: when `nextOffset` is not null, call again with `offset: nextOffset` and concatenate until it is null (`totalChars` is the full length). Other files (PDF drawings, spreadsheets, images) come back as `downloadUrl`, a pre-authenticated link that expires in about an hour; never show or share that link. The returned `eTag` is what save_sharepoint_file needs to replace the file.",
     readOnly: true,
-    fieldDescriptions: { library: LIBRARY_HINT, path: PATH_HINT },
+    fieldDescriptions: {
+      library: LIBRARY_HINT,
+      path: PATH_HINT,
+      offset: "Character offset to continue a text file (nextOffset from the previous call). Default 0.",
+    },
   },
   {
     name: "save_sharepoint_file",
