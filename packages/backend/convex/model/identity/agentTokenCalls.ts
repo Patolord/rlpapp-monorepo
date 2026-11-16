@@ -1,6 +1,8 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { getAgentTokenClaims } from "../../lib/agentTokens";
+import { unauthenticated } from "../../lib/accessErrors";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /**
  * Atividade dos tokens de agente (`agentTokenCalls`): chamadas do servidor MCP
@@ -91,14 +93,14 @@ export async function recordAgentTokenCall(
   input: RecordAgentTokenCallInput
 ): Promise<void> {
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new Error("Not authenticated");
+  if (!identity) throw unauthenticated();
   const claims = getAgentTokenClaims(identity);
   if (!claims) {
-    throw new Error("Somente conexões com token de agente registram chamadas");
+    throw ruleViolation("Somente conexões com token de agente registram chamadas");
   }
   const tokenId = ctx.db.normalizeId("agentTokens", claims.tokenId);
   const token = tokenId ? await ctx.db.get("agentTokens", tokenId) : null;
-  if (!token) throw new Error("Token não encontrado");
+  if (!token) throw notFound("Token não encontrado");
 
   await ctx.db.insert("agentTokenCalls", {
     tokenId: token._id,

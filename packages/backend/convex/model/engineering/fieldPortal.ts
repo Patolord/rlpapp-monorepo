@@ -9,6 +9,7 @@ import {
   resolveCustomerLabel,
   resolveProjectByIdentifier,
 } from "./projects";
+import { ruleViolation } from "../../lib/domainErrors";
 
 // Portal do técnico em campo: obras atribuídas (technicianIds), resumo da
 // obra no hub e o catálogo de etiquetas QR/equipamentos de cada obra.
@@ -263,7 +264,7 @@ export async function listBrowsableQrPage(
 ) {
   const project = await ctx.db.get("projects", input.projectId);
   if (!project || project.status === "archived" || project.archivedAt) {
-    throw new Error("Obra não disponível");
+    throw ruleViolation("Obra não disponível");
   }
 
   const filter = input.filter ?? "all";

@@ -95,8 +95,13 @@ com secrets. Vercel, Convex Dashboard e EAS têm cópias próprias.
 - Organização (detalhes em `packages/backend/convex/README.md`): os arquivos da raiz de `convex/`
   são a API pública e ficam finos (args, returns, wrapper de permissão e uma chamada); a lógica
   mora em `model/<domínio>`, as tabelas e validadores em `schema/<domínio>`, e `lib/` guarda só
-  infraestrutura (auth, rbac, auditoria, cripto). Arquivos públicos não importam uns aos outros
-  (o ESLint do backend barra).
+  infraestrutura (auth, rbac, auditoria, erros, cripto). Arquivos públicos não importam uns aos
+  outros, e cada domínio de `model/` só importa os domínios de que depende (mapa de contextos em
+  `CONTEXT.md`, `DOMAIN_DEPENDENCIES` no ESLint do backend; os dois barram).
+- Recusa que o usuário pode causar sai como `notFound` / `alreadyExists` / `ruleViolation`
+  (`lib/domainErrors.ts`) ou `unauthenticated` / `forbidden` (`lib/accessErrors.ts`), com a
+  mensagem em pt-BR: `Error` comum vira "Server Error" em produção (o ESLint barra). Nos apps,
+  leia erros com `errorMessage` de `@rlpapp/shared/errors`.
 
 ## Web (`apps/web`)
 
@@ -110,7 +115,11 @@ com secrets. Vercel, Convex Dashboard e EAS têm cópias próprias.
 
 ## Convenções
 
-- Textos de UI em português do Brasil (pt-BR), em todos os apps.
+- Textos de UI em português do Brasil (pt-BR), em todos os apps; código em inglês.
+  [`CONTEXT.md`](CONTEXT.md) é a linguagem do domínio: para cada conceito, a palavra da UI e o
+  nome no código. Use esses nomes, não sinônimos; tabela ou domínio novo ganha verbete (o teste
+  `packages/backend/tests/glossary.test.ts` falha sem ele). Rótulo de enum que web e app mostram
+  mora uma vez em `packages/shared` (ex.: `EQUIPMENT_STATUS_LABELS`).
 - Controle de acesso: cada usuário tem acessos combináveis (`users.roles`: engenharia, compras,
   estoque, rh, takeoff, admin...), e cada acesso concede permissões por funcionalidade
   (`obras.read`, `contratos.write`, `medicoes.aprovar`, `rh.folha.read`, `campo.todas_obras`...).

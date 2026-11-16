@@ -1,3 +1,5 @@
+import { INVENTORY_DOCUMENT_STATUS_LABELS } from "@rlpapp/shared/estoque/movements";
+
 import type { Tone } from "@/lib/theme";
 
 export type MovementType = "entry" | "transfer" | "consumption" | "return" | "adjustment";
@@ -11,13 +13,15 @@ export const MOVEMENT_LABELS: Record<string, string> = {
   reversal: "Estorno",
 };
 
+const L = INVENTORY_DOCUMENT_STATUS_LABELS;
+
 export const DOCUMENT_STATUS: Record<string, { label: string; tone: Tone }> = {
-  draft: { label: "Rascunho", tone: "neutral" },
-  pending_approval: { label: "Aguardando aprovação", tone: "warning" },
-  approved: { label: "Aprovado", tone: "info" },
-  posted: { label: "Concluído", tone: "success" },
-  rejected: { label: "Recusado", tone: "danger" },
-  reversed: { label: "Estornado", tone: "neutral" },
+  draft: { label: L.draft, tone: "neutral" },
+  pending_approval: { label: L.pending_approval, tone: "warning" },
+  approved: { label: L.approved, tone: "info" },
+  posted: { label: L.posted, tone: "success" },
+  rejected: { label: L.rejected, tone: "danger" },
+  reversed: { label: L.reversed, tone: "neutral" },
 };
 
 export const REQUEST_STATUS: Record<string, { label: string; tone: Tone }> = {

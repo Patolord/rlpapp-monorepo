@@ -1,4 +1,5 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import { INVENTORY_DOCUMENT_STATUS_LABELS } from "@rlpapp/shared/estoque/movements";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
 import { formatDateTime } from "@rlpapp/shared";
@@ -35,14 +36,7 @@ export const MOVEMENT_LABELS: Record<string, string> = {
   reversal: "Estorno",
 };
 
-export const STATUS_LABELS: Record<string, string> = {
-  draft: "Rascunho",
-  pending_approval: "Aguardando aprovação",
-  approved: "Exceção aprovada",
-  posted: "Concluída",
-  rejected: "Rejeitada",
-  reversed: "Estornada",
-};
+export const STATUS_LABELS: Record<string, string> = INVENTORY_DOCUMENT_STATUS_LABELS;
 
 type PaginatedDocuments = {
   results: DocumentRow[];

@@ -20,7 +20,7 @@ import {
   customerContactValidator,
   customerValidator,
 } from "./model/contracts/customerValidators";
-import { bulkImportResultValidator } from "./model/procurement/bulkImport";
+import { bulkImportResultValidator } from "./model/kernel/bulkImport";
 
 export const list = cadastrosLookupQuery({
   args: {

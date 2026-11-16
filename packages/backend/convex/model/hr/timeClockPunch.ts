@@ -6,7 +6,6 @@
  * tela de marcação.
  */
 
-import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { hasPermission } from "../../lib/rbac";
@@ -26,6 +25,7 @@ import {
   nextNsr,
   recomputeDaySummary,
 } from "./timeClockDb";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 export type { GeofenceStatus } from "./timeClock";
 
@@ -298,7 +298,7 @@ function receiptFor(punch: Doc<"clockPunches">, duplicate: boolean) {
 
 function assertCoordinate(value: number, label: string, limit: number): void {
   if (!Number.isFinite(value) || Math.abs(value) > limit) {
-    throw new ConvexError(`${label} inválida`);
+    throw ruleViolation(`${label} inválida`);
   }
 }
 
@@ -339,7 +339,7 @@ export async function listMyPunches(
 ) {
   assertDateKey(input.from, "Data inicial");
   assertDateKey(input.to, "Data final");
-  if (input.from > input.to) throw new ConvexError("Período inválido");
+  if (input.from > input.to) throw ruleViolation("Período inválido");
   const userId = user._id;
   const punches = await ctx.db
     .query("clockPunches")
@@ -382,13 +382,13 @@ export async function registerPunch(
 ) {
   const clientPunchId = input.clientPunchId.trim();
   if (!clientPunchId || clientPunchId.length > 100) {
-    throw new ConvexError("Identificador da marcação inválido");
+    throw ruleViolation("Identificador da marcação inválido");
   }
 
   const existing = await getPunchByClientId(ctx, clientPunchId);
   if (existing) {
     if (existing.userId !== user._id) {
-      throw new ConvexError("Identificador da marcação já utilizado");
+      throw ruleViolation("Identificador da marcação já utilizado");
     }
     return receiptFor(existing, true);
   }
@@ -399,16 +399,16 @@ export async function registerPunch(
 
   // Horário oficial: o do servidor; offline, vale o do aparelho (com limites).
   if (!Number.isFinite(input.capturedAt)) {
-    throw new ConvexError("Horário da marcação inválido");
+    throw ruleViolation("Horário da marcação inválido");
   }
   if (input.capturedAt > now + MAX_FUTURE_MS) {
-    throw new ConvexError("Relógio do aparelho está adiantado. Ajuste a hora e tente novamente.");
+    throw ruleViolation("Relógio do aparelho está adiantado. Ajuste a hora e tente novamente.");
   }
   if (offline && now - input.capturedAt > MAX_OFFLINE_AGE_MS) {
-    throw new ConvexError("Marcação offline antiga demais (mais de 7 dias). Fale com o RH.");
+    throw ruleViolation("Marcação offline antiga demais (mais de 7 dias). Fale com o RH.");
   }
   if (!offline && Math.abs(now - input.capturedAt) > MAX_CLOCK_SKEW_MS) {
-    throw new ConvexError("Relógio do aparelho fora de sincronia. Ajuste a hora e tente novamente.");
+    throw ruleViolation("Relógio do aparelho fora de sincronia. Ajuste a hora e tente novamente.");
   }
   const punchedAt = offline ? Math.min(input.capturedAt, now) : now;
 
@@ -419,28 +419,28 @@ export async function registerPunch(
     assertCoordinate(input.longitude!, "Longitude", 180);
   }
   if (settings.locationRequired && !hasPosition) {
-    throw new ConvexError(
+    throw ruleViolation(
       "Não foi possível obter sua localização. Permita o acesso à localização e tente novamente."
     );
   }
 
   // Foto
   if (settings.photoRequired && !input.photoStorageId) {
-    throw new ConvexError("Tire uma foto para registrar o ponto.");
+    throw ruleViolation("Tire uma foto para registrar o ponto.");
   }
   if (input.photoStorageId) {
     const file = await ctx.db.system.get("_storage", input.photoStorageId);
-    if (!file) throw new ConvexError("Foto não encontrada. Tire uma nova foto.");
+    if (!file) throw notFound("Foto não encontrada. Tire uma nova foto.");
     // Tipo informado no upload e diferente de JPEG/PNG/WebP (ex.: SVG) é
     // recusado. Sem tipo, a rota de entrega confere o arquivo e não o serve.
     if (file.contentType && !isPunchPhotoType(file.contentType)) {
-      throw new ConvexError("Formato de foto não suportado. Tire uma nova foto.");
+      throw ruleViolation("Formato de foto não suportado. Tire uma nova foto.");
     }
     // A idade da foto conta do instante mais antigo conhecido: o upload
     // (autoritativo, do servidor) ou a captura informada pelo aparelho.
     const photoTakenAt = Math.min(file._creationTime, input.photoCapturedAt ?? Infinity);
     if (!offline && now - photoTakenAt > PHOTO_MAX_AGE_MS) {
-      throw new ConvexError("Foto expirada, tire uma nova foto para registrar o ponto.");
+      throw ruleViolation("Foto expirada, tire uma nova foto para registrar o ponto.");
     }
   }
 
@@ -453,7 +453,7 @@ export async function registerPunch(
     null
   );
   if (!offline && isDuplicatePunch(latest, punchedAt, settings.duplicateWindowMinutes)) {
-    throw new ConvexError(
+    throw ruleViolation(
       `Marcação repetida: aguarde ${settings.duplicateWindowMinutes} minuto(s) para registrar novamente.`
     );
   }
@@ -517,6 +517,7 @@ export async function registerPunch(
   await recomputeDaySummary(ctx, user._id, date);
 
   const inserted = await ctx.db.get("clockPunches", punchId);
-  if (!inserted) throw new ConvexError("Falha ao gravar a marcação");
+  // eslint-disable-next-line no-restricted-syntax -- invariante: o registro acabou de ser gravado nesta transação
+  if (!inserted) throw new Error("Falha ao gravar a marcação");
   return receiptFor(inserted, false);
 }

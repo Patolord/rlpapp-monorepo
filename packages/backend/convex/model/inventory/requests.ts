@@ -1,5 +1,6 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { forbidden } from "../../lib/accessErrors";
 import { logAudit } from "../../lib/audit";
 import {
   assertTechnicianProjectAccess,
@@ -9,6 +10,7 @@ import { hasPermission } from "../../lib/rbac";
 import { notify, plural } from "../notifications/notify";
 import { findInventoryLocation } from "./locations";
 import { createAndPostConsumption, postInventoryDocument } from "./posting";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 export { resolveProjectByIdentifier };
 
@@ -60,7 +62,7 @@ export async function consumeRemainingOnObra(
     input.materialId
   );
   if (!balance || balance.quantity <= 0) {
-    throw new Error("Este material já está zerado nesta obra");
+    throw ruleViolation("Este material já está zerado nesta obra");
   }
   const documentId = await createAndPostConsumption(ctx, user, {
     projectId: input.projectId,
@@ -195,29 +197,29 @@ export async function fulfillInventoryRequest(
   }
 ): Promise<void> {
   if (!canFulfillMaterialRequests(user)) {
-    throw new Error("Apenas o Estoque pode registrar o envio");
+    throw forbidden("Apenas o Estoque pode registrar o envio");
   }
   const request = await ctx.db.get("inventoryRequests", input.requestId);
-  if (!request) throw new Error("Pedido não encontrado");
+  if (!request) throw notFound("Pedido não encontrado");
   if (request.status === "fulfilled") {
     if (request.fulfilledByDocumentId === input.documentId) {
       return;
     }
-    throw new Error("Este pedido já foi enviado com outra movimentação");
+    throw ruleViolation("Este pedido já foi enviado com outra movimentação");
   }
   if (request.status !== "approved") {
-    throw new Error("Só é possível enviar pedidos já aprovados");
+    throw ruleViolation("Só é possível enviar pedidos já aprovados");
   }
   const document = await ctx.db.get("inventoryDocuments", input.documentId);
-  if (!document) throw new Error("Movimentação não encontrada");
+  if (!document) throw notFound("Movimentação não encontrada");
   if (document.type !== "transfer") {
-    throw new Error("Vincule uma transferência para a obra");
+    throw ruleViolation("Vincule uma transferência para a obra");
   }
   if (document.projectId !== request.projectId) {
-    throw new Error("A transferência precisa ser da mesma obra do pedido");
+    throw ruleViolation("A transferência precisa ser da mesma obra do pedido");
   }
   if (document.status !== "posted") {
-    throw new Error("Conclua a transferência antes de marcar o pedido como enviado");
+    throw ruleViolation("Conclua a transferência antes de marcar o pedido como enviado");
   }
 
   const [requestItems, documentItems] = await Promise.all([
@@ -234,7 +236,7 @@ export async function fulfillInventoryRequest(
     requestedMaterialIds.has(item.materialId)
   );
   if (!overlaps) {
-    throw new Error(
+    throw ruleViolation(
       "A transferência precisa incluir pelo menos um material do pedido"
     );
   }
@@ -290,7 +292,7 @@ export async function postInventoryDocumentForRequest(
       "inventoryDocuments",
       input.documentId
     );
-    if (!document) throw new Error("Movimentação não encontrada");
+    if (!document) throw notFound("Movimentação não encontrada");
     if (document.status !== "posted") {
       await postInventoryDocument(ctx, user, input.documentId);
     }

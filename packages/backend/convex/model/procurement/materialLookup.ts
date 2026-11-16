@@ -1,6 +1,6 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
-import { normalizeText } from "./pricing";
+import { normalizeText } from "../kernel/text";
 
 export const MAX_LOOKUP_QUERY_LENGTH = 200;
 

@@ -5,6 +5,7 @@ import { logEquipmentHistory } from "../../lib/audit";
 import { getBatchDestination } from "./qrBatches";
 import { syncQrProjectId } from "./qrProjectLinks";
 import { equipKindValidator } from "../../schema/engineering";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 // Equipamento real (cadastrado em campo via QR) ↔ item planejado da obra:
 // ações do técnico, mídia, vagas pendentes e vínculo/desvínculo.
@@ -59,7 +60,7 @@ export async function recordFieldAction(
   args: RecordFieldActionInput
 ): Promise<void> {
   const item = await ctx.db.get("projectEquipment", args.itemId);
-  if (!item) throw new Error("Equipamento não encontrado");
+  if (!item) throw notFound("Equipamento não encontrado");
 
   const now = Date.now();
   const previousStatus = item.status;
@@ -108,7 +109,7 @@ export async function addPlannedEquipmentMedia(
   args: AddPlannedEquipmentMediaInput
 ): Promise<void> {
   const item = await ctx.db.get("projectEquipment", args.itemId);
-  if (!item) throw new Error("Equipamento não encontrado");
+  if (!item) throw notFound("Equipamento não encontrado");
 
   const patch: Record<string, unknown> = {};
   if (args.photoIds && args.photoIds.length > 0) {
@@ -135,15 +136,15 @@ export async function linkEquipmentToPlannedItem(
   args: LinkEquipmentToPlannedItemInput
 ): Promise<void> {
   const item = await ctx.db.get("projectEquipment", args.itemId);
-  if (!item) throw new Error("Equipamento planejado não encontrado");
+  if (!item) throw notFound("Equipamento planejado não encontrado");
 
   const equipment = await ctx.db.get("equipment", args.equipmentId);
-  if (!equipment) throw new Error("Equipamento não encontrado");
+  if (!equipment) throw notFound("Equipamento não encontrado");
   if (
     equipment.projectEquipmentId &&
     equipment.projectEquipmentId !== args.itemId
   ) {
-    throw new Error("Este equipamento já está vinculado a outro item");
+    throw ruleViolation("Este equipamento já está vinculado a outro item");
   }
 
   // Desvincula o equipamento anterior, se houver.
@@ -170,7 +171,7 @@ export async function unlinkEquipmentFromPlannedItem(
   itemId: Id<"projectEquipment">
 ): Promise<void> {
   const item = await ctx.db.get("projectEquipment", itemId);
-  if (!item) throw new Error("Equipamento planejado não encontrado");
+  if (!item) throw notFound("Equipamento planejado não encontrado");
   if (item.linkedEquipmentId) {
     await ctx.db.patch("equipment", item.linkedEquipmentId, {
       projectEquipmentId: undefined,
@@ -195,14 +196,14 @@ export async function createPlannedItemFromRegisteredEquipment(
   args: CreateFromRegisteredEquipmentInput
 ): Promise<{ itemId: Id<"projectEquipment">; token: string | null }> {
   const env = await ctx.db.get("environments", args.environmentId);
-  if (!env) throw new Error("Ambiente não encontrado");
+  if (!env) throw notFound("Ambiente não encontrado");
 
   let systemName = "";
   if (args.systemId) {
     const system = await ctx.db.get("systems", args.systemId);
-    if (!system) throw new Error("Sistema não encontrado");
+    if (!system) throw notFound("Sistema não encontrado");
     if (system.projectId !== env.projectId) {
-      throw new Error("O sistema não pertence à mesma obra do ambiente");
+      throw ruleViolation("O sistema não pertence à mesma obra do ambiente");
     }
     systemName = system.name;
   }
@@ -212,17 +213,17 @@ export async function createPlannedItemFromRegisteredEquipment(
   let qrCode = null;
   if (args.token) {
     const token = args.token.trim().toUpperCase();
-    if (!token) throw new Error("Informe o token do QR");
+    if (!token) throw ruleViolation("Informe o token do QR");
     qrCode = await ctx.db
       .query("qrCodes")
       .withIndex("by_token", (q) => q.eq("token", token))
       .unique();
-    if (!qrCode) throw new Error(`QR "${token}" não encontrado`);
+    if (!qrCode) throw notFound(`QR "${token}" não encontrado`);
     if (qrCode.status !== "active") {
-      throw new Error(`QR "${token}" está inativo`);
+      throw ruleViolation(`QR "${token}" está inativo`);
     }
     if (!qrCode.equipmentId) {
-      throw new Error(
+      throw ruleViolation(
         `QR "${token}" ainda não foi cadastrado pelo técnico`
       );
     }
@@ -237,19 +238,19 @@ export async function createPlannedItemFromRegisteredEquipment(
         .first();
     }
   } else {
-    throw new Error("Informe o token do QR ou o equipamento");
+    throw ruleViolation("Informe o token do QR ou o equipamento");
   }
 
-  if (!equipment) throw new Error("Equipamento não encontrado");
+  if (!equipment) throw notFound("Equipamento não encontrado");
   if (equipment.projectEquipmentId) {
-    throw new Error("Este equipamento já está vinculado a um item da obra");
+    throw ruleViolation("Este equipamento já está vinculado a um item da obra");
   }
 
   // Se o lote da etiqueta tem obra de destino, valida contra a obra do ambiente.
   if (qrCode) {
     const destination = await getBatchDestination(ctx, qrCode.batchId);
     if (destination && destination.projectId !== env.projectId) {
-      throw new Error(
+      throw ruleViolation(
         `QR "${qrCode.token}" pertence ao lote destinado à obra "${destination.projectName}"`
       );
     }
@@ -364,18 +365,18 @@ export async function claimPendingSlot(
   args: LinkEquipmentToPlannedItemInput
 ): Promise<void> {
   const item = await ctx.db.get("projectEquipment", args.itemId);
-  if (!item) throw new Error("Vaga planejada não encontrada");
+  if (!item) throw notFound("Vaga planejada não encontrada");
   if (item.linkedEquipmentId) {
-    throw new Error("Esta vaga já tem um equipamento vinculado");
+    throw ruleViolation("Esta vaga já tem um equipamento vinculado");
   }
 
   const equipment = await ctx.db.get("equipment", args.equipmentId);
-  if (!equipment) throw new Error("Equipamento não encontrado");
+  if (!equipment) throw notFound("Equipamento não encontrado");
   if (
     equipment.projectEquipmentId &&
     equipment.projectEquipmentId !== args.itemId
   ) {
-    throw new Error("Este equipamento já está vinculado a outra vaga");
+    throw ruleViolation("Este equipamento já está vinculado a outra vaga");
   }
 
   // Se a etiqueta veio de um lote com obra de destino, valida contra a obra.
@@ -387,7 +388,7 @@ export async function claimPendingSlot(
   if (qrCode) {
     const destination = await getBatchDestination(ctx, qrCode.batchId);
     if (destination && destination.projectId !== item.projectId) {
-      throw new Error(
+      throw ruleViolation(
         `A etiqueta pertence ao lote destinado à obra "${destination.projectName}"`
       );
     }

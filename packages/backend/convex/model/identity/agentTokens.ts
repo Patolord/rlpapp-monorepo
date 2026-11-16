@@ -2,6 +2,7 @@ import type { Doc } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import type { AgentTokenPermission } from "../../lib/agentTokens";
 import { assertStaff } from "../../lib/rbac";
+import { ruleViolation } from "../../lib/domainErrors";
 
 /**
  * Gravação de tokens de agente, compartilhada pela página Agentes
@@ -15,9 +16,9 @@ const MAX_EXPIRES_IN_DAYS = 3650;
 
 export function normalizeName(name: string): string {
   const trimmed = name.trim();
-  if (!trimmed) throw new Error("Informe um nome para o token");
+  if (!trimmed) throw ruleViolation("Informe um nome para o token");
   if (trimmed.length > MAX_NAME_LENGTH) {
-    throw new Error(`O nome deve ter no máximo ${MAX_NAME_LENGTH} caracteres`);
+    throw ruleViolation(`O nome deve ter no máximo ${MAX_NAME_LENGTH} caracteres`);
   }
   return trimmed;
 }
@@ -32,7 +33,7 @@ export function computeExpiresAt(
     expiresInDays <= 0 ||
     expiresInDays > MAX_EXPIRES_IN_DAYS
   ) {
-    throw new Error(
+    throw ruleViolation(
       `A validade deve ser entre 1 e ${MAX_EXPIRES_IN_DAYS} dias`
     );
   }
@@ -68,7 +69,7 @@ export async function insertToken(
 ) {
   assertStaff(user);
   if (!user.clerkId) {
-    throw new Error(
+    throw ruleViolation(
       "Este usuário ainda não está vinculado a uma conta de login; entre no app antes de criar tokens"
     );
   }
@@ -85,7 +86,7 @@ export async function insertToken(
     if (isActiveToken(token, now)) active++;
   }
   if (active >= MAX_TOKENS_PER_USER) {
-    throw new Error(
+    throw ruleViolation(
       `Limite de ${MAX_TOKENS_PER_USER} tokens ativos atingido. Revogue um token antes de criar outro`
     );
   }

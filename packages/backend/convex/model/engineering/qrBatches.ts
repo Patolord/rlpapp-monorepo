@@ -3,6 +3,7 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
 import { isProjectArchived } from "./projects";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 // Lotes de etiquetas QR (qrBatches + qrCodes.batchId): criação, obra de
 // destino e listagens por lote.
@@ -57,11 +58,11 @@ export async function createQrBatch(
   created: { id: Id<"qrCodes">; token: string }[];
 }> {
   if (args.tokens.length > 999) {
-    throw new Error("Cannot create more than 999 QR codes at once");
+    throw ruleViolation("Cannot create more than 999 QR codes at once");
   }
 
   const project = await ctx.db.get("projects", args.projectId);
-  if (!project) throw new Error("Obra de destino não encontrada");
+  if (!project) throw notFound("Obra de destino não encontrada");
 
   const batchId = `batch-${Date.now()}`;
   const batchName = args.batchName?.trim() || undefined;
@@ -265,13 +266,13 @@ export async function setQrBatchProject(
   args: SetQrBatchProjectInput
 ): Promise<{ updated: number; kept: number }> {
   const project = await ctx.db.get("projects", args.projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
 
   const codes = await ctx.db
     .query("qrCodes")
     .withIndex("by_batchId", (q) => q.eq("batchId", args.batchId))
     .collect();
-  if (codes.length === 0) throw new Error("Lote não encontrado");
+  if (codes.length === 0) throw notFound("Lote não encontrado");
 
   const batch = await ctx.db
     .query("qrBatches")

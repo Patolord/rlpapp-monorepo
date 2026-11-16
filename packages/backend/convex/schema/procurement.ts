@@ -162,8 +162,6 @@ export const materialDimensions = v.object({
   diameterMm: v.optional(v.number()),
 });
 
-// --- Estoque ---
-
 export const procurementTables = {
   materialFamilies: defineTable({
     name: v.string(),
@@ -502,6 +500,4 @@ export const procurementTables = {
     .index("by_alias_normalized", ["aliasNormalized"])
     .index("by_material", ["materialId"])
     .searchIndex("search_alias", { searchField: "aliasNormalized" }),
-
-  // --- Estoque central e saldos simplificados por obra ---
 };

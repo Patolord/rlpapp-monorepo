@@ -1,10 +1,5 @@
 import { diffFields, logAudit } from "../../lib/audit";
-import {
-  optionalTaxIdDigits,
-  normalizeCustomerName,
-  normalizeTaxId,
-  validateTaxIdForPersonType,
-} from "../contracts/customers";
+
 import { assertNonNegativeCents } from "./payroll";
 import {
   DEFAULT_STAFF_GROUP,
@@ -13,6 +8,9 @@ import {
 } from "@rlpapp/shared/rh/staffGroups";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { alreadyExists, notFound, ruleViolation } from "../../lib/domainErrors";
+import { normalizeTaxId, optionalTaxIdDigits, validateTaxIdForPersonType } from "../kernel/taxId";
+import { normalizeText } from "../kernel/text";
 
 // Cadastro de funcionários (RH): listagem, criação, edição, arquivamento.
 
@@ -109,7 +107,7 @@ async function assertUniqueEmployeeIdentity(
     excludeId?: Id<"employees">;
   }
 ) {
-  const nameNormalized = normalizeCustomerName(params.name);
+  const nameNormalized = normalizeText(params.name);
   const existingByName = await ctx.db
     .query("employees")
     .withIndex("by_name_normalized", (q) =>
@@ -120,7 +118,7 @@ async function assertUniqueEmployeeIdentity(
     (row) => row._id !== params.excludeId && !row.archivedAt
   );
   if (nameConflict) {
-    throw new Error("Já existe um funcionário com este nome");
+    throw alreadyExists("Já existe um funcionário com este nome");
   }
 
   if (params.code) {
@@ -133,7 +131,7 @@ async function assertUniqueEmployeeIdentity(
       (row) => row._id !== params.excludeId && !row.archivedAt
     );
     if (codeConflict) {
-      throw new Error("Já existe um funcionário com este código");
+      throw alreadyExists("Já existe um funcionário com este código");
     }
   }
 
@@ -149,7 +147,7 @@ async function assertUniqueEmployeeIdentity(
       (row) => row._id !== params.excludeId && !row.archivedAt
     );
     if (cpfConflict) {
-      throw new Error("Já existe um funcionário com este CPF");
+      throw alreadyExists("Já existe um funcionário com este CPF");
     }
   }
 }
@@ -181,12 +179,12 @@ export async function listEmployees(
     );
   }
   if (input.search?.trim()) {
-    const term = normalizeCustomerName(input.search);
+    const term = normalizeText(input.search);
     const digits = input.search.replace(/\D/g, "");
     employees = employees.filter(
       (row) =>
         row.nameNormalized.includes(term) ||
-        (row.jobTitle && normalizeCustomerName(row.jobTitle).includes(term)) ||
+        (row.jobTitle && normalizeText(row.jobTitle).includes(term)) ||
         (row.code && row.code.includes(input.search!.trim())) ||
         (digits && row.cpfNormalized?.includes(digits))
     );
@@ -221,7 +219,7 @@ export async function createEmployee(
   input: CreateEmployeeInput
 ): Promise<Id<"employees">> {
   const name = input.name.trim();
-  if (!name) throw new Error("Informe o nome do funcionário");
+  if (!name) throw ruleViolation("Informe o nome do funcionário");
 
   const code = normalizeCode(input.code);
   const cpf = input.cpf ? optionalTaxIdDigits(input.cpf) : undefined;
@@ -234,7 +232,7 @@ export async function createEmployee(
   const employeeId = await ctx.db.insert("employees", {
     code,
     name,
-    nameNormalized: normalizeCustomerName(name),
+    nameNormalized: normalizeText(name),
     cpf,
     cpfNormalized: cpf ? normalizeTaxId(cpf) : undefined,
     staffGroup,
@@ -305,9 +303,9 @@ export async function updateEmployee(
   input: UpdateEmployeeInput
 ): Promise<void> {
   const employee = await ctx.db.get("employees", input.employeeId);
-  if (!employee) throw new Error("Funcionário não encontrado");
+  if (!employee) throw notFound("Funcionário não encontrado");
   if (employee.archivedAt) {
-    throw new Error("Funcionário arquivado — restaure antes de editar");
+    throw ruleViolation("Funcionário arquivado — restaure antes de editar");
   }
 
   const before = employeeSnapshot(employee);
@@ -318,9 +316,9 @@ export async function updateEmployee(
 
   if (input.name !== undefined) {
     const name = input.name.trim();
-    if (!name) throw new Error("Informe o nome do funcionário");
+    if (!name) throw ruleViolation("Informe o nome do funcionário");
     updates.name = name;
-    updates.nameNormalized = normalizeCustomerName(name);
+    updates.nameNormalized = normalizeText(name);
   }
   if (input.code !== undefined) {
     updates.code = normalizeCode(input.code);
@@ -426,7 +424,7 @@ export async function archiveEmployee(
   employeeId: Id<"employees">
 ): Promise<void> {
   const employee = await ctx.db.get("employees", employeeId);
-  if (!employee) throw new Error("Funcionário não encontrado");
+  if (!employee) throw notFound("Funcionário não encontrado");
   if (employee.archivedAt) return;
 
   const now = Date.now();
@@ -455,7 +453,7 @@ export async function restoreEmployee(
   employeeId: Id<"employees">
 ): Promise<void> {
   const employee = await ctx.db.get("employees", employeeId);
-  if (!employee) throw new Error("Funcionário não encontrado");
+  if (!employee) throw notFound("Funcionário não encontrado");
   if (!employee.archivedAt) return;
 
   const now = Date.now();

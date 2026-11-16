@@ -4,6 +4,8 @@ import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { hasRole } from "../../lib/rbac";
 import { getBatchDestination, type QrBatchDestination } from "./qrBatches";
 import { isProjectArchived } from "./projects";
+import { forbidden } from "../../lib/accessErrors";
+import { alreadyExists, notFound, ruleViolation } from "../../lib/domainErrors";
 
 // Etiquetas QR individuais: consulta por token, busca, criação/remoção e
 // vínculo com o equipamento real cadastrado em campo.
@@ -242,7 +244,7 @@ export async function createQrCode(
     .unique();
 
   if (existing) {
-    throw new Error(`QR code with token "${token}" already exists`);
+    throw alreadyExists(`QR code with token "${token}" already exists`);
   }
 
   return await ctx.db.insert("qrCodes", {
@@ -262,11 +264,11 @@ export async function removeQrCodeByToken(
     .unique();
 
   if (!qrCode) {
-    throw new Error("QR code not found");
+    throw notFound("QR code not found");
   }
 
   if (qrCode.equipmentId) {
-    throw new Error("Cannot delete a QR code linked to equipment");
+    throw ruleViolation("Cannot delete a QR code linked to equipment");
   }
 
   await ctx.db.delete("qrCodes", qrCode._id);
@@ -310,7 +312,7 @@ export async function removeQrCodesByTokens(
 // Cliente do portal é somente leitura: não pode mover uma etiqueta de obra.
 function assertCanSetFieldProject(user: Doc<"users">) {
   if (hasRole(user, "client")) {
-    throw new Error("Sem permissão para vincular a etiqueta a uma obra");
+    throw forbidden("Sem permissão para vincular a etiqueta a uma obra");
   }
 }
 
@@ -327,16 +329,16 @@ export async function linkEquipmentToQr(
     .unique();
 
   if (!qrCode) {
-    throw new Error("QR code not found");
+    throw notFound("QR code not found");
   }
 
   if (qrCode.equipmentId) {
-    throw new Error("QR code already linked to equipment");
+    throw ruleViolation("QR code already linked to equipment");
   }
 
   const equipment = await ctx.db.get("equipment", args.equipmentId);
   if (!equipment) {
-    throw new Error("Equipment not found");
+    throw notFound("Equipment not found");
   }
 
   // Se o equipamento já está vinculado a um item planejado, propaga a obra.
@@ -355,7 +357,7 @@ export async function linkEquipmentToQr(
     assertCanSetFieldProject(user);
     const project = await ctx.db.get("projects", args.projectId);
     if (!project || isProjectArchived(project)) {
-      throw new Error("Obra não disponível");
+      throw ruleViolation("Obra não disponível");
     }
     projectId = project._id;
   }
@@ -381,10 +383,10 @@ export async function registerEquipmentForQr(
   args: RegisterEquipmentForQrInput
 ): Promise<Id<"equipment">> {
   if (!args.description.trim()) {
-    throw new Error("Descrição é obrigatória");
+    throw ruleViolation("Descrição é obrigatória");
   }
   if (args.labelPhotoIds.length === 0) {
-    throw new Error("É obrigatório anexar pelo menos uma foto da etiqueta");
+    throw ruleViolation("É obrigatório anexar pelo menos uma foto da etiqueta");
   }
 
   const equipmentId = await ctx.db.insert("equipment", {

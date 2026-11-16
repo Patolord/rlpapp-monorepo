@@ -1,7 +1,7 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
-// Obras, hierarquia (torre, andar, ambiente), equipamentos, QR codes e assistente.
+// Obras, hierarquia (torre, andar, ambiente), equipamentos e QR codes.
 
 // Status da obra (ciclo de vida do projeto).
 export const projectStatus = v.union(
@@ -28,8 +28,6 @@ export const projectGeofence = v.object({
   longitude: v.number(),
   radiusMeters: v.number(),
 });
-
-// --- Compras / Materiais / Preços ---
 
 // Status de um equipamento instalado (igual a EquipmentStatus de @rlpapp/shared).
 export const equipmentStatusValidator = v.union(
@@ -76,14 +74,13 @@ export const engineeringTables = {
     .index("by_batchId", ["batchId"])
     .index("by_project", ["projectId"]),
 
-  // --- Obras / Relatórios (substitui a planilha "Tabela Global de Equipamentos") ---
+  // --- Obras (substitui a planilha "Tabela Global de Equipamentos") ---
   //
-  // Hierarquia: Obra → Andar → Apartamento (projectUnits) → Sistema → Equipamento
-  // planejado (projectEquipment). Cada item planejado pode ser vinculado a um
-  // equipamento real (QR) → verde/instalado quando vinculado, vermelho/pendente
-  // quando não.
-
-  // --- Clientes (cadastro mestre) ---
+  // Hierarquia legada: Obra → Andar → Apartamento (projectUnits) → Sistema →
+  // Equipamento planejado (projectEquipment). Cada item planejado pode ser
+  // vinculado a um equipamento instalado (QR) → verde/instalado quando
+  // vinculado, vermelho/pendente quando não.
+  //
   // Obra (prédio): nome + metadados + lista de andares (legado) + torres.
   //
   // Hierarquia nova: Obra → Torre → Andar → Ambiente → Equipamento.
@@ -372,25 +369,4 @@ export const engineeringTables = {
   })
     .index("by_equipment", ["equipmentId"])
     .index("by_createdByUser", ["createdByUserId", "createdAt"]),
-
-  // --- RH: Funcionários e Folha de pagamento ---
-  aiChatSessions: defineTable({
-    projectId: v.id("projects"),
-    userId: v.id("users"),
-    title: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_project", ["projectId"])
-    .index("by_user", ["userId"])
-    .index("by_project_user", ["projectId", "userId"]),
-  aiChatMessages: defineTable({
-    sessionId: v.id("aiChatSessions"),
-    role: v.union(v.literal("user"), v.literal("assistant")),
-    text: v.string(),
-    intents: v.optional(v.string()),
-    createdAt: v.number(),
-  }).index("by_session", ["sessionId"]),
-
-  // --- Compras: catálogo, fornecedores, takeoffs e histórico de preços ---
 };

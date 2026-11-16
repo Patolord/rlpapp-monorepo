@@ -2,6 +2,7 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { logEquipmentHistory } from "../../lib/audit";
 import { getBatchDestination } from "./qrBatches";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 // Vínculo entre etiquetas QR e itens planejados da obra (projectEquipment),
 // incluindo a obra denormalizada em qrCodes.projectId.
@@ -118,7 +119,7 @@ export async function generateQrForProjectEquipment(
   itemId: Id<"projectEquipment">
 ): Promise<{ token: string; created: boolean }> {
   const item = await ctx.db.get("projectEquipment", itemId);
-  if (!item) throw new Error("Equipamento planejado não encontrado");
+  if (!item) throw notFound("Equipamento planejado não encontrado");
   return await generateQrForItem(ctx, user, item);
 }
 
@@ -134,28 +135,28 @@ export async function linkQrTokenToProjectEquipment(
   args: LinkQrTokenToProjectEquipmentInput
 ): Promise<{ token: string }> {
   const token = args.token.trim().toUpperCase();
-  if (!token) throw new Error("Informe o token do QR");
+  if (!token) throw ruleViolation("Informe o token do QR");
 
   const item = await ctx.db.get("projectEquipment", args.itemId);
-  if (!item) throw new Error("Equipamento planejado não encontrado");
+  if (!item) throw notFound("Equipamento planejado não encontrado");
   if (item.linkedEquipmentId) {
-    throw new Error("Este equipamento já possui um QR vinculado");
+    throw ruleViolation("Este equipamento já possui um QR vinculado");
   }
 
   const qrCode = await ctx.db
     .query("qrCodes")
     .withIndex("by_token", (q) => q.eq("token", token))
     .unique();
-  if (!qrCode) throw new Error(`QR "${token}" não encontrado`);
+  if (!qrCode) throw notFound(`QR "${token}" não encontrado`);
   if (qrCode.status !== "active") {
-    throw new Error(`QR "${token}" está inativo`);
+    throw ruleViolation(`QR "${token}" está inativo`);
   }
 
   // Se o lote da etiqueta tem obra de destino, ela precisa bater com a obra
   // do item planejado.
   const destination = await getBatchDestination(ctx, qrCode.batchId);
   if (destination && destination.projectId !== item.projectId) {
-    throw new Error(
+    throw ruleViolation(
       `QR "${token}" pertence ao lote destinado à obra "${destination.projectName}"`
     );
   }
@@ -165,13 +166,13 @@ export async function linkQrTokenToProjectEquipment(
     // Etiqueta já cadastrada pelo técnico: reaproveita o equipamento real.
     const equipment = await ctx.db.get("equipment", qrCode.equipmentId);
     if (!equipment) {
-      throw new Error(`QR "${token}" aponta para um equipamento inexistente`);
+      throw ruleViolation(`QR "${token}" aponta para um equipamento inexistente`);
     }
     if (
       equipment.projectEquipmentId &&
       equipment.projectEquipmentId !== item._id
     ) {
-      throw new Error(
+      throw ruleViolation(
         `QR "${token}" já está vinculado a outro item da obra`
       );
     }

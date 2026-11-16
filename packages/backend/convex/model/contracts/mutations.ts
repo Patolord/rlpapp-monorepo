@@ -14,6 +14,7 @@ import {
   replaceContractServiceItems,
   type ContractServiceItemInput,
 } from "./serviceItems";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 export type CreateContractInput = {
   title: string;
@@ -52,18 +53,18 @@ async function assertReferencedContractEntities(
 ): Promise<void> {
   if (args.projectId) {
     const project = await ctx.db.get("projects", args.projectId);
-    if (!project) throw new Error("Obra não encontrada");
+    if (!project) throw notFound("Obra não encontrada");
   }
   if (args.customerId) {
     const customer = await ctx.db.get("customers", args.customerId);
     if (!customer || customer.archivedAt) {
-      throw new Error("Cliente não encontrado ou arquivado");
+      throw notFound("Cliente não encontrado ou arquivado");
     }
   }
   if (args.contractorId) {
     const contractor = await ctx.db.get("contractors", args.contractorId);
     if (!contractor || contractor.archivedAt) {
-      throw new Error("Empreiteiro não encontrado ou arquivado");
+      throw notFound("Empreiteiro não encontrado ou arquivado");
     }
   }
 }
@@ -74,7 +75,7 @@ export async function createContract(
   args: CreateContractInput
 ): Promise<Id<"contracts">> {
   const title = args.title.trim();
-  if (!title) throw new Error("Informe o título do contrato");
+  if (!title) throw ruleViolation("Informe o título do contrato");
 
   const projectId = args.projectId ?? undefined;
   const customerId = args.customerId ?? undefined;
@@ -138,7 +139,7 @@ export async function updateContract(
   args: UpdateContractInput
 ): Promise<void> {
   const contract = await ctx.db.get("contracts", args.contractId);
-  if (!contract) throw new Error("Contrato não encontrado");
+  if (!contract) throw notFound("Contrato não encontrado");
 
   const direction = args.direction ?? resolveContractDirection(contract);
   const kind = args.kind ?? resolveContractKind(contract);
@@ -185,7 +186,7 @@ export async function updateContract(
       .withIndex("by_contract", (q) => q.eq("contractId", args.contractId))
       .first();
     if (measurement) {
-      throw new Error(
+      throw ruleViolation(
         "Contrato possui medições — mantenha-o como venda ao cliente vinculado à obra"
       );
     }
@@ -203,7 +204,7 @@ export async function updateContract(
   };
   if (args.title !== undefined) {
     const title = args.title.trim();
-    if (!title) throw new Error("Informe o título do contrato");
+    if (!title) throw ruleViolation("Informe o título do contrato");
     patch.title = title;
   }
   if (args.notes !== undefined) patch.notes = args.notes.trim() || undefined;
@@ -230,14 +231,14 @@ export async function deleteContractById(
   contractId: Id<"contracts">
 ): Promise<void> {
   const contract = await ctx.db.get("contracts", contractId);
-  if (!contract) throw new Error("Contrato não encontrado");
+  if (!contract) throw notFound("Contrato não encontrado");
 
   const measurement = await ctx.db
     .query("medicoes")
     .withIndex("by_contract", (q) => q.eq("contractId", contractId))
     .first();
   if (measurement) {
-    throw new Error(
+    throw ruleViolation(
       "Não é possível excluir: o contrato possui medições. Exclua as medições primeiro."
     );
   }
@@ -247,7 +248,7 @@ export async function deleteContractById(
     .withIndex("by_parent", (q) => q.eq("parentContractId", contractId))
     .first();
   if (childContract) {
-    throw new Error(
+    throw ruleViolation(
       "Não é possível excluir: existem aditivos vinculados a este contrato"
     );
   }

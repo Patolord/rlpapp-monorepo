@@ -12,6 +12,7 @@ import {
   takeoffKitInputValidator,
   takeoffKitRowValidator,
 } from "./model/procurement/takeoffKits";
+import { notFound } from "./lib/domainErrors";
 
 /**
  * Kits (presets) do RLP Takeoff: os padrões da empresa, editados no dashboard
@@ -45,7 +46,7 @@ export const remove = takeoffConfigMutation({
   returns: v.null(),
   handler: async (ctx, { id }) => {
     const existing = await ctx.db.get("takeoffKits", id);
-    if (!existing || !existing.active) throw new Error("Kit não encontrado");
+    if (!existing || !existing.active) throw notFound("Kit não encontrado");
     await ctx.db.patch("takeoffKits", id, {
       active: false,
       updatedAt: Date.now(),

@@ -1,20 +1,12 @@
-import { ConvexError } from "convex/values";
+import { errorMessage } from "@rlpapp/shared/errors";
 import { toast } from "sonner";
 
-/** Extrai mensagem legível de erros (Convex, Error ou desconhecido). */
+/**
+ * Extrai mensagem legível de erros: `ConvexError({ code, message })` do
+ * backend, `Error` comum (dev) ou desconhecido (ver @rlpapp/shared/errors).
+ */
 export function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof ConvexError) {
-    if (typeof error.data === "string") return error.data;
-    // erros com código ({ code, message }), como os do orçamento do desktop
-    const message = (error.data as { message?: unknown } | null)?.message;
-    return typeof message === "string" && message ? message : fallback;
-  }
-  if (error instanceof Error && error.message) {
-    // Convex prefixa erros de servidor; mantém só a parte útil
-    const match = error.message.match(/Uncaught Error: (.*?)(?:\n| at )/);
-    return match?.[1] ?? error.message;
-  }
-  return fallback;
+  return errorMessage(error, fallback);
 }
 
 /**

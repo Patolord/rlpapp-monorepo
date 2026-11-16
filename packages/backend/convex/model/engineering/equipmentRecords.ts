@@ -6,6 +6,7 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { engineeringTables } from "../../schema/engineering";
 import { syncQrProjectId } from "./qrProjectLinks";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 // Equipamento cadastrado em campo (`convex/equipment.ts`) e seus registros de
 // instalação/manutenção (`convex/maintenanceLogs.ts`).
@@ -65,7 +66,7 @@ export async function updateEquipment(
 ): Promise<Id<"equipment">> {
   const { id, ...updates } = input;
   const equipment = await ctx.db.get("equipment", id);
-  if (!equipment) throw new Error("Equipment not found");
+  if (!equipment) throw notFound("Equipment not found");
 
   const filtered: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(updates)) {
@@ -181,7 +182,7 @@ export async function createMaintenanceLog(
   input: CreateMaintenanceLogInput
 ): Promise<Id<"maintenanceLogs">> {
   if (input.photoIds.length === 0) {
-    throw new Error("É obrigatório anexar pelo menos uma foto");
+    throw ruleViolation("É obrigatório anexar pelo menos uma foto");
   }
 
   // Responsável vinculado ao usuário logado (não aceita texto livre).

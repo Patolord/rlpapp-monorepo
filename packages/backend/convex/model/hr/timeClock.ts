@@ -1,3 +1,4 @@
+import { ruleViolation } from "../../lib/domainErrors";
 /**
  * Ponto: regras puras (sem acesso a `ctx`). Datas civis em Brasília, tipo da
  * marcação pela posição no dia, situação "agora" de cada pessoa e agregação de
@@ -27,7 +28,7 @@ export function isDateKey(value: string): boolean {
 
 export function assertDateKey(value: string, label = "Data"): void {
   if (!isDateKey(value)) {
-    throw new Error(`${label} inválida (use AAAA-MM-DD)`);
+    throw ruleViolation(`${label} inválida (use AAAA-MM-DD)`);
   }
 }
 
@@ -49,10 +50,10 @@ export function toBrtTimeLabel(ms: number): string {
 
 export function monthRange(year: number, month: number): { from: string; to: string } {
   if (!Number.isInteger(year) || year < 2000 || year > 2100) {
-    throw new Error("Ano inválido");
+    throw ruleViolation("Ano inválido");
   }
   if (!Number.isInteger(month) || month < 1 || month > 12) {
-    throw new Error("Mês inválido");
+    throw ruleViolation("Mês inválido");
   }
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
   return {

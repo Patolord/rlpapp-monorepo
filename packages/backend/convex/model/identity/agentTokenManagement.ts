@@ -6,6 +6,7 @@ import {
 } from "../../lib/agentTokens";
 import { isAdmin, requireUser, resolveRoles } from "../../lib/rbac";
 import { insertToken, isActiveToken, MAX_TOKENS_PER_USER, normalizeName } from "./agentTokens";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /**
  * Gestão dos tokens de agente (página Agentes, visão administrativa) e a
@@ -48,9 +49,9 @@ async function getManageableToken(
 ) {
   await requireHumanSession(ctx);
   const token = await ctx.db.get("agentTokens", id);
-  if (!token) throw new Error("Token não encontrado");
+  if (!token) throw notFound("Token não encontrado");
   if (token.userId !== user._id && !isAdmin(user)) {
-    throw new Error("Você só pode gerenciar os seus próprios tokens");
+    throw ruleViolation("Você só pode gerenciar os seus próprios tokens");
   }
   return token;
 }
@@ -137,7 +138,7 @@ export async function revokeAllAgentTokensForUser(
 ): Promise<number> {
   await requireHumanSession(ctx);
   const user = await ctx.db.get("users", userId);
-  if (!user) throw new Error("Usuário não encontrado");
+  if (!user) throw notFound("Usuário não encontrado");
   const revokedAt = Date.now();
   let count = 0;
   // Todas as linhas do usuário: uma janela fixa deixaria tokens novos de
@@ -182,7 +183,7 @@ export async function insertAgentTokenForUser(
   input: InsertAgentTokenInput
 ) {
   const user = await ctx.db.get("users", userId);
-  if (!user) throw new Error("Usuário não encontrado");
+  if (!user) throw notFound("Usuário não encontrado");
   return await insertToken(ctx, user, input);
 }
 

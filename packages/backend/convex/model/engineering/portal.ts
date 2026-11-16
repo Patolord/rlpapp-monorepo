@@ -8,6 +8,8 @@ import type { QueryCtx } from "../../_generated/server";
 import { isStaff } from "../../lib/rbac";
 import { buildProjectHierarchy } from "./hierarchy";
 import { getPortalUserIds, isProjectArchived, resolveCustomerLabel } from "./projects";
+import { forbidden } from "../../lib/accessErrors";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 async function assertProjectAccess(
   ctx: QueryCtx,
@@ -15,11 +17,11 @@ async function assertProjectAccess(
   projectId: Id<"projects">
 ): Promise<Doc<"projects">> {
   const project = await ctx.db.get("projects", projectId);
-  if (!project) throw new Error("Obra não encontrada");
-  if (isProjectArchived(project)) throw new Error("Obra arquivada");
+  if (!project) throw notFound("Obra não encontrada");
+  if (isProjectArchived(project)) throw ruleViolation("Obra arquivada");
   if (isStaff(user)) return project;
   const allowed = getPortalUserIds(project).includes(user._id);
-  if (!allowed) throw new Error("Acesso negado a esta obra");
+  if (!allowed) throw forbidden("Acesso negado a esta obra");
   return project;
 }
 

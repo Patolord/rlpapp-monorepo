@@ -10,6 +10,7 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
 import { takeoffKitComponent, takeoffKitMode } from "../../schema/procurement";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /**
  * Company defaults of the RLP Takeoff kit presets (`takeoffKits`), published to
@@ -132,13 +133,13 @@ export async function listPublishedTakeoffKits(
  */
 export function sanitizeTakeoffKitInput(input: TakeoffKitInput): TakeoffKitInput {
   const name = input.name.trim();
-  if (!name) throw new Error("Informe o nome do kit");
+  if (!name) throw ruleViolation("Informe o nome do kit");
   if (name.length > MAX_KIT_NAME) {
-    throw new Error(`Nome do kit com mais de ${MAX_KIT_NAME} caracteres`);
+    throw ruleViolation(`Nome do kit com mais de ${MAX_KIT_NAME} caracteres`);
   }
   const label = input.label?.trim();
   if (label !== undefined && label.length > MAX_KIT_LABEL) {
-    throw new Error(`Rótulo com mais de ${MAX_KIT_LABEL} caracteres`);
+    throw ruleViolation(`Rótulo com mais de ${MAX_KIT_LABEL} caracteres`);
   }
   const components: KitComponent[] = [];
   for (const c of input.components) {
@@ -151,14 +152,14 @@ export function sanitizeTakeoffKitInput(input: TakeoffKitInput): TakeoffKitInput
       group.length > MAX_COMPONENT_TEXT ||
       (system && system.length > MAX_COMPONENT_TEXT)
     ) {
-      throw new Error(`Texto de componente com mais de ${MAX_COMPONENT_TEXT} caracteres`);
+      throw ruleViolation(`Texto de componente com mais de ${MAX_COMPONENT_TEXT} caracteres`);
     }
     if (!Number.isFinite(c.factor) || c.factor <= 0) {
-      throw new Error(`${cname}: o fator deve ser maior que zero`);
+      throw ruleViolation(`${cname}: o fator deve ser maior que zero`);
     }
     const sku = normalizeKitSku(c.sku);
     if (sku && sku.length > MAX_COMPONENT_SKU) {
-      throw new Error(`${cname}: código com mais de ${MAX_COMPONENT_SKU} caracteres`);
+      throw ruleViolation(`${cname}: código com mais de ${MAX_COMPONENT_SKU} caracteres`);
     }
     components.push({
       name: cname,
@@ -169,9 +170,9 @@ export function sanitizeTakeoffKitInput(input: TakeoffKitInput): TakeoffKitInput
       factor: c.factor,
     });
   }
-  if (components.length === 0) throw new Error("O kit precisa de pelo menos um componente");
+  if (components.length === 0) throw ruleViolation("O kit precisa de pelo menos um componente");
   if (components.length > MAX_KIT_COMPONENTS) {
-    throw new Error(`Kit com mais de ${MAX_KIT_COMPONENTS} componentes`);
+    throw ruleViolation(`Kit com mais de ${MAX_KIT_COMPONENTS} componentes`);
   }
   return { name, mode: input.mode, ...(label ? { label } : {}), components };
 }
@@ -315,7 +316,7 @@ export async function saveTakeoffKit(
     return kitId;
   }
   const existing = await ctx.db.get("takeoffKits", id);
-  if (!existing || !existing.active) throw new Error("Kit não encontrado");
+  if (!existing || !existing.active) throw notFound("Kit não encontrado");
   await ctx.db.patch("takeoffKits", id, {
     name: clean.name,
     mode: clean.mode,

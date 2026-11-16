@@ -1,11 +1,12 @@
 /** Status de um equipamento instalado em obra (igual a `equipmentStatusValidator` do backend). */
 export type EquipmentStatus = "installing" | "operational" | "warning" | "error";
 
+/** Rótulos únicos para web e app (CONTEXT.md, "Installed equipment"). */
 export const EQUIPMENT_STATUS_LABELS: Record<EquipmentStatus, string> = {
-  installing: "Em instalação",
-  warning: "Alerta",
-  error: "Erro",
+  installing: "Instalando",
   operational: "Operacional",
+  warning: "Atenção",
+  error: "Erro",
 };
 
 export function getEquipmentStatusLabel(status: EquipmentStatus): string {

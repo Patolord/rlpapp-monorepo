@@ -11,9 +11,11 @@ import {
   sanitizeDimensions,
   type MaterialDimensions,
 } from "./catalog";
-import { normalizeText } from "./pricing";
 import { materialDimensions, materialStatus } from "../../schema/procurement";
 import { catalogStatus } from "./takeoffCatalog";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
+import { errorMessage } from "@rlpapp/shared/errors";
+import { normalizeText } from "../kernel/text";
 
 // ---------------------------------------------------------------------------
 // Material proposals coming from the RLP Takeoff desktop app
@@ -111,10 +113,10 @@ function readText(
 ): string | undefined {
   const value = body[key];
   if (value === undefined || value === null) return undefined;
-  if (typeof value !== "string") throw new Error(`"${key}" must be a string`);
+  if (typeof value !== "string") throw ruleViolation(`"${key}" must be a string`);
   const trimmed = value.trim();
   if (trimmed.length > maxLength) {
-    throw new Error(`"${key}" must have at most ${maxLength} characters`);
+    throw ruleViolation(`"${key}" must have at most ${maxLength} characters`);
   }
   return trimmed || undefined;
 }
@@ -127,10 +129,10 @@ function readNumber(
   const value = body[key];
   if (value === undefined || value === null) return undefined;
   if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(`"${key}" must be a finite number`);
+    throw ruleViolation(`"${key}" must be a finite number`);
   }
   if (options.min !== undefined && value < options.min) {
-    throw new Error(`"${key}" must be >= ${options.min}`);
+    throw ruleViolation(`"${key}" must be >= ${options.min}`);
   }
   return value;
 }
@@ -141,7 +143,7 @@ function readDimensions(
   const value = body.dimensions;
   if (value === undefined || value === null) return undefined;
   if (typeof value !== "object" || Array.isArray(value)) {
-    throw new Error('"dimensions" must be an object');
+    throw ruleViolation('"dimensions" must be an object');
   }
   const record = value as Record<string, unknown>;
   const dimensions: MaterialDimensions = {};
@@ -149,7 +151,7 @@ function readDimensions(
     const read = readNumber(record, key, { min: 0 });
     // sanitizeDimensions rejects 0 later with a plain error (a 500 / an
     // endless retry in the app): refuse it here, as a bad request.
-    if (read === 0) throw new Error(`"dimensions.${key}" must be > 0`);
+    if (read === 0) throw ruleViolation(`"dimensions.${key}" must be > 0`);
     if (read !== undefined) dimensions[key] = read;
   }
   return dimensions;
@@ -188,7 +190,7 @@ export function parseTakeoffMaterialProposal(body: unknown): ParseResult {
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : "Invalid body",
+      error: errorMessage(error, "Invalid body"),
     };
   }
 }
@@ -235,6 +237,7 @@ async function findOrCreateFamily(
     updatedAt: now,
   });
   const family = await ctx.db.get("materialFamilies", familyId);
+  // eslint-disable-next-line no-restricted-syntax -- invariante: o registro acabou de ser gravado nesta transação
   if (!family) throw new Error("Falha ao criar família de material");
   return family;
 }
@@ -248,12 +251,12 @@ async function resolveMaterial(
   if (input.materialId) {
     const id = ctx.db.normalizeId("materials", input.materialId);
     const material = id ? await ctx.db.get("materials", id) : null;
-    if (!material) throw new Error(MATERIAL_NOT_FOUND);
+    if (!material) throw notFound(MATERIAL_NOT_FOUND);
     return { material, created: false };
   }
 
   const name = input.name?.trim();
-  if (!name) throw new Error("Informe o nome do material");
+  if (!name) throw ruleViolation("Informe o nome do material");
   const unit = normalizeUnit(input.unit);
   const family = await findOrCreateFamily(ctx, name, input.category, unit, now);
   const dimensions = sanitizeDimensions(input.dimensions);
@@ -297,6 +300,7 @@ async function resolveMaterial(
     updatedAt: now,
   });
   const material = await ctx.db.get("materials", materialId);
+  // eslint-disable-next-line no-restricted-syntax -- invariante: o registro acabou de ser gravado nesta transação
   if (!material) throw new Error("Falha ao criar material");
   return { material, created: true };
 }
@@ -342,7 +346,7 @@ export async function proposeTakeoffMaterial(
     .unique();
   if (previous) {
     const material = await ctx.db.get("materials", previous.materialId);
-    if (!material) throw new Error(MATERIAL_NOT_FOUND);
+    if (!material) throw notFound(MATERIAL_NOT_FOUND);
     return toResult("replayed", material, previous.priceEventId ?? null);
   }
 
@@ -388,7 +392,7 @@ export async function proposeTakeoffMaterialAsUser(
       requestedByUserId: user._id,
     });
   } catch (error) {
-    if (error instanceof Error && error.message.includes(MATERIAL_NOT_FOUND)) {
+    if (errorMessage(error, "") === MATERIAL_NOT_FOUND) {
       throw new ConvexError({
         code: "MATERIAL_NOT_FOUND",
         message: MATERIAL_NOT_FOUND,
@@ -396,8 +400,9 @@ export async function proposeTakeoffMaterialAsUser(
     }
     // Catalog validation (model/procurement/catalog.ts) the parser does not
     // repeat: still a bad proposal, never worth retrying.
-    if (error instanceof Error && error.message.startsWith("Dimensão inválida")) {
-      throw new ConvexError({ code: "INVALID_PROPOSAL", message: error.message });
+    const message = errorMessage(error, "");
+    if (message.startsWith("Dimensão inválida")) {
+      throw new ConvexError({ code: "INVALID_PROPOSAL", message });
     }
     throw error;
   }

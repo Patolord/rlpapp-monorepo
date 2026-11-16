@@ -3,15 +3,16 @@ import type { Infer } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
 import type { materialStatus } from "../../schema/procurement";
-import { findInventoryLocation } from "../inventory/locations";
+import { findInventoryLocation } from "./locations";
 import {
   canViewCentralInventory,
   computeReplenishmentState,
   getStockPolicy,
-} from "../inventory/stockPolicy";
-import { materialMatchesSearch, toMaterialCatalogRow } from "./catalog";
-import { buildPriceHistory } from "./priceHistory";
-import { normalizeText, priceFreshness } from "./pricing";
+} from "./stockPolicy";
+import { materialMatchesSearch, toMaterialCatalogRow } from "../procurement/catalog";
+import { buildPriceHistory } from "../procurement/priceHistory";
+import { priceFreshness } from "../procurement/pricing";
+import { normalizeText } from "../kernel/text";
 
 export type ListMaterialCatalogInput = {
   search?: string;

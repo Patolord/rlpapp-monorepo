@@ -9,6 +9,8 @@ import {
   enrichBalanceWithReplenishment,
 } from "./stockPolicy";
 import type { legacyInventoryEventType } from "./validators";
+import { forbidden } from "../../lib/accessErrors";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /**
  * Saldos e histórico de eventos de um estoque (central ou de obra), o adaptador
@@ -42,7 +44,7 @@ function assertCanViewLocation(
   projectId: Id<"projects"> | undefined
 ): void {
   if (!projectId && !canViewCentralInventory(user)) {
-    throw new Error("A Engenharia só pode consultar estoques de obras");
+    throw forbidden("A Engenharia só pode consultar estoques de obras");
   }
 }
 
@@ -165,7 +167,7 @@ export async function listLegacyInventoryEvents(
 ) {
   // Legacy/nativo: histórico global do central. Obra → listEventsPaginated + projectId.
   if (!canViewCentralInventory(user)) {
-    throw new Error("A Engenharia só pode consultar estoques de obras");
+    throw forbidden("A Engenharia só pode consultar estoques de obras");
   }
   const limit = Math.min(Math.max(Math.floor(input.limit ?? 100), 1), 200);
   const events = await ctx.db
@@ -214,13 +216,13 @@ export async function updateInventoryAddress(
   input: UpdateInventoryAddressInput
 ): Promise<void> {
   const balance = await ctx.db.get("inventoryBalances", input.balanceId);
-  if (!balance) throw new Error("Saldo não encontrado");
+  if (!balance) throw notFound("Saldo não encontrado");
   const location = await ctx.db.get(
     "inventoryLocations",
     balance.locationId
   );
   if (!location || location.type !== "central") {
-    throw new Error("O endereço físico só pode ser definido no estoque central");
+    throw ruleViolation("O endereço físico só pode ser definido no estoque central");
   }
   const physicalAddress = input.physicalAddress.trim();
   await ctx.db.patch("inventoryBalances", input.balanceId, {

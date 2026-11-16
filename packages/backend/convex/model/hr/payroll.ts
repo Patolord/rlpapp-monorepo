@@ -1,3 +1,4 @@
+import { ruleViolation } from "../../lib/domainErrors";
 export const DEFAULT_MEAL_VOUCHER_PER_DAY_CENTS = 2500;
 export const DEFAULT_FOOD_BASKET_CENTS = 35_000;
 export {
@@ -10,13 +11,13 @@ export type MonthKey = { year: number; month: number };
 
 export function assertMonth(month: number): void {
   if (!Number.isInteger(month) || month < 1 || month > 12) {
-    throw new Error("Mês inválido");
+    throw ruleViolation("Mês inválido");
   }
 }
 
 export function assertYear(year: number): void {
   if (!Number.isInteger(year) || year < 2000 || year > 2100) {
-    throw new Error("Ano inválido");
+    throw ruleViolation("Ano inválido");
   }
 }
 
@@ -223,7 +224,7 @@ export function addPayrollTotals(
 
 export function roundCents(value: number): number {
   if (!Number.isFinite(value)) {
-    throw new Error("Valor inválido");
+    throw ruleViolation("Valor inválido");
   }
   return Math.round(value);
 }
@@ -231,7 +232,7 @@ export function roundCents(value: number): number {
 export function assertNonNegativeCents(value: number, label: string): number {
   const cents = roundCents(value);
   if (cents < 0) {
-    throw new Error(`${label} não pode ser negativo`);
+    throw ruleViolation(`${label} não pode ser negativo`);
   }
   return cents;
 }

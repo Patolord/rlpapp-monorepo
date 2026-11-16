@@ -20,6 +20,7 @@ import {
   loanStatus,
   previousMonth,
 } from "./payroll";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /**
  * Folha mensal (competência): busca da folha, criação e recálculo das linhas
@@ -45,13 +46,13 @@ export async function requireRun(
   runId: Id<"payrollRuns">
 ) {
   const run = await ctx.db.get("payrollRuns", runId);
-  if (!run) throw new Error("Folha não encontrada");
+  if (!run) throw notFound("Folha não encontrada");
   return run;
 }
 
 export function assertDraft(run: Doc<"payrollRuns">) {
   if (run.status === "closed") {
-    throw new Error("Folha fechada — reabra para editar");
+    throw ruleViolation("Folha fechada — reabra para editar");
   }
 }
 
@@ -258,7 +259,7 @@ export async function createPayrollRun(
     updatedByUserId: user._id,
   });
   const run = await ctx.db.get("payrollRuns", runId);
-  if (!run) throw new Error("Folha não encontrada");
+  if (!run) throw notFound("Folha não encontrada");
 
   if (previous) {
     const previousLines = await ctx.db

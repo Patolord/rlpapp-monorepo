@@ -16,6 +16,7 @@ import {
   listProjectMedicoes,
   updateDraftMedicao,
 } from "./model/contracts/medicoes";
+import { notFound, ruleViolation } from "./lib/domainErrors";
 
 const contractSummaryValidator = v.object({
   _id: v.id("contracts"),
@@ -137,9 +138,9 @@ export const removeMedicao = medicoesMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const medicao = await ctx.db.get("medicoes", args.medicaoId);
-    if (!medicao) throw new Error("Medição não encontrada");
+    if (!medicao) throw notFound("Medição não encontrada");
     if (medicao.status !== "rascunho") {
-      throw new Error("Apenas medições em rascunho podem ser excluídas");
+      throw ruleViolation("Apenas medições em rascunho podem ser excluídas");
     }
 
     await ctx.db.delete("medicoes", args.medicaoId);

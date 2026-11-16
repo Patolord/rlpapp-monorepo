@@ -1,7 +1,8 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { buildMaterialIdentityKey, findMaterialByIdentity } from "./catalog";
-import { normalizeText } from "./pricing";
+import { alreadyExists, notFound, ruleViolation } from "../../lib/domainErrors";
+import { normalizeText } from "../kernel/text";
 
 /** Dimensões em milímetros aceitas no cadastro de materiais. */
 export type MaterialDimensionsInput = {
@@ -17,7 +18,7 @@ export function sanitizeTechnicalAttributes(
 ): Array<{ key: string; value: string }> | undefined {
   if (attributes === undefined) return undefined;
   if (attributes.length > 20) {
-    throw new Error("Um material pode ter no máximo 20 atributos técnicos");
+    throw ruleViolation("Um material pode ter no máximo 20 atributos técnicos");
   }
 
   const result: Array<{ key: string; value: string }> = [];
@@ -26,10 +27,10 @@ export function sanitizeTechnicalAttributes(
     const key = normalizeText(attribute.key);
     const value = attribute.value.trim();
     if (!key || !value) {
-      throw new Error("Preencha a chave e o valor de todos os atributos técnicos");
+      throw ruleViolation("Preencha a chave e o valor de todos os atributos técnicos");
     }
     if (keys.has(key)) {
-      throw new Error(`Atributo técnico duplicado: ${key}`);
+      throw ruleViolation(`Atributo técnico duplicado: ${key}`);
     }
     keys.add(key);
     result.push({ key, value });
@@ -48,7 +49,7 @@ export async function findOrCreateFamily(
 ): Promise<Doc<"materialFamilies">> {
   if (input.familyId) {
     const family = await ctx.db.get("materialFamilies", input.familyId);
-    if (!family) throw new Error("Família de material não encontrada");
+    if (!family) throw notFound("Família de material não encontrada");
     return family;
   }
 
@@ -72,6 +73,7 @@ export async function findOrCreateFamily(
     updatedAt: now,
   });
   const family = await ctx.db.get("materialFamilies", familyId);
+  // eslint-disable-next-line no-restricted-syntax -- invariante: o registro acabou de ser gravado nesta transação
   if (!family) throw new Error("Falha ao criar família de material");
   return family;
 }
@@ -87,7 +89,7 @@ export async function assertUniqueIdentity(
   });
   if (hit) {
     const detail = hit.variantLabel ? ` (${hit.variantLabel})` : "";
-    throw new Error(`Material já cadastrado: ${hit.name}${detail}`);
+    throw alreadyExists(`Material já cadastrado: ${hit.name}${detail}`);
   }
 }
 
