@@ -370,7 +370,7 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "sharepoint:listLibraries": { kind: "permission", permission: "arquivos.read" },
   "sharepoint:readFileContents": { kind: "permission", permission: "arquivos.read" },
   "sharepoint:saveFile": { kind: "permission", permission: "arquivos.write" },
-  "sharepoint:trelloOverview": { kind: "permission", permission: "arquivos.read" },
+  "sharepoint:trelloBoard": { kind: "permission", permission: "arquivos.read" },
   "suppliers:addContact": { kind: "permission", permission: "fornecedores.write" },
   "suppliers:bulkCreate": { kind: "permission", permission: "fornecedores.write" },
   "suppliers:create": { kind: "permission", permission: "fornecedores.write" },
