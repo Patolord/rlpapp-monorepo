@@ -43,6 +43,7 @@ import { Route as EngenhariaContratosRouteImport } from './routes/engenharia/con
 import { Route as EngenhariaEmpreiteirosRouteImport } from './routes/engenharia/empreiteiros'
 import { Route as EngenhariaMedicoesRouteImport } from './routes/engenharia/medicoes'
 import { Route as EngenhariaObrasRouteRouteImport } from './routes/engenharia/obras/route'
+import { Route as EngenhariaOrcamentosRouteImport } from './routes/engenharia/orcamentos'
 import { Route as EngenhariaPoliticaPrivacidadeRouteImport } from './routes/engenharia/politica-privacidade'
 import { Route as EngenhariaRelatoriosRouteRouteImport } from './routes/engenharia/relatorios/route'
 import { Route as EngenhariaUsuariosRouteImport } from './routes/engenharia/usuarios'
@@ -280,6 +281,11 @@ const EngenhariaMedicoesRoute = EngenhariaMedicoesRouteImport.update({
 const EngenhariaObrasRouteRoute = EngenhariaObrasRouteRouteImport.update({
   id: '/obras',
   path: '/obras',
+  getParentRoute: () => EngenhariaRouteRoute,
+} as any)
+const EngenhariaOrcamentosRoute = EngenhariaOrcamentosRouteImport.update({
+  id: '/orcamentos',
+  path: '/orcamentos',
   getParentRoute: () => EngenhariaRouteRoute,
 } as any)
 const EngenhariaPoliticaPrivacidadeRoute =
@@ -679,6 +685,7 @@ export interface FileRoutesByFullPath {
   '/engenharia/contratos': typeof EngenhariaContratosRoute
   '/engenharia/empreiteiros': typeof EngenhariaEmpreiteirosRoute
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
+  '/engenharia/orcamentos': typeof EngenhariaOrcamentosRoute
   '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
@@ -770,6 +777,7 @@ export interface FileRoutesByTo {
   '/engenharia/contratos': typeof EngenhariaContratosRoute
   '/engenharia/empreiteiros': typeof EngenhariaEmpreiteirosRoute
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
+  '/engenharia/orcamentos': typeof EngenhariaOrcamentosRoute
   '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
@@ -870,6 +878,7 @@ export interface FileRoutesById {
   '/engenharia/contratos': typeof EngenhariaContratosRoute
   '/engenharia/empreiteiros': typeof EngenhariaEmpreiteirosRoute
   '/engenharia/medicoes': typeof EngenhariaMedicoesRoute
+  '/engenharia/orcamentos': typeof EngenhariaOrcamentosRoute
   '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
@@ -974,6 +983,7 @@ export interface FileRouteTypes {
     | '/engenharia/contratos'
     | '/engenharia/empreiteiros'
     | '/engenharia/medicoes'
+    | '/engenharia/orcamentos'
     | '/engenharia/politica-privacidade'
     | '/engenharia/usuarios'
     | '/estoque/movimentacao'
@@ -1065,6 +1075,7 @@ export interface FileRouteTypes {
     | '/engenharia/contratos'
     | '/engenharia/empreiteiros'
     | '/engenharia/medicoes'
+    | '/engenharia/orcamentos'
     | '/engenharia/politica-privacidade'
     | '/engenharia/usuarios'
     | '/estoque/movimentacao'
@@ -1164,6 +1175,7 @@ export interface FileRouteTypes {
     | '/engenharia/contratos'
     | '/engenharia/empreiteiros'
     | '/engenharia/medicoes'
+    | '/engenharia/orcamentos'
     | '/engenharia/politica-privacidade'
     | '/engenharia/usuarios'
     | '/estoque/movimentacao'
@@ -1508,6 +1520,13 @@ declare module '@tanstack/react-router' {
       path: '/obras'
       fullPath: '/engenharia/obras'
       preLoaderRoute: typeof EngenhariaObrasRouteRouteImport
+      parentRoute: typeof EngenhariaRouteRoute
+    }
+    '/engenharia/orcamentos': {
+      id: '/engenharia/orcamentos'
+      path: '/orcamentos'
+      fullPath: '/engenharia/orcamentos'
+      preLoaderRoute: typeof EngenhariaOrcamentosRouteImport
       parentRoute: typeof EngenhariaRouteRoute
     }
     '/engenharia/politica-privacidade': {
@@ -2164,6 +2183,7 @@ interface EngenhariaRouteRouteChildren {
   EngenhariaContratosRoute: typeof EngenhariaContratosRoute
   EngenhariaEmpreiteirosRoute: typeof EngenhariaEmpreiteirosRoute
   EngenhariaMedicoesRoute: typeof EngenhariaMedicoesRoute
+  EngenhariaOrcamentosRoute: typeof EngenhariaOrcamentosRoute
   EngenhariaPoliticaPrivacidadeRoute: typeof EngenhariaPoliticaPrivacidadeRoute
   EngenhariaUsuariosRoute: typeof EngenhariaUsuariosRoute
   EngenhariaIndexRoute: typeof EngenhariaIndexRoute
@@ -2178,6 +2198,7 @@ const EngenhariaRouteRouteChildren: EngenhariaRouteRouteChildren = {
   EngenhariaContratosRoute: EngenhariaContratosRoute,
   EngenhariaEmpreiteirosRoute: EngenhariaEmpreiteirosRoute,
   EngenhariaMedicoesRoute: EngenhariaMedicoesRoute,
+  EngenhariaOrcamentosRoute: EngenhariaOrcamentosRoute,
   EngenhariaPoliticaPrivacidadeRoute: EngenhariaPoliticaPrivacidadeRoute,
   EngenhariaUsuariosRoute: EngenhariaUsuariosRoute,
   EngenhariaIndexRoute: EngenhariaIndexRoute,

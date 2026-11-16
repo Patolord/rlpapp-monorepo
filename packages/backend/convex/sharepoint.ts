@@ -19,6 +19,7 @@ import {
   listAllowedFolders,
   type LibraryKey,
 } from "./model/sharepoint/libraries";
+import { getTrelloOverview, trelloOverviewValidator } from "./model/sharepoint/trello";
 
 /**
  * Arquivos da empresa no SharePoint (sites Projetos e Publico), pelo app do
@@ -67,6 +68,15 @@ export const readFileContents = arquivosReadAction({
   returns: readFileResultValidator,
   handler: async (_ctx, args) => {
     return await readFile(args);
+  },
+});
+
+/** Contagem por etapa da pasta TRELLO de orçamentos (Projetos/z/Orçamentos/TRELLO). */
+export const trelloOverview = arquivosReadAction({
+  args: {},
+  returns: trelloOverviewValidator,
+  handler: async () => {
+    return await getTrelloOverview();
   },
 });
 

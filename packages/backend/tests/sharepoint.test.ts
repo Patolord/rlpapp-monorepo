@@ -540,3 +540,77 @@ describe("ferramentas de arquivos", () => {
     expect(calls).toEqual([]);
   });
 });
+
+describe("painel da pasta TRELLO", () => {
+  const TRELLO = `${PROJETOS_ROOT}:/z/Or%C3%A7amentos/TRELLO`;
+
+  test("conta itens por etapa, lista as etapas pequenas e ordena como o quadro", async () => {
+    const t = setup();
+    const calls = stubGraph((url) => {
+      if (url.startsWith(`${TRELLO}:?`)) {
+        return json({ name: "TRELLO", webUrl: "https://sp/TRELLO", folder: { childCount: 5 } });
+      }
+      if (url.startsWith(`${TRELLO}:/children?`)) {
+        return json({
+          value: [
+            { name: "Concluído", folder: { childCount: 309 } },
+            { name: "Pasta Padrão", folder: { childCount: 2 } },
+            { name: "Em Andamento", folder: { childCount: 2 } },
+            { name: "Concluído.rar", file: {} },
+            { name: "Para Fazer", folder: { childCount: 0 } },
+          ],
+        });
+      }
+      if (url.startsWith(`${TRELLO}/Em%20Andamento:/children?`)) {
+        return json({
+          value: [
+            { name: "26.37108PRC - Tegra - Obra ARVO", folder: { childCount: 4 } },
+            {
+              name: "26.36994PRC - P4 - Obra Viva",
+              folder: { childCount: 1 },
+              lastModifiedDateTime: "2026-11-10T12:00:00Z",
+            },
+          ],
+        });
+      }
+      if (url.startsWith(`${TRELLO}/Pasta%20Padr%C3%A3o:/children?`)) {
+        return json({ value: [{ name: "PRC.docx", file: {} }, { name: "PRC", folder: {} }] });
+      }
+      if (url.startsWith(`${TRELLO}/Para%20Fazer:/children?`)) return json({ value: [] });
+      return undefined;
+    });
+    const asDirector = await withUser(t, { clerkId: "dir1", role: "director" });
+
+    const overview = await asDirector.action(api.sharepoint.trelloOverview, {});
+    expect(overview.webUrl).toBe("https://sp/TRELLO");
+    expect(overview.looseFiles).toBe(1);
+    expect(overview.stages.map((s) => [s.name, s.count])).toEqual([
+      ["Para Fazer", 0],
+      ["Em Andamento", 2],
+      ["Concluído", 309],
+      ["Pasta Padrão", 2],
+    ]);
+    const andamento = overview.stages[1]!;
+    expect(andamento.items?.map((i) => i.name)).toEqual([
+      "26.36994PRC - P4 - Obra Viva",
+      "26.37108PRC - Tegra - Obra ARVO",
+    ]);
+    expect(andamento.items?.[0]).toMatchObject({
+      kind: "folder",
+      modifiedAt: Date.parse("2026-11-10T12:00:00Z"),
+    });
+    // Etapa grande vem só com a contagem, sem listar os 309 itens.
+    expect(overview.stages[2]!.items).toBeNull();
+    expect(graphCalls(calls).some((c) => c.url.includes("Conclu%C3%ADdo:/children"))).toBe(false);
+  });
+
+  test("sem arquivos.read não chama o Graph", async () => {
+    const t = setup();
+    const calls = stubGraph(() => undefined);
+    const asEng = await withUser(t, { clerkId: "eng1", role: "engenheiro" });
+    await expect(asEng.action(api.sharepoint.trelloOverview, {})).rejects.toThrow(
+      "Seu usuário não tem acesso aos arquivos do SharePoint"
+    );
+    expect(calls).toEqual([]);
+  });
+});
