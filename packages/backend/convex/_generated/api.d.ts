@@ -176,6 +176,9 @@ import type * as model_procurement_takeoffProposals from "../model/procurement/t
 import type * as model_procurement_takeoffSettings from "../model/procurement/takeoffSettings.js";
 import type * as model_procurement_takeoffValidators from "../model/procurement/takeoffValidators.js";
 import type * as model_procurement_takeoffs from "../model/procurement/takeoffs.js";
+import type * as model_sharepoint_files from "../model/sharepoint/files.js";
+import type * as model_sharepoint_graph from "../model/sharepoint/graph.js";
+import type * as model_sharepoint_libraries from "../model/sharepoint/libraries.js";
 import type * as notificationDigest from "../notificationDigest.js";
 import type * as notifications from "../notifications.js";
 import type * as payroll from "../payroll.js";
@@ -195,6 +198,7 @@ import type * as schema_identity from "../schema/identity.js";
 import type * as schema_inventory from "../schema/inventory.js";
 import type * as schema_notifications from "../schema/notifications.js";
 import type * as schema_procurement from "../schema/procurement.js";
+import type * as sharepoint from "../sharepoint.js";
 import type * as suppliers from "../suppliers.js";
 import type * as systems from "../systems.js";
 import type * as takeoffAuth from "../takeoffAuth.js";
@@ -386,6 +390,9 @@ declare const fullApi: ApiFromModules<{
   "model/procurement/takeoffSettings": typeof model_procurement_takeoffSettings;
   "model/procurement/takeoffValidators": typeof model_procurement_takeoffValidators;
   "model/procurement/takeoffs": typeof model_procurement_takeoffs;
+  "model/sharepoint/files": typeof model_sharepoint_files;
+  "model/sharepoint/graph": typeof model_sharepoint_graph;
+  "model/sharepoint/libraries": typeof model_sharepoint_libraries;
   notificationDigest: typeof notificationDigest;
   notifications: typeof notifications;
   payroll: typeof payroll;
@@ -405,6 +412,7 @@ declare const fullApi: ApiFromModules<{
   "schema/inventory": typeof schema_inventory;
   "schema/notifications": typeof schema_notifications;
   "schema/procurement": typeof schema_procurement;
+  sharepoint: typeof sharepoint;
   suppliers: typeof suppliers;
   systems: typeof systems;
   takeoffAuth: typeof takeoffAuth;

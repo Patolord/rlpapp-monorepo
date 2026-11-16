@@ -7,7 +7,7 @@ import { MAX_TOOL_RESULT_CHARS } from "./constants";
 import { argsToInputSchema, describeValidator } from "./convex-schema";
 import type { ConvexCaller, FunctionKind } from "./convex";
 import { describeToolError } from "./errors";
-import { TOOLS, isDestructive, type ToolSpec } from "./manifest";
+import { TOOLS, isDestructive, isReadTool, type ToolSpec } from "./manifest";
 
 /**
  * Ferramentas derivadas do catálogo de funções: as curadas no manifesto, mais
@@ -126,7 +126,7 @@ function registerCuratedTool(
   spec: ToolSpec,
   entry: CatalogEntry
 ): void {
-  const isQuery = entry.type === "query";
+  const isQuery = isReadTool(spec, entry.type);
   const serverArgKeys = spec.serverArgs ? Object.keys(spec.serverArgs()) : [];
   const inputSchema = argsToInputSchema(entry.argsValidator, {
     fieldDescriptions: spec.fieldDescriptions,
@@ -241,7 +241,7 @@ export function registerCatalogTools(
       skipped.push({ name: spec.name, reason: "not allowed for this user" });
       continue;
     }
-    if (readOnly && entry.type !== "query") {
+    if (readOnly && !isReadTool(spec, entry.type)) {
       skipped.push({ name: spec.name, reason: "agent token is read-only" });
       continue;
     }

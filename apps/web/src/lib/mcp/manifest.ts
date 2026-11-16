@@ -16,6 +16,7 @@
  *   removem esses campos de propósito.
  */
 
+import { ARQUIVOS_TOOLS } from "./manifest/arquivos";
 import { CLIENTES_TOOLS } from "./manifest/clientes";
 import { COMPRAS_EXTRA_TOOLS, COMPRAS_TOOLS } from "./manifest/compras";
 import { CONTRATOS_TOOLS } from "./manifest/contratos";
@@ -36,6 +37,11 @@ export interface ToolSpec {
   destructive?: boolean;
   /** Repetir a chamada com a mesma entrada não tem efeito adicional. */
   idempotent?: boolean;
+  /**
+   * Action que só lê (fala com um serviço externo sem gravar nada): vale como
+   * query nas anotações e aparece também em conexões somente-leitura.
+   */
+  readOnly?: boolean;
   /** Descrições por argumento que sobrepõem as dicas compartilhadas. */
   fieldDescriptions?: Record<string, string>;
   /** Argumentos preenchidos pelo servidor; saem do schema de entrada. */
@@ -55,8 +61,14 @@ export const TOOLS: readonly ToolSpec[] = [
   ...ESTOQUE_EXTRA_TOOLS,
   ...COMPRAS_EXTRA_TOOLS,
   ...OBRAS_EXTRA_TOOLS,
+  ...ARQUIVOS_TOOLS,
   ...AGENT_TOKEN_TOOLS,
 ];
+
+/** Queries, e actions marcadas `readOnly` no manifesto. */
+export function isReadTool(spec: ToolSpec, type: "query" | "mutation" | "action"): boolean {
+  return type === "query" || (type === "action" && spec.readOnly === true);
+}
 
 export function isDestructive(spec: ToolSpec): boolean {
   return spec.destructive ?? /^(delete|remove|archive|revoke)_/.test(spec.name);

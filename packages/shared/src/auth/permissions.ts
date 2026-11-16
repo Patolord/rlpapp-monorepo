@@ -127,6 +127,9 @@ export const PERMISSIONS = [
   // App desktop RLP Takeoff
   "takeoff.use",
   "takeoff.config",
+  // Arquivos da empresa no SharePoint (sites Projetos e Publico)
+  "arquivos.read",
+  "arquivos.write",
   // Estoque
   "estoque.read",
   "estoque.central.read",
@@ -175,6 +178,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "precos.write": "Registrar e revisar preços",
   "takeoff.use": "Usar o app RLP Takeoff",
   "takeoff.config": "Configurar o App Takeoff",
+  "arquivos.read": "Ver arquivos do SharePoint",
+  "arquivos.write": "Salvar arquivos no SharePoint",
   "estoque.read": "Ver estoque",
   "estoque.central.read": "Ver estoque central",
   "estoque.write": "Movimentar estoque central",
@@ -222,6 +227,10 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   "takeoff.use": "Login no app desktop e leitura do catálogo de materiais.",
   "takeoff.config":
     "Kits, pesos, preços base, marcas VRF e mão de obra do app desktop.",
+  "arquivos.read":
+    "Listar, buscar e abrir arquivos das pastas liberadas do SharePoint (Projetos e Publico).",
+  "arquivos.write":
+    "Criar pastas e salvar arquivos nas pastas do SharePoint liberadas para escrita.",
   "estoque.read": "Saldos e movimentações, inclusive das obras.",
   "estoque.central.read": "Estoque central e políticas de reposição.",
   "estoque.write": "Transferir, ajustar, estornar e atender pedidos.",
@@ -300,6 +309,11 @@ export const PERMISSION_GROUPS: readonly {
     permissions: ["takeoff.use", "takeoff.config"],
   },
   {
+    key: "arquivos",
+    label: "Arquivos (SharePoint)",
+    permissions: ["arquivos.read", "arquivos.write"],
+  },
+  {
     key: "estoque",
     label: "Estoque",
     permissions: [
@@ -357,6 +371,7 @@ export const PERMISSION_DEPENDENCIES: Partial<
   "precos.write": ["compras.read"],
   "takeoff.use": ["suprimentos.read"],
   "takeoff.config": ["suprimentos.read"],
+  "arquivos.write": ["arquivos.read"],
   "estoque.central.read": ["estoque.read"],
   "estoque.write": ["estoque.read"],
   "estoque.entrada": ["estoque.read"],
@@ -464,6 +479,8 @@ export const PERMISSION_DENIED_MESSAGES: Record<Permission, string> = {
   "precos.write": "Seu usuário não pode registrar ou revisar preços",
   "takeoff.use": "Seu usuário não tem acesso ao app RLP Takeoff",
   "takeoff.config": "Seu usuário não pode configurar o App Takeoff",
+  "arquivos.read": "Seu usuário não tem acesso aos arquivos do SharePoint",
+  "arquivos.write": "Seu usuário não pode salvar arquivos no SharePoint",
   "estoque.read": "Acesso restrito às áreas de estoque, compras ou engenharia",
   "estoque.central.read": "Acesso restrito às equipes de estoque ou compras",
   "estoque.write": "Acesso restrito à equipe de estoque",

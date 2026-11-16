@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 46 módulos, 344 funções públicas.
+// 47 módulos, 349 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -35,20 +35,21 @@ import * as m28 from "../projectUnits";
 import * as m29 from "../projects";
 import * as m30 from "../qrCodes";
 import * as m31 from "../reports";
-import * as m32 from "../suppliers";
-import * as m33 from "../systems";
-import * as m34 from "../takeoffAuth";
-import * as m35 from "../takeoffCatalog";
-import * as m36 from "../takeoffKits";
-import * as m37 from "../takeoffMaterials";
-import * as m38 from "../takeoffSettings";
-import * as m39 from "../takeoffs";
-import * as m40 from "../technicianActivity";
-import * as m41 from "../technicianPortal";
-import * as m42 from "../timeClock";
-import * as m43 from "../timeClockPunch";
-import * as m44 from "../towers";
-import * as m45 from "../users";
+import * as m32 from "../sharepoint";
+import * as m33 from "../suppliers";
+import * as m34 from "../systems";
+import * as m35 from "../takeoffAuth";
+import * as m36 from "../takeoffCatalog";
+import * as m37 from "../takeoffKits";
+import * as m38 from "../takeoffMaterials";
+import * as m39 from "../takeoffSettings";
+import * as m40 from "../takeoffs";
+import * as m41 from "../technicianActivity";
+import * as m42 from "../technicianPortal";
+import * as m43 from "../timeClock";
+import * as m44 from "../timeClockPunch";
+import * as m45 from "../towers";
+import * as m46 from "../users";
 
 export type AccessHint =
   | { kind: "public" }
@@ -91,20 +92,21 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   projects: m29,
   qrCodes: m30,
   reports: m31,
-  suppliers: m32,
-  systems: m33,
-  takeoffAuth: m34,
-  takeoffCatalog: m35,
-  takeoffKits: m36,
-  takeoffMaterials: m37,
-  takeoffSettings: m38,
-  takeoffs: m39,
-  technicianActivity: m40,
-  technicianPortal: m41,
-  timeClock: m42,
-  timeClockPunch: m43,
-  towers: m44,
-  users: m45,
+  sharepoint: m32,
+  suppliers: m33,
+  systems: m34,
+  takeoffAuth: m35,
+  takeoffCatalog: m36,
+  takeoffKits: m37,
+  takeoffMaterials: m38,
+  takeoffSettings: m39,
+  takeoffs: m40,
+  technicianActivity: m41,
+  technicianPortal: m42,
+  timeClock: m43,
+  timeClockPunch: m44,
+  towers: m45,
+  users: m46,
 };
 
 export const ACCESS_HINTS: Record<string, AccessHint> = {
@@ -363,6 +365,11 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "qrCodes:setBatchProject": { kind: "permission", permission: "obras.write" },
   "qrCodes:stats": { kind: "permission", permission: "obras.read" },
   "reports:getProjectReport": { kind: "permission", permission: "obras.read" },
+  "sharepoint:createFolderAt": { kind: "permission", permission: "arquivos.write" },
+  "sharepoint:listFolderContents": { kind: "permission", permission: "arquivos.read" },
+  "sharepoint:listLibraries": { kind: "permission", permission: "arquivos.read" },
+  "sharepoint:readFileContents": { kind: "permission", permission: "arquivos.read" },
+  "sharepoint:saveFile": { kind: "permission", permission: "arquivos.write" },
   "suppliers:addContact": { kind: "permission", permission: "fornecedores.write" },
   "suppliers:bulkCreate": { kind: "permission", permission: "fornecedores.write" },
   "suppliers:create": { kind: "permission", permission: "fornecedores.write" },

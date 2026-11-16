@@ -32,6 +32,9 @@ type Env = {
   readonly MATERIAL_LOOKUP_TOKEN: string | undefined;
   readonly MCP_JWT_ISSUER: string | undefined;
   readonly MCP_JWT_JWKS: string | undefined;
+  readonly MS_GRAPH_CLIENT_ID: string | undefined;
+  readonly MS_GRAPH_CLIENT_SECRET: string | undefined;
+  readonly MS_GRAPH_TENANT_ID: string | undefined;
   readonly OPENAI_API_KEY: string | undefined;
 };
 
