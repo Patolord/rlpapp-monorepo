@@ -146,18 +146,22 @@ export async function getTrelloBoard(): Promise<TrelloBoard> {
     subfolders(TRELLO_PATH),
   ]);
 
+  // Uma pasta por coluna; outra com o mesmo começo ("Para Fazer - 2027") fica
+  // nas demais etapas, com a contagem, em vez de sumir.
+  const selected = new Set<GraphItem>();
   const columns = await Promise.all(
     BOARD_STAGES.flatMap(({ name, grouped }) => {
       const stage = stages.find((item) => startsWith(item.name, name));
-      return stage ? [boardColumn(stage, grouped)] : [];
+      if (!stage) return [];
+      selected.add(stage);
+      return [boardColumn(stage, grouped)];
     })
   );
 
   const others = stages
     .filter(
       (stage) =>
-        !BOARD_STAGES.some(({ name }) => startsWith(stage.name, name)) &&
-        !HIDDEN_STAGES.some((name) => startsWith(stage.name, name))
+        !selected.has(stage) && !HIDDEN_STAGES.some((name) => startsWith(stage.name, name))
     )
     .map((stage) => ({
       name: stage.name.normalize("NFC"),

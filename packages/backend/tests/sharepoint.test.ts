@@ -621,6 +621,7 @@ describe("quadro da pasta TRELLO", () => {
           value: [
             { name: "Concluído.rar", file: {} },
             { name: "Obsoletos (Mais de 60 dias após recebimento)", folder: { childCount: 36 } },
+            { name: "Para Fazer - 2027", folder: { childCount: 4 } },
             { name: "Para Fazer", folder: { childCount: 2 } },
           ],
         });
@@ -703,6 +704,8 @@ describe("quadro da pasta TRELLO", () => {
     expect(board.others.map((o) => [o.name, o.count])).toEqual([
       ["Concluído", 309],
       ["Obsoletos (Mais de 60 dias após recebimento)", 36],
+      // Pasta com o mesmo começo de uma coluna, mas não usada nela, não some.
+      ["Para Fazer - 2027", 4],
     ]);
     const listed = graphCalls(calls).map((c) => decodeURIComponent(c.url));
     expect(listed.some((url) => url.includes("Concluído:/children"))).toBe(false);
