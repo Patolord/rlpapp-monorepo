@@ -92,7 +92,7 @@ function getNavGroups(): NavGroup[] {
         },
         {
           to: "/engenharia/orcamentos",
-          label: "Orçamentos (TRELLO)",
+          label: "Orçamentos",
           icon: FolderKanban,
           permission: "arquivos.read",
         },

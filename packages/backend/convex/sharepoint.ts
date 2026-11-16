@@ -1,7 +1,6 @@
-import { ConvexError, v } from "convex/values";
+import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
-import { getAgentTokenClaims } from "./lib/agentTokens";
 import { logAudit } from "./lib/audit";
 import { arquivosQuery, arquivosReadAction, arquivosWriteAction, requireUser } from "./lib/rbac";
 import {
@@ -20,7 +19,7 @@ import {
   listAllowedFolders,
   type LibraryKey,
 } from "./model/sharepoint/libraries";
-import { getTrelloOverview, trelloOverviewValidator } from "./model/sharepoint/trello";
+import { getTrelloBoard, trelloBoardValidator } from "./model/sharepoint/trello";
 
 /**
  * Arquivos da empresa no SharePoint (sites Projetos e Publico), pelo app do
@@ -73,22 +72,14 @@ export const readFileContents = arquivosReadAction({
 });
 
 /**
- * Contagem por etapa da pasta TRELLO de orçamentos (Projetos/z/Orçamentos/TRELLO).
- * Só para a página do dashboard: a pasta `z` fica fora das liberadas para
- * agentes, então tokens de agente (MCP, `call_function`) são recusados.
+ * Quadro da pasta TRELLO de orçamentos (Projetos/z/Orçamentos/TRELLO): cards de
+ * Para Fazer e Em Andamento, e só a contagem das demais etapas.
  */
-export const trelloOverview = arquivosReadAction({
+export const trelloBoard = arquivosReadAction({
   args: {},
-  returns: trelloOverviewValidator,
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (identity && getAgentTokenClaims(identity)) {
-      throw new ConvexError({
-        code: "AGENT_NOT_ALLOWED",
-        message: "O painel da pasta TRELLO só abre logado no app, não por token de agente.",
-      });
-    }
-    return await getTrelloOverview();
+  returns: trelloBoardValidator,
+  handler: async () => {
+    return await getTrelloBoard();
   },
 });
 

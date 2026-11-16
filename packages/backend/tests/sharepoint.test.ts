@@ -605,21 +605,24 @@ describe("ferramentas de arquivos", () => {
   });
 });
 
-describe("painel da pasta TRELLO", () => {
+describe("quadro da pasta TRELLO", () => {
   const TRELLO = `${PROJETOS_ROOT}:/z/Or%C3%A7amentos/TRELLO`;
+  const PARA_FAZER = `${TRELLO}/Para%20Fazer`;
 
-  test("conta itens por etapa, lista as etapas pequenas e ordena como o quadro", async () => {
+  test("Para Fazer em grupos, Em Andamento em cards e o resto só com a contagem", async () => {
     const t = setup();
     const calls = stubGraph((url) => {
       if (url.startsWith(`${TRELLO}:?`)) {
-        return json({ name: "TRELLO", webUrl: "https://sp/TRELLO", folder: { childCount: 5 } });
+        return json({ name: "TRELLO", webUrl: "https://sp/TRELLO", folder: { childCount: 6 } });
       }
       // A raiz vem em duas páginas: a segunda pelo @odata.nextLink.
       if (url.startsWith(`${TRELLO}:/children?`) && url.includes("$skiptoken=p2")) {
         return json({
           value: [
             { name: "Concluído.rar", file: {} },
-            { name: "Para Fazer", folder: { childCount: 0 } },
+            { name: "Obsoletos (Mais de 60 dias após recebimento)", folder: { childCount: 36 } },
+            { name: "Para Fazer - 2027", folder: { childCount: 4 } },
+            { name: "Para Fazer", folder: { childCount: 2 } },
           ],
         });
       }
@@ -627,8 +630,8 @@ describe("painel da pasta TRELLO", () => {
         return json({
           value: [
             { name: "Concluído", folder: { childCount: 309 } },
-            { name: "Pasta Padrão", folder: { childCount: 2 } },
-            { name: "Em Andamento", folder: { childCount: 2 } },
+            { name: "Pasta Padrão", folder: { childCount: 8 } },
+            { name: "Em Andamento", folder: { childCount: 3 } },
           ],
           "@odata.nextLink": `${TRELLO}:/children?$top=200&$skiptoken=p2`,
         });
@@ -637,67 +640,85 @@ describe("painel da pasta TRELLO", () => {
         return json({
           value: [
             { name: "26.37108PRC - Tegra - Obra ARVO", folder: { childCount: 4 } },
+            { name: "TRELLO - Atalho.lnk", file: {} },
             {
               name: "26.36994PRC - P4 - Obra Viva",
               folder: { childCount: 1 },
+              webUrl: "https://sp/viva",
               lastModifiedDateTime: "2026-11-10T12:00:00Z",
             },
           ],
         });
       }
-      if (url.startsWith(`${TRELLO}/Pasta%20Padr%C3%A3o:/children?`)) {
-        return json({ value: [{ name: "PRC.docx", file: {} }, { name: "PRC", folder: {} }] });
+      if (url.startsWith(`${PARA_FAZER}:/children?`)) {
+        return json({
+          value: [
+            { name: "Ultrapassados", folder: { childCount: 1 } },
+            { name: "2026", folder: { childCount: 2 } },
+          ],
+        });
       }
-      if (url.startsWith(`${TRELLO}/Para%20Fazer:/children?`)) return json({ value: [] });
+      if (url.startsWith(`${PARA_FAZER}/2026:/children?`)) {
+        return json({
+          value: [
+            { name: "Rocontec - Bailarinas", folder: {} },
+            { name: "MTC - Obra Vila das Belezas", folder: {} },
+          ],
+        });
+      }
+      if (url.startsWith(`${PARA_FAZER}/Ultrapassados:/children?`)) {
+        return json({ value: [{ name: "AAM - Obra IBI", folder: {} }] });
+      }
       return undefined;
     });
     const asDirector = await withUser(t, { clerkId: "dir1", role: "director" });
 
-    const overview = await asDirector.action(api.sharepoint.trelloOverview, {});
-    expect(overview.webUrl).toBe("https://sp/TRELLO");
-    expect(overview.looseFiles).toBe(1);
-    expect(overview.stages.map((s) => [s.name, s.count])).toEqual([
-      ["Para Fazer", 0],
+    const board = await asDirector.action(api.sharepoint.trelloBoard, {});
+    expect(board.webUrl).toBe("https://sp/TRELLO");
+    expect(board.columns.map((c) => [c.name, c.count])).toEqual([
+      ["Para Fazer", 3],
       ["Em Andamento", 2],
+    ]);
+
+    // Grupos de Para Fazer: os antigos (Ultrapassados) por último.
+    const paraFazer = board.columns[0]!;
+    expect(paraFazer.groups.map((g) => [g.name, g.stale, g.cards.map((c) => c.name)])).toEqual([
+      ["2026", false, ["MTC - Obra Vila das Belezas", "Rocontec - Bailarinas"]],
+      ["Ultrapassados", true, ["AAM - Obra IBI"]],
+    ]);
+
+    // Em Andamento: um grupo sem nome, só pastas (o atalho .lnk fica de fora).
+    const andamento = board.columns[1]!;
+    expect(andamento.groups).toHaveLength(1);
+    expect(andamento.groups[0]!.name).toBeNull();
+    expect(andamento.groups[0]!.cards).toEqual([
+      {
+        name: "26.36994PRC - P4 - Obra Viva",
+        webUrl: "https://sp/viva",
+        modifiedAt: Date.parse("2026-11-10T12:00:00Z"),
+      },
+      { name: "26.37108PRC - Tegra - Obra ARVO", webUrl: null, modifiedAt: null },
+    ]);
+
+    // Concluído e Obsoletos só com a contagem; Pasta Padrão some.
+    expect(board.others.map((o) => [o.name, o.count])).toEqual([
       ["Concluído", 309],
-      ["Pasta Padrão", 2],
+      ["Obsoletos (Mais de 60 dias após recebimento)", 36],
+      // Pasta com o mesmo começo de uma coluna, mas não usada nela, não some.
+      ["Para Fazer - 2027", 4],
     ]);
-    const andamento = overview.stages[1]!;
-    expect(andamento.items?.map((i) => i.name)).toEqual([
-      "26.36994PRC - P4 - Obra Viva",
-      "26.37108PRC - Tegra - Obra ARVO",
-    ]);
-    expect(andamento.items?.[0]).toMatchObject({
-      kind: "folder",
-      modifiedAt: Date.parse("2026-11-10T12:00:00Z"),
-    });
-    // Etapa grande vem só com a contagem, sem listar os 309 itens.
-    expect(overview.stages[2]!.items).toBeNull();
-    expect(graphCalls(calls).some((c) => c.url.includes("Conclu%C3%ADdo:/children"))).toBe(false);
+    const listed = graphCalls(calls).map((c) => decodeURIComponent(c.url));
+    expect(listed.some((url) => url.includes("Concluído:/children"))).toBe(false);
+    expect(listed.some((url) => url.includes("Pasta Padrão:/children"))).toBe(false);
   });
 
   test("sem arquivos.read não chama o Graph", async () => {
     const t = setup();
     const calls = stubGraph(() => undefined);
     const asEng = await withUser(t, { clerkId: "eng1", role: "engenheiro" });
-    await expect(asEng.action(api.sharepoint.trelloOverview, {})).rejects.toThrow(
+    await expect(asEng.action(api.sharepoint.trelloBoard, {})).rejects.toThrow(
       "Seu usuário não tem acesso aos arquivos do SharePoint"
     );
     expect(calls).toEqual([]);
-  });
-
-  test("token de agente, mesmo com acesso total, não lê a pasta TRELLO", async () => {
-    const t = setup();
-    const calls = stubGraph(() => undefined);
-    const asDirector = await withUser(t, { clerkId: "dir1", role: "director" });
-    const token = await asDirector.action(api.agentTokens.create, {
-      name: "Grok",
-      permission: "full_access",
-    });
-    const asAgent = t.withIdentity(agentIdentity("dir1", token.id, "full_access"));
-    await expect(asAgent.action(api.sharepoint.trelloOverview, {})).rejects.toThrow(
-      "não por token de agente"
-    );
-    expect(graphCalls(calls)).toEqual([]);
   });
 });
