@@ -82,7 +82,7 @@ describe("caminhos e pastas liberadas", () => {
       "Leitura em Publico só é permitida nas pastas"
     );
     expect(() => resolvePath("projetos", "PROJETOS GERAL/x.pdf", "write")).toThrow(
-      "Escrita em Projetos só é permitida nas pastas: Projetos Orçamento"
+      "Escrita em Projetos só é permitida nas pastas: z/Orçamentos/TRELLO, Projetos Orçamento"
     );
     expect(() => resolvePath("publico", "Formularios e modelos/x.txt", "write")).toThrow(
       "pastas: nenhuma"
@@ -98,7 +98,69 @@ describe("caminhos e pastas liberadas", () => {
   });
 });
 
+describe("pastas liberadas em mais de um nível", () => {
+  test("TRELLO: só a subárvore liberada, com a grafia configurada", () => {
+    const deep = "Z/orçamentos/trello/Em Andamento/26.37033PRC - TECNUM - Empreendimento Faria Lima/Projetos";
+    expect(resolvePath("projetos", deep, "read").path).toBe(
+      "z/Orçamentos/TRELLO/Em Andamento/26.37033PRC - TECNUM - Empreendimento Faria Lima/Projetos"
+    );
+    expect(
+      resolvePath("projetos", "z/Orçamentos/TRELLO/Para Fazer/2026/Obra X/Obra X.takeoff.json", "write")
+        .segments
+    ).toEqual(["z", "Orçamentos", "TRELLO", "Para Fazer", "2026", "Obra X", "Obra X.takeoff.json"]);
+    // As pastas acima e ao lado continuam fechadas.
+    for (const closed of ["z", "z/Orçamentos", "z/Orçamentos/ANTIGOS/x", "z/Outra/TRELLO"]) {
+      expect(() => resolvePath("projetos", closed, "read")).toThrow("só é permitida nas pastas");
+    }
+    expect(() => resolvePath("projetos", "z/Orçamentos/TRELLO", "write")).toThrow(
+      "Não é possível substituir a própria pasta liberada"
+    );
+  });
+
+  test("Publico: * vale pelo ano, só dentro de Propostas/PRC e só leitura", () => {
+    expect(resolvePath("publico", "2026/propostas/prc/10 - Outubro/x.pdf", "read").path).toBe(
+      "2026/Propostas/PRC/10 - Outubro/x.pdf"
+    );
+    expect(resolvePath("publico", "2005 - 2020/Propostas/PRC", "read").path).toBe(
+      "2005 - 2020/Propostas/PRC"
+    );
+    for (const closed of ["2026", "2026/Propostas", "2026/Dados Cadastrais RLP/x.pdf", "Propostas/PRC"]) {
+      expect(() => resolvePath("publico", closed, "read")).toThrow("só é permitida nas pastas");
+    }
+    expect(() => resolvePath("publico", "2026/Propostas/PRC/x.txt", "write")).toThrow(
+      "pastas: nenhuma"
+    );
+  });
+});
+
 describe("ferramentas de arquivos", () => {
+  test("raiz do Publico busca só as pastas sem *; a de ano não é listada", async () => {
+    const t = setup();
+    const calls = stubGraph(() => undefined);
+    const asDirector = await withUser(t, { clerkId: "dir1", role: "director" });
+    await asDirector.action(api.sharepoint.listFolderContents, { library: "publico" });
+    const urls = graphCalls(calls).map((c) => c.url);
+    expect(urls).toHaveLength(2);
+    expect(urls.some((url) => url.includes("Propostas"))).toBe(false);
+  });
+
+  test("raiz do Projetos busca a TRELLO pelo caminho inteiro", async () => {
+    const t = setup();
+    const calls = stubGraph((url) => {
+      if (url.startsWith(`${PROJETOS_ROOT}:/z/Or%C3%A7amentos/TRELLO:?`)) {
+        return json({ id: "t", name: "TRELLO", folder: { childCount: 5 } });
+      }
+      return undefined;
+    });
+    const asDirector = await withUser(t, { clerkId: "dir1", role: "director" });
+    const root = await asDirector.action(api.sharepoint.listFolderContents, {
+      library: "projetos",
+      nameContains: "trello",
+    });
+    expect(root.items).toMatchObject([{ name: "TRELLO", path: "z/Orçamentos/TRELLO", kind: "folder" }]);
+    expect(graphCalls(calls)).toHaveLength(1);
+  });
+
   test("sem arquivos.read não lista nem chama o Graph", async () => {
     const t = setup();
     const calls = stubGraph(() => undefined);
@@ -150,8 +212,10 @@ describe("ferramentas de arquivos", () => {
 
     const libraries = await asDirector.query(api.sharepoint.listLibraries, {});
     expect(libraries.find((l) => l.library === "projetos")?.writeFolders).toEqual([
+      "z/Orçamentos/TRELLO",
       "Projetos Orçamento",
     ]);
+    expect(libraries.find((l) => l.library === "publico")?.readFolders).toContain("*/Propostas/PRC");
   });
 
   test("lista uma subpasta com filtro por nome e cursor da próxima página", async () => {

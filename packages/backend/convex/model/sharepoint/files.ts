@@ -1,6 +1,7 @@
 import { ConvexError, v, type Infer } from "convex/values";
 import { graphFetch, graphJson, sharepointError } from "./graph";
 import {
+  ANY_FOLDER,
   SHAREPOINT_LIBRARIES,
   listAllowedFolders,
   resolvePath,
@@ -155,20 +156,21 @@ export const listFolderResultValidator = v.object({
  * As pastas liberadas para leitura, buscadas uma a uma pelo caminho: a raiz
  * da biblioteca nunca é listada, então nomes de pastas fora da lista (pessoais,
  * RH, financeiro) nem chegam ao backend, e não há paginação a perder. Pasta
- * configurada que não existe mais é omitida.
+ * configurada que não existe mais é omitida, e as com `*` (o ano) ficam de
+ * fora: aparecem em `listLibraries` e se abrem pelo caminho com o nome real.
  */
 async function listAllowedTopFolders(
   library: LibraryKey,
   nameContains: string | undefined
 ): Promise<SharepointItem[]> {
-  const folders = listAllowedFolders(library, "read").filter((folder) =>
-    matchesName(folder, nameContains)
-  );
+  const folders = listAllowedFolders(library, "read")
+    .filter((folder) => !folder.split("/").includes(ANY_FOLDER))
+    .filter((folder) => matchesName(folder, nameContains));
   const found = await Promise.all(
     folders.map(async (folder) => {
       try {
         const item = await graphJson<GraphItem>({
-          path: `${driveRoot(library)}:/${encodeURIComponent(folder)}:?$select=${ITEM_FIELDS}`,
+          path: `${driveRoot(library)}:/${encodeSegments(folder.split("/"))}:?$select=${ITEM_FIELDS}`,
         });
         return item.folder ? toItem(item, folder) : null;
       } catch (error) {
