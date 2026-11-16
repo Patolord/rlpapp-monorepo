@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 47 módulos, 349 funções públicas.
+// 47 módulos, 350 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -370,6 +370,7 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "sharepoint:listLibraries": { kind: "permission", permission: "arquivos.read" },
   "sharepoint:readFileContents": { kind: "permission", permission: "arquivos.read" },
   "sharepoint:saveFile": { kind: "permission", permission: "arquivos.write" },
+  "sharepoint:trelloOverview": { kind: "permission", permission: "arquivos.read" },
   "suppliers:addContact": { kind: "permission", permission: "fornecedores.write" },
   "suppliers:bulkCreate": { kind: "permission", permission: "fornecedores.write" },
   "suppliers:create": { kind: "permission", permission: "fornecedores.write" },
