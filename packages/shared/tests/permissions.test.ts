@@ -51,6 +51,8 @@ const ENGINEERING: Permission[] = [
   "documentos.read",
   "documentos.write",
   "orcamentos.write",
+  "orcamentos.quadro.read",
+  "orcamentos.quadro.write",
   "assistente.use",
   "cadastros.read",
   "cadastros.write",

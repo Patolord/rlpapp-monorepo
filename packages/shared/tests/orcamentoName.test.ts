@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { parseOrcamentoName, stageLabel } from "./orcamento-name";
+import { parseOrcamentoName, stageLabel } from "../src/engenharia/orcamentoName";
 
 describe("parseOrcamentoName", () => {
   test("número, cliente e obra", () => {
