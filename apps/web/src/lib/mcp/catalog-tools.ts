@@ -7,7 +7,7 @@ import { MAX_TOOL_RESULT_CHARS } from "./constants";
 import { argsToInputSchema, describeValidator } from "./convex-schema";
 import type { ConvexCaller, FunctionKind } from "./convex";
 import { describeToolError } from "./errors";
-import { TOOLS, isDestructive, type ToolSpec } from "./manifest";
+import { TOOLS, isDestructive, isReadTool, type ToolSpec } from "./manifest";
 
 /**
  * Ferramentas derivadas do catálogo de funções: as curadas no manifesto, mais
@@ -126,7 +126,7 @@ function registerCuratedTool(
   spec: ToolSpec,
   entry: CatalogEntry
 ): void {
-  const isQuery = entry.type === "query";
+  const isQuery = isReadTool(spec, entry.type);
   const serverArgKeys = spec.serverArgs ? Object.keys(spec.serverArgs()) : [];
   const inputSchema = argsToInputSchema(entry.argsValidator, {
     fieldDescriptions: spec.fieldDescriptions,
@@ -207,6 +207,8 @@ export function registerCatalogTools(
   const registered: string[] = [];
   const skipped: RegisteredCatalogTools["skipped"] = [];
   const curatedByFunction = new Map<string, string>();
+  /** Funções cuja ferramenta curada de leitura (query ou action `readOnly`) foi registrada. */
+  const registeredReadFunctions = new Set<string>();
 
   server.registerTool(
     "whoami",
@@ -241,12 +243,13 @@ export function registerCatalogTools(
       skipped.push({ name: spec.name, reason: "not allowed for this user" });
       continue;
     }
-    if (readOnly && entry.type !== "query") {
+    if (readOnly && !isReadTool(spec, entry.type)) {
       skipped.push({ name: spec.name, reason: "agent token is read-only" });
       continue;
     }
     registerCuratedTool(server, options, spec, entry);
     registered.push(spec.name);
+    if (isReadTool(spec, entry.type)) registeredReadFunctions.add(entry.path);
   }
 
   server.registerTool(
@@ -264,8 +267,11 @@ export function registerCatalogTools(
     async ({ query, limit }) => {
       const matches = catalog.search(query, limit ?? 25).map((entry) => {
         const tool = curatedByFunction.get(entry.path);
-        const callable =
-          entry.allowed && (!readOnly || entry.type === "query") && (allowRawCalls || Boolean(tool));
+        // Em conexão somente-leitura, além das queries, vale a action de leitura
+        // com ferramenta curada registrada (call_function continua só com queries).
+        const readableHere =
+          !readOnly || entry.type === "query" || registeredReadFunctions.has(entry.path);
+        const callable = entry.allowed && readableHere && (allowRawCalls || Boolean(tool));
         return {
           function: entry.path,
           kind: entry.type,

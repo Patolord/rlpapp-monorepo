@@ -14,9 +14,9 @@ crons.cron(
 
 // 10:30 UTC = 07:30 America/Sao_Paulo: resumos de prazos vencidos, fila de
 // revisão de preços e estoque baixo (avisos N10, N11 e N13). Só avisa quando
-// há algo a dizer.
+// há algo a dizer. O nome do cron só aceita ASCII (o deploy recusa acentos).
 crons.cron(
-  "avisos: resumo diário",
+  "avisos: resumo diario",
   "30 10 * * *",
   internal.notificationDigest.daily,
   {},

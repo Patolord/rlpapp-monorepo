@@ -219,6 +219,22 @@ export const assertPermission = internalQuery({
   },
 });
 
+/**
+ * Como `assertPermission`, para actions que gravam fora do Convex. Por ser
+ * mutation, a política de tokens de agente recusa aqui token somente-leitura
+ * (pela permissão gravada no banco). Não grava nada. Use via
+ * `requireActionWritePermission`.
+ */
+export const assertPermissionForWrite = internalMutation({
+  args: { permission: permissionValidator },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    requirePermission(user, args.permission);
+    return null;
+  },
+});
+
 export const createWithClerkId = internalMutation({
   args: {
     clerkId: v.string(),

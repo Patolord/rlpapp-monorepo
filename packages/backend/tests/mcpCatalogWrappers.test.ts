@@ -19,7 +19,7 @@ describe("catálogo MCP", () => {
       generator.indexOf("const WRAPPER_HINTS"),
       generator.indexOf("};", generator.indexOf("const WRAPPER_HINTS"))
     );
-    const wrappers = [...rbac.matchAll(/^export const (\w+(?:Query|Mutation)) =/gm)].map(
+    const wrappers = [...rbac.matchAll(/^export const (\w+(?:Query|Mutation|Action)) =/gm)].map(
       (m) => m[1]!
     );
     expect(wrappers).toContain("engineeringOrPurchasingMutation");
@@ -28,7 +28,7 @@ describe("catálogo MCP", () => {
     const declaredByFactory = new Set(
       [
         ...rbac.matchAll(
-          /^export const (\w+)\s*=\s*(?:any)?[pP]ermission(?:Query|Mutation)\([^)]*\)\s*;/gm
+          /^export const (\w+)\s*=\s*(?:any)?[pP]ermission(?:Query|Mutation|Action)\([^)]*\)\s*;/gm
         ),
       ].map((m) => m[1]!)
     );

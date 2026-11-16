@@ -15,6 +15,13 @@ const app = defineApp({
     // JWK privado (EC P-256) que assina os JWTs da API HTTP `/api/v1`
     // (scripts/generate-api-signing-key.mjs). Sem ela a API responde 503.
     API_JWT_PRIVATE_KEY: v.optional(v.string()),
+    // App "RLP App - SharePoint (backend)" no Entra ID (permissão
+    // Sites.Selected): lê os sites Projetos e Publico e grava em Projetos
+    // (model/sharepoint). Sem elas as ferramentas de arquivos respondem que o
+    // SharePoint não está configurado.
+    MS_GRAPH_TENANT_ID: v.optional(v.string()),
+    MS_GRAPH_CLIENT_ID: v.optional(v.string()),
+    MS_GRAPH_CLIENT_SECRET: v.optional(v.string()),
   },
 });
 
