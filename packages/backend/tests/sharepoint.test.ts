@@ -550,15 +550,23 @@ describe("painel da pasta TRELLO", () => {
       if (url.startsWith(`${TRELLO}:?`)) {
         return json({ name: "TRELLO", webUrl: "https://sp/TRELLO", folder: { childCount: 5 } });
       }
+      // A raiz vem em duas páginas: a segunda pelo @odata.nextLink.
+      if (url.startsWith(`${TRELLO}:/children?`) && url.includes("$skiptoken=p2")) {
+        return json({
+          value: [
+            { name: "Concluído.rar", file: {} },
+            { name: "Para Fazer", folder: { childCount: 0 } },
+          ],
+        });
+      }
       if (url.startsWith(`${TRELLO}:/children?`)) {
         return json({
           value: [
             { name: "Concluído", folder: { childCount: 309 } },
             { name: "Pasta Padrão", folder: { childCount: 2 } },
             { name: "Em Andamento", folder: { childCount: 2 } },
-            { name: "Concluído.rar", file: {} },
-            { name: "Para Fazer", folder: { childCount: 0 } },
           ],
+          "@odata.nextLink": `${TRELLO}:/children?$top=200&$skiptoken=p2`,
         });
       }
       if (url.startsWith(`${TRELLO}/Em%20Andamento:/children?`)) {
@@ -612,5 +620,20 @@ describe("painel da pasta TRELLO", () => {
       "Seu usuário não tem acesso aos arquivos do SharePoint"
     );
     expect(calls).toEqual([]);
+  });
+
+  test("token de agente, mesmo com acesso total, não lê a pasta TRELLO", async () => {
+    const t = setup();
+    const calls = stubGraph(() => undefined);
+    const asDirector = await withUser(t, { clerkId: "dir1", role: "director" });
+    const token = await asDirector.action(api.agentTokens.create, {
+      name: "Grok",
+      permission: "full_access",
+    });
+    const asAgent = t.withIdentity(agentIdentity("dir1", token.id, "full_access"));
+    await expect(asAgent.action(api.sharepoint.trelloOverview, {})).rejects.toThrow(
+      "não por token de agente"
+    );
+    expect(graphCalls(calls)).toEqual([]);
   });
 });

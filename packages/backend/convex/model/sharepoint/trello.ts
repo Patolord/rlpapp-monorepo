@@ -24,6 +24,12 @@ interface GraphItem {
   file?: object;
 }
 
+interface GraphPage {
+  value: GraphItem[];
+  /** URL absoluta do Graph para a próxima página. */
+  "@odata.nextLink"?: string;
+}
+
 const trelloEntryValidator = v.object({
   name: v.string(),
   kind: v.union(v.literal("folder"), v.literal("file")),
@@ -71,13 +77,19 @@ function address(segments: readonly string[]): string {
   return `/sites/${SHAREPOINT_LIBRARIES.projetos.siteId}/drive/root:/${path}:`;
 }
 
-/** Até 200 itens da pasta (uma página do Graph), ordenados por nome. */
+/** Todos os itens da pasta (seguindo as páginas do Graph), ordenados por nome. */
 async function children(segments: readonly string[]): Promise<GraphItem[]> {
-  const page = await graphJson<{ value: GraphItem[] }>({
-    path: `${address(segments)}/children?$top=200&$select=${FIELDS}`,
-    notFoundMessage: `Pasta não encontrada no SharePoint: ${segments.join("/")}`,
-  });
-  return page.value.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  const items: GraphItem[] = [];
+  let next: string | undefined = `${address(segments)}/children?$top=200&$select=${FIELDS}`;
+  while (next) {
+    const page: GraphPage = await graphJson<GraphPage>({
+      path: next,
+      notFoundMessage: `Pasta não encontrada no SharePoint: ${segments.join("/")}`,
+    });
+    items.push(...page.value);
+    next = page["@odata.nextLink"];
+  }
+  return items.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
 
 export async function getTrelloOverview(): Promise<TrelloOverview> {
