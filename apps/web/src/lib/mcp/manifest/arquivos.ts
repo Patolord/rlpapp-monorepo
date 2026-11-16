@@ -7,9 +7,9 @@
 import type { ToolSpec } from "../manifest";
 
 const LIBRARY_HINT =
-  'SharePoint library: "projetos" (Projetos site: budgets, project drawings, catalogs; the only one with write access) or "publico" (Publico site: forms and CREA reports, read-only).';
+  'SharePoint library: "projetos" (Projetos site: budgets in progress, project drawings, catalogs; the only one with write access) or "publico" (Publico site: finished proposals, forms and CREA reports; read-only).';
 const PATH_HINT =
-  'Path relative to the library root, folders separated by "/", e.g. "Projetos Orçamento/Bios/ARQ-101.pdf". Must start with an allowed top-level folder (see list_sharepoint_libraries).';
+  'Path relative to the library root, folders separated by "/", e.g. "z/Orçamentos/TRELLO/Em Andamento/26.37033PRC - TECNUM - Empreendimento Faria Lima/Projetos". Must start with an allowed folder (see list_sharepoint_libraries); in an allowed folder written with "*", put the real name there, e.g. "2026/Propostas/PRC".';
 
 export const ARQUIVOS_TOOLS: readonly ToolSpec[] = [
   // --------------------------------------------------------------------------
@@ -20,7 +20,7 @@ export const ARQUIVOS_TOOLS: readonly ToolSpec[] = [
     function: "sharepoint:listLibraries",
     title: "List SharePoint libraries",
     description:
-      "The company SharePoint libraries this workspace can reach and, for each, the top-level folders allowed for reading and for writing. Start here before browsing files; budgets (orçamentos) and takeoff files live in Projetos → \"Projetos Orçamento\", one folder per budget.",
+      "The company SharePoint libraries this workspace can reach and, for each, the folders allowed for reading and for writing (\"*\" stands for any name at that level, such as the year). Start here before browsing files. How budgets (orçamentos) flow: in Projetos, \"z/Orçamentos/TRELLO\" works like a board, with \"Para Fazer/<ano>/<Cliente - Obra>\", \"Em Andamento/<nº PRC - Cliente - Obra>\", \"Concluído\" and \"Obsoletos ...\", plus \"Pasta Padrão\" (the template: Levantamentos, spreadsheet templates and the proposal template \"PRC - XXXXX - YYYYY.docx\"). Each budget folder holds Levantamentos, Orçamentos and Projetos (drawings), and its .takeoff.json sits in the budget folder itself. Finished proposals (PRC) are filed in Publico under \"<ano>/Propostas/PRC/<mês>/<nº PRC - Cliente - Obra>\".",
   },
   {
     name: "list_sharepoint_folder",
@@ -54,10 +54,10 @@ export const ARQUIVOS_TOOLS: readonly ToolSpec[] = [
     function: "sharepoint:saveFile",
     title: "Save SharePoint file",
     description:
-      "Save a file in a SharePoint folder allowed for writing (today only Projetos → \"Projetos Orçamento\"). Pass the content in `text` (UTF-8) or `contentBase64` (binary), up to 3.5 MB. Without `ifMatch` it only creates: it fails if the name already exists. To replace a file, read it first and pass its `eTag` in `ifMatch`; it fails if someone changed it meanwhile. Missing folders in the path are created. Every save is recorded in the app's audit log. Confirm with the user before replacing a file.",
+      "Save a file in a SharePoint folder allowed for writing (today in Projetos: \"z/Orçamentos/TRELLO\" and \"Projetos Orçamento\"). Pass the content in `text` (UTF-8) or `contentBase64` (binary), up to 3.5 MB. Without `ifMatch` it only creates: it fails if the name already exists. To replace a file, read it first and pass its `eTag` in `ifMatch`; it fails if someone changed it meanwhile. Missing folders in the path are created. Every save is recorded in the app's audit log. Confirm with the user before replacing a file.",
     fieldDescriptions: {
       library: LIBRARY_HINT,
-      path: `${PATH_HINT} Includes the file name, e.g. "Projetos Orçamento/Bios/Bios.takeoff.json".`,
+      path: `${PATH_HINT} Includes the file name, e.g. "z/Orçamentos/TRELLO/Para Fazer/2026/Tegra - Obra NOVA VIVERE/NOVA VIVERE.takeoff.json".`,
       text: "File content as text. Use this or contentBase64.",
       contentBase64: "File content as base64. Use this or text.",
       contentType: 'MIME type, e.g. "application/json" or "application/pdf". Defaults to text/plain or application/octet-stream.',
@@ -69,7 +69,7 @@ export const ARQUIVOS_TOOLS: readonly ToolSpec[] = [
     function: "sharepoint:createFolderAt",
     title: "Create SharePoint folder",
     description:
-      "Create a folder inside a SharePoint folder allowed for writing, e.g. a new budget folder \"Projetos Orçamento/<Cliente - Obra>\". Fails if it already exists. Recorded in the audit log.",
+      "Create a folder inside a SharePoint folder allowed for writing, e.g. a new budget folder \"z/Orçamentos/TRELLO/Para Fazer/2026/<Cliente - Obra>\". Fails if it already exists. Recorded in the audit log.",
     fieldDescriptions: { library: LIBRARY_HINT, path: `${PATH_HINT} The last segment is the new folder's name.` },
   },
 ];
