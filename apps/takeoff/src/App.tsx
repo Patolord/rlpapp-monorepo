@@ -7,6 +7,7 @@ import { CatalogPalette } from "./components/CatalogPalette";
 import { CatalogSettingsDialog } from "./components/CatalogSettingsDialog";
 import { DrawingTabs } from "./components/DrawingTabs";
 import { DuctDialog } from "./components/DuctDialog";
+import { EstimateDialog } from "./components/EstimateDialog";
 import { ExportXlsxDialog } from "./components/ExportXlsxDialog";
 import { KitPicker } from "./components/KitPicker";
 import { KitsDialog } from "./components/KitsDialog";
@@ -164,6 +165,7 @@ export default function App() {
       <CatalogPalette />
       <AboutDialog />
       <NewProjectDialog />
+      <EstimateDialog />
       <KitsDialog />
       <WeightsDialog />
       <CatalogSettingsDialog />
