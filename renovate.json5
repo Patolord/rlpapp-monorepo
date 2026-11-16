@@ -58,6 +58,13 @@
       groupName: 'dependências npm (minor e patch)',
     },
     {
+      description: 'internal-agent à parte: eve e adaptadores andam rápido em 0.x e não fazem preview na Vercel',
+      matchManagers: ['npm'],
+      matchFileNames: ['apps/internal-agent/**'],
+      matchUpdateTypes: ['minor', 'patch'],
+      groupName: 'internal-agent (minor e patch)',
+    },
+    {
       description: 'Cargo (app desktop): minor e patch num PR só',
       matchManagers: ['cargo'],
       matchUpdateTypes: ['minor', 'patch'],

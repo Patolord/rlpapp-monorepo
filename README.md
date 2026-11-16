@@ -303,7 +303,7 @@ Como cada push num PR que mexe no `pnpm-lock.yaml` gasta deployments da Vercel e
 
 - roda às segundas antes das 9h (horário de Brasília) e não empurra commits fora desse horário;
 - só propõe versões publicadas há pelo menos 3 dias;
-- minor e patch vêm agrupados (um PR para npm, um para Rust, um para Actions); Convex (`convex`, `convex-helpers`, `convex-test`, `@convex-dev/*`), Tauri (npm e crates) e turbo têm PR próprio;
+- minor e patch vêm agrupados (um PR para npm, um para o internal-agent, um para Rust, um para Actions); Convex (`convex`, `convex-helpers`, `convex-test`, `@convex-dev/*`), Tauri (npm e crates) e turbo têm PR próprio;
 - só refaz o branch quando há conflito, não a cada merge no `master`;
 - majors e as dependências do SDK do Expo no app mobile esperam aprovação: marque a caixa na issue **Painel de dependências (Renovate)**. As do Expo se atualizam com `npx expo install --fix`, porque o SDK fixa as versões compatíveis;
 - o `lightningcss` fica de fora (fixado de propósito nos `overrides`).
