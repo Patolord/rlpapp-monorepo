@@ -1,0 +1,123 @@
+// Renovate: PRs automáticos de atualização de dependências (npm/pnpm, Cargo, GitHub Actions).
+// Documentação: https://docs.renovatebot.com/configuration-options/
+//
+// Cada push num PR que mexe no pnpm-lock.yaml gasta um deployment de preview da Vercel e um do Convex
+// (ver "Deploys da Vercel" no AGENTS.md). Por isso: PRs agrupados, uma vez por semana, sem rebase a
+// cada merge no master, e majors só depois de aprovados no painel (issue "Painel de dependências").
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: ['config:recommended'],
+
+  timezone: 'America/Sao_Paulo',
+  schedule: ['before 9am on monday'],
+  // Fora do horário, não empurra commits novos nos branches já abertos (cada push é um deployment).
+  updateNotScheduled: false,
+  // Só refaz o branch quando há conflito, não a cada merge no master.
+  rebaseWhen: 'conflicted',
+  prConcurrentLimit: 4,
+  prHourlyLimit: 0,
+
+  // Espera a versão amadurecer antes de propor (o pnpm 11 também barra versões com menos de 1 dia).
+  minimumReleaseAge: '3 days',
+  internalChecksFilter: 'strict',
+
+  labels: ['dependências'],
+  dependencyDashboard: {
+    title: 'Painel de dependências (Renovate)',
+  },
+
+  // Mensagens no formato do repositório: "Área: descrição".
+  semanticCommits: 'disabled',
+  commitMessagePrefix: 'Dependências:',
+  commitMessageAction: 'atualiza',
+  commitMessageTopic: '{{depName}}',
+  commitMessageExtra: 'para {{#if isMajor}}v{{{newMajor}}}{{else}}{{{newVersion}}}{{/if}}',
+
+  lockFileMaintenance: {
+    enabled: true,
+    schedule: ['before 9am on the first day of the month'],
+  },
+
+  // A versão do turbo no Ignored Build Step da Vercel tem de seguir a do pnpm-lock.yaml.
+  customManagers: [
+    {
+      customType: 'regex',
+      managerFilePatterns: ['/^scripts/vercel-ignore-build\\.sh$/'],
+      matchStrings: ['TURBO_VERSION=(?<currentValue>\\d+\\.\\d+\\.\\d+)'],
+      depNameTemplate: 'turbo',
+      datasourceTemplate: 'npm',
+    },
+  ],
+
+  // Regras posteriores sobrepõem as anteriores.
+  packageRules: [
+    {
+      description: 'npm: minor e patch num PR só por semana',
+      matchManagers: ['npm'],
+      matchUpdateTypes: ['minor', 'patch'],
+      groupName: 'dependências npm (minor e patch)',
+    },
+    {
+      description: 'Cargo (app desktop): minor e patch num PR só',
+      matchManagers: ['cargo'],
+      matchUpdateTypes: ['minor', 'patch'],
+      groupName: 'dependências Rust (minor e patch)',
+    },
+    {
+      description: 'GitHub Actions num PR só',
+      matchManagers: ['github-actions'],
+      groupName: 'GitHub Actions',
+    },
+    {
+      description: 'Majors só depois de marcados no painel',
+      matchUpdateTypes: ['major'],
+      dependencyDashboardApproval: true,
+    },
+    {
+      description: 'Convex e as bibliotecas que dependem da versão dele andam juntos',
+      matchPackageNames: ['convex', 'convex-helpers', 'convex-test', '@convex-dev/**'],
+      groupName: 'Convex',
+      prBodyNotes: [
+        'Rode `pnpm dev:server` neste branch e commite o que mudar em `packages/backend/convex/_generated`.',
+      ],
+    },
+    {
+      description: 'Tauri: pacotes npm e crates precisam da mesma versão',
+      matchPackageNames: ['@tauri-apps/**', 'tauri', 'tauri-build', 'tauri-plugin-*'],
+      groupName: 'Tauri',
+    },
+    {
+      description: 'turbo: package.json da raiz e o script da Vercel juntos',
+      matchPackageNames: ['turbo'],
+      groupName: 'turbo',
+    },
+    {
+      description: 'App mobile: as versões vêm do SDK do Expo; atualizar com `npx expo install --fix`',
+      matchFileNames: ['apps/native/package.json'],
+      matchPackageNames: [
+        'expo',
+        'expo-*',
+        '@expo/**',
+        'babel-preset-expo',
+        'react',
+        'react-dom',
+        'react-native',
+        'react-native-*',
+        '@react-native-async-storage/**',
+        '@react-native-community/**',
+        '@types/react',
+        'typescript',
+      ],
+      groupName: 'Expo SDK (native)',
+      dependencyDashboardApproval: true,
+      prBodyNotes: [
+        'Confira com `pnpm -F native exec expo install --check`: o Expo fixa as versões compatíveis com o SDK.',
+      ],
+    },
+    {
+      description: 'lightningcss fixado de propósito nos overrides (pnpm-workspace.yaml e apps/native)',
+      matchPackageNames: ['lightningcss'],
+      enabled: false,
+    },
+  ],
+}
