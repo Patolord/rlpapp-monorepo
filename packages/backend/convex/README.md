@@ -21,6 +21,8 @@ convex/
   schema/               Tables and shared validators, one file per domain
   model/                Business logic as plain TypeScript functions, by domain
     ai/                 Assistant intents
+    budgetBoard/        Budget kanban (Engenharia → Orçamentos): cards, and the
+                        check against the TRELLO folders on SharePoint
     contracts/          Customers, contractors, contracts, measurements
     engineering/        Projects, hierarchy, systems, equipment, QR codes, documents
     hr/                 Employees, payroll, loans, alimonies, time clock

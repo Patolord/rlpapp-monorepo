@@ -304,6 +304,16 @@ export const medicoesAprovarMutation = permissionMutation("medicoes.aprovar");
 export const documentosQuery = permissionQuery("documentos.read");
 export const documentosMutation = permissionMutation("documentos.write");
 export const orcamentosMutation = permissionMutation("orcamentos.write");
+/** Quadro de orçamentos (kanban) e a conferência com as pastas da TRELLO. */
+export const quadroOrcamentosQuery = permissionQuery("orcamentos.quadro.read");
+export const quadroOrcamentosMutation = permissionMutation("orcamentos.quadro.write");
+export const quadroOrcamentosReadAction = permissionAction("orcamentos.quadro.read", {
+  writes: false,
+});
+/** Mover a pasta da TRELLO para a etapa do card (grava no SharePoint). */
+export const quadroOrcamentosWriteAction = permissionAction("orcamentos.quadro.write", {
+  writes: true,
+});
 export const assistenteQuery = permissionQuery("assistente.use");
 export const assistenteMutation = permissionMutation("assistente.use");
 

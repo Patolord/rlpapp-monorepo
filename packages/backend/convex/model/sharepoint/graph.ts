@@ -101,7 +101,7 @@ async function accessToken(creds: Credentials, forceRefresh: boolean): Promise<s
 }
 
 export interface GraphRequest {
-  method?: "GET" | "POST" | "PUT";
+  method?: "GET" | "POST" | "PUT" | "PATCH";
   /** Caminho a partir de /v1.0 (já codificado) ou URL absoluta do Graph. */
   path: string;
   headers?: Record<string, string>;

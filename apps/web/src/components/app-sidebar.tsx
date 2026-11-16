@@ -94,7 +94,7 @@ function getNavGroups(): NavGroup[] {
           to: "/engenharia/orcamentos",
           label: "Orçamentos",
           icon: FolderKanban,
-          permission: "arquivos.read",
+          permission: "orcamentos.quadro.read",
         },
       ],
     },

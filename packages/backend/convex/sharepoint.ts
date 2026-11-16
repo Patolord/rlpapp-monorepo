@@ -19,7 +19,6 @@ import {
   listAllowedFolders,
   type LibraryKey,
 } from "./model/sharepoint/libraries";
-import { getTrelloBoard, trelloBoardValidator } from "./model/sharepoint/trello";
 
 /**
  * Arquivos da empresa no SharePoint (sites Projetos e Publico), pelo app do
@@ -68,18 +67,6 @@ export const readFileContents = arquivosReadAction({
   returns: readFileResultValidator,
   handler: async (_ctx, args) => {
     return await readFile(args);
-  },
-});
-
-/**
- * Quadro da pasta TRELLO de orçamentos (Projetos/z/Orçamentos/TRELLO): cards de
- * Para Fazer e Em Andamento, e só a contagem das demais etapas.
- */
-export const trelloBoard = arquivosReadAction({
-  args: {},
-  returns: trelloBoardValidator,
-  handler: async () => {
-    return await getTrelloBoard();
   },
 });
 
