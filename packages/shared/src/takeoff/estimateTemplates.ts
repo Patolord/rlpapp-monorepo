@@ -105,11 +105,37 @@ const lineSetOf = (kits: readonly Kit[], id: string): Kit | undefined =>
 export const capacityOf = (kit: Pick<Kit, "name">): string | undefined =>
   /^(\d{1,3}(?:\.\d{3})+)/.exec(kit.name.trim())?.[1];
 
+/** "18.000" for 18000 BTU/h: how line-set kits are named. */
+export const formatCapacity = (btu: number): string =>
+  Math.round(btu)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+/**
+ * The line-set kit for a machine given by capacity (as an agent reads it off an equipment list):
+ * the kit of that capacity whose name says the type ("Inverter", the default, or
+ * "Convencional"), else any kit of that capacity. Undefined when none is that size.
+ */
+export function lineSetForCapacity(
+  kits: readonly Kit[],
+  btu: number,
+  type: "Inverter" | "Convencional" = "Inverter",
+): Kit | undefined {
+  const capacity = formatCapacity(btu);
+  const sized = lineSetKits(kits).filter((k) => capacityOf(k) === capacity);
+  const typeKey = type.toLowerCase().slice(0, 4);
+  return sized.find((k) => k.name.toLowerCase().includes(typeKey)) ?? sized[0];
+}
+
+/** The evaporator types the split calculator names its machine lines by. */
+export const SPLIT_MACHINE_TYPES = ["Hi Wall", "Cassete", "Piso-teto", "Duto"] as const;
+export type SplitMachineType = (typeof SPLIT_MACHINE_TYPES)[number];
+
 const AC_INFRA = "Infra AC";
 const AC_EQUIP = "AC com Equip";
 
 /** Evaporator types: they name the machine line ("Split Cassete 18.000 Btu/h"). */
-const MACHINE_TYPES = ["Hi Wall", "Cassete", "Piso-teto", "Duto"];
+const MACHINE_TYPES: readonly string[] = SPLIT_MACHINE_TYPES;
 
 const cellNum = (r: TableRow, key: string): number => {
   const n = Number(r[key]);
@@ -133,7 +159,7 @@ export const SPLIT_TEMPLATE: EstimateTemplate = {
           key: "type",
           label: "Tipo",
           type: "choice",
-          default: MACHINE_TYPES[0],
+          default: SPLIT_MACHINE_TYPES[0],
           options: () => MACHINE_TYPES.map((t) => ({ value: t, label: t })),
         },
         {
@@ -194,7 +220,7 @@ export const SPLIT_TEMPLATE: EstimateTemplate = {
       if (!kit || n === 0) continue;
       evaporators += n;
       const btu = capacityOf(kit);
-      const type = MACHINE_TYPES.includes(String(r.type)) ? String(r.type) : MACHINE_TYPES[0];
+      const type = MACHINE_TYPES.includes(String(r.type)) ? String(r.type) : SPLIT_MACHINE_TYPES[0];
       // the line set only: drain, brackets and electrical points are other trades' scope
       out.push(...kitLines(kit, n, cellNum(r, "meters")));
       if (on(v, "machine")) {

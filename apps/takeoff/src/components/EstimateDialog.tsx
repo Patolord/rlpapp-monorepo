@@ -1,3 +1,8 @@
+import {
+  ESTIMATE_TEMPLATES,
+  type TemplateValues,
+  templateValues,
+} from "@rlpapp/shared/takeoff/estimateTemplates";
 import clsx from "clsx";
 import { useEffect, useMemo, useState } from "react";
 import { mergeCatalog } from "../lib/catalog";
@@ -10,7 +15,6 @@ import {
   lineKey,
   resultValue,
 } from "../lib/estimate";
-import { ESTIMATE_TEMPLATES, type TemplateValues, templateValues } from "../lib/estimateTemplates";
 import { DISCIPLINE_SUGGESTIONS } from "../lib/types";
 import { formatMoney } from "../lib/units";
 import { syncWeightItems } from "../lib/weights";

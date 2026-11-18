@@ -1,17 +1,31 @@
-import type { Kit, KitComponent } from "@rlpapp/shared/takeoff/kits";
+import {
+  type EstimateLine,
+  kitLines,
+  type LinePrice,
+  mergeLines,
+} from "@rlpapp/shared/takeoff/estimate";
+import type { Kit } from "@rlpapp/shared/takeoff/kits";
 import type { CatalogEntry, CatalogStore } from "./catalog";
 import { componentItem } from "./componentItem";
 import { kitMode } from "./kits";
-import { foldName } from "./text";
 import type { Item, Project } from "./types";
 import type { Kind } from "./units";
 
 /**
- * Takeoff by estimate: quantities generated from assumptions instead of the drawing ("20 m of
- * line set per machine, one equipment kit per machine, × 12 machines"). Each assumption is a
- * kit or a single material with a quantity per unit; the result goes into the budget as typed
- * quantities (`Item.manualQty`) on the same lines a drawn kit would use.
+ * Takeoff by estimate in the app: the free-form assumptions of the dialog and how the generated
+ * lines go into a project. Each assumption is a kit or a single material with a quantity per
+ * unit; the result goes into the budget as typed quantities (`Item.manualQty`) on the same lines
+ * a drawn kit would use. The line math (and the service calculators) is shared with the backend
+ * (`@rlpapp/shared/takeoff/estimate`), so agents estimating through MCP get the same numbers.
  */
+
+export {
+  type EstimateLine,
+  kitLines,
+  type LinePrice,
+  lineKey,
+  mergeLines,
+} from "@rlpapp/shared/takeoff/estimate";
 
 /** What an assumption generates: every component of a kit, or one material. */
 export type EstimateSource =
@@ -45,53 +59,6 @@ export interface Estimate {
   system?: string;
 }
 
-/** A material the estimate generates, with its total quantity. */
-export interface EstimateLine {
-  name: string;
-  sku?: string;
-  group: string;
-  system?: string;
-  kind: Kind;
-  qty: number;
-  /** Item factor a new line takes (a kit's cable both ways), so later drawn runs count alike. */
-  factor?: number;
-  /**
-   * Unit prices typed for this estimate (a machine's value, labour per installation): a new
-   * line takes them over the catalog's; a line already in the takeoff keeps its own.
-   */
-  price?: LinePrice;
-}
-
-/** Unit prices typed in the estimate; a missing one comes from the catalog. */
-export interface LinePrice {
-  material?: number;
-  labor?: number;
-}
-
-/** Key two lines share when they are the same material (same code, else same name). */
-export const lineKey = (l: Pick<EstimateLine, "name" | "sku" | "kind">): string =>
-  `${l.kind}:${l.sku?.trim() || foldName(l.name)}`;
-
-/**
- * Merge lines of the same material (the same copper from two kits is one line), in the order
- * they first appear; quantities are summed, the first typed price wins. Empty lines are dropped.
- */
-export function mergeLines(lines: Iterable<EstimateLine>): EstimateLine[] {
-  const out = new Map<string, EstimateLine>();
-  for (const line of lines) {
-    const key = lineKey(line);
-    const prev = out.get(key);
-    if (!prev) out.set(key, { ...line });
-    else {
-      prev.qty += line.qty;
-      if (line.price) prev.price = { ...line.price, ...prev.price };
-    }
-  }
-  return [...out.values()]
-    .map((l) => ({ ...l, qty: round(l.qty) }))
-    .filter((l) => l.qty > 0 && l.name.trim() !== "");
-}
-
 const round = (v: number): number => Math.round(v * 1e4) / 1e4;
 
 /** How a row reads: "per unit" is a length for linear kits and linear/area materials. */
@@ -117,26 +84,6 @@ export function rowLines(row: EstimateRow, units: number, kits: readonly Kit[]):
   const kitId = row.source.kitId;
   const kit = kits.find((k) => k.id === kitId);
   return kit ? kitLines(kit, n, per) : [];
-}
-
-/** Every component of a kit for `n` runs of `per` length (run kit) or `n × per` sets (click kit). */
-export function kitLines(kit: Kit, n: number, per: number): EstimateLine[] {
-  const byRun = kitMode(kit) === "linear";
-  return kit.components.map((c: KitComponent) => {
-    // a run kit: linear parts follow the run, count parts come once per run (a drain kit);
-    // a click kit: every part (pieces or length per click) comes once per set
-    const qty = byRun && c.kind !== "count" ? n * per * c.factor : n * (byRun ? 1 : per) * c.factor;
-    return {
-      name: c.name,
-      sku: c.sku,
-      group: c.group,
-      system: c.system,
-      kind: c.kind,
-      qty,
-      // the same item factor a drawn run of this kit gives a new line
-      factor: byRun || c.kind !== "linear" ? c.factor : undefined,
-    };
-  });
 }
 
 /** Every material the free-form estimate generates, merged. */

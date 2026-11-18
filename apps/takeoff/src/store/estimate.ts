@@ -1,6 +1,6 @@
+import type { TemplateValues } from "@rlpapp/shared/takeoff/estimateTemplates";
 import { mergeCatalog } from "../lib/catalog";
 import { applyEstimate, type Estimate, type EstimateLine } from "../lib/estimate";
-import type { TemplateValues } from "../lib/estimateTemplates";
 import { mod } from "../lib/platform";
 import { readPref, type Slice, writePref } from "./shared";
 

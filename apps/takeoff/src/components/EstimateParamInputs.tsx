@@ -1,11 +1,11 @@
-import { Plus, Trash2 } from "lucide-react";
 import {
   newTableRow,
   type ScalarParam,
   type TableRow,
   type TemplateParam,
   type TemplateValues,
-} from "../lib/estimateTemplates";
+} from "@rlpapp/shared/takeoff/estimateTemplates";
+import { Plus, Trash2 } from "lucide-react";
 import type { Kit } from "../lib/kits";
 import { estimateInput } from "./EstimateCustomRows";
 import { Button } from "./ui";

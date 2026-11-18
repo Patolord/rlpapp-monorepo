@@ -1,4 +1,8 @@
-import type { EstimateTemplate, ParamValue, TemplateValues } from "../lib/estimateTemplates";
+import type {
+  EstimateTemplate,
+  ParamValue,
+  TemplateValues,
+} from "@rlpapp/shared/takeoff/estimateTemplates";
 import type { Kit } from "../lib/kits";
 import { ScalarInput, TableParam } from "./EstimateParamInputs";
 

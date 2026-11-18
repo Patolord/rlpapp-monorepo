@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { CatalogEntry } from "./catalog";
-import { applyEstimate, type Estimate, estimateLines } from "./estimate";
+import {
+  applyEstimate,
+  type Estimate,
+  type EstimateLine,
+  estimateLines,
+  resultValue,
+} from "./estimate";
 import type { Kit } from "./kits";
 import { itemTotals } from "./quantities";
 import { emptyProject, type Item, type Project } from "./types";
@@ -221,5 +227,25 @@ describe("applyEstimate", () => {
     );
     expect(p.items.find((i) => i.id === "v")?.manualQty).toBe(1);
     expect(p.items).toHaveLength(2);
+  });
+});
+
+describe("typed prices", () => {
+  it("price a new line and give way to the price of a line already in the takeoff", () => {
+    const lines: EstimateLine[] = [
+      { name: "Exaustor", group: "Equipamentos", kind: "count", qty: 2, price: { material: 180 } },
+    ];
+    const first = applyEstimate(emptyProject(), lines, { remote: [] }, [], undefined, 5);
+    const fan = first.results[0].item;
+    expect(fan).toMatchObject({ materialPrice: 180, priceSource: "manual", priceDate: 5 });
+    expect(resultValue(first.results[0])).toEqual({ material: 360, labor: 0 });
+
+    const again = applyEstimate(
+      first.project,
+      [{ ...lines[0], price: { material: 999 } }],
+      { remote: [] },
+      [],
+    );
+    expect(again.results[0].item).toMatchObject({ materialPrice: 180, manualQty: 4 });
   });
 });

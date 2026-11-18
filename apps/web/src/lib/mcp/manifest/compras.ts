@@ -217,6 +217,40 @@ export const COMPRAS_TOOLS: readonly ToolSpec[] = [
     description: "Remove a takeoff line. Cannot be undone.",
     destructive: true,
   },
+  {
+    name: "estimate_split_installation",
+    function: "takeoffEstimates:split",
+    title: "Estimate a split AC installation",
+    description:
+      "Quick budget of a split air-conditioning installation without measuring the drawing: the same calculator as the desktop app's \"Takeoff por estimativa\". Give one row per machine type from the equipment list (type, capacity in BTU/h, quantity, refrigerant line metres per machine, default 8). Each capacity picks the company's line-set kit (copper and insulation sizes, interconnect cable both ways); returns the priced lines (company catalog, copper by weight), material/labour totals and the total with BDI. RLP's scope is the line set, the machines (optional) and installation labour per evaporator; drain, brackets and electrical points are not included. Labour and BDI are not in the catalog: ask the user for laborPerEvaporatorBrl and bdiPercent when unknown. Read the warnings (lines without a catalog price count as R$ 0). Nothing is saved; prices in BRL (reais).",
+    serverArgs: nowArg,
+    fieldDescriptions: {
+      machines:
+        "One row per machine type. type: Hi Wall (default), Cassete, Piso-teto or Duto. capacityBtu: e.g. 18000. lineType: Inverter (default) or Convencional. lineMeters: line length per machine, default 8. unitPriceBrl: machine price in reais; omit to use the catalog price.",
+      includeMachines: "Include the machines themselves (default true).",
+      laborPerEvaporatorBrl: "Installation labour per evaporator, in reais, regardless of line length.",
+      mobilizationBrl: "Mobilisation and travel for the whole job, in reais; omit when it is in the BDI.",
+      bdiPercent: "BDI (markup) over material + labour, in percent (e.g. 30).",
+    },
+  },
+  {
+    name: "estimate_bathroom_exhaust",
+    function: "takeoffEstimates:bathroomExhaust",
+    title: "Estimate bathroom exhaust",
+    description:
+      "Quick budget of bathroom exhaust per bathroom (the desktop app's calculator): fan, flexible aluminium duct, clamps, ceiling grille and outside cap at the duct diameter, plus labour per bathroom. Returns priced lines, totals with BDI and warnings (lines without a catalog price count as R$ 0). Nothing is saved; prices in BRL (reais).",
+    serverArgs: nowArg,
+    fieldDescriptions: {
+      diameterMm: "Duct diameter: 100 (default), 125 or 150 mm.",
+      ductMeters: "Flexible duct per bathroom, metres (default 3).",
+      fanPriceBrl: "Fan price in reais; omit to use the catalog price.",
+      grille: "Ceiling grille (default true).",
+      cap: "Outside cap (default true).",
+      clampsPerBathroom: "Clamps per bathroom (default 2).",
+      laborPerBathroomBrl: "Installation labour per bathroom, in reais.",
+      bdiPercent: "BDI (markup) over material + labour, in percent (e.g. 30).",
+    },
+  },
 ];
 
 /** Entra em TOOLS depois de ESTOQUE_EXTRA_TOOLS; ver a ordem em manifest.ts. */

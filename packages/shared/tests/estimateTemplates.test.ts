@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyEstimate, type EstimateLine, resultValue } from "./estimate";
+import type { EstimateLine } from "../src/takeoff/estimate";
 import {
   BATHROOM_EXHAUST_TEMPLATE,
   capacityOf,
@@ -8,9 +8,8 @@ import {
   type TableRow,
   type TemplateValues,
   templateValues,
-} from "./estimateTemplates";
-import { SEED_KITS } from "./kits";
-import { emptyProject } from "./types";
+} from "../src/takeoff/estimateTemplates";
+import { SEED_KITS } from "../src/takeoff/kits";
 
 const split = (v: TemplateValues) =>
   SPLIT_TEMPLATE.lines(
@@ -145,25 +144,5 @@ describe("templateValues", () => {
     if (table?.type !== "table") throw new Error("no table");
     const last = machine({ type: "Cassete", lineSet: "kit-24-000-inverter", qty: 2 });
     expect(newTableRow(table, [machine({}), last], SEED_KITS)).toEqual(last);
-  });
-});
-
-describe("typed prices", () => {
-  it("price a new line and give way to the price of a line already in the takeoff", () => {
-    const lines: EstimateLine[] = [
-      { name: "Exaustor", group: "Equipamentos", kind: "count", qty: 2, price: { material: 180 } },
-    ];
-    const first = applyEstimate(emptyProject(), lines, { remote: [] }, [], undefined, 5);
-    const fan = first.results[0].item;
-    expect(fan).toMatchObject({ materialPrice: 180, priceSource: "manual", priceDate: 5 });
-    expect(resultValue(first.results[0])).toEqual({ material: 360, labor: 0 });
-
-    const again = applyEstimate(
-      first.project,
-      [{ ...lines[0], price: { material: 999 } }],
-      { remote: [] },
-      [],
-    );
-    expect(again.results[0].item).toMatchObject({ materialPrice: 180, manualQty: 4 });
   });
 });
