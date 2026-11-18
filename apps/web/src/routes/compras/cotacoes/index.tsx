@@ -18,7 +18,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useCan } from "@/hooks/use-can";
-import { endOfTodayBrt, formatWeekRange, toWeekParam } from "@/lib/quote-weeks";
+import { useNow } from "@/hooks/use-now";
+import { formatWeekRange, toWeekParam } from "@/lib/quote-weeks";
 
 export const Route = createFileRoute("/compras/cotacoes/")({
   component: CotacoesPage,
@@ -35,7 +36,7 @@ function CotacoesPage() {
 }
 
 function CotacoesContent() {
-  const [now] = useState(() => endOfTodayBrt());
+  const now = useNow();
   // Páginas de semanas: cada cursor é o `before` de uma página (undefined = a mais recente).
   const [cursors, setCursors] = useState<(number | undefined)[]>([undefined]);
   const before = cursors[cursors.length - 1];
@@ -97,6 +98,11 @@ function CotacoesContent() {
                       >
                         {formatWeekRange(week.weekStart)}
                       </Link>
+                      {week.truncated ? (
+                        <span className="ml-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+                          parcial: contagens a partir dos primeiros lançamentos
+                        </span>
+                      ) : null}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{week.supplierCount}</TableCell>
                     <TableCell className="text-right tabular-nums">{week.materialCount}</TableCell>

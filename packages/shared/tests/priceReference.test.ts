@@ -75,6 +75,11 @@ describe("referenceStats", () => {
     expect(stats.monthlyChange).toBeLessThan(0.011);
   });
 
+  test("cotação com data depois de `now` não entra", () => {
+    const later = quote("Dufrio", 999900, now + 6 * 60 * 60 * 1000);
+    expect(referenceStats([...lg, later], now)!.count).toBe(6);
+  });
+
   test("só a janela de 6 meses conta", () => {
     const old = quote("Dufrio", 100000, brt(2026, 3, 1));
     expect(referenceStats([...lg, old], now)!.count).toBe(6);

@@ -36,8 +36,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useCan } from "@/hooks/use-can";
+import { useNow } from "@/hooks/use-now";
 import { getErrorMessage } from "@/lib/errors";
-import { endOfTodayBrt, formatPercent, formatSignedPercent, toWeekParam } from "@/lib/quote-weeks";
+import { formatPercent, formatSignedPercent, toWeekParam } from "@/lib/quote-weeks";
 import { cn } from "@/lib/utils";
 
 type History = FunctionReturnType<typeof api.priceEvents.familyHistory>;
@@ -63,7 +64,7 @@ const STATUS_NOTE: Record<ReferenceStats["status"], { label: string; dot: string
  * fornecedores na mesma semana e a lista de cotações.
  */
 export function FamilyPriceHistory({ materialId }: { materialId: Id<"materials"> }) {
-  const [now] = useState(() => endOfTodayBrt());
+  const now = useNow();
   const history = useQuery(api.priceEvents.familyHistory, {
     materialId,
     now,

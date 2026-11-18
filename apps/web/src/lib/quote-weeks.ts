@@ -39,17 +39,15 @@ export function dateInputToInstant(value: string): number | null {
   return parts ? Date.UTC(parts[0], parts[1], parts[2]) - BRT_OFFSET_MS : null;
 }
 
+const MINUTE_MS = 60 * 1000;
+
 /**
- * Corte das consultas de histórico: o fim do dia de hoje em Brasília. Um
- * preço lançado hoje, por qualquer pessoa, entra sem recarregar a página.
+ * Corte das consultas de histórico: o fim do minuto atual. Arredondar evita
+ * trocar os argumentos da consulta a cada render; um preço com horário depois
+ * disso (futuro) fica de fora até a hora dele chegar.
  */
-export function endOfTodayBrt(at: number = Date.now()): number {
-  const local = new Date(at + BRT_OFFSET_MS);
-  return (
-    Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() + 1) -
-    BRT_OFFSET_MS -
-    1
-  );
+export function minuteCutoff(at: number): number {
+  return Math.ceil((at + 1) / MINUTE_MS) * MINUTE_MS - 1;
 }
 
 /** Validade: o último instante daquele dia em Brasília. */

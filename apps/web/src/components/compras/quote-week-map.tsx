@@ -40,7 +40,9 @@ export function QuoteWeekMap({ week, now }: { week: Week; now: number }) {
     return (
       <Card>
         <CardContent className="py-10 text-center text-sm text-muted-foreground">
-          Nenhum preço registrado nesta semana.
+          {week.truncated
+            ? "Esta semana tem mais lançamentos do que o mapa carrega de uma vez, e os mais recentes não são cotações de fornecedor (estimativas ou preços descartados). Veja os preços da semana em Eventos de Preço."
+            : "Nenhum preço registrado nesta semana."}
         </CardContent>
       </Card>
     );

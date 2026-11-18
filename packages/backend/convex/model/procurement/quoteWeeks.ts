@@ -178,8 +178,11 @@ export async function listQuoteWeeks(
       )
       .take(WEEK_COUNT_LIMIT);
     cursor = weekStart;
+    const truncated = read.length === WEEK_COUNT_LIMIT;
     const quotes = read.filter(isSupplierQuote);
-    if (quotes.length === 0) continue; // só estimativas ou descartados
+    // Só estimativas ou descartados: a semana não é uma rodada. Mas uma semana
+    // cortada pode ter cotações além da leitura, então entra marcada.
+    if (quotes.length === 0 && !truncated) continue;
     weeks.push({
       weekStart,
       priceCount: quotes.length,
@@ -189,7 +192,7 @@ export async function listQuoteWeeks(
       ).size,
       proposalCount: new Set(quotes.flatMap((e) => (e.quoteProposalId ? [e.quoteProposalId] : [])))
         .size,
-      truncated: read.length === WEEK_COUNT_LIMIT,
+      truncated,
     });
   }
   return { weeks, continueBefore: cursor };
@@ -304,7 +307,14 @@ export async function getQuoteWeek(
       .priceCount += 1;
     const material = event.materialId ? await materialOf(event.materialId) : null;
     const unit = normalizeUnit(event.unit) ?? null;
-    const materialUnit = material ? isComparableUnit(event.unit, material.unit) : false;
+    // Sem unidade cadastrada no material, cada unidade dos preços vira uma
+    // linha (un e cx não disputam o menor); só a linha sem unidade fica como
+    // a do material.
+    const materialUnit = !material
+      ? false
+      : normalizeUnit(material.unit)
+        ? isComparableUnit(event.unit, material.unit)
+        : unit === null;
     const rowKey = material
       ? materialUnit
         ? `id:${material._id}`

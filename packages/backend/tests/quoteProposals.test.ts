@@ -477,6 +477,68 @@ describe("rodada da semana", () => {
     expect(lgRows[1]!.cheapestSupplierKey).toBeNull();
   });
 
+  test("material sem unidade cadastrada: cada unidade dos preços é uma linha", async () => {
+    const { t, ids, asBuyer } = await seed();
+    const noUnit = await t.run((ctx) =>
+      ctx.db.insert("materials", { name: "Suporte", active: true, createdAt: NOW })
+    );
+    const add = (supplierId: Id<"suppliers">, unitPriceCents: number, unit: string) =>
+      asBuyer.mutation(api.priceEvents.add, {
+        materialId: noUnit,
+        supplierId,
+        unitPriceCents,
+        unit,
+        source: "quote",
+        occurredAt: brt(2026, 11, 4),
+      });
+    await add(ids.dufrio, 4000, "un");
+    await add(ids.frigelar, 3900, "un");
+    await add(ids.leveros, 30000, "cx");
+    const week = await asBuyer.query(api.quoteProposals.week, {
+      weekStart: brt(2026, 11, 4),
+      now: NOW,
+    });
+    const rows = week.rows
+      .filter((row) => row.materialId === noUnit)
+      .sort((a, b) => (a.unit ?? "").localeCompare(b.unit ?? ""));
+    expect(rows.map((row) => [row.unit, row.cells.length, row.cheapestSupplierKey])).toEqual([
+      ["cx", 1, null],
+      ["un", 2, `id:${ids.frigelar}`],
+    ]);
+  });
+
+  test("semana cortada entra marcada mesmo se a parte lida não tiver cotação", async () => {
+    const { t, ids, asBuyer } = await seed();
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 1000; i++) {
+        await ctx.db.insert("priceEvents", {
+          materialId: ids.lg,
+          supplierId: ids.dufrio,
+          unitPriceCents: 1,
+          unit: "un",
+          source: "excel_import",
+          occurredAt: brt(2026, 11, 2, 8) + i,
+          reviewStatus: "ignored",
+          needsReview: false,
+          createdAt: NOW,
+        });
+      }
+    });
+    await asBuyer.mutation(api.priceEvents.add, {
+      materialId: ids.lg,
+      supplierId: ids.dufrio,
+      unitPriceCents: 305000,
+      unit: "un",
+      source: "quote",
+      occurredAt: brt(2026, 11, 6),
+    });
+    const page = await asBuyer.query(api.quoteProposals.listWeeks, { now: NOW });
+    expect(page.weeks[0]).toMatchObject({
+      weekStart: brt(2026, 11, 2, 0),
+      truncated: true,
+    });
+  });
+
   test("lista as semanas com preços, inteiras e em páginas", async () => {
     const { asBuyer } = await seedWeek();
     const page = await asBuyer.query(api.quoteProposals.listWeeks, { now: NOW });
