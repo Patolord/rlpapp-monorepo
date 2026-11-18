@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 48 módulos, 359 funções públicas.
+// 49 módulos, 361 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -41,16 +41,17 @@ import * as m34 from "../suppliers";
 import * as m35 from "../systems";
 import * as m36 from "../takeoffAuth";
 import * as m37 from "../takeoffCatalog";
-import * as m38 from "../takeoffKits";
-import * as m39 from "../takeoffMaterials";
-import * as m40 from "../takeoffSettings";
-import * as m41 from "../takeoffs";
-import * as m42 from "../technicianActivity";
-import * as m43 from "../technicianPortal";
-import * as m44 from "../timeClock";
-import * as m45 from "../timeClockPunch";
-import * as m46 from "../towers";
-import * as m47 from "../users";
+import * as m38 from "../takeoffEstimates";
+import * as m39 from "../takeoffKits";
+import * as m40 from "../takeoffMaterials";
+import * as m41 from "../takeoffSettings";
+import * as m42 from "../takeoffs";
+import * as m43 from "../technicianActivity";
+import * as m44 from "../technicianPortal";
+import * as m45 from "../timeClock";
+import * as m46 from "../timeClockPunch";
+import * as m47 from "../towers";
+import * as m48 from "../users";
 
 export type AccessHint =
   | { kind: "public" }
@@ -99,16 +100,17 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   systems: m35,
   takeoffAuth: m36,
   takeoffCatalog: m37,
-  takeoffKits: m38,
-  takeoffMaterials: m39,
-  takeoffSettings: m40,
-  takeoffs: m41,
-  technicianActivity: m42,
-  technicianPortal: m43,
-  timeClock: m44,
-  timeClockPunch: m45,
-  towers: m46,
-  users: m47,
+  takeoffEstimates: m38,
+  takeoffKits: m39,
+  takeoffMaterials: m40,
+  takeoffSettings: m41,
+  takeoffs: m42,
+  technicianActivity: m43,
+  technicianPortal: m44,
+  timeClock: m45,
+  timeClockPunch: m46,
+  towers: m47,
+  users: m48,
 };
 
 export const ACCESS_HINTS: Record<string, AccessHint> = {
@@ -400,6 +402,8 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "systems:updateSystemDetails": { kind: "permission", permission: "obras.write" },
   "takeoffAuth:createCode": { kind: "public" },
   "takeoffCatalog:current": { kind: "permission", permission: "suprimentos.read" },
+  "takeoffEstimates:bathroomExhaust": { kind: "permission", permission: "suprimentos.read" },
+  "takeoffEstimates:split": { kind: "permission", permission: "suprimentos.read" },
   "takeoffKits:list": { kind: "permission", permission: "suprimentos.read" },
   "takeoffKits:missingFactory": { kind: "permission", permission: "suprimentos.read" },
   "takeoffKits:remove": { kind: "permission", permission: "takeoff.config" },
