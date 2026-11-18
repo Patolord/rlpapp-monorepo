@@ -42,7 +42,7 @@ import {
 import { isTauri } from "./lib/platform";
 import { useDoc } from "./lib/session";
 import { checkForUpdate } from "./lib/updater";
-import { useStore } from "./store";
+import { selectProjectOpen, useStore } from "./store";
 
 /** The cutout report dialog and its planner load in a chunk of their own. */
 const ReportDialog = lazy(() =>
@@ -131,6 +131,8 @@ export default function App() {
   // clear transient status messages
   const status = useStore((s) => s.status);
   const sidebarOpen = useStore((s) => s.sidebarOpen);
+  // the start screen has nothing to list or price: no side panel until a takeoff is open
+  const projectOpen = useStore(selectProjectOpen);
   useEffect(() => {
     if (!status) return;
     const id = window.setTimeout(() => useStore.getState().setStatus(null), 6000);
@@ -158,8 +160,8 @@ export default function App() {
           </div>
           <SpecialtyDrawer />
         </div>
-        <PanelDivider />
-        {sidebarOpen && <Sidebar />}
+        {projectOpen && <PanelDivider />}
+        {projectOpen && sidebarOpen && <Sidebar />}
       </div>
       <StatusBar />
       <CatalogPalette />

@@ -103,6 +103,7 @@ pnpm bench <pdf>       # vector extraction + indexing timings
 | Select a marking or a kit group, type in **Rótulo** | Its own label on the drawing and in the report, on every member of the group (one undo step); empty brings the kit's label back |
 | Items → **Marcar em** | Discipline (budget tab) of the next markings, from any item or kit: the same copper goes to AC Pesado in the garage and AC Leve in the party room. Blank: each marking follows its item's discipline. The status bar shows it while set. With more than one discipline in use, the Items list is sectioned by discipline like the budget: an item split over tabs has a line in each, with that tab's quantity |
 | Select markings, type in **Disciplina** | Move them (with their kit groups) to another tab; the item's other markings stay. The reset button returns them to the item's discipline |
+| `E` | Takeoff por estimativa (also the calculator at the bottom of the tool rail): service calculators generate items from assumptions, no drawing needed. A takeoff with no drawings offers it on its start screen |
 | `K` | Calibrate: click two points of a known distance |
 | `S` `O` / `Shift` | Toggle snapping to drawing geometry / ortho (45°) lock |
 | `1`–`9` | Activate item n (the tool follows the item's kind) |

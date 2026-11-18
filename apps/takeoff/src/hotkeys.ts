@@ -182,6 +182,9 @@ export function useHotkeys() {
         case "[":
           s.setPage(Math.max(0, s.page - 1));
           return;
+        case "e":
+          s.setEstimateOpen(true);
+          return;
         case "n": {
           const kind = s.project.items.find((i) => i.id === s.activeItemId)?.kind ?? "count";
           s.addItem({ kind });
