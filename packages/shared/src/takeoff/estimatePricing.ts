@@ -101,12 +101,26 @@ export function priceEstimate(
     return size === undefined ? undefined : copperBySize.get(size);
   };
 
+  // the company's copper quotes by tube size, as the desktop app finds them for kit copper
+  const quotedCopperBySize = new Map<number, PricingMaterial>();
+  for (const m of catalog.materials) {
+    if (m.materialPrice <= 0 || budgetUnit(m.unit) !== "m" || kitFamily(m.name) !== "cobre") continue;
+    const size = inchSize(m.name);
+    if (size !== undefined && !quotedCopperBySize.has(size)) quotedCopperBySize.set(size, m);
+  }
+
   const priced = lines.map((line): PricedLine => {
     const sku = normalizeKitSku(line.sku);
     const key = foldEstimateName(line.name.trim());
     const found = (sku ? bySku.get(sku) : undefined) ?? byName.get(key);
     // a material quoted in another unit (R$/kg for a line in metres) does not price the line
-    const material = found && budgetUnit(found.unit) === UNIT[line.kind] ? found : undefined;
+    const exact = found && budgetUnit(found.unit) === UNIT[line.kind] ? found : undefined;
+    const copperSize =
+      !exact && line.kind === "linear" && kitFamily(line.name) === "cobre"
+        ? inchSize(line.name)
+        : undefined;
+    const material =
+      exact ?? (copperSize !== undefined ? quotedCopperBySize.get(copperSize) : undefined);
     const weight = material?.materialPrice ? undefined : weightRow(line.name, key);
     const perKg = weight ? basePrice(catalog.basePrices ?? undefined, weight.material) : undefined;
 

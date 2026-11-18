@@ -105,6 +105,17 @@ describe("priceEstimate", () => {
     expect(lines[1]).toMatchObject({ laborUnitPrice: 8, materialUnitPrice: 0, priceSource: "sem_preco" });
   });
 
+  it("takes the company's copper quote of the same size before the weight table", () => {
+    const { lines } = priceEstimate([line({ name: 'Tubulação de Cobre 1/2"' })], {
+      materials: [
+        { id: "q", sku: null, name: 'Tubo de cobre 1/2"', unit: "m", materialPrice: 40, laborPrice: 0 },
+      ],
+      weights: SEED_WEIGHTS,
+      basePrices: { cobre: 100 },
+    });
+    expect(lines[0]).toMatchObject({ materialUnitPrice: 40, priceSource: "catalogo", materialId: "q" });
+  });
+
   it("reads `mt` as metres", () => {
     const { lines } = priceEstimate([line({ name: "Duto" })], {
       materials: [{ id: "d", sku: null, name: "Duto", unit: "mt", materialPrice: 12, laborPrice: 0 }],
