@@ -210,7 +210,7 @@ export const COMPRAS_TOOLS: readonly ToolSpec[] = [
     function: "priceEvents:materialReference",
     title: "Material budget reference",
     description:
-      "Budget reference of one material: median of the suppliers' quotes of the last 6 months in the material's unit, range, spread, monthly change and status (ok: spread up to 10%; wide: above; stale: no quote in 90 days). Takeoff estimates and prices dismissed in review are left out. Null without quotes in the window.",
+      "Budget reference of one material: median of the suppliers' quotes of the last 6 months in the material's unit, range, spread, monthly change and status (ok: spread up to 10%; wide: above; stale: no quote in 90 days). Takeoff estimates and prices dismissed in review are left out. `truncated` is true when the 6 months hold more than 500 quotes and the reference uses the most recent 500. Null without quotes in the window.",
     serverArgs: nowArg,
   },
   {

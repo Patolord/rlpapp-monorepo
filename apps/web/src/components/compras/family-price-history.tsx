@@ -132,6 +132,7 @@ export function FamilyPriceHistory({ materialId }: { materialId: Id<"materials">
               {reference
                 ? ` · mediana de ${reference.count} cotações de ${reference.supplierCount} fornecedores em 6 meses`
                 : " · sem cotação nos últimos 6 meses"}
+              {reference?.truncated ? " · amostra das 500 cotações mais recentes" : ""}
             </span>
           </Metric>
           <Metric label="Dispersão das cotações">

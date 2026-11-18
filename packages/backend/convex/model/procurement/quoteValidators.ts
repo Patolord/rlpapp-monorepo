@@ -26,6 +26,8 @@ export const referenceStatsValidator = v.object({
   totalChange: nullableNumber,
   monthlyChange: nullableNumber,
   status: v.union(v.literal("ok"), v.literal("wide"), v.literal("stale")),
+  /** A janela de 6 meses tem mais cotações do que uma leitura traz: a referência usa as mais recentes. */
+  truncated: v.boolean(),
 });
 
 export const quoteProposalSummaryValidator = v.object({

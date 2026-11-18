@@ -342,6 +342,35 @@ describe("quoteProposals", () => {
     expect(body.items.find((item) => item.id === ids.lg)?.materialPrice).toBe(310);
   });
 
+  test("com mais cotações do que uma leitura traz, a referência avisa que é amostra", async () => {
+    const { t, ids, asBuyer } = await seed();
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 501; i++) {
+        await ctx.db.insert("priceEvents", {
+          materialId: ids.lg,
+          supplierId: ids.dufrio,
+          unitPriceCents: 30000 + i,
+          unit: "un",
+          source: "quote",
+          occurredAt: NOW - (1 + (i % 150)) * DAY,
+          needsReview: false,
+          reviewStatus: "reviewed",
+          createdAt: NOW,
+        });
+      }
+    });
+    const reference = await asBuyer.query(api.priceEvents.materialReference, {
+      materialId: ids.lg,
+      now: NOW,
+    });
+    expect(reference).toMatchObject({ count: 500, truncated: true });
+    const history = await asBuyer.query(api.priceEvents.familyHistory, {
+      materialId: ids.lg,
+      now: NOW,
+    });
+    expect(history.variants.find((v) => v.materialId === ids.lg)?.reference?.truncated).toBe(true);
+  });
+
   test("só quem registra preços cria proposta", async () => {
     const { t, ids } = await seed();
     const asEngineer = await withUser(t, { clerkId: "eng_1", roles: ["engenharia"] });

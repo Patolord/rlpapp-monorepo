@@ -1,8 +1,6 @@
 import {
   DAY_MS,
   REFERENCE_WINDOW_DAYS,
-  referenceStats,
-  type ReferenceStats,
 } from "@rlpapp/shared/compras/priceReference";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
@@ -11,6 +9,9 @@ import {
   isComparableUnit,
   materialEventsBetween,
   materialReferenceStats,
+  referenceStatsOf,
+  withTruncation,
+  type MaterialReference,
   supplierKeyOf,
 } from "./priceHistory";
 import { isSupplierQuote } from "./priceSelection";
@@ -56,7 +57,7 @@ export type FamilyVariant = {
   sku: string | null;
   status: "draft" | "active" | "archived";
   isDefault: boolean;
-  reference: ReferenceStats | null;
+  reference: MaterialReference | null;
 };
 
 function variantStatus(material: Doc<"materials">): FamilyVariant["status"] {
@@ -108,7 +109,7 @@ export async function getFamilyPriceHistory(
 
   const referenceFrom = input.now - REFERENCE_WINDOW_DAYS * DAY_MS;
   const events: Doc<"priceEvents">[] = [];
-  const references = new Map<Id<"materials">, ReferenceStats | null>();
+  const references = new Map<Id<"materials">, MaterialReference | null>();
   let historyTruncated = false;
   for (const material of materials) {
     const read = await materialEventsBetween(
@@ -130,15 +131,7 @@ export async function getFamilyPriceHistory(
     references.set(
       material._id,
       since <= referenceFrom && !truncated
-        ? referenceStats(
-            recent.map((event) => ({
-              unitPriceCents: event.unitPriceCents,
-              occurredAt: event.occurredAt,
-              supplierKey: supplierKeyOf(event),
-              supplierName: "",
-            })),
-            input.now
-          )
+        ? withTruncation(referenceStatsOf(recent, material, input.now), false)
         : await materialReferenceStats(ctx, material, input.now)
     );
   }

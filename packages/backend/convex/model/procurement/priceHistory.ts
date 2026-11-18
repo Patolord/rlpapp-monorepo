@@ -66,7 +66,7 @@ export async function materialReferenceStats(
   ctx: QueryCtx,
   material: Pick<Doc<"materials">, "_id" | "unit">,
   now: number
-): Promise<ReferenceStats | null> {
+): Promise<MaterialReference | null> {
   const events = await materialEventsBetween(
     ctx,
     material._id,
@@ -74,6 +74,32 @@ export async function materialReferenceStats(
     now,
     REFERENCE_EVENT_LIMIT
   );
+  return withTruncation(
+    referenceStatsOf(events, material, now),
+    events.length === REFERENCE_EVENT_LIMIT
+  );
+}
+
+/**
+ * A referência com o aviso de amostra: `truncated` = a janela de 6 meses tem
+ * mais cotações do que REFERENCE_EVENT_LIMIT e a referência usa as mais
+ * recentes.
+ */
+export type MaterialReference = ReferenceStats & { truncated: boolean };
+
+export function withTruncation(
+  stats: ReferenceStats | null,
+  truncated: boolean
+): MaterialReference | null {
+  return stats ? { ...stats, truncated } : null;
+}
+
+/** Referência a partir de preços já lidos: só cotações de fornecedor na unidade do material. */
+export function referenceStatsOf(
+  events: Doc<"priceEvents">[],
+  material: Pick<Doc<"materials">, "unit">,
+  now: number
+): ReferenceStats | null {
   return referenceStats(
     events
       .filter(
