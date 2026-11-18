@@ -363,7 +363,7 @@ describe("quoteProposals", () => {
       materialId: ids.lg,
       now: NOW,
     });
-    expect(reference).toMatchObject({ count: 500, truncated: true });
+    expect(reference).toMatchObject({ reference: { count: 500, truncated: true }, truncated: true });
     const history = await asBuyer.query(api.priceEvents.familyHistory, {
       materialId: ids.lg,
       now: NOW,
@@ -415,8 +415,52 @@ describe("quoteProposals", () => {
       materialId: ids.lg,
       now: NOW,
     });
-    expect(reference).toMatchObject({ medianCents: 305000, count: 1, truncated: false });
+    expect(reference).toMatchObject({
+      reference: { medianCents: 305000, count: 1, truncated: false },
+      truncated: false,
+    });
   });
+
+  test("passando do teto de leitura sem achar cotação, avisa que a janela não foi lida inteira", async () => {
+    const { t, ids, asBuyer } = await seed();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("priceEvents", {
+        materialId: ids.lg,
+        supplierId: ids.dufrio,
+        unitPriceCents: 305000,
+        unit: "un",
+        source: "quote",
+        occurredAt: NOW - 150 * DAY,
+        needsReview: false,
+        reviewStatus: "reviewed",
+        createdAt: NOW,
+      });
+      for (let i = 0; i < 3000; i++) {
+        await ctx.db.insert("priceEvents", {
+          materialId: ids.lg,
+          supplierId: ids.dufrio,
+          unitPriceCents: 1,
+          unit: "un",
+          source: "excel_import",
+          occurredAt: NOW - (1 + (i % 100)) * DAY,
+          reviewStatus: "ignored",
+          needsReview: false,
+          createdAt: NOW,
+        });
+      }
+    });
+    const read = await asBuyer.query(api.priceEvents.materialReference, {
+      materialId: ids.lg,
+      now: NOW,
+    });
+    expect(read).toEqual({ reference: null, truncated: true });
+    const history = await asBuyer.query(api.priceEvents.familyHistory, {
+      materialId: ids.lg,
+      now: NOW,
+    });
+    const lg = history.variants.find((v) => v.materialId === ids.lg)!;
+    expect([lg.reference, lg.referenceTruncated]).toEqual([null, true]);
+  }, 60_000);
 
   test("só quem registra preços cria proposta", async () => {
     const { t, ids } = await seed();
@@ -496,7 +540,7 @@ describe("rodada da semana", () => {
       materialId: ids.lg,
       now: NOW,
     });
-    expect(reference?.medianCents).toBe(307000);
+    expect(reference.reference?.medianCents).toBe(307000);
 
     const midea = week.rows.find((row) => row.materialId === ids.midea)!;
     expect(midea.cells.map((cell) => cell.unitPriceCents)).toEqual([228000, 232000, 235000]);
@@ -640,7 +684,7 @@ describe("o que entra na referência e no limite da proposta", () => {
       materialId: ids.lg,
       now: NOW,
     });
-    expect(reference).toMatchObject({ medianCents: 300000, count: 1 });
+    expect(reference.reference).toMatchObject({ medianCents: 300000, count: 1 });
     const history = await asBuyer.query(api.priceEvents.familyHistory, {
       materialId: ids.lg,
       now: NOW,

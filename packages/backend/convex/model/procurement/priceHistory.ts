@@ -69,14 +69,18 @@ export const REFERENCE_SCAN_LIMIT = 3000;
  * Estimativas digitadas no takeoff e preços descartados na revisão ficam fora.
  * Percorre a janela do mais recente para o mais antigo até juntar
  * REFERENCE_EVENT_LIMIT cotações válidas, então lançamentos descartados não
- * empurram uma cotação válida para fora. `truncated` diz que a janela tinha
- * mais do que isso (ou mais lançamentos do que REFERENCE_SCAN_LIMIT).
+ * empurram uma cotação válida para fora.
+ *
+ * `truncated` (fora de `reference`, para valer mesmo sem referência) diz que a
+ * janela não foi lida inteira: tinha mais cotações válidas do que o limite, ou
+ * mais lançamentos do que REFERENCE_SCAN_LIMIT. Sem cotação válida na parte
+ * lida, `reference` é null e `truncated` avisa que pode haver cotação além.
  */
 export async function materialReferenceStats(
   ctx: QueryCtx,
   material: Pick<Doc<"materials">, "_id" | "unit">,
   now: number
-): Promise<MaterialReference | null> {
+): Promise<MaterialReferenceRead> {
   const eligible: Doc<"priceEvents">[] = [];
   let scanned = 0;
   let truncated = false;
@@ -89,21 +93,30 @@ export async function materialReferenceStats(
         .lte("occurredAt", now)
     )
     .order("desc")) {
-    if (isReferenceQuote(event, material)) {
-      if (eligible.length === REFERENCE_EVENT_LIMIT) {
-        truncated = true;
-        break;
-      }
-      eligible.push(event);
-    }
-    scanned += 1;
+    // Só marca corte quando existe de fato um lançamento além do limite.
     if (scanned === REFERENCE_SCAN_LIMIT) {
       truncated = true;
       break;
     }
+    scanned += 1;
+    if (!isReferenceQuote(event, material)) continue;
+    if (eligible.length === REFERENCE_EVENT_LIMIT) {
+      truncated = true;
+      break;
+    }
+    eligible.push(event);
   }
-  return withTruncation(referenceStatsOf(eligible, material, now), truncated);
+  return {
+    reference: withTruncation(referenceStatsOf(eligible, material, now), truncated),
+    truncated,
+  };
 }
+
+/** A referência lida e se a janela foi lida inteira. */
+export type MaterialReferenceRead = {
+  reference: MaterialReference | null;
+  truncated: boolean;
+};
 
 /** Um lançamento que conta para a referência: cotação de fornecedor na unidade do material. */
 function isReferenceQuote(

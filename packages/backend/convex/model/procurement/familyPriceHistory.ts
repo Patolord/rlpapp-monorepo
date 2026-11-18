@@ -12,6 +12,7 @@ import {
   referenceStatsOf,
   withTruncation,
   type MaterialReference,
+  type MaterialReferenceRead,
   supplierKeyOf,
 } from "./priceHistory";
 import { isSupplierQuote } from "./priceSelection";
@@ -58,6 +59,8 @@ export type FamilyVariant = {
   status: "draft" | "active" | "archived";
   isDefault: boolean;
   reference: MaterialReference | null;
+  /** A janela de 6 meses não foi lida inteira (com ou sem referência calculada). */
+  referenceTruncated: boolean;
 };
 
 function variantStatus(material: Doc<"materials">): FamilyVariant["status"] {
@@ -109,7 +112,7 @@ export async function getFamilyPriceHistory(
 
   const referenceFrom = input.now - REFERENCE_WINDOW_DAYS * DAY_MS;
   const events: Doc<"priceEvents">[] = [];
-  const references = new Map<Id<"materials">, MaterialReference | null>();
+  const references = new Map<Id<"materials">, MaterialReferenceRead>();
   let historyTruncated = false;
   for (const material of materials) {
     const read = await materialEventsBetween(
@@ -131,7 +134,10 @@ export async function getFamilyPriceHistory(
     references.set(
       material._id,
       since <= referenceFrom && !truncated
-        ? withTruncation(referenceStatsOf(recent, material, input.now), false)
+        ? {
+            reference: withTruncation(referenceStatsOf(recent, material, input.now), false),
+            truncated: false,
+          }
         : await materialReferenceStats(ctx, material, input.now)
     );
   }
@@ -179,7 +185,8 @@ export async function getFamilyPriceHistory(
       sku: material.sku ?? null,
       status: variantStatus(material),
       isDefault: material._id === defaultMaterialId,
-      reference: references.get(material._id) ?? null,
+      reference: references.get(material._id)?.reference ?? null,
+      referenceTruncated: references.get(material._id)?.truncated ?? false,
     }))
     .sort(
       (a, b) =>

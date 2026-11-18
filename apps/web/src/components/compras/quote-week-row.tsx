@@ -25,7 +25,7 @@ export function QuoteWeekRow({ row, columns, now }: { row: Row; columns: Column[
     api.priceEvents.materialReference,
     row.materialId && row.materialUnit ? { materialId: row.materialId, now } : "skip"
   );
-  const referenceCents = reference?.medianCents ?? null;
+  const referenceCents = reference?.reference?.medianCents ?? null;
   const cells = new Map(row.cells.map((cell) => [cell.supplierKey, cell]));
   const min = Math.min(...row.cells.map((cell) => cell.unitPriceCents));
   const subtitle = row.materialId

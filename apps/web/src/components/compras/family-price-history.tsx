@@ -133,8 +133,12 @@ export function FamilyPriceHistory({ materialId }: { materialId: Id<"materials">
               {variantLabel(current)}
               {reference
                 ? ` · mediana de ${reference.count} cotações de ${reference.supplierCount} fornecedores em 6 meses`
-                : " · sem cotação nos últimos 6 meses"}
-              {reference?.truncated ? " · amostra das 500 cotações mais recentes" : ""}
+                : current.referenceTruncated
+                  ? " · muitos lançamentos descartados: a janela de 6 meses não foi lida inteira"
+                  : " · sem cotação nos últimos 6 meses"}
+              {reference?.truncated
+                ? ` · amostra: as ${reference.count} cotações mais recentes da janela`
+                : ""}
             </span>
           </Metric>
           <Metric label="Dispersão das cotações">
@@ -344,7 +348,9 @@ function VariantRow({
         <span className="text-xs text-muted-foreground">
           {reference
             ? `${formatCurrency(reference.minCents)} a ${formatCurrency(reference.maxCents)} · ${reference.count} cotações de ${reference.supplierCount} fornecedores`
-            : "sem cotação nos últimos 6 meses"}
+            : variant.referenceTruncated
+              ? "janela de 6 meses não lida inteira (muitos lançamentos descartados)"
+              : "sem cotação nos últimos 6 meses"}
         </span>
       </button>
       <div className="mt-1.5 flex items-center justify-between text-xs">

@@ -104,14 +104,19 @@ export const familyHistory = engineeringOrPurchasingQuery({
 /**
  * Referência de orçamento de um material: mediana das cotações de
  * fornecedores dos últimos 6 meses, faixa, dispersão, variação mensal e
- * situação (ok | wide | stale). Null sem cotação na janela.
+ * situação (ok | wide | stale), em `reference` (null sem cotação na parte
+ * lida). `truncated` diz que a janela não foi lida inteira.
  */
 export const materialReference = engineeringOrPurchasingQuery({
   args: { materialId: v.id("materials"), now: v.number() },
-  returns: v.union(referenceStatsValidator, v.null()),
+  returns: v.object({
+    reference: v.union(referenceStatsValidator, v.null()),
+    /** A janela não foi lida inteira: com reference null, pode haver cotação além. */
+    truncated: v.boolean(),
+  }),
   handler: async (ctx, args) => {
     const material = await ctx.db.get("materials", args.materialId);
-    if (!material) return null;
+    if (!material) return { reference: null, truncated: false };
     return await materialReferenceStats(ctx, material, args.now);
   },
 });

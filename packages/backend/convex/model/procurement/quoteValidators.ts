@@ -152,6 +152,7 @@ export const familyPriceHistoryValidator = v.object({
       ),
       isDefault: v.boolean(),
       reference: v.union(referenceStatsValidator, v.null()),
+      referenceTruncated: v.boolean(),
     })
   ),
   quotes: v.array(

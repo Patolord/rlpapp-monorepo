@@ -186,7 +186,7 @@ async function materialPrices(
     price: pickCurrentPriceEvent(events, now),
     // The whole six-month window by price date (a material quoted often has
     // more than PRICE_EVENT_WINDOW quotes in it), suppliers' quotes only.
-    reference: takeoffReferenceOf(await materialReferenceStats(ctx, material, now)),
+    reference: takeoffReferenceOf((await materialReferenceStats(ctx, material, now)).reference),
   };
 }
 
