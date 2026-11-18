@@ -73,7 +73,8 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   compras: "Materiais, fornecedores, preços, takeoffs e estoque central.",
   estoque: "Movimentações, saldos e estoque central.",
   rh: "Funcionários, folha e ponto.",
-  takeoff: "Login no app desktop RLP Takeoff e leitura do catálogo de materiais.",
+  takeoff:
+    "Login no app desktop RLP Takeoff, leitura do catálogo de materiais e quadro de orçamentos.",
   qr_operator: "App de campo: etiquetas e obras em que está atribuído.",
   client: "Portal do cliente: leitura das obras atribuídas.",
 };
@@ -114,6 +115,8 @@ export const PERMISSIONS = [
   "documentos.read",
   "documentos.write",
   "orcamentos.write",
+  "orcamentos.quadro.read",
+  "orcamentos.quadro.write",
   "assistente.use",
   // Cadastros compartilhados (Backoffice)
   "cadastros.read",
@@ -127,6 +130,9 @@ export const PERMISSIONS = [
   // App desktop RLP Takeoff
   "takeoff.use",
   "takeoff.config",
+  // Arquivos da empresa no SharePoint (sites Projetos e Publico)
+  "arquivos.read",
+  "arquivos.write",
   // Estoque
   "estoque.read",
   "estoque.central.read",
@@ -165,6 +171,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "documentos.read": "Ver documentos das obras",
   "documentos.write": "Gerenciar documentos das obras",
   "orcamentos.write": "Editar orçamentos (takeoffs)",
+  "orcamentos.quadro.read": "Ver quadro de orçamentos",
+  "orcamentos.quadro.write": "Editar quadro de orçamentos",
   "assistente.use": "Assistente IA",
   "cadastros.read": "Ver clientes e empreiteiros",
   "cadastros.write": "Editar clientes e empreiteiros",
@@ -175,6 +183,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "precos.write": "Registrar e revisar preços",
   "takeoff.use": "Usar o app RLP Takeoff",
   "takeoff.config": "Configurar o App Takeoff",
+  "arquivos.read": "Ver arquivos do SharePoint",
+  "arquivos.write": "Salvar arquivos no SharePoint",
   "estoque.read": "Ver estoque",
   "estoque.central.read": "Ver estoque central",
   "estoque.write": "Movimentar estoque central",
@@ -210,6 +220,10 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   "documentos.write": "Enviar, editar e excluir documentos das obras.",
   "orcamentos.write":
     "Criar e editar takeoffs e publicar orçamentos pelo app desktop.",
+  "orcamentos.quadro.read":
+    "Quadro de orçamentos (Para Fazer, Em Andamento...) e a conferência com as pastas da TRELLO.",
+  "orcamentos.quadro.write":
+    "Criar, mover e editar cards do quadro (responsáveis, prazo, notas) e mover as pastas da TRELLO para a etapa do card.",
   "assistente.use": "Assistente IA da obra (gera e aplica layouts).",
   "cadastros.read": "Clientes e empreiteiros (Backoffice).",
   "cadastros.write": "Criar e editar clientes, empreiteiros e contatos.",
@@ -222,6 +236,10 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   "takeoff.use": "Login no app desktop e leitura do catálogo de materiais.",
   "takeoff.config":
     "Kits, pesos, preços base, marcas VRF e mão de obra do app desktop.",
+  "arquivos.read":
+    "Listar, buscar e abrir arquivos das pastas liberadas do SharePoint (Projetos e Publico).",
+  "arquivos.write":
+    "Criar pastas e salvar arquivos nas pastas do SharePoint liberadas para escrita.",
   "estoque.read": "Saldos e movimentações, inclusive das obras.",
   "estoque.central.read": "Estoque central e políticas de reposição.",
   "estoque.write": "Transferir, ajustar, estornar e atender pedidos.",
@@ -265,6 +283,8 @@ export const PERMISSION_GROUPS: readonly {
       "documentos.read",
       "documentos.write",
       "orcamentos.write",
+      "orcamentos.quadro.read",
+      "orcamentos.quadro.write",
       "assistente.use",
     ],
   },
@@ -298,6 +318,11 @@ export const PERMISSION_GROUPS: readonly {
     key: "takeoff",
     label: "App Takeoff",
     permissions: ["takeoff.use", "takeoff.config"],
+  },
+  {
+    key: "arquivos",
+    label: "Arquivos (SharePoint)",
+    permissions: ["arquivos.read", "arquivos.write"],
   },
   {
     key: "estoque",
@@ -349,6 +374,7 @@ export const PERMISSION_DEPENDENCIES: Partial<
   "documentos.read": ["obras.read"],
   "documentos.write": ["documentos.read"],
   "orcamentos.write": ["obras.read", "suprimentos.read"],
+  "orcamentos.quadro.write": ["orcamentos.quadro.read"],
   "assistente.use": ["obras.write"],
   "cadastros.write": ["cadastros.read"],
   "compras.read": ["suprimentos.read"],
@@ -357,6 +383,7 @@ export const PERMISSION_DEPENDENCIES: Partial<
   "precos.write": ["compras.read"],
   "takeoff.use": ["suprimentos.read"],
   "takeoff.config": ["suprimentos.read"],
+  "arquivos.write": ["arquivos.read"],
   "estoque.central.read": ["estoque.read"],
   "estoque.write": ["estoque.read"],
   "estoque.entrada": ["estoque.read"],
@@ -382,6 +409,8 @@ const ENGINEERING: readonly Permission[] = [
   "documentos.read",
   "documentos.write",
   "orcamentos.write",
+  "orcamentos.quadro.read",
+  "orcamentos.quadro.write",
   "assistente.use",
   "cadastros.read",
   "cadastros.write",
@@ -437,7 +466,12 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "rh.ponto.read",
     "rh.ponto.write",
   ],
-  takeoff: ["takeoff.use", "suprimentos.read"],
+  takeoff: [
+    "takeoff.use",
+    "suprimentos.read",
+    "orcamentos.quadro.read",
+    "orcamentos.quadro.write",
+  ],
   qr_operator: [],
   client: [],
 };
@@ -454,6 +488,8 @@ export const PERMISSION_DENIED_MESSAGES: Record<Permission, string> = {
   "documentos.read": "Seu usuário não tem acesso aos documentos das obras",
   "documentos.write": "Seu usuário não pode gerenciar documentos das obras",
   "orcamentos.write": "Seu usuário não pode editar orçamentos",
+  "orcamentos.quadro.read": "Seu usuário não tem acesso ao quadro de orçamentos",
+  "orcamentos.quadro.write": "Seu usuário não pode editar o quadro de orçamentos",
   "assistente.use": "Seu usuário não tem acesso ao assistente IA",
   "cadastros.read": "Seu usuário não tem acesso a clientes e empreiteiros",
   "cadastros.write": "Seu usuário não pode editar clientes e empreiteiros",
@@ -464,6 +500,8 @@ export const PERMISSION_DENIED_MESSAGES: Record<Permission, string> = {
   "precos.write": "Seu usuário não pode registrar ou revisar preços",
   "takeoff.use": "Seu usuário não tem acesso ao app RLP Takeoff",
   "takeoff.config": "Seu usuário não pode configurar o App Takeoff",
+  "arquivos.read": "Seu usuário não tem acesso aos arquivos do SharePoint",
+  "arquivos.write": "Seu usuário não pode salvar arquivos no SharePoint",
   "estoque.read": "Acesso restrito às áreas de estoque, compras ou engenharia",
   "estoque.central.read": "Acesso restrito às equipes de estoque ou compras",
   "estoque.write": "Acesso restrito à equipe de estoque",

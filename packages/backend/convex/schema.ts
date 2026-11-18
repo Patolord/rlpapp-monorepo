@@ -1,4 +1,5 @@
 import { defineSchema } from "convex/server";
+import { budgetBoardTables } from "./schema/budgetBoard";
 import { contractsTables } from "./schema/contracts";
 import { engineeringTables } from "./schema/engineering";
 import { hrTables } from "./schema/hr";
@@ -12,6 +13,7 @@ export default defineSchema({
   ...identityTables,
   ...engineeringTables,
   ...contractsTables,
+  ...budgetBoardTables,
   ...procurementTables,
   ...inventoryTables,
   ...hrTables,

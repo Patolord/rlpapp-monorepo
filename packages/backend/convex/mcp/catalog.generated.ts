@@ -2,54 +2,56 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 47 módulos, 346 funções públicas.
+// 49 módulos, 361 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
 import * as m3 from "../alimonies";
 import * as m4 from "../auditLogs";
-import * as m5 from "../checklists";
-import * as m6 from "../contractors";
-import * as m7 from "../contracts";
-import * as m8 from "../customers";
-import * as m9 from "../dashboard";
-import * as m10 from "../employees";
-import * as m11 from "../environments";
-import * as m12 from "../equipment";
-import * as m13 from "../equipmentHistory";
-import * as m14 from "../floors";
-import * as m15 from "../healthCheck";
-import * as m16 from "../inventory";
-import * as m17 from "../inventoryRequests";
-import * as m18 from "../inventoryStockPolicies";
-import * as m19 from "../maintenanceLogs";
-import * as m20 from "../materials";
-import * as m21 from "../medicoes";
-import * as m22 from "../notifications";
-import * as m23 from "../payroll";
-import * as m24 from "../portal";
-import * as m25 from "../priceEvents";
-import * as m26 from "../projectDocuments";
-import * as m27 from "../projectEquipment";
-import * as m28 from "../projectUnits";
-import * as m29 from "../projects";
-import * as m30 from "../qrCodes";
-import * as m31 from "../reports";
-import * as m32 from "../suppliers";
-import * as m33 from "../systems";
-import * as m34 from "../takeoffAuth";
-import * as m35 from "../takeoffCatalog";
-import * as m36 from "../takeoffEstimates";
-import * as m37 from "../takeoffKits";
-import * as m38 from "../takeoffMaterials";
-import * as m39 from "../takeoffSettings";
-import * as m40 from "../takeoffs";
-import * as m41 from "../technicianActivity";
-import * as m42 from "../technicianPortal";
-import * as m43 from "../timeClock";
-import * as m44 from "../timeClockPunch";
-import * as m45 from "../towers";
-import * as m46 from "../users";
+import * as m5 from "../budgetBoard";
+import * as m6 from "../checklists";
+import * as m7 from "../contractors";
+import * as m8 from "../contracts";
+import * as m9 from "../customers";
+import * as m10 from "../dashboard";
+import * as m11 from "../employees";
+import * as m12 from "../environments";
+import * as m13 from "../equipment";
+import * as m14 from "../equipmentHistory";
+import * as m15 from "../floors";
+import * as m16 from "../healthCheck";
+import * as m17 from "../inventory";
+import * as m18 from "../inventoryRequests";
+import * as m19 from "../inventoryStockPolicies";
+import * as m20 from "../maintenanceLogs";
+import * as m21 from "../materials";
+import * as m22 from "../medicoes";
+import * as m23 from "../notifications";
+import * as m24 from "../payroll";
+import * as m25 from "../portal";
+import * as m26 from "../priceEvents";
+import * as m27 from "../projectDocuments";
+import * as m28 from "../projectEquipment";
+import * as m29 from "../projectUnits";
+import * as m30 from "../projects";
+import * as m31 from "../qrCodes";
+import * as m32 from "../reports";
+import * as m33 from "../sharepoint";
+import * as m34 from "../suppliers";
+import * as m35 from "../systems";
+import * as m36 from "../takeoffAuth";
+import * as m37 from "../takeoffCatalog";
+import * as m38 from "../takeoffEstimates";
+import * as m39 from "../takeoffKits";
+import * as m40 from "../takeoffMaterials";
+import * as m41 from "../takeoffSettings";
+import * as m42 from "../takeoffs";
+import * as m43 from "../technicianActivity";
+import * as m44 from "../technicianPortal";
+import * as m45 from "../timeClock";
+import * as m46 from "../timeClockPunch";
+import * as m47 from "../towers";
+import * as m48 from "../users";
 
 export type AccessHint =
   | { kind: "public" }
@@ -65,48 +67,50 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   aiIntents: m2,
   alimonies: m3,
   auditLogs: m4,
-  checklists: m5,
-  contractors: m6,
-  contracts: m7,
-  customers: m8,
-  dashboard: m9,
-  employees: m10,
-  environments: m11,
-  equipment: m12,
-  equipmentHistory: m13,
-  floors: m14,
-  healthCheck: m15,
-  inventory: m16,
-  inventoryRequests: m17,
-  inventoryStockPolicies: m18,
-  maintenanceLogs: m19,
-  materials: m20,
-  medicoes: m21,
-  notifications: m22,
-  payroll: m23,
-  portal: m24,
-  priceEvents: m25,
-  projectDocuments: m26,
-  projectEquipment: m27,
-  projectUnits: m28,
-  projects: m29,
-  qrCodes: m30,
-  reports: m31,
-  suppliers: m32,
-  systems: m33,
-  takeoffAuth: m34,
-  takeoffCatalog: m35,
-  takeoffEstimates: m36,
-  takeoffKits: m37,
-  takeoffMaterials: m38,
-  takeoffSettings: m39,
-  takeoffs: m40,
-  technicianActivity: m41,
-  technicianPortal: m42,
-  timeClock: m43,
-  timeClockPunch: m44,
-  towers: m45,
-  users: m46,
+  budgetBoard: m5,
+  checklists: m6,
+  contractors: m7,
+  contracts: m8,
+  customers: m9,
+  dashboard: m10,
+  employees: m11,
+  environments: m12,
+  equipment: m13,
+  equipmentHistory: m14,
+  floors: m15,
+  healthCheck: m16,
+  inventory: m17,
+  inventoryRequests: m18,
+  inventoryStockPolicies: m19,
+  maintenanceLogs: m20,
+  materials: m21,
+  medicoes: m22,
+  notifications: m23,
+  payroll: m24,
+  portal: m25,
+  priceEvents: m26,
+  projectDocuments: m27,
+  projectEquipment: m28,
+  projectUnits: m29,
+  projects: m30,
+  qrCodes: m31,
+  reports: m32,
+  sharepoint: m33,
+  suppliers: m34,
+  systems: m35,
+  takeoffAuth: m36,
+  takeoffCatalog: m37,
+  takeoffEstimates: m38,
+  takeoffKits: m39,
+  takeoffMaterials: m40,
+  takeoffSettings: m41,
+  takeoffs: m42,
+  technicianActivity: m43,
+  technicianPortal: m44,
+  timeClock: m45,
+  timeClockPunch: m46,
+  towers: m47,
+  users: m48,
 };
 
 export const ACCESS_HINTS: Record<string, AccessHint> = {
@@ -139,6 +143,16 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "alimonies:updateLine": { kind: "permission", permission: "rh.folha.write" },
   "auditLogs:listByRecord": { kind: "permission", permission: "admin.manage" },
   "auditLogs:listByTable": { kind: "permission", permission: "admin.manage" },
+  "budgetBoard:checkFolders": { kind: "permission", permission: "orcamentos.quadro.read" },
+  "budgetBoard:create": { kind: "permission", permission: "orcamentos.quadro.write" },
+  "budgetBoard:importFolders": { kind: "permission", permission: "orcamentos.quadro.write" },
+  "budgetBoard:linkFolder": { kind: "permission", permission: "orcamentos.quadro.write" },
+  "budgetBoard:list": { kind: "permission", permission: "orcamentos.quadro.read" },
+  "budgetBoard:listAssignees": { kind: "permission", permission: "orcamentos.quadro.read" },
+  "budgetBoard:move": { kind: "permission", permission: "orcamentos.quadro.write" },
+  "budgetBoard:moveFolder": { kind: "permission", permission: "orcamentos.quadro.write" },
+  "budgetBoard:remove": { kind: "permission", permission: "orcamentos.quadro.write" },
+  "budgetBoard:update": { kind: "permission", permission: "orcamentos.quadro.write" },
   "checklists:addItem": { kind: "permission", permission: "obras.write" },
   "checklists:applyTemplate": { kind: "permission", permission: "obras.write" },
   "checklists:createTemplate": { kind: "permission", permission: "obras.write" },
@@ -365,6 +379,11 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "qrCodes:setBatchProject": { kind: "permission", permission: "obras.write" },
   "qrCodes:stats": { kind: "permission", permission: "obras.read" },
   "reports:getProjectReport": { kind: "permission", permission: "obras.read" },
+  "sharepoint:createFolderAt": { kind: "permission", permission: "arquivos.write" },
+  "sharepoint:listFolderContents": { kind: "permission", permission: "arquivos.read" },
+  "sharepoint:listLibraries": { kind: "permission", permission: "arquivos.read" },
+  "sharepoint:readFileContents": { kind: "permission", permission: "arquivos.read" },
+  "sharepoint:saveFile": { kind: "permission", permission: "arquivos.write" },
   "suppliers:addContact": { kind: "permission", permission: "fornecedores.write" },
   "suppliers:bulkCreate": { kind: "permission", permission: "fornecedores.write" },
   "suppliers:create": { kind: "permission", permission: "fornecedores.write" },

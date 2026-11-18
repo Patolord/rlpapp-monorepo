@@ -21,6 +21,8 @@ convex/
   schema/               Tables and shared validators, one file per domain
   model/                Business logic as plain TypeScript functions, by domain
     ai/                 Assistant intents
+    budgetBoard/        Budget kanban (Engenharia → Orçamentos): cards, and the
+                        check against the TRELLO folders on SharePoint
     contracts/          Customers, contractors, contracts, measurements
     engineering/        Projects, hierarchy, systems, equipment, QR codes, documents
     hr/                 Employees, payroll, loans, alimonies, time clock
@@ -29,6 +31,8 @@ convex/
     notifications/      `notify()`: bell entry + push scheduling, called inside the
                         mutation that caused the event, and who receives each one
     procurement/        Materials, suppliers, prices, takeoffs
+    sharepoint/         Company files on SharePoint via Microsoft Graph: allowed
+                        libraries and folders, Graph client, file operations
   lib/                  Cross-cutting infrastructure only: auth, rbac, audit,
                         accessErrors, apiCrypto, agentTokens, takeoffAuth,
                         clerkBackendApi
@@ -152,6 +156,10 @@ raw `query` or `mutation`:
   `inventory*`, `materialRequestsMutation`, `funcionarios*`, `folha*`,
   `ponto*`, `adminQuery`/`adminMutation`. The MCP catalog generator reads
   those declarations, so keep that exact shape.
+- Actions that talk to an external service use `permissionAction("perm",
+  { writes })` (`arquivosReadAction`, `arquivosWriteAction`): the check runs
+  in an internal query, or, with `writes: true`, an internal mutation so a
+  read-only agent token is refused by its stored permission.
 
 ### Per-feature permissions and individual overrides
 

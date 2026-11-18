@@ -116,6 +116,39 @@ const catalog: CatalogEntry[] = [
       },
     },
   },
+  {
+    path: "sharepoint:readFileContents",
+    module: "sharepoint",
+    name: "readFileContents",
+    type: "action",
+    access: { kind: "permission", permission: "arquivos.read" },
+    allowed: true,
+    signature: '{ library: "projetos" | "publico", path: string }',
+    argsValidator: {
+      type: "object",
+      value: {
+        library: { fieldType: { type: "string" }, optional: false },
+        path: { fieldType: { type: "string" }, optional: false },
+      },
+    },
+  },
+  {
+    path: "sharepoint:saveFile",
+    module: "sharepoint",
+    name: "saveFile",
+    type: "action",
+    access: { kind: "permission", permission: "arquivos.write" },
+    allowed: true,
+    signature: '{ library: "projetos" | "publico", path: string, text?: string }',
+    argsValidator: {
+      type: "object",
+      value: {
+        library: { fieldType: { type: "string" }, optional: false },
+        path: { fieldType: { type: "string" }, optional: false },
+        text: { fieldType: { type: "string" }, optional: true },
+      },
+    },
+  },
 ];
 
 function principalFor(permission: "full_access" | "read_only"): McpPrincipal {
@@ -242,6 +275,14 @@ describe("ferramentas derivadas do catálogo", () => {
       required: ["name"],
     });
 
+    // Action marcada readOnly no manifesto é anunciada como leitura; a que grava, não.
+    expect(tools.find((tool) => tool.name === "read_sharepoint_file")?.annotations).toMatchObject({
+      readOnlyHint: true,
+    });
+    expect(tools.find((tool) => tool.name === "save_sharepoint_file")?.annotations).toMatchObject({
+      readOnlyHint: false,
+    });
+
     // Argumentos do servidor (`now`) saem do schema exposto.
     const overview = tools.find((tool) => tool.name === "get_director_overview");
     expect(JSON.stringify(overview?.inputSchema)).not.toContain('"now"');
@@ -315,6 +356,9 @@ describe("ferramentas derivadas do catálogo", () => {
     expect(names).toContain("list_customers");
     expect(names).toContain("call_function");
     expect(names).not.toContain("create_customer");
+    // Actions só de leitura (readOnly no manifesto) continuam; as que gravam saem.
+    expect(names).toContain("read_sharepoint_file");
+    expect(names).not.toContain("save_sharepoint_file");
 
     const write = await client.callTool({
       name: "call_function",
@@ -359,6 +403,24 @@ describe("ferramentas derivadas do catálogo", () => {
       callable: true,
     });
     expect(parsed.matches.find((m) => m.function === "customers:create")).toMatchObject({
+      callable: false,
+    });
+
+    // A busca concorda com as ferramentas registradas: action de leitura sim, de escrita não.
+    const files = await client.callTool({
+      name: "search_functions",
+      arguments: { query: "sharepoint" },
+    });
+    const fileMatches = (
+      JSON.parse((files.content as Array<{ text: string }>)[0]!.text) as {
+        matches: Array<{ function: string; tool?: string; callable: boolean }>;
+      }
+    ).matches;
+    expect(fileMatches.find((m) => m.function === "sharepoint:readFileContents")).toMatchObject({
+      tool: "read_sharepoint_file",
+      callable: true,
+    });
+    expect(fileMatches.find((m) => m.function === "sharepoint:saveFile")).toMatchObject({
       callable: false,
     });
   });
