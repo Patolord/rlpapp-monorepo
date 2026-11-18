@@ -8,10 +8,11 @@ import {
 import { formatCurrency, formatDate } from "@rlpapp/shared";
 import { Link } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { useStableQuery } from "@/hooks/use-stable-query";
 import { PRICE_SOURCE_LABELS } from "@/components/compras/material-price-history";
 import {
   PriceHistoryChart,
@@ -65,7 +66,7 @@ const STATUS_NOTE: Record<ReferenceStats["status"], { label: string; dot: string
  */
 export function FamilyPriceHistory({ materialId }: { materialId: Id<"materials"> }) {
   const now = useNow();
-  const history = useQuery(api.priceEvents.familyHistory, {
+  const history = useStableQuery(api.priceEvents.familyHistory, {
     materialId,
     now,
     monthsBack: MONTHS_BACK,

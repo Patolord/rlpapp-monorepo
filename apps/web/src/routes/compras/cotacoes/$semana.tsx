@@ -1,9 +1,9 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { useState } from "react";
 
+import { useStableQuery } from "@/hooks/use-stable-query";
 import { AuthShell } from "@/components/auth-shell";
 import { QuoteProposalDialog } from "@/components/compras/quote-proposal-dialog";
 import { QuoteWeekMap } from "@/components/compras/quote-week-map";
@@ -28,7 +28,7 @@ function SemanaContent() {
   const { semana } = Route.useParams();
   const weekStart = fromWeekParam(semana);
   const now = useNow();
-  const week = useQuery(api.quoteProposals.week, weekStart === null ? "skip" : { weekStart, now });
+  const week = useStableQuery(api.quoteProposals.week, weekStart === null ? "skip" : { weekStart, now });
   const canRecord = useCan("precos.write");
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);

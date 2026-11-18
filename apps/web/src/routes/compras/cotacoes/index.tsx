@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 
+import { useStableQuery } from "@/hooks/use-stable-query";
 import { AuthShell } from "@/components/auth-shell";
 import { QuoteProposalDialog } from "@/components/compras/quote-proposal-dialog";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,7 @@ function CotacoesContent() {
   // Páginas de semanas: cada cursor é o `before` de uma página (undefined = a mais recente).
   const [cursors, setCursors] = useState<(number | undefined)[]>([undefined]);
   const before = cursors[cursors.length - 1];
-  const page = useQuery(api.quoteProposals.listWeeks, { now, limit: 20, before });
+  const page = useStableQuery(api.quoteProposals.listWeeks, { now, limit: 20, before });
   const weeks = page?.weeks;
   const proposals = useQuery(api.quoteProposals.list, { limit: 20 });
   const canRecord = useCan("precos.write");

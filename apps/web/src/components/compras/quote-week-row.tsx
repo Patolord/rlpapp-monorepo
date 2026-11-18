@@ -1,9 +1,9 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { formatCurrency } from "@rlpapp/shared";
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 
+import { useStableQuery } from "@/hooks/use-stable-query";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { formatSignedPercent } from "@/lib/quote-weeks";
 import { cn } from "@/lib/utils";
@@ -21,7 +21,7 @@ const BEST_CELL =
  * consulta só) e o preço de cada fornecedor, o menor em verde.
  */
 export function QuoteWeekRow({ row, columns, now }: { row: Row; columns: Column[]; now: number }) {
-  const reference = useQuery(
+  const reference = useStableQuery(
     api.priceEvents.materialReference,
     row.materialId && row.materialUnit ? { materialId: row.materialId, now } : "skip"
   );

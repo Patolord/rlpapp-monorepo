@@ -42,12 +42,13 @@ export function dateInputToInstant(value: string): number | null {
 const MINUTE_MS = 60 * 1000;
 
 /**
- * Corte das consultas de histórico: o fim do minuto atual. Arredondar evita
- * trocar os argumentos da consulta a cada render; um preço com horário depois
- * disso (futuro) fica de fora até a hora dele chegar.
+ * Corte das consultas de histórico: o início do minuto atual. Arredondar evita
+ * trocar os argumentos da consulta a cada render; nunca passa do instante
+ * real, então um preço com horário futuro (mesmo segundos à frente) fica de
+ * fora e entra na atualização seguinte.
  */
 export function minuteCutoff(at: number): number {
-  return Math.ceil((at + 1) / MINUTE_MS) * MINUTE_MS - 1;
+  return Math.floor(at / MINUTE_MS) * MINUTE_MS;
 }
 
 /** Validade: o último instante daquele dia em Brasília. */

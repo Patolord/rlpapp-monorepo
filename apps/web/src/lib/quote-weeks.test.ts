@@ -19,11 +19,13 @@ describe("semana na URL", () => {
     expect(fromWeekParam("02/11/2026")).toBeNull();
   });
 
-  test("data da proposta é o início do dia; o corte das consultas, o fim do minuto", () => {
+  test("data da proposta é o início do dia; o corte das consultas, o início do minuto", () => {
     expect(dateInputToInstant("2026-11-18")).toBe(brt(2026, 11, 18, 0));
     const nineOClock = brt(2026, 11, 18, 9);
-    expect(minuteCutoff(nineOClock + 25_000)).toBe(nineOClock + 60_000 - 1);
-    expect(minuteCutoff(nineOClock)).toBe(nineOClock + 60_000 - 1);
+    expect(minuteCutoff(nineOClock + 25_000)).toBe(nineOClock);
+    expect(minuteCutoff(nineOClock)).toBe(nineOClock);
+    // Atualizado às 09:00:25, o corte não deixa entrar uma cotação das 09:00:45.
+    expect(nineOClock + 45_000).toBeGreaterThan(minuteCutoff(nineOClock + 25_000));
     // Uma cotação das 15h não passa no corte das 9h.
     expect(brt(2026, 11, 18, 15)).toBeGreaterThan(minuteCutoff(nineOClock));
   });
