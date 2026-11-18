@@ -105,6 +105,15 @@ describe("priceEstimate", () => {
     expect(lines[1]).toMatchObject({ laborUnitPrice: 8, materialUnitPrice: 0, priceSource: "sem_preco" });
   });
 
+  it("reads `mt` as metres", () => {
+    const { lines } = priceEstimate([line({ name: "Duto" })], {
+      materials: [{ id: "d", sku: null, name: "Duto", unit: "mt", materialPrice: 12, laborPrice: 0 }],
+      weights: [],
+      basePrices: null,
+    });
+    expect(lines[0]).toMatchObject({ materialUnitPrice: 12, priceSource: "catalogo" });
+  });
+
   it("totals without BDI when none is given", () => {
     const { totals } = priceEstimate([line({ name: 'Tubulação de Cobre 1/4"' })], catalog);
     expect(totals).toMatchObject({ subtotal: 350, bdiPercent: 0, bdi: 0, total: 350 });

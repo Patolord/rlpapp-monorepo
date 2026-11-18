@@ -131,30 +131,39 @@ export function lineSetForCapacity(
 export const SPLIT_MACHINE_TYPES = ["Hi Wall", "Cassete", "Piso-teto", "Duto"] as const;
 export type SplitMachineType = (typeof SPLIT_MACHINE_TYPES)[number];
 
+/** Name of the machines of a type and capacity whose value was typed while others of it were not. */
+export const TYPED_MACHINE_SUFFIX = " · valor informado";
+
 /**
- * Machine lines of the same name (two rows of the same type and capacity) as one line whose typed
- * price is the average of the rows' typed prices, weighted by quantity, so the subtotal keeps
- * every row's value (`mergeLines` would keep only the first price).
+ * Machine lines of the same name (two rows of the same type and capacity), so the subtotal keeps
+ * every row's value (`mergeLines` would keep only the first price): the rows with a typed price
+ * become one line at their average weighted by quantity, the rows left to the catalog one line
+ * at the catalog's price. When both kinds exist, the typed one is named apart.
  */
 function mergeMachines(lines: readonly EstimateLine[]): EstimateLine[] {
-  const out = new Map<string, { line: EstimateLine; typedQty: number; typedValue: number }>();
+  const groups = new Map<string, { line: EstimateLine; typedQty: number; typedValue: number; catalogQty: number }>();
   for (const l of lines) {
-    const prev = out.get(l.name);
+    const g = groups.get(l.name) ?? { line: l, typedQty: 0, typedValue: 0, catalogQty: 0 };
     const typed = l.price?.material;
-    const typedQty = typed !== undefined ? l.qty : 0;
-    const typedValue = typed !== undefined ? l.qty * typed : 0;
-    if (!prev) out.set(l.name, { line: { ...l }, typedQty, typedValue });
-    else {
-      prev.line.qty += l.qty;
-      prev.typedQty += typedQty;
-      prev.typedValue += typedValue;
-    }
+    if (typed !== undefined) {
+      g.typedQty += l.qty;
+      g.typedValue += l.qty * typed;
+    } else g.catalogQty += l.qty;
+    groups.set(l.name, g);
   }
-  return [...out.values()].map(({ line, typedQty, typedValue }) =>
-    typedQty > 0
-      ? { ...line, price: { material: Math.round((typedValue / typedQty) * 100) / 100 } }
-      : line,
-  );
+  return [...groups.values()].flatMap(({ line, typedQty, typedValue, catalogQty }) => {
+    const out: EstimateLine[] = [];
+    if (catalogQty > 0) out.push({ ...line, qty: catalogQty, price: undefined });
+    if (typedQty > 0) {
+      out.push({
+        ...line,
+        name: catalogQty > 0 ? `${line.name}${TYPED_MACHINE_SUFFIX}` : line.name,
+        qty: typedQty,
+        price: { material: Math.round((typedValue / typedQty) * 100) / 100 },
+      });
+    }
+    return out;
+  });
 }
 
 const AC_INFRA = "Infra AC";

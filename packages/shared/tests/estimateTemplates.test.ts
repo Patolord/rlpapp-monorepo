@@ -96,6 +96,18 @@ describe("split installation", () => {
     });
   });
 
+  it("keeps catalog-priced and typed machines of the same kind apart", () => {
+    const lines = split({
+      machines: [machine({ qty: 2 }), machine({ qty: 1, price: 4000 })],
+    });
+    expect(byName(lines, "Split Hi Wall 12.000 Btu/h")).toMatchObject({ qty: 2 });
+    expect(byName(lines, "Split Hi Wall 12.000 Btu/h")?.price).toBeUndefined();
+    expect(byName(lines, "Split Hi Wall 12.000 Btu/h · valor informado")).toMatchObject({
+      qty: 1,
+      price: { material: 4000 },
+    });
+  });
+
   it("generates nothing without machines", () => {
     expect(split({ machines: [machine({ qty: 0 })], labor: 450 })).toEqual([]);
   });

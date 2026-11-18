@@ -68,7 +68,7 @@ const UNIT: Record<EstimateLine["kind"], string> = { count: "pç", linear: "m", 
 function budgetUnit(unit: string): string {
   const u = foldEstimateName(unit.trim()).replace(/\.$/, "");
   if (["pc", "pç", "pca", "peca", "un", "und", "unid", "unidade"].includes(u)) return "pç";
-  if (["m", "metro", "metros", "ml"].includes(u)) return "m";
+  if (["m", "mt", "mts", "metro", "metros", "ml"].includes(u)) return "m";
   if (["m2", "m²"].includes(u)) return "m²";
   return u;
 }

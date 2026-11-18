@@ -350,8 +350,12 @@ export function kitComponentEntry(
   // a kit's `Tubulação de Cobre 1/2"` is the weight table's `Tubo de cobre 1/2"`: same tube size
   const size = kitFamily(component.name) === "cobre" ? inchSize(component.name) : undefined;
   if (size === undefined) return undefined;
+  // the company's quote first (entries list it before the weight table), then the kg/m row
   return entries.find(
-    (e) => e.kgPerUnit && kitFamily(e.name) === "cobre" && inchSize(e.name) === size,
+    (e) =>
+      (e.kgPerUnit || (e.materialPrice > 0 && kindForUnit(e.unit) === "linear")) &&
+      kitFamily(e.name) === "cobre" &&
+      inchSize(e.name) === size,
   );
 }
 
