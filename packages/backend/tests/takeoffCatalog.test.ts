@@ -289,6 +289,7 @@ describe("takeoffCatalog.current", () => {
       "priceDate",
       "priceEventId",
       "priceValidUntil",
+      "reference",
       "sku",
       "status",
       "system",

@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 48 módulos, 359 funções públicas.
+// 49 módulos, 368 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -35,22 +35,23 @@ import * as m28 from "../projectEquipment";
 import * as m29 from "../projectUnits";
 import * as m30 from "../projects";
 import * as m31 from "../qrCodes";
-import * as m32 from "../reports";
-import * as m33 from "../sharepoint";
-import * as m34 from "../suppliers";
-import * as m35 from "../systems";
-import * as m36 from "../takeoffAuth";
-import * as m37 from "../takeoffCatalog";
-import * as m38 from "../takeoffKits";
-import * as m39 from "../takeoffMaterials";
-import * as m40 from "../takeoffSettings";
-import * as m41 from "../takeoffs";
-import * as m42 from "../technicianActivity";
-import * as m43 from "../technicianPortal";
-import * as m44 from "../timeClock";
-import * as m45 from "../timeClockPunch";
-import * as m46 from "../towers";
-import * as m47 from "../users";
+import * as m32 from "../quoteProposals";
+import * as m33 from "../reports";
+import * as m34 from "../sharepoint";
+import * as m35 from "../suppliers";
+import * as m36 from "../systems";
+import * as m37 from "../takeoffAuth";
+import * as m38 from "../takeoffCatalog";
+import * as m39 from "../takeoffKits";
+import * as m40 from "../takeoffMaterials";
+import * as m41 from "../takeoffSettings";
+import * as m42 from "../takeoffs";
+import * as m43 from "../technicianActivity";
+import * as m44 from "../technicianPortal";
+import * as m45 from "../timeClock";
+import * as m46 from "../timeClockPunch";
+import * as m47 from "../towers";
+import * as m48 from "../users";
 
 export type AccessHint =
   | { kind: "public" }
@@ -93,22 +94,23 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   projectUnits: m29,
   projects: m30,
   qrCodes: m31,
-  reports: m32,
-  sharepoint: m33,
-  suppliers: m34,
-  systems: m35,
-  takeoffAuth: m36,
-  takeoffCatalog: m37,
-  takeoffKits: m38,
-  takeoffMaterials: m39,
-  takeoffSettings: m40,
-  takeoffs: m41,
-  technicianActivity: m42,
-  technicianPortal: m43,
-  timeClock: m44,
-  timeClockPunch: m45,
-  towers: m46,
-  users: m47,
+  quoteProposals: m32,
+  reports: m33,
+  sharepoint: m34,
+  suppliers: m35,
+  systems: m36,
+  takeoffAuth: m37,
+  takeoffCatalog: m38,
+  takeoffKits: m39,
+  takeoffMaterials: m40,
+  takeoffSettings: m41,
+  takeoffs: m42,
+  technicianActivity: m43,
+  technicianPortal: m44,
+  timeClock: m45,
+  timeClockPunch: m46,
+  towers: m47,
+  users: m48,
 };
 
 export const ACCESS_HINTS: Record<string, AccessHint> = {
@@ -308,10 +310,12 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "portal:listMyProjects": { kind: "authenticated" },
   "priceEvents:add": { kind: "permission", permission: "precos.write" },
   "priceEvents:dashboardStats": { kind: "permission", permission: "suprimentos.read" },
+  "priceEvents:familyHistory": { kind: "permission", permission: "suprimentos.read" },
   "priceEvents:historyForMaterial": { kind: "permission", permission: "suprimentos.read" },
   "priceEvents:latestForMaterial": { kind: "permission", permission: "suprimentos.read" },
   "priceEvents:list": { kind: "permission", permission: "suprimentos.read" },
   "priceEvents:reviewQueue": { kind: "permission", permission: "compras.read" },
+  "priceEvents:setFamilyDefaultVariant": { kind: "permission", permission: "precos.write" },
   "priceEvents:suggestEstimate": { kind: "permission", permission: "suprimentos.read" },
   "priceEvents:updateReview": { kind: "permission", permission: "precos.write" },
   "projectDocuments:create": { kind: "permission", permission: "documentos.write" },
@@ -376,6 +380,13 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "qrCodes:search": { kind: "permission", permission: "obras.read" },
   "qrCodes:setBatchProject": { kind: "permission", permission: "obras.write" },
   "qrCodes:stats": { kind: "permission", permission: "obras.read" },
+  "quoteProposals:create": { kind: "permission", permission: "precos.write" },
+  "quoteProposals:get": { kind: "permission", permission: "suprimentos.read" },
+  "quoteProposals:linkPriceEvents": { kind: "permission", permission: "precos.write" },
+  "quoteProposals:list": { kind: "permission", permission: "suprimentos.read" },
+  "quoteProposals:listWeeks": { kind: "permission", permission: "suprimentos.read" },
+  "quoteProposals:update": { kind: "permission", permission: "precos.write" },
+  "quoteProposals:week": { kind: "permission", permission: "suprimentos.read" },
   "reports:getProjectReport": { kind: "permission", permission: "obras.read" },
   "sharepoint:createFolderAt": { kind: "permission", permission: "arquivos.write" },
   "sharepoint:listFolderContents": { kind: "permission", permission: "arquivos.read" },

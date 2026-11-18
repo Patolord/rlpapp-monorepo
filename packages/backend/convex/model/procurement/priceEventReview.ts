@@ -29,6 +29,8 @@ export type AddPriceEventInput = {
   takeoffItemId?: Id<"takeoffItems">;
   dimensions?: MaterialDimensions;
   notes?: string;
+  /** Proposta do fornecedor que trouxe o preço (ver quoteProposals). */
+  quoteProposalId?: Id<"quoteProposals">;
 };
 
 /**
@@ -99,6 +101,7 @@ export async function addPriceEvent(
     takeoffItemId: input.takeoffItemId,
     dimensions,
     notes: input.notes?.trim() || undefined,
+    quoteProposalId: input.quoteProposalId,
     reviewStatus: needsReview ? "unreviewed" : "reviewed",
     needsReview,
     createdAt: now,

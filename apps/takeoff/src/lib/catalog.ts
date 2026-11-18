@@ -45,6 +45,7 @@ import {
   sameRecord,
 } from "./overrides";
 import { isTauri } from "./platform";
+import { type PriceReference, parsePriceReference } from "./priceReference";
 import { foldName } from "./text";
 import { DEFAULT_GROUP } from "./types";
 import type { Kind } from "./units";
@@ -84,6 +85,11 @@ export interface CatalogEntry {
   /** Company catalog only: when the price was quoted and until when it holds (ms epoch). */
   priceDate?: number;
   priceValidUntil?: number;
+  /**
+   * Company catalog only: the budget reference from every supplier's quotes of the last six
+   * months (median, range, spread). `materialPrice` stays the latest quote.
+   */
+  reference?: PriceReference;
   /** Company catalog only: "draft" was proposed from a takeoff and awaits purchasing. */
   status?: "draft" | "active";
   /** Priced by weight (see lib/weights): base material key and kg per unit; the price derives. */
@@ -655,6 +661,7 @@ export function parseRemoteCatalogResponse(json: unknown): RemoteCatalog {
       description,
       priceDate: ms(o.priceDate),
       priceValidUntil: ms(o.priceValidUntil),
+      reference: parsePriceReference(o.reference),
       status: o.status === "draft" ? "draft" : catalogId ? "active" : undefined,
     });
   }

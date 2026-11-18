@@ -26,6 +26,11 @@ import {
   priceEventValidator,
   priceHistoryValidator,
 } from "./model/procurement/priceEventValidators";
+import {
+  getFamilyPriceHistory,
+  setFamilyDefaultVariant as setDefaultVariant,
+} from "./model/procurement/familyPriceHistory";
+import { familyPriceHistoryValidator } from "./model/procurement/quoteValidators";
 
 export const list = engineeringOrPurchasingQuery({
   args: {
@@ -33,6 +38,10 @@ export const list = engineeringOrPurchasingQuery({
     materialId: v.optional(v.id("materials")),
     projectId: v.optional(v.id("projects")),
     takeoffId: v.optional(v.id("takeoffs")),
+    supplierId: v.optional(v.id("suppliers")),
+    /** Período de `occurredAt` (ms, inclusivo). */
+    from: v.optional(v.number()),
+    to: v.optional(v.number()),
     limit: v.optional(v.number()),
   },
   returns: v.array(priceEventValidator),
@@ -69,6 +78,38 @@ export const historyForMaterial = engineeringOrPurchasingQuery({
   },
 });
 
+/**
+ * Histórico de um equipamento comparável: a família do material (ou a
+ * informada), cada variante com a referência de orçamento (mediana dos últimos
+ * 6 meses, faixa, dispersão, variação mensal) e todas as cotações dos últimos
+ * `monthsBack` meses (12 por padrão), de todos os fornecedores.
+ */
+export const familyHistory = engineeringOrPurchasingQuery({
+  args: {
+    familyId: v.optional(v.id("materialFamilies")),
+    materialId: v.optional(v.id("materials")),
+    now: v.number(),
+    monthsBack: v.optional(v.number()),
+  },
+  returns: familyPriceHistoryValidator,
+  handler: async (ctx, args) => {
+    return await getFamilyPriceHistory(ctx, args);
+  },
+});
+
+/** Escolhe a variante de referência de preço da família (null limpa). */
+export const setFamilyDefaultVariant = precosMutation({
+  args: {
+    familyId: v.id("materialFamilies"),
+    materialId: v.union(v.id("materials"), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await setDefaultVariant(ctx, ctx.user, args);
+    return null;
+  },
+});
+
 export const add = precosMutation({
   args: {
     rawDescription: v.optional(v.string()),
@@ -92,6 +133,8 @@ export const add = precosMutation({
     /** Medidas do item cotado (fabricados sob medida). */
     dimensions: v.optional(materialDimensions),
     notes: v.optional(v.string()),
+    /** Proposta do fornecedor de onde veio o preço (quoteProposals). */
+    quoteProposalId: v.optional(v.id("quoteProposals")),
   },
   returns: v.id("priceEvents"),
   handler: async (ctx, args) => {

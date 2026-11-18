@@ -150,6 +150,7 @@ import type * as model_procurement_desktopBudget from "../model/procurement/desk
 import type * as model_procurement_desktopBudgetRemoval from "../model/procurement/desktopBudgetRemoval.js";
 import type * as model_procurement_desktopPublishOptions from "../model/procurement/desktopPublishOptions.js";
 import type * as model_procurement_estimateSuggestion from "../model/procurement/estimateSuggestion.js";
+import type * as model_procurement_familyPriceHistory from "../model/procurement/familyPriceHistory.js";
 import type * as model_procurement_materialCatalogRows from "../model/procurement/materialCatalogRows.js";
 import type * as model_procurement_materialIdentity from "../model/procurement/materialIdentity.js";
 import type * as model_procurement_materialImport from "../model/procurement/materialImport.js";
@@ -165,6 +166,8 @@ import type * as model_procurement_priceEvents from "../model/procurement/priceE
 import type * as model_procurement_priceHistory from "../model/procurement/priceHistory.js";
 import type * as model_procurement_priceSelection from "../model/procurement/priceSelection.js";
 import type * as model_procurement_pricing from "../model/procurement/pricing.js";
+import type * as model_procurement_quoteProposals from "../model/procurement/quoteProposals.js";
+import type * as model_procurement_quoteValidators from "../model/procurement/quoteValidators.js";
 import type * as model_procurement_seedLaborPrices from "../model/procurement/seedLaborPrices.js";
 import type * as model_procurement_supplierImport from "../model/procurement/supplierImport.js";
 import type * as model_procurement_supplierMaterials from "../model/procurement/supplierMaterials.js";
@@ -194,6 +197,7 @@ import type * as projectUnits from "../projectUnits.js";
 import type * as projects from "../projects.js";
 import type * as push from "../push.js";
 import type * as qrCodes from "../qrCodes.js";
+import type * as quoteProposals from "../quoteProposals.js";
 import type * as reports from "../reports.js";
 import type * as schema_budgetBoard from "../schema/budgetBoard.js";
 import type * as schema_contracts from "../schema/contracts.js";
@@ -369,6 +373,7 @@ declare const fullApi: ApiFromModules<{
   "model/procurement/desktopBudgetRemoval": typeof model_procurement_desktopBudgetRemoval;
   "model/procurement/desktopPublishOptions": typeof model_procurement_desktopPublishOptions;
   "model/procurement/estimateSuggestion": typeof model_procurement_estimateSuggestion;
+  "model/procurement/familyPriceHistory": typeof model_procurement_familyPriceHistory;
   "model/procurement/materialCatalogRows": typeof model_procurement_materialCatalogRows;
   "model/procurement/materialIdentity": typeof model_procurement_materialIdentity;
   "model/procurement/materialImport": typeof model_procurement_materialImport;
@@ -384,6 +389,8 @@ declare const fullApi: ApiFromModules<{
   "model/procurement/priceHistory": typeof model_procurement_priceHistory;
   "model/procurement/priceSelection": typeof model_procurement_priceSelection;
   "model/procurement/pricing": typeof model_procurement_pricing;
+  "model/procurement/quoteProposals": typeof model_procurement_quoteProposals;
+  "model/procurement/quoteValidators": typeof model_procurement_quoteValidators;
   "model/procurement/seedLaborPrices": typeof model_procurement_seedLaborPrices;
   "model/procurement/supplierImport": typeof model_procurement_supplierImport;
   "model/procurement/supplierMaterials": typeof model_procurement_supplierMaterials;
@@ -413,6 +420,7 @@ declare const fullApi: ApiFromModules<{
   projects: typeof projects;
   push: typeof push;
   qrCodes: typeof qrCodes;
+  quoteProposals: typeof quoteProposals;
   reports: typeof reports;
   "schema/budgetBoard": typeof schema_budgetBoard;
   "schema/contracts": typeof schema_contracts;
