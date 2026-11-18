@@ -63,7 +63,9 @@ export async function newProject(
     await openPdfFiles(pdfs);
     return true;
   }
-  store.setStatus(`Takeoff "${project.name}" criado. Adicione as plantas (PDF) com ${mod("O")}.`);
+  store.setStatus(
+    `Takeoff "${project.name}" criado. Use as calculadoras de estimativa (E) ou adicione plantas (PDF) com ${mod("O")}.`,
+  );
   return true;
 }
 
