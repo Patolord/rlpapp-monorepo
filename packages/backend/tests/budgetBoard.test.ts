@@ -183,6 +183,18 @@ describe("cards do quadro", () => {
     ).rejects.toThrow("Responsável inexistente ou inativo");
   });
 
+  test("orçamentista com só o acesso App Takeoff vê e edita o quadro, sem ver obras", async () => {
+    const t = setup();
+    const asTakeoff = await withUser(t, { clerkId: "orc1", name: "Orçamentista", roles: ["takeoff"] });
+    const cardId = await asTakeoff.mutation(api.budgetBoard.create, { title: "Obra N7", stage: "para_fazer" });
+    await asTakeoff.mutation(api.budgetBoard.move, { cardId, stage: "em_andamento", index: 0 });
+    const board = await asTakeoff.query(api.budgetBoard.list, {});
+    expect(board.cards.map((c) => [c.title, c.stage])).toEqual([["Obra N7", "em_andamento"]]);
+    const assignees = await asTakeoff.query(api.budgetBoard.listAssignees, {});
+    expect(assignees.map((user) => user.name)).toContain("Orçamentista");
+    await expect(asTakeoff.query(api.projects.list, {})).rejects.toThrow();
+  });
+
   test("sem o quadro no acesso não lê nem escreve", async () => {
     const t = setup();
     const asOther = await withUser(t, {

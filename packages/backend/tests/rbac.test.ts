@@ -197,8 +197,11 @@ describe("users.getCurrentUser", () => {
     const me = await asCompras.query(api.users.getCurrentUser, {});
     expect(me?.isStaff).toBe(true);
     expect(me?.homeArea).toBe("compras");
-    // Cadastro legado de compras: ganha também o app Takeoff (já entrava nele).
+    // Cadastro legado de compras: ganha também o app Takeoff (já entrava nele),
+    // e com ele o quadro de orçamentos.
     expect(me?.permissions).toEqual([
+      "orcamentos.quadro.read",
+      "orcamentos.quadro.write",
       "suprimentos.read",
       "compras.read",
       "materiais.write",

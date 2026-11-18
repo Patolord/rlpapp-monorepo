@@ -73,7 +73,8 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   compras: "Materiais, fornecedores, preços, takeoffs e estoque central.",
   estoque: "Movimentações, saldos e estoque central.",
   rh: "Funcionários, folha e ponto.",
-  takeoff: "Login no app desktop RLP Takeoff e leitura do catálogo de materiais.",
+  takeoff:
+    "Login no app desktop RLP Takeoff, leitura do catálogo de materiais e quadro de orçamentos.",
   qr_operator: "App de campo: etiquetas e obras em que está atribuído.",
   client: "Portal do cliente: leitura das obras atribuídas.",
 };
@@ -373,7 +374,6 @@ export const PERMISSION_DEPENDENCIES: Partial<
   "documentos.read": ["obras.read"],
   "documentos.write": ["documentos.read"],
   "orcamentos.write": ["obras.read", "suprimentos.read"],
-  "orcamentos.quadro.read": ["obras.read"],
   "orcamentos.quadro.write": ["orcamentos.quadro.read"],
   "assistente.use": ["obras.write"],
   "cadastros.write": ["cadastros.read"],
@@ -466,7 +466,12 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "rh.ponto.read",
     "rh.ponto.write",
   ],
-  takeoff: ["takeoff.use", "suprimentos.read"],
+  takeoff: [
+    "takeoff.use",
+    "suprimentos.read",
+    "orcamentos.quadro.read",
+    "orcamentos.quadro.write",
+  ],
   qr_operator: [],
   client: [],
 };

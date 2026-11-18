@@ -74,7 +74,7 @@ interface NavGroup {
 }
 
 // Um grupo por departamento, mais os cadastros compartilhados (Backoffice),
-// a configuração do app desktop (App Takeoff), a administração
+// o quadro de orçamentos, a configuração do app desktop (App Takeoff), a administração
 // (Configurações) e a área pessoal. Códigos QR são gerenciados dentro de cada
 // obra, por isso não aparecem aqui.
 function getNavGroups(): NavGroup[] {
@@ -90,13 +90,12 @@ function getNavGroups(): NavGroup[] {
           icon: FileText,
           permission: "contratos.read",
         },
-        {
-          to: "/engenharia/orcamentos",
-          label: "Orçamentos",
-          icon: FolderKanban,
-          permission: "orcamentos.quadro.read",
-        },
       ],
+    },
+    {
+      key: "orcamentos",
+      label: "Orçamentos",
+      items: [{ to: "/orcamentos", label: "Quadro de orçamentos", icon: FolderKanban }],
     },
     {
       key: "compras",
