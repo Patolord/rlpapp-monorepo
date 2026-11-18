@@ -168,13 +168,6 @@ export const SPLIT_TEMPLATE: EstimateTemplate = {
     },
     { key: "machine", label: "Incluir as máquinas", type: "toggle", default: true },
     {
-      key: "drain",
-      label: "Dreno por máquina",
-      type: "number",
-      unit: "m",
-      default: 3,
-    },
-    {
       key: "labor",
       label: "Mão de obra por evaporadora",
       type: "money",
@@ -202,8 +195,8 @@ export const SPLIT_TEMPLATE: EstimateTemplate = {
       evaporators += n;
       const btu = capacityOf(kit);
       const type = MACHINE_TYPES.includes(String(r.type)) ? String(r.type) : MACHINE_TYPES[0];
+      // the line set only: drain, brackets and electrical points are other trades' scope
       out.push(...kitLines(kit, n, cellNum(r, "meters")));
-      out.push(linear("Tubo PVC 25 mm (dreno)", "Tubulações", AC_INFRA, n * num(v, "drain")));
       if (on(v, "machine")) {
         const price = cellNum(r, "price");
         equipment.push(

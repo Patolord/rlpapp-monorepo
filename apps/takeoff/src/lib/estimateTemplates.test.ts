@@ -38,7 +38,6 @@ describe("split installation", () => {
         machine({ lineSet: "kit-24-000-inverter", qty: 2, meters: 12 }),
         machine({ type: "Cassete", lineSet: "kit-18-000-inverter", qty: 2, meters: 12 }),
       ],
-      drain: 4,
     });
     expect(byName(lines, 'Tubulação de Cobre 1/4"')?.qty).toBe(10 + 24);
     expect(byName(lines, 'Tubulação de Cobre 1/2"')?.qty).toBe(34);
@@ -46,16 +45,15 @@ describe("split installation", () => {
     expect(byName(lines, 'Isolamento Polipex 5/8"')?.qty).toBe(24);
     // interconnect cable both ways
     expect(byName(lines, "Cabo PP 5x1,5 mm²")?.qty).toBe(2 * (34 + 24));
-    expect(byName(lines, "Tubo PVC 25 mm (dreno)")?.qty).toBe(5 * 4);
     expect(byName(lines, "Split Hi Wall 18.000 Btu/h")?.qty).toBe(1);
     expect(byName(lines, "Split Hi Wall 24.000 Btu/h")?.qty).toBe(2);
     expect(byName(lines, "Split Cassete 18.000 Btu/h")?.qty).toBe(2);
     // the machines come after every line material
     const firstMachine = lines.findIndex((l) => l.name.startsWith("Split"));
-    expect(firstMachine).toBeGreaterThan(lines.findIndex((l) => l.name.includes("dreno")));
+    expect(firstMachine).toBeGreaterThan(lines.findIndex((l) => l.name.startsWith("Cabo")));
     expect(lines.slice(firstMachine).every((l) => l.group === "Equipamentos")).toBe(true);
-    // brackets and pads are out of scope
-    expect(lines.some((l) => l.name.includes("Suporte"))).toBe(false);
+    // drain, brackets and pads are out of scope
+    expect(lines.some((l) => /dreno|Suporte/i.test(l.name))).toBe(false);
     // no labour line unless a rate is typed
     expect(lines.some((l) => l.group === "Mão de Obra")).toBe(false);
   });
@@ -88,9 +86,7 @@ describe("split installation", () => {
     expect(without.length).toBeGreaterThan(0);
   });
 
-  it("drops what is zero and generates nothing without machines", () => {
-    const lines = split({ drain: 0 });
-    expect(lines.some((l) => l.name.includes("dreno"))).toBe(false);
+  it("generates nothing without machines", () => {
     expect(split({ machines: [machine({ qty: 0 })], labor: 450 })).toEqual([]);
   });
 
@@ -131,14 +127,14 @@ describe("templateValues", () => {
       {
         machines: [{ type: "Janela", lineSet: "kit-gone", qty: 4, meters: -3 }],
         machine: "yes",
-        drain: 2,
+        labor: 300,
       },
       SEED_KITS,
     );
     expect(v).toMatchObject({
       machines: [{ type: "Hi Wall", lineSet: "kit-12-000-inverter", qty: 4, meters: 8, price: 0 }],
       machine: true,
-      drain: 2,
+      labor: 300,
     });
   });
 
