@@ -17,6 +17,8 @@ export interface PriceReference {
   lastAt: number;
   /** ok; wide = spread above 10%; stale = no quote in 90 days. */
   status: "ok" | "wide" | "stale";
+  /** More quotes in the window than the catalog reads: the most recent ones are used. */
+  truncated?: boolean;
 }
 
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
@@ -37,6 +39,7 @@ export function parsePriceReference(json: unknown): PriceReference | undefined {
     monthlyChange: isNum(o.monthlyChange) ? o.monthlyChange : undefined,
     lastAt: o.lastAt,
     status,
+    truncated: o.truncated === true ? true : undefined,
   };
 }
 

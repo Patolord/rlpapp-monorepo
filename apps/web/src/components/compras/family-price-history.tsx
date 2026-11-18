@@ -242,7 +242,7 @@ export function FamilyPriceHistory({ materialId }: { materialId: Id<"materials">
             {history.quotes.length} cotações de fornecedores dos últimos {MONTHS_BACK} meses, mais recentes
             primeiro.
             {history.historyTruncated
-              ? " Alguma variante tem mais cotações do que a página carrega: aparecem as mais recentes (a referência usa os 6 meses inteiros)."
+              ? " Alguma variante tem mais cotações do que a página carrega: aparecem as mais recentes A referência tem leitura própria dos 6 meses e avisa no resumo quando também é amostra."
               : ""}
           </p>
         </CardHeader>

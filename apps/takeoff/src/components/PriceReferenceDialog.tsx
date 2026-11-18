@@ -39,6 +39,7 @@ export function PriceReferenceButton({
     `Referência ${currency(reference.price)} (mediana de ${reference.count} cotações de ${reference.supplierCount} ${reference.supplierCount === 1 ? "fornecedor" : "fornecedores"})`,
     off !== null ? `Esta linha está ${signedPercent(off)} da referência` : null,
     describeReferenceStatus(reference),
+    reference.truncated ? "Amostra das 500 cotações mais recentes dos 6 meses" : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -159,6 +160,7 @@ export function PriceReferenceDialog({
             }
           >
             {describeReferenceStatus(reference)}
+            {reference.truncated ? " (amostra das 500 cotações mais recentes)" : ""}
           </p>
         </section>
 

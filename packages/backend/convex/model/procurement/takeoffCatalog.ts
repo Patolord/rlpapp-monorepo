@@ -4,8 +4,7 @@ import type { QueryCtx } from "../../_generated/server";
 import { normalizeUnit } from "./catalog";
 import { describeMaterial } from "./materialLookup";
 import { materialStatus } from "../../schema/procurement";
-import type { ReferenceStats } from "@rlpapp/shared/compras/priceReference";
-import { materialReferenceStats } from "./priceHistory";
+import { materialReferenceStats, type MaterialReference } from "./priceHistory";
 import { centsToReais, pickCurrentPriceEvent } from "./priceSelection";
 
 /**
@@ -33,6 +32,8 @@ export const takeoffPriceReferenceValidator = v.object({
   lastAt: v.number(),
   /** ok; wide = spread above 10%; stale = no quote in 90 days. */
   status: v.union(v.literal("ok"), v.literal("wide"), v.literal("stale")),
+  /** More quotes in the window than one read takes: the most recent ones are used. */
+  truncated: v.boolean(),
 });
 
 export type TakeoffPriceReference = {
@@ -45,6 +46,7 @@ export type TakeoffPriceReference = {
   monthlyChange: number | null;
   lastAt: number;
   status: "ok" | "wide" | "stale";
+  truncated: boolean;
 };
 
 export const takeoffCatalogItemValidator = v.object({
@@ -151,7 +153,7 @@ export function toTakeoffCatalogItem(
 
 /** The catalog shape (reais) of a material's budget reference. */
 export function takeoffReferenceOf(
-  stats: ReferenceStats | null
+  stats: MaterialReference | null
 ): TakeoffPriceReference | null {
   if (!stats) return null;
   return {
@@ -164,6 +166,7 @@ export function takeoffReferenceOf(
     monthlyChange: stats.monthlyChange,
     lastAt: stats.lastAt,
     status: stats.status,
+    truncated: stats.truncated,
   };
 }
 

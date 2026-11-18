@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { weekStartOf } from "@rlpapp/shared/compras/priceReference";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
@@ -369,6 +369,53 @@ describe("quoteProposals", () => {
       now: NOW,
     });
     expect(history.variants.find((v) => v.materialId === ids.lg)?.reference?.truncated).toBe(true);
+    const asEngineer = await withUser(t, { clerkId: "eng_trunc", roles: ["engenharia"] });
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+    try {
+      const catalog = await asEngineer.query(api.takeoffCatalog.current, {});
+      expect(catalog.items.find((item) => item.id === ids.lg)?.reference).toMatchObject({
+        count: 500,
+        truncated: true,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("lançamentos descartados mais recentes não tiram da referência uma cotação válida", async () => {
+    const { t, ids, asBuyer } = await seed();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("priceEvents", {
+        materialId: ids.lg,
+        supplierId: ids.dufrio,
+        unitPriceCents: 305000,
+        unit: "un",
+        source: "quote",
+        occurredAt: NOW - 90 * DAY,
+        needsReview: false,
+        reviewStatus: "reviewed",
+        createdAt: NOW,
+      });
+      for (let i = 0; i < 600; i++) {
+        await ctx.db.insert("priceEvents", {
+          materialId: ids.lg,
+          supplierId: ids.dufrio,
+          unitPriceCents: 1,
+          unit: "un",
+          source: "excel_import",
+          occurredAt: NOW - (1 + (i % 60)) * DAY,
+          reviewStatus: "ignored",
+          needsReview: false,
+          createdAt: NOW,
+        });
+      }
+    });
+    const reference = await asBuyer.query(api.priceEvents.materialReference, {
+      materialId: ids.lg,
+      now: NOW,
+    });
+    expect(reference).toMatchObject({ medianCents: 305000, count: 1, truncated: false });
   });
 
   test("só quem registra preços cria proposta", async () => {

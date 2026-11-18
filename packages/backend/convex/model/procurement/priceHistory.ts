@@ -52,32 +52,65 @@ export async function materialEventsBetween(
 }
 
 /**
- * Máximo de cotações de um material lidas para a referência (6 meses). Dá
- * ~20 cotações por semana; acima disso, a referência usa as mais recentes.
+ * Máximo de cotações válidas de um material na referência (6 meses). Dá ~20
+ * cotações por semana; acima disso, a referência usa as mais recentes.
  */
 export const REFERENCE_EVENT_LIMIT = 500;
+/**
+ * Máximo de lançamentos percorridos na janela (válidos ou não: estimativas,
+ * descartados, outra unidade), para a consulta continuar dentro dos limites
+ * de leitura mesmo num material com muito lançamento descartado.
+ */
+export const REFERENCE_SCAN_LIMIT = 3000;
 
 /**
  * Referência de orçamento de um material: mediana, faixa, dispersão e ritmo
  * das cotações de fornecedores dos últimos 6 meses, na unidade do material.
  * Estimativas digitadas no takeoff e preços descartados na revisão ficam fora.
+ * Percorre a janela do mais recente para o mais antigo até juntar
+ * REFERENCE_EVENT_LIMIT cotações válidas, então lançamentos descartados não
+ * empurram uma cotação válida para fora. `truncated` diz que a janela tinha
+ * mais do que isso (ou mais lançamentos do que REFERENCE_SCAN_LIMIT).
  */
 export async function materialReferenceStats(
   ctx: QueryCtx,
   material: Pick<Doc<"materials">, "_id" | "unit">,
   now: number
 ): Promise<MaterialReference | null> {
-  const events = await materialEventsBetween(
-    ctx,
-    material._id,
-    now - REFERENCE_WINDOW_DAYS * SHARED_DAY_MS,
-    now,
-    REFERENCE_EVENT_LIMIT
-  );
-  return withTruncation(
-    referenceStatsOf(events, material, now),
-    events.length === REFERENCE_EVENT_LIMIT
-  );
+  const eligible: Doc<"priceEvents">[] = [];
+  let scanned = 0;
+  let truncated = false;
+  for await (const event of ctx.db
+    .query("priceEvents")
+    .withIndex("by_material_and_occurred_at", (q) =>
+      q
+        .eq("materialId", material._id)
+        .gte("occurredAt", now - REFERENCE_WINDOW_DAYS * SHARED_DAY_MS)
+        .lte("occurredAt", now)
+    )
+    .order("desc")) {
+    if (isReferenceQuote(event, material)) {
+      if (eligible.length === REFERENCE_EVENT_LIMIT) {
+        truncated = true;
+        break;
+      }
+      eligible.push(event);
+    }
+    scanned += 1;
+    if (scanned === REFERENCE_SCAN_LIMIT) {
+      truncated = true;
+      break;
+    }
+  }
+  return withTruncation(referenceStatsOf(eligible, material, now), truncated);
+}
+
+/** Um lançamento que conta para a referência: cotação de fornecedor na unidade do material. */
+function isReferenceQuote(
+  event: Doc<"priceEvents">,
+  material: Pick<Doc<"materials">, "unit">
+): boolean {
+  return isSupplierQuote(event) && isComparableUnit(event.unit, material.unit);
 }
 
 /**
@@ -102,10 +135,7 @@ export function referenceStatsOf(
 ): ReferenceStats | null {
   return referenceStats(
     events
-      .filter(
-        (event) =>
-          isSupplierQuote(event) && isComparableUnit(event.unit, material.unit)
-      )
+      .filter((event) => isReferenceQuote(event, material))
       .map((event) => ({
         unitPriceCents: event.unitPriceCents,
         occurredAt: event.occurredAt,
