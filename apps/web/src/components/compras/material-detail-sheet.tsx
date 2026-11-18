@@ -1,6 +1,7 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { formatCurrency } from "@rlpapp/shared";
+import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { Plus, Star, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -218,7 +219,16 @@ export function MaterialDetailSheet({
             </section>
 
             <section className="space-y-3">
-              <h3 className="text-sm font-medium">Preços</h3>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-medium">Preços</h3>
+                <Link
+                  to="/compras/historico/$materialId"
+                  params={{ materialId: material._id }}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  Histórico do equipamento e fornecedores
+                </Link>
+              </div>
               <MaterialPriceHistory materialId={material._id} />
             </section>
 

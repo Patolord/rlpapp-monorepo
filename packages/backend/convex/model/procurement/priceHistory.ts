@@ -1,7 +1,18 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
+import type { QueryCtx } from "../../_generated/server";
+import {
+  DAY_MS as SHARED_DAY_MS,
+  REFERENCE_WINDOW_DAYS,
+  referenceStats,
+  type ReferenceStats,
+} from "@rlpapp/shared/compras/priceReference";
 import { normalizeUnit } from "./catalog";
-import { isUsablePriceEvent, pickCurrentPriceEvent } from "./priceSelection";
+import {
+  isSupplierQuote,
+  isUsablePriceEvent,
+  pickCurrentPriceEvent,
+} from "./priceSelection";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -18,6 +29,135 @@ export type PriceHistoryEvent = Pick<
   | "reviewStatus"
   | "needsReview"
 >;
+
+/**
+ * Preços de um material com data entre `from` e `to` (inclusivo), mais
+ * recentes primeiro, pela data do preço e não pela de criação: um preço
+ * antigo lançado hoje (histórico retroativo) cai na janela certa.
+ */
+export async function materialEventsBetween(
+  ctx: QueryCtx,
+  materialId: Id<"materials">,
+  from: number,
+  to: number,
+  limit: number
+): Promise<Doc<"priceEvents">[]> {
+  return await ctx.db
+    .query("priceEvents")
+    .withIndex("by_material_and_occurred_at", (q) =>
+      q.eq("materialId", materialId).gte("occurredAt", from).lte("occurredAt", to)
+    )
+    .order("desc")
+    .take(limit);
+}
+
+/**
+ * Máximo de cotações válidas de um material na referência (6 meses). Dá ~20
+ * cotações por semana; acima disso, a referência usa as mais recentes.
+ */
+export const REFERENCE_EVENT_LIMIT = 500;
+/**
+ * Máximo de lançamentos percorridos na janela (válidos ou não: estimativas,
+ * descartados, outra unidade), para a consulta continuar dentro dos limites
+ * de leitura mesmo num material com muito lançamento descartado.
+ */
+export const REFERENCE_SCAN_LIMIT = 3000;
+
+/**
+ * Referência de orçamento de um material: mediana, faixa, dispersão e ritmo
+ * das cotações de fornecedores dos últimos 6 meses, na unidade do material.
+ * Estimativas digitadas no takeoff e preços descartados na revisão ficam fora.
+ * Percorre a janela do mais recente para o mais antigo até juntar
+ * REFERENCE_EVENT_LIMIT cotações válidas, então lançamentos descartados não
+ * empurram uma cotação válida para fora.
+ *
+ * `truncated` (fora de `reference`, para valer mesmo sem referência) diz que a
+ * janela não foi lida inteira: tinha mais cotações válidas do que o limite, ou
+ * mais lançamentos do que REFERENCE_SCAN_LIMIT. Sem cotação válida na parte
+ * lida, `reference` é null e `truncated` avisa que pode haver cotação além.
+ */
+export async function materialReferenceStats(
+  ctx: QueryCtx,
+  material: Pick<Doc<"materials">, "_id" | "unit">,
+  now: number
+): Promise<MaterialReferenceRead> {
+  const eligible: Doc<"priceEvents">[] = [];
+  let scanned = 0;
+  let truncated = false;
+  for await (const event of ctx.db
+    .query("priceEvents")
+    .withIndex("by_material_and_occurred_at", (q) =>
+      q
+        .eq("materialId", material._id)
+        .gte("occurredAt", now - REFERENCE_WINDOW_DAYS * SHARED_DAY_MS)
+        .lte("occurredAt", now)
+    )
+    .order("desc")) {
+    // Só marca corte quando existe de fato um lançamento além do limite.
+    if (scanned === REFERENCE_SCAN_LIMIT) {
+      truncated = true;
+      break;
+    }
+    scanned += 1;
+    if (!isReferenceQuote(event, material)) continue;
+    if (eligible.length === REFERENCE_EVENT_LIMIT) {
+      truncated = true;
+      break;
+    }
+    eligible.push(event);
+  }
+  return {
+    reference: withTruncation(referenceStatsOf(eligible, material, now), truncated),
+    truncated,
+  };
+}
+
+/** A referência lida e se a janela foi lida inteira. */
+export type MaterialReferenceRead = {
+  reference: MaterialReference | null;
+  truncated: boolean;
+};
+
+/** Um lançamento que conta para a referência: cotação de fornecedor na unidade do material. */
+function isReferenceQuote(
+  event: Doc<"priceEvents">,
+  material: Pick<Doc<"materials">, "unit">
+): boolean {
+  return isSupplierQuote(event) && isComparableUnit(event.unit, material.unit);
+}
+
+/**
+ * A referência com o aviso de amostra: `truncated` = a janela de 6 meses tem
+ * mais cotações do que REFERENCE_EVENT_LIMIT e a referência usa as mais
+ * recentes.
+ */
+export type MaterialReference = ReferenceStats & { truncated: boolean };
+
+export function withTruncation(
+  stats: ReferenceStats | null,
+  truncated: boolean
+): MaterialReference | null {
+  return stats ? { ...stats, truncated } : null;
+}
+
+/** Referência a partir de preços já lidos: só cotações de fornecedor na unidade do material. */
+export function referenceStatsOf(
+  events: Doc<"priceEvents">[],
+  material: Pick<Doc<"materials">, "unit">,
+  now: number
+): ReferenceStats | null {
+  return referenceStats(
+    events
+      .filter((event) => isReferenceQuote(event, material))
+      .map((event) => ({
+        unitPriceCents: event.unitPriceCents,
+        occurredAt: event.occurredAt,
+        supplierKey: supplierKeyOf(event),
+        supplierName: "",
+      })),
+    now
+  );
+}
 
 /** Variação entre dois preços comparáveis (mesma unidade). */
 export type PriceChange = {

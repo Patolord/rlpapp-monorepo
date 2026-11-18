@@ -9,6 +9,7 @@
     "./labels": "./src/labels.ts",
     "./usernames": "./src/usernames.ts",
     "./clerkErrors": "./src/clerkErrors.ts",
+    "./compras/priceReference": "./src/compras/priceReference.ts",
     "./engenharia/ducts": "./src/engenharia/ducts.ts",
     "./engenharia/equipment": "./src/engenharia/equipment.ts",
     "./engenharia/orcamentoName": "./src/engenharia/orcamentoName.ts",

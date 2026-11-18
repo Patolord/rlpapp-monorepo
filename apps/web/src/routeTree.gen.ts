@@ -63,9 +63,12 @@ import { Route as TakeoffConectarRouteImport } from './routes/takeoff/conectar'
 import { Route as DotwellKnownOauthProtectedResourceMcpRouteImport } from './routes/[.]well-known/oauth-protected-resource/mcp'
 import { Route as BackofficeClientesIndexRouteImport } from './routes/backoffice/clientes/index'
 import { Route as BackofficeEmpreiteirosIndexRouteImport } from './routes/backoffice/empreiteiros/index'
+import { Route as ComprasCotacoesIndexRouteImport } from './routes/compras/cotacoes/index'
+import { Route as ComprasCotacoesSemanaRouteImport } from './routes/compras/cotacoes/$semana'
 import { Route as ComprasEventosPrecoIndexRouteImport } from './routes/compras/eventos-preco/index'
 import { Route as ComprasFilaRevisaoIndexRouteImport } from './routes/compras/fila-revisao/index'
 import { Route as ComprasFornecedoresIndexRouteImport } from './routes/compras/fornecedores/index'
+import { Route as ComprasHistoricoMaterialIdRouteImport } from './routes/compras/historico/$materialId'
 import { Route as ComprasMateriaisIndexRouteImport } from './routes/compras/materiais/index'
 import { Route as ComprasTakeoffsIndexRouteImport } from './routes/compras/takeoffs/index'
 import { Route as EngenhariaEquipamentoIdRouteImport } from './routes/engenharia/equipamento/$id'
@@ -389,6 +392,16 @@ const BackofficeEmpreiteirosIndexRoute =
     path: '/empreiteiros/',
     getParentRoute: () => BackofficeRouteRoute,
   } as any)
+const ComprasCotacoesIndexRoute = ComprasCotacoesIndexRouteImport.update({
+  id: '/cotacoes/',
+  path: '/cotacoes/',
+  getParentRoute: () => ComprasRouteRoute,
+} as any)
+const ComprasCotacoesSemanaRoute = ComprasCotacoesSemanaRouteImport.update({
+  id: '/cotacoes/$semana',
+  path: '/cotacoes/$semana',
+  getParentRoute: () => ComprasRouteRoute,
+} as any)
 const ComprasEventosPrecoIndexRoute =
   ComprasEventosPrecoIndexRouteImport.update({
     id: '/eventos-preco/',
@@ -404,6 +417,12 @@ const ComprasFornecedoresIndexRoute =
   ComprasFornecedoresIndexRouteImport.update({
     id: '/fornecedores/',
     path: '/fornecedores/',
+    getParentRoute: () => ComprasRouteRoute,
+  } as any)
+const ComprasHistoricoMaterialIdRoute =
+  ComprasHistoricoMaterialIdRouteImport.update({
+    id: '/historico/$materialId',
+    path: '/historico/$materialId',
     getParentRoute: () => ComprasRouteRoute,
   } as any)
 const ComprasMateriaisIndexRoute = ComprasMateriaisIndexRouteImport.update({
@@ -719,6 +738,8 @@ export interface FileRoutesByFullPath {
   '/portal/': typeof PortalIndexRoute
   '/rh/': typeof RhIndexRoute
   '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
+  '/compras/cotacoes/$semana': typeof ComprasCotacoesSemanaRoute
+  '/compras/historico/$materialId': typeof ComprasHistoricoMaterialIdRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/obras/$obraSlug': typeof EngenhariaObrasObraSlugRouteWithChildren
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
@@ -733,6 +754,7 @@ export interface FileRoutesByFullPath {
   '/takeoff/vrf': typeof TakeoffPainelVrfRoute
   '/backoffice/clientes/': typeof BackofficeClientesIndexRoute
   '/backoffice/empreiteiros/': typeof BackofficeEmpreiteirosIndexRoute
+  '/compras/cotacoes/': typeof ComprasCotacoesIndexRoute
   '/compras/eventos-preco/': typeof ComprasEventosPrecoIndexRoute
   '/compras/fila-revisao/': typeof ComprasFilaRevisaoIndexRoute
   '/compras/fornecedores/': typeof ComprasFornecedoresIndexRoute
@@ -812,6 +834,8 @@ export interface FileRoutesByTo {
   '/portal': typeof PortalIndexRoute
   '/rh': typeof RhIndexRoute
   '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
+  '/compras/cotacoes/$semana': typeof ComprasCotacoesSemanaRoute
+  '/compras/historico/$materialId': typeof ComprasHistoricoMaterialIdRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
   '/qr-operador/estoque/$obraSlug': typeof QrOperadorEstoqueObraSlugRoute
@@ -823,6 +847,7 @@ export interface FileRoutesByTo {
   '/takeoff/vrf': typeof TakeoffPainelVrfRoute
   '/backoffice/clientes': typeof BackofficeClientesIndexRoute
   '/backoffice/empreiteiros': typeof BackofficeEmpreiteirosIndexRoute
+  '/compras/cotacoes': typeof ComprasCotacoesIndexRoute
   '/compras/eventos-preco': typeof ComprasEventosPrecoIndexRoute
   '/compras/fila-revisao': typeof ComprasFilaRevisaoIndexRoute
   '/compras/fornecedores': typeof ComprasFornecedoresIndexRoute
@@ -915,6 +940,8 @@ export interface FileRoutesById {
   '/portal/': typeof PortalIndexRoute
   '/rh/': typeof RhIndexRoute
   '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
+  '/compras/cotacoes/$semana': typeof ComprasCotacoesSemanaRoute
+  '/compras/historico/$materialId': typeof ComprasHistoricoMaterialIdRoute
   '/engenharia/equipamento/$id': typeof EngenhariaEquipamentoIdRoute
   '/engenharia/obras/$obraSlug': typeof EngenhariaObrasObraSlugRouteWithChildren
   '/engenharia/qr/$token': typeof EngenhariaQrTokenRoute
@@ -929,6 +956,7 @@ export interface FileRoutesById {
   '/takeoff/_painel/vrf': typeof TakeoffPainelVrfRoute
   '/backoffice/clientes/': typeof BackofficeClientesIndexRoute
   '/backoffice/empreiteiros/': typeof BackofficeEmpreiteirosIndexRoute
+  '/compras/cotacoes/': typeof ComprasCotacoesIndexRoute
   '/compras/eventos-preco/': typeof ComprasEventosPrecoIndexRoute
   '/compras/fila-revisao/': typeof ComprasFilaRevisaoIndexRoute
   '/compras/fornecedores/': typeof ComprasFornecedoresIndexRoute
@@ -1022,6 +1050,8 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/rh/'
     | '/.well-known/oauth-protected-resource/mcp'
+    | '/compras/cotacoes/$semana'
+    | '/compras/historico/$materialId'
     | '/engenharia/equipamento/$id'
     | '/engenharia/obras/$obraSlug'
     | '/engenharia/qr/$token'
@@ -1036,6 +1066,7 @@ export interface FileRouteTypes {
     | '/takeoff/vrf'
     | '/backoffice/clientes/'
     | '/backoffice/empreiteiros/'
+    | '/compras/cotacoes/'
     | '/compras/eventos-preco/'
     | '/compras/fila-revisao/'
     | '/compras/fornecedores/'
@@ -1115,6 +1146,8 @@ export interface FileRouteTypes {
     | '/portal'
     | '/rh'
     | '/.well-known/oauth-protected-resource/mcp'
+    | '/compras/cotacoes/$semana'
+    | '/compras/historico/$materialId'
     | '/engenharia/equipamento/$id'
     | '/engenharia/qr/$token'
     | '/qr-operador/estoque/$obraSlug'
@@ -1126,6 +1159,7 @@ export interface FileRouteTypes {
     | '/takeoff/vrf'
     | '/backoffice/clientes'
     | '/backoffice/empreiteiros'
+    | '/compras/cotacoes'
     | '/compras/eventos-preco'
     | '/compras/fila-revisao'
     | '/compras/fornecedores'
@@ -1217,6 +1251,8 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/rh/'
     | '/.well-known/oauth-protected-resource/mcp'
+    | '/compras/cotacoes/$semana'
+    | '/compras/historico/$materialId'
     | '/engenharia/equipamento/$id'
     | '/engenharia/obras/$obraSlug'
     | '/engenharia/qr/$token'
@@ -1231,6 +1267,7 @@ export interface FileRouteTypes {
     | '/takeoff/_painel/vrf'
     | '/backoffice/clientes/'
     | '/backoffice/empreiteiros/'
+    | '/compras/cotacoes/'
     | '/compras/eventos-preco/'
     | '/compras/fila-revisao/'
     | '/compras/fornecedores/'
@@ -1685,6 +1722,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BackofficeEmpreiteirosIndexRouteImport
       parentRoute: typeof BackofficeRouteRoute
     }
+    '/compras/cotacoes/': {
+      id: '/compras/cotacoes/'
+      path: '/cotacoes'
+      fullPath: '/compras/cotacoes/'
+      preLoaderRoute: typeof ComprasCotacoesIndexRouteImport
+      parentRoute: typeof ComprasRouteRoute
+    }
+    '/compras/cotacoes/$semana': {
+      id: '/compras/cotacoes/$semana'
+      path: '/cotacoes/$semana'
+      fullPath: '/compras/cotacoes/$semana'
+      preLoaderRoute: typeof ComprasCotacoesSemanaRouteImport
+      parentRoute: typeof ComprasRouteRoute
+    }
     '/compras/eventos-preco/': {
       id: '/compras/eventos-preco/'
       path: '/eventos-preco'
@@ -1704,6 +1755,13 @@ declare module '@tanstack/react-router' {
       path: '/fornecedores'
       fullPath: '/compras/fornecedores/'
       preLoaderRoute: typeof ComprasFornecedoresIndexRouteImport
+      parentRoute: typeof ComprasRouteRoute
+    }
+    '/compras/historico/$materialId': {
+      id: '/compras/historico/$materialId'
+      path: '/historico/$materialId'
+      fullPath: '/compras/historico/$materialId'
+      preLoaderRoute: typeof ComprasHistoricoMaterialIdRouteImport
       parentRoute: typeof ComprasRouteRoute
     }
     '/compras/materiais/': {
@@ -2061,6 +2119,9 @@ const BackofficeRouteRouteWithChildren = BackofficeRouteRoute._addFileChildren(
 
 interface ComprasRouteRouteChildren {
   ComprasIndexRoute: typeof ComprasIndexRoute
+  ComprasCotacoesSemanaRoute: typeof ComprasCotacoesSemanaRoute
+  ComprasHistoricoMaterialIdRoute: typeof ComprasHistoricoMaterialIdRoute
+  ComprasCotacoesIndexRoute: typeof ComprasCotacoesIndexRoute
   ComprasEventosPrecoIndexRoute: typeof ComprasEventosPrecoIndexRoute
   ComprasFilaRevisaoIndexRoute: typeof ComprasFilaRevisaoIndexRoute
   ComprasFornecedoresIndexRoute: typeof ComprasFornecedoresIndexRoute
@@ -2070,6 +2131,9 @@ interface ComprasRouteRouteChildren {
 
 const ComprasRouteRouteChildren: ComprasRouteRouteChildren = {
   ComprasIndexRoute: ComprasIndexRoute,
+  ComprasCotacoesSemanaRoute: ComprasCotacoesSemanaRoute,
+  ComprasHistoricoMaterialIdRoute: ComprasHistoricoMaterialIdRoute,
+  ComprasCotacoesIndexRoute: ComprasCotacoesIndexRoute,
   ComprasEventosPrecoIndexRoute: ComprasEventosPrecoIndexRoute,
   ComprasFilaRevisaoIndexRoute: ComprasFilaRevisaoIndexRoute,
   ComprasFornecedoresIndexRoute: ComprasFornecedoresIndexRoute,

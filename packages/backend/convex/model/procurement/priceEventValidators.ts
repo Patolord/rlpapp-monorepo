@@ -34,6 +34,7 @@ export const priceEventValidator = v.object({
   takeoffItemId: v.union(v.id("takeoffItems"), v.null()),
   dimensions: v.union(materialDimensions, v.null()),
   notes: v.union(v.string(), v.null()),
+  quoteProposalId: v.union(v.id("quoteProposals"), v.null()),
   reviewStatus: v.union(priceEventReviewStatus, v.null()),
   needsReview: v.boolean(),
   createdAt: v.number(),

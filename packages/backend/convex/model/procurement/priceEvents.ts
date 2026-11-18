@@ -37,6 +37,7 @@ type PriceEventForView = {
   takeoffItemId?: Id<"takeoffItems">;
   dimensions?: MaterialDimensions;
   notes?: string;
+  quoteProposalId?: Id<"quoteProposals">;
   reviewStatus?: "unreviewed" | "reviewed" | "ignored" | "duplicate";
   needsReview: boolean;
   createdAt: number;
@@ -90,6 +91,7 @@ export async function enrichPriceEvent(
     takeoffItemId: event.takeoffItemId ?? null,
     dimensions: event.dimensions ?? null,
     notes: event.notes ?? null,
+    quoteProposalId: event.quoteProposalId ?? null,
     reviewStatus: event.reviewStatus ?? null,
     needsReview: event.needsReview,
     createdAt: event.createdAt,
@@ -108,38 +110,86 @@ export type ListPriceEventsInput = {
   materialId?: Id<"materials">;
   projectId?: Id<"projects">;
   takeoffId?: Id<"takeoffs">;
+  supplierId?: Id<"suppliers">;
+  /** Período de `occurredAt` (ms, inclusivo). */
+  from?: number;
+  to?: number;
   limit?: number;
 };
 
+// Projeto ou takeoff com período (sem índice por data) e fornecedor + material:
+// lê no máximo isto antes de filtrar.
+const FILTERED_SCAN_LIMIT = 1000;
+
+/**
+ * Preços mais recentes primeiro. Com período (`from`/`to`), fornecedor e
+ * material usam os índices por data do preço, então um preço antigo lançado
+ * hoje (histórico retroativo) aparece no período certo.
+ */
 export async function listPriceEvents(
   ctx: QueryCtx,
   input: ListPriceEventsInput
 ) {
-  const limit = input.limit ?? 100;
+  const limit = Math.min(Math.max(input.limit ?? 100, 1), 500);
+  const hasPeriod = input.from !== undefined || input.to !== undefined;
+  const from = input.from ?? Number.MIN_SAFE_INTEGER;
+  const to = input.to ?? Number.MAX_SAFE_INTEGER;
+  const inPeriod = (event: { occurredAt: number }) =>
+    event.occurredAt >= from && event.occurredAt <= to;
+  const newestFirst = (a: { occurredAt: number }, b: { occurredAt: number }) =>
+    b.occurredAt - a.occurredAt;
   let events;
 
-  if (input.materialId) {
-    events = await ctx.db
+  if (input.supplierId) {
+    const supplierId = input.supplierId;
+    const query = ctx.db
       .query("priceEvents")
-      .withIndex("by_material", (q) => q.eq("materialId", input.materialId))
-      .order("desc")
-      .take(limit);
-  } else if (input.projectId) {
-    events = await ctx.db
-      .query("priceEvents")
-      .withIndex("by_project", (q) => q.eq("projectId", input.projectId))
-      .order("desc")
-      .take(limit);
-  } else if (input.takeoffId) {
-    events = await ctx.db
-      .query("priceEvents")
-      .withIndex("by_takeoff", (q) => q.eq("takeoffId", input.takeoffId))
-      .order("desc")
-      .take(limit);
+      .withIndex("by_supplier_and_occurred_at", (q) =>
+        q.eq("supplierId", supplierId).gte("occurredAt", from).lte("occurredAt", to)
+      )
+      .order("desc");
+    events = input.materialId
+      ? (await query.take(FILTERED_SCAN_LIMIT))
+          .filter((event) => event.materialId === input.materialId)
+          .slice(0, limit)
+      : await query.take(limit);
+  } else if (input.materialId) {
+    const materialId = input.materialId;
+    events = hasPeriod
+      ? await ctx.db
+          .query("priceEvents")
+          .withIndex("by_material_and_occurred_at", (q) =>
+            q.eq("materialId", materialId).gte("occurredAt", from).lte("occurredAt", to)
+          )
+          .order("desc")
+          .take(limit)
+      : await ctx.db
+          .query("priceEvents")
+          .withIndex("by_material_and_occurred_at", (q) => q.eq("materialId", materialId))
+          .order("desc")
+          .take(limit);
+  } else if (input.projectId || input.takeoffId) {
+    const scan = hasPeriod ? FILTERED_SCAN_LIMIT : limit;
+    const rows = input.projectId
+      ? await ctx.db
+          .query("priceEvents")
+          .withIndex("by_project", (q) => q.eq("projectId", input.projectId))
+          .order("desc")
+          .take(scan)
+      : await ctx.db
+          .query("priceEvents")
+          .withIndex("by_takeoff", (q) => q.eq("takeoffId", input.takeoffId))
+          .order("desc")
+          .take(scan);
+    events = hasPeriod
+      ? rows.filter(inPeriod).sort(newestFirst).slice(0, limit)
+      : rows;
   } else {
     events = await ctx.db
       .query("priceEvents")
-      .withIndex("by_occurred_at")
+      .withIndex("by_occurred_at", (q) =>
+        q.gte("occurredAt", from).lte("occurredAt", to)
+      )
       .order("desc")
       .take(limit);
   }
@@ -165,7 +215,7 @@ export async function listLatestPricesForMaterial(
   let events = input.materialId
     ? await ctx.db
         .query("priceEvents")
-        .withIndex("by_material", (q) => q.eq("materialId", input.materialId))
+        .withIndex("by_material_and_occurred_at", (q) => q.eq("materialId", input.materialId))
         .order("desc")
         .take(50)
     : [];
