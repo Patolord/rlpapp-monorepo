@@ -30,10 +30,26 @@ function parseDateInput(value: string): [number, number, number] | null {
   return match ? [Number(match[1]), Number(match[2]) - 1, Number(match[3])] : null;
 }
 
-/** Um `<input type="date">` como o meio-dia daquele dia em Brasília. */
+/**
+ * Um `<input type="date">` como o início daquele dia em Brasília: uma proposta
+ * de hoje já conta antes do meio-dia em consultas com `now`.
+ */
 export function dateInputToInstant(value: string): number | null {
   const parts = parseDateInput(value);
-  return parts ? Date.UTC(parts[0], parts[1], parts[2], 12) - BRT_OFFSET_MS : null;
+  return parts ? Date.UTC(parts[0], parts[1], parts[2]) - BRT_OFFSET_MS : null;
+}
+
+/**
+ * Corte das consultas de histórico: o fim do dia de hoje em Brasília. Um
+ * preço lançado hoje, por qualquer pessoa, entra sem recarregar a página.
+ */
+export function endOfTodayBrt(at: number = Date.now()): number {
+  const local = new Date(at + BRT_OFFSET_MS);
+  return (
+    Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() + 1) -
+    BRT_OFFSET_MS -
+    1
+  );
 }
 
 /** Validade: o último instante daquele dia em Brasília. */

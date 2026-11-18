@@ -67,11 +67,20 @@ export const quoteWeekSummaryValidator = v.object({
   supplierCount: v.number(),
   materialCount: v.number(),
   proposalCount: v.number(),
+  /** A semana tem mais preços do que uma leitura conta. */
+  truncated: v.boolean(),
+});
+
+export const quoteWeekPageValidator = v.object({
+  weeks: v.array(quoteWeekSummaryValidator),
+  /** Passe como `before` para as semanas anteriores; null quando acabou. */
+  continueBefore: nullableNumber,
 });
 
 export const quoteWeekValidator = v.object({
   weekStart: v.number(),
   weekEnd: v.number(),
+  truncated: v.boolean(),
   columns: v.array(
     v.object({
       supplierKey: v.string(),
@@ -93,8 +102,9 @@ export const quoteWeekValidator = v.object({
       familyName: nullableString,
       rawDescription: nullableString,
       unit: nullableString,
+      /** Preços na unidade do material (comparáveis com a referência dele). */
+      materialUnit: v.boolean(),
       quantity: nullableNumber,
-      referenceCents: nullableNumber,
       cheapestSupplierKey: nullableString,
       cells: v.array(
         v.object({
@@ -123,6 +133,7 @@ export const familyPriceHistoryValidator = v.object({
     v.null()
   ),
   defaultMaterialId: v.union(v.id("materials"), v.null()),
+  historyTruncated: v.boolean(),
   variants: v.array(
     v.object({
       materialId: v.id("materials"),

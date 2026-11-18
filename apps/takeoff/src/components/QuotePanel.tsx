@@ -182,7 +182,10 @@ export function QuotePanel() {
                                 const entry = r.item.catalogId
                                   ? referenced.get(r.item.catalogId)
                                   : undefined;
-                                return entry?.reference && !isWeightPriced(r.item) ? (
+                                // the reference is in reais: offered only on budgets in BRL
+                                return entry?.reference &&
+                                  !isWeightPriced(r.item) &&
+                                  project.currency === "BRL" ? (
                                   <PriceReferenceButton
                                     price={r.item.materialPrice}
                                     reference={entry.reference}
@@ -315,7 +318,7 @@ export function QuotePanel() {
           </Button>
         </div>
       </div>
-      {referenceItem && referenceEntry?.reference ? (
+      {referenceItem && referenceEntry?.reference && project.currency === "BRL" ? (
         <PriceReferenceDialog
           item={referenceItem}
           entry={referenceEntry}

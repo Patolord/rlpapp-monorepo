@@ -4,21 +4,9 @@ import type { QueryCtx } from "../../_generated/server";
 import { normalizeUnit } from "./catalog";
 import { describeMaterial } from "./materialLookup";
 import { materialStatus } from "../../schema/procurement";
-import {
-  DAY_MS,
-  REFERENCE_WINDOW_DAYS,
-  referenceStats,
-} from "@rlpapp/shared/compras/priceReference";
-import {
-  isComparableUnit,
-  materialEventsBetween,
-  supplierKeyOf,
-} from "./priceHistory";
-import {
-  centsToReais,
-  isUsablePriceEvent,
-  pickCurrentPriceEvent,
-} from "./priceSelection";
+import type { ReferenceStats } from "@rlpapp/shared/compras/priceReference";
+import { materialReferenceStats } from "./priceHistory";
+import { centsToReais, pickCurrentPriceEvent } from "./priceSelection";
 
 /**
  * Group for a material with no category: the desktop app's own default group
@@ -30,8 +18,6 @@ export const DEFAULT_TAKEOFF_GROUP = "Geral";
 export const TAKEOFF_PIECE_UNIT = "pç";
 // Same window `priceEvents.latestForMaterial` reads per material.
 const PRICE_EVENT_WINDOW = 50;
-// Quotes of one material within the reference's six months, by price date.
-const REFERENCE_EVENT_WINDOW = 500;
 
 export const takeoffPriceReferenceValidator = v.object({
   /** Median of the window: the price to budget with. */
@@ -163,26 +149,10 @@ export function toTakeoffCatalogItem(
   };
 }
 
-/** The reference of a material from its recent events (same unit only), in reais. */
+/** The catalog shape (reais) of a material's budget reference. */
 export function takeoffReferenceOf(
-  material: Pick<Doc<"materials">, "unit">,
-  events: Doc<"priceEvents">[],
-  now: number
+  stats: ReferenceStats | null
 ): TakeoffPriceReference | null {
-  const stats = referenceStats(
-    events
-      .filter(
-        (event) =>
-          isUsablePriceEvent(event) && isComparableUnit(event.unit, material.unit)
-      )
-      .map((event) => ({
-        unitPriceCents: event.unitPriceCents,
-        occurredAt: event.occurredAt,
-        supplierKey: supplierKeyOf(event),
-        supplierName: "",
-      })),
-    now
-  );
   if (!stats) return null;
   return {
     price: centsToReais(stats.medianCents),
@@ -207,18 +177,11 @@ async function materialPrices(
     .withIndex("by_material", (q) => q.eq("materialId", material._id))
     .order("desc")
     .take(PRICE_EVENT_WINDOW);
-  // The reference reads the whole six-month window by price date: a material
-  // quoted often has more than PRICE_EVENT_WINDOW quotes in it.
-  const windowEvents = await materialEventsBetween(
-    ctx,
-    material._id,
-    now - REFERENCE_WINDOW_DAYS * DAY_MS,
-    now,
-    REFERENCE_EVENT_WINDOW
-  );
   return {
     price: pickCurrentPriceEvent(events, now),
-    reference: takeoffReferenceOf(material, windowEvents, now),
+    // The whole six-month window by price date (a material quoted often has
+    // more than PRICE_EVENT_WINDOW quotes in it), suppliers' quotes only.
+    reference: takeoffReferenceOf(await materialReferenceStats(ctx, material, now)),
   };
 }
 

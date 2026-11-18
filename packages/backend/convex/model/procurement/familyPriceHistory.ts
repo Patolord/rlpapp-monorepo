@@ -1,5 +1,6 @@
 import {
   DAY_MS,
+  REFERENCE_WINDOW_DAYS,
   referenceStats,
   type ReferenceStats,
 } from "@rlpapp/shared/compras/priceReference";
@@ -9,9 +10,10 @@ import { logAudit } from "../../lib/audit";
 import {
   isComparableUnit,
   materialEventsBetween,
+  materialReferenceStats,
   supplierKeyOf,
 } from "./priceHistory";
-import { isUsablePriceEvent } from "./priceSelection";
+import { isSupplierQuote } from "./priceSelection";
 
 /**
  * Histórico de preços de um equipamento comparável: a família do catálogo
@@ -20,8 +22,11 @@ import { isUsablePriceEvent } from "./priceSelection";
  * referência de orçamento é a da variante padrão da família.
  */
 
-const MAX_VARIANTS = 60;
-const EVENTS_PER_VARIANT = 300;
+// Reads stay well under a query's document limit: per variant, up to
+// EVENTS_PER_VARIANT for the history plus REFERENCE_EVENT_LIMIT for the
+// reference when the history does not cover its six months.
+const MAX_VARIANTS = 20;
+const EVENTS_PER_VARIANT = 400;
 const DEFAULT_MONTHS_BACK = 12;
 const AVERAGE_MONTH_MS = 30.44 * DAY_MS;
 
@@ -101,17 +106,41 @@ export async function getFamilyPriceHistory(
   const monthsBack = Math.min(Math.max(input.monthsBack ?? DEFAULT_MONTHS_BACK, 1), 60);
   const since = input.now - monthsBack * AVERAGE_MONTH_MS;
 
+  const referenceFrom = input.now - REFERENCE_WINDOW_DAYS * DAY_MS;
   const events: Doc<"priceEvents">[] = [];
-  const eventsByMaterial = new Map<Id<"materials">, Doc<"priceEvents">[]>();
+  const references = new Map<Id<"materials">, ReferenceStats | null>();
+  let historyTruncated = false;
   for (const material of materials) {
-    const recent = (
-      await materialEventsBetween(ctx, material._id, since, input.now, EVENTS_PER_VARIANT)
-    ).filter(
-      (event) =>
-        isUsablePriceEvent(event) && isComparableUnit(event.unit, material.unit)
+    const read = await materialEventsBetween(
+      ctx,
+      material._id,
+      since,
+      input.now,
+      EVENTS_PER_VARIANT
     );
-    eventsByMaterial.set(material._id, recent);
+    const truncated = read.length === EVENTS_PER_VARIANT;
+    historyTruncated ||= truncated;
+    const recent = read.filter(
+      (event) =>
+        isSupplierQuote(event) && isComparableUnit(event.unit, material.unit)
+    );
     events.push(...recent);
+    // The reference always covers its own six months, whatever monthsBack is;
+    // the history read is reused only when it holds that whole window.
+    references.set(
+      material._id,
+      since <= referenceFrom && !truncated
+        ? referenceStats(
+            recent.map((event) => ({
+              unitPriceCents: event.unitPriceCents,
+              occurredAt: event.occurredAt,
+              supplierKey: supplierKeyOf(event),
+              supplierName: "",
+            })),
+            input.now
+          )
+        : await materialReferenceStats(ctx, material, input.now)
+    );
   }
 
   const supplierNames = new Map<Id<"suppliers">, string>();
@@ -157,10 +186,7 @@ export async function getFamilyPriceHistory(
       sku: material.sku ?? null,
       status: variantStatus(material),
       isDefault: material._id === defaultMaterialId,
-      reference: referenceStats(
-        (eventsByMaterial.get(material._id) ?? []).map(toQuote),
-        input.now
-      ),
+      reference: references.get(material._id) ?? null,
     }))
     .sort(
       (a, b) =>
@@ -180,6 +206,8 @@ export async function getFamilyPriceHistory(
       : null,
     defaultMaterialId,
     variants,
+    /** Some variant has more quotes in the period than one read returns. */
+    historyTruncated,
     quotes: events
       .map(toQuote)
       .sort((a, b) => b.occurredAt - a.occurredAt),

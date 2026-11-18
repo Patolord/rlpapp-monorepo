@@ -30,7 +30,11 @@ import {
   getFamilyPriceHistory,
   setFamilyDefaultVariant as setDefaultVariant,
 } from "./model/procurement/familyPriceHistory";
-import { familyPriceHistoryValidator } from "./model/procurement/quoteValidators";
+import { materialReferenceStats } from "./model/procurement/priceHistory";
+import {
+  familyPriceHistoryValidator,
+  referenceStatsValidator,
+} from "./model/procurement/quoteValidators";
 
 export const list = engineeringOrPurchasingQuery({
   args: {
@@ -94,6 +98,21 @@ export const familyHistory = engineeringOrPurchasingQuery({
   returns: familyPriceHistoryValidator,
   handler: async (ctx, args) => {
     return await getFamilyPriceHistory(ctx, args);
+  },
+});
+
+/**
+ * Referência de orçamento de um material: mediana das cotações de
+ * fornecedores dos últimos 6 meses, faixa, dispersão, variação mensal e
+ * situação (ok | wide | stale). Null sem cotação na janela.
+ */
+export const materialReference = engineeringOrPurchasingQuery({
+  args: { materialId: v.id("materials"), now: v.number() },
+  returns: v.union(referenceStatsValidator, v.null()),
+  handler: async (ctx, args) => {
+    const material = await ctx.db.get("materials", args.materialId);
+    if (!material) return null;
+    return await materialReferenceStats(ctx, material, args.now);
   },
 });
 

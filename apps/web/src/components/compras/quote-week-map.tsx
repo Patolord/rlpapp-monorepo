@@ -1,9 +1,9 @@
 import type { api } from "@rlpapp/backend/convex/_generated/api";
 import { formatCurrency, formatDate } from "@rlpapp/shared";
-import { Link } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import type { ReactNode } from "react";
 
+import { QuoteWeekRow } from "@/components/compras/quote-week-row";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -20,8 +20,6 @@ type Week = FunctionReturnType<typeof api.quoteProposals.week>;
 type Column = Week["columns"][number];
 
 const FREIGHT_LABEL = { cif: "frete CIF", fob: "frete FOB" } as const;
-const BEST_CELL =
-  "border-[var(--status-success)] bg-[color-mix(in_oklch,var(--status-success)_10%,transparent)]";
 
 function proposalTerms(column: Column): string {
   const proposal = column.proposals[0];
@@ -110,8 +108,14 @@ export function QuoteWeekMap({ week, now }: { week: Week; now: number }) {
           <CardTitle className="text-base">Mapa de cotação</CardTitle>
           <p className="text-xs text-muted-foreground">
             Mesmo item, mesma semana, um preço por fornecedor (o mais recente dele na semana). Verde = menor preço
-            da linha. Referência = mediana dos últimos 6 meses.
+            da linha. Referência = mediana dos últimos 6 meses. Preço em outra unidade (caixa, rolo) fica numa
+            linha própria.
           </p>
+          {week.truncated ? (
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+              Esta semana tem mais preços do que o mapa carrega de uma vez: aparecem os mais recentes.
+            </p>
+          ) : null}
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <Table className="min-w-[900px]">
@@ -126,73 +130,9 @@ export function QuoteWeekMap({ week, now }: { week: Week; now: number }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {week.rows.map((row) => {
-                const cells = new Map(row.cells.map((cell) => [cell.supplierKey, cell]));
-                const min = Math.min(...row.cells.map((cell) => cell.unitPriceCents));
-                return (
-                  <TableRow key={row.rowKey}>
-                    <TableCell>
-                      <div className="flex flex-col gap-0.5">
-                        {row.materialId ? (
-                          <Link
-                            to="/compras/historico/$materialId"
-                            params={{ materialId: row.materialId }}
-                            className="font-medium hover:text-primary hover:underline"
-                          >
-                            {row.familyName ?? row.materialName}
-                          </Link>
-                        ) : (
-                          <span className="font-medium">{row.rawDescription ?? "Sem descrição"}</span>
-                        )}
-                        <span className="text-xs text-muted-foreground">
-                          {row.materialId
-                            ? (row.variantLabel ?? (row.familyName ? row.materialName : null) ?? "")
-                            : "sem material vinculado: revise na fila"}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {row.quantity ? `${row.quantity} ${row.unit ?? ""}` : "—"}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {row.referenceCents ? formatCurrency(Math.round(row.referenceCents)) : "—"}
-                    </TableCell>
-                    {week.columns.map((column) => {
-                      const cell = cells.get(column.supplierKey);
-                      if (!cell) {
-                        return (
-                          <TableCell key={column.supplierKey}>
-                            <div className="rounded-md border border-dashed px-2.5 py-1.5 text-xs text-muted-foreground">
-                              não cotou
-                            </div>
-                          </TableCell>
-                        );
-                      }
-                      const best = row.cheapestSupplierKey === column.supplierKey;
-                      const vsRef = row.referenceCents ? (cell.unitPriceCents - row.referenceCents) / row.referenceCents : null;
-                      return (
-                        <TableCell key={column.supplierKey}>
-                          <div className={cn("rounded-md border px-2.5 py-1.5", best && BEST_CELL)}>
-                            <div className="font-semibold tabular-nums">{formatCurrency(cell.unitPriceCents)}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {best
-                                ? "menor"
-                                : row.cells.length > 1
-                                  ? `${formatSignedPercent((cell.unitPriceCents - min) / min)} sobre o menor`
-                                  : "só um fornecedor"}
-                              {vsRef !== null && Math.abs(vsRef) > 0.1 ? (
-                                <span className="font-semibold text-amber-700 dark:text-amber-400">
-                                  {" "}· {formatSignedPercent(vsRef)} da ref.
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                );
-              })}
+              {week.rows.map((row) => (
+                <QuoteWeekRow key={row.rowKey} row={row} columns={week.columns} now={now} />
+              ))}
               <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableCell colSpan={3} className="font-medium">
                   Total dos itens com quantidade

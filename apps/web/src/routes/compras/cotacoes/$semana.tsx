@@ -9,7 +9,7 @@ import { QuoteProposalDialog } from "@/components/compras/quote-proposal-dialog"
 import { QuoteWeekMap } from "@/components/compras/quote-week-map";
 import { Button } from "@/components/ui/button";
 import { useCan } from "@/hooks/use-can";
-import { formatWeekRange, fromWeekParam, shiftWeekParam } from "@/lib/quote-weeks";
+import { endOfTodayBrt, formatWeekRange, fromWeekParam, shiftWeekParam } from "@/lib/quote-weeks";
 
 export const Route = createFileRoute("/compras/cotacoes/$semana")({
   component: SemanaPage,
@@ -26,7 +26,7 @@ function SemanaPage() {
 function SemanaContent() {
   const { semana } = Route.useParams();
   const weekStart = fromWeekParam(semana);
-  const [now] = useState(() => Date.now());
+  const [now] = useState(() => endOfTodayBrt());
   const week = useQuery(api.quoteProposals.week, weekStart === null ? "skip" : { weekStart, now });
   const canRecord = useCan("precos.write");
   const navigate = useNavigate();

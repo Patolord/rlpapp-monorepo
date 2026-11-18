@@ -194,7 +194,7 @@ export const COMPRAS_TOOLS: readonly ToolSpec[] = [
     function: "quoteProposals:listWeeks",
     title: "List quote rounds (weeks)",
     description:
-      "Weeks that have recorded prices, newest first, with how many prices, suppliers, materials and proposals each has. A week (Monday to Sunday, Brasília time) is a quote round.",
+      "Weeks that have supplier prices, newest first (up to 20 per page), with how many prices, suppliers, materials and proposals each has; `truncated` marks a week with more prices than one read counts. A week (Monday to Sunday, Brasília time) is a quote round. For older weeks pass the response's `continueBefore` as `before`.",
     serverArgs: nowArg,
   },
   {
@@ -202,7 +202,15 @@ export const COMPRAS_TOOLS: readonly ToolSpec[] = [
     function: "quoteProposals:week",
     title: "Compare suppliers in a week",
     description:
-      "Quote map of the week containing `weekStart` (any instant of the week): one column per supplier (with its proposals), one row per material with each supplier's price that week (latest per supplier), the cheapest supplier and the 6-month reference (median). Includes prices recorded without a proposal.",
+      "Quote map of the week containing `weekStart` (any instant of the week): one column per supplier (with its proposals), one row per material with each supplier's price that week (latest per supplier) and the cheapest supplier. Prices in a unit other than the material's (box, roll) get a row of their own (`materialUnit` false). Includes prices recorded without a proposal; takeoff estimates are left out. For a row's 6-month reference use get_material_price_reference.",
+    serverArgs: nowArg,
+  },
+  {
+    name: "get_material_price_reference",
+    function: "priceEvents:materialReference",
+    title: "Material budget reference",
+    description:
+      "Budget reference of one material: median of the suppliers' quotes of the last 6 months in the material's unit, range, spread, monthly change and status (ok: spread up to 10%; wide: above; stale: no quote in 90 days). Takeoff estimates and prices dismissed in review are left out. Null without quotes in the window.",
     serverArgs: nowArg,
   },
   {
@@ -210,7 +218,7 @@ export const COMPRAS_TOOLS: readonly ToolSpec[] = [
     function: "priceEvents:familyHistory",
     title: "Equipment price history",
     description:
-      "Price history of a comparable item: the material family (by `familyId`, or the family of `materialId`) with every variant (brand, cycle, technology) and its budget reference (median of the last 6 months, range, spread, monthly change, status ok | wide | stale), plus every quote of the last `monthsBack` months (default 12) from all suppliers.",
+      "Price history of a comparable item: the material family (by `familyId`, or the family of `materialId`) with every variant (brand, cycle, technology) and its budget reference (median of the last 6 months, range, spread, monthly change, status ok | wide | stale), plus every supplier quote of the last `monthsBack` months (default 12). The reference always covers its own 6 months, whatever `monthsBack` is; takeoff estimates are left out. `historyTruncated` marks a variant with more quotes than one read returns.",
     serverArgs: nowArg,
   },
   {

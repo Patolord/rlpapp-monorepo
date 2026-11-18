@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
+  dateInputToInstant,
+  endOfTodayBrt,
   formatSignedPercent,
   fromWeekParam,
   shiftWeekParam,
@@ -15,6 +17,13 @@ describe("semana na URL", () => {
     expect(toWeekParam(brt(2026, 11, 8, 23))).toBe("2026-11-02");
     expect(fromWeekParam("2026-11-05")).toBe(brt(2026, 11, 2, 0));
     expect(fromWeekParam("02/11/2026")).toBeNull();
+  });
+
+  test("data da proposta é o início do dia; o corte das consultas, o fim do dia", () => {
+    expect(dateInputToInstant("2026-11-18")).toBe(brt(2026, 11, 18, 0));
+    expect(endOfTodayBrt(brt(2026, 11, 18, 9))).toBe(brt(2026, 11, 19, 0) - 1);
+    // 22:00 em Brasília já é dia 19 em UTC, mas ainda é dia 18 aqui.
+    expect(endOfTodayBrt(brt(2026, 11, 18, 22))).toBe(brt(2026, 11, 19, 0) - 1);
   });
 
   test("anda semana a semana", () => {

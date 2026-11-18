@@ -8,7 +8,7 @@ import type {
 } from "../../schema/procurement";
 import { sanitizeDimensions, type MaterialDimensions } from "./catalog";
 import { enrichPriceEvent } from "./priceEvents";
-import { supplierKeyOf } from "./priceHistory";
+import { assertProposalRoom, proposalSupplierKey } from "./quoteProposalRules";
 import { computeNeedsReview } from "./pricing";
 import { promoteTakeoffItem } from "./takeoffPromotion";
 
@@ -42,7 +42,12 @@ export type AddPriceEventInput = {
 export async function addPriceEvent(
   ctx: MutationCtx,
   user: Doc<"users">,
-  input: AddPriceEventInput
+  input: AddPriceEventInput,
+  /**
+   * createQuoteProposal already validated the proposal it just inserted (its
+   * supplier, date and line count): skip re-reading it once per line.
+   */
+  options: { proposalChecked?: boolean } = {}
 ): Promise<Id<"priceEvents">> {
   if (input.unitPriceCents < 0) throw new Error("Preço inválido");
 
@@ -84,19 +89,17 @@ export async function addPriceEvent(
   let supplierNameRaw = input.supplierNameRaw?.trim() || undefined;
   let occurredAt = input.occurredAt;
   let validUntil = input.validUntil;
-  if (input.quoteProposalId) {
+  if (input.quoteProposalId && !options.proposalChecked) {
     const proposal = await ctx.db.get("quoteProposals", input.quoteProposalId);
     if (!proposal) throw new Error("Proposta não encontrada");
-    const keyOf = (s: {
-      supplierId?: Id<"suppliers">;
-      supplierNameRaw?: string;
-    }) => supplierKeyOf({ _id: "" as Id<"priceEvents">, ...s });
     if (
       (supplierId || supplierNameRaw) &&
-      keyOf({ supplierId, supplierNameRaw }) !== keyOf(proposal)
+      proposalSupplierKey({ supplierId, supplierNameRaw }) !==
+        proposalSupplierKey(proposal)
     ) {
       throw new Error("O fornecedor do preço é diferente do da proposta");
     }
+    await assertProposalRoom(ctx, proposal._id, 1);
     supplierId = proposal.supplierId;
     supplierNameRaw = proposal.supplierNameRaw;
     occurredAt = proposal.receivedAt;

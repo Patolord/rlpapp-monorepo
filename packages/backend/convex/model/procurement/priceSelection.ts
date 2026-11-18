@@ -10,6 +10,30 @@ export function isUsablePriceEvent(event: PriceEventLike): boolean {
   return event.reviewStatus !== "ignored" && event.reviewStatus !== "duplicate";
 }
 
+/**
+ * Supplier name of the price estimates the RLP Takeoff app sends with a material
+ * proposal (`recordEstimate` in takeoffProposals.ts). They carry no supplierId.
+ */
+export const TAKEOFF_ESTIMATE_SUPPLIER = "RLP Takeoff";
+
+/** An estimate typed in the takeoff, not a price a supplier quoted. */
+export function isTakeoffEstimate(
+  event: Pick<Doc<"priceEvents">, "supplierId" | "supplierNameRaw">
+): boolean {
+  return !event.supplierId && event.supplierNameRaw === TAKEOFF_ESTIMATE_SUPPLIER;
+}
+
+/**
+ * Prices that feed the budget reference and the supplier comparison: usable
+ * and quoted by a supplier (takeoff estimates stay out, they would be the
+ * team's own guess counted as a market price).
+ */
+export function isSupplierQuote(
+  event: PriceEventLike & Pick<Doc<"priceEvents">, "supplierId" | "supplierNameRaw">
+): boolean {
+  return isUsablePriceEvent(event) && !isTakeoffEstimate(event);
+}
+
 export function isPriceEventValidAt(event: PriceEventLike, now: number): boolean {
   return event.validUntil === undefined || event.validUntil > now;
 }

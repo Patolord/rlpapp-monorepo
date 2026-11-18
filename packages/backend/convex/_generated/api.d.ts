@@ -166,8 +166,10 @@ import type * as model_procurement_priceEvents from "../model/procurement/priceE
 import type * as model_procurement_priceHistory from "../model/procurement/priceHistory.js";
 import type * as model_procurement_priceSelection from "../model/procurement/priceSelection.js";
 import type * as model_procurement_pricing from "../model/procurement/pricing.js";
+import type * as model_procurement_quoteProposalRules from "../model/procurement/quoteProposalRules.js";
 import type * as model_procurement_quoteProposals from "../model/procurement/quoteProposals.js";
 import type * as model_procurement_quoteValidators from "../model/procurement/quoteValidators.js";
+import type * as model_procurement_quoteWeeks from "../model/procurement/quoteWeeks.js";
 import type * as model_procurement_seedLaborPrices from "../model/procurement/seedLaborPrices.js";
 import type * as model_procurement_supplierImport from "../model/procurement/supplierImport.js";
 import type * as model_procurement_supplierMaterials from "../model/procurement/supplierMaterials.js";
@@ -391,8 +393,10 @@ declare const fullApi: ApiFromModules<{
   "model/procurement/priceHistory": typeof model_procurement_priceHistory;
   "model/procurement/priceSelection": typeof model_procurement_priceSelection;
   "model/procurement/pricing": typeof model_procurement_pricing;
+  "model/procurement/quoteProposalRules": typeof model_procurement_quoteProposalRules;
   "model/procurement/quoteProposals": typeof model_procurement_quoteProposals;
   "model/procurement/quoteValidators": typeof model_procurement_quoteValidators;
+  "model/procurement/quoteWeeks": typeof model_procurement_quoteWeeks;
   "model/procurement/seedLaborPrices": typeof model_procurement_seedLaborPrices;
   "model/procurement/supplierImport": typeof model_procurement_supplierImport;
   "model/procurement/supplierMaterials": typeof model_procurement_supplierMaterials;

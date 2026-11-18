@@ -3,17 +3,19 @@ import { engineeringOrPurchasingQuery, precosMutation } from "./lib/rbac";
 import { priceEventSource, quoteFreight } from "./schema/procurement";
 import {
   createQuoteProposal,
-  getQuoteProposal,
-  getQuoteWeek,
   linkPriceEventsToProposal,
-  listQuoteProposals,
-  listQuoteWeeks,
   updateQuoteProposal,
 } from "./model/procurement/quoteProposals";
 import {
+  getQuoteProposal,
+  getQuoteWeek,
+  listQuoteProposals,
+  listQuoteWeeks,
+} from "./model/procurement/quoteWeeks";
+import {
   quoteProposalSummaryValidator,
   quoteProposalValidator,
-  quoteWeekSummaryValidator,
+  quoteWeekPageValidator,
   quoteWeekValidator,
 } from "./model/procurement/quoteValidators";
 
@@ -109,10 +111,17 @@ export const list = engineeringOrPurchasingQuery({
   },
 });
 
-/** Semanas com preços lançados, mais recentes primeiro. */
+/**
+ * Semanas com preços lançados, mais recentes primeiro (até 20 por página).
+ * Para as anteriores, passe o `continueBefore` da resposta como `before`.
+ */
 export const listWeeks = engineeringOrPurchasingQuery({
-  args: { now: v.number(), limit: v.optional(v.number()) },
-  returns: v.array(quoteWeekSummaryValidator),
+  args: {
+    now: v.number(),
+    limit: v.optional(v.number()),
+    before: v.optional(v.number()),
+  },
+  returns: quoteWeekPageValidator,
   handler: async (ctx, args) => {
     return await listQuoteWeeks(ctx, args);
   },

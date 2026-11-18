@@ -1,8 +1,18 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
+import {
+  DAY_MS as SHARED_DAY_MS,
+  REFERENCE_WINDOW_DAYS,
+  referenceStats,
+  type ReferenceStats,
+} from "@rlpapp/shared/compras/priceReference";
 import { normalizeUnit } from "./catalog";
-import { isUsablePriceEvent, pickCurrentPriceEvent } from "./priceSelection";
+import {
+  isSupplierQuote,
+  isUsablePriceEvent,
+  pickCurrentPriceEvent,
+} from "./priceSelection";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -39,6 +49,45 @@ export async function materialEventsBetween(
     )
     .order("desc")
     .take(limit);
+}
+
+/**
+ * Máximo de cotações de um material lidas para a referência (6 meses). Dá
+ * ~20 cotações por semana; acima disso, a referência usa as mais recentes.
+ */
+export const REFERENCE_EVENT_LIMIT = 500;
+
+/**
+ * Referência de orçamento de um material: mediana, faixa, dispersão e ritmo
+ * das cotações de fornecedores dos últimos 6 meses, na unidade do material.
+ * Estimativas digitadas no takeoff e preços descartados na revisão ficam fora.
+ */
+export async function materialReferenceStats(
+  ctx: QueryCtx,
+  material: Pick<Doc<"materials">, "_id" | "unit">,
+  now: number
+): Promise<ReferenceStats | null> {
+  const events = await materialEventsBetween(
+    ctx,
+    material._id,
+    now - REFERENCE_WINDOW_DAYS * SHARED_DAY_MS,
+    now,
+    REFERENCE_EVENT_LIMIT
+  );
+  return referenceStats(
+    events
+      .filter(
+        (event) =>
+          isSupplierQuote(event) && isComparableUnit(event.unit, material.unit)
+      )
+      .map((event) => ({
+        unitPriceCents: event.unitPriceCents,
+        occurredAt: event.occurredAt,
+        supplierKey: supplierKeyOf(event),
+        supplierName: "",
+      })),
+    now
+  );
 }
 
 /** Variação entre dois preços comparáveis (mesma unidade). */

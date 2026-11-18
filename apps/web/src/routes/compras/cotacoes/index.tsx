@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useCan } from "@/hooks/use-can";
-import { formatWeekRange, toWeekParam } from "@/lib/quote-weeks";
+import { endOfTodayBrt, formatWeekRange, toWeekParam } from "@/lib/quote-weeks";
 
 export const Route = createFileRoute("/compras/cotacoes/")({
   component: CotacoesPage,
@@ -35,8 +35,12 @@ function CotacoesPage() {
 }
 
 function CotacoesContent() {
-  const [now] = useState(() => Date.now());
-  const weeks = useQuery(api.quoteProposals.listWeeks, { now, limit: 30 });
+  const [now] = useState(() => endOfTodayBrt());
+  // Páginas de semanas: cada cursor é o `before` de uma página (undefined = a mais recente).
+  const [cursors, setCursors] = useState<(number | undefined)[]>([undefined]);
+  const before = cursors[cursors.length - 1];
+  const page = useQuery(api.quoteProposals.listWeeks, { now, limit: 20, before });
+  const weeks = page?.weeks;
   const proposals = useQuery(api.quoteProposals.list, { limit: 20 });
   const canRecord = useCan("precos.write");
   const navigate = useNavigate();
@@ -96,13 +100,36 @@ function CotacoesContent() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{week.supplierCount}</TableCell>
                     <TableCell className="text-right tabular-nums">{week.materialCount}</TableCell>
-                    <TableCell className="text-right tabular-nums">{week.priceCount}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {week.priceCount}
+                      {week.truncated ? "+" : ""}
+                    </TableCell>
                     <TableCell className="text-right tabular-nums">{week.proposalCount}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           )}
+          {cursors.length > 1 || page?.continueBefore ? (
+            <div className="mt-3 flex justify-between gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={cursors.length === 1}
+                onClick={() => setCursors(cursors.slice(0, -1))}
+              >
+                Mais recentes
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!page?.continueBefore}
+                onClick={() => page?.continueBefore && setCursors([...cursors, page.continueBefore])}
+              >
+                Semanas anteriores
+              </Button>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

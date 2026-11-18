@@ -389,26 +389,160 @@ describe("rodada da semana", () => {
     expect(lg.cheapestSupplierKey).toBe(`id:${ids.dufrio}`);
     expect(lg.quantity).toBe(6);
     expect(lg.familyName).toBe("Split hi-wall 9.000 BTU/h");
+    expect(week.truncated).toBe(false);
     // Mediana de 6 meses inclui a semana anterior: 299, 305, 309, 312 mil.
-    expect(lg.referenceCents).toBe(307000);
+    const reference = await asBuyer.query(api.priceEvents.materialReference, {
+      materialId: ids.lg,
+      now: NOW,
+    });
+    expect(reference?.medianCents).toBe(307000);
 
     const midea = week.rows.find((row) => row.materialId === ids.midea)!;
     expect(midea.cells.map((cell) => cell.unitPriceCents)).toEqual([228000, 232000, 235000]);
   });
 
-  test("lista as semanas com preços", async () => {
+  test("preço em outra unidade fica numa linha própria, sem disputar o menor", async () => {
+    const { ids, asBuyer } = await seedWeek();
+    await asBuyer.mutation(api.priceEvents.add, {
+      materialId: ids.lg,
+      supplierId: ids.leveros,
+      unitPriceCents: 1000000,
+      unit: "cx",
+      source: "quote",
+      occurredAt: brt(2026, 11, 5),
+    });
+    const week = await asBuyer.query(api.quoteProposals.week, {
+      weekStart: brt(2026, 11, 2, 0),
+      now: NOW,
+    });
+    const lgRows = week.rows.filter((row) => row.materialId === ids.lg);
+    expect(lgRows.map((row) => [row.materialUnit, row.cells.length])).toEqual([
+      [true, 3],
+      [false, 1],
+    ]);
+    expect(lgRows[1]!.cheapestSupplierKey).toBeNull();
+  });
+
+  test("lista as semanas com preços, inteiras e em páginas", async () => {
     const { asBuyer } = await seedWeek();
-    const weeks = await asBuyer.query(api.quoteProposals.listWeeks, { now: NOW });
-    expect(weeks.map((w) => w.weekStart)).toEqual([
+    const page = await asBuyer.query(api.quoteProposals.listWeeks, { now: NOW });
+    expect(page.weeks.map((w) => w.weekStart)).toEqual([
       weekStartOf(brt(2026, 11, 4)),
       weekStartOf(brt(2026, 10, 30)),
     ]);
-    expect(weeks[0]).toMatchObject({
+    expect(page.weeks[0]).toMatchObject({
       priceCount: 6,
       supplierCount: 4,
       materialCount: 2,
       proposalCount: 3,
+      truncated: false,
     });
+
+    const first = await asBuyer.query(api.quoteProposals.listWeeks, { now: NOW, limit: 1 });
+    expect(first.weeks).toHaveLength(1);
+    const second = await asBuyer.query(api.quoteProposals.listWeeks, {
+      now: NOW,
+      limit: 1,
+      before: first.continueBefore!,
+    });
+    expect(second.weeks.map((w) => w.weekStart)).toEqual([weekStartOf(brt(2026, 10, 30))]);
+  });
+});
+
+describe("o que entra na referência e no limite da proposta", () => {
+  test("estimativas digitadas no takeoff não contam como cotação", async () => {
+    const { t, ids, asBuyer } = await seed();
+    await asBuyer.mutation(api.priceEvents.add, {
+      materialId: ids.lg,
+      supplierId: ids.dufrio,
+      unitPriceCents: 300000,
+      unit: "un",
+      source: "quote",
+      occurredAt: brt(2026, 11, 2),
+    });
+    await t.run((ctx) =>
+      ctx.db.insert("priceEvents", {
+        materialId: ids.lg,
+        supplierNameRaw: "RLP Takeoff",
+        unitPriceCents: 900000,
+        unit: "un",
+        source: "manual",
+        occurredAt: brt(2026, 11, 3),
+        reviewStatus: "unreviewed",
+        needsReview: true,
+        createdAt: NOW,
+      })
+    );
+    const reference = await asBuyer.query(api.priceEvents.materialReference, {
+      materialId: ids.lg,
+      now: NOW,
+    });
+    expect(reference).toMatchObject({ medianCents: 300000, count: 1 });
+    const history = await asBuyer.query(api.priceEvents.familyHistory, {
+      materialId: ids.lg,
+      now: NOW,
+    });
+    expect(history.quotes.map((q) => q.supplierName)).toEqual(["Dufrio"]);
+  });
+
+  test("a referência da família cobre 6 meses mesmo pedindo 1 mês de histórico", async () => {
+    const { ids, asBuyer } = await seed();
+    const add = (unitPriceCents: number, daysAgo: number) =>
+      asBuyer.mutation(api.priceEvents.add, {
+        materialId: ids.lg,
+        supplierId: ids.dufrio,
+        unitPriceCents,
+        unit: "un",
+        source: "quote",
+        occurredAt: NOW - daysAgo * DAY,
+      });
+    await add(20000, 10);
+    await add(10000, 60);
+    const history = await asBuyer.query(api.priceEvents.familyHistory, {
+      materialId: ids.lg,
+      now: NOW,
+      monthsBack: 1,
+    });
+    expect(history.quotes).toHaveLength(1);
+    const lg = history.variants.find((v) => v.materialId === ids.lg)!;
+    expect(lg.reference?.medianCents).toBe(15000);
+  });
+
+  test("ligar preços não passa do limite de linhas da proposta", async () => {
+    const { ids, asBuyer } = await seed();
+    const { proposalId } = await asBuyer.mutation(api.quoteProposals.create, {
+      supplierId: ids.dufrio,
+      receivedAt: brt(2026, 11, 6),
+      lines: Array.from({ length: 200 }, (_, i) => ({
+        rawDescription: `Item ${i}`,
+        unitPriceCents: 100 + i,
+        unit: "un",
+      })),
+    });
+    const loose = await asBuyer.mutation(api.priceEvents.add, {
+      rawDescription: "Item extra",
+      supplierId: ids.dufrio,
+      unitPriceCents: 999,
+      unit: "un",
+      source: "quote",
+      occurredAt: brt(2026, 11, 6),
+    });
+    await expect(
+      asBuyer.mutation(api.quoteProposals.linkPriceEvents, {
+        proposalId,
+        priceEventIds: [loose],
+      })
+    ).rejects.toThrow(/limite|passaria/);
+    await expect(
+      asBuyer.mutation(api.priceEvents.add, {
+        rawDescription: "Outro extra",
+        unitPriceCents: 999,
+        unit: "un",
+        source: "quote",
+        occurredAt: brt(2026, 11, 6),
+        quoteProposalId: proposalId,
+      })
+    ).rejects.toThrow(/limite/);
   });
 });
 

@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/table";
 import { useCan } from "@/hooks/use-can";
 import { getErrorMessage } from "@/lib/errors";
-import { formatPercent, formatSignedPercent, toWeekParam } from "@/lib/quote-weeks";
+import { endOfTodayBrt, formatPercent, formatSignedPercent, toWeekParam } from "@/lib/quote-weeks";
 import { cn } from "@/lib/utils";
 
 type History = FunctionReturnType<typeof api.priceEvents.familyHistory>;
@@ -63,7 +63,7 @@ const STATUS_NOTE: Record<ReferenceStats["status"], { label: string; dot: string
  * fornecedores na mesma semana e a lista de cotações.
  */
 export function FamilyPriceHistory({ materialId }: { materialId: Id<"materials"> }) {
-  const [now] = useState(() => Date.now());
+  const [now] = useState(() => endOfTodayBrt());
   const history = useQuery(api.priceEvents.familyHistory, {
     materialId,
     now,
@@ -237,7 +237,11 @@ export function FamilyPriceHistory({ materialId }: { materialId: Id<"materials">
         <CardHeader>
           <CardTitle className="text-base">Todas as cotações</CardTitle>
           <p className="text-xs text-muted-foreground">
-            {history.quotes.length} cotações dos últimos {MONTHS_BACK} meses, mais recentes primeiro.
+            {history.quotes.length} cotações de fornecedores dos últimos {MONTHS_BACK} meses, mais recentes
+            primeiro.
+            {history.historyTruncated
+              ? " Alguma variante tem mais cotações do que a página carrega: aparecem as mais recentes (a referência usa os 6 meses inteiros)."
+              : ""}
           </p>
         </CardHeader>
         <CardContent className="overflow-x-auto">
