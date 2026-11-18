@@ -174,6 +174,7 @@ import type * as model_procurement_supplierMaterials from "../model/procurement/
 import type * as model_procurement_supplierValidators from "../model/procurement/supplierValidators.js";
 import type * as model_procurement_suppliers from "../model/procurement/suppliers.js";
 import type * as model_procurement_takeoffCatalog from "../model/procurement/takeoffCatalog.js";
+import type * as model_procurement_takeoffEstimate from "../model/procurement/takeoffEstimate.js";
 import type * as model_procurement_takeoffItems from "../model/procurement/takeoffItems.js";
 import type * as model_procurement_takeoffKits from "../model/procurement/takeoffKits.js";
 import type * as model_procurement_takeoffPriceHistory from "../model/procurement/takeoffPriceHistory.js";
@@ -212,6 +213,7 @@ import type * as suppliers from "../suppliers.js";
 import type * as systems from "../systems.js";
 import type * as takeoffAuth from "../takeoffAuth.js";
 import type * as takeoffCatalog from "../takeoffCatalog.js";
+import type * as takeoffEstimates from "../takeoffEstimates.js";
 import type * as takeoffKits from "../takeoffKits.js";
 import type * as takeoffMaterials from "../takeoffMaterials.js";
 import type * as takeoffSettings from "../takeoffSettings.js";
@@ -397,6 +399,7 @@ declare const fullApi: ApiFromModules<{
   "model/procurement/supplierValidators": typeof model_procurement_supplierValidators;
   "model/procurement/suppliers": typeof model_procurement_suppliers;
   "model/procurement/takeoffCatalog": typeof model_procurement_takeoffCatalog;
+  "model/procurement/takeoffEstimate": typeof model_procurement_takeoffEstimate;
   "model/procurement/takeoffItems": typeof model_procurement_takeoffItems;
   "model/procurement/takeoffKits": typeof model_procurement_takeoffKits;
   "model/procurement/takeoffPriceHistory": typeof model_procurement_takeoffPriceHistory;
@@ -435,6 +438,7 @@ declare const fullApi: ApiFromModules<{
   systems: typeof systems;
   takeoffAuth: typeof takeoffAuth;
   takeoffCatalog: typeof takeoffCatalog;
+  takeoffEstimates: typeof takeoffEstimates;
   takeoffKits: typeof takeoffKits;
   takeoffMaterials: typeof takeoffMaterials;
   takeoffSettings: typeof takeoffSettings;

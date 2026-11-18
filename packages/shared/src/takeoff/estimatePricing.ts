@@ -1,0 +1,173 @@
+import { type EstimateLine, foldEstimateName } from "./estimate";
+import { inchSize, kitFamily } from "./kitCatalog";
+import { normalizeKitSku } from "./kits";
+import { type BasePrices, basePrice, type WeightRow } from "./weights";
+
+/**
+ * Prices of estimate lines outside the desktop app (the backend's estimate tools): each line
+ * takes the unit prices typed in the estimate, else the company material with its code or name,
+ * else a row of the weight table priced by the kilo, as the app prices a new line. No project
+ * here, so no line already in a takeoff to add to.
+ */
+
+/** A company material as the pricing needs it (the desktop catalog's fields). */
+export interface PricingMaterial {
+  id: string;
+  sku: string | null;
+  name: string;
+  /** Unit the material is quoted in ("m", "pç", "kg"…). */
+  unit: string;
+  materialPrice: number;
+  laborPrice: number;
+}
+
+export interface PricingCatalog {
+  materials: readonly PricingMaterial[];
+  /** The weight table in use (the company's, else the factory one). */
+  weights: readonly WeightRow[];
+  basePrices: BasePrices | null | undefined;
+}
+
+/** Where a line's material price came from. */
+export type PriceSource = "digitado" | "catalogo" | "peso" | "sem_preco";
+
+export interface PricedLine {
+  name: string;
+  sku: string | null;
+  group: string;
+  system: string | null;
+  /** "m", "pç" or "m²". */
+  unit: string;
+  quantity: number;
+  materialUnitPrice: number;
+  laborUnitPrice: number;
+  materialTotal: number;
+  laborTotal: number;
+  total: number;
+  priceSource: PriceSource;
+  /** Company material the line was priced from; null when none matched. */
+  materialId: string | null;
+}
+
+export interface EstimateTotals {
+  material: number;
+  labor: number;
+  /** Material + labour, before BDI. */
+  subtotal: number;
+  bdiPercent: number;
+  bdi: number;
+  /** Subtotal with BDI. */
+  total: number;
+}
+
+const cents = (v: number): number => Math.round(v * 100) / 100;
+
+const UNIT: Record<EstimateLine["kind"], string> = { count: "pç", linear: "m", area: "m²" };
+
+/** A unit as the budget counts it: pieces, metres, square metres; anything else as written. */
+function budgetUnit(unit: string): string {
+  const u = foldEstimateName(unit.trim()).replace(/\.$/, "");
+  if (["pc", "pç", "pca", "peca", "un", "und", "unid", "unidade"].includes(u)) return "pç";
+  if (["m", "mt", "mts", "metro", "metros", "ml"].includes(u)) return "m";
+  if (["m2", "m²"].includes(u)) return "m²";
+  return u;
+}
+
+/** Price every line and total them, with the BDI (percent over material + labour). */
+export function priceEstimate(
+  lines: readonly EstimateLine[],
+  catalog: PricingCatalog,
+  bdiPercent = 0,
+): { lines: PricedLine[]; totals: EstimateTotals } {
+  const bySku = new Map<string, PricingMaterial>();
+  const byName = new Map<string, PricingMaterial>();
+  for (const m of catalog.materials) {
+    const sku = normalizeKitSku(m.sku);
+    if (sku && !bySku.has(sku)) bySku.set(sku, m);
+    const name = foldEstimateName(m.name.trim());
+    if (!byName.has(name)) byName.set(name, m);
+  }
+  const weights = new Map(catalog.weights.map((w) => [foldEstimateName(w.name.trim()), w]));
+  // copper rows by tube size: kits say `Tubulação de Cobre 1/4"`, the weight table `Tubo de cobre 1/4"`
+  const copperBySize = new Map<number, WeightRow>();
+  for (const w of catalog.weights) {
+    const size = kitFamily(w.name) === "cobre" ? inchSize(w.name) : undefined;
+    if (size !== undefined && !copperBySize.has(size)) copperBySize.set(size, w);
+  }
+  const weightRow = (name: string, key: string): WeightRow | undefined => {
+    const exact = weights.get(key);
+    if (exact) return exact;
+    const size = kitFamily(name) === "cobre" ? inchSize(name) : undefined;
+    return size === undefined ? undefined : copperBySize.get(size);
+  };
+
+  // the company's copper quotes by tube size, as the desktop app finds them for kit copper
+  const quotedCopperBySize = new Map<number, PricingMaterial>();
+  for (const m of catalog.materials) {
+    if (m.materialPrice <= 0 || budgetUnit(m.unit) !== "m" || kitFamily(m.name) !== "cobre") continue;
+    const size = inchSize(m.name);
+    if (size !== undefined && !quotedCopperBySize.has(size)) quotedCopperBySize.set(size, m);
+  }
+
+  const priced = lines.map((line): PricedLine => {
+    const sku = normalizeKitSku(line.sku);
+    const key = foldEstimateName(line.name.trim());
+    const found = (sku ? bySku.get(sku) : undefined) ?? byName.get(key);
+    // a material quoted in another unit (R$/kg for a line in metres) does not price the line
+    const exact = found && budgetUnit(found.unit) === UNIT[line.kind] ? found : undefined;
+    const copperSize =
+      !exact && line.kind === "linear" && kitFamily(line.name) === "cobre"
+        ? inchSize(line.name)
+        : undefined;
+    const material =
+      exact ?? (copperSize !== undefined ? quotedCopperBySize.get(copperSize) : undefined);
+    const weight = material?.materialPrice ? undefined : weightRow(line.name, key);
+    const perKg = weight ? basePrice(catalog.basePrices ?? undefined, weight.material) : undefined;
+
+    let materialUnitPrice = 0;
+    let laborUnitPrice = material?.laborPrice ?? 0;
+    let priceSource: PriceSource = "sem_preco";
+    if (material && material.materialPrice > 0) {
+      materialUnitPrice = material.materialPrice;
+      priceSource = "catalogo";
+    } else if (weight && perKg !== undefined) {
+      materialUnitPrice = cents(weight.kgPerUnit * perKg);
+      priceSource = "peso";
+    }
+    if (line.price?.material !== undefined) {
+      materialUnitPrice = line.price.material;
+      priceSource = "digitado";
+    }
+    // the source is the material price's: a labour rate alone leaves the material missing (a
+    // labour line typed as { material: 0, labor } is "digitado" by its typed material)
+    if (line.price?.labor !== undefined) laborUnitPrice = line.price.labor;
+
+    const materialTotal = cents(line.qty * materialUnitPrice);
+    const laborTotal = cents(line.qty * laborUnitPrice);
+    return {
+      name: material && sku ? material.name : line.name,
+      sku: sku ?? normalizeKitSku(material?.sku) ?? null,
+      group: line.group,
+      system: line.system ?? null,
+      unit: UNIT[line.kind],
+      quantity: line.qty,
+      materialUnitPrice,
+      laborUnitPrice,
+      materialTotal,
+      laborTotal,
+      total: cents(materialTotal + laborTotal),
+      priceSource,
+      materialId: material?.id ?? null,
+    };
+  });
+
+  const material = cents(priced.reduce((s, l) => s + l.materialTotal, 0));
+  const labor = cents(priced.reduce((s, l) => s + l.laborTotal, 0));
+  const subtotal = cents(material + labor);
+  const pct = Number.isFinite(bdiPercent) && bdiPercent > 0 ? bdiPercent : 0;
+  const bdi = cents((subtotal * pct) / 100);
+  return {
+    lines: priced,
+    totals: { material, labor, subtotal, bdiPercent: pct, bdi, total: cents(subtotal + bdi) },
+  };
+}

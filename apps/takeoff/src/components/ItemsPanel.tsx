@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import {
   AirVent,
+  Calculator,
   ChevronDown,
   CircleDot,
   Cuboid,
@@ -96,6 +97,7 @@ export function ItemsPanel() {
     removeItem,
     addItem,
     setPaletteOpen,
+    setEstimateOpen,
     saveItemToCatalog,
     proposeItemToCompany,
     setZoneFilter,
@@ -446,6 +448,12 @@ export function ItemsPanel() {
         </Button>
         <Button onClick={() => setPaletteOpen(true)} title={`Catálogo de materiais (${mod("K")})`}>
           <Library size={16} />
+        </Button>
+        <Button
+          onClick={() => setEstimateOpen(true)}
+          title="Takeoff por estimativa: gerar itens a partir de premissas (ex.: 20 m por máquina), sem medir na planta"
+        >
+          <Calculator size={16} />
         </Button>
       </form>
     </div>
@@ -922,6 +930,26 @@ function ItemRow({
                   title="Comprimento vertical somado ao total do item"
                 />
                 m
+              </label>
+            )}
+            {!item.derived && item.manualQty !== undefined && (
+              <label
+                className="flex items-center gap-1 whitespace-nowrap"
+                title="Quantidade por estimativa (sem medir), somada ao que foi medido na planta. Zero tira a estimativa"
+              >
+                Estimado
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={item.manualQty}
+                  onClick={stop}
+                  // a cleared field stays (0 counts nothing) so the number can be retyped
+                  onChange={(e) =>
+                    onChange({ manualQty: Math.max(0, Number(e.target.value) || 0) })
+                  }
+                  className="num-input w-16"
+                />
               </label>
             )}
           </div>

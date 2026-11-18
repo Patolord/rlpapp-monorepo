@@ -118,6 +118,8 @@ export const createProjectSlice: Slice<ProjectSlice> = (set, get) => ({
       pendingZone: null,
       activeItemId: project.items[0]?.id ?? null,
       tool: "select",
+      // an estimate drafted for the previous takeoff must not land on this one
+      estimateOpen: false,
     }),
 
   ensurePages: (n) => {
