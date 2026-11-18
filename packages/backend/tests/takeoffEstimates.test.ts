@@ -61,7 +61,12 @@ describe("takeoffEstimates.split", () => {
       priceSource: "catalogo",
     });
     expect(line('Tubulação de Cobre 1/2"')).toMatchObject({ quantity: 34, materialUnitPrice: 50 });
-    expect(line('Tubulação de Cobre 3/8"')).toMatchObject({ quantity: 24, priceSource: "sem_preco" });
+    // no quote for 3/8": by weight from the factory table (0,193 kg/m × R$ 120/kg)
+    expect(line('Tubulação de Cobre 3/8"')).toMatchObject({
+      quantity: 24,
+      materialUnitPrice: 23.16,
+      priceSource: "peso",
+    });
     expect(line("Split Hi Wall 18.000 Btu/h")).toMatchObject({
       quantity: 1,
       materialUnitPrice: 3000,
@@ -75,7 +80,7 @@ describe("takeoffEstimates.split", () => {
     expect(result.totals.bdiPercent).toBe(30);
     expect(result.totals.total).toBeCloseTo(result.totals.subtotal * 1.3, 2);
     expect(result.assumptions[0]).toContain('kit "18.000 Inverter"');
-    expect(result.warnings.some((w) => w.includes('Tubulação de Cobre 3/8"'))).toBe(true);
+    expect(result.warnings.some((w) => w.includes('Isolamento Polipex 3/8"'))).toBe(true);
     expect(result.warnings.some((w) => w.startsWith("Sem mão de obra"))).toBe(false);
   });
 

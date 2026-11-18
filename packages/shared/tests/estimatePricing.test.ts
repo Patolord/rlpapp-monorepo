@@ -63,6 +63,16 @@ describe("priceEstimate", () => {
     });
   });
 
+  it("prices kit copper by weight through the table's own spelling", () => {
+    const { lines } = priceEstimate([line({ name: 'Tubulação de Cobre 1/2"' })], {
+      materials: [],
+      weights: SEED_WEIGHTS,
+      basePrices: { cobre: 100 },
+    });
+    // `Tubo de cobre 1/2"`: 0,263 kg/m × R$ 100/kg
+    expect(lines[0]).toMatchObject({ materialUnitPrice: 26.3, priceSource: "peso" });
+  });
+
   it("totals without BDI when none is given", () => {
     const { totals } = priceEstimate([line({ name: 'Tubulação de Cobre 1/4"' })], catalog);
     expect(totals).toMatchObject({ subtotal: 350, bdiPercent: 0, bdi: 0, total: 350 });

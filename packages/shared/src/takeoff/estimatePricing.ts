@@ -1,4 +1,5 @@
 import { type EstimateLine, foldEstimateName } from "./estimate";
+import { inchSize, kitFamily } from "./kitCatalog";
 import { normalizeKitSku } from "./kits";
 import { type BasePrices, basePrice, type WeightRow } from "./weights";
 
@@ -76,12 +77,24 @@ export function priceEstimate(
     if (!byName.has(name)) byName.set(name, m);
   }
   const weights = new Map(catalog.weights.map((w) => [foldEstimateName(w.name.trim()), w]));
+  // copper rows by tube size: kits say `Tubulação de Cobre 1/4"`, the weight table `Tubo de cobre 1/4"`
+  const copperBySize = new Map<number, WeightRow>();
+  for (const w of catalog.weights) {
+    const size = kitFamily(w.name) === "cobre" ? inchSize(w.name) : undefined;
+    if (size !== undefined && !copperBySize.has(size)) copperBySize.set(size, w);
+  }
+  const weightRow = (name: string, key: string): WeightRow | undefined => {
+    const exact = weights.get(key);
+    if (exact) return exact;
+    const size = kitFamily(name) === "cobre" ? inchSize(name) : undefined;
+    return size === undefined ? undefined : copperBySize.get(size);
+  };
 
   const priced = lines.map((line): PricedLine => {
     const sku = normalizeKitSku(line.sku);
     const key = foldEstimateName(line.name.trim());
     const material = (sku ? bySku.get(sku) : undefined) ?? byName.get(key);
-    const weight = material ? undefined : weights.get(key);
+    const weight = material?.materialPrice ? undefined : weightRow(line.name, key);
     const perKg = weight ? basePrice(catalog.basePrices ?? undefined, weight.material) : undefined;
 
     let materialUnitPrice = 0;

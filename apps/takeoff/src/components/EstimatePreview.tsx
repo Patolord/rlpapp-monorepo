@@ -84,7 +84,11 @@ export function EstimatePreview({ results, currency, unit, onPrice }: Props) {
           {results.map((r) => {
             const v = resultValue(r);
             return (
-              <tr key={r.item.id} className="border-t border-neutral-800/70">
+              <tr
+                // by the generated line: a new item gets a fresh id on every preview run
+                key={lineKey(r.line)}
+                className="border-t border-neutral-800/70"
+              >
                 <td className="py-1 pr-2">
                   <div className="flex items-center gap-1.5">
                     <span className="truncate text-neutral-100" title={r.item.name}>
