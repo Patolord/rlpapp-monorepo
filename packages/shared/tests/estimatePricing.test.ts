@@ -20,8 +20,22 @@ const line = (l: Partial<EstimateLine> & Pick<EstimateLine, "name">): EstimateLi
 describe("priceEstimate", () => {
   const catalog = {
     materials: [
-      { id: "m1", sku: "MAT-000001", name: 'Tubulação de Cobre 1/4"', materialPrice: 30, laborPrice: 5 },
-      { id: "m2", sku: null, name: 'Isolamento Polipex 1/4"', materialPrice: 4, laborPrice: 0 },
+      {
+        id: "m1",
+        sku: "MAT-000001",
+        name: 'Tubulação de Cobre 1/4"',
+        unit: "m",
+        materialPrice: 30,
+        laborPrice: 5,
+      },
+      {
+        id: "m2",
+        sku: null,
+        name: 'Isolamento Polipex 1/4"',
+        unit: "metro",
+        materialPrice: 4,
+        laborPrice: 0,
+      },
     ],
     weights: [{ ...SEED_WEIGHTS[0], name: 'Tubulação de Cobre 3/8"', kgPerUnit: 0.193 }],
     basePrices: { cobre: 100 },
@@ -71,6 +85,24 @@ describe("priceEstimate", () => {
     });
     // `Tubo de cobre 1/2"`: 0,263 kg/m × R$ 100/kg
     expect(lines[0]).toMatchObject({ materialUnitPrice: 26.3, priceSource: "peso" });
+  });
+
+  it("ignores a catalog price quoted in another unit and keeps a labour-only line unpriced", () => {
+    const { lines } = priceEstimate(
+      [line({ name: 'Tubulação de Cobre 1/2"' }), line({ name: "Tubo PEAD" })],
+      {
+        materials: [
+          { id: "k", sku: null, name: 'Tubulação de Cobre 1/2"', unit: "kg", materialPrice: 100, laborPrice: 0 },
+          { id: "p", sku: null, name: "Tubo PEAD", unit: "m", materialPrice: 0, laborPrice: 8 },
+        ],
+        weights: SEED_WEIGHTS,
+        basePrices: { cobre: 100 },
+      },
+    );
+    // R$/kg is not R$/m: the weight table prices the copper instead
+    expect(lines[0]).toMatchObject({ materialUnitPrice: 26.3, priceSource: "peso", materialId: null });
+    // labour from the catalog, but the material is still missing
+    expect(lines[1]).toMatchObject({ laborUnitPrice: 8, materialUnitPrice: 0, priceSource: "sem_preco" });
   });
 
   it("totals without BDI when none is given", () => {

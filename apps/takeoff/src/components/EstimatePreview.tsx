@@ -43,7 +43,7 @@ export function EstimatePreview({ results, currency, unit, onPrice }: Props) {
       <input
         type="number"
         min={0}
-        step="0.01"
+        step="any"
         value={value}
         aria-label={`${field === "material" ? "Material" : "Mão de obra"} unitário: ${r.item.name}`}
         onChange={(e) => {

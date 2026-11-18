@@ -85,6 +85,17 @@ describe("split installation", () => {
     expect(without.length).toBeGreaterThan(0);
   });
 
+  it("keeps each row's machine price when two rows are the same machine", () => {
+    const lines = split({
+      machines: [machine({ qty: 1, price: 3000 }), machine({ qty: 1, price: 4000 })],
+    });
+    // one line of 2 machines at the average: R$ 7.000 in all, not 2 × R$ 3.000
+    expect(byName(lines, "Split Hi Wall 12.000 Btu/h")).toMatchObject({
+      qty: 2,
+      price: { material: 3500 },
+    });
+  });
+
   it("generates nothing without machines", () => {
     expect(split({ machines: [machine({ qty: 0 })], labor: 450 })).toEqual([]);
   });

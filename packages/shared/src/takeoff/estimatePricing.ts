@@ -15,6 +15,8 @@ export interface PricingMaterial {
   id: string;
   sku: string | null;
   name: string;
+  /** Unit the material is quoted in ("m", "pç", "kg"…). */
+  unit: string;
   materialPrice: number;
   laborPrice: number;
 }
@@ -62,6 +64,15 @@ const cents = (v: number): number => Math.round(v * 100) / 100;
 
 const UNIT: Record<EstimateLine["kind"], string> = { count: "pç", linear: "m", area: "m²" };
 
+/** A unit as the budget counts it: pieces, metres, square metres; anything else as written. */
+function budgetUnit(unit: string): string {
+  const u = foldEstimateName(unit.trim()).replace(/\.$/, "");
+  if (["pc", "pç", "pca", "peca", "un", "und", "unid", "unidade"].includes(u)) return "pç";
+  if (["m", "metro", "metros", "ml"].includes(u)) return "m";
+  if (["m2", "m²"].includes(u)) return "m²";
+  return u;
+}
+
 /** Price every line and total them, with the BDI (percent over material + labour). */
 export function priceEstimate(
   lines: readonly EstimateLine[],
@@ -93,7 +104,9 @@ export function priceEstimate(
   const priced = lines.map((line): PricedLine => {
     const sku = normalizeKitSku(line.sku);
     const key = foldEstimateName(line.name.trim());
-    const material = (sku ? bySku.get(sku) : undefined) ?? byName.get(key);
+    const found = (sku ? bySku.get(sku) : undefined) ?? byName.get(key);
+    // a material quoted in another unit (R$/kg for a line in metres) does not price the line
+    const material = found && budgetUnit(found.unit) === UNIT[line.kind] ? found : undefined;
     const weight = material?.materialPrice ? undefined : weightRow(line.name, key);
     const perKg = weight ? basePrice(catalog.basePrices ?? undefined, weight.material) : undefined;
 
@@ -111,12 +124,9 @@ export function priceEstimate(
       materialUnitPrice = line.price.material;
       priceSource = "digitado";
     }
-    if (line.price?.labor !== undefined) {
-      laborUnitPrice = line.price.labor;
-      // a labour line typed in the estimate ({ material: 0, labor }) is priced, not missing
-      if (priceSource === "sem_preco" && line.price.labor > 0) priceSource = "digitado";
-    }
-    if (priceSource === "sem_preco" && laborUnitPrice > 0) priceSource = "catalogo";
+    // the source is the material price's: a labour rate alone leaves the material missing (a
+    // labour line typed as { material: 0, labor } is "digitado" by its typed material)
+    if (line.price?.labor !== undefined) laborUnitPrice = line.price.labor;
 
     const materialTotal = cents(line.qty * materialUnitPrice);
     const laborTotal = cents(line.qty * laborUnitPrice);

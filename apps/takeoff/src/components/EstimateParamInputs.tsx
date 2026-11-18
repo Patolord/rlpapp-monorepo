@@ -47,7 +47,7 @@ export function ScalarInput({ param: p, value, onChange, kits, id, label }: Scal
         aria-label={label}
         type="number"
         min={0}
-        step={p.type === "money" ? "0.01" : (p.step ?? "any")}
+        step={p.type === "money" ? "any" : (p.step ?? "any")}
         value={Number(value ?? 0)}
         onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
         className={`${estimateInput} w-20 text-right`}

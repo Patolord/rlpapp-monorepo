@@ -131,6 +131,32 @@ export function lineSetForCapacity(
 export const SPLIT_MACHINE_TYPES = ["Hi Wall", "Cassete", "Piso-teto", "Duto"] as const;
 export type SplitMachineType = (typeof SPLIT_MACHINE_TYPES)[number];
 
+/**
+ * Machine lines of the same name (two rows of the same type and capacity) as one line whose typed
+ * price is the average of the rows' typed prices, weighted by quantity, so the subtotal keeps
+ * every row's value (`mergeLines` would keep only the first price).
+ */
+function mergeMachines(lines: readonly EstimateLine[]): EstimateLine[] {
+  const out = new Map<string, { line: EstimateLine; typedQty: number; typedValue: number }>();
+  for (const l of lines) {
+    const prev = out.get(l.name);
+    const typed = l.price?.material;
+    const typedQty = typed !== undefined ? l.qty : 0;
+    const typedValue = typed !== undefined ? l.qty * typed : 0;
+    if (!prev) out.set(l.name, { line: { ...l }, typedQty, typedValue });
+    else {
+      prev.line.qty += l.qty;
+      prev.typedQty += typedQty;
+      prev.typedValue += typedValue;
+    }
+  }
+  return [...out.values()].map(({ line, typedQty, typedValue }) =>
+    typedQty > 0
+      ? { ...line, price: { material: Math.round((typedValue / typedQty) * 100) / 100 } }
+      : line,
+  );
+}
+
 const AC_INFRA = "Infra AC";
 const AC_EQUIP = "AC com Equip";
 
@@ -237,7 +263,7 @@ export const SPLIT_TEMPLATE: EstimateTemplate = {
       }
     }
     if (evaporators === 0) return [];
-    out.push(...equipment);
+    out.push(...mergeMachines(equipment));
     const labor = typed(v, "labor", "labor");
     if (labor) {
       out.push(

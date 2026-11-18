@@ -163,6 +163,7 @@ async function loadPricing(
       id: i.id,
       sku: i.sku,
       name: productName(i),
+      unit: i.unit,
       materialPrice: i.materialPrice,
       laborPrice: i.laborPrice,
     }));

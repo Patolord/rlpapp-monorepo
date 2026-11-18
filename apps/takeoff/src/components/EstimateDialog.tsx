@@ -66,15 +66,19 @@ export function EstimateDialog() {
 
   const entries = useMemo(() => mergeCatalog(catalog), [catalog]);
   const template = ESTIMATE_TEMPLATES.find((t) => t.id === calc);
+  // the draft read against the kits in use now (a catalog refresh may have changed them): the
+  // controls show and the lines are generated from the same values
+  const current = useMemo(
+    () => (template ? templateValues(template, values[template.id], kits) : undefined),
+    [template, values, kits],
+  );
   const lines = useMemo((): EstimateLine[] => {
-    const raw = template
-      ? template.lines(values[template.id] ?? templateValues(template, undefined, kits), kits)
-      : estimateLines(custom, kits);
+    const raw = template && current ? template.lines(current, kits) : estimateLines(custom, kits);
     return raw.map((l) => {
       const typed = prices[lineKey(l)];
       return typed ? { ...l, price: { ...l.price, ...typed } } : l;
     });
-  }, [template, values, custom, kits, prices]);
+  }, [template, current, custom, kits, prices]);
   const results = useMemo(() => {
     const r = applyEstimate(project, lines, catalog, entries, system);
     // lines priced by weight take their R$/kg price as they will on commit
@@ -147,7 +151,7 @@ export function EstimateDialog() {
       {template ? (
         <EstimateParams
           template={template}
-          values={values[template.id] ?? templateValues(template, undefined, kits)}
+          values={current ?? templateValues(template, undefined, kits)}
           onChange={(next) => setValues((vs) => ({ ...vs, [template.id]: next }))}
           kits={kits}
         />

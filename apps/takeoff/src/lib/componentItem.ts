@@ -59,13 +59,16 @@ export function componentItem(
   const name = coded && cat ? cat.name : c.name;
   const onTab = (i: Item) =>
     opts.system === undefined || foldName(i.system ?? "") === foldName(opts.system);
-  let item = items.find(
-    (i) =>
-      !i.derived &&
-      i.kind === c.kind &&
-      onTab(i) &&
-      ((coded && i.catalogId === coded) || foldName(i.name) === foldName(name)),
-  );
+  const candidate = (i: Item) => !i.derived && i.kind === c.kind && onTab(i);
+  // the line linked to this code first; by name, a line linked to another material never is
+  let item =
+    (coded ? items.find((i) => candidate(i) && i.catalogId === coded) : undefined) ??
+    items.find(
+      (i) =>
+        candidate(i) &&
+        foldName(i.name) === foldName(name) &&
+        (!coded || !i.catalogId || i.catalogId === coded),
+    );
   if (item && !item.catalogId && coded) {
     // a line of this name with no link (typed by hand, or from a kit without codes) is the
     // coded material: link it, keeping the price this takeoff has (the items list shows when it
