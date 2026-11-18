@@ -117,72 +117,81 @@ export type ListPriceEventsInput = {
   limit?: number;
 };
 
-// Com fornecedor ou período junto de outro filtro, lê no máximo isto antes de filtrar.
+// Projeto ou takeoff com período (sem índice por data) e fornecedor + material:
+// lê no máximo isto antes de filtrar.
 const FILTERED_SCAN_LIMIT = 1000;
 
+/**
+ * Preços mais recentes primeiro. Com período (`from`/`to`), fornecedor e
+ * material usam os índices por data do preço, então um preço antigo lançado
+ * hoje (histórico retroativo) aparece no período certo.
+ */
 export async function listPriceEvents(
   ctx: QueryCtx,
   input: ListPriceEventsInput
 ) {
   const limit = Math.min(Math.max(input.limit ?? 100, 1), 500);
-  const from = input.from ?? Number.NEGATIVE_INFINITY;
-  const to = input.to ?? Number.POSITIVE_INFINITY;
+  const hasPeriod = input.from !== undefined || input.to !== undefined;
+  const from = input.from ?? Number.MIN_SAFE_INTEGER;
+  const to = input.to ?? Number.MAX_SAFE_INTEGER;
   const inPeriod = (event: { occurredAt: number }) =>
     event.occurredAt >= from && event.occurredAt <= to;
+  const newestFirst = (a: { occurredAt: number }, b: { occurredAt: number }) =>
+    b.occurredAt - a.occurredAt;
   let events;
 
   if (input.supplierId) {
-    // Lançamento retroativo: conferir o que já existe de um fornecedor num período.
     const supplierId = input.supplierId;
-    events = (
-      await ctx.db
-        .query("priceEvents")
-        .withIndex("by_supplier", (q) => q.eq("supplierId", supplierId))
-        .order("desc")
-        .take(FILTERED_SCAN_LIMIT)
-    )
-      .filter(
-        (event) =>
-          inPeriod(event) &&
-          (!input.materialId || event.materialId === input.materialId)
+    const query = ctx.db
+      .query("priceEvents")
+      .withIndex("by_supplier_and_occurred_at", (q) =>
+        q.eq("supplierId", supplierId).gte("occurredAt", from).lte("occurredAt", to)
       )
-      .sort((a, b) => b.occurredAt - a.occurredAt)
-      .slice(0, limit);
+      .order("desc");
+    events = input.materialId
+      ? (await query.take(FILTERED_SCAN_LIMIT))
+          .filter((event) => event.materialId === input.materialId)
+          .slice(0, limit)
+      : await query.take(limit);
   } else if (input.materialId) {
-    events = await ctx.db
-      .query("priceEvents")
-      .withIndex("by_material", (q) => q.eq("materialId", input.materialId))
-      .order("desc")
-      .take(limit);
-  } else if (input.projectId) {
-    events = await ctx.db
-      .query("priceEvents")
-      .withIndex("by_project", (q) => q.eq("projectId", input.projectId))
-      .order("desc")
-      .take(limit);
-  } else if (input.takeoffId) {
-    events = await ctx.db
-      .query("priceEvents")
-      .withIndex("by_takeoff", (q) => q.eq("takeoffId", input.takeoffId))
-      .order("desc")
-      .take(limit);
+    const materialId = input.materialId;
+    events = hasPeriod
+      ? await ctx.db
+          .query("priceEvents")
+          .withIndex("by_material_and_occurred_at", (q) =>
+            q.eq("materialId", materialId).gte("occurredAt", from).lte("occurredAt", to)
+          )
+          .order("desc")
+          .take(limit)
+      : await ctx.db
+          .query("priceEvents")
+          .withIndex("by_material", (q) => q.eq("materialId", materialId))
+          .order("desc")
+          .take(limit);
+  } else if (input.projectId || input.takeoffId) {
+    const scan = hasPeriod ? FILTERED_SCAN_LIMIT : limit;
+    const rows = input.projectId
+      ? await ctx.db
+          .query("priceEvents")
+          .withIndex("by_project", (q) => q.eq("projectId", input.projectId))
+          .order("desc")
+          .take(scan)
+      : await ctx.db
+          .query("priceEvents")
+          .withIndex("by_takeoff", (q) => q.eq("takeoffId", input.takeoffId))
+          .order("desc")
+          .take(scan);
+    events = hasPeriod
+      ? rows.filter(inPeriod).sort(newestFirst).slice(0, limit)
+      : rows;
   } else {
     events = await ctx.db
       .query("priceEvents")
       .withIndex("by_occurred_at", (q) =>
-        input.from !== undefined && input.to !== undefined
-          ? q.gte("occurredAt", input.from).lte("occurredAt", input.to)
-          : input.from !== undefined
-            ? q.gte("occurredAt", input.from)
-            : input.to !== undefined
-              ? q.lte("occurredAt", input.to)
-              : q
+        q.gte("occurredAt", from).lte("occurredAt", to)
       )
       .order("desc")
       .take(limit);
-  }
-  if (!input.supplierId && (input.from !== undefined || input.to !== undefined)) {
-    events = events.filter(inPeriod);
   }
 
   const out = [];

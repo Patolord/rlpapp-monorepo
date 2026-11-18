@@ -229,6 +229,94 @@ describe("quoteProposals", () => {
     expect(allApril).toHaveLength(2);
   });
 
+  test("o período usa a data do preço: um preço antigo lançado antes de outros mais novos aparece", async () => {
+    const { ids, asBuyer } = await seed();
+    const add = (unitPriceCents: number, occurredAt: number) =>
+      asBuyer.mutation(api.priceEvents.add, {
+        materialId: ids.lg,
+        supplierId: ids.dufrio,
+        unitPriceCents,
+        unit: "un",
+        source: "quote",
+        occurredAt,
+      });
+    await add(280000, brt(2026, 2, 10)); // criado primeiro
+    await add(300000, brt(2026, 10, 1));
+    await add(301000, brt(2026, 10, 8));
+    await add(302000, brt(2026, 10, 15));
+    const period = { now: NOW, from: brt(2026, 2, 1, 0), to: brt(2026, 2, 28, 23), limit: 2 };
+    const byMaterial = await asBuyer.query(api.priceEvents.list, { ...period, materialId: ids.lg });
+    expect(byMaterial.map((e) => e.unitPriceCents)).toEqual([280000]);
+    const bySupplier = await asBuyer.query(api.priceEvents.list, {
+      ...period,
+      supplierId: ids.dufrio,
+      materialId: ids.lg,
+    });
+    expect(bySupplier.map((e) => e.unitPriceCents)).toEqual([280000]);
+  });
+
+  test("um preço lançado numa proposta fica com o fornecedor, a data e a validade dela", async () => {
+    const { t, ids, asBuyer } = await seed();
+    const { proposalId } = await asBuyer.mutation(api.quoteProposals.create, {
+      supplierId: ids.dufrio,
+      receivedAt: brt(2026, 11, 6),
+      validUntil: brt(2026, 11, 21),
+      lines: [{ materialId: ids.lg, unitPriceCents: 305000, unit: "un" }],
+    });
+    const added = await asBuyer.mutation(api.priceEvents.add, {
+      materialId: ids.midea,
+      unitPriceCents: 232000,
+      unit: "un",
+      source: "quote",
+      occurredAt: brt(2026, 9, 1),
+      quoteProposalId: proposalId,
+    });
+    const event = await t.run((ctx) => ctx.db.get("priceEvents", added));
+    expect(event).toMatchObject({
+      supplierId: ids.dufrio,
+      occurredAt: brt(2026, 11, 6),
+      validUntil: brt(2026, 11, 21),
+    });
+    await expect(
+      asBuyer.mutation(api.priceEvents.add, {
+        materialId: ids.midea,
+        supplierId: ids.frigelar,
+        unitPriceCents: 228000,
+        unit: "un",
+        source: "quote",
+        occurredAt: brt(2026, 11, 6),
+        quoteProposalId: proposalId,
+      })
+    ).rejects.toThrow(/diferente do da proposta/);
+  });
+
+  test("a referência do catálogo do takeoff usa todas as cotações dos 6 meses", async () => {
+    const { t, ids } = await seed();
+    const now = Date.now();
+    await t.run(async (ctx) => {
+      const insert = (unitPriceCents: number, daysAgo: number) =>
+        ctx.db.insert("priceEvents", {
+          materialId: ids.lg,
+          supplierId: ids.dufrio,
+          unitPriceCents,
+          unit: "un",
+          source: "quote",
+          occurredAt: now - daysAgo * DAY,
+          needsReview: false,
+          reviewStatus: "reviewed",
+          createdAt: now,
+        });
+      // 30 cotações mais antigas criadas primeiro, 30 recentes depois: as 50
+      // últimas criadas dariam mediana 200; as 60 da janela dão 150.
+      for (let i = 0; i < 30; i++) await insert(10000, 100);
+      for (let i = 0; i < 30; i++) await insert(20000, 10);
+    });
+    const asEngineer = await withUser(t, { clerkId: "eng_ref", roles: ["engenharia"] });
+    const body = await asEngineer.query(api.takeoffCatalog.current, {});
+    const lg = body.items.find((item) => item.id === ids.lg);
+    expect(lg?.reference).toMatchObject({ price: 150, count: 60 });
+  });
+
   test("só quem registra preços cria proposta", async () => {
     const { t, ids } = await seed();
     const asEngineer = await withUser(t, { clerkId: "eng_1", roles: ["engenharia"] });

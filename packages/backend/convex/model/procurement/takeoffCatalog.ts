@@ -4,8 +4,16 @@ import type { QueryCtx } from "../../_generated/server";
 import { normalizeUnit } from "./catalog";
 import { describeMaterial } from "./materialLookup";
 import { materialStatus } from "../../schema/procurement";
-import { referenceStats } from "@rlpapp/shared/compras/priceReference";
-import { isComparableUnit, supplierKeyOf } from "./priceHistory";
+import {
+  DAY_MS,
+  REFERENCE_WINDOW_DAYS,
+  referenceStats,
+} from "@rlpapp/shared/compras/priceReference";
+import {
+  isComparableUnit,
+  materialEventsBetween,
+  supplierKeyOf,
+} from "./priceHistory";
 import {
   centsToReais,
   isUsablePriceEvent,
@@ -22,6 +30,8 @@ export const DEFAULT_TAKEOFF_GROUP = "Geral";
 export const TAKEOFF_PIECE_UNIT = "pç";
 // Same window `priceEvents.latestForMaterial` reads per material.
 const PRICE_EVENT_WINDOW = 50;
+// Quotes of one material within the reference's six months, by price date.
+const REFERENCE_EVENT_WINDOW = 500;
 
 export const takeoffPriceReferenceValidator = v.object({
   /** Median of the window: the price to budget with. */
@@ -197,9 +207,18 @@ async function materialPrices(
     .withIndex("by_material", (q) => q.eq("materialId", material._id))
     .order("desc")
     .take(PRICE_EVENT_WINDOW);
+  // The reference reads the whole six-month window by price date: a material
+  // quoted often has more than PRICE_EVENT_WINDOW quotes in it.
+  const windowEvents = await materialEventsBetween(
+    ctx,
+    material._id,
+    now - REFERENCE_WINDOW_DAYS * DAY_MS,
+    now,
+    REFERENCE_EVENT_WINDOW
+  );
   return {
     price: pickCurrentPriceEvent(events, now),
-    reference: takeoffReferenceOf(material, events, now),
+    reference: takeoffReferenceOf(material, windowEvents, now),
   };
 }
 

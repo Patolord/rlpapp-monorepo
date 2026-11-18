@@ -6,7 +6,11 @@ import {
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
-import { isComparableUnit, supplierKeyOf } from "./priceHistory";
+import {
+  isComparableUnit,
+  materialEventsBetween,
+  supplierKeyOf,
+} from "./priceHistory";
 import { isUsablePriceEvent } from "./priceSelection";
 
 /**
@@ -101,17 +105,10 @@ export async function getFamilyPriceHistory(
   const eventsByMaterial = new Map<Id<"materials">, Doc<"priceEvents">[]>();
   for (const material of materials) {
     const recent = (
-      await ctx.db
-        .query("priceEvents")
-        .withIndex("by_material", (q) => q.eq("materialId", material._id))
-        .order("desc")
-        .take(EVENTS_PER_VARIANT)
+      await materialEventsBetween(ctx, material._id, since, input.now, EVENTS_PER_VARIANT)
     ).filter(
       (event) =>
-        isUsablePriceEvent(event) &&
-        event.occurredAt >= since &&
-        event.occurredAt <= input.now &&
-        isComparableUnit(event.unit, material.unit)
+        isUsablePriceEvent(event) && isComparableUnit(event.unit, material.unit)
     );
     eventsByMaterial.set(material._id, recent);
     events.push(...recent);

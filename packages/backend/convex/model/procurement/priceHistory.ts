@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
+import type { QueryCtx } from "../../_generated/server";
 import { normalizeUnit } from "./catalog";
 import { isUsablePriceEvent, pickCurrentPriceEvent } from "./priceSelection";
 
@@ -18,6 +19,27 @@ export type PriceHistoryEvent = Pick<
   | "reviewStatus"
   | "needsReview"
 >;
+
+/**
+ * Preços de um material com data entre `from` e `to` (inclusivo), mais
+ * recentes primeiro, pela data do preço e não pela de criação: um preço
+ * antigo lançado hoje (histórico retroativo) cai na janela certa.
+ */
+export async function materialEventsBetween(
+  ctx: QueryCtx,
+  materialId: Id<"materials">,
+  from: number,
+  to: number,
+  limit: number
+): Promise<Doc<"priceEvents">[]> {
+  return await ctx.db
+    .query("priceEvents")
+    .withIndex("by_material_and_occurred_at", (q) =>
+      q.eq("materialId", materialId).gte("occurredAt", from).lte("occurredAt", to)
+    )
+    .order("desc")
+    .take(limit);
+}
 
 /** Variação entre dois preços comparáveis (mesma unidade). */
 export type PriceChange = {

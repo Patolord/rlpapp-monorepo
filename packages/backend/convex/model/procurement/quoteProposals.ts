@@ -1,6 +1,7 @@
 import type { Infer } from "convex/values";
 import {
   DAY_MS,
+  REFERENCE_WINDOW_DAYS,
   referenceStats,
   weekStartOf,
 } from "@rlpapp/shared/compras/priceReference";
@@ -9,7 +10,11 @@ import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
 import type { priceEventSource, quoteFreight } from "../../schema/procurement";
 import { addPriceEvent } from "./priceEventReview";
-import { isComparableUnit, supplierKeyOf } from "./priceHistory";
+import {
+  isComparableUnit,
+  materialEventsBetween,
+  supplierKeyOf,
+} from "./priceHistory";
 import { isUsablePriceEvent } from "./priceSelection";
 import { normalizeText } from "./pricing";
 
@@ -27,7 +32,8 @@ import { normalizeText } from "./pricing";
 const MAX_LINES = 200;
 const WEEK_EVENT_WINDOW = 1000;
 const RECENT_WEEKS_EVENT_WINDOW = 2000;
-const MATERIAL_REFERENCE_WINDOW = 200;
+// Cotações de um material dentro dos 6 meses da referência.
+const MATERIAL_REFERENCE_WINDOW = 500;
 
 type Freight = Infer<typeof quoteFreight>;
 type PriceEventSource = Infer<typeof priceEventSource>;
@@ -512,11 +518,13 @@ async function materialReferenceCents(
   material: Doc<"materials">,
   now: number
 ): Promise<number | null> {
-  const events = await ctx.db
-    .query("priceEvents")
-    .withIndex("by_material", (q) => q.eq("materialId", material._id))
-    .order("desc")
-    .take(MATERIAL_REFERENCE_WINDOW);
+  const events = await materialEventsBetween(
+    ctx,
+    material._id,
+    now - REFERENCE_WINDOW_DAYS * DAY_MS,
+    now,
+    MATERIAL_REFERENCE_WINDOW
+  );
   const samples = events
     .filter(
       (event) =>

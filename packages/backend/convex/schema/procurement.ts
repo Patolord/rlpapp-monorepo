@@ -476,6 +476,10 @@ export const procurementTables = {
     createdByUserId: v.optional(v.id("users")),
   })
     .index("by_material", ["materialId"])
+    // Por data do preço (não de criação): janelas como "últimos 6 meses" e o
+    // lançamento retroativo, em que um preço antigo é criado hoje.
+    .index("by_material_and_occurred_at", ["materialId", "occurredAt"])
+    .index("by_supplier_and_occurred_at", ["supplierId", "occurredAt"])
     .index("by_quote_proposal", ["quoteProposalId"])
     .index("by_supplier", ["supplierId"])
     .index("by_material_supplier", ["materialId", "supplierId"])

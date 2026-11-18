@@ -8,6 +8,7 @@ import type {
 } from "../../schema/procurement";
 import { sanitizeDimensions, type MaterialDimensions } from "./catalog";
 import { enrichPriceEvent } from "./priceEvents";
+import { supplierKeyOf } from "./priceHistory";
 import { computeNeedsReview } from "./pricing";
 import { promoteTakeoffItem } from "./takeoffPromotion";
 
@@ -76,10 +77,36 @@ export async function addPriceEvent(
     dimensions = material?.dimensions;
   }
 
+  // Um preço de proposta é do fornecedor, da data e da validade dela, como em
+  // linkPriceEventsToProposal: senão cairia em outra coluna ou outra semana do
+  // mapa da rodada.
+  let supplierId = input.supplierId;
+  let supplierNameRaw = input.supplierNameRaw?.trim() || undefined;
+  let occurredAt = input.occurredAt;
+  let validUntil = input.validUntil;
+  if (input.quoteProposalId) {
+    const proposal = await ctx.db.get("quoteProposals", input.quoteProposalId);
+    if (!proposal) throw new Error("Proposta não encontrada");
+    const keyOf = (s: {
+      supplierId?: Id<"suppliers">;
+      supplierNameRaw?: string;
+    }) => supplierKeyOf({ _id: "" as Id<"priceEvents">, ...s });
+    if (
+      (supplierId || supplierNameRaw) &&
+      keyOf({ supplierId, supplierNameRaw }) !== keyOf(proposal)
+    ) {
+      throw new Error("O fornecedor do preço é diferente do da proposta");
+    }
+    supplierId = proposal.supplierId;
+    supplierNameRaw = proposal.supplierNameRaw;
+    occurredAt = proposal.receivedAt;
+    validUntil = proposal.validUntil;
+  }
+
   const needsReview = computeNeedsReview({
     materialId,
-    supplierId: input.supplierId,
-    supplierNameRaw: input.supplierNameRaw,
+    supplierId,
+    supplierNameRaw,
     unit,
     rawDescription,
   });
@@ -88,14 +115,14 @@ export async function addPriceEvent(
   const eventId = await ctx.db.insert("priceEvents", {
     rawDescription,
     materialId,
-    supplierId: input.supplierId,
-    supplierNameRaw: input.supplierNameRaw?.trim() || undefined,
+    supplierId,
+    supplierNameRaw,
     unitPriceCents: input.unitPriceCents,
     unit,
     quantity: input.quantity,
     source: input.source,
-    occurredAt: input.occurredAt,
-    validUntil: input.validUntil,
+    occurredAt,
+    validUntil,
     projectId,
     takeoffId,
     takeoffItemId: input.takeoffItemId,
