@@ -10,6 +10,7 @@ import {
 import type { Kit } from "./kits";
 import { itemTotals } from "./quantities";
 import { emptyProject, type Item, type Project } from "./types";
+import { SEED_WEIGHTS, syncWeightItems, weightCatalogEntries } from "./weights";
 
 const LINE_SET: Kit = {
   id: "kit-12-000-inverter",
@@ -247,5 +248,27 @@ describe("typed prices", () => {
       [],
     );
     expect(again.results[0].item).toMatchObject({ materialPrice: 180, manualQty: 4 });
+  });
+});
+
+describe("offline copper", () => {
+  it("prices factory-kit copper by weight and follows a new price per kg", () => {
+    // no company catalog: only the weight table, named `Tubo de cobre 1/2"`
+    const entries = weightCatalogEntries(SEED_WEIGHTS, { cobre: 100 });
+    const lines: EstimateLine[] = [
+      { name: 'Tubulação de Cobre 1/2"', group: "Tubulações", kind: "linear", qty: 10 },
+    ];
+    const { project: p } = applyEstimate(emptyProject(), lines, { remote: [] }, entries);
+    const copper = p.items[0];
+    // the kit's name, priced from the same-size weight row
+    expect(copper).toMatchObject({
+      name: 'Tubulação de Cobre 1/2"',
+      baseMaterial: "cobre",
+      kgPerUnit: 0.263,
+      materialPrice: 26.3,
+      manualQty: 10,
+    });
+    const repriced = syncWeightItems(p, { cobre: 200 });
+    expect(repriced.items[0]).toMatchObject({ materialPrice: 52.6, priceSource: "weight" });
   });
 });
