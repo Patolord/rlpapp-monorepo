@@ -165,7 +165,7 @@ export async function listPriceEvents(
           .take(limit)
       : await ctx.db
           .query("priceEvents")
-          .withIndex("by_material", (q) => q.eq("materialId", materialId))
+          .withIndex("by_material_and_occurred_at", (q) => q.eq("materialId", materialId))
           .order("desc")
           .take(limit);
   } else if (input.projectId || input.takeoffId) {
@@ -215,7 +215,7 @@ export async function listLatestPricesForMaterial(
   let events = input.materialId
     ? await ctx.db
         .query("priceEvents")
-        .withIndex("by_material", (q) => q.eq("materialId", input.materialId))
+        .withIndex("by_material_and_occurred_at", (q) => q.eq("materialId", input.materialId))
         .order("desc")
         .take(50)
     : [];

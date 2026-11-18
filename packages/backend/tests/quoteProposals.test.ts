@@ -317,6 +317,31 @@ describe("quoteProposals", () => {
     expect(lg?.reference).toMatchObject({ price: 150, count: 60 });
   });
 
+  test("o preço atual do catálogo é a cotação mais recente pela data, mesmo depois de carga retroativa", async () => {
+    const { t, ids } = await seed();
+    const now = Date.now();
+    await t.run(async (ctx) => {
+      const insert = (unitPriceCents: number, daysAgo: number) =>
+        ctx.db.insert("priceEvents", {
+          materialId: ids.lg,
+          supplierId: ids.dufrio,
+          unitPriceCents,
+          unit: "un",
+          source: "quote",
+          occurredAt: now - daysAgo * DAY,
+          needsReview: false,
+          reviewStatus: "reviewed",
+          createdAt: now,
+        });
+      await insert(31000, 2); // a cotação nova, criada primeiro
+      // 60 cotações antigas lançadas depois (histórico retroativo).
+      for (let i = 0; i < 60; i++) await insert(20000, 300 + i);
+    });
+    const asEngineer = await withUser(t, { clerkId: "eng_cur", roles: ["engenharia"] });
+    const body = await asEngineer.query(api.takeoffCatalog.current, {});
+    expect(body.items.find((item) => item.id === ids.lg)?.materialPrice).toBe(310);
+  });
+
   test("só quem registra preços cria proposta", async () => {
     const { t, ids } = await seed();
     const asEngineer = await withUser(t, { clerkId: "eng_1", roles: ["engenharia"] });

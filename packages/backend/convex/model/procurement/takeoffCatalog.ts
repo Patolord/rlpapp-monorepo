@@ -172,9 +172,11 @@ async function materialPrices(
   material: Doc<"materials">,
   now: number
 ): Promise<{ price: CurrentPrice | null; reference: TakeoffPriceReference | null }> {
+  // The latest prices by price date, not by creation: a retroactive load of old
+  // quotes must not push the newest quote out of the window.
   const events = await ctx.db
     .query("priceEvents")
-    .withIndex("by_material", (q) => q.eq("materialId", material._id))
+    .withIndex("by_material_and_occurred_at", (q) => q.eq("materialId", material._id))
     .order("desc")
     .take(PRICE_EVENT_WINDOW);
   return {
