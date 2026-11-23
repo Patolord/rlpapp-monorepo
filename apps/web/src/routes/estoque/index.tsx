@@ -8,6 +8,7 @@ import {
   Package,
   Plus,
   ShieldAlert,
+  Tags,
   Warehouse,
 } from "lucide-react";
 import { MetricCard, MetricStrip } from "@rlpapp/ui/web";
@@ -95,10 +96,18 @@ function EstoqueContent() {
             Controle do armazém central, entradas e envios para as obras.
           </p>
         </div>
-        <Button render={<Link to="/estoque/movimentacao" />}>
-          <Plus />
-          Nova movimentação
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {access.canViewCentral ? (
+            <Button variant="outline" render={<Link to="/estoque/etiquetas" />}>
+              <Tags />
+              Etiquetas de prateleira
+            </Button>
+          ) : null}
+          <Button render={<Link to="/estoque/movimentacao" />}>
+            <Plus />
+            Nova movimentação
+          </Button>
+        </div>
       </div>
 
       <MetricStrip>

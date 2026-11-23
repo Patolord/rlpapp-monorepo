@@ -40,6 +40,7 @@ import {
   Wind,
   SlidersHorizontal,
   Snowflake,
+  Tags,
   type LucideIcon,
 } from "lucide-react";
 
@@ -117,6 +118,12 @@ function getNavGroups(): NavGroup[] {
       items: [
         { to: "/estoque", label: "Estoque central", icon: Warehouse, exact: true },
         { to: "/estoque/movimentacao", label: "Nova movimentação", icon: ArrowLeftRight },
+        {
+          to: "/estoque/etiquetas",
+          label: "Etiquetas de prateleira",
+          icon: Tags,
+          permission: "estoque.central.read",
+        },
       ],
     },
     {

@@ -337,4 +337,29 @@ describe("cadastro em campo", () => {
     });
     expect(later.materialId).toBe(ids.breakerId);
   });
+
+  test("etiquetas de prateleira: itens do central com SKU e endereço", async () => {
+    const { ids, warehouse, engineer } = await seed();
+    await warehouse.mutation(api.materialCaptures.capture, {
+      clientId: clientId(),
+      materialId: ids.breakerId,
+      quantity: 4,
+      physicalAddress: "B3-12",
+      capturedAt: Date.now(),
+    });
+    const labels = await warehouse.query(api.inventory.listShelfLabels, {
+      paginationOpts: { numItems: 50, cursor: null },
+    });
+    expect(labels.page).toEqual([
+      expect.objectContaining({
+        materialId: ids.breakerId,
+        sku: "MAT-000001",
+        physicalAddress: "B3-12",
+        quantity: 4,
+      }),
+    ]);
+    await expect(
+      engineer.query(api.inventory.listShelfLabels, { paginationOpts: { numItems: 50, cursor: null } })
+    ).rejects.toThrow("Etiquetas de prateleira são do estoque central");
+  });
 });

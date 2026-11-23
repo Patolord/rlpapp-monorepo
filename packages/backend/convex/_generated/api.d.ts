@@ -142,6 +142,7 @@ import type * as model_inventory_posting from "../model/inventory/posting.js";
 import type * as model_inventory_queries from "../model/inventory/queries.js";
 import type * as model_inventory_requestWorkflow from "../model/inventory/requestWorkflow.js";
 import type * as model_inventory_requests from "../model/inventory/requests.js";
+import type * as model_inventory_shelfLabels from "../model/inventory/shelfLabels.js";
 import type * as model_inventory_stockLedger from "../model/inventory/stockLedger.js";
 import type * as model_inventory_stockPolicy from "../model/inventory/stockPolicy.js";
 import type * as model_inventory_validators from "../model/inventory/validators.js";
@@ -372,6 +373,7 @@ declare const fullApi: ApiFromModules<{
   "model/inventory/queries": typeof model_inventory_queries;
   "model/inventory/requestWorkflow": typeof model_inventory_requestWorkflow;
   "model/inventory/requests": typeof model_inventory_requests;
+  "model/inventory/shelfLabels": typeof model_inventory_shelfLabels;
   "model/inventory/stockLedger": typeof model_inventory_stockLedger;
   "model/inventory/stockPolicy": typeof model_inventory_stockPolicy;
   "model/inventory/validators": typeof model_inventory_validators;

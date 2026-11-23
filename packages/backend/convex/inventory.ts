@@ -45,6 +45,7 @@ import {
   listInventoryProjects,
   quickCreateInventoryMaterial,
 } from "./model/inventory/workspace";
+import { listShelfLabelsPage } from "./model/inventory/shelfLabels";
 
 export const getAccess = inventoryQuery({
   args: {},
@@ -101,6 +102,32 @@ export const quickCreateMaterial = warehouseOrPurchasingMutation({
   }),
   handler: async (ctx, args) => {
     return await quickCreateInventoryMaterial(ctx, ctx.user, args);
+  },
+});
+
+/** Itens do estoque central com SKU e endereço, para imprimir etiquetas de prateleira. */
+export const listShelfLabels = inventoryQuery({
+  args: { paginationOpts: paginationOptsValidator },
+  returns: v.object({
+    page: v.array(
+      v.object({
+        balanceId: v.id("inventoryBalances"),
+        materialId: v.id("materials"),
+        sku: v.union(v.string(), v.null()),
+        name: v.string(),
+        variantLabel: v.union(v.string(), v.null()),
+        unit: v.union(v.string(), v.null()),
+        physicalAddress: v.union(v.string(), v.null()),
+        quantity: v.number(),
+      })
+    ),
+    isDone: v.boolean(),
+    continueCursor: v.string(),
+    splitCursor: v.optional(v.union(v.string(), v.null())),
+    pageStatus: v.optional(v.union(v.string(), v.null())),
+  }),
+  handler: async (ctx, args) => {
+    return await listShelfLabelsPage(ctx, ctx.user, args);
   },
 });
 

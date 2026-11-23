@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 51 módulos, 377 funções públicas.
+// 51 módulos, 378 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -233,6 +233,7 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "inventory:listProjects": { kind: "permission", permission: "estoque.read" },
   "inventory:listProjectSummaries": { kind: "permission", permission: "estoque.read" },
   "inventory:listRules": { kind: "permission", permission: "estoque.read" },
+  "inventory:listShelfLabels": { kind: "permission", permission: "estoque.read" },
   "inventory:postDocument": { kind: "staff" },
   "inventory:quickCreateMaterial": { kind: "anyPermission", permissions: ["estoque.entrada","materiais.write"] },
   "inventory:reverseDocument": { kind: "permission", permission: "estoque.write" },
