@@ -55,16 +55,15 @@ import { planPunch, readToday, scheduleOf } from "@/lib/punch-plan";
 import { syncPunchReminders } from "@/lib/punch-reminders";
 import {
   addPendingPunch,
-  listPendingPunches,
   newClientPunchId,
   persistPunchPhoto,
-  subscribePunchQueue,
   type PendingPunch,
 } from "@/lib/punch-queue";
 import { colors, radius, space, tone, type } from "@/lib/theme";
 import { uploadPhotos } from "@/lib/upload-photos";
 import { cacheTimeLabel, useCachedQuery } from "@/lib/use-cached-query";
 import { useOnline } from "@/lib/use-online";
+import { usePendingPunches } from "@/lib/use-pending-punches";
 
 /** A foto vale 5 minutos. */
 const PHOTO_MAX_AGE_MS = 5 * 60 * 1000;
@@ -149,7 +148,8 @@ export function PunchScreen() {
   const [location, setLocation] = useState<LocationState>({ status: "idle" });
   const [sending, setSending] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
-  const [pending, setPending] = useState<PendingPunch[]>([]);
+  // Fila offline deste aparelho (só as marcações deste usuário).
+  const pending = usePendingPunches(userId);
   const [prompt, setPrompt] = useState<PromptState | null>(null);
   const locationRequested = useRef(false);
 
@@ -171,21 +171,6 @@ export function PunchScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  // Fila offline deste aparelho (só as marcações deste usuário).
-  useEffect(() => {
-    let alive = true;
-    const refresh = () => {
-      void listPendingPunches(userId ?? "__none__").then((items) => {
-        if (alive) setPending(items);
-      });
-    };
-    refresh();
-    const unsubscribe = subscribePunchQueue(refresh);
-    return () => {
-      alive = false;
-      unsubscribe();
-    };
-  }, [userId]);
 
   const obtainLocation = useCallback(async (): Promise<Position> => {
     setLocation({ status: "loading" });

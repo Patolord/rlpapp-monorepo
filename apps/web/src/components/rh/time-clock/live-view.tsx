@@ -2,7 +2,7 @@ import { api } from "@rlpapp/backend/convex/_generated/api";
 import { MetricCard, MetricStrip } from "@rlpapp/ui/web";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { Coffee, HardHat, LogOut, MapPinOff, Search, UserX, X } from "lucide-react";
+import { Coffee, DoorOpen, HardHat, LogOut, MapPinOff, Search, UserX, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,7 +75,8 @@ export function TimeClockLiveView() {
     [live]
   );
   const left = useMemo(() => (live?.people ?? []).filter((p) => p.status === "left"), [live]);
-
+  // Saíram no meio do dia (saída extra) e ainda não voltaram.
+  const away = useMemo(() => (live?.people ?? []).filter((p) => p.status === "away"), [live]);
 
   function pickPerson(id: UserId | null) {
     setSelectedPerson(id);
@@ -177,7 +178,11 @@ export function TimeClockLiveView() {
         <MetricCard
           title="Em almoço"
           value={live ? live.summary.lunch : "—"}
-          description="saíram para almoço e ainda não voltaram"
+          description={
+            live && live.summary.away > 0
+              ? `${live.summary.away} saíram e ainda não voltaram`
+              : "saíram para almoço e ainda não voltaram"
+          }
           icon={<Coffee className="size-4 text-amber-600" />}
         />
         <MetricCard
@@ -235,6 +240,17 @@ export function TimeClockLiveView() {
                   title="Fora de cerca"
                   subtitle="última marcação sem obra identificada"
                   people={outsideFence}
+                  now={now}
+                  selectedPerson={selectedPerson}
+                  onSelectPerson={(id) => pickPerson(selectedPerson === id ? null : id)}
+                />
+              ) : null}
+              {away.length > 0 ? (
+                <GroupBoard
+                  icon={<DoorOpen className="size-4 text-purple-600" />}
+                  title="Saíram e vão voltar"
+                  subtitle="saída no meio do dia, antes do fim da jornada"
+                  people={away}
                   now={now}
                   selectedPerson={selectedPerson}
                   onSelectPerson={(id) => pickPerson(selectedPerson === id ? null : id)}
