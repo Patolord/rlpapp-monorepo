@@ -20,13 +20,15 @@ const STALE_AFTER_MS = 6 * 60 * 60 * 1000;
 /** Item da fila que já subiu e ainda não apareceu no catálogo baixado. */
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
 
-/** O `clientId` da fila começa com a hora (`cap-<ms>-...`). */
-function pendingCreatedAt(clientId: string): number {
-  const ms = Number(clientId.split("-")[1]);
-  return Number.isFinite(ms) ? ms : 0;
-}
-
-export type StoredCatalog = { savedAt: number; items: CaptureCatalogItem[] };
+export type StoredCatalog = {
+  savedAt: number;
+  items: CaptureCatalogItem[];
+  /**
+   * Quando cada item da fila (por clientId) foi visto fora dela numa
+   * atualização sem aparecer no catálogo baixado: o prazo conta daí.
+   */
+  leftQueueAt?: Record<string, number>;
+};
 
 async function readCatalog(): Promise<StoredCatalog | null> {
   try {
@@ -90,6 +92,8 @@ export function useCaptureCatalog(online: boolean, enabled: boolean) {
       // fica até aparecer no catálogo (ou por um dia, se nunca aparecer).
       const queued = await listQueuedClientIds();
       setCatalog((current) => {
+        const now = Date.now();
+        const leftQueueAt: Record<string, number> = {};
         const stillPending = (current?.items ?? []).filter((item) => {
           if (!item._id.startsWith(PENDING_PREFIX)) return false;
           const clientId = item._id.slice(PENDING_PREFIX.length);
@@ -100,9 +104,13 @@ export function useCaptureCatalog(online: boolean, enabled: boolean) {
             variantLabel: item.variantLabel,
             unit: item.unit,
           }).exact;
-          return !inDownload && Date.now() - pendingCreatedAt(clientId) < PENDING_TTL_MS;
+          if (inDownload) return false;
+          const since = current?.leftQueueAt?.[clientId] ?? now;
+          if (now - since >= PENDING_TTL_MS) return false;
+          leftQueueAt[clientId] = since;
+          return true;
         });
-        const next = { savedAt: Date.now(), items: [...items, ...stillPending] };
+        const next = { savedAt: now, items: [...items, ...stillPending], leftQueueAt };
         void writeCatalog(next);
         return next;
       });
@@ -122,7 +130,7 @@ export function useCaptureCatalog(online: boolean, enabled: boolean) {
   const addLocal = useCallback((item: CaptureCatalogItem) => {
     setCatalog((current) => {
       // Sem cópia baixada, a data fica zerada: o próximo sinal baixa o catálogo.
-      const next = { savedAt: current?.savedAt ?? 0, items: [...(current?.items ?? []), item] };
+      const next = { ...current, savedAt: current?.savedAt ?? 0, items: [...(current?.items ?? []), item] };
       void writeCatalog(next);
       return next;
     });
