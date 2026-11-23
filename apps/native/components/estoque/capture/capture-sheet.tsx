@@ -54,6 +54,27 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+/** Mesmo formato de chave que a sincronização usa (`captureOrderKeys`). */
+function orderKeysFor(input: {
+  materialId?: string;
+  codes: (string | null | undefined)[];
+  name: string;
+  variantLabel?: string | null;
+  unit?: string | null;
+}): string[] {
+  const keys: string[] = [];
+  if (input.materialId) keys.push(`material:${input.materialId}`);
+  for (const code of input.codes) {
+    if (code?.trim()) keys.push(`code:${code.trim().toUpperCase()}`);
+  }
+  if (input.name.trim()) {
+    keys.push(
+      `name:${normalizeCaptureText(input.name)}|${normalizeCaptureText(input.variantLabel)}|${(input.unit ?? "").trim().toLowerCase()}`
+    );
+  }
+  return keys;
+}
+
 function parseQuantity(value: string): number {
   return Number.parseFloat(value.replace(",", "."));
 }
@@ -188,6 +209,11 @@ export function CaptureSheet({
       physicalAddress: isCentral ? address.trim() || undefined : undefined,
       notes: notes.trim() || undefined,
       photoUri: photoUri ?? undefined,
+      orderKeys: orderKeysFor(
+        existing
+          ? { materialId, codes: [existing.barcode, existing.sku, barcode], name: existing.name, variantLabel: existing.variantLabel, unit: existing.unit }
+          : { codes: [barcode], name, variantLabel, unit }
+      ),
       label: existing ? formatMaterialLabel(existing.name, existing.variantLabel) : formatMaterialLabel(name.trim(), variantLabel.trim()),
       unit: unitLabel,
       capturedAt: Date.now(),

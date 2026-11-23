@@ -423,5 +423,33 @@ describe("cadastro em campo", () => {
     });
     const lookup = await warehouse.query(api.materialCaptures.lookup, { item: { name: "dj 10" } });
     expect(lookup.exact).toBeNull();
+    // Os dois aparecem nos parecidos, para a pessoa escolher.
+    expect(lookup.similar.map((c) => c.sku).sort()).toEqual(["MAT-000001", "MAT-000099"]);
+    // Sem escolher, a captura não soma em nenhum dos dois: vira rascunho.
+    const result = await warehouse.mutation(api.materialCaptures.capture, {
+      clientId: clientId(),
+      item: { name: "dj 10" },
+      quantity: 1,
+      offline: true,
+      capturedAt: Date.now(),
+    });
+    expect(result.outcome).toBe("review");
+  });
+
+  test("apelido com muitos registros não decide pelo primeiro", async () => {
+    const { t, ids, warehouse } = await seed();
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 60; i += 1) {
+        await ctx.db.insert("materialAliases", {
+          alias: "cabo",
+          aliasNormalized: "cabo",
+          materialId: ids.breakerId,
+          createdAt: Date.now(),
+        });
+      }
+    });
+    const lookup = await warehouse.query(api.materialCaptures.lookup, { item: { name: "cabo" } });
+    expect(lookup.exact).toBeNull();
+    expect(lookup.similar.map((c) => c.materialId)).toContain(ids.breakerId);
   });
 });

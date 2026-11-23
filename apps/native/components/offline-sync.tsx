@@ -196,14 +196,20 @@ export function OfflineSync() {
       rerun.current = true;
       return;
     }
-    if (!(await isOnline())) return;
+    // A trava vale antes de qualquer espera: duas chamadas seguidas não
+    // iniciam dois envios.
     syncing.current = true;
     rerun.current = false;
+    // Itens tentados nesta passada: as próprias anotações de erro avisam a
+    // fila, mas só item novo justifica outra passada.
+    const attempted = new Set<string>();
     try {
+      if (!(await isOnline())) return;
       // Só as marcações do usuário logado: a fila é do aparelho, e cada item
       // pertence a quem o criou.
       const currentUserId = userId;
       for (const punch of currentUserId ? await listPendingPunches(currentUserId) : []) {
+        attempted.add(punch.clientPunchId);
         try {
           await processPunch(punch);
           await removePendingPunch(punch.clientPunchId);
@@ -220,13 +226,14 @@ export function OfflineSync() {
       // o contado" depende do saldo anterior).
       const blocked = new Set<string>();
       for (const capture of currentUserId ? await listPendingCaptures(currentUserId) : []) {
-        const key = captureOrderKey(capture);
-        if (blocked.has(key)) continue;
+        attempted.add(capture.clientId);
+        const keys = captureOrderKeys(capture);
+        if (keys.some((key) => blocked.has(key))) continue;
         try {
           await processCapture(capture);
           await removePendingCapture(capture.clientId);
         } catch (err) {
-          blocked.add(key);
+          for (const key of keys) blocked.add(key);
           const message = err instanceof Error ? err.message : "Erro desconhecido";
           console.error("Offline capture sync failed:", capture.clientId, err);
           await updatePendingCapture(capture.clientId, { error: message });
@@ -238,6 +245,7 @@ export function OfflineSync() {
       if (records.length === 0) return;
 
       for (const record of records) {
+        attempted.add(record.id);
         try {
           await processRecord(record);
           await removePendingRecord(record.id);
@@ -253,7 +261,13 @@ export function OfflineSync() {
       syncing.current = false;
       if (rerun.current) {
         rerun.current = false;
-        void runSyncRef.current();
+        const currentUserId = userId;
+        const pendingIds = [
+          ...(currentUserId ? await listPendingPunches(currentUserId) : []).map((p) => p.clientPunchId),
+          ...(currentUserId ? await listPendingCaptures(currentUserId) : []).map((c) => c.clientId),
+          ...(await listPendingRecords()).map((r) => r.id),
+        ];
+        if (pendingIds.some((id) => !attempted.has(id))) void runSyncRef.current();
       }
     }
   }, [processRecord, processPunch, processCapture, userId]);
@@ -286,12 +300,20 @@ export function OfflineSync() {
   return null;
 }
 
-/** Item + local de uma contagem na fila (para manter a ordem por item). */
-function captureOrderKey(capture: PendingCapture): string {
-  const item = capture.materialId
-    ? capture.materialId
-    : [capture.item?.barcode, normalizeCaptureText(capture.item?.name), normalizeCaptureText(capture.item?.variantLabel), capture.item?.unit]
-        .map((part) => part ?? "")
-        .join("|");
-  return `${capture.projectId ?? "central"}#${item}`;
+/**
+ * Chaves de ordem de uma contagem na fila (local + cada jeito de reconhecer o
+ * item: material, código, nome/variação/unidade). Duas contagens que dividem
+ * qualquer chave podem cair no mesmo material no servidor e mantêm a ordem.
+ */
+function captureOrderKeys(capture: PendingCapture): string[] {
+  const location = capture.projectId ?? "central";
+  const keys = new Set<string>(capture.orderKeys ?? []);
+  if (capture.materialId) keys.add(`material:${capture.materialId}`);
+  if (capture.item?.barcode?.trim()) keys.add(`code:${capture.item.barcode.trim().toUpperCase()}`);
+  if (capture.item?.name?.trim()) {
+    keys.add(
+      `name:${normalizeCaptureText(capture.item.name)}|${normalizeCaptureText(capture.item.variantLabel)}|${(capture.item.unit ?? "").trim().toLowerCase()}`
+    );
+  }
+  return [...keys].map((key) => `${location}#${key}`);
 }

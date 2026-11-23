@@ -34,6 +34,11 @@ export interface PendingCapture {
   notes?: string;
   photoUri?: string;
   photoStorageId?: string;
+  /**
+   * Outros jeitos de reconhecer o mesmo item (material, códigos, nome) para
+   * manter a ordem na fila; sem o local, que a sincronização acrescenta.
+   */
+  orderKeys?: string[];
   /** Rótulo para a lista ("Disjuntor — 10A"). */
   label: string;
   unit?: string | null;

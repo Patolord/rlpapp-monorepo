@@ -5,7 +5,7 @@
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import type { CaptureCatalogItem } from "@rlpapp/shared/estoque/captureMatch";
+import { matchCapturedItem, type CaptureCatalogItem } from "@rlpapp/shared/estoque/captureMatch";
 import { useConvex } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -16,6 +16,15 @@ const CATALOG_KEY = "rlp-capture-catalog";
 const PAGE_SIZE = 500;
 /** Atualiza sozinho quando a cópia tem mais que isso. */
 const STALE_AFTER_MS = 6 * 60 * 60 * 1000;
+
+/** Item da fila que já subiu e ainda não apareceu no catálogo baixado. */
+const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** O `clientId` da fila começa com a hora (`cap-<ms>-...`). */
+function pendingCreatedAt(clientId: string): number {
+  const ms = Number(clientId.split("-")[1]);
+  return Number.isFinite(ms) ? ms : 0;
+}
 
 export type StoredCatalog = { savedAt: number; items: CaptureCatalogItem[] };
 
@@ -77,11 +86,22 @@ export function useCaptureCatalog(online: boolean, enabled: boolean) {
       // Itens ainda na fila do celular não estão no servidor: continuam na cópia
       // para a próxima captura igual reconhecê-los. A mescla usa o estado atual,
       // então um item incluído durante o download também fica.
+      // Um item que subiu durante o download pode não estar na cópia baixada:
+      // fica até aparecer no catálogo (ou por um dia, se nunca aparecer).
       const queued = await listQueuedClientIds();
       setCatalog((current) => {
-        const stillPending = (current?.items ?? []).filter(
-          (item) => item._id.startsWith(PENDING_PREFIX) && queued.has(item._id.slice(PENDING_PREFIX.length))
-        );
+        const stillPending = (current?.items ?? []).filter((item) => {
+          if (!item._id.startsWith(PENDING_PREFIX)) return false;
+          const clientId = item._id.slice(PENDING_PREFIX.length);
+          if (queued.has(clientId)) return true;
+          const inDownload = matchCapturedItem(items, {
+            code: item.barcode,
+            name: item.name,
+            variantLabel: item.variantLabel,
+            unit: item.unit,
+          }).exact;
+          return !inDownload && Date.now() - pendingCreatedAt(clientId) < PENDING_TTL_MS;
+        });
         const next = { savedAt: Date.now(), items: [...items, ...stillPending] };
         void writeCatalog(next);
         return next;

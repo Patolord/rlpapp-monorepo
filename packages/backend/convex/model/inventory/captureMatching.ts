@@ -102,34 +102,56 @@ export async function findIdentityMaterial(
   return await findMaterialByIdentity(ctx, { identityKey });
 }
 
+const ALIAS_SCAN_LIMIT = 50;
+
+function aliasTerms(input: { name: string; variantLabel?: string }): string[] {
+  return [
+    ...new Set(
+      [
+        [input.name, input.variantLabel].filter(Boolean).join(" "),
+        input.variantLabel?.trim() ? "" : input.name,
+      ]
+        .map((term) => normalizeText(term))
+        .filter(Boolean)
+    ),
+  ];
+}
+
+/**
+ * Materiais ativos com o apelido digitado, por termo. `complete` é falso
+ * quando o limite de leitura foi atingido (pode haver outros).
+ */
+async function findAliasMaterials(
+  ctx: Ctx,
+  term: string
+): Promise<{ materials: Doc<"materials">[]; complete: boolean }> {
+  const aliases = await ctx.db
+    .query("materialAliases")
+    .withIndex("by_alias_normalized", (q) => q.eq("aliasNormalized", term))
+    .take(ALIAS_SCAN_LIMIT);
+  const live = new Map<string, Doc<"materials">>();
+  for (const alias of aliases) {
+    const material = await resolveLiveMaterial(
+      ctx,
+      await ctx.db.get("materials", alias.materialId)
+    );
+    if (material) live.set(material._id, material);
+  }
+  return {
+    materials: [...live.values()],
+    complete: aliases.length < ALIAS_SCAN_LIMIT,
+  };
+}
+
 async function findByAlias(
   ctx: Ctx,
   input: CaptureItemInput
 ): Promise<Doc<"materials"> | null> {
-  const terms = new Set(
-    [
-      [input.name, input.variantLabel].filter(Boolean).join(" "),
-      input.variantLabel?.trim() ? "" : input.name,
-    ]
-      .map((term) => normalizeText(term))
-      .filter(Boolean)
-  );
-  for (const term of terms) {
-    const aliases = await ctx.db
-      .query("materialAliases")
-      .withIndex("by_alias_normalized", (q) => q.eq("aliasNormalized", term))
-      .take(10);
-    const live = new Map<string, Doc<"materials">>();
-    for (const alias of aliases) {
-      const material = await resolveLiveMaterial(
-        ctx,
-        await ctx.db.get("materials", alias.materialId)
-      );
-      if (material) live.set(material._id, material);
-    }
-    // Apelido de mais de um material não decide sozinho: fica para a pessoa
-    // escolher entre os parecidos.
-    if (live.size === 1) return [...live.values()][0]!;
+  for (const term of aliasTerms(input)) {
+    const { materials, complete } = await findAliasMaterials(ctx, term);
+    // Apelido de mais de um material (ou lista incompleta) não decide
+    // sozinho: os materiais entram nos parecidos para a pessoa escolher.
+    if (materials.length === 1 && complete) return materials[0]!;
   }
   return null;
 }
@@ -176,6 +198,12 @@ export async function findSimilarMaterials(
     seen.add(material._id);
     results.push(material);
   };
+
+  // Materiais com o apelido digitado vêm primeiro (inclusive os ambíguos).
+  for (const term of aliasTerms(input)) {
+    const { materials } = await findAliasMaterials(ctx, term);
+    materials.forEach(push);
+  }
 
   const family = await ctx.db
     .query("materialFamilies")
