@@ -5,10 +5,10 @@ import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex/react";
 import { MetricCard, MetricStrip } from "@rlpapp/ui/web";
 import {
+  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   Clock,
-  HardHat,
   MapPinOff,
   Search,
   UserCheck,
@@ -41,15 +41,17 @@ import {
   todayDateKey,
   type PunchKind,
 } from "@/lib/rh/time-clock";
+import { useCan } from "@/hooks/use-can";
 import { cn } from "@/lib/utils";
 
-import { PunchPhotoButton } from "./punch-photo";
+import { PendingRequestsCard } from "./pending-requests-card";
+import { PersonDayPanel } from "./person-day-panel";
 
 const TimeClockMap = lazy(() => import("./time-clock-map"));
 
 type DayData = FunctionReturnType<typeof api.timeClock.getDay>;
 type DayPerson = DayData["people"][number];
-type PresenceFilter = "all" | "present" | "absent";
+type PresenceFilter = "all" | "present" | "absent" | "issues";
 
 export function KindBadge({ kind }: { kind: PunchKind }) {
   return (
@@ -66,14 +68,15 @@ export function TimeClockDayView({
   date: string;
   onDateChange: (date: string) => void;
 }) {
-  const day = useQuery(api.timeClock.getDay, isDateKey(date) ? { date } : "skip");
+  const today = todayDateKey();
+  const canWrite = useCan("rh.ponto.write");
+  const day = useQuery(api.timeClock.getDay, isDateKey(date) ? { date, today } : "skip");
   const [filter, setFilter] = useState<PresenceFilter>("all");
   const [search, setSearch] = useState("");
   const [selectedPerson, setSelectedPerson] = useState<Id<"users"> | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const today = todayDateKey();
   const isToday = date === today;
 
   const people = useMemo(() => {
@@ -82,6 +85,7 @@ export function TimeClockDayView({
     return day.people.filter((person) => {
       if (filter === "present" && !person.present) return false;
       if (filter === "absent" && person.present) return false;
+      if (filter === "issues" && person.issueCount === 0) return false;
       if (!term) return true;
       return (
         person.name.toLowerCase().includes(term) ||
@@ -114,19 +118,17 @@ export function TimeClockDayView({
     [day]
   );
 
-  const selectedPunches = useMemo(
-    () =>
-      selectedPerson === null
-        ? []
-        : (day?.punches ?? []).filter((p) => p.userId === selectedPerson),
-    [day, selectedPerson]
-  );
-  const selected = selectedPerson === null ? null : day?.people.find((p) => p.userId === selectedPerson) ?? null;
-
   const withoutGps = (day?.punches.length ?? 0) - mapPunches.length;
 
   return (
     <div className="space-y-6">
+      <PendingRequestsCard
+        canWrite={canWrite}
+        onOpenDay={(userId, requestDate) => {
+          onDateChange(requestDate);
+          setSelectedPerson(userId);
+        }}
+      />
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <Button
@@ -189,10 +191,10 @@ export function TimeClockDayView({
           icon={<Clock className="size-4 text-sky-600" />}
         />
         <MetricCard
-          title="Obras com movimento"
-          value={day ? day.worksites.filter((w) => w.peopleCount > 0).length : "—"}
-          description={day ? `de ${day.worksites.length} com cerca` : undefined}
-          icon={<HardHat className="size-4 text-amber-600" />}
+          title="Pendências"
+          value={day ? day.summary.issues : "—"}
+          description="marcação faltando, a mais ou horário informado"
+          icon={<AlertTriangle className="size-4 text-amber-600" />}
         />
       </MetricStrip>
 
@@ -207,6 +209,7 @@ export function TimeClockDayView({
                     ["all", "Todos"],
                     ["present", "Presentes"],
                     ["absent", "Ausentes"],
+                    ["issues", "Com pendência"],
                   ] as Array<[PresenceFilter, string]>
                 ).map(([value, label]) => (
                   <Button
@@ -320,45 +323,14 @@ export function TimeClockDayView({
             </CardContent>
           </Card>
 
-          {selected ? (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Marcações de {selected.name}</CardTitle>
-                <Button variant="ghost" size="xs" onClick={() => setSelectedPerson(null)}>
-                  Fechar
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {selectedPunches.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Sem marcações neste dia.</p>
-                ) : (
-                  <ol className="space-y-2">
-                    {selectedPunches.map((punch) => (
-                      <li
-                        key={punch._id}
-                        className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono tabular-nums">{punch.timeLabel}</span>
-                          <KindBadge kind={punch.kind} />
-                          <span className="text-muted-foreground">
-                            {punch.projectName
-                              ? `${punch.geofenceStatus === "inside" ? "" : "perto de "}${punch.projectName}`
-                              : punch.latitude === null
-                                ? "sem GPS"
-                                : "fora de cerca"}
-                            {punch.offline ? " · sem internet" : ""}
-                          </span>
-                        </div>
-                        {punch.hasPhoto ? (
-                          <PunchPhotoButton punchId={punch._id} personName={punch.personName} />
-                        ) : null}
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </CardContent>
-            </Card>
+          {selectedPerson ? (
+            <PersonDayPanel
+              key={`${selectedPerson}-${date}`}
+              userId={selectedPerson}
+              date={date}
+              canWrite={canWrite}
+              onClose={() => setSelectedPerson(null)}
+            />
           ) : null}
 
           <Card>
@@ -448,7 +420,16 @@ function PersonRow({
       <TableCell className="max-w-[180px] truncate text-muted-foreground">
         {person.projectName ?? (person.present ? "fora de cerca" : "—")}
       </TableCell>
-      <TableCell className="text-right tabular-nums">{person.punchCount || "—"}</TableCell>
+      <TableCell className="text-right tabular-nums">
+        <span className="inline-flex items-center gap-2">
+          {person.issueCount > 0 ? (
+            <Badge variant="warning" title="Pendências do dia">
+              {person.issueCount} pend.
+            </Badge>
+          ) : null}
+          {person.punchCount || "—"}
+        </span>
+      </TableCell>
     </TableRow>
   );
 }

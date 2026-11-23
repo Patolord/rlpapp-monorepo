@@ -15,14 +15,16 @@ import {
   derivePosition,
   monthRange,
   type LiveStatus,
-  type PunchKind,
 } from "./timeClock";
+import { actionIssueCount, PUNCH_SLOTS, type ClassifiedDay } from "@rlpapp/shared/rh/pontoDay";
+import { isOpenDate, loadUserDay, scheduleResolver } from "./timeClockDay";
 import {
   getSettings,
   listClockUsers,
   listDaysInRange,
   listGeofencedProjects,
   listPunchesForDate,
+  listRequestUserIdsForDate,
   loginOf,
   type GeofencedProject,
 } from "./timeClockDb";
@@ -84,13 +86,44 @@ function groupByUser(punches: Doc<"clockPunches">[]) {
   return map;
 }
 
+/**
+ * Leitura do dia de cada pessoa com marcação ou horário informado na data.
+ * Um dia só com horário informado (sem marcação) também é lido: as posições e
+ * as pendências contam, mas a pessoa não aparece como presente.
+ */
+async function classifyByUser(
+  ctx: QueryCtx,
+  byUser: Map<Id<"users">, Doc<"clockPunches">[]>,
+  date: string,
+  open: boolean
+): Promise<Map<Id<"users">, ClassifiedDay>> {
+  const schedule = scheduleResolver(ctx);
+  const days = new Map<Id<"users">, ClassifiedDay>();
+  const users = new Map(byUser);
+  for (const userId of await listRequestUserIdsForDate(ctx, date)) {
+    if (!users.has(userId)) users.set(userId, []);
+  }
+  for (const [userId, punches] of users) {
+    const loaded = await loadUserDay(ctx, {
+      userId,
+      date,
+      open,
+      punches,
+      schedule: await schedule(userId, date),
+    });
+    days.set(userId, loaded.day);
+  }
+  return days;
+}
+
 // ---------------------------------------------------------------------------
 // Presença
 // ---------------------------------------------------------------------------
 
 export async function getTimeClockDay(
   ctx: QueryCtx,
-  date: string
+  date: string,
+  today?: string
 ): Promise<TimeClockDay> {
   assertDateKey(date);
   const [punches, projects] = await Promise.all([
@@ -100,14 +133,32 @@ export async function getTimeClockDay(
   const roster = await dayRoster(ctx, punches);
   const projectName = projectNameResolver(projects);
   const byUser = groupByUser(punches);
+  const days = await classifyByUser(ctx, byUser, date, isOpenDate(date, today));
+  // Quem só tem horário informado e não está na lista (ex.: permissão retirada).
+  for (const userId of days.keys()) {
+    if (roster.has(userId)) continue;
+    const user = await ctx.db.get("users", userId);
+    roster.set(userId, { name: user?.name ?? "Pessoa removida", login: loginOf(user) });
+  }
+  const roleOf = new Map<string, { role: ClassifiedDay["items"][number]["role"]; sequence: number }>();
+  for (const [userId, day] of days) {
+    for (const item of day.items) {
+      if (item.source !== "punch") continue;
+      const sequence = (byUser.get(userId) ?? []).findIndex((punch) => punch._id === item.id);
+      roleOf.set(item.id, { role: item.role, sequence });
+    }
+  }
   const sortedPunches = [...punches].sort(
-    (a, b) => a.punchedAt - b.punchedAt || a.sequence - b.sequence
+    (a, b) => a.punchedAt - b.punchedAt || a._creationTime - b._creationTime
   );
 
   const byKind = { entrada: 0, almoco_saida: 0, almoco_retorno: 0, saida: 0 };
+  for (const day of days.values()) {
+    for (const slot of PUNCH_SLOTS) if (day.slots[slot]) byKind[slot] += 1;
+  }
+  let issues = 0;
   const projectStats = new Map<Id<"projects">, { people: Set<Id<"users">>; punches: number }>();
   for (const punch of sortedPunches) {
-    byKind[punch.kind as PunchKind] += 1;
     if (punch.projectId && punch.geofenceStatus === "inside") {
       const stats = projectStats.get(punch.projectId) ?? { people: new Set(), punches: 0 };
       stats.people.add(punch.userId);
@@ -122,6 +173,9 @@ export async function getTimeClockDay(
     const last = own[own.length - 1];
     const onSite = own.find((punch) => punch.geofenceStatus === "inside" && punch.projectId);
     const photo = own.find((punch) => punch.photoStorageId);
+    const day = days.get(userId);
+    const issueCount = day ? actionIssueCount(day) : 0;
+    issues += issueCount;
     return {
       userId,
       name: person.name,
@@ -129,7 +183,9 @@ export async function getTimeClockDay(
       present: own.length > 0,
       firstPunchAt: first?.punchedAt ?? null,
       lastPunchAt: last?.punchedAt ?? null,
-      lastKind: last?.kind ?? null,
+      lastKind: day?.last?.role ?? null,
+      status: day?.status ?? ("absent" as const),
+      issueCount,
       punchCount: own.length,
       projectId: onSite?.projectId ?? null,
       projectName: onSite ? projectName(onSite.projectId, onSite.projectName) : null,
@@ -163,8 +219,8 @@ export async function getTimeClockDay(
       personName: roster.get(punch.userId)?.name ?? punch.personName,
       punchedAt: punch.punchedAt,
       timeLabel: punch.timeLabel,
-      sequence: punch.sequence,
-      kind: punch.kind,
+      sequence: roleOf.get(punch._id)?.sequence ?? 0,
+      kind: roleOf.get(punch._id)?.role ?? "entrada",
       latitude: punch.latitude ?? null,
       longitude: punch.longitude ?? null,
       hasPhoto: Boolean(punch.photoStorageId),
@@ -180,6 +236,7 @@ export async function getTimeClockDay(
       absent: people.length - present,
       punches: sortedPunches.length,
       byKind,
+      issues,
     },
   };
 }
@@ -200,8 +257,13 @@ export async function getTimeClockLiveStatus(
   const roster = await dayRoster(ctx, punches);
   const projectName = projectNameResolver(projects);
   const byUser = groupByUser(punches);
+  const days = await classifyByUser(ctx, byUser, date, true);
+  const roleOf = new Map<string, ClassifiedDay["items"][number]["role"]>();
+  for (const day of days.values()) {
+    for (const item of day.items) if (item.source === "punch") roleOf.set(item.id, item.role);
+  }
 
-  const summary = { total: 0, onSite: 0, lunch: 0, left: 0, absent: 0, outsideFence: 0 };
+  const summary = { total: 0, onSite: 0, lunch: 0, away: 0, left: 0, absent: 0, outsideFence: 0 };
   type BoardPerson = {
     userId: Id<"users">;
     name: string;
@@ -213,13 +275,21 @@ export async function getTimeClockLiveStatus(
 
   const people = Array.from(roster.entries()).map(([userId, person]) => {
     const own = byUser.get(userId) ?? [];
-    const position = derivePosition(own);
+    const day = days.get(userId);
+    // Só as marcações que contam (sem repetidas e desconsideradas): a última
+    // delas dá o papel, o horário e o lugar mostrados.
+    const counted = own.filter((punch) => {
+      const role = roleOf.get(punch._id);
+      return role !== "repetida" && role !== "desconsiderada";
+    });
+    const position = derivePosition(counted, day?.status ?? "absent");
     const last = position.last;
     const photo = [...own].reverse().find((punch) => punch.photoStorageId);
 
     summary.total += 1;
     if (position.status === "on_site") summary.onSite += 1;
     else if (position.status === "lunch") summary.lunch += 1;
+    else if (position.status === "away") summary.away += 1;
     else if (position.status === "left") summary.left += 1;
     else summary.absent += 1;
     if (position.status !== "absent" && !position.locationExact) summary.outsideFence += 1;
@@ -242,7 +312,7 @@ export async function getTimeClockLiveStatus(
       login: person.login,
       status: position.status,
       since: last?.punchedAt ?? null,
-      lastKind: last?.kind ?? null,
+      lastKind: last ? (roleOf.get(last._id) ?? null) : null,
       lastTimeLabel: last?.timeLabel ?? null,
       projectId: position.projectId ?? null,
       projectName: projectName(position.projectId, position.projectName),
@@ -252,14 +322,14 @@ export async function getTimeClockLiveStatus(
       photoPunchId: photo?._id ?? null,
       punches: own.map((punch) => ({
         timeLabel: punch.timeLabel,
-        kind: punch.kind,
+        kind: roleOf.get(punch._id) ?? "entrada",
         projectName: projectName(punch.projectId, punch.projectName),
       })),
     };
   });
   people.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
-  const statusRank = { on_site: 0, lunch: 1, left: 2, absent: 3 } as const;
+  const statusRank = { on_site: 0, lunch: 1, away: 2, left: 3, absent: 4 } as const;
   const worksites = projects
     .map((project) => {
       const list = (boards.get(project._id) ?? []).sort(
@@ -274,6 +344,7 @@ export async function getTimeClockLiveStatus(
         radiusMeters: project.radiusMeters,
         onSite: list.filter((person) => person.status === "on_site").length,
         lunch: list.filter((person) => person.status === "lunch").length,
+        away: list.filter((person) => person.status === "away").length,
         left: list.filter((person) => person.status === "left").length,
         people: list,
       };

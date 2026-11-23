@@ -28,13 +28,62 @@ export const payrollRunStatus = v.union(
   v.literal("closed")
 );
 
-// Tipo da marcação de ponto, derivado da posição no dia (1ª=entrada, 2ª=saída
-// almoço, 3ª=retorno almoço, 4ª em diante=saída).
+// As quatro marcações da jornada. O papel de cada marcação não é gravado: é a
+// leitura do dia (`@rlpapp/shared/rh/pontoDay`), feita a partir da jornada, do
+// que a pessoa respondeu no app e do tratamento do RH.
 export const timeClockPunchKind = v.union(
   v.literal("entrada"),
   v.literal("almoco_saida"),
   v.literal("almoco_retorno"),
   v.literal("saida")
+);
+
+// Papel que a pessoa (no app) ou o RH podem dar a uma marcação.
+export const timeClockDeclarableRole = v.union(
+  v.literal("entrada"),
+  v.literal("almoco_saida"),
+  v.literal("almoco_retorno"),
+  v.literal("saida"),
+  v.literal("entrada_extra"),
+  v.literal("saida_extra")
+);
+
+// Papel final na leitura do dia (inclui toque repetido e desconsiderada).
+export const timeClockPunchRole = v.union(
+  v.literal("entrada"),
+  v.literal("almoco_saida"),
+  v.literal("almoco_retorno"),
+  v.literal("saida"),
+  v.literal("entrada_extra"),
+  v.literal("saida_extra"),
+  v.literal("repetida"),
+  v.literal("desconsiderada")
+);
+
+// Como o papel foi decidido (`RoleBasis` em `@rlpapp/shared/rh/pontoDay`).
+export const timeClockRoleBasis = v.union(
+  v.literal("auto"),
+  v.literal("employee"),
+  v.literal("rh"),
+  v.literal("pending"),
+  v.literal("approved")
+);
+
+// Jornada em minutos desde 00:00 (Brasília): entrada e saída fixas, almoço
+// livre dentro de uma faixa.
+export const timeClockWorkSchedule = v.object({
+  startMinute: v.number(),
+  endMinute: v.number(),
+  lunchMinutes: v.number(),
+  lunchWindowStartMinute: v.number(),
+  lunchWindowEndMinute: v.number(),
+});
+
+export const timeClockRequestStatus = v.union(
+  v.literal("pending"),
+  v.literal("approved"),
+  v.literal("rejected"),
+  v.literal("canceled")
 );
 
 // Resultado da checagem da posição contra as cercas das obras.
@@ -234,9 +283,19 @@ export const hrTables = {
     punchedAt: v.number(),
     // "HH:MM" em Brasília.
     timeLabel: v.string(),
-    // Posição da marcação dentro do dia (0 = primeira).
-    sequence: v.number(),
-    kind: timeClockPunchKind,
+    // Legado: posição e tipo pela ordem no dia, gravados até existir a leitura
+    // do dia. Não são mais gravados nem lidos (o papel vem de `pontoDay`).
+    sequence: v.optional(v.number()),
+    kind: v.optional(timeClockPunchKind),
+    // O que a pessoa respondeu no app na hora (ex.: "saio e volto"). Gravado
+    // só na criação, como a própria marcação.
+    declaredRole: v.optional(timeClockDeclarableRole),
+    // Horários esquecidos enviados junto que não conferiam e ficaram de fora
+    // (o reenvio da fila offline devolve o mesmo aviso).
+    missedNotSent: v.optional(v.number()),
+    // Dia ("YYYY-MM-DD") desses horários: o da captura, que pode ser o anterior
+    // ao da marcação quando ela chega depois da meia-noite.
+    missedFor: v.optional(v.string()),
     latitude: v.optional(v.number()),
     longitude: v.optional(v.number()),
     accuracyMeters: v.optional(v.number()),
@@ -269,10 +328,61 @@ export const hrTables = {
     projectName: v.optional(v.string()),
     firstPunchAt: v.number(),
     lastPunchAt: v.number(),
-    lastKind: timeClockPunchKind,
+    lastKind: timeClockPunchRole,
     punchCount: v.number(),
+    // Pendências que pedem o RH (marcação faltando, a mais, horário informado).
+    issueCount: v.optional(v.number()),
     updatedAt: v.number(),
   })
     .index("by_date", ["date"])
+    .index("by_user_and_date", ["userId", "date"]),
+  // Histórico da jornada: cada linha vale a partir de `effectiveFrom`
+  // ("YYYY-MM-DD"), para os dias anteriores continuarem lidos pela jornada da
+  // época. Sem `userId`, é a jornada da empresa; com `userId`, a própria da
+  // pessoa (sem `schedule`, volta a valer a da empresa).
+  clockScheduleChanges: defineTable({
+    userId: v.optional(v.id("users")),
+    effectiveFrom: v.string(),
+    schedule: v.optional(timeClockWorkSchedule),
+    updatedAt: v.number(),
+    updatedByUserId: v.optional(v.id("users")),
+  }).index("by_user_and_effective_from", ["userId", "effectiveFrom"]),
+  // Horário esquecido: informado pela pessoa no app (o RH aprova) ou incluído
+  // pelo RH. Nunca vira uma marcação: aparece no espelho como horário
+  // informado, separado das marcações registradas.
+  clockPunchRequests: defineTable({
+    userId: v.id("users"),
+    personName: v.string(),
+    date: v.string(),
+    role: timeClockDeclarableRole,
+    // Minutos desde 00:00 (Brasília) do horário informado.
+    minute: v.number(),
+    origin: v.union(v.literal("app_prompt"), v.literal("app_manual"), v.literal("rh")),
+    status: timeClockRequestStatus,
+    note: v.optional(v.string()),
+    // Marcação junto com a qual o horário foi informado (pergunta do app).
+    clientPunchId: v.optional(v.string()),
+    reviewedByUserId: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+    reviewNote: v.optional(v.string()),
+    // Sobe a cada mudança de horário; o RH decide sobre a revisão que viu.
+    revision: v.optional(v.number()),
+  })
+    .index("by_user_and_date", ["userId", "date"])
+    .index("by_status_and_date", ["status", "date"]),
+  // Tratamento do RH sobre uma marcação: mudar o papel, desconsiderar ou
+  // voltar à leitura automática. A marcação nunca muda; vale o último
+  // tratamento de cada marcação, e todos ficam guardados.
+  clockPunchAdjustments: defineTable({
+    punchId: v.id("clockPunches"),
+    userId: v.id("users"),
+    date: v.string(),
+    action: v.union(v.literal("set_role"), v.literal("set_aside"), v.literal("clear")),
+    role: v.optional(timeClockDeclarableRole),
+    reason: v.string(),
+    byUserId: v.id("users"),
+    byName: v.string(),
+  })
+    .index("by_punch", ["punchId"])
     .index("by_user_and_date", ["userId", "date"]),
 };

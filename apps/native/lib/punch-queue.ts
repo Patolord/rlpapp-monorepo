@@ -8,6 +8,7 @@
  * usuário nunca envia a marcação de outro.
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { DeclarableRole, PunchSlot } from "@rlpapp/shared/rh/pontoDay";
 import { Directory, File, Paths } from "expo-file-system";
 
 export interface PendingPunch {
@@ -26,6 +27,10 @@ export interface PendingPunch {
   photoStorageId?: string;
   deviceModel?: string;
   appVersion?: string;
+  /** O que a pessoa respondeu quando o app perguntou. */
+  declaredRole?: DeclarableRole;
+  /** Horários esquecidos informados junto (minutos desde 00:00, Brasília). */
+  missed?: Array<{ role: PunchSlot; minute: number }>;
   error?: string;
 }
 

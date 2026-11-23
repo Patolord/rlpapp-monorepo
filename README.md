@@ -90,8 +90,23 @@ integração externa nem variável de ambiente para configurar.
 - **Onde**: as obras cadastradas. Cada obra pode ter uma cerca do ponto (`projects.geofence`, centro e
   raio), definida em **RH > Ponto > Configurações**; a marcação dentro da cerca conta para a obra.
 - **Painel** (`rh.ponto.read`): Agora (onde está cada pessoa), Dia, Mensal (homem-dia por obra e
-  pessoa, com custo estimado) e Configurações (`rh.ponto.write`: regras da marcação, cercas, quem
-  bate ponto e lembretes).
+  pessoa, com custo estimado) e Configurações (`rh.ponto.write`: jornada, regras da marcação,
+  cercas, quem bate ponto e lembretes).
+- **O que cada marcação é** (entrada, saída almoço, volta, saída, extra): não é gravado nem vem da
+  ordem do dia. É a leitura do dia (`packages/shared/src/rh/pontoDay.ts`), a partir da jornada
+  (entrada e saída fixas, almoço livre numa faixa; da empresa ou própria da pessoa), do que a pessoa
+  respondeu no app e do tratamento do RH. Esquecer uma marcação não empurra as outras.
+- **No app**: um botão só, que já diz o que vai registrar. Quando algo não bate (marcação
+  esquecida, toque repetido, almoço fora de hora, volta depois da saída) o app pergunta antes, com
+  os horários sugeridos; nenhuma marcação é bloqueada ou limitada (Portaria MTP 671/2021). Horário
+  esquecido vira pedido para o RH (`clockPunchRequests`), nunca uma marcação. Lembretes locais avisam
+  da volta do almoço e da saída (além dos lembretes por push, abaixo).
+- **Tratamento do RH** (Dia → pessoa): aprovar ou recusar horários informados, incluir horário,
+  mudar o tipo ou desconsiderar uma marcação. Recusar, incluir, mudar o tipo ou desconsiderar exige
+  motivo; aprovar aceita observação opcional (`clockPunchAdjustments` e auditoria). A marcação
+  registrada (horário, NSR, hash) nunca muda.
+- **Jornada**: cada mudança (da empresa ou de uma pessoa) vale de hoje em diante
+  (`clockScheduleChanges`); os dias anteriores continuam lidos pela jornada da época.
 - **Lembretes** (push no app, avisos N18/N19): em Configurações o RH define um horário para avisar
   quem bate ponto e ainda não marcou a entrada, outro para quem deixou o dia sem saída, e os dias
   da semana (padrão: segunda a sexta; feriados não contam). O cron `ponto: lembretes` roda a cada

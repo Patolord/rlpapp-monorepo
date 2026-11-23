@@ -1,11 +1,12 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { useConvexAuth, useMutation } from "convex/react";
 import * as Notifications from "expo-notifications";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { useEffect, useRef } from "react";
 
 import { UNAVAILABLE_HREF, hrefForNotification } from "@/lib/notifications";
 import { useProfile } from "@/lib/profile";
+import { isPunchReminder } from "@/lib/punch-reminders";
 import { parseNotificationData, registerAfterLogin } from "@/lib/push";
 
 /**
@@ -37,10 +38,14 @@ export function PushRegistration() {
       }
       seen.current = id;
       pending.current = null;
-      const payload = parseNotificationData(
-        response.notification.request.content.data as Record<string, unknown>
-      );
+      const data = response.notification.request.content.data as Record<string, unknown>;
       void Notifications.clearLastNotificationResponseAsync().catch(() => undefined);
+      // Lembrete local do ponto: abre a tela de marcação.
+      if (isPunchReminder(data)) {
+        router.push((profile === "tecnico" ? "/campo/ponto" : "/(tabs)/ponto") as Href);
+        return;
+      }
+      const payload = parseNotificationData(data);
       if (payload) {
         void markRead({ notificationId: payload.notificationId }).catch(() => undefined);
       }

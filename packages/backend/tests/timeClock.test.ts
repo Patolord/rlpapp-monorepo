@@ -1,8 +1,21 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
 import { aggregateManDays, derivePosition, toBrtDateKey } from "../convex/model/hr/timeClock";
 import { setup, withUser } from "./helpers";
+
+/** Relógio fixo em Brasília (a leitura do dia depende do horário). */
+const DAY = "2026-03-10";
+function setClock(label: string) {
+  vi.setSystemTime(Date.parse(`${DAY}T${label}:00-03:00`));
+}
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  setClock("07:00");
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const OBRA_A = { latitude: -23.5290093, longitude: -46.6738077, radiusMeters: 300 };
 const OBRA_B = { latitude: -23.6, longitude: -46.7, radiusMeters: 300 };
@@ -62,20 +75,19 @@ async function seed() {
 
 describe("timeClock lib", () => {
   test("posição atual vem da última marcação e da obra dentro da cerca", () => {
-    const p = (punchedAt: number, kind: "entrada" | "almoco_saida" | "saida", inside: boolean) => ({
+    const p = (punchedAt: number, inside: boolean) => ({
       punchedAt,
-      kind,
       projectId: "obra-a",
       projectName: "Obra A",
       geofenceStatus: inside ? ("inside" as const) : ("outside" as const),
     });
-    expect(derivePosition([]).status).toBe("absent");
-    expect(derivePosition([p(1, "entrada", true)])).toMatchObject({
+    expect(derivePosition([], "absent").status).toBe("absent");
+    expect(derivePosition([p(1, true)], "on_site")).toMatchObject({
       status: "on_site",
       projectId: "obra-a",
       locationExact: true,
     });
-    expect(derivePosition([p(1, "entrada", true), p(2, "almoco_saida", false)])).toMatchObject({
+    expect(derivePosition([p(1, true), p(2, false)], "lunch")).toMatchObject({
       status: "lunch",
       projectId: "obra-a",
       locationExact: false,
@@ -112,6 +124,7 @@ describe("timeClock: presença", () => {
       latitude: OBRA_B.latitude,
       longitude: OBRA_B.longitude,
     });
+    setClock("12:00");
     await bruno.mutation(api.timeClockPunch.register, {
       clientPunchId: "bruno-2",
       capturedAt: Date.now(),

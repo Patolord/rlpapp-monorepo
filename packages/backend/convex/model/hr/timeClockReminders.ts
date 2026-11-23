@@ -10,12 +10,13 @@
  * (`clearTimeClockReminders`), para não ficar um "marque a entrada" velho.
  */
 
+import type { PunchRole } from "@rlpapp/shared/rh/pontoDay";
 import { parseTimeOfDay } from "@rlpapp/shared/rh/timeClockReminders";
 import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { hasPermission } from "../../lib/rbac";
 import { notify } from "../notifications/notify";
-import { BRT_OFFSET_MS, toBrtDateKey, toBrtTimeLabel, type PunchKind } from "./timeClock";
+import { BRT_OFFSET_MS, toBrtDateKey, toBrtTimeLabel } from "./timeClock";
 import {
   getReminderSentOn,
   getSettings,
@@ -30,12 +31,19 @@ export const REMINDER_GRACE_MINUTES = 60;
 export const REMINDER_KINDS = { entrada: "N18", saida: "N19" } as const;
 const MAX_DAYS_PER_DATE = 4000;
 
-const LAST_KIND_LABEL: Record<PunchKind, string> = {
+const LAST_KIND_LABEL: Record<PunchRole, string> = {
   entrada: "a entrada",
   almoco_saida: "a saída para o almoço",
   almoco_retorno: "a volta do almoço",
   saida: "a saída",
+  entrada_extra: "uma volta ao trabalho",
+  saida_extra: "uma saída",
+  repetida: "uma marcação repetida",
+  desconsiderada: "uma marcação desconsiderada",
 };
+
+/** Última marcação que já fecha o dia (a pessoa saiu). */
+const LEFT_ROLES: ReadonlySet<PunchRole> = new Set(["saida", "saida_extra"]);
 
 /** Data, minuto do dia e dia da semana em Brasília. */
 export function brtClock(now: number): { date: string; minutes: number; weekday: number } {
@@ -103,7 +111,7 @@ export async function sendDueTimeClockReminders(
       });
     } else {
       for (const day of days) {
-        if (day.lastKind === "saida") continue;
+        if (LEFT_ROLES.has(day.lastKind)) continue;
         const user = await ctx.db.get("users", day.userId);
         if (!user || !hasPermission(user, "ponto.registrar")) continue;
         const time = toBrtTimeLabel(day.lastPunchAt);
