@@ -234,7 +234,13 @@ export function OfflineSync() {
         attempted.add(capture.clientId);
         const keys = captureOrderKeys(capture);
         const location = capture.projectId ?? "central";
-        if (blockedLocations.has(location) || keys.some((key) => blocked.has(key))) continue;
+        if (blockedLocations.has(location) || keys.some((key) => blocked.has(key))) {
+          // Adiada também segura: uma "corrigir" que ficou para depois não
+          // pode ser ultrapassada por contagens do mesmo local.
+          for (const key of keys) blocked.add(key);
+          if (capture.quantityMode === "set") blockedLocations.add(location);
+          continue;
+        }
         try {
           await processCapture(capture);
           await removePendingCapture(capture.clientId);
