@@ -6,6 +6,7 @@
  * subida, para não repetir o upload).
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Directory, File, Paths } from "expo-file-system";
 
 export type CaptureItemData = {
   name: string;
@@ -41,6 +42,7 @@ export interface PendingCapture {
 }
 
 const QUEUE_KEY = "rlp-capture-queue";
+const PHOTO_DIR = "capture-queue";
 /** Itens cadastrados sem sinal entram na cópia local do catálogo com este prefixo + clientId. */
 export const PENDING_PREFIX = "pending:";
 
@@ -80,10 +82,58 @@ async function writeQueue(records: PendingCapture[]): Promise<void> {
   await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(records));
 }
 
-export async function addPendingCapture(record: PendingCapture): Promise<void> {
-  const records = await readQueue();
-  await writeQueue([...records.filter((r) => r.clientId !== record.clientId), record]);
-  notify();
+// Uma operação de leitura+escrita por vez: sem isso, salvar um item enquanto
+// a sincronização remove outro pode apagar o recém-salvo.
+let chain: Promise<unknown> = Promise.resolve();
+function withQueueLock<T>(task: () => Promise<T>): Promise<T> {
+  const run = chain.then(task, task);
+  chain = run.catch(() => undefined);
+  return run;
+}
+
+/**
+ * Copia a foto da câmera (cache, que o sistema pode apagar) para o diretório
+ * da fila. Falhando, mantém a URI original.
+ */
+export function persistCapturePhoto(uri: string, clientId: string): string {
+  try {
+    const dir = new Directory(Paths.document, PHOTO_DIR);
+    if (!dir.exists) dir.create({ intermediates: true, idempotent: true });
+    const destination = new File(dir, `${clientId}.jpg`);
+    if (destination.exists) destination.delete();
+    new File(uri).copy(destination);
+    return destination.uri;
+  } catch (error) {
+    console.warn("Não foi possível copiar a foto do cadastro", error);
+    return uri;
+  }
+}
+
+/** A foto ainda existe no aparelho? (Sem ela, o item sobe sem foto.) */
+export function capturePhotoExists(uri: string): boolean {
+  try {
+    return new File(uri).exists;
+  } catch {
+    return false;
+  }
+}
+
+function deleteQueuedPhoto(uri: string | undefined): void {
+  if (!uri || !uri.includes(`/${PHOTO_DIR}/`)) return;
+  try {
+    const file = new File(uri);
+    if (file.exists) file.delete();
+  } catch {
+    // Melhor esforço: um arquivo órfão não bloqueia a fila.
+  }
+}
+
+export function addPendingCapture(record: PendingCapture): Promise<void> {
+  return withQueueLock(async () => {
+    const records = await readQueue();
+    await writeQueue([...records.filter((r) => r.clientId !== record.clientId), record]);
+    notify();
+  });
 }
 
 export async function listPendingCaptures(userId: string): Promise<PendingCapture[]> {
@@ -96,17 +146,23 @@ export async function listQueuedClientIds(): Promise<Set<string>> {
   return new Set((await readQueue()).map((r) => r.clientId));
 }
 
-export async function removePendingCapture(clientId: string): Promise<void> {
-  const records = await readQueue();
-  await writeQueue(records.filter((r) => r.clientId !== clientId));
-  notify();
+export function removePendingCapture(clientId: string): Promise<void> {
+  return withQueueLock(async () => {
+    const records = await readQueue();
+    const removed = records.find((r) => r.clientId === clientId);
+    await writeQueue(records.filter((r) => r.clientId !== clientId));
+    deleteQueuedPhoto(removed?.photoUri);
+    notify();
+  });
 }
 
-export async function updatePendingCapture(
+export function updatePendingCapture(
   clientId: string,
-  patch: Partial<Pick<PendingCapture, "error" | "photoStorageId">>
+  patch: Partial<Pick<PendingCapture, "error" | "photoStorageId" | "photoUri">>
 ): Promise<void> {
-  const records = await readQueue();
-  await writeQueue(records.map((r) => (r.clientId === clientId ? { ...r, ...patch } : r)));
-  notify();
+  return withQueueLock(async () => {
+    const records = await readQueue();
+    await writeQueue(records.map((r) => (r.clientId === clientId ? { ...r, ...patch } : r)));
+    notify();
+  });
 }

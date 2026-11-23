@@ -73,7 +73,7 @@ export const SHELF_LABEL_SHEETS: readonly ShelfLabelSheet[] = [
 function normalize(value: string | null | undefined): string {
   return (value ?? "")
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
 }

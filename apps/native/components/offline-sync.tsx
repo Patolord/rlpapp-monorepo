@@ -5,7 +5,10 @@ import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { useConvex, useConvexAuth, useMutation } from "convex/react";
 import { useCallback, useEffect, useRef } from "react";
 
+import { normalizeCaptureText } from "@rlpapp/shared/estoque/captureMatch";
+
 import {
+  capturePhotoExists,
   listPendingCaptures,
   removePendingCapture,
   subscribeCaptureQueue,
@@ -54,6 +57,9 @@ export function OfflineSync() {
   const captureMaterial = useMutation(api.materialCaptures.capture);
   const generateCaptureUploadUrl = useMutation(api.materialCaptures.generateUploadUrl);
   const syncing = useRef(false);
+  // Pedido de envio que chegou durante uma passada: roda mais uma no fim.
+  const rerun = useRef(false);
+  const runSyncRef = useRef<() => Promise<void>>(async () => undefined);
 
   /**
    * Item do cadastro em campo contado sem sinal: sobe a foto (uma vez só) e
@@ -63,8 +69,13 @@ export function OfflineSync() {
     async (capture: PendingCapture) => {
       let photoId = capture.photoStorageId as Id<"_storage"> | undefined;
       if (!photoId && capture.photoUri) {
-        [photoId] = await uploadPhotos(generateCaptureUploadUrl, [capture.photoUri]);
-        await updatePendingCapture(capture.clientId, { photoStorageId: photoId });
+        if (capturePhotoExists(capture.photoUri)) {
+          [photoId] = await uploadPhotos(generateCaptureUploadUrl, [capture.photoUri]);
+          await updatePendingCapture(capture.clientId, { photoStorageId: photoId });
+        } else {
+          // A foto sumiu do aparelho: a contagem sobe sem ela, em vez de travar a fila.
+          await updatePendingCapture(capture.clientId, { photoUri: undefined });
+        }
       }
       await captureMaterial({
         clientId: capture.clientId,
@@ -171,10 +182,14 @@ export function OfflineSync() {
     [convex, registerForQr, createLog, generateUploadUrl]
   );
 
-  const runSync = useCallback(async () => {
-    if (syncing.current) return;
+  const runSync = useCallback(async (): Promise<void> => {
+    if (syncing.current) {
+      rerun.current = true;
+      return;
+    }
     if (!(await isOnline())) return;
     syncing.current = true;
+    rerun.current = false;
     try {
       // Só as marcações do usuário logado: a fila é do aparelho, e cada item
       // pertence a quem o criou.
@@ -191,11 +206,18 @@ export function OfflineSync() {
         }
       }
 
+      // Contagens do mesmo item no mesmo local sobem na ordem em que foram
+      // feitas: se uma falha, as seguintes dele esperam (o modo "corrigir para
+      // o contado" depende do saldo anterior).
+      const blocked = new Set<string>();
       for (const capture of currentUserId ? await listPendingCaptures(currentUserId) : []) {
+        const key = captureOrderKey(capture);
+        if (blocked.has(key)) continue;
         try {
           await processCapture(capture);
           await removePendingCapture(capture.clientId);
         } catch (err) {
+          blocked.add(key);
           const message = err instanceof Error ? err.message : "Erro desconhecido";
           console.error("Offline capture sync failed:", capture.clientId, err);
           await updatePendingCapture(capture.clientId, { error: message });
@@ -220,8 +242,15 @@ export function OfflineSync() {
       }
     } finally {
       syncing.current = false;
+      if (rerun.current) {
+        rerun.current = false;
+        void runSyncRef.current();
+      }
     }
   }, [processRecord, processPunch, processCapture, userId]);
+  useEffect(() => {
+    runSyncRef.current = runSync;
+  }, [runSync]);
 
   useEffect(() => {
     if (!isAuthenticated || !userId) return;
@@ -246,4 +275,14 @@ export function OfflineSync() {
   }, [isAuthenticated, userId, runSync]);
 
   return null;
+}
+
+/** Item + local de uma contagem na fila (para manter a ordem por item). */
+function captureOrderKey(capture: PendingCapture): string {
+  const item = capture.materialId
+    ? capture.materialId
+    : [capture.item?.barcode, normalizeCaptureText(capture.item?.name), normalizeCaptureText(capture.item?.variantLabel), capture.item?.unit]
+        .map((part) => part ?? "")
+        .join("|");
+  return `${capture.projectId ?? "central"}#${item}`;
 }

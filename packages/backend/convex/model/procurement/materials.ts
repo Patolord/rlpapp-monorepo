@@ -88,7 +88,7 @@ const ALLOWED_MATERIAL_IMAGE_TYPES = new Set([
   "image/webp",
 ]);
 
-async function assertAllowedMaterialImage(
+export async function assertAllowedMaterialImage(
   ctx: MutationCtx,
   imageId: Id<"_storage">
 ): Promise<void> {

@@ -20,10 +20,21 @@ export function usePendingCaptures(): PendingCapture[] {
   const { userId } = useAuth();
   const [pending, setPending] = useState<PendingCapture[]>([]);
   useEffect(() => {
-    if (!userId) return;
-    const load = () => void listPendingCaptures(userId).then(setPending);
+    if (!userId) {
+      setPending([]);
+      return;
+    }
+    let active = true;
+    const load = () =>
+      void listPendingCaptures(userId).then((records) => {
+        if (active) setPending(records);
+      });
     load();
-    return subscribeCaptureQueue(load);
+    const unsubscribe = subscribeCaptureQueue(load);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [userId]);
   return pending;
 }

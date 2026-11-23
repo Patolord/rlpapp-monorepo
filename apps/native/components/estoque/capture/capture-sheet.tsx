@@ -13,7 +13,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { AppButton, Banner, Chips, Field, SegmentedField, Sheet, useToast } from "@/components/ui";
 import { normalizeCaptureText } from "@rlpapp/shared/estoque/captureMatch";
 
-import { addPendingCapture, newCaptureClientId, PENDING_PREFIX, type CaptureItemData, type PendingCapture } from "@/lib/capture-queue";
+import { addPendingCapture, newCaptureClientId, PENDING_PREFIX, persistCapturePhoto, type CaptureItemData, type PendingCapture } from "@/lib/capture-queue";
 import { getErrorMessage } from "@/lib/errors";
 import { formatMaterialLabel, formatQty } from "@/lib/format";
 import { colors, radius, space, type } from "@/lib/theme";
@@ -29,6 +29,30 @@ export type CaptureTarget =
   | { kind: "new"; name: string; code: string | null; similar: CaptureCandidate[]; checkedOnServer: boolean };
 
 const UNITS = ["un", "m", "kg", "cx", "pct", "rolo", "par", "l", "m²"] as const;
+/**
+ * O app pode achar que tem sinal (NetInfo) com o Convex ainda desconectado: a
+ * mutação fica esperando. Passado esse tempo, a contagem vai para a fila; o
+ * servidor ignora a repetição pelo `clientId`.
+ */
+const SEND_TIMEOUT_MS = 15_000;
+
+class SendTimeoutError extends Error {}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new SendTimeoutError("timeout")), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
 
 function parseQuantity(value: string): number {
   return Number.parseFloat(value.replace(",", "."));
@@ -173,19 +197,22 @@ export function CaptureSheet({
     try {
       if (online) {
         try {
-          await sendNow(pending);
+          await withTimeout(sendNow(pending), SEND_TIMEOUT_MS);
           onSaved();
           return;
         } catch (err) {
           const state = await NetInfo.fetch().catch(() => null);
           const stillOnline = Boolean(state?.isConnected) && state?.isInternetReachable !== false;
-          if (stillOnline) {
+          if (stillOnline && !(err instanceof SendTimeoutError)) {
             toast.error(getErrorMessage(err, "Não deu para salvar o item"));
             return;
           }
         }
       }
-      await addPendingCapture(pending);
+      await addPendingCapture({
+        ...pending,
+        photoUri: pending.photoUri ? persistCapturePhoto(pending.photoUri, pending.clientId) : undefined,
+      });
       toast.show("Sem sinal: salvo no celular. Envia sozinho quando a conexão voltar.", "offline");
       onSavedOffline(
         existing

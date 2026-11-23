@@ -23,19 +23,24 @@ export type CaptureMatchResult<T extends CaptureCatalogItem> = {
   similar: T[];
 };
 
-/** Mesma normalização do backend: sem acento, minúsculas, só letras e números. */
+/** Texto para comparar nomes (igual ao `normalizeText` do backend): sem acento, minúsculas, só letras e números. */
 export function normalizeCaptureText(value: string | null | undefined): string {
   return (value ?? "")
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim()
     .replace(/\s+/g, " ");
 }
 
-function normalizeCode(value: string | null | undefined): string {
-  return (value ?? "").trim().toUpperCase().replace(/\s+/g, "");
+// Mesmas regras do backend (`normalizeBarcode` e `normalizeSku` em catalog.ts).
+function normalizeBarcode(value: string | null | undefined): string {
+  return (value ?? "").trim();
+}
+
+function normalizeSku(value: string | null | undefined): string {
+  return (value ?? "").trim().toUpperCase();
 }
 
 function normalizeUnit(value: string | null | undefined): string {
@@ -64,11 +69,12 @@ export function matchCapturedItem<T extends CaptureCatalogItem>(
   query: { code?: string | null; name?: string | null; variantLabel?: string | null; unit?: string | null },
   limit = 6
 ): CaptureMatchResult<T> {
-  const code = normalizeCode(query.code);
-  if (code) {
-    const byBarcode = catalog.find((item) => item.barcode && normalizeCode(item.barcode) === code);
+  const barcode = normalizeBarcode(query.code);
+  if (barcode) {
+    const byBarcode = catalog.find((item) => item.barcode && normalizeBarcode(item.barcode) === barcode);
     if (byBarcode) return { exact: { item: byBarcode, reason: "barcode" }, similar: [] };
-    const bySku = catalog.find((item) => item.sku && normalizeCode(item.sku) === code);
+    const sku = normalizeSku(query.code);
+    const bySku = catalog.find((item) => item.sku && normalizeSku(item.sku) === sku);
     if (bySku) return { exact: { item: bySku, reason: "sku" }, similar: [] };
   }
 

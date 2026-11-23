@@ -47,7 +47,8 @@ export async function resolveLiveMaterial(
   material: Doc<"materials"> | null
 ): Promise<Doc<"materials"> | null> {
   let current = material;
-  for (let hop = 0; current && hop < MAX_MERGE_HOPS; hop += 1) {
+  // Até MAX_MERGE_HOPS redirecionamentos, conferindo também o destino final.
+  for (let hop = 0; current && hop <= MAX_MERGE_HOPS; hop += 1) {
     const archived = !current.active || current.status === "archived";
     if (!archived) return current;
     if (!current.mergedIntoId) return null;
@@ -114,16 +115,21 @@ async function findByAlias(
       .filter(Boolean)
   );
   for (const term of terms) {
-    const alias = await ctx.db
+    const aliases = await ctx.db
       .query("materialAliases")
       .withIndex("by_alias_normalized", (q) => q.eq("aliasNormalized", term))
-      .first();
-    if (!alias) continue;
-    const material = await resolveLiveMaterial(
-      ctx,
-      await ctx.db.get("materials", alias.materialId)
-    );
-    if (material) return material;
+      .take(10);
+    const live = new Map<string, Doc<"materials">>();
+    for (const alias of aliases) {
+      const material = await resolveLiveMaterial(
+        ctx,
+        await ctx.db.get("materials", alias.materialId)
+      );
+      if (material) live.set(material._id, material);
+    }
+    // Apelido de mais de um material não decide sozinho: fica para a pessoa
+    // escolher entre os parecidos.
+    if (live.size === 1) return [...live.values()][0]!;
   }
   return null;
 }

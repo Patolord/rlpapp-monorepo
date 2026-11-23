@@ -362,4 +362,45 @@ describe("cadastro em campo", () => {
       engineer.query(api.inventory.listShelfLabels, { paginationOpts: { numItems: 50, cursor: null } })
     ).rejects.toThrow("Etiquetas de prateleira são do estoque central");
   });
+
+  test("etiqueta interna (SKU) lida não vira código de barras do material", async () => {
+    const { t, ids, warehouse } = await seed();
+    await t.run(async (ctx) => {
+      await ctx.db.patch("materials", ids.breakerId, { barcode: undefined });
+    });
+    const result = await warehouse.mutation(api.materialCaptures.capture, {
+      clientId: clientId(),
+      item: { name: "", barcode: "MAT-000001" },
+      quantity: 1,
+      capturedAt: Date.now(),
+    });
+    expect(result.matchReason).toBe("sku");
+    const material = await t.run(async (ctx) => await ctx.db.get("materials", ids.breakerId));
+    expect(material?.barcode).toBeUndefined();
+  });
+
+  test("apelido de dois materiais não decide sozinho", async () => {
+    const { t, ids, warehouse } = await seed();
+    await t.run(async (ctx) => {
+      const otherId = await ctx.db.insert("materials", {
+        name: "Disjuntor",
+        familyId: ids.familyId,
+        variantLabel: "16A",
+        sku: "MAT-000099",
+        unit: "un",
+        searchText: "disjuntor 16a",
+        active: true,
+        status: "active",
+        createdAt: Date.now(),
+      });
+      await ctx.db.insert("materialAliases", {
+        alias: "DJ 10",
+        aliasNormalized: "dj 10",
+        materialId: otherId,
+        createdAt: Date.now(),
+      });
+    });
+    const lookup = await warehouse.query(api.materialCaptures.lookup, { item: { name: "dj 10" } });
+    expect(lookup.exact).toBeNull();
+  });
 });

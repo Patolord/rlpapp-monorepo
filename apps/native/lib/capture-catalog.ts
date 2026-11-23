@@ -75,15 +75,17 @@ export function useCaptureCatalog(online: boolean, enabled: boolean) {
         cursor = page.continueCursor;
       }
       // Itens ainda na fila do celular não estão no servidor: continuam na cópia
-      // para a próxima captura igual reconhecê-los.
+      // para a próxima captura igual reconhecê-los. A mescla usa o estado atual,
+      // então um item incluído durante o download também fica.
       const queued = await listQueuedClientIds();
-      const stored = await readCatalog();
-      const stillPending = (stored?.items ?? []).filter(
-        (item) => item._id.startsWith(PENDING_PREFIX) && queued.has(item._id.slice(PENDING_PREFIX.length))
-      );
-      const next = { savedAt: Date.now(), items: [...items, ...stillPending] };
-      setCatalog(next);
-      await writeCatalog(next);
+      setCatalog((current) => {
+        const stillPending = (current?.items ?? []).filter(
+          (item) => item._id.startsWith(PENDING_PREFIX) && queued.has(item._id.slice(PENDING_PREFIX.length))
+        );
+        const next = { savedAt: Date.now(), items: [...items, ...stillPending] };
+        void writeCatalog(next);
+        return next;
+      });
     } catch {
       setError("Não deu para baixar o catálogo agora.");
     } finally {

@@ -1,8 +1,11 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
-import { normalizeBarcode } from "../procurement/catalog";
-import { createMaterialInternal } from "../procurement/materials";
+import { normalizeBarcode, normalizeSku } from "../procurement/catalog";
+import {
+  assertAllowedMaterialImage,
+  createMaterialInternal,
+} from "../procurement/materials";
 import {
   findExactMatch,
   findIdentityMaterial,
@@ -203,7 +206,12 @@ async function enrichExisting(
       .query("materials")
       .withIndex("by_barcode", (q) => q.eq("barcode", barcode))
       .first();
-    if (!taken) {
+    // Etiqueta interna (SKU de algum material) não é código de barras do fabricante.
+    const isInternalSku = await ctx.db
+      .query("materials")
+      .withIndex("by_sku", (q) => q.eq("sku", normalizeSku(barcode)))
+      .first();
+    if (!taken && !isInternalSku) {
       patch.barcode = barcode;
       patch.searchText = [material.searchText, barcode.toLowerCase()]
         .filter(Boolean)
@@ -401,12 +409,15 @@ export async function captureMaterial(
     if (previous.capturedByUserId !== user._id) {
       throw new Error("Identificador do cadastro inválido");
     }
+    // O saldo devolvido é o atual: confere o acesso ao local gravado, não ao do reenvio.
+    assertCanUseLocation(user, previous.projectId);
     return await toResult(ctx, previous, true);
   }
 
   if (!Number.isFinite(input.quantity) || input.quantity < 0) {
     throw new Error("A quantidade deve ser zero ou maior");
   }
+  if (input.photoId) await assertAllowedMaterialImage(ctx, input.photoId);
   assertCanUseLocation(user, input.projectId);
   const location = input.projectId
     ? await getOrCreateProjectLocation(ctx, input.projectId)

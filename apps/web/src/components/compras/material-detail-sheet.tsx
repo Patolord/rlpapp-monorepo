@@ -113,6 +113,7 @@ export function MaterialDetailSheet({
       setPolicySheetOpen(false);
       setEditingPolicy(null);
       setMergeOpen(false);
+      setMergeTarget(null);
     }
   }, [material]);
 
@@ -589,6 +590,7 @@ export function MaterialDetailSheet({
         }}
         onMerged={(targetId) => {
           setMergeOpen(false);
+          setMergeTarget(null);
           onMerged?.(targetId);
         }}
       />
