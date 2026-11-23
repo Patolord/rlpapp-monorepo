@@ -10,6 +10,7 @@ import {
   type PendingRecord,
 } from "@/lib/offline-queue";
 import { uploadPhotos } from "@/lib/upload-photos";
+import { getErrorMessage } from "@/lib/errors";
 
 /**
  * Processa a fila offline: ao voltar a conexão (ou ao abrir o app logado),
@@ -104,7 +105,7 @@ export function OfflineSync() {
         } catch (err) {
           failed++;
           const message =
-            err instanceof Error ? err.message : "Erro desconhecido";
+            getErrorMessage(err, "Erro desconhecido");
           console.error("Offline sync failed for record:", record.id, err);
           await setPendingRecordError(record.id, message);
           // Se foi erro de rede, para e tenta de novo depois.

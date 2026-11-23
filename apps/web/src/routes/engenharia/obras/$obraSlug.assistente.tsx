@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { runWithToast } from "@/lib/errors";
+import { getErrorMessage, runWithToast } from "@/lib/errors";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { PermissionGate } from "@/components/role-area-gate";
@@ -154,9 +154,7 @@ function AssistantContent({ project }: { project: ProjectOverview }) {
         {
           role: "assistant",
           text:
-            error instanceof Error
-              ? error.message
-              : "Não foi possível processar.",
+            getErrorMessage(error, "Não foi possível processar."),
         },
       ]);
     } finally {

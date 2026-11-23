@@ -14,6 +14,7 @@ import { addPendingRecord, newPendingId } from "@/lib/offline-queue";
 import { colors, space, type } from "@/lib/theme";
 import { uploadPhotos } from "@/lib/upload-photos";
 import { useOnline } from "@/lib/use-online";
+import { getErrorMessage } from "@/lib/errors";
 
 export const OBSERVATION_TAGS = [
   "Posicionada",
@@ -140,7 +141,7 @@ export function MaintenanceForm({ equipmentId, qrToken, technicianName, onQueued
       if (!online) {
         await queueOffline();
       } else {
-        setError(err instanceof Error && err.message ? err.message : "Não deu para salvar. Tente de novo.");
+        setError(getErrorMessage(err, "Não deu para salvar. Tente de novo."));
       }
     } finally {
       setSubmitting(false);
