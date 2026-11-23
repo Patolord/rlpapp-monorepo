@@ -215,10 +215,10 @@ export const dayDetailValidator = v.object({
       worksiteName: v.union(v.string(), v.null()),
       offline: v.boolean(),
       hasPhoto: v.boolean(),
-      /** Horários esquecidos enviados junto que ficaram de fora. */
-      missedNotSent: v.number(),
     })
   ),
+  /** Horários esquecidos deste dia que ficaram de fora ao marcar. */
+  missedNotSent: v.number(),
   issues: v.array(
     v.object({
       code: v.union(

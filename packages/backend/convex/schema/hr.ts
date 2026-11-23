@@ -293,6 +293,9 @@ export const hrTables = {
     // Horários esquecidos enviados junto que não conferiam e ficaram de fora
     // (o reenvio da fila offline devolve o mesmo aviso).
     missedNotSent: v.optional(v.number()),
+    // Dia ("YYYY-MM-DD") desses horários: o da captura, que pode ser o anterior
+    // ao da marcação quando ela chega depois da meia-noite.
+    missedFor: v.optional(v.string()),
     latitude: v.optional(v.number()),
     longitude: v.optional(v.number()),
     accuracyMeters: v.optional(v.number()),

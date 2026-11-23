@@ -287,8 +287,9 @@ export type DayDetail = {
     worksiteName: string | null;
     offline: boolean;
     hasPhoto: boolean;
-    missedNotSent: number;
   }>;
+  /** Horários esquecidos deste dia que ficaram de fora ao marcar. */
+  missedNotSent: number;
   issues: Array<{
     code: ClassifiedDay["issues"][number]["code"];
     severity: "action" | "info";
@@ -298,13 +299,28 @@ export type DayDetail = {
   }>;
 };
 
-export function toDayDetail(loaded: LoadedDay, date: string, open: boolean): DayDetail {
+/** Horários esquecidos que ficaram de fora e pertencem a `date` (dia da captura). */
+export function missedNotSentOn(punches: Doc<"clockPunches">[], date: string): number {
+  return punches.reduce(
+    (sum, punch) => sum + ((punch.missedFor ?? punch.date) === date ? (punch.missedNotSent ?? 0) : 0),
+    0
+  );
+}
+
+/** `fromOtherDays`: horários deste dia que ficaram de fora em marcações do dia seguinte. */
+export function toDayDetail(
+  loaded: LoadedDay,
+  date: string,
+  open: boolean,
+  fromOtherDays = 0
+): DayDetail {
   const punches = new Map(loaded.punches.map((punch) => [punch._id as string, punch]));
   const requests = new Map(loaded.requests.map((request) => [request._id as string, request]));
   return {
     date,
     open,
     status: loaded.day.status,
+    missedNotSent: missedNotSentOn(loaded.punches, date) + fromOtherDays,
     items: loaded.day.items.map((item) => {
       const punch = punches.get(item.id);
       const request = requests.get(item.id);
@@ -321,7 +337,6 @@ export function toDayDetail(loaded: LoadedDay, date: string, open: boolean): Day
         worksiteName: punch?.projectName ?? null,
         offline: punch?.offline ?? false,
         hasPhoto: Boolean(punch?.photoStorageId),
-        missedNotSent: punch?.missedNotSent ?? 0,
       };
     }),
     issues: loaded.day.issues.map((issue) => ({

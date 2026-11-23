@@ -27,7 +27,13 @@ import {
   nextNsr,
   recomputeDaySummary,
 } from "./timeClockDb";
-import { isOpenDate, loadUserDay, scheduleResolver, toDayDetail } from "./timeClockDay";
+import {
+  isOpenDate,
+  loadUserDay,
+  missedNotSentOn,
+  scheduleResolver,
+  toDayDetail,
+} from "./timeClockDay";
 import {
   buildPunchHash,
   classifyGeofence,
@@ -71,7 +77,7 @@ async function toPunchRow(
     offline: punch.offline,
     nsr: punch.nsr,
     hash: punch.hash,
-    missedNotSent: punch.missedNotSent ?? 0,
+    missedNotSent: missedNotSentOn([punch], punch.date),
   };
 }
 
@@ -213,6 +219,16 @@ export async function listMyDays(
 ) {
   assertDateKey(input.today, "Data de hoje");
   const byDate = await listUserRange(ctx, user._id, input.from, input.to);
+  // Horário esquecido que ficou de fora numa marcação de depois da meia-noite:
+  // o aviso vai para o dia da captura.
+  const crossDay = new Map<string, number>();
+  for (const punches of byDate.values()) {
+    for (const punch of punches) {
+      if (!punch.missedFor || punch.missedFor === punch.date) continue;
+      crossDay.set(punch.missedFor, (crossDay.get(punch.missedFor) ?? 0) + (punch.missedNotSent ?? 0));
+      if (punch.missedFor >= input.from && !byDate.has(punch.missedFor)) byDate.set(punch.missedFor, []);
+    }
+  }
   const resolve = scheduleResolver(ctx);
   const schedule = await resolve(user._id, input.today);
   const days = [];
@@ -225,7 +241,7 @@ export async function listMyDays(
       punches,
       schedule: await resolve(user._id, date),
     });
-    days.push(toDayDetail(loaded, date, open));
+    days.push(toDayDetail(loaded, date, open, crossDay.get(date) ?? 0));
   }
   return { schedule, days: days.sort((a, b) => (a.date < b.date ? 1 : -1)) };
 }
@@ -381,6 +397,7 @@ export async function registerPunch(
     timeLabel: toBrtTimeLabel(punchedAt),
     declaredRole: input.declaredRole,
     missedNotSent: missedNotSent > 0 ? missedNotSent : undefined,
+    missedFor: missedNotSent > 0 ? missedDate : undefined,
     latitude: hasPosition ? input.latitude : undefined,
     longitude: hasPosition ? input.longitude : undefined,
     accuracyMeters: input.accuracyMeters,

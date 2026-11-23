@@ -111,7 +111,7 @@ export default function MinhasMarcacoesScreen() {
                 <TodaySlots
                   day={day}
                   onForgot={(slot) => openForgot(detail.date, day, slot)}
-                  missedNotSent={detail.items.some((item) => item.missedNotSent > 0)}
+                  missedNotSent={detail.missedNotSent > 0}
                 />
                 {worksites.length > 0 ? (
                   <Text style={styles.foot}>{worksites.join(" · ")}</Text>

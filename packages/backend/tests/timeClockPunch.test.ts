@@ -472,6 +472,30 @@ describe("timeClockPunch: leitura do dia e horários esquecidos", () => {
     ]);
   });
 
+  test("aviso de horário esquecido recusado depois da meia-noite fica no dia da captura", async () => {
+    const { worker } = await seed();
+    const capturedAt = Date.parse(`${DAY}T23:59:50-03:00`);
+    vi.setSystemTime(capturedAt + 20_000);
+    // 23:59 não é antes do toque (23:59): fica de fora.
+    const receipt = await worker.mutation(api.timeClockPunch.register, {
+      clientPunchId: "midnight-rejected",
+      capturedAt,
+      missed: [{ role: "almoco_retorno", minute: 23 * 60 + 59 }],
+      ...POS,
+    });
+    expect(receipt).toMatchObject({ date: "2026-03-11", missedNotSent: 1 });
+    const mine = await worker.query(api.timeClockPunch.myDays, {
+      from: DAY,
+      to: "2026-03-11",
+      today: "2026-03-11",
+    });
+    const byDate = new Map(mine.days.map((day) => [day.date, day.missedNotSent]));
+    expect(byDate.get(DAY)).toBe(1);
+    expect(byDate.get("2026-03-11")).toBe(0);
+    const context = await worker.query(api.timeClockPunch.getContext, { date: "2026-03-11" });
+    expect(context.punches[0]?.missedNotSent).toBe(0);
+  });
+
   test("horário esquecido não pode ser no futuro e pode ser desfeito", async () => {
     const { worker } = await seed();
     setClock("12:00");
