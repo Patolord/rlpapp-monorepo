@@ -461,4 +461,21 @@ describe("cadastro em campo", () => {
     });
     expect(result.outcome).toBe("review");
   });
+
+  test("foto em formato não aceito não trava a contagem", async () => {
+    const { t, ids, warehouse } = await seed();
+    const photoId = await t.run(async (ctx) =>
+      ctx.storage.store(new Blob(["x"], { type: "image/heic" }))
+    );
+    const result = await warehouse.mutation(api.materialCaptures.capture, {
+      clientId: clientId(),
+      materialId: ids.breakerId,
+      quantity: 2,
+      photoId,
+      capturedAt: Date.now(),
+    });
+    expect(result.quantityHere).toBe(2);
+    const capture = await t.run(async (ctx) => await ctx.db.get("materialCaptures", result.captureId));
+    expect(capture?.photoId).toBeUndefined();
+  });
 });

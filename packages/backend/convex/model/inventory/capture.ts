@@ -228,6 +228,21 @@ async function enrichExisting(
   }
 }
 
+async function usablePhoto(
+  ctx: MutationCtx,
+  photoId: Id<"_storage"> | undefined
+): Promise<Id<"_storage"> | undefined> {
+  if (!photoId) return undefined;
+  try {
+    await assertAllowedMaterialImage(ctx, photoId);
+    return photoId;
+  } catch {
+    const metadata = await ctx.db.system.get("_storage", photoId);
+    if (metadata) await ctx.storage.delete(photoId);
+    return undefined;
+  }
+}
+
 async function resolveMaterial(
   ctx: MutationCtx,
   user: Doc<"users">,
@@ -428,7 +443,9 @@ export async function captureMaterial(
   if (!Number.isFinite(input.quantity) || input.quantity < 0) {
     throw new Error("A quantidade deve ser zero ou maior");
   }
-  if (input.photoId) await assertAllowedMaterialImage(ctx, input.photoId);
+  // Foto é opcional: em formato não aceito (ex.: HEIC) a contagem segue sem
+  // ela, em vez de travar a fila do celular reenviando o mesmo erro.
+  input = { ...input, photoId: await usablePhoto(ctx, input.photoId) };
   assertCanUseLocation(user, input.projectId);
   const location = input.projectId
     ? await getOrCreateProjectLocation(ctx, input.projectId)
