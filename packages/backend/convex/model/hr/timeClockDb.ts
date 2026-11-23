@@ -8,7 +8,8 @@ import { DEFAULT_REMINDER_WEEKDAYS } from "@rlpapp/shared/rh/timeClockReminders"
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { hasPermission } from "../../lib/rbac";
-import { summarizeDay } from "./timeClock";
+import { summarizeDay, toBrtDateKey } from "./timeClock";
+import { isOpenDate, loadUserDay } from "./timeClockDay";
 
 type Ctx = QueryCtx | MutationCtx;
 
@@ -189,6 +190,19 @@ export async function listPunchesForDate(
     .take(MAX_PUNCHES_PER_DAY);
 }
 
+/** Quem tem horário informado (pendente ou aprovado) na data. */
+export async function listRequestUserIdsForDate(ctx: Ctx, date: string): Promise<Set<Id<"users">>> {
+  const ids = new Set<Id<"users">>();
+  for (const status of ["pending", "approved"] as const) {
+    const requests = await ctx.db
+      .query("clockPunchRequests")
+      .withIndex("by_status_and_date", (q) => q.eq("status", status).eq("date", date))
+      .take(MAX_PUNCHES_PER_DAY);
+    for (const request of requests) ids.add(request.userId);
+  }
+  return ids;
+}
+
 /** Marcações do usuário no dia, em ordem cronológica. */
 export async function listUserDayPunches(
   ctx: Ctx,
@@ -231,8 +245,8 @@ export async function nextNsr(ctx: MutationCtx): Promise<number> {
 // ---------------------------------------------------------------------------
 
 /**
- * Recalcula o resumo diário do usuário a partir das marcações do dia. Sem
- * marcações, remove o resumo.
+ * Recalcula o resumo diário do usuário a partir das marcações e da leitura do
+ * dia (papéis e pendências). Sem marcações, remove o resumo.
  */
 export async function recomputeDaySummary(
   ctx: MutationCtx,
@@ -244,7 +258,13 @@ export async function recomputeDaySummary(
     .query("clockDays")
     .withIndex("by_user_and_date", (q) => q.eq("userId", userId).eq("date", date))
     .first();
-  const summary = summarizeDay(punches);
+  const { day } = await loadUserDay(ctx, {
+    userId,
+    date,
+    open: isOpenDate(date, toBrtDateKey(Date.now())),
+    punches,
+  });
+  const summary = summarizeDay(punches, day);
   if (!summary) {
     if (existing) await ctx.db.delete("clockDays", existing._id);
     return;

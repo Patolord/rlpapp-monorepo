@@ -7,12 +7,24 @@
  */
 
 import { normalizePermissionOverrides, resolveRoles } from "@rlpapp/shared/auth/permissions";
+import {
+  describeWorkSchedule,
+  workScheduleError,
+  type WorkSchedule,
+} from "@rlpapp/shared/rh/pontoDay";
 import { normalizeWeekdays, reminderTimeError } from "@rlpapp/shared/rh/timeClockReminders";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
 import { hasPermission } from "../../lib/rbac";
 import { getSettings, loginOf, saveSettings } from "./timeClockDb";
+import { toBrtDateKey } from "./timeClock";
+import {
+  getCurrentCompanySchedule,
+  getCurrentUserSchedule,
+  getCurrentUserSchedules,
+  recordScheduleChange,
+} from "./timeClockDay";
 import {
   MAX_GEOFENCE_RADIUS_METERS,
   MIN_GEOFENCE_RADIUS_METERS,
@@ -39,6 +51,8 @@ export type ClockPerson = {
   name: string;
   login: string | null;
   clocksIn: boolean;
+  /** Jornada própria (sem ela, vale a da empresa). */
+  schedule: WorkSchedule | null;
 };
 
 export type SetClocksInInput = { userId: Id<"users">; enabled: boolean };
@@ -48,11 +62,14 @@ export type UpdateTimeClockSettingsInput = {
   photoRequired?: boolean;
   locationRequired?: boolean;
   duplicateWindowMinutes?: number;
+  schedule?: WorkSchedule;
   /** "HH:MM"; `null` desliga o lembrete. */
   entryReminderTime?: string | null;
   exitReminderTime?: string | null;
   reminderWeekdays?: number[];
 };
+
+export type SetUserScheduleInput = { userId: Id<"users">; schedule: WorkSchedule | null };
 
 function reminderTime(value: string | null, label: string): string | null {
   if (value === null) return null;
@@ -130,15 +147,21 @@ export async function listTimeClockPeople(ctx: QueryCtx): Promise<ClockPerson[]>
     .query("users")
     .withIndex("by_active", (q) => q.eq("isActive", true))
     .take(2000);
-  return users
-    .filter((user) => !resolveRoles(user).includes("client"))
-    .map((user) => ({
+  const schedules = await getCurrentUserSchedules(ctx);
+  const people: ClockPerson[] = [];
+  for (const user of users) {
+    if (resolveRoles(user).includes("client")) continue;
+    people.push({
       userId: user._id,
       name: user.name,
       login: loginOf(user),
       clocksIn: hasPermission(user, "ponto.registrar"),
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+      schedule: schedules
+        ? (schedules.get(user._id) ?? null)
+        : await getCurrentUserSchedule(ctx, user._id),
+    });
+  }
+  return people.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
 
 /**
@@ -191,6 +214,8 @@ export async function editTimeClockSettings(
 ): Promise<void> {
   const current = await getSettings(ctx);
   const next = { ...current };
+  const currentSchedule = await getCurrentCompanySchedule(ctx);
+  let nextSchedule: WorkSchedule | null = null;
   if (input.manDayCostCents !== undefined) {
     if (!Number.isFinite(input.manDayCostCents) || input.manDayCostCents < 0) {
       throw ruleViolation("Custo do homem-dia inválido");
@@ -209,6 +234,11 @@ export async function editTimeClockSettings(
     }
     next.duplicateWindowMinutes = input.duplicateWindowMinutes;
   }
+  if (input.schedule !== undefined) {
+    const error = workScheduleError(input.schedule);
+    if (error) throw ruleViolation(error);
+    nextSchedule = { ...input.schedule };
+  }
   if (input.entryReminderTime !== undefined) {
     next.entryReminderTime = reminderTime(input.entryReminderTime, "Lembrete de entrada");
   }
@@ -226,12 +256,62 @@ export async function editTimeClockSettings(
     throw ruleViolation("O lembrete de saída precisa ser depois do de entrada");
   }
   await saveSettings(ctx, next, user._id);
+  if (nextSchedule) {
+    // Vale de hoje em diante; os dias anteriores seguem com a jornada da época.
+    await recordScheduleChange(ctx, {
+      schedule: nextSchedule,
+      effectiveFrom: toBrtDateKey(Date.now()),
+      actorId: user._id,
+    });
+  }
   await logAudit(ctx, user, {
     action: "update",
     tableName: "clockSettings",
     recordId: "default",
     entityLabel: "Ponto",
-    snapshotBefore: current,
-    snapshotAfter: next,
+    snapshotBefore: { ...current, schedule: currentSchedule },
+    snapshotAfter: { ...next, schedule: nextSchedule ?? currentSchedule },
+  });
+}
+
+/** Regras do ponto e a jornada da empresa que vale de hoje em diante. */
+export async function getTimeClockSettingsView(ctx: QueryCtx) {
+  return { ...(await getSettings(ctx)), schedule: await getCurrentCompanySchedule(ctx) };
+}
+
+/**
+ * Define (ou remove, com `schedule: null`) a jornada própria de uma pessoa,
+ * a partir de hoje. Os dias anteriores seguem lidos pela jornada da época.
+ */
+export async function setUserWorkSchedule(
+  ctx: MutationCtx,
+  actor: Doc<"users">,
+  input: SetUserScheduleInput
+): Promise<void> {
+  const user = await ctx.db.get("users", input.userId);
+  if (!user) throw notFound("Usuário não encontrado");
+  const current = await getCurrentUserSchedule(ctx, user._id);
+  if (input.schedule) {
+    const error = workScheduleError(input.schedule);
+    if (error) throw ruleViolation(error);
+  } else if (!current) {
+    return;
+  }
+  await recordScheduleChange(ctx, {
+    userId: user._id,
+    schedule: input.schedule,
+    effectiveFrom: toBrtDateKey(Date.now()),
+    actorId: actor._id,
+  });
+  await logAudit(ctx, actor, {
+    action: "update",
+    tableName: "users",
+    recordId: user._id,
+    entityLabel: user.name,
+    details: input.schedule
+      ? `Jornada do ponto: ${describeWorkSchedule(input.schedule)}`
+      : "Jornada do ponto: volta à da empresa",
+    snapshotBefore: { schedule: current },
+    snapshotAfter: { schedule: input.schedule },
   });
 }

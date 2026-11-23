@@ -1,8 +1,9 @@
 /**
- * Ponto (RH): painel de presença ("agora", dia e mês), cercas das obras, quem
- * bate ponto pelo app e regras da marcação. A marcação em si fica em
- * `timeClockPunch.ts`; a lógica, em `model/hr/timeClockPresence.ts` e
- * `model/hr/timeClockSettings.ts`.
+ * Ponto (RH): painel de presença ("agora", dia e mês), tratamento das
+ * marcações (horários esquecidos, papel e desconsiderar), cercas das obras,
+ * quem bate ponto pelo app, jornadas e regras da marcação. A marcação em si
+ * fica em `timeClockPunch.ts`; a lógica, em `model/hr/timeClockPresence.ts`,
+ * `model/hr/timeClockReview.ts` e `model/hr/timeClockSettings.ts`.
  *
  * Cada pessoa do ponto é um usuário do app com a permissão `ponto.registrar`;
  * cada local é uma obra cadastrada com cerca (`projects.geofence`).
@@ -11,7 +12,6 @@
 import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 import { pontoMutation, pontoQuery } from "./lib/rbac";
-import { getSettings } from "./model/hr/timeClockDb";
 import {
   authorizeTimeClockPunchPhoto,
   getTimeClockDay,
@@ -19,29 +19,45 @@ import {
   getTimeClockMonthStats,
 } from "./model/hr/timeClockPresence";
 import {
+  adjustPunch as applyPunchAdjustment,
+  getPersonDay as readPersonDay,
+  includeMissedPunch,
+  listPendingRequests,
+  reviewMissedRequest,
+} from "./model/hr/timeClockReview";
+import {
   editTimeClockSettings,
+  getTimeClockSettingsView,
   listTimeClockPeople,
   listTimeClockWorksites,
   setProjectTimeClockGeofence,
   setUserClocksIn,
+  setUserWorkSchedule,
 } from "./model/hr/timeClockSettings";
 import {
+  pendingRequestValidator,
+  personDayValidator,
   timeClockDayValidator,
   timeClockLiveStatusValidator,
   timeClockMonthStatsValidator,
   timeClockSettingsValidator,
 } from "./model/hr/timeClockValidators";
 import { projectGeofence } from "./schema/engineering";
+import { timeClockDeclarableRole, timeClockWorkSchedule } from "./schema/hr";
 
 // ---------------------------------------------------------------------------
 // Presença
 // ---------------------------------------------------------------------------
 
+/**
+ * Presença do dia. `today` (a data de hoje no navegador) diz se o dia ainda
+ * está em andamento: aí só conta como faltando o que já devia ter acontecido.
+ */
 export const getDay = pontoQuery({
-  args: { date: v.string() },
+  args: { date: v.string(), today: v.optional(v.string()) },
   returns: timeClockDayValidator,
   handler: async (ctx, args) => {
-    return await getTimeClockDay(ctx, args.date);
+    return await getTimeClockDay(ctx, args.date, args.today);
   },
 });
 
@@ -84,6 +100,74 @@ export const authorizePunchPhoto = internalQuery({
   ),
   handler: async (ctx, args) => {
     return await authorizeTimeClockPunchPhoto(ctx, args.punchId);
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Tratamento (horários esquecidos e papel das marcações)
+// ---------------------------------------------------------------------------
+
+/** Horários esquecidos informados pelas pessoas, esperando o RH. */
+export const listPendingMissed = pontoQuery({
+  args: {},
+  returns: v.array(pendingRequestValidator),
+  handler: async (ctx) => await listPendingRequests(ctx),
+});
+
+/** O dia de uma pessoa lido, com o histórico de tratamento. */
+export const getPersonDay = pontoQuery({
+  args: { userId: v.id("users"), date: v.string(), today: v.optional(v.string()) },
+  returns: personDayValidator,
+  handler: async (ctx, args) => await readPersonDay(ctx, args),
+});
+
+/**
+ * Aprova ou recusa (com motivo) um horário informado pela pessoa. `revision`
+ * é a do pedido que o RH viu (`listPendingMissed`/`getPersonDay`).
+ */
+export const reviewMissed = pontoMutation({
+  args: {
+    requestId: v.id("clockPunchRequests"),
+    revision: v.number(),
+    approve: v.boolean(),
+    note: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await reviewMissedRequest(ctx, ctx.user, args);
+    return null;
+  },
+});
+
+/** Inclui um horário que faltou no dia de uma pessoa (com motivo). */
+export const includeMissed = pontoMutation({
+  args: {
+    userId: v.id("users"),
+    date: v.string(),
+    role: timeClockDeclarableRole,
+    /** Minutos desde 00:00 (Brasília). */
+    minute: v.number(),
+    reason: v.string(),
+  },
+  returns: v.id("clockPunchRequests"),
+  handler: async (ctx, args) => await includeMissedPunch(ctx, ctx.user, args),
+});
+
+/**
+ * Trata uma marcação: muda o papel, desconsidera ou volta à leitura
+ * automática (sempre com motivo). A marcação registrada não muda.
+ */
+export const adjustPunch = pontoMutation({
+  args: {
+    punchId: v.id("clockPunches"),
+    action: v.union(v.literal("set_role"), v.literal("set_aside"), v.literal("clear")),
+    role: v.optional(timeClockDeclarableRole),
+    reason: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await applyPunchAdjustment(ctx, ctx.user, args);
+    return null;
   },
 });
 
@@ -134,6 +218,7 @@ export const listClockPeople = pontoQuery({
       name: v.string(),
       login: v.union(v.string(), v.null()),
       clocksIn: v.boolean(),
+      schedule: v.union(timeClockWorkSchedule, v.null()),
     })
   ),
   handler: async (ctx) => {
@@ -155,6 +240,16 @@ export const setClocksIn = pontoMutation({
   },
 });
 
+/** Define (ou remove, com `schedule: null`) a jornada própria de uma pessoa. */
+export const setUserSchedule = pontoMutation({
+  args: { userId: v.id("users"), schedule: v.union(timeClockWorkSchedule, v.null()) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await setUserWorkSchedule(ctx, ctx.user, args);
+    return null;
+  },
+});
+
 // ---------------------------------------------------------------------------
 // Regras
 // ---------------------------------------------------------------------------
@@ -162,7 +257,7 @@ export const setClocksIn = pontoMutation({
 export const getTimeClockSettings = pontoQuery({
   args: {},
   returns: timeClockSettingsValidator,
-  handler: async (ctx) => await getSettings(ctx),
+  handler: async (ctx) => await getTimeClockSettingsView(ctx),
 });
 
 export const updateTimeClockSettings = pontoMutation({
@@ -171,6 +266,8 @@ export const updateTimeClockSettings = pontoMutation({
     photoRequired: v.optional(v.boolean()),
     locationRequired: v.optional(v.boolean()),
     duplicateWindowMinutes: v.optional(v.number()),
+    /** Jornada padrão da empresa. */
+    schedule: v.optional(timeClockWorkSchedule),
     // Lembretes por push ("HH:MM" em Brasília; `null` desliga).
     entryReminderTime: v.optional(v.union(v.string(), v.null())),
     exitReminderTime: v.optional(v.union(v.string(), v.null())),

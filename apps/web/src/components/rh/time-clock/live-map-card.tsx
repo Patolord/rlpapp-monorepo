@@ -96,7 +96,7 @@ export function LiveMapCard({
           <div className="h-[420px] rounded-md bg-muted" />
         )}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {(["on_site", "lunch", "left"] as LiveStatus[]).map((status) => (
+          {(["on_site", "lunch", "away", "left"] as LiveStatus[]).map((status) => (
             <span key={status} className="inline-flex items-center gap-1.5">
               <span
                 className="inline-block size-2.5 rounded-full"

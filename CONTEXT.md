@@ -408,6 +408,27 @@ UI: not named ("homem-dia" report). Code: `clockDays`.
 The daily summary of one user's punches, the base of the monthly man-day
 report.
 
+### Work schedule
+UI: "Jornada". Code: `clockScheduleChanges` (`effectiveFrom`, `schedule`).
+The expected hours a day is read against: the company's, or a person's own.
+Each change is valid from a date on, so past days keep the schedule of their
+time.
+
+### Forgotten punch
+UI: "Horário esquecido", "Horário informado" (asked in the app, approved by
+HR). Code:
+`clockPunchRequests`.
+A time a person says they clocked in or out without punching, or that HR
+adds. It never becomes a punch: the timesheet shows it apart from the
+registered punches.
+Avoid: correction, edited punch.
+
+### Punch adjustment
+UI: HR's "Tratamento" of a punch (change its role, disregard it, or return
+to the automatic reading). Code: `clockPunchAdjustments`.
+A punch is never changed; the latest adjustment of each punch is the one in
+effect, and all of them are kept.
+
 ### Clock settings
 UI: "Configurar ponto". Code: `clockSettings`.
 Whether photo and position are required, the duplicate window and the

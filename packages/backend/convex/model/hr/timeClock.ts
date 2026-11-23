@@ -1,10 +1,19 @@
 import { ruleViolation } from "../../lib/domainErrors";
 /**
- * Ponto: regras puras (sem acesso a `ctx`). Datas civis em Brasília, tipo da
- * marcação pela posição no dia, situação "agora" de cada pessoa e agregação de
- * homem-dia. O acesso a dados fica em `timeClockDb.ts`; a marcação em si, em
- * `convex/timeClockPunch.ts`.
+ * Ponto: regras puras (sem acesso a `ctx`). Datas civis em Brasília, resumo do
+ * dia, situação "agora" de cada pessoa e agregação de homem-dia. O papel de
+ * cada marcação vem de `@rlpapp/shared/rh/pontoDay` (lido em
+ * `timeClockDay.ts`); o acesso a dados fica em `timeClockDb.ts`; a marcação em
+ * si, em `convex/timeClockPunch.ts`.
  */
+
+import {
+  actionIssueCount,
+  type ClassifiedDay,
+  type DayStatus,
+  type PunchRole,
+  type PunchSlot,
+} from "@rlpapp/shared/rh/pontoDay";
 
 // ---------------------------------------------------------------------------
 // Datas (Brasília)
@@ -66,21 +75,12 @@ export function monthRange(year: number, month: number): { from: string; to: str
 // Tipo da marcação
 // ---------------------------------------------------------------------------
 
-export type PunchKind = "entrada" | "almoco_saida" | "almoco_retorno" | "saida";
-
-/** 1ª = entrada, 2ª = saída almoço, 3ª = retorno almoço, 4ª em diante = saída. */
-export function punchKindForSequence(sequence: number): PunchKind {
-  switch (Math.min(Math.max(sequence, 0), 3)) {
-    case 0:
-      return "entrada";
-    case 1:
-      return "almoco_saida";
-    case 2:
-      return "almoco_retorno";
-    default:
-      return "saida";
-  }
-}
+/**
+ * As quatro marcações da jornada. O papel de cada marcação vem da leitura do
+ * dia (`@rlpapp/shared/rh/pontoDay`), não da ordem em que foi feita.
+ */
+export type PunchKind = PunchSlot;
+export type { PunchRole };
 
 export type GeofenceStatus = "not_controlled" | "inside" | "outside";
 
@@ -91,7 +91,6 @@ export type GeofenceStatus = "not_controlled" | "inside" | "outside";
 /** O que o resumo diário precisa de cada marcação. */
 export type SummarizablePunch<P extends string = string> = {
   punchedAt: number;
-  kind: PunchKind;
   projectId?: P;
   projectName?: string;
   geofenceStatus: GeofenceStatus;
@@ -102,13 +101,18 @@ export type DaySummary<P extends string = string> = {
   projectName?: string;
   firstPunchAt: number;
   lastPunchAt: number;
-  lastKind: PunchKind;
+  lastKind: PunchRole;
   punchCount: number;
+  issueCount: number;
 };
 
-/** Obra do dia = a da primeira marcação dentro de uma cerca. */
+/**
+ * Obra do dia = a da primeira marcação dentro de uma cerca. `lastKind` é o
+ * papel da última marcação que conta na leitura do dia.
+ */
 export function summarizeDay<P extends string>(
-  punches: SummarizablePunch<P>[]
+  punches: SummarizablePunch<P>[],
+  day: ClassifiedDay
 ): DaySummary<P> | null {
   if (punches.length === 0) return null;
   const sorted = [...punches].sort((a, b) => a.punchedAt - b.punchedAt);
@@ -120,8 +124,9 @@ export function summarizeDay<P extends string>(
     projectName: onSite?.projectName,
     firstPunchAt: first.punchedAt,
     lastPunchAt: last.punchedAt,
-    lastKind: last.kind,
+    lastKind: day.last?.role ?? "desconsiderada",
     punchCount: sorted.length,
+    issueCount: actionIssueCount(day),
   };
 }
 
@@ -129,23 +134,8 @@ export function summarizeDay<P extends string>(
 // Situação "agora" (onde está cada pessoa / quem está em cada obra)
 // ---------------------------------------------------------------------------
 
-export type LiveStatus = "on_site" | "lunch" | "left" | "absent";
-
-/** Situação derivada da última marcação do dia. */
-export function liveStatusForKind(kind: PunchKind | null | undefined): LiveStatus {
-  switch (kind) {
-    case "entrada":
-    case "almoco_retorno":
-      return "on_site";
-    case "almoco_saida":
-      return "lunch";
-    case "saida":
-      return "left";
-    case null:
-    case undefined:
-      return "absent";
-  }
-}
+/** `away`: saiu no meio do dia e volta (médico, banco). */
+export type LiveStatus = DayStatus;
 
 export type LivePosition<P extends SummarizablePunch> = {
   status: LiveStatus;
@@ -158,11 +148,15 @@ export type LivePosition<P extends SummarizablePunch> = {
 };
 
 /**
- * Posição atual de uma pessoa a partir das marcações do dia (ordenadas ou não).
- * Quem bateu fora de cerca mantém como referência a obra mais próxima ou a
- * última conhecida, sinalizando `locationExact: false`.
+ * Posição atual de uma pessoa: a situação vem da leitura do dia; o local, das
+ * marcações (ordenadas ou não). Quem bateu fora de cerca mantém como
+ * referência a obra mais próxima ou a última conhecida, sinalizando
+ * `locationExact: false`.
  */
-export function derivePosition<P extends SummarizablePunch>(punches: P[]): LivePosition<P> {
+export function derivePosition<P extends SummarizablePunch>(
+  punches: P[],
+  status: LiveStatus
+): LivePosition<P> {
   if (punches.length === 0) {
     return {
       status: "absent",
@@ -180,7 +174,7 @@ export function derivePosition<P extends SummarizablePunch>(punches: P[]): LiveP
     reversed.find((punch) => punch.geofenceStatus === "inside" && punch.projectId) ??
     reversed.find((punch) => punch.projectId);
   return {
-    status: liveStatusForKind(last.kind),
+    status,
     last,
     projectId: reference?.projectId,
     projectName: reference?.projectName,

@@ -5,13 +5,30 @@
  * `ponto.registrar` (liberada pelo RH em Ponto → Configurações ou pela
  * administração em Configurações → Usuários). Não há vínculo com o cadastro de
  * funcionários. O servidor atribui o horário oficial, o NSR e o hash do
- * comprovante e classifica a posição contra as cercas das obras.
+ * comprovante e classifica a posição contra as cercas das obras. O que cada
+ * marcação é (entrada, almoço, saída) vem da leitura do dia; o app manda junto
+ * o que a pessoa respondeu e os horários que ela esqueceu de marcar.
  */
 
 import { v } from "convex/values";
 import { authedQuery, registrarPontoMutation } from "./lib/rbac";
-import { getPunchContext, listMyPunches, registerPunch } from "./model/hr/timeClockPunch";
-import { timeClockGeofenceStatus, timeClockPunchKind } from "./schema/hr";
+import {
+  getPunchContext,
+  listMyDays,
+  listMyPunches,
+  registerPunch,
+} from "./model/hr/timeClockRegister";
+import { cancelMyRequest, requestMissedPunch } from "./model/hr/timeClockReview";
+import { dayDetailValidator } from "./model/hr/timeClockValidators";
+import {
+  timeClockDeclarableRole,
+  timeClockGeofenceStatus,
+  timeClockPunchKind,
+  timeClockPunchRole,
+  timeClockRequestStatus,
+  timeClockRoleBasis,
+  timeClockWorkSchedule,
+} from "./schema/hr";
 
 // ---------------------------------------------------------------------------
 // Validadores
@@ -37,7 +54,9 @@ const punchValidator = v.object({
   punchedAt: v.number(),
   timeLabel: v.string(),
   sequence: v.number(),
-  kind: timeClockPunchKind,
+  /** Papel na leitura do dia. */
+  kind: timeClockPunchRole,
+  basis: timeClockRoleBasis,
   geofenceStatus: timeClockGeofenceStatus,
   worksiteName: v.union(v.string(), v.null()),
   latitude: v.union(v.number(), v.null()),
@@ -46,6 +65,8 @@ const punchValidator = v.object({
   offline: v.boolean(),
   nsr: v.number(),
   hash: v.string(),
+  /** Horários esquecidos enviados junto que ficaram de fora. */
+  missedNotSent: v.number(),
 });
 
 const receiptValidator = v.object({
@@ -55,13 +76,16 @@ const receiptValidator = v.object({
   punchedAt: v.number(),
   timeLabel: v.string(),
   sequence: v.number(),
-  kind: timeClockPunchKind,
+  /** Papel na leitura do dia. */
+  kind: timeClockPunchRole,
   geofenceStatus: timeClockGeofenceStatus,
   worksiteName: v.union(v.string(), v.null()),
   nsr: v.number(),
   hash: v.string(),
   /** `true` quando o `clientPunchId` já existia (reenvio da fila offline). */
   duplicate: v.boolean(),
+  /** Horários esquecidos enviados junto que não conferiam e ficaram de fora. */
+  missedNotSent: v.number(),
 });
 
 // ---------------------------------------------------------------------------
@@ -75,21 +99,70 @@ const receiptValidator = v.object({
 export const getContext = authedQuery({
   args: { date: v.string() },
   returns: v.object({
+    /** Dia do contexto ("YYYY-MM-DD"), para o app não misturar um cache antigo. */
+    date: v.string(),
     allowed: v.boolean(),
     personName: v.string(),
     rules: rulesValidator,
+    /** Jornada da pessoa (a própria ou a da empresa). */
+    schedule: timeClockWorkSchedule,
     worksites: v.array(worksiteValidator),
     punches: v.array(punchValidator),
+    /** Horários esquecidos já informados hoje (pendentes ou aprovados). */
+    requests: v.array(
+      v.object({
+        _id: v.id("clockPunchRequests"),
+        role: timeClockPunchRole,
+        minute: v.number(),
+        status: timeClockRequestStatus,
+      })
+    ),
   }),
   handler: async (ctx, args) => await getPunchContext(ctx, ctx.user, args.date),
 });
 
 /** Histórico das marcações do usuário autenticado no período. */
 export const myPunches = authedQuery({
-  args: { from: v.string(), to: v.string() },
+  args: { from: v.string(), to: v.string(), today: v.optional(v.string()) },
   returns: v.array(punchValidator),
-  handler: async (ctx, args) =>
-    await listMyPunches(ctx, ctx.user, { from: args.from, to: args.to }),
+  handler: async (ctx, args) => await listMyPunches(ctx, ctx.user, args),
+});
+
+/**
+ * Dias do usuário autenticado no período, lidos: o papel de cada marcação, os
+ * horários informados e o que falta. `today` é a data de hoje no aparelho.
+ */
+export const myDays = authedQuery({
+  args: { from: v.string(), to: v.string(), today: v.string() },
+  returns: v.object({ schedule: timeClockWorkSchedule, days: v.array(dayDetailValidator) }),
+  handler: async (ctx, args) => await listMyDays(ctx, ctx.user, args),
+});
+
+/**
+ * Informa um horário que a pessoa esqueceu de marcar. Vai para o RH aprovar;
+ * até lá aparece como pendente. Um pedido pendente da mesma posição é
+ * atualizado.
+ */
+export const requestMissed = registrarPontoMutation({
+  args: {
+    date: v.string(),
+    role: timeClockPunchKind,
+    /** Minutos desde 00:00 (Brasília). */
+    minute: v.number(),
+    note: v.optional(v.string()),
+  },
+  returns: v.id("clockPunchRequests"),
+  handler: async (ctx, args) => await requestMissedPunch(ctx, ctx.user, args),
+});
+
+/** Desiste de um horário informado que o RH ainda não analisou. */
+export const cancelRequest = registrarPontoMutation({
+  args: { requestId: v.id("clockPunchRequests") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await cancelMyRequest(ctx, ctx.user, args.requestId);
+    return null;
+  },
 });
 
 /** URL de upload da foto da marcação (Convex Storage). */
@@ -118,6 +191,10 @@ export const register = registrarPontoMutation({
     offline: v.optional(v.boolean()),
     deviceModel: v.optional(v.string()),
     appVersion: v.optional(v.string()),
+    /** O que a pessoa respondeu quando o app perguntou (ex.: "saio e volto"). */
+    declaredRole: v.optional(timeClockDeclarableRole),
+    /** Horários esquecidos informados junto (minutos desde 00:00, Brasília). */
+    missed: v.optional(v.array(v.object({ role: timeClockPunchKind, minute: v.number() }))),
   },
   returns: receiptValidator,
   handler: async (ctx, args) => await registerPunch(ctx, ctx.user, args),
