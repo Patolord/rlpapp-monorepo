@@ -244,6 +244,10 @@ export function PunchScreen() {
     const at = Date.now();
     const nowMinute = brtMinuteOfDay(at);
     const missed = suggestMissed(todayRead, scheduleOf(context), [slot], nowMinute);
+    if (missed.length === 0) {
+      toast.error("Não cabe um horário entre as marcações de hoje. Fale com o RH.");
+      return;
+    }
     setPrompt({
       mode: "forgot",
       nowMinute,

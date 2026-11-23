@@ -23,6 +23,7 @@ import { toBrtDateKey } from "./timeClock";
 import {
   getCurrentCompanySchedule,
   getCurrentUserSchedule,
+  getCurrentUserSchedules,
   recordScheduleChange,
 } from "./timeClockDay";
 import {
@@ -146,6 +147,7 @@ export async function listTimeClockPeople(ctx: QueryCtx): Promise<ClockPerson[]>
     .query("users")
     .withIndex("by_active", (q) => q.eq("isActive", true))
     .take(2000);
+  const schedules = await getCurrentUserSchedules(ctx);
   const people: ClockPerson[] = [];
   for (const user of users) {
     if (resolveRoles(user).includes("client")) continue;
@@ -154,7 +156,9 @@ export async function listTimeClockPeople(ctx: QueryCtx): Promise<ClockPerson[]>
       name: user.name,
       login: loginOf(user),
       clocksIn: hasPermission(user, "ponto.registrar"),
-      schedule: await getCurrentUserSchedule(ctx, user._id),
+      schedule: schedules
+        ? (schedules.get(user._id) ?? null)
+        : await getCurrentUserSchedule(ctx, user._id),
     });
   }
   return people.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));

@@ -200,6 +200,8 @@ export const timeClockMonthStatsValidator = v.object({
 export const dayDetailValidator = v.object({
   date: v.string(),
   open: v.boolean(),
+  /** Jornada que valia neste dia. */
+  schedule: timeClockWorkSchedule,
   status: liveStatusValidator,
   items: v.array(
     v.object({

@@ -73,6 +73,27 @@ export async function getCurrentCompanySchedule(ctx: Ctx): Promise<WorkSchedule>
   return (await latestChange(ctx, undefined))?.schedule ?? { ...DEFAULT_WORK_SCHEDULE };
 }
 
+/** Até quantas mudanças de jornada a lista da equipe lê de uma vez. */
+const MAX_SCHEDULE_CHANGES_SCAN = 4000;
+
+/**
+ * Jornada própria atual de cada pessoa (as mudanças são raras: uma leitura
+ * só). Com histórico grande demais, devolve `null` e o chamador lê por pessoa.
+ */
+export async function getCurrentUserSchedules(
+  ctx: Ctx
+): Promise<Map<Id<"users">, WorkSchedule | null> | null> {
+  const rows = await ctx.db.query("clockScheduleChanges").take(MAX_SCHEDULE_CHANGES_SCAN + 1);
+  if (rows.length > MAX_SCHEDULE_CHANGES_SCAN) return null;
+  const latest = new Map<Id<"users">, Doc<"clockScheduleChanges">>();
+  for (const row of rows) {
+    if (!row.userId) continue;
+    const current = latest.get(row.userId);
+    if (!current || row.effectiveFrom > current.effectiveFrom) latest.set(row.userId, row);
+  }
+  return new Map([...latest].map(([userId, row]) => [userId, row.schedule ?? null]));
+}
+
 /** Jornada própria da pessoa de hoje em diante; `null` = a da empresa. */
 export async function getCurrentUserSchedule(
   ctx: Ctx,
@@ -273,6 +294,8 @@ export function isOpenDate(date: string, today: string | null | undefined): bool
 export type DayDetail = {
   date: string;
   open: boolean;
+  /** Jornada que valia neste dia. */
+  schedule: WorkSchedule;
   status: ClassifiedDay["status"];
   items: Array<{
     id: string;
@@ -319,6 +342,7 @@ export function toDayDetail(
   return {
     date,
     open,
+    schedule: loaded.schedule,
     status: loaded.day.status,
     missedNotSent: missedNotSentOn(loaded.punches, date) + fromOtherDays,
     items: loaded.day.items.map((item) => {

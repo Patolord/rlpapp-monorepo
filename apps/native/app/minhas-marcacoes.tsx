@@ -7,6 +7,7 @@ import {
   type PunchPrompt,
   type PunchPromptOption,
   type PunchSlot,
+  type WorkSchedule,
 } from "@rlpapp/shared/rh/pontoDay";
 import { useMutation, useQuery } from "convex/react";
 import { Stack } from "expo-router";
@@ -48,12 +49,16 @@ export default function MinhasMarcacoesScreen() {
     [data]
   );
 
-  function openForgot(date: string, day: ClassifiedDay, slot: PunchSlot) {
-    if (!data) return;
+  function openForgot(date: string, day: ClassifiedDay, slot: PunchSlot, schedule: WorkSchedule) {
     // A tela pode ter ficado aberta desde ontem: a data de hoje é a de agora.
     const at = Date.now();
     const nowMinute = date === toBrtDateKey(at) ? brtMinuteOfDay(at) : 24 * 60;
-    const missed = suggestMissed(day, data.schedule, [slot], nowMinute);
+    // Jornada que valia naquele dia (pode ter mudado depois).
+    const missed = suggestMissed(day, schedule, [slot], nowMinute);
+    if (missed.length === 0) {
+      toast.error("Não cabe um horário entre as marcações deste dia. Fale com o RH.");
+      return;
+    }
     setForgot({
       date,
       nowMinute,
@@ -110,7 +115,7 @@ export default function MinhasMarcacoesScreen() {
                 <Text style={[type.bodyStrong, { color: colors.text }]}>{formatDateKey(detail.date)}</Text>
                 <TodaySlots
                   day={day}
-                  onForgot={(slot) => openForgot(detail.date, day, slot)}
+                  onForgot={(slot) => openForgot(detail.date, day, slot, detail.schedule)}
                   missedNotSent={detail.missedNotSent > 0}
                 />
                 {worksites.length > 0 ? (
