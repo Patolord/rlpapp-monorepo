@@ -374,6 +374,7 @@ export async function registerPunch(
     punchedAt,
     timeLabel: toBrtTimeLabel(punchedAt),
     declaredRole: input.declaredRole,
+    missedNotSent: missedNotSent > 0 ? missedNotSent : undefined,
     latitude: hasPosition ? input.latitude : undefined,
     longitude: hasPosition ? input.longitude : undefined,
     accuracyMeters: input.accuracyMeters,
@@ -404,7 +405,7 @@ export async function registerPunch(
 
   const inserted = await ctx.db.get("clockPunches", punchId);
   if (!inserted) throw new ConvexError("Falha ao gravar a marcação");
-  return { ...(await receiptFor(ctx, inserted, false)), missedNotSent };
+  return await receiptFor(ctx, inserted, false);
 }
 
 /** Comprovante, com o papel da marcação na leitura atual do dia. */
@@ -430,6 +431,6 @@ async function receiptFor(ctx: QueryCtx, punch: Doc<"clockPunches">, duplicate: 
     nsr: punch.nsr,
     hash: punch.hash,
     duplicate,
-    missedNotSent: 0,
+    missedNotSent: punch.missedNotSent ?? 0,
   };
 }

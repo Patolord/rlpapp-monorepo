@@ -251,6 +251,15 @@ describe("planNextPunch", () => {
     const result = plan(["07:00"], "08:00");
     expect(result.role).toBe("saida");
     expect(result.prompt?.options.map((o) => o.declaredRole)).toEqual(["saida", "saida_extra", "saida"]);
+    // À tarde, perto do almoço, também oferece "saindo para o almoço agora".
+    const afternoon = plan(["07:00"], "15:00");
+    expect(afternoon.role).toBe("saida");
+    expect(afternoon.prompt?.options.map((o) => o.declaredRole)).toEqual([
+      "saida",
+      "almoco_saida",
+      "saida_extra",
+      "saida",
+    ]);
   });
 
   test("não sugere horário esquecido quando não cabe nenhum minuto", () => {

@@ -290,6 +290,9 @@ export const hrTables = {
     // O que a pessoa respondeu no app na hora (ex.: "saio e volto"). Gravado
     // só na criação, como a própria marcação.
     declaredRole: v.optional(timeClockDeclarableRole),
+    // Horários esquecidos enviados junto que não conferiam e ficaram de fora
+    // (o reenvio da fila offline devolve o mesmo aviso).
+    missedNotSent: v.optional(v.number()),
     latitude: v.optional(v.number()),
     longitude: v.optional(v.number()),
     accuracyMeters: v.optional(v.number()),

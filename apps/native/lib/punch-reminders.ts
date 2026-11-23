@@ -59,6 +59,26 @@ export function remindersFor(day: ClassifiedDay, schedule: WorkSchedule, nowMinu
   return reminders.filter((reminder) => reminder.minute > nowMinute && reminder.minute < 24 * 60);
 }
 
+/**
+ * Aviso imediato quando a fila offline enviou uma marcação e o horário
+ * esquecido que ia junto não conferia (a pessoa informa de novo).
+ */
+export async function notifyMissedNotSent(count: number): Promise<void> {
+  if (Platform.OS !== "ios" && Platform.OS !== "android") return;
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: count === 1 ? "Horário esquecido não enviado" : "Horários esquecidos não enviados",
+        body: "A marcação foi registrada. Informe o horário de novo em Minhas marcações.",
+        data: { ...PUNCH_REMINDER_DATA },
+      },
+      trigger: null,
+    });
+  } catch (error) {
+    console.warn("Não foi possível avisar do horário esquecido", error);
+  }
+}
+
 /** Fila das trocas: uma termina antes da próxima começar (a última vale). */
 let syncQueue: Promise<void> = Promise.resolve();
 

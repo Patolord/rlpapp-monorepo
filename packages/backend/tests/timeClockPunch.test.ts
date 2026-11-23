@@ -443,6 +443,13 @@ describe("timeClockPunch: leitura do dia e horários esquecidos", () => {
       ],
     });
     expect(receipt.missedNotSent).toBe(1);
+    // O reenvio (resposta perdida) devolve o mesmo aviso.
+    const retry = await worker.mutation(api.timeClockPunch.register, {
+      clientPunchId: "p-12:00",
+      capturedAt: Date.now(),
+      ...POS,
+    });
+    expect(retry).toMatchObject({ duplicate: true, missedNotSent: 1 });
     const pending = await hr.query(api.timeClock.listPendingMissed, {});
     expect(pending.map((request) => request.role)).toEqual(["almoco_saida"]);
   });

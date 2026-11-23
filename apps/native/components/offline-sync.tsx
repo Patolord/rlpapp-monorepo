@@ -31,6 +31,7 @@ import {
   subscribePunchQueue,
   type PendingPunch,
 } from "@/lib/punch-queue";
+import { notifyMissedNotSent } from "@/lib/punch-reminders";
 import { uploadPhotos } from "@/lib/upload-photos";
 
 async function isOnline(): Promise<boolean> {
@@ -116,7 +117,7 @@ export function OfflineSync() {
         [photoStorageId] = await uploadPhotos(generatePunchUploadUrl, [punch.photoUri]);
         await setPendingPunchPhotoStorageId(punch.clientPunchId, photoStorageId);
       }
-      await registerPunch({
+      const receipt = await registerPunch({
         clientPunchId: punch.clientPunchId,
         capturedAt: punch.capturedAt,
         latitude: punch.latitude,
@@ -130,6 +131,8 @@ export function OfflineSync() {
         declaredRole: punch.declaredRole,
         missed: punch.missed,
       });
+      // A marcação entrou, mas um horário esquecido enviado junto não conferia.
+      if (receipt.missedNotSent > 0) await notifyMissedNotSent(receipt.missedNotSent);
     },
     [generatePunchUploadUrl, registerPunch]
   );

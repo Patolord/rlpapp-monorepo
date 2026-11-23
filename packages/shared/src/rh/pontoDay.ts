@@ -727,20 +727,22 @@ export function planNextPunch(input: {
       const options: PunchPromptOption[] = [
         { key: "forgot", label: "Esqueci, os horários são estes", declaredRole: role, missed },
       ];
-      if (first === "entrada" || slotCost(first, nowMinute, schedule) <= 120) {
+      const earlyExit = role === "saida" && nowMinute < schedule.endMinute - 60;
+      const offersNow = first === "entrada" || slotCost(first, nowMinute, schedule) <= 120;
+      if (offersNow) {
         options.push({ key: "now", label: NOW_LABEL[first], declaredRole: first, missed: [] });
-      } else if (role === "saida" && nowMinute < schedule.endMinute - 60) {
+      }
+      if (earlyExit) {
         // Saída cedo: pode ser uma saída rápida, com volta.
         options.push(
           { key: "quick", label: "Saio e volto", declaredRole: "saida_extra", missed: [] },
           { key: "end", label: "Encerrar o dia", declaredRole: "saida", missed: [] }
         );
-      } else if (lunchOnly) {
-        options.push({ key: "skip", label: "Não fiz intervalo", declaredRole: role, missed: [] });
-      } else {
+      } else if (!offersNow) {
+        // Sem "estou ... agora": a outra saída é registrar sem o horário esquecido.
         options.push({
           key: "skip",
-          label: `Só registrar a ${PUNCH_ROLE_LABEL[role].toLowerCase()}`,
+          label: lunchOnly ? "Não fiz intervalo" : `Só registrar a ${PUNCH_ROLE_LABEL[role].toLowerCase()}`,
           declaredRole: role,
           missed: [],
         });
