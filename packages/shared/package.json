@@ -11,6 +11,7 @@
     "./clerkErrors": "./src/clerkErrors.ts",
     "./compras/priceReference": "./src/compras/priceReference.ts",
     "./engenharia/ducts": "./src/engenharia/ducts.ts",
+    "./estoque/captureMatch": "./src/estoque/captureMatch.ts",
     "./engenharia/equipment": "./src/engenharia/equipment.ts",
     "./engenharia/orcamentoName": "./src/engenharia/orcamentoName.ts",
     "./errors": "./src/errors.ts",

@@ -49,6 +49,7 @@ import { Route as EngenhariaPoliticaPrivacidadeRouteImport } from './routes/enge
 import { Route as EngenhariaRelatoriosRouteRouteImport } from './routes/engenharia/relatorios/route'
 import { Route as EngenhariaUsuariosRouteImport } from './routes/engenharia/usuarios'
 import { Route as EstoqueIndexRouteImport } from './routes/estoque/index'
+import { Route as EstoqueEtiquetasRouteImport } from './routes/estoque/etiquetas'
 import { Route as EstoqueMovimentacaoRouteImport } from './routes/estoque/movimentacao'
 import { Route as OrcamentosIndexRouteImport } from './routes/orcamentos/index'
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
@@ -318,6 +319,11 @@ const EngenhariaUsuariosRoute = EngenhariaUsuariosRouteImport.update({
 const EstoqueIndexRoute = EstoqueIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => EstoqueRouteRoute,
+} as any)
+const EstoqueEtiquetasRoute = EstoqueEtiquetasRouteImport.update({
+  id: '/etiquetas',
+  path: '/etiquetas',
   getParentRoute: () => EstoqueRouteRoute,
 } as any)
 const EstoqueMovimentacaoRoute = EstoqueMovimentacaoRouteImport.update({
@@ -720,6 +726,7 @@ export interface FileRoutesByFullPath {
   '/engenharia/orcamentos': typeof EngenhariaOrcamentosRoute
   '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
+  '/estoque/etiquetas': typeof EstoqueEtiquetasRoute
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
   '/q/$token': typeof QTokenRoute
@@ -816,6 +823,7 @@ export interface FileRoutesByTo {
   '/engenharia/orcamentos': typeof EngenhariaOrcamentosRoute
   '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
+  '/estoque/etiquetas': typeof EstoqueEtiquetasRoute
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
   '/q/$token': typeof QTokenRoute
@@ -922,6 +930,7 @@ export interface FileRoutesById {
   '/engenharia/orcamentos': typeof EngenhariaOrcamentosRoute
   '/engenharia/politica-privacidade': typeof EngenhariaPoliticaPrivacidadeRoute
   '/engenharia/usuarios': typeof EngenhariaUsuariosRoute
+  '/estoque/etiquetas': typeof EstoqueEtiquetasRoute
   '/estoque/movimentacao': typeof EstoqueMovimentacaoRoute
   '/portal/$projectId': typeof PortalProjectIdRoute
   '/q/$token': typeof QTokenRoute
@@ -1032,6 +1041,7 @@ export interface FileRouteTypes {
     | '/engenharia/orcamentos'
     | '/engenharia/politica-privacidade'
     | '/engenharia/usuarios'
+    | '/estoque/etiquetas'
     | '/estoque/movimentacao'
     | '/portal/$projectId'
     | '/q/$token'
@@ -1128,6 +1138,7 @@ export interface FileRouteTypes {
     | '/engenharia/orcamentos'
     | '/engenharia/politica-privacidade'
     | '/engenharia/usuarios'
+    | '/estoque/etiquetas'
     | '/estoque/movimentacao'
     | '/portal/$projectId'
     | '/q/$token'
@@ -1233,6 +1244,7 @@ export interface FileRouteTypes {
     | '/engenharia/orcamentos'
     | '/engenharia/politica-privacidade'
     | '/engenharia/usuarios'
+    | '/estoque/etiquetas'
     | '/estoque/movimentacao'
     | '/portal/$projectId'
     | '/q/$token'
@@ -1622,6 +1634,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/estoque/'
       preLoaderRoute: typeof EstoqueIndexRouteImport
+      parentRoute: typeof EstoqueRouteRoute
+    }
+    '/estoque/etiquetas': {
+      id: '/estoque/etiquetas'
+      path: '/etiquetas'
+      fullPath: '/estoque/etiquetas'
+      preLoaderRoute: typeof EstoqueEtiquetasRouteImport
       parentRoute: typeof EstoqueRouteRoute
     }
     '/estoque/movimentacao': {
@@ -2312,11 +2331,13 @@ const EngenhariaRouteRouteWithChildren = EngenhariaRouteRoute._addFileChildren(
 )
 
 interface EstoqueRouteRouteChildren {
+  EstoqueEtiquetasRoute: typeof EstoqueEtiquetasRoute
   EstoqueMovimentacaoRoute: typeof EstoqueMovimentacaoRoute
   EstoqueIndexRoute: typeof EstoqueIndexRoute
 }
 
 const EstoqueRouteRouteChildren: EstoqueRouteRouteChildren = {
+  EstoqueEtiquetasRoute: EstoqueEtiquetasRoute,
   EstoqueMovimentacaoRoute: EstoqueMovimentacaoRoute,
   EstoqueIndexRoute: EstoqueIndexRoute,
 }

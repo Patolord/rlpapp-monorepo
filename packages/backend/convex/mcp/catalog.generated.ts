@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 50 módulos, 371 funções públicas.
+// 51 módulos, 378 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -24,35 +24,36 @@ import * as m17 from "../inventory";
 import * as m18 from "../inventoryRequests";
 import * as m19 from "../inventoryStockPolicies";
 import * as m20 from "../maintenanceLogs";
-import * as m21 from "../materials";
-import * as m22 from "../medicoes";
-import * as m23 from "../notifications";
-import * as m24 from "../payroll";
-import * as m25 from "../portal";
-import * as m26 from "../priceEvents";
-import * as m27 from "../projectDocuments";
-import * as m28 from "../projectEquipment";
-import * as m29 from "../projectUnits";
-import * as m30 from "../projects";
-import * as m31 from "../qrCodes";
-import * as m32 from "../quoteProposals";
-import * as m33 from "../reports";
-import * as m34 from "../sharepoint";
-import * as m35 from "../suppliers";
-import * as m36 from "../systems";
-import * as m37 from "../takeoffAuth";
-import * as m38 from "../takeoffCatalog";
-import * as m39 from "../takeoffEstimates";
-import * as m40 from "../takeoffKits";
-import * as m41 from "../takeoffMaterials";
-import * as m42 from "../takeoffSettings";
-import * as m43 from "../takeoffs";
-import * as m44 from "../technicianActivity";
-import * as m45 from "../technicianPortal";
-import * as m46 from "../timeClock";
-import * as m47 from "../timeClockPunch";
-import * as m48 from "../towers";
-import * as m49 from "../users";
+import * as m21 from "../materialCaptures";
+import * as m22 from "../materials";
+import * as m23 from "../medicoes";
+import * as m24 from "../notifications";
+import * as m25 from "../payroll";
+import * as m26 from "../portal";
+import * as m27 from "../priceEvents";
+import * as m28 from "../projectDocuments";
+import * as m29 from "../projectEquipment";
+import * as m30 from "../projectUnits";
+import * as m31 from "../projects";
+import * as m32 from "../qrCodes";
+import * as m33 from "../quoteProposals";
+import * as m34 from "../reports";
+import * as m35 from "../sharepoint";
+import * as m36 from "../suppliers";
+import * as m37 from "../systems";
+import * as m38 from "../takeoffAuth";
+import * as m39 from "../takeoffCatalog";
+import * as m40 from "../takeoffEstimates";
+import * as m41 from "../takeoffKits";
+import * as m42 from "../takeoffMaterials";
+import * as m43 from "../takeoffSettings";
+import * as m44 from "../takeoffs";
+import * as m45 from "../technicianActivity";
+import * as m46 from "../technicianPortal";
+import * as m47 from "../timeClock";
+import * as m48 from "../timeClockPunch";
+import * as m49 from "../towers";
+import * as m50 from "../users";
 
 export type AccessHint =
   | { kind: "public" }
@@ -84,35 +85,36 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   inventoryRequests: m18,
   inventoryStockPolicies: m19,
   maintenanceLogs: m20,
-  materials: m21,
-  medicoes: m22,
-  notifications: m23,
-  payroll: m24,
-  portal: m25,
-  priceEvents: m26,
-  projectDocuments: m27,
-  projectEquipment: m28,
-  projectUnits: m29,
-  projects: m30,
-  qrCodes: m31,
-  quoteProposals: m32,
-  reports: m33,
-  sharepoint: m34,
-  suppliers: m35,
-  systems: m36,
-  takeoffAuth: m37,
-  takeoffCatalog: m38,
-  takeoffEstimates: m39,
-  takeoffKits: m40,
-  takeoffMaterials: m41,
-  takeoffSettings: m42,
-  takeoffs: m43,
-  technicianActivity: m44,
-  technicianPortal: m45,
-  timeClock: m46,
-  timeClockPunch: m47,
-  towers: m48,
-  users: m49,
+  materialCaptures: m21,
+  materials: m22,
+  medicoes: m23,
+  notifications: m24,
+  payroll: m25,
+  portal: m26,
+  priceEvents: m27,
+  projectDocuments: m28,
+  projectEquipment: m29,
+  projectUnits: m30,
+  projects: m31,
+  qrCodes: m32,
+  quoteProposals: m33,
+  reports: m34,
+  sharepoint: m35,
+  suppliers: m36,
+  systems: m37,
+  takeoffAuth: m38,
+  takeoffCatalog: m39,
+  takeoffEstimates: m40,
+  takeoffKits: m41,
+  takeoffMaterials: m42,
+  takeoffSettings: m43,
+  takeoffs: m44,
+  technicianActivity: m45,
+  technicianPortal: m46,
+  timeClock: m47,
+  timeClockPunch: m48,
+  towers: m49,
+  users: m50,
 };
 
 export const ACCESS_HINTS: Record<string, AccessHint> = {
@@ -231,6 +233,7 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "inventory:listProjects": { kind: "permission", permission: "estoque.read" },
   "inventory:listProjectSummaries": { kind: "permission", permission: "estoque.read" },
   "inventory:listRules": { kind: "permission", permission: "estoque.read" },
+  "inventory:listShelfLabels": { kind: "permission", permission: "estoque.read" },
   "inventory:postDocument": { kind: "staff" },
   "inventory:quickCreateMaterial": { kind: "anyPermission", permissions: ["estoque.entrada","materiais.write"] },
   "inventory:reverseDocument": { kind: "permission", permission: "estoque.write" },
@@ -261,6 +264,12 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "maintenanceLogs:getLastMaintenanceDate": { kind: "public" },
   "maintenanceLogs:listByEquipment": { kind: "authenticated" },
   "maintenanceLogs:listMine": { kind: "authenticated" },
+  "materialCaptures:capture": { kind: "permission", permission: "estoque.cadastro" },
+  "materialCaptures:catalogPage": { kind: "permission", permission: "estoque.cadastro" },
+  "materialCaptures:generateUploadUrl": { kind: "permission", permission: "estoque.cadastro" },
+  "materialCaptures:listMine": { kind: "permission", permission: "estoque.cadastro" },
+  "materialCaptures:lookup": { kind: "permission", permission: "estoque.cadastro" },
+  "materialCaptures:reviewForMaterial": { kind: "permission", permission: "suprimentos.read" },
   "materials:addAlias": { kind: "permission", permission: "materiais.write" },
   "materials:bulkCreate": { kind: "permission", permission: "materiais.write" },
   "materials:create": { kind: "permission", permission: "materiais.write" },

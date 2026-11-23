@@ -326,6 +326,21 @@ events and updates balances; a posted movement is never edited, only reversed.
 One that breaks a compatibility rule waits for approval.
 Avoid: transaction, order.
 
+### Field capture
+UI: "Cadastro" (Estoque › Cadastro in the app), "Revisão de rascunhos" in
+Compras. Code: `materialCaptures` (`clientId`, `outcome`, `quantityMode`).
+A material counted or registered on the phone at a location, online or from
+the offline queue: it matches an existing material or creates a draft one,
+and posts the counted quantity to the balance. Draft materials are reviewed
+by purchasing.
+Avoid: inventory count (alone), import.
+
+### Shelf label
+UI: "Etiquetas de prateleira". Code: `model/inventory/shelfLabels.ts`; no
+table.
+A printed label with the SKU's QR code for a central-warehouse shelf.
+Not a QR label, which identifies one installed equipment.
+
 ### Stock event
 UI: not shown. Code: `inventoryEvents` (`quantityDelta`).
 One line of the stock ledger: a quantity in or out of one location, written
