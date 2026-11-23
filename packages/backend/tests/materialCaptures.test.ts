@@ -226,6 +226,27 @@ describe("cadastro em campo", () => {
     expect(await materialCount(t)).toBe(1);
   });
 
+  test("reativar um arquivado: o contado substitui o saldo que sobrou", async () => {
+    const { t, ids, warehouse } = await seed();
+    await warehouse.mutation(api.materialCaptures.capture, {
+      clientId: clientId(),
+      materialId: ids.breakerId,
+      quantity: 5,
+      capturedAt: Date.now(),
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch("materials", ids.breakerId, { active: false, status: "archived" });
+    });
+    const result = await warehouse.mutation(api.materialCaptures.capture, {
+      clientId: clientId(),
+      item: { name: "Disjuntor", variantLabel: "10A", unit: "un" },
+      quantity: 2,
+      capturedAt: Date.now(),
+    });
+    expect(result.materialId).toBe(ids.breakerId);
+    expect(result.quantityHere).toBe(2);
+  });
+
   test("quem viu os parecidos e confirmou que é novo cria ativo", async () => {
     const { t, warehouse } = await seed();
     const result = await warehouse.mutation(api.materialCaptures.capture, {

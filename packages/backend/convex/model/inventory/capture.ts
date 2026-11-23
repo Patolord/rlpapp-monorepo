@@ -237,6 +237,8 @@ async function resolveMaterial(
   outcome: Outcome;
   matchReason: MatchReason;
   similarIds: Id<"materials">[];
+  /** O saldo antigo não vale (material estava arquivado): o contado vira o total. */
+  replaceBalance?: boolean;
 }> {
   if (input.materialId) {
     const material = await resolveLiveMaterial(
@@ -285,7 +287,13 @@ async function resolveMaterial(
       recordId: material._id,
       details: "Reativado em rascunho pelo cadastro em campo",
     });
-    return { material, outcome: "review", matchReason: "identity", similarIds: [] };
+    return {
+      material,
+      outcome: "review",
+      matchReason: "identity",
+      similarIds: [],
+      replaceBalance: true,
+    };
   }
 
   const similar = await findSimilarMaterials(ctx, item);
@@ -423,14 +431,11 @@ export async function captureMaterial(
     ? await getOrCreateProjectLocation(ctx, input.projectId)
     : await getOrCreateCentralLocation(ctx);
   const item = input.item ? cleanItem(input.item) : undefined;
-  const quantityMode = input.quantityMode ?? "add";
 
-  const { material, outcome, matchReason, similarIds } = await resolveMaterial(
-    ctx,
-    user,
-    input,
-    item
-  );
+  const { material, outcome, matchReason, similarIds, replaceBalance } =
+    await resolveMaterial(ctx, user, input, item);
+  // Material reativado: o saldo que sobrou do arquivado não é contagem atual.
+  const quantityMode = replaceBalance ? "set" : (input.quantityMode ?? "add");
   const notes = clean(input.notes);
   const count = await postCount(ctx, user, {
     projectId: input.projectId,
