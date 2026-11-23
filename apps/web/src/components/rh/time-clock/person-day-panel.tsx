@@ -102,9 +102,13 @@ export function PersonDayPanel({
       },
     });
 
+  // Revisão do pedido que o RH está vendo (a pessoa pode ter mudado depois).
+  const revisionOf = (item: DayItem) =>
+    data.requests.find((request) => request._id === item.requestId)?.revision ?? 0;
+
   const approve = async (item: DayItem) => {
     try {
-      await review({ requestId: item.requestId!, approve: true });
+      await review({ requestId: item.requestId!, revision: revisionOf(item), approve: true });
       toast.success("Horário aprovado");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível aprovar");
@@ -129,7 +133,12 @@ export function PersonDayPanel({
                 description: `${PUNCH_ROLE_LABEL[item.role]} às ${item.timeLabel}. A pessoa vê que foi recusado.`,
                 confirmLabel: "Recusar",
                 submit: async ({ reason }) => {
-                  await review({ requestId: item.requestId!, approve: false, note: reason });
+                  await review({
+                    requestId: item.requestId!,
+                    revision: revisionOf(item),
+                    approve: false,
+                    note: reason,
+                  });
                   toast.success("Horário recusado");
                 },
               })

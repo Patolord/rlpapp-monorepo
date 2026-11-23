@@ -24,6 +24,7 @@ import {
   listDaysInRange,
   listGeofencedProjects,
   listPunchesForDate,
+  listRequestUserIdsForDate,
   loginOf,
   type GeofencedProject,
 } from "./timeClockDb";
@@ -85,7 +86,11 @@ function groupByUser(punches: Doc<"clockPunches">[]) {
   return map;
 }
 
-/** Leitura do dia de cada pessoa com marcação na data. */
+/**
+ * Leitura do dia de cada pessoa com marcação ou horário informado na data.
+ * Um dia só com horário informado (sem marcação) também é lido: as posições e
+ * as pendências contam, mas a pessoa não aparece como presente.
+ */
 async function classifyByUser(
   ctx: QueryCtx,
   byUser: Map<Id<"users">, Doc<"clockPunches">[]>,
@@ -94,13 +99,17 @@ async function classifyByUser(
 ): Promise<Map<Id<"users">, ClassifiedDay>> {
   const schedule = scheduleResolver(ctx);
   const days = new Map<Id<"users">, ClassifiedDay>();
-  for (const [userId, punches] of byUser) {
+  const users = new Map(byUser);
+  for (const userId of await listRequestUserIdsForDate(ctx, date)) {
+    if (!users.has(userId)) users.set(userId, []);
+  }
+  for (const [userId, punches] of users) {
     const loaded = await loadUserDay(ctx, {
       userId,
       date,
       open,
       punches,
-      schedule: await schedule(userId),
+      schedule: await schedule(userId, date),
     });
     days.set(userId, loaded.day);
   }
@@ -125,6 +134,12 @@ export async function getTimeClockDay(
   const projectName = projectNameResolver(projects);
   const byUser = groupByUser(punches);
   const days = await classifyByUser(ctx, byUser, date, isOpenDate(date, today));
+  // Quem só tem horário informado e não está na lista (ex.: permissão retirada).
+  for (const userId of days.keys()) {
+    if (roster.has(userId)) continue;
+    const user = await ctx.db.get("users", userId);
+    roster.set(userId, { name: user?.name ?? "Pessoa removida", login: loginOf(user) });
+  }
   const roleOf = new Map<string, { role: ClassifiedDay["items"][number]["role"]; sequence: number }>();
   for (const [userId, day] of days) {
     for (const item of day.items) {
@@ -261,7 +276,13 @@ export async function getTimeClockLiveStatus(
   const people = Array.from(roster.entries()).map(([userId, person]) => {
     const own = byUser.get(userId) ?? [];
     const day = days.get(userId);
-    const position = derivePosition(own, day?.status ?? "absent");
+    // Só as marcações que contam (sem repetidas e desconsideradas): a última
+    // delas dá o papel, o horário e o lugar mostrados.
+    const counted = own.filter((punch) => {
+      const role = roleOf.get(punch._id);
+      return role !== "repetida" && role !== "desconsiderada";
+    });
+    const position = derivePosition(counted, day?.status ?? "absent");
     const last = position.last;
     const photo = [...own].reverse().find((punch) => punch.photoStorageId);
 
@@ -291,7 +312,7 @@ export async function getTimeClockLiveStatus(
       login: person.login,
       status: position.status,
       since: last?.punchedAt ?? null,
-      lastKind: day?.last?.role ?? null,
+      lastKind: last ? (roleOf.get(last._id) ?? null) : null,
       lastTimeLabel: last?.timeLabel ?? null,
       projectId: position.projectId ?? null,
       projectName: projectName(position.projectId, position.projectName),

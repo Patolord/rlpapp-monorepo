@@ -152,6 +152,8 @@ const UNASSIGNED_COST = 600;
 const SAME_DIRECTION_COST = 1000;
 /** Desempate do almoço com uma marcação só (antes do meio da faixa: saída). */
 const LUNCH_TIE_BIAS = 0.5;
+/** Volta do almoço logo depois de uma saída extra (prefere fechar a extra). */
+const EXTRA_RETURN_COST = 1;
 /** Leitura exaustiva até este número de marcações livres no dia. */
 const MAX_FREE_ITEMS = 16;
 
@@ -283,6 +285,8 @@ function labelTimeline(
         if (a === "almoco_saida" && b === "almoco_retorno") {
           cost += Math.max(0, schedule.lunchMinutes - (item.minute - previous.minute));
         }
+        // A volta logo depois de uma saída extra fecha essa saída, não o almoço.
+        if (a === "saida_extra" && b === "almoco_retorno") cost += EXTRA_RETURN_COST;
       }
       previous = next;
     }
@@ -353,15 +357,30 @@ export function classifyDay(input: {
     lastPunch = item;
   }
   const free = timeline.filter((item) => item.role === null && !repeated.has(item));
-  const optimized = free.slice(0, MAX_FREE_ITEMS);
   const openSlots = PUNCH_SLOTS.filter((slot) => !taken.has(slot));
+  // Dia com marcações demais: a busca fica com as que melhor cabem em alguma
+  // posição (em qualquer hora do dia), mantendo a ordem.
+  const optimized =
+    free.length <= MAX_FREE_ITEMS
+      ? free
+      : (() => {
+          const bestCost = (item: Working) =>
+            Math.min(...openSlots.map((slot) => slotCost(slot, item.minute, schedule)));
+          const keep = new Set(
+            [...free].sort((a, b) => bestCost(a) - bestCost(b)).slice(0, MAX_FREE_ITEMS)
+          );
+          return free.filter((item) => keep.has(item));
+        })();
 
   // Procura a melhor escolha de posições para as marcações livres, mantendo a
   // ordem: entrada < saída almoço < volta < saída, também em relação às fixas.
-  const fits = (slot: PunchSlot, minute: number) => {
+  // Mesma chave de ordem da linha do tempo (minuto, depois ordem de chegada).
+  const sortsBefore = (a: Working, b: Working) =>
+    a.minute < b.minute || (a.minute === b.minute && a.order < b.order);
+  const fits = (slot: PunchSlot, item: Working) => {
     for (const [fixedSlot, fixed] of taken) {
-      if (SLOT_INDEX[fixedSlot] < SLOT_INDEX[slot] && fixed.minute > minute) return false;
-      if (SLOT_INDEX[fixedSlot] > SLOT_INDEX[slot] && fixed.minute < minute) return false;
+      if (SLOT_INDEX[fixedSlot] < SLOT_INDEX[slot] && sortsBefore(item, fixed)) return false;
+      if (SLOT_INDEX[fixedSlot] > SLOT_INDEX[slot] && sortsBefore(fixed, item)) return false;
     }
     return true;
   };
@@ -383,7 +402,7 @@ export function classifyDay(input: {
     }
     const item = optimized[index]!;
     for (const slot of openSlots) {
-      if (SLOT_INDEX[slot] < minSlot || !fits(slot, item.minute)) continue;
+      if (SLOT_INDEX[slot] < minSlot || !fits(slot, item)) continue;
       choice.set(item, slot);
       search(index + 1, SLOT_INDEX[slot] + 1);
       choice.delete(item);
@@ -572,7 +591,9 @@ function suggestMinute(
   schedule: WorkSchedule,
   before: number,
   after: number
-): number {
+): number | null {
+  // Nenhum minuto inteiro cabe entre as vizinhas.
+  if (after - before < 2) return null;
   let minute: number;
   switch (slot) {
     case "entrada":
@@ -618,16 +639,14 @@ export function suggestMissed(
     const upper = known
       .filter((k) => SLOT_INDEX[k.other] > SLOT_INDEX[slot] && k.minute !== null)
       .map((k) => k.minute!);
-    missed.push({
+    const minute = suggestMinute(
       slot,
-      minute: suggestMinute(
-        slot,
-        day,
-        schedule,
-        lower.length ? Math.max(...lower) : -1,
-        Math.min(nowMinute, ...upper)
-      ),
-    });
+      day,
+      schedule,
+      lower.length ? Math.max(...lower) : -1,
+      Math.min(nowMinute, ...upper)
+    );
+    if (minute !== null) missed.push({ slot, minute });
   }
   return missed;
 }
@@ -710,6 +729,12 @@ export function planNextPunch(input: {
       ];
       if (first === "entrada" || slotCost(first, nowMinute, schedule) <= 120) {
         options.push({ key: "now", label: NOW_LABEL[first], declaredRole: first, missed: [] });
+      } else if (role === "saida" && nowMinute < schedule.endMinute - 60) {
+        // Saída cedo: pode ser uma saída rápida, com volta.
+        options.push(
+          { key: "quick", label: "Saio e volto", declaredRole: "saida_extra", missed: [] },
+          { key: "end", label: "Encerrar o dia", declaredRole: "saida", missed: [] }
+        );
       } else if (lunchOnly) {
         options.push({ key: "skip", label: "Não fiz intervalo", declaredRole: role, missed: [] });
       } else {

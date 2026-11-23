@@ -102,8 +102,11 @@ integração externa nem variável de ambiente para configurar.
   esquecido vira pedido para o RH (`clockPunchRequests`), nunca uma marcação. Lembretes locais avisam
   da volta do almoço e da saída (além dos lembretes por push, abaixo).
 - **Tratamento do RH** (Dia → pessoa): aprovar ou recusar horários informados, incluir horário,
-  mudar o tipo ou desconsiderar uma marcação, sempre com motivo (`clockPunchAdjustments` e
-  auditoria). A marcação registrada (horário, NSR, hash) nunca muda.
+  mudar o tipo ou desconsiderar uma marcação. Recusar, incluir, mudar o tipo ou desconsiderar exige
+  motivo; aprovar aceita observação opcional (`clockPunchAdjustments` e auditoria). A marcação
+  registrada (horário, NSR, hash) nunca muda.
+- **Jornada**: cada mudança (da empresa ou de uma pessoa) vale de hoje em diante
+  (`clockScheduleChanges`); os dias anteriores continuam lidos pela jornada da época.
 - **Lembretes** (push no app, avisos N18/N19): em Configurações o RH define um horário para avisar
   quem bate ponto e ainda não marcou a entrada, outro para quem deixou o dia sem saída, e os dias
   da semana (padrão: segunda a sexta; feriados não contam). O cron `ponto: lembretes` roda a cada

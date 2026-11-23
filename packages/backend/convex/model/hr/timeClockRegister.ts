@@ -107,9 +107,10 @@ export async function getPunchContext(ctx: QueryCtx, user: Doc<"users">, date: s
     locationRequired: settings.locationRequired,
     duplicateWindowMinutes: settings.duplicateWindowMinutes,
   };
-  const schedule = await scheduleResolver(ctx)(user._id);
+  const schedule = await scheduleResolver(ctx)(user._id, date);
   if (!allowed) {
     return {
+      date,
       allowed,
       personName: user.name,
       rules,
@@ -143,6 +144,7 @@ export async function getPunchContext(ctx: QueryCtx, user: Doc<"users">, date: s
       status: request.status,
     }));
   return {
+    date,
     allowed,
     personName: user.name,
     rules,
@@ -153,6 +155,9 @@ export async function getPunchContext(ctx: QueryCtx, user: Doc<"users">, date: s
   };
 }
 
+/** Limite de marcações num período do histórico (bem acima de 3 meses de uso). */
+const MAX_RANGE_PUNCHES = 2000;
+
 async function listUserRange(ctx: QueryCtx, userId: Id<"users">, from: string, to: string) {
   assertDateKey(from, "Data inicial");
   assertDateKey(to, "Data final");
@@ -160,7 +165,11 @@ async function listUserRange(ctx: QueryCtx, userId: Id<"users">, from: string, t
   const punches = await ctx.db
     .query("clockPunches")
     .withIndex("by_user_and_date", (q) => q.eq("userId", userId).gte("date", from).lte("date", to))
-    .take(2000);
+    .take(MAX_RANGE_PUNCHES + 1);
+  // Melhor recusar do que devolver um período pela metade.
+  if (punches.length > MAX_RANGE_PUNCHES) {
+    throw new ConvexError("Período longo demais. Escolha um período menor.");
+  }
   const byDate = new Map<string, Doc<"clockPunches">[]>();
   for (const punch of punches) byDate.set(punch.date, [...(byDate.get(punch.date) ?? []), punch]);
   // Dias só com horário informado (sem marcação) também aparecem.
@@ -188,7 +197,7 @@ export async function listMyPunches(
       date,
       open: isOpenDate(date, input.today ?? input.to),
       punches,
-      schedule: await schedule(user._id),
+      schedule: await schedule(user._id, date),
     });
     rows.push(...(await punchRowsForDay(ctx, loaded)));
   }
@@ -203,11 +212,18 @@ export async function listMyDays(
 ) {
   assertDateKey(input.today, "Data de hoje");
   const byDate = await listUserRange(ctx, user._id, input.from, input.to);
-  const schedule = await scheduleResolver(ctx)(user._id);
+  const resolve = scheduleResolver(ctx);
+  const schedule = await resolve(user._id, input.today);
   const days = [];
   for (const [date, punches] of byDate) {
     const open = isOpenDate(date, input.today);
-    const loaded = await loadUserDay(ctx, { userId: user._id, date, open, punches, schedule });
+    const loaded = await loadUserDay(ctx, {
+      userId: user._id,
+      date,
+      open,
+      punches,
+      schedule: await resolve(user._id, date),
+    });
     days.push(toDayDetail(loaded, date, open));
   }
   return { schedule, days: days.sort((a, b) => (a.date < b.date ? 1 : -1)) };
@@ -274,18 +290,20 @@ export async function registerPunch(
     throw new ConvexError("Relógio do aparelho fora de sincronia. Ajuste a hora e tente novamente.");
   }
   const punchedAt = offline ? Math.min(input.capturedAt, now) : now;
-  const punchMinute = brtMinuteOfDay(punchedAt);
+  const date = toBrtDateKey(punchedAt);
 
-  // Horários esquecidos: antes desta marcação, no mesmo dia.
-  const missed = input.missed ?? [];
-  if (missed.length > MAX_MISSED_PER_PUNCH) {
-    throw new ConvexError("Horários esquecidos demais numa marcação");
-  }
-  for (const item of missed) {
-    if (!Number.isInteger(item.minute) || item.minute < 0 || item.minute >= punchMinute) {
-      throw new ConvexError("O horário esquecido precisa ser antes desta marcação");
-    }
-  }
+  // Horários esquecidos: antes desta marcação, no dia em que o aparelho os
+  // pediu. Um horário que não confere não impede a marcação: fica de fora e o
+  // comprovante avisa, para a pessoa informar de novo em "Minhas marcações".
+  const requested = input.missed ?? [];
+  const sameDay = toBrtDateKey(input.capturedAt) === date;
+  const latestMinute = Math.min(brtMinuteOfDay(punchedAt), brtMinuteOfDay(input.capturedAt));
+  const missed = sameDay
+    ? requested
+        .filter((item) => Number.isInteger(item.minute) && item.minute >= 0 && item.minute < latestMinute)
+        .slice(0, MAX_MISSED_PER_PUNCH)
+    : [];
+  const missedNotSent = requested.length - missed.length;
 
   // Localização
   const hasPosition = input.latitude !== undefined && input.longitude !== undefined;
@@ -319,7 +337,6 @@ export async function registerPunch(
     }
   }
 
-  const date = toBrtDateKey(punchedAt);
   const dayPunches = await listUserDayPunches(ctx, user._id, date);
 
   // Toque repetido
@@ -387,7 +404,7 @@ export async function registerPunch(
 
   const inserted = await ctx.db.get("clockPunches", punchId);
   if (!inserted) throw new ConvexError("Falha ao gravar a marcação");
-  return await receiptFor(ctx, inserted, false);
+  return { ...(await receiptFor(ctx, inserted, false)), missedNotSent };
 }
 
 /** Comprovante, com o papel da marcação na leitura atual do dia. */
@@ -413,5 +430,6 @@ async function receiptFor(ctx: QueryCtx, punch: Doc<"clockPunches">, duplicate: 
     nsr: punch.nsr,
     hash: punch.hash,
     duplicate,
+    missedNotSent: 0,
   };
 }

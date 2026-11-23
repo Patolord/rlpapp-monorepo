@@ -23,7 +23,6 @@ import { assertDateKey, toBrtDateKey } from "./timeClock";
 import { listUserDayPunches, recomputeDaySummary } from "./timeClockDb";
 import {
   isOpenDate,
-  listDayAdjustments,
   listDayRequests,
   loadUserDay,
   toDayDetail,
@@ -58,7 +57,9 @@ function shiftDate(date: string, days: number): string {
 
 /**
  * Grava (ou atualiza) o horário esquecido de uma posição do dia. Um pedido
- * pendente para a mesma posição é atualizado; um já aprovado fica como está.
+ * pendente para a mesma posição é atualizado (nova revisão); um já aprovado
+ * fica como está. A resposta a uma pergunta do app que chega atrasada (fila
+ * offline) nunca substitui o que a pessoa corrigiu à mão.
  */
 export async function upsertMissedRequest(
   ctx: MutationCtx,
@@ -78,9 +79,12 @@ export async function upsertMissedRequest(
   if (approved) return approved._id;
   const pending = requests.find((r) => r.role === input.role && r.status === "pending");
   if (pending) {
+    if (input.origin === "app_prompt" && pending.origin === "app_manual") return pending._id;
     await ctx.db.patch("clockPunchRequests", pending._id, {
       minute: input.minute,
       note: input.note ?? pending.note,
+      origin: input.origin,
+      revision: (pending.revision ?? 0) + 1,
     });
     return pending._id;
   }
@@ -145,15 +149,21 @@ function describeRequest(request: { role: DeclarableRole; minute: number; date: 
   return `${PUNCH_ROLE_LABEL[request.role]} às ${formatMinute(request.minute)} em ${request.date}`;
 }
 
-/** RH aprova ou recusa um horário informado pela pessoa. */
+/**
+ * RH aprova ou recusa um horário informado pela pessoa. `revision` é a que o
+ * RH viu: se a pessoa mudou o horário depois, a decisão não vale.
+ */
 export async function reviewMissedRequest(
   ctx: MutationCtx,
   actor: Doc<"users">,
-  input: { requestId: Id<"clockPunchRequests">; approve: boolean; note?: string }
+  input: { requestId: Id<"clockPunchRequests">; revision: number; approve: boolean; note?: string }
 ): Promise<void> {
   const request = await ctx.db.get("clockPunchRequests", input.requestId);
   if (!request) throw new ConvexError("Pedido não encontrado");
   if (request.status !== "pending") throw new ConvexError("Este pedido já foi analisado");
+  if ((request.revision ?? 0) !== input.revision) {
+    throw new ConvexError("A pessoa mudou este horário. Confira de novo antes de decidir.");
+  }
   const reviewNote = cleanText(input.note, "motivo", !input.approve);
   const status = input.approve ? ("approved" as const) : ("rejected" as const);
   await ctx.db.patch("clockPunchRequests", request._id, {
@@ -185,14 +195,22 @@ export async function includeMissedPunch(
   const reason = cleanText(input.reason, "motivo", true)!;
   const person = await ctx.db.get("users", input.userId);
   if (!person) throw new ConvexError("Pessoa não encontrada");
-  const requests = await listDayRequests(ctx, person._id, input.date);
+  // Entrada e saída extras podem acontecer mais de uma vez no dia: cada
+  // inclusão é um intervalo próprio. As quatro posições têm um horário só.
+  const isExtraRole = input.role === "entrada_extra" || input.role === "saida_extra";
+  const requests = isExtraRole ? [] : await listDayRequests(ctx, person._id, input.date);
   const same = requests.find(
     (r) => r.role === input.role && (r.status === "pending" || r.status === "approved")
   );
   const review = { status: "approved" as const, reviewedByUserId: actor._id, reviewedAt: Date.now() };
   let id: Id<"clockPunchRequests">;
   if (same) {
-    await ctx.db.patch("clockPunchRequests", same._id, { ...review, minute: input.minute, reviewNote: reason });
+    await ctx.db.patch("clockPunchRequests", same._id, {
+      ...review,
+      minute: input.minute,
+      reviewNote: reason,
+      revision: (same.revision ?? 0) + 1,
+    });
     id = same._id;
   } else {
     id = await ctx.db.insert("clockPunchRequests", {
@@ -285,6 +303,7 @@ export async function listPendingRequests(ctx: QueryCtx) {
     timeLabel: formatMinute(request.minute),
     origin: request.origin,
     note: request.note ?? null,
+    revision: request.revision ?? 0,
     createdAt: request._creationTime,
   }));
 }
@@ -300,12 +319,11 @@ export async function getPersonDay(
   const open = isOpenDate(input.date, input.today);
   const loaded = await loadUserDay(ctx, { userId: input.userId, date: input.date, open, punches });
   const punchById = new Map(punches.map((punch) => [punch._id, punch]));
-  const adjustments = await listDayAdjustments(ctx, input.userId, input.date);
   return {
     personName: person?.name ?? punches[0]?.personName ?? "Pessoa removida",
     schedule: loaded.schedule,
     day: toDayDetail(loaded, input.date, open),
-    adjustments: adjustments
+    adjustments: loaded.adjustments
       .sort((a, b) => b._creationTime - a._creationTime)
       .map((adjustment) => ({
         _id: adjustment._id,
@@ -328,6 +346,7 @@ export async function getPersonDay(
         origin: request.origin,
         note: request.note ?? null,
         reviewNote: request.reviewNote ?? null,
+        revision: request.revision ?? 0,
         createdAt: request._creationTime,
       })),
   };

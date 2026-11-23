@@ -419,10 +419,11 @@ describe("timeClockPunch: leitura do dia e horários esquecidos", () => {
       origin: "app_prompt",
     });
 
+    const request = { requestId: pending[0]!._id, revision: pending[0]!.revision };
     await expect(
-      hr.mutation(api.timeClock.reviewMissed, { requestId: pending[0]!._id, approve: false })
+      hr.mutation(api.timeClock.reviewMissed, { ...request, approve: false })
     ).rejects.toThrow(/motivo/);
-    await hr.mutation(api.timeClock.reviewMissed, { requestId: pending[0]!._id, approve: true });
+    await hr.mutation(api.timeClock.reviewMissed, { ...request, approve: true });
     const day = await hr.query(api.timeClock.getPersonDay, { userId, date: DAY, today: DAY });
     expect(day.day.items.map((item) => [item.role, item.basis])).toEqual([
       ["entrada", "auto"],
@@ -433,11 +434,21 @@ describe("timeClockPunch: leitura do dia e horários esquecidos", () => {
     expect(day.day.issues).toEqual([]);
   });
 
-  test("horário esquecido precisa ser antes da marcação e não no futuro", async () => {
+  test("horário esquecido que não confere fica de fora sem impedir a marcação", async () => {
+    const { worker, hr } = await seed();
+    const receipt = await punchAt(worker, "12:00", {
+      missed: [
+        { role: "entrada", minute: 13 * 60 },
+        { role: "almoco_saida", minute: 11 * 60 },
+      ],
+    });
+    expect(receipt.missedNotSent).toBe(1);
+    const pending = await hr.query(api.timeClock.listPendingMissed, {});
+    expect(pending.map((request) => request.role)).toEqual(["almoco_saida"]);
+  });
+
+  test("horário esquecido não pode ser no futuro e pode ser desfeito", async () => {
     const { worker } = await seed();
-    await expect(
-      punchAt(worker, "12:00", { missed: [{ role: "entrada", minute: 13 * 60 }] })
-    ).rejects.toThrow(/antes desta marcação/);
     setClock("12:00");
     await expect(
       worker.mutation(api.timeClockPunch.requestMissed, { date: DAY, role: "saida", minute: 17 * 60 })
@@ -453,11 +464,103 @@ describe("timeClockPunch: leitura do dia e horários esquecidos", () => {
     ).rejects.toThrow(/já analisou/);
   });
 
+  test("dia só com horário informado entra nas pendências do dia", async () => {
+    const { worker, hr } = await seed();
+    setClock("12:00");
+    await worker.mutation(api.timeClockPunch.requestMissed, { date: DAY, role: "entrada", minute: 7 * 60 });
+    const day = await hr.query(api.timeClock.getDay, { date: DAY, today: DAY });
+    const person = day.people.find((p) => p.name === "Edilson Bispo");
+    expect(person).toMatchObject({ present: false });
+    expect(person!.issueCount).toBeGreaterThan(0);
+    expect(day.summary.issues).toBeGreaterThan(0);
+  });
+
+  test("o RH decide sobre o horário que viu", async () => {
+    const { worker, hr } = await seed();
+    setClock("12:00");
+    await worker.mutation(api.timeClockPunch.requestMissed, { date: DAY, role: "entrada", minute: 7 * 60 });
+    const [seen] = await hr.query(api.timeClock.listPendingMissed, {});
+    // A pessoa corrige o horário antes do RH decidir.
+    await worker.mutation(api.timeClockPunch.requestMissed, { date: DAY, role: "entrada", minute: 7 * 60 + 30 });
+    await expect(
+      hr.mutation(api.timeClock.reviewMissed, { requestId: seen!._id, revision: seen!.revision, approve: true })
+    ).rejects.toThrow(/mudou este horário/);
+    const [current] = await hr.query(api.timeClock.listPendingMissed, {});
+    expect(current).toMatchObject({ timeLabel: "07:30" });
+    await hr.mutation(api.timeClock.reviewMissed, {
+      requestId: current!._id,
+      revision: current!.revision,
+      approve: true,
+    });
+  });
+
+  test("resposta atrasada da fila offline não substitui a correção feita à mão", async () => {
+    const { worker, hr } = await seed();
+    setClock("13:40");
+    await worker.mutation(api.timeClockPunch.requestMissed, {
+      date: DAY,
+      role: "almoco_retorno",
+      minute: 13 * 60 + 35,
+    });
+    // Marcação das 13:10 (offline) que levava a volta do almoço às 13:05.
+    await worker.mutation(api.timeClockPunch.register, {
+      clientPunchId: "late",
+      capturedAt: Date.parse(`${DAY}T13:10:00-03:00`),
+      offline: true,
+      missed: [{ role: "almoco_retorno", minute: 13 * 60 + 5 }],
+      ...POS,
+    });
+    const pending = await hr.query(api.timeClock.listPendingMissed, {});
+    expect(pending).toHaveLength(1);
+    expect(pending[0]).toMatchObject({ origin: "app_manual", timeLabel: "13:35" });
+  });
+
+  test("RH inclui mais de uma saída extra no mesmo dia", async () => {
+    const { worker, hr, userId } = await seed();
+    await punchAt(worker, "07:00");
+    for (const [role, label] of [
+      ["saida_extra", "09:00"],
+      ["entrada_extra", "09:30"],
+      ["saida_extra", "15:00"],
+      ["entrada_extra", "15:30"],
+    ] as const) {
+      await hr.mutation(api.timeClock.includeMissed, {
+        userId,
+        date: DAY,
+        role,
+        minute: parseInt(label.slice(0, 2)) * 60 + parseInt(label.slice(3)),
+        reason: "Saída para o banco",
+      });
+    }
+    const day = await hr.query(api.timeClock.getPersonDay, { userId, date: DAY, today: DAY });
+    expect(day.requests.filter((request) => request.status === "approved")).toHaveLength(4);
+  });
+
+  test("voltar ao automático ignora também o que a pessoa informou", async () => {
+    const { worker, hr, userId } = await seed();
+    await punchAt(worker, "07:00");
+    const quick = await punchAt(worker, "15:00", { declaredRole: "saida_extra" });
+    await hr.mutation(api.timeClock.adjustPunch, {
+      punchId: quick.punchId,
+      action: "set_role",
+      role: "saida",
+      reason: "Encerrou o dia",
+    });
+    await hr.mutation(api.timeClock.adjustPunch, {
+      punchId: quick.punchId,
+      action: "clear",
+      reason: "Tratamento por engano",
+    });
+    const day = await hr.query(api.timeClock.getPersonDay, { userId, date: DAY, today: DAY });
+    expect(day.day.items.find((item) => item.punchId === quick.punchId)?.basis).toBe("auto");
+  });
+
   test("RH trata marcações sem alterá-las, sempre com motivo", async () => {
     const { t, worker, hr, userId } = await seed();
     const entry = await punchAt(worker, "07:02");
     const stray = await punchAt(worker, "09:30");
     await punchAt(worker, "17:00");
+    const storedBefore = await t.run((ctx) => ctx.db.get("clockPunches", stray.punchId));
 
     await expect(
       hr.mutation(api.timeClock.adjustPunch, {
@@ -510,8 +613,9 @@ describe("timeClockPunch: leitura do dia e horários esquecidos", () => {
       punchTimeLabel: "09:30",
     });
 
-    // A marcação registrada continua igual.
+    // A marcação registrada continua igual, campo por campo.
     const stored = await t.run((ctx) => ctx.db.get("clockPunches", stray.punchId));
+    expect(stored).toEqual(storedBefore);
     expect(stored).toMatchObject({ timeLabel: "09:30", nsr: stray.nsr, hash: stray.hash });
     expect(entry.kind).toBe("entrada");
   });
@@ -544,5 +648,36 @@ describe("timeClockPunch: leitura do dia e horários esquecidos", () => {
     await hr.mutation(api.timeClock.setUserSchedule, { userId, schedule: null });
     const after = await worker.query(api.timeClockPunch.getContext, { date: DAY });
     expect(after.schedule.startMinute).toBe(7 * 60);
+  });
+
+  test("mudar a jornada não muda a leitura dos dias anteriores", async () => {
+    const { worker, hr, userId } = await seed();
+    const company = {
+      startMinute: 8 * 60,
+      endMinute: 18 * 60,
+      lunchMinutes: 60,
+      lunchWindowStartMinute: 11 * 60,
+      lunchWindowEndMinute: 14 * 60,
+    };
+    // A primeira jornada configurada vale também para trás (não havia outra).
+    await hr.mutation(api.timeClock.updateTimeClockSettings, { schedule: company });
+    expect((await worker.query(api.timeClockPunch.getContext, { date: "2026-03-01" })).schedule).toEqual(company);
+
+    const own = { ...company, startMinute: 6 * 60, endMinute: 15 * 60 };
+    await hr.mutation(api.timeClock.setUserSchedule, { userId, schedule: own });
+    const NEXT = "2026-03-11";
+    vi.setSystemTime(Date.parse(`${NEXT}T08:00:00-03:00`));
+    const later = { ...company, startMinute: 9 * 60 };
+    await hr.mutation(api.timeClock.updateTimeClockSettings, { schedule: later });
+    await hr.mutation(api.timeClock.setUserSchedule, { userId, schedule: null });
+
+    // No dia anterior, valem as jornadas da época.
+    const before = await hr.query(api.timeClock.getPersonDay, { userId, date: DAY, today: NEXT });
+    expect(before.schedule).toEqual(own);
+    // De hoje em diante, as novas.
+    expect((await worker.query(api.timeClockPunch.getContext, { date: NEXT })).schedule).toEqual(later);
+    expect((await hr.query(api.timeClock.getTimeClockSettings, {})).schedule).toEqual(later);
+    const people = await hr.query(api.timeClock.listClockPeople, {});
+    expect(people.find((person) => person.userId === userId)?.schedule).toBeNull();
   });
 });

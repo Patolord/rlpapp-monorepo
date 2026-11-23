@@ -8,7 +8,6 @@ import { DEFAULT_REMINDER_WEEKDAYS } from "@rlpapp/shared/rh/timeClockReminders"
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { hasPermission } from "../../lib/rbac";
-import { DEFAULT_WORK_SCHEDULE, type WorkSchedule } from "@rlpapp/shared/rh/pontoDay";
 import { summarizeDay, toBrtDateKey } from "./timeClock";
 import { isOpenDate, loadUserDay } from "./timeClockDay";
 
@@ -31,8 +30,6 @@ export type TimeClockSettings = {
   photoRequired: boolean;
   locationRequired: boolean;
   duplicateWindowMinutes: number;
-  /** Jornada padrão da empresa. */
-  schedule: WorkSchedule;
   /** "HH:MM" do lembrete de entrada; `null` = desligado. */
   entryReminderTime: string | null;
   /** "HH:MM" do lembrete de saída; `null` = desligado. */
@@ -47,7 +44,6 @@ export function defaultSettings(): TimeClockSettings {
     photoRequired: false,
     locationRequired: true,
     duplicateWindowMinutes: DEFAULT_DUPLICATE_WINDOW_MINUTES,
-    schedule: { ...DEFAULT_WORK_SCHEDULE },
     entryReminderTime: null,
     exitReminderTime: null,
     reminderWeekdays: [...DEFAULT_REMINDER_WEEKDAYS],
@@ -69,7 +65,6 @@ export async function getSettings(ctx: Ctx): Promise<TimeClockSettings> {
     photoRequired: doc.photoRequired,
     locationRequired: doc.locationRequired,
     duplicateWindowMinutes: doc.duplicateWindowMinutes,
-    schedule: doc.schedule ?? { ...DEFAULT_WORK_SCHEDULE },
     entryReminderTime: doc.entryReminderTime ?? null,
     exitReminderTime: doc.exitReminderTime ?? null,
     reminderWeekdays: doc.reminderWeekdays ?? [...DEFAULT_REMINDER_WEEKDAYS],
@@ -193,6 +188,19 @@ export async function listPunchesForDate(
     .query("clockPunches")
     .withIndex("by_date", (q) => q.eq("date", date))
     .take(MAX_PUNCHES_PER_DAY);
+}
+
+/** Quem tem horário informado (pendente ou aprovado) na data. */
+export async function listRequestUserIdsForDate(ctx: Ctx, date: string): Promise<Set<Id<"users">>> {
+  const ids = new Set<Id<"users">>();
+  for (const status of ["pending", "approved"] as const) {
+    const requests = await ctx.db
+      .query("clockPunchRequests")
+      .withIndex("by_status_and_date", (q) => q.eq("status", status).eq("date", date))
+      .take(MAX_PUNCHES_PER_DAY);
+    for (const request of requests) ids.add(request.userId);
+  }
+  return ids;
 }
 
 /** Marcações do usuário no dia, em ordem cronológica. */

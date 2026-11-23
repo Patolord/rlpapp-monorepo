@@ -12,7 +12,6 @@
 import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 import { pontoMutation, pontoQuery } from "./lib/rbac";
-import { getSettings } from "./model/hr/timeClockDb";
 import {
   authorizeTimeClockPunchPhoto,
   getTimeClockDay,
@@ -28,6 +27,7 @@ import {
 } from "./model/hr/timeClockReview";
 import {
   editTimeClockSettings,
+  getTimeClockSettingsView,
   listTimeClockPeople,
   listTimeClockWorksites,
   setProjectTimeClockGeofence,
@@ -121,10 +121,14 @@ export const getPersonDay = pontoQuery({
   handler: async (ctx, args) => await readPersonDay(ctx, args),
 });
 
-/** Aprova ou recusa (com motivo) um horário informado pela pessoa. */
+/**
+ * Aprova ou recusa (com motivo) um horário informado pela pessoa. `revision`
+ * é a do pedido que o RH viu (`listPendingMissed`/`getPersonDay`).
+ */
 export const reviewMissed = pontoMutation({
   args: {
     requestId: v.id("clockPunchRequests"),
+    revision: v.number(),
     approve: v.boolean(),
     note: v.optional(v.string()),
   },
@@ -253,7 +257,7 @@ export const setUserSchedule = pontoMutation({
 export const getTimeClockSettings = pontoQuery({
   args: {},
   returns: timeClockSettingsValidator,
-  handler: async (ctx) => await getSettings(ctx),
+  handler: async (ctx) => await getTimeClockSettingsView(ctx),
 });
 
 export const updateTimeClockSettings = pontoMutation({

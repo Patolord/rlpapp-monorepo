@@ -48,6 +48,13 @@ export function ReceiptModal({ receipt, onClose }: { receipt: Receipt | null; on
                   Esta marcação já havia sido registrada.
                 </Text>
               ) : null}
+              {receipt.missedNotSent > 0 ? (
+                <Text style={[type.caption, { color: colors.warning }]}>
+                  {receipt.missedNotSent === 1
+                    ? "O horário esquecido não foi enviado. Informe de novo em Minhas marcações."
+                    : "Os horários esquecidos não foram enviados. Informe de novo em Minhas marcações."}
+                </Text>
+              ) : null}
             </View>
           ) : null}
           <AppButton label="Ok" onPress={onClose} trailing={null} />

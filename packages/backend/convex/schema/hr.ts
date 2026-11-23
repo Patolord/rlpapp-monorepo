@@ -253,8 +253,6 @@ export const hrTables = {
     locationRequired: v.boolean(),
     // Janela (min) em que uma nova marcação do mesmo usuário é recusada.
     duplicateWindowMinutes: v.number(),
-    // Jornada padrão da empresa (sem ela, 07:00–17:00 com almoço de 1 h).
-    schedule: v.optional(timeClockWorkSchedule),
     // Lembretes por push ("HH:MM" em Brasília; ausente = desligado): quem
     // ainda não marcou a entrada e quem deixou o dia sem saída.
     entryReminderTime: v.optional(v.string()),
@@ -332,13 +330,17 @@ export const hrTables = {
   })
     .index("by_date", ["date"])
     .index("by_user_and_date", ["userId", "date"]),
-  // Jornada própria de uma pessoa (sem linha, vale a da empresa).
-  clockUserSchedules: defineTable({
-    userId: v.id("users"),
-    schedule: timeClockWorkSchedule,
+  // Histórico da jornada: cada linha vale a partir de `effectiveFrom`
+  // ("YYYY-MM-DD"), para os dias anteriores continuarem lidos pela jornada da
+  // época. Sem `userId`, é a jornada da empresa; com `userId`, a própria da
+  // pessoa (sem `schedule`, volta a valer a da empresa).
+  clockScheduleChanges: defineTable({
+    userId: v.optional(v.id("users")),
+    effectiveFrom: v.string(),
+    schedule: v.optional(timeClockWorkSchedule),
     updatedAt: v.number(),
     updatedByUserId: v.optional(v.id("users")),
-  }).index("by_user", ["userId"]),
+  }).index("by_user_and_effective_from", ["userId", "effectiveFrom"]),
   // Horário esquecido: informado pela pessoa no app (o RH aprova) ou incluído
   // pelo RH. Nunca vira uma marcação: aparece no espelho como horário
   // informado, separado das marcações registradas.
@@ -357,6 +359,8 @@ export const hrTables = {
     reviewedByUserId: v.optional(v.id("users")),
     reviewedAt: v.optional(v.number()),
     reviewNote: v.optional(v.string()),
+    // Sobe a cada mudança de horário; o RH decide sobre a revisão que viu.
+    revision: v.optional(v.number()),
   })
     .index("by_user_and_date", ["userId", "date"])
     .index("by_status_and_date", ["status", "date"]),

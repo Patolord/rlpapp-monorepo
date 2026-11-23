@@ -135,7 +135,8 @@ export function WorkScheduleCard({ canWrite }: { canWrite: boolean }) {
         <p className="text-sm text-muted-foreground">
           Entrada e saída fixas; o almoço é livre dentro da faixa. O app usa a jornada para saber
           o que cada marcação é (mesmo quando a pessoa esquece uma) e para perguntar quando algo não
-          bate. Nenhuma marcação é bloqueada por estar fora do horário.
+          bate. Nenhuma marcação é bloqueada por estar fora do horário. Uma mudança vale de hoje
+          em diante; os dias anteriores continuam lidos pela jornada da época.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -143,7 +144,12 @@ export function WorkScheduleCard({ canWrite }: { canWrite: boolean }) {
           <p className="text-muted-foreground">Carregando...</p>
         ) : (
           <>
-            <ScheduleFields idPrefix="company-schedule" draft={draft} disabled={!canWrite} onChange={setDraft} />
+            <ScheduleFields
+              idPrefix="company-schedule"
+              draft={draft}
+              disabled={!canWrite || saving}
+              onChange={setDraft}
+            />
             {parsed?.error ? <p className="text-xs text-destructive">{parsed.error}</p> : null}
             <Button
               size="sm"
@@ -206,7 +212,7 @@ export function PersonScheduleDialog({
   }
 
   return (
-    <Dialog open={person !== null} onOpenChange={(open) => (!open ? onClose() : undefined)}>
+    <Dialog open={person !== null} onOpenChange={(open) => (!open && !saving ? onClose() : undefined)}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Jornada de {person?.name}</DialogTitle>
@@ -215,11 +221,12 @@ export function PersonScheduleDialog({
               ? "Jornada própria."
               : settings?.schedule
                 ? `Segue a da empresa: ${describeWorkSchedule(settings.schedule)}.`
-                : ""}
+                : ""}{" "}
+            A mudança vale de hoje em diante.
           </DialogDescription>
         </DialogHeader>
         {draft ? (
-          <ScheduleFields idPrefix="person-schedule" draft={draft} onChange={setDraft} />
+          <ScheduleFields idPrefix="person-schedule" draft={draft} disabled={saving} onChange={setDraft} />
         ) : (
           <p className="text-muted-foreground">Carregando...</p>
         )}

@@ -24,38 +24,117 @@ type Ctx = QueryCtx | MutationCtx;
 // Jornada
 // ---------------------------------------------------------------------------
 
-export async function getCompanySchedule(ctx: Ctx): Promise<WorkSchedule> {
-  const settings = await ctx.db
-    .query("clockSettings")
-    .withIndex("by_key", (q) => q.eq("key", "default"))
-    .unique();
-  return settings?.schedule ?? { ...DEFAULT_WORK_SCHEDULE };
+// Cada mudança de jornada vale a partir de uma data (`clockScheduleChanges`):
+// os dias anteriores continuam lidos pela jornada da época.
+
+/** Última mudança de um escopo (pessoa ou empresa) que já vale na data. */
+async function changeOn(
+  ctx: Ctx,
+  userId: Id<"users"> | undefined,
+  date: string
+): Promise<Doc<"clockScheduleChanges"> | null> {
+  return await ctx.db
+    .query("clockScheduleChanges")
+    .withIndex("by_user_and_effective_from", (q) =>
+      q.eq("userId", userId).lte("effectiveFrom", date)
+    )
+    .order("desc")
+    .first();
 }
 
-export async function getUserScheduleOverride(
+/** Mudança mais recente de um escopo (a que vale de hoje em diante). */
+async function latestChange(
+  ctx: Ctx,
+  userId: Id<"users"> | undefined
+): Promise<Doc<"clockScheduleChanges"> | null> {
+  return await ctx.db
+    .query("clockScheduleChanges")
+    .withIndex("by_user_and_effective_from", (q) => q.eq("userId", userId))
+    .order("desc")
+    .first();
+}
+
+/**
+ * Jornada da empresa na data. Antes da primeira configuração vale a primeira
+ * jornada configurada (não havia outra); sem nenhuma, a padrão.
+ */
+export async function getCompanyScheduleOn(ctx: Ctx, date: string): Promise<WorkSchedule> {
+  const change =
+    (await changeOn(ctx, undefined, date)) ??
+    (await ctx.db
+      .query("clockScheduleChanges")
+      .withIndex("by_user_and_effective_from", (q) => q.eq("userId", undefined))
+      .first());
+  return change?.schedule ?? { ...DEFAULT_WORK_SCHEDULE };
+}
+
+/** Jornada da empresa de hoje em diante (a editada nas Configurações). */
+export async function getCurrentCompanySchedule(ctx: Ctx): Promise<WorkSchedule> {
+  return (await latestChange(ctx, undefined))?.schedule ?? { ...DEFAULT_WORK_SCHEDULE };
+}
+
+/** Jornada própria da pessoa de hoje em diante; `null` = a da empresa. */
+export async function getCurrentUserSchedule(
   ctx: Ctx,
   userId: Id<"users">
-): Promise<Doc<"clockUserSchedules"> | null> {
-  return await ctx.db
-    .query("clockUserSchedules")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
-    .unique();
+): Promise<WorkSchedule | null> {
+  return (await latestChange(ctx, userId))?.schedule ?? null;
 }
 
-/** Jornada de cada pessoa (a própria ou a da empresa), com cache por chamada. */
+/**
+ * Grava uma mudança de jornada que vale a partir de `effectiveFrom` (hoje).
+ * Duas mudanças no mesmo dia: a última substitui a anterior.
+ */
+export async function recordScheduleChange(
+  ctx: MutationCtx,
+  input: {
+    userId?: Id<"users">;
+    schedule: WorkSchedule | null;
+    effectiveFrom: string;
+    actorId: Id<"users">;
+  }
+): Promise<void> {
+  const fields = {
+    schedule: input.schedule ? { ...input.schedule } : undefined,
+    updatedAt: Date.now(),
+    updatedByUserId: input.actorId,
+  };
+  const sameDay = await ctx.db
+    .query("clockScheduleChanges")
+    .withIndex("by_user_and_effective_from", (q) =>
+      q.eq("userId", input.userId).eq("effectiveFrom", input.effectiveFrom)
+    )
+    .first();
+  if (sameDay) {
+    await ctx.db.patch("clockScheduleChanges", sameDay._id, fields);
+  } else {
+    await ctx.db.insert("clockScheduleChanges", {
+      userId: input.userId,
+      effectiveFrom: input.effectiveFrom,
+      ...fields,
+    });
+  }
+}
+
+/** Jornada de cada pessoa na data (a própria ou a da empresa), com cache por chamada. */
 export function scheduleResolver(ctx: Ctx) {
-  let company: Promise<WorkSchedule> | null = null;
-  const cache = new Map<Id<"users">, Promise<WorkSchedule>>();
-  return (userId: Id<"users">): Promise<WorkSchedule> => {
-    let entry = cache.get(userId);
+  const company = new Map<string, Promise<WorkSchedule>>();
+  const cache = new Map<string, Promise<WorkSchedule>>();
+  return (userId: Id<"users">, date: string): Promise<WorkSchedule> => {
+    const key = `${userId}|${date}`;
+    let entry = cache.get(key);
     if (!entry) {
       entry = (async () => {
-        const own = await getUserScheduleOverride(ctx, userId);
-        if (own) return own.schedule;
-        company ??= getCompanySchedule(ctx);
-        return await company;
+        const own = await changeOn(ctx, userId, date);
+        if (own?.schedule) return own.schedule;
+        let companyEntry = company.get(date);
+        if (!companyEntry) {
+          companyEntry = getCompanyScheduleOn(ctx, date);
+          company.set(date, companyEntry);
+        }
+        return await companyEntry;
       })();
-      cache.set(userId, entry);
+      cache.set(key, entry);
     }
     return entry;
   };
@@ -65,32 +144,45 @@ export function scheduleResolver(ctx: Ctx) {
 // Itens do dia
 // ---------------------------------------------------------------------------
 
-/** Último tratamento de cada marcação (os anteriores ficam no histórico). */
-export function latestAdjustments(
-  adjustments: Doc<"clockPunchAdjustments">[]
-): Map<Id<"clockPunches">, Doc<"clockPunchAdjustments">> {
-  const latest = new Map<Id<"clockPunches">, Doc<"clockPunchAdjustments">>();
-  for (const adjustment of [...adjustments].sort((a, b) => a._creationTime - b._creationTime)) {
-    latest.set(adjustment.punchId, adjustment);
+type EffectiveAdjustments = Map<Id<"clockPunches">, Doc<"clockPunchAdjustments">>;
+
+/**
+ * Tratamento que vale para cada marcação: o último dela (os anteriores ficam
+ * no histórico). Lido por marcação, independente do tamanho do histórico.
+ */
+export async function effectiveAdjustments(
+  ctx: Ctx,
+  punches: Doc<"clockPunches">[]
+): Promise<EffectiveAdjustments> {
+  const effective: EffectiveAdjustments = new Map();
+  for (const punch of punches) {
+    const latest = await ctx.db
+      .query("clockPunchAdjustments")
+      .withIndex("by_punch", (q) => q.eq("punchId", punch._id))
+      .order("desc")
+      .first();
+    if (latest) effective.set(punch._id, latest);
   }
-  return latest;
+  return effective;
 }
 
 /** Monta a entrada da leitura do dia a partir do que está no banco. */
 export function buildDayItems(
   punches: Doc<"clockPunches">[],
-  adjustments: Doc<"clockPunchAdjustments">[],
+  effective: EffectiveAdjustments,
   requests: Doc<"clockPunchRequests">[]
 ): DayItemInput[] {
-  const latest = latestAdjustments(adjustments);
   const items: DayItemInput[] = [];
   for (const punch of punches) {
-    const adjustment = latest.get(punch._id);
+    const adjustment = effective.get(punch._id);
     const base = { id: punch._id, minute: brtMinuteOfDay(punch.punchedAt), source: "punch" as const };
     if (adjustment?.action === "set_aside") {
       items.push({ ...base, role: "desconsiderada", basis: "rh" });
     } else if (adjustment?.action === "set_role" && adjustment.role) {
       items.push({ ...base, role: adjustment.role, basis: "rh" });
+    } else if (adjustment?.action === "clear") {
+      // O RH voltou a marcação à leitura automática (sem o que a pessoa informou).
+      items.push(base);
     } else if (punch.declaredRole) {
       items.push({ ...base, role: punch.declaredRole, basis: "employee" });
     } else {
@@ -135,6 +227,7 @@ export async function listDayAdjustments(
 export type LoadedDay = {
   punches: Doc<"clockPunches">[];
   requests: Doc<"clockPunchRequests">[];
+  /** Histórico do tratamento no dia (para mostrar). */
   adjustments: Doc<"clockPunchAdjustments">[];
   schedule: WorkSchedule;
   day: ClassifiedDay;
@@ -154,13 +247,14 @@ export async function loadUserDay(
     schedule?: WorkSchedule;
   }
 ): Promise<LoadedDay> {
-  const [requests, adjustments, schedule] = await Promise.all([
+  const [requests, adjustments, effective, schedule] = await Promise.all([
     listDayRequests(ctx, input.userId, input.date),
     listDayAdjustments(ctx, input.userId, input.date),
-    input.schedule ?? scheduleResolver(ctx)(input.userId),
+    effectiveAdjustments(ctx, input.punches),
+    input.schedule ?? scheduleResolver(ctx)(input.userId, input.date),
   ]);
   const day = classifyDay({
-    items: buildDayItems(input.punches, adjustments, requests),
+    items: buildDayItems(input.punches, effective, requests),
     schedule,
     open: input.open,
   });

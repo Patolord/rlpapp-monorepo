@@ -31,7 +31,7 @@ function openMap(lat: number, lng: number, label: string) {
 export function PontoDia({ today }: { today: string }) {
   const [date, setDate] = useState(today);
   const [person, setPerson] = useState<Person | null>(null);
-  const day = useQuery(api.timeClock.getDay, { date });
+  const day = useQuery(api.timeClock.getDay, { date, today });
 
   const punchesByPerson = useMemo(() => {
     const map = new Map<string, DayPunch[]>();

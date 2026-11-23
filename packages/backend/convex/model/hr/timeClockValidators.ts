@@ -266,6 +266,7 @@ export const personDayValidator = v.object({
       origin: requestOriginValidator,
       note: v.union(v.string(), v.null()),
       reviewNote: v.union(v.string(), v.null()),
+      revision: v.number(),
       createdAt: v.number(),
     })
   ),
@@ -281,5 +282,6 @@ export const pendingRequestValidator = v.object({
   timeLabel: v.string(),
   origin: requestOriginValidator,
   note: v.union(v.string(), v.null()),
+  revision: v.number(),
   createdAt: v.number(),
 });

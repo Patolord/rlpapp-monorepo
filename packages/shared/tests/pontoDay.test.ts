@@ -3,6 +3,7 @@ import {
   classifyDay,
   DEFAULT_WORK_SCHEDULE,
   describeWorkSchedule,
+  formatMinute,
   parseClockLabel,
   planNextPunch,
   workScheduleError,
@@ -23,6 +24,15 @@ function roles(items: DayItemInput[], open = false): PunchRole[] {
 }
 
 describe("classifyDay", () => {
+  test("manhã cheia de toques não tira almoço e saída da leitura", () => {
+    // 18 marcações livres: acima do limite da busca exaustiva (16).
+    const morning = Array.from({ length: 15 }, (_, i) => formatMinute(at("07:00") + i * 6));
+    const day = classifyDay({ items: punches(...morning, "12:00", "13:00", "17:00"), schedule, open: false });
+    expect(day.slots.almoco_saida?.minute).toBe(at("12:00"));
+    expect(day.slots.almoco_retorno?.minute).toBe(at("13:00"));
+    expect(day.slots.saida?.minute).toBe(at("17:00"));
+  });
+
   test("dia normal: quatro marcações", () => {
     const day = classifyDay({ items: punches("07:02", "12:01", "13:00", "17:05"), schedule, open: false });
     expect(day.items.map((i) => i.role)).toEqual(["entrada", "almoco_saida", "almoco_retorno", "saida"]);
@@ -218,6 +228,39 @@ describe("planNextPunch", () => {
       nowMinute: at("09:40"),
     });
     expect(result).toMatchObject({ role: "entrada_extra", actionLabel: "Registrar volta", prompt: null });
+  });
+
+  test("volta no horário do almoço de uma saída rápida fecha a saída, não o almoço", () => {
+    const items: DayItemInput[] = [
+      { id: "a", minute: at("07:00"), source: "punch" },
+      { id: "b", minute: at("11:30"), source: "punch", role: "saida_extra", basis: "employee" },
+    ];
+    expect(planNextPunch({ items, schedule, nowMinute: at("12:30") })).toMatchObject({
+      role: "entrada_extra",
+      prompt: null,
+    });
+    const day = classifyDay({
+      items: [...items, { id: "c", minute: at("12:30"), source: "punch" }],
+      schedule,
+      open: true,
+    });
+    expect(day.items.map((i) => i.role)).toEqual(["entrada", "saida_extra", "entrada_extra"]);
+  });
+
+  test("saída cedo com o almoço faltando oferece sair e voltar", () => {
+    const result = plan(["07:00"], "08:00");
+    expect(result.role).toBe("saida");
+    expect(result.prompt?.options.map((o) => o.declaredRole)).toEqual(["saida", "saida_extra", "saida"]);
+  });
+
+  test("não sugere horário esquecido quando não cabe nenhum minuto", () => {
+    const result = planNextPunch({
+      items: [{ id: "a", minute: at("16:59"), source: "request", role: "entrada", basis: "approved" }],
+      schedule,
+      nowMinute: at("17:00"),
+    });
+    expect(result.role).toBe("saida");
+    expect(result.prompt?.missed).toEqual([]);
   });
 });
 

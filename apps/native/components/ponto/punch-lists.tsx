@@ -1,9 +1,10 @@
 import { PUNCH_ROLE_LABEL } from "@rlpapp/shared/rh/pontoDay";
 import { CloudOff, CloudUpload, RefreshCw, Trash2 } from "lucide-react-native";
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { GEOFENCE_LABEL } from "@/components/ponto/punch-receipt";
-import { Divider, Pill, SectionTitle, Surface } from "@/components/ui";
+import { ConfirmDialog, Divider, Pill, SectionTitle, Surface } from "@/components/ui";
 import { formatDateKey, toBrtDateKey, toBrtTimeLabel } from "@/lib/brt-date";
 import type { PunchContext } from "@/lib/punch-plan";
 import {
@@ -15,9 +16,26 @@ import { colors, space, type } from "@/lib/theme";
 
 /** Marcações guardadas no aparelho, esperando conexão. */
 export function PendingPunchList({ pending, online }: { pending: PendingPunch[]; online: boolean }) {
+  const [discard, setDiscard] = useState<PendingPunch | null>(null);
   if (pending.length === 0) return null;
   return (
     <>
+      <ConfirmDialog
+        open={discard !== null}
+        title="Descartar esta marcação?"
+        description={
+          discard
+            ? `A marcação de ${formatDateKey(toBrtDateKey(discard.capturedAt))} às ${toBrtTimeLabel(discard.capturedAt)} sai do aparelho e não será enviada. Não dá para desfazer.`
+            : undefined
+        }
+        confirmLabel="Descartar"
+        destructive
+        onConfirm={() => {
+          if (discard) void removePendingPunch(discard.clientPunchId);
+          setDiscard(null);
+        }}
+        onCancel={() => setDiscard(null)}
+      />
       <SectionTitle title="Aguardando envio" style={{ paddingHorizontal: 0 }} />
       <Surface padded={false}>
         {pending.map((item, index) => (
@@ -39,7 +57,7 @@ export function PendingPunchList({ pending, online }: { pending: PendingPunch[];
               </View>
               {item.error ? (
                 <Pressable
-                  onPress={() => void removePendingPunch(item.clientPunchId)}
+                  onPress={() => setDiscard(item)}
                   hitSlop={8}
                   accessibilityRole="button"
                   accessibilityLabel="Descartar marcação pendente"

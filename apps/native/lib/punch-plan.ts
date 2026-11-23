@@ -45,14 +45,17 @@ export function dayItems(
   today: string
 ): DayItemInput[] {
   const items: DayItemInput[] = [];
+  // Cache de outro dia: as marcações e os horários informados ficam de fora.
+  const contextIsToday = context?.date === undefined || context.date === today;
   for (const punch of context?.punches ?? []) {
+    if (toBrtDateKey(punch.punchedAt) !== today) continue;
     const minute = brtMinuteOfDay(punch.punchedAt);
     const base = { id: punch._id, minute, source: "punch" as const };
     if (punch.kind === "desconsiderada") items.push({ ...base, role: "desconsiderada", basis: "rh" });
     else if (isDeclarable(punch.kind)) items.push({ ...base, role: punch.kind, basis: punch.basis ?? "auto" });
     else items.push(base);
   }
-  for (const request of context?.requests ?? []) {
+  for (const request of contextIsToday ? (context?.requests ?? []) : []) {
     if (!isDeclarable(request.role)) continue;
     items.push({
       id: request._id,

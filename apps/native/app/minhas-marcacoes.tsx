@@ -50,7 +50,9 @@ export default function MinhasMarcacoesScreen() {
 
   function openForgot(date: string, day: ClassifiedDay, slot: PunchSlot) {
     if (!data) return;
-    const nowMinute = date === today ? brtMinuteOfDay(Date.now()) : 24 * 60;
+    // A tela pode ter ficado aberta desde ontem: a data de hoje é a de agora.
+    const at = Date.now();
+    const nowMinute = date === toBrtDateKey(at) ? brtMinuteOfDay(at) : 24 * 60;
     const missed = suggestMissed(day, data.schedule, [slot], nowMinute);
     setForgot({
       date,

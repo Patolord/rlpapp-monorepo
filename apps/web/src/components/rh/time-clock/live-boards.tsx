@@ -24,8 +24,10 @@ export function WorksiteBoard({
   onSelect: () => void;
   onSelectPerson: (id: UserId) => void;
 }) {
-  const current = worksite.people.filter((p) => p.status !== "left");
+  // Quem saiu (no fim do dia ou para voltar depois) fica nos grupos próprios.
+  const current = worksite.people.filter((p) => p.status !== "left" && p.status !== "away");
   const leftCount = worksite.left;
+  const awayCount = worksite.away;
   return (
     <div
       className={cn(
@@ -46,6 +48,7 @@ export function WorksiteBoard({
           </div>
           <div className="truncate text-xs text-muted-foreground">
             raio {Math.round(worksite.radiusMeters)} m
+            {awayCount > 0 ? ` · ${awayCount} ${awayCount === 1 ? "saiu e volta" : "saíram e voltam"}` : ""}
             {leftCount > 0 ? ` · ${leftCount} já ${leftCount === 1 ? "saiu" : "saíram"}` : ""}
           </div>
         </div>

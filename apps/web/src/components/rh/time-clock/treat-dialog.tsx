@@ -78,7 +78,7 @@ export function TreatDialog({ request, onClose }: { request: TreatRequest | null
   }
 
   return (
-    <Dialog open={request !== null} onOpenChange={(open) => (!open ? onClose() : undefined)}>
+    <Dialog open={request !== null} onOpenChange={(open) => (!open && !saving ? onClose() : undefined)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{request?.title}</DialogTitle>
@@ -127,7 +127,7 @@ export function TreatDialog({ request, onClose }: { request: TreatRequest | null
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" disabled={saving} onClick={onClose}>
             Cancelar
           </Button>
           <Button disabled={!valid || saving} onClick={() => void confirm()}>

@@ -10,6 +10,8 @@ import {
   type WorkSchedule,
 } from "@rlpapp/shared/rh/pontoDay";
 import * as Notifications from "expo-notifications";
+
+import { toBrtDateKey } from "@/lib/brt-date";
 import { Platform } from "react-native";
 
 const PREFIX = "ponto-lembrete-";
@@ -57,12 +59,20 @@ export function remindersFor(day: ClassifiedDay, schedule: WorkSchedule, nowMinu
   return reminders.filter((reminder) => reminder.minute > nowMinute && reminder.minute < 24 * 60);
 }
 
+/** Fila das trocas: uma termina antes da próxima começar (a última vale). */
+let syncQueue: Promise<void> = Promise.resolve();
+
 /** Troca os lembretes agendados pelos do dia atual. Falhas são ignoradas. */
-export async function syncPunchReminders(
+export function syncPunchReminders(
   day: ClassifiedDay,
   schedule: WorkSchedule,
   now: number = Date.now()
 ): Promise<void> {
+  syncQueue = syncQueue.then(() => replaceReminders(day, schedule, now));
+  return syncQueue;
+}
+
+async function replaceReminders(day: ClassifiedDay, schedule: WorkSchedule, now: number): Promise<void> {
   if (Platform.OS !== "ios" && Platform.OS !== "android") return;
   try {
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
@@ -76,7 +86,8 @@ export async function syncPunchReminders(
     const nowMinute = brtMinuteOfDay(now);
     for (const reminder of remindersFor(day, schedule, nowMinute)) {
       await Notifications.scheduleNotificationAsync({
-        identifier: `${PREFIX}${reminder.id}`,
+        // Um id por dia: tocar no lembrete de hoje e no de amanhã abre a tela as duas vezes.
+        identifier: `${PREFIX}${reminder.id}-${toBrtDateKey(now)}`,
         content: { title: reminder.title, body: reminder.body, data: { ...PUNCH_REMINDER_DATA } },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,

@@ -158,12 +158,23 @@ export function PunchScreen() {
   const plan = useMemo(() => planPunch(context, pending, now), [context, pending, now]);
 
   // Lembretes locais acompanham o dia (volta do almoço, almoço, saída).
-  const punchesKey = `${context?.punches.length ?? 0}|${context?.requests?.length ?? 0}|${pending.length}`;
+  // Assinatura do que os lembretes usam (data, jornada, papéis e horários do
+  // dia lido): muda quando o dia muda, não a cada segundo do relógio.
+  const schedule = scheduleOf(context);
+  const reminderKey = [
+    today,
+    schedule.startMinute,
+    schedule.endMinute,
+    schedule.lunchMinutes,
+    schedule.lunchWindowStartMinute,
+    schedule.lunchWindowEndMinute,
+    todayRead.items.map((item) => `${item.role}@${item.minute}`).join(","),
+  ].join("|");
   useEffect(() => {
     if (!context?.allowed) return;
     void syncPunchReminders(readToday(context, pending, Date.now()), scheduleOf(context));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- só quando o dia muda
-  }, [punchesKey, context?.allowed]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a assinatura cobre o dia e a jornada
+  }, [reminderKey, context?.allowed]);
 
   // Relógio da tela.
   useEffect(() => {

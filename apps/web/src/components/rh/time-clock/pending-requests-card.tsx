@@ -30,10 +30,10 @@ export function PendingRequestsCard({
 
   if (!pending || pending.length === 0) return null;
 
-  async function approve(requestId: Id<"clockPunchRequests">) {
+  async function approve(requestId: Id<"clockPunchRequests">, revision: number) {
     setBusy(requestId);
     try {
-      await review({ requestId, approve: true });
+      await review({ requestId, revision, approve: true });
       toast.success("Horário aprovado");
     } catch (error) {
       toast.error(getErrorMessage(error, "Não foi possível aprovar"));
@@ -71,7 +71,7 @@ export function PendingRequestsCard({
               </button>
               {canWrite ? (
                 <div className="flex gap-1">
-                  <Button size="xs" disabled={busy === request._id} onClick={() => void approve(request._id)}>
+                  <Button size="xs" disabled={busy === request._id} onClick={() => void approve(request._id, request.revision)}>
                     Aprovar
                   </Button>
                   <Button
@@ -83,7 +83,12 @@ export function PendingRequestsCard({
                         description: `${request.personName}: ${PUNCH_ROLE_LABEL[request.role]} às ${request.timeLabel}.`,
                         confirmLabel: "Recusar",
                         submit: async ({ reason }) => {
-                          await review({ requestId: request._id, approve: false, note: reason });
+                          await review({
+                            requestId: request._id,
+                            revision: request.revision,
+                            approve: false,
+                            note: reason,
+                          });
                           toast.success("Horário recusado");
                         },
                       })

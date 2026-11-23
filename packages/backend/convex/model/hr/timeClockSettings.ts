@@ -19,7 +19,12 @@ import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
 import { hasPermission } from "../../lib/rbac";
 import { getSettings, loginOf, saveSettings } from "./timeClockDb";
-import { getUserScheduleOverride } from "./timeClockDay";
+import { toBrtDateKey } from "./timeClock";
+import {
+  getCurrentCompanySchedule,
+  getCurrentUserSchedule,
+  recordScheduleChange,
+} from "./timeClockDay";
 import {
   MAX_GEOFENCE_RADIUS_METERS,
   MIN_GEOFENCE_RADIUS_METERS,
@@ -141,19 +146,18 @@ export async function listTimeClockPeople(ctx: QueryCtx): Promise<ClockPerson[]>
     .query("users")
     .withIndex("by_active", (q) => q.eq("isActive", true))
     .take(2000);
-  const overrides = new Map(
-    (await ctx.db.query("clockUserSchedules").take(2000)).map((row) => [row.userId, row.schedule])
-  );
-  return users
-    .filter((user) => !resolveRoles(user).includes("client"))
-    .map((user) => ({
+  const people: ClockPerson[] = [];
+  for (const user of users) {
+    if (resolveRoles(user).includes("client")) continue;
+    people.push({
       userId: user._id,
       name: user.name,
       login: loginOf(user),
       clocksIn: hasPermission(user, "ponto.registrar"),
-      schedule: overrides.get(user._id) ?? null,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+      schedule: await getCurrentUserSchedule(ctx, user._id),
+    });
+  }
+  return people.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
 
 /**
@@ -206,6 +210,8 @@ export async function editTimeClockSettings(
 ): Promise<void> {
   const current = await getSettings(ctx);
   const next = { ...current };
+  const currentSchedule = await getCurrentCompanySchedule(ctx);
+  let nextSchedule: WorkSchedule | null = null;
   if (input.manDayCostCents !== undefined) {
     if (!Number.isFinite(input.manDayCostCents) || input.manDayCostCents < 0) {
       throw new ConvexError("Custo do homem-dia inválido");
@@ -227,7 +233,7 @@ export async function editTimeClockSettings(
   if (input.schedule !== undefined) {
     const error = workScheduleError(input.schedule);
     if (error) throw new ConvexError(error);
-    next.schedule = { ...input.schedule };
+    nextSchedule = { ...input.schedule };
   }
   if (input.entryReminderTime !== undefined) {
     next.entryReminderTime = reminderTime(input.entryReminderTime, "Lembrete de entrada");
@@ -246,20 +252,32 @@ export async function editTimeClockSettings(
     throw new ConvexError("O lembrete de saída precisa ser depois do de entrada");
   }
   await saveSettings(ctx, next, user._id);
+  if (nextSchedule) {
+    // Vale de hoje em diante; os dias anteriores seguem com a jornada da época.
+    await recordScheduleChange(ctx, {
+      schedule: nextSchedule,
+      effectiveFrom: toBrtDateKey(Date.now()),
+      actorId: user._id,
+    });
+  }
   await logAudit(ctx, user, {
     action: "update",
     tableName: "clockSettings",
     recordId: "default",
     entityLabel: "Ponto",
-    snapshotBefore: current,
-    snapshotAfter: next,
+    snapshotBefore: { ...current, schedule: currentSchedule },
+    snapshotAfter: { ...next, schedule: nextSchedule ?? currentSchedule },
   });
 }
 
+/** Regras do ponto e a jornada da empresa que vale de hoje em diante. */
+export async function getTimeClockSettingsView(ctx: QueryCtx) {
+  return { ...(await getSettings(ctx)), schedule: await getCurrentCompanySchedule(ctx) };
+}
+
 /**
- * Define (ou remove, com `schedule: null`) a jornada própria de uma pessoa.
- * Vale para a leitura dos dias dali em diante (os resumos já gravados são
- * recalculados na próxima marcação do dia).
+ * Define (ou remove, com `schedule: null`) a jornada própria de uma pessoa,
+ * a partir de hoje. Os dias anteriores seguem lidos pela jornada da época.
  */
 export async function setUserWorkSchedule(
   ctx: MutationCtx,
@@ -268,18 +286,19 @@ export async function setUserWorkSchedule(
 ): Promise<void> {
   const user = await ctx.db.get("users", input.userId);
   if (!user) throw new ConvexError("Usuário não encontrado");
-  const current = await getUserScheduleOverride(ctx, user._id);
+  const current = await getCurrentUserSchedule(ctx, user._id);
   if (input.schedule) {
     const error = workScheduleError(input.schedule);
     if (error) throw new ConvexError(error);
-    const payload = { schedule: { ...input.schedule }, updatedAt: Date.now(), updatedByUserId: actor._id };
-    if (current) await ctx.db.patch("clockUserSchedules", current._id, payload);
-    else await ctx.db.insert("clockUserSchedules", { userId: user._id, ...payload });
-  } else if (current) {
-    await ctx.db.delete("clockUserSchedules", current._id);
-  } else {
+  } else if (!current) {
     return;
   }
+  await recordScheduleChange(ctx, {
+    userId: user._id,
+    schedule: input.schedule,
+    effectiveFrom: toBrtDateKey(Date.now()),
+    actorId: actor._id,
+  });
   await logAudit(ctx, actor, {
     action: "update",
     tableName: "users",
@@ -288,7 +307,7 @@ export async function setUserWorkSchedule(
     details: input.schedule
       ? `Jornada do ponto: ${describeWorkSchedule(input.schedule)}`
       : "Jornada do ponto: volta à da empresa",
-    snapshotBefore: { schedule: current?.schedule ?? null },
+    snapshotBefore: { schedule: current },
     snapshotAfter: { schedule: input.schedule },
   });
 }

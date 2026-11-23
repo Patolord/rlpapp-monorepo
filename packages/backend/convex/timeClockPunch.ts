@@ -82,6 +82,8 @@ const receiptValidator = v.object({
   hash: v.string(),
   /** `true` quando o `clientPunchId` já existia (reenvio da fila offline). */
   duplicate: v.boolean(),
+  /** Horários esquecidos enviados junto que não conferiam e ficaram de fora. */
+  missedNotSent: v.number(),
 });
 
 // ---------------------------------------------------------------------------
@@ -95,6 +97,8 @@ const receiptValidator = v.object({
 export const getContext = authedQuery({
   args: { date: v.string() },
   returns: v.object({
+    /** Dia do contexto ("YYYY-MM-DD"), para o app não misturar um cache antigo. */
+    date: v.string(),
     allowed: v.boolean(),
     personName: v.string(),
     rules: rulesValidator,
