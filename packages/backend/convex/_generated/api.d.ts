@@ -51,6 +51,7 @@ import type * as lib_clerkBackendApi from "../lib/clerkBackendApi.js";
 import type * as lib_rbac from "../lib/rbac.js";
 import type * as lib_takeoffAuth from "../lib/takeoffAuth.js";
 import type * as maintenanceLogs from "../maintenanceLogs.js";
+import type * as materialCaptures from "../materialCaptures.js";
 import type * as materialLookup from "../materialLookup.js";
 import type * as materials from "../materials.js";
 import type * as mcpCatalog from "../mcpCatalog.js";
@@ -132,6 +133,8 @@ import type * as model_identity_userInvites from "../model/identity/userInvites.
 import type * as model_identity_userSessions from "../model/identity/userSessions.js";
 import type * as model_identity_userValidators from "../model/identity/userValidators.js";
 import type * as model_identity_users from "../model/identity/users.js";
+import type * as model_inventory_capture from "../model/inventory/capture.js";
+import type * as model_inventory_captureMatching from "../model/inventory/captureMatching.js";
 import type * as model_inventory_compatibility from "../model/inventory/compatibility.js";
 import type * as model_inventory_documents from "../model/inventory/documents.js";
 import type * as model_inventory_locations from "../model/inventory/locations.js";
@@ -278,6 +281,7 @@ declare const fullApi: ApiFromModules<{
   "lib/rbac": typeof lib_rbac;
   "lib/takeoffAuth": typeof lib_takeoffAuth;
   maintenanceLogs: typeof maintenanceLogs;
+  materialCaptures: typeof materialCaptures;
   materialLookup: typeof materialLookup;
   materials: typeof materials;
   mcpCatalog: typeof mcpCatalog;
@@ -359,6 +363,8 @@ declare const fullApi: ApiFromModules<{
   "model/identity/userSessions": typeof model_identity_userSessions;
   "model/identity/userValidators": typeof model_identity_userValidators;
   "model/identity/users": typeof model_identity_users;
+  "model/inventory/capture": typeof model_inventory_capture;
+  "model/inventory/captureMatching": typeof model_inventory_captureMatching;
   "model/inventory/compatibility": typeof model_inventory_compatibility;
   "model/inventory/documents": typeof model_inventory_documents;
   "model/inventory/locations": typeof model_inventory_locations;

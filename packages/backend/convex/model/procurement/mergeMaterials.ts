@@ -175,7 +175,8 @@ async function repointMaterialId(
     | "inventoryEvents"
     | "takeoffItems"
     | "priceEvents"
-    | "materialImportRows",
+    | "materialImportRows"
+    | "materialCaptures",
   sourceId: Id<"materials">,
   targetId: Id<"materials">
 ): Promise<void> {
@@ -456,6 +457,7 @@ export async function executeMaterialMerge(
   await repointMaterialId(ctx, "takeoffItems", sourceId, targetId);
   await repointMaterialId(ctx, "priceEvents", sourceId, targetId);
   await repointMaterialId(ctx, "materialImportRows", sourceId, targetId);
+  await repointMaterialId(ctx, "materialCaptures", sourceId, targetId);
   await mergeSupplierOfferings(ctx, sourceId, targetId);
   await mergeAliases(ctx, source, targetId, now);
   await mergeCompatibility(ctx, sourceId, targetId, now);

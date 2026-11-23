@@ -46,6 +46,29 @@ export const inventoryRequestStatus = v.union(
   v.literal("fulfilled")
 );
 
+// Cadastro em campo (celular): o que aconteceu com cada item capturado.
+// matched = somou num material que já existia; created = material novo;
+// review = material novo em rascunho, parecido com outro, para Compras revisar.
+export const materialCaptureOutcome = v.union(
+  v.literal("matched"),
+  v.literal("created"),
+  v.literal("review")
+);
+
+export const materialCaptureMatchReason = v.union(
+  v.literal("chosen"),
+  v.literal("barcode"),
+  v.literal("sku"),
+  v.literal("identity"),
+  v.literal("alias"),
+  v.literal("new")
+);
+
+export const materialCaptureQuantityMode = v.union(
+  v.literal("add"),
+  v.literal("set")
+);
+
 export const inventoryRequestReason = v.union(
   v.literal("replenishment"),
   v.literal("new")
@@ -190,6 +213,45 @@ export const inventoryTables = {
   })
     .index("by_request", ["requestId"])
     .index("by_material", ["materialId"]),
+
+  materialCaptures: defineTable({
+    // Gerado no aparelho: a fila offline reenvia sem duplicar.
+    clientId: v.string(),
+    locationId: v.id("inventoryLocations"),
+    projectId: v.optional(v.id("projects")),
+    materialId: v.id("materials"),
+    outcome: materialCaptureOutcome,
+    matchReason: materialCaptureMatchReason,
+    // Materiais parecidos encontrados no envio (base da revisão de rascunhos).
+    similarMaterialIds: v.array(v.id("materials")),
+    // O que a pessoa digitou ou leu no aparelho, como veio.
+    input: v.object({
+      name: v.optional(v.string()),
+      variantLabel: v.optional(v.string()),
+      unit: v.optional(v.string()),
+      category: v.optional(v.string()),
+      barcode: v.optional(v.string()),
+      manufacturer: v.optional(v.string()),
+      manufacturerPartNumber: v.optional(v.string()),
+      spec: v.optional(v.string()),
+    }),
+    quantityMode: materialCaptureQuantityMode,
+    countedQuantity: v.number(),
+    // Variação lançada no saldo (pode ser zero ou negativa no modo "set").
+    quantityDelta: v.number(),
+    physicalAddress: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    photoId: v.optional(v.id("_storage")),
+    documentId: v.optional(v.id("inventoryDocuments")),
+    offline: v.boolean(),
+    capturedAt: v.number(),
+    capturedByUserId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_client_id", ["clientId"])
+    .index("by_captured_by", ["capturedByUserId", "createdAt"])
+    .index("by_material", ["materialId"])
+    .index("by_outcome", ["outcome", "createdAt"]),
 
   // --- Engenharia: Empreiteiros (cadastro mestre) ---
 };

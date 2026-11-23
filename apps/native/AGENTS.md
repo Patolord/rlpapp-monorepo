@@ -37,6 +37,8 @@ especificação tela a tela ficam no projeto "RLP" do claude.ai
 ## Sem sinal
 
 - Fila de registros de campo: `lib/offline-queue.ts`; fila de ponto: `lib/punch-queue.ts`;
+  fila do cadastro em campo (Estoque › Cadastro): `lib/capture-queue.ts`, com a cópia do
+  catálogo em `lib/capture-catalog.ts` para conferir duplicatas sem sinal;
   envio: `components/offline-sync.tsx`.
 - Leitura com cópia no aparelho: `lib/use-cached-query.ts` (devolve também a hora da cópia).
 

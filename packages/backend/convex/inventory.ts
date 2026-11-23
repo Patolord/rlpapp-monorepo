@@ -58,6 +58,7 @@ export const getAccess = inventoryQuery({
     isEngineer: v.boolean(),
     canReviewMaterialRequests: v.boolean(),
     canFulfillMaterialRequests: v.boolean(),
+    canCapture: v.boolean(),
   }),
   handler: async (ctx) => {
     return getInventoryAccess(ctx.user);

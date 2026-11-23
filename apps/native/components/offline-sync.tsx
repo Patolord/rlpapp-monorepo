@@ -6,6 +6,13 @@ import { useConvex, useConvexAuth, useMutation } from "convex/react";
 import { useCallback, useEffect, useRef } from "react";
 
 import {
+  listPendingCaptures,
+  removePendingCapture,
+  subscribeCaptureQueue,
+  updatePendingCapture,
+  type PendingCapture,
+} from "@/lib/capture-queue";
+import {
   listPendingRecords,
   removePendingRecord,
   setPendingRecordError,
@@ -44,7 +51,38 @@ export function OfflineSync() {
   const generateUploadUrl = useMutation(api.maintenanceLogs.generateUploadUrl);
   const registerPunch = useMutation(api.timeClockPunch.register);
   const generatePunchUploadUrl = useMutation(api.timeClockPunch.generatePhotoUploadUrl);
+  const captureMaterial = useMutation(api.materialCaptures.capture);
+  const generateCaptureUploadUrl = useMutation(api.materialCaptures.generateUploadUrl);
   const syncing = useRef(false);
+
+  /**
+   * Item do cadastro em campo contado sem sinal: sobe a foto (uma vez só) e
+   * envia. O servidor confere duplicatas de novo e é idempotente pelo clientId.
+   */
+  const processCapture = useCallback(
+    async (capture: PendingCapture) => {
+      let photoId = capture.photoStorageId as Id<"_storage"> | undefined;
+      if (!photoId && capture.photoUri) {
+        [photoId] = await uploadPhotos(generateCaptureUploadUrl, [capture.photoUri]);
+        await updatePendingCapture(capture.clientId, { photoStorageId: photoId });
+      }
+      await captureMaterial({
+        clientId: capture.clientId,
+        projectId: capture.projectId as Id<"projects"> | undefined,
+        materialId: capture.materialId as Id<"materials"> | undefined,
+        item: capture.item,
+        confirmedNew: capture.confirmedNew,
+        quantityMode: capture.quantityMode,
+        quantity: capture.quantity,
+        physicalAddress: capture.physicalAddress,
+        notes: capture.notes,
+        photoId,
+        offline: true,
+        capturedAt: capture.capturedAt,
+      });
+    },
+    [captureMaterial, generateCaptureUploadUrl]
+  );
 
   /**
    * Marcação de ponto feita sem internet: sobe a foto (uma vez só) e registra
@@ -153,6 +191,18 @@ export function OfflineSync() {
         }
       }
 
+      for (const capture of currentUserId ? await listPendingCaptures(currentUserId) : []) {
+        try {
+          await processCapture(capture);
+          await removePendingCapture(capture.clientId);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Erro desconhecido";
+          console.error("Offline capture sync failed:", capture.clientId, err);
+          await updatePendingCapture(capture.clientId, { error: message });
+          if (!(await isOnline())) return;
+        }
+      }
+
       const records = await listPendingRecords();
       if (records.length === 0) return;
 
@@ -171,7 +221,7 @@ export function OfflineSync() {
     } finally {
       syncing.current = false;
     }
-  }, [processRecord, processPunch, userId]);
+  }, [processRecord, processPunch, processCapture, userId]);
 
   useEffect(() => {
     if (!isAuthenticated || !userId) return;
@@ -185,11 +235,13 @@ export function OfflineSync() {
     });
     const unsubscribeQueue = subscribeQueue(() => void runSync());
     const unsubscribePunches = subscribePunchQueue(() => void runSync());
+    const unsubscribeCaptures = subscribeCaptureQueue(() => void runSync());
 
     return () => {
       unsubscribeNet();
       unsubscribeQueue();
       unsubscribePunches();
+      unsubscribeCaptures();
     };
   }, [isAuthenticated, userId, runSync]);
 

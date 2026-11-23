@@ -48,6 +48,8 @@ export type CreateMaterialInput = {
   imageId?: Id<"_storage">;
   /** Mão de obra por unidade, em centavos (orçamentos do RLP Takeoff). */
   laborPriceCents?: number;
+  /** "draft" quando o material precisa de revisão de Compras (cadastro em campo). */
+  status?: "draft" | "active";
 };
 
 export type UpdateMaterialInput = {
@@ -213,7 +215,7 @@ export async function createMaterialInternal(
     laborPriceUpdatedAt:
       args.laborPriceCents !== undefined ? now : undefined,
     active: true,
-    status: "active",
+    status: args.status ?? "active",
     createdAt: now,
     updatedAt: now,
   });

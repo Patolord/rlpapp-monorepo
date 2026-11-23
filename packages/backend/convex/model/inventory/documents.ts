@@ -66,12 +66,32 @@ function isAssignedTechnician(
   return (project.technicianIds ?? []).includes(user._id);
 }
 
+/**
+ * Cadastro em campo (`estoque.cadastro`): lança a contagem como entrada no
+ * central ou ajuste no local contado, sem exigir as permissões de movimentação.
+ */
+export type InventoryAuthorization = { capture?: boolean };
+
+function authorizedByCapture(
+  user: Doc<"users">,
+  type: InventoryMovementType | "reversal",
+  authorization?: InventoryAuthorization
+): boolean {
+  return (
+    Boolean(authorization?.capture) &&
+    (type === "entry" || type === "adjustment") &&
+    hasPermission(user, "estoque.cadastro")
+  );
+}
+
 async function assertCanCreate(
   ctx: MutationCtx,
   user: Doc<"users">,
   type: InventoryMovementType,
-  projectId?: Id<"projects">
+  projectId?: Id<"projects">,
+  authorization?: InventoryAuthorization
 ): Promise<void> {
+  if (authorizedByCapture(user, type, authorization)) return;
   if (type === "entry") {
     if (hasPermission(user, "estoque.entrada")) return;
   } else if (type === "consumption" || type === "return") {
@@ -90,8 +110,10 @@ export async function assertCanPostInventoryDocument(
   ctx: MutationCtx,
   user: Doc<"users">,
   type: InventoryMovementType | "reversal",
-  projectId?: Id<"projects">
+  projectId?: Id<"projects">,
+  authorization?: InventoryAuthorization
 ): Promise<void> {
+  if (authorizedByCapture(user, type, authorization)) return;
   if (type === "entry") {
     if (hasPermission(user, "estoque.entrada")) return;
   } else if (type === "consumption") {
@@ -199,13 +221,14 @@ async function resolveDocumentLocations(
 export async function createInventoryDocument(
   ctx: MutationCtx,
   user: Doc<"users">,
-  input: CreateInventoryDocumentInput
+  input: CreateInventoryDocumentInput,
+  authorization?: InventoryAuthorization
 ): Promise<{
   documentId: Id<"inventoryDocuments">;
   status: "draft" | "pending_approval";
   issueCount: number;
 }> {
-  await assertCanCreate(ctx, user, input.type, input.projectId);
+  await assertCanCreate(ctx, user, input.type, input.projectId, authorization);
   validateLines(input.type, input.lines);
   await validateMaterials(ctx, input.lines);
 
