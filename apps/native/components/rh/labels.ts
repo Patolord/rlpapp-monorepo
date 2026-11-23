@@ -22,11 +22,16 @@ export const PUNCH_KIND: Record<string, string> = {
   almoco_saida: "Saída almoço",
   almoco_retorno: "Retorno almoço",
   saida: "Saída",
+  entrada_extra: "Entrada extra",
+  saida_extra: "Saída extra",
+  repetida: "Repetida",
+  desconsiderada: "Desconsiderada",
 };
 
 export const LIVE_STATUS: Record<string, { label: string; tone: Tone }> = {
   on_site: { label: "Na obra", tone: "success" },
   lunch: { label: "Almoço", tone: "info" },
+  away: { label: "Saiu (volta)", tone: "info" },
   left: { label: "Saiu", tone: "neutral" },
   absent: { label: "Ausente", tone: "warning" },
 };

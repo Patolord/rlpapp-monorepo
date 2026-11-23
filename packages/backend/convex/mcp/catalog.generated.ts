@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 50 módulos, 371 funções públicas.
+// 50 módulos, 380 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -454,19 +454,28 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "technicianPortal:listBrowsableQrsByProject": { kind: "authenticated" },
   "technicianPortal:listMyProjects": { kind: "authenticated" },
   "technicianPortal:listQrsByProject": { kind: "authenticated" },
+  "timeClock:adjustPunch": { kind: "permission", permission: "rh.ponto.write" },
   "timeClock:getDay": { kind: "permission", permission: "rh.ponto.read" },
   "timeClock:getLiveStatus": { kind: "permission", permission: "rh.ponto.read" },
   "timeClock:getMonthStats": { kind: "permission", permission: "rh.ponto.read" },
+  "timeClock:getPersonDay": { kind: "permission", permission: "rh.ponto.read" },
   "timeClock:getTimeClockSettings": { kind: "permission", permission: "rh.ponto.read" },
+  "timeClock:includeMissed": { kind: "permission", permission: "rh.ponto.write" },
   "timeClock:listClockPeople": { kind: "permission", permission: "rh.ponto.read" },
+  "timeClock:listPendingMissed": { kind: "permission", permission: "rh.ponto.read" },
   "timeClock:listWorksites": { kind: "permission", permission: "rh.ponto.read" },
+  "timeClock:reviewMissed": { kind: "permission", permission: "rh.ponto.write" },
   "timeClock:setClocksIn": { kind: "permission", permission: "rh.ponto.write" },
   "timeClock:setProjectGeofence": { kind: "permission", permission: "rh.ponto.write" },
+  "timeClock:setUserSchedule": { kind: "permission", permission: "rh.ponto.write" },
   "timeClock:updateTimeClockSettings": { kind: "permission", permission: "rh.ponto.write" },
+  "timeClockPunch:cancelRequest": { kind: "permission", permission: "ponto.registrar" },
   "timeClockPunch:generatePhotoUploadUrl": { kind: "permission", permission: "ponto.registrar" },
   "timeClockPunch:getContext": { kind: "authenticated" },
+  "timeClockPunch:myDays": { kind: "authenticated" },
   "timeClockPunch:myPunches": { kind: "authenticated" },
   "timeClockPunch:register": { kind: "permission", permission: "ponto.registrar" },
+  "timeClockPunch:requestMissed": { kind: "permission", permission: "ponto.registrar" },
   "towers:create": { kind: "permission", permission: "obras.write" },
   "towers:duplicate": { kind: "permission", permission: "obras.write" },
   "towers:list": { kind: "permission", permission: "obras.read" },

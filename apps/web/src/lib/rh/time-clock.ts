@@ -1,22 +1,24 @@
 /** Helpers de apresentação do módulo de ponto. Horários sempre em Brasília. */
 
+import {
+  PUNCH_ROLE_LABEL,
+  PUNCH_SLOTS,
+  type PunchRole,
+  type PunchSlot,
+} from "@rlpapp/shared/rh/pontoDay";
+
 export const BRT_TIME_ZONE = "America/Sao_Paulo";
 
-export type PunchKind = "entrada" | "almoco_saida" | "almoco_retorno" | "saida";
+/**
+ * O que uma marcação é na leitura do dia (`@rlpapp/shared/rh/pontoDay`): as
+ * quatro da jornada, extras, repetida ou desconsiderada.
+ */
+export type PunchKind = PunchRole;
 
-export const PUNCH_KIND_LABEL: Record<PunchKind, string> = {
-  entrada: "Entrada",
-  almoco_saida: "Saída almoço",
-  almoco_retorno: "Retorno almoço",
-  saida: "Saída",
-};
+export const PUNCH_KIND_LABEL: Record<PunchKind, string> = PUNCH_ROLE_LABEL;
 
-export const PUNCH_KIND_ORDER: PunchKind[] = [
-  "entrada",
-  "almoco_saida",
-  "almoco_retorno",
-  "saida",
-];
+/** As quatro marcações da jornada, em ordem. */
+export const PUNCH_KIND_ORDER: PunchSlot[] = [...PUNCH_SLOTS];
 
 /** Cores por tipo (badge + mapa). */
 export const PUNCH_KIND_COLOR: Record<PunchKind, string> = {
@@ -24,13 +26,18 @@ export const PUNCH_KIND_COLOR: Record<PunchKind, string> = {
   almoco_saida: "#f59e0b",
   almoco_retorno: "#2563eb",
   saida: "#dc2626",
+  entrada_extra: "#0d9488",
+  saida_extra: "#9333ea",
+  repetida: "#94a3b8",
+  desconsiderada: "#cbd5e1",
 };
 
-export type LiveStatus = "on_site" | "lunch" | "left" | "absent";
+export type LiveStatus = "on_site" | "lunch" | "away" | "left" | "absent";
 
 export const LIVE_STATUS_LABEL: Record<LiveStatus, string> = {
   on_site: "Na obra",
   lunch: "Em almoço",
+  away: "Saiu (volta)",
   left: "Encerrou o dia",
   absent: "Sem marcação",
 };
@@ -38,6 +45,7 @@ export const LIVE_STATUS_LABEL: Record<LiveStatus, string> = {
 export const LIVE_STATUS_COLOR: Record<LiveStatus, string> = {
   on_site: "#16a34a",
   lunch: "#f59e0b",
+  away: "#9333ea",
   left: "#64748b",
   absent: "#cbd5e1",
 };
@@ -54,6 +62,7 @@ export type StatusBadgeVariant =
 export const LIVE_STATUS_BADGE_VARIANT: Record<LiveStatus, StatusBadgeVariant> = {
   on_site: "success",
   lunch: "warning",
+  away: "info",
   left: "neutral",
   absent: "muted",
 };
@@ -63,6 +72,10 @@ export const PUNCH_KIND_BADGE_VARIANT: Record<PunchKind, StatusBadgeVariant> = {
   almoco_saida: "warning",
   almoco_retorno: "info",
   saida: "neutral",
+  entrada_extra: "info",
+  saida_extra: "info",
+  repetida: "muted",
+  desconsiderada: "muted",
 };
 
 /** Duração curta ("5 min", "3 h 20"). */

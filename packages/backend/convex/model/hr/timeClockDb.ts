@@ -7,7 +7,9 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { hasPermission } from "../../lib/rbac";
-import { summarizeDay } from "./timeClock";
+import { DEFAULT_WORK_SCHEDULE, type WorkSchedule } from "@rlpapp/shared/rh/pontoDay";
+import { summarizeDay, toBrtDateKey } from "./timeClock";
+import { isOpenDate, loadUserDay } from "./timeClockDay";
 
 type Ctx = QueryCtx | MutationCtx;
 
@@ -28,6 +30,8 @@ export type TimeClockSettings = {
   photoRequired: boolean;
   locationRequired: boolean;
   duplicateWindowMinutes: number;
+  /** Jornada padrão da empresa. */
+  schedule: WorkSchedule;
 };
 
 export const DEFAULT_SETTINGS: TimeClockSettings = {
@@ -35,6 +39,7 @@ export const DEFAULT_SETTINGS: TimeClockSettings = {
   photoRequired: false,
   locationRequired: true,
   duplicateWindowMinutes: DEFAULT_DUPLICATE_WINDOW_MINUTES,
+  schedule: DEFAULT_WORK_SCHEDULE,
 };
 
 async function getSettingsDoc(ctx: Ctx): Promise<Doc<"clockSettings"> | null> {
@@ -52,6 +57,7 @@ export async function getSettings(ctx: Ctx): Promise<TimeClockSettings> {
     photoRequired: doc.photoRequired,
     locationRequired: doc.locationRequired,
     duplicateWindowMinutes: doc.duplicateWindowMinutes,
+    schedule: doc.schedule ?? { ...DEFAULT_WORK_SCHEDULE },
   };
 }
 
@@ -174,8 +180,8 @@ export async function nextNsr(ctx: MutationCtx): Promise<number> {
 // ---------------------------------------------------------------------------
 
 /**
- * Recalcula o resumo diário do usuário a partir das marcações do dia. Sem
- * marcações, remove o resumo.
+ * Recalcula o resumo diário do usuário a partir das marcações e da leitura do
+ * dia (papéis e pendências). Sem marcações, remove o resumo.
  */
 export async function recomputeDaySummary(
   ctx: MutationCtx,
@@ -187,7 +193,13 @@ export async function recomputeDaySummary(
     .query("clockDays")
     .withIndex("by_user_and_date", (q) => q.eq("userId", userId).eq("date", date))
     .first();
-  const summary = summarizeDay(punches);
+  const { day } = await loadUserDay(ctx, {
+    userId,
+    date,
+    open: isOpenDate(date, toBrtDateKey(Date.now())),
+    punches,
+  });
+  const summary = summarizeDay(punches, day);
   if (!summary) {
     if (existing) await ctx.db.delete("clockDays", existing._id);
     return;

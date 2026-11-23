@@ -13,7 +13,7 @@ import { GroupBoard, WorksiteBoard } from "./live-boards";
 import { LiveMapCard } from "./live-map-card";
 import { PersonAnswer, PersonDetail, type ProjectId, type UserId } from "./live-person";
 
-const STATUS_ORDER: Record<LiveStatus, number> = { on_site: 0, lunch: 1, left: 2, absent: 3 };
+const STATUS_ORDER: Record<LiveStatus, number> = { on_site: 0, lunch: 1, away: 2, left: 3, absent: 4 };
 
 function useNow(intervalMs = 60_000): number {
   const [now, setNow] = useState(() => Date.now());

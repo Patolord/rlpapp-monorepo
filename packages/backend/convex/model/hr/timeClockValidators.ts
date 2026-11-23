@@ -1,5 +1,13 @@
 import { v } from "convex/values";
-import { timeClockGeofenceStatus, timeClockPunchKind } from "../../schema/hr";
+import {
+  timeClockDeclarableRole,
+  timeClockGeofenceStatus,
+  timeClockPunchKind,
+  timeClockPunchRole,
+  timeClockRequestStatus,
+  timeClockRoleBasis,
+  timeClockWorkSchedule,
+} from "../../schema/hr";
 
 /**
  * Validadores de retorno do painel de ponto (`convex/timeClock.ts`): regras,
@@ -11,11 +19,13 @@ export const timeClockSettingsValidator = v.object({
   photoRequired: v.boolean(),
   locationRequired: v.boolean(),
   duplicateWindowMinutes: v.number(),
+  schedule: timeClockWorkSchedule,
 });
 
-const liveStatusValidator = v.union(
+export const liveStatusValidator = v.union(
   v.literal("on_site"),
   v.literal("lunch"),
+  v.literal("away"),
   v.literal("left"),
   v.literal("absent")
 );
@@ -27,7 +37,10 @@ const dayPersonValidator = v.object({
   present: v.boolean(),
   firstPunchAt: v.union(v.number(), v.null()),
   lastPunchAt: v.union(v.number(), v.null()),
-  lastKind: v.union(timeClockPunchKind, v.null()),
+  lastKind: v.union(timeClockPunchRole, v.null()),
+  status: liveStatusValidator,
+  /** Pendências que pedem o RH (marcação faltando, a mais, horário informado). */
+  issueCount: v.number(),
   punchCount: v.number(),
   projectId: v.union(v.id("projects"), v.null()),
   projectName: v.union(v.string(), v.null()),
@@ -41,7 +54,8 @@ const dayPunchValidator = v.object({
   punchedAt: v.number(),
   timeLabel: v.string(),
   sequence: v.number(),
-  kind: timeClockPunchKind,
+  /** Papel na leitura do dia. */
+  kind: timeClockPunchRole,
   latitude: v.union(v.number(), v.null()),
   longitude: v.union(v.number(), v.null()),
   hasPhoto: v.boolean(),
@@ -77,6 +91,7 @@ export const timeClockDayValidator = v.object({
       almoco_retorno: v.number(),
       saida: v.number(),
     }),
+    issues: v.number(),
   }),
 });
 
@@ -87,7 +102,7 @@ const livePersonValidator = v.object({
   status: liveStatusValidator,
   /** Instante da última marcação (desde quando está nessa situação). */
   since: v.union(v.number(), v.null()),
-  lastKind: v.union(timeClockPunchKind, v.null()),
+  lastKind: v.union(timeClockPunchRole, v.null()),
   lastTimeLabel: v.union(v.string(), v.null()),
   projectId: v.union(v.id("projects"), v.null()),
   projectName: v.union(v.string(), v.null()),
@@ -98,7 +113,7 @@ const livePersonValidator = v.object({
   punches: v.array(
     v.object({
       timeLabel: v.string(),
-      kind: timeClockPunchKind,
+      kind: timeClockPunchRole,
       projectName: v.union(v.string(), v.null()),
     })
   ),
@@ -112,6 +127,7 @@ const liveWorksiteValidator = v.object({
   radiusMeters: v.number(),
   onSite: v.number(),
   lunch: v.number(),
+  away: v.number(),
   left: v.number(),
   people: v.array(
     v.object({
@@ -132,6 +148,7 @@ export const timeClockLiveStatusValidator = v.object({
     total: v.number(),
     onSite: v.number(),
     lunch: v.number(),
+    away: v.number(),
     left: v.number(),
     absent: v.number(),
     outsideFence: v.number(),
@@ -171,4 +188,95 @@ export const timeClockMonthStatsValidator = v.object({
       ),
     })
   ),
+});
+
+// ---------------------------------------------------------------------------
+// Leitura do dia (app e painel)
+// ---------------------------------------------------------------------------
+
+export const dayDetailValidator = v.object({
+  date: v.string(),
+  open: v.boolean(),
+  status: liveStatusValidator,
+  items: v.array(
+    v.object({
+      id: v.string(),
+      source: v.union(v.literal("punch"), v.literal("request")),
+      punchId: v.union(v.id("clockPunches"), v.null()),
+      requestId: v.union(v.id("clockPunchRequests"), v.null()),
+      minute: v.number(),
+      timeLabel: v.string(),
+      role: timeClockPunchRole,
+      basis: timeClockRoleBasis,
+      geofenceStatus: v.union(timeClockGeofenceStatus, v.null()),
+      worksiteName: v.union(v.string(), v.null()),
+      offline: v.boolean(),
+      hasPhoto: v.boolean(),
+    })
+  ),
+  issues: v.array(
+    v.object({
+      code: v.union(
+        v.literal("missing"),
+        v.literal("no_lunch"),
+        v.literal("extra"),
+        v.literal("pending_request"),
+        v.literal("short_lunch")
+      ),
+      severity: v.union(v.literal("action"), v.literal("info")),
+      slot: v.union(timeClockPunchKind, v.null()),
+      itemId: v.union(v.string(), v.null()),
+      message: v.string(),
+    })
+  ),
+});
+
+export const requestOriginValidator = v.union(
+  v.literal("app_prompt"),
+  v.literal("app_manual"),
+  v.literal("rh")
+);
+
+export const personDayValidator = v.object({
+  personName: v.string(),
+  schedule: timeClockWorkSchedule,
+  day: dayDetailValidator,
+  adjustments: v.array(
+    v.object({
+      _id: v.id("clockPunchAdjustments"),
+      punchId: v.id("clockPunches"),
+      punchTimeLabel: v.string(),
+      action: v.union(v.literal("set_role"), v.literal("set_aside"), v.literal("clear")),
+      role: v.union(timeClockDeclarableRole, v.null()),
+      reason: v.string(),
+      byName: v.string(),
+      at: v.number(),
+    })
+  ),
+  requests: v.array(
+    v.object({
+      _id: v.id("clockPunchRequests"),
+      role: timeClockDeclarableRole,
+      minute: v.number(),
+      timeLabel: v.string(),
+      status: timeClockRequestStatus,
+      origin: requestOriginValidator,
+      note: v.union(v.string(), v.null()),
+      reviewNote: v.union(v.string(), v.null()),
+      createdAt: v.number(),
+    })
+  ),
+});
+
+export const pendingRequestValidator = v.object({
+  _id: v.id("clockPunchRequests"),
+  userId: v.id("users"),
+  personName: v.string(),
+  date: v.string(),
+  role: timeClockDeclarableRole,
+  minute: v.number(),
+  timeLabel: v.string(),
+  origin: requestOriginValidator,
+  note: v.union(v.string(), v.null()),
+  createdAt: v.number(),
 });

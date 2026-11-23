@@ -8,11 +8,17 @@
 
 import { ConvexError } from "convex/values";
 import { normalizePermissionOverrides, resolveRoles } from "@rlpapp/shared/auth/permissions";
+import {
+  describeWorkSchedule,
+  workScheduleError,
+  type WorkSchedule,
+} from "@rlpapp/shared/rh/pontoDay";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
 import { hasPermission } from "../../lib/rbac";
 import { getSettings, loginOf, saveSettings } from "./timeClockDb";
+import { getUserScheduleOverride } from "./timeClockDay";
 import {
   MAX_GEOFENCE_RADIUS_METERS,
   MIN_GEOFENCE_RADIUS_METERS,
@@ -38,6 +44,8 @@ export type ClockPerson = {
   name: string;
   login: string | null;
   clocksIn: boolean;
+  /** Jornada própria (sem ela, vale a da empresa). */
+  schedule: WorkSchedule | null;
 };
 
 export type SetClocksInInput = { userId: Id<"users">; enabled: boolean };
@@ -47,7 +55,10 @@ export type UpdateTimeClockSettingsInput = {
   photoRequired?: boolean;
   locationRequired?: boolean;
   duplicateWindowMinutes?: number;
+  schedule?: WorkSchedule;
 };
+
+export type SetUserScheduleInput = { userId: Id<"users">; schedule: WorkSchedule | null };
 
 // ---------------------------------------------------------------------------
 // Cercas das obras
@@ -118,6 +129,9 @@ export async function listTimeClockPeople(ctx: QueryCtx): Promise<ClockPerson[]>
     .query("users")
     .withIndex("by_active", (q) => q.eq("isActive", true))
     .take(2000);
+  const overrides = new Map(
+    (await ctx.db.query("clockUserSchedules").take(2000)).map((row) => [row.userId, row.schedule])
+  );
   return users
     .filter((user) => !resolveRoles(user).includes("client"))
     .map((user) => ({
@@ -125,6 +139,7 @@ export async function listTimeClockPeople(ctx: QueryCtx): Promise<ClockPerson[]>
       name: user.name,
       login: loginOf(user),
       clocksIn: hasPermission(user, "ponto.registrar"),
+      schedule: overrides.get(user._id) ?? null,
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
@@ -197,6 +212,11 @@ export async function editTimeClockSettings(
     }
     next.duplicateWindowMinutes = input.duplicateWindowMinutes;
   }
+  if (input.schedule !== undefined) {
+    const error = workScheduleError(input.schedule);
+    if (error) throw new ConvexError(error);
+    next.schedule = { ...input.schedule };
+  }
   await saveSettings(ctx, next, user._id);
   await logAudit(ctx, user, {
     action: "update",
@@ -205,5 +225,42 @@ export async function editTimeClockSettings(
     entityLabel: "Ponto",
     snapshotBefore: current,
     snapshotAfter: next,
+  });
+}
+
+/**
+ * Define (ou remove, com `schedule: null`) a jornada própria de uma pessoa.
+ * Vale para a leitura dos dias dali em diante (os resumos já gravados são
+ * recalculados na próxima marcação do dia).
+ */
+export async function setUserWorkSchedule(
+  ctx: MutationCtx,
+  actor: Doc<"users">,
+  input: SetUserScheduleInput
+): Promise<void> {
+  const user = await ctx.db.get("users", input.userId);
+  if (!user) throw new ConvexError("Usuário não encontrado");
+  const current = await getUserScheduleOverride(ctx, user._id);
+  if (input.schedule) {
+    const error = workScheduleError(input.schedule);
+    if (error) throw new ConvexError(error);
+    const payload = { schedule: { ...input.schedule }, updatedAt: Date.now(), updatedByUserId: actor._id };
+    if (current) await ctx.db.patch("clockUserSchedules", current._id, payload);
+    else await ctx.db.insert("clockUserSchedules", { userId: user._id, ...payload });
+  } else if (current) {
+    await ctx.db.delete("clockUserSchedules", current._id);
+  } else {
+    return;
+  }
+  await logAudit(ctx, actor, {
+    action: "update",
+    tableName: "users",
+    recordId: user._id,
+    entityLabel: user.name,
+    details: input.schedule
+      ? `Jornada do ponto: ${describeWorkSchedule(input.schedule)}`
+      : "Jornada do ponto: volta à da empresa",
+    snapshotBefore: { schedule: current?.schedule ?? null },
+    snapshotAfter: { schedule: input.schedule },
   });
 }

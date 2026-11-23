@@ -47,6 +47,8 @@ function statusSentence(person: LivePerson, now: number): string {
       return `Está ${where} desde ${formatTime(since)}${elapsed ? ` (${elapsed})` : ""}.`;
     case "lunch":
       return `Saiu para almoço às ${formatTime(since)}${elapsed ? ` (há ${elapsed})` : ""}, ${person.projectName ? `em ${person.projectName}` : where}.`;
+    case "away":
+      return `Saiu às ${formatTime(since)}${elapsed ? ` (há ${elapsed})` : ""} e ainda não voltou.`;
     case "left":
       return `Encerrou o dia às ${formatTime(since)} ${where}.`;
     default:

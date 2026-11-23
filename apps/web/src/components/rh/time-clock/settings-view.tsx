@@ -21,6 +21,9 @@ import {
 import { useCan } from "@/hooks/use-can";
 import { getErrorMessage } from "@/lib/errors";
 
+import { describeWorkSchedule, type WorkSchedule } from "@rlpapp/shared/rh/pontoDay";
+
+import { PersonScheduleDialog, WorkScheduleCard } from "./work-schedule";
 import { WorksitesCard } from "./worksites-card";
 
 export function TimeClockSettingsView() {
@@ -32,6 +35,7 @@ export function TimeClockSettingsView() {
           Você pode ver as configurações do ponto, mas só quem configura o ponto pode alterá-las.
         </p>
       ) : null}
+      <WorkScheduleCard canWrite={canWrite} />
       <ClockPeopleCard canWrite={canWrite} />
       <WorksitesCard canWrite={canWrite} />
       <PunchRulesCard canWrite={canWrite} />
@@ -49,6 +53,11 @@ function ClockPeopleCard({ canWrite }: { canWrite: boolean }) {
   const [search, setSearch] = useState("");
   const [onlyClocking, setOnlyClocking] = useState(false);
   const [pending, setPending] = useState<Id<"users"> | null>(null);
+  const [scheduleOf, setScheduleOf] = useState<{
+    userId: Id<"users">;
+    name: string;
+    schedule: WorkSchedule | null;
+  } | null>(null);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -119,6 +128,7 @@ function ClockPeopleCard({ canWrite }: { canWrite: boolean }) {
               <TableRow>
                 <TableHead>Usuário</TableHead>
                 <TableHead>Login</TableHead>
+                <TableHead>Jornada</TableHead>
                 <TableHead className="text-right">Bate ponto</TableHead>
               </TableRow>
             </TableHeader>
@@ -127,6 +137,17 @@ function ClockPeopleCard({ canWrite }: { canWrite: boolean }) {
                 <TableRow key={person.userId}>
                   <TableCell className="font-medium">{person.name}</TableCell>
                   <TableCell className="text-muted-foreground">{person.login ?? "—"}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      disabled={!canWrite}
+                      onClick={() => setScheduleOf(person)}
+                      title={person.schedule ? describeWorkSchedule(person.schedule) : undefined}
+                    >
+                      {person.schedule ? "Própria" : "Da empresa"}
+                    </Button>
+                  </TableCell>
                   <TableCell className="text-right">
                     <Checkbox
                       aria-label={`${person.name} bate ponto`}
@@ -142,6 +163,7 @@ function ClockPeopleCard({ canWrite }: { canWrite: boolean }) {
             </TableBody>
           </Table>
         )}
+        <PersonScheduleDialog person={scheduleOf} onClose={() => setScheduleOf(null)} />
       </CardContent>
     </Card>
   );

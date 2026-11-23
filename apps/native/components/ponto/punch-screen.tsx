@@ -1,6 +1,14 @@
 import { useAuth } from "@clerk/expo";
 import { api } from "@rlpapp/backend/convex/_generated/api";
-import type { FunctionReturnType } from "convex/server";
+import {
+  brtMinuteOfDay,
+  PUNCH_ROLE_LABEL,
+  suggestMissed,
+  type MissedPunch,
+  type PunchPrompt,
+  type PunchPromptOption,
+  type PunchSlot,
+} from "@rlpapp/shared/rh/pontoDay";
 import { useMutation } from "convex/react";
 import Constants from "expo-constants";
 import * as Location from "expo-location";
@@ -10,17 +18,14 @@ import {
   CheckCircle2,
   Clock,
   CloudOff,
-  CloudUpload,
   MapPin,
   RefreshCw,
-  Trash2,
   UserX,
   WifiOff,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -30,27 +35,29 @@ import {
 } from "react-native";
 
 import { PunchCamera, type PunchPhoto } from "@/components/ponto/punch-camera";
+import { PendingPunchList, TodayPunchList } from "@/components/ponto/punch-lists";
+import { PunchPromptSheet } from "@/components/ponto/punch-prompt-sheet";
+import { GEOFENCE_LABEL, ReceiptModal, type Receipt } from "@/components/ponto/punch-receipt";
+import { TodaySlots } from "@/components/ponto/today-slots";
 import {
   AppButton,
   Banner,
-  Divider,
   EmptyState,
   LoadingState,
   Pill,
-  SectionTitle,
   Surface,
   useToast,
 } from "@/components/ui";
-import { formatDateKey, toBrtClockLabel, toBrtDateKey, toBrtTimeLabel } from "@/lib/brt-date";
+import { formatDateKey, toBrtClockLabel, toBrtDateKey } from "@/lib/brt-date";
 import { getErrorMessage } from "@/lib/errors";
 import { nearestWorksite } from "@/lib/geo";
+import { planPunch, readToday, scheduleOf } from "@/lib/punch-plan";
+import { syncPunchReminders } from "@/lib/punch-reminders";
 import {
   addPendingPunch,
   listPendingPunches,
   newClientPunchId,
   persistPunchPhoto,
-  removePendingPunch,
-  requestPunchSync,
   subscribePunchQueue,
   type PendingPunch,
 } from "@/lib/punch-queue";
@@ -59,26 +66,11 @@ import { uploadPhotos } from "@/lib/upload-photos";
 import { cacheTimeLabel, useCachedQuery } from "@/lib/use-cached-query";
 import { useOnline } from "@/lib/use-online";
 
-type Receipt = FunctionReturnType<typeof api.timeClockPunch.register>;
-
 /** A foto vale 5 minutos. */
 const PHOTO_MAX_AGE_MS = 5 * 60 * 1000;
 const LOCATION_TIMEOUT_MS = 15_000;
 /** Posição mais velha que isto é lida de novo na hora de registrar. */
 const LOCATION_MAX_AGE_MS = 60_000;
-
-const KIND_LABEL: Record<Receipt["kind"], string> = {
-  entrada: "Entrada",
-  almoco_saida: "Saída almoço",
-  almoco_retorno: "Retorno almoço",
-  saida: "Saída",
-};
-
-const GEOFENCE_LABEL = {
-  inside: "Dentro da obra",
-  outside: "Fora da obra",
-  not_controlled: "Sem cerca",
-} as const;
 
 type Position = {
   latitude: number;
@@ -126,10 +118,17 @@ function deviceInfo() {
   };
 }
 
+type PromptState =
+  | { mode: "punch"; prompt: PunchPrompt; nowMinute: number }
+  | { mode: "forgot"; prompt: PunchPrompt; nowMinute: number };
+
 /**
  * Tela de marcação de ponto (no modelo de um REP-P): foto (opcional ou
- * obrigatória), localização e o botão "Registrar ponto". Sem internet a
- * marcação entra na fila e sobe sozinha depois.
+ * obrigatória), localização e um botão que já diz o que vai registrar
+ * ("Registrar saída para almoço"). No caminho normal é um toque só; quando
+ * algo não bate (marcação esquecida, toque repetido, volta depois da saída) o
+ * app pergunta antes, com os horários já sugeridos. A pergunta nunca impede a
+ * marcação. Sem internet a marcação entra na fila e sobe sozinha depois.
  */
 export function PunchScreen() {
   const router = useRouter();
@@ -142,6 +141,7 @@ export function PunchScreen() {
   const cachedContext = useCachedQuery(userId ? `punch-context:${userId}` : null, api.timeClockPunch.getContext, { date: today });
   const context = cachedContext.data;
   const register = useMutation(api.timeClockPunch.register);
+  const requestMissed = useMutation(api.timeClockPunch.requestMissed);
   const generateUploadUrl = useMutation(api.timeClockPunch.generatePhotoUploadUrl);
 
   const [photo, setPhoto] = useState<PunchPhoto | null>(null);
@@ -150,7 +150,20 @@ export function PunchScreen() {
   const [sending, setSending] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [pending, setPending] = useState<PendingPunch[]>([]);
+  const [prompt, setPrompt] = useState<PromptState | null>(null);
   const locationRequested = useRef(false);
+
+  // O dia lido no aparelho (marcações de hoje + fila offline) e o próximo toque.
+  const todayRead = useMemo(() => readToday(context, pending, now), [context, pending, now]);
+  const plan = useMemo(() => planPunch(context, pending, now), [context, pending, now]);
+
+  // Lembretes locais acompanham o dia (volta do almoço, almoço, saída).
+  const punchesKey = `${context?.punches.length ?? 0}|${context?.requests?.length ?? 0}|${pending.length}`;
+  useEffect(() => {
+    if (!context?.allowed) return;
+    void syncPunchReminders(readToday(context, pending, Date.now()), scheduleOf(context));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só quando o dia muda
+  }, [punchesKey, context?.allowed]);
 
   // Relógio da tela.
   useEffect(() => {
@@ -210,7 +223,70 @@ export function PunchScreen() {
     (!rules?.photoRequired || photoReady) &&
     (!rules?.locationRequired || locationReady);
 
-  async function handleRegister() {
+  /** Toque no botão: confere foto e local e, se algo não bate, pergunta antes. */
+  function handlePress() {
+    if (!context?.allowed || !rules || sending || !userId) return;
+    if (rules.photoRequired && !photoReady) {
+      toast.error(photoExpired ? "Foto expirada, tire uma nova foto." : "Tire uma foto para registrar o ponto.");
+      return;
+    }
+    if (rules.locationRequired && !locationReady && location.status !== "error") {
+      toast.error("Aguarde a localização ser obtida.");
+      return;
+    }
+    const at = Date.now();
+    const next = planPunch(context, pending, at);
+    if (next.prompt) {
+      setPrompt({ mode: "punch", prompt: next.prompt, nowMinute: brtMinuteOfDay(at) });
+      return;
+    }
+    void handleRegister({});
+  }
+
+  /** "Esqueci" num quadro do dia: só o horário, que vai para o RH. */
+  function handleForgot(slot: PunchSlot) {
+    const at = Date.now();
+    const nowMinute = brtMinuteOfDay(at);
+    const missed = suggestMissed(todayRead, scheduleOf(context), [slot], nowMinute);
+    setPrompt({
+      mode: "forgot",
+      nowMinute,
+      prompt: {
+        title: `Esqueci: ${PUNCH_ROLE_LABEL[slot].toLowerCase()}`,
+        message: "Confira o horário. O RH recebe e confere.",
+        missed,
+        options: [{ key: "send", label: "Enviar para o RH", missed }],
+      },
+    });
+  }
+
+  async function sendForgot(missed: MissedPunch[]) {
+    if (!online) {
+      toast.error("Sem conexão. Tente de novo quando o sinal voltar.");
+      return;
+    }
+    try {
+      for (const item of missed) {
+        await requestMissed({ date: today, role: item.slot, minute: item.minute });
+      }
+      toast.show("Horário enviado para o RH.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Não foi possível enviar o horário"));
+    }
+  }
+
+  function handleChoice(option: PunchPromptOption) {
+    const current = prompt;
+    setPrompt(null);
+    if (!current || option.cancel) return;
+    if (current.mode === "forgot") {
+      void sendForgot(option.missed);
+      return;
+    }
+    void handleRegister({ declaredRole: option.declaredRole, missed: option.missed });
+  }
+
+  async function handleRegister(choice: { declaredRole?: PunchPromptOption["declaredRole"]; missed?: MissedPunch[] }) {
     if (!context?.allowed || !rules || sending || !userId) return;
     if (rules.photoRequired && !photoReady) {
       toast.error(photoExpired ? "Foto expirada, tire uma nova foto." : "Tire uma foto para registrar o ponto.");
@@ -251,6 +327,10 @@ export function PunchScreen() {
       longitude: position?.longitude,
       accuracyMeters: position?.accuracyMeters,
       photoCapturedAt: photo?.capturedAt,
+      declaredRole: choice.declaredRole,
+      missed: choice.missed?.length
+        ? choice.missed.map((item) => ({ role: item.slot, minute: item.minute }))
+        : undefined,
       ...deviceInfo(),
     };
 
@@ -462,101 +542,25 @@ export function PunchScreen() {
             icon={<Clock size={18} color={colors.primary} />}
           />
           <AppButton
-            label={sending ? "Registrando…" : "Registrar ponto"}
+            label={sending ? "Registrando…" : plan.actionLabel}
             size="lg"
             loading={sending}
             disabled={!canRegister}
-            onPress={() => void handleRegister()}
+            onPress={handlePress}
           />
           <Text style={[type.caption, { color: colors.textSecondary }]}>
             O horário oficial é o do servidor no momento do registro.
           </Text>
         </Surface>
 
-        {pending.length > 0 ? (
-          <>
-            <SectionTitle title="Aguardando envio" style={{ paddingHorizontal: 0 }} />
-            <Surface padded={false}>
-              {pending.map((item, index) => (
-                <View key={item.clientPunchId}>
-                  {index > 0 ? <Divider /> : null}
-                  <View style={styles.pendingRow}>
-                    {item.error ? (
-                      <CloudOff size={18} color={colors.danger} />
-                    ) : (
-                      <CloudUpload size={18} color={colors.warning} />
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text style={[type.bodyStrong, { color: colors.text }]}>
-                        {formatDateKey(toBrtDateKey(item.capturedAt))} às {toBrtTimeLabel(item.capturedAt)}
-                      </Text>
-                      <Text style={[type.caption, { color: item.error ? colors.danger : colors.textSecondary }]}>
-                        {item.error ?? (online ? "Enviando…" : "Aguardando conexão")}
-                      </Text>
-                    </View>
-                    {item.error ? (
-                      <Pressable
-                        onPress={() => void removePendingPunch(item.clientPunchId)}
-                        hitSlop={8}
-                        accessibilityRole="button"
-                        accessibilityLabel="Descartar marcação pendente"
-                      >
-                        <Trash2 size={18} color={colors.danger} />
-                      </Pressable>
-                    ) : (
-                      <Pressable onPress={requestPunchSync} hitSlop={8} accessibilityRole="button">
-                        <RefreshCw size={18} color={colors.primary} />
-                      </Pressable>
-                    )}
-                  </View>
-                </View>
-              ))}
-            </Surface>
-          </>
-        ) : null}
+        <TodaySlots day={todayRead} onForgot={online ? handleForgot : undefined} />
 
-        <SectionTitle
-          title="Marcações de hoje"
-          action="Minhas marcações"
-          onAction={() => router.push("/minhas-marcacoes" as Href)}
-          style={{ paddingHorizontal: 0 }}
+        <PendingPunchList pending={pending} online={online} />
+
+        <TodayPunchList
+          punches={context.punches}
+          onOpenHistory={() => router.push("/minhas-marcacoes" as Href)}
         />
-        {context.punches.length === 0 ? (
-          <Surface>
-            <Text style={[type.bodySm, { color: colors.textSecondary }]}>
-              Nenhuma marcação registrada hoje.
-            </Text>
-          </Surface>
-        ) : (
-          <Surface padded={false}>
-            {context.punches.map((punch, index) => (
-              <View key={punch._id}>
-                {index > 0 ? <Divider /> : null}
-                <View style={styles.pendingRow}>
-                  <Text style={styles.punchTime}>{punch.timeLabel}</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[type.bodyStrong, { color: colors.text }]}>{KIND_LABEL[punch.kind]}</Text>
-                    <Text style={[type.caption, { color: colors.textSecondary }]}>
-                      {punch.worksiteName ?? "Sem obra"}
-                      {punch.offline ? " · offline" : ""}
-                      {` · NSR ${punch.nsr}`}
-                    </Text>
-                  </View>
-                  <Pill
-                    label={GEOFENCE_LABEL[punch.geofenceStatus]}
-                    tone={
-                      punch.geofenceStatus === "inside"
-                        ? "success"
-                        : punch.geofenceStatus === "outside"
-                          ? "warning"
-                          : "neutral"
-                    }
-                  />
-                </View>
-              </View>
-            ))}
-          </Surface>
-        )}
       </ScrollView>
 
       <PunchCamera
@@ -566,6 +570,13 @@ export function PunchScreen() {
           setPhoto(captured);
           setCameraOpen(false);
         }}
+      />
+
+      <PunchPromptSheet
+        prompt={prompt?.prompt ?? null}
+        nowMinute={prompt?.nowMinute ?? 24 * 60}
+        onChoose={handleChoice}
+        onClose={() => setPrompt(null)}
       />
 
       <ReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />
@@ -590,45 +601,6 @@ function StepHeader({
         {title}
       </Text>
     </View>
-  );
-}
-
-/** "Ponto registrado": nome, horário oficial, obra, NSR e hash. */
-function ReceiptModal({ receipt, onClose }: { receipt: Receipt | null; onClose: () => void }) {
-  return (
-    <Modal visible={receipt !== null} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={styles.receipt}>
-          <View style={styles.receiptIcon}>
-            <CheckCircle2 size={34} color={colors.success} />
-          </View>
-          <Text style={[type.title, { color: colors.text, textAlign: "center" }]}>Ponto registrado</Text>
-          {receipt ? (
-            <View style={{ gap: space.xs, alignItems: "center" }}>
-              <Text style={[type.bodyStrong, { color: colors.text }]}>{receipt.personName}</Text>
-              <Text style={[type.body, { color: colors.text }]}>
-                {formatDateKey(receipt.date)} às {receipt.timeLabel} · {KIND_LABEL[receipt.kind]}
-              </Text>
-              <Text style={[type.bodySm, { color: colors.textSecondary }]}>
-                {receipt.worksiteName
-                  ? `${GEOFENCE_LABEL[receipt.geofenceStatus]} · ${receipt.worksiteName}`
-                  : GEOFENCE_LABEL[receipt.geofenceStatus]}
-              </Text>
-              <Text style={[type.caption, { color: colors.textSecondary }]}>NSR {receipt.nsr}</Text>
-              <Text selectable style={styles.hash}>
-                {receipt.hash}
-              </Text>
-              {receipt.duplicate ? (
-                <Text style={[type.caption, { color: colors.warning }]}>
-                  Esta marcação já havia sido registrada.
-                </Text>
-              ) : null}
-            </View>
-          ) : null}
-          <AppButton label="Ok" onPress={onClose} trailing={null} />
-        </View>
-      </View>
-    </Modal>
   );
 }
 
@@ -664,35 +636,4 @@ const styles = StyleSheet.create({
   },
   photo: { width: "100%", height: "100%" },
   inlineRow: { flexDirection: "row", alignItems: "center", gap: space.xs },
-  pendingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.md,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.md,
-  },
-  punchTime: { ...type.heading, color: colors.text, width: 56, fontVariant: ["tabular-nums"] },
-  backdrop: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: space.xl,
-  },
-  receipt: {
-    width: "100%",
-    maxWidth: 420,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: space.xl,
-    gap: space.lg,
-    alignItems: "stretch",
-  },
-  receiptIcon: { alignItems: "center" },
-  hash: {
-    ...type.caption,
-    color: colors.textMuted,
-    textAlign: "center",
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-  },
 });

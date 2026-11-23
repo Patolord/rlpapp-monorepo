@@ -68,6 +68,8 @@ export function OfflineSync() {
         offline: true,
         deviceModel: punch.deviceModel,
         appVersion: punch.appVersion,
+        declaredRole: punch.declaredRole,
+        missed: punch.missed,
       });
     },
     [generatePunchUploadUrl, registerPunch]
