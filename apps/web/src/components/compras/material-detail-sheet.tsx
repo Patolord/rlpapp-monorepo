@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { MaterialReplenishmentBadge } from "@/components/compras/material-replenishment-badge";
 import type { MaterialCatalogRow } from "@/components/compras/material-form-dialog";
+import { MaterialDraftReview } from "@/components/compras/material-draft-review";
 import { MaterialMergeDialog } from "@/components/compras/material-merge-dialog";
 import { MaterialPriceHistory } from "@/components/compras/material-price-history";
 import { MaterialStockPolicySheet } from "@/components/compras/material-stock-policy-sheet";
@@ -32,6 +33,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useCan } from "@/hooks/use-can";
 import { getErrorMessage } from "@/lib/errors";
 
 type MaterialDetailSheetProps = {
@@ -91,6 +93,13 @@ export function MaterialDetailSheet({
   const [policySheetOpen, setPolicySheetOpen] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<PolicyDraft | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState<{
+    _id: Id<"materials">;
+    name: string;
+    variantLabel: string | null;
+    sku: string | null;
+  } | null>(null);
+  const canEditMaterials = useCan("materiais.write");
 
   useEffect(() => {
     if (!material) return;
@@ -104,6 +113,7 @@ export function MaterialDetailSheet({
       setPolicySheetOpen(false);
       setEditingPolicy(null);
       setMergeOpen(false);
+      setMergeTarget(null);
     }
   }, [material]);
 
@@ -166,6 +176,17 @@ export function MaterialDetailSheet({
           </SheetHeader>
 
           <div className="space-y-6 px-4 pb-4">
+            {material.status === "draft" ? (
+              <MaterialDraftReview
+                materialId={material._id}
+                canEdit={canEditMaterials}
+                onMergeInto={(target) => {
+                  setMergeTarget(target);
+                  setMergeOpen(true);
+                }}
+                onApproved={() => onOpenChange(false)}
+              />
+            ) : null}
             {material.imageUrl ? (
               <img
                 src={material.imageUrl}
@@ -556,7 +577,11 @@ export function MaterialDetailSheet({
 
       <MaterialMergeDialog
         open={mergeOpen}
-        onOpenChange={setMergeOpen}
+        onOpenChange={(nextOpen) => {
+          setMergeOpen(nextOpen);
+          if (!nextOpen) setMergeTarget(null);
+        }}
+        preselectedTarget={mergeTarget}
         current={{
           _id: material._id,
           name: material.name,
@@ -565,6 +590,7 @@ export function MaterialDetailSheet({
         }}
         onMerged={(targetId) => {
           setMergeOpen(false);
+          setMergeTarget(null);
           onMerged?.(targetId);
         }}
       />

@@ -264,6 +264,11 @@ export const updateTimeClockSettings = pontoMutation({
     duplicateWindowMinutes: v.optional(v.number()),
     /** Jornada padrão da empresa. */
     schedule: v.optional(timeClockWorkSchedule),
+    // Lembretes por push ("HH:MM" em Brasília; `null` desliga).
+    entryReminderTime: v.optional(v.union(v.string(), v.null())),
+    exitReminderTime: v.optional(v.union(v.string(), v.null())),
+    // Dias da semana dos lembretes (0 = domingo … 6 = sábado).
+    reminderWeekdays: v.optional(v.array(v.number())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

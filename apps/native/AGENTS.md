@@ -27,7 +27,10 @@ especificação tela a tela ficam no projeto "RLP" do claude.ai
 
 - O backend grava os avisos em `notifications` e o app abre cada um pela chave `target`
   (`lib/notifications.ts` → `hrefForNotification`, por perfil). Destino novo: some a chave lá
-  e em `packages/backend/convex/lib/notifications.ts`.
+  e em `packages/backend/convex/model/notifications/notify.ts`.
+- Lembretes do ponto (`target: "ponto"`, categoria `ponto`) abrem a aba Ponto; a chave da
+  categoria aparece em Mais › Notificações para quem tem `ponto.registrar`
+  (`pushCategoriesFor`). Os horários ficam em Configurar ponto.
 - O app registra o token Expo depois do login (`components/push-registration.tsx`) e o
   desliga no Sair. Push precisa de build nativo novo (EAS); atualização OTA não entrega
   `expo-notifications` / `expo-device`. APNs está no EAS (chave `YL63MH497Z`). Android
@@ -37,6 +40,8 @@ especificação tela a tela ficam no projeto "RLP" do claude.ai
 ## Sem sinal
 
 - Fila de registros de campo: `lib/offline-queue.ts`; fila de ponto: `lib/punch-queue.ts`;
+  fila do cadastro em campo (Estoque › Cadastro): `lib/capture-queue.ts`, com a cópia do
+  catálogo em `lib/capture-catalog.ts` para conferir duplicatas sem sinal;
   envio: `components/offline-sync.tsx`.
 - Leitura com cópia no aparelho: `lib/use-cached-query.ts` (devolve também a hora da cópia).
 

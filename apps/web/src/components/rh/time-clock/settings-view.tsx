@@ -23,6 +23,7 @@ import { getErrorMessage } from "@/lib/errors";
 
 import { describeWorkSchedule, type WorkSchedule } from "@rlpapp/shared/rh/pontoDay";
 
+import { RemindersCard } from "./reminders-card";
 import { PersonScheduleDialog, WorkScheduleCard } from "./work-schedule";
 import { WorksitesCard } from "./worksites-card";
 
@@ -39,6 +40,7 @@ export function TimeClockSettingsView() {
       <ClockPeopleCard canWrite={canWrite} />
       <WorksitesCard canWrite={canWrite} />
       <PunchRulesCard canWrite={canWrite} />
+      <RemindersCard canWrite={canWrite} />
     </div>
   );
 }

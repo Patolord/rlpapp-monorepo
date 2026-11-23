@@ -81,6 +81,7 @@ describe("acessos combináveis (roles)", () => {
       "estoque.central.read",
       "estoque.write",
       "estoque.entrada",
+      "estoque.cadastro",
       "estoque.obras.write",
     ]);
     expect(me?.homeArea).toBe("compras");
@@ -212,6 +213,7 @@ describe("users.getCurrentUser", () => {
       "estoque.read",
       "estoque.central.read",
       "estoque.entrada",
+      "estoque.cadastro",
     ]);
 
     const asDirector = await withUser(t, { clerkId: "dir1", role: "director" });

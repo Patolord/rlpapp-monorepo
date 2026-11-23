@@ -13,6 +13,7 @@ import {
   workScheduleError,
   type WorkSchedule,
 } from "@rlpapp/shared/rh/pontoDay";
+import { normalizeWeekdays, reminderTimeError } from "@rlpapp/shared/rh/timeClockReminders";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
@@ -56,9 +57,20 @@ export type UpdateTimeClockSettingsInput = {
   locationRequired?: boolean;
   duplicateWindowMinutes?: number;
   schedule?: WorkSchedule;
+  /** "HH:MM"; `null` desliga o lembrete. */
+  entryReminderTime?: string | null;
+  exitReminderTime?: string | null;
+  reminderWeekdays?: number[];
 };
 
 export type SetUserScheduleInput = { userId: Id<"users">; schedule: WorkSchedule | null };
+
+function reminderTime(value: string | null, label: string): string | null {
+  if (value === null) return null;
+  const error = reminderTimeError(value);
+  if (error) throw new ConvexError(`${label}: ${error.toLowerCase()}`);
+  return value.trim();
+}
 
 // ---------------------------------------------------------------------------
 // Cercas das obras
@@ -216,6 +228,22 @@ export async function editTimeClockSettings(
     const error = workScheduleError(input.schedule);
     if (error) throw new ConvexError(error);
     next.schedule = { ...input.schedule };
+  }
+  if (input.entryReminderTime !== undefined) {
+    next.entryReminderTime = reminderTime(input.entryReminderTime, "Lembrete de entrada");
+  }
+  if (input.exitReminderTime !== undefined) {
+    next.exitReminderTime = reminderTime(input.exitReminderTime, "Lembrete de saída");
+  }
+  if (input.reminderWeekdays !== undefined) {
+    next.reminderWeekdays = normalizeWeekdays(input.reminderWeekdays);
+  }
+  if (
+    next.entryReminderTime !== null &&
+    next.exitReminderTime !== null &&
+    next.exitReminderTime <= next.entryReminderTime
+  ) {
+    throw new ConvexError("O lembrete de saída precisa ser depois do de entrada");
   }
   await saveSettings(ctx, next, user._id);
   await logAudit(ctx, user, {

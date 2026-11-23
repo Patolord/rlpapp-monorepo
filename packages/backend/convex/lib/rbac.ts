@@ -355,6 +355,9 @@ export const warehouseOrPurchasingMutation = anyPermissionMutation(
   "estoque.entrada",
   "materiais.write"
 );
+/** Cadastro em campo pelo celular: identificar, cadastrar e contar itens. */
+export const inventoryCaptureQuery = permissionQuery("estoque.cadastro");
+export const inventoryCaptureMutation = permissionMutation("estoque.cadastro");
 /** Aprovar ou recusar pedidos de material dos técnicos. */
 export const materialRequestsMutation = permissionMutation("estoque.solicitacoes");
 /** Regras de compatibilidade. */

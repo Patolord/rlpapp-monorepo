@@ -4,6 +4,7 @@
  * `convex/timeClock.ts`) e por `convex/timeClockPunch.ts` (marcação pelo app).
  */
 
+import { DEFAULT_REMINDER_WEEKDAYS } from "@rlpapp/shared/rh/timeClockReminders";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { hasPermission } from "../../lib/rbac";
@@ -32,15 +33,26 @@ export type TimeClockSettings = {
   duplicateWindowMinutes: number;
   /** Jornada padrão da empresa. */
   schedule: WorkSchedule;
+  /** "HH:MM" do lembrete de entrada; `null` = desligado. */
+  entryReminderTime: string | null;
+  /** "HH:MM" do lembrete de saída; `null` = desligado. */
+  exitReminderTime: string | null;
+  /** Dias da semana dos lembretes (0 = domingo). */
+  reminderWeekdays: number[];
 };
 
-export const DEFAULT_SETTINGS: TimeClockSettings = {
-  manDayCostCents: DEFAULT_MAN_DAY_COST_CENTS,
-  photoRequired: false,
-  locationRequired: true,
-  duplicateWindowMinutes: DEFAULT_DUPLICATE_WINDOW_MINUTES,
-  schedule: DEFAULT_WORK_SCHEDULE,
-};
+export function defaultSettings(): TimeClockSettings {
+  return {
+    manDayCostCents: DEFAULT_MAN_DAY_COST_CENTS,
+    photoRequired: false,
+    locationRequired: true,
+    duplicateWindowMinutes: DEFAULT_DUPLICATE_WINDOW_MINUTES,
+    schedule: { ...DEFAULT_WORK_SCHEDULE },
+    entryReminderTime: null,
+    exitReminderTime: null,
+    reminderWeekdays: [...DEFAULT_REMINDER_WEEKDAYS],
+  };
+}
 
 async function getSettingsDoc(ctx: Ctx): Promise<Doc<"clockSettings"> | null> {
   return await ctx.db
@@ -51,13 +63,26 @@ async function getSettingsDoc(ctx: Ctx): Promise<Doc<"clockSettings"> | null> {
 
 export async function getSettings(ctx: Ctx): Promise<TimeClockSettings> {
   const doc = await getSettingsDoc(ctx);
-  if (!doc) return { ...DEFAULT_SETTINGS };
+  if (!doc) return defaultSettings();
   return {
     manDayCostCents: doc.manDayCostCents,
     photoRequired: doc.photoRequired,
     locationRequired: doc.locationRequired,
     duplicateWindowMinutes: doc.duplicateWindowMinutes,
     schedule: doc.schedule ?? { ...DEFAULT_WORK_SCHEDULE },
+    entryReminderTime: doc.entryReminderTime ?? null,
+    exitReminderTime: doc.exitReminderTime ?? null,
+    reminderWeekdays: doc.reminderWeekdays ?? [...DEFAULT_REMINDER_WEEKDAYS],
+  };
+}
+
+/** Configurações no formato do documento (`null` vira campo ausente). */
+function toDocFields(settings: TimeClockSettings) {
+  const { entryReminderTime, exitReminderTime, ...rest } = settings;
+  return {
+    ...rest,
+    entryReminderTime: entryReminderTime ?? undefined,
+    exitReminderTime: exitReminderTime ?? undefined,
   };
 }
 
@@ -67,11 +92,43 @@ export async function saveSettings(
   userId: Id<"users"> | undefined
 ): Promise<void> {
   const doc = await getSettingsDoc(ctx);
-  const payload = { ...settings, updatedAt: Date.now(), updatedByUserId: userId };
+  const payload = { ...toDocFields(settings), updatedAt: Date.now(), updatedByUserId: userId };
   if (doc) {
+    // `undefined` no patch apaga o campo (lembrete desligado).
     await ctx.db.patch("clockSettings", doc._id, payload);
   } else {
     await ctx.db.insert("clockSettings", { key: "default", ...payload });
+  }
+}
+
+export type ReminderKind = "entrada" | "saida";
+
+/** Último dia ("YYYY-MM-DD") em que cada lembrete saiu. */
+export async function getReminderSentOn(ctx: Ctx): Promise<Record<ReminderKind, string | null>> {
+  const doc = await getSettingsDoc(ctx);
+  return {
+    entrada: doc?.entryReminderSentOn ?? null,
+    saida: doc?.exitReminderSentOn ?? null,
+  };
+}
+
+export async function markReminderSent(
+  ctx: MutationCtx,
+  kind: ReminderKind,
+  date: string
+): Promise<void> {
+  const marker =
+    kind === "entrada" ? { entryReminderSentOn: date } : { exitReminderSentOn: date };
+  const doc = await getSettingsDoc(ctx);
+  if (doc) {
+    await ctx.db.patch("clockSettings", doc._id, marker);
+  } else {
+    await ctx.db.insert("clockSettings", {
+      key: "default",
+      ...toDocFields(defaultSettings()),
+      ...marker,
+      updatedAt: Date.now(),
+    });
   }
 }
 

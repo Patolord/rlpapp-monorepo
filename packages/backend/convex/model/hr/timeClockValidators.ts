@@ -20,6 +20,9 @@ export const timeClockSettingsValidator = v.object({
   locationRequired: v.boolean(),
   duplicateWindowMinutes: v.number(),
   schedule: timeClockWorkSchedule,
+  entryReminderTime: v.union(v.string(), v.null()),
+  exitReminderTime: v.union(v.string(), v.null()),
+  reminderWeekdays: v.array(v.number()),
 });
 
 export const liveStatusValidator = v.union(

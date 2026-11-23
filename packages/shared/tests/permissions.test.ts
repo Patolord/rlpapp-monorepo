@@ -73,12 +73,14 @@ const PURCHASING: Permission[] = [
   "estoque.read",
   "estoque.central.read",
   "estoque.entrada",
+  "estoque.cadastro",
 ];
 const WAREHOUSE: Permission[] = [
   "estoque.read",
   "estoque.central.read",
   "estoque.write",
   "estoque.entrada",
+  "estoque.cadastro",
   "estoque.obras.write",
 ];
 const HR: Permission[] = [

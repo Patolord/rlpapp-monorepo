@@ -36,6 +36,7 @@ import {
   MAX_CLOCK_SKEW_MS,
   PHOTO_MAX_AGE_MS,
 } from "./timeClockPunch";
+import { clearTimeClockReminders } from "./timeClockReminders";
 import { upsertMissedRequest } from "./timeClockReview";
 
 /** Identificador do empregador que entra no hash do comprovante. */
@@ -382,6 +383,7 @@ export async function registerPunch(
   }
 
   await recomputeDaySummary(ctx, user._id, date);
+  await clearTimeClockReminders(ctx, user._id);
 
   const inserted = await ctx.db.get("clockPunches", punchId);
   if (!inserted) throw new ConvexError("Falha ao gravar a marcação");

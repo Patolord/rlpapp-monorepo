@@ -26,6 +26,8 @@ export type InventoryAccess = {
   canCreateProjectMovement: boolean;
   canConfigureRules: boolean;
   canQuickCreateMaterial: boolean;
+  /** Cadastro em campo pelo celular (`estoque.cadastro`). */
+  canCapture: boolean;
   isEngineer: boolean;
   canReviewMaterialRequests: boolean;
   canFulfillMaterialRequests: boolean;
@@ -59,6 +61,7 @@ export function getInventoryAccess(user: Doc<"users">): InventoryAccess {
     canCreateProjectMovement: can("estoque.obras.write"),
     canConfigureRules: can("estoque.rules"),
     canQuickCreateMaterial: canCreateEntry || can("materiais.write"),
+    canCapture: can("estoque.cadastro"),
     // Engenheiro (não admin): vê a aba de aprovações de exceções, que só
     // ele decide (canDecideInventoryException).
     isEngineer: hasRole(user, "engenheiro") && !isAdmin(user),

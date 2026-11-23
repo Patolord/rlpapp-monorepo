@@ -30,6 +30,8 @@ type MaterialMergeDialogProps = {
   onOpenChange: (open: boolean) => void;
   current: MergeCandidate;
   onMerged: (targetId: Id<"materials">) => void;
+  /** Já abre com este cadastro escolhido como o que permanece (revisão de rascunho). */
+  preselectedTarget?: MergeCandidate | null;
 };
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
@@ -46,6 +48,7 @@ export function MaterialMergeDialog({
   onOpenChange,
   current,
   onMerged,
+  preselectedTarget,
 }: MaterialMergeDialogProps) {
   const mergeMaterials = useMutation(api.materials.merge);
   const [term, setTerm] = useState("");
@@ -75,8 +78,11 @@ export function MaterialMergeDialog({
       setSelected(null);
       setKeepCurrent(true);
       setSubmitting(false);
+    } else if (preselectedTarget) {
+      setSelected(preselectedTarget);
+      setKeepCurrent(false);
     }
-  }, [open]);
+  }, [open, preselectedTarget]);
 
   const otherOptions = (suggestions ?? []).filter(
     (item) => item._id !== current._id
