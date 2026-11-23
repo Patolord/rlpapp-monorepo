@@ -106,6 +106,14 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
         content:
           "Registro de instalação e manutenção de equipamentos em campo",
       },
+      // O app não deve aparecer em buscadores. As páginas públicas que
+      // precisam ser encontradas (suporte, política de privacidade, exclusão
+      // de conta) declaram o próprio `robots`, que prevalece sobre este; a
+      // lista delas se repete no header `X-Robots-Tag` do `vercel.json`.
+      {
+        name: "robots",
+        content: "noindex, nofollow",
+      },
       {
         name: "theme-color",
         content: "#0f172a",
