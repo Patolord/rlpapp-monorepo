@@ -293,17 +293,22 @@ export async function registerPunch(
   const punchedAt = offline ? Math.min(input.capturedAt, now) : now;
   const date = toBrtDateKey(punchedAt);
 
-  // Horários esquecidos: antes desta marcação, no dia em que o aparelho os
-  // pediu. Um horário que não confere não impede a marcação: fica de fora e o
-  // comprovante avisa, para a pessoa informar de novo em "Minhas marcações".
+  // Horários esquecidos: são do dia em que o aparelho os pediu (o da captura,
+  // que pode ser o anterior quando a marcação chega depois da meia-noite) e
+  // antes do toque. Um horário que não confere não impede a marcação: fica de
+  // fora e o comprovante avisa, para a pessoa informar de novo.
   const requested = input.missed ?? [];
-  const sameDay = toBrtDateKey(input.capturedAt) === date;
-  const latestMinute = Math.min(brtMinuteOfDay(punchedAt), brtMinuteOfDay(input.capturedAt));
-  const missed = sameDay
-    ? requested
-        .filter((item) => Number.isInteger(item.minute) && item.minute >= 0 && item.minute < latestMinute)
-        .slice(0, MAX_MISSED_PER_PUNCH)
-    : [];
+  const missedDate = toBrtDateKey(input.capturedAt);
+  const latestMinute =
+    missedDate === date
+      ? Math.min(brtMinuteOfDay(punchedAt), brtMinuteOfDay(input.capturedAt))
+      : brtMinuteOfDay(input.capturedAt);
+  const missed =
+    missedDate <= date
+      ? requested
+          .filter((item) => Number.isInteger(item.minute) && item.minute >= 0 && item.minute < latestMinute)
+          .slice(0, MAX_MISSED_PER_PUNCH)
+      : [];
   const missedNotSent = requested.length - missed.length;
 
   // Localização
@@ -393,7 +398,7 @@ export async function registerPunch(
 
   for (const item of missed) {
     await upsertMissedRequest(ctx, user, {
-      date,
+      date: missedDate,
       role: item.role,
       minute: item.minute,
       origin: "app_prompt",
@@ -402,6 +407,9 @@ export async function registerPunch(
   }
 
   await recomputeDaySummary(ctx, user._id, date);
+  if (missed.length > 0 && missedDate !== date) {
+    await recomputeDaySummary(ctx, user._id, missedDate);
+  }
   await clearTimeClockReminders(ctx, user._id);
 
   const inserted = await ctx.db.get("clockPunches", punchId);
