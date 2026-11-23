@@ -1,4 +1,4 @@
-import { Clock, FilePlus2, FileText, FolderOpen, RotateCcw } from "lucide-react";
+import { Calculator, Clock, FilePlus2, FileText, FolderOpen, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   hasAutosave,
@@ -9,27 +9,22 @@ import {
 } from "../lib/files";
 import { MOD } from "../lib/platform";
 import { basename, useDoc } from "../lib/session";
-import { UNTITLED } from "../lib/types";
-import { useStore } from "../store";
+import { selectProjectOpen, useStore } from "../store";
 import { Button, Kbd } from "./ui";
 
 /** Shown instead of the viewer while the project has no drawing in view. */
 export function Welcome() {
   const project = useStore((s) => s.project);
   const recent = useStore((s) => s.recentProjects);
-  const filePath = useStore((s) => s.filePath);
+  const hasProject = useStore(selectProjectOpen);
   const loading = useDoc((s) => s.loading);
   const error = useDoc((s) => s.error);
-  const { setNewProjectOpen } = useStore.getState();
+  const { setNewProjectOpen, setEstimateOpen } = useStore.getState();
   const [canRestore, setCanRestore] = useState(false);
   useEffect(() => {
     void hasAutosave().then(setCanRestore);
   }, []);
-  const hasProject =
-    project.name !== UNTITLED ||
-    project.drawings.length > 0 ||
-    project.items.length > 0 ||
-    filePath !== null;
+  const items = project.items.length;
 
   return (
     <div className="absolute inset-0 flex items-center justify-center overflow-auto bg-neutral-800 p-6">
@@ -41,27 +36,43 @@ export function Welcome() {
               {hasProject ? project.name : "RLP Takeoff"}
             </h1>
             <p className="text-xs text-neutral-400">
-              {hasProject
-                ? "Takeoff aberto sem planta em exibição. Adicione uma planta (PDF) para começar a marcar."
-                : "Um takeoff reúne as plantas (PDF) de uma obra, as marcações, os locais e os itens de todas as disciplinas."}
+              {!hasProject
+                ? "Um takeoff reúne as plantas (PDF) de uma obra, as marcações, os locais e os itens de todas as disciplinas."
+                : items > 0
+                  ? `Takeoff sem planta em exibição, com ${items} ${items === 1 ? "item" : "itens"} no painel ao lado. Continue pelas calculadoras ou adicione plantas para medir.`
+                  : "Takeoff sem plantas. Faça o takeoff inteiro pelas calculadoras de estimativa, ou adicione plantas (PDF) para medir."}
             </p>
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {hasProject ? (
+        {hasProject ? (
+          // a takeoff is open: the two ways to fill it, by estimate or measuring on drawings
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Action
+              icon={<Calculator size={20} />}
+              title="Takeoff por estimativa"
+              hint={
+                <>
+                  <Kbd>E</Kbd> · calculadoras por serviço (split, exaustão…) geram os itens sem
+                  planta
+                </>
+              }
+              onClick={() => setEstimateOpen(true)}
+              primary
+            />
             <Action
               icon={<FileText size={20} />}
               title="Adicionar plantas"
               hint={
                 <>
-                  <Kbd>{MOD}</Kbd>+<Kbd>O</Kbd> ou arraste os arquivos para cá
+                  <Kbd>{MOD}</Kbd>+<Kbd>O</Kbd> ou arraste os arquivos para cá, para medir
                 </>
               }
               onClick={() => void pickAndOpenPdf()}
-              primary
             />
-          ) : (
+          </div>
+        ) : (
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Action
               icon={<FilePlus2 size={20} />}
               title="Novo takeoff"
@@ -73,31 +84,22 @@ export function Welcome() {
               onClick={() => setNewProjectOpen(true)}
               primary
             />
-          )}
-          <Action
-            icon={<FolderOpen size={20} />}
-            title="Abrir takeoff"
-            hint="arquivo .takeoff.json"
-            onClick={() => void pickAndOpenProject()}
-          />
-          {hasProject ? (
             <Action
-              icon={<FilePlus2 size={20} />}
-              title="Novo takeoff"
-              hint="começa outra obra"
-              onClick={() => setNewProjectOpen(true)}
+              icon={<FolderOpen size={20} />}
+              title="Abrir takeoff"
+              hint="arquivo .takeoff.json"
+              onClick={() => void pickAndOpenProject()}
             />
-          ) : (
             <Action
               icon={<FileText size={20} />}
               title="Abrir plantas direto"
               hint="cria um takeoff com o nome do primeiro arquivo"
               onClick={() => void pickAndOpenPdf()}
             />
-          )}
-        </div>
+          </div>
+        )}
 
-        {recent.length > 0 && (
+        {!hasProject && recent.length > 0 && (
           <div className="mt-6">
             <div className="mb-1 flex items-center gap-1 text-[12px] uppercase tracking-wide text-neutral-500">
               <Clock size={14} /> Recentes

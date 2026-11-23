@@ -86,15 +86,17 @@ function parsePermissionArgs(raw) {
 function hintFromFactory(factory, rawArgs) {
   const permissions = parsePermissionArgs(rawArgs);
   if (permissions.length === 0) return { kind: "unknown" };
-  if (/^permission(Query|Mutation)$/.test(factory)) {
+  if (/^permission(Query|Mutation|Action)$/.test(factory)) {
     return { kind: "permission", permission: permissions[0] };
   }
   return { kind: "anyPermission", permissions };
 }
 
-const FACTORY_RE = /^(permission|anyPermission)(Query|Mutation)$/;
+// permissionAction("x", { writes: true }): só os argumentos entre aspas
+// contam como permissão.
+const FACTORY_RE = /^(permission|anyPermission)(Query|Mutation|Action)$/;
 const NAMED_WRAPPER_RE =
-  /^export const (\w+)\s*=\s*((?:any)?[pP]ermission(?:Query|Mutation))\(([^)]*)\)\s*;/gm;
+  /^export const (\w+)\s*=\s*((?:any)?[pP]ermission(?:Query|Mutation|Action))\(([^)]*)\)\s*;/gm;
 {
   const rbacSource = readFileSync(join(convexDir, "lib/rbac.ts"), "utf8");
   let named;

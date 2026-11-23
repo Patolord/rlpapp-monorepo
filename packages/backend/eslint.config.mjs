@@ -22,6 +22,8 @@ export const DOMAIN_DEPENDENCIES = {
   inventory: ["engineering", "procurement", "notifications"],
   hr: [],
   ai: ["engineering"],
+  budgetBoard: [],
+  sharepoint: [],
 };
 
 export default [

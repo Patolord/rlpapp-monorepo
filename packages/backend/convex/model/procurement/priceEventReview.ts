@@ -8,6 +8,7 @@ import type {
 } from "../../schema/procurement";
 import { sanitizeDimensions, type MaterialDimensions } from "./catalog";
 import { enrichPriceEvent } from "./priceEvents";
+import { assertProposalRoom, proposalSupplierKey } from "./quoteProposalRules";
 import { computeNeedsReview } from "./pricing";
 import { promoteTakeoffItem } from "./takeoffPromotion";
 import { notFound, ruleViolation } from "../../lib/domainErrors";
@@ -30,6 +31,8 @@ export type AddPriceEventInput = {
   takeoffItemId?: Id<"takeoffItems">;
   dimensions?: MaterialDimensions;
   notes?: string;
+  /** Proposta do fornecedor que trouxe o preço (ver quoteProposals). */
+  quoteProposalId?: Id<"quoteProposals">;
 };
 
 /**
@@ -40,7 +43,12 @@ export type AddPriceEventInput = {
 export async function addPriceEvent(
   ctx: MutationCtx,
   user: Doc<"users">,
-  input: AddPriceEventInput
+  input: AddPriceEventInput,
+  /**
+   * createQuoteProposal already validated the proposal it just inserted (its
+   * supplier, date and line count): skip re-reading it once per line.
+   */
+  options: { proposalChecked?: boolean } = {}
 ): Promise<Id<"priceEvents">> {
   if (input.unitPriceCents < 0) throw ruleViolation("Preço inválido");
 
@@ -75,10 +83,34 @@ export async function addPriceEvent(
     dimensions = material?.dimensions;
   }
 
+  // Um preço de proposta é do fornecedor, da data e da validade dela, como em
+  // linkPriceEventsToProposal: senão cairia em outra coluna ou outra semana do
+  // mapa da rodada.
+  let supplierId = input.supplierId;
+  let supplierNameRaw = input.supplierNameRaw?.trim() || undefined;
+  let occurredAt = input.occurredAt;
+  let validUntil = input.validUntil;
+  if (input.quoteProposalId && !options.proposalChecked) {
+    const proposal = await ctx.db.get("quoteProposals", input.quoteProposalId);
+    if (!proposal) throw notFound("Proposta não encontrada");
+    if (
+      (supplierId || supplierNameRaw) &&
+      proposalSupplierKey({ supplierId, supplierNameRaw }) !==
+        proposalSupplierKey(proposal)
+    ) {
+      throw ruleViolation("O fornecedor do preço é diferente do da proposta");
+    }
+    await assertProposalRoom(ctx, proposal._id, 1);
+    supplierId = proposal.supplierId;
+    supplierNameRaw = proposal.supplierNameRaw;
+    occurredAt = proposal.receivedAt;
+    validUntil = proposal.validUntil;
+  }
+
   const needsReview = computeNeedsReview({
     materialId,
-    supplierId: input.supplierId,
-    supplierNameRaw: input.supplierNameRaw,
+    supplierId,
+    supplierNameRaw,
     unit,
     rawDescription,
   });
@@ -87,19 +119,20 @@ export async function addPriceEvent(
   const eventId = await ctx.db.insert("priceEvents", {
     rawDescription,
     materialId,
-    supplierId: input.supplierId,
-    supplierNameRaw: input.supplierNameRaw?.trim() || undefined,
+    supplierId,
+    supplierNameRaw,
     unitPriceCents: input.unitPriceCents,
     unit,
     quantity: input.quantity,
     source: input.source,
-    occurredAt: input.occurredAt,
-    validUntil: input.validUntil,
+    occurredAt,
+    validUntil,
     projectId,
     takeoffId,
     takeoffItemId: input.takeoffItemId,
     dimensions,
     notes: input.notes?.trim() || undefined,
+    quoteProposalId: input.quoteProposalId,
     reviewStatus: needsReview ? "unreviewed" : "reviewed",
     needsReview,
     createdAt: now,

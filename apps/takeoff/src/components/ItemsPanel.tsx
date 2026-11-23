@@ -335,7 +335,8 @@ export function ItemsPanel() {
         {project.items.length === 0 && (
           <p className="px-3 py-6 text-center text-xs text-neutral-500">
             Nenhum item ainda. Use <Kbd>{MOD}</Kbd>+<Kbd>K</Kbd> para buscar no catálogo, adicione
-            um abaixo ou escolha uma ferramenta e comece a medir — o item é criado automaticamente.
+            um abaixo, gere os itens pelas calculadoras de estimativa (<Kbd>E</Kbd>) ou escolha uma
+            ferramenta e comece a medir — o item é criado automaticamente.
           </p>
         )}
         {project.items.length > 0 && visible.length === 0 && (
@@ -922,6 +923,26 @@ function ItemRow({
                   title="Comprimento vertical somado ao total do item"
                 />
                 m
+              </label>
+            )}
+            {!item.derived && item.manualQty !== undefined && (
+              <label
+                className="flex items-center gap-1 whitespace-nowrap"
+                title="Quantidade por estimativa (sem medir), somada ao que foi medido na planta. Zero tira a estimativa"
+              >
+                Estimado
+                <input
+                  type="number"
+                  min={0}
+                  step="any"
+                  value={item.manualQty}
+                  onClick={stop}
+                  // a cleared field stays (0 counts nothing) so the number can be retyped
+                  onChange={(e) =>
+                    onChange({ manualQty: Math.max(0, Number(e.target.value) || 0) })
+                  }
+                  className="num-input w-16"
+                />
               </label>
             )}
           </div>

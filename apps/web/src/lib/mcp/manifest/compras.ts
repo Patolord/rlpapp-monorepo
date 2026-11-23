@@ -88,7 +88,7 @@ export const COMPRAS_TOOLS: readonly ToolSpec[] = [
     function: "suppliers:create",
     title: "Create supplier",
     description:
-      "Create a supplier: name (trade name) plus optional personType, legalName, taxId (CNPJ/CPF, validated and unique), stateRegistration, email, phone, website, address, paymentTerms, defaultLeadTimeDays, categories and notes. Returns the supplier id.",
+      "Create a supplier: name (trade name) plus optional personType, legalName, taxId (CNPJ/CPF, validated and unique), stateRegistration, email, phone, website, address, paymentTerms, defaultLeadTimeDays, categories and notes. Only a repeated CNPJ/CPF is refused, not a repeated name: search with list_suppliers (name, legal name or CNPJ digits) first and reuse the existing supplier. Returns the supplier id.",
   },
   {
     name: "update_supplier",
@@ -122,7 +122,8 @@ export const COMPRAS_TOOLS: readonly ToolSpec[] = [
     name: "list_price_events",
     function: "priceEvents:list",
     title: "List price events",
-    description: "Price observations (quotes, invoices, estimates) newest first, filterable by material, project or takeoff. Prices in BRL cents.",
+    description:
+      "Price observations (quotes, invoices, estimates) newest first, filterable by material, project, takeoff, supplier and period (`from`/`to` on the price date, ms). Prices in BRL cents. Before backfilling past quotes, list the supplier's prices in that period to avoid recording them twice.",
     serverArgs: nowArg,
   },
   {
@@ -145,7 +146,88 @@ export const COMPRAS_TOOLS: readonly ToolSpec[] = [
     function: "priceEvents:add",
     title: "Record price",
     description:
-      "Record a price observation for a material from a quote, invoice or estimate. unitPriceCents in BRL cents. For custom-fabricated items pass `takeoffItemId` (material, takeoff, project and dimensions are copied from the item; an item without a material gets a SKU for its size) or `dimensions` in mm, so the quote feeds size-based estimates. Returns the event id.",
+      "Record a price observation for a material from a quote, invoice or estimate. unitPriceCents in BRL cents. For custom-fabricated items pass `takeoffItemId` (material, takeoff, project and dimensions are copied from the item; an item without a material gets a SKU for its size) or `dimensions` in mm, so the quote feeds size-based estimates. For several prices from the same supplier proposal prefer create_quote_proposal; pass `quoteProposalId` to attach a single price to an existing proposal. Returns the event id.",
+  },
+  {
+    name: "create_quote_proposal",
+    function: "quoteProposals:create",
+    title: "Record supplier proposal",
+    description:
+      "Record a supplier's proposal: several prices sent at once (one line per material) with the date it arrived (`receivedAt`, ms), validity, payment terms and freight (cif | fob). Each line becomes a price event linked to the proposal, with the proposal's supplier, date and validity; unitPriceCents in BRL cents. Proposals received in the same week (Monday to Sunday, Brasília time) form one quote round compared in get_quote_week. Use this for backfilling history from past proposals; resolve materials with suggest_materials and suppliers with list_suppliers first. Returns the proposal id and the price event ids.",
+    fieldDescriptions: {
+      receivedAt: "When the proposal arrived (ms since epoch). Also the date of every price in it.",
+      validUntil: "Until when the prices hold (ms since epoch).",
+      paymentTerms: "Payment terms as the supplier wrote them (e.g. \"28 dias\", \"30/60\").",
+      lines:
+        "One per material: materialId (preferred) or rawDescription as the supplier wrote it, unitPriceCents, unit, quantity.",
+    },
+  },
+  {
+    name: "update_quote_proposal",
+    function: "quoteProposals:update",
+    title: "Update supplier proposal",
+    description:
+      "Fix a proposal's supplier, date, validity (null clears), payment terms, freight (null clears), reference or project. Supplier, date and validity are copied to every price of the proposal.",
+  },
+  {
+    name: "link_price_events_to_proposal",
+    function: "quoteProposals:linkPriceEvents",
+    title: "Link prices to proposal",
+    description:
+      "Attach price events already recorded one by one to the proposal they came from. Each event must be from the proposal's supplier; it takes the proposal's date and validity. Returns how many were linked.",
+    idempotent: true,
+  },
+  {
+    name: "get_quote_proposal",
+    function: "quoteProposals:get",
+    title: "Get supplier proposal",
+    description: "One proposal with its terms and the prices (lines) it brought.",
+  },
+  {
+    name: "list_quote_proposals",
+    function: "quoteProposals:list",
+    title: "List supplier proposals",
+    description: "Recent supplier proposals, newest first. Filter by `supplierId`.",
+  },
+  {
+    name: "list_quote_weeks",
+    function: "quoteProposals:listWeeks",
+    title: "List quote rounds (weeks)",
+    description:
+      "Weeks that have supplier prices, newest first (up to 20 per page), with how many prices, suppliers, materials and proposals each has; `truncated` marks a week with more prices than one read counts. A week (Monday to Sunday, Brasília time) is a quote round. For older weeks pass the response's `continueBefore` as `before`.",
+    serverArgs: nowArg,
+  },
+  {
+    name: "get_quote_week",
+    function: "quoteProposals:week",
+    title: "Compare suppliers in a week",
+    description:
+      "Quote map of the week containing `weekStart` (any instant of the week): one column per supplier (with its proposals), one row per material with each supplier's price that week (latest per supplier) and the cheapest supplier. Prices in a unit other than the material's (box, roll) get a row of their own (`materialUnit` false). Includes prices recorded without a proposal; takeoff estimates are left out. For a row's 6-month reference use get_material_price_reference.",
+    serverArgs: nowArg,
+  },
+  {
+    name: "get_material_price_reference",
+    function: "priceEvents:materialReference",
+    title: "Material budget reference",
+    description:
+      "Budget reference of one material: median of the suppliers' quotes of the last 6 months in the material's unit, range, spread, monthly change and status (ok: spread up to 10%; wide: above; stale: no quote in 90 days). Takeoff estimates and prices dismissed in review are left out. `reference.truncated` is true when the 6 months hold more than 500 quotes (or 3000 entries) and the reference uses the most recent ones. The stats come in `reference` (null without quotes in what was read); `truncated` says the window was not read whole, so with `reference` null a quote may still exist beyond the read.",
+    serverArgs: nowArg,
+  },
+  {
+    name: "get_family_price_history",
+    function: "priceEvents:familyHistory",
+    title: "Equipment price history",
+    description:
+      "Price history of a comparable item: the material family (by `familyId`, or the family of `materialId`) with every variant (brand, cycle, technology) and its budget reference (median of the last 6 months, range, spread, monthly change, status ok | wide | stale), plus every supplier quote of the last `monthsBack` months (default 12). The reference always covers its own 6 months, whatever `monthsBack` is; takeoff estimates are left out. `historyTruncated` marks a variant with more quotes than one read returns.",
+    serverArgs: nowArg,
+  },
+  {
+    name: "set_family_default_variant",
+    function: "priceEvents:setFamilyDefaultVariant",
+    title: "Set family reference variant",
+    description:
+      "Choose which variant of a material family is the budget price reference (e.g. the LG heat-and-cool 9,000 BTU/h split). Pass materialId null to clear.",
+    idempotent: true,
   },
   {
     name: "suggest_size_estimate",
@@ -216,6 +298,40 @@ export const COMPRAS_TOOLS: readonly ToolSpec[] = [
     title: "Delete takeoff item",
     description: "Remove a takeoff line. Cannot be undone.",
     destructive: true,
+  },
+  {
+    name: "estimate_split_installation",
+    function: "takeoffEstimates:split",
+    title: "Estimate a split AC installation",
+    description:
+      "Quick budget of a split air-conditioning installation without measuring the drawing: the same calculator as the desktop app's \"Takeoff por estimativa\". Give one row per machine type from the equipment list (type, capacity in BTU/h, quantity, refrigerant line metres per machine, default 8). Each capacity picks the company's line-set kit (copper and insulation sizes, interconnect cable both ways); returns the priced lines (company catalog, copper by weight), material/labour totals and the total with BDI. RLP's scope is the line set, the machines (optional) and installation labour per evaporator; drain, brackets and electrical points are not included. Labour and BDI are not in the catalog: ask the user for laborPerEvaporatorBrl and bdiPercent when unknown. Read the warnings (lines without a catalog price count as R$ 0). Nothing is saved; prices in BRL (reais).",
+    serverArgs: nowArg,
+    fieldDescriptions: {
+      machines:
+        "One row per machine type. type: Hi Wall (default), Cassete, Piso-teto or Duto. capacityBtu: e.g. 18000. lineType: Inverter (default) or Convencional. lineMeters: line length per machine, default 8. unitPriceBrl: machine price in reais; omit to use the catalog price.",
+      includeMachines: "Include the machines themselves (default true).",
+      laborPerEvaporatorBrl: "Installation labour per evaporator, in reais, regardless of line length.",
+      mobilizationBrl: "Mobilisation and travel for the whole job, in reais; omit when it is in the BDI.",
+      bdiPercent: "BDI (markup) over material + labour, in percent (e.g. 30).",
+    },
+  },
+  {
+    name: "estimate_bathroom_exhaust",
+    function: "takeoffEstimates:bathroomExhaust",
+    title: "Estimate bathroom exhaust",
+    description:
+      "Quick budget of bathroom exhaust per bathroom (the desktop app's calculator): fan, flexible aluminium duct, clamps, ceiling grille and outside cap at the duct diameter, plus labour per bathroom. Returns priced lines, totals with BDI and warnings (lines without a catalog price count as R$ 0). Nothing is saved; prices in BRL (reais).",
+    serverArgs: nowArg,
+    fieldDescriptions: {
+      diameterMm: "Duct diameter: 100 (default), 125 or 150 mm.",
+      ductMeters: "Flexible duct per bathroom, metres (default 3).",
+      fanPriceBrl: "Fan price in reais; omit to use the catalog price.",
+      grille: "Ceiling grille (default true).",
+      cap: "Outside cap (default true).",
+      clampsPerBathroom: "Clamps per bathroom (default 2).",
+      laborPerBathroomBrl: "Installation labour per bathroom, in reais.",
+      bdiPercent: "BDI (markup) over material + labour, in percent (e.g. 30).",
+    },
   },
 ];
 

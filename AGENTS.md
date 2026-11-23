@@ -24,7 +24,8 @@ O site institucional (rlpeng.com.br) não fica aqui: está no repositório
 Direção em andamento: lógica usada pelo dashboard e pelo app desktop migra para `packages/shared`
 (o cálculo de dutos já mora em `packages/shared/src/engenharia/ducts.ts` e é o único; o dashboard
 não tem mais calculadora própria; os tipos e as tabelas de fábrica do takeoff, kits, pesos e
-marcas VRF, estão em `packages/shared/src/takeoff/`), e o app desktop passa a se integrar mais ao
+marcas VRF, e as calculadoras de "Takeoff por estimativa", que o MCP também expõe, estão em
+`packages/shared/src/takeoff/`), e o app desktop passa a se integrar mais ao
 backend (login, publicação de orçamentos, configurações padrão da empresa editadas em App Takeoff
 no dashboard).
 Confira o código atual antes de supor onde algo mora.

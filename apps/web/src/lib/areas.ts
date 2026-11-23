@@ -5,6 +5,8 @@ import { can, type HomeArea, type Permission, type Role } from "@rlpapp/shared/a
 // liberada para quem tem engenharia; configuracoes é a administração
 // (usuários, política de privacidade) e takeoff é a configuração do app
 // desktop RLP Takeoff (kits), ambas liberadas para engenharia e compras.
+// "orcamentos" é o quadro de orçamentos, aberto para engenharia e para quem
+// tem só o acesso ao app desktop (orçamentistas), sem passar pelas obras.
 export type DepartmentArea =
   | "rh"
   | "engenharia"
@@ -12,7 +14,8 @@ export type DepartmentArea =
   | "estoque"
   | "backoffice"
   | "configuracoes"
-  | "takeoff";
+  | "takeoff"
+  | "orcamentos";
 
 /**
  * Permissões (qualquer uma) que abrem cada área do dashboard. Espelha o que
@@ -37,6 +40,8 @@ export const AREA_PERMISSIONS: Record<DepartmentArea, Permission[]> = {
   configuracoes: ["obras.read", "compras.read", "admin.manage"],
   // App Takeoff: dutos, VRF e gerais e presets.
   takeoff: ["takeoff.config"],
+  // Quadro de orçamentos e a conferência com as pastas da TRELLO.
+  orcamentos: ["orcamentos.quadro.read"],
 };
 
 /** Caminho de entrada de cada área (a primeira página dela). */
@@ -48,6 +53,7 @@ export const AREA_PATHS: Record<DepartmentArea, string> = {
   backoffice: "/backoffice",
   configuracoes: "/configuracoes",
   takeoff: "/takeoff/dutos",
+  orcamentos: "/orcamentos",
 };
 
 const OFFICE_AREAS = ["engenharia", "estoque", "compras", "rh", "backoffice"] as const;
@@ -91,6 +97,7 @@ export function resolveHomePath(user: HomeUser): string {
   }
   const office = firstOfficeArea(user);
   if (office) return AREA_PATHS[office];
+  if (can(user, ...AREA_PERMISSIONS.orcamentos)) return AREA_PATHS.orcamentos;
   if (can(user, ...AREA_PERMISSIONS.takeoff)) return AREA_PATHS.takeoff;
   if (!user.isStaff && user.roles.includes("client")) return "/portal";
   return UNIVERSAL_HOME_PATH;

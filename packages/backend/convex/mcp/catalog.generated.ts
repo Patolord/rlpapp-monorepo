@@ -2,53 +2,57 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 46 módulos, 344 funções públicas.
+// 50 módulos, 371 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
 import * as m3 from "../alimonies";
 import * as m4 from "../auditLogs";
-import * as m5 from "../checklists";
-import * as m6 from "../contractors";
-import * as m7 from "../contracts";
-import * as m8 from "../customers";
-import * as m9 from "../dashboard";
-import * as m10 from "../employees";
-import * as m11 from "../environments";
-import * as m12 from "../equipment";
-import * as m13 from "../equipmentHistory";
-import * as m14 from "../floors";
-import * as m15 from "../healthCheck";
-import * as m16 from "../inventory";
-import * as m17 from "../inventoryRequests";
-import * as m18 from "../inventoryStockPolicies";
-import * as m19 from "../maintenanceLogs";
-import * as m20 from "../materials";
-import * as m21 from "../medicoes";
-import * as m22 from "../notifications";
-import * as m23 from "../payroll";
-import * as m24 from "../portal";
-import * as m25 from "../priceEvents";
-import * as m26 from "../projectDocuments";
-import * as m27 from "../projectEquipment";
-import * as m28 from "../projectUnits";
-import * as m29 from "../projects";
-import * as m30 from "../qrCodes";
-import * as m31 from "../reports";
-import * as m32 from "../suppliers";
-import * as m33 from "../systems";
-import * as m34 from "../takeoffAuth";
-import * as m35 from "../takeoffCatalog";
-import * as m36 from "../takeoffKits";
-import * as m37 from "../takeoffMaterials";
-import * as m38 from "../takeoffSettings";
-import * as m39 from "../takeoffs";
-import * as m40 from "../technicianActivity";
-import * as m41 from "../technicianPortal";
-import * as m42 from "../timeClock";
-import * as m43 from "../timeClockPunch";
-import * as m44 from "../towers";
-import * as m45 from "../users";
+import * as m5 from "../budgetBoard";
+import * as m6 from "../checklists";
+import * as m7 from "../contractors";
+import * as m8 from "../contracts";
+import * as m9 from "../customers";
+import * as m10 from "../dashboard";
+import * as m11 from "../employees";
+import * as m12 from "../environments";
+import * as m13 from "../equipment";
+import * as m14 from "../equipmentHistory";
+import * as m15 from "../floors";
+import * as m16 from "../healthCheck";
+import * as m17 from "../inventory";
+import * as m18 from "../inventoryRequests";
+import * as m19 from "../inventoryStockPolicies";
+import * as m20 from "../maintenanceLogs";
+import * as m21 from "../materials";
+import * as m22 from "../medicoes";
+import * as m23 from "../notifications";
+import * as m24 from "../payroll";
+import * as m25 from "../portal";
+import * as m26 from "../priceEvents";
+import * as m27 from "../projectDocuments";
+import * as m28 from "../projectEquipment";
+import * as m29 from "../projectUnits";
+import * as m30 from "../projects";
+import * as m31 from "../qrCodes";
+import * as m32 from "../quoteProposals";
+import * as m33 from "../reports";
+import * as m34 from "../sharepoint";
+import * as m35 from "../suppliers";
+import * as m36 from "../systems";
+import * as m37 from "../takeoffAuth";
+import * as m38 from "../takeoffCatalog";
+import * as m39 from "../takeoffEstimates";
+import * as m40 from "../takeoffKits";
+import * as m41 from "../takeoffMaterials";
+import * as m42 from "../takeoffSettings";
+import * as m43 from "../takeoffs";
+import * as m44 from "../technicianActivity";
+import * as m45 from "../technicianPortal";
+import * as m46 from "../timeClock";
+import * as m47 from "../timeClockPunch";
+import * as m48 from "../towers";
+import * as m49 from "../users";
 
 export type AccessHint =
   | { kind: "public" }
@@ -64,47 +68,51 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   aiIntents: m2,
   alimonies: m3,
   auditLogs: m4,
-  checklists: m5,
-  contractors: m6,
-  contracts: m7,
-  customers: m8,
-  dashboard: m9,
-  employees: m10,
-  environments: m11,
-  equipment: m12,
-  equipmentHistory: m13,
-  floors: m14,
-  healthCheck: m15,
-  inventory: m16,
-  inventoryRequests: m17,
-  inventoryStockPolicies: m18,
-  maintenanceLogs: m19,
-  materials: m20,
-  medicoes: m21,
-  notifications: m22,
-  payroll: m23,
-  portal: m24,
-  priceEvents: m25,
-  projectDocuments: m26,
-  projectEquipment: m27,
-  projectUnits: m28,
-  projects: m29,
-  qrCodes: m30,
-  reports: m31,
-  suppliers: m32,
-  systems: m33,
-  takeoffAuth: m34,
-  takeoffCatalog: m35,
-  takeoffKits: m36,
-  takeoffMaterials: m37,
-  takeoffSettings: m38,
-  takeoffs: m39,
-  technicianActivity: m40,
-  technicianPortal: m41,
-  timeClock: m42,
-  timeClockPunch: m43,
-  towers: m44,
-  users: m45,
+  budgetBoard: m5,
+  checklists: m6,
+  contractors: m7,
+  contracts: m8,
+  customers: m9,
+  dashboard: m10,
+  employees: m11,
+  environments: m12,
+  equipment: m13,
+  equipmentHistory: m14,
+  floors: m15,
+  healthCheck: m16,
+  inventory: m17,
+  inventoryRequests: m18,
+  inventoryStockPolicies: m19,
+  maintenanceLogs: m20,
+  materials: m21,
+  medicoes: m22,
+  notifications: m23,
+  payroll: m24,
+  portal: m25,
+  priceEvents: m26,
+  projectDocuments: m27,
+  projectEquipment: m28,
+  projectUnits: m29,
+  projects: m30,
+  qrCodes: m31,
+  quoteProposals: m32,
+  reports: m33,
+  sharepoint: m34,
+  suppliers: m35,
+  systems: m36,
+  takeoffAuth: m37,
+  takeoffCatalog: m38,
+  takeoffEstimates: m39,
+  takeoffKits: m40,
+  takeoffMaterials: m41,
+  takeoffSettings: m42,
+  takeoffs: m43,
+  technicianActivity: m44,
+  technicianPortal: m45,
+  timeClock: m46,
+  timeClockPunch: m47,
+  towers: m48,
+  users: m49,
 };
 
 export const ACCESS_HINTS: Record<string, AccessHint> = {
@@ -137,6 +145,16 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "alimonies:updateLine": { kind: "permission", permission: "rh.folha.write" },
   "auditLogs:listByRecord": { kind: "permission", permission: "admin.manage" },
   "auditLogs:listByTable": { kind: "permission", permission: "admin.manage" },
+  "budgetBoard:checkFolders": { kind: "permission", permission: "orcamentos.quadro.read" },
+  "budgetBoard:create": { kind: "permission", permission: "orcamentos.quadro.write" },
+  "budgetBoard:importFolders": { kind: "permission", permission: "orcamentos.quadro.write" },
+  "budgetBoard:linkFolder": { kind: "permission", permission: "orcamentos.quadro.write" },
+  "budgetBoard:list": { kind: "permission", permission: "orcamentos.quadro.read" },
+  "budgetBoard:listAssignees": { kind: "permission", permission: "orcamentos.quadro.read" },
+  "budgetBoard:move": { kind: "permission", permission: "orcamentos.quadro.write" },
+  "budgetBoard:moveFolder": { kind: "permission", permission: "orcamentos.quadro.write" },
+  "budgetBoard:remove": { kind: "permission", permission: "orcamentos.quadro.write" },
+  "budgetBoard:update": { kind: "permission", permission: "orcamentos.quadro.write" },
   "checklists:addItem": { kind: "permission", permission: "obras.write" },
   "checklists:applyTemplate": { kind: "permission", permission: "obras.write" },
   "checklists:createTemplate": { kind: "permission", permission: "obras.write" },
@@ -294,10 +312,13 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "portal:listMyProjects": { kind: "authenticated" },
   "priceEvents:add": { kind: "permission", permission: "precos.write" },
   "priceEvents:dashboardStats": { kind: "permission", permission: "suprimentos.read" },
+  "priceEvents:familyHistory": { kind: "permission", permission: "suprimentos.read" },
   "priceEvents:historyForMaterial": { kind: "permission", permission: "suprimentos.read" },
   "priceEvents:latestForMaterial": { kind: "permission", permission: "suprimentos.read" },
   "priceEvents:list": { kind: "permission", permission: "suprimentos.read" },
+  "priceEvents:materialReference": { kind: "permission", permission: "suprimentos.read" },
   "priceEvents:reviewQueue": { kind: "permission", permission: "compras.read" },
+  "priceEvents:setFamilyDefaultVariant": { kind: "permission", permission: "precos.write" },
   "priceEvents:suggestEstimate": { kind: "permission", permission: "suprimentos.read" },
   "priceEvents:updateReview": { kind: "permission", permission: "precos.write" },
   "projectDocuments:create": { kind: "permission", permission: "documentos.write" },
@@ -362,7 +383,19 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "qrCodes:search": { kind: "permission", permission: "obras.read" },
   "qrCodes:setBatchProject": { kind: "permission", permission: "obras.write" },
   "qrCodes:stats": { kind: "permission", permission: "obras.read" },
+  "quoteProposals:create": { kind: "permission", permission: "precos.write" },
+  "quoteProposals:get": { kind: "permission", permission: "suprimentos.read" },
+  "quoteProposals:linkPriceEvents": { kind: "permission", permission: "precos.write" },
+  "quoteProposals:list": { kind: "permission", permission: "suprimentos.read" },
+  "quoteProposals:listWeeks": { kind: "permission", permission: "suprimentos.read" },
+  "quoteProposals:update": { kind: "permission", permission: "precos.write" },
+  "quoteProposals:week": { kind: "permission", permission: "suprimentos.read" },
   "reports:getProjectReport": { kind: "permission", permission: "obras.read" },
+  "sharepoint:createFolderAt": { kind: "permission", permission: "arquivos.write" },
+  "sharepoint:listFolderContents": { kind: "permission", permission: "arquivos.read" },
+  "sharepoint:listLibraries": { kind: "permission", permission: "arquivos.read" },
+  "sharepoint:readFileContents": { kind: "permission", permission: "arquivos.read" },
+  "sharepoint:saveFile": { kind: "permission", permission: "arquivos.write" },
   "suppliers:addContact": { kind: "permission", permission: "fornecedores.write" },
   "suppliers:bulkCreate": { kind: "permission", permission: "fornecedores.write" },
   "suppliers:create": { kind: "permission", permission: "fornecedores.write" },
@@ -381,6 +414,8 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "systems:updateSystemDetails": { kind: "permission", permission: "obras.write" },
   "takeoffAuth:createCode": { kind: "public" },
   "takeoffCatalog:current": { kind: "permission", permission: "suprimentos.read" },
+  "takeoffEstimates:bathroomExhaust": { kind: "permission", permission: "suprimentos.read" },
+  "takeoffEstimates:split": { kind: "permission", permission: "suprimentos.read" },
   "takeoffKits:list": { kind: "permission", permission: "suprimentos.read" },
   "takeoffKits:missingFactory": { kind: "permission", permission: "suprimentos.read" },
   "takeoffKits:remove": { kind: "permission", permission: "takeoff.config" },

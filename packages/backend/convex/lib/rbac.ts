@@ -1,4 +1,5 @@
 import {
+  customAction,
   customCtx,
   customMutation,
   customQuery,
@@ -18,7 +19,7 @@ import {
   type Permission,
   type Role,
 } from "@rlpapp/shared/auth/permissions";
-import { mutation, query } from "../_generated/server";
+import { action, mutation, query } from "../_generated/server";
 import type { ActionCtx, MutationCtx, QueryCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
@@ -157,6 +158,19 @@ export async function requireActionPermission(
   await ctx.runQuery(internal.users.assertPermission, { permission });
 }
 
+/**
+ * Como `requireActionPermission`, para actions que gravam fora do Convex
+ * (SharePoint...). Valida numa mutation interna, onde a política de tokens de
+ * agente (lib/agentTokens.ts) recusa token somente-leitura pela permissão
+ * gravada no banco, e não só pela claim do JWT.
+ */
+export async function requireActionWritePermission(
+  ctx: ActionCtx,
+  permission: Permission
+): Promise<void> {
+  await ctx.runMutation(internal.users.assertPermissionForWrite, { permission });
+}
+
 // ---------------------------------------------------------------------------
 // Fábricas de wrappers (injetam ctx.user autenticado e ativo)
 // ---------------------------------------------------------------------------
@@ -179,6 +193,28 @@ export function permissionMutation(permission: Permission) {
       const user = await requireUser(ctx);
       requirePermission(user, permission);
       return { user };
+    })
+  );
+}
+
+/**
+ * Actions de uma funcionalidade. Sem `ctx.db`, a checagem roda numa função
+ * interna sob a mesma identidade antes do handler; `writes: true` usa a
+ * checagem de escrita (token de agente somente-leitura é recusado).
+ */
+export function permissionAction(
+  permission: Permission,
+  options: { writes: boolean }
+) {
+  return customAction(
+    action,
+    customCtx(async (ctx) => {
+      if (options.writes) {
+        await requireActionWritePermission(ctx, permission);
+      } else {
+        await requireActionPermission(ctx, permission);
+      }
+      return {};
     })
   );
 }
@@ -268,6 +304,16 @@ export const medicoesAprovarMutation = permissionMutation("medicoes.aprovar");
 export const documentosQuery = permissionQuery("documentos.read");
 export const documentosMutation = permissionMutation("documentos.write");
 export const orcamentosMutation = permissionMutation("orcamentos.write");
+/** Quadro de orçamentos (kanban) e a conferência com as pastas da TRELLO. */
+export const quadroOrcamentosQuery = permissionQuery("orcamentos.quadro.read");
+export const quadroOrcamentosMutation = permissionMutation("orcamentos.quadro.write");
+export const quadroOrcamentosReadAction = permissionAction("orcamentos.quadro.read", {
+  writes: false,
+});
+/** Mover a pasta da TRELLO para a etapa do card (grava no SharePoint). */
+export const quadroOrcamentosWriteAction = permissionAction("orcamentos.quadro.write", {
+  writes: true,
+});
 export const assistenteQuery = permissionQuery("assistente.use");
 export const assistenteMutation = permissionMutation("assistente.use");
 
@@ -294,6 +340,11 @@ export const engineeringOrPurchasingMutation = anyPermissionMutation(
   "orcamentos.write",
   "materiais.write"
 );
+
+// Arquivos da empresa no SharePoint (actions: falam com o Microsoft Graph)
+export const arquivosQuery = permissionQuery("arquivos.read");
+export const arquivosReadAction = permissionAction("arquivos.read", { writes: false });
+export const arquivosWriteAction = permissionAction("arquivos.write", { writes: true });
 
 // Estoque
 export const inventoryQuery = permissionQuery("estoque.read");

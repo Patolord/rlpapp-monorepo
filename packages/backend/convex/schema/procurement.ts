@@ -147,6 +147,9 @@ export const priceEventSource = v.union(
   v.literal("excel_import")
 );
 
+/** Frete da proposta: CIF (por conta do fornecedor) ou FOB (por conta da RLP). */
+export const quoteFreight = v.union(v.literal("cif"), v.literal("fob"));
+
 export const priceEventReviewStatus = v.union(
   v.literal("unreviewed"),
   v.literal("reviewed"),
@@ -168,6 +171,9 @@ export const procurementTables = {
     nameNormalized: v.string(),
     category: v.optional(v.string()),
     baseUnit: v.optional(v.string()),
+    // Variante usada como referência de preço da família no orçamento
+    // (ex.: o split 9.000 BTU/h da LG quente e frio). Ausente = nenhuma.
+    defaultMaterialId: v.optional(v.id("materials")),
     active: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -460,12 +466,19 @@ export const procurementTables = {
     // tamanho, então cada cotação guarda as suas para alimentar estimativas.
     dimensions: v.optional(materialDimensions),
     notes: v.optional(v.string()),
+    // Proposta do fornecedor de onde veio o preço (várias linhas, mesma data).
+    quoteProposalId: v.optional(v.id("quoteProposals")),
     reviewStatus: v.optional(priceEventReviewStatus),
     needsReview: v.boolean(),
     createdAt: v.number(),
     createdByUserId: v.optional(v.id("users")),
   })
     .index("by_material", ["materialId"])
+    // Por data do preço (não de criação): janelas como "últimos 6 meses" e o
+    // lançamento retroativo, em que um preço antigo é criado hoje.
+    .index("by_material_and_occurred_at", ["materialId", "occurredAt"])
+    .index("by_supplier_and_occurred_at", ["supplierId", "occurredAt"])
+    .index("by_quote_proposal", ["quoteProposalId"])
     .index("by_supplier", ["supplierId"])
     .index("by_material_supplier", ["materialId", "supplierId"])
     .index("by_project", ["projectId"])
@@ -474,6 +487,31 @@ export const procurementTables = {
     .index("by_occurred_at", ["occurredAt"])
     .index("by_needs_review", ["needsReview"])
     .index("by_review_status", ["reviewStatus"]),
+  // Proposta de um fornecedor: os preços que ele passou de uma vez (cada linha é
+  // um priceEvent com `quoteProposalId`). Propostas da mesma semana formam a
+  // rodada que o mapa de cotação compara; `weekStart` (segunda 00:00 em
+  // Brasília) é derivado de `receivedAt` e indexado para isso.
+  quoteProposals: defineTable({
+    supplierId: v.optional(v.id("suppliers")),
+    supplierNameRaw: v.optional(v.string()),
+    receivedAt: v.number(),
+    weekStart: v.number(),
+    validUntil: v.optional(v.number()),
+    // Condição de pagamento como o fornecedor escreveu ("28 dias", "30/60").
+    paymentTerms: v.optional(v.string()),
+    freight: v.optional(quoteFreight),
+    // Número ou identificação da proposta no fornecedor.
+    reference: v.optional(v.string()),
+    projectId: v.optional(v.id("projects")),
+    takeoffId: v.optional(v.id("takeoffs")),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+    createdByUserId: v.optional(v.id("users")),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_week_start", ["weekStart"])
+    .index("by_supplier", ["supplierId"])
+    .index("by_project", ["projectId"]),
   // Proposals sent by the RLP Takeoff desktop app (`takeoffMaterials.proposeAsUser`).
   // One row per clientId so the app can retry the call safely.
   takeoffMaterialProposals: defineTable({

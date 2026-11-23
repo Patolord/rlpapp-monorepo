@@ -4,10 +4,11 @@
  * selection when the page changes, and so on. Components import `useStore` from here.
  */
 import { create } from "zustand";
-import { activeDrawing } from "../lib/types";
+import { activeDrawing, UNTITLED } from "../lib/types";
 import { type AccountSlice, createAccountSlice } from "./account";
 import { type CatalogSlice, createCatalogSlice } from "./catalog";
 import { createDuctSlice, type DuctSlice } from "./ducts";
+import { createEstimateSlice, type EstimateSlice } from "./estimate";
 import { createItemsSlice, type ItemsSlice } from "./items";
 import { createProjectSlice, type ProjectSlice } from "./project";
 import { createReportSlice, type ReportSlice } from "./report";
@@ -21,6 +22,7 @@ export type State = AccountSlice &
   ItemsSlice &
   DuctSlice &
   VrfSlice &
+  EstimateSlice &
   CatalogSlice &
   SimilarSlice &
   RevisionSlice &
@@ -33,6 +35,7 @@ export const useStore = create<State>()((...a) => ({
   ...createItemsSlice(...a),
   ...createDuctSlice(...a),
   ...createVrfSlice(...a),
+  ...createEstimateSlice(...a),
   ...createCatalogSlice(...a),
   ...createSimilarSlice(...a),
   ...createRevisionSlice(...a),
@@ -47,6 +50,16 @@ useStore.subscribe((s) => {
     s.setCompareRevision(false);
   }
 });
+
+/**
+ * Whether a takeoff is open, as opposed to the blank start screen: it has a name, a file, a
+ * drawing or an item (a takeoff made only with the estimate calculators has no drawing).
+ */
+export const selectProjectOpen = (s: State): boolean =>
+  s.project.name !== UNTITLED ||
+  s.project.drawings.length > 0 ||
+  s.project.items.length > 0 ||
+  s.filePath !== null;
 
 export type { ProjectMeta } from "./project";
 export type { RevisionChoice, RevisionRequest } from "./revisions";

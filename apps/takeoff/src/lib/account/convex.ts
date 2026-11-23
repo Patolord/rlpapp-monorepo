@@ -1,4 +1,5 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import { ConvexHttpClient } from "convex/browser";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import { ConvexError } from "convex/values";
@@ -41,6 +42,21 @@ async function asUser<T>(call: (c: ConvexHttpClient) => Promise<T>): Promise<T> 
 export async function fetchCatalogAsUser(): Promise<RemoteCatalog> {
   const snapshot = await asUser((c) => c.query(api.takeoffCatalog.current, {}));
   return parseRemoteCatalogResponse(snapshot);
+}
+
+export type FamilyPriceHistory = FunctionReturnType<typeof api.priceEvents.familyHistory>;
+
+/**
+ * Price history of the comparable item a company material belongs to (its family): every
+ * variant with its reference and every supplier's quotes of the last twelve months.
+ */
+export function fetchFamilyHistoryAsUser(materialId: string): Promise<FamilyPriceHistory> {
+  return asUser((c) =>
+    c.query(api.priceEvents.familyHistory, {
+      materialId: materialId as Id<"materials">,
+      now: Date.now(),
+    }),
+  );
 }
 
 /** Only the fields the mutation accepts: queued bodies of older versions may carry others. */

@@ -20,10 +20,12 @@ import {
   ChevronsUpDown,
   ClipboardList,
   FileText,
+  FolderKanban,
   HardHat,
   LayoutDashboard,
   Package,
   Receipt,
+  Scale,
   ShoppingCart,
   Truck,
   UserPlus,
@@ -73,7 +75,7 @@ interface NavGroup {
 }
 
 // Um grupo por departamento, mais os cadastros compartilhados (Backoffice),
-// a configuração do app desktop (App Takeoff), a administração
+// o quadro de orçamentos, a configuração do app desktop (App Takeoff), a administração
 // (Configurações) e a área pessoal. Códigos QR são gerenciados dentro de cada
 // obra, por isso não aparecem aqui.
 function getNavGroups(): NavGroup[] {
@@ -92,6 +94,11 @@ function getNavGroups(): NavGroup[] {
       ],
     },
     {
+      key: "orcamentos",
+      label: "Orçamentos",
+      items: [{ to: "/orcamentos", label: "Quadro de orçamentos", icon: FolderKanban }],
+    },
+    {
       key: "compras",
       label: "Compras",
       items: [
@@ -99,6 +106,7 @@ function getNavGroups(): NavGroup[] {
         { to: "/compras/materiais", label: "Materiais", icon: Package },
         { to: "/compras/fornecedores", label: "Fornecedores", icon: Truck },
         { to: "/compras/takeoffs", label: "Takeoffs", icon: ClipboardList },
+        { to: "/compras/cotacoes", label: "Cotações", icon: Scale },
         { to: "/compras/eventos-preco", label: "Eventos de Preço", icon: Receipt },
         { to: "/compras/fila-revisao", label: "Fila de Revisão", icon: ClipboardList },
       ],

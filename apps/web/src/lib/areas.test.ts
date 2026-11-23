@@ -30,15 +30,15 @@ describe("resolveHomePath", () => {
     expect(resolveHomePath(user(["qr_operator"]))).toBe("/qr-operador");
   });
 
-  test("só o app desktop: início pessoal, não a engenharia", () => {
+  test("só o app desktop (orçamentista): quadro de orçamentos, não a engenharia", () => {
     expect(user(["takeoff"]).homeArea).toBe("engenharia");
-    expect(resolveHomePath(user(["takeoff"]))).toBe(UNIVERSAL_HOME_PATH);
+    expect(resolveHomePath(user(["takeoff"]))).toBe("/orcamentos");
   });
 
   test("área inicial que não abre cai na primeira que abre", () => {
-    expect(resolveHomePath(user(["takeoff"], ["takeoff.config"]))).toBe(
-      "/takeoff/dutos"
-    );
+    expect(resolveHomePath(user([], ["takeoff.config"]))).toBe("/takeoff/dutos");
+    // O quadro vem antes da configuração do app desktop.
+    expect(resolveHomePath(user(["takeoff"], ["takeoff.config"]))).toBe("/orcamentos");
     expect(resolveHomePath(user(["takeoff"], ["cadastros.read"]))).toBe(
       "/backoffice"
     );

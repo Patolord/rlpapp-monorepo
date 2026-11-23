@@ -6,6 +6,7 @@ import {
   type GaugeLimits,
   type GaugeWeights,
 } from "@rlpapp/shared/engenharia/ducts";
+import { inchSize, kitFamily } from "@rlpapp/shared/takeoff/kitCatalog";
 import { normalizeKitSku } from "@rlpapp/shared/takeoff/kits";
 import { isLaborPriceKey, type LaborPrices, laborPricesOf } from "@rlpapp/shared/takeoff/labor";
 import {
@@ -45,6 +46,7 @@ import {
   sameRecord,
 } from "./overrides";
 import { isTauri } from "./platform";
+import { type PriceReference, parsePriceReference } from "./priceReference";
 import { foldName } from "./text";
 import { DEFAULT_GROUP } from "./types";
 import type { Kind } from "./units";
@@ -84,6 +86,11 @@ export interface CatalogEntry {
   /** Company catalog only: when the price was quoted and until when it holds (ms epoch). */
   priceDate?: number;
   priceValidUntil?: number;
+  /**
+   * Company catalog only: the budget reference from every supplier's quotes of the last six
+   * months (median, range, spread). `materialPrice` stays the latest quote.
+   */
+  reference?: PriceReference;
   /** Company catalog only: "draft" was proposed from a takeoff and awaits purchasing. */
   status?: "draft" | "active";
   /** Priced by weight (see lib/weights): base material key and kg per unit; the price derives. */
@@ -344,7 +351,18 @@ export function kitComponentEntry(
     if (bySku) return withAirTerminalLabor({ ...bySku, source: "remote" });
   }
   const name = foldName(component.name);
-  return entries.find((e) => foldName(e.name) === name);
+  const byName = entries.find((e) => foldName(e.name) === name);
+  if (byName) return byName;
+  // a kit's `Tubulação de Cobre 1/2"` is the weight table's `Tubo de cobre 1/2"`: same tube size
+  const size = kitFamily(component.name) === "cobre" ? inchSize(component.name) : undefined;
+  if (size === undefined) return undefined;
+  // the company's quote first (entries list it before the weight table), then the kg/m row
+  return entries.find(
+    (e) =>
+      (e.kgPerUnit || (e.materialPrice > 0 && kindForUnit(e.unit) === "linear")) &&
+      kitFamily(e.name) === "cobre" &&
+      inchSize(e.name) === size,
+  );
 }
 
 /** The code of the company material of this name, if any (even when a saved entry shares it). */
@@ -655,6 +673,7 @@ export function parseRemoteCatalogResponse(json: unknown): RemoteCatalog {
       description,
       priceDate: ms(o.priceDate),
       priceValidUntil: ms(o.priceValidUntil),
+      reference: parsePriceReference(o.reference),
       status: o.status === "draft" ? "draft" : catalogId ? "active" : undefined,
     });
   }

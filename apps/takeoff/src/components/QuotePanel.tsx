@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, Copy, FileSpreadsheet } from "lucide-react";
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { mod } from "../lib/platform";
 import { describePriceSource } from "../lib/priceSource";
 import { buildQuote, disciplineTotals, quoteCsv, round2, systemSheets } from "../lib/quantities";
@@ -7,6 +7,7 @@ import { formatMoney, formatNumber, type Unit } from "../lib/units";
 import { isWeightPriced } from "../lib/weights";
 import { type ProjectMeta, useStore } from "../store";
 import { DisciplineBar } from "./DisciplineBar";
+import { PriceReferenceButton, PriceReferenceDialog } from "./PriceReferenceDialog";
 import { PriceSourceBadge } from "./PriceSourceBadge";
 import { Button } from "./ui";
 
@@ -19,6 +20,17 @@ export function QuotePanel() {
   const sheets = useMemo(() => systemSheets(project), [project]);
   const tabs = useMemo(() => disciplineTotals(project), [project]);
   const money = (v: number) => formatMoney(v, project.currency);
+  // company entries with a budget reference, by material id (the lines keep catalogId)
+  const remote = useStore((s) => s.catalog.remote);
+  const referenced = useMemo(
+    () => new Map(remote.flatMap((e) => (e.catalogId && e.reference ? [[e.catalogId, e]] : []))),
+    [remote],
+  );
+  const [referenceFor, setReferenceFor] = useState<string | null>(null);
+  const referenceItem = project.items.find((i) => i.id === referenceFor);
+  const referenceEntry = referenceItem?.catalogId
+    ? referenced.get(referenceItem.catalogId)
+    : undefined;
   const lineTotal = (r: { item: { materialPrice: number; laborPrice: number }; qty: number }) =>
     round2(r.qty * (r.item.materialPrice + r.item.laborPrice));
   const arrow = (Icon: typeof ChevronUp, title: string, disabled: boolean, onClick: () => void) => (
@@ -166,6 +178,22 @@ export function QuotePanel() {
                           </td>
                           <td className="px-1.5 py-1">
                             <span className="flex items-center justify-end gap-1">
+                              {(() => {
+                                const entry = r.item.catalogId
+                                  ? referenced.get(r.item.catalogId)
+                                  : undefined;
+                                // the reference is in reais: offered only on budgets in BRL
+                                return entry?.reference &&
+                                  !isWeightPriced(r.item) &&
+                                  project.currency === "BRL" ? (
+                                  <PriceReferenceButton
+                                    price={r.item.materialPrice}
+                                    reference={entry.reference}
+                                    currency={money}
+                                    onOpen={() => setReferenceFor(r.item.id)}
+                                  />
+                                ) : null;
+                              })()}
                               <PriceSourceBadge
                                 source={r.item.priceSource}
                                 priceDate={r.item.priceDate}
@@ -290,6 +318,15 @@ export function QuotePanel() {
           </Button>
         </div>
       </div>
+      {referenceItem && referenceEntry?.reference && project.currency === "BRL" ? (
+        <PriceReferenceDialog
+          item={referenceItem}
+          entry={referenceEntry}
+          reference={referenceEntry.reference}
+          currency={money}
+          onClose={() => setReferenceFor(null)}
+        />
+      ) : null}
     </div>
   );
 }

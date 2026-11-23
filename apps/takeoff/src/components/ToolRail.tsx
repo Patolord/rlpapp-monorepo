@@ -2,6 +2,7 @@ import clsx from "clsx";
 import {
   AirVent,
   Boxes,
+  Calculator,
   CircleDot,
   Cuboid,
   Hand,
@@ -87,7 +88,8 @@ export function ToolRail() {
   const tool = useStore((s) => s.tool);
   const canUndo = useStore((s) => s.past.length > 0);
   const canRedo = useStore((s) => s.future.length > 0);
-  const { setTool, undo, redo } = useStore.getState();
+  const estimateOpen = useStore((s) => s.estimateOpen);
+  const { setTool, undo, redo, setEstimateOpen } = useStore.getState();
 
   const button = ({ tool: t, label, key, icon: Icon }: ToolDef) => (
     <IconButton key={t} label={label} hint={key} active={tool === t} onClick={() => setTool(t)}>
@@ -105,6 +107,16 @@ export function ToolRail() {
       <AreaTools tool={tool} setTool={setTool} />
       <Divider />
       {SPECIALTIES.map(button)}
+      <Divider />
+      {/* takeoff without the drawing: opens the calculators instead of picking a tool */}
+      <IconButton
+        label="Takeoff por estimativa (calculadoras por serviço: gera os itens a partir de premissas, sem medir na planta)"
+        hint="E"
+        active={estimateOpen}
+        onClick={() => setEstimateOpen(true)}
+      >
+        <Calculator size={20} />
+      </IconButton>
       <Divider />
       <IconButton label="Desfazer" hint={mod("Z")} disabled={!canUndo} onClick={undo}>
         <Undo2 size={20} />

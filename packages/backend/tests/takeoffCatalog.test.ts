@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "../convex/_generated/api";
 import type { Doc, Id } from "../convex/_generated/dataModel";
 import {
@@ -245,6 +245,16 @@ describe("listTakeoffCatalog", () => {
 });
 
 describe("takeoffCatalog.current", () => {
+  // The query checks validUntil against the real clock: pin it to the seed's
+  // NOW so the quote valid until NOW + 25 days does not expire as time passes.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   test("returns the whole catalog to a signed-in engineer", async () => {
     const t = await seedCatalog();
     const asEngineer = await withUser(t, { clerkId: "eng_1", roles: ["engenharia"] });
@@ -279,6 +289,7 @@ describe("takeoffCatalog.current", () => {
       "priceDate",
       "priceEventId",
       "priceValidUntil",
+      "reference",
       "sku",
       "status",
       "system",

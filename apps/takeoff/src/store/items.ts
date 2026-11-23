@@ -1,11 +1,5 @@
 import { groupKey } from "../lib/budgetOrder";
-import {
-  type CatalogEntry,
-  kindForUnit,
-  kitComponentEntry,
-  mergeCatalog,
-  normalizeDiscipline,
-} from "../lib/catalog";
+import { type CatalogEntry, kindForUnit, mergeCatalog, normalizeDiscipline } from "../lib/catalog";
 import {
   type Clipboard,
   type CloneTarget,
@@ -13,13 +7,12 @@ import {
   cloneMarkings,
   scalesDiffer,
 } from "../lib/clone";
+import { componentItem, priceSnapshot } from "../lib/componentItem";
 import type { Pt } from "../lib/geom";
 import { kitLabelSnapshot, kitMode } from "../lib/kits";
-import { priceSourceOfEntry } from "../lib/priceSource";
 import { pageScale } from "../lib/quantities";
 import { type Joined, reshape } from "../lib/reshape";
 import { guessSymbol } from "../lib/symbols";
-import { foldName } from "../lib/text";
 import {
   DEFAULT_GROUP,
   ITEM_COLORS,
@@ -41,24 +34,6 @@ import { KIND_OF_TOOL, type Slice } from "./shared";
  */
 const stamp = (drawSystem: string | null, item: Item | undefined): Pick<Measurement, "system"> =>
   drawSystem && item && !item.derived ? { system: drawSystem } : {};
-
-/** Link and dated price a line takes from the catalog entry it is created from. */
-const priceSnapshot = (
-  entry: CatalogEntry | undefined,
-): Pick<Item, "catalogId" | "priceDate" | "priceSource" | "baseMaterial" | "kgPerUnit"> => {
-  if (!entry) return {};
-  // weight-priced entries: the price (and its source) is derived on commit from the R$/kg
-  if (entry.baseMaterial && entry.kgPerUnit) {
-    return { baseMaterial: entry.baseMaterial, kgPerUnit: entry.kgPerUnit };
-  }
-  const priceSource = priceSourceOfEntry(entry);
-  const dated = entry.materialPrice > 0 && priceSource !== "seed";
-  return {
-    catalogId: entry.source === "remote" ? entry.catalogId : undefined,
-    priceSource,
-    priceDate: dated ? (entry.priceDate ?? Date.now()) : undefined,
-  };
-};
 
 const nextName = (items: Item[], kind: Kind) => {
   const base = kind === "count" ? "Contagem" : kind === "linear" ? "Linear" : "Área";
@@ -450,41 +425,13 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
       let items = p.items;
       const measurements = [...p.measurements];
       for (const c of kit.components) {
-        // a component with a catalog code is that material, under the name the catalog gives it
-        const cat = kitComponentEntry(catalog, entries, c);
-        const name = cat?.catalogId && c.sku ? cat.name : c.name;
-        let item = items.find(
-          (i) =>
-            i.kind === c.kind &&
-            ((cat?.catalogId && c.sku && i.catalogId === cat.catalogId) ||
-              foldName(i.name) === foldName(name)),
-        );
-        if (item && !item.catalogId && cat?.catalogId && c.sku) {
-          // a line of this name with no link (typed by hand, or from a kit without codes) is
-          // the coded material: link it, keeping the price this takeoff has (the items list
-          // shows when it differs from the catalog's)
-          const linked: Item = { ...item, catalogId: cat.catalogId };
-          items = items.map((i) => (i.id === linked.id ? linked : i));
-          item = linked;
-        }
-        if (!item) {
-          item = {
-            id: newId(),
-            name,
-            kind: c.kind,
-            color: ITEM_COLORS[items.length % ITEM_COLORS.length],
-            group: c.group || cat?.group || DEFAULT_GROUP,
-            materialPrice: cat?.materialPrice ?? 0,
-            laborPrice: cat?.laborPrice ?? 0,
-            wastePct: 0,
-            ...priceSnapshot(cat),
-            system: normalizeDiscipline(c.system || cat?.system) ?? p.system,
-            symbol: c.kind === "count" ? guessSymbol(name) : undefined,
-            // a click kit's linear factor is the length per click, kept on the measurement
-            factor: c.factor !== 1 && !(byClick && c.kind === "linear") ? c.factor : undefined,
-          };
-          items = [...items, item];
-        }
+        const found = componentItem(items, catalog, entries, c, {
+          projectSystem: p.system,
+          // a click kit's linear factor is the length per click, kept on the measurement
+          factor: byClick && c.kind === "linear" ? undefined : c.factor,
+        });
+        items = found.items;
+        const item = found.item;
         measurements.push({
           id: newId(),
           itemId: item.id,

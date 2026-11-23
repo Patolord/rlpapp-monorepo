@@ -4,6 +4,7 @@ import type { QueryCtx } from "../../_generated/server";
 import { normalizeUnit } from "./catalog";
 import { describeMaterial } from "./materialLookup";
 import { materialStatus } from "../../schema/procurement";
+import { materialReferenceStats, type MaterialReference } from "./priceHistory";
 import { centsToReais, pickCurrentPriceEvent } from "./priceSelection";
 
 /**
@@ -16,6 +17,37 @@ export const DEFAULT_TAKEOFF_GROUP = "Geral";
 export const TAKEOFF_PIECE_UNIT = "pç";
 // Same window `priceEvents.latestForMaterial` reads per material.
 const PRICE_EVENT_WINDOW = 50;
+
+export const takeoffPriceReferenceValidator = v.object({
+  /** Median of the window: the price to budget with. */
+  price: v.number(),
+  minPrice: v.number(),
+  maxPrice: v.number(),
+  /** (max − min) / median. */
+  spread: v.number(),
+  count: v.number(),
+  supplierCount: v.number(),
+  /** Change per month between the first and last quoted weeks; null if too close. */
+  monthlyChange: v.union(v.number(), v.null()),
+  lastAt: v.number(),
+  /** ok; wide = spread above 10%; stale = no quote in 90 days. */
+  status: v.union(v.literal("ok"), v.literal("wide"), v.literal("stale")),
+  /** More quotes in the window than one read takes: the most recent ones are used. */
+  truncated: v.boolean(),
+});
+
+export type TakeoffPriceReference = {
+  price: number;
+  minPrice: number;
+  maxPrice: number;
+  spread: number;
+  count: number;
+  supplierCount: number;
+  monthlyChange: number | null;
+  lastAt: number;
+  status: "ok" | "wide" | "stale";
+  truncated: boolean;
+};
 
 export const takeoffCatalogItemValidator = v.object({
   id: v.id("materials"),
@@ -43,6 +75,10 @@ export const takeoffCatalogItemValidator = v.object({
   // appear only when merged into another material, with the redirect.
   status: materialStatus,
   mergedInto: v.union(v.id("materials"), v.null()),
+  // Budget reference from every supplier's quotes of the last 6 months (see
+  // @rlpapp/shared/compras/priceReference), in reais. Null without quotes in
+  // that window. materialPrice stays the latest quote.
+  reference: v.union(takeoffPriceReferenceValidator, v.null()),
 });
 
 export type TakeoffCatalogItem = {
@@ -62,6 +98,7 @@ export type TakeoffCatalogItem = {
   system: string | null;
   status: "draft" | "active" | "archived";
   mergedInto: Id<"materials"> | null;
+  reference: TakeoffPriceReference | null;
 };
 
 /** Legacy rows have no status; `active` decides. */
@@ -85,7 +122,8 @@ export function takeoffUnit(unit: string | undefined): string {
 
 export function toTakeoffCatalogItem(
   material: Doc<"materials">,
-  price: CurrentPrice | null
+  price: CurrentPrice | null,
+  reference: TakeoffPriceReference | null = null
 ): TakeoffCatalogItem {
   return {
     id: material._id,
@@ -109,20 +147,47 @@ export function toTakeoffCatalogItem(
     system: null,
     status: catalogStatus(material),
     mergedInto: material.mergedIntoId ?? null,
+    reference,
   };
 }
 
-async function currentMaterialPrice(
+/** The catalog shape (reais) of a material's budget reference. */
+export function takeoffReferenceOf(
+  stats: MaterialReference | null
+): TakeoffPriceReference | null {
+  if (!stats) return null;
+  return {
+    price: centsToReais(stats.medianCents),
+    minPrice: centsToReais(stats.minCents),
+    maxPrice: centsToReais(stats.maxCents),
+    spread: stats.spread,
+    count: stats.count,
+    supplierCount: stats.supplierCount,
+    monthlyChange: stats.monthlyChange,
+    lastAt: stats.lastAt,
+    status: stats.status,
+    truncated: stats.truncated,
+  };
+}
+
+async function materialPrices(
   ctx: QueryCtx,
-  materialId: Id<"materials">,
+  material: Doc<"materials">,
   now: number
-): Promise<CurrentPrice | null> {
+): Promise<{ price: CurrentPrice | null; reference: TakeoffPriceReference | null }> {
+  // The latest prices by price date, not by creation: a retroactive load of old
+  // quotes must not push the newest quote out of the window.
   const events = await ctx.db
     .query("priceEvents")
-    .withIndex("by_material", (q) => q.eq("materialId", materialId))
+    .withIndex("by_material_and_occurred_at", (q) => q.eq("materialId", material._id))
     .order("desc")
     .take(PRICE_EVENT_WINDOW);
-  return pickCurrentPriceEvent(events, now);
+  return {
+    price: pickCurrentPriceEvent(events, now),
+    // The whole six-month window by price date (a material quoted often has
+    // more than PRICE_EVENT_WINDOW quotes in it), suppliers' quotes only.
+    reference: takeoffReferenceOf((await materialReferenceStats(ctx, material, now)).reference),
+  };
 }
 
 function byName(a: TakeoffCatalogItem, b: TakeoffCatalogItem): number {
@@ -146,8 +211,8 @@ export async function listTakeoffCatalog(
 
   const items: TakeoffCatalogItem[] = [];
   for (const material of materials) {
-    const price = await currentMaterialPrice(ctx, material._id, now);
-    items.push(toTakeoffCatalogItem(material, price));
+    const { price, reference } = await materialPrices(ctx, material, now);
+    items.push(toTakeoffCatalogItem(material, price, reference));
   }
 
   // eslint-disable-next-line @convex-dev/no-collect-in-query -- merged materials are a small subset of the bounded catalog

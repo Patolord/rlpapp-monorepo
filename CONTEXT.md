@@ -49,6 +49,8 @@ domain's model functions.
 | `inventory` | Estoque: locais, movimentações, saldos, reposição, pedidos de obra | engineering, procurement, notifications |
 | `hr` | RH: funcionários, folha de pagamento, ponto | — |
 | `ai` | Assistente da obra | engineering |
+| `budgetBoard` | Engenharia → Orçamentos: quadro de orçamentos (kanban) | — |
+| `sharepoint` | Arquivos: bibliotecas do SharePoint (Microsoft Graph), a TRELLO de orçamentos | — |
 
 Every domain may use `kernel`; `kernel` uses none. Cross-cutting
 infrastructure (auth, permissions, audit, errors, crypto) lives in `convex/lib/`
@@ -266,6 +268,15 @@ One observed unit price of a material (or of a raw description) from a
 supplier at a date. Suggested prices and price history are computed from them.
 Avoid: quote (a quote is one source of price events).
 
+### Quote proposal
+UI: "Proposta"; the week's comparison is the "Rodada da semana" and its
+"Mapa de cotação". Code: `quoteProposals` (`weekStart`); its prices are price
+events with `quoteProposalId`.
+The prices one supplier sent at once, with payment terms, freight and
+validity. Proposals of the same week form the round that the quote map
+compares supplier by material.
+Avoid: quote (alone), budget.
+
 ### Material import row
 UI: not shown. Code: `materialImportRows`.
 The memory of which source spreadsheet row created which material, so
@@ -394,6 +405,25 @@ UI: "Assistente", "Conversas da obra". Code: `aiChatSessions`,
 `aiChatMessages`; proposed actions are intents (`model/ai/intents.ts`).
 A user's chat with the AI assistant about one project. Its intents propose
 structure and equipment changes the user applies.
+
+## Budget board
+
+### Budget card
+UI: "Quadro de orçamentos" (Engenharia → Orçamentos), "Card"; stages
+`para_fazer` ("Para Fazer"), `em_andamento` ("Em Andamento"), `concluido`
+("Concluído"), `obsoleto` ("Obsoletos"). Code: `budgetCards` (`stage`,
+`folderStage`).
+One budget being prepared for a client: stage, people responsible, due date
+and notes. The board is the source of truth; the budget's folder in the
+SharePoint TRELLO folder is only checked against it (`folderStage` says where
+the folder was found, `missing` when nowhere).
+Avoid: proposal (a quote proposal is a supplier's prices), takeoff.
+
+### SharePoint library
+UI: "Arquivos". Code: `model/sharepoint` (`SHAREPOINT_LIBRARIES`); no table.
+The company's SharePoint sites the app and the MCP agents may read or write,
+each limited to listed folders. The TRELLO folder (`z/Orçamentos/TRELLO`) holds
+one subfolder per budget stage.
 
 ## Takeoff desktop
 

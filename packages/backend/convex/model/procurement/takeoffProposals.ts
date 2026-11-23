@@ -11,6 +11,7 @@ import {
   sanitizeDimensions,
   type MaterialDimensions,
 } from "./catalog";
+import { TAKEOFF_ESTIMATE_SUPPLIER } from "./priceSelection";
 import { materialDimensions, materialStatus } from "../../schema/procurement";
 import { catalogStatus } from "./takeoffCatalog";
 import { notFound, ruleViolation } from "../../lib/domainErrors";
@@ -33,7 +34,7 @@ export const MAX_PROPOSAL_TEXT_LENGTH = 200;
 export const MAX_PROPOSAL_SPEC_LENGTH = 1000;
 export const MATERIAL_NOT_FOUND = "Material não encontrado";
 /** Shown as the supplier of an estimate typed in the takeoff. */
-export const TAKEOFF_PRICE_SUPPLIER = "RLP Takeoff";
+export const TAKEOFF_PRICE_SUPPLIER = TAKEOFF_ESTIMATE_SUPPLIER;
 
 export const takeoffMaterialProposalArgs = {
   clientId: v.string(),

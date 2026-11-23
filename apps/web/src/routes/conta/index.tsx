@@ -17,6 +17,7 @@ import {
   Briefcase,
   Layers,
   Eye,
+  FolderKanban,
   type LucideIcon,
 } from "lucide-react";
 
@@ -71,6 +72,11 @@ const AREA_DESTINATIONS: Record<DepartmentArea, Omit<Destination, "key" | "to">>
     description: "Clientes e empreiteiros.",
     icon: Briefcase,
   },
+  orcamentos: {
+    label: "Orçamentos",
+    description: "Quadro dos orçamentos: para fazer, em andamento e responsáveis.",
+    icon: FolderKanban,
+  },
   takeoff: {
     label: "App Takeoff",
     description: "Kits, pesos, marcas VRF e parâmetros do app desktop.",
@@ -85,6 +91,7 @@ const AREA_DESTINATIONS: Record<DepartmentArea, Omit<Destination, "key" | "to">>
 
 const AREA_ORDER: DepartmentArea[] = [
   "engenharia",
+  "orcamentos",
   "compras",
   "estoque",
   "rh",
