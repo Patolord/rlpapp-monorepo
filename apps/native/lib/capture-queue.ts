@@ -161,6 +161,17 @@ export function removePendingCapture(clientId: string): Promise<void> {
   });
 }
 
+/** Tira a foto do item da fila (e apaga a cópia no aparelho); a contagem segue. */
+export function discardCapturePhoto(clientId: string): Promise<void> {
+  return withQueueLock(async () => {
+    const records = await readQueue();
+    const record = records.find((r) => r.clientId === clientId);
+    deleteQueuedPhoto(record?.photoUri);
+    await writeQueue(records.map((r) => (r.clientId === clientId ? { ...r, photoUri: undefined } : r)));
+    notify();
+  });
+}
+
 export function updatePendingCapture(
   clientId: string,
   patch: Partial<Pick<PendingCapture, "error" | "photoStorageId" | "photoUri">>

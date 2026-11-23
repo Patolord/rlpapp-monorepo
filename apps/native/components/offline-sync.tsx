@@ -9,6 +9,7 @@ import { normalizeCaptureText } from "@rlpapp/shared/estoque/captureMatch";
 
 import {
   capturePhotoExists,
+  discardCapturePhoto,
   listPendingCaptures,
   removePendingCapture,
   subscribeCaptureQueue,
@@ -79,11 +80,11 @@ export function OfflineSync() {
             if (!(await isOnline())) throw err;
             console.warn("Foto do cadastro não subiu; enviando sem foto:", capture.clientId, err);
             photoId = undefined;
-            await updatePendingCapture(capture.clientId, { photoUri: undefined });
+            await discardCapturePhoto(capture.clientId);
           }
         } else {
           // A foto sumiu do aparelho: a contagem sobe sem ela, em vez de travar a fila.
-          await updatePendingCapture(capture.clientId, { photoUri: undefined });
+          await discardCapturePhoto(capture.clientId);
         }
       }
       await captureMaterial({
