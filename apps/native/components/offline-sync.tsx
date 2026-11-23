@@ -70,8 +70,17 @@ export function OfflineSync() {
       let photoId = capture.photoStorageId as Id<"_storage"> | undefined;
       if (!photoId && capture.photoUri) {
         if (capturePhotoExists(capture.photoUri)) {
-          [photoId] = await uploadPhotos(generateCaptureUploadUrl, [capture.photoUri]);
-          await updatePendingCapture(capture.clientId, { photoStorageId: photoId });
+          try {
+            [photoId] = await uploadPhotos(generateCaptureUploadUrl, [capture.photoUri]);
+            await updatePendingCapture(capture.clientId, { photoStorageId: photoId });
+          } catch (err) {
+            // Sem sinal: tenta de novo depois. Com sinal, a foto não lê ou não
+            // sobe: a contagem (o que importa) segue sem ela.
+            if (!(await isOnline())) throw err;
+            console.warn("Foto do cadastro não subiu; enviando sem foto:", capture.clientId, err);
+            photoId = undefined;
+            await updatePendingCapture(capture.clientId, { photoUri: undefined });
+          }
         } else {
           // A foto sumiu do aparelho: a contagem sobe sem ela, em vez de travar a fila.
           await updatePendingCapture(capture.clientId, { photoUri: undefined });
