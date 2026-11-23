@@ -35,7 +35,7 @@ export const CATEGORY_META: Record<NotificationCategory, { label: string; descri
   obras_documentos: { label: "Obras e documentos", description: "Nova obra na sua lista e documento novo", icon: Building2 },
   equipamentos: { label: "Equipamentos", description: "Equipamento com erro e prazos vencidos", icon: Cpu },
   compras_estoque: { label: "Compras e estoque", description: "Fila de revisão, orçamento do Takeoff e estoque baixo", icon: ShoppingCart },
-  ponto: { label: "Ponto", description: "Avisos do ponto da equipe", icon: Clock },
+  ponto: { label: "Ponto", description: "Lembrete de marcar a entrada e a saída", icon: Clock },
   medicoes: { label: "Medições", description: "Medição aprovada ou paga (só na central)", icon: Ruler },
   andamento: { label: "Andamento da obra", description: "Resumo semanal", icon: Bell },
 };
@@ -51,6 +51,16 @@ export const PROFILE_CATEGORIES: Record<Profile, NotificationCategory[]> = {
   sem_area: [],
   cliente: [],
 };
+
+/**
+ * Categorias com push da pessoa: as do perfil e, para quem bate ponto
+ * (`ponto.registrar`, liberado por usuário), os lembretes do ponto.
+ */
+export function pushCategoriesFor(profile: Profile, clocksIn: boolean): NotificationCategory[] {
+  const categories = PROFILE_CATEGORIES[profile];
+  if (!clocksIn || categories.includes("ponto")) return categories;
+  return [...categories, "ponto"];
+}
 
 /** Quem tem sino (decisão 36: o cliente não tem nesta versão). */
 export function hasBell(profile: Profile): boolean {
@@ -69,7 +79,8 @@ export type NotificationTarget =
   | "revisao_precos"
   | "takeoff"
   | "estoque_repor"
-  | "medicao";
+  | "medicao"
+  | "ponto";
 
 export const UNAVAILABLE_HREF = "/notificacoes/indisponivel" as Href;
 
@@ -119,6 +130,10 @@ export function hrefForNotification(
       return "/(tabs)/estoque?filtro=repor" as Href;
     case "medicao":
       return projectId ? (`/obra/${projectId}/medicoes` as Href) : null;
+    case "ponto":
+      // Lembrete de marcar o ponto: abre a marcação na aba Ponto.
+      if (profile === "cliente") return null;
+      return (field ? "/campo/ponto" : "/(tabs)/ponto") as Href;
     default:
       return null;
   }

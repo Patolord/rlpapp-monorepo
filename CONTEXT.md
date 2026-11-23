@@ -47,7 +47,7 @@ domain's model functions.
 | `contracts` | Clientes, empreiteiros, contratos, medições | engineering, notifications |
 | `procurement` | Compras: materiais, fornecedores, preços, takeoffs, App Takeoff | engineering, notifications |
 | `inventory` | Estoque: locais, movimentações, saldos, reposição, pedidos de obra | engineering, procurement, notifications |
-| `hr` | RH: funcionários, folha de pagamento, ponto | — |
+| `hr` | RH: funcionários, folha de pagamento, ponto e seus lembretes | notifications |
 | `ai` | Assistente da obra | engineering |
 | `budgetBoard` | Engenharia → Orçamentos: quadro de orçamentos (kanban) | — |
 | `sharepoint` | Arquivos: bibliotecas do SharePoint (Microsoft Graph), a TRELLO de orçamentos | — |

@@ -15,7 +15,7 @@ import type { notificationCategory } from "../../schema/notifications";
 
 export type NotificationCategory = Infer<typeof notificationCategory>;
 
-/** Códigos do catálogo da A2 (N1–N17). */
+/** Códigos do catálogo da A2 (N1–N17) e os lembretes do ponto (N18–N19). */
 export type NotificationKind =
   | "N1"
   | "N2a"
@@ -32,7 +32,10 @@ export type NotificationKind =
   | "N11"
   | "N12"
   | "N13"
-  | "N16";
+  | "N16"
+  // Ponto: lembrete de entrada (N18) e de saída (N19).
+  | "N18"
+  | "N19";
 
 /** Destinos que o app sabe abrir (A3 §5). */
 export type NotificationTarget =
@@ -47,7 +50,8 @@ export type NotificationTarget =
   | "revisao_precos"
   | "takeoff"
   | "estoque_repor"
-  | "medicao";
+  | "medicao"
+  | "ponto";
 
 export type NotificationInput = {
   kind: NotificationKind;

@@ -1,17 +1,24 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import { formatCurrency } from "@rlpapp/shared";
+import { reminderTimeError, weekdaysLabel } from "@rlpapp/shared/rh/timeClockReminders";
 import { useMutation, useQuery } from "convex/react";
 import { useRouter, type Href } from "expo-router";
 import { MapPinned, Users } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { AppButton, Banner, Divider, Field, ListRow, LoadingState, SectionTitle, Surface, Toggle, useToast } from "@/components/ui";
 import { getErrorMessage } from "@/lib/errors";
 import { parseCurrencyInput, toCurrencyInput } from "@/lib/format";
-import { colors, space } from "@/lib/theme";
+import { colors, space, type } from "@/lib/theme";
 
-/** Configurar ponto: regras da marcação, custo do homem-dia, quem bate ponto e cercas. */
+/** "0800" → "08:00" enquanto digita. */
+function maskTime(text: string): string {
+  const digits = text.replace(/\D/g, "").slice(0, 4);
+  return digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
+}
+
+/** Configurar ponto: regras da marcação, custo do homem-dia, lembretes, quem bate ponto e cercas. */
 export default function ConfigurarPontoScreen() {
   const router = useRouter();
   const toast = useToast();
@@ -24,11 +31,16 @@ export default function ConfigurarPontoScreen() {
   const [windowText, setWindowText] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [entryText, setEntryText] = useState("");
+  const [exitText, setExitText] = useState("");
+  const [savingReminders, setSavingReminders] = useState(false);
 
   useEffect(() => {
     if (!settings) return;
     setCost(toCurrencyInput(settings.manDayCostCents));
     setWindowText(String(settings.duplicateWindowMinutes));
+    setEntryText(settings.entryReminderTime ?? "");
+    setExitText(settings.exitReminderTime ?? "");
   }, [settings]);
 
   if (settings === undefined) return <LoadingState />;
@@ -41,6 +53,27 @@ export default function ConfigurarPontoScreen() {
   const costError = cost && costCents === null ? "Valor inválido" : undefined;
   const windowError = windowText && (!Number.isInteger(windowMinutes) || windowMinutes < 0 || windowMinutes > 60) ? "Entre 0 e 60 minutos" : undefined;
   const dirty = costCents !== settings.manDayCostCents || windowMinutes !== settings.duplicateWindowMinutes;
+
+  const entryError = entryText ? (reminderTimeError(entryText) ?? undefined) : undefined;
+  const exitError = exitText
+    ? (reminderTimeError(exitText) ??
+      (entryText && !entryError && exitText <= entryText ? "Precisa ser depois do lembrete de entrada" : undefined))
+    : undefined;
+  const remindersDirty =
+    (entryText || null) !== settings.entryReminderTime || (exitText || null) !== settings.exitReminderTime;
+
+  async function saveReminders() {
+    if (entryError || exitError) return;
+    setSavingReminders(true);
+    try {
+      await update({ entryReminderTime: entryText || null, exitReminderTime: exitText || null });
+      toast.success("Lembretes salvos");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Não deu para salvar. Tente de novo."));
+    } finally {
+      setSavingReminders(false);
+    }
+  }
 
   async function toggleRule(key: "photoRequired" | "locationRequired", value: boolean) {
     try {
@@ -100,6 +133,43 @@ export default function ConfigurarPontoScreen() {
       </View>
 
       <View style={styles.group}>
+        <SectionTitle title="Lembretes no celular" />
+        <Surface style={{ gap: space.lg }}>
+          <Field
+            label="Lembrete de entrada"
+            helper="Avisa quem bate ponto e ainda não marcou a entrada. Vazio desliga."
+            placeholder="08:00"
+            value={entryText}
+            onChangeText={(v) => setEntryText(maskTime(v))}
+            keyboardType="number-pad"
+            maxLength={5}
+            error={entryError}
+          />
+          <Field
+            label="Lembrete de saída"
+            helper="Avisa quem marcou o dia mas ainda não marcou a saída. Vazio desliga."
+            placeholder="18:00"
+            value={exitText}
+            onChangeText={(v) => setExitText(maskTime(v))}
+            keyboardType="number-pad"
+            maxLength={5}
+            error={exitError}
+          />
+        </Surface>
+        <Text style={styles.hint}>
+          {`Dias: ${weekdaysLabel(settings.reminderWeekdays)}. Os dias mudam no painel web, em RH › Ponto › Configurações.`}
+        </Text>
+        <AppButton
+          label="Salvar lembretes"
+          block
+          disabled={!remindersDirty || Boolean(entryError || exitError)}
+          loading={savingReminders}
+          loadingLabel="Salvando…"
+          onPress={() => void saveReminders()}
+        />
+      </View>
+
+      <View style={styles.group}>
         <SectionTitle title="Pessoas e obras" />
         <View style={{ gap: space.sm }}>
           <ListRow
@@ -126,4 +196,5 @@ const styles = StyleSheet.create({
   content: { padding: space.screen, paddingBottom: 48, gap: space.xl },
   group: { gap: space.sm },
   toggle: { paddingHorizontal: space.lg, paddingVertical: space.md },
+  hint: { ...type.caption, color: colors.textSecondaryOnBg, paddingHorizontal: space.xs },
 });

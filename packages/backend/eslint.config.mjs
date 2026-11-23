@@ -20,7 +20,7 @@ export const DOMAIN_DEPENDENCIES = {
   contracts: ["engineering", "notifications"],
   procurement: ["engineering", "notifications"],
   inventory: ["engineering", "procurement", "notifications"],
-  hr: [],
+  hr: ["notifications"],
   ai: ["engineering"],
   budgetBoard: [],
   sharepoint: [],

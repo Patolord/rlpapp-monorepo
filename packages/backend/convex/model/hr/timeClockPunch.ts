@@ -25,6 +25,7 @@ import {
   nextNsr,
   recomputeDaySummary,
 } from "./timeClockDb";
+import { clearTimeClockReminders } from "./timeClockReminders";
 import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 export type { GeofenceStatus } from "./timeClock";
@@ -515,6 +516,7 @@ export async function registerPunch(
   }
 
   await recomputeDaySummary(ctx, user._id, date);
+  await clearTimeClockReminders(ctx, user._id);
 
   const inserted = await ctx.db.get("clockPunches", punchId);
   // eslint-disable-next-line no-restricted-syntax -- invariante: o registro acabou de ser gravado nesta transação

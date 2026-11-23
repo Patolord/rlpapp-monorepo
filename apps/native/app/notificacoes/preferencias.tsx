@@ -1,10 +1,11 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
+import { can } from "@rlpapp/shared/auth/permissions";
 import { useMutation, useQuery } from "convex/react";
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Banner, Divider, LoadingState, SectionTitle, Surface, Toggle, useToast } from "@/components/ui";
-import { CATEGORY_META, PROFILE_CATEGORIES, type NotificationCategory } from "@/lib/notifications";
+import { CATEGORY_META, pushCategoriesFor, type NotificationCategory } from "@/lib/notifications";
 import { useProfile } from "@/lib/profile";
 import { colors, space, type } from "@/lib/theme";
 
@@ -18,7 +19,7 @@ export default function PreferenciasScreen() {
   });
 
   if (me === undefined || prefs === undefined) return <LoadingState />;
-  const categories = me ? PROFILE_CATEGORIES[me.profile] : [];
+  const categories = me ? pushCategoriesFor(me.profile, can(me.user, "ponto.registrar")) : [];
 
   async function save(next: { pushOff: NotificationCategory[]; quietHours: boolean }) {
     try {
