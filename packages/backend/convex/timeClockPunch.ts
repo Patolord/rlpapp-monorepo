@@ -65,6 +65,8 @@ const punchValidator = v.object({
   offline: v.boolean(),
   nsr: v.number(),
   hash: v.string(),
+  /** Horários esquecidos enviados junto que ficaram de fora. */
+  missedNotSent: v.number(),
 });
 
 const receiptValidator = v.object({

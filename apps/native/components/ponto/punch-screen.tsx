@@ -549,7 +549,13 @@ export function PunchScreen() {
           </Text>
         </Surface>
 
-        <TodaySlots day={todayRead} onForgot={online ? handleForgot : undefined} />
+        <TodaySlots
+          day={todayRead}
+          onForgot={online ? handleForgot : undefined}
+          missedNotSent={(context?.punches ?? []).some(
+            (punch) => punch.date === today && (punch.missedNotSent ?? 0) > 0
+          )}
+        />
 
         <PendingPunchList pending={pending} online={online} />
 

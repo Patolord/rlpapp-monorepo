@@ -108,7 +108,11 @@ export default function MinhasMarcacoesScreen() {
             return (
               <View key={detail.date} style={{ gap: space.xs }}>
                 <Text style={[type.bodyStrong, { color: colors.text }]}>{formatDateKey(detail.date)}</Text>
-                <TodaySlots day={day} onForgot={(slot) => openForgot(detail.date, day, slot)} />
+                <TodaySlots
+                  day={day}
+                  onForgot={(slot) => openForgot(detail.date, day, slot)}
+                  missedNotSent={detail.items.some((item) => item.missedNotSent > 0)}
+                />
                 {worksites.length > 0 ? (
                   <Text style={styles.foot}>{worksites.join(" · ")}</Text>
                 ) : null}

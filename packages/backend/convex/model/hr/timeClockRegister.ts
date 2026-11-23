@@ -71,6 +71,7 @@ async function toPunchRow(
     offline: punch.offline,
     nsr: punch.nsr,
     hash: punch.hash,
+    missedNotSent: punch.missedNotSent ?? 0,
   };
 }
 

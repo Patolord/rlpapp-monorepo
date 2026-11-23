@@ -287,6 +287,7 @@ export type DayDetail = {
     worksiteName: string | null;
     offline: boolean;
     hasPhoto: boolean;
+    missedNotSent: number;
   }>;
   issues: Array<{
     code: ClassifiedDay["issues"][number]["code"];
@@ -320,6 +321,7 @@ export function toDayDetail(loaded: LoadedDay, date: string, open: boolean): Day
         worksiteName: punch?.projectName ?? null,
         offline: punch?.offline ?? false,
         hasPhoto: Boolean(punch?.photoStorageId),
+        missedNotSent: punch?.missedNotSent ?? 0,
       };
     }),
     issues: loaded.day.issues.map((issue) => ({

@@ -24,9 +24,12 @@ const SHORT_LABEL: Record<PunchSlot, string> = {
 export function TodaySlots({
   day,
   onForgot,
+  missedNotSent = false,
 }: {
   day: ClassifiedDay;
   onForgot?: (slot: PunchSlot) => void;
+  /** Um horário esquecido enviado junto com uma marcação ficou de fora. */
+  missedNotSent?: boolean;
 }) {
   const due = new Set(dueMissingSlots(day));
   const extras = day.items.filter(
@@ -34,6 +37,13 @@ export function TodaySlots({
   );
   return (
     <Surface style={{ gap: space.sm }}>
+      {missedNotSent && due.size > 0 ? (
+        // Fica até a pessoa informar o horário (o aviso no celular pode não chegar).
+        <Text style={[type.caption, { color: colors.warning }]}>
+          Um horário esquecido enviado com uma marcação não foi aceito. Toque em Esqueci para
+          informar de novo.
+        </Text>
+      ) : null}
       <View style={styles.grid}>
         {PUNCH_SLOTS.map((slot) => {
           const item = day.slots[slot];
