@@ -21,6 +21,7 @@ import {
 import { useCan } from "@/hooks/use-can";
 import { getErrorMessage } from "@/lib/errors";
 
+import { RemindersCard } from "./reminders-card";
 import { WorksitesCard } from "./worksites-card";
 
 export function TimeClockSettingsView() {
@@ -35,6 +36,7 @@ export function TimeClockSettingsView() {
       <ClockPeopleCard canWrite={canWrite} />
       <WorksitesCard canWrite={canWrite} />
       <PunchRulesCard canWrite={canWrite} />
+      <RemindersCard canWrite={canWrite} />
     </div>
   );
 }

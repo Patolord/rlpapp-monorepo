@@ -204,6 +204,15 @@ export const hrTables = {
     locationRequired: v.boolean(),
     // Janela (min) em que uma nova marcação do mesmo usuário é recusada.
     duplicateWindowMinutes: v.number(),
+    // Lembretes por push ("HH:MM" em Brasília; ausente = desligado): quem
+    // ainda não marcou a entrada e quem deixou o dia sem saída.
+    entryReminderTime: v.optional(v.string()),
+    exitReminderTime: v.optional(v.string()),
+    // Dias da semana dos lembretes (0 = domingo); ausente = segunda a sexta.
+    reminderWeekdays: v.optional(v.array(v.number())),
+    // Último dia ("YYYY-MM-DD") em que cada lembrete saiu, para não repetir.
+    entryReminderSentOn: v.optional(v.string()),
+    exitReminderSentOn: v.optional(v.string()),
     updatedAt: v.number(),
     updatedByUserId: v.optional(v.id("users")),
   }).index("by_key", ["key"]),

@@ -90,8 +90,13 @@ integração externa nem variável de ambiente para configurar.
 - **Onde**: as obras cadastradas. Cada obra pode ter uma cerca do ponto (`projects.geofence`, centro e
   raio), definida em **RH > Ponto > Configurações**; a marcação dentro da cerca conta para a obra.
 - **Painel** (`rh.ponto.read`): Agora (onde está cada pessoa), Dia, Mensal (homem-dia por obra e
-  pessoa, com custo estimado) e Configurações (`rh.ponto.write`: regras da marcação, cercas e quem
-  bate ponto).
+  pessoa, com custo estimado) e Configurações (`rh.ponto.write`: regras da marcação, cercas, quem
+  bate ponto e lembretes).
+- **Lembretes** (push no app, avisos N18/N19): em Configurações o RH define um horário para avisar
+  quem bate ponto e ainda não marcou a entrada, outro para quem deixou o dia sem saída, e os dias
+  da semana (padrão: segunda a sexta; feriados não contam). O cron `ponto: lembretes` roda a cada
+  5 min e dispara cada um uma vez por dia (`convex/model/hr/timeClockReminders.ts`); ao marcar o
+  ponto, o lembrete não lido sai do sino. Cada pessoa desliga em Mais › Notificações › Ponto.
 
 Privacidade: as fotos das marcações ficam no storage do Convex e nunca são expostas por URL. O painel
 abre cada foto sob demanda pelo endpoint autenticado `/time-clock/photo/<punchId>` (exige

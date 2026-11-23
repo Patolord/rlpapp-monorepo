@@ -22,6 +22,15 @@ crons.cron(
   {},
 );
 
+// Lembretes do ponto (N18 e N19) nos horários das Configurações do ponto.
+// Alinhado em múltiplos de 5 min: o lembrete sai até 5 min depois do horário.
+crons.cron(
+  "ponto: lembretes",
+  "*/5 * * * *",
+  internal.timeClockReminders.run,
+  {},
+);
+
 // Recibos do Expo: desliga o token de aparelho que desinstalou o app.
 crons.interval(
   "avisos: recibos de push",
