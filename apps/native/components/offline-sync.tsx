@@ -226,15 +226,21 @@ export function OfflineSync() {
       // feitas: se uma falha, as seguintes dele esperam (o modo "corrigir para
       // o contado" depende do saldo anterior).
       const blocked = new Set<string>();
+      // "Corrigir para o contado" que falhou segura o local inteiro: uma
+      // contagem posterior pode cair no mesmo material por um caminho que o
+      // celular não conhece (ex.: código gravado depois no servidor).
+      const blockedLocations = new Set<string>();
       for (const capture of currentUserId ? await listPendingCaptures(currentUserId) : []) {
         attempted.add(capture.clientId);
         const keys = captureOrderKeys(capture);
-        if (keys.some((key) => blocked.has(key))) continue;
+        const location = capture.projectId ?? "central";
+        if (blockedLocations.has(location) || keys.some((key) => blocked.has(key))) continue;
         try {
           await processCapture(capture);
           await removePendingCapture(capture.clientId);
         } catch (err) {
           for (const key of keys) blocked.add(key);
+          if (capture.quantityMode === "set") blockedLocations.add(location);
           const message = err instanceof Error ? err.message : "Erro desconhecido";
           console.error("Offline capture sync failed:", capture.clientId, err);
           await updatePendingCapture(capture.clientId, { error: message });

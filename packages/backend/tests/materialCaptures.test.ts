@@ -451,5 +451,14 @@ describe("cadastro em campo", () => {
     const lookup = await warehouse.query(api.materialCaptures.lookup, { item: { name: "cabo" } });
     expect(lookup.exact).toBeNull();
     expect(lookup.similar.map((c) => c.materialId)).toContain(ids.breakerId);
+    // Lista de apelidos incompleta: mesmo confirmando que é novo, vai para revisão.
+    const result = await warehouse.mutation(api.materialCaptures.capture, {
+      clientId: clientId(),
+      item: { name: "cabo", unit: "m" },
+      confirmedNew: true,
+      quantity: 1,
+      capturedAt: Date.now(),
+    });
+    expect(result.outcome).toBe("review");
   });
 });

@@ -7,6 +7,7 @@ import {
   createMaterialInternal,
 } from "../procurement/materials";
 import {
+  aliasNeedsReview,
   findExactMatch,
   findIdentityMaterial,
   findSimilarMaterials,
@@ -297,7 +298,9 @@ async function resolveMaterial(
   }
 
   const similar = await findSimilarMaterials(ctx, item);
-  const needsReview = similar.length > 0 && !input.confirmedNew;
+  const needsReview =
+    (similar.length > 0 && !input.confirmedNew) ||
+    (await aliasNeedsReview(ctx, item));
   const created = await createMaterialInternal(ctx, user, {
     name: item.name,
     variantLabel: item.variantLabel,

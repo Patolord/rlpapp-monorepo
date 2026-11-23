@@ -156,6 +156,22 @@ async function findByAlias(
   return null;
 }
 
+/**
+ * O apelido aponta para mais materiais do que os parecidos mostram (ou a
+ * leitura ficou incompleta): a pessoa não viu todas as opções, então um item
+ * novo com esse nome precisa de revisão mesmo que ela confirme que é novo.
+ */
+export async function aliasNeedsReview(
+  ctx: Ctx,
+  input: { name: string; variantLabel?: string }
+): Promise<boolean> {
+  for (const term of aliasTerms(input)) {
+    const { materials, complete } = await findAliasMaterials(ctx, term);
+    if (!complete || materials.length > SIMILAR_LIMIT) return true;
+  }
+  return false;
+}
+
 /** Correspondência certa: nesses casos a contagem soma no material existente. */
 export async function findExactMatch(
   ctx: Ctx,
