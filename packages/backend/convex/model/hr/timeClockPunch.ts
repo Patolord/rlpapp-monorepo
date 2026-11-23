@@ -26,6 +26,7 @@ import {
   nextNsr,
   recomputeDaySummary,
 } from "./timeClockDb";
+import { clearTimeClockReminders } from "./timeClockReminders";
 
 export type { GeofenceStatus } from "./timeClock";
 
@@ -515,6 +516,7 @@ export async function registerPunch(
   }
 
   await recomputeDaySummary(ctx, user._id, date);
+  await clearTimeClockReminders(ctx, user._id);
 
   const inserted = await ctx.db.get("clockPunches", punchId);
   if (!inserted) throw new ConvexError("Falha ao gravar a marcação");

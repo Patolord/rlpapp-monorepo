@@ -15,6 +15,7 @@
     "./engenharia/orcamentoName": "./src/engenharia/orcamentoName.ts",
     "./rh/staffGroups": "./src/rh/staffGroups.ts",
     "./rh/payrollLabels": "./src/rh/payrollLabels.ts",
+    "./rh/timeClockReminders": "./src/rh/timeClockReminders.ts",
     "./takeoff/desktopBudget": "./src/takeoff/desktopBudget.ts",
     "./takeoff/estimate": "./src/takeoff/estimate.ts",
     "./takeoff/estimatePricing": "./src/takeoff/estimatePricing.ts",

@@ -11,6 +11,9 @@ export const timeClockSettingsValidator = v.object({
   photoRequired: v.boolean(),
   locationRequired: v.boolean(),
   duplicateWindowMinutes: v.number(),
+  entryReminderTime: v.union(v.string(), v.null()),
+  exitReminderTime: v.union(v.string(), v.null()),
+  reminderWeekdays: v.array(v.number()),
 });
 
 const liveStatusValidator = v.union(
