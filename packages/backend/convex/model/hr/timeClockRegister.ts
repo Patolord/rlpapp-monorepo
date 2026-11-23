@@ -222,11 +222,17 @@ export async function listMyDays(
   // Horário esquecido que ficou de fora numa marcação de depois da meia-noite:
   // o aviso vai para o dia da captura.
   const crossDay = new Map<string, number>();
-  for (const punches of byDate.values()) {
+  // Inclui as marcações do dia seguinte ao período: a de 00:00 pode trazer o
+  // aviso do último dia.
+  const after = new Date(`${input.to}T12:00:00Z`);
+  after.setUTCDate(after.getUTCDate() + 1);
+  const nextDay = await listUserDayPunches(ctx, user._id, after.toISOString().slice(0, 10));
+  for (const punches of [...byDate.values(), nextDay]) {
     for (const punch of punches) {
       if (!punch.missedFor || punch.missedFor === punch.date) continue;
       crossDay.set(punch.missedFor, (crossDay.get(punch.missedFor) ?? 0) + (punch.missedNotSent ?? 0));
-      if (punch.missedFor >= input.from && !byDate.has(punch.missedFor)) byDate.set(punch.missedFor, []);
+      if (punch.missedFor < input.from || punch.missedFor > input.to) continue;
+      if (!byDate.has(punch.missedFor)) byDate.set(punch.missedFor, []);
     }
   }
   const resolve = scheduleResolver(ctx);

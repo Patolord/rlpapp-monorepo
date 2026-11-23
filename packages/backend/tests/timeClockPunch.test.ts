@@ -492,6 +492,9 @@ describe("timeClockPunch: leitura do dia e horários esquecidos", () => {
     const byDate = new Map(mine.days.map((day) => [day.date, day.missedNotSent]));
     expect(byDate.get(DAY)).toBe(1);
     expect(byDate.get("2026-03-11")).toBe(0);
+    // Período que termina no dia da captura (tela aberta desde ontem) também avisa.
+    const onlyDay = await worker.query(api.timeClockPunch.myDays, { from: DAY, to: DAY, today: DAY });
+    expect(onlyDay.days.find((day) => day.date === DAY)?.missedNotSent).toBe(1);
     const context = await worker.query(api.timeClockPunch.getContext, { date: "2026-03-11" });
     expect(context.punches[0]?.missedNotSent).toBe(0);
   });
