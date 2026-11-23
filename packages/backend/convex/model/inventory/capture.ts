@@ -5,6 +5,7 @@ import { normalizeBarcode } from "../procurement/catalog";
 import { createMaterialInternal } from "../procurement/materials";
 import {
   findExactMatch,
+  findIdentityMaterial,
   findSimilarMaterials,
   resolveLiveMaterial,
   type CaptureItemInput,
@@ -242,7 +243,9 @@ async function resolveMaterial(
   if (!item?.name && !item?.barcode) {
     throw new Error("Informe o nome do material ou leia o código");
   }
-  const exact = item ? await findExactMatch(ctx, item) : null;
+  const exact = item
+    ? await findExactMatch(ctx, item, { skipAlias: Boolean(input.confirmedNew) })
+    : null;
   if (exact) {
     await enrichExisting(ctx, exact.material, item, input.photoId);
     return {
@@ -254,6 +257,27 @@ async function resolveMaterial(
   }
   if (!item?.name) {
     throw new Error("Código não cadastrado: informe o nome do material");
+  }
+
+  // Mesma identidade de um material arquivado (sem mesclagem): o item voltou
+  // a existir fisicamente. Reativa em rascunho em vez de criar um repetido.
+  const archived = await findIdentityMaterial(ctx, item);
+  if (archived) {
+    await ctx.db.patch("materials", archived._id, {
+      active: true,
+      status: "draft",
+      updatedAt: Date.now(),
+    });
+    await enrichExisting(ctx, archived, item, input.photoId);
+    const material = await ctx.db.get("materials", archived._id);
+    if (!material) throw new Error("Falha ao reativar o material");
+    await logAudit(ctx, user, {
+      action: "update",
+      tableName: "materials",
+      recordId: material._id,
+      details: "Reativado em rascunho pelo cadastro em campo",
+    });
+    return { material, outcome: "review", matchReason: "identity", similarIds: [] };
   }
 
   const similar = await findSimilarMaterials(ctx, item);

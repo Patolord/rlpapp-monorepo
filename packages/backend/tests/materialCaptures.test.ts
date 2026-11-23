@@ -194,6 +194,38 @@ describe("cadastro em campo", () => {
     expect(review?.similar.map((s) => s.materialId)).toContain(ids.breakerId);
   });
 
+  test("apelido recusado ('não é este') cria o item novo", async () => {
+    const { ids, warehouse } = await seed();
+    const result = await warehouse.mutation(api.materialCaptures.capture, {
+      clientId: clientId(),
+      item: { name: "dj 10", unit: "un" },
+      confirmedNew: true,
+      quantity: 1,
+      capturedAt: Date.now(),
+    });
+    expect(result.materialId).not.toBe(ids.breakerId);
+    expect(result.matchReason).toBe("new");
+  });
+
+  test("mesma identidade de um arquivado reativa em rascunho, sem erro", async () => {
+    const { t, ids, warehouse } = await seed();
+    await t.run(async (ctx) => {
+      await ctx.db.patch("materials", ids.breakerId, { active: false, status: "archived" });
+    });
+    const result = await warehouse.mutation(api.materialCaptures.capture, {
+      clientId: clientId(),
+      item: { name: "Disjuntor", variantLabel: "10A", unit: "un" },
+      quantity: 2,
+      capturedAt: Date.now(),
+    });
+    expect(result.materialId).toBe(ids.breakerId);
+    expect(result.outcome).toBe("review");
+    const material = await t.run(async (ctx) => await ctx.db.get("materials", ids.breakerId));
+    expect(material?.status).toBe("draft");
+    expect(material?.active).toBe(true);
+    expect(await materialCount(t)).toBe(1);
+  });
+
   test("quem viu os parecidos e confirmou que é novo cria ativo", async () => {
     const { t, warehouse } = await seed();
     const result = await warehouse.mutation(api.materialCaptures.capture, {

@@ -55,6 +55,9 @@ export default function CadastroEmCampoScreen() {
   const [scanning, setScanning] = useState(false);
   const [target, setTarget] = useState<CaptureTarget | null>(null);
   const name = useDebounced(search, 250);
+  // A conferência abaixo é do texto já assentado; enquanto a pessoa digita, não
+  // dá para cadastrar novo com os parecidos de um nome anterior.
+  const settled = name === search;
 
   useEffect(() => {
     void AsyncStorage.getItem(LOCATION_KEY)
@@ -89,9 +92,11 @@ export default function CadastroEmCampoScreen() {
   }
 
   function openNew() {
+    // Só com a conferência do nome atual (não da digitação anterior).
+    if (!settled) return;
     setTarget({
       kind: "new",
-      name: search.trim(),
+      name: name.trim(),
       code,
       similar: lookup.similar,
       checkedOnServer: lookup.source === "server",
@@ -109,7 +114,7 @@ export default function CadastroEmCampoScreen() {
 
   const typed = search.trim().length >= 2;
   const exactBlocksNew = lookup.exact !== null && lookup.exact.reason !== "alias";
-  const showNew = typed && !exactBlocksNew && !lookup.loading;
+  const showNew = typed && settled && !exactBlocksNew && !lookup.loading;
   const failedCount = pending.filter((p) => p.error).length;
 
   return (

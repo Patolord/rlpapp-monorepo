@@ -11,7 +11,9 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppButton, Banner, Chips, Field, SegmentedField, Sheet, useToast } from "@/components/ui";
-import { addPendingCapture, newCaptureClientId, type CaptureItemData, type PendingCapture } from "@/lib/capture-queue";
+import { normalizeCaptureText } from "@rlpapp/shared/estoque/captureMatch";
+
+import { addPendingCapture, newCaptureClientId, PENDING_PREFIX, type CaptureItemData, type PendingCapture } from "@/lib/capture-queue";
 import { getErrorMessage } from "@/lib/errors";
 import { formatMaterialLabel, formatQty } from "@/lib/format";
 import { colors, radius, space, type } from "@/lib/theme";
@@ -27,8 +29,6 @@ export type CaptureTarget =
   | { kind: "new"; name: string; code: string | null; similar: CaptureCandidate[]; checkedOnServer: boolean };
 
 const UNITS = ["un", "m", "kg", "cx", "pct", "rolo", "par", "l", "m²"] as const;
-/** Itens cadastrados sem sinal entram na cópia local com este prefixo. */
-export const PENDING_PREFIX = "pending:";
 
 function parseQuantity(value: string): number {
   return Number.parseFloat(value.replace(",", "."));
@@ -153,8 +153,12 @@ export function CaptureSheet({
       locationName: location.name,
       materialId,
       item,
-      // Quem viu os parecidos do servidor e mesmo assim cadastrou confirma que é novo.
-      confirmedNew: target.kind === "new" && target.checkedOnServer,
+      // Quem viu os parecidos do servidor para este nome e mesmo assim cadastrou
+      // confirma que é novo. Nome trocado no formulário: o servidor confere de novo.
+      confirmedNew:
+        target.kind === "new" &&
+        target.checkedOnServer &&
+        normalizeCaptureText(name) === normalizeCaptureText(target.name),
       quantityMode: mode,
       quantity: qty,
       physicalAddress: isCentral ? address.trim() || undefined : undefined,

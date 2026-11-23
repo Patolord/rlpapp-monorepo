@@ -10,6 +10,8 @@ import { useConvex } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { listQueuedClientIds, PENDING_PREFIX } from "./capture-queue";
+
 const CATALOG_KEY = "rlp-capture-catalog";
 const PAGE_SIZE = 500;
 /** Atualiza sozinho quando a cópia tem mais que isso. */
@@ -72,7 +74,14 @@ export function useCaptureCatalog(online: boolean, enabled: boolean) {
         if (page.isDone) break;
         cursor = page.continueCursor;
       }
-      const next = { savedAt: Date.now(), items };
+      // Itens ainda na fila do celular não estão no servidor: continuam na cópia
+      // para a próxima captura igual reconhecê-los.
+      const queued = await listQueuedClientIds();
+      const stored = await readCatalog();
+      const stillPending = (stored?.items ?? []).filter(
+        (item) => item._id.startsWith(PENDING_PREFIX) && queued.has(item._id.slice(PENDING_PREFIX.length))
+      );
+      const next = { savedAt: Date.now(), items: [...items, ...stillPending] };
       setCatalog(next);
       await writeCatalog(next);
     } catch {

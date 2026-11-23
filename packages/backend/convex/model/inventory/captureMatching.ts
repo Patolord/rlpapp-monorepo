@@ -79,7 +79,8 @@ export async function findByScannedCode(
   return null;
 }
 
-async function findByIdentity(
+/** Material com a mesma identidade, como está gravado (pode estar arquivado). */
+export async function findIdentityMaterial(
   ctx: Ctx,
   input: CaptureItemInput
 ): Promise<Doc<"materials"> | null> {
@@ -97,8 +98,7 @@ async function findByIdentity(
     unit: normalizeUnit(input.unit),
     variantLabel: deriveVariantLabel({ variantLabel: input.variantLabel }),
   });
-  const match = await findMaterialByIdentity(ctx, { identityKey });
-  return await resolveLiveMaterial(ctx, match);
+  return await findMaterialByIdentity(ctx, { identityKey });
 }
 
 async function findByAlias(
@@ -131,15 +131,18 @@ async function findByAlias(
 /** Correspondência certa: nesses casos a contagem soma no material existente. */
 export async function findExactMatch(
   ctx: Ctx,
-  input: CaptureItemInput
+  input: CaptureItemInput,
+  options: { skipAlias?: boolean } = {}
 ): Promise<ExactMatch | null> {
   if (input.barcode?.trim()) {
     const scanned = await findByScannedCode(ctx, input.barcode);
     if (scanned) return scanned;
   }
   if (!input.name.trim()) return null;
-  const identity = await findByIdentity(ctx, input);
+  const identity = await resolveLiveMaterial(ctx, await findIdentityMaterial(ctx, input));
   if (identity) return { material: identity, reason: "identity" };
+  // Apelido é a única correspondência que a pessoa pode recusar ("não é este").
+  if (options.skipAlias) return null;
   const alias = await findByAlias(ctx, input);
   if (alias) return { material: alias, reason: "alias" };
   return null;

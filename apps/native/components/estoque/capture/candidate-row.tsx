@@ -3,6 +3,7 @@ import { Package } from "lucide-react-native";
 import { StyleSheet, Text, View } from "react-native";
 
 import { Pill, Surface } from "@/components/ui";
+import { PENDING_PREFIX } from "@/lib/capture-queue";
 import { formatMaterialLabel, formatQty } from "@/lib/format";
 import { colors, radius, space, type } from "@/lib/theme";
 import type { CaptureCandidate } from "@/lib/use-capture-lookup";
@@ -59,7 +60,7 @@ export function CandidateRow({
           <View style={styles.pills}>
             <Pill label={REASON_LABEL[candidate.reason]} tone={candidate.reason === "similar" ? "warning" : "success"} />
             {candidate.status === "draft" ? <Pill label="Em revisão" tone="info" /> : null}
-            {candidate.materialId.startsWith("pending:") ? <Pill label="Na fila do celular" tone="neutral" /> : null}
+            {candidate.materialId.startsWith(PENDING_PREFIX) ? <Pill label="Na fila do celular" tone="neutral" /> : null}
           </View>
         </View>
         <Text style={[type.label, { color: colors.primary }]}>{actionLabel}</Text>

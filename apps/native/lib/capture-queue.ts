@@ -41,6 +41,8 @@ export interface PendingCapture {
 }
 
 const QUEUE_KEY = "rlp-capture-queue";
+/** Itens cadastrados sem sinal entram na cópia local do catálogo com este prefixo + clientId. */
+export const PENDING_PREFIX = "pending:";
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -87,6 +89,11 @@ export async function addPendingCapture(record: PendingCapture): Promise<void> {
 export async function listPendingCaptures(userId: string): Promise<PendingCapture[]> {
   const records = await readQueue();
   return records.filter((r) => r.userId === userId).sort((a, b) => a.capturedAt - b.capturedAt);
+}
+
+/** clientIds ainda na fila (de qualquer usuário do aparelho). */
+export async function listQueuedClientIds(): Promise<Set<string>> {
+  return new Set((await readQueue()).map((r) => r.clientId));
 }
 
 export async function removePendingCapture(clientId: string): Promise<void> {
