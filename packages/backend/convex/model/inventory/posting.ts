@@ -4,6 +4,7 @@ import { logAudit } from "../../lib/audit";
 import {
   assertCanPostInventoryDocument,
   createInventoryDocument,
+  type InventoryAuthorization,
   type InventoryLineInput,
 } from "./documents";
 
@@ -143,7 +144,8 @@ async function applyBalanceDelta(
 export async function postInventoryDocument(
   ctx: MutationCtx,
   user: Doc<"users">,
-  documentId: Id<"inventoryDocuments">
+  documentId: Id<"inventoryDocuments">,
+  authorization?: InventoryAuthorization
 ): Promise<void> {
   const document = await ctx.db.get("inventoryDocuments", documentId);
   if (!document) throw new Error("Movimentação não encontrada");
@@ -154,7 +156,8 @@ export async function postInventoryDocument(
     ctx,
     user,
     document.type,
-    document.projectId
+    document.projectId,
+    authorization
   );
   if (document.status === "pending_approval") {
     throw new Error("A movimentação aguarda aprovação do engenheiro da obra");
