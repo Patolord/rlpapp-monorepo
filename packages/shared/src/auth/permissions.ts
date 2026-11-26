@@ -242,7 +242,8 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
     "Cadastrar, editar e mesclar materiais; políticas de reposição.",
   "fornecedores.write": "Cadastrar e editar fornecedores e o que oferecem.",
   "precos.write": "Registrar eventos de preço e revisar a fila.",
-  "takeoff.use": "Login no app desktop e leitura do catálogo de materiais.",
+  "takeoff.use":
+    "Login no app desktop, leitura do catálogo de materiais e a memória do agente de IA (ler, ensinar e aprovar).",
   "takeoff.config":
     "Kits, pesos, preços base, marcas VRF e mão de obra do app desktop.",
   "arquivos.read":

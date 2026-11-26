@@ -18,6 +18,7 @@
     "./rh/payrollLabels": "./src/rh/payrollLabels.ts",
     "./rh/pontoDay": "./src/rh/pontoDay.ts",
     "./rh/timeClockReminders": "./src/rh/timeClockReminders.ts",
+    "./takeoff/agentMemory": "./src/takeoff/agentMemory.ts",
     "./takeoff/desktopBudget": "./src/takeoff/desktopBudget.ts",
     "./takeoff/estimate": "./src/takeoff/estimate.ts",
     "./takeoff/estimatePricing": "./src/takeoff/estimatePricing.ts",

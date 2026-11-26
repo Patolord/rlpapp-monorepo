@@ -337,6 +337,12 @@ export const precosMutation = permissionMutation("precos.write");
 /** Kits, pesos, preços base, marcas VRF e mão de obra do App Takeoff. */
 export const takeoffConfigMutation = permissionMutation("takeoff.config");
 /**
+ * O que quem usa o app desktop lê e grava como parte do próprio uso (a memória
+ * do agente de IA, compartilhada pela empresa).
+ */
+export const takeoffAppQuery = permissionQuery("takeoff.use");
+export const takeoffAppMutation = permissionMutation("takeoff.use");
+/**
  * Propor material ao catálogo a partir do RLP Takeoff (vira rascunho que
  * compras avalia; não altera material existente).
  */
