@@ -315,6 +315,21 @@ O projeto é descoberto a partir do deployment de produção (`rosy-crow-250`). 
 
 Sem o secret, o workflow só avisa e não apaga nada.
 
+### Atualização de dependências (Renovate)
+
+O [Renovate](https://docs.renovatebot.com/) (GitHub App instalado no repositório) abre os PRs de atualização, configurado em [`renovate.json5`](renovate.json5). Ele cobre os `package.json` e o catálogo do `pnpm-workspace.yaml`, o `Cargo.toml` do app desktop, os workflows do GitHub Actions e a versão do turbo em `scripts/vercel-ignore-build.sh`.
+
+Como cada push num PR que mexe no `pnpm-lock.yaml` gasta deployments da Vercel e do Convex, a configuração é econômica:
+
+- roda às segundas antes das 9h (horário de Brasília) e não empurra commits fora desse horário;
+- só propõe versões publicadas há pelo menos 3 dias;
+- minor e patch vêm agrupados (um PR para npm, um para o internal-agent, um para Rust, um para Actions); Convex (`convex`, `convex-helpers`, `convex-test`, `@convex-dev/*`), Tauri (npm e crates) e turbo têm PR próprio;
+- só refaz o branch quando há conflito, não a cada merge no `master`;
+- majors e as dependências do SDK do Expo no app mobile esperam aprovação: marque a caixa na issue **Painel de dependências (Renovate)**. As do Expo se atualizam com `npx expo install --fix`, porque o SDK fixa as versões compatíveis;
+- o `lightningcss` fica de fora (fixado de propósito nos `overrides`).
+
+Os PRs passam pelo CI normal; revise e faça merge como qualquer outro. No PR do Convex, rode `pnpm dev:server` no branch e commite o que mudar em `convex/_generated`. Para testar uma mudança na configuração: `npx --package renovate -- renovate-config-validator --strict`.
+
 ## Deploy
 
 - **Backend (produção):** `npx convex deploy` — somente via pipeline/manual consciente, nunca durante desenvolvimento.

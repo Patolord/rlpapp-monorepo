@@ -64,6 +64,10 @@ configurado (abaixo).
   `workflow_dispatch`). Ver [`apps/takeoff/AGENTS.md`](apps/takeoff/AGENTS.md).
 - `convex-preview-cleanup.yml`: apaga o deployment de preview do Convex de um PR quando ele fecha,
   e varre diariamente os previews sem PR aberto (secret `CONVEX_MANAGEMENT_TOKEN`; ver README).
+- Dependências: o Renovate (`renovate.json5`) abre PRs agrupados às segundas; majors e o SDK do
+  Expo esperam aprovação na issue "Painel de dependências (Renovate)". Ver README (CI →
+  Atualização de dependências). Versões fixadas (`catalog` do `pnpm-workspace.yaml`, `overrides`)
+  não andam sozinhas fora dele.
 
 ## Deploys da Vercel (cota)
 
