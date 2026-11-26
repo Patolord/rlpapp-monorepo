@@ -17,7 +17,9 @@
     "test:watch": "vitest",
     "inspect": "tsx scripts/inspect-pdf.ts",
     "release": "node scripts/release.mjs",
-    "bench": "tsx scripts/bench-vectors.ts"
+    "bench": "tsx scripts/bench-vectors.ts",
+    "eval": "tsx scripts/eval.ts",
+    "sample-plan": "tsx scripts/sample-plan.ts"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
