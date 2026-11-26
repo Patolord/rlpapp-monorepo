@@ -6,6 +6,7 @@
 import { create } from "zustand";
 import { activeDrawing, UNTITLED } from "../lib/types";
 import { type AccountSlice, createAccountSlice } from "./account";
+import { type AgentSlice, createAgentSlice } from "./agent";
 import { type CatalogSlice, createCatalogSlice } from "./catalog";
 import { createDuctSlice, type DuctSlice } from "./ducts";
 import { createEstimateSlice, type EstimateSlice } from "./estimate";
@@ -18,6 +19,7 @@ import { createViewSlice, type ViewSlice } from "./view";
 import { createVrfSlice, type VrfSlice } from "./vrf";
 
 export type State = AccountSlice &
+  AgentSlice &
   ProjectSlice &
   ItemsSlice &
   DuctSlice &
@@ -31,6 +33,7 @@ export type State = AccountSlice &
 
 export const useStore = create<State>()((...a) => ({
   ...createAccountSlice(...a),
+  ...createAgentSlice(...a),
   ...createProjectSlice(...a),
   ...createItemsSlice(...a),
   ...createDuctSlice(...a),

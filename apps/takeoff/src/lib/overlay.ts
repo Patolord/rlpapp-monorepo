@@ -160,6 +160,30 @@ export function drawZone(
   ctx.restore();
 }
 
+/**
+ * The mark of a suggestion an AI agent made and the user has not reviewed yet: a small "IA" tag
+ * beside the marking's anchor (its geometry is also drawn dashed).
+ */
+export function drawAiBadge(ctx: CanvasRenderingContext2D, v: View, at: Pt) {
+  const c = toScreen(at, v);
+  const x = Math.round(c.x) - 26;
+  const y = Math.round(c.y) - 24;
+  ctx.save();
+  ctx.fillStyle = "#7c3aed";
+  ctx.beginPath();
+  ctx.roundRect(x, y, 20, 14, 4);
+  ctx.fill();
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.font = "bold 10px system-ui, sans-serif";
+  ctx.fillStyle = "#fff";
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  ctx.fillText("IA", x + 10, y + 7.5);
+  ctx.restore();
+}
+
 /** A vertex handle (index) or a segment midpoint handle (segment index) under the pointer. */
 export interface HandleRef {
   index: number;

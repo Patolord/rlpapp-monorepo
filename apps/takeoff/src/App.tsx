@@ -2,6 +2,8 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { lazy, Suspense, useEffect } from "react";
 import { AboutDialog } from "./components/AboutDialog";
+import { AgentDialog } from "./components/AgentDialog";
+import { AiReviewBar } from "./components/AiReviewBar";
 import { CalibrateDialog } from "./components/CalibrateDialog";
 import { CatalogPalette } from "./components/CatalogPalette";
 import { CatalogSettingsDialog } from "./components/CatalogSettingsDialog";
@@ -101,6 +103,14 @@ export default function App() {
       .catch((e) => console.warn("catalog refresh failed", e));
   }, []);
 
+  // AI agent: its memory, and the local MCP server when it was left on (see lib/agent)
+  useEffect(() => {
+    void useStore
+      .getState()
+      .restoreAgent()
+      .catch((e) => console.warn("agent restore failed", e));
+  }, []);
+
   // look for a new version once, shortly after launch (no-op outside Tauri)
   useEffect(() => {
     const id = window.setTimeout(() => void checkForUpdate(), 4000);
@@ -151,6 +161,7 @@ export default function App() {
             <Viewer />
             {!numPages && <Welcome />}
             <SimilarPreviewBar />
+            <AiReviewBar />
             <KitPicker />
             <SelectionBar />
             <CalibrateDialog />
@@ -166,6 +177,7 @@ export default function App() {
       <StatusBar />
       <CatalogPalette />
       <AboutDialog />
+      <AgentDialog />
       <NewProjectDialog />
       <EstimateDialog />
       <KitsDialog />

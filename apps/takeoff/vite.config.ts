@@ -2,6 +2,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { readFileSync } from "node:fs";
 import { defineConfig } from "vitest/config";
+import { agentBridge } from "./scripts/vite-agent-bridge.ts";
 
 const host = process.env.TAURI_DEV_HOST as string | undefined;
 
@@ -16,6 +17,8 @@ export default defineConfig({
     // release workflow's `pnpm install --filter takeoff...`).
     react({ exclude: [/\/node_modules\//, /\/convex\/_generated\//] }),
     tailwindcss(),
+    // browser dev mode: POST /mcp reaches the page's agent tools (see src/lib/agent/bridge.ts)
+    agentBridge(),
   ],
   clearScreen: false,
   server: {

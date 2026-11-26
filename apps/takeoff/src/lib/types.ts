@@ -99,6 +99,13 @@ export interface Drawing {
   revisions?: DrawingRevision[];
 }
 
+/**
+ * Review state of a marking an AI agent created (see lib/agent and lib/aiReview): "suggested"
+ * waits for the user, "accepted" was approved as drawn, "edited" was approved after the user
+ * changed its geometry. Undefined = drawn by a person.
+ */
+export type AiReview = "suggested" | "accepted" | "edited";
+
 export interface Measurement {
   id: string;
   itemId: string;
@@ -134,6 +141,8 @@ export interface Measurement {
   duct?: DuctSpec;
   /** VRF refrigerant run: role, capacity and elbows, feeding the VRF take-off. */
   vrf?: VrfSpec;
+  /** Set on markings an AI agent created: where the user's review of it stands. */
+  ai?: AiReview;
 }
 
 /**
@@ -158,6 +167,8 @@ export interface Zone {
   hidden?: boolean;
   /** Times this region repeats (20 identical apartments): multiplies the quantities inside it. */
   repeat?: number;
+  /** Set on regions an AI agent created: where the user's review of it stands. */
+  ai?: AiReview;
 }
 
 /**
@@ -244,6 +255,11 @@ export interface Project {
   vrfSettings?: VrfSettings;
   /** Unit prices of VRF materials edited in this takeoff, by bill row name. */
   vrfPrices?: Record<string, number>;
+  /**
+   * AI suggestions the user discarded before accepting them (they leave no marking behind).
+   * With the `ai` states of the markings it gives the review rates (see lib/aiReview).
+   */
+  aiRejected?: number;
 }
 
 export const ZONE_COLORS = ["#38bdf8", "#fb923c", "#a78bfa", "#4ade80", "#f472b6", "#fde047"];

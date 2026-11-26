@@ -32,7 +32,8 @@ export interface Clipboard extends MarkingSource {
  * copy gets a fresh id. Kit groups stay grouped among the copies under new link ids, apart from
  * the originals. A VRF run that continued another (`parent`) continues the copy of it when that
  * run is copied too; otherwise the parent is dropped and the copy joins whatever it touches.
- * Everything else (item, duct section, VRF role, vertical, repeat, a region's location) is kept.
+ * Everything else (item, duct section, VRF role, vertical, repeat, a region's location) is kept,
+ * except the AI review state: a copy is the user's own marking, not a suggestion to review.
  */
 export function cloneMarkings(
   source: MarkingSource,
@@ -59,8 +60,9 @@ export function cloneMarkings(
     });
 
   const measurements = picked.map((m): Measurement => {
+    const { ai: _ai, ...own } = m;
     const copy: Measurement = {
-      ...m,
+      ...own,
       id: newIds.get(m.id) ?? newId(),
       drawingId: target.drawingId,
       page: target.page,
@@ -79,7 +81,7 @@ export function cloneMarkings(
   const zones = source.zones
     .filter((z) => want.has(z.id))
     .map(
-      (z): Zone => ({
+      ({ ai: _ai, ...z }): Zone => ({
         ...z,
         id: newId(),
         drawingId: target.drawingId,

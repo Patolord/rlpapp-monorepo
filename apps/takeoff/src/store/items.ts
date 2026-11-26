@@ -1,5 +1,6 @@
+import { pendingAmong, touchedAi } from "../lib/aiReview";
 import { groupKey } from "../lib/budgetOrder";
-import { type CatalogEntry, kindForUnit, mergeCatalog, normalizeDiscipline } from "../lib/catalog";
+import { type CatalogEntry, kindForUnit, normalizeDiscipline } from "../lib/catalog";
 import {
   type Clipboard,
   type CloneTarget,
@@ -7,9 +8,9 @@ import {
   cloneMarkings,
   scalesDiffer,
 } from "../lib/clone";
-import { componentItem, priceSnapshot } from "../lib/componentItem";
+import { priceSnapshot } from "../lib/componentItem";
 import type { Pt } from "../lib/geom";
-import { kitLabelSnapshot, kitMode } from "../lib/kits";
+import { kitRun } from "../lib/kitRun";
 import { pageScale } from "../lib/quantities";
 import { type Joined, reshape } from "../lib/reshape";
 import { guessSymbol } from "../lib/symbols";
@@ -325,11 +326,24 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
     const set_ = new Set(ids);
     get().commit((p) => ({
       ...p,
+      // moving an AI suggestion is a correction: it counts as reviewed (see lib/aiReview)
       measurements: p.measurements.map((m) =>
-        set_.has(m.id) ? { ...m, points: m.points.map((q) => ({ x: q.x + dx, y: q.y + dy })) } : m,
+        set_.has(m.id)
+          ? {
+              ...m,
+              points: m.points.map((q) => ({ x: q.x + dx, y: q.y + dy })),
+              ...(m.ai ? { ai: touchedAi(m.ai) } : {}),
+            }
+          : m,
       ),
       zones: p.zones.map((z) =>
-        set_.has(z.id) ? { ...z, points: z.points.map((q) => ({ x: q.x + dx, y: q.y + dy })) } : z,
+        set_.has(z.id)
+          ? {
+              ...z,
+              points: z.points.map((q) => ({ x: q.x + dx, y: q.y + dy })),
+              ...(z.ai ? { ai: touchedAi(z.ai) } : {}),
+            }
+          : z,
       ),
     }));
   },
@@ -342,11 +356,11 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
         ...p,
         measurements: p.measurements.map((m) => {
           const pts = next.get(m.id);
-          return pts ? { ...m, points: pts } : m;
+          return pts ? { ...m, points: pts, ...(m.ai ? { ai: touchedAi(m.ai) } : {}) } : m;
         }),
         zones: p.zones.map((z) => {
           const pts = next.get(z.id);
-          return pts ? { ...z, points: pts } : z;
+          return pts ? { ...z, points: pts, ...(z.ai ? { ai: touchedAi(z.ai) } : {}) } : z;
         }),
       };
     }),
@@ -354,13 +368,16 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
   removeMeasurements: (ids) => {
     if (ids.length === 0) return;
     const set_ = new Set(ids);
-    get().commit((p) =>
-      pruneLocations({
+    get().commit((p) => {
+      // deleting an AI suggestion that was still waiting is a rejection (see lib/aiReview)
+      const rejected = pendingAmong(p, set_);
+      return pruneLocations({
         ...p,
         measurements: p.measurements.filter((m) => !set_.has(m.id)),
         zones: p.zones.filter((z) => !set_.has(z.id)),
-      }),
-    );
+        ...(rejected > 0 ? { aiRejected: (p.aiRejected ?? 0) + rejected } : {}),
+      });
+    });
     // the filter follows a location; it goes when the location's last region goes
     const { zoneFilter, project } = get();
     set({
@@ -415,40 +432,7 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
     const kit = catalog.kits.find((k) => k.id === kitId);
     if (!kit || kit.components.length === 0 || points.length === 0) return 0;
     const drawingId = project.activeDrawingId ?? "";
-    const linkId = newId();
-    const entries = mergeCatalog(catalog);
-    const byClick = kitMode(kit) === "count";
-    // the run remembers its kit (its label follows the kit) and the label as drawn, for when
-    // the catalog no longer has the kit
-    const kitLabel = kitLabelSnapshot(kit);
-    get().commit((p) => {
-      let items = p.items;
-      const measurements = [...p.measurements];
-      for (const c of kit.components) {
-        const found = componentItem(items, catalog, entries, c, {
-          projectSystem: p.system,
-          // a click kit's linear factor is the length per click, kept on the measurement
-          factor: byClick && c.kind === "linear" ? undefined : c.factor,
-        });
-        items = found.items;
-        const item = found.item;
-        measurements.push({
-          id: newId(),
-          itemId: item.id,
-          drawingId,
-          page,
-          points: c.kind === "count" || byClick ? [points[0]] : points,
-          linkId,
-          kitId: kit.id,
-          ...(kitLabel !== undefined ? { kitLabel } : {}),
-          vertical: byClick && c.kind === "linear" && c.factor > 0 ? c.factor : undefined,
-          // "Marcar em" takes over every component's discipline: the same kit is AC Pesado in
-          // the garage and AC Leve in the party room
-          ...stamp(drawSystem, item),
-        });
-      }
-      return { ...p, items, measurements };
-    });
+    get().commit((p) => kitRun(p, catalog, kit, { drawingId, page, points, drawSystem }));
     set({ status: `Kit ${kit.name}: ${kit.components.length} itens medidos de uma vez` });
     return kit.components.length;
   },

@@ -47,6 +47,7 @@ import { isTauri } from "../lib/platform";
 import { buildPublishBudget } from "../lib/publishBudget";
 import type { SentToApp } from "../lib/types";
 import { useStore } from "../store";
+import { AiPendingNotice } from "./AiReviewBar";
 import { Dialog } from "./Dialog";
 import { Button } from "./ui";
 
@@ -490,6 +491,8 @@ function SendBudgetPanel() {
             )}
           </section>
         )}
+
+        <AiPendingNotice />
 
         <label className="flex items-start gap-2 text-neutral-200">
           <input
