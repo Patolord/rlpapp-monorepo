@@ -67,12 +67,14 @@ export function ChoiceChips<V extends string>({
   values,
   options,
   onChange,
+  error,
   style,
 }: {
   label: string;
   values: V[];
   options: { value: V; label: string }[];
   onChange: (values: V[]) => void;
+  error?: string;
   style?: StyleProp<ViewStyle>;
 }) {
   function toggle(v: V) {
@@ -98,6 +100,7 @@ export function ChoiceChips<V extends string>({
           );
         })}
       </View>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
 }

@@ -20,6 +20,10 @@ export default function CampoObrasLayout() {
       <Stack.Screen name="obra/[projectId]/documentos" options={{ title: "Documentos" }} />
       <Stack.Screen name="obra/[projectId]/estoque" options={{ title: "Estoque" }} />
       <Stack.Screen name="obra/[projectId]/registros" options={{ title: "Meus registros" }} />
+      <Stack.Screen name="obra/[projectId]/servicos" options={{ title: "Serviços" }} />
+      <Stack.Screen name="obra/[projectId]/disciplina/[disciplineId]" options={{ title: "Disciplina" }} />
+      <Stack.Screen name="obra/[projectId]/servico" options={{ title: "Serviço" }} />
+      <Stack.Screen name="obra/[projectId]/equipe" options={{ title: "Equipe e dados da obra" }} />
       <Stack.Screen name="obra/[projectId]/equipamento/[token]" options={{ title: "Equipamento" }} />
     </Stack>
   );

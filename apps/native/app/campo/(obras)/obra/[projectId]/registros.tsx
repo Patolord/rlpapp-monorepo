@@ -1,12 +1,14 @@
 import { api } from "@rlpapp/backend/convex/_generated/api";
 import type { Id } from "@rlpapp/backend/convex/_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
-import { usePaginatedQuery } from "convex/react";
+import { usePaginatedQuery, useQuery } from "convex/react";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { ChevronRight, History } from "lucide-react-native";
 import { useMemo } from "react";
 import { ActivityIndicator, SectionList, StyleSheet, Text, View } from "react-native";
 
+import { MyStagesBlock } from "@/components/campo/my-stages-block";
+import { useFieldObra } from "@/components/campo/obra";
 import { PendingBanner } from "@/components/campo/pending-banner";
 import { StatusBadge } from "@/components/engenharia/status-badge";
 import { EmptyState, LoadingState, Pill, Surface } from "@/components/ui";
@@ -34,6 +36,13 @@ export default function ObraRegistrosScreen() {
     { projectId: projectId as Id<"projects"> },
     { initialNumItems: 20 }
   );
+  // As etapas de serviço exigem atribuição à obra (a query lança "acesso
+  // negado" para quem só está de passagem), então só rodam com `assigned`.
+  const obra = useFieldObra(projectId);
+  const assignedId = obra != null && obra.assigned ? obra._id : null;
+  const stages = useQuery(api.fieldServices.listMine, assignedId ? { projectId: assignedId } : "skip");
+  const currentUser = useQuery(api.users.getCurrentUser);
+  const hasStages = stages !== undefined && stages.length > 0;
 
   const sections = useMemo(() => {
     const map = new Map<string, Item[]>();
@@ -53,7 +62,21 @@ export default function ObraRegistrosScreen() {
       keyExtractor={(item) => `${item.kind}:${item.id}`}
       contentContainerStyle={styles.list}
       stickySectionHeadersEnabled={false}
-      ListHeaderComponent={<PendingBanner onPress={() => router.push("/campo/pendentes" as Href)} />}
+      ListHeaderComponent={
+        <View style={styles.header}>
+          <PendingBanner onPress={() => router.push("/campo/pendentes" as Href)} />
+          <MyStagesBlock
+            stages={stages ?? []}
+            currentUserId={currentUser?._id}
+            onOpen={(stage) =>
+              router.push({
+                pathname: "/campo/obra/[projectId]/servico",
+                params: { projectId: projectId!, disciplineId: stage.disciplineId, locationKey: stage.locationKey },
+              } as Href)
+            }
+          />
+        </View>
+      }
       onEndReached={() => {
         if (status === "CanLoadMore") loadMore(20);
       }}
@@ -99,11 +122,14 @@ export default function ObraRegistrosScreen() {
         );
       }}
       ListEmptyComponent={
-        <EmptyState
-          icon={<History size={28} color={colors.primary} />}
-          title="Nada registrado nesta obra"
-          description="Os cadastros e serviços que você enviar aqui aparecem nesta lista."
-        />
+        // Com etapas de serviço no topo, a tela não está vazia.
+        hasStages ? null : (
+          <EmptyState
+            icon={<History size={28} color={colors.primary} />}
+            title="Nada registrado nesta obra"
+            description="Os cadastros e serviços que você enviar aqui aparecem nesta lista."
+          />
+        )
       }
       ListFooterComponent={status === "LoadingMore" ? <ActivityIndicator color={colors.primary} style={{ paddingVertical: space.lg }} /> : null}
     />
@@ -112,6 +138,7 @@ export default function ObraRegistrosScreen() {
 
 const styles = StyleSheet.create({
   list: { padding: space.screen, paddingBottom: 40, gap: space.sm },
+  header: { gap: space.sm },
   section: { ...type.eyebrow, color: colors.textSecondaryOnBg, marginTop: space.md, marginBottom: space.xs },
   card: { marginBottom: space.sm },
   row: { flexDirection: "row", alignItems: "center", gap: space.sm },

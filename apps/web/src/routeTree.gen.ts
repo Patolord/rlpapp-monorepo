@@ -102,6 +102,7 @@ import { Route as EngenhariaObrasObraSlugMedicoesRouteImport } from './routes/en
 import { Route as EngenhariaObrasObraSlugOrcamentoRouteImport } from './routes/engenharia/obras/$obraSlug.orcamento'
 import { Route as EngenhariaObrasObraSlugPredioRouteImport } from './routes/engenharia/obras/$obraSlug.predio'
 import { Route as EngenhariaObrasObraSlugQrCodesRouteImport } from './routes/engenharia/obras/$obraSlug.qr-codes'
+import { Route as EngenhariaObrasObraSlugServicosRouteImport } from './routes/engenharia/obras/$obraSlug.servicos'
 import { Route as EngenhariaRelatoriosProjectIdIndexRouteImport } from './routes/engenharia/relatorios/$projectId.index'
 import { Route as EngenhariaRelatoriosProjectIdAssistenteRouteImport } from './routes/engenharia/relatorios/$projectId.assistente'
 import { Route as EngenhariaRelatoriosProjectIdGlobalRouteImport } from './routes/engenharia/relatorios/$projectId.global'
@@ -606,6 +607,12 @@ const EngenhariaObrasObraSlugQrCodesRoute =
     path: '/qr-codes',
     getParentRoute: () => EngenhariaObrasObraSlugRoute,
   } as any)
+const EngenhariaObrasObraSlugServicosRoute =
+  EngenhariaObrasObraSlugServicosRouteImport.update({
+    id: '/servicos',
+    path: '/servicos',
+    getParentRoute: () => EngenhariaObrasObraSlugRoute,
+  } as any)
 const EngenhariaRelatoriosProjectIdIndexRoute =
   EngenhariaRelatoriosProjectIdIndexRouteImport.update({
     id: '/',
@@ -784,6 +791,7 @@ export interface FileRoutesByFullPath {
   '/engenharia/obras/$obraSlug/orcamento': typeof EngenhariaObrasObraSlugOrcamentoRoute
   '/engenharia/obras/$obraSlug/predio': typeof EngenhariaObrasObraSlugPredioRoute
   '/engenharia/obras/$obraSlug/qr-codes': typeof EngenhariaObrasObraSlugQrCodesRoute
+  '/engenharia/obras/$obraSlug/servicos': typeof EngenhariaObrasObraSlugServicosRoute
   '/engenharia/relatorios/$projectId/assistente': typeof EngenhariaRelatoriosProjectIdAssistenteRoute
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
   '/engenharia/relatorios/$projectId/imprimir': typeof EngenhariaRelatoriosProjectIdImprimirRoute
@@ -878,6 +886,7 @@ export interface FileRoutesByTo {
   '/engenharia/obras/$obraSlug/orcamento': typeof EngenhariaObrasObraSlugOrcamentoRoute
   '/engenharia/obras/$obraSlug/predio': typeof EngenhariaObrasObraSlugPredioRoute
   '/engenharia/obras/$obraSlug/qr-codes': typeof EngenhariaObrasObraSlugQrCodesRoute
+  '/engenharia/obras/$obraSlug/servicos': typeof EngenhariaObrasObraSlugServicosRoute
   '/engenharia/relatorios/$projectId/assistente': typeof EngenhariaRelatoriosProjectIdAssistenteRoute
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
   '/engenharia/relatorios/$projectId/imprimir': typeof EngenhariaRelatoriosProjectIdImprimirRoute
@@ -988,6 +997,7 @@ export interface FileRoutesById {
   '/engenharia/obras/$obraSlug/orcamento': typeof EngenhariaObrasObraSlugOrcamentoRoute
   '/engenharia/obras/$obraSlug/predio': typeof EngenhariaObrasObraSlugPredioRoute
   '/engenharia/obras/$obraSlug/qr-codes': typeof EngenhariaObrasObraSlugQrCodesRoute
+  '/engenharia/obras/$obraSlug/servicos': typeof EngenhariaObrasObraSlugServicosRoute
   '/engenharia/relatorios/$projectId/assistente': typeof EngenhariaRelatoriosProjectIdAssistenteRoute
   '/engenharia/relatorios/$projectId/global': typeof EngenhariaRelatoriosProjectIdGlobalRoute
   '/engenharia/relatorios/$projectId/imprimir': typeof EngenhariaRelatoriosProjectIdImprimirRoute
@@ -1099,6 +1109,7 @@ export interface FileRouteTypes {
     | '/engenharia/obras/$obraSlug/orcamento'
     | '/engenharia/obras/$obraSlug/predio'
     | '/engenharia/obras/$obraSlug/qr-codes'
+    | '/engenharia/obras/$obraSlug/servicos'
     | '/engenharia/relatorios/$projectId/assistente'
     | '/engenharia/relatorios/$projectId/global'
     | '/engenharia/relatorios/$projectId/imprimir'
@@ -1193,6 +1204,7 @@ export interface FileRouteTypes {
     | '/engenharia/obras/$obraSlug/orcamento'
     | '/engenharia/obras/$obraSlug/predio'
     | '/engenharia/obras/$obraSlug/qr-codes'
+    | '/engenharia/obras/$obraSlug/servicos'
     | '/engenharia/relatorios/$projectId/assistente'
     | '/engenharia/relatorios/$projectId/global'
     | '/engenharia/relatorios/$projectId/imprimir'
@@ -1302,6 +1314,7 @@ export interface FileRouteTypes {
     | '/engenharia/obras/$obraSlug/orcamento'
     | '/engenharia/obras/$obraSlug/predio'
     | '/engenharia/obras/$obraSlug/qr-codes'
+    | '/engenharia/obras/$obraSlug/servicos'
     | '/engenharia/relatorios/$projectId/assistente'
     | '/engenharia/relatorios/$projectId/global'
     | '/engenharia/relatorios/$projectId/imprimir'
@@ -2007,6 +2020,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngenhariaObrasObraSlugQrCodesRouteImport
       parentRoute: typeof EngenhariaObrasObraSlugRoute
     }
+    '/engenharia/obras/$obraSlug/servicos': {
+      id: '/engenharia/obras/$obraSlug/servicos'
+      path: '/servicos'
+      fullPath: '/engenharia/obras/$obraSlug/servicos'
+      preLoaderRoute: typeof EngenhariaObrasObraSlugServicosRouteImport
+      parentRoute: typeof EngenhariaObrasObraSlugRoute
+    }
     '/engenharia/relatorios/$projectId/': {
       id: '/engenharia/relatorios/$projectId/'
       path: '/'
@@ -2205,6 +2225,7 @@ interface EngenhariaObrasObraSlugRouteChildren {
   EngenhariaObrasObraSlugOrcamentoRoute: typeof EngenhariaObrasObraSlugOrcamentoRoute
   EngenhariaObrasObraSlugPredioRoute: typeof EngenhariaObrasObraSlugPredioRoute
   EngenhariaObrasObraSlugQrCodesRoute: typeof EngenhariaObrasObraSlugQrCodesRoute
+  EngenhariaObrasObraSlugServicosRoute: typeof EngenhariaObrasObraSlugServicosRoute
   EngenhariaObrasObraSlugIndexRoute: typeof EngenhariaObrasObraSlugIndexRoute
 }
 
@@ -2225,6 +2246,7 @@ const EngenhariaObrasObraSlugRouteChildren: EngenhariaObrasObraSlugRouteChildren
       EngenhariaObrasObraSlugOrcamentoRoute,
     EngenhariaObrasObraSlugPredioRoute: EngenhariaObrasObraSlugPredioRoute,
     EngenhariaObrasObraSlugQrCodesRoute: EngenhariaObrasObraSlugQrCodesRoute,
+    EngenhariaObrasObraSlugServicosRoute: EngenhariaObrasObraSlugServicosRoute,
     EngenhariaObrasObraSlugIndexRoute: EngenhariaObrasObraSlugIndexRoute,
   }
 
