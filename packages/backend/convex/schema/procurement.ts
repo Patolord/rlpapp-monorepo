@@ -333,6 +333,12 @@ export const procurementTables = {
     mode: takeoffKitMode,
     /** Prefixo do rótulo no desenho ('1/4" · 3/8"'); ausente = sem rótulo. */
     label: v.optional(v.string()),
+    /**
+     * Quando usar o kit, escrito pela empresa para quem escolhe (pessoa ou o
+     * agente de IA do app): equipamentos, capacidades e bitolas a que serve e
+     * onde não serve. Ausente = sem descrição.
+     */
+    usage: v.optional(v.string()),
     components: v.array(takeoffKitComponent),
     sortOrder: v.number(),
     active: v.boolean(),

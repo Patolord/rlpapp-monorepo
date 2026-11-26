@@ -19,6 +19,7 @@ import { takeoffKitComponent, takeoffKitMode } from "../../schema/procurement";
 
 export const MAX_KIT_NAME = 120;
 export const MAX_KIT_LABEL = 60;
+export const MAX_KIT_USAGE = 600;
 export const MAX_KIT_COMPONENTS = 50;
 export const MAX_COMPONENT_TEXT = 200;
 export const MAX_COMPONENT_SKU = 40;
@@ -29,6 +30,8 @@ export const takeoffKitValidator = v.object({
   name: v.string(),
   mode: takeoffKitMode,
   label: v.union(v.string(), v.null()),
+  /** When to use the kit (company text for whoever picks one); null = none. */
+  usage: v.union(v.string(), v.null()),
   components: v.array(
     v.object({
       name: v.string(),
@@ -47,6 +50,7 @@ export type TakeoffKit = {
   name: string;
   mode: "linear" | "count";
   label: string | null;
+  usage: string | null;
   components: Array<{
     name: string;
     sku: string | null;
@@ -64,6 +68,7 @@ export const takeoffKitRowValidator = v.object({
   name: v.string(),
   mode: takeoffKitMode,
   label: v.union(v.string(), v.null()),
+  usage: v.union(v.string(), v.null()),
   components: v.array(takeoffKitComponent),
   sortOrder: v.number(),
   updatedAt: v.number(),
@@ -77,6 +82,7 @@ export const takeoffKitInputValidator = v.object({
   name: v.string(),
   mode: takeoffKitMode,
   label: v.optional(v.string()),
+  usage: v.optional(v.string()),
   components: v.array(takeoffKitComponent),
 });
 
@@ -84,6 +90,7 @@ export type TakeoffKitInput = {
   name: string;
   mode: "linear" | "count";
   label?: string;
+  usage?: string;
   components: KitComponent[];
 };
 
@@ -96,6 +103,7 @@ export function toTakeoffKit(kit: Doc<"takeoffKits">): TakeoffKit {
     name: kit.name,
     mode: kit.mode,
     label: kit.label ?? null,
+    usage: kit.usage ?? null,
     components: kit.components.map((c) => ({
       name: c.name,
       sku: c.sku ?? null,
@@ -140,6 +148,10 @@ export function sanitizeTakeoffKitInput(input: TakeoffKitInput): TakeoffKitInput
   if (label !== undefined && label.length > MAX_KIT_LABEL) {
     throw new Error(`Rótulo com mais de ${MAX_KIT_LABEL} caracteres`);
   }
+  const usage = input.usage?.trim();
+  if (usage !== undefined && usage.length > MAX_KIT_USAGE) {
+    throw new Error(`"Quando usar" com mais de ${MAX_KIT_USAGE} caracteres`);
+  }
   const components: KitComponent[] = [];
   for (const c of input.components) {
     const cname = c.name.trim();
@@ -173,7 +185,13 @@ export function sanitizeTakeoffKitInput(input: TakeoffKitInput): TakeoffKitInput
   if (components.length > MAX_KIT_COMPONENTS) {
     throw new Error(`Kit com mais de ${MAX_KIT_COMPONENTS} componentes`);
   }
-  return { name, mode: input.mode, ...(label ? { label } : {}), components };
+  return {
+    name,
+    mode: input.mode,
+    ...(label ? { label } : {}),
+    ...(usage ? { usage } : {}),
+    components,
+  };
 }
 
 async function findByKey(
@@ -219,6 +237,7 @@ export async function insertTakeoffKit(
     name: input.name,
     mode: input.mode,
     ...(input.label !== undefined ? { label: input.label } : {}),
+    ...(input.usage !== undefined ? { usage: input.usage } : {}),
     components: input.components,
     sortOrder: await nextSortOrder(ctx),
     active: true,
@@ -255,6 +274,7 @@ export async function seedFactoryTakeoffKits(
         name: seed.name,
         mode: seed.mode ?? "linear",
         ...(seed.label ? { label: seed.label } : {}),
+        ...(seed.usage ? { usage: seed.usage } : {}),
         components: seed.components.map((c) => ({ ...c })),
       },
       userId,
@@ -285,6 +305,7 @@ export async function listTakeoffKitRows(ctx: QueryCtx) {
       name: kit.name,
       mode: kit.mode,
       label: kit.label ?? null,
+      usage: kit.usage ?? null,
       components: kit.components,
       sortOrder: kit.sortOrder,
       updatedAt: kit.updatedAt,
@@ -320,6 +341,7 @@ export async function saveTakeoffKit(
     name: clean.name,
     mode: clean.mode,
     label: clean.label,
+    usage: clean.usage,
     components: clean.components,
     updatedAt: Date.now(),
     updatedByUserId: user._id,
@@ -333,6 +355,7 @@ export async function saveTakeoffKit(
       name: existing.name,
       mode: existing.mode,
       label: existing.label,
+      usage: existing.usage,
       components: existing.components,
     },
     snapshotAfter: clean,

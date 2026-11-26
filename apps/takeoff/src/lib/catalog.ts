@@ -575,11 +575,13 @@ export function parseRemoteKits(json: unknown): Kit[] | null {
     });
     if (components.length === 0) continue;
     const label = typeof o.label === "string" ? o.label.trim() : undefined;
+    const usage = str(o.usage);
     kits.push({
       id,
       name,
       mode: o.mode === "count" ? "count" : "linear",
       ...(label !== undefined ? { label } : {}),
+      ...(usage ? { usage } : {}),
       components,
     });
   }

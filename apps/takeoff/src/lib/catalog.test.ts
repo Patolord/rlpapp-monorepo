@@ -449,6 +449,13 @@ describe("loading the saved catalog", () => {
     });
     expect(changed.kits).not.toBe(store.kits);
     expect(changed.kits[0].label).toBe("1/4");
+    // the company's "when to use" arrives with the kit, trimmed; a blank one is none
+    const described = parseRemoteKits([
+      { ...remote[0], usage: "  Split 9.000; não usar em VRF " },
+      { ...remote[0], id: "kit-z", usage: " " },
+    ]);
+    expect(described?.map((k) => k.usage)).toEqual(["Split 9.000; não usar em VRF", undefined]);
+    expect(withCompanyDefaults(store, { remoteKits: described }).kits).not.toBe(store.kits);
   });
 
   it("reads the weight table of before as overrides of the supplier's, and the other settings too", async () => {

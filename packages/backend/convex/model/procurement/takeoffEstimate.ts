@@ -141,6 +141,7 @@ const toKit = (k: TakeoffKit): Kit => ({
   name: k.name,
   mode: k.mode,
   label: k.label ?? undefined,
+  usage: k.usage ?? undefined,
   components: k.components.map((c) => ({
     name: c.name,
     sku: c.sku ?? undefined,

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -33,6 +34,8 @@ export interface KitDraft {
   name: string;
   mode: KitMode;
   label: string;
+  /** Quando usar o kit: o texto que orienta quem escolhe (pessoa ou agente de IA). */
+  usage: string;
   components: KitComponent[];
 }
 
@@ -47,6 +50,7 @@ export const emptyKitDraft = (): KitDraft => ({
   name: "",
   mode: "linear",
   label: "",
+  usage: "",
   components: [{ ...EMPTY_COMPONENT }],
 });
 
@@ -164,6 +168,7 @@ export function KitFormDialog({
         name: form.name,
         mode: form.mode,
         label: form.label.trim() ? form.label.trim() : undefined,
+        usage: form.usage.trim(),
         components: sortKitComponents(form.components.filter((c) => c.name.trim())).map(
           (c) => ({
             name: c.name,
@@ -244,6 +249,26 @@ export function KitFormDialog({
               title="Texto antes da quantidade em cada trecho ou peça deste kit; vazio = sem rótulo"
             />
           </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="kit-usage">Quando usar</Label>
+          <Textarea
+            id="kit-usage"
+            value={form.usage}
+            onChange={(e) => update({ usage: e.target.value })}
+            rows={2}
+            maxLength={600}
+            placeholder={
+              form.mode === "count"
+                ? "ex.: Detector de fumaça endereçável com instalação; não usar para detector convencional."
+                : 'ex.: Split 24.000 inverter ou evaporadora VRF com linha 3/8" · 5/8"; não usar no tronco do VRF depois das derivações.'
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            Orienta quem escolhe o kit no app, inclusive o agente de IA: equipamentos, capacidades e
+            bitolas a que ele serve, e onde não serve.
+          </p>
         </div>
 
         <div className="space-y-2">

@@ -172,6 +172,20 @@ describe("reading the takeoff", () => {
     const kits = (await call(app, "list_kits")).data.kits;
     expect(kits.length).toBeGreaterThan(0);
     expect(kits[0]).toHaveProperty("components");
+    expect(kits[0]).toHaveProperty("when_to_use", null);
+  });
+
+  it("hands the agent the company's rule for each kit, and searches it", async () => {
+    const app = fakeApp();
+    const kits = app.ctx.catalog().kits;
+    kits[0] = { ...kits[0], usage: "Evaporadora VRF com linha 3/8 · 5/8; não no tronco" };
+    const { data } = await call(app, "list_kits", { query: "vrf" });
+    expect(data.kits).toEqual([
+      expect.objectContaining({
+        id: kits[0].id,
+        when_to_use: "Evaporadora VRF com linha 3/8 · 5/8; não no tronco",
+      }),
+    ]);
   });
 });
 

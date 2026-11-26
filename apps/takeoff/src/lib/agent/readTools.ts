@@ -449,21 +449,29 @@ const listKits: AgentTool = {
   name: "list_kits",
   title: "Kits",
   description:
-    'The kit presets: one drawn run (or one click) measures every material of a preset at once, e.g. a split\'s line set draws copper, insulation and cable together. A kit whose mode is "linear" is drawn as a run; "count" is placed with one point. Prefer a kit to separate items whenever one fits what is drawn.',
+    "The kit presets: one drawn run (or one click) measures every material of a preset at once, e.g. a split's line set draws copper, insulation and cable together, and a count kit places a piece with its accessories or labour. A kit whose mode is \"linear\" is drawn as a run; \"count\" is placed with one point. Check the kits before creating separate lines, for counts as well as runs, and prefer a kit whenever one fits what is drawn. when_to_use is the company's own rule for picking each kit (equipment, capacities, pipe sizes, where it does not apply): follow it over the kit's name. When no kit's when_to_use fits what the schedule says, do not stretch one: measure separate lines or leave it as a doubt in your report. A kit with no when_to_use is chosen by its components and label, and the choice goes in your report as a doubt.",
   inputSchema: {
     type: "object",
-    properties: { query: { type: "string", description: "Only kits whose name contains this." } },
+    properties: {
+      query: {
+        type: "string",
+        description: "Only kits whose name or when_to_use contains this.",
+      },
+    },
   },
   readOnly: true,
   async run(args, ctx) {
     const needle = foldName(optStr(args, "query") ?? "");
-    const kits = ctx.catalog().kits.filter((k) => !needle || foldName(k.name).includes(needle));
+    const kits = ctx
+      .catalog()
+      .kits.filter((k) => !needle || foldName(`${k.name} ${k.usage ?? ""}`).includes(needle));
     return json({
       kits: kits.map((k) => ({
         id: k.id,
         name: k.name,
         mode: kitMode(k),
         ...(k.label ? { label: k.label } : {}),
+        when_to_use: k.usage?.trim() || null,
         components: k.components.map((c) => ({ name: c.name, kind: c.kind, factor: c.factor })),
       })),
     });

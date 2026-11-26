@@ -52,6 +52,13 @@ export interface Kit {
    * Undefined = never set (a seed-derived kit takes the seed's on load); "" = cleared, no label.
    */
   label?: string;
+  /**
+   * When to use this kit, written by the company for whoever picks one (a person or the AI
+   * agent): which equipment, capacities and pipe sizes it is for, and where it does not apply
+   * ("split 24.000 inverter or VRF evaporator with 3/8" · 5/8" lines; not the VRF trunk").
+   * Undefined = none written.
+   */
+  usage?: string;
   components: KitComponent[];
 }
 
@@ -208,16 +215,18 @@ export const cloneKit = (kit: Kit): Kit => ({
 });
 
 /**
- * The form in which two kits are compared: trimmed strings, an unset system and an unset label
+ * The form in which two kits are compared: trimmed strings, an unset system, label or usage
  * read the same as missing, the mode spelled out. Field order is fixed so JSON compares.
  */
 export function normalizeKit(kit: Kit): Kit {
   const label = kit.label?.trim();
+  const usage = kit.usage?.trim();
   return {
     id: kit.id,
     name: kit.name.trim(),
     mode: kitMode(kit),
     ...(label ? { label } : {}),
+    ...(usage ? { usage } : {}),
     components: kit.components.map((c) => {
       const system = c.system?.trim();
       const sku = normalizeKitSku(c.sku);
