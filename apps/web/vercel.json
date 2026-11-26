@@ -3,6 +3,12 @@
   "buildCommand": "cd ../../packages/backend && npx convex deploy --cmd 'cd ../../apps/web && pnpm run build'",
   "framework": "tanstack-start",
   "ignoreCommand": "bash ../../scripts/vercel-ignore-build.sh",
+  "headers": [
+    {
+      "source": "/((?!(?:politica-privacidade|suporte|excluir-conta)/?$).*)",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    }
+  ],
   "rewrites": [
     {
       "source": "/__clerk/:match*",

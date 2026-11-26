@@ -1,0 +1,6 @@
+# O app sai dos buscadores por noindex (header X-Robots-Tag no vercel.json e
+# <meta name="robots"> em src/routes/__root.tsx), não por Disallow: se o
+# rastreio fosse bloqueado aqui, o Google não leria o noindex e as URLs já
+# conhecidas continuariam no índice.
+User-agent: *
+Allow: /
