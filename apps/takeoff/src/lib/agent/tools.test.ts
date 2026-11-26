@@ -52,7 +52,14 @@ describe("reading the takeoff", () => {
   it("describes the drawings, items and review counts", async () => {
     const app = fakeApp();
     await call(app, "set_scale", { ratio: 50 });
-    const item = (await call(app, "create_item", { name: "Grelha", kind: "count" })).data;
+    const item = (
+      await call(app, "create_item", {
+        name: "Grelha",
+        kind: "count",
+        discipline: "Exaustão",
+        why_not_catalog: "teste",
+      })
+    ).data;
     await call(app, "add_markings", { item_id: item.item_id, points: [{ x: 10, y: 10 }] });
     const { data } = await call(app, "get_takeoff");
     expect(data).toMatchObject({ name: "Obra teste", client: "Tegra", length_unit: "m" });
@@ -183,7 +190,9 @@ describe("marking", () => {
 
   it("creates a budget line from the catalog, once", async () => {
     const app = fakeApp({ catalog: { saved: [catalogEntry("Grelha 400x200", "pç")] } });
-    const first = (await call(app, "create_item", { name: "grelha 400x200" })).data;
+    const first = (
+      await call(app, "create_item", { name: "grelha 400x200", discipline: "Exaustão" })
+    ).data;
     expect(first).toMatchObject({
       name: "Grelha 400x200",
       kind: "count",
@@ -191,17 +200,31 @@ describe("marking", () => {
       from_catalog: true,
       material_price: 10,
     });
-    const again = (await call(app, "create_item", { name: "Grelha 400x200" })).data;
+    const again = (
+      await call(app, "create_item", { name: "Grelha 400x200", discipline: "Exaustão" })
+    ).data;
     expect(again).toMatchObject({ item_id: first.item_id, created: false });
     expect(app.project().items).toHaveLength(1);
     // the catalog's unit decides how a catalog material is measured, whatever kind is passed
     const forced = fakeApp({ catalog: { saved: [catalogEntry("Tubo de cobre", "m")] } });
     expect(
-      (await call(forced, "create_item", { name: "Tubo de cobre", kind: "count" })).data.kind,
+      (
+        await call(forced, "create_item", {
+          name: "Tubo de cobre",
+          kind: "count",
+          discipline: "Infra AC",
+        })
+      ).data.kind,
     ).toBe("linear");
     expect(await failure(app, "create_item", { name: "Coisa nova" })).toMatch(/not in the catalog/);
     expect(
-      (await call(app, "create_item", { name: "Coisa nova", kind: "linear" })).data,
+      (
+        await call(app, "create_item", {
+          name: "Coisa nova",
+          kind: "linear",
+          discipline: "Exaustão",
+        })
+      ).data,
     ).toMatchObject({ created: true, from_catalog: false, kind: "linear" });
   });
 
@@ -289,7 +312,14 @@ describe("marking", () => {
 
   it("adds count marks as suggestions and skips marks placed twice", async () => {
     const app = fakeApp();
-    const item = (await call(app, "create_item", { name: "Grelha", kind: "count" })).data;
+    const item = (
+      await call(app, "create_item", {
+        name: "Grelha",
+        kind: "count",
+        discipline: "Exaustão",
+        why_not_catalog: "teste",
+      })
+    ).data;
     const pts = [
       { x: 10, y: 10 },
       { x: 200, y: 10 },
@@ -312,8 +342,22 @@ describe("marking", () => {
 
   it("checks the shape against the item's kind and the page", async () => {
     const app = fakeApp();
-    const tubo = (await call(app, "create_item", { name: "Tubo", kind: "linear" })).data;
-    const grelha = (await call(app, "create_item", { name: "Grelha", kind: "count" })).data;
+    const tubo = (
+      await call(app, "create_item", {
+        name: "Tubo",
+        kind: "linear",
+        discipline: "Exaustão",
+        why_not_catalog: "teste",
+      })
+    ).data;
+    const grelha = (
+      await call(app, "create_item", {
+        name: "Grelha",
+        kind: "count",
+        discipline: "Exaustão",
+        why_not_catalog: "teste",
+      })
+    ).data;
     expect(
       await failure(app, "add_markings", { item_id: tubo.item_id, points: [{ x: 1, y: 1 }] }),
     ).toMatch(/linear item/);
@@ -486,5 +530,141 @@ describe("pages and drawings", () => {
       "1:100",
     ]);
     expect(app.project().drawings[0].pages[0].scale).toEqual(metricScale(100));
+  });
+});
+
+describe("keeping the budget straight", () => {
+  const catalog = {
+    saved: [
+      catalogEntry("Ar Condicionado Hi-Wall — Midea 9.000 BTU/h", "pç", {
+        group: "Ar Condicionado",
+      }),
+      catalogEntry("Exaustor — Sicflux SONORA 11", "pç", {
+        group: "Ventilação e Exaustão",
+        system: "exaustao",
+      }),
+      catalogEntry('Tubo de Cobre — 1/4"', "m", { group: "Tubulações" }),
+    ],
+  };
+
+  it("puts every line on a discipline tab", async () => {
+    const app = fakeApp({ catalog });
+    // no tab asked for, none from the catalog, none for the takeoff: refused, with the options
+    expect(
+      await failure(app, "create_item", { name: "Ar Condicionado Hi-Wall — Midea 9.000 BTU/h" }),
+    ).toMatch(/Pass "discipline".*Exaustão.*Detecção de Incêndio/);
+    // the catalog material's own tab, in its canonical name
+    expect(
+      (await call(app, "create_item", { name: "Exaustor — Sicflux SONORA 11" })).data,
+    ).toMatchObject({ discipline: "Exaustão" });
+    // the tab asked for, spelled as the takeoff spells it
+    expect(
+      (
+        await call(app, "create_item", {
+          name: "Ar Condicionado Hi-Wall — Midea 9.000 BTU/h",
+          discipline: "exaustao",
+        })
+      ).data,
+    ).toMatchObject({ discipline: "Exaustão" });
+    // a takeoff of one system lends its own to the lines
+    const single = fakeApp({ catalog, project: { system: "Pressurização de Escadas" } });
+    expect(
+      (await call(single, "create_item", { name: 'Tubo de Cobre — 1/4"' })).data,
+    ).toMatchObject({ discipline: "Pressurização de Escadas" });
+  });
+
+  it("shows the catalog's equivalents before creating an off-catalog line", async () => {
+    const app = fakeApp({ catalog });
+    const name = "Evaporadora Split Hi-Wall Daikin FTH09 9.000 BTU/h";
+    const refused = await failure(app, "create_item", {
+      name,
+      kind: "count",
+      discipline: "AC Áreas Comuns",
+    });
+    expect(refused).toMatch(/similar materials/);
+    expect(refused.split("\n")[1]).toContain("Ar Condicionado Hi-Wall — Midea 9.000 BTU/h");
+    const made = (
+      await call(app, "create_item", {
+        name,
+        kind: "count",
+        discipline: "AC Áreas Comuns",
+        why_not_catalog: "O catálogo só tem split só frio.",
+      })
+    ).data;
+    expect(made).toMatchObject({ created: true, from_catalog: false });
+    // the line exists now: calling again needs neither kind nor reason, and keeps its tab
+    expect((await call(app, "create_item", { name })).data).toMatchObject({
+      item_id: made.item_id,
+      created: false,
+      discipline: "AC Áreas Comuns",
+    });
+    // nothing alike in the catalog: no reason asked for
+    expect(
+      (
+        await call(app, "create_item", {
+          name: "Coisa nova",
+          kind: "count",
+          discipline: "Exaustão",
+        })
+      ).data,
+    ).toMatchObject({ created: true });
+  });
+
+  it("searches by function, listing partial matches after the exact ones", async () => {
+    const app = fakeApp({ catalog });
+    const { data } = await call(app, "search_catalog", { query: "hi-wall daikin 9.000" });
+    expect(data.results[0]).toMatchObject({
+      name: "Ar Condicionado Hi-Wall — Midea 9.000 BTU/h",
+      match: "3/4 words",
+    });
+    const vrv = await call(app, "search_catalog", { query: "exaustor sonora" });
+    expect(vrv.data.results[0]).toMatchObject({ match: "all" });
+  });
+
+  it("reviews the takeoff for equipment with no run, off-catalog lines and missing tabs", async () => {
+    const app = fakeApp({ catalog });
+    await call(app, "set_scale", { ratio: 50 });
+    const fan = (await call(app, "create_item", { name: "Exaustor — Sicflux SONORA 11" })).data;
+    const pipe = (
+      await call(app, "create_item", { name: 'Tubo de Cobre — 1/4"', discipline: "Infra AC" })
+    ).data;
+    await call(app, "add_markings", {
+      item_id: fan.item_id,
+      points: [
+        { x: 100, y: 100 },
+        { x: 500, y: 500 },
+      ],
+      label: "E-01",
+    });
+    // a run ending 20 pt (0.35 m at 1:50) from the first fan only
+    await call(app, "add_markings", {
+      item_id: pipe.item_id,
+      paths: [
+        [
+          { x: 120, y: 100 },
+          { x: 300, y: 100 },
+        ],
+      ],
+    });
+    app.ctx.commit((p) => ({
+      ...p,
+      items: [
+        ...p.items,
+        { ...p.items[0], id: "loose", name: "Item solto", catalogId: undefined, system: undefined },
+      ],
+    }));
+    const { data } = await call(app, "review_takeoff");
+    const kinds = data.gaps.map((g: { kind: string }) => g.kind);
+    expect(data.gaps.filter((g: { kind: string }) => g.kind === "equipment_without_run")).toEqual([
+      expect.objectContaining({ item: "Exaustor — Sicflux SONORA 11", at: { x: 500, y: 500 } }),
+    ]);
+    expect(kinds).toContain("no_discipline");
+    expect(data.disciplines).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ discipline: "Exaustão", pieces: 2 }),
+        expect.objectContaining({ discipline: "Infra AC", lines: 1 }),
+      ]),
+    );
+    expect(data.pending_suggestions).toBe(3);
   });
 });

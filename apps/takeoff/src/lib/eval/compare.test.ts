@@ -302,6 +302,43 @@ describe("compareTakeoffs", () => {
     expect(r.drawingsMissing).toEqual([]);
     expect(r.counts.recall).toBe(0);
   });
+
+  it("tells which quantities sit on the reference's discipline tab", () => {
+    const ref = reference();
+    ref.items = ref.items.map((i) =>
+      i.id === "exaustor" || i.id === "grelha"
+        ? { ...i, system: "Exaustão" }
+        : { ...i, system: "Infra AC" },
+    );
+    expect(compareTakeoffs(ref, ref).disciplines).toMatchObject({ right: 1, wrong: [] });
+    // everything on one unnamed tab
+    const flat = compareTakeoffs(ref, reference()).disciplines;
+    expect(flat.right).toBe(0);
+    expect(flat.candidateTabs).toEqual(["(sem disciplina)"]);
+    expect(flat.wrong.map((w) => w.item)).toContain("Exaustor");
+    // the tab's spelling does not matter, its system does
+    const spelled = reference();
+    spelled.items = ref.items.map((i) => ({
+      ...i,
+      system: i.system === "Exaustão" ? "EXAUSTAO" : "infra ac",
+    }));
+    expect(compareTakeoffs(ref, spelled).disciplines.right).toBe(1);
+  });
+
+  it("lists off-catalog lines and the catalog material the reference used there", () => {
+    const ref = reference();
+    ref.items = ref.items.map((i) => (i.id === "exaustor" ? { ...i, catalogId: "cat-9" } : i));
+    const cand = reference();
+    cand.items = cand.items.map((i) =>
+      i.id === "exaustor" ? { ...i, name: "Exaustor Marca X modelo Y" } : i,
+    );
+    const r = compareTakeoffs(ref, cand);
+    expect(r.catalog.offCatalog).toEqual(
+      expect.arrayContaining([{ item: "Exaustor Marca X modelo Y", equivalent: "Exaustor" }]),
+    );
+    expect(r.catalog.hadEquivalent).toBe(1);
+    expect(formatReport(r)).toContain("Exaustor Marca X modelo Y → na referência: Exaustor");
+  });
 });
 
 describe("reports", () => {

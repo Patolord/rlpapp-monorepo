@@ -15,6 +15,12 @@ import { itemUnit, measurementQty, pageScale, repeatOf } from "../quantities";
 import { foldName } from "../text";
 import { type Item, locationKey, locationOf, type Project } from "../types";
 import type { Kind } from "../units";
+import {
+  type CatalogReport,
+  compareCatalog,
+  compareDisciplines,
+  type DisciplinesReport,
+} from "./lines";
 import { pairPoints, pairUp, polygonIoU, type Rates, rates } from "./match";
 
 export interface CompareOptions {
@@ -124,6 +130,10 @@ export interface EvalReport {
   counts: CountsReport;
   quantities: QuantitiesReport;
   scales: { pages: ScaleRow[]; wrong: number };
+  /** Whether each quantity sits on the reference's discipline tab. */
+  disciplines: DisciplinesReport;
+  /** Candidate lines off the catalog, and the ones where an equivalent existed. */
+  catalog: CatalogReport;
   /** The candidate's own review counts (suggestions accepted, corrected, discarded), if any. */
   review: AiStats;
   /** Reference lines left out of the comparison, by reason. */
@@ -155,7 +165,8 @@ const nameKey = (i: Pick<Item, "kind" | "name">) => `${i.kind}|${foldName(i.name
 
 /**
  * Budget lines of both takeoffs under a common key: the same catalog material, else the same
- * name and kind. A material split over several lines (one per discipline) is one key.
+ * name and kind. A material split over several lines (one per discipline) is one key; which tab
+ * each quantity sits on is compared apart (lines.ts).
  */
 function itemKeys(ref: Project, cand: Project) {
   const refKey = new Map<string, string>();
@@ -436,18 +447,13 @@ export function compareTakeoffs(
 ): EvalReport {
   const drawings = matchDrawings(reference, candidate);
   const keys = itemKeys(reference, candidate);
+  const tolerance = options.tolerancePt ?? DEFAULT_TOLERANCE_PT;
   return {
     reference: reference.name,
     candidate: candidate.name,
     drawingsMissing: reference.drawings.filter((d) => !drawings.has(d.id)).map((d) => d.name),
     locations: compareLocations(reference, candidate, drawings, options.minIoU ?? DEFAULT_MIN_IOU),
-    counts: compareCounts(
-      reference,
-      candidate,
-      drawings,
-      keys,
-      options.tolerancePt ?? DEFAULT_TOLERANCE_PT,
-    ),
+    counts: compareCounts(reference, candidate, drawings, keys, tolerance),
     quantities: compareQuantities(reference, candidate, keys),
     scales: compareScales(
       reference,
@@ -455,6 +461,8 @@ export function compareTakeoffs(
       drawings,
       options.scaleTolerance ?? DEFAULT_SCALE_TOLERANCE,
     ),
+    disciplines: compareDisciplines(reference, candidate, keys),
+    catalog: compareCatalog(reference, candidate, drawings, tolerance),
     review: aiStats(candidate),
     notCompared: {
       derived: reference.items.filter((i) => i.derived).map((i) => i.name),

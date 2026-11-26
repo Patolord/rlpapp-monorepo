@@ -39,7 +39,45 @@ export function headline(r: EvalReport): string {
     `contagens ${pct(r.counts.f1)}`,
     `erro em valor ${pct(r.quantities.valueError)}`,
     `escalas erradas ${r.scales.wrong}/${r.scales.pages.length}`,
+    `disciplina certa ${pct(r.disciplines.right)}`,
+    `fora do catálogo com equivalente ${r.catalog.hadEquivalent}/${r.catalog.offCatalog.length}`,
   ].join(" · ");
+}
+
+const tabsLine = (tabs: Record<string, number>) =>
+  Object.entries(tabs)
+    .map(([tab, q]) => `${tab} ${qty(q)}`)
+    .join(", ");
+
+function linesSection(r: EvalReport): string[] {
+  const { disciplines: d, catalog: c } = r;
+  const out = ["## Disciplinas e catálogo", ""];
+  out.push(
+    `Abas da referência: ${d.referenceTabs.join(", ") || "—"}. Abas do candidato: ${d.candidateTabs.join(", ") || "—"}. Quantidade na aba certa: ${pct(d.right)} (média dos itens que os dois têm).`,
+    "",
+  );
+  if (d.wrong.length > 0) {
+    out.push(
+      "Na aba errada:",
+      ...listed(
+        d.wrong,
+        (w) => `${w.item}: referência ${tabsLine(w.reference)}; candidato ${tabsLine(w.candidate)}`,
+      ),
+      "",
+    );
+  }
+  if (c.offCatalog.length === 0) out.push("Nenhum item fora do catálogo.", "");
+  else {
+    out.push(
+      `Itens fora do catálogo: ${c.offCatalog.length}, dos quais ${c.hadEquivalent} estão onde a referência marcou um material do catálogo.`,
+      ...listed(
+        c.offCatalog,
+        (l) => `${l.item}${l.equivalent ? ` → na referência: ${l.equivalent}` : ""}`,
+      ),
+      "",
+    );
+  }
+  return out;
 }
 
 export function formatReport(r: EvalReport): string {
@@ -133,6 +171,8 @@ export function formatReport(r: EvalReport): string {
     out.push("");
   }
 
+  out.push(...linesSection(r));
+
   const reviewed = r.review.accepted + r.review.edited + r.review.rejected;
   if (reviewed + r.review.pending > 0) {
     out.push(
@@ -171,14 +211,20 @@ export interface SetTotals {
   casesWithWrongScale: number;
   /** Mean of the cases' value errors; null when no case has one. */
   valueError: number | null;
+  /** Mean share of quantity on the reference's tab; null when no case has a line in common. */
+  disciplinesRight: number | null;
+  /** Off-catalog lines placed where the reference used a catalog material, summed. */
+  offCatalogWithEquivalent: number;
 }
+
+const mean = (values: (number | null)[]): number | null => {
+  const set = values.filter((v): v is number => v !== null);
+  return set.length === 0 ? null : set.reduce((s, v) => s + v, 0) / set.length;
+};
 
 /** Totals over cases: marks and locations are summed before the rates, so big sheets weigh more. */
 export function totalsOf(results: readonly CaseResult[]): SetTotals {
   const sum = (pick: (r: EvalReport) => number) => results.reduce((s, c) => s + pick(c.report), 0);
-  const values = results
-    .map((c) => c.report.quantities.valueError)
-    .filter((v): v is number => v !== null);
   return {
     cases: results.length,
     locations: rates(
@@ -192,7 +238,9 @@ export function totalsOf(results: readonly CaseResult[]): SetTotals {
       sum((r) => r.counts.extra.length),
     ),
     casesWithWrongScale: results.filter((c) => c.report.scales.wrong > 0).length,
-    valueError: values.length === 0 ? null : values.reduce((s, v) => s + v, 0) / values.length,
+    valueError: mean(results.map((c) => c.report.quantities.valueError)),
+    disciplinesRight: mean(results.map((c) => c.report.disciplines.right)),
+    offCatalogWithEquivalent: sum((r) => r.catalog.hadEquivalent),
   };
 }
 
@@ -200,10 +248,10 @@ export function totalsOf(results: readonly CaseResult[]): SetTotals {
 export function formatSet(results: readonly CaseResult[]): string {
   const out: string[] = ["# Avaliação do conjunto", ""];
   const row = (label: string, t: SetTotals) =>
-    `| ${label} | ${t.cases} | ${pct(t.locations.recall)} | ${pct(t.locations.precision)} | ${pct(t.counts.recall)} | ${pct(t.counts.precision)} | ${pct(t.valueError)} | ${t.casesWithWrongScale} |`;
+    `| ${label} | ${t.cases} | ${pct(t.locations.recall)} | ${pct(t.locations.precision)} | ${pct(t.counts.recall)} | ${pct(t.counts.precision)} | ${pct(t.valueError)} | ${t.casesWithWrongScale} | ${pct(t.disciplinesRight)} | ${t.offCatalogWithEquivalent} |`;
   const header = [
-    "| | Casos | Ambientes: recall | precisão | Contagens: recall | precisão | Erro em valor | Casos com escala errada |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| | Casos | Ambientes: recall | precisão | Contagens: recall | precisão | Erro em valor | Casos com escala errada | Disciplina certa | Fora do catálogo com equivalente |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
   ];
   out.push(...header, row("**Todos**", totalsOf(results)));
   const tags = [...new Set(results.flatMap((c) => c.tags))].sort((a, b) =>

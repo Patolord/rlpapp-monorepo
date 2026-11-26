@@ -5,7 +5,7 @@
  * since drawings arrive exploded, mis-layered or scanned.
  */
 import { aiStats } from "../aiReview";
-import { kindForUnit, mergeCatalog, searchCatalog } from "../catalog";
+import { type CatalogEntry, kindForUnit, mergeCatalog, searchCatalog } from "../catalog";
 import { polygonArea, polylineLength, simplify } from "../geom";
 import { kitMode } from "../kits";
 import { itemTotals, itemUnit, measurementQty, pageScale } from "../quantities";
@@ -25,6 +25,8 @@ import {
   RECT_SCHEMA,
   rect,
 } from "./args";
+import { rankCatalog } from "./catalogMatch";
+import { RUN_REACH_M, reviewCoverage } from "./coverage";
 import { resolvePage } from "./target";
 import { type AgentTool, json, r1, ToolError, type ToolResult } from "./toolTypes";
 import { clampRegion, DEFAULT_VIEW_PX, MAX_VIEW_PX, MIN_VIEW_PX } from "./viewMath";
@@ -404,7 +406,7 @@ const searchCatalogTool: AgentTool = {
   name: "search_catalog",
   title: "Buscar no catálogo",
   description:
-    'Search the company\'s material catalog (names in Portuguese: "grelha", "tubo de cobre 1/4", "exaustor"). Every word of the query must be in the name or group. Use the exact name of a result in create_item so the budget line is linked to the company material and priced from it.',
+    'Search the company\'s material catalog (names in Portuguese: "grelha", "tubo de cobre 1/4", "exaustor"). Results with every word of the query come first (match "all"); then materials sharing only some words (match "2/4 words"...), which are often the equivalent you need. Brands and models on drawings are usually references ("fabricante e modelo de referência"), not what the company buys: search by function and size ("hi-wall 9.000", "condensadora", "vrf", "grelha 400x400"), not by brand or model code. Use the exact name of a result in create_item so the budget line is linked to the company material and priced from it.',
   inputSchema: {
     type: "object",
     properties: {
@@ -417,18 +419,28 @@ const searchCatalogTool: AgentTool = {
   async run(args, ctx) {
     const query = optStr(args, "query") ?? "";
     const limit = Math.round(optNum(args, "limit", { min: 1, max: 30 }) ?? 12);
-    const entries = searchCatalog(mergeCatalog(ctx.catalog()), query, limit);
+    const merged = mergeCatalog(ctx.catalog());
+    const strict = searchCatalog(merged, query, limit);
+    const seen = new Set(strict.map((e) => e.name));
+    const partial = rankCatalog(merged, query, limit + strict.length)
+      .filter((r) => !seen.has(r.entry.name) && r.matched < r.of)
+      .slice(0, limit - strict.length);
+    const row = (e: CatalogEntry, match: string) => ({
+      name: e.name,
+      unit: e.unit,
+      kind: kindForUnit(e.unit),
+      group: e.group,
+      ...(e.system ? { discipline: e.system } : {}),
+      material_price: e.materialPrice,
+      labor_price: e.laborPrice,
+      ...(e.sku ? { sku: e.sku } : {}),
+      match,
+    });
     return json({
-      results: entries.map((e) => ({
-        name: e.name,
-        unit: e.unit,
-        kind: kindForUnit(e.unit),
-        group: e.group,
-        ...(e.system ? { discipline: e.system } : {}),
-        material_price: e.materialPrice,
-        labor_price: e.laborPrice,
-        ...(e.sku ? { sku: e.sku } : {}),
-      })),
+      results: [
+        ...strict.map((e) => row(e, "all")),
+        ...partial.map((r) => row(r.entry, `${r.matched}/${r.of} words`)),
+      ],
     });
   },
 };
@@ -458,6 +470,17 @@ const listKits: AgentTool = {
   },
 };
 
+const reviewTakeoff: AgentTool = {
+  name: "review_takeoff",
+  title: "Revisar o levantamento",
+  description: `Check the takeoff for what first passes usually leave out, before you report: equipment with no run measured within ${RUN_REACH_M} m (refrigerant lines, drains and ducts are part of the takeoff, not extras), lines off the catalog while it has similar materials, lines on no discipline tab, and lengths on pages without a scale. Also the totals per discipline (lines, pieces, length). Fix every gap or explain it in your report.`,
+  inputSchema: { type: "object", properties: {} },
+  readOnly: true,
+  async run(_args, ctx) {
+    return json(reviewCoverage(ctx.project(), mergeCatalog(ctx.catalog())));
+  },
+};
+
 export const READ_TOOLS: AgentTool[] = [
   getTakeoff,
   listMarkings,
@@ -468,4 +491,5 @@ export const READ_TOOLS: AgentTool[] = [
   measure,
   searchCatalogTool,
   listKits,
+  reviewTakeoff,
 ];

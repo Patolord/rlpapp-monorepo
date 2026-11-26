@@ -8,7 +8,8 @@ import { dist, type Pt, polygonArea } from "../geom";
 import { kitRun } from "../kitRun";
 import { kitMode } from "../kits";
 import { pageScale } from "../quantities";
-import { drawingOf, type Project } from "../types";
+import { foldName } from "../text";
+import { DISCIPLINE_SUGGESTIONS, drawingOf, type Project } from "../types";
 import {
   INPUT_UNITS,
   type InputUnit,
@@ -33,10 +34,14 @@ import {
   str,
   stringList,
 } from "./args";
+import { rankCatalog } from "./catalogMatch";
 import type { AgentContext, PageSize } from "./context";
 import {
   addAiMeasurements,
   addAiZone,
+  catalogEntryNamed,
+  disciplineFor,
+  disciplineOptions,
   findOrCreateItem,
   removeAiSuggestions,
   withPageScale,
@@ -156,7 +161,7 @@ const createItem: AgentTool = {
   name: "create_item",
   title: "Criar item do orçamento",
   description:
-    'The budget line a material is measured on; returns its id for add_markings. Pass the exact name of a search_catalog result to link the line to the company material and take its price and unit (then kind is not needed). For something the catalog does not carry, pass a descriptive name and its kind: "count" (pieces), "linear" (a length) or "area". Calling it again with the same name returns the existing line, so it is safe to repeat.',
+    'The budget line a material is measured on; returns its id for add_markings. Pass the exact name of a search_catalog result to link the line to the company material and take its price and unit (then kind is not needed). Every line goes on a discipline (budget tab), one per system on the drawing: exhaust, outside air, stair pressurisation, fire detection, AC... Never leave different systems on one tab. For something the catalog does not carry, pass a descriptive name, its kind ("count" pieces, "linear" a length, "area") and why_not_catalog; when the catalog has similar materials you are shown them first, because the brand or model on a drawing is usually only a reference and the company\'s equivalent is what goes in the budget. Calling it again with the same name returns the existing line, so it is safe to repeat.',
   inputSchema: {
     type: "object",
     properties: {
@@ -176,8 +181,12 @@ const createItem: AgentTool = {
       },
       discipline: {
         type: "string",
+        description: `Budget tab the line goes on: ${DISCIPLINE_SUGGESTIONS.map((d) => `"${d}"`).join(", ")}, or a tab the takeoff already has. Needed unless the catalog material carries one or the takeoff is a single system.`,
+      },
+      why_not_catalog: {
+        type: "string",
         description:
-          'Budget tab, e.g. "Exaustão", "Infra AC". Default: the catalog\'s, else the takeoff\'s.',
+          "Off-catalog lines only, when the catalog has similar materials: why none of them is this material (in Portuguese; it goes in your report).",
       },
     },
     required: ["name"],
@@ -185,25 +194,47 @@ const createItem: AgentTool = {
   readOnly: false,
   async run(args, ctx) {
     const name = str(args, "name");
-    const kind = args.kind === undefined ? undefined : oneOf(args, "kind", KINDS);
+    const project = ctx.project();
     const catalog = ctx.catalog();
-    const found = findOrCreateItem(ctx.project(), catalog, mergeCatalog(catalog), {
+    const merged = mergeCatalog(catalog);
+    const entry = catalogEntryNamed(merged, name);
+    const existing = entry
+      ? undefined
+      : project.items.find((i) => !i.derived && foldName(i.name) === foldName(name.trim()));
+    const kind = args.kind === undefined ? existing?.kind : oneOf(args, "kind", KINDS);
+    if (!entry && !existing) {
+      const similar = rankCatalog(merged, name, 5);
+      if (similar.length > 0 && !optStr(args, "why_not_catalog")) {
+        throw new ToolError(
+          `"${name}" is not in the catalog, but the catalog has similar materials:\n${similar.map((r) => `- ${r.entry.name} (${r.entry.unit}, ${r.entry.group})`).join("\n")}\nA brand or model on the drawing is usually a reference: if one of these does the same job at the same size, create the line with its exact name. Otherwise call again with "kind" and "why_not_catalog".`,
+        );
+      }
+      if (!kind) {
+        throw new ToolError(
+          `"${name}" is not in the catalog. Search it with search_catalog and use the exact name, or pass "kind" to create a line the catalog does not carry.`,
+        );
+      }
+    }
+    const system = disciplineFor(project, optStr(args, "discipline"), entry, existing);
+    if (system === null) {
+      throw new ToolError(
+        `Pass "discipline": the budget tab this line goes on, one per system on the drawing (never every system on one tab). Options: ${disciplineOptions(project).join(", ")}.`,
+      );
+    }
+    const found = findOrCreateItem(project, catalog, merged, {
       name,
       kind,
       group: optStr(args, "group"),
-      system: optStr(args, "discipline"),
+      system,
     });
-    if (!found) {
-      throw new ToolError(
-        `"${name}" is not in the catalog. Search it with search_catalog and use the exact name, or pass "kind" to create a line the catalog does not carry.`,
-      );
-    }
+    if (!found) throw new ToolError(`"${name}" could not be created.`);
     ctx.commit(() => found.project);
     if (found.created) ctx.notify(`IA: item criado: ${found.item.name}`);
     return json({
       item_id: found.item.id,
       name: found.item.name,
       kind: found.item.kind,
+      discipline: found.item.system || project.system,
       created: found.created,
       from_catalog: found.fromCatalog,
       material_price: found.item.materialPrice,

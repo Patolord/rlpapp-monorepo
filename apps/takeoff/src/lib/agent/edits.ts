@@ -3,11 +3,12 @@
  * the agent draws is stamped `ai: "suggested"`, so the user reviews it (see lib/aiReview); the
  * agent can take back its own pending suggestions and nothing else.
  */
-import { type CatalogEntry, type CatalogStore, kindForUnit } from "../catalog";
+import { type CatalogEntry, type CatalogStore, kindForUnit, normalizeDiscipline } from "../catalog";
 import { componentItem } from "../componentItem";
 import { dist, type Pt } from "../geom";
 import { foldName } from "../text";
 import {
+  DISCIPLINE_SUGGESTIONS,
   type Item,
   type Location,
   locationByName,
@@ -192,6 +193,39 @@ export const catalogEntryNamed = (
   const key = foldName(name.trim());
   return entries.find((e) => foldName(e.name) === key);
 };
+
+/** The tabs (disciplines) a line can go on: the ones this takeoff has, then the usual ones. */
+export function disciplineOptions(project: Project): string[] {
+  const seen = new Map<string, string>();
+  const add = (d: string | undefined) => {
+    const t = d?.trim();
+    if (t && !seen.has(foldName(t))) seen.set(foldName(t), t);
+  };
+  add(project.system);
+  for (const i of project.items) add(i.system);
+  for (const d of Object.keys(project.disciplines)) add(d);
+  for (const d of DISCIPLINE_SUGGESTIONS) add(d);
+  return [...seen.values()];
+}
+
+/**
+ * The tab a line goes on: the one asked for (spelled as the takeoff or the usual list spells
+ * it), else the catalog material's, else the one of the line of that name already in the
+ * takeoff. Undefined when none applies but the takeoff has a system of its own, which the line
+ * then takes; null when the line would land on no tab at all, every discipline mixed in one.
+ */
+export function disciplineFor(
+  project: Project,
+  asked: string | undefined,
+  entry: CatalogEntry | undefined,
+  existing: Item | undefined,
+): string | undefined | null {
+  const t = asked?.trim();
+  if (t) return disciplineOptions(project).find((d) => foldName(d) === foldName(t)) ?? t;
+  const own = normalizeDiscipline(entry?.system) ?? existing?.system?.trim();
+  if (own) return own;
+  return project.system.trim() ? undefined : null;
+}
 
 /**
  * The budget line for a material: the existing line of that name (or linked to that catalog

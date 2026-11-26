@@ -345,12 +345,17 @@ in a title block is treated as a claim: `measure` checks it against a written di
 | `get_takeoff`, `list_markings` | The takeoff as it stands: drawings, page sizes and scales, items, locations, markings |
 | `view_page`, `read_text` | Picture of a page or region with the grid; selectable text with positions |
 | `detect_room`, `find_similar`, `measure` | Room outline at a point; symbol matches; a length or area in real units |
-| `search_catalog`, `list_kits` | Company catalog and kit presets |
+| `search_catalog`, `list_kits` | Company catalog (exact matches, then materials sharing some words) and kit presets |
+| `review_takeoff` | What a first pass usually misses: equipment with no run near it, off-catalog lines with similar catalog materials, lines on no discipline, lengths on unscaled pages |
 | `set_scale` | 1:N or calibration on two points |
 | `create_item`, `create_location`, `add_markings`, `add_kit_run` | Budget lines, locations, counts / runs / areas, kit runs: all as suggestions |
 | `remove_suggestions` | Take back its own pending suggestions |
 
-The working method handed to the agent on connect is `src/lib/agent/instructions.ts`. Not in this
+`create_item` refuses a line with no discipline tab when the takeoff has no system of its own
+(each system on the drawing is its own tab), and an off-catalog line while the catalog has
+similar materials until the agent says why none of them fits (`why_not_catalog`): the brand on
+a drawing is usually a reference, and the company's equivalent is what goes in the budget. The
+working method handed to the agent on connect is `src/lib/agent/instructions.ts`. Not in this
 version: duct and VRF runs (the specialty tools), tracing a line along the drawing's vectors, OCR.
 
 **Memory.** The model learns nothing between takeoffs; "memory" is data kept and handed back
