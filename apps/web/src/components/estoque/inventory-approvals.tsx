@@ -57,7 +57,7 @@ export function InventoryApprovals({
         reason,
       });
       toast.success(
-        decision === "approve" ? "Exceção aprovada" : "Movimentação rejeitada"
+        decision === "approve" ? "Exceção aprovada" : "Movimentação recusada"
       );
       setSelected(null);
     } catch (error) {

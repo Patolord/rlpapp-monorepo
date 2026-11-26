@@ -1,6 +1,7 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { diffFields, logAudit } from "../../lib/audit";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /** Contatos de um empreiteiro: inclusão, edição, arquivamento e restauração. */
 
@@ -38,12 +39,12 @@ export async function addContractorContact(
   input: AddContractorContactInput
 ): Promise<Id<"contractorContacts">> {
   const contractor = await ctx.db.get("contractors", input.contractorId);
-  if (!contractor) throw new Error("Empreiteiro não encontrado");
+  if (!contractor) throw notFound("Empreiteiro não encontrado");
   if (contractor.archivedAt) {
-    throw new Error("Empreiteiro arquivado — restaure antes de editar");
+    throw ruleViolation("Empreiteiro arquivado — restaure antes de editar");
   }
   const name = input.name.trim();
-  if (!name) throw new Error("Informe o nome do contato");
+  if (!name) throw ruleViolation("Informe o nome do contato");
 
   const now = Date.now();
   const contactId = await ctx.db.insert("contractorContacts", {
@@ -74,9 +75,9 @@ export async function updateContractorContact(
   input: UpdateContractorContactInput
 ): Promise<void> {
   const contact = await ctx.db.get("contractorContacts", input.contactId);
-  if (!contact) throw new Error("Contato não encontrado");
+  if (!contact) throw notFound("Contato não encontrado");
   if (contact.active === false) {
-    throw new Error("Contato arquivado — restaure antes de editar");
+    throw ruleViolation("Contato arquivado — restaure antes de editar");
   }
 
   const before = contactSnapshot(contact);
@@ -85,7 +86,7 @@ export async function updateContractorContact(
   };
   if (input.name !== undefined) {
     const name = input.name.trim();
-    if (!name) throw new Error("Informe o nome do contato");
+    if (!name) throw ruleViolation("Informe o nome do contato");
     patch.name = name;
   }
   if (input.email !== undefined) {
@@ -128,7 +129,7 @@ export async function archiveContractorContact(
   contactId: Id<"contractorContacts">
 ): Promise<void> {
   const contact = await ctx.db.get("contractorContacts", contactId);
-  if (!contact) throw new Error("Contato não encontrado");
+  if (!contact) throw notFound("Contato não encontrado");
   if (contact.active === false) return;
 
   const now = Date.now();
@@ -155,7 +156,7 @@ export async function restoreContractorContact(
   contactId: Id<"contractorContacts">
 ): Promise<void> {
   const contact = await ctx.db.get("contractorContacts", contactId);
-  if (!contact) throw new Error("Contato não encontrado");
+  if (!contact) throw notFound("Contato não encontrado");
   if (contact.active !== false) return;
 
   const before = contactSnapshot(contact);

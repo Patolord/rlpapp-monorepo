@@ -7,6 +7,8 @@ import {
   validateStockPolicyQuantities,
 } from "../procurement/catalog";
 import { getOrCreateCentralLocation } from "./locations";
+import { forbidden } from "../../lib/accessErrors";
+import { notFound } from "../../lib/domainErrors";
 
 export { computeReplenishmentState, validateStockPolicyQuantities };
 
@@ -65,10 +67,10 @@ export async function upsertStockPolicyInternal(
   validateStockPolicyQuantities(args);
 
   const location = await ctx.db.get("inventoryLocations", args.locationId);
-  if (!location) throw new Error("Local de estoque não encontrado");
+  if (!location) throw notFound("Local de estoque não encontrado");
 
   const material = await ctx.db.get("materials", args.materialId);
-  if (!material) throw new Error("Material não encontrado");
+  if (!material) throw notFound("Material não encontrado");
 
   const now = Date.now();
   const existing = await getStockPolicy(
@@ -146,7 +148,7 @@ export async function ensureCentralStockLocation(
   user: Doc<"users">
 ): Promise<Id<"inventoryLocations">> {
   if (!canManageStockPolicy(user)) {
-    throw new Error(MANAGE_POLICY_DENIED);
+    throw forbidden(MANAGE_POLICY_DENIED);
   }
   const location = await getOrCreateCentralLocation(ctx);
   return location._id;
@@ -184,7 +186,7 @@ export async function getStockPolicyRow(
   const location = await ctx.db.get("inventoryLocations", input.locationId);
   if (!location) return null;
   if (location.type === "central" && !canViewCentralInventory(user)) {
-    throw new Error("A Engenharia só pode consultar estoques de obras");
+    throw forbidden("A Engenharia só pode consultar estoques de obras");
   }
   const policy = await getStockPolicy(ctx, input.locationId, input.materialId);
   if (!policy) return null;
@@ -198,7 +200,7 @@ export async function saveStockPolicy(
   input: Parameters<typeof upsertStockPolicyInternal>[2]
 ): Promise<Id<"inventoryStockPolicies">> {
   if (!canManageStockPolicy(user)) {
-    throw new Error(MANAGE_POLICY_DENIED);
+    throw forbidden(MANAGE_POLICY_DENIED);
   }
   const policyId = await upsertStockPolicyInternal(ctx, user, input);
   await logAudit(ctx, user, {
@@ -263,7 +265,7 @@ export async function getCentralStockHealth(
   user: Doc<"users">
 ): Promise<StockHealthCounts> {
   if (!canViewCentralInventory(user)) {
-    throw new Error("A Engenharia só pode consultar estoques de obras");
+    throw forbidden("A Engenharia só pode consultar estoques de obras");
   }
   return await centralStockHealth(ctx);
 }

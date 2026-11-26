@@ -82,7 +82,9 @@ describe("suppliers register", () => {
         personType: "pj",
         taxId: "11222333000181",
       })
-    ).rejects.toThrow(/Já existe um fornecedor com este CNPJ\/CPF/);
+    ).rejects.toMatchObject({
+      data: { code: "ALREADY_EXISTS", message: expect.stringMatching(/^Já existe um fornecedor com este CNPJ\/CPF/) },
+    });
   });
 
   test("validates the tax id even without a person type", async () => {

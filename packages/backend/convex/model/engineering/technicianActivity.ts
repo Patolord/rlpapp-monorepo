@@ -9,6 +9,7 @@ import {
   collectProjectActivity,
   type ActivityItem,
 } from "./technicianActivitySources";
+import { forbidden } from "../../lib/accessErrors";
 
 // Histórico unificado de serviços do técnico, agrupado por obra, e serviços de
 // campo de uma obra. As fontes e a normalização ficam em
@@ -67,7 +68,7 @@ function resolveTargetUserId(
 ): Id<"users"> {
   if (!userId || userId === user._id) return user._id;
   if (!hasPermission(user, "campo.equipe")) {
-    throw new Error("Sem permissão para ver o histórico de outros usuários");
+    throw forbidden("Sem permissão para ver o histórico de outros usuários");
   }
   return userId;
 }
@@ -202,7 +203,7 @@ export async function listProjectFieldActivity(
   }
 ) {
   if (!hasPermission(user, "obras.read")) {
-    throw new Error("Sem permissão para ver os serviços da obra");
+    throw forbidden("Sem permissão para ver os serviços da obra");
   }
 
   const items = (await collectProjectActivity(ctx, input.projectId)).filter(

@@ -6,7 +6,7 @@ import type { quoteFreight } from "../../schema/procurement";
 import { normalizeUnit } from "./catalog";
 import { isComparableUnit, supplierKeyOf } from "./priceHistory";
 import { isSupplierQuote } from "./priceSelection";
-import { normalizeText } from "./pricing";
+import { normalizeText } from "../kernel/text";
 import { MAX_PROPOSAL_LINES, proposalSupplierKey } from "./quoteProposalRules";
 
 /**

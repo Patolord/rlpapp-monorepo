@@ -3,6 +3,7 @@ import type { Doc } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
 import { findInventoryLocation } from "./locations";
 import { canViewCentralInventory } from "./stockPolicy";
+import { ruleViolation } from "../../lib/domainErrors";
 
 /**
  * Etiquetas de prateleira: os itens do estoque central com SKU e endereço,
@@ -15,7 +16,7 @@ export async function listShelfLabelsPage(
   input: { paginationOpts: PaginationOptions }
 ) {
   if (!canViewCentralInventory(user)) {
-    throw new Error("Etiquetas de prateleira são do estoque central");
+    throw ruleViolation("Etiquetas de prateleira são do estoque central");
   }
   const central = await findInventoryLocation(ctx);
   if (!central) return { page: [], isDone: true, continueCursor: "" };

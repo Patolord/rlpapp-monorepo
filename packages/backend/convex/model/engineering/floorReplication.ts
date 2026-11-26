@@ -1,6 +1,7 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { logAudit, logEquipmentHistory } from "../../lib/audit";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 // Replica um andar típico para outros andares da mesma obra: copia os
 // ambientes (com layout da matriz), cria NOVOS sistemas para cada sistema
@@ -28,13 +29,13 @@ export async function replicateFloor(
   items: number;
 }> {
   const source = await ctx.db.get("floors", input.sourceFloorId);
-  if (!source) throw new Error("Andar de origem não encontrado");
+  if (!source) throw notFound("Andar de origem não encontrado");
 
   const targetIds = Array.from(new Set(input.targetFloorIds)).filter(
     (id) => id !== input.sourceFloorId
   );
   if (targetIds.length === 0) {
-    throw new Error("Selecione pelo menos um andar de destino");
+    throw ruleViolation("Selecione pelo menos um andar de destino");
   }
 
   // Ambientes e equipamentos do andar de origem.
@@ -43,7 +44,7 @@ export async function replicateFloor(
     .withIndex("by_floor", (q) => q.eq("floorId", input.sourceFloorId))
     .collect();
   if (sourceEnvs.length === 0) {
-    throw new Error("O andar de origem não tem ambientes para replicar");
+    throw ruleViolation("O andar de origem não tem ambientes para replicar");
   }
 
   const itemsByEnv = new Map<Id<"environments">, Doc<"projectEquipment">[]>();
@@ -57,7 +58,7 @@ export async function replicateFloor(
     itemsPerFloor += items.length;
   }
   if (itemsPerFloor * targetIds.length > 500) {
-    throw new Error(
+    throw ruleViolation(
       `Limite de 500 equipamentos por operação excedido (${itemsPerFloor * targetIds.length})`
     );
   }
@@ -66,16 +67,16 @@ export async function replicateFloor(
   const targets: Doc<"floors">[] = [];
   for (const targetId of targetIds) {
     const target = await ctx.db.get("floors", targetId);
-    if (!target) throw new Error("Andar de destino não encontrado");
+    if (!target) throw notFound("Andar de destino não encontrado");
     if (target.projectId !== source.projectId) {
-      throw new Error("Os andares de destino devem pertencer à mesma obra");
+      throw ruleViolation("Os andares de destino devem pertencer à mesma obra");
     }
     const existingEnv = await ctx.db
       .query("environments")
       .withIndex("by_floor", (q) => q.eq("floorId", targetId))
       .first();
     if (existingEnv) {
-      throw new Error(
+      throw ruleViolation(
         `O andar "${target.label}" já tem ambientes — replique apenas para andares vazios`
       );
     }

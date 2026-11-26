@@ -7,7 +7,7 @@ import {
   normalizeLookupQuery,
   tokenCoverage,
 } from "../convex/model/procurement/materialLookup";
-import { normalizeText } from "../convex/model/procurement/pricing";
+import { normalizeText } from "../convex/model/kernel/text";
 import { setup } from "./helpers";
 
 const CERAMIC_DESCRIPTION =

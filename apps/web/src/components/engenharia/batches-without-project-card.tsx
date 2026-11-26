@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getErrorMessage } from "@/lib/errors";
 
 type ProjectOption = { _id: Id<"projects">; name: string };
 
@@ -75,7 +76,7 @@ function BatchRow({
         `Lote vinculado a ${project?.name ?? "obra"} (${result.updated} etiqueta(s))`
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao definir a obra");
+      toast.error(getErrorMessage(err, "Erro ao definir a obra"));
     } finally {
       setSaving(false);
     }

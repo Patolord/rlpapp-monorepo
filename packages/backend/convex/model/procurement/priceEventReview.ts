@@ -11,6 +11,7 @@ import { enrichPriceEvent } from "./priceEvents";
 import { assertProposalRoom, proposalSupplierKey } from "./quoteProposalRules";
 import { computeNeedsReview } from "./pricing";
 import { promoteTakeoffItem } from "./takeoffPromotion";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /** Registro de preços e a fila de revisão da Compras. */
 
@@ -49,7 +50,7 @@ export async function addPriceEvent(
    */
   options: { proposalChecked?: boolean } = {}
 ): Promise<Id<"priceEvents">> {
-  if (input.unitPriceCents < 0) throw new Error("Preço inválido");
+  if (input.unitPriceCents < 0) throw ruleViolation("Preço inválido");
 
   let materialId = input.materialId;
   let takeoffId = input.takeoffId;
@@ -60,9 +61,9 @@ export async function addPriceEvent(
 
   if (input.takeoffItemId) {
     const item = await ctx.db.get("takeoffItems", input.takeoffItemId);
-    if (!item) throw new Error("Item do takeoff não encontrado");
+    if (!item) throw notFound("Item do takeoff não encontrado");
     if (materialId && item.materialId && materialId !== item.materialId) {
-      throw new Error("Material diferente do vinculado ao item do takeoff");
+      throw ruleViolation("Material diferente do vinculado ao item do takeoff");
     }
     if (!item.materialId) {
       const promoted = await promoteTakeoffItem(ctx, user, item);
@@ -91,13 +92,13 @@ export async function addPriceEvent(
   let validUntil = input.validUntil;
   if (input.quoteProposalId && !options.proposalChecked) {
     const proposal = await ctx.db.get("quoteProposals", input.quoteProposalId);
-    if (!proposal) throw new Error("Proposta não encontrada");
+    if (!proposal) throw notFound("Proposta não encontrada");
     if (
       (supplierId || supplierNameRaw) &&
       proposalSupplierKey({ supplierId, supplierNameRaw }) !==
         proposalSupplierKey(proposal)
     ) {
-      throw new Error("O fornecedor do preço é diferente do da proposta");
+      throw ruleViolation("O fornecedor do preço é diferente do da proposta");
     }
     await assertProposalRoom(ctx, proposal._id, 1);
     supplierId = proposal.supplierId;
@@ -179,7 +180,7 @@ export async function updatePriceEventReview(
   input: UpdatePriceEventReviewInput
 ): Promise<void> {
   const event = await ctx.db.get("priceEvents", input.eventId);
-  if (!event) throw new Error("Evento de preço não encontrado");
+  if (!event) throw notFound("Evento de preço não encontrado");
 
   const materialId = input.materialId ?? event.materialId;
   const supplierId = input.supplierId ?? event.supplierId;

@@ -5,8 +5,16 @@ import {
   obrasMutation,
   obrasQuery,
 } from "./lib/rbac";
-import { logEquipmentHistory } from "./lib/audit";
-import { applyChecklistTemplate } from "./model/engineering/projectEquipment";
+import {
+  addChecklistItem,
+  applyChecklistTemplate,
+  createChecklistTemplate,
+  deleteChecklistItem,
+  deleteChecklistTemplate,
+  listChecklistTemplates,
+  listEquipmentChecklist,
+  toggleChecklistItem,
+} from "./model/engineering/checklists";
 
 const checklistItemValidator = v.object({
   label: v.string(),
@@ -26,19 +34,7 @@ export const listTemplates = obrasQuery({
       createdAt: v.number(),
     })
   ),
-  handler: async (ctx, args) => {
-    const templates = await ctx.db
-      .query("checklistTemplates")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .collect();
-    return templates.map((t) => ({
-      _id: t._id,
-      projectId: t.projectId ?? null,
-      name: t.name,
-      items: t.items,
-      createdAt: t.createdAt,
-    }));
-  },
+  handler: async (ctx, args) => await listChecklistTemplates(ctx, args.projectId),
 });
 
 export const createTemplate = obrasMutation({
@@ -48,25 +44,14 @@ export const createTemplate = obrasMutation({
     items: v.array(checklistItemValidator),
   },
   returns: v.id("checklistTemplates"),
-  handler: async (ctx, args) => {
-    const name = args.name.trim();
-    if (!name) throw new Error("O nome do checklist é obrigatório");
-    return await ctx.db.insert("checklistTemplates", {
-      projectId: args.projectId,
-      name,
-      items: args.items
-        .map((i) => ({ label: i.label.trim(), required: i.required }))
-        .filter((i) => i.label),
-      createdAt: Date.now(),
-    });
-  },
+  handler: async (ctx, args) => await createChecklistTemplate(ctx, args),
 });
 
 export const removeTemplate = obrasMutation({
   args: { templateId: v.id("checklistTemplates") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.db.delete("checklistTemplates", args.templateId);
+    await deleteChecklistTemplate(ctx, args.templateId);
     return null;
   },
 });
@@ -89,25 +74,7 @@ export const listForEquipment = authedQuery({
       order: v.number(),
     })
   ),
-  handler: async (ctx, args) => {
-    const items = await ctx.db
-      .query("checklistItems")
-      .withIndex("by_equipment", (q) => q.eq("equipmentId", args.equipmentId))
-      .collect();
-    return items
-      .sort((a, b) => a.order - b.order)
-      .map((i) => ({
-        _id: i._id,
-        equipmentId: i.equipmentId,
-        label: i.label,
-        required: i.required,
-        completed: i.completed,
-        completedBy: i.completedBy ?? null,
-        completedAt: i.completedAt ?? null,
-        notes: i.notes ?? null,
-        order: i.order,
-      }));
-  },
+  handler: async (ctx, args) => await listEquipmentChecklist(ctx, args.equipmentId),
 });
 
 // Aplica um template de checklist a um equipamento (instancia os itens).
@@ -129,21 +96,7 @@ export const addItem = obrasMutation({
     required: v.optional(v.boolean()),
   },
   returns: v.id("checklistItems"),
-  handler: async (ctx, args) => {
-    const label = args.label.trim();
-    if (!label) throw new Error("Descrição do item é obrigatória");
-    const existing = await ctx.db
-      .query("checklistItems")
-      .withIndex("by_equipment", (q) => q.eq("equipmentId", args.equipmentId))
-      .collect();
-    return await ctx.db.insert("checklistItems", {
-      equipmentId: args.equipmentId,
-      label,
-      required: args.required ?? false,
-      completed: false,
-      order: existing.length,
-    });
-  },
+  handler: async (ctx, args) => await addChecklistItem(ctx, args),
 });
 
 // Marca/desmarca um item de checklist (disponível para técnicos via QR).
@@ -155,20 +108,7 @@ export const toggleItem = authedMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const item = await ctx.db.get("checklistItems", args.itemId);
-    if (!item) throw new Error("Item não encontrado");
-
-    await ctx.db.patch("checklistItems", args.itemId, {
-      completed: args.completed,
-      completedBy: args.completed ? ctx.user._id : undefined,
-      completedAt: args.completed ? Date.now() : undefined,
-      notes: args.notes?.trim() || item.notes,
-    });
-    await logEquipmentHistory(ctx, ctx.user, {
-      equipmentId: item.equipmentId,
-      action: args.completed ? "checklist_completed" : "checklist_unchecked",
-      newValue: item.label,
-    });
+    await toggleChecklistItem(ctx, ctx.user, args);
     return null;
   },
 });
@@ -177,7 +117,7 @@ export const removeItem = obrasMutation({
   args: { itemId: v.id("checklistItems") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.db.delete("checklistItems", args.itemId);
+    await deleteChecklistItem(ctx, args.itemId);
     return null;
   },
 });

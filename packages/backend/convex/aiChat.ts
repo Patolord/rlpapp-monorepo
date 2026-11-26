@@ -3,7 +3,14 @@ import {
   assistenteMutation,
   assistenteQuery,
 } from "./lib/rbac";
-import { deleteChatSession, requireOwnSession } from "./model/ai/chatSessions";
+import {
+  addChatMessage,
+  createChatSession,
+  deleteChatSession,
+  listChatMessages,
+  listOwnChatSessions,
+  renameChatSession,
+} from "./model/ai/chatSessions";
 
 export const listSessions = assistenteQuery({
   args: {
@@ -20,15 +27,7 @@ export const listSessions = assistenteQuery({
       updatedAt: v.number(),
     })
   ),
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("aiChatSessions")
-      .withIndex("by_project_user", (q) =>
-        q.eq("projectId", args.projectId).eq("userId", ctx.user._id)
-      )
-      .order("desc")
-      .collect();
-  },
+  handler: async (ctx, args) => await listOwnChatSessions(ctx, ctx.user, args.projectId),
 });
 
 export const getMessages = assistenteQuery({
@@ -46,13 +45,7 @@ export const getMessages = assistenteQuery({
       createdAt: v.number(),
     })
   ),
-  handler: async (ctx, args) => {
-    await requireOwnSession(ctx, ctx.user, args.sessionId);
-    return await ctx.db
-      .query("aiChatMessages")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
-      .collect();
-  },
+  handler: async (ctx, args) => await listChatMessages(ctx, ctx.user, args.sessionId),
 });
 
 export const createSession = assistenteMutation({
@@ -61,16 +54,7 @@ export const createSession = assistenteMutation({
     title: v.optional(v.string()),
   },
   returns: v.id("aiChatSessions"),
-  handler: async (ctx, args) => {
-    const now = Date.now();
-    return await ctx.db.insert("aiChatSessions", {
-      projectId: args.projectId,
-      userId: ctx.user._id,
-      title: args.title ?? "Nova conversa",
-      createdAt: now,
-      updatedAt: now,
-    });
-  },
+  handler: async (ctx, args) => await createChatSession(ctx, ctx.user, args),
 });
 
 export const addMessage = assistenteMutation({
@@ -81,18 +65,7 @@ export const addMessage = assistenteMutation({
     intents: v.optional(v.string()),
   },
   returns: v.id("aiChatMessages"),
-  handler: async (ctx, args) => {
-    await requireOwnSession(ctx, ctx.user, args.sessionId);
-    const now = Date.now();
-    await ctx.db.patch("aiChatSessions", args.sessionId, { updatedAt: now });
-    return await ctx.db.insert("aiChatMessages", {
-      sessionId: args.sessionId,
-      role: args.role,
-      text: args.text,
-      intents: args.intents,
-      createdAt: now,
-    });
-  },
+  handler: async (ctx, args) => await addChatMessage(ctx, ctx.user, args),
 });
 
 export const updateSessionTitle = assistenteMutation({
@@ -102,10 +75,7 @@ export const updateSessionTitle = assistenteMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireOwnSession(ctx, ctx.user, args.sessionId);
-    await ctx.db.patch("aiChatSessions", args.sessionId, {
-      title: args.title,
-    });
+    await renameChatSession(ctx, ctx.user, args);
     return null;
   },
 });

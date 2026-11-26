@@ -8,6 +8,7 @@ import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { enforceAgentTokenPolicy } from "../../lib/agentTokens";
 import { accessFields, toUserView } from "./users";
+import { unauthenticated } from "../../lib/accessErrors";
 
 /** Vínculo entre a identidade do Clerk e o cadastro: login e webhooks. */
 
@@ -50,7 +51,7 @@ export async function ensureUserForIdentity(
 ): Promise<Id<"users">> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
-    throw new Error("Not authenticated");
+    throw unauthenticated();
   }
   await enforceAgentTokenPolicy(ctx, identity);
   const clerkId = identity.subject;

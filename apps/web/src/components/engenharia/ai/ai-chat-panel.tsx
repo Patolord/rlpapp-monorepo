@@ -11,6 +11,7 @@ import type { AiIntent } from "@/components/engenharia/ai/intents";
 import { ChatInputBar, PendingIntentsPreview } from "./ai-chat-composer";
 import { AiChatHeader, type View } from "./ai-chat-header";
 import { AiChatHistory } from "./ai-chat-history";
+import { getErrorMessage } from "@/lib/errors";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -204,9 +205,7 @@ export function AiChatPanel({
       setOptimisticMessages([]);
     } catch (error) {
       const errText =
-        error instanceof Error
-          ? error.message
-          : "Não foi possível processar.";
+        getErrorMessage(error, "Não foi possível processar.");
       setOptimisticMessages((prev) => [
         ...prev,
         { role: "assistant", text: errText },
@@ -245,9 +244,7 @@ export function AiChatPanel({
       setPendingIntents(null);
     } catch (error) {
       const errText =
-        error instanceof Error
-          ? error.message
-          : "Não foi possível aplicar as alterações.";
+        getErrorMessage(error, "Não foi possível aplicar as alterações.");
       setOptimisticMessages((prev) => [
         ...prev,
         { role: "assistant", text: errText },

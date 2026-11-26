@@ -15,7 +15,6 @@ import {
   PUNCH_ROLE_LABEL,
   type DeclarableRole,
 } from "@rlpapp/shared/rh/pontoDay";
-import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
@@ -27,6 +26,7 @@ import {
   loadUserDay,
   toDayDetail,
 } from "./timeClockDay";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /** Até quantos dias para trás a pessoa pode informar um horário esquecido. */
 export const MISSED_REQUEST_MAX_AGE_DAYS = 45;
@@ -34,14 +34,14 @@ const MAX_TEXT = 500;
 
 function cleanText(value: string | undefined, label: string, required: boolean): string | undefined {
   const text = value?.trim() ?? "";
-  if (required && !text) throw new ConvexError(`Informe o ${label}`);
-  if (text.length > MAX_TEXT) throw new ConvexError(`${label} muito longo`);
+  if (required && !text) throw ruleViolation(`Informe o ${label}`);
+  if (text.length > MAX_TEXT) throw ruleViolation(`${label} muito longo`);
   return text || undefined;
 }
 
 function assertMinute(minute: number): void {
   if (!Number.isInteger(minute) || minute < 0 || minute >= 24 * 60) {
-    throw new ConvexError("Horário inválido");
+    throw ruleViolation("Horário inválido");
   }
 }
 
@@ -112,10 +112,10 @@ export async function requestMissedPunch(
   const now = Date.now();
   const today = toBrtDateKey(now);
   if (input.date > today || (input.date === today && input.minute > brtMinuteOfDay(now))) {
-    throw new ConvexError("O horário informado ainda não aconteceu");
+    throw ruleViolation("O horário informado ainda não aconteceu");
   }
   if (input.date < shiftDate(today, -MISSED_REQUEST_MAX_AGE_DAYS)) {
-    throw new ConvexError(`Só dá para informar até ${MISSED_REQUEST_MAX_AGE_DAYS} dias atrás. Fale com o RH.`);
+    throw ruleViolation(`Só dá para informar até ${MISSED_REQUEST_MAX_AGE_DAYS} dias atrás. Fale com o RH.`);
   }
   const id = await upsertMissedRequest(ctx, user, {
     date: input.date,
@@ -135,8 +135,8 @@ export async function cancelMyRequest(
   requestId: Id<"clockPunchRequests">
 ): Promise<void> {
   const request = await ctx.db.get("clockPunchRequests", requestId);
-  if (!request || request.userId !== user._id) throw new ConvexError("Pedido não encontrado");
-  if (request.status !== "pending") throw new ConvexError("O RH já analisou este pedido");
+  if (!request || request.userId !== user._id) throw notFound("Pedido não encontrado");
+  if (request.status !== "pending") throw ruleViolation("O RH já analisou este pedido");
   await ctx.db.patch("clockPunchRequests", request._id, { status: "canceled" });
   await recomputeDaySummary(ctx, user._id, request.date);
 }
@@ -159,10 +159,10 @@ export async function reviewMissedRequest(
   input: { requestId: Id<"clockPunchRequests">; revision: number; approve: boolean; note?: string }
 ): Promise<void> {
   const request = await ctx.db.get("clockPunchRequests", input.requestId);
-  if (!request) throw new ConvexError("Pedido não encontrado");
-  if (request.status !== "pending") throw new ConvexError("Este pedido já foi analisado");
+  if (!request) throw notFound("Pedido não encontrado");
+  if (request.status !== "pending") throw ruleViolation("Este pedido já foi analisado");
   if ((request.revision ?? 0) !== input.revision) {
-    throw new ConvexError("A pessoa mudou este horário. Confira de novo antes de decidir.");
+    throw ruleViolation("A pessoa mudou este horário. Confira de novo antes de decidir.");
   }
   const reviewNote = cleanText(input.note, "motivo", !input.approve);
   const status = input.approve ? ("approved" as const) : ("rejected" as const);
@@ -194,7 +194,7 @@ export async function includeMissedPunch(
   assertMinute(input.minute);
   const reason = cleanText(input.reason, "motivo", true)!;
   const person = await ctx.db.get("users", input.userId);
-  if (!person) throw new ConvexError("Pessoa não encontrada");
+  if (!person) throw notFound("Pessoa não encontrada");
   // Entrada e saída extras podem acontecer mais de uma vez no dia: cada
   // inclusão é um intervalo próprio. As quatro posições têm um horário só.
   const isExtraRole = input.role === "entrada_extra" || input.role === "saida_extra";
@@ -253,8 +253,8 @@ export async function adjustPunch(
   }
 ): Promise<void> {
   const punch = await ctx.db.get("clockPunches", input.punchId);
-  if (!punch) throw new ConvexError("Marcação não encontrada");
-  if (input.action === "set_role" && !input.role) throw new ConvexError("Escolha o tipo da marcação");
+  if (!punch) throw notFound("Marcação não encontrada");
+  if (input.action === "set_role" && !input.role) throw ruleViolation("Escolha o tipo da marcação");
   const reason = cleanText(input.reason, "motivo", true)!;
   const adjustmentId = await ctx.db.insert("clockPunchAdjustments", {
     punchId: punch._id,

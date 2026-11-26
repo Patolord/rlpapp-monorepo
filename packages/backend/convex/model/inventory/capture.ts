@@ -23,6 +23,8 @@ import {
 } from "./locations";
 import { postInventoryDocument } from "./posting";
 import { canViewCentralInventory } from "./stockPolicy";
+import { forbidden } from "../../lib/accessErrors";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /**
  * Cadastro em campo pelo celular: a pessoa lê o código ou digita o item, vê
@@ -92,7 +94,7 @@ function clean(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   if (!trimmed) return undefined;
   if (trimmed.length > MAX_TEXT) {
-    throw new Error(`Texto muito longo (máximo ${MAX_TEXT} caracteres)`);
+    throw ruleViolation(`Texto muito longo (máximo ${MAX_TEXT} caracteres)`);
   }
   return trimmed;
 }
@@ -115,7 +117,7 @@ function assertCanUseLocation(
   projectId: Id<"projects"> | undefined
 ): void {
   if (!projectId && !canViewCentralInventory(user)) {
-    throw new Error("Seu usuário não pode contar o estoque central");
+    throw forbidden("Seu usuário não pode contar o estoque central");
   }
 }
 
@@ -261,13 +263,13 @@ async function resolveMaterial(
       ctx,
       await ctx.db.get("materials", input.materialId)
     );
-    if (!material) throw new Error("Material não encontrado ou arquivado");
+    if (!material) throw notFound("Material não encontrado ou arquivado");
     await enrichExisting(ctx, material, item, input.photoId);
     return { material, outcome: "matched", matchReason: "chosen", similarIds: [] };
   }
 
   if (!item?.name && !item?.barcode) {
-    throw new Error("Informe o nome do material ou leia o código");
+    throw ruleViolation("Informe o nome do material ou leia o código");
   }
   const exact = item
     ? await findExactMatch(ctx, item, { skipAlias: Boolean(input.confirmedNew) })
@@ -282,7 +284,7 @@ async function resolveMaterial(
     };
   }
   if (!item?.name) {
-    throw new Error("Código não cadastrado: informe o nome do material");
+    throw ruleViolation("Código não cadastrado: informe o nome do material");
   }
 
   // Mesma identidade de um material arquivado (sem mesclagem): o item voltou
@@ -296,6 +298,7 @@ async function resolveMaterial(
     });
     await enrichExisting(ctx, archived, item, input.photoId);
     const material = await ctx.db.get("materials", archived._id);
+    // eslint-disable-next-line no-restricted-syntax -- invariante: o registro acabou de ser gravado nesta transação
     if (!material) throw new Error("Falha ao reativar o material");
     await logAudit(ctx, user, {
       action: "update",
@@ -329,6 +332,7 @@ async function resolveMaterial(
     status: needsReview ? "draft" : "active",
   });
   const material = await ctx.db.get("materials", created.materialId);
+  // eslint-disable-next-line no-restricted-syntax -- invariante: o registro acabou de ser gravado nesta transação
   if (!material) throw new Error("Falha ao cadastrar o material");
   return {
     material,
@@ -426,14 +430,14 @@ export async function captureMaterial(
   input: CaptureMaterialInput
 ): Promise<CaptureResult> {
   const clientId = input.clientId.trim();
-  if (!clientId || clientId.length > 80) throw new Error("Identificador do cadastro inválido");
+  if (!clientId || clientId.length > 80) throw ruleViolation("Identificador do cadastro inválido");
   const previous = await ctx.db
     .query("materialCaptures")
     .withIndex("by_client_id", (q) => q.eq("clientId", clientId))
     .unique();
   if (previous) {
     if (previous.capturedByUserId !== user._id) {
-      throw new Error("Identificador do cadastro inválido");
+      throw ruleViolation("Identificador do cadastro inválido");
     }
     // O saldo devolvido é o atual: confere o acesso ao local gravado, não ao do reenvio.
     assertCanUseLocation(user, previous.projectId);
@@ -441,7 +445,7 @@ export async function captureMaterial(
   }
 
   if (!Number.isFinite(input.quantity) || input.quantity < 0) {
-    throw new Error("A quantidade deve ser zero ou maior");
+    throw ruleViolation("A quantidade deve ser zero ou maior");
   }
   // Foto é opcional: em formato não aceito (ex.: HEIC) a contagem segue sem
   // ela, em vez de travar a fila do celular reenviando o mesmo erro.
@@ -499,6 +503,7 @@ export async function captureMaterial(
     });
   }
   const capture = await ctx.db.get("materialCaptures", captureId);
+  // eslint-disable-next-line no-restricted-syntax -- invariante: o registro acabou de ser gravado nesta transação
   if (!capture) throw new Error("Falha ao registrar o cadastro");
   return await toResult(ctx, capture, false);
 }

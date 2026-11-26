@@ -10,6 +10,8 @@ import {
   normalizeDeviceName,
 } from "../../lib/takeoffAuth";
 import { insertToken } from "./agentTokens";
+import { ruleViolation } from "../../lib/domainErrors";
+import { errorMessage } from "@rlpapp/shared/errors";
 
 /**
  * Login do RLP Takeoff (desktop) com a conta da empresa: códigos de uso único
@@ -28,7 +30,7 @@ async function requireHumanStaff(ctx: MutationCtx): Promise<Doc<"users">> {
   // Acesso "App Takeoff" (takeoff.use); publicar orçamento ainda exige engenharia.write.
   requirePermission(user, "takeoff.use");
   if (!user.clerkId) {
-    throw new Error(
+    throw ruleViolation(
       "Este usuário ainda não está vinculado a uma conta de login; entre no app antes de conectar o Takeoff"
     );
   }
@@ -38,10 +40,10 @@ async function requireHumanStaff(ctx: MutationCtx): Promise<Doc<"users">> {
 /** Confere o desafio PKCE e o id da instalação enviados pelo app. */
 export function assertCodeRequest(input: { challenge: string; installationId?: string }): void {
   if (!isValidChallenge(input.challenge)) {
-    throw new Error("Desafio PKCE inválido");
+    throw ruleViolation("Desafio PKCE inválido");
   }
   if (input.installationId !== undefined && !isValidInstallationId(input.installationId)) {
-    throw new Error("Id da instalação inválido");
+    throw ruleViolation("Id da instalação inválido");
   }
 }
 
@@ -175,7 +177,7 @@ export async function redeemAuthCode(
     return {
       ok: false as const,
       reason: "limit" as const,
-      message: error instanceof Error ? error.message : "Falha ao criar o token",
+      message: errorMessage(error, "Falha ao criar o token"),
     };
   }
   return {

@@ -25,6 +25,7 @@ import { formatDateKeyLong, PUNCH_KIND_BADGE_VARIANT, todayDateKey } from "@/lib
 
 import { PunchPhotoButton } from "./punch-photo";
 import { TreatDialog, type TreatRequest } from "./treat-dialog";
+import { getErrorMessage } from "@/lib/errors";
 
 type PersonDay = FunctionReturnType<typeof api.timeClock.getPersonDay>;
 type DayItem = PersonDay["day"]["items"][number];
@@ -111,7 +112,7 @@ export function PersonDayPanel({
       await review({ requestId: item.requestId!, revision: revisionOf(item), approve: true });
       toast.success("Horário aprovado");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível aprovar");
+      toast.error(getErrorMessage(error, "Não foi possível aprovar"));
     }
   };
 

@@ -2,13 +2,13 @@ import type { Infer } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
-import { createInventoryDocument } from "../inventory/documents";
-import { postInventoryDocument } from "../inventory/posting";
+import { createInventoryDocument } from "./documents";
+import { postInventoryDocument } from "./posting";
 import {
   emptyBulkImportResult,
   requireTrimmedName,
   type BulkImportResult,
-} from "./bulkImport";
+} from "../kernel/bulkImport";
 import {
   allocateNextSku,
   buildMaterialSearchText,
@@ -16,14 +16,15 @@ import {
   findMaterialByIdentity,
   normalizeUnit,
   sanitizeDimensions,
-} from "./catalog";
+} from "../procurement/catalog";
 import {
   findOrCreateFamily,
   insertUniqueAlias,
   materialIdentityInput,
   sanitizeTechnicalAttributes,
-} from "./materialIdentity";
-import type { bulkMaterialItemValidator } from "./materialValidators";
+} from "../procurement/materialIdentity";
+import type { bulkMaterialItemValidator } from "../procurement/materialValidators";
+import { ruleViolation } from "../../lib/domainErrors";
 
 export type BulkMaterialItemInput = Infer<typeof bulkMaterialItemValidator>;
 
@@ -42,7 +43,7 @@ export async function bulkCreateMaterials(
   args: BulkCreateMaterialsInput
 ): Promise<BulkImportResult> {
   if (args.items.length > 200) {
-    throw new Error("Máximo de 200 materiais por importação");
+    throw ruleViolation("Máximo de 200 materiais por importação");
   }
 
   const result = emptyBulkImportResult();

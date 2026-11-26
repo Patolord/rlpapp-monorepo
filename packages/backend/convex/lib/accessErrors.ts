@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { Permission } from "@rlpapp/shared/auth/permissions";
+import type { AccessErrorCode } from "@rlpapp/shared/errors";
 
 /**
  * Erros de autenticação e autorização lançados pelos gates de lib/rbac.ts e
@@ -9,7 +10,7 @@ import type { Permission } from "@rlpapp/shared/auth/permissions";
  * falhas pelo `code` (o gateway já mapeia UNAUTHENTICATED → 401 e
  * FORBIDDEN → 403).
  */
-export type AccessErrorCode = "UNAUTHENTICATED" | "FORBIDDEN";
+export type { AccessErrorCode };
 
 export type AccessErrorData = {
   code: AccessErrorCode;

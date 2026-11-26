@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { api, internal } from "../convex/_generated/api";
-import { quietUntil } from "../convex/push";
+import { quietUntil } from "../convex/model/notifications/delivery";
 import { setup } from "./helpers";
 
 async function seed() {

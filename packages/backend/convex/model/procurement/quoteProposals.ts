@@ -6,12 +6,13 @@ import { logAudit } from "../../lib/audit";
 import type { priceEventSource, quoteFreight } from "../../schema/procurement";
 import { addPriceEvent } from "./priceEventReview";
 import { supplierKeyOf } from "./priceHistory";
-import { normalizeText } from "./pricing";
+import { normalizeText } from "../kernel/text";
 import {
   MAX_PROPOSAL_LINES,
   proposalLineCount,
   proposalSupplierKey,
 } from "./quoteProposalRules";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /**
  * Propostas de fornecedor: o que um fornecedor mandou de uma vez (data,
@@ -56,17 +57,17 @@ async function assertSupplier(
 ) {
   if (supplierId) {
     const supplier = await ctx.db.get("suppliers", supplierId);
-    if (!supplier) throw new Error("Fornecedor não encontrado");
+    if (!supplier) throw notFound("Fornecedor não encontrado");
     return;
   }
   if (!supplierNameRaw?.trim()) {
-    throw new Error("Informe o fornecedor (supplierId ou supplierNameRaw)");
+    throw ruleViolation("Informe o fornecedor (supplierId ou supplierNameRaw)");
   }
 }
 
 function assertValidity(receivedAt: number, validUntil: number | undefined) {
   if (validUntil !== undefined && validUntil < receivedAt) {
-    throw new Error("A validade não pode ser anterior à data da proposta");
+    throw ruleViolation("A validade não pode ser anterior à data da proposta");
   }
 }
 
@@ -85,7 +86,7 @@ async function assertNotDuplicate(
     .query("quoteProposals")
     .withIndex("by_supplier", (q) => q.eq("supplierId", supplierId))) {
     if (proposal.reference && normalizeText(proposal.reference) === wanted) {
-      throw new Error(
+      throw ruleViolation(
         `Proposta ${reference} deste fornecedor já registrada (${proposal._id})`
       );
     }
@@ -104,14 +105,14 @@ export async function createQuoteProposal(
   await assertSupplier(ctx, input.supplierId, input.supplierNameRaw);
   assertValidity(input.receivedAt, input.validUntil);
   if (input.lines.length === 0) {
-    throw new Error("A proposta precisa de ao menos um preço");
+    throw ruleViolation("A proposta precisa de ao menos um preço");
   }
   if (input.lines.length > MAX_PROPOSAL_LINES) {
-    throw new Error(`No máximo ${MAX_PROPOSAL_LINES} linhas por proposta`);
+    throw ruleViolation(`No máximo ${MAX_PROPOSAL_LINES} linhas por proposta`);
   }
   for (const line of input.lines) {
     if (!line.materialId && !line.rawDescription?.trim()) {
-      throw new Error("Cada linha precisa de material ou descrição");
+      throw ruleViolation("Cada linha precisa de material ou descrição");
     }
   }
 
@@ -196,7 +197,7 @@ export async function updateQuoteProposal(
   input: UpdateQuoteProposalInput
 ): Promise<void> {
   const proposal = await ctx.db.get("quoteProposals", input.proposalId);
-  if (!proposal) throw new Error("Proposta não encontrada");
+  if (!proposal) throw notFound("Proposta não encontrada");
 
   const supplierChanged =
     input.supplierId !== undefined || input.supplierNameRaw !== undefined;
@@ -282,19 +283,19 @@ export async function linkPriceEventsToProposal(
   }
 ): Promise<number> {
   const proposal = await ctx.db.get("quoteProposals", input.proposalId);
-  if (!proposal) throw new Error("Proposta não encontrada");
+  if (!proposal) throw notFound("Proposta não encontrada");
   if (input.priceEventIds.length > MAX_PROPOSAL_LINES) {
-    throw new Error(`No máximo ${MAX_PROPOSAL_LINES} preços por chamada`);
+    throw ruleViolation(`No máximo ${MAX_PROPOSAL_LINES} preços por chamada`);
   }
   const supplierKey = proposalSupplierKey(proposal);
 
   const toLink: Id<"priceEvents">[] = [];
   for (const eventId of new Set(input.priceEventIds)) {
     const event = await ctx.db.get("priceEvents", eventId);
-    if (!event) throw new Error(`Preço ${eventId} não encontrado`);
+    if (!event) throw notFound(`Preço ${eventId} não encontrado`);
     if (event.quoteProposalId === proposal._id) continue;
     if (supplierKeyOf(event) !== supplierKey) {
-      throw new Error(
+      throw ruleViolation(
         `O preço ${eventId} é de outro fornecedor que o da proposta`
       );
     }
@@ -302,7 +303,7 @@ export async function linkPriceEventsToProposal(
   }
   const current = await proposalLineCount(ctx, proposal._id);
   if (current + toLink.length > MAX_PROPOSAL_LINES) {
-    throw new Error(
+    throw ruleViolation(
       `A proposta já tem ${current} preços; com estes passaria de ${MAX_PROPOSAL_LINES}`
     );
   }

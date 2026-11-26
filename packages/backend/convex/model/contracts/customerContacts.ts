@@ -1,6 +1,7 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { diffFields, logAudit } from "../../lib/audit";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /** Contatos de um cliente: inclusão, edição, arquivamento e restauração. */
 
@@ -38,12 +39,12 @@ export async function addCustomerContact(
   input: AddCustomerContactInput
 ): Promise<Id<"customerContacts">> {
   const customer = await ctx.db.get("customers", input.customerId);
-  if (!customer) throw new Error("Cliente não encontrado");
+  if (!customer) throw notFound("Cliente não encontrado");
   if (customer.archivedAt) {
-    throw new Error("Cliente arquivado — restaure antes de adicionar contatos");
+    throw ruleViolation("Cliente arquivado — restaure antes de adicionar contatos");
   }
   const name = input.name.trim();
-  if (!name) throw new Error("Informe o nome do contato");
+  if (!name) throw ruleViolation("Informe o nome do contato");
 
   const now = Date.now();
   const contactId = await ctx.db.insert("customerContacts", {
@@ -81,14 +82,14 @@ export async function updateCustomerContact(
   input: UpdateCustomerContactInput
 ): Promise<void> {
   const contact = await ctx.db.get("customerContacts", input.contactId);
-  if (!contact) throw new Error("Contato não encontrado");
+  if (!contact) throw notFound("Contato não encontrado");
   if (contact.active === false) {
-    throw new Error("Contato inativo — restaure antes de editar");
+    throw ruleViolation("Contato inativo — restaure antes de editar");
   }
   const customer = await ctx.db.get("customers", contact.customerId);
-  if (!customer) throw new Error("Cliente não encontrado");
+  if (!customer) throw notFound("Cliente não encontrado");
   if (customer.archivedAt) {
-    throw new Error("Cliente arquivado — restaure antes de editar contatos");
+    throw ruleViolation("Cliente arquivado — restaure antes de editar contatos");
   }
 
   const before = contactSnapshot(contact);
@@ -97,7 +98,7 @@ export async function updateCustomerContact(
   };
   if (input.name !== undefined) {
     const name = input.name.trim();
-    if (!name) throw new Error("Informe o nome do contato");
+    if (!name) throw ruleViolation("Informe o nome do contato");
     updates.name = name;
   }
   if (input.email !== undefined) {
@@ -134,7 +135,7 @@ export async function archiveCustomerContact(
   contactId: Id<"customerContacts">
 ): Promise<void> {
   const contact = await ctx.db.get("customerContacts", contactId);
-  if (!contact) throw new Error("Contato não encontrado");
+  if (!contact) throw notFound("Contato não encontrado");
   if (contact.active === false) return;
 
   const before = contactSnapshot(contact);
@@ -160,12 +161,12 @@ export async function restoreCustomerContact(
   contactId: Id<"customerContacts">
 ): Promise<void> {
   const contact = await ctx.db.get("customerContacts", contactId);
-  if (!contact) throw new Error("Contato não encontrado");
+  if (!contact) throw notFound("Contato não encontrado");
   if (contact.active !== false) return;
   const customer = await ctx.db.get("customers", contact.customerId);
-  if (!customer) throw new Error("Cliente não encontrado");
+  if (!customer) throw notFound("Cliente não encontrado");
   if (customer.archivedAt) {
-    throw new Error("Cliente arquivado — restaure antes de reativar contatos");
+    throw ruleViolation("Cliente arquivado — restaure antes de reativar contatos");
   }
 
   const before = contactSnapshot(contact);

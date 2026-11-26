@@ -2,6 +2,7 @@ import { logAudit } from "../../lib/audit";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { deleteSystemsIfOrphaned } from "./systems";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 // Estrutura física da obra: torres e ambientes (andares em `floors.ts`).
 // Exclusões em cascata, duplicação de torre e validação da matriz de
@@ -49,9 +50,9 @@ export async function createTower(
   input: { projectId: Id<"projects">; name: string; order?: number }
 ): Promise<Id<"towers">> {
   const project = await ctx.db.get("projects", input.projectId);
-  if (!project) throw new Error("Obra não encontrada");
+  if (!project) throw notFound("Obra não encontrada");
   const name = input.name.trim();
-  if (!name) throw new Error("O nome da torre é obrigatório");
+  if (!name) throw ruleViolation("O nome da torre é obrigatório");
 
   let order = input.order;
   if (order === undefined) {
@@ -84,12 +85,12 @@ export async function updateTower(
   input: { towerId: Id<"towers">; name?: string; order?: number }
 ): Promise<void> {
   const tower = await ctx.db.get("towers", input.towerId);
-  if (!tower) throw new Error("Torre não encontrada");
+  if (!tower) throw notFound("Torre não encontrada");
 
   const updates: Partial<{ name: string; order: number }> = {};
   if (input.name !== undefined) {
     const name = input.name.trim();
-    if (!name) throw new Error("O nome da torre é obrigatório");
+    if (!name) throw ruleViolation("O nome da torre é obrigatório");
     updates.name = name;
   }
   if (input.order !== undefined) updates.order = input.order;
@@ -255,7 +256,7 @@ export async function duplicateTower(
   input: { towerId: Id<"towers">; name?: string }
 ): Promise<Id<"towers">> {
   const tower = await ctx.db.get("towers", input.towerId);
-  if (!tower) throw new Error("Torre não encontrada");
+  if (!tower) throw notFound("Torre não encontrada");
 
   const { towerId: newTowerId } = await copyTowerTree(
     ctx,
@@ -292,7 +293,7 @@ function validateGridField(
   if (value === undefined) return undefined;
   const n = Math.floor(value);
   if (!Number.isFinite(n) || n < 1) {
-    throw new Error(`${label} deve ser um número inteiro maior ou igual a 1`);
+    throw ruleViolation(`${label} deve ser um número inteiro maior ou igual a 1`);
   }
   return n;
 }
@@ -306,12 +307,12 @@ function validateSegments(
     const label = `Segmento ${i + 1}`;
     const colOffset = Math.floor(seg.colOffset);
     if (!Number.isFinite(colOffset)) {
-      throw new Error(`${label}: deslocamento de coluna inválido`);
+      throw ruleViolation(`${label}: deslocamento de coluna inválido`);
     }
     const rowOffset =
       seg.rowOffset === undefined ? undefined : Math.floor(seg.rowOffset);
     if (rowOffset !== undefined && (!Number.isFinite(rowOffset) || rowOffset < 0)) {
-      throw new Error(
+      throw ruleViolation(
         `${label}: o deslocamento de andar deve ser maior ou igual a 0`
       );
     }
@@ -342,9 +343,9 @@ export async function createEnvironment(
   }
 ): Promise<Id<"environments">> {
   const floor = await ctx.db.get("floors", input.floorId);
-  if (!floor) throw new Error("Andar não encontrado");
+  if (!floor) throw notFound("Andar não encontrado");
   const name = input.name.trim();
-  if (!name) throw new Error("O nome do ambiente é obrigatório");
+  if (!name) throw ruleViolation("O nome do ambiente é obrigatório");
 
   let order = input.order;
   if (order === undefined) {
@@ -392,7 +393,7 @@ export async function updateEnvironment(
   }
 ): Promise<void> {
   const env = await ctx.db.get("environments", input.environmentId);
-  if (!env) throw new Error("Ambiente não encontrado");
+  if (!env) throw notFound("Ambiente não encontrado");
 
   const updates: Partial<{
     name: string;
@@ -405,7 +406,7 @@ export async function updateEnvironment(
   }> = {};
   if (input.name !== undefined) {
     const name = input.name.trim();
-    if (!name) throw new Error("O nome do ambiente é obrigatório");
+    if (!name) throw ruleViolation("O nome do ambiente é obrigatório");
     updates.name = name;
   }
   if (input.type !== undefined) {

@@ -13,13 +13,13 @@ import {
   archiveProject,
   backfillProjectSlugs,
   createProject,
-  createProjectWithOptionalContract,
   restoreProject,
   setProjectClientsLegacy,
   setProjectPortalUsers,
   setProjectTechnicians,
   updateProject,
 } from "./model/engineering/projectMutations";
+import { createProjectWithOptionalContract } from "./model/contracts/projectContracts";
 import {
   getProjectOverview,
   listAssignedTechnicians,

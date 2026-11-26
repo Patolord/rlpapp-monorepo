@@ -2,13 +2,10 @@ import { v, type Infer } from "convex/values";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { diffFields, logAudit } from "../../lib/audit";
-import {
-  optionalTaxIdDigits,
-  normalizeCustomerName,
-  normalizeTaxId,
-  validateTaxIdForPersonType,
-  type CustomerPersonType,
-} from "./customers";
+
+import { alreadyExists, notFound, ruleViolation } from "../../lib/domainErrors";
+import { type PersonType, normalizeTaxId, optionalTaxIdDigits, validateTaxIdForPersonType } from "../kernel/taxId";
+import { normalizeText } from "../kernel/text";
 
 /**
  * Cadastro de empreiteiros (`convex/contractors.ts`): listagem, detalhe com
@@ -63,7 +60,7 @@ export type GetContractorInput = {
 
 export type CreateContractorInput = {
   name: string;
-  personType?: CustomerPersonType;
+  personType?: PersonType;
   legalName?: string;
   taxId?: string;
   email?: string;
@@ -75,7 +72,7 @@ export type CreateContractorInput = {
 export type UpdateContractorInput = {
   contractorId: Id<"contractors">;
   name?: string;
-  personType?: CustomerPersonType | null;
+  personType?: PersonType | null;
   legalName?: string;
   taxId?: string | null;
   email?: string;
@@ -127,7 +124,7 @@ async function assertUniqueContractorIdentity(
     excludeId?: Id<"contractors">;
   }
 ) {
-  const nameNormalized = normalizeCustomerName(params.name);
+  const nameNormalized = normalizeText(params.name);
   const existingByName = await ctx.db
     .query("contractors")
     .withIndex("by_name_normalized", (q) =>
@@ -136,7 +133,7 @@ async function assertUniqueContractorIdentity(
     .collect();
   const nameConflict = existingByName.find((c) => c._id !== params.excludeId);
   if (nameConflict) {
-    throw new Error("Já existe um empreiteiro com este nome");
+    throw alreadyExists("Já existe um empreiteiro com este nome");
   }
 
   if (params.taxId) {
@@ -152,7 +149,7 @@ async function assertUniqueContractorIdentity(
         (c) => c._id !== params.excludeId
       );
       if (taxConflict) {
-        throw new Error("Já existe um empreiteiro com este CNPJ/CPF");
+        throw alreadyExists("Já existe um empreiteiro com este CNPJ/CPF");
       }
     }
   }
@@ -170,11 +167,11 @@ export async function listContractors(
     contractors = contractors.filter((c) => c.active);
   }
   if (input.search?.trim()) {
-    const term = normalizeCustomerName(input.search);
+    const term = normalizeText(input.search);
     contractors = contractors.filter(
       (c) =>
         c.nameNormalized.includes(term) ||
-        (c.legalName && normalizeCustomerName(c.legalName).includes(term)) ||
+        (c.legalName && normalizeText(c.legalName).includes(term)) ||
         (c.taxIdNormalized &&
           c.taxIdNormalized.includes(term.replace(/\D/g, "")))
     );
@@ -223,7 +220,7 @@ export async function createContractor(
   input: CreateContractorInput
 ): Promise<Id<"contractors">> {
   const name = input.name.trim();
-  if (!name) throw new Error("Informe o nome do empreiteiro");
+  if (!name) throw ruleViolation("Informe o nome do empreiteiro");
 
   const taxId = input.taxId ? optionalTaxIdDigits(input.taxId) : undefined;
   validateTaxIdForPersonType(taxId, input.personType);
@@ -232,7 +229,7 @@ export async function createContractor(
   const now = Date.now();
   const contractorId = await ctx.db.insert("contractors", {
     name,
-    nameNormalized: normalizeCustomerName(name),
+    nameNormalized: normalizeText(name),
     personType: input.personType,
     legalName: input.legalName?.trim() || undefined,
     taxId,
@@ -265,9 +262,9 @@ export async function updateContractor(
   input: UpdateContractorInput
 ): Promise<void> {
   const contractor = await ctx.db.get("contractors", input.contractorId);
-  if (!contractor) throw new Error("Empreiteiro não encontrado");
+  if (!contractor) throw notFound("Empreiteiro não encontrado");
   if (contractor.archivedAt) {
-    throw new Error("Empreiteiro arquivado — restaure antes de editar");
+    throw ruleViolation("Empreiteiro arquivado — restaure antes de editar");
   }
 
   const before = contractorSnapshot(contractor);
@@ -278,9 +275,9 @@ export async function updateContractor(
 
   if (input.name !== undefined) {
     const name = input.name.trim();
-    if (!name) throw new Error("Informe o nome do empreiteiro");
+    if (!name) throw ruleViolation("Informe o nome do empreiteiro");
     updates.name = name;
-    updates.nameNormalized = normalizeCustomerName(name);
+    updates.nameNormalized = normalizeText(name);
   }
   if (input.personType !== undefined) {
     updates.personType =
@@ -348,7 +345,7 @@ export async function archiveContractor(
   contractorId: Id<"contractors">
 ): Promise<void> {
   const contractor = await ctx.db.get("contractors", contractorId);
-  if (!contractor) throw new Error("Empreiteiro não encontrado");
+  if (!contractor) throw notFound("Empreiteiro não encontrado");
   if (contractor.archivedAt) return;
 
   const now = Date.now();
@@ -377,7 +374,7 @@ export async function restoreContractor(
   contractorId: Id<"contractors">
 ): Promise<void> {
   const contractor = await ctx.db.get("contractors", contractorId);
-  if (!contractor) throw new Error("Empreiteiro não encontrado");
+  if (!contractor) throw notFound("Empreiteiro não encontrado");
   if (!contractor.archivedAt) return;
 
   const now = Date.now();

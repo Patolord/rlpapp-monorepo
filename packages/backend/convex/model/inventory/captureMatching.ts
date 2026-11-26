@@ -8,7 +8,7 @@ import {
   normalizeUnit,
 } from "../procurement/catalog";
 import { materialIdentityInput } from "../procurement/materialIdentity";
-import { normalizeText } from "../procurement/pricing";
+import { normalizeText } from "../kernel/text";
 
 /**
  * Cadastro em campo: decide se o item capturado no celular já existe no

@@ -33,6 +33,7 @@ import {
 } from "@/lib/punch-queue";
 import { notifyMissedNotSent } from "@/lib/punch-reminders";
 import { uploadPhotos } from "@/lib/upload-photos";
+import { getErrorMessage } from "@/lib/errors";
 
 async function isOnline(): Promise<boolean> {
   try {
@@ -220,7 +221,7 @@ export function OfflineSync() {
           await processPunch(punch);
           await removePendingPunch(punch.clientPunchId);
         } catch (err) {
-          const message = err instanceof Error ? err.message : "Erro desconhecido";
+          const message = getErrorMessage(err, "Erro desconhecido");
           console.error("Offline punch sync failed:", punch.clientPunchId, err);
           await setPendingPunchError(punch.clientPunchId, message);
           if (!(await isOnline())) return;
@@ -252,7 +253,7 @@ export function OfflineSync() {
         } catch (err) {
           for (const key of keys) blocked.add(key);
           if (capture.quantityMode === "set") blockedLocations.add(location);
-          const message = err instanceof Error ? err.message : "Erro desconhecido";
+          const message = getErrorMessage(err, "Erro desconhecido");
           console.error("Offline capture sync failed:", capture.clientId, err);
           await updatePendingCapture(capture.clientId, { error: message });
           if (!(await isOnline())) return;
@@ -269,7 +270,7 @@ export function OfflineSync() {
           await removePendingRecord(record.id);
         } catch (err) {
           const message =
-            err instanceof Error ? err.message : "Erro desconhecido";
+            getErrorMessage(err, "Erro desconhecido");
           console.error("Offline sync failed for record:", record.id, err);
           await setPendingRecordError(record.id, message);
           if (!(await isOnline())) break;

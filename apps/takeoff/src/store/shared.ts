@@ -1,3 +1,4 @@
+import { errorMessage as readErrorMessage } from "@rlpapp/shared/errors";
 import type { StateCreator } from "zustand";
 import type { Pt } from "../lib/geom";
 import type { Kind } from "../lib/units";
@@ -65,4 +66,5 @@ export function writePref(key: string, value: unknown): void {
 }
 
 /** Human message for an error caught in an async store action. */
-export const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+/** Message of a failure; a backend ConvexError gives its pt-BR text, not its JSON. */
+export const errorMessage = (e: unknown): string => readErrorMessage(e, String(e));

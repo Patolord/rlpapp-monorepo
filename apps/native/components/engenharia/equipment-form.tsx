@@ -13,6 +13,7 @@ import { addPendingRecord, newPendingId } from "@/lib/offline-queue";
 import { colors, radius, space, type } from "@/lib/theme";
 import { uploadPhotos } from "@/lib/upload-photos";
 import { useOnline } from "@/lib/use-online";
+import { getErrorMessage } from "@/lib/errors";
 
 const STATUS_OPTIONS = (Object.keys(EQUIPMENT_STATUS_LABELS) as EquipmentStatus[]).map((value) => ({
   value,
@@ -87,7 +88,7 @@ export function EquipmentForm({ qrToken, project, onSuccess }: EquipmentFormProp
       if (!online) {
         await queueOffline();
       } else {
-        setError(err instanceof Error && err.message ? err.message : "Não deu para cadastrar. Tente de novo.");
+        setError(getErrorMessage(err, "Não deu para cadastrar. Tente de novo."));
       }
     } finally {
       setSubmitting(false);

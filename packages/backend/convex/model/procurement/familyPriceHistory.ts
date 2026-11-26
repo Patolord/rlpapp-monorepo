@@ -16,6 +16,7 @@ import {
   supplierKeyOf,
 } from "./priceHistory";
 import { isSupplierQuote } from "./priceSelection";
+import { notFound, ruleViolation } from "../../lib/domainErrors";
 
 /**
  * Histórico de preços de um equipamento comparável: a família do catálogo
@@ -86,16 +87,16 @@ export async function getFamilyPriceHistory(
   let materials: Doc<"materials">[] = [];
   if (input.familyId) {
     family = await ctx.db.get("materialFamilies", input.familyId);
-    if (!family) throw new Error("Família não encontrada");
+    if (!family) throw notFound("Família não encontrada");
   } else if (input.materialId) {
     const material = await ctx.db.get("materials", input.materialId);
-    if (!material) throw new Error("Material não encontrado");
+    if (!material) throw notFound("Material não encontrado");
     if (material.familyId) {
       family = await ctx.db.get("materialFamilies", material.familyId);
     }
     if (!family) materials = [material];
   } else {
-    throw new Error("Informe familyId ou materialId");
+    throw ruleViolation("Informe familyId ou materialId");
   }
   if (family) {
     const familyId = family._id;
@@ -224,11 +225,11 @@ export async function setFamilyDefaultVariant(
   }
 ): Promise<void> {
   const family = await ctx.db.get("materialFamilies", input.familyId);
-  if (!family) throw new Error("Família não encontrada");
+  if (!family) throw notFound("Família não encontrada");
   if (input.materialId) {
     const material = await ctx.db.get("materials", input.materialId);
     if (!material || material.familyId !== family._id) {
-      throw new Error("O material não é uma variante desta família");
+      throw ruleViolation("O material não é uma variante desta família");
     }
   }
   await ctx.db.patch("materialFamilies", family._id, {

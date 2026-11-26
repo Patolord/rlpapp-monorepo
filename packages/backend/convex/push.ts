@@ -8,9 +8,15 @@
 
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import { env, internalAction, internalMutation, internalQuery } from "./_generated/server";
-import { NOTIFICATION_RETENTION_DAYS } from "./model/notifications/notify";
+import {
+  PURGE_BATCH,
+  finishPushTickets,
+  planPushDelivery,
+  purgeExpiredNotifications,
+  recordPushResults,
+} from "./model/notifications/delivery";
 
 const EXPO_SEND_URL = "https://exp.host/--/api/v2/push/send";
 const EXPO_RECEIPTS_URL = "https://exp.host/--/api/v2/push/getReceipts";
@@ -19,16 +25,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** O Expo guarda recibos por 24 h; depois disso o ticket é descartado. */
 const RECEIPT_TTL_MS = DAY_MS;
 const RECEIPT_DELAY_MS = 15 * 60 * 1000;
-
-// Horário silencioso 21h–6h em America/Sao_Paulo (UTC-3, sem horário de
-// verão desde 2019) = 00:00–09:00 UTC.
-const QUIET_END_UTC_HOUR = 9;
-
-export function quietUntil(now: number): number | null {
-  const date = new Date(now);
-  if (date.getUTCHours() >= QUIET_END_UTC_HOUR) return null;
-  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), QUIET_END_UTC_HOUR);
-}
 
 const deliveryValidator = v.object({
   notificationId: v.id("notifications"),
@@ -50,74 +46,7 @@ export const planDelivery = internalQuery({
     deferUntil: v.union(v.number(), v.null()),
     skipped: v.array(v.object({ notificationId: v.id("notifications"), reason: v.string() })),
   }),
-  handler: async (ctx, args) => {
-    const quietEnd = quietUntil(args.now);
-    const prefsCache = new Map<Id<"users">, Doc<"notificationPreferences"> | null>();
-    const badgeCache = new Map<Id<"users">, number>();
-    const deliver = [];
-    const deferred: Id<"notifications">[] = [];
-    const skipped: { notificationId: Id<"notifications">; reason: string }[] = [];
-
-    for (const id of args.ids) {
-      const n = await ctx.db.get("notifications", id);
-      if (!n || n.pushStatus !== "queued") continue;
-
-      if (!prefsCache.has(n.userId)) {
-        prefsCache.set(
-          n.userId,
-          await ctx.db
-            .query("notificationPreferences")
-            .withIndex("by_user", (q) => q.eq("userId", n.userId))
-            .unique()
-        );
-      }
-      const prefs = prefsCache.get(n.userId) ?? null;
-      if (prefs?.pushOff.includes(n.category)) {
-        skipped.push({ notificationId: id, reason: "Desligado nas preferências" });
-        continue;
-      }
-      if (n.readAt !== undefined) {
-        skipped.push({ notificationId: id, reason: "Já lido no app" });
-        continue;
-      }
-      if (quietEnd !== null && (prefs?.quietHours ?? true)) {
-        deferred.push(id);
-        continue;
-      }
-
-      const tokens = (
-        await ctx.db
-          .query("pushTokens")
-          .withIndex("by_user", (q) => q.eq("userId", n.userId))
-          .take(20)
-      ).filter((t) => t.disabledAt === undefined);
-      if (tokens.length === 0) {
-        skipped.push({ notificationId: id, reason: "Sem aparelho registrado" });
-        continue;
-      }
-
-      if (!badgeCache.has(n.userId)) {
-        const unread = await ctx.db
-          .query("notifications")
-          .withIndex("by_user_read", (q) => q.eq("userId", n.userId).eq("readAt", undefined))
-          .take(100);
-        badgeCache.set(n.userId, unread.length);
-      }
-
-      deliver.push({
-        notificationId: id,
-        title: n.title,
-        body: n.body,
-        category: n.category,
-        target: n.target,
-        params: n.params ?? null,
-        badge: badgeCache.get(n.userId) ?? 0,
-        tokens: tokens.map((t) => ({ tokenId: t._id, token: t.token })),
-      });
-    }
-
-    return { deliver, deferred, deferUntil: deferred.length > 0 ? quietEnd : null, skipped };
-  },
+  handler: async (ctx, args) => await planPushDelivery(ctx, args.ids, args.now),
 });
 
 const resultValidator = v.object({
@@ -136,21 +65,7 @@ export const recordResults = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const now = Date.now();
-    for (const r of args.results) {
-      const n = await ctx.db.get("notifications", r.notificationId);
-      if (!n) continue;
-      await ctx.db.patch("notifications", n._id, { pushStatus: r.status, pushError: r.error });
-    }
-    for (const t of args.tickets) {
-      await ctx.db.insert("pushTickets", { ...t, createdAt: now });
-    }
-    for (const tokenId of new Set(args.disableTokenIds)) {
-      const token = await ctx.db.get("pushTokens", tokenId);
-      if (token && token.disabledAt === undefined) {
-        await ctx.db.patch("pushTokens", tokenId, { disabledAt: now });
-      }
-    }
+    await recordPushResults(ctx, args);
     return null;
   },
 });
@@ -290,16 +205,7 @@ export const finishTickets = internalMutation({
   args: { ticketIds: v.array(v.id("pushTickets")), disableTokenIds: v.array(v.id("pushTokens")) },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const now = Date.now();
-    for (const id of args.ticketIds) {
-      if (await ctx.db.get("pushTickets", id)) await ctx.db.delete("pushTickets", id);
-    }
-    for (const tokenId of new Set(args.disableTokenIds)) {
-      const token = await ctx.db.get("pushTokens", tokenId);
-      if (token && token.disabledAt === undefined) {
-        await ctx.db.patch("pushTokens", tokenId, { disabledAt: now });
-      }
-    }
+    await finishPushTickets(ctx, args);
     return null;
   },
 });
@@ -355,15 +261,10 @@ export const purgeOld = internalMutation({
   args: {},
   returns: v.number(),
   handler: async (ctx) => {
-    const cutoff = Date.now() - NOTIFICATION_RETENTION_DAYS * DAY_MS;
-    const old = await ctx.db
-      .query("notifications")
-      .withIndex("by_created", (q) => q.lt("createdAt", cutoff))
-      .take(500);
-    for (const n of old) await ctx.db.delete("notifications", n._id);
-    if (old.length === 500) {
+    const purged = await purgeExpiredNotifications(ctx, PURGE_BATCH);
+    if (purged === PURGE_BATCH) {
       await ctx.scheduler.runAfter(0, internal.push.purgeOld, {});
     }
-    return old.length;
+    return purged;
   },
 });

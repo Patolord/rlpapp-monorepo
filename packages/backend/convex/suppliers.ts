@@ -3,7 +3,7 @@ import {
   engineeringOrPurchasingQuery,
   fornecedoresMutation,
 } from "./lib/rbac";
-import { bulkImportResultValidator } from "./model/procurement/bulkImport";
+import { bulkImportResultValidator } from "./model/kernel/bulkImport";
 import { bulkCreateSuppliers } from "./model/procurement/supplierImport";
 import {
   listSupplierMaterialOfferings,

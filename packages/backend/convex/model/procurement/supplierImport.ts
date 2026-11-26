@@ -1,9 +1,11 @@
 import type { Doc } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
-import { emptyBulkImportResult, requireTrimmedName } from "./bulkImport";
-import { normalizeText } from "./pricing";
+import { emptyBulkImportResult, requireTrimmedName } from "../kernel/bulkImport";
 import { prepareSupplierFields, type SupplierFieldsInput } from "./suppliers";
+import { ruleViolation } from "../../lib/domainErrors";
+import { errorMessage } from "@rlpapp/shared/errors";
+import { normalizeText } from "../kernel/text";
 
 /** Importação em lote de fornecedores (CSV), com o primeiro contato de cada um. */
 
@@ -23,7 +25,7 @@ export async function bulkCreateSuppliers(
   input: { items: BulkSupplierItemInput[] }
 ) {
   if (input.items.length > 200) {
-    throw new Error("Máximo de 200 fornecedores por importação");
+    throw ruleViolation("Máximo de 200 fornecedores por importação");
   }
 
   const result = emptyBulkImportResult();
@@ -57,7 +59,7 @@ export async function bulkCreateSuppliers(
     } catch (error) {
       result.errors.push({
         row,
-        message: error instanceof Error ? error.message : String(error),
+        message: errorMessage(error, "Linha inválida"),
       });
       continue;
     }

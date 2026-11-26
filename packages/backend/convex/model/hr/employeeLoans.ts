@@ -8,6 +8,7 @@ import {
   loanStatus,
 } from "./payroll";
 import { recomputeLine } from "./payrollRuns";
+import { notFound } from "../../lib/domainErrors";
 
 /**
  * Empréstimos a funcionários, descontados em parcelas mensais na folha. Toda
@@ -98,7 +99,7 @@ export async function createEmployeeLoan(
   args: CreateEmployeeLoanInput
 ): Promise<Id<"employeeLoans">> {
   const employee = await ctx.db.get("employees", args.employeeId);
-  if (!employee) throw new Error("Funcionário não encontrado");
+  if (!employee) throw notFound("Funcionário não encontrado");
   assertYear(args.startYear);
   assertMonth(args.startMonth);
   const installmentCount = Math.max(1, Math.round(args.installmentCount));
@@ -137,7 +138,7 @@ export async function updateEmployeeLoan(
   args: UpdateEmployeeLoanInput
 ): Promise<void> {
   const loan = await ctx.db.get("employeeLoans", args.loanId);
-  if (!loan) throw new Error("Empréstimo não encontrado");
+  if (!loan) throw notFound("Empréstimo não encontrado");
   const updates: Partial<Doc<"employeeLoans">> = {
     updatedAt: Date.now(),
     updatedByUserId: user._id,
@@ -194,7 +195,7 @@ export async function archiveEmployeeLoan(
   loanId: Id<"employeeLoans">
 ): Promise<void> {
   const loan = await ctx.db.get("employeeLoans", loanId);
-  if (!loan) throw new Error("Empréstimo não encontrado");
+  if (!loan) throw notFound("Empréstimo não encontrado");
   if (loan.archivedAt) return;
   await ctx.db.patch("employeeLoans", loanId, {
     archivedAt: Date.now(),

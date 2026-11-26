@@ -26,6 +26,7 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { logAudit } from "../../lib/audit";
 import { takeoffDuctNorma, takeoffVrfBrand, takeoffWeightRow } from "../../schema/procurement";
+import { ruleViolation } from "../../lib/domainErrors";
 
 /**
  * Company defaults of the RLP Takeoff settings other than kits (`takeoffSettings`): the weight
@@ -126,26 +127,26 @@ export function sanitizeTakeoffWeights(input: TakeoffWeights): TakeoffWeights {
     const row = normalizeWeightRow(raw);
     if (!row.name) continue;
     if (row.name.length > MAX_TEXT || row.group.length > MAX_TEXT) {
-      throw new Error(`Texto com mais de ${MAX_TEXT} caracteres: ${row.name.slice(0, 40)}…`);
+      throw ruleViolation(`Texto com mais de ${MAX_TEXT} caracteres: ${row.name.slice(0, 40)}…`);
     }
     if (!isBaseMaterialKey(row.material)) {
-      throw new Error(`${row.name}: insumo desconhecido (${row.material})`);
+      throw ruleViolation(`${row.name}: insumo desconhecido (${row.material})`);
     }
     if (!positive(row.kgPerUnit)) {
-      throw new Error(`${row.name}: o peso deve ser maior que zero`);
+      throw ruleViolation(`${row.name}: o peso deve ser maior que zero`);
     }
     const key = weightKey(row);
-    if (seen.has(key)) throw new Error(`${row.name}: material repetido na tabela`);
+    if (seen.has(key)) throw ruleViolation(`${row.name}: material repetido na tabela`);
     seen.add(key);
     rows.push(row);
   }
   if (rows.length > MAX_WEIGHT_ROWS) {
-    throw new Error(`Tabela com mais de ${MAX_WEIGHT_ROWS} materiais`);
+    throw ruleViolation(`Tabela com mais de ${MAX_WEIGHT_ROWS} materiais`);
   }
   const gaugeWeights: GaugeWeights = {};
   for (const [gauge, kgm2] of Object.entries(input.gaugeWeights)) {
     if (!positive(kgm2)) {
-      throw new Error(`Bitola ${gauge}: o peso deve ser maior que zero`);
+      throw ruleViolation(`Bitola ${gauge}: o peso deve ser maior que zero`);
     }
     gaugeWeights[gauge] = kgm2;
   }
@@ -157,8 +158,8 @@ export function sanitizeTakeoffLabor(prices: Record<string, number | undefined>)
   const out: LaborPrices = {};
   for (const [key, price] of Object.entries(prices)) {
     if (price === undefined) continue;
-    if (!isLaborPriceKey(key)) throw new Error(`Mão de obra desconhecida: ${key}`);
-    if (!positive(price)) throw new Error(`${key}: o valor deve ser maior que zero`);
+    if (!isLaborPriceKey(key)) throw ruleViolation(`Mão de obra desconhecida: ${key}`);
+    if (!positive(price)) throw ruleViolation(`${key}: o valor deve ser maior que zero`);
     out[key] = price;
   }
   return out;
@@ -173,15 +174,15 @@ const nonNegative = (n: number) => Number.isFinite(n) && n >= 0;
 export function sanitizeTakeoffDuctNormas(normas: StoredDuctNorma[]): DuctNormaDefaults[] {
   const seen = new Set<number>();
   return normas.map((n) => {
-    if (seen.has(n.norma)) throw new Error(`Norma ${n.norma} repetida`);
+    if (seen.has(n.norma)) throw ruleViolation(`Norma ${n.norma} repetida`);
     seen.add(n.norma);
     if (n.gaugeLimits.length !== 4) {
-      throw new Error(`Norma ${n.norma}: informe os quatro limites de bitola`);
+      throw ruleViolation(`Norma ${n.norma}: informe os quatro limites de bitola`);
     }
     const limits = n.gaugeLimits as GaugeLimits;
     for (let i = 0; i < limits.length; i++) {
       if (!positive(limits[i]) || (i > 0 && limits[i] <= limits[i - 1])) {
-        throw new Error(`Norma ${n.norma}: os limites de bitola devem ser crescentes`);
+        throw ruleViolation(`Norma ${n.norma}: os limites de bitola devem ser crescentes`);
       }
     }
     for (const [field, value] of [
@@ -191,10 +192,10 @@ export function sanitizeTakeoffDuctNormas(normas: StoredDuctNorma[]): DuctNormaD
       ["insulSlackPct", n.insulSlackPct],
       ["supportsPct", n.supportsPct],
     ] as const) {
-      if (!nonNegative(value)) throw new Error(`Norma ${n.norma}: ${field} inválido`);
+      if (!nonNegative(value)) throw ruleViolation(`Norma ${n.norma}: ${field} inválido`);
     }
     if (n.sheetSlackPct !== null && !nonNegative(n.sheetSlackPct)) {
-      throw new Error(`Norma ${n.norma}: folga de chapa inválida`);
+      throw ruleViolation(`Norma ${n.norma}: folga de chapa inválida`);
     }
     return {
       norma: n.norma,
@@ -213,8 +214,8 @@ export function sanitizeTakeoffDuctNormas(normas: StoredDuctNorma[]): DuctNormaD
 export function sanitizeTakeoffBasePrices(prices: BasePrices): BasePrices {
   const out: BasePrices = {};
   for (const [key, price] of Object.entries(prices)) {
-    if (!isBaseMaterialKey(key)) throw new Error(`Insumo desconhecido: ${key}`);
-    if (!positive(price)) throw new Error(`${key}: o preço deve ser maior que zero`);
+    if (!isBaseMaterialKey(key)) throw ruleViolation(`Insumo desconhecido: ${key}`);
+    if (!positive(price)) throw ruleViolation(`${key}: o preço deve ser maior que zero`);
     out[key] = price;
   }
   return out;
@@ -225,22 +226,22 @@ export function sanitizeTakeoffBasePrices(prices: BasePrices): BasePrices {
  * row each, known diameters, non-negative HP thresholds, Y-kits with a model.
  */
 export function sanitizeTakeoffVrfBrands(brands: StoredVrfBrand[]): VrfBrand[] {
-  if (brands.length > MAX_BRANDS) throw new Error(`Mais de ${MAX_BRANDS} marcas`);
+  if (brands.length > MAX_BRANDS) throw ruleViolation(`Mais de ${MAX_BRANDS} marcas`);
   const ids = new Set<string>();
   return brands.map((raw) => {
     const name = raw.name.trim() || "Marca";
     const table = (role: "main" | "trunk" | "branch"): HpRow[] => {
       const rows = raw[role];
       if (rows.length === 0) {
-        throw new Error(`${name}: a tabela ${role} precisa de uma linha`);
+        throw ruleViolation(`${name}: a tabela ${role} precisa de uma linha`);
       }
       if (rows.length > MAX_TABLE_ROWS) {
-        throw new Error(`${name}: tabela ${role} grande demais`);
+        throw ruleViolation(`${name}: tabela ${role} grande demais`);
       }
       return rows.map((r) => {
-        if (!Number.isFinite(r.hp) || r.hp < 0) throw new Error(`${name}: HP inválido`);
+        if (!Number.isFinite(r.hp) || r.hp < 0) throw ruleViolation(`${name}: HP inválido`);
         if (!isDiameter(r.gas) || !isDiameter(r.liquid)) {
-          throw new Error(`${name}: bitola desconhecida (${r.gas} / ${r.liquid})`);
+          throw ruleViolation(`${name}: bitola desconhecida (${r.gas} / ${r.liquid})`);
         }
         return { hp: r.hp, gas: r.gas, liquid: r.liquid };
       });
@@ -254,23 +255,23 @@ export function sanitizeTakeoffVrfBrands(brands: StoredVrfBrand[]): VrfBrand[] {
       ykit: raw.ykit,
     });
     b.id = b.id.trim();
-    if (!b.id) throw new Error("Marca sem id");
-    if (ids.has(b.id)) throw new Error(`Id de marca repetido: ${b.id}`);
+    if (!b.id) throw ruleViolation("Marca sem id");
+    if (ids.has(b.id)) throw ruleViolation(`Id de marca repetido: ${b.id}`);
     ids.add(b.id);
-    if (!b.name) throw new Error("Informe o nome da marca");
+    if (!b.name) throw ruleViolation("Informe o nome da marca");
     if (b.name.length > MAX_TEXT) {
-      throw new Error(`Nome de marca com mais de ${MAX_TEXT} caracteres`);
+      throw ruleViolation(`Nome de marca com mais de ${MAX_TEXT} caracteres`);
     }
     if (b.ykit.length > MAX_TABLE_ROWS) {
-      throw new Error(`${b.name}: lista de Y-kits grande demais`);
+      throw ruleViolation(`${b.name}: lista de Y-kits grande demais`);
     }
     for (const y of b.ykit) {
       if (!Number.isFinite(y.hp) || y.hp < 0) {
-        throw new Error(`${b.name}: HP de Y-kit inválido`);
+        throw ruleViolation(`${b.name}: HP de Y-kit inválido`);
       }
-      if (!y.model) throw new Error(`${b.name}: Y-kit sem modelo`);
+      if (!y.model) throw ruleViolation(`${b.name}: Y-kit sem modelo`);
       if (y.model.length > MAX_TEXT) {
-        throw new Error(`${b.name}: modelo de Y-kit longo demais`);
+        throw ruleViolation(`${b.name}: modelo de Y-kit longo demais`);
       }
     }
     return b;
@@ -381,12 +382,12 @@ const MAX_PRICE_NOTE = 200;
  */
 export function priceDateToTimestamp(date: string): number {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-  if (!match) throw new Error("Data inválida: use AAAA-MM-DD");
+  if (!match) throw ruleViolation("Data inválida: use AAAA-MM-DD");
   const [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])];
   const t = Date.UTC(y, m - 1, d, BRT_OFFSET_HOURS);
   const check = new Date(t - BRT_OFFSET_HOURS * 60 * 60 * 1000);
   if (check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d) {
-    throw new Error(`Data inválida: ${date}`);
+    throw ruleViolation(`Data inválida: ${date}`);
   }
   return t;
 }
@@ -396,7 +397,7 @@ export function sanitizePriceNote(note: string | undefined): string | undefined 
   const clean = note?.trim();
   if (!clean) return undefined;
   if (clean.length > MAX_PRICE_NOTE) {
-    throw new Error(`Observação com mais de ${MAX_PRICE_NOTE} caracteres`);
+    throw ruleViolation(`Observação com mais de ${MAX_PRICE_NOTE} caracteres`);
   }
   return clean;
 }

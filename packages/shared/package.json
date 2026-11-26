@@ -14,6 +14,8 @@
     "./estoque/captureMatch": "./src/estoque/captureMatch.ts",
     "./engenharia/equipment": "./src/engenharia/equipment.ts",
     "./engenharia/orcamentoName": "./src/engenharia/orcamentoName.ts",
+    "./errors": "./src/errors.ts",
+    "./estoque/movements": "./src/estoque/movements.ts",
     "./rh/staffGroups": "./src/rh/staffGroups.ts",
     "./rh/payrollLabels": "./src/rh/payrollLabels.ts",
     "./rh/pontoDay": "./src/rh/pontoDay.ts",

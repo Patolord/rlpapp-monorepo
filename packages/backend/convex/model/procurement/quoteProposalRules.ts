@@ -1,6 +1,7 @@
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
 import { supplierKeyOf } from "./priceHistory";
+import { ruleViolation } from "../../lib/domainErrors";
 
 /**
  * Regras de uma proposta de fornecedor que valem em todo caminho que liga um
@@ -42,7 +43,7 @@ export async function assertProposalRoom(
 ): Promise<void> {
   const current = await proposalLineCount(ctx, proposalId);
   if (current + adding > MAX_PROPOSAL_LINES) {
-    throw new Error(
+    throw ruleViolation(
       `A proposta já tem ${current} preços; o limite é ${MAX_PROPOSAL_LINES} por proposta`
     );
   }

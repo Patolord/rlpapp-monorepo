@@ -2,6 +2,7 @@
 // actions de userAdmin.ts. fetch funciona no runtime padrão do Convex.
 
 import { env } from "../_generated/server";
+import { ruleViolation } from "./domainErrors";
 
 const CLERK_API = "https://api.clerk.com/v1";
 
@@ -141,7 +142,7 @@ export async function revokeClerkInvitation(invitationId: string): Promise<void>
     }
     const current = await findClerkInvitation(invitationId);
     if (current?.status === "pending") {
-      throw new Error(
+      throw ruleViolation(
         `Não foi possível cancelar o convite no Clerk: ${error.message}`
       );
     }
@@ -157,10 +158,10 @@ export function assertRedirectUrl(url: string): string {
   try {
     parsed = new URL(url);
   } catch {
-    throw new Error("URL de retorno do convite inválida");
+    throw ruleViolation("URL de retorno do convite inválida");
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-    throw new Error("URL de retorno do convite inválida");
+    throw ruleViolation("URL de retorno do convite inválida");
   }
   return parsed.toString();
 }

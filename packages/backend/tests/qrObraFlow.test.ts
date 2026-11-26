@@ -283,7 +283,12 @@ describe("fluxo QR-Obra sem redundância", () => {
         token: "CCCC0001",
         itemId: itemIdB,
       })
-    ).rejects.toThrow('destinado à obra "Obra A"');
+    ).rejects.toMatchObject({
+      data: {
+        code: "RULE_VIOLATION",
+        message: expect.stringContaining('destinado à obra "Obra A"'),
+      },
+    });
   });
 
   test("regressão: QR legado sem obra ainda cria placeholder", async () => {
