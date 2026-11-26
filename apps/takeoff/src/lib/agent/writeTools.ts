@@ -4,10 +4,11 @@
  * touch what a person drew, change prices, save the file or send the budget.
  */
 import { mergeCatalog } from "../catalog";
-import { dist, polygonArea } from "../geom";
+import { dist, type Pt, polygonArea } from "../geom";
 import { kitRun } from "../kitRun";
 import { kitMode } from "../kits";
 import { pageScale } from "../quantities";
+import { drawingOf, type Project } from "../types";
 import {
   INPUT_UNITS,
   type InputUnit,
@@ -32,6 +33,7 @@ import {
   str,
   stringList,
 } from "./args";
+import type { AgentContext, PageSize } from "./context";
 import {
   addAiMeasurements,
   addAiZone,
@@ -43,6 +45,41 @@ import { resolvePage } from "./target";
 import { type AgentTool, json, r1, ToolError } from "./toolTypes";
 
 const KINDS = ["count", "linear", "area"] as const;
+
+/**
+ * Apply an edit to the takeoff as it is at this moment, provided it still holds the drawing the
+ * call resolved. Loading a PDF or tracing a room takes time, and the user may open another
+ * takeoff or remove the drawing meanwhile: an edit must never land on a takeoff it was not
+ * computed for. Throws (and changes nothing) when the drawing is gone.
+ */
+function editOnDrawing<T extends { project: Project }>(
+  ctx: AgentContext,
+  drawingId: string,
+  edit: (project: Project) => T,
+): T {
+  const out: { result?: T } = {};
+  ctx.commit((p) => {
+    if (!drawingOf(p, drawingId)) return p;
+    out.result = edit(p);
+    return out.result.project;
+  });
+  if (!out.result) {
+    throw new ToolError(
+      "The takeoff changed while this call was running: the drawing it was aimed at is no longer part of the open takeoff. Nothing was marked. Call get_takeoff and start again.",
+    );
+  }
+  return out.result;
+}
+
+/** Refuses points outside the page: a marking there counts but cannot be seen or reviewed. */
+function assertOnPage(pts: readonly Pt[], size: PageSize): void {
+  const off = pts.find((p) => p.x < 0 || p.y < 0 || p.x > size.w || p.y > size.h);
+  if (off) {
+    throw new ToolError(
+      `The point (${r1(off.x)}, ${r1(off.y)}) is off the page, which is ${r1(size.w)} × ${r1(size.h)} points.`,
+    );
+  }
+}
 
 const setScale: AgentTool = {
   name: "set_scale",
@@ -74,7 +111,7 @@ const setScale: AgentTool = {
   },
   readOnly: false,
   async run(args, ctx) {
-    const { drawing, doc, page } = await resolvePage(args, ctx);
+    const { drawing, doc, page, size } = await resolvePage(args, ctx);
     const project = ctx.project();
     const ratio = optNum(args, "ratio", { min: 1, max: 5000 });
     const cal = args.calibrate as Record<string, unknown> | undefined;
@@ -82,6 +119,7 @@ const setScale: AgentTool = {
     if (cal && typeof cal === "object") {
       const a = point(cal, "a");
       const b = point(cal, "b");
+      assertOnPage([a, b], size);
       const length = num(cal, "length", { min: 1e-6 });
       const unit = (cal.unit === undefined ? "m" : oneOf(cal, "unit", INPUT_UNITS)) as InputUnit;
       const span = dist(a, b);
@@ -100,9 +138,9 @@ const setScale: AgentTool = {
     }
     const before = pageScale(project, drawing.id, page);
     const all = optBool(args, "all_pages") ?? false;
-    ctx.commit((p) =>
-      withPageScale(p, { drawingId: drawing.id, page }, scale, doc.sizes.length, all),
-    );
+    editOnDrawing(ctx, drawing.id, (p) => ({
+      project: withPageScale(p, { drawingId: drawing.id, page }, scale, doc.sizes.length, all),
+    }));
     ctx.notify(`IA: escala ${scale.label} em ${drawing.name}, página ${page + 1}`);
     return json({
       drawing: drawing.id,
@@ -204,6 +242,7 @@ const createLocation: AgentTool = {
     const name = str(args, "name");
     const target = await resolvePage(args, ctx);
     const given = optPoints(args, "polygon", 3);
+    if (given) assertOnPage(given, target.size);
     let outline = given;
     if (!outline) {
       if (args.point === undefined) throw new ToolError('Pass either "point" or "polygon".');
@@ -221,14 +260,10 @@ const createLocation: AgentTool = {
       outline = room.polygon;
     }
     const repeat = optNum(args, "repeat", { min: 1, max: 10_000 });
-    const made = addAiZone(
-      ctx.project(),
-      { drawingId: target.drawingId, page: target.page },
-      name,
-      outline,
-      repeat,
+    const placed = outline;
+    const made = editOnDrawing(ctx, target.drawingId, (p) =>
+      addAiZone(p, { drawingId: target.drawingId, page: target.page }, name, placed, repeat),
     );
-    ctx.commit(() => made.project);
     ctx.notify(`IA: ambiente ${made.location.name} em ${target.drawing.name}`);
     const scale = pageScale(made.project, target.drawingId, target.page);
     const area = polygonArea(outline);
@@ -301,22 +336,13 @@ const addMarkings: AgentTool = {
       }
       list = shapes(args, "paths", item.kind === "linear" ? 2 : 3);
     }
-    const off = list
-      .flat()
-      .find((p) => p.x < 0 || p.y < 0 || p.x > target.size.w || p.y > target.size.h);
-    if (off) {
-      throw new ToolError(
-        `The point (${r1(off.x)}, ${r1(off.y)}) is off the page, which is ${r1(target.size.w)} × ${r1(target.size.h)} points.`,
-      );
-    }
-    const made = addAiMeasurements(
-      project,
-      { drawingId: target.drawingId, page: target.page },
-      item,
-      list,
-      { label: optStr(args, "label") },
+    assertOnPage(list.flat(), target.size);
+    const label = optStr(args, "label");
+    const made = editOnDrawing(ctx, target.drawingId, (p) =>
+      addAiMeasurements(p, { drawingId: target.drawingId, page: target.page }, item, list, {
+        label,
+      }),
     );
-    ctx.commit(() => made.project);
     if (made.ids.length > 0) {
       ctx.notify(`IA: ${made.ids.length} marcação(ões) de ${item.name} em ${target.drawing.name}`);
     }
@@ -359,16 +385,20 @@ const addKitRun: AgentTool = {
     if (kit.components.length === 0) throw new ToolError(`The kit "${kit.name}" has no materials.`);
     const linear = kitMode(kit) === "linear";
     const run = points(args, "points", linear ? 2 : 1);
-    const before = ctx.project();
-    const next = kitRun(before, catalog, kit, {
-      drawingId: target.drawingId,
-      page: target.page,
-      points: run,
-      ai: "suggested",
+    assertOnPage(run, target.size);
+    const { project: next, ids } = editOnDrawing(ctx, target.drawingId, (p) => {
+      const project = kitRun(p, catalog, kit, {
+        drawingId: target.drawingId,
+        page: target.page,
+        points: run,
+        ai: "suggested",
+      });
+      const known = new Set(p.measurements.map((m) => m.id));
+      return {
+        project,
+        ids: project.measurements.filter((m) => !known.has(m.id)).map((m) => m.id),
+      };
     });
-    ctx.commit(() => next);
-    const known = new Set(before.measurements.map((m) => m.id));
-    const ids = next.measurements.filter((m) => !known.has(m.id)).map((m) => m.id);
     ctx.notify(`IA: kit ${kit.name} em ${target.drawing.name}`);
     return json({
       kit: kit.name,

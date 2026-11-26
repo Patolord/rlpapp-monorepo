@@ -205,7 +205,8 @@ export function findOrCreateItem(
   spec: ItemSpec,
 ): { project: Project; item: Item; created: boolean; fromCatalog: boolean } | null {
   const entry = catalogEntryNamed(entries, spec.name);
-  const kind = spec.kind ?? (entry ? kindForUnit(entry.unit) : undefined);
+  // a catalog material is measured the way its unit says, whatever kind the caller passed
+  const kind = entry ? kindForUnit(entry.unit) : spec.kind;
   if (!kind) return null;
   const found = componentItem(
     project.items,

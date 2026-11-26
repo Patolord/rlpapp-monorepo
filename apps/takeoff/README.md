@@ -311,7 +311,8 @@ overwrite each other's budget in the app.
 
 An AI assistant running on the same computer (Claude Code, Claude Desktop or any MCP client) can
 do the first pass of a takeoff: read the drawings, mark locations, counts and runs. The user then
-reviews. Everything the agent creates is a **suggestion**: drawn dashed with an "IA" tag, counted
+reviews. Everything the agent creates is a **suggestion**: tagged "IA" on the drawing (outlines and runs
+are dashed too; a count keeps its symbol), counted
 in the quantities, and waiting in the review bar over the drawing to be accepted, corrected
 (moving or reshaping a suggestion accepts it as corrected) or discarded. The agent cannot change
 what a person drew, set prices, save the file or send the budget.
@@ -324,8 +325,10 @@ turned off; the status bar shows "IA ligada" meanwhile.
 **Security.** The listener (`src-tauri/src/agent.rs`) binds the loopback interface only, asks for
 a bearer token on every request (generated once, kept in the OS credential store, replaceable in
 the dialog) and refuses any request carrying an `Origin` header or a `Host` other than the
-loopback address, so a web page open on the machine cannot reach the takeoff. Rust only guards
-the door and moves bytes: the protocol and the tools are in the frontend (`src/lib/agent/`).
+loopback address, so a web page open on the machine cannot reach the takeoff. It serves a
+bounded number of connections, each with a deadline, and turning the agent off (or renewing the
+token, which stops it first) retires the listener: a request still arriving is refused, never
+forwarded. Rust only guards the door and moves bytes: the protocol and the tools are in the frontend (`src/lib/agent/`).
 
 **How the agent sees and points.** Drawings arrive exploded, mis-layered, with text as outlines
 or scanned, so nothing depends on PDF structure: the tools work on the rendered page.
@@ -366,8 +369,10 @@ validation are shared by the app and the backend in `@rlpapp/shared/takeoff/agen
 browser dev mode, where there is no account, the memory is local to the browser.
 
 **Browser dev mode.** `pnpm -F takeoff dev` exposes the same endpoint at
-`http://localhost:1420/mcp` through the Vite dev server (`scripts/vite-agent-bridge.ts`, no
-token), so the tools can be driven without building the native window.
+`http://localhost:1420/mcp` through the Vite dev server (`scripts/vite-agent-bridge.ts`), so the
+tools can be driven without building the native window. There is no token there: it answers
+only a client on the same machine, never a browser, and only while exactly one tab has the app
+open (with two it refuses, rather than run a call in both).
 
 ### Avaliação (quanto o agente acerta)
 

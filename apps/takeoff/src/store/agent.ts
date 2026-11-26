@@ -87,21 +87,44 @@ export const createAgentSlice: Slice<AgentSlice> = (set, get) => {
       writePref("agentEnabled", false);
       try {
         await stopAgentServer();
-      } finally {
         set({ agentServer: OFF });
+      } catch (e) {
+        // the listener may still be bound: say so instead of showing it off (starting it
+        // again stops the old one first, so the state can be recovered from the dialog)
+        set({
+          agentServer: {
+            ...OFF,
+            status: "error",
+            error: `não foi possível desligar (${errorMessage(e)}); o agente pode continuar ligado até o app fechar`,
+          },
+        });
       }
     },
 
     renewAgentToken: async () => {
+      const wasOn = get().agentServer.status === "on";
       try {
+        // the listener checks the token it was started with. It is stopped before the token
+        // changes, so whatever fails afterwards the old token no longer opens anything
+        if (wasOn) {
+          await stopAgentServer();
+          set({ agentServer: OFF });
+        }
         const token = await resetAgentToken();
-        const { agentServer } = get();
-        // the listener checks the token it was started with: restart it with the new one
-        if (agentServer.status === "on") await get().startAgent();
-        else set({ agentServer: { ...agentServer, token } });
+        if (wasOn) {
+          await get().startAgent();
+          if (get().agentServer.status !== "on") {
+            set({ status: "Novo token gerado, mas o agente não voltou a ligar: veja o motivo" });
+            return;
+          }
+        } else {
+          set({ agentServer: { ...get().agentServer, token } });
+        }
         set({ status: "Novo token gerado: atualize a configuração do agente" });
       } catch (e) {
-        set({ status: `Token não foi trocado: ${errorMessage(e)}` });
+        set({
+          status: `Token não foi trocado: ${errorMessage(e)}${wasOn ? " (o agente ficou desligado)" : ""}`,
+        });
       }
     },
 

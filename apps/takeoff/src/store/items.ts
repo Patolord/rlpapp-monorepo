@@ -175,11 +175,17 @@ export const createItemsSlice: Slice<ItemsSlice> = (set, get) => ({
     })),
 
   removeItem: (id) => {
-    get().commit((p) => ({
-      ...p,
-      items: p.items.filter((i) => i.id !== id),
-      measurements: p.measurements.filter((m) => m.itemId !== id),
-    }));
+    get().commit((p) => {
+      // its markings go with it; the AI suggestions among them that were still waiting are
+      // rejections, as when they are deleted one by one (see lib/aiReview)
+      const rejected = p.measurements.filter((m) => m.itemId === id && m.ai === "suggested").length;
+      return {
+        ...p,
+        items: p.items.filter((i) => i.id !== id),
+        measurements: p.measurements.filter((m) => m.itemId !== id),
+        ...(rejected > 0 ? { aiRejected: (p.aiRejected ?? 0) + rejected } : {}),
+      };
+    });
     const { activeItemId, project } = get();
     if (activeItemId === id) set({ activeItemId: project.items[0]?.id ?? null });
   },

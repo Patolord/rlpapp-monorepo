@@ -88,6 +88,15 @@ describe("reviewing AI suggestions in the store", () => {
     expect(state("a")).toBe("suggested");
   });
 
+  it("counts the pending suggestions of a deleted item as rejected", () => {
+    const s = useStore.getState();
+    s.acceptAiSuggestions(["a"]);
+    s.removeItem("i1");
+    // "b" and "c" were still waiting; "a" had been accepted
+    expect(useStore.getState().project.measurements).toEqual([]);
+    expect(useStore.getState().project.aiRejected).toBe(2);
+  });
+
   it("accepts and discards a selection or everything, each as one undo step", () => {
     const s = useStore.getState();
     s.acceptAiSuggestions(["a"]);

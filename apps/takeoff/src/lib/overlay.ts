@@ -56,6 +56,7 @@ export function drawMeasurement(
     const c = sp[0];
     ctx.beginPath();
     ctx.arc(c.x, c.y, o.selected || o.hover ? 13 : 11, 0, Math.PI * 2);
+    if (o.dashed) ctx.setLineDash([4, 3]);
     ctx.lineWidth = o.selected || o.hover ? 3 : 2;
     ctx.strokeStyle = o.selected ? "#101a30" : color;
     ctx.stroke();

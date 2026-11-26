@@ -94,7 +94,7 @@ beforeEach(() => {
   });
   useStore.setState({
     agentMemory: emptyMemory(),
-    agentMemorySync: { source: "cache", loading: false, error: null },
+    agentMemorySync: { source: "cache", loading: false, saving: false, error: null },
   });
   signIn(true);
 });
@@ -120,6 +120,7 @@ describe("the company's memory in the installed app", () => {
     expect(useStore.getState().agentMemorySync).toEqual({
       source: "company",
       loading: false,
+      saving: false,
       error: null,
     });
     // kept on disk for the next time without a connection
@@ -134,6 +135,7 @@ describe("the company's memory in the installed app", () => {
     expect(useStore.getState().agentMemorySync).toEqual({
       source: "cache",
       loading: false,
+      saving: false,
       error: "rede fora",
     });
   });
@@ -153,6 +155,35 @@ describe("the company's memory in the installed app", () => {
 
     await useStore.getState().addAgentMemory({ kind: "nota", text: "da IA" }, true);
     expect(backend.add).toHaveBeenLastCalledWith({ kind: "nota", text: "da IA", proposed: true });
+  });
+
+  it("fetches again after a change, even when a fetch was already on its way", async () => {
+    // a refresh started before the change reads the list as it was
+    let release: (rows: unknown) => void = () => undefined;
+    backend.fetch.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    const early = useStore.getState().refreshAgentMemory();
+    const adding = useStore.getState().addAgentMemory({ kind: "nota", text: "nova" });
+    await Promise.resolve();
+    release([row("r1", "do servidor")]);
+    await Promise.all([early, adding]);
+    expect(backend.fetch).toHaveBeenCalledTimes(2);
+    expect(useStore.getState().agentMemory.entries.map((e) => e.id)).toEqual(["r1", "r2"]);
+  });
+
+  it("stores one change at a time", async () => {
+    const first = useStore.getState().addAgentMemory({ kind: "nota", text: "uma" });
+    expect(useStore.getState().agentMemorySync.saving).toBe(true);
+    await expect(
+      useStore.getState().addAgentMemory({ kind: "nota", text: "outra" }),
+    ).rejects.toThrow(/Aguarde/);
+    await first;
+    expect(useStore.getState().agentMemorySync.saving).toBe(false);
+    expect(backend.add).toHaveBeenCalledTimes(1);
   });
 
   it("approves and removes through the backend", async () => {

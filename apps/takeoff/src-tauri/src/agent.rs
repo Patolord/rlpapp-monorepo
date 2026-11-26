@@ -7,20 +7,28 @@
 //! - no browser: a request carrying an `Origin` header is refused, and `Host` must name the
 //!   loopback address, so a web page cannot reach the takeoff (CSRF, DNS rebinding).
 //!
-//! Plain std networking, like `auth.rs`: one short-lived connection per request.
+//! Plain std networking, like `auth.rs`: one short-lived connection per request, a bounded
+//! number of them at a time. Turning the agent off (or restarting it with a new token) retires
+//! the listener: a request still arriving on one of its connections is refused, never forwarded.
 
 use std::io::{ErrorKind, Read, Write};
-use std::net::{Ipv4Addr, TcpListener, TcpStream};
+use std::net::{Ipv4Addr, Shutdown, TcpListener, TcpStream};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
 
 /// Biggest request head accepted.
 const MAX_HEAD_BYTES: usize = 16 * 1024;
 /// Biggest request body accepted (tool calls are small JSON; pictures only travel outwards).
 const MAX_BODY_BYTES: usize = 4 * 1024 * 1024;
-/// How long a client may take to send its request.
+/// Longest wait for the next bytes of a request.
 const READ_TIMEOUT: Duration = Duration::from_secs(15);
+/// Longest a client may take to send a whole request, however slowly it trickles in.
+const REQUEST_DEADLINE: Duration = Duration::from_secs(30);
+/// Longest wait for a client to finish sending after it was answered, before closing.
+const DRAIN_TIMEOUT: Duration = Duration::from_millis(200);
+/// Connections served at once. An agent sends one call at a time; the rest is headroom.
+const MAX_CONNECTIONS: usize = 16;
 
 /// What the frontend answers: an HTTP status and, when it has one, a JSON body.
 pub struct Reply {
@@ -116,8 +124,10 @@ fn reason(status: u16) -> &'static str {
         403 => "Forbidden",
         404 => "Not Found",
         405 => "Method Not Allowed",
+        408 => "Request Timeout",
         411 => "Length Required",
         413 => "Payload Too Large",
+        503 => "Service Unavailable",
         504 => "Gateway Timeout",
         _ => "Internal Server Error",
     }
@@ -142,6 +152,20 @@ fn respond(stream: &mut TcpStream, reply: &Reply) {
     let _ = stream.write_all(head.as_bytes());
     let _ = stream.write_all(reply.body.as_bytes());
     let _ = stream.flush();
+    // A refusal is sent before the request was read. Closing with it still unread makes the
+    // system reset the connection, and the client may lose the answer: say we are done
+    // writing, then take in what the client is still sending, briefly, before closing.
+    let _ = stream.shutdown(Shutdown::Write);
+    let _ = stream.set_nonblocking(false);
+    let _ = stream.set_read_timeout(Some(DRAIN_TIMEOUT));
+    let mut sink = [0u8; 4096];
+    let mut drained = 0;
+    while drained < MAX_HEAD_BYTES {
+        match stream.read(&mut sink) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => drained += n,
+        }
+    }
 }
 
 /// Read one request: its head and, for a request that passes `check`, its body.
@@ -151,7 +175,17 @@ fn read_request(
 ) -> Result<String, Reply> {
     let bad = |_| Reply::error(400, "unreadable request");
     stream.set_nonblocking(false).map_err(bad)?;
-    stream.set_read_timeout(Some(READ_TIMEOUT)).map_err(bad)?;
+    let deadline = Instant::now() + REQUEST_DEADLINE;
+    // each read waits for the next bytes, but never past the deadline of the whole request
+    let wait = |stream: &TcpStream| -> Result<(), Reply> {
+        let left = deadline.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            return Err(Reply::error(408, "the request took too long to arrive"));
+        }
+        stream
+            .set_read_timeout(Some(left.min(READ_TIMEOUT)))
+            .map_err(bad)
+    };
     let mut buf = Vec::new();
     let mut chunk = [0u8; 4096];
     let head_end = loop {
@@ -161,6 +195,7 @@ fn read_request(
         if buf.len() > MAX_HEAD_BYTES {
             return Err(Reply::error(400, "request head too large"));
         }
+        wait(stream)?;
         let n = stream.read(&mut chunk).map_err(bad)?;
         if n == 0 {
             return Err(Reply::error(400, "incomplete request"));
@@ -186,6 +221,7 @@ fn read_request(
     }
     let mut body = buf[head_end + 4..].to_vec();
     while body.len() < length {
+        wait(stream)?;
         let n = stream.read(&mut chunk).map_err(bad)?;
         if n == 0 {
             return Err(Reply::error(400, "incomplete request body"));
@@ -196,23 +232,31 @@ fn read_request(
     String::from_utf8(body).map_err(|_| Reply::error(400, "the body is not UTF-8"))
 }
 
-fn handle(mut stream: TcpStream, port: u16, token: &str, forward: &Forward) {
+fn handle(mut stream: TcpStream, port: u16, token: &str, stop: &AtomicBool, forward: &Forward) {
     let reply = match read_request(&mut stream, |head| gate(head, port, token)) {
+        // the listener this connection came through was stopped while the request arrived: its
+        // token may no longer be the valid one, so the request is not forwarded
+        Ok(_) if stop.load(Ordering::SeqCst) => {
+            Reply::error(503, "the agent endpoint was turned off")
+        }
         Ok(body) => forward(body),
         Err(refusal) => refusal,
     };
     respond(&mut stream, &reply);
 }
 
-/// Bind the loopback interface only.
+/// Bind the loopback interface only, ready for `serve`.
 pub fn listen(port: u16) -> std::io::Result<(u16, TcpListener)> {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, port))?;
     let port = listener.local_addr()?.port();
+    // `serve` polls for connections so it can notice `stop`; failing here reports the start
+    listener.set_nonblocking(true)?;
     Ok((port, listener))
 }
 
 /// Serve requests until `stop` is set, each on its own thread (a tool call can take a while,
-/// and a second client must not wait behind it).
+/// and a second client must not wait behind it), at most `MAX_CONNECTIONS` at a time. `stop`
+/// also retires the connections already accepted: see `handle`.
 pub fn serve(
     listener: TcpListener,
     port: u16,
@@ -220,16 +264,24 @@ pub fn serve(
     stop: Arc<AtomicBool>,
     forward: Arc<Forward>,
 ) {
-    if listener.set_nonblocking(true).is_err() {
-        return;
-    }
     let token = Arc::new(token);
+    let open = Arc::new(AtomicUsize::new(0));
     while !stop.load(Ordering::SeqCst) {
         match listener.accept() {
-            Ok((stream, _)) => {
+            Ok((mut stream, _)) => {
+                if open.fetch_add(1, Ordering::SeqCst) >= MAX_CONNECTIONS {
+                    open.fetch_sub(1, Ordering::SeqCst);
+                    respond(&mut stream, &Reply::error(503, "too many connections"));
+                    continue;
+                }
                 let token = token.clone();
                 let forward = forward.clone();
-                std::thread::spawn(move || handle(stream, port, &token, forward.as_ref()));
+                let stop = stop.clone();
+                let open = open.clone();
+                std::thread::spawn(move || {
+                    handle(stream, port, &token, &stop, forward.as_ref());
+                    open.fetch_sub(1, Ordering::SeqCst);
+                });
             }
             Err(e) if e.kind() == ErrorKind::WouldBlock => {
                 std::thread::sleep(Duration::from_millis(25));
@@ -354,5 +406,72 @@ mod tests {
         server.join().unwrap();
         // the port is free again
         assert!(TcpListener::bind((Ipv4Addr::LOCALHOST, port)).is_ok());
+    }
+
+    #[test]
+    fn refuses_a_request_still_arriving_when_the_listener_stops() {
+        let (port, listener) = listen(0).unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let forwarded = Arc::new(AtomicBool::new(false));
+        let forward: Arc<Forward> = {
+            let forwarded = forwarded.clone();
+            Arc::new(move |body| {
+                forwarded.store(true, Ordering::SeqCst);
+                Reply { status: 200, body }
+            })
+        };
+        let server = {
+            let stop = stop.clone();
+            std::thread::spawn(move || serve(listener, port, TOKEN.to_string(), stop, forward))
+        };
+        // an authorised request whose body is only half sent
+        let mut slow = TcpStream::connect((Ipv4Addr::LOCALHOST, port)).unwrap();
+        write!(
+            slow,
+            "POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAuthorization: Bearer {TOKEN}\r\n\
+             Content-Length: 4\r\n\r\n{{\""
+        )
+        .unwrap();
+        slow.flush().unwrap();
+        // let the listener accept it, then turn the agent off
+        std::thread::sleep(Duration::from_millis(150));
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap();
+        slow.write_all(b"\"}").unwrap();
+        let mut out = String::new();
+        slow.read_to_string(&mut out).unwrap();
+        assert!(out.starts_with("HTTP/1.1 503"), "{out}");
+        assert!(!forwarded.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn serves_only_a_bounded_number_of_connections_at_once() {
+        let (port, listener) = listen(0).unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let forward: Arc<Forward> = Arc::new(|body| Reply { status: 200, body });
+        let server = {
+            let stop = stop.clone();
+            std::thread::spawn(move || serve(listener, port, TOKEN.to_string(), stop, forward))
+        };
+        // connections that send nothing hold their workers until the read times out
+        let idle: Vec<TcpStream> = (0..MAX_CONNECTIONS)
+            .map(|_| TcpStream::connect((Ipv4Addr::LOCALHOST, port)).unwrap())
+            .collect();
+        std::thread::sleep(Duration::from_millis(300));
+        let over = send(port, "POST /mcp HTTP/1.1\r\n\r\n");
+        assert!(over.starts_with("HTTP/1.1 503"), "{over}");
+        // a freed worker serves again
+        drop(idle);
+        std::thread::sleep(Duration::from_millis(300));
+        let again = send(
+            port,
+            &format!(
+                "POST /mcp HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nAuthorization: Bearer {TOKEN}\r\n\
+                 Content-Length: 2\r\n\r\n{{}}"
+            ),
+        );
+        assert!(again.starts_with("HTTP/1.1 200"), "{again}");
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap();
     }
 }

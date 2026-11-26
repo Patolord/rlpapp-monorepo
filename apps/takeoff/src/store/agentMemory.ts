@@ -31,6 +31,8 @@ export interface AgentMemorySync {
    */
   source: "company" | "cache" | "local";
   loading: boolean;
+  /** A change is being stored: the dialog and "Lembrar símbolo" wait for it. */
+  saving: boolean;
   /** Why the last refresh failed; the cached copy stays in use. */
   error: string | null;
 }
@@ -70,13 +72,37 @@ export const selectCanEditAgentMemory = (s: State): boolean =>
 
 export const createAgentMemorySlice: Slice<AgentMemorySlice> = (set, get) => {
   let refreshing: Promise<AgentMemory> | null = null;
+  let remembering = false;
+  /** Writes of the cache file, one after the other: the last memory kept is the last written. */
+  let saved: Promise<void> = Promise.resolve();
 
   /** Keep a memory in use and on disk; a failed write only reports. */
   const keep = (memory: AgentMemory, source: AgentMemorySync["source"]) => {
-    set({ agentMemory: memory, agentMemorySync: { source, loading: false, error: null } });
-    void saveAgentMemory(memory).catch((e) =>
-      set({ status: `A cópia local da memória da IA não foi salva: ${errorMessage(e)}` }),
-    );
+    set({
+      agentMemory: memory,
+      agentMemorySync: { ...get().agentMemorySync, source, loading: false, error: null },
+    });
+    saved = saved
+      .then(() => saveAgentMemory(memory))
+      .catch((e) =>
+        set({ status: `A cópia local da memória da IA não foi salva: ${errorMessage(e)}` }),
+      );
+  };
+
+  /**
+   * One change at a time: a second click while the first is on its way would store the same
+   * symbol twice, for the whole company.
+   */
+  const saving = async <T>(change: () => Promise<T>): Promise<T> => {
+    if (get().agentMemorySync.saving) {
+      throw new Error("Aguarde: a alteração anterior da memória ainda está sendo gravada");
+    }
+    set({ agentMemorySync: { ...get().agentMemorySync, saving: true } });
+    try {
+      return await change();
+    } finally {
+      set({ agentMemorySync: { ...get().agentMemorySync, saving: false } });
+    }
   };
 
   /** Run a write against the backend as the user, then bring the list up to date. */
@@ -89,6 +115,9 @@ export const createAgentMemorySlice: Slice<AgentMemorySlice> = (set, get) => {
       if (await get().handleSignedOut(e)) throw new Error(SIGN_IN_FOR_MEMORY);
       throw new Error(refusalMessage(e));
     }
+    // a fetch already on its way may have read the list before this change: let it finish,
+    // then fetch again
+    await refreshing?.catch(() => undefined);
     await get().refreshAgentMemory();
     return result;
   };
@@ -96,14 +125,14 @@ export const createAgentMemorySlice: Slice<AgentMemorySlice> = (set, get) => {
   return {
     agentMemory: emptyMemory(),
     // settled by loadAgentMemoryCache at launch (the store is also created where there is no window)
-    agentMemorySync: { source: "cache", loading: false, error: null },
+    agentMemorySync: { source: "cache", loading: false, saving: false, error: null },
 
     loadAgentMemoryCache: async () => {
       const cached = await loadAgentMemory();
       if (!isTauri()) {
         set({
           agentMemory: cached,
-          agentMemorySync: { source: "local", loading: false, error: null },
+          agentMemorySync: { source: "local", loading: false, saving: false, error: null },
         });
         return;
       }
@@ -124,6 +153,7 @@ export const createAgentMemorySlice: Slice<AgentMemorySlice> = (set, get) => {
           const signedOut = await get().handleSignedOut(e);
           set({
             agentMemorySync: {
+              ...get().agentMemorySync,
               source: "cache",
               loading: false,
               error: signedOut ? null : refusalMessage(e),
@@ -140,56 +170,71 @@ export const createAgentMemorySlice: Slice<AgentMemorySlice> = (set, get) => {
     addAgentMemory: async (input, proposed = false) => {
       const problem = memoryProblem(input);
       if (problem) throw new Error(`Memória não gravada: ${problem}`);
-      if (!isTauri()) {
-        const { memory, result } = addLocalMemory(get().agentMemory, input, proposed);
-        if (memory !== get().agentMemory) keep(memory, "local");
-        return result;
-      }
-      return await asCompany(() => addAgentMemoryAsUser({ ...input, proposed }));
+      return await saving(async () => {
+        if (!isTauri()) {
+          const { memory, result } = addLocalMemory(get().agentMemory, input, proposed);
+          if (memory !== get().agentMemory) keep(memory, "local");
+          return result;
+        }
+        return await asCompany(() => addAgentMemoryAsUser({ ...input, proposed }));
+      });
     },
 
-    approveAgentMemory: async (id) => {
-      if (!isTauri()) {
-        const next = approveLocalMemory(get().agentMemory, id);
-        if (next !== get().agentMemory) keep(next, "local");
-        return;
-      }
-      await asCompany(() => approveAgentMemoryAsUser(id));
-    },
+    approveAgentMemory: (id) =>
+      saving(async () => {
+        if (!isTauri()) {
+          const next = approveLocalMemory(get().agentMemory, id);
+          if (next !== get().agentMemory) keep(next, "local");
+          return;
+        }
+        await asCompany(() => approveAgentMemoryAsUser(id));
+      }),
 
-    removeAgentMemory: async (id) => {
-      if (!isTauri()) {
-        const next = removeLocalMemory(get().agentMemory, id);
-        if (next !== get().agentMemory) keep(next, "local");
-        return;
-      }
-      await asCompany(() => removeAgentMemoryAsUser(id));
-    },
+    removeAgentMemory: (id) =>
+      saving(async () => {
+        if (!isTauri()) {
+          const next = removeLocalMemory(get().agentMemory, id);
+          if (next !== get().agentMemory) keep(next, "local");
+          return;
+        }
+        await asCompany(() => removeAgentMemoryAsUser(id));
+      }),
 
     rememberSymbol: async (measurementId) => {
-      const { project } = get();
-      const m = project.measurements.find((x) => x.id === measurementId);
-      const item = m && project.items.find((i) => i.id === m.itemId);
-      const renderer = session.renderer;
-      const size = m ? useDoc.getState().sizes[m.page] : undefined;
-      if (!m || !item || !renderer || !size || m.drawingId !== project.activeDrawingId) return;
+      // the crop is rendered before the change starts: a second click in between is dropped
+      if (remembering || get().agentMemorySync.saving) return;
+      remembering = true;
       try {
-        const image = await cropSymbol(renderer, m.page, m.points[0], size);
-        if (!image) throw new Error("o recorte ficou grande demais para a memória");
-        await get().addAgentMemory({
-          kind: "simbolo",
-          text: item.name,
-          target: item.name,
-          image,
-          scope: project.client,
-          source: project.name,
-        });
-        set({
-          status: `Símbolo de ${item.name} guardado na memória da IA${project.client ? ` (${project.client})` : ""}`,
-        });
-      } catch (e) {
-        set({ status: `Símbolo não foi guardado: ${errorMessage(e)}` });
+        await rememberSymbolOf(measurementId);
+      } finally {
+        remembering = false;
       }
     },
   };
+
+  async function rememberSymbolOf(measurementId: string): Promise<void> {
+    const { project } = get();
+    const m = project.measurements.find((x) => x.id === measurementId);
+    const item = m && project.items.find((i) => i.id === m.itemId);
+    const renderer = session.renderer;
+    const size = m ? useDoc.getState().sizes[m.page] : undefined;
+    if (!m || !item || !renderer || !size || m.drawingId !== project.activeDrawingId) return;
+    try {
+      const image = await cropSymbol(renderer, m.page, m.points[0], size);
+      if (!image) throw new Error("o recorte ficou grande demais para a memória");
+      await get().addAgentMemory({
+        kind: "simbolo",
+        text: item.name,
+        target: item.name,
+        image,
+        scope: project.client,
+        source: project.name,
+      });
+      set({
+        status: `Símbolo de ${item.name} guardado na memória da IA${project.client ? ` (${project.client})` : ""}`,
+      });
+    } catch (e) {
+      set({ status: `Símbolo não foi guardado: ${errorMessage(e)}` });
+    }
+  }
 };

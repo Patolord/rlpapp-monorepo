@@ -121,7 +121,8 @@ function sourceLine(sync: AgentMemorySync, editable: boolean, fetchedAt: number 
 export function AgentMemoryPanel() {
   const memory = useStore((s) => s.agentMemory);
   const sync = useStore((s) => s.agentMemorySync);
-  const editable = useStore(selectCanEditAgentMemory);
+  // while a change is being stored nothing else is submitted (a second click would store twice)
+  const editable = useStore((s) => selectCanEditAgentMemory(s) && !s.agentMemorySync.saving);
   const client = useStore((s) => s.project.client);
   const { addAgentMemory, refreshAgentMemory } = useStore.getState();
   const [kind, setKind] = useState<"nota" | "termo">("nota");

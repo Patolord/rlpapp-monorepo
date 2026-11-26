@@ -15,25 +15,33 @@ import { ToolError } from "./toolTypes";
 
 /** Search rasters kept: one page of a sheet is ~10 MB of grey pixels. */
 const MAX_RASTERS = 2;
-const rasters = new Map<string, Promise<{ scale: number; gray: Gray }>>();
+const rasters = new Map<
+  string,
+  { entry: OpenDoc; raster: Promise<{ scale: number; gray: Gray }> }
+>();
 
 function searchRaster(entry: OpenDoc, page: number) {
   const key = `${entry.key}#${page}`;
-  let raster = rasters.get(key);
-  if (raster) {
+  const cached = rasters.get(key);
+  // the same path may have been parsed again since (a revision written over the file): a
+  // raster is only good for the parsed document it was rendered from
+  if (cached && cached.entry === entry) {
     // refresh its place in the eviction order
     rasters.delete(key);
-    rasters.set(key, raster);
-    return raster;
+    rasters.set(key, cached);
+    return cached.raster;
   }
-  raster = (async () => {
+  const raster = (async () => {
     const proxy = await entry.doc.getPage(page + 1);
     const size = entry.sizes[page];
     const scale = searchScale(size.w, size.h);
     return { scale, gray: await renderInBackground(() => rasterizePage(proxy, scale)) };
   })();
-  rasters.set(key, raster);
-  void raster.catch(() => rasters.delete(key));
+  rasters.delete(key);
+  rasters.set(key, { entry, raster });
+  void raster.catch(() => {
+    if (rasters.get(key)?.raster === raster) rasters.delete(key);
+  });
   while (rasters.size > MAX_RASTERS) {
     const oldest = rasters.keys().next().value;
     if (oldest === undefined || oldest === key) break;

@@ -213,6 +213,8 @@ struct AgentServer {
 
 impl AgentServer {
     /// Stop the listener and wait for its thread, so its port is free when this returns.
+    /// Requests still waiting for the frontend are let go at once (it is no longer listening):
+    /// dropping their senders wakes them, instead of leaving them to time out.
     fn stop(&self) {
         let running = self.running.lock().ok().and_then(|mut r| r.take());
         if let Some(running) = running {
@@ -220,6 +222,9 @@ impl AgentServer {
                 .stop
                 .store(true, std::sync::atomic::Ordering::SeqCst);
             let _ = running.thread.join();
+        }
+        if let Ok(mut waiting) = self.pending.lock() {
+            waiting.clear();
         }
     }
 }
@@ -262,7 +267,15 @@ fn agent_server_start(
         let reply = match app.emit("agent-request", AgentRequest { id, body }) {
             Ok(()) => rx
                 .recv_timeout(AGENT_REPLY_TIMEOUT)
-                .unwrap_or_else(|_| agent::Reply::error(504, "the app did not answer in time")),
+                .unwrap_or_else(|e| match e {
+                    std::sync::mpsc::RecvTimeoutError::Timeout => {
+                        agent::Reply::error(504, "the app did not answer in time")
+                    }
+                    // the agent was turned off (or restarted) while this request waited
+                    std::sync::mpsc::RecvTimeoutError::Disconnected => {
+                        agent::Reply::error(503, "the agent endpoint was turned off")
+                    }
+                }),
             Err(_) => agent::Reply::error(500, "the app window is not available"),
         };
         if let Ok(mut waiting) = pending.lock() {

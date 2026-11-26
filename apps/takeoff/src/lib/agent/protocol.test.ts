@@ -29,12 +29,25 @@ const crash: AgentTool = {
   },
 };
 
+/** Calls in the order they started and finished; the first one is the slowest. */
+const order: string[] = [];
+const slow: AgentTool = {
+  ...echo,
+  name: "slow",
+  run: async (args) => {
+    order.push(`start ${args.n}`);
+    await new Promise((r) => setTimeout(r, args.n === 1 ? 20 : 0));
+    order.push(`end ${args.n}`);
+    return json(args);
+  },
+};
+
 const server = (): McpServer => ({
   name: "rlp-takeoff",
   title: "RLP Takeoff",
   version: "1.2.3",
   instructions: "be careful",
-  tools: [echo, refuse, crash],
+  tools: [echo, refuse, crash, slow],
   context: fakeApp().ctx,
 });
 
@@ -88,6 +101,7 @@ describe("handleMcpPost", () => {
       "echo",
       "refuse",
       "crash",
+      "slow",
     ]);
     expect(body.result.tools[0]).toMatchObject({
       title: "Eco",
@@ -134,6 +148,45 @@ describe("handleMcpPost", () => {
     expect(unknownTool.body.error.code).toBe(-32602);
     const unknownMethod = await post({ jsonrpc: "2.0", id: 5, method: "sampling/createMessage" });
     expect(unknownMethod.body.error.code).toBe(-32601);
+  });
+
+  it("refuses arguments that are not an object instead of calling without them", async () => {
+    for (const bad of [["unexpected"], "text", 3, null]) {
+      const { body } = await post({
+        jsonrpc: "2.0",
+        id: 4,
+        method: "tools/call",
+        params: { name: "echo", arguments: bad },
+      });
+      expect(body.error.code).toBe(-32602);
+    }
+    // left out, a tool is called with none
+    const { body } = await post({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "echo" },
+    });
+    expect(body.result.content[0].text).toBe("{}");
+  });
+
+  it("runs the calls of a batch one after the other, in the order sent", async () => {
+    order.length = 0;
+    await post([
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "slow", arguments: { n: 1 } },
+      },
+      {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "slow", arguments: { n: 2 } },
+      },
+    ]);
+    expect(order).toEqual(["start 1", "end 1", "start 2", "end 2"]);
   });
 
   it("answers ping and the empty lists some clients ask for", async () => {

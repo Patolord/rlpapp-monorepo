@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { aiStats } from "../aiReview";
 import { kitMode } from "../kits";
+import { emptyProject } from "../types";
 import { metricScale } from "../units";
 import { catalogEntry, type FakeApp, fakeApp, textRun } from "./testContext";
 import { AGENT_TOOLS } from "./tools";
@@ -193,6 +194,11 @@ describe("marking", () => {
     const again = (await call(app, "create_item", { name: "Grelha 400x200" })).data;
     expect(again).toMatchObject({ item_id: first.item_id, created: false });
     expect(app.project().items).toHaveLength(1);
+    // the catalog's unit decides how a catalog material is measured, whatever kind is passed
+    const forced = fakeApp({ catalog: { saved: [catalogEntry("Tubo de cobre", "m")] } });
+    expect(
+      (await call(forced, "create_item", { name: "Tubo de cobre", kind: "count" })).data.kind,
+    ).toBe("linear");
     expect(await failure(app, "create_item", { name: "Coisa nova" })).toMatch(/not in the catalog/);
     expect(
       (await call(app, "create_item", { name: "Coisa nova", kind: "linear" })).data,
@@ -228,6 +234,46 @@ describe("marking", () => {
     ).data;
     expect(drawn.traced_from_drawing).toBe(false);
     expect(open.project().zones[0].repeat).toBe(4);
+  });
+
+  it("marks nothing when another takeoff was opened while the room was being traced", async () => {
+    const other = {
+      ...emptyProject(),
+      name: "Outra obra",
+      drawings: [{ id: "x9", path: "C:/outra/planta.pdf", name: "planta.pdf", pages: [] }],
+      activeDrawingId: "x9",
+    };
+    const app: FakeApp = fakeApp({
+      doc: {
+        room: { polygon: square(100, 100, 200), unbounded: false },
+        whileTracing: () => app.open(other),
+      },
+    });
+    expect(
+      await failure(app, "create_location", { name: "Sala 101", point: { x: 200, y: 200 } }),
+    ).toMatch(/takeoff changed/);
+    expect(app.project()).toBe(other);
+    expect(app.project().zones).toEqual([]);
+    expect(app.commits).toBe(0);
+  });
+
+  it("refuses an outline or a kit run outside the page", async () => {
+    const app = fakeApp();
+    expect(
+      await failure(app, "create_location", { name: "Hall", polygon: square(900, 700, 200) }),
+    ).toMatch(/off the page/);
+    const kit = app.ctx.catalog().kits.find((k) => kitMode(k) === "linear");
+    if (!kit) throw new Error("no linear factory kit");
+    expect(
+      await failure(app, "add_kit_run", {
+        kit_id: kit.id,
+        points: [
+          { x: -10, y: 10 },
+          { x: 100, y: 10 },
+        ],
+      }),
+    ).toMatch(/off the page/);
+    expect(app.commits).toBe(0);
   });
 
   it("joins a location of the same name instead of creating another", async () => {
@@ -417,6 +463,7 @@ describe("pages and drawings", () => {
   it("refuses a page the PDF does not have and a drawing the takeoff does not have", async () => {
     const app = fakeApp();
     expect(await failure(app, "read_text", { page: 3 })).toMatch(/has 1 page/);
+    expect(await failure(app, "read_text", { page: 1.5 })).toMatch(/whole number/);
     expect(await failure(app, "read_text", { drawing: "zzz" })).toMatch(/No drawing with id/);
     const closed = fakeApp({ project: { drawings: [], activeDrawingId: null } });
     expect(await failure(closed, "read_text")).toMatch(/No drawing is open/);

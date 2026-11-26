@@ -130,12 +130,19 @@ export interface EvalReport {
   notCompared: { derived: string[]; typedByHand: string[] };
 }
 
-/** Reference drawing id → candidate drawing id, by file name; by position when no name matches. */
+/**
+ * Reference drawing id → candidate drawing id, one to one: by file name (drawings that share a
+ * name pair up in order, each candidate used once); by position when no name matches at all.
+ */
 function matchDrawings(ref: Project, cand: Project): Map<string, string> {
-  const byName = new Map(cand.drawings.map((d) => [foldName(d.name), d.id]));
+  const byName = new Map<string, string[]>();
+  for (const d of cand.drawings) {
+    const key = foldName(d.name);
+    byName.set(key, [...(byName.get(key) ?? []), d.id]);
+  }
   const out = new Map<string, string>();
   for (const d of ref.drawings) {
-    const id = byName.get(foldName(d.name));
+    const id = byName.get(foldName(d.name))?.shift();
     if (id) out.set(d.id, id);
   }
   if (out.size === 0 && ref.drawings.length === cand.drawings.length) {
@@ -156,9 +163,11 @@ function itemKeys(ref: Project, cand: Project) {
   const label = new Map<string, Item>();
   for (const i of ref.items) {
     if (i.derived) continue;
-    const key = nameKey(i);
+    // lines of one catalog material share its first line's key, whatever each is called
+    const catalog = i.catalogId ? `${i.kind}|${i.catalogId}` : null;
+    const key = (catalog && byCatalog.get(catalog)) || nameKey(i);
     refKey.set(i.id, key);
-    if (i.catalogId) byCatalog.set(`${i.kind}|${i.catalogId}`, key);
+    if (catalog && !byCatalog.has(catalog)) byCatalog.set(catalog, key);
     if (!label.has(key)) label.set(key, i);
   }
   const candKey = new Map<string, string>();

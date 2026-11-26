@@ -97,10 +97,19 @@ export const resetAgentToken = (): Promise<string> =>
 export function connectDevBridge(): AgentEndpoint | null {
   const hot = import.meta.hot;
   if (isTauri() || !hot) return null;
-  hot.on("takeoff:agent-request", (data: AgentRequest) => {
-    void reply(data.body).then((r) =>
-      hot.send("takeoff:agent-response", { id: data.id, status: r.status, body: r.body }),
-    );
-  });
-  return { url: `${window.location.origin}/mcp`, token: null };
+  // once per page: a hot update that remounts the app must not add a second responder, or
+  // every call would run twice
+  if (!devBridge) {
+    hot.on("takeoff:agent-request", (data: AgentRequest) => {
+      void reply(data.body).then((r) =>
+        hot.send("takeoff:agent-response", { id: data.id, status: r.status, body: r.body }),
+      );
+    });
+    devBridge = { url: `${window.location.origin}/mcp`, token: null };
+  }
+  // tell the dev server this tab answers agent requests (it routes each one to a single tab)
+  hot.send("takeoff:agent-ready", {});
+  return devBridge;
 }
+
+let devBridge: AgentEndpoint | null = null;

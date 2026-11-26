@@ -201,6 +201,41 @@ describe("compareTakeoffs", () => {
     expect(r.quantities.rows.every((row) => row.status === "both")).toBe(true);
   });
 
+  it("pairs drawings that share a file name one to one", () => {
+    // two sheets named alike (one per folder): each with its own marks
+    const twoSheets = (): Project => {
+      const p = reference();
+      p.drawings = [p.drawings[0], { ...p.drawings[0], id: "d2" }];
+      p.measurements = [...p.measurements, { ...count("g9", "grelha", 700, 700), drawingId: "d2" }];
+      return p;
+    };
+    const r = compareTakeoffs(twoSheets(), twoSheets());
+    expect(r.drawingsMissing).toEqual([]);
+    expect(r.counts).toMatchObject({ recall: 1, precision: 1 });
+    expect(r.counts.matched.filter((m) => m.drawingId === "d2")).toHaveLength(1);
+  });
+
+  it("treats the lines of one catalog material as one, whatever each is called", () => {
+    // the same material on two budget lines (two disciplines), named differently
+    const split = (): Project => {
+      const p = reference();
+      p.items = [
+        ...p.items.map((i) => (i.id === "grelha" ? { ...i, catalogId: "mat-1" } : i)),
+        item("grelha2", "Grelha (AC Leve)", "count", { catalogId: "mat-1" }),
+      ];
+      p.measurements = [...p.measurements, count("g9", "grelha2", 700, 700)];
+      return p;
+    };
+    const r = compareTakeoffs(split(), split());
+    expect(r.counts).toMatchObject({ recall: 1, precision: 1 });
+    expect(r.quantities.rows.find((x) => x.item === "Grelha 400x200")).toMatchObject({
+      reference: 4,
+      candidate: 4,
+      error: 0,
+    });
+    expect(r.quantities.rows.some((x) => x.item === "Grelha (AC Leve)")).toBe(false);
+  });
+
   it("accepts a different way of drawing the same quantity", () => {
     // reference: one mark repeated 3 times; candidate: the mark inside a region with repeat 3
     const ref = reference();

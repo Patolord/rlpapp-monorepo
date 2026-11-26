@@ -34,10 +34,14 @@ export async function resolvePage(
   ctx: AgentContext,
 ): Promise<ResolvedPage> {
   const drawing = resolveDrawing(args, ctx);
-  const doc = await ctx.doc(drawing);
   const asked = optNum(args, "page", { min: 1 });
-  const isActive = drawing.id === ctx.project().activeDrawingId;
-  const page = asked !== undefined ? Math.round(asked) - 1 : isActive ? ctx.activePage() : 0;
+  if (asked !== undefined && !Number.isInteger(asked)) {
+    throw new ToolError('"page" must be a whole number (pages start at 1).');
+  }
+  // the default is the page in view when the call arrived, not when the PDF finished loading
+  const inView = drawing.id === ctx.project().activeDrawingId ? ctx.activePage() : 0;
+  const doc = await ctx.doc(drawing);
+  const page = asked !== undefined ? asked - 1 : inView;
   const size = doc.sizes[page];
   if (!size) {
     throw new ToolError(

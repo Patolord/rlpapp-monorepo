@@ -19,11 +19,24 @@ const queue = new Map<number, FrameRequestCallback>();
 // ticks get negative ids, so a cancel can tell them from the browser's own frame ids
 let nextId = -1;
 
+/**
+ * Run the callbacks requested before this tick, as a browser runs a frame's: one that was
+ * cancelled meanwhile (by an earlier callback of the same tick) is skipped, one requested
+ * meanwhile waits for the next tick, and one that throws does not stop the others.
+ */
 function tick() {
-  const due = [...queue.values()];
-  queue.clear();
+  const due = [...queue.keys()];
   const now = performance.now();
-  for (const callback of due) callback(now);
+  for (const id of due) {
+    const callback = queue.get(id);
+    if (!callback) continue;
+    queue.delete(id);
+    try {
+      callback(now);
+    } catch (e) {
+      console.error("frame callback failed", e);
+    }
+  }
 }
 
 function requestTick(callback: FrameRequestCallback): number {

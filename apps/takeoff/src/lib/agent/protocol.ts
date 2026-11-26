@@ -57,7 +57,10 @@ async function callTool(server: McpServer, params: unknown): Promise<ToolResult 
   if (!isObject(params) || typeof params.name !== "string") return null;
   const tool = server.tools.find((t) => t.name === params.name);
   if (!tool) return null;
-  const args = isObject(params.arguments) ? params.arguments : {};
+  // arguments may be left out, but when sent they are an object: anything else is a malformed
+  // call, not a call without arguments
+  if (params.arguments !== undefined && !isObject(params.arguments)) return null;
+  const args = params.arguments ?? {};
   try {
     return await tool.run(args, server.context);
   } catch (e) {
@@ -138,9 +141,12 @@ export async function handleMcpPost(server: McpServer, body: string): Promise<Ht
     if (parsed.length === 0) {
       return { status: 400, body: JSON.stringify(rpcError(null, INVALID_REQUEST, "Empty batch")) };
     }
-    const replies = (await Promise.all(parsed.map((m) => answer(server, m)))).filter(
-      (r) => r !== undefined,
-    );
+    // in the order sent: a later call may depend on an earlier one (set_scale, then measure)
+    const replies: object[] = [];
+    for (const message of parsed) {
+      const reply = await answer(server, message);
+      if (reply !== undefined) replies.push(reply);
+    }
     return replies.length === 0
       ? { status: 202, body: "" }
       : { status: 200, body: JSON.stringify(replies) };

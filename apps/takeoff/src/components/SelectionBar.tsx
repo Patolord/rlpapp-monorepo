@@ -30,6 +30,7 @@ import { Button } from "./ui";
  */
 export function SelectionBar() {
   const selection = useStore((s) => s.selection);
+  const memorySaving = useStore((s) => s.agentMemorySync.saving);
   const project = useStore((s) => s.project);
   const {
     removeMeasurements,
@@ -241,6 +242,7 @@ export function SelectionBar() {
       )}
       {selected.length === 1 && items.get(selected[0].itemId)?.kind === "count" && (
         <Button
+          disabled={memorySaving}
           onClick={() => void rememberSymbol(selected[0].id)}
           title="Guarda o desenho em volta desta marca na memória da IA da empresa, como exemplo do símbolo deste item nas próximas plantas de todos"
         >

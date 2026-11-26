@@ -15,6 +15,8 @@ export interface FakeDoc {
   text?: TextBox[];
   room?: MagicResult | null;
   hits?: SimilarHit[];
+  /** Runs while a room is being traced: what the user does while the agent waits. */
+  whileTracing?: () => void;
 }
 
 export interface FakeApp {
@@ -23,6 +25,8 @@ export interface FakeApp {
   memory(): AgentMemory;
   /** Add an entry already in use, as a person teaching the memory would. */
   teach(input: AgentMemoryInput): void;
+  /** Replace the open takeoff, as the user opening another file would. */
+  open(next: Project): void;
   /** Status-bar lines the tools sent. */
   notices: string[];
   /** Regions view_page was asked for. */
@@ -77,6 +81,9 @@ export function fakeApp(
     teach(input) {
       memory = addLocalMemory(memory, input, false).memory;
     },
+    open(next) {
+      project = next;
+    },
     ctx: undefined as unknown as AgentContext,
   };
   const doc: DrawingDoc = {
@@ -86,7 +93,10 @@ export function fakeApp(
       app.views.push({ page, region, opts });
       return { png: "PNG", region, pxPerPt: 1.4, gridStep: opts.grid ? 100 : 0 };
     },
-    detectRoom: async () => (init.doc?.room === undefined ? null : init.doc.room),
+    async detectRoom() {
+      init.doc?.whileTracing?.();
+      return init.doc?.room === undefined ? null : init.doc.room;
+    },
     findSimilar: async (_page, _box, minScore) =>
       (init.doc?.hits ?? []).filter((h) => h.score >= minScore),
   };
