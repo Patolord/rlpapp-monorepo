@@ -366,7 +366,8 @@ const OBRA_MODULES: {
     | "/engenharia/obras/$obraSlug/medicoes"
     | "/engenharia/obras/$obraSlug/compras"
     | "/engenharia/obras/$obraSlug/estoque"
-    | "/engenharia/obras/$obraSlug/documentos";
+    | "/engenharia/obras/$obraSlug/documentos"
+    | "/engenharia/obras/$obraSlug/servicos";
   match: "exact" | "prefix";
   permission?: Permission;
 }[] = [
@@ -423,6 +424,13 @@ const OBRA_MODULES: {
     to: "/engenharia/obras/$obraSlug/documentos" as const,
     match: "prefix" as const,
     permission: "documentos.read",
+  },
+  {
+    key: "servicos",
+    label: "Serviços",
+    to: "/engenharia/obras/$obraSlug/servicos" as const,
+    match: "prefix" as const,
+    permission: "servicos.read",
   },
 ];
 

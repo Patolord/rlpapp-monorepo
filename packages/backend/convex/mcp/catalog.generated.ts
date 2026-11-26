@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 51 módulos, 387 funções públicas.
+// 52 módulos, 402 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -18,42 +18,43 @@ import * as m11 from "../employees";
 import * as m12 from "../environments";
 import * as m13 from "../equipment";
 import * as m14 from "../equipmentHistory";
-import * as m15 from "../floors";
-import * as m16 from "../healthCheck";
-import * as m17 from "../inventory";
-import * as m18 from "../inventoryRequests";
-import * as m19 from "../inventoryStockPolicies";
-import * as m20 from "../maintenanceLogs";
-import * as m21 from "../materialCaptures";
-import * as m22 from "../materials";
-import * as m23 from "../medicoes";
-import * as m24 from "../notifications";
-import * as m25 from "../payroll";
-import * as m26 from "../portal";
-import * as m27 from "../priceEvents";
-import * as m28 from "../projectDocuments";
-import * as m29 from "../projectEquipment";
-import * as m30 from "../projectUnits";
-import * as m31 from "../projects";
-import * as m32 from "../qrCodes";
-import * as m33 from "../quoteProposals";
-import * as m34 from "../reports";
-import * as m35 from "../sharepoint";
-import * as m36 from "../suppliers";
-import * as m37 from "../systems";
-import * as m38 from "../takeoffAuth";
-import * as m39 from "../takeoffCatalog";
-import * as m40 from "../takeoffEstimates";
-import * as m41 from "../takeoffKits";
-import * as m42 from "../takeoffMaterials";
-import * as m43 from "../takeoffSettings";
-import * as m44 from "../takeoffs";
-import * as m45 from "../technicianActivity";
-import * as m46 from "../technicianPortal";
-import * as m47 from "../timeClock";
-import * as m48 from "../timeClockPunch";
-import * as m49 from "../towers";
-import * as m50 from "../users";
+import * as m15 from "../fieldServices";
+import * as m16 from "../floors";
+import * as m17 from "../healthCheck";
+import * as m18 from "../inventory";
+import * as m19 from "../inventoryRequests";
+import * as m20 from "../inventoryStockPolicies";
+import * as m21 from "../maintenanceLogs";
+import * as m22 from "../materialCaptures";
+import * as m23 from "../materials";
+import * as m24 from "../medicoes";
+import * as m25 from "../notifications";
+import * as m26 from "../payroll";
+import * as m27 from "../portal";
+import * as m28 from "../priceEvents";
+import * as m29 from "../projectDocuments";
+import * as m30 from "../projectEquipment";
+import * as m31 from "../projectUnits";
+import * as m32 from "../projects";
+import * as m33 from "../qrCodes";
+import * as m34 from "../quoteProposals";
+import * as m35 from "../reports";
+import * as m36 from "../sharepoint";
+import * as m37 from "../suppliers";
+import * as m38 from "../systems";
+import * as m39 from "../takeoffAuth";
+import * as m40 from "../takeoffCatalog";
+import * as m41 from "../takeoffEstimates";
+import * as m42 from "../takeoffKits";
+import * as m43 from "../takeoffMaterials";
+import * as m44 from "../takeoffSettings";
+import * as m45 from "../takeoffs";
+import * as m46 from "../technicianActivity";
+import * as m47 from "../technicianPortal";
+import * as m48 from "../timeClock";
+import * as m49 from "../timeClockPunch";
+import * as m50 from "../towers";
+import * as m51 from "../users";
 
 export type AccessHint =
   | { kind: "public" }
@@ -79,42 +80,43 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   environments: m12,
   equipment: m13,
   equipmentHistory: m14,
-  floors: m15,
-  healthCheck: m16,
-  inventory: m17,
-  inventoryRequests: m18,
-  inventoryStockPolicies: m19,
-  maintenanceLogs: m20,
-  materialCaptures: m21,
-  materials: m22,
-  medicoes: m23,
-  notifications: m24,
-  payroll: m25,
-  portal: m26,
-  priceEvents: m27,
-  projectDocuments: m28,
-  projectEquipment: m29,
-  projectUnits: m30,
-  projects: m31,
-  qrCodes: m32,
-  quoteProposals: m33,
-  reports: m34,
-  sharepoint: m35,
-  suppliers: m36,
-  systems: m37,
-  takeoffAuth: m38,
-  takeoffCatalog: m39,
-  takeoffEstimates: m40,
-  takeoffKits: m41,
-  takeoffMaterials: m42,
-  takeoffSettings: m43,
-  takeoffs: m44,
-  technicianActivity: m45,
-  technicianPortal: m46,
-  timeClock: m47,
-  timeClockPunch: m48,
-  towers: m49,
-  users: m50,
+  fieldServices: m15,
+  floors: m16,
+  healthCheck: m17,
+  inventory: m18,
+  inventoryRequests: m19,
+  inventoryStockPolicies: m20,
+  maintenanceLogs: m21,
+  materialCaptures: m22,
+  materials: m23,
+  medicoes: m24,
+  notifications: m25,
+  payroll: m26,
+  portal: m27,
+  priceEvents: m28,
+  projectDocuments: m29,
+  projectEquipment: m30,
+  projectUnits: m31,
+  projects: m32,
+  qrCodes: m33,
+  quoteProposals: m34,
+  reports: m35,
+  sharepoint: m36,
+  suppliers: m37,
+  systems: m38,
+  takeoffAuth: m39,
+  takeoffCatalog: m40,
+  takeoffEstimates: m41,
+  takeoffKits: m42,
+  takeoffMaterials: m43,
+  takeoffSettings: m44,
+  takeoffs: m45,
+  technicianActivity: m46,
+  technicianPortal: m47,
+  timeClock: m48,
+  timeClockPunch: m49,
+  towers: m50,
+  users: m51,
 };
 
 export const ACCESS_HINTS: Record<string, AccessHint> = {
@@ -214,6 +216,21 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "equipment:update": { kind: "authenticated" },
   "equipmentHistory:listForEquipment": { kind: "authenticated" },
   "equipmentHistory:record": { kind: "authenticated" },
+  "fieldServices:archiveProjectDiscipline": { kind: "permission", permission: "servicos.write" },
+  "fieldServices:createProjectDiscipline": { kind: "permission", permission: "servicos.write" },
+  "fieldServices:disciplineSuggestions": { kind: "permission", permission: "servicos.read" },
+  "fieldServices:generateUploadUrl": { kind: "authenticated" },
+  "fieldServices:getDiscipline": { kind: "authenticated" },
+  "fieldServices:getService": { kind: "authenticated" },
+  "fieldServices:listDisciplines": { kind: "authenticated" },
+  "fieldServices:listMine": { kind: "authenticated" },
+  "fieldServices:listOfficeDisciplinesByProject": { kind: "permission", permission: "servicos.read" },
+  "fieldServices:listOfficeStagesByProject": { kind: "permission", permission: "servicos.read" },
+  "fieldServices:listTeam": { kind: "authenticated" },
+  "fieldServices:registerServiceStage": { kind: "authenticated" },
+  "fieldServices:removeStage": { kind: "authenticated" },
+  "fieldServices:reviewStage": { kind: "permission", permission: "servicos.write" },
+  "fieldServices:updateProjectDiscipline": { kind: "permission", permission: "servicos.write" },
   "floors:create": { kind: "permission", permission: "obras.write" },
   "floors:listByTower": { kind: "permission", permission: "obras.read" },
   "floors:remove": { kind: "permission", permission: "obras.write" },

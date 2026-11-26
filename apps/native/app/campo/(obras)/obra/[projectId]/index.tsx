@@ -10,15 +10,17 @@ import {
   QrCode,
   ScanLine,
   ShieldAlert,
+  Users,
 } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { BigAction, BigTile } from "@/components/campo/field-ui";
+import { BigAction, BigRow, BigTile } from "@/components/campo/field-ui";
 import { obraSubtitle, obraTitle, useFieldObra } from "@/components/campo/obra";
 import { PendingBanner } from "@/components/campo/pending-banner";
-import { AppButton, EmptyState, LoadingState } from "@/components/ui";
+import { AppButton, EmptyState, ListRow, LoadingState } from "@/components/ui";
 import { setLastFieldObra } from "@/lib/field-cache";
+import { plural } from "@/lib/format";
 import { normalizeTypedToken } from "@/lib/qr-token";
 import { colors, radius, space, type } from "@/lib/theme";
 import { useOnline } from "@/lib/use-online";
@@ -42,6 +44,11 @@ export default function ObraHubScreen() {
     assignedId ? { projectId: assignedId } : "skip"
   );
   const depleted = balances?.filter((b) => b.quantity <= 0).length ?? 0;
+  // Serviços também exigem atribuição à obra.
+  const disciplines = useQuery(
+    api.fieldServices.listDisciplines,
+    assignedId ? { projectId: assignedId } : "skip"
+  );
 
   useEffect(() => {
     if (obra) void setLastFieldObra(obra._id);
@@ -104,6 +111,15 @@ export default function ObraHubScreen() {
   }
 
   const client = obraSubtitle(obra);
+  const teamDisciplines = disciplines?.filter((d) => d.fieldTeam).length ?? 0;
+  const servicesHint =
+    disciplines === undefined
+      ? null
+      : disciplines.length === 0
+        ? "Nenhuma disciplina definida"
+        : teamDisciplines === 0
+          ? "Nenhuma disciplina da equipe"
+          : `${plural(teamDisciplines, "disciplina")} da equipe`;
 
   return (
     <>
@@ -177,6 +193,14 @@ export default function ObraHubScreen() {
           />
         )}
 
+        {obra.assigned ? (
+          <BigRow
+            title="Serviços"
+            subtitle={servicesHint}
+            onPress={() => go("/campo/obra/[projectId]/servicos")}
+          />
+        ) : null}
+
         <View style={styles.grid}>
           <View style={styles.gridRow}>
             <BigTile
@@ -215,6 +239,14 @@ export default function ObraHubScreen() {
             </View>
           ) : null}
         </View>
+
+        {obra.assigned ? (
+          <ListRow
+            icon={<Users size={20} color={colors.primary} strokeWidth={2} />}
+            title="Equipe e dados da obra"
+            onPress={() => go("/campo/obra/[projectId]/equipe")}
+          />
+        ) : null}
       </ScrollView>
     </>
   );

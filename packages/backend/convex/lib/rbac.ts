@@ -303,6 +303,10 @@ export const medicoesMutation = permissionMutation("medicoes.write");
 export const medicoesAprovarMutation = permissionMutation("medicoes.aprovar");
 export const documentosQuery = permissionQuery("documentos.read");
 export const documentosMutation = permissionMutation("documentos.write");
+/** Serviços de campo: disciplinas da obra e etapas registradas pela equipe. */
+export const servicosQuery = permissionQuery("servicos.read");
+/** Definir as disciplinas da obra e conferir as etapas. */
+export const servicosMutation = permissionMutation("servicos.write");
 export const orcamentosMutation = permissionMutation("orcamentos.write");
 /** Quadro de orçamentos (kanban) e a conferência com as pastas da TRELLO. */
 export const quadroOrcamentosQuery = permissionQuery("orcamentos.quadro.read");

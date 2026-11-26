@@ -50,6 +50,8 @@ const ENGINEERING: Permission[] = [
   "medicoes.aprovar",
   "documentos.read",
   "documentos.write",
+  "servicos.read",
+  "servicos.write",
   "orcamentos.write",
   "orcamentos.quadro.read",
   "orcamentos.quadro.write",

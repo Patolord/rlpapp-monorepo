@@ -5,6 +5,7 @@ import {
   ClipboardCheck,
   FileText,
   Files,
+  HardHat,
   Package,
   Warehouse,
   type LucideIcon,
@@ -15,6 +16,7 @@ import {
   ProjectShell,
   type ProjectOverview,
 } from "@/components/engenharia/project-shell";
+import { useCan } from "@/hooks/use-can";
 import { useObraProjectId } from "@/lib/engenharia/obra-context";
 import { obraLinkSlug } from "@/lib/engenharia/obra-paths";
 import { cn } from "@/lib/utils";
@@ -44,7 +46,8 @@ type ModuleTile = {
     | "/engenharia/obras/$obraSlug/medicoes"
     | "/engenharia/obras/$obraSlug/compras"
     | "/engenharia/obras/$obraSlug/estoque"
-    | "/engenharia/obras/$obraSlug/documentos";
+    | "/engenharia/obras/$obraSlug/documentos"
+    | "/engenharia/obras/$obraSlug/servicos";
   label: string;
   description: string;
   icon: LucideIcon;
@@ -53,6 +56,7 @@ type ModuleTile = {
 
 function ObraHubContent({ project }: { project: ProjectOverview }) {
   const slug = obraLinkSlug(project);
+  const canSeeServicos = useCan("servicos.read");
   const pct =
     project.totalItems === 0
       ? 0
@@ -105,6 +109,18 @@ function ObraHubContent({ project }: { project: ProjectOverview }) {
       description: "PDFs da obra liberados para os técnicos em campo",
       icon: Files,
     },
+    // As demais áreas tratam a falta de acesso na própria página; esta só
+    // aparece para quem pode ver os serviços de campo.
+    ...(canSeeServicos
+      ? [
+          {
+            to: "/engenharia/obras/$obraSlug/servicos",
+            label: "Serviços",
+            description: "Disciplinas da obra e etapas registradas pela equipe",
+            icon: HardHat,
+          } satisfies ModuleTile,
+        ]
+      : []),
   ];
 
   return (
