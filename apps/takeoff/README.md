@@ -307,6 +307,94 @@ copy is the same approved budget (keeps the link) or another one (new id, unlink
 copy and the conflict copy ("Salvar como cópia") always get a new id, so two files never
 overwrite each other's budget in the app.
 
+## Agente de IA (MCP local)
+
+An AI assistant running on the same computer (Claude Code, Claude Desktop or any MCP client) can
+do the first pass of a takeoff: read the drawings, mark locations, counts and runs. The user then
+reviews. Everything the agent creates is a **suggestion**: drawn dashed with an "IA" tag, counted
+in the quantities, and waiting in the review bar over the drawing to be accepted, corrected
+(moving or reshaping a suggestion accepts it as corrected) or discarded. The agent cannot change
+what a person drew, set prices, save the file or send the budget.
+
+**Turning it on.** Menu "⋯" → **Agente de IA…** → *Ligar o agente*. The app then listens on
+`http://127.0.0.1:47800/mcp` (the port can be changed) and the dialog shows the command that
+registers it in Claude Code and the JSON for other clients. It stays on across restarts until
+turned off; the status bar shows "IA ligada" meanwhile.
+
+**Security.** The listener (`src-tauri/src/agent.rs`) binds the loopback interface only, asks for
+a bearer token on every request (generated once, kept in the OS credential store, replaceable in
+the dialog) and refuses any request carrying an `Origin` header or a `Host` other than the
+loopback address, so a web page open on the machine cannot reach the takeoff. Rust only guards
+the door and moves bytes: the protocol and the tools are in the frontend (`src/lib/agent/`).
+
+**How the agent sees and points.** Drawings arrive exploded, mis-layered, with text as outlines
+or scanned, so nothing depends on PDF structure: the tools work on the rendered page.
+`view_page` returns a picture of a page or region with a coordinate grid labelled in page
+points, so a position read off the picture is already the coordinate the other tools take;
+`create_location` with a point traces the room from the drawn walls (the magic-area fill) and
+refuses a space that does not close, asking for a polygon instead; `find_similar` finds every
+instance of a boxed symbol by image comparison. `read_text` is offered as a hint only. The scale
+in a title block is treated as a claim: `measure` checks it against a written dimension.
+
+| Tool | What it does |
+| --- | --- |
+| `get_memory`, `propose_memory` | Read the company's conventions; propose a new one (waits for approval) |
+| `get_takeoff`, `list_markings` | The takeoff as it stands: drawings, page sizes and scales, items, locations, markings |
+| `view_page`, `read_text` | Picture of a page or region with the grid; selectable text with positions |
+| `detect_room`, `find_similar`, `measure` | Room outline at a point; symbol matches; a length or area in real units |
+| `search_catalog`, `list_kits` | Company catalog and kit presets |
+| `set_scale` | 1:N or calibration on two points |
+| `create_item`, `create_location`, `add_markings`, `add_kit_run` | Budget lines, locations, counts / runs / areas, kit runs: all as suggestions |
+| `remove_suggestions` | Take back its own pending suggestions |
+
+The working method handed to the agent on connect is `src/lib/agent/instructions.ts`. Not in this
+version: duct and VRF runs (the specialty tools), tracing a line along the drawing's vectors, OCR.
+
+**Memory.** The model learns nothing between takeoffs; "memory" is data the app keeps and hands
+back (`src/lib/agent/memory.ts`). Three kinds, each for every takeoff or for one client or
+designer: *anotação* (a convention in free text), *termo* (a text found on drawings and the item
+it stands for) and *símbolo* (a crop of a drawing as a visual example: select a count mark and use
+**Lembrar símbolo**). They are edited in **Agente de IA… → Memória**; what the agent proposes
+stays a proposal until approved there. It is kept per machine (`agent-memory.json` in the app data
+folder); sharing it across the company through the backend is the next step.
+
+**Browser dev mode.** `pnpm -F takeoff dev` exposes the same endpoint at
+`http://localhost:1420/mcp` through the Vite dev server (`scripts/vite-agent-bridge.ts`, no
+token), so the tools can be driven without building the native window.
+
+### Avaliação (quanto o agente acerta)
+
+`src/lib/eval/` scores a takeoff made by the agent (the candidate) against the one a person closed
+for the same PDFs (the reference), from the two files alone:
+
+```bash
+pnpm -F takeoff eval <referencia.takeoff.json> <candidato.takeoff.json> [--diff diferencas.takeoff.json]
+pnpm -F takeoff eval --set <casos.json>      # a set of cases, totals overall and per tag
+```
+
+It reports, separately: locations found, missed and extra (outlines matched by overlap) and
+whether their names are right; count marks in the right place on the right item, per item, with
+"right place, wrong item" told apart; quantities per budget line and the error weighed by price;
+and each page's scale. `--diff` writes a takeoff to open in the app that shows right / missed /
+extra on the drawings. Only what can be read on the drawing is compared: typed quantities,
+vertical lengths and the derived duct and VRF lines are left out, and equivalent ways of drawing
+(one region with repeat 20, twenty regions) score the same. Run from `apps/takeoff`, the file
+header of `scripts/eval.ts` has the options and the set file's format. Tag each case with what is
+hard about its PDF (`escaneado`, `texto-explodido`, `escala-errada`…) so the totals show the
+real cases, not only the clean files.
+
+Rules that keep the number honest: the agent gets only the PDFs (the reference file usually sits
+in the same folder: keep it out of reach, and keep that client's earlier takeoffs out of the
+memory used for the run); a few cases are held out and never used to tune the instructions or
+the memory; a new comparison is trusted only after the reference scores 100 % against itself and
+an empty takeoff scores zero (both are in `compare.test.ts`).
+
+A run today is manual: open the PDFs in a new takeoff, let the agent work, save the result as the
+candidate and compare. `pnpm -F takeoff sample-plan` writes a made-up plan and its reference
+takeoff to `samples/` to try the whole loop on. In everyday use the review itself is the second
+measure: the file keeps how many suggestions were accepted, corrected and discarded
+(`lib/aiReview.ts`), and the report prints it.
+
 ## How it stays fast
 
 - **Rendering**: one low-resolution base render per page (shown instantly, CSS-scaled while
@@ -349,9 +437,13 @@ src/
                 reportExport.ts (shared with the preview), reportPreview.ts (pdf.js preview)
   lib/pdf/      render.ts (page renderer), vectors*.ts (snap index + worker), magic.ts,
                 text.ts (positioned text), visual*.ts (image symbol search), similar.ts
+  lib/agent/    AI agent over MCP: protocol.ts, the tools (read / write / memory), edits.ts (pure
+                project edits), memory.ts, bridge.ts (transport), appContext.ts (the running app)
+  lib/aiReview.ts  review state of AI suggestions · lib/eval/  takeoff comparison (the eval)
   viewport.ts   zoom/pan state
-src-tauri/      Rust: file IO, autosave path, HTTP to the company app, Excel export (rust_xlsxwriter)
-scripts/        inspect-pdf, bench-vectors, release
+src-tauri/      Rust: file IO, autosave path, HTTP to the company app, Excel export
+                (rust_xlsxwriter), the local agent endpoint (agent.rs)
+scripts/        inspect-pdf, bench-vectors, release, eval, sample-plan, vite-agent-bridge
 samples/        client drawings and budget sheets (confidential, git-ignored)
 ```
 
