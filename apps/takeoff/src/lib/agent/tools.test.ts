@@ -376,6 +376,15 @@ describe("memory", () => {
       source: "Obra teste",
     });
     expect((await call(app, "get_memory")).data.terms).toEqual([]);
+    // proposing the same lesson again does not pile it up
+    const again = await call(app, "propose_memory", {
+      kind: "termo",
+      text: "ve-01",
+      target: "exaustor",
+      scope: "tegra",
+    });
+    expect(again.data.note).toMatch(/already been proposed/);
+    expect(app.memory().entries).toHaveLength(1);
     expect(await failure(app, "propose_memory", { kind: "termo", text: "VE-02" })).toMatch(
       /target/,
     );
@@ -389,7 +398,7 @@ describe("memory", () => {
       { kind: "nota" as const, text: "só do projetista", scope: "Projetista X" },
       { kind: "simbolo" as const, text: "Cassete", target: "Cassete 4 vias", image: "AAAA" },
     ]) {
-      await app.ctx.proposeMemory(entry);
+      app.teach(entry);
     }
     const own = await call(app, "get_memory");
     expect(own.data.scopes).toEqual(["Tegra"]);

@@ -8,7 +8,7 @@ import type { Pt } from "../geom";
 import type { MagicResult } from "../pdf/magic";
 import type { TextBox } from "../pdf/text";
 import type { Drawing, Project } from "../types";
-import type { AgentMemory, MemoryEntry, NewMemoryEntry } from "./memory";
+import type { AgentMemory, AgentMemoryInput, MemoryAdded } from "./memory";
 
 export interface PageSize {
   w: number;
@@ -67,9 +67,13 @@ export interface AgentContext {
   doc(drawing: Drawing): Promise<DrawingDoc>;
   /** 0-based page shown in the app, the default of tools called without a page. */
   activePage(): number;
-  memory(): AgentMemory;
-  /** Store an entry proposed by the agent (always "proposta"); resolves to the stored entry. */
-  proposeMemory(entry: NewMemoryEntry): Promise<MemoryEntry>;
+  /** The company's memory, fetched now when possible, else the copy cached on this machine. */
+  memory(): Promise<AgentMemory>;
+  /**
+   * Store an entry proposed by the agent for the whole company (it waits as a proposal).
+   * Rejects with a message for the user when it cannot be stored (signed out, refused).
+   */
+  proposeMemory(input: AgentMemoryInput): Promise<MemoryAdded>;
   /** A short line for the app's status bar, so the user sees what the agent is doing. */
   notify(message: string): void;
 }

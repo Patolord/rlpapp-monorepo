@@ -8,7 +8,7 @@ import type { MagicResult } from "../pdf/magic";
 import type { TextBox } from "../pdf/text";
 import { emptyProject, type Project } from "../types";
 import type { AgentContext, DrawingDoc, PageView, Region, SimilarHit } from "./context";
-import { type AgentMemory, addMemory, emptyMemory } from "./memory";
+import { type AgentMemory, type AgentMemoryInput, addLocalMemory, emptyMemory } from "./memory";
 
 export interface FakeDoc {
   sizes?: { w: number; h: number }[];
@@ -21,6 +21,8 @@ export interface FakeApp {
   ctx: AgentContext;
   project(): Project;
   memory(): AgentMemory;
+  /** Add an entry already in use, as a person teaching the memory would. */
+  teach(input: AgentMemoryInput): void;
   /** Status-bar lines the tools sent. */
   notices: string[];
   /** Regions view_page was asked for. */
@@ -72,6 +74,9 @@ export function fakeApp(
     commits: 0,
     project: () => project,
     memory: () => memory,
+    teach(input) {
+      memory = addLocalMemory(memory, input, false).memory;
+    },
     ctx: undefined as unknown as AgentContext,
   };
   const doc: DrawingDoc = {
@@ -96,11 +101,11 @@ export function fakeApp(
     catalog: () => catalog,
     doc: async () => doc,
     activePage: () => 0,
-    memory: () => memory,
-    async proposeMemory(entry) {
-      const result = addMemory(memory, entry);
-      memory = result.memory;
-      return result.entry;
+    memory: async () => memory,
+    async proposeMemory(input) {
+      const stored = addLocalMemory(memory, input, true);
+      memory = stored.memory;
+      return stored.result;
     },
     notify: (message) => app.notices.push(message),
   };

@@ -97,13 +97,17 @@ export default function App() {
     void Promise.all([loadCatalog(), restoreAccount()])
       .then(() => {
         // signed out: wait for the user to sign in (signing in refreshes the catalog)
-        const { account, refreshCatalog } = useStore.getState();
-        return account.status === "signedIn" ? refreshCatalog() : 0;
+        const { account, refreshCatalog, refreshAgentMemory } = useStore.getState();
+        if (account.status !== "signedIn") return 0;
+        // the AI agent's memory is the company's too; it never fails (the cached copy stays)
+        void refreshAgentMemory();
+        return refreshCatalog();
       })
       .catch((e) => console.warn("catalog refresh failed", e));
   }, []);
 
-  // AI agent: its memory, and the local MCP server when it was left on (see lib/agent)
+  // AI agent: the cached copy of its memory, and the local MCP server when it was left on
+  // (see lib/agent); the company's memory arrives with the account, below
   useEffect(() => {
     void useStore
       .getState()

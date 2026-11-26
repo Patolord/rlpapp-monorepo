@@ -350,13 +350,20 @@ in a title block is treated as a claim: `measure` checks it against a written di
 The working method handed to the agent on connect is `src/lib/agent/instructions.ts`. Not in this
 version: duct and VRF runs (the specialty tools), tracing a line along the drawing's vectors, OCR.
 
-**Memory.** The model learns nothing between takeoffs; "memory" is data the app keeps and hands
-back (`src/lib/agent/memory.ts`). Three kinds, each for every takeoff or for one client or
-designer: *anotação* (a convention in free text), *termo* (a text found on drawings and the item
-it stands for) and *símbolo* (a crop of a drawing as a visual example: select a count mark and use
-**Lembrar símbolo**). They are edited in **Agente de IA… → Memória**; what the agent proposes
-stays a proposal until approved there. It is kept per machine (`agent-memory.json` in the app data
-folder); sharing it across the company through the backend is the next step.
+**Memory.** The model learns nothing between takeoffs; "memory" is data kept and handed back
+(`src/lib/agent/memory.ts`). It is **the company's**: the backend stores it (table
+`takeoffAgentMemory`, functions `takeoffAgentMemory.list / add / approve / remove`, for whoever
+has the App Takeoff access) and every user of the app reads and teaches the same memory, as the
+signed-in account. Three kinds, each for every takeoff or for one client or designer: *anotação*
+(a convention in free text), *termo* (a text found on drawings and the item it stands for) and
+*símbolo* (a crop of a drawing as a visual example: select a count mark and use **Lembrar
+símbolo**). They are edited in **Agente de IA… → Memória**, which shows who taught each one; what
+an agent proposes stays a proposal until a person approves it there, for everyone. The agent
+fetches the memory when it starts a takeoff; the last copy received is cached on the machine
+(`agent-memory.json` in the app data folder), so offline or signed out the agent still reads it,
+but changing it needs the account. The kinds, the size limits (400 entries, 100 symbols) and the
+validation are shared by the app and the backend in `@rlpapp/shared/takeoff/agentMemory`. In
+browser dev mode, where there is no account, the memory is local to the browser.
 
 **Browser dev mode.** `pnpm -F takeoff dev` exposes the same endpoint at
 `http://localhost:1420/mcp` through the Vite dev server (`scripts/vite-agent-bridge.ts`, no
@@ -384,8 +391,8 @@ hard about its PDF (`escaneado`, `texto-explodido`, `escala-errada`…) so the t
 real cases, not only the clean files.
 
 Rules that keep the number honest: the agent gets only the PDFs (the reference file usually sits
-in the same folder: keep it out of reach, and keep that client's earlier takeoffs out of the
-memory used for the run); a few cases are held out and never used to tune the instructions or
+in the same folder: keep it out of reach, and mind that the company's memory may already hold
+lessons learned on that very project); a few cases are held out and never used to tune the instructions or
 the memory; a new comparison is trusted only after the reference scores 100 % against itself and
 an empty takeoff scores zero (both are in `compare.test.ts`).
 

@@ -242,7 +242,7 @@ export function SelectionBar() {
       {selected.length === 1 && items.get(selected[0].itemId)?.kind === "count" && (
         <Button
           onClick={() => void rememberSymbol(selected[0].id)}
-          title="Guarda o desenho em volta desta marca na memória da IA, como exemplo do símbolo deste item nas próximas plantas"
+          title="Guarda o desenho em volta desta marca na memória da IA da empresa, como exemplo do símbolo deste item nas próximas plantas de todos"
         >
           <BookmarkPlus size={14} /> Lembrar símbolo
         </Button>

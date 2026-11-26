@@ -73,6 +73,8 @@ export const createAccountSlice: Slice<AccountSlice> = (set, get) => {
         await get()
           .refreshCatalog()
           .catch((e) => set({ status: `Falha ao atualizar o catálogo: ${errorMessage(e)}` }));
+        // and so does the AI agent's memory, which is the company's
+        void get().refreshAgentMemory();
       } catch (e) {
         const message = errorMessage(e);
         const cancelled = e instanceof SignInCancelledError || message === "cancelado";

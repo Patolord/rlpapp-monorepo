@@ -1,7 +1,8 @@
 /**
- * Where the agent's memory lives: one JSON file per machine, in the app data folder beside the
- * catalog (localStorage in browser dev mode). Sharing it with the whole company through the
- * backend is the next step; the model (memory.ts) already carries what that needs.
+ * The copy of the agent's memory kept on this machine. In the installed app the memory is the
+ * company's (the backend's `takeoffAgentMemory`, see lib/account/convex.ts) and this file is
+ * its cache: the last list received, so the agent still reads it offline or signed out. In
+ * browser dev mode, where there is no company account, it is the memory itself (localStorage).
  */
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "../platform";

@@ -79,7 +79,7 @@ export const appContext: AgentContext = {
     }
   },
   activePage: () => useStore.getState().page,
-  memory: () => useStore.getState().agentMemory,
-  proposeMemory: (entry) => useStore.getState().addAgentMemory(entry),
+  memory: () => useStore.getState().refreshAgentMemory(),
+  proposeMemory: (input) => useStore.getState().addAgentMemory(input, true),
   notify: (message) => useStore.getState().setStatus(message),
 };

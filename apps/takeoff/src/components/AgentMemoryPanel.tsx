@@ -1,5 +1,6 @@
-import { Check, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import clsx from "clsx";
+import { Check, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
   type MemoryEntry,
   type MemoryKind,
@@ -7,6 +8,7 @@ import {
   memoryScopes,
 } from "../lib/agent/memory";
 import { useStore } from "../store";
+import { type AgentMemorySync, selectCanEditAgentMemory } from "../store/agentMemory";
 import { Button } from "./ui";
 
 const KIND_LABEL: Record<MemoryKind, string> = {
@@ -16,9 +18,17 @@ const KIND_LABEL: Record<MemoryKind, string> = {
 };
 
 const field =
-  "h-8 rounded-md bg-neutral-800 px-2 text-xs text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400";
+  "h-8 rounded-md bg-neutral-800 px-2 text-xs text-neutral-100 ring-1 ring-neutral-700 outline-none focus:ring-orange-400 disabled:opacity-50";
 
-function Entry({ entry }: { entry: MemoryEntry }) {
+/** Run a change to the memory; a refusal (signed out, offline, invalid) goes to the status bar. */
+function attempt(change: Promise<unknown>, done?: string) {
+  const { setStatus } = useStore.getState();
+  void change
+    .then(() => done && setStatus(done))
+    .catch((e) => setStatus(e instanceof Error ? e.message : String(e)));
+}
+
+function Entry({ entry, editable }: { entry: MemoryEntry; editable: boolean }) {
   const { approveAgentMemory, removeAgentMemory } = useStore.getState();
   const proposal = entry.status === "proposta";
   return (
@@ -36,7 +46,12 @@ function Entry({ entry }: { entry: MemoryEntry }) {
             {KIND_LABEL[entry.kind]}
           </span>
           <span>{entry.scope || "Todos os projetos"}</span>
-          {entry.origin === "agente" && <span>· proposta pela IA</span>}
+          {entry.createdBy && (
+            <span>
+              · {entry.origin === "agente" ? `IA de ${entry.createdBy}` : entry.createdBy}
+            </span>
+          )}
+          {!entry.createdBy && entry.origin === "agente" && <span>· proposta pela IA</span>}
           {entry.source && <span className="truncate">· {entry.source}</span>}
         </div>
         <div className="mt-1 whitespace-normal text-neutral-100">
@@ -55,18 +70,22 @@ function Entry({ entry }: { entry: MemoryEntry }) {
       {proposal && (
         <Button
           variant="primary"
-          onClick={() => approveAgentMemory(entry.id)}
-          title="A partir de agora o agente lê esta memória"
+          disabled={!editable}
+          onClick={() =>
+            attempt(approveAgentMemory(entry.id), "Memória aprovada para toda a empresa")
+          }
+          title="A partir de agora os agentes de todos os usuários leem esta memória"
         >
           <Check size={14} /> Aprovar
         </Button>
       )}
       <button
         type="button"
+        disabled={!editable}
         aria-label={proposal ? "Descartar a proposta" : "Apagar da memória"}
-        title={proposal ? "Descartar a proposta" : "Apagar da memória"}
-        onClick={() => removeAgentMemory(entry.id)}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-700 hover:text-neutral-100"
+        title={proposal ? "Descartar a proposta" : "Apagar da memória (deixa de valer para todos)"}
+        onClick={() => attempt(removeAgentMemory(entry.id))}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-700 hover:text-neutral-100 disabled:opacity-40 disabled:hover:bg-transparent"
       >
         <Trash2 size={14} />
       </button>
@@ -74,40 +93,84 @@ function Entry({ entry }: { entry: MemoryEntry }) {
   );
 }
 
+/** Where the list on screen came from and whether it can be changed, in the user's words. */
+function sourceLine(sync: AgentMemorySync, editable: boolean, fetchedAt: number | null): string {
+  if (sync.source === "local") {
+    return "Modo navegador (desenvolvimento): memória só deste navegador.";
+  }
+  const when = fetchedAt
+    ? new Date(fetchedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
+    : null;
+  if (!editable) {
+    return when
+      ? `Cópia de ${when}. Entre com a conta da empresa para atualizar e alterar.`
+      : "Entre com a conta da empresa para ver e alterar a memória.";
+  }
+  if (sync.error) {
+    return `Sem resposta do servidor (${sync.error}).${when ? ` Mostrando a cópia de ${when}.` : ""}`;
+  }
+  return when ? `Atualizada em ${when}.` : "";
+}
+
 /**
  * What the AI agent is told at the start of every takeoff (lib/agent/memory.ts): the entries in
- * use, the proposals the agent made and the form to teach it a convention or a term. Symbol
- * examples are added from the drawing ("Lembrar símbolo" on a selected count mark).
+ * use, the proposals agents made and the form to teach a convention or a term. It is the
+ * company's memory, the same for every user of the app; this machine keeps a copy for offline
+ * use. Symbol examples are added from the drawing ("Lembrar símbolo" on a selected count mark).
  */
 export function AgentMemoryPanel() {
   const memory = useStore((s) => s.agentMemory);
+  const sync = useStore((s) => s.agentMemorySync);
+  const editable = useStore(selectCanEditAgentMemory);
   const client = useStore((s) => s.project.client);
-  const { addAgentMemory, setStatus } = useStore.getState();
+  const { addAgentMemory, refreshAgentMemory } = useStore.getState();
   const [kind, setKind] = useState<"nota" | "termo">("nota");
   const [text, setText] = useState("");
   const [target, setTarget] = useState("");
   const [scope, setScope] = useState("");
+  // others teach it too: bring the list up to date whenever the panel opens
+  useEffect(() => {
+    void useStore.getState().refreshAgentMemory();
+  }, []);
   const proposals = memory.entries.filter((e) => e.status === "proposta");
   const active = memory.entries.filter((e) => e.status === "ativa");
   const scopes = [...new Set([...(client ? [client] : []), ...memoryScopes(memory)])];
   const draft = { kind, text, target: kind === "termo" ? target : undefined, scope };
   const problem = text.trim() ? memoryProblem(draft) : null;
+  const warn = !!sync.error || (!editable && sync.source !== "local");
 
   const add = () => {
-    if (!text.trim() || problem) return;
-    void addAgentMemory(draft).then(() => {
-      setText("");
-      setTarget("");
-      setStatus("Memória da IA atualizada");
-    });
+    if (!text.trim() || problem || !editable) return;
+    void addAgentMemory(draft)
+      .then(() => {
+        setText("");
+        setTarget("");
+        useStore.getState().setStatus("Memória da IA atualizada para toda a empresa");
+      })
+      .catch((e) => useStore.getState().setStatus(e instanceof Error ? e.message : String(e)));
   };
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="whitespace-normal text-xs text-neutral-400">
-        O agente lê estas anotações antes de cada levantamento. Elas ficam neste computador. O que a
-        IA propõe só passa a valer depois de aprovado aqui.
-      </p>
+      <div className="flex items-start gap-2">
+        <p className="min-w-0 flex-1 whitespace-normal text-xs text-neutral-400">
+          Os agentes leem esta memória antes de cada levantamento. Ela é da empresa: o que você
+          ensina aqui vale para todos os usuários do RLP Takeoff. O que uma IA propõe só passa a
+          valer depois de aprovado por uma pessoa.{" "}
+          <span className={clsx(warn && "text-amber-300")}>
+            {sourceLine(sync, editable, memory.fetchedAt)}
+          </span>
+        </p>
+        {sync.source !== "local" && (
+          <Button
+            disabled={!editable || sync.loading}
+            onClick={() => void refreshAgentMemory()}
+            title="Buscar a memória da empresa agora"
+          >
+            <RefreshCw size={14} className={clsx(sync.loading && "animate-spin")} /> Atualizar
+          </Button>
+        )}
+      </div>
 
       {proposals.length > 0 && (
         <section>
@@ -116,7 +179,7 @@ export function AgentMemoryPanel() {
           </h3>
           <ul className="flex flex-col gap-1.5">
             {proposals.map((e) => (
-              <Entry key={e.id} entry={e} />
+              <Entry key={e.id} entry={e} editable={editable} />
             ))}
           </ul>
         </section>
@@ -132,6 +195,7 @@ export function AgentMemoryPanel() {
         <div className="flex flex-wrap items-center gap-2">
           <select
             value={kind}
+            disabled={!editable}
             onChange={(e) => setKind(e.target.value as "nota" | "termo")}
             aria-label="Tipo de memória"
             className={field}
@@ -141,6 +205,7 @@ export function AgentMemoryPanel() {
           </select>
           <input
             value={scope}
+            disabled={!editable}
             onChange={(e) => setScope(e.target.value)}
             list="agent-memory-scopes"
             placeholder="Cliente ou projetista (vazio = todos)"
@@ -156,6 +221,7 @@ export function AgentMemoryPanel() {
         <div className="flex flex-wrap items-center gap-2">
           <input
             value={text}
+            disabled={!editable}
             onChange={(e) => setText(e.target.value)}
             placeholder={
               kind === "nota"
@@ -168,13 +234,14 @@ export function AgentMemoryPanel() {
           {kind === "termo" && (
             <input
               value={target}
+              disabled={!editable}
               onChange={(e) => setTarget(e.target.value)}
               placeholder="Item que representa (material, kit)"
               aria-label="Item que o termo representa"
               className={`${field} min-w-[12rem] flex-1`}
             />
           )}
-          <Button type="submit" variant="primary" disabled={!text.trim() || !!problem}>
+          <Button type="submit" variant="primary" disabled={!editable || !text.trim() || !!problem}>
             <Plus size={14} /> Adicionar
           </Button>
         </div>
@@ -187,13 +254,13 @@ export function AgentMemoryPanel() {
         </h3>
         {active.length === 0 ? (
           <p className="whitespace-normal text-xs text-neutral-500">
-            Nada ainda. Escreva acima uma convenção das plantas que você recebe, ou selecione uma
-            contagem na planta e use Lembrar símbolo.
+            Nada ainda. Escreva acima uma convenção das plantas que a empresa recebe, ou selecione
+            uma contagem na planta e use Lembrar símbolo.
           </p>
         ) : (
           <ul className="flex flex-col gap-1.5">
             {active.map((e) => (
-              <Entry key={e.id} entry={e} />
+              <Entry key={e.id} entry={e} editable={editable} />
             ))}
           </ul>
         )}

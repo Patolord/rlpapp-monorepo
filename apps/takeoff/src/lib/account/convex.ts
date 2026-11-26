@@ -160,3 +160,48 @@ export type RemoveResult = FunctionReturnType<typeof api.takeoffs.removeFromDesk
 export function removeBudgetAsUser(args: RemoveArgs): Promise<RemoveResult> {
   return asUser((c) => c.mutation(api.takeoffs.removeFromDesktop, args));
 }
+
+// ---------------------------------------------------------------------------
+// Memory of the AI agent, shared by the company (takeoffAgentMemory.*)
+// ---------------------------------------------------------------------------
+
+export type AgentMemoryRows = FunctionReturnType<typeof api.takeoffAgentMemory.list>;
+export type AgentMemoryAddArgs = FunctionArgs<typeof api.takeoffAgentMemory.add>;
+export type AgentMemoryAddResult = FunctionReturnType<typeof api.takeoffAgentMemory.add>;
+
+/** Every entry of the company's memory, in use and proposed. */
+export function fetchAgentMemoryAsUser(): Promise<AgentMemoryRows> {
+  return asUser((c) => c.query(api.takeoffAgentMemory.list, {}));
+}
+
+/**
+ * `takeoffAgentMemory.add`. A retry after a refused JWT (see `asUser`) is safe for notes and
+ * terms (the same lesson is not stored twice); a symbol could be stored twice, which shows in
+ * the list and is removed there.
+ */
+export function addAgentMemoryAsUser(args: AgentMemoryAddArgs): Promise<AgentMemoryAddResult> {
+  return asUser((c) => c.mutation(api.takeoffAgentMemory.add, args));
+}
+
+export function approveAgentMemoryAsUser(id: string): Promise<null> {
+  return asUser((c) =>
+    c.mutation(api.takeoffAgentMemory.approve, { id: id as Id<"takeoffAgentMemory"> }),
+  );
+}
+
+export function removeAgentMemoryAsUser(id: string): Promise<null> {
+  return asUser((c) =>
+    c.mutation(api.takeoffAgentMemory.remove, { id: id as Id<"takeoffAgentMemory"> }),
+  );
+}
+
+/** The reason the backend gave for refusing a call (`ConvexError` data), else the error's own. */
+export function refusalMessage(e: unknown): string {
+  if (e instanceof ConvexError) {
+    const data = e.data as { code?: unknown; message?: unknown } | string;
+    if (typeof data === "string") return data;
+    if (typeof data?.message === "string") return data.message;
+    return String(data?.code ?? "recusado");
+  }
+  return e instanceof Error ? e.message : String(e);
+}

@@ -1,126 +1,145 @@
 import { describe, expect, it } from "vitest";
 import {
-  addMemory,
-  approveMemory,
+  addLocalMemory,
+  approveLocalMemory,
   emptyMemory,
-  MAX_MEMORY_TEXT,
   memoryFor,
-  memoryProblem,
+  memoryFromRemote,
   memoryScopes,
   parseMemory,
-  removeMemory,
+  removeLocalMemory,
 } from "./memory";
 
-describe("addMemory", () => {
-  it("adds a note and trims its fields", () => {
-    const { memory, entry, added } = addMemory(
-      emptyMemory(),
-      { kind: "nota", text: "  dreno não é escopo ", scope: " Tegra " },
-      10,
+const add = (
+  memory: ReturnType<typeof emptyMemory>,
+  input: Parameters<typeof addLocalMemory>[1],
+  proposed = false,
+  now = 0,
+) => addLocalMemory(memory, input, proposed, now);
+
+describe("memoryFromRemote and parseMemory", () => {
+  it("reads the backend's entries (null for an absent field) and drops junk", () => {
+    const memory = memoryFromRemote(
+      [
+        {
+          id: "a",
+          kind: "nota",
+          scope: "",
+          text: "ok",
+          target: null,
+          image: null,
+          status: "proposta",
+          origin: "agente",
+          source: null,
+          createdAt: 5,
+          createdBy: "Ana",
+        },
+        { id: "a", kind: "nota", text: "duplicate id" },
+        { id: "b", kind: "simbolo", text: "sem imagem", image: null },
+        { id: "c", kind: "simbolo", text: "cassete", image: "iVBOR", target: "Cassete 4 vias" },
+        { id: "d", kind: "outra", text: "kind desconhecido" },
+        { id: "e", kind: "nota", text: "" },
+        "lixo",
+      ],
+      99,
     );
-    expect(added).toBe(true);
-    expect(entry).toMatchObject({
+    expect(memory.fetchedAt).toBe(99);
+    expect(memory.entries.map((e) => e.id)).toEqual(["a", "c"]);
+    expect(memory.entries[0]).toEqual({
+      id: "a",
       kind: "nota",
-      text: "dreno não é escopo",
-      scope: "Tegra",
-      status: "ativa",
-      origin: "usuario",
-      createdAt: 10,
-    });
-    expect(memory.entries).toHaveLength(1);
-  });
-
-  it("does not duplicate the same lesson, whatever the case or accents", () => {
-    const first = addMemory(emptyMemory(), { kind: "termo", text: "VE-01", target: "Exaustor" });
-    const again = addMemory(first.memory, { kind: "termo", text: "ve-01", target: "exaustor" });
-    expect(again.added).toBe(false);
-    expect(again.entry.id).toBe(first.entry.id);
-    expect(again.memory).toBe(first.memory);
-  });
-
-  it("keeps the same text under another scope as a separate entry", () => {
-    const first = addMemory(emptyMemory(), { kind: "nota", text: "dreno fora" });
-    const other = addMemory(first.memory, { kind: "nota", text: "dreno fora", scope: "Tegra" });
-    expect(other.added).toBe(true);
-    expect(other.memory.entries).toHaveLength(2);
-  });
-
-  it("refuses entries that teach nothing", () => {
-    expect(() => addMemory(emptyMemory(), { kind: "nota", text: "  " })).toThrow();
-    expect(memoryProblem({ kind: "termo", text: "VE-01" })).toMatch(/item/);
-    expect(memoryProblem({ kind: "simbolo", text: "cassete" })).toMatch(/recorte/);
-    expect(memoryProblem({ kind: "nota", text: "x".repeat(MAX_MEMORY_TEXT + 1) })).toMatch(
-      /caracteres/,
-    );
-  });
-});
-
-describe("approveMemory and removeMemory", () => {
-  it("turns a proposal into an active entry", () => {
-    const { memory, entry } = addMemory(emptyMemory(), {
-      kind: "nota",
-      text: "linha tracejada é retorno",
+      scope: "",
+      text: "ok",
       status: "proposta",
       origin: "agente",
+      createdAt: 5,
+      createdBy: "Ana",
     });
-    expect(memoryFor(memory, [])).toEqual([]);
-    const approved = approveMemory(memory, entry.id);
-    expect(memoryFor(approved, []).map((e) => e.id)).toEqual([entry.id]);
-    expect(approveMemory(approved, entry.id)).toBe(approved);
+    expect(memory.entries[1]).toMatchObject({ status: "ativa", origin: "usuario" });
   });
 
-  it("removes by id and leaves the memory alone for an unknown id", () => {
-    const { memory, entry } = addMemory(emptyMemory(), { kind: "nota", text: "a" });
-    expect(removeMemory(memory, entry.id).entries).toEqual([]);
-    expect(removeMemory(memory, "nope")).toBe(memory);
+  it("reads the cache file back, and anything else as empty", () => {
+    const cached = memoryFromRemote([{ id: "a", kind: "nota", text: "ok" }], 7);
+    expect(parseMemory(JSON.parse(JSON.stringify(cached)))).toEqual(cached);
+    expect(parseMemory(null)).toEqual(emptyMemory());
+    expect(parseMemory({ entries: "no" }).entries).toEqual([]);
+    // a cache written before the memory was shared has no fetch time
+    expect(parseMemory({ version: 1, entries: [] }).fetchedAt).toBeNull();
   });
 });
 
 describe("memoryFor", () => {
   it("returns general entries plus those of the takeoff's scopes, specific first", () => {
     let memory = emptyMemory();
-    memory = addMemory(memory, { kind: "nota", text: "geral" }, 1).memory;
-    memory = addMemory(memory, { kind: "nota", text: "da tegra", scope: "Tegra" }, 2).memory;
-    memory = addMemory(memory, { kind: "nota", text: "de outro", scope: "Outro" }, 3).memory;
-    memory = addMemory(memory, { kind: "termo", text: "VE", target: "Exaustor" }, 4).memory;
+    memory = add(memory, { kind: "nota", text: "geral" }, false, 1).memory;
+    memory = add(memory, { kind: "nota", text: "da tegra", scope: "Tegra" }, false, 2).memory;
+    memory = add(memory, { kind: "nota", text: "de outro", scope: "Outro" }, false, 3).memory;
+    memory = add(memory, { kind: "termo", text: "VE", target: "Exaustor" }, false, 4).memory;
     expect(memoryFor(memory, ["tegra"]).map((e) => e.text)).toEqual(["da tegra", "geral", "VE"]);
     expect(memoryFor(memory, []).map((e) => e.text)).toEqual(["geral", "VE"]);
   });
+
+  it("leaves proposals out until they are approved", () => {
+    const { memory, result } = add(
+      emptyMemory(),
+      { kind: "nota", text: "tracejado é retorno" },
+      true,
+    );
+    expect(result).toMatchObject({ status: "proposta", added: true });
+    expect(memoryFor(memory, [])).toEqual([]);
+    expect(memoryFor(approveLocalMemory(memory, result.id), []).map((e) => e.id)).toEqual([
+      result.id,
+    ]);
+  });
 });
 
-describe("parseMemory", () => {
-  it("keeps well-formed entries and drops junk", () => {
-    const parsed = parseMemory({
-      version: 1,
-      entries: [
-        { id: "a", kind: "nota", text: "ok", status: "proposta", origin: "agente", createdAt: 5 },
-        { id: "a", kind: "nota", text: "duplicate id" },
-        { id: "b", kind: "simbolo", text: "sem imagem" },
-        { id: "c", kind: "simbolo", text: "cassete", image: "iVBOR", target: "Cassete 4 vias" },
-        { id: "d", kind: "outra", text: "kind desconhecido" },
-        { id: "e", kind: "nota", text: "" },
-        "lixo",
-      ],
+describe("memory kept on this machine (browser dev mode)", () => {
+  it("adds, trims and marks who it came from", () => {
+    const { memory } = add(
+      emptyMemory(),
+      { kind: "nota", text: "  dreno fora ", scope: " Tegra " },
+      false,
+      10,
+    );
+    expect(memory.entries[0]).toMatchObject({
+      kind: "nota",
+      text: "dreno fora",
+      scope: "Tegra",
+      status: "ativa",
+      origin: "usuario",
+      createdAt: 10,
     });
-    expect(parsed.entries.map((e) => e.id)).toEqual(["a", "c"]);
-    expect(parsed.entries[0]).toMatchObject({ status: "proposta", origin: "agente", scope: "" });
-    expect(parsed.entries[1]).toMatchObject({ status: "ativa", origin: "usuario" });
   });
 
-  it("reads anything that is not a memory file as empty", () => {
-    expect(parseMemory(null).entries).toEqual([]);
-    expect(parseMemory("x").entries).toEqual([]);
-    expect(parseMemory({ entries: "no" }).entries).toEqual([]);
+  it("does not duplicate a lesson, and a person adding a proposed one approves it", () => {
+    const first = add(emptyMemory(), { kind: "termo", text: "VE-01", target: "Exaustor" }, true);
+    const again = add(first.memory, { kind: "termo", text: "ve-01", target: "exaustor" }, true);
+    expect(again.result).toEqual({ id: first.result.id, status: "proposta", added: false });
+    expect(again.memory).toBe(first.memory);
+    const person = add(first.memory, { kind: "termo", text: "VE-01", target: "Exaustor" });
+    expect(person.result).toEqual({ id: first.result.id, status: "ativa", added: false });
+    expect(person.memory.entries).toHaveLength(1);
+  });
+
+  it("refuses what teaches nothing and removes by id", () => {
+    expect(() => add(emptyMemory(), { kind: "termo", text: "VE-01" })).toThrow(/item/);
+    const { memory, result } = add(emptyMemory(), { kind: "nota", text: "a" });
+    expect(removeLocalMemory(memory, result.id).entries).toEqual([]);
+    expect(removeLocalMemory(memory, "nope")).toBe(memory);
   });
 });
 
 describe("memoryScopes", () => {
   it("lists the scopes in use once, sorted", () => {
     let memory = emptyMemory();
-    memory = addMemory(memory, { kind: "nota", text: "a", scope: "Tegra" }).memory;
-    memory = addMemory(memory, { kind: "nota", text: "b", scope: "Even" }).memory;
-    memory = addMemory(memory, { kind: "nota", text: "c", scope: "Tegra" }).memory;
-    memory = addMemory(memory, { kind: "nota", text: "d" }).memory;
+    for (const [text, scope] of [
+      ["a", "Tegra"],
+      ["b", "Even"],
+      ["c", "Tegra"],
+      ["d", ""],
+    ]) {
+      memory = add(memory, { kind: "nota", text, scope }).memory;
+    }
     expect(memoryScopes(memory)).toEqual(["Even", "Tegra"]);
   });
 });

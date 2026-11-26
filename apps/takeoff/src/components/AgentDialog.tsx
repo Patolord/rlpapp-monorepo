@@ -157,7 +157,7 @@ function Connection() {
 
 /**
  * "Agente de IA": the local MCP endpoint an AI assistant connects to (lib/agent/bridge.ts) and
- * the memory it reads before each takeoff.
+ * the company's memory it reads before each takeoff.
  */
 export function AgentDialog() {
   const open = useStore((s) => s.agentDialogOpen);

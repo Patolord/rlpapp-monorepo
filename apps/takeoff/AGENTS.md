@@ -82,7 +82,9 @@ Full tree in the README's "Layout" section. Where to start:
   MCP server (JSON-RPC over one HTTP POST per message), `readTools.ts` / `writeTools.ts` /
   `memoryTools.ts` the tools, `edits.ts` the pure project edits they make, `context.ts` what
   they need from the app (`appContext.ts` in the running app, `testContext.ts` in tests),
-  `bridge.ts` the transport. Everything the agent draws is `ai: "suggested"` and reviewed through
+  `bridge.ts` the transport. Its memory is the company's: stored by the backend
+  (`takeoffAgentMemory.*`, called as the signed-in user from `store/agentMemory.ts`) and only
+  cached on the machine. Everything the agent draws is `ai: "suggested"` and reviewed through
   `lib/aiReview.ts`; a new tool is a definition in one of the tool files plus a test in
   `tools.test.ts`, and its description is what the model reads, so write it for the model.
 - `src/lib/eval/`: the takeoff comparison behind `pnpm eval` (reference vs the agent's candidate).

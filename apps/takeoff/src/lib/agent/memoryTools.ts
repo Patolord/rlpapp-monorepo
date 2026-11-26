@@ -1,6 +1,7 @@
 /**
  * The agent's memory (see memory.ts): what the company has taught it about its drawings, read at
- * the start of a takeoff, and the lessons it proposes back, which wait for the user's approval.
+ * the start of a takeoff, and the lessons it proposes back, which wait for a person's approval.
+ * It is the same memory for every user of the app.
  */
 import { oneOf, optStr, str } from "./args";
 import { memoryFor } from "./memory";
@@ -25,7 +26,7 @@ const getMemory: AgentTool = {
     const project = ctx.project();
     const extra = optStr(args, "scope");
     const scopes = [project.client, ...(extra ? [extra] : [])].filter(Boolean);
-    const entries = memoryFor(ctx.memory(), scopes);
+    const entries = memoryFor(await ctx.memory(), scopes);
     const symbols = entries.filter((e) => e.kind === "simbolo" && e.image);
     const shown = symbols.slice(0, MAX_SYMBOLS);
     const content: ToolContent[] = [
@@ -66,7 +67,7 @@ const proposeMemory: AgentTool = {
   name: "propose_memory",
   title: "Propor memória",
   description:
-    'Propose a lesson for future takeoffs, when the user corrects you or you work out a convention worth keeping: a note (kind "nota", a rule in one or two sentences in Portuguese) or a term (kind "termo": text as written on drawings, and target, the catalog material, kit or item it stands for). Set scope to the client or designer it applies to, or leave it out when it holds for every drawing. It is stored as a proposal: the user approves it in the app before it is used. Propose only what would change how the next takeoff is done, not facts about this one.',
+    'Propose a lesson for future takeoffs, when the user corrects you or you work out a convention worth keeping: a note (kind "nota", a rule in one or two sentences in Portuguese) or a term (kind "termo": text as written on drawings, and target, the catalog material, kit or item it stands for). Set scope to the client or designer it applies to, or leave it out when it holds for every drawing. It is stored as a proposal: a person approves it in the app, and from then on it is used on every takeoff of the company, by every user. Propose only what would change how the next takeoff is done, not facts about this one.',
   inputSchema: {
     type: "object",
     properties: {
@@ -91,26 +92,29 @@ const proposeMemory: AgentTool = {
       throw new ToolError('A term needs "target": the item the text stands for.');
     }
     try {
-      const entry = await ctx.proposeMemory({
+      const stored = await ctx.proposeMemory({
         kind,
         text: str(args, "text"),
         target: kind === "termo" ? target : undefined,
         scope: optStr(args, "scope") ?? "",
         source: ctx.project().name,
-        status: "proposta",
-        origin: "agente",
       });
-      ctx.notify("IA: propôs uma memória (aprove em Agente de IA › Memória)");
+      if (stored.added) ctx.notify("IA: propôs uma memória (aprove em Agente de IA › Memória)");
       return json({
-        id: entry.id,
-        status: entry.status,
+        id: stored.id,
+        status: stored.status,
         note:
-          entry.status === "ativa"
+          stored.status === "ativa"
             ? "This lesson was already in memory."
-            : "Stored as a proposal; it is used once the user approves it.",
+            : stored.added
+              ? "Stored as a proposal; it is used once a person approves it in the app."
+              : "This lesson had already been proposed and still waits for approval.",
       });
     } catch (e) {
-      throw new ToolError(`Not stored: ${e instanceof Error ? e.message : String(e)}`);
+      // the reason is written for the user (in Portuguese): pass it on to them
+      throw new ToolError(
+        `Not stored. Tell the user why: ${e instanceof Error ? e.message : String(e)}`,
+      );
     }
   },
 };

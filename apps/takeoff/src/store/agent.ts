@@ -5,20 +5,8 @@ import {
   startAgentServer,
   stopAgentServer,
 } from "../lib/agent/bridge";
-import {
-  type AgentMemory,
-  addMemory,
-  approveMemory,
-  emptyMemory,
-  type MemoryEntry,
-  type NewMemoryEntry,
-  removeMemory,
-} from "../lib/agent/memory";
-import { loadAgentMemory, saveAgentMemory } from "../lib/agent/memoryStore";
-import { cropSymbol } from "../lib/agent/symbolCrop";
 import { acceptAi, rejectAi } from "../lib/aiReview";
 import { isTauri } from "../lib/platform";
-import { session, useDoc } from "../lib/session";
 import { locationOf } from "../lib/types";
 import { errorMessage, readPref, type Slice, writePref } from "./shared";
 
@@ -32,8 +20,8 @@ export interface AgentServerState {
 }
 
 /**
- * The AI agent: the local MCP server it connects through, the review of what it marked and the
- * memory it reads (lib/agent, lib/aiReview).
+ * The AI agent: the local MCP server it connects through and the review of what it marked
+ * (lib/agent, lib/aiReview). Its memory is in store/agentMemory.ts.
  */
 export interface AgentSlice {
   agentServer: AgentServerState;
@@ -41,23 +29,15 @@ export interface AgentSlice {
   agentPort: number;
   /** "Agente de IA" dialog: connection and memory. */
   agentDialogOpen: boolean;
-  agentMemory: AgentMemory;
 
   setAgentDialogOpen(open: boolean): void;
   setAgentPort(port: number): void;
-  /** At launch: load the memory and bring the server back when it was left on. */
+  /** At launch: the cached memory, and the server brought back when it was left on. */
   restoreAgent(): Promise<void>;
   startAgent(): Promise<void>;
   stopAgent(): Promise<void>;
   /** A new token; clients configured with the old one stop working. */
   renewAgentToken(): Promise<void>;
-
-  /** Store a memory entry; resolves to it (the existing one when it was already there). */
-  addAgentMemory(entry: NewMemoryEntry): Promise<MemoryEntry>;
-  approveAgentMemory(id: string): void;
-  removeAgentMemory(id: string): void;
-  /** Keep the drawing around a selected count mark as a symbol example of its item. */
-  rememberSymbol(measurementId: string): Promise<void>;
 
   /** Accept pending AI suggestions: the given ones (with their kit groups), or all of them. */
   acceptAiSuggestions(ids?: string[]): void;
@@ -68,19 +48,10 @@ export interface AgentSlice {
 const OFF: AgentServerState = { status: "off", url: null, token: null, error: null };
 
 export const createAgentSlice: Slice<AgentSlice> = (set, get) => {
-  /** Persist the memory; a failed write is reported and the in-memory copy stays in use. */
-  const keep = (memory: AgentMemory) => {
-    set({ agentMemory: memory });
-    void saveAgentMemory(memory).catch((e) =>
-      set({ status: `Memória da IA não foi salva: ${errorMessage(e)}` }),
-    );
-  };
-
   return {
     agentServer: OFF,
     agentPort: readPref("agentPort", DEFAULT_AGENT_PORT),
     agentDialogOpen: false,
-    agentMemory: emptyMemory(),
 
     setAgentDialogOpen: (agentDialogOpen) => set({ agentDialogOpen }),
 
@@ -91,7 +62,7 @@ export const createAgentSlice: Slice<AgentSlice> = (set, get) => {
     },
 
     restoreAgent: async () => {
-      set({ agentMemory: await loadAgentMemory() });
+      await get().loadAgentMemoryCache();
       if (!isTauri()) {
         const dev = connectDevBridge();
         if (dev) set({ agentServer: { status: "on", url: dev.url, token: null, error: null } });
@@ -131,48 +102,6 @@ export const createAgentSlice: Slice<AgentSlice> = (set, get) => {
         set({ status: "Novo token gerado: atualize a configuração do agente" });
       } catch (e) {
         set({ status: `Token não foi trocado: ${errorMessage(e)}` });
-      }
-    },
-
-    addAgentMemory: async (entry) => {
-      const result = addMemory(get().agentMemory, entry);
-      if (result.added) keep(result.memory);
-      return result.entry;
-    },
-
-    approveAgentMemory: (id) => {
-      const next = approveMemory(get().agentMemory, id);
-      if (next !== get().agentMemory) keep(next);
-    },
-
-    removeAgentMemory: (id) => {
-      const next = removeMemory(get().agentMemory, id);
-      if (next !== get().agentMemory) keep(next);
-    },
-
-    rememberSymbol: async (measurementId) => {
-      const { project } = get();
-      const m = project.measurements.find((x) => x.id === measurementId);
-      const item = m && project.items.find((i) => i.id === m.itemId);
-      const renderer = session.renderer;
-      const size = m ? useDoc.getState().sizes[m.page] : undefined;
-      if (!m || !item || !renderer || !size || m.drawingId !== project.activeDrawingId) return;
-      try {
-        const image = await cropSymbol(renderer, m.page, m.points[0], size);
-        if (!image) return;
-        await get().addAgentMemory({
-          kind: "simbolo",
-          text: item.name,
-          target: item.name,
-          image,
-          scope: project.client,
-          source: project.name,
-        });
-        set({
-          status: `Símbolo de ${item.name} guardado na memória da IA${project.client ? ` (${project.client})` : ""}`,
-        });
-      } catch (e) {
-        set({ status: `Símbolo não foi guardado: ${errorMessage(e)}` });
       }
     },
 
