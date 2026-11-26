@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { openMask } from "./magic";
+import { freeSeed, openMask } from "./magic";
 
 /** A w×h mask from rows of "#" (ink) and "." (paper). */
 const mask = (rows: string[]) =>
@@ -30,5 +30,17 @@ describe("openMask", () => {
       "......###.",
       "..........",
     ]);
+  });
+});
+
+describe("freeSeed", () => {
+  it("keeps a free point, moves one on a line to the nearest paper, gives up when walled in", () => {
+    const rows = [".....", "..#..", ".###.", "..#..", "....."];
+    const m = mask(rows);
+    expect(freeSeed(m, 5, 5, 0, 0, 2)).toEqual({ x: 0, y: 0 });
+    // the centre is ink; the nearest paper is a diagonal neighbour
+    expect(freeSeed(m, 5, 5, 2, 2, 2)).toEqual({ x: 1, y: 1 });
+    expect(freeSeed(m, 5, 5, 2, 2, 0)).toBeNull();
+    expect(freeSeed(m, 5, 5, 9, 9, 2)).toBeNull();
   });
 });

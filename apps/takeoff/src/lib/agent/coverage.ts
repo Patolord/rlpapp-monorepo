@@ -119,9 +119,13 @@ export function reviewCoverage(project: Project, catalog: readonly CatalogEntry[
     });
   }
 
+  // lines a kit made: their materials are the company's own kit definition, not the agent's pick
+  const kitLines = new Set(project.measurements.filter((m) => m.kitId).map((m) => m.itemId));
+  const loose = new Set(project.measurements.filter((m) => !m.kitId).map((m) => m.itemId));
   for (const item of project.items) {
     // a line the agent already justified is not raised again
     if (item.derived || item.catalogId || item.offCatalogReason) continue;
+    if (kitLines.has(item.id) && !loose.has(item.id)) continue;
     const similar = rankCatalog(catalog, item.name, 3).map((r) => r.entry.name);
     if (similar.length === 0) continue;
     gaps.push({

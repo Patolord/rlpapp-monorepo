@@ -13,6 +13,8 @@ const WINDOW_PX = 1600;
  * the finer scales, where a wall is still several pixels thick.
  */
 const THIN_PX = 1;
+/** How far, in pixels, the fill may move a seed that fell on a line to reach blank paper. */
+const SEED_REACH_PX = 4;
 
 export interface MagicOptions {
   /** Hairlines (hatch, text, axes) are not walls; thicker lines still are. */
@@ -86,9 +88,11 @@ function fillAndTrace(
   }
   if (thin > 0) ink = openMask(ink, w, h, thin);
   const barrier = DILATE > 0 ? dilate(ink, w, h, DILATE) : ink;
-  const sx = Math.round(seed.x);
-  const sy = Math.round(seed.y);
-  if (sx < 0 || sy < 0 || sx >= w || sy >= h || barrier[sy * w + sx]) return null;
+  // a point given on blank paper can land on a line at a coarser scale: start from the nearest
+  // free pixel instead of giving up
+  const start = freeSeed(barrier, w, h, Math.round(seed.x), Math.round(seed.y), SEED_REACH_PX);
+  if (!start) return null;
+  const { x: sx, y: sy } = start;
 
   // scanline flood fill
   const region = new Uint8Array(w * h);
@@ -123,6 +127,39 @@ function fillAndTrace(
   const grown = DILATE > 0 ? dilateWithin(region, ink, w, h, DILATE) : region;
   const contour = traceOuter(grown, w, h, minX, minY, maxX + DILATE, maxY + DILATE);
   return contour ? { contour, touchesBorder } : null;
+}
+
+/**
+ * The free pixel nearest to (x, y) within `reach` pixels (the point itself when free), ring by
+ * ring; null when the point is off the image or every pixel that close is a barrier.
+ */
+export function freeSeed(
+  barrier: Uint8Array,
+  w: number,
+  h: number,
+  x: number,
+  y: number,
+  reach: number,
+): Pt | null {
+  if (x < 0 || y < 0 || x >= w || y >= h) return null;
+  let best: Pt | null = null;
+  let bestD = Infinity;
+  for (let r = 0; r <= reach && !best; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= w || yy >= h || barrier[yy * w + xx]) continue;
+        const d = dx * dx + dy * dy;
+        if (d < bestD) {
+          bestD = d;
+          best = { x: xx, y: yy };
+        }
+      }
+    }
+  }
+  return best;
 }
 
 /** Morphological opening: strokes thinner than 2r + 1 pixels vanish, thicker ones keep their shape. */

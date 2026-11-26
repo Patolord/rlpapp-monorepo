@@ -727,6 +727,20 @@ describe("keeping the budget straight", () => {
     expect(data.gaps.map((g: { kind: string }) => g.kind)).not.toContain("off_catalog");
   });
 
+  it("does not question the materials of a company kit as off-catalog", async () => {
+    // a detector in the catalog looks like the kit's own "Detector de Fumaça Enderaçável"
+    const app = fakeApp({
+      catalog: {
+        saved: [...catalog.saved, catalogEntry("Detector de Fumaça — Óptico Endereçável", "pç")],
+      },
+    });
+    const kit = app.ctx.catalog().kits.find((k) => k.id === "kit-detector-fumaca");
+    expect(kit).toBeDefined();
+    await call(app, "add_kit_run", { kit_id: "kit-detector-fumaca", points: [{ x: 50, y: 50 }] });
+    const { data } = await call(app, "review_takeoff");
+    expect(data.gaps.map((g: { kind: string }) => g.kind)).not.toContain("off_catalog");
+  });
+
   it("checks the inventory the agent read against what it marked", async () => {
     const app = fakeApp({ catalog });
     const fan = (await call(app, "create_item", { name: "Exaustor — Sicflux SONORA 11" })).data;
