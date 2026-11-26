@@ -12,6 +12,7 @@ import { renderInBackground } from "./background";
 import type { AgentContext, DrawingDoc, Region } from "./context";
 import { renderPageView } from "./pageView";
 import { ToolError } from "./toolTypes";
+import { ViewLog } from "./viewLog";
 
 /** Search rasters kept: one page of a sheet is ~10 MB of grey pixels. */
 const MAX_RASTERS = 2;
@@ -59,8 +60,8 @@ function drawingDoc(entry: OpenDoc, drawing: Drawing): DrawingDoc {
       renderInBackground(() =>
         renderPageView(entry.renderer, useStore.getState().project, drawing.id, page, region, opts),
       ),
-    detectRoom: (page, seed) =>
-      renderInBackground(() => magicArea(entry.renderer, page, seed, entry.sizes[page])),
+    detectRoom: (page, seed, opts) =>
+      renderInBackground(() => magicArea(entry.renderer, page, seed, entry.sizes[page], opts)),
     async findSimilar(page, box: Region, minScore) {
       const { scale, gray } = await searchRaster(entry, page);
       const tpl = crop(gray, box.x * scale, box.y * scale, box.w * scale, box.h * scale);
@@ -71,6 +72,7 @@ function drawingDoc(entry: OpenDoc, drawing: Drawing): DrawingDoc {
 }
 
 export const appContext: AgentContext = {
+  seen: new ViewLog(),
   project: () => useStore.getState().project,
   commit: (mutate) => useStore.getState().commit(mutate),
   catalog: () => useStore.getState().catalog,

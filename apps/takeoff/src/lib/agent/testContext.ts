@@ -9,6 +9,7 @@ import type { TextBox } from "../pdf/text";
 import { emptyProject, type Project } from "../types";
 import type { AgentContext, DrawingDoc, PageView, Region, SimilarHit } from "./context";
 import { type AgentMemory, type AgentMemoryInput, addLocalMemory, emptyMemory } from "./memory";
+import { ViewLog } from "./viewLog";
 
 export interface FakeDoc {
   sizes?: { w: number; h: number }[];
@@ -37,6 +38,8 @@ export interface FakeApp {
   }[];
   /** How many undo steps the tools made. */
   commits: number;
+  /** Whether the last room detection was asked to ignore hairlines. */
+  ignoreThin: boolean;
 }
 
 export const textRun = (text: string, cx: number, cy: number): TextBox => ({
@@ -76,6 +79,7 @@ export function fakeApp(
     notices: [],
     views: [],
     commits: 0,
+    ignoreThin: false,
     project: () => project,
     memory: () => memory,
     teach(input) {
@@ -91,9 +95,15 @@ export function fakeApp(
     text: async () => init.doc?.text ?? [],
     async view(page, region, opts): Promise<PageView> {
       app.views.push({ page, region, opts });
-      return { png: "PNG", region, pxPerPt: 1.4, gridStep: opts.grid ? 100 : 0 };
+      return {
+        png: "PNG",
+        region,
+        pxPerPt: opts.maxPx / Math.max(region.w, region.h),
+        gridStep: opts.grid ? 100 : 0,
+      };
     },
-    async detectRoom() {
+    async detectRoom(_page, _seed, opts) {
+      app.ignoreThin = opts?.ignoreThin ?? false;
       init.doc?.whileTracing?.();
       return init.doc?.room === undefined ? null : init.doc.room;
     },
@@ -101,6 +111,7 @@ export function fakeApp(
       (init.doc?.hits ?? []).filter((h) => h.score >= minScore),
   };
   app.ctx = {
+    seen: new ViewLog(),
     project: () => project,
     commit(mutate) {
       const next = mutate(project);

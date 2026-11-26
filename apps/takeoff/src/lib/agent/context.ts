@@ -9,6 +9,7 @@ import type { MagicResult } from "../pdf/magic";
 import type { TextBox } from "../pdf/text";
 import type { Drawing, Project } from "../types";
 import type { AgentMemory, AgentMemoryInput, MemoryAdded } from "./memory";
+import type { ViewLog } from "./viewLog";
 
 export interface PageSize {
   w: number;
@@ -52,8 +53,11 @@ export interface DrawingDoc {
     region: Region,
     opts: { maxPx: number; grid: boolean; markings: boolean },
   ): Promise<PageView>;
-  /** Outline of the enclosed space around a point (flood fill on the rendered page). */
-  detectRoom(page: number, seed: Pt): Promise<MagicResult | null>;
+  /**
+   * Outline of the enclosed space around a point (flood fill on the rendered page). With
+   * ignoreThin, hairlines (ceiling hatch, text, grid axes) are not walls.
+   */
+  detectRoom(page: number, seed: Pt, opts?: { ignoreThin?: boolean }): Promise<MagicResult | null>;
   /** Every place on the page that looks like the boxed symbol (image correlation). */
   findSimilar(page: number, box: Region, minScore: number): Promise<SimilarHit[]>;
 }
@@ -76,4 +80,6 @@ export interface AgentContext {
   proposeMemory(input: AgentMemoryInput): Promise<MemoryAdded>;
   /** A short line for the app's status bar, so the user sees what the agent is doing. */
   notify(message: string): void;
+  /** What the agent has looked at closely enough to read, for review_takeoff. */
+  readonly seen: ViewLog;
 }

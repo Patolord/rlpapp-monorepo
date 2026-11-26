@@ -558,6 +558,10 @@ describe("keeping the budget straight", () => {
         system: "exaustao",
       }),
       catalogEntry('Tubo de Cobre — 1/4"', "m", { group: "Tubulações" }),
+      catalogEntry("Duto Flexível — Ø100mm", "m", { group: "Dutos e Conexões" }),
+      catalogEntry("Sistema VRF — Trane - áreas comuns (conjunto)", "pç", {
+        group: "Ar Condicionado",
+      }),
     ],
   };
 
@@ -635,10 +639,13 @@ describe("keeping the budget straight", () => {
     expect(vrv.data.results[0]).toMatchObject({ match: "all" });
   });
 
-  it("reviews the takeoff for equipment with no run, off-catalog lines and missing tabs", async () => {
+  it("reviews the takeoff for equipment with no run of its own system, and missing tabs", async () => {
     const app = fakeApp({ catalog });
     await call(app, "set_scale", { ratio: 50 });
     const fan = (await call(app, "create_item", { name: "Exaustor — Sicflux SONORA 11" })).data;
+    const duct = (
+      await call(app, "create_item", { name: "Duto Flexível — Ø100mm", discipline: "Exaustão" })
+    ).data;
     const pipe = (
       await call(app, "create_item", { name: 'Tubo de Cobre — 1/4"', discipline: "Infra AC" })
     ).data;
@@ -650,13 +657,23 @@ describe("keeping the budget straight", () => {
       ],
       label: "E-01",
     });
-    // a run ending 20 pt (0.35 m at 1:50) from the first fan only
+    // a duct ending 20 pt (0.35 m at 1:50) from the first fan; only a copper pipe of the AC
+    // passes by the second, which does not connect an exhaust fan
     await call(app, "add_markings", {
-      item_id: pipe.item_id,
+      item_id: duct.item_id,
       paths: [
         [
           { x: 120, y: 100 },
           { x: 300, y: 100 },
+        ],
+      ],
+    });
+    await call(app, "add_markings", {
+      item_id: pipe.item_id,
+      paths: [
+        [
+          { x: 510, y: 500 },
+          { x: 700, y: 500 },
         ],
       ],
     });
@@ -675,10 +692,117 @@ describe("keeping the budget straight", () => {
     expect(kinds).toContain("no_discipline");
     expect(data.disciplines).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ discipline: "Exaustão", pieces: 2 }),
+        expect.objectContaining({ discipline: "Exaustão", pieces: 2, lines: 2 }),
         expect.objectContaining({ discipline: "Infra AC", lines: 1 }),
       ]),
     );
-    expect(data.pending_suggestions).toBe(3);
+    expect(data.pending_suggestions).toBe(4);
+  });
+
+  it("keeps a package of a whole system out unless that package is the scope", async () => {
+    const app = fakeApp({ catalog });
+    const name = "Sistema VRF — Trane - áreas comuns (conjunto)";
+    expect(await failure(app, "create_item", { name, discipline: "AC Áreas Comuns" })).toMatch(
+      /whole system[\s\S]*package_ok/,
+    );
+    expect(
+      (await call(app, "create_item", { name, discipline: "AC Áreas Comuns", package_ok: true }))
+        .data,
+    ).toMatchObject({ created: true, from_catalog: true });
+  });
+
+  it("remembers why a line is off the catalog and does not ask again", async () => {
+    const app = fakeApp({ catalog });
+    const why = "Evaporadora VRF; o catálogo só tem split.";
+    const made = (
+      await call(app, "create_item", {
+        name: "Evaporadora VRF hi-wall Daikin 24.000",
+        kind: "count",
+        discipline: "AC Áreas Comuns",
+        why_not_catalog: why,
+      })
+    ).data;
+    expect(app.project().items.find((i) => i.id === made.item_id)?.offCatalogReason).toBe(why);
+    const { data } = await call(app, "review_takeoff");
+    expect(data.gaps.map((g: { kind: string }) => g.kind)).not.toContain("off_catalog");
+  });
+
+  it("checks the inventory the agent read against what it marked", async () => {
+    const app = fakeApp({ catalog });
+    const fan = (await call(app, "create_item", { name: "Exaustor — Sicflux SONORA 11" })).data;
+    await call(app, "add_markings", {
+      item_id: fan.item_id,
+      points: [
+        { x: 100, y: 100 },
+        { x: 300, y: 100 },
+      ],
+    });
+    const asked = (await call(app, "review_takeoff")).data.gaps.map(
+      (g: { kind: string }) => g.kind,
+    );
+    expect(asked).toContain("no_inventory");
+    const { data } = await call(app, "review_takeoff", {
+      expected: [
+        { source: "Quadro: E-01, 5 unidades", item_id: fan.item_id, quantity: 3 },
+        { source: "Rodapé: E-01 do térreo", item_id: fan.item_id, quantity: 2 },
+        { source: "Chamada: grelha de insuflamento 50x30 da antecâmara" },
+        { source: "Nota: acionador manual V-01", note: "Fica no projeto de elétrica." },
+      ],
+    });
+    const inventory = data.gaps.filter((g: { kind: string }) => g.kind === "inventory");
+    expect(inventory.map((g: { message: string }) => g.message)).toEqual([
+      expect.stringMatching(/grelha de insuflamento 50x30.*no line/),
+      expect.stringMatching(/asks for 5 .* 2 are marked/),
+    ]);
+    expect(await failure(app, "review_takeoff", { expected: [{ item_id: "x" }] })).toMatch(
+      /source/,
+    );
+  });
+
+  it("points at the parts of the page never seen at a readable zoom", async () => {
+    const app = fakeApp({ catalog, doc: { sizes: [{ w: 900, h: 600 }] } });
+    // the whole sheet in one picture is an overview: nothing counts as read
+    await call(app, "view_page", { max_px: 400 });
+    const unviewed = async () =>
+      (await call(app, "review_takeoff")).data.gaps.find(
+        (g: { kind: string }) => g.kind === "unviewed_area",
+      );
+    expect((await unviewed()).message).toMatch(/0% seen/);
+    // the left half, zoomed in
+    await call(app, "view_page", { region: { x: 0, y: 0, w: 450, h: 600 }, max_px: 1400 });
+    const second = await unviewed();
+    expect(second.message).toMatch(/50% seen/);
+    expect(second.regions).toEqual([
+      { x: 450, y: 0, w: 450, h: 150 },
+      { x: 450, y: 150, w: 450, h: 150 },
+      { x: 450, y: 300, w: 450, h: 150 },
+      { x: 450, y: 450, w: 450, h: 150 },
+    ]);
+  });
+
+  it("asks for locations and points at markings outside them", async () => {
+    const outline = square(0, 0, 200);
+    const app = fakeApp({ catalog, doc: { room: { polygon: outline, unbounded: false } } });
+    const fan = (await call(app, "create_item", { name: "Exaustor — Sicflux SONORA 11" })).data;
+    await call(app, "add_markings", {
+      item_id: fan.item_id,
+      points: [
+        { x: 100, y: 100 },
+        { x: 500, y: 500 },
+      ],
+    });
+    const gapsNow = async () => (await call(app, "review_takeoff")).data.gaps;
+    expect((await gapsNow()).map((g: { kind: string }) => g.kind)).toContain("no_locations");
+    await call(app, "create_location", {
+      name: "WC",
+      point: { x: 100, y: 100 },
+      ignore_hatch: true,
+    });
+    expect(app.ignoreThin).toBe(true);
+    const gaps = await gapsNow();
+    expect(gaps.map((g: { kind: string }) => g.kind)).not.toContain("no_locations");
+    expect(gaps.find((g: { kind: string }) => g.kind === "outside_locations").message).toMatch(
+      /1 marking.*SONORA 11 \(1\)/,
+    );
   });
 });

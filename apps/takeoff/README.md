@@ -344,17 +344,19 @@ in a title block is treated as a claim: `measure` checks it against a written di
 | `get_memory`, `propose_memory` | Read the company's conventions; propose a new one (waits for approval) |
 | `get_takeoff`, `list_markings` | The takeoff as it stands: drawings, page sizes and scales, items, locations, markings |
 | `view_page`, `read_text` | Picture of a page or region with the grid; selectable text with positions |
-| `detect_room`, `find_similar`, `measure` | Room outline at a point; symbol matches; a length or area in real units |
-| `search_catalog`, `list_kits` | Company catalog (exact matches, then materials sharing some words) and kit presets |
-| `review_takeoff` | What a first pass usually misses: equipment with no run near it, off-catalog lines with similar catalog materials, lines on no discipline, lengths on unscaled pages |
+| `detect_room`, `find_similar`, `measure` | Room outline at a point (`ignore_hatch`: hairlines such as ceiling hatch, text and axes are not walls); symbol matches; a length or area in real units |
+| `search_catalog`, `list_kits` | Company catalog (exact matches, then materials sharing some words) and kit presets, each with the company's "quando usar" (`when_to_use`) |
+| `review_takeoff` | What a first pass usually misses: the agent's inventory of schedules and callouts (`expected`) against its marks, parts of a page never seen at a readable zoom, equipment with no run of its own system near it, markings outside every location, off-catalog lines with similar catalog materials, lines on no discipline, lengths on unscaled pages |
 | `set_scale` | 1:N or calibration on two points |
 | `create_item`, `create_location`, `add_markings`, `add_kit_run` | Budget lines, locations, counts / runs / areas, kit runs: all as suggestions |
 | `remove_suggestions` | Take back its own pending suggestions |
 
 `create_item` refuses a line with no discipline tab when the takeoff has no system of its own
 (each system on the drawing is its own tab), and an off-catalog line while the catalog has
-similar materials until the agent says why none of them fits (`why_not_catalog`): the brand on
-a drawing is usually a reference, and the company's equivalent is what goes in the budget. The
+similar materials until the agent says why none of them fits (`why_not_catalog`, kept on the
+line): for materials the brand on a drawing is usually a reference, while equipment follows its
+schedule. A catalog material that prices a whole system ("conjunto", "sistema") needs
+`package_ok`, so a schedule's units are not swapped for another maker's package. The
 working method handed to the agent on connect is `src/lib/agent/instructions.ts`. Not in this
 version: duct and VRF runs (the specialty tools), tracing a line along the drawing's vectors, OCR.
 

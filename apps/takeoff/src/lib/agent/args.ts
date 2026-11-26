@@ -175,3 +175,10 @@ export const PAGE_SCHEMA: JsonSchema = {
   minimum: 1,
   description: "Page number of the drawing's PDF, starting at 1.",
 };
+
+/** detect_room and create_location: hairlines are not walls. */
+export const IGNORE_HATCH_SCHEMA: JsonSchema = {
+  type: "boolean",
+  description:
+    "Treat hairlines as paper: ceiling hatch, text and grid axes stop cutting the room into slivers; walls drawn thicker still bound it. Use it when the plain detection returns a sliver of a hatched or annotated room. A door drawn only as a thin arc may then leak (unbounded): pass a polygon in that case.",
+};

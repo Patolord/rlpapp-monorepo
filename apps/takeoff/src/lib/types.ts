@@ -32,6 +32,11 @@ export interface Item {
   /** Id of the material in the company catalog this line was created from (or linked to). */
   catalogId?: string;
   /**
+   * Why a line made by the AI agent is not a catalog material although the catalog has similar
+   * ones (its `why_not_catalog`), so the review does not ask again and the user sees the reason.
+   */
+  offCatalogReason?: string;
+  /**
    * When the material price is from: the catalog quote's date, or the moment the user typed it.
    * The budget keeps this with the price so a proposal can be re-priced later and compared.
    */

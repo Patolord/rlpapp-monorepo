@@ -7,6 +7,17 @@ const INK = 170;
 /** Pixels of barrier dilation: closes hairline gaps between wall lines. */
 const DILATE = 1;
 const WINDOW_PX = 1600;
+/**
+ * With ignoreThin: strokes up to twice this many pixels wide are not barriers (an opening of
+ * the ink mask), so ceiling hatch, text and grid axes stop cutting a room into slivers. Only at
+ * the finer scales, where a wall is still several pixels thick.
+ */
+const THIN_PX = 1;
+
+export interface MagicOptions {
+  /** Hairlines (hatch, text, axes) are not walls; thicker lines still are. */
+  ignoreThin?: boolean;
+}
 
 export interface MagicResult {
   polygon: Pt[];
@@ -24,6 +35,7 @@ export async function magicArea(
   page: number,
   seed: Pt,
   pageSize: { w: number; h: number },
+  opts: MagicOptions = {},
 ): Promise<MagicResult | null> {
   const scales = [2, 1, 0.5, 0.25];
   for (const scale of scales) {
@@ -37,10 +49,11 @@ export async function magicArea(
     rect.w = Math.min(pageSize.w, seed.x + half) - rect.x;
     rect.h = Math.min(pageSize.h, seed.y + half) - rect.y;
     const r = await renderer.renderRegion(page, scale, rect, 1);
-    const result = fillAndTrace(r.canvas, {
-      x: (seed.x - rect.x) * scale,
-      y: (seed.y - rect.y) * scale,
-    });
+    const result = fillAndTrace(
+      r.canvas,
+      { x: (seed.x - rect.x) * scale, y: (seed.y - rect.y) * scale },
+      opts.ignoreThin && scale >= 1 ? THIN_PX : 0,
+    );
     if (!result) return null;
     const coversPage = rect.x <= 0 && rect.y <= 0 && rect.w >= pageSize.w && rect.h >= pageSize.h;
     if (!result.touchesBorder || coversPage || scale === scales[scales.length - 1]) {
@@ -58,6 +71,7 @@ export async function magicArea(
 function fillAndTrace(
   canvas: HTMLCanvasElement,
   seed: Pt,
+  thin = 0,
 ): { contour: Pt[]; touchesBorder: boolean } | null {
   const w = canvas.width;
   const h = canvas.height;
@@ -65,11 +79,12 @@ function fillAndTrace(
   if (!ctx) return null;
   const img = ctx.getImageData(0, 0, w, h).data;
   // barrier mask: 1 = ink
-  const ink = new Uint8Array(w * h);
+  let ink: Uint8Array = new Uint8Array(w * h);
   for (let i = 0, p = 0; i < ink.length; i++, p += 4) {
     const lum = (img[p] * 299 + img[p + 1] * 587 + img[p + 2] * 114) / 1000;
     if (lum < INK) ink[i] = 1;
   }
+  if (thin > 0) ink = openMask(ink, w, h, thin);
   const barrier = DILATE > 0 ? dilate(ink, w, h, DILATE) : ink;
   const sx = Math.round(seed.x);
   const sy = Math.round(seed.y);
@@ -108,6 +123,26 @@ function fillAndTrace(
   const grown = DILATE > 0 ? dilateWithin(region, ink, w, h, DILATE) : region;
   const contour = traceOuter(grown, w, h, minX, minY, maxX + DILATE, maxY + DILATE);
   return contour ? { contour, touchesBorder } : null;
+}
+
+/** Morphological opening: strokes thinner than 2r + 1 pixels vanish, thicker ones keep their shape. */
+export function openMask(src: Uint8Array, w: number, h: number, r: number): Uint8Array {
+  const eroded = new Uint8Array(w * h);
+  for (let y = r; y < h - r; y++) {
+    for (let x = r; x < w - r; x++) {
+      let all = 1;
+      for (let dy = -r; dy <= r && all; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (!src[(y + dy) * w + x + dx]) {
+            all = 0;
+            break;
+          }
+        }
+      }
+      eroded[y * w + x] = all;
+    }
+  }
+  return dilate(eroded, w, h, r);
 }
 
 function dilate(src: Uint8Array, w: number, h: number, r: number): Uint8Array {

@@ -20,6 +20,7 @@ import {
 } from "../units";
 import {
   DRAWING_SCHEMA,
+  IGNORE_HATCH_SCHEMA,
   num,
   oneOf,
   optBool,
@@ -50,6 +51,8 @@ import { resolvePage } from "./target";
 import { type AgentTool, json, r1, ToolError } from "./toolTypes";
 
 const KINDS = ["count", "linear", "area"] as const;
+/** Catalog materials that price a whole system or set rather than one unit. */
+const PACKAGE = /\bconjunto\b|\bsistema\b/;
 
 /**
  * Apply an edit to the takeoff as it is at this moment, provided it still holds the drawing the
@@ -161,7 +164,7 @@ const createItem: AgentTool = {
   name: "create_item",
   title: "Criar item do orçamento",
   description:
-    'The budget line a material is measured on; returns its id for add_markings. Pass the exact name of a search_catalog result to link the line to the company material and take its price and unit (then kind is not needed). Every line goes on a discipline (budget tab), one per system on the drawing: exhaust, outside air, stair pressurisation, fire detection, AC... Never leave different systems on one tab. For something the catalog does not carry, pass a descriptive name, its kind ("count" pieces, "linear" a length, "area") and why_not_catalog; when the catalog has similar materials you are shown them first, because the brand or model on a drawing is usually only a reference and the company\'s equivalent is what goes in the budget. Calling it again with the same name returns the existing line, so it is safe to repeat.',
+    'The budget line a material is measured on; returns its id for add_markings. Pass the exact name of a search_catalog result to link the line to the company material and take its price and unit (then kind is not needed). Every line goes on a discipline (budget tab), one per system on the drawing: exhaust, outside air, stair pressurisation, fire detection, AC... Never leave different systems on one tab. For something the catalog does not carry, pass a descriptive name, its kind ("count" pieces, "linear" a length, "area") and why_not_catalog; when the catalog has similar materials you are shown them first. A catalog material is an equivalent only when it does the same job at the same size: for materials and accessories the brand on a drawing is usually a reference, but equipment follows its schedule (same type and capacity), and a package that prices a whole system ("conjunto", "sistema") never stands for the units of a schedule; it needs package_ok. Calling it again with the same name returns the existing line, so it is safe to repeat.',
   inputSchema: {
     type: "object",
     properties: {
@@ -182,6 +185,11 @@ const createItem: AgentTool = {
       discipline: {
         type: "string",
         description: `Budget tab the line goes on: ${DISCIPLINE_SUGGESTIONS.map((d) => `"${d}"`).join(", ")}, or a tab the takeoff already has. Needed unless the catalog material carries one or the takeoff is a single system.`,
+      },
+      package_ok: {
+        type: "boolean",
+        description:
+          'Only for a catalog material that prices a whole system or set ("conjunto", "sistema"): true when the drawing\'s scope is that whole package, not single units of a schedule.',
       },
       why_not_catalog: {
         type: "string",
@@ -215,6 +223,11 @@ const createItem: AgentTool = {
         );
       }
     }
+    if (entry && PACKAGE.test(foldName(entry.name)) && optBool(args, "package_ok") !== true) {
+      throw new ToolError(
+        `"${entry.name}" prices a whole system or set, not one unit. It stands for the units of a schedule only when the drawing's scope is that very package (same maker, same system); equipment follows its schedule. If the schedule lists units this catalog does not carry, create an off-catalog line named after the schedule's model, with why_not_catalog. If the package really is the scope, call again with package_ok: true.`,
+      );
+    }
     const system = disciplineFor(project, optStr(args, "discipline"), entry, existing);
     if (system === null) {
       throw new ToolError(
@@ -228,7 +241,18 @@ const createItem: AgentTool = {
       system,
     });
     if (!found) throw new ToolError(`"${name}" could not be created.`);
-    ctx.commit(() => found.project);
+    const why = optStr(args, "why_not_catalog")?.trim();
+    const reason = found.created && !found.fromCatalog && why ? why : undefined;
+    ctx.commit(() =>
+      reason
+        ? {
+            ...found.project,
+            items: found.project.items.map((i) =>
+              i.id === found.item.id ? { ...i, offCatalogReason: reason } : i,
+            ),
+          }
+        : found.project,
+    );
     if (found.created) ctx.notify(`IA: item criado: ${found.item.name}`);
     return json({
       item_id: found.item.id,
@@ -246,7 +270,7 @@ const createLocation: AgentTool = {
   name: "create_location",
   title: "Marcar ambiente",
   description:
-    "Mark a location (ambiente, pavimento, zona) on a page; measurements inside it are grouped under it in the budget. Give its name as written on the drawing and either point (a position on blank paper inside the room: the app traces the room's outline from the drawn walls, the precise way) or polygon (your own outline, for a space that does not close, such as an open plan or a room with an open door). The same name on another page or drawing joins the same location. repeat multiplies what is measured inside (20 identical apartments drawn once). It is created as a suggestion for the user to review.",
+    "Mark a location (ambiente, pavimento, zona) on a page; measurements inside it are grouped under it in the budget. Give its name as written on the drawing and either point (a position on blank paper inside the room: the app traces the room's outline from the drawn walls, the precise way; add ignore_hatch when ceiling hatch or text splits the room) or polygon (your own outline, for a space that does not close, such as an open plan or a room with an open door). The same name on another page or drawing joins the same location. repeat multiplies what is measured inside (20 identical apartments drawn once). It is created as a suggestion for the user to review.",
   inputSchema: {
     type: "object",
     properties: {
@@ -254,6 +278,7 @@ const createLocation: AgentTool = {
       drawing: DRAWING_SCHEMA,
       page: PAGE_SCHEMA,
       point: { ...POINT_SCHEMA, description: "A point inside the room, on blank paper." },
+      ignore_hatch: IGNORE_HATCH_SCHEMA,
       polygon: {
         type: "array",
         items: POINT_SCHEMA,
@@ -277,7 +302,9 @@ const createLocation: AgentTool = {
     let outline = given;
     if (!outline) {
       if (args.point === undefined) throw new ToolError('Pass either "point" or "polygon".');
-      const room = await target.doc.detectRoom(target.page, point(args, "point"));
+      const room = await target.doc.detectRoom(target.page, point(args, "point"), {
+        ignoreThin: optBool(args, "ignore_hatch") ?? false,
+      });
       if (!room) {
         throw new ToolError(
           "No enclosed space at that point: it is on a line or off the page. Pick a point on blank paper inside the room, or pass a polygon.",

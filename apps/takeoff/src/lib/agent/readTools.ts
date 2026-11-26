@@ -14,6 +14,7 @@ import { locationOf, regionsOf } from "../types";
 import type { PageScale } from "../units";
 import {
   DRAWING_SCHEMA,
+  IGNORE_HATCH_SCHEMA,
   optBool,
   optNum,
   optRect,
@@ -26,7 +27,7 @@ import {
   rect,
 } from "./args";
 import { rankCatalog } from "./catalogMatch";
-import { RUN_REACH_M, reviewCoverage } from "./coverage";
+import { reviewTakeoff } from "./reviewTool";
 import { resolvePage } from "./target";
 import { type AgentTool, json, r1, ToolError, type ToolResult } from "./toolTypes";
 import { clampRegion, DEFAULT_VIEW_PX, MAX_VIEW_PX, MIN_VIEW_PX } from "./viewMath";
@@ -191,6 +192,7 @@ const viewPage: AgentTool = {
       grid: optBool(args, "grid") ?? true,
       markings: optBool(args, "markings") ?? true,
     });
+    ctx.seen.record(drawing.id, page, view.region, view.pxPerPt);
     return {
       content: [
         { type: "image", data: view.png, mimeType: "image/png" },
@@ -283,14 +285,21 @@ const detectRoom: AgentTool = {
     "The outline of the enclosed space around a point: the app fills the blank area between the drawn lines and traces its boundary, so the precision comes from the drawing and not from your estimate. Give a point clearly inside the room, on blank paper (not on a line, a hatch or a text). unbounded true means the fill leaked (an open door, an open plan, a missing wall): the outline is then not the room. To create the location directly, pass the same point to create_location.",
   inputSchema: {
     type: "object",
-    properties: { drawing: DRAWING_SCHEMA, page: PAGE_SCHEMA, point: POINT_SCHEMA },
+    properties: {
+      drawing: DRAWING_SCHEMA,
+      page: PAGE_SCHEMA,
+      point: POINT_SCHEMA,
+      ignore_hatch: IGNORE_HATCH_SCHEMA,
+    },
     required: ["point"],
   },
   readOnly: true,
   async run(args, ctx) {
     const { drawing, doc, page } = await resolvePage(args, ctx);
     const seed = point(args, "point");
-    const room = await doc.detectRoom(page, seed);
+    const room = await doc.detectRoom(page, seed, {
+      ignoreThin: optBool(args, "ignore_hatch") ?? false,
+    });
     if (!room) {
       throw new ToolError(
         "No enclosed space at that point: it is on a line or off the page. Pick a point on blank paper inside the room.",
@@ -406,7 +415,7 @@ const searchCatalogTool: AgentTool = {
   name: "search_catalog",
   title: "Buscar no catálogo",
   description:
-    'Search the company\'s material catalog (names in Portuguese: "grelha", "tubo de cobre 1/4", "exaustor"). Results with every word of the query come first (match "all"); then materials sharing only some words (match "2/4 words"...), which are often the equivalent you need. Brands and models on drawings are usually references ("fabricante e modelo de referência"), not what the company buys: search by function and size ("hi-wall 9.000", "condensadora", "vrf", "grelha 400x400"), not by brand or model code. Use the exact name of a result in create_item so the budget line is linked to the company material and priced from it.',
+    'Search the company\'s material catalog (names in Portuguese: "grelha", "tubo de cobre 1/4", "exaustor"). Results with every word of the query come first (match "all"); then materials sharing only some words (match "2/4 words"...), which are often the equivalent you need. For materials and accessories the brand on a drawing is usually a reference ("fabricante e modelo de referência"): search by function and size ("grelha 400x400", "duto flexível 100", "hi-wall 9.000"), not by brand or model code. Equipment follows its schedule: a match must be the same type and capacity, and a package of a whole system ("conjunto", "sistema") is not an equivalent of the units of a schedule. Use the exact name of a result in create_item so the budget line is linked to the company material and priced from it.',
   inputSchema: {
     type: "object",
     properties: {
@@ -475,17 +484,6 @@ const listKits: AgentTool = {
         components: k.components.map((c) => ({ name: c.name, kind: c.kind, factor: c.factor })),
       })),
     });
-  },
-};
-
-const reviewTakeoff: AgentTool = {
-  name: "review_takeoff",
-  title: "Revisar o levantamento",
-  description: `Check the takeoff for what first passes usually leave out, before you report: equipment with no run measured within ${RUN_REACH_M} m (refrigerant lines, drains and ducts are part of the takeoff, not extras), lines off the catalog while it has similar materials, lines on no discipline tab, and lengths on pages without a scale. Also the totals per discipline (lines, pieces, length). Fix every gap or explain it in your report.`,
-  inputSchema: { type: "object", properties: {} },
-  readOnly: true,
-  async run(_args, ctx) {
-    return json(reviewCoverage(ctx.project(), mergeCatalog(ctx.catalog())));
   },
 };
 
