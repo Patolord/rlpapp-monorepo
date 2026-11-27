@@ -40,6 +40,10 @@ export async function magicArea(
   opts: MagicOptions = {},
 ): Promise<MagicResult | null> {
   const scales = [2, 1, 0.5, 0.25];
+  // the outline found at a finer scale that leaked out of its window: when a coarser scale then
+  // finds nothing (the seed sits in hatch the finer pass ignored), the honest answer is "this
+  // space does not close", not "no space here"
+  let leaked: MagicResult | null = null;
   for (const scale of scales) {
     const half = WINDOW_PX / scale / 2;
     const rect: Rect = {
@@ -56,18 +60,19 @@ export async function magicArea(
       { x: (seed.x - rect.x) * scale, y: (seed.y - rect.y) * scale },
       opts.ignoreThin && scale >= 1 ? THIN_PX : 0,
     );
-    if (!result) return null;
+    if (!result) return leaked;
+    const polygon = simplify(
+      result.contour.map((p) => ({ x: rect.x + p.x / scale, y: rect.y + p.y / scale })),
+      1.2 / scale,
+    );
     const coversPage = rect.x <= 0 && rect.y <= 0 && rect.w >= pageSize.w && rect.h >= pageSize.h;
     if (!result.touchesBorder || coversPage || scale === scales[scales.length - 1]) {
-      const polygon = simplify(
-        result.contour.map((p) => ({ x: rect.x + p.x / scale, y: rect.y + p.y / scale })),
-        1.2 / scale,
-      );
-      if (polygon.length < 3) return null;
+      if (polygon.length < 3) return leaked;
       return { polygon, unbounded: result.touchesBorder };
     }
+    if (polygon.length >= 3) leaked = { polygon, unbounded: true };
   }
-  return null;
+  return leaked;
 }
 
 function fillAndTrace(

@@ -842,7 +842,9 @@ export function parseRemoteVrfBrands(json: unknown): VrfBrand[] | null {
   return brands;
 }
 
-const LS_KEY = "takeoff.catalog";
+/** Where the catalog store lives outside Tauri (browser dev mode). */
+export const CATALOG_STORAGE_KEY = "takeoff.catalog";
+const LS_KEY = CATALOG_STORAGE_KEY;
 
 export async function loadCatalogStore(): Promise<CatalogStore> {
   try {

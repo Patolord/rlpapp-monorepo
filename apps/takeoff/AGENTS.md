@@ -19,6 +19,13 @@ pnpm -F takeoff dev                # browser only, http://localhost:1420 (file d
 Browser mode accepts `?pdf=<absolute path>` to load a drawing. `.claude/launch.json` here
 starts that Vite server on 1420 (or 1425). The app needs no Doppler secrets.
 
+To drive the AI agent yourself (no native window, no one turning it on): open browser mode with
+`?pdf=` and call the tools with `POST http://localhost:1420/mcp` (no token; one tab only). Vite
+serves files only from inside the repo, so copy client PDFs into `samples/` (gitignored: client
+drawings are confidential). The browser cannot sign in, so it has no company catalog: add
+`&catalog=<absolute path>` with a copy of the installed app's
+`~/Library/Application Support/com.rlp.takeoff/catalog.json`, also kept in `samples/`.
+
 ## Checks
 
 Run all of these before a PR that touches the app:
