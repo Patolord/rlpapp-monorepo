@@ -104,6 +104,33 @@ export const takeoffDuctNorma = v.object({
   supportsPct: v.number(),
 });
 
+export const takeoffAgentEffort = v.union(
+  v.literal("low"),
+  v.literal("medium"),
+  v.literal("high")
+);
+
+export const takeoffAgentRunStatus = v.union(
+  v.literal("running"),
+  v.literal("completed"),
+  v.literal("aborted"),
+  v.literal("error")
+);
+
+export const takeoffAgentCallStatus = v.union(
+  v.literal("ok"),
+  v.literal("aborted"),
+  v.literal("error")
+);
+
+export const takeoffAgentReviewStats = v.object({
+  pending: v.number(),
+  accepted: v.number(),
+  edited: v.number(),
+  rejected: v.number(),
+  updatedAt: v.number(),
+});
+
 export const takeoffKitComponent = v.object({
   /** Nome no catálogo do app (produto da empresa ou material das planilhas). */
   name: v.string(),
@@ -393,6 +420,23 @@ export const procurementTables = {
         normas: v.array(takeoffDuctNorma),
         updatedAt: v.number(),
         updatedByUserId: v.optional(v.id("users")),
+      }),
+      // Agente de IA integrado do RLP Takeoff: modelo, esforço, chave liga/desliga,
+      // orçamentos mensais (empresa e por usuário), limites por execução e versão
+      // do prompt. Editado em App Takeoff → IA no dashboard.
+      v.object({
+        kind: v.literal("agent"),
+        enabled: v.boolean(),
+        model: v.string(),
+        effort: takeoffAgentEffort,
+        monthlyCompanyBudgetUsdCents: v.number(),
+        monthlyUserBudgetUsdCents: v.number(),
+        maxTurnsPerRun: v.number(),
+        maxTokensPerTurn: v.number(),
+        promptVersion: v.string(),
+        instructionsExtra: v.optional(v.string()),
+        updatedAt: v.number(),
+        updatedByUserId: v.optional(v.id("users")),
       })
     )
   ).index("by_kind", ["kind"]),
@@ -435,6 +479,62 @@ export const procurementTables = {
     approvedAt: v.optional(v.number()),
     approvedByUserId: v.optional(v.id("users")),
   }),
+  // Execuções do agente de IA integrado do RLP Takeoff (um registro por envio
+  // do usuário no painel de chat). Guarda totais de tokens/custo em micro-USD e
+  // o retorno da revisão humana (`reviewStats`) para medir custo × acerto.
+  takeoffAgentRuns: defineTable({
+    userId: v.id("users"),
+    /** Mês em Brasília ("AAAA-MM") para totalizar os orçamentos mensais. */
+    month: v.string(),
+    takeoffExternalId: v.optional(v.string()),
+    takeoffName: v.optional(v.string()),
+    model: v.string(),
+    effort: takeoffAgentEffort,
+    promptVersion: v.string(),
+    status: takeoffAgentRunStatus,
+    turns: v.number(),
+    inputTokens: v.number(),
+    outputTokens: v.number(),
+    cacheReadTokens: v.number(),
+    cacheCreationTokens: v.number(),
+    /** Custo acumulado em micro-USD (1 USD = 1_000_000). */
+    costMicroUsd: v.number(),
+    /** Chamadas em andamento nesta execução (trava de concorrência do proxy). */
+    inFlightCalls: v.number(),
+    reviewStats: v.optional(takeoffAgentReviewStats),
+    errorMessage: v.optional(v.string()),
+    startedAt: v.number(),
+    updatedAt: v.number(),
+    endedAt: v.optional(v.number()),
+  })
+    .index("by_month_startedAt", ["month", "startedAt"])
+    .index("by_user_month", ["userId", "month"])
+    .index("by_takeoff_external", ["takeoffExternalId", "startedAt"]),
+  // Chamadas individuais ao modelo dentro de uma execução (`takeoffAgentRuns`),
+  // gravadas pelo proxy HTTP ao fim de cada stream (inclusive aborto ou erro).
+  takeoffAgentCalls: defineTable({
+    runId: v.id("takeoffAgentRuns"),
+    userId: v.id("users"),
+    month: v.string(),
+    turn: v.number(),
+    model: v.string(),
+    inputTokens: v.number(),
+    outputTokens: v.number(),
+    cacheReadTokens: v.number(),
+    cacheCreationTokens: v.number(),
+    costMicroUsd: v.number(),
+    requestBytes: v.number(),
+    imageCount: v.number(),
+    toolsCalled: v.array(v.string()),
+    durationMs: v.number(),
+    status: takeoffAgentCallStatus,
+    stopReason: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_run", ["runId", "turn"])
+    .index("by_month", ["month", "createdAt"])
+    .index("by_user_month", ["userId", "month"]),
   takeoffs: defineTable({
     projectId: v.optional(v.id("projects")),
     name: v.string(),

@@ -95,6 +95,7 @@ const HR: Permission[] = [
 ];
 const TAKEOFF: Permission[] = [
   "takeoff.use",
+  "takeoff.agente",
   "suprimentos.read",
   "orcamentos.quadro.read",
   "orcamentos.quadro.write",
