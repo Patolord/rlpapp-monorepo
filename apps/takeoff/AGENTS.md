@@ -19,6 +19,13 @@ pnpm -F takeoff dev                # browser only, http://localhost:1420 (file d
 Browser mode accepts `?pdf=<absolute path>` to load a drawing. `.claude/launch.json` here
 starts that Vite server on 1420 (or 1425). The app needs no Doppler secrets.
 
+To drive the AI agent yourself (no native window, no one turning it on): open browser mode with
+`?pdf=` and call the tools with `POST http://localhost:1420/mcp` (no token; one tab only). Vite
+serves files only from inside the repo, so copy client PDFs into `samples/` (gitignored: client
+drawings are confidential). The browser cannot sign in, so it has no company catalog: add
+`&catalog=<absolute path>` with a copy of the installed app's
+`~/Library/Application Support/com.rlp.takeoff/catalog.json`, also kept in `samples/`.
+
 ## Checks
 
 Run all of these before a PR that touches the app:
@@ -39,7 +46,9 @@ cargo clippy --locked -- -D warnings
 ```
 
 This app uses Biome, not ESLint, unlike the rest of the monorepo. `pnpm -F takeoff inspect <pdf>`
-and `pnpm -F takeoff bench <pdf>` help with PDF performance work.
+and `pnpm -F takeoff bench <pdf>` help with PDF performance work; `pnpm -F takeoff eval` scores
+an agent's takeoff against a reference and `pnpm -F takeoff sample-plan` writes a made-up plan
+to try it on.
 
 ## Release
 
@@ -76,8 +85,20 @@ Full tree in the README's "Layout" section. Where to start:
 - `src/lib/report/`: cutout report PDF (pure planning in `plan.ts`/`pages.ts`, writing in
   `write.ts` with pdf-lib); preview in `src/lib/reportPreview.ts`.
 - `src/lib/pdf/`: page rendering, vector snap index (Web Worker), magic area, text, symbol search.
+- `src/lib/agent/`: the AI agent's side of the app (README "Agente de IA"). `protocol.ts` is the
+  MCP server (JSON-RPC over one HTTP POST per message), `readTools.ts` / `writeTools.ts` /
+  `memoryTools.ts` the tools, `edits.ts` the pure project edits they make, `context.ts` what
+  they need from the app (`appContext.ts` in the running app, `testContext.ts` in tests),
+  `bridge.ts` the transport. Its memory is the company's: stored by the backend
+  (`takeoffAgentMemory.*`, called as the signed-in user from `store/agentMemory.ts`) and only
+  cached on the machine. Everything the agent draws is `ai: "suggested"` and reviewed through
+  `lib/aiReview.ts`; a new tool is a definition in one of the tool files plus a test in
+  `tools.test.ts`, and its description is what the model reads, so write it for the model.
+- `src/lib/eval/`: the takeoff comparison behind `pnpm eval` (reference vs the agent's candidate).
 - `src-tauri/src/lib.rs`: Rust commands for file IO, autosave and catalog paths, HTTP to the
-  company app (no CORS) and the Excel export (rust_xlsxwriter).
+  company app (no CORS) and the Excel export (rust_xlsxwriter). `agent.rs` is the loopback HTTP
+  listener AI agents connect to: it checks the token and the request's origin and hands the body
+  to the frontend; keep the protocol out of it.
 - The company catalog comes from the backend only as the signed-in user (`src/lib/account/`:
   `takeoffCatalog.current`, proposals through `takeoffMaterials.proposeAsUser`), cached locally for
   offline use; there is no shared catalog token any more. Signed in, the app also sends the

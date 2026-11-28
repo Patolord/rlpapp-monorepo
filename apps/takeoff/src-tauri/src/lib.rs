@@ -1,11 +1,12 @@
+mod agent;
 mod auth;
 mod installation;
 mod keychain;
 
 use rust_xlsxwriter::{Color, Format, FormatAlign, FormatBorder, Formula, Workbook, Worksheet};
 use serde::{Deserialize, Serialize};
-use tauri::Manager;
 use tauri::ipc::Response;
+use tauri::{Emitter, Manager};
 
 /// Read a file as raw bytes (returned as a binary IPC response, no base64/JSON overhead).
 #[tauri::command]
@@ -184,6 +185,152 @@ fn device_name() -> Option<String> {
         .find_map(|key| std::env::var(key).ok())
         .map(|name| name.trim().to_string())
         .filter(|name| !name.is_empty())
+}
+
+// ---------------------------------------------------------------------------
+// Local endpoint for AI agents (see src/agent.rs and src/lib/agent in the frontend)
+// ---------------------------------------------------------------------------
+
+/// How long the frontend may take to answer one request (a tool call can render a large sheet).
+const AGENT_REPLY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(300);
+
+type AgentPending = std::sync::Arc<
+    std::sync::Mutex<std::collections::HashMap<u64, std::sync::mpsc::Sender<agent::Reply>>>,
+>;
+
+struct AgentRunning {
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    thread: std::thread::JoinHandle<()>,
+}
+
+/// The listener while the agent is on, and the requests waiting for the frontend's reply.
+#[derive(Default)]
+struct AgentServer {
+    running: std::sync::Mutex<Option<AgentRunning>>,
+    pending: AgentPending,
+    next_id: std::sync::Arc<std::sync::atomic::AtomicU64>,
+}
+
+impl AgentServer {
+    /// Stop the listener and wait for its thread, so its port is free when this returns.
+    /// Requests still waiting for the frontend are let go at once (it is no longer listening):
+    /// dropping their senders wakes them, instead of leaving them to time out.
+    fn stop(&self) {
+        let running = self.running.lock().ok().and_then(|mut r| r.take());
+        if let Some(running) = running {
+            running
+                .stop
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+            let _ = running.thread.join();
+        }
+        if let Ok(mut waiting) = self.pending.lock() {
+            waiting.clear();
+        }
+    }
+}
+
+#[derive(Clone, Serialize)]
+struct AgentRequest {
+    id: u64,
+    body: String,
+}
+
+/// Start (or restart) the agent endpoint on 127.0.0.1:`port`; returns the bound port.
+#[tauri::command]
+fn agent_server_start(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AgentServer>,
+    port: u16,
+    token: String,
+) -> Result<u16, String> {
+    if !agent::is_valid_token(&token) {
+        return Err("token do agente inválido".into());
+    }
+    state.stop();
+    let (port, listener) = agent::listen(port).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::AddrInUse {
+            format!("a porta {port} já está em uso por outro programa; escolha outra")
+        } else {
+            format!("não foi possível abrir a porta {port}: {e}")
+        }
+    })?;
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let pending = state.pending.clone();
+    let next_id = state.next_id.clone();
+    // hand the body to the frontend as an event and wait for `agent_respond`
+    let forward: std::sync::Arc<agent::Forward> = std::sync::Arc::new(move |body| {
+        let id = next_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let (tx, rx) = std::sync::mpsc::channel();
+        if let Ok(mut waiting) = pending.lock() {
+            waiting.insert(id, tx);
+        }
+        let reply = match app.emit("agent-request", AgentRequest { id, body }) {
+            Ok(()) => rx
+                .recv_timeout(AGENT_REPLY_TIMEOUT)
+                .unwrap_or_else(|e| match e {
+                    std::sync::mpsc::RecvTimeoutError::Timeout => {
+                        agent::Reply::error(504, "the app did not answer in time")
+                    }
+                    // the agent was turned off (or restarted) while this request waited
+                    std::sync::mpsc::RecvTimeoutError::Disconnected => {
+                        agent::Reply::error(503, "the agent endpoint was turned off")
+                    }
+                }),
+            Err(_) => agent::Reply::error(500, "the app window is not available"),
+        };
+        if let Ok(mut waiting) = pending.lock() {
+            waiting.remove(&id);
+        }
+        reply
+    });
+    let thread = {
+        let stop = stop.clone();
+        std::thread::spawn(move || agent::serve(listener, port, token, stop, forward))
+    };
+    *state.running.lock().map_err(|e| e.to_string())? = Some(AgentRunning { stop, thread });
+    Ok(port)
+}
+
+#[tauri::command]
+fn agent_server_stop(state: tauri::State<'_, AgentServer>) {
+    state.stop();
+}
+
+/// The frontend's answer to the `agent-request` event with this id.
+#[tauri::command]
+fn agent_respond(state: tauri::State<'_, AgentServer>, id: u64, status: u16, body: String) {
+    let waiting = state.pending.lock().ok().and_then(|mut w| w.remove(&id));
+    if let Some(tx) = waiting {
+        let _ = tx.send(agent::Reply { status, body });
+    }
+}
+
+/// The agent endpoint's token: the stored one, or `candidate` (generated by the frontend)
+/// stored on first use.
+#[tauri::command]
+fn agent_token(candidate: String) -> Result<String, String> {
+    if !agent::is_valid_token(&candidate) {
+        return Err("token do agente inválido".into());
+    }
+    keychain::agent_token(&candidate)
+}
+
+/// Replace the agent endpoint's token with a fresh one; returns it.
+#[tauri::command]
+fn agent_token_reset(candidate: String) -> Result<String, String> {
+    if !agent::is_valid_token(&candidate) {
+        return Err("token do agente inválido".into());
+    }
+    keychain::agent_token_replace(&candidate)?;
+    Ok(candidate)
+}
+
+/// Location of the agent's memory (see src/lib/agent/memory.ts) inside the app data directory.
+#[tauri::command]
+fn agent_memory_path(app: tauri::AppHandle) -> Result<String, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("agent-memory.json").to_string_lossy().into_owned())
 }
 
 // ---------------------------------------------------------------------------
@@ -1219,6 +1366,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .manage(AuthLogin::default())
+        .manage(AgentServer::default())
         .invoke_handler(tauri::generate_handler![
             read_file,
             read_text,
@@ -1236,7 +1384,13 @@ pub fn run() {
             device_token_set,
             device_token_delete,
             device_name,
-            installation_id
+            installation_id,
+            agent_server_start,
+            agent_server_stop,
+            agent_respond,
+            agent_token,
+            agent_token_reset,
+            agent_memory_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

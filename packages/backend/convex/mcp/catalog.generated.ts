@@ -2,7 +2,7 @@
 // Regenere com `pnpm --filter @rlpapp/backend generate:catalog`
 // (também roda antes de `convex dev` / `convex deploy`).
 //
-// 52 módulos, 402 funções públicas.
+// 53 módulos, 406 funções públicas.
 import * as m0 from "../agentTokens";
 import * as m1 from "../aiChat";
 import * as m2 from "../aiIntents";
@@ -42,19 +42,20 @@ import * as m35 from "../reports";
 import * as m36 from "../sharepoint";
 import * as m37 from "../suppliers";
 import * as m38 from "../systems";
-import * as m39 from "../takeoffAuth";
-import * as m40 from "../takeoffCatalog";
-import * as m41 from "../takeoffEstimates";
-import * as m42 from "../takeoffKits";
-import * as m43 from "../takeoffMaterials";
-import * as m44 from "../takeoffSettings";
-import * as m45 from "../takeoffs";
-import * as m46 from "../technicianActivity";
-import * as m47 from "../technicianPortal";
-import * as m48 from "../timeClock";
-import * as m49 from "../timeClockPunch";
-import * as m50 from "../towers";
-import * as m51 from "../users";
+import * as m39 from "../takeoffAgentMemory";
+import * as m40 from "../takeoffAuth";
+import * as m41 from "../takeoffCatalog";
+import * as m42 from "../takeoffEstimates";
+import * as m43 from "../takeoffKits";
+import * as m44 from "../takeoffMaterials";
+import * as m45 from "../takeoffSettings";
+import * as m46 from "../takeoffs";
+import * as m47 from "../technicianActivity";
+import * as m48 from "../technicianPortal";
+import * as m49 from "../timeClock";
+import * as m50 from "../timeClockPunch";
+import * as m51 from "../towers";
+import * as m52 from "../users";
 
 export type AccessHint =
   | { kind: "public" }
@@ -104,19 +105,20 @@ export const MODULES: Record<string, Record<string, unknown>> = {
   sharepoint: m36,
   suppliers: m37,
   systems: m38,
-  takeoffAuth: m39,
-  takeoffCatalog: m40,
-  takeoffEstimates: m41,
-  takeoffKits: m42,
-  takeoffMaterials: m43,
-  takeoffSettings: m44,
-  takeoffs: m45,
-  technicianActivity: m46,
-  technicianPortal: m47,
-  timeClock: m48,
-  timeClockPunch: m49,
-  towers: m50,
-  users: m51,
+  takeoffAgentMemory: m39,
+  takeoffAuth: m40,
+  takeoffCatalog: m41,
+  takeoffEstimates: m42,
+  takeoffKits: m43,
+  takeoffMaterials: m44,
+  takeoffSettings: m45,
+  takeoffs: m46,
+  technicianActivity: m47,
+  technicianPortal: m48,
+  timeClock: m49,
+  timeClockPunch: m50,
+  towers: m51,
+  users: m52,
 };
 
 export const ACCESS_HINTS: Record<string, AccessHint> = {
@@ -438,6 +440,10 @@ export const ACCESS_HINTS: Record<string, AccessHint> = {
   "systems:listSystemsByProject": { kind: "permission", permission: "obras.read" },
   "systems:removeSystemFromProject": { kind: "permission", permission: "obras.write" },
   "systems:updateSystemDetails": { kind: "permission", permission: "obras.write" },
+  "takeoffAgentMemory:add": { kind: "permission", permission: "takeoff.use" },
+  "takeoffAgentMemory:approve": { kind: "permission", permission: "takeoff.use" },
+  "takeoffAgentMemory:list": { kind: "permission", permission: "takeoff.use" },
+  "takeoffAgentMemory:remove": { kind: "permission", permission: "takeoff.use" },
   "takeoffAuth:createCode": { kind: "public" },
   "takeoffCatalog:current": { kind: "permission", permission: "suprimentos.read" },
   "takeoffEstimates:bathroomExhaust": { kind: "permission", permission: "suprimentos.read" },

@@ -1,6 +1,7 @@
 import { FLANGE_LABELS, INSULATION_LABELS } from "@rlpapp/shared/engenharia/ducts";
 import {
   ArrowUpFromLine,
+  BookmarkPlus,
   Copy,
   CopyPlus,
   Layers,
@@ -29,6 +30,7 @@ import { Button } from "./ui";
  */
 export function SelectionBar() {
   const selection = useStore((s) => s.selection);
+  const memorySaving = useStore((s) => s.agentMemorySync.saving);
   const project = useStore((s) => s.project);
   const {
     removeMeasurements,
@@ -40,6 +42,7 @@ export function SelectionBar() {
     setVrfEditIds,
     copySelection,
     duplicateSelection,
+    rememberSymbol,
   } = useStore.getState();
   const info = useMemo(() => {
     const sel = new Set(selection);
@@ -235,6 +238,15 @@ export function SelectionBar() {
           title="Desagrupar: as medições passam a ser independentes (ficam sobrepostas)"
         >
           <Link2Off size={14} /> Desagrupar
+        </Button>
+      )}
+      {selected.length === 1 && items.get(selected[0].itemId)?.kind === "count" && (
+        <Button
+          disabled={memorySaving}
+          onClick={() => void rememberSymbol(selected[0].id)}
+          title="Guarda o desenho em volta desta marca na memória da IA da empresa, como exemplo do símbolo deste item nas próximas plantas de todos"
+        >
+          <BookmarkPlus size={14} /> Lembrar símbolo
         </Button>
       )}
       <Button

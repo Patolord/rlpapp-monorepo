@@ -18,7 +18,14 @@ import {
 } from "../lib/geom";
 import { kitMode } from "../lib/kits";
 import { carriersLast, labelCarriers, markingOpts } from "../lib/markingShapes";
-import { drawHandles, drawLabel, drawMeasurement, drawZone, type HandleRef } from "../lib/overlay";
+import {
+  drawAiBadge,
+  drawHandles,
+  drawLabel,
+  drawMeasurement,
+  drawZone,
+  type HandleRef,
+} from "../lib/overlay";
 import { magicArea } from "../lib/pdf/magic";
 import { isCancelled, type Rect, type Rendered } from "../lib/pdf/render";
 import { type TextBox, textLinesIn, textNear } from "../lib/pdf/text";
@@ -659,12 +666,15 @@ export function Viewer() {
         // hidden locations (globally or individually) still show while selected or filtered
         if ((!zonesVisible || z.hidden) && !isSel) continue;
         ctx.globalAlpha = isSel ? 1 : zoneOpacity;
+        // an AI suggestion still waiting for review is dashed and tagged "IA"
+        const pendingAi = z.ai === "suggested";
         drawZone(ctx, v, pts, locationOf(project, z.locationId) ?? null, scale, {
           selected: isSel,
           hover: s.hoverId === z.id,
-          dashed: false,
+          dashed: pendingAi,
           fillAlpha: fillK,
         });
+        if (pendingAi && pts.length > 0) drawAiBadge(ctx, v, pts[0]);
         ctx.globalAlpha = 1;
       }
       if (store.pendingZone && store.pendingZone.page === p) {
@@ -695,14 +705,17 @@ export function Viewer() {
         const outside =
           zoneFilter !== null && (zoneOf(project, m, item.kind)?.locationId ?? "") !== zoneFilter;
         if (outside) ctx.globalAlpha = 0.18;
+        const pendingAi = m.ai === "suggested";
         drawMeasurement(ctx, v, pts, item.kind, item.color, scale, {
           selected: isSel,
           hover: s.hoverId === m.id,
-          dashed: false,
+          dashed: pendingAi,
           fillAlpha: fillK,
           ...markingOpts(m, item, kits),
           bare: !carriers.has(m.id),
         });
+        // one tag per kit group: its members overlap exactly
+        if (pendingAi && carriers.has(m.id)) drawAiBadge(ctx, v, pts[0]);
         ctx.globalAlpha = 1;
       }
 

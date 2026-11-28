@@ -40,6 +40,10 @@ export interface AccountSlice {
 const signedOut: AccountState = { status: "signedOut", user: null, offline: false, error: null };
 
 export const createAccountSlice: Slice<AccountSlice> = (set, get) => {
+  /** Without the account, the AI agent's memory on screen is the copy kept on this machine. */
+  const memoryFromCache = () => ({
+    agentMemorySync: { ...get().agentMemorySync, source: "cache" as const, error: null },
+  });
   onAccountUser((user) =>
     set((s) =>
       s.account.status === "signedIn" ? { account: { ...s.account, user, offline: false } } : {},
@@ -73,6 +77,8 @@ export const createAccountSlice: Slice<AccountSlice> = (set, get) => {
         await get()
           .refreshCatalog()
           .catch((e) => set({ status: `Falha ao atualizar o catálogo: ${errorMessage(e)}` }));
+        // and so does the AI agent's memory, which is the company's
+        void get().refreshAgentMemory();
       } catch (e) {
         const message = errorMessage(e);
         const cancelled = e instanceof SignInCancelledError || message === "cancelado";
@@ -88,6 +94,7 @@ export const createAccountSlice: Slice<AccountSlice> = (set, get) => {
       try {
         const { revoked } = await signOut();
         set({
+          ...memoryFromCache(),
           account: signedOut,
           status: revoked
             ? "Conta da empresa desconectada deste computador"
@@ -96,7 +103,7 @@ export const createAccountSlice: Slice<AccountSlice> = (set, get) => {
       } catch (e) {
         // the credential is still in the keychain: say so instead of claiming a clean sign-out
         const message = errorMessage(e);
-        set({ account: { ...signedOut, error: message }, status: message });
+        set({ ...memoryFromCache(), account: { ...signedOut, error: message }, status: message });
       }
     },
 
@@ -104,6 +111,7 @@ export const createAccountSlice: Slice<AccountSlice> = (set, get) => {
       if (!(e instanceof SignedOutError)) return false;
       await dropRevokedSession().catch(() => undefined);
       set({
+        ...memoryFromCache(),
         account: { ...signedOut, error: e.message },
         status:
           "Este computador foi desconectado da conta da empresa: entre de novo (Entrar, no topo)",

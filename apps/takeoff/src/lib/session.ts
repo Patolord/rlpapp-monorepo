@@ -382,10 +382,18 @@ export function closePdf(): void {
   useDoc.setState({ name: "", path: null, numPages: 0, sizes: [], error: null });
 }
 
-/** Dev only: outside Tauri, `?pdf=<absolute path>` loads a drawing through Vite's /@fs/ endpoint. */
+/**
+ * Dev only: outside Tauri, `?pdf=<absolute path>` loads a drawing through Vite's /@fs/ endpoint,
+ * and `?catalog=<absolute path>` a copy of the catalog the installed app caches (its
+ * catalog.json, with the company catalog it got signed in). The browser cannot sign in, so this
+ * is how an agent or a test run in the browser gets the real catalog.
+ */
 export async function devAutoOpen(): Promise<void> {
   if (isTauri() || !import.meta.env.DEV) return;
-  const p = new URLSearchParams(window.location.search).get("pdf");
+  const params = new URLSearchParams(window.location.search);
+  const catalog = params.get("catalog");
+  if (catalog && (await devLoadCatalog(catalog))) return;
+  const p = params.get("pdf");
   if (!p) return;
   const res = await fetch(`/@fs/${p.replace(/\\/g, "/")}`);
   if (!res.ok) throw new Error(`${res.status} loading ${p}`);
@@ -396,6 +404,27 @@ export async function devAutoOpen(): Promise<void> {
   const id = store.addDrawing(p, basename(p));
   store.setActiveDrawing(id);
   useStore.getState().ensurePages(useDoc.getState().numPages);
+}
+
+/** Which catalog file the browser store was last seeded from (path and size). */
+const DEV_CATALOG_MARK = "takeoff.devCatalog";
+
+/**
+ * Seed the browser's catalog store from a catalog.json copy and reload so the app starts with
+ * it; true when it reloads. Once seeded from the same file it does nothing, so the app's own
+ * saves of the store do not bring the copy back over them.
+ */
+async function devLoadCatalog(path: string): Promise<boolean> {
+  const res = await fetch(`/@fs/${path.replace(/\\/g, "/")}`);
+  if (!res.ok) throw new Error(`${res.status} loading ${path}`);
+  const text = await res.text();
+  const mark = `${path}|${text.length}`;
+  if (localStorage.getItem(DEV_CATALOG_MARK) === mark) return false;
+  const { CATALOG_STORAGE_KEY } = await import("./catalog");
+  localStorage.setItem(CATALOG_STORAGE_KEY, text);
+  localStorage.setItem(DEV_CATALOG_MARK, mark);
+  window.location.reload();
+  return true;
 }
 
 /** Dev only: add another drawing from an absolute path (browser mode). */

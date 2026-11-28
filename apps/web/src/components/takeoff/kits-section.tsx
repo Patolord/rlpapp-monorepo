@@ -51,6 +51,7 @@ export function KitsSection() {
       name: kit.name,
       mode: kit.mode,
       label: kit.label ?? "",
+      usage: kit.usage ?? "",
       components: kit.components.map((c) => ({ ...c })),
     });
   const duplicate = (kit: KitRow) =>
@@ -58,6 +59,7 @@ export function KitsSection() {
       name: `${kit.name} (cópia)`,
       mode: kit.mode,
       label: kit.label ?? "",
+      usage: kit.usage ?? "",
       components: kit.components.map((c) => ({ ...c })),
     });
   const confirmRemove = async (kit: KitRow) => {
@@ -136,6 +138,12 @@ export function KitsSection() {
                         </Badge>
                       )}
                     </div>
+                    <p
+                      className="max-w-md truncate text-xs font-normal text-muted-foreground"
+                      title={kit.usage ?? "Sem descrição de quando usar este kit"}
+                    >
+                      {kit.usage ?? <span className="italic">Sem “quando usar”</span>}
+                    </p>
                   </TableCell>
                   <TableCell>{kit.mode === "count" ? "Clique" : "Trecho"}</TableCell>
                   <TableCell className="max-w-md truncate text-xs text-muted-foreground" title={summary(kit)}>

@@ -96,6 +96,22 @@ describe("takeoffKits", () => {
     await expect(hr.mutation(api.takeoffKits.save, lineSet)).rejects.toThrow();
   });
 
+  test("keeps when to use a kit, publishes it and clears it when emptied", async () => {
+    const { t, engineering } = await seedUsers();
+    const usage = 'Split 9.000 com linha 1/4" · 3/8"; não usar em VRF.';
+    const id = await engineering.mutation(api.takeoffKits.save, {
+      ...lineSet,
+      usage: `  ${usage} `,
+    });
+    expect((await engineering.query(api.takeoffKits.list, {}))[0].usage).toBe(usage);
+    expect((await t.run((ctx) => listPublishedTakeoffKits(ctx)))[0].usage).toBe(usage);
+    await engineering.mutation(api.takeoffKits.save, { id, ...lineSet, usage: "  " });
+    expect((await engineering.query(api.takeoffKits.list, {}))[0].usage).toBeNull();
+    await expect(
+      engineering.mutation(api.takeoffKits.save, { ...lineSet, usage: "x".repeat(601) })
+    ).rejects.toThrow(/Quando usar/);
+  });
+
   test("a second kit with the same name gets its own key", async () => {
     const { engineering } = await seedUsers();
     await engineering.mutation(api.takeoffKits.save, lineSet);
@@ -117,6 +133,7 @@ describe("takeoffKits", () => {
         name: lineSet.name,
         mode: "linear",
         label: '1/4" · 3/8"',
+        usage: null,
         components: [
           { name: 'Cobre de 1/4"', sku: null, group: "Tubulações", system: "Infra AC", kind: "linear", factor: 1 },
           { name: "Cabo PP 5 x 1,5 mm²", sku: null, group: "Elétrica", system: null, kind: "linear", factor: 2 },

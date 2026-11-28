@@ -6,6 +6,7 @@ import { formatMoney } from "../lib/units";
 import { defaultXlsxOptions, type XlsxExportOptions, xlsxTabs } from "../lib/xlsxExport";
 import { useStore } from "../store";
 import { readPref, writePref } from "../store/shared";
+import { AiPendingNotice } from "./AiReviewBar";
 import { Dialog } from "./Dialog";
 import { Button } from "./ui";
 
@@ -100,6 +101,7 @@ function ExportXlsxForm() {
       className="w-[26rem] text-xs"
       bodyClassName="flex min-h-0 flex-col overflow-y-auto"
     >
+      <AiPendingNotice className="border-b border-neutral-800 px-4 py-2" />
       <section className="space-y-2 border-b border-neutral-800 px-4 py-3">
         <div className="flex items-baseline gap-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-300">

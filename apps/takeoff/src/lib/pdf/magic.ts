@@ -7,6 +7,19 @@ const INK = 170;
 /** Pixels of barrier dilation: closes hairline gaps between wall lines. */
 const DILATE = 1;
 const WINDOW_PX = 1600;
+/**
+ * With ignoreThin: strokes up to twice this many pixels wide are not barriers (an opening of
+ * the ink mask), so ceiling hatch, text and grid axes stop cutting a room into slivers. Only at
+ * the finer scales, where a wall is still several pixels thick.
+ */
+const THIN_PX = 1;
+/** How far, in pixels, the fill may move a seed that fell on a line to reach blank paper. */
+const SEED_REACH_PX = 4;
+
+export interface MagicOptions {
+  /** Hairlines (hatch, text, axes) are not walls; thicker lines still are. */
+  ignoreThin?: boolean;
+}
 
 export interface MagicResult {
   polygon: Pt[];
@@ -24,8 +37,13 @@ export async function magicArea(
   page: number,
   seed: Pt,
   pageSize: { w: number; h: number },
+  opts: MagicOptions = {},
 ): Promise<MagicResult | null> {
   const scales = [2, 1, 0.5, 0.25];
+  // the outline found at a finer scale that leaked out of its window: when a coarser scale then
+  // finds nothing (the seed sits in hatch the finer pass ignored), the honest answer is "this
+  // space does not close", not "no space here"
+  let leaked: MagicResult | null = null;
   for (const scale of scales) {
     const half = WINDOW_PX / scale / 2;
     const rect: Rect = {
@@ -37,27 +55,30 @@ export async function magicArea(
     rect.w = Math.min(pageSize.w, seed.x + half) - rect.x;
     rect.h = Math.min(pageSize.h, seed.y + half) - rect.y;
     const r = await renderer.renderRegion(page, scale, rect, 1);
-    const result = fillAndTrace(r.canvas, {
-      x: (seed.x - rect.x) * scale,
-      y: (seed.y - rect.y) * scale,
-    });
-    if (!result) return null;
+    const result = fillAndTrace(
+      r.canvas,
+      { x: (seed.x - rect.x) * scale, y: (seed.y - rect.y) * scale },
+      opts.ignoreThin && scale >= 1 ? THIN_PX : 0,
+    );
+    if (!result) return leaked;
+    const polygon = simplify(
+      result.contour.map((p) => ({ x: rect.x + p.x / scale, y: rect.y + p.y / scale })),
+      1.2 / scale,
+    );
     const coversPage = rect.x <= 0 && rect.y <= 0 && rect.w >= pageSize.w && rect.h >= pageSize.h;
     if (!result.touchesBorder || coversPage || scale === scales[scales.length - 1]) {
-      const polygon = simplify(
-        result.contour.map((p) => ({ x: rect.x + p.x / scale, y: rect.y + p.y / scale })),
-        1.2 / scale,
-      );
-      if (polygon.length < 3) return null;
+      if (polygon.length < 3) return leaked;
       return { polygon, unbounded: result.touchesBorder };
     }
+    if (polygon.length >= 3) leaked = { polygon, unbounded: true };
   }
-  return null;
+  return leaked;
 }
 
 function fillAndTrace(
   canvas: HTMLCanvasElement,
   seed: Pt,
+  thin = 0,
 ): { contour: Pt[]; touchesBorder: boolean } | null {
   const w = canvas.width;
   const h = canvas.height;
@@ -65,15 +86,18 @@ function fillAndTrace(
   if (!ctx) return null;
   const img = ctx.getImageData(0, 0, w, h).data;
   // barrier mask: 1 = ink
-  const ink = new Uint8Array(w * h);
+  let ink: Uint8Array = new Uint8Array(w * h);
   for (let i = 0, p = 0; i < ink.length; i++, p += 4) {
     const lum = (img[p] * 299 + img[p + 1] * 587 + img[p + 2] * 114) / 1000;
     if (lum < INK) ink[i] = 1;
   }
+  if (thin > 0) ink = openMask(ink, w, h, thin);
   const barrier = DILATE > 0 ? dilate(ink, w, h, DILATE) : ink;
-  const sx = Math.round(seed.x);
-  const sy = Math.round(seed.y);
-  if (sx < 0 || sy < 0 || sx >= w || sy >= h || barrier[sy * w + sx]) return null;
+  // a point given on blank paper can land on a line at a coarser scale: start from the nearest
+  // free pixel instead of giving up
+  const start = freeSeed(barrier, w, h, Math.round(seed.x), Math.round(seed.y), SEED_REACH_PX);
+  if (!start) return null;
+  const { x: sx, y: sy } = start;
 
   // scanline flood fill
   const region = new Uint8Array(w * h);
@@ -108,6 +132,59 @@ function fillAndTrace(
   const grown = DILATE > 0 ? dilateWithin(region, ink, w, h, DILATE) : region;
   const contour = traceOuter(grown, w, h, minX, minY, maxX + DILATE, maxY + DILATE);
   return contour ? { contour, touchesBorder } : null;
+}
+
+/**
+ * The free pixel nearest to (x, y) within `reach` pixels (the point itself when free), ring by
+ * ring; null when the point is off the image or every pixel that close is a barrier.
+ */
+export function freeSeed(
+  barrier: Uint8Array,
+  w: number,
+  h: number,
+  x: number,
+  y: number,
+  reach: number,
+): Pt | null {
+  if (x < 0 || y < 0 || x >= w || y >= h) return null;
+  let best: Pt | null = null;
+  let bestD = Infinity;
+  for (let r = 0; r <= reach && !best; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= w || yy >= h || barrier[yy * w + xx]) continue;
+        const d = dx * dx + dy * dy;
+        if (d < bestD) {
+          bestD = d;
+          best = { x: xx, y: yy };
+        }
+      }
+    }
+  }
+  return best;
+}
+
+/** Morphological opening: strokes thinner than 2r + 1 pixels vanish, thicker ones keep their shape. */
+export function openMask(src: Uint8Array, w: number, h: number, r: number): Uint8Array {
+  const eroded = new Uint8Array(w * h);
+  for (let y = r; y < h - r; y++) {
+    for (let x = r; x < w - r; x++) {
+      let all = 1;
+      for (let dy = -r; dy <= r && all; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (!src[(y + dy) * w + x + dx]) {
+            all = 0;
+            break;
+          }
+        }
+      }
+      eroded[y * w + x] = all;
+    }
+  }
+  return dilate(eroded, w, h, r);
 }
 
 function dilate(src: Uint8Array, w: number, h: number, r: number): Uint8Array {

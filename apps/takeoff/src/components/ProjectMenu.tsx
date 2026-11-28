@@ -7,6 +7,7 @@ import {
   Info,
   SaveAll,
   Settings2,
+  Sparkles,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -23,7 +24,7 @@ import { Kbd } from "./ui";
 
 /**
  * The "⋯" menu of the top bar: what is used now and then (new, open, recent, add drawings, save
- * as, catalog and prices, about, close). Save, the cutout report, sending to the company app and
+ * as, catalog and prices, the AI agent, about, close). Save, the cutout report, sending to the company app and
  * the budget sheet are buttons of their own on the bar.
  */
 export function ProjectMenu() {
@@ -34,6 +35,7 @@ export function ProjectMenu() {
   const setNewProjectOpen = useStore((s) => s.setNewProjectOpen);
   const setCatalogSettingsOpen = useStore((s) => s.setCatalogSettingsOpen);
   const setAboutOpen = useStore((s) => s.setAboutOpen);
+  const setAgentDialogOpen = useStore((s) => s.setAgentDialogOpen);
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
@@ -152,6 +154,7 @@ export function ProjectMenu() {
           )}
           <div className="my-1 border-t border-neutral-800" />
           {item(<Settings2 size={16} />, "Catálogo e preços…", () => setCatalogSettingsOpen(true))}
+          {item(<Sparkles size={16} />, "Agente de IA…", () => setAgentDialogOpen(true))}
           {item(<Info size={16} />, "Sobre o RLP Takeoff", () => setAboutOpen(true), <Kbd>F1</Kbd>)}
           <div className="my-1 border-t border-neutral-800" />
           {item(<FolderX size={16} />, "Fechar takeoff", () => void closeProject())}

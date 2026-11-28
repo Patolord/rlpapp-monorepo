@@ -38,6 +38,16 @@ export const takeoffItemStatus = v.union(
 
 export const takeoffSource = v.literal("desktop");
 
+// Memória do agente de IA do RLP Takeoff. Mesmos valores de
+// @rlpapp/shared/takeoff/agentMemory.
+export const takeoffAgentMemoryKind = v.union(
+  v.literal("nota"),
+  v.literal("termo"),
+  v.literal("simbolo")
+);
+export const takeoffAgentMemoryStatus = v.union(v.literal("ativa"), v.literal("proposta"));
+export const takeoffAgentMemoryOrigin = v.union(v.literal("usuario"), v.literal("agente"));
+
 // Kits (presets) do RLP Takeoff: um trecho desenhado (ou um clique) mede
 // vários materiais de uma vez. Mesma forma de `Kit` em
 // @rlpapp/shared/takeoff/kits, que o app desktop consome.
@@ -323,6 +333,12 @@ export const procurementTables = {
     mode: takeoffKitMode,
     /** Prefixo do rótulo no desenho ('1/4" · 3/8"'); ausente = sem rótulo. */
     label: v.optional(v.string()),
+    /**
+     * Quando usar o kit, escrito pela empresa para quem escolhe (pessoa ou o
+     * agente de IA do app): equipamentos, capacidades e bitolas a que serve e
+     * onde não serve. Ausente = sem descrição.
+     */
+    usage: v.optional(v.string()),
     components: v.array(takeoffKitComponent),
     sortOrder: v.number(),
     active: v.boolean(),
@@ -393,6 +409,32 @@ export const procurementTables = {
     /** Fonte ou observação do registro (cotação, fornecedor...). */
     note: v.optional(v.string()),
   }).index("by_material_recordedAt", ["material", "recordedAt"]),
+  // Memória do agente de IA do RLP Takeoff: as convenções da empresa sobre as
+  // plantas que recebe, lidas pelo agente a cada levantamento e compartilhadas
+  // por todos os usuários do app. Tabela pequena por construção (o limite está
+  // em @rlpapp/shared/takeoff/agentMemory): é lida inteira, sem índices.
+  takeoffAgentMemory: defineTable({
+    kind: takeoffAgentMemoryKind,
+    /** Cliente ou projetista a que se aplica; vazio = todos os levantamentos. */
+    scope: v.string(),
+    /** Anotação: a regra. Termo: o texto como aparece na planta. Símbolo: o que ele mostra. */
+    text: v.string(),
+    /** Termo e símbolo: o item que representam (material, kit ou nome de item). */
+    target: v.optional(v.string()),
+    /** Símbolo: recorte da planta em PNG, base64. */
+    image: v.optional(v.string()),
+    /** "proposta" foi sugerida por um agente e espera uma pessoa aprovar. */
+    status: takeoffAgentMemoryStatus,
+    origin: takeoffAgentMemoryOrigin,
+    /** Nome do takeoff em que foi aprendida (informativo). */
+    source: v.optional(v.string()),
+    /** Anotações e termos: chave da mesma lição, para não duplicar. */
+    dedupeKey: v.optional(v.string()),
+    createdAt: v.number(),
+    createdByUserId: v.id("users"),
+    approvedAt: v.optional(v.number()),
+    approvedByUserId: v.optional(v.id("users")),
+  }),
   takeoffs: defineTable({
     projectId: v.optional(v.id("projects")),
     name: v.string(),

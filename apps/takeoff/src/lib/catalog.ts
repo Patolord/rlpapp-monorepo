@@ -575,11 +575,13 @@ export function parseRemoteKits(json: unknown): Kit[] | null {
     });
     if (components.length === 0) continue;
     const label = typeof o.label === "string" ? o.label.trim() : undefined;
+    const usage = str(o.usage);
     kits.push({
       id,
       name,
       mode: o.mode === "count" ? "count" : "linear",
       ...(label !== undefined ? { label } : {}),
+      ...(usage ? { usage } : {}),
       components,
     });
   }
@@ -840,7 +842,9 @@ export function parseRemoteVrfBrands(json: unknown): VrfBrand[] | null {
   return brands;
 }
 
-const LS_KEY = "takeoff.catalog";
+/** Where the catalog store lives outside Tauri (browser dev mode). */
+export const CATALOG_STORAGE_KEY = "takeoff.catalog";
+const LS_KEY = CATALOG_STORAGE_KEY;
 
 export async function loadCatalogStore(): Promise<CatalogStore> {
   try {

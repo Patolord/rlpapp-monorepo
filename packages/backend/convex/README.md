@@ -30,7 +30,9 @@ convex/
     inventory/          Locations, movements, balances, requests, stock policies
     notifications/      `notify()`: bell entry + push scheduling, called inside the
                         mutation that caused the event, and who receives each one
-    procurement/        Materials, suppliers, prices, takeoffs
+    procurement/        Materials, suppliers, prices, takeoffs, and what the desktop
+                        takeoff app shares company-wide (kits, settings, the AI
+                        agent's memory)
     sharepoint/         Company files on SharePoint via Microsoft Graph: allowed
                         libraries and folders, Graph client, file operations
   lib/                  Cross-cutting infrastructure only: auth, rbac, audit,

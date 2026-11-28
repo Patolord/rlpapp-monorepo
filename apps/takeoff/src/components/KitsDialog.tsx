@@ -129,6 +129,7 @@ export function KitsDialog() {
         name: k.name.trim() || "Preset",
         // "" (cleared) is kept: it stops a seed kit from taking its seed's label back
         ...(k.label !== undefined ? { label: k.label.trim() } : {}),
+        usage: k.usage?.trim() || undefined,
         components: k.components
           .filter((c) => c.name.trim())
           .map((c) => ({
@@ -268,6 +269,23 @@ export function KitsDialog() {
                 />
               </label>
             </div>
+            <label
+              className="flex items-center gap-2 border-b border-neutral-800 px-3 py-1.5 text-xs text-neutral-400"
+              title="Para quem escolhe o kit, inclusive o agente de IA: equipamentos, capacidades e bitolas a que ele serve, e onde não serve"
+            >
+              <span className="whitespace-nowrap">Quando usar</span>
+              <input
+                value={kit.usage ?? ""}
+                onChange={(e) => update({ usage: e.target.value })}
+                className={`${input} min-w-0 flex-1`}
+                maxLength={600}
+                placeholder={
+                  kitMode(kit) === "count"
+                    ? "ex.: detector de fumaça endereçável com instalação"
+                    : 'ex.: split 24.000 inverter ou evaporadora VRF com linha 3/8" · 5/8"; não no tronco do VRF'
+                }
+              />
+            </label>
             <div className="flex items-center gap-2 border-b border-neutral-800 px-3 py-1.5 text-[11px] text-neutral-500">
               <span className="min-w-0 flex-1">
                 {kitMode(kit) === "count"

@@ -189,6 +189,7 @@ import type * as model_procurement_supplierImport from "../model/procurement/sup
 import type * as model_procurement_supplierMaterials from "../model/procurement/supplierMaterials.js";
 import type * as model_procurement_supplierValidators from "../model/procurement/supplierValidators.js";
 import type * as model_procurement_suppliers from "../model/procurement/suppliers.js";
+import type * as model_procurement_takeoffAgentMemory from "../model/procurement/takeoffAgentMemory.js";
 import type * as model_procurement_takeoffCatalog from "../model/procurement/takeoffCatalog.js";
 import type * as model_procurement_takeoffEstimate from "../model/procurement/takeoffEstimate.js";
 import type * as model_procurement_takeoffItems from "../model/procurement/takeoffItems.js";
@@ -228,6 +229,7 @@ import type * as schema_procurement from "../schema/procurement.js";
 import type * as sharepoint from "../sharepoint.js";
 import type * as suppliers from "../suppliers.js";
 import type * as systems from "../systems.js";
+import type * as takeoffAgentMemory from "../takeoffAgentMemory.js";
 import type * as takeoffAuth from "../takeoffAuth.js";
 import type * as takeoffCatalog from "../takeoffCatalog.js";
 import type * as takeoffEstimates from "../takeoffEstimates.js";
@@ -432,6 +434,7 @@ declare const fullApi: ApiFromModules<{
   "model/procurement/supplierMaterials": typeof model_procurement_supplierMaterials;
   "model/procurement/supplierValidators": typeof model_procurement_supplierValidators;
   "model/procurement/suppliers": typeof model_procurement_suppliers;
+  "model/procurement/takeoffAgentMemory": typeof model_procurement_takeoffAgentMemory;
   "model/procurement/takeoffCatalog": typeof model_procurement_takeoffCatalog;
   "model/procurement/takeoffEstimate": typeof model_procurement_takeoffEstimate;
   "model/procurement/takeoffItems": typeof model_procurement_takeoffItems;
@@ -471,6 +474,7 @@ declare const fullApi: ApiFromModules<{
   sharepoint: typeof sharepoint;
   suppliers: typeof suppliers;
   systems: typeof systems;
+  takeoffAgentMemory: typeof takeoffAgentMemory;
   takeoffAuth: typeof takeoffAuth;
   takeoffCatalog: typeof takeoffCatalog;
   takeoffEstimates: typeof takeoffEstimates;

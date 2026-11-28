@@ -9,7 +9,7 @@ Glossário do domínio: [`CONTEXT.md`](CONTEXT.md).
 | Caminho | Nome no pnpm (`-F`) | O que é |
 | --- | --- | --- |
 | `apps/web` | `web` | Dashboard (TanStack Start + Convex + Clerk), porta 3001; também serve o MCP em `/mcp` |
-| `apps/takeoff` | `takeoff` | App desktop RLP Takeoff (Tauri 2 + React, Rust em `src-tauri`): takeoff e orçamento a partir de PDF. Ver [`apps/takeoff/AGENTS.md`](apps/takeoff/AGENTS.md) |
+| `apps/takeoff` | `takeoff` | App desktop RLP Takeoff (Tauri 2 + React, Rust em `src-tauri`): takeoff e orçamento a partir de PDF; também serve um MCP local para um agente de IA fazer a primeira passada do levantamento. Ver [`apps/takeoff/AGENTS.md`](apps/takeoff/AGENTS.md) |
 | `apps/native` | `native` | App mobile (Expo / React Native) |
 | `apps/internal-agent` | `@rlpapp/internal-agent` | Assistente interno (framework eve, canal WhatsApp). Ver [`apps/internal-agent/AGENTS.md`](apps/internal-agent/AGENTS.md) |
 | `packages/backend` | `@rlpapp/backend` | Backend Convex (schema, funções, crons, HTTP). Ver [`packages/backend/AGENTS.md`](packages/backend/AGENTS.md) e [`packages/backend/convex/README.md`](packages/backend/convex/README.md) |
@@ -133,8 +133,9 @@ com secrets. Vercel, Convex Dashboard e EAS têm cópias próprias.
   `apps/web/e2e` (`pnpm -F web test:e2e`).
 - Lint: ESLint (`eslint.config.mjs` por pacote) em web, native, internal-agent e
   backend; Biome em `apps/takeoff`. `shared`, `ui` e `env` só têm typecheck.
-- Configurações de preview para agentes: `.claude/launch.json` (web, porta 3001) e
-  `apps/takeoff/.claude/launch.json` (Vite do takeoff, porta 1420).
+- Configurações de preview para agentes: `.claude/launch.json` (web, porta 3001, e takeoff,
+  porta 1420, para sessões abertas na raiz) e `apps/takeoff/.claude/launch.json` (Vite do
+  takeoff, porta 1420).
   `.cursor/` tem os scripts de ambiente dos agentes do Cursor e `.design-sync/` a configuração
   que publica os componentes de `packages/ui` como design system.
 - Guia de design visual para UI nova: [`docs/skill.md`](docs/skill.md).
