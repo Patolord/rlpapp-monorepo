@@ -89,6 +89,7 @@ import { Route as RhPontoDiaRouteImport } from './routes/rh/ponto/dia'
 import { Route as RhPontoMensalRouteImport } from './routes/rh/ponto/mensal'
 import { Route as TakeoffPainelDutosRouteImport } from './routes/takeoff/_painel/dutos'
 import { Route as TakeoffPainelGeraisRouteImport } from './routes/takeoff/_painel/gerais'
+import { Route as TakeoffPainelIaRouteImport } from './routes/takeoff/_painel/ia'
 import { Route as TakeoffPainelVrfRouteImport } from './routes/takeoff/_painel/vrf'
 import { Route as EngenhariaObrasObraSlugIndexRouteImport } from './routes/engenharia/obras/$obraSlug.index'
 import { Route as EngenhariaObrasObraSlugAssistenteRouteImport } from './routes/engenharia/obras/$obraSlug.assistente'
@@ -530,6 +531,11 @@ const TakeoffPainelGeraisRoute = TakeoffPainelGeraisRouteImport.update({
   path: '/gerais',
   getParentRoute: () => TakeoffPainelRoute,
 } as any)
+const TakeoffPainelIaRoute = TakeoffPainelIaRouteImport.update({
+  id: '/ia',
+  path: '/ia',
+  getParentRoute: () => TakeoffPainelRoute,
+} as any)
 const TakeoffPainelVrfRoute = TakeoffPainelVrfRouteImport.update({
   id: '/vrf',
   path: '/vrf',
@@ -765,6 +771,7 @@ export interface FileRoutesByFullPath {
   '/rh/ponto/mensal': typeof RhPontoMensalRoute
   '/takeoff/dutos': typeof TakeoffPainelDutosRoute
   '/takeoff/gerais': typeof TakeoffPainelGeraisRoute
+  '/takeoff/ia': typeof TakeoffPainelIaRoute
   '/takeoff/vrf': typeof TakeoffPainelVrfRoute
   '/backoffice/clientes/': typeof BackofficeClientesIndexRoute
   '/backoffice/empreiteiros/': typeof BackofficeEmpreiteirosIndexRoute
@@ -860,6 +867,7 @@ export interface FileRoutesByTo {
   '/rh/ponto/mensal': typeof RhPontoMensalRoute
   '/takeoff/dutos': typeof TakeoffPainelDutosRoute
   '/takeoff/gerais': typeof TakeoffPainelGeraisRoute
+  '/takeoff/ia': typeof TakeoffPainelIaRoute
   '/takeoff/vrf': typeof TakeoffPainelVrfRoute
   '/backoffice/clientes': typeof BackofficeClientesIndexRoute
   '/backoffice/empreiteiros': typeof BackofficeEmpreiteirosIndexRoute
@@ -971,6 +979,7 @@ export interface FileRoutesById {
   '/rh/ponto/mensal': typeof RhPontoMensalRoute
   '/takeoff/_painel/dutos': typeof TakeoffPainelDutosRoute
   '/takeoff/_painel/gerais': typeof TakeoffPainelGeraisRoute
+  '/takeoff/_painel/ia': typeof TakeoffPainelIaRoute
   '/takeoff/_painel/vrf': typeof TakeoffPainelVrfRoute
   '/backoffice/clientes/': typeof BackofficeClientesIndexRoute
   '/backoffice/empreiteiros/': typeof BackofficeEmpreiteirosIndexRoute
@@ -1083,6 +1092,7 @@ export interface FileRouteTypes {
     | '/rh/ponto/mensal'
     | '/takeoff/dutos'
     | '/takeoff/gerais'
+    | '/takeoff/ia'
     | '/takeoff/vrf'
     | '/backoffice/clientes/'
     | '/backoffice/empreiteiros/'
@@ -1178,6 +1188,7 @@ export interface FileRouteTypes {
     | '/rh/ponto/mensal'
     | '/takeoff/dutos'
     | '/takeoff/gerais'
+    | '/takeoff/ia'
     | '/takeoff/vrf'
     | '/backoffice/clientes'
     | '/backoffice/empreiteiros'
@@ -1288,6 +1299,7 @@ export interface FileRouteTypes {
     | '/rh/ponto/mensal'
     | '/takeoff/_painel/dutos'
     | '/takeoff/_painel/gerais'
+    | '/takeoff/_painel/ia'
     | '/takeoff/_painel/vrf'
     | '/backoffice/clientes/'
     | '/backoffice/empreiteiros/'
@@ -1929,6 +1941,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TakeoffPainelGeraisRouteImport
       parentRoute: typeof TakeoffPainelRoute
     }
+    '/takeoff/_painel/ia': {
+      id: '/takeoff/_painel/ia'
+      path: '/ia'
+      fullPath: '/takeoff/ia'
+      preLoaderRoute: typeof TakeoffPainelIaRouteImport
+      parentRoute: typeof TakeoffPainelRoute
+    }
     '/takeoff/_painel/vrf': {
       id: '/takeoff/_painel/vrf'
       path: '/vrf'
@@ -2418,12 +2437,14 @@ const RhRouteRouteWithChildren =
 interface TakeoffPainelRouteChildren {
   TakeoffPainelDutosRoute: typeof TakeoffPainelDutosRoute
   TakeoffPainelGeraisRoute: typeof TakeoffPainelGeraisRoute
+  TakeoffPainelIaRoute: typeof TakeoffPainelIaRoute
   TakeoffPainelVrfRoute: typeof TakeoffPainelVrfRoute
 }
 
 const TakeoffPainelRouteChildren: TakeoffPainelRouteChildren = {
   TakeoffPainelDutosRoute: TakeoffPainelDutosRoute,
   TakeoffPainelGeraisRoute: TakeoffPainelGeraisRoute,
+  TakeoffPainelIaRoute: TakeoffPainelIaRoute,
   TakeoffPainelVrfRoute: TakeoffPainelVrfRoute,
 }
 
