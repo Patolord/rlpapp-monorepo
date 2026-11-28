@@ -156,7 +156,6 @@ export const createAgentChatSlice: Slice<AgentChatSlice> = (set, get) => {
         runMeta = await startAgentRunAsUser({
           takeoffName: project.name,
           takeoffExternalId: project.id,
-          promptPreview: prompt.slice(0, 200),
         });
       } catch (e) {
         if (await get().handleSignedOut(e)) {

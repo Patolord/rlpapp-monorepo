@@ -214,11 +214,15 @@ export function fetchAgentStatusAsUser(): Promise<AgentStatus> {
 }
 
 export function startAgentRunAsUser(args: {
-  takeoffName: string;
+  takeoffName?: string;
   takeoffExternalId?: string;
-  promptPreview: string;
 }): Promise<AgentRunStartResult> {
-  return asUser((c) => c.mutation(api.takeoffAgent.startRun, args));
+  return asUser((c) =>
+    c.mutation(api.takeoffAgent.startRun, {
+      takeoffName: args.takeoffName,
+      takeoffExternalId: args.takeoffExternalId,
+    }),
+  );
 }
 
 export function finishAgentRunAsUser(args: {
