@@ -40,6 +40,7 @@ import {
   Wind,
   SlidersHorizontal,
   Snowflake,
+  Sparkles,
   Tags,
   type LucideIcon,
 } from "lucide-react";
@@ -163,6 +164,7 @@ function getNavGroups(): NavGroup[] {
         { to: "/takeoff/dutos", label: "Dutos", icon: Wind },
         { to: "/takeoff/vrf", label: "VRF", icon: Snowflake },
         { to: "/takeoff/gerais", label: "Gerais e presets", icon: SlidersHorizontal },
+        { to: "/takeoff/ia", label: "IA", icon: Sparkles },
       ],
     },
     {

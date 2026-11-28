@@ -1,6 +1,36 @@
 # Epic: built-in AI agent (company-paid Claude)
 
-Status: proposed · Builds on PR 199 (`patolord/takeoff-agente-ia-v0`, the agent over local MCP)
+Status: Phase 1 implemented (steps 1–4) · Builds on PR 199 (`patolord/takeoff-agente-ia-v0`, the agent over local MCP)
+
+### Implementation notes (Phase 1)
+
+- **Shared (`@rlpapp/shared`)**: `takeoff.agente` permission (`packages/shared/src/auth/permissions.ts`)
+  and model/effort/pricing catalog + micro-USD integer cost math + BRT month keys
+  (`packages/shared/src/takeoff/agentModels.ts`).
+- **Backend (`@rlpapp/backend`)**:
+  - `takeoffSettings` (`kind: "agent"`), `takeoffAgentRuns` (with `inFlightCalls`, `promptVersion`,
+    and `reviewStats`), and `takeoffAgentCalls` (with `toolsCalled`, `imageCount`, `requestBytes`,
+    `durationMs`, `stopReason`).
+  - Streaming proxy `POST /takeoff/agent/messages` (`gateway/takeoffAgentProxy.ts`, `model/procurement/takeoffAgentPolicy.ts`)
+    verifying desktop JWT via `ctx.auth`, enforcing `takeoff.agente`, kill switch, company/user
+    monthly USD budgets (with US$ 0.25 in-flight reservation buffer and max 2 concurrent turns/run),
+    10 MB request cap, forced model/effort & `max_tokens`, and committing SSE usage before closing
+    or cancelling the stream.
+- **Desktop (`apps/takeoff`)**:
+  - WebP encoding (quality 0.85, automatic PNG fallback) in `renderPageView` to cut image payload
+    size 5–8× before hitting the Convex 64 MiB HTTP isolate.
+  - AI SDK v7 (`ai@7`, `@ai-sdk/anthropic@4`) loop in `src/lib/agent/llm/` (`tools.ts`,
+    `images.ts`, `transcript.ts`, `run.ts`) with batch rolling image window (keep 6, trim when >10
+    to preserve Anthropic prompt cache), per-takeoff local transcripts, and `AgentPanel.tsx`.
+  - Human review outcomes (`aiStats`) synced back to `takeoffAgent.reportReviewStats` on run finish
+    and whenever suggestions are accepted/rejected.
+- **Dashboard (`apps/web`)**: `App Takeoff → IA` (`/takeoff/ia`) with live policy/budget/prompt
+  controls (kill switch, model, effort, company & user USD budgets, turn/token caps, prompt version
+  and extra company instructions) plus monthly usage, per-user breakdown, recent runs, and
+  human acceptance rate.
+- **Remaining (Step 5)**: configure `ANTHROPIC_API_KEY` in Convex env (from Doppler) + Anthropic
+  console hard spend limit, run live eval on sample sheets to compare Opus 5.5 vs Sonnet 5.5, and
+  release minor desktop version.
 
 Today the takeoff agent is driven by the user's own AI client: Claude Code or Claude Desktop
 connects to the app's local MCP server, and the user's own subscription pays. This epic puts the

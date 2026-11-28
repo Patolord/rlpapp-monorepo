@@ -6,6 +6,13 @@ const app = defineApp({
     CLERK_SECRET_KEY: v.string(),
     CLERK_WEBHOOK_SECRET: v.optional(v.string()),
     OPENAI_API_KEY: v.optional(v.string()),
+    // Chave da API da Anthropic usada pelo proxy do agente de IA integrado do
+    // RLP Takeoff (`/takeoff/agent/messages`). Sem ela o proxy responde 503.
+    ANTHROPIC_API_KEY: v.optional(v.string()),
+    // Base URL opcional para o upstream compatível com Anthropic Messages
+    // (padrão `https://api.anthropic.com`; permite trocar para Vercel AI
+    // Gateway ou mock sem alterar código).
+    ANTHROPIC_BASE_URL: v.optional(v.string()),
     // Token de acesso do Expo para o envio de push (só se o projeto EAS
     // exigir "enhanced security for push"). Sem ele o envio funciona igual.
     EXPO_ACCESS_TOKEN: v.optional(v.string()),

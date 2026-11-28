@@ -10,6 +10,7 @@ import {
   Pentagon,
   Redo2,
   RulerDimensionLine,
+  Sparkles,
   Square,
   SquareDashed,
   Undo2,
@@ -89,7 +90,9 @@ export function ToolRail() {
   const canUndo = useStore((s) => s.past.length > 0);
   const canRedo = useStore((s) => s.future.length > 0);
   const estimateOpen = useStore((s) => s.estimateOpen);
-  const { setTool, undo, redo, setEstimateOpen } = useStore.getState();
+  const agentPanelOpen = useStore((s) => s.agentPanelOpen);
+  const agentRunning = useStore((s) => s.agentRunning);
+  const { setTool, undo, redo, setEstimateOpen, setAgentPanelOpen } = useStore.getState();
 
   const button = ({ tool: t, label, key, icon: Icon }: ToolDef) => (
     <IconButton key={t} label={label} hint={key} active={tool === t} onClick={() => setTool(t)}>
@@ -116,6 +119,13 @@ export function ToolRail() {
         onClick={() => setEstimateOpen(true)}
       >
         <Calculator size={20} />
+      </IconButton>
+      <IconButton
+        label="Agente de IA (converse para analisar plantas e sugerir marcações)"
+        active={agentPanelOpen}
+        onClick={() => setAgentPanelOpen(!agentPanelOpen)}
+      >
+        <Sparkles size={20} className={clsx(agentRunning && "animate-pulse text-violet-400")} />
       </IconButton>
       <Divider />
       <IconButton label="Desfazer" hint={mod("Z")} disabled={!canUndo} onClick={undo}>

@@ -342,6 +342,9 @@ export const takeoffConfigMutation = permissionMutation("takeoff.config");
  */
 export const takeoffAppQuery = permissionQuery("takeoff.use");
 export const takeoffAppMutation = permissionMutation("takeoff.use");
+/** Uso do agente de IA integrado no app desktop RLP Takeoff. */
+export const takeoffAgentQuery = permissionQuery("takeoff.agente");
+export const takeoffAgentMutation = permissionMutation("takeoff.agente");
 /**
  * Propor material ao catálogo a partir do RLP Takeoff (vira rascunho que
  * compras avalia; não altera material existente).

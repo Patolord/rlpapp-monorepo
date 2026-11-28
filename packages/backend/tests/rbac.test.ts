@@ -210,6 +210,7 @@ describe("users.getCurrentUser", () => {
       "precos.write",
       "takeoff.use",
       "takeoff.config",
+      "takeoff.agente",
       "estoque.read",
       "estoque.central.read",
       "estoque.entrada",

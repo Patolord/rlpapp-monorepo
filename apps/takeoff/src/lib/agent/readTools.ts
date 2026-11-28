@@ -195,7 +195,7 @@ const viewPage: AgentTool = {
     ctx.seen.record(drawing.id, page, view.region, view.pxPerPt);
     return {
       content: [
-        { type: "image", data: view.png, mimeType: "image/png" },
+        { type: "image", data: view.png, mimeType: view.mimeType ?? "image/png" },
         {
           type: "text",
           text: JSON.stringify({

@@ -24,8 +24,10 @@ export interface Region {
 }
 
 export interface PageView {
-  /** PNG of the region, base64 without the `data:` prefix. */
+  /** Encoded image of the region (WebP when supported, else PNG), base64 without `data:` prefix. */
   png: string;
+  /** Media type of `png` (defaults to `"image/png"` when omitted). */
+  mimeType?: string;
   /** The page-space region the picture covers (the request clamped to the page). */
   region: Region;
   /** Picture pixels per page point. */

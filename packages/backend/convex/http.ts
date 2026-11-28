@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server";
 import { registerClerkWebhookRoutes } from "./gateway/clerkWebhook";
 import { registerProtectedFileRoutes } from "./gateway/protectedFiles";
 import { registerServiceTokenRoutes } from "./gateway/serviceTokens";
+import { registerTakeoffAgentRoutes } from "./gateway/takeoffAgentProxy";
 import { registerTakeoffAuthRoutes } from "./gateway/takeoffAuth";
 import { registerApiV1Routes } from "./gateway/v1";
 
@@ -11,6 +12,7 @@ const http = httpRouter();
 // API HTTP para agentes (`/api/v1/*` e `/.well-known/jwks.json`).
 registerApiV1Routes(http);
 registerTakeoffAuthRoutes(http);
+registerTakeoffAgentRoutes(http);
 registerServiceTokenRoutes(http);
 registerProtectedFileRoutes(http);
 registerClerkWebhookRoutes(http);
