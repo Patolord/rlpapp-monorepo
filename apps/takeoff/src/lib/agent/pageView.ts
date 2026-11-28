@@ -106,8 +106,16 @@ export async function renderPageView(
   }
   const step = opts.grid ? gridStep(region) : 0;
   if (step > 0) drawGrid(ctx, region, pxPerPt, step);
-  const png = canvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
+  // Prefer WebP (5-8x smaller than PNG on engineering sheets) when supported by the webview.
+  const webpPrefix = "data:image/webp;base64,";
+  const pngPrefix = "data:image/png;base64,";
+  const webpUrl = canvas.toDataURL("image/webp", 0.85);
+  const useWebp = webpUrl.startsWith(webpPrefix);
+  const mimeType = useWebp ? "image/webp" : "image/png";
+  const png = useWebp
+    ? webpUrl.slice(webpPrefix.length)
+    : canvas.toDataURL("image/png").slice(pngPrefix.length);
   // release the pixels: these canvases are several megabytes each
   canvas.width = canvas.height = 0;
-  return { png, region, pxPerPt, gridStep: step };
+  return { png, mimeType, region, pxPerPt, gridStep: step };
 }
