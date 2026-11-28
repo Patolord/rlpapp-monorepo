@@ -7,6 +7,7 @@ import { create } from "zustand";
 import { activeDrawing, UNTITLED } from "../lib/types";
 import { type AccountSlice, createAccountSlice } from "./account";
 import { type AgentSlice, createAgentSlice } from "./agent";
+import { type AgentChatSlice, createAgentChatSlice, transcriptKeyOf } from "./agentChat";
 import { type AgentMemorySlice, createAgentMemorySlice } from "./agentMemory";
 import { type CatalogSlice, createCatalogSlice } from "./catalog";
 import { createDuctSlice, type DuctSlice } from "./ducts";
@@ -21,6 +22,7 @@ import { createVrfSlice, type VrfSlice } from "./vrf";
 
 export type State = AccountSlice &
   AgentSlice &
+  AgentChatSlice &
   AgentMemorySlice &
   ProjectSlice &
   ItemsSlice &
@@ -36,6 +38,7 @@ export type State = AccountSlice &
 export const useStore = create<State>()((...a) => ({
   ...createAccountSlice(...a),
   ...createAgentSlice(...a),
+  ...createAgentChatSlice(...a),
   ...createAgentMemorySlice(...a),
   ...createProjectSlice(...a),
   ...createItemsSlice(...a),
@@ -51,9 +54,15 @@ export const useStore = create<State>()((...a) => ({
 
 // compare needs a previous revision: once the drawing in view has none (a replacement undone,
 // another drawing shown) the toggle is hidden, so turn it off rather than let it come back alone
+let lastTranscriptProjectId: string | null = null;
 useStore.subscribe((s) => {
   if (s.compareRevision && !activeDrawing(s.project)?.revisions?.length) {
     s.setCompareRevision(false);
+  }
+  const projectKey = transcriptKeyOf(s.project.id);
+  if (s.agentPanelOpen && projectKey !== lastTranscriptProjectId && !s.agentRunning) {
+    lastTranscriptProjectId = projectKey;
+    void s.loadAgentTranscriptForProject(projectKey);
   }
 });
 

@@ -131,7 +131,10 @@ export const createAgentSlice: Slice<AgentSlice> = (set, get) => {
     acceptAiSuggestions: (ids) => {
       const before = get().project;
       get().commit((p) => acceptAi(p, ids));
-      if (get().project !== before) set({ status: "Sugestões da IA aceitas" });
+      if (get().project !== before) {
+        set({ status: "Sugestões da IA aceitas" });
+        get().syncAgentReviewStats();
+      }
     },
 
     rejectAiSuggestions: (ids) => {
@@ -154,6 +157,7 @@ export const createAgentSlice: Slice<AgentSlice> = (set, get) => {
         zoneFilter: zoneFilter && !locationOf(project, zoneFilter) ? null : zoneFilter,
         status: `${gone.size} ${gone.size === 1 ? "sugestão da IA descartada" : "sugestões da IA descartadas"}`,
       });
+      get().syncAgentReviewStats();
     },
   };
 };

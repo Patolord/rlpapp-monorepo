@@ -195,6 +195,58 @@ export function removeAgentMemoryAsUser(id: string): Promise<null> {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Built-in AI agent (takeoffAgent.*)
+// ---------------------------------------------------------------------------
+
+export type AgentStatus = FunctionReturnType<typeof api.takeoffAgent.getStatus>;
+export type AgentRunStartResult = FunctionReturnType<typeof api.takeoffAgent.startRun>;
+export type AgentReviewStatsInput = {
+  pending: number;
+  accepted: number;
+  edited: number;
+  rejected: number;
+};
+
+/** Company AI settings, user permission, and current-month budget meters. */
+export function fetchAgentStatusAsUser(): Promise<AgentStatus> {
+  return asUser((c) => c.query(api.takeoffAgent.getStatus, { now: Date.now() }));
+}
+
+export function startAgentRunAsUser(args: {
+  takeoffName: string;
+  takeoffExternalId?: string;
+  promptPreview: string;
+}): Promise<AgentRunStartResult> {
+  return asUser((c) => c.mutation(api.takeoffAgent.startRun, args));
+}
+
+export function finishAgentRunAsUser(args: {
+  runId: string;
+  status: "completed" | "aborted" | "error";
+  errorMessage?: string;
+}): Promise<null> {
+  return asUser((c) =>
+    c.mutation(api.takeoffAgent.finishRun, {
+      runId: args.runId as Id<"takeoffAgentRuns">,
+      status: args.status,
+      errorMessage: args.errorMessage,
+    }),
+  );
+}
+
+export function reportAgentReviewStatsAsUser(args: {
+  runId: string;
+  reviewStats: AgentReviewStatsInput;
+}): Promise<null> {
+  return asUser((c) =>
+    c.mutation(api.takeoffAgent.reportReviewStats, {
+      runId: args.runId as Id<"takeoffAgentRuns">,
+      ...args.reviewStats,
+    }),
+  );
+}
+
 /** The reason the backend gave for refusing a call (`ConvexError` data), else the error's own. */
 export function refusalMessage(e: unknown): string {
   if (e instanceof ConvexError) {

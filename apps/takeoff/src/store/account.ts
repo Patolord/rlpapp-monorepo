@@ -77,8 +77,9 @@ export const createAccountSlice: Slice<AccountSlice> = (set, get) => {
         await get()
           .refreshCatalog()
           .catch((e) => set({ status: `Falha ao atualizar o catálogo: ${errorMessage(e)}` }));
-        // and so does the AI agent's memory, which is the company's
+        // and so does the AI agent's memory and built-in AI status
         void get().refreshAgentMemory();
+        void get().refreshAgentStatus();
       } catch (e) {
         const message = errorMessage(e);
         const cancelled = e instanceof SignInCancelledError || message === "cancelado";
@@ -95,6 +96,7 @@ export const createAccountSlice: Slice<AccountSlice> = (set, get) => {
         const { revoked } = await signOut();
         set({
           ...memoryFromCache(),
+          agentStatus: null,
           account: signedOut,
           status: revoked
             ? "Conta da empresa desconectada deste computador"
@@ -112,6 +114,7 @@ export const createAccountSlice: Slice<AccountSlice> = (set, get) => {
       await dropRevokedSession().catch(() => undefined);
       set({
         ...memoryFromCache(),
+        agentStatus: null,
         account: { ...signedOut, error: e.message },
         status:
           "Este computador foi desconectado da conta da empresa: entre de novo (Entrar, no topo)",

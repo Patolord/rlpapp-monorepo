@@ -66,32 +66,36 @@ function Toggle({
  */
 function AgentChip() {
   const status = useStore((s) => s.agentServer.status);
+  const agentRunning = useStore((s) => s.agentRunning);
   const proposals = useStore(
     (s) => s.agentMemory.entries.filter((e) => e.status === "proposta").length,
   );
   const setAgentDialogOpen = useStore((s) => s.setAgentDialogOpen);
-  if (status === "off" && proposals === 0) return null;
-  const failed = status === "error";
+  const setAgentPanelOpen = useStore((s) => s.setAgentPanelOpen);
+  if (!agentRunning && status === "off" && proposals === 0) return null;
+  const failed = !agentRunning && status === "error";
   return (
     <button
       type="button"
-      onClick={() => setAgentDialogOpen(true)}
+      onClick={() => (agentRunning ? setAgentPanelOpen(true) : setAgentDialogOpen(true))}
       title={
-        failed
-          ? "O agente de IA não ligou. Clique para ver o motivo"
-          : proposals > 0
-            ? `${proposals} memória(s) proposta(s) pela IA à espera de aprovação`
-            : "Agente de IA ligado: um assistente neste computador pode marcar neste takeoff"
+        agentRunning
+          ? "Agente de IA embutido analisando a planta. Clique para abrir o painel"
+          : failed
+            ? "O agente de IA não ligou. Clique para ver o motivo"
+            : proposals > 0
+              ? `${proposals} memória(s) proposta(s) pela IA à espera de aprovação`
+              : "Agente de IA ligado: um assistente neste computador pode marcar neste takeoff"
       }
       className={clsx(
         "flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 ring-1",
         failed
           ? "text-red-300 ring-red-400/60"
-          : "bg-violet-500/10 text-violet-700 ring-violet-400/70",
+          : "bg-violet-500/10 text-violet-300 ring-violet-400/70",
       )}
     >
-      <Sparkles size={13} />
-      {failed ? "IA: erro" : status === "on" ? "IA ligada" : "IA"}
+      <Sparkles size={13} className={clsx(agentRunning && "animate-pulse")} />
+      {agentRunning ? "IA trabalhando" : failed ? "IA: erro" : status === "on" ? "IA ligada" : "IA"}
       {proposals > 0 && <span className="font-mono">· {proposals}</span>}
     </button>
   );

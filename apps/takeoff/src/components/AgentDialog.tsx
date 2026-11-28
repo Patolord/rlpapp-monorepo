@@ -45,13 +45,14 @@ function Connection() {
 
   return (
     <div className="flex flex-col gap-4 text-xs">
-      <p className="whitespace-normal text-neutral-400">
-        Com o agente ligado, um assistente de IA no seu computador (Claude Code, Claude Desktop ou
-        outro cliente MCP) vê as plantas deste takeoff e marca ambientes, contagens e trechos. Tudo
-        o que ele marca entra como sugestão, tracejado e com a etiqueta IA, para você aceitar,
-        corrigir ou descartar. Ele não altera o que você desenhou, não mexe em preços, não salva o
-        arquivo e não envia o orçamento.
-      </p>
+      <div className="rounded-md border border-neutral-800 bg-neutral-950/60 p-2.5 text-neutral-300">
+        <p className="font-medium text-neutral-100">Avançado: conectar outro cliente de IA (MCP)</p>
+        <p className="mt-1 whitespace-normal text-neutral-400">
+          Para uso no dia a dia, use o painel embutido do Agente de IA na barra lateral. Esta opção
+          expõe um servidor MCP local para conectar Claude Code, Claude Desktop ou outro cliente
+          neste computador. Tudo entra como sugestão tracejada para você revisar.
+        </p>
+      </div>
 
       {!native ? (
         <p className="whitespace-normal rounded-md bg-amber-500/10 p-2.5 text-amber-400 ring-1 ring-amber-500/40">
@@ -165,7 +166,7 @@ export function AgentDialog() {
     (s) => s.agentMemory.entries.filter((e) => e.status === "proposta").length,
   );
   const setOpen = useStore((s) => s.setAgentDialogOpen);
-  const [tab, setTab] = useState<Tab>("conexao");
+  const [tab, setTab] = useState<Tab>("memoria");
   if (!open) return null;
   const tabButton = (id: Tab, label: string) => (
     <button
@@ -190,12 +191,12 @@ export function AgentDialog() {
       className="w-[44rem]"
       headerExtra={
         <div role="tablist" className="flex items-center gap-1">
-          {tabButton("conexao", "Conexão")}
           {tabButton("memoria", proposals > 0 ? `Memória (${proposals})` : "Memória")}
+          {tabButton("conexao", "MCP externo")}
         </div>
       }
     >
-      {tab === "conexao" ? <Connection /> : <AgentMemoryPanel />}
+      {tab === "memoria" ? <AgentMemoryPanel /> : <Connection />}
     </Dialog>
   );
 }

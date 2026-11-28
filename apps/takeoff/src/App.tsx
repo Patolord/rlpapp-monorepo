@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { lazy, Suspense, useEffect } from "react";
 import { AboutDialog } from "./components/AboutDialog";
 import { AgentDialog } from "./components/AgentDialog";
+import { AgentPanel } from "./components/AgentPanel";
 import { AiReviewBar } from "./components/AiReviewBar";
 import { CalibrateDialog } from "./components/CalibrateDialog";
 import { CatalogPalette } from "./components/CatalogPalette";
@@ -97,10 +98,12 @@ export default function App() {
     void Promise.all([loadCatalog(), restoreAccount()])
       .then(() => {
         // signed out: wait for the user to sign in (signing in refreshes the catalog)
-        const { account, refreshCatalog, refreshAgentMemory } = useStore.getState();
+        const { account, refreshCatalog, refreshAgentMemory, refreshAgentStatus } =
+          useStore.getState();
         if (account.status !== "signedIn") return 0;
-        // the AI agent's memory is the company's too; it never fails (the cached copy stays)
+        // the AI agent's memory and built-in status follow the account
         void refreshAgentMemory();
+        void refreshAgentStatus();
         return refreshCatalog();
       })
       .catch((e) => console.warn("catalog refresh failed", e));
@@ -177,6 +180,7 @@ export default function App() {
         </div>
         {projectOpen && <PanelDivider />}
         {projectOpen && sidebarOpen && <Sidebar />}
+        <AgentPanel />
       </div>
       <StatusBar />
       <CatalogPalette />
